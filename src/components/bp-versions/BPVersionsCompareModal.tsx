@@ -10,13 +10,13 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { GitCompare, Download, ArrowRight, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { GitCompare, Download, Plus, X, Pin, Sparkles } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { useBPVersions, type BPVersionRow } from "@/hooks/useBPVersions";
-import { diffSnapshots, type DiffRow, type ForecastSnapshot } from "@/lib/bp-version-diff";
-import { exportBPVersionComparisonPDF } from "@/lib/export-bp-version-comparison-pdf";
+import { buildMultiDiff, type MultiDiffVersionMeta } from "@/lib/bp-version-multi-diff";
+import { exportBPMultiVersionComparisonPDF } from "@/lib/export-bp-version-multi-comparison-pdf";
 import { buildCategoryLookup } from "@/lib/category-hierarchy";
 
 interface Props {
@@ -26,34 +26,51 @@ interface Props {
   eventName: string;
 }
 
+const MAX_VERSIONS = 4;
+const MIN_VERSIONS = 2;
+
 export function BPVersionsCompareModal({ open, onOpenChange, eventId, eventName }: Props) {
   const { data: versions = [], isLoading: loadingVersions } = useBPVersions(eventId);
-  const [versionAId, setVersionAId] = useState<string | null>(null);
-  const [versionBId, setVersionBId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [onlyDiffs, setOnlyDiffs] = useState(true);
 
-  // Default selection: previous active vs current active (or two newest)
+  // Default selection: pinned scenarios + active version (cap at MAX_VERSIONS).
   useEffect(() => {
-    if (!open || versions.length === 0) return;
-    if (versionAId && versionBId) return;
+    if (!open || versions.length === 0 || selectedIds.length > 0) return;
     const active = versions.find((v) => v.state === "active");
-    const previous = versions.find(
-      (v) => v.state === "superseded" || (v.id !== active?.id && v.state !== "draft")
-    );
-    setVersionBId((prev) => prev ?? active?.id ?? versions[0]?.id ?? null);
-    setVersionAId((prev) => prev ?? previous?.id ?? versions[1]?.id ?? versions[0]?.id ?? null);
-  }, [open, versions, versionAId, versionBId]);
+    const pinned = versions.filter((v) => v.is_pinned_scenario);
+    const previous = versions.find((v) => v.state === "superseded");
+    const initial: string[] = [];
+    if (active) initial.push(active.id);
+    pinned.forEach((p) => {
+      if (!initial.includes(p.id) && initial.length < MAX_VERSIONS) initial.push(p.id);
+    });
+    if (previous && initial.length < MIN_VERSIONS && !initial.includes(previous.id)) {
+      initial.push(previous.id);
+    }
+    // Pad with newest non-archived versions until we have at least 2.
+    for (const v of versions) {
+      if (initial.length >= MIN_VERSIONS) break;
+      if (v.state === "archived") continue;
+      if (!initial.includes(v.id)) initial.push(v.id);
+    }
+    setSelectedIds(initial.slice(0, MAX_VERSIONS));
+  }, [open, versions, selectedIds.length]);
 
-  // Fetch full snapshot payloads for the two selected versions
+  // Reset selection when modal closes.
+  useEffect(() => {
+    if (!open) setSelectedIds([]);
+  }, [open]);
+
+  // Fetch payloads for ALL selected versions.
   const { data: payloads } = useQuery({
-    queryKey: ["bp-version-snapshots", versionAId, versionBId],
-    enabled: open && !!versionAId && !!versionBId,
+    queryKey: ["bp-version-snapshots-multi", selectedIds],
+    enabled: open && selectedIds.length >= MIN_VERSIONS,
     queryFn: async () => {
-      const ids = [versionAId, versionBId].filter(Boolean) as string[];
       const { data, error } = await supabase
         .from("bp_versions" as any)
         .select("id, snapshot_payload")
-        .in("id", ids);
+        .in("id", selectedIds);
       if (error) throw error;
       const map: Record<string, any> = {};
       (data ?? []).forEach((r: any) => {
@@ -76,144 +93,258 @@ export function BPVersionsCompareModal({ open, onOpenChange, eventId, eventName 
 
   const lookup = useMemo(() => buildCategoryLookup(categories as any), [categories]);
 
-  const versionA = versions.find((v) => v.id === versionAId) ?? null;
-  const versionB = versions.find((v) => v.id === versionBId) ?? null;
-
-  const baseForecasts: ForecastSnapshot[] = (payloads?.[versionAId ?? ""]?.forecasts ?? []) as any;
-  const compareForecasts: ForecastSnapshot[] = (payloads?.[versionBId ?? ""]?.forecasts ?? []) as any;
-
-  const { rows, summary } = useMemo(
-    () => diffSnapshots(baseForecasts, compareForecasts),
-    [baseForecasts, compareForecasts]
+  const selectedVersions = useMemo(
+    () =>
+      selectedIds
+        .map((id) => versions.find((v) => v.id === id))
+        .filter(Boolean) as BPVersionRow[],
+    [selectedIds, versions]
   );
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, { name: string; code: string; rows: DiffRow[] }>();
-    for (const r of rows) {
-      const cat = r.category_id ? lookup[r.category_id] : null;
-      const key = cat?.groupCode ?? "_sem_categoria";
-      if (!map.has(key)) {
-        map.set(key, {
-          code: key,
-          name: cat?.groupName ?? "Sem categoria",
-          rows: [],
-        });
-      }
-      map.get(key)!.rows.push(r);
-    }
-    return Array.from(map.values()).sort((a, b) => a.code.localeCompare(b.code));
-  }, [rows, lookup]);
+  const versionMetas: MultiDiffVersionMeta[] = useMemo(
+    () => selectedVersions.map((v) => ({ id: v.id, label: labelOf(v) })),
+    [selectedVersions]
+  );
 
-  const visibleGroups = onlyDiffs
-    ? grouped
-        .map((g) => ({ ...g, rows: g.rows.filter((r) => r.status !== "unchanged") }))
-        .filter((g) => g.rows.length > 0)
-    : grouped;
+  const snapshotsByVersion = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    selectedVersions.forEach((v) => {
+      map[v.id] = (payloads?.[v.id]?.forecasts ?? []) as any[];
+    });
+    return map;
+  }, [payloads, selectedVersions]);
+
+  const result = useMemo(() => {
+    if (selectedVersions.length < MIN_VERSIONS) return null;
+    return buildMultiDiff({ versions: versionMetas, snapshotsByVersion, lookup });
+  }, [selectedVersions, versionMetas, snapshotsByVersion, lookup]);
+
+  const visibleGroups = useMemo(() => {
+    if (!result) return [];
+    if (!onlyDiffs) return result.groups;
+    return result.groups
+      .map((g) => ({ ...g, rows: g.rows.filter((r) => r.hasDifferences) }))
+      .filter((g) => g.rows.length > 0);
+  }, [result, onlyDiffs]);
+
+  const availableForAdd = versions.filter((v) => !selectedIds.includes(v.id));
+
+  const handleRemove = (id: string) => {
+    if (selectedIds.length <= MIN_VERSIONS) return;
+    setSelectedIds(selectedIds.filter((x) => x !== id));
+  };
+  const handleAdd = (id: string) => {
+    if (selectedIds.length >= MAX_VERSIONS) return;
+    setSelectedIds([...selectedIds, id]);
+  };
+  const handleReplace = (idx: number, newId: string) => {
+    if (selectedIds.includes(newId)) return;
+    const next = [...selectedIds];
+    next[idx] = newId;
+    setSelectedIds(next);
+  };
 
   const handleExport = () => {
-    if (!versionA || !versionB) return;
-    exportBPVersionComparisonPDF({
+    if (!result) return;
+    exportBPMultiVersionComparisonPDF({
       eventName,
-      versionALabel: labelOf(versionA),
-      versionBLabel: labelOf(versionB),
-      rows,
-      summary,
-      categories: categories as any,
+      result,
       showOnlyDifferences: onlyDiffs,
     });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-7xl max-h-[92vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GitCompare className="h-5 w-5" />
             Comparação de versões do BP
           </DialogTitle>
           <DialogDescription>
-            Escolhe duas versões para ver as diferenças linha a linha.
+            Compara entre {MIN_VERSIONS} e {MAX_VERSIONS} versões lado a lado.
+            Cenários fixados aparecem por defeito.
           </DialogDescription>
         </DialogHeader>
 
         {loadingVersions ? (
           <div className="py-8 text-center text-sm text-muted-foreground">A carregar versões…</div>
-        ) : versions.length < 2 ? (
+        ) : versions.length < MIN_VERSIONS ? (
           <div className="py-8 text-center text-sm text-muted-foreground">
-            São necessárias pelo menos 2 versões para comparar.
+            São necessárias pelo menos {MIN_VERSIONS} versões para comparar.
           </div>
         ) : (
           <>
-            {/* Selectors */}
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-3 items-center">
-              <VersionSelect
-                label="Versão base (A)"
-                versions={versions}
-                value={versionAId}
-                onChange={setVersionAId}
-              />
-              <ArrowRight className="h-5 w-5 text-muted-foreground hidden md:block mx-auto" />
-              <VersionSelect
-                label="Comparar com (B)"
-                versions={versions}
-                value={versionBId}
-                onChange={setVersionBId}
-              />
+            {/* Version chips + add slot */}
+            <div className="flex flex-wrap gap-2 items-end">
+              {selectedVersions.map((v, idx) => (
+                <div key={v.id} className="flex flex-col gap-1 min-w-[180px]">
+                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    Versão {idx + 1}
+                    {v.is_pinned_scenario && <Pin className="h-3 w-3 text-warning" />}
+                    {v.scenario_label && <Sparkles className="h-3 w-3 text-primary" />}
+                  </label>
+                  <div className="flex gap-1">
+                    <Select value={v.id} onValueChange={(val) => handleReplace(idx, val)}>
+                      <SelectTrigger className="text-xs h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {versions
+                          .filter((x) => x.id === v.id || !selectedIds.includes(x.id))
+                          .map((x) => (
+                            <SelectItem key={x.id} value={x.id} className="text-xs">
+                              {labelOf(x)}
+                              {x.description ? ` — ${x.description}` : ""}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedIds.length > MIN_VERSIONS && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => handleRemove(v.id)}
+                        title="Remover desta comparação"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {selectedIds.length < MAX_VERSIONS && availableForAdd.length > 0 && (
+                <div className="flex flex-col gap-1 min-w-[180px]">
+                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Adicionar
+                  </label>
+                  <Select value="" onValueChange={(val) => handleAdd(val)}>
+                    <SelectTrigger className="text-xs h-8 border-dashed">
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        <Plus className="h-3.5 w-3.5" />
+                        Adicionar versão
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableForAdd.map((x) => (
+                        <SelectItem key={x.id} value={x.id} className="text-xs">
+                          {labelOf(x)}
+                          {x.description ? ` — ${x.description}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
 
-            {/* Stat cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              <StatCard
-                label="Δ resultado"
-                value={`${summary.totalDelta >= 0 ? "+" : ""}${formatCurrency(summary.totalDelta)}`}
-                tone={summary.totalDelta > 0 ? "good" : summary.totalDelta < 0 ? "bad" : "neutral"}
-              />
-              <StatCard label="Adicionadas" value={summary.addedCount.toString()} tone="good" />
-              <StatCard label="Modificadas" value={summary.modifiedCount.toString()} tone="warn" />
-              <StatCard label="Removidas" value={summary.removedCount.toString()} tone="bad" />
-            </div>
+            {/* Summary cards */}
+            {result && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <SummaryCard
+                  label="Receita por versão"
+                  values={result.summary.income}
+                  versions={versionMetas}
+                />
+                <SummaryCard
+                  label="Despesa por versão"
+                  values={result.summary.expense}
+                  versions={versionMetas}
+                />
+                <SummaryCard
+                  label="Resultado por versão"
+                  values={result.summary.result}
+                  versions={versionMetas}
+                  toneByValue
+                />
+              </div>
+            )}
 
             <div className="flex items-center justify-between gap-2 px-1">
               <label className="flex items-center gap-2 text-xs cursor-pointer">
                 <Switch checked={onlyDiffs} onCheckedChange={setOnlyDiffs} />
                 <span>Mostrar apenas linhas com diferenças</span>
               </label>
-              <Button size="sm" variant="outline" onClick={handleExport} disabled={rows.length === 0}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleExport}
+                disabled={!result || result.groups.length === 0}
+              >
                 <Download className="h-4 w-4 mr-1.5" />
                 Exportar PDF
               </Button>
             </div>
 
             <ScrollArea className="flex-1 -mx-6 px-6 border-t pt-3">
-              {visibleGroups.length === 0 ? (
+              {!result || visibleGroups.length === 0 ? (
                 <div className="py-12 text-center text-sm text-muted-foreground">
-                  {rows.length === 0
-                    ? "Sem linhas em qualquer das versões."
-                    : "Nenhuma diferença entre as versões selecionadas."}
+                  {!result
+                    ? "A calcular comparação…"
+                    : result.groups.length === 0
+                      ? "Sem linhas em qualquer das versões."
+                      : "Nenhuma diferença entre as versões selecionadas."}
                 </div>
               ) : (
                 <div className="space-y-4 pb-4">
                   {visibleGroups.map((group) => (
-                    <div key={group.code}>
+                    <div key={group.groupCode}>
                       <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 sticky top-0 bg-background py-1">
-                        {group.name}
+                        {group.groupName}
                       </div>
                       <div className="border rounded-lg overflow-hidden">
                         <table className="w-full text-sm">
                           <thead className="bg-muted/50 text-xs text-muted-foreground">
                             <tr>
-                              <th className="text-left px-3 py-1.5 font-medium">Estado</th>
-                              <th className="text-left px-3 py-1.5 font-medium">Tipo</th>
+                              <th className="text-left px-3 py-1.5 font-medium w-16">Tipo</th>
                               <th className="text-left px-3 py-1.5 font-medium">Descrição</th>
-                              <th className="text-right px-3 py-1.5 font-medium">{labelOf(versionA)}</th>
-                              <th className="text-right px-3 py-1.5 font-medium">{labelOf(versionB)}</th>
-                              <th className="text-right px-3 py-1.5 font-medium">Δ</th>
+                              {versionMetas.map((v) => (
+                                <th
+                                  key={v.id}
+                                  className="text-right px-3 py-1.5 font-medium whitespace-nowrap"
+                                >
+                                  {v.label}
+                                </th>
+                              ))}
                             </tr>
                           </thead>
                           <tbody>
                             {group.rows.map((r) => (
-                              <DiffTableRow key={r.id} row={r} />
+                              <tr
+                                key={r.forecastId}
+                                className={`border-t ${r.hasDifferences ? "bg-warning/5" : ""}`}
+                              >
+                                <td className="px-3 py-1.5 text-xs text-muted-foreground">
+                                  {r.type === "income" ? "Rec." : "Desp."}
+                                </td>
+                                <td className="px-3 py-1.5">{r.description}</td>
+                                {r.cells.map((c, i) => (
+                                  <td
+                                    key={i}
+                                    className={`px-3 py-1.5 text-right tabular-nums ${
+                                      c.amount == null ? "text-muted-foreground italic" : ""
+                                    }`}
+                                  >
+                                    {c.amount == null ? "—" : formatCurrency(c.amount)}
+                                  </td>
+                                ))}
+                              </tr>
                             ))}
+                            <tr className="border-t bg-muted/30 font-medium">
+                              <td colSpan={2} className="px-3 py-1.5 text-right text-xs">
+                                Subtotal
+                              </td>
+                              {group.totalsBase.map((t, i) => (
+                                <td
+                                  key={i}
+                                  className="px-3 py-1.5 text-right tabular-nums text-xs"
+                                >
+                                  {formatCurrency(t)}
+                                </td>
+                              ))}
+                            </tr>
                           </tbody>
                         </table>
                       </div>
@@ -239,99 +370,42 @@ function labelOf(v: BPVersionRow | null): string {
   return base;
 }
 
-function VersionSelect({
-  label, versions, value, onChange,
+function SummaryCard({
+  label,
+  values,
+  versions,
+  toneByValue,
 }: {
   label: string;
-  versions: BPVersionRow[];
-  value: string | null;
-  onChange: (id: string) => void;
+  values: number[];
+  versions: MultiDiffVersionMeta[];
+  toneByValue?: boolean;
 }) {
   return (
-    <div>
-      <label className="text-xs text-muted-foreground mb-1 block">{label}</label>
-      <Select value={value ?? undefined} onValueChange={onChange}>
-        <SelectTrigger>
-          <SelectValue placeholder="Escolher versão" />
-        </SelectTrigger>
-        <SelectContent>
-          {versions.map((v) => (
-            <SelectItem key={v.id} value={v.id}>
-              {labelOf(v)}
-              {v.description ? ` — ${v.description}` : ""}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
-
-function StatCard({ label, value, tone }: { label: string; value: string; tone: "good" | "bad" | "warn" | "neutral" }) {
-  const toneClass =
-    tone === "good"
-      ? "border-success/30 text-success"
-      : tone === "bad"
-        ? "border-destructive/30 text-destructive"
-        : tone === "warn"
-          ? "border-warning/30 text-warning"
-          : "border-border text-foreground";
-  return (
-    <Card className={`p-3 ${toneClass}`}>
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className="text-lg font-bold mt-0.5">{value}</div>
+    <Card className="p-3">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
+        {label}
+      </div>
+      <div className="space-y-0.5">
+        {versions.map((v, i) => {
+          const value = values[i] ?? 0;
+          const tone = toneByValue
+            ? value > 0
+              ? "text-success"
+              : value < 0
+                ? "text-destructive"
+                : ""
+            : "";
+          return (
+            <div key={v.id} className="flex items-baseline justify-between gap-2 text-xs">
+              <span className="text-muted-foreground truncate">{v.label}</span>
+              <span className={`tabular-nums font-medium ${tone}`}>
+                {formatCurrency(value)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </Card>
-  );
-}
-
-function DiffTableRow({ row }: { row: DiffRow }) {
-  const bg =
-    row.status === "added"
-      ? "bg-success/10"
-      : row.status === "removed"
-        ? "bg-destructive/10"
-        : row.status === "modified"
-          ? "bg-warning/10"
-          : "";
-
-  const statusBadge: Record<DiffRow["status"], { label: string; variant: any }> = {
-    added: { label: "Adicionada", variant: "default" },
-    removed: { label: "Removida", variant: "destructive" },
-    modified: { label: "Modificada", variant: "secondary" },
-    unchanged: { label: "—", variant: "outline" },
-  };
-
-  const dRender = () => {
-    if (row.status === "unchanged" || row.delta === 0) return <Minus className="h-3 w-3 inline text-muted-foreground" />;
-    const sign = row.delta > 0 ? "+" : "";
-    const Icon = row.delta > 0 ? TrendingUp : TrendingDown;
-    const colour = row.delta > 0 ? "text-success" : "text-destructive";
-    return (
-      <span className={`inline-flex items-center gap-1 ${colour}`}>
-        <Icon className="h-3 w-3" />
-        {sign}{formatCurrency(row.delta)}
-      </span>
-    );
-  };
-
-  return (
-    <tr className={`border-t ${bg} ${row.status === "removed" ? "line-through opacity-70" : ""}`}>
-      <td className="px-3 py-1.5">
-        <Badge variant={statusBadge[row.status].variant} className="text-[10px]">
-          {statusBadge[row.status].label}
-        </Badge>
-      </td>
-      <td className="px-3 py-1.5 text-xs">
-        {row.type === "income" ? "Receita" : "Despesa"}
-      </td>
-      <td className="px-3 py-1.5">{row.description}</td>
-      <td className="px-3 py-1.5 text-right tabular-nums">
-        {row.baseAmount == null ? "—" : formatCurrency(row.baseAmount)}
-      </td>
-      <td className="px-3 py-1.5 text-right tabular-nums">
-        {row.compareAmount == null ? "—" : formatCurrency(row.compareAmount)}
-      </td>
-      <td className="px-3 py-1.5 text-right tabular-nums font-medium">{dRender()}</td>
-    </tr>
   );
 }
