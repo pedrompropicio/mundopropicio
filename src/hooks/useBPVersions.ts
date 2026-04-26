@@ -11,6 +11,7 @@ export interface BPVersionRow {
   version_number: number;
   state: BPVersionState;
   scenario_label: string | null;
+  scenario_assumptions: Record<string, any> | null;
   is_pinned_scenario: boolean;
   description: string | null;
   created_at: string;
