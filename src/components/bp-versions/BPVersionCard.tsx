@@ -120,6 +120,12 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
+        {versions.length >= 2 && (
+          <Button variant="ghost" size="sm" onClick={() => setCompareOpen(true)}>
+            <GitCompare className="h-4 w-4 mr-1.5" />
+            Comparar
+          </Button>
+        )}
         <Button variant="ghost" size="sm" onClick={() => setHistoryOpen(true)}>
           <History className="h-4 w-4 mr-1.5" />
           Histórico ({versions.length})
@@ -147,6 +153,13 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
         eventId={eventId}
         isSplit={isSplit}
         canManage={canManage}
+      />
+
+      <BPVersionsCompareModal
+        open={compareOpen}
+        onOpenChange={setCompareOpen}
+        eventId={eventId}
+        eventName={eventName ?? "Evento"}
       />
     </div>
   );
