@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getAuditUser } from "@/lib/audit";
 import { toast } from "sonner";
 
-export type BPVersionState = "draft" | "active" | "superseded" | "archived";
+export type BPVersionState = "draft" | "active" | "superseded" | "archived" | "working_draft";
 
 export interface BPVersionRow {
   id: string;
