@@ -450,6 +450,9 @@ function VersionRow({
             <span>· {version.created_by_label ?? "—"}</span>
             <span>· {version.forecast_count} linha(s)</span>
           </div>
+          {version.scenario_assumptions && (
+            <ScenarioAssumptionChips assumptions={version.scenario_assumptions} />
+          )}
           {version.description && (
             <p className="text-xs text-foreground/80 mt-1 line-clamp-2">{version.description}</p>
           )}
