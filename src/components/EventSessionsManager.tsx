@@ -111,6 +111,10 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
 
   const copySessionMutation = useMutation({
     mutationFn: async (sourceSession: any) => {
+      // Helper para filtrar pelo cenário ativo (null = Versão Ativa)
+      const applyVersionFilter = (q: any) =>
+        selectedVersionId ? q.eq("version_id", selectedVersionId) : q.is("version_id", null);
+
       const { data: newSession, error: sessionError } = await supabase
         .from("event_sessions" as any)
         .insert({
@@ -119,28 +123,31 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
           label: `${sourceSession.label} (cópia)`,
           start_time: sourceSession.start_time || null,
           sort_order: sessions.length + 1,
+          version_id: selectedVersionId,
         })
         .select("id")
         .single();
       if (sessionError) throw sessionError;
 
-      const { data: sessionZones, error: sessionZonesError } = await supabase
-        .from("event_ticket_zones" as any)
-        .select("id, name, total_capacity")
-        .eq("event_id", eventId)
-        .eq("session_id", sourceSession.id)
-        .order("created_at");
+      const { data: sessionZones, error: sessionZonesError } = await applyVersionFilter(
+        supabase
+          .from("event_ticket_zones" as any)
+          .select("id, name, total_capacity")
+          .eq("event_id", eventId)
+          .eq("session_id", sourceSession.id)
+      ).order("created_at");
       if (sessionZonesError) throw sessionZonesError;
 
       let zonesToCopy = sessionZones ?? [];
 
       if (zonesToCopy.length === 0) {
-        const { data: fallbackZones, error: fallbackZonesError } = await supabase
-          .from("event_ticket_zones" as any)
-          .select("id, name, total_capacity")
-          .eq("event_id", eventId)
-          .is("session_id", null)
-          .order("created_at");
+        const { data: fallbackZones, error: fallbackZonesError } = await applyVersionFilter(
+          supabase
+            .from("event_ticket_zones" as any)
+            .select("id, name, total_capacity")
+            .eq("event_id", eventId)
+            .is("session_id", null)
+        ).order("created_at");
         if (fallbackZonesError) throw fallbackZonesError;
         zonesToCopy = fallbackZones ?? [];
       }
@@ -150,11 +157,12 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
       }
 
       const zoneIds = zonesToCopy.map((zone: any) => zone.id);
-      const { data: sourceLots, error: sourceLotsError } = await supabase
-        .from("event_ticket_lots" as any)
-        .select("zone_id, name, lot_number, price, quantity, iva_rate")
-        .in("zone_id", zoneIds)
-        .order("lot_number");
+      const { data: sourceLots, error: sourceLotsError } = await applyVersionFilter(
+        supabase
+          .from("event_ticket_lots" as any)
+          .select("zone_id, name, lot_number, price, quantity, iva_rate")
+          .in("zone_id", zoneIds)
+      ).order("lot_number");
       if (sourceLotsError) throw sourceLotsError;
 
       const lotsByZoneId = new Map<string, any[]>();
@@ -174,6 +182,7 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
             session_id: (newSession as any).id,
             name: zone.name,
             total_capacity: zone.total_capacity,
+            version_id: selectedVersionId,
           })
           .select("id")
           .single();
@@ -189,6 +198,7 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
               price: lot.price,
               quantity: lot.quantity,
               iva_rate: lot.iva_rate,
+              version_id: selectedVersionId,
             })),
           );
           if (insertLotsError) throw insertLotsError;
@@ -199,9 +209,9 @@ export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props)
       return { copiedZones: zonesToCopy.length, copiedLots };
     },
     onSuccess: ({ copiedZones, copiedLots }) => {
-      queryClient.invalidateQueries({ queryKey: ["event_sessions", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["event_ticket_zones", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_sessions", eventId, selectedVersionId ?? "active"] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_zones", eventId, selectedVersionId ?? "active"] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId, selectedVersionId ?? "active"] });
       toast({
         title: copiedZones > 0 ? "Sessão copiada com bilheteira!" : "Sessão copiada!",
         description:
