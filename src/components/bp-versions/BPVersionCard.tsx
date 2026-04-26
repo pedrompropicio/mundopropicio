@@ -93,6 +93,7 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
   const dateLabel = format(new Date(approvedAt), "d MMM yyyy", { locale: pt });
 
   return (
+    <div className="space-y-2">
     <div className="glass rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 border-primary/20">
       <div className="flex items-center gap-3 min-w-0">
         <div className="rounded-full bg-primary/10 p-2 shrink-0">
