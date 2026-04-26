@@ -57,6 +57,7 @@ export function BPVersionsHistoryModal({
   const [confirmRevert, setConfirmRevert] = useState<BPVersionRow | null>(null);
   const [confirmPromote, setConfirmPromote] = useState<BPVersionRow | null>(null);
   const [forcePromote, setForcePromote] = useState(false);
+  const [orphansOpen, setOrphansOpen] = useState(false);
   const archive = useArchiveBPVersion(eventId);
   const unarchive = useUnarchiveBPVersion(eventId);
   const discard = useDiscardBPVersionDraft(eventId);
