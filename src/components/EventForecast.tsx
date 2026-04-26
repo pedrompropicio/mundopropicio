@@ -38,6 +38,22 @@ import BPImportModeDialog, { type BPImportMode } from "@/components/BPImportMode
 import PromoteToMasterModal, { type PromoteCandidate } from "@/components/PromoteToMasterModal";
 import OrphanAttachmentsResolver from "@/components/OrphanAttachmentsResolver";
 import { GenerateHistoricalModal, type XlsxRowForGeneration } from "@/components/GenerateHistoricalModal";
+import { MarkAsFechadoDialog } from "@/components/bp-versions/MarkAsFechadoDialog";
+
+/**
+ * Returns the subset of forecast IDs that are eligible to be auto-promoted to
+ * formalidade "fechado" — only rows currently in `estimado` or `negociacao`.
+ * Per project rule we never silently flip rows already in more advanced states
+ * (fechado / pago_parcial / pago_total).
+ */
+function pickFormalidadePromotableIds(items: any[]): string[] {
+  return items
+    .filter((f) => {
+      const formal = f?.formalidade ?? "estimado";
+      return formal === "estimado" || formal === "negociacao";
+    })
+    .map((f) => f.id);
+}
 
 function TransactionAttachmentButton({ transactionId, onClick }: { transactionId: string; onClick: () => void }) {
   const { data: docs = [] } = useQuery({
@@ -128,6 +144,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [inlineForm, setInlineForm] = useState<InlineForm>(emptyInline);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [pendingFechado, setPendingFechado] = useState<{ ids: string[]; trigger: string } | null>(null);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [editApprovedForecast, setEditApprovedForecast] = useState<any>(null);
   const [importingXlsx, setImportingXlsx] = useState(false);
@@ -838,10 +855,15 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         .eq("id", eventId)
         .in("status", ["planning", "confirmed"]);
     },
-    onSuccess: () => {
+    onSuccess: (_, forecast) => {
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
       queryClient.invalidateQueries({ queryKey: ["event_detail", eventId] });
       toast({ title: "Previsão aprovada!" });
+      // Aprovar BP cascateia para TX → sugerir Fechado se aplicável.
+      const promotable = pickFormalidadePromotableIds([forecast]);
+      if (promotable.length > 0) {
+        setPendingFechado({ ids: promotable, trigger: "após aprovar a linha do BP" });
+      }
     },
     onError: (err: any) => {
       toast({ title: "Erro ao aprovar", description: err.message, variant: "destructive" });
@@ -874,6 +896,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       queryClient.invalidateQueries({ queryKey: ["event_detail", eventId] });
       setSelectedIds(new Set());
       toast({ title: `${items.length} previsão(ões) aprovada(s) e transações criadas!` });
+      const promotable = pickFormalidadePromotableIds(items);
+      if (promotable.length > 0) {
+        setPendingFechado({ ids: promotable, trigger: "após aprovar em lote" });
+      }
     },
     onError: (err: any) => {
       toast({ title: "Erro ao aprovar em lote", description: err.message, variant: "destructive" });
@@ -1035,7 +1061,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       }
       return { created, autoApproved, propagatedAttachments };
     },
-    onSuccess: ({ created, autoApproved, propagatedAttachments }) => {
+    onSuccess: ({ created, autoApproved, propagatedAttachments }, forecastItems) => {
       queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       setSelectedIds(new Set());
@@ -1048,6 +1074,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         ? `${propagatedAttachments} anexo(s) do BP propagado(s) para as transações.`
         : undefined;
       toast({ title: baseMsg, description: desc });
+      // Sugerir mudança de formalidade para "Fechado" nas linhas elegíveis.
+      const promotable = pickFormalidadePromotableIds(forecastItems);
+      if (promotable.length > 0) {
+        setPendingFechado({
+          ids: promotable,
+          trigger: forecastItems.length === 1 ? "após gerar a transação" : "após gerar as transações",
+        });
+      }
     },
     onError: (err: any) => {
       toast({ title: "Erro ao criar transações", description: err.message, variant: "destructive" });
@@ -2492,6 +2526,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         approvedCount={eligibleForHistoricalGen.length}
         isGenerating={generateHistoricalMutation.isPending}
         onConfirm={(xlsxRows) => generateHistoricalMutation.mutate(xlsxRows)}
+      />
+
+      <MarkAsFechadoDialog
+        open={!!pendingFechado}
+        onOpenChange={(o) => { if (!o) setPendingFechado(null); }}
+        eligibleForecastIds={pendingFechado?.ids ?? []}
+        eventId={eventId}
+        triggerLabel={pendingFechado?.trigger}
       />
 
       <PromoteToMasterModal

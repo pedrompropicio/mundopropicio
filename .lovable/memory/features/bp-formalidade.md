@@ -1,6 +1,6 @@
 ---
 name: BP Formalidade — Estados de progresso comercial
-description: Campo `formalidade` no event_forecasts (5 estados) com merge inteligente em promoção de cenário (Opção C — formalidade vive só na Versão Ativa).
+description: Campo `formalidade` no event_forecasts (5 estados) com merge inteligente em promoção de cenário (Opção C — formalidade vive só na Versão Ativa) e diálogo de confirmação após geração de TX.
 type: feature
 ---
 
@@ -15,6 +15,14 @@ type: feature
 - **Sempre manuais** (validação do utilizador). Sugestões aparecem como toast via RPC `suggest_formalidade(_forecast_id)`.
 - Tolerância ±5% para sugerir `pago_total`.
 - Default ao criar nova linha de BP: `estimado`.
+
+## Auto-sugestão após geração de TX
+Quando uma transação é gerada a partir do BP (botão "Gerar Transações" em lote, geração individual via approval cascade ou aprovação em lote), abre-se um diálogo `MarkAsFechadoDialog` perguntando se as linhas afetadas devem passar a `fechado`. Regras:
+- Único diálogo no fim da operação (UX confirmado pelo utilizador, não toast com undo nem checkboxes).
+- Apenas linhas em `estimado` ou `negociacao` são propostas — estados mais avançados (`fechado`, `pago_parcial`, `pago_total`) ficam intactos.
+- Helper `pickFormalidadePromotableIds(items)` em `EventForecast.tsx` filtra os IDs elegíveis.
+- Componente reutilizável: `src/components/bp-versions/MarkAsFechadoDialog.tsx`.
+- Ligado a 3 mutations no `EventForecast`: `bulkCreateTxMutation`, `approveMutation`, `bulkApproveMutation`.
 
 ## Schema
 - `event_forecasts.formalidade` (NOT NULL, default `estimado`)
