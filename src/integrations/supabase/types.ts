@@ -3911,6 +3911,7 @@ export type Database = {
           id: string
           is_pinned_scenario: boolean
           is_retroactive_snapshot: boolean
+          scenario_assumptions: Json
           scenario_label: string
           state: string
           superseded_at: string
