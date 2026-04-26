@@ -13,6 +13,8 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { exportBPTransactionsToPDF, type BPTransactionsPDFData } from "@/lib/export-bp-transactions";
+import { ReportScenarioSelector } from "@/components/reports/ReportScenarioSelector";
+import { useScenarioForecasts } from "@/hooks/useScenarioForecasts";
 
 interface TransactionWithMeta {
   id: string;
@@ -85,6 +87,12 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
   const [includeMasterApportionment, setIncludeMasterApportionment] = useState(true);
   const [includeOverhead, setIncludeOverhead] = useState(false);
   const [includeTransitory, setIncludeTransitory] = useState(false);
+  const [scenarioVersionId, setScenarioVersionId] = useState<string | null>(null);
+
+  // Reset scenario when changing event
+  useEffect(() => {
+    setScenarioVersionId(null);
+  }, [selectedEventId]);
 
   // If parent provides initialEventId after first render (e.g. async query param),
   // adopt it once. Manual user selection from the dropdown takes over from there.
@@ -127,13 +135,25 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
     return result;
   }, [events]);
 
-  const { data: forecasts = [] } = useQuery({
+  const { data: activeForecasts = [] } = useQuery({
     queryKey: ["all-forecasts"],
     queryFn: async () => {
       const { data, error } = await supabase.from("event_forecasts").select("*").is("version_id", null);
       return data;
     },
   });
+
+  const { data: scenarioForecasts = [] } = useScenarioForecasts(scenarioVersionId);
+
+  // Merge: quando há cenário ativo, substituímos os forecasts dos eventos
+  // cobertos pelo snapshot do cenário pelos do snapshot. Restantes eventos
+  // continuam a ler a versão Ativa.
+  const forecasts = useMemo(() => {
+    if (!scenarioVersionId || (scenarioForecasts as any[]).length === 0) return activeForecasts;
+    const scenarioEventIds = new Set((scenarioForecasts as any[]).map((f) => f.event_id));
+    const filteredActive = (activeForecasts as any[]).filter((f) => !scenarioEventIds.has(f.event_id));
+    return [...filteredActive, ...(scenarioForecasts as any[])];
+  }, [activeForecasts, scenarioForecasts, scenarioVersionId]);
 
   const { data: transactions = [] } = useQuery({
     queryKey: ["transactions-with-suppliers"],
@@ -669,8 +689,17 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
     exportBPTransactionsToPDF(pdfData, mode);
   };
 
+  // Evento âncora para versões: Master se for sub, próprio caso contrário
+  const scenarioAnchorEventId = parentEventId ?? (selectedEventId || null);
+
   return (
     <div className="space-y-4">
+      <ReportScenarioSelector
+        eventId={scenarioAnchorEventId}
+        isMultiEvent={false}
+        value={scenarioVersionId}
+        onChange={setScenarioVersionId}
+      />
       <div className="flex flex-wrap items-center gap-3">
         <Select value={selectedEventId} onValueChange={setSelectedEventId}>
           <SelectTrigger className="w-80">

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
@@ -22,6 +22,8 @@ import { exportPLToPDF, exportPLToExcel } from "@/lib/export-pl";
 import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes } from "@/lib/utils";
+import { ReportScenarioSelector } from "@/components/reports/ReportScenarioSelector";
+import { useScenarioForecasts } from "@/hooks/useScenarioForecasts";
 
 export type PLMode = "forecast" | "comparison";
 
@@ -400,6 +402,12 @@ export default function ReportPL() {
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [mode, setMode] = useState<PLMode>("forecast");
   const [showPdfDialog, setShowPdfDialog] = useState(false);
+  const [scenarioVersionId, setScenarioVersionId] = useState<string | null>(null);
+
+  // Reset cenário quando muda o conjunto de eventos selecionados
+  useEffect(() => {
+    setScenarioVersionId(null);
+  }, [selectedEventIds.join(",")]);
 
   const toggleAuditLine = (key: string) => {
     setExpandedAuditLines((prev) => {
@@ -419,13 +427,22 @@ export default function ReportPL() {
     },
   });
 
-  const { data: forecasts = [] } = useQuery({
+  const { data: activeForecasts = [] } = useQuery({
     queryKey: ["all-forecasts"],
     queryFn: async () => {
       const { data, error } = await supabase.from("event_forecasts").select("*").is("version_id", null).order("created_at", { ascending: false });
       return data;
     },
   });
+
+  const { data: scenarioForecasts = [] } = useScenarioForecasts(scenarioVersionId);
+
+  const forecasts = useMemo(() => {
+    if (!scenarioVersionId || (scenarioForecasts as any[]).length === 0) return activeForecasts;
+    const scenarioEventIds = new Set((scenarioForecasts as any[]).map((f) => f.event_id));
+    const filteredActive = (activeForecasts as any[]).filter((f) => !scenarioEventIds.has(f.event_id));
+    return [...filteredActive, ...(scenarioForecasts as any[])];
+  }, [activeForecasts, scenarioForecasts, scenarioVersionId]);
 
   const { data: transactions = [] } = useQuery({
     queryKey: ["transactions"],
@@ -641,8 +658,22 @@ export default function ReportPL() {
 
   const toggle = (id: string) => setExpandedEvent((prev) => (prev === id ? null : id));
 
+  // Evento âncora p/ cenário: só quando exactamente 1 evento está selecionado
+  const scenarioAnchorEventId = useMemo(() => {
+    if (selectedEventIds.length !== 1) return null;
+    const id = selectedEventIds[0];
+    const evt = (events as any[]).find((e) => e.id === id);
+    return evt?.parent_event_id ?? id;
+  }, [selectedEventIds, events]);
+
   return (
     <div className="space-y-6">
+      <ReportScenarioSelector
+        eventId={scenarioAnchorEventId}
+        isMultiEvent={selectedEventIds.length > 1}
+        value={scenarioVersionId}
+        onChange={setScenarioVersionId}
+      />
       {/* Mode selector + Event selector */}
       <div className="glass rounded-xl p-4 space-y-4">
         <div className="flex items-center gap-4">
