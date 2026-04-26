@@ -72,6 +72,7 @@ export default function FormalidadeAudit() {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [collapsedEvents, setCollapsedEvents] = useState<Set<string>>(new Set());
   const [lastApplied, setLastApplied] = useState<number | null>(null);
+  const [lastAnalysisAt, setLastAnalysisAt] = useState<Date | null>(null);
 
   // Lista de eventos para o filtro
   const { data: events = [] } = useQuery({
