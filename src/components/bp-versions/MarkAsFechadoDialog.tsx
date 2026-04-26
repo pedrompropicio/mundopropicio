@@ -54,33 +54,20 @@ export function MarkAsFechadoDialog({
   const markFechadoMutation = useMutation({
     mutationFn: async (ids: string[]) => {
       if (ids.length === 0) return { previousStates: [] as Array<{ id: string; formalidade: string }> };
-      // 1. Snapshot estados anteriores para suportar Desfazer.
-      const { data: previousStates, error: snapshotError } = await supabase
-        .from("event_forecasts")
-        .select("id, formalidade")
-        .in("id", ids);
-      if (snapshotError) throw snapshotError;
 
-      // 2. Marca a próxima escrita como auto-sugerida (lida pelo trigger de log).
-      //    Se a RPC não existir/falhar, o UPDATE prossegue como manual.
-      try {
-        await supabase.rpc("set_config" as any, {
-          parameter: "app.formalidade_auto_suggested",
-          value: "true",
-          is_local: true,
-        });
-      } catch {
-        /* noop — log apenas perde a flag auto */
-      }
-
-      // 3. Aplicar UPDATE para "fechado".
-      const { error } = await supabase
-        .from("event_forecasts")
-        .update({ formalidade: "fechado" })
-        .in("id", ids);
+      // Chama a RPC que faz snapshot + UPDATE numa única transação,
+      // marcando o log de auditoria como auto_suggested = true.
+      const { data, error } = await supabase.rpc(
+        "mark_forecasts_fechado_auto" as any,
+        { _ids: ids } as any,
+      );
       if (error) throw error;
 
-      return { previousStates: previousStates ?? [] };
+      const previousStates = ((data as any[]) ?? []).map((row: any) => ({
+        id: row.id,
+        formalidade: row.previous_formalidade,
+      }));
+      return { previousStates };
     },
     onSuccess: ({ previousStates }) => {
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
