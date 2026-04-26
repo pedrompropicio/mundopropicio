@@ -162,6 +162,7 @@ export function useRevertBPVersion(eventId: string) {
       qc.invalidateQueries({ queryKey: versionsKey(eventId) });
       qc.invalidateQueries({ queryKey: ["event-forecasts"] });
       qc.invalidateQueries({ queryKey: ["forecasts"] });
+      qc.invalidateQueries({ queryKey: ["event_forecasts"] });
       toast.success("BP revertido para a versão selecionada");
     },
     // No onError toast — handled inline so callers can detect "blocked" errors
