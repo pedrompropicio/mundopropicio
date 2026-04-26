@@ -135,10 +135,16 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
           Histórico ({versions.length})
         </Button>
         {canManage && !isSplit && (
-          <Button size="sm" onClick={() => setFreezeOpen(true)}>
-            <Snowflake className="h-4 w-4 mr-1.5" />
-            Congelar nova versão
-          </Button>
+          <>
+            <Button variant="outline" size="sm" onClick={() => setNewScenarioOpen(true)}>
+              <Sparkles className="h-4 w-4 mr-1.5" />
+              Novo cenário
+            </Button>
+            <Button size="sm" onClick={() => setFreezeOpen(true)}>
+              <Snowflake className="h-4 w-4 mr-1.5" />
+              Congelar nova versão
+            </Button>
+          </>
         )}
       </div>
 
@@ -146,6 +152,15 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
         <FreezeBPVersionModal
           open={freezeOpen}
           onOpenChange={setFreezeOpen}
+          eventId={eventId}
+          isMaster={isMaster}
+        />
+      )}
+
+      {!isSplit && (
+        <NewScenarioDraftModal
+          open={newScenarioOpen}
+          onOpenChange={setNewScenarioOpen}
           eventId={eventId}
           isMaster={isMaster}
         />
@@ -165,6 +180,14 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
         eventId={eventId}
         eventName={eventName ?? "Evento"}
       />
+    </div>
+
+    <ScenarioDraftsList
+      eventId={eventId}
+      canManage={canManage}
+      isMaster={isMaster}
+      isSplit={isSplit}
+    />
     </div>
   );
 }
