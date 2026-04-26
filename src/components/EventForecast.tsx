@@ -2528,6 +2528,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         onConfirm={(xlsxRows) => generateHistoricalMutation.mutate(xlsxRows)}
       />
 
+      <MarkAsFechadoDialog
+        open={!!pendingFechado}
+        onOpenChange={(o) => { if (!o) setPendingFechado(null); }}
+        eligibleForecastIds={pendingFechado?.ids ?? []}
+        eventId={eventId}
+        triggerLabel={pendingFechado?.trigger}
+      />
+
       <PromoteToMasterModal
         open={showPromoteModal}
         onOpenChange={setShowPromoteModal}
