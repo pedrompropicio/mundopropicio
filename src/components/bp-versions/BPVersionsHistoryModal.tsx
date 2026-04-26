@@ -13,8 +13,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Archive, ArchiveRestore, Trash2, GitBranch, Layers, Sparkles,
   CheckCircle2, FileText, History as HistoryIcon, Clock, RotateCcw, AlertTriangle,
-  Pin, PinOff, Rocket,
+  Pin, PinOff, Rocket, Link2,
 } from "lucide-react";
+import { OrphanTransactionsReviewModal } from "./OrphanTransactionsReviewModal";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import {
