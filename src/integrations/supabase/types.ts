@@ -1378,6 +1378,57 @@ export type Database = {
           },
         ]
       }
+      event_forecast_formalidade_log: {
+        Row: {
+          auto_suggested: boolean
+          changed_at: string
+          changed_by: string | null
+          changed_by_label: string | null
+          forecast_id: string
+          from_state: Database["public"]["Enums"]["bp_formalidade"] | null
+          id: string
+          reason: string | null
+          to_state: Database["public"]["Enums"]["bp_formalidade"]
+        }
+        Insert: {
+          auto_suggested?: boolean
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_label?: string | null
+          forecast_id: string
+          from_state?: Database["public"]["Enums"]["bp_formalidade"] | null
+          id?: string
+          reason?: string | null
+          to_state: Database["public"]["Enums"]["bp_formalidade"]
+        }
+        Update: {
+          auto_suggested?: boolean
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_label?: string | null
+          forecast_id?: string
+          from_state?: Database["public"]["Enums"]["bp_formalidade"] | null
+          id?: string
+          reason?: string | null
+          to_state?: Database["public"]["Enums"]["bp_formalidade"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_forecast_formalidade_log_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_forecast_formalidade_log_forecast_id_fkey"
+            columns: ["forecast_id"]
+            isOneToOne: false
+            referencedRelation: "event_forecasts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_forecast_partners: {
         Row: {
           created_at: string
@@ -1427,6 +1478,9 @@ export type Database = {
           description: string
           event_id: string
           exclude_from_result: boolean
+          formalidade: Database["public"]["Enums"]["bp_formalidade"]
+          formalidade_changed_at: string | null
+          formalidade_changed_by: string | null
           formula_type: string
           formula_value: number
           fx_rate: number | null
@@ -1460,6 +1514,9 @@ export type Database = {
           description: string
           event_id: string
           exclude_from_result?: boolean
+          formalidade?: Database["public"]["Enums"]["bp_formalidade"]
+          formalidade_changed_at?: string | null
+          formalidade_changed_by?: string | null
           formula_type?: string
           formula_value?: number
           fx_rate?: number | null
@@ -1493,6 +1550,9 @@ export type Database = {
           description?: string
           event_id?: string
           exclude_from_result?: boolean
+          formalidade?: Database["public"]["Enums"]["bp_formalidade"]
+          formalidade_changed_at?: string | null
+          formalidade_changed_by?: string | null
           formula_type?: string
           formula_value?: number
           fx_rate?: number | null
@@ -1534,6 +1594,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_forecasts_formalidade_changed_by_fkey"
+            columns: ["formalidade_changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -4060,6 +4127,10 @@ export type Database = {
         }
         Returns: string
       }
+      suggest_formalidade: {
+        Args: { _forecast_id: string }
+        Returns: Database["public"]["Enums"]["bp_formalidade"]
+      }
       unarchive_bp_version: {
         Args: {
           _performed_by?: string
@@ -4071,6 +4142,12 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user" | "manager" | "editor" | "viewer" | "partner"
+      bp_formalidade:
+        | "estimado"
+        | "negociacao"
+        | "fechado"
+        | "pago_parcial"
+        | "pago_total"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4199,6 +4276,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user", "manager", "editor", "viewer", "partner"],
+      bp_formalidade: [
+        "estimado",
+        "negociacao",
+        "fechado",
+        "pago_parcial",
+        "pago_total",
+      ],
     },
   },
 } as const
