@@ -4127,6 +4127,10 @@ export type Database = {
         }
         Returns: string
       }
+      set_formalidade_auto_suggested: {
+        Args: { _value: boolean }
+        Returns: undefined
+      }
       suggest_formalidade: {
         Args: { _forecast_id: string }
         Returns: Database["public"]["Enums"]["bp_formalidade"]
