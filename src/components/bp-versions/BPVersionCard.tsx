@@ -8,6 +8,8 @@ import { pt } from "date-fns/locale";
 import { FreezeBPVersionModal } from "./FreezeBPVersionModal";
 import { BPVersionsHistoryModal } from "./BPVersionsHistoryModal";
 import { BPVersionsCompareModal } from "./BPVersionsCompareModal";
+import { NewScenarioDraftModal } from "./NewScenarioDraftModal";
+import { ScenarioDraftsList } from "./ScenarioDraftsList";
 
 interface Props {
   eventId: string;
@@ -22,6 +24,7 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
   const [freezeOpen, setFreezeOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [newScenarioOpen, setNewScenarioOpen] = useState(false);
 
   const scenarios = useMemo(
     () => (versions ?? []).filter((v) => v.scenario_label && v.state === "draft"),
@@ -90,6 +93,7 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
   const dateLabel = format(new Date(approvedAt), "d MMM yyyy", { locale: pt });
 
   return (
+    <div className="space-y-2">
     <div className="glass rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 border-primary/20">
       <div className="flex items-center gap-3 min-w-0">
         <div className="rounded-full bg-primary/10 p-2 shrink-0">
@@ -131,10 +135,16 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
           Histórico ({versions.length})
         </Button>
         {canManage && !isSplit && (
-          <Button size="sm" onClick={() => setFreezeOpen(true)}>
-            <Snowflake className="h-4 w-4 mr-1.5" />
-            Congelar nova versão
-          </Button>
+          <>
+            <Button variant="outline" size="sm" onClick={() => setNewScenarioOpen(true)}>
+              <Sparkles className="h-4 w-4 mr-1.5" />
+              Novo cenário
+            </Button>
+            <Button size="sm" onClick={() => setFreezeOpen(true)}>
+              <Snowflake className="h-4 w-4 mr-1.5" />
+              Congelar nova versão
+            </Button>
+          </>
         )}
       </div>
 
@@ -142,6 +152,15 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
         <FreezeBPVersionModal
           open={freezeOpen}
           onOpenChange={setFreezeOpen}
+          eventId={eventId}
+          isMaster={isMaster}
+        />
+      )}
+
+      {!isSplit && (
+        <NewScenarioDraftModal
+          open={newScenarioOpen}
+          onOpenChange={setNewScenarioOpen}
           eventId={eventId}
           isMaster={isMaster}
         />
@@ -161,6 +180,14 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
         eventId={eventId}
         eventName={eventName ?? "Evento"}
       />
+    </div>
+
+    <ScenarioDraftsList
+      eventId={eventId}
+      canManage={canManage}
+      isMaster={isMaster}
+      isSplit={isSplit}
+    />
     </div>
   );
 }

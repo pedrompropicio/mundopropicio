@@ -38,7 +38,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
       const { count, error } = await supabase
         .from("event_forecasts")
         .select("*", { count: "exact", head: true })
-        .eq("event_id", selectedEventId!);
+        .eq("event_id", selectedEventId!).is("version_id", null);
       if (error) throw error;
       return count ?? 0;
     },
@@ -53,7 +53,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
       const { data: sourceForecasts, error: fetchErr } = await supabase
         .from("event_forecasts")
         .select("*")
-        .eq("event_id", selectedEventId);
+        .eq("event_id", selectedEventId).is("version_id", null);
       if (fetchErr) throw fetchErr;
       if (!sourceForecasts || sourceForecasts.length === 0) {
         throw new Error("O evento selecionado não tem previsões no BP");
@@ -64,7 +64,8 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
         const { error: delErr } = await supabase
           .from("event_forecasts")
           .delete()
-          .eq("event_id", targetEventId);
+          .eq("event_id", targetEventId)
+          .is("version_id", null);
         if (delErr) throw delErr;
       }
 

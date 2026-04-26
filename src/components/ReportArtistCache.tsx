@@ -123,7 +123,7 @@ export default function ReportArtistCache() {
       const { data, error } = await supabase
         .from("event_forecasts")
         .select("*")
-        .eq("event_id", selectedEventId);
+        .eq("event_id", selectedEventId).is("version_id", null);
       if (error) throw error;
       return data;
     },

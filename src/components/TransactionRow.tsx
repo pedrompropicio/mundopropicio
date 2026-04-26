@@ -236,7 +236,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
         .eq("event_id", parentTourEventId!)
         .eq("type", "expense")
         .eq("category_id", t.category_id!)
-        .limit(1);
+        .limit(1).is("version_id", null);
       if (!masterFc?.length) return { isLocal: false };
       // Check if this transaction is linked to a master forecast
       const { data: linkedFc } = await supabase
@@ -244,7 +244,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
         .select("master_forecast_id")
         .eq("transaction_id", t.id)
         .not("master_forecast_id", "is", null)
-        .limit(1);
+        .limit(1).is("version_id", null);
       return { isLocal: !linkedFc?.length };
     },
     enabled: isTourSubEvent && t.type === "expense" && !!t.category_id,
@@ -646,7 +646,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                                       .eq("event_id", parentTourEventId!)
                                       .eq("type", "expense")
                                       .eq("category_id", t.category_id!)
-                                      .limit(1);
+                                      .limit(1).is("version_id", null);
                                     if (!masterFc?.length) {
                                       toast({ title: "Linha Master não encontrada para esta categoria", variant: "destructive" });
                                       return;
@@ -668,7 +668,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                                       .from("event_forecasts")
                                       .select("id")
                                       .eq("transaction_id", t.id)
-                                      .not("master_forecast_id", "is", null);
+                                      .not("master_forecast_id", "is", null).is("version_id", null);
                                     if (linkedFc?.length) {
                                       await supabase.from("event_forecasts").delete().in("id", linkedFc.map(f => f.id));
                                     }

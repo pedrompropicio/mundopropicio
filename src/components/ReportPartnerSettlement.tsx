@@ -71,7 +71,7 @@ export default function ReportPartnerSettlement() {
         .from("event_forecasts")
         .select("event_id, amount, status, is_overhead")
         .eq("is_overhead", true)
-        .eq("status", "approved");
+        .eq("status", "approved").is("version_id", null);
       if (error) throw error;
       return data;
     },

@@ -229,6 +229,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         .from("event_forecasts")
         .select("*, account_categories(code, name, type)")
         .in("event_id", forecastEventIds)
+        .is("version_id", null)
         .order("type")
         .order("created_at");
       const { data, error } = await query;
@@ -254,7 +255,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         .from("event_forecasts")
         .select("*, account_categories(code, name, type)")
         .eq("event_id", parentEventId)
-        .eq("is_overhead", true);
+        .eq("is_overhead", true).is("version_id", null);
       if (ohErr) throw ohErr;
       return (oh ?? []).map((o: any) => ({
         ...o,
@@ -331,7 +332,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const adoptedByMaster = useMemo(() => {
     const map: Record<string, any[]> = {};
     adoptedForecasts.forEach((f: any) => {
-      const mid = (f as any).master_forecast_id;
+      const mid = (f as any).master_forecast_id.is("version_id", null);
       if (mid) {
         if (!map[mid]) map[mid] = [];
         map[mid].push(f);
@@ -520,6 +521,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         .eq("type", "expense")
         .eq("is_overhead", false)
         .is("cache_config_id", null)
+        .is("version_id", null)
         .order("created_at");
       if (error) throw error;
       return data;
@@ -786,6 +788,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         .from("event_forecasts")
         .select("*")
         .eq("id", id)
+        .is("version_id", null)
         .single();
       if (forecastData) {
         await moveToTrash({

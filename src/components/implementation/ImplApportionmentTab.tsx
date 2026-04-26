@@ -71,6 +71,7 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
         .select("id, description, specification, amount, iva_rate, category_id, event_id, type, account_categories:category_id(code, name)")
         .in("event_id", allSplitIds)
         .eq("type", "expense")
+        .is("version_id", null)
         .order("description");
       if (error) throw error;
       return data.map((f: any) => ({
@@ -91,6 +92,7 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
         .select("id, description, specification, amount, iva_rate, category_id, account_categories:category_id(code, name)")
         .eq("event_id", masterEvent.id)
         .eq("type", "expense")
+        .is("version_id", null)
         .order("description");
       if (error) throw error;
       return data.map((f: any) => ({

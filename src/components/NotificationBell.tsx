@@ -79,7 +79,7 @@ export function NotificationBell() {
       const { data } = await supabase
         .from("event_forecasts")
         .select("id, description, event_id, type, status")
-        .eq("status", "draft");
+        .eq("status", "draft").is("version_id", null);
       return data ?? [];
     },
     staleTime: 60_000,

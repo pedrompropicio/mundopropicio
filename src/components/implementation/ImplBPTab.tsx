@@ -147,6 +147,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         .from("event_forecasts")
         .select("*, account_categories:category_id(id, name, code)")
         .eq("event_id", selectedEventId)
+        .is("version_id", null)
         .order("created_at");
       if (error) throw error;
       return data;
@@ -247,7 +248,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
           .from("event_forecasts")
           .select("id", { count: "exact", head: true })
           .eq("event_id", eid)
-          .eq("type", "expense");
+          .eq("type", "expense").is("version_id", null);
         if (!error) counts[eid] = count ?? 0;
       }
       return counts;
@@ -262,7 +263,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       const { data: eventForecasts, error: fErr } = await supabase
         .from("event_forecasts")
         .select("id")
-        .in("event_id", allEventIds);
+        .in("event_id", allEventIds).is("version_id", null);
       if (fErr || !eventForecasts || eventForecasts.length === 0) return [];
 
       const forecastIds = eventForecasts.map(f => f.id);
@@ -498,7 +499,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
         .from("event_forecasts")
         .select("*, account_categories:category_id(id, name, code)")
         .eq("event_id", masterEvent.id)
-        .eq("type", "expense");
+        .eq("type", "expense").is("version_id", null);
       existingMasterForecasts = (data || []).filter((f: any) => f.formula_type !== "cache_module");
     }
 
@@ -904,7 +905,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
             .from("event_forecasts")
             .select("*, account_categories(code, name)")
             .eq("event_id", selectedEventId)
-            .eq("type", "expense");
+            .eq("type", "expense").is("version_id", null);
 
           for (const row of masterSheetRows) {
             const suggestion = apportionmentSuggestions.find(s => norm(s.description) === norm(row.description));

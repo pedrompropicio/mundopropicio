@@ -211,7 +211,7 @@ export default function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("*");
+        .select("*").is("version_id", null);
       if (error) throw error;
       return data;
     },

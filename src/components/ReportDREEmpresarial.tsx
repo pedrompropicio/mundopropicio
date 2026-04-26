@@ -77,7 +77,7 @@ export default function ReportDREEmpresarial() {
       const { data, error } = await supabase
         .from("event_forecasts")
         .select("id, event_id, amount, description, category_id")
-        .eq("is_overhead", true);
+        .eq("is_overhead", true).is("version_id", null);
       if (error) throw error;
       return data;
     },

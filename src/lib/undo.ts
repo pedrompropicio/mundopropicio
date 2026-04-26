@@ -172,7 +172,7 @@ async function revertAdoptToMaster(r: UndoActionRecord) {
       .from("event_forecasts")
       .select("id")
       .eq("master_forecast_id", createdMasterId)
-      .limit(1);
+      .limit(1).is("version_id", null);
     if (remainingChildren && remainingChildren.length > 0) {
       throw new Error(
         "Não é possível remover a linha Master criada: existem outras vinculações posteriores. Desvincule-as primeiro.",

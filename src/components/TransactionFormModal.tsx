@@ -404,7 +404,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       const { data, error } = await supabase
         .from("event_forecasts")
         .select("id, event_id, type, category_id, amount, status, description, iva_rate, specification")
-        .in("event_id", forecastEventIds);
+        .in("event_id", forecastEventIds).is("version_id", null);
       if (error) throw error;
       return data;
     },
@@ -434,7 +434,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         .from("event_forecasts")
         .select("transaction_id")
         .eq("event_id", effectiveEventId!)
-        .not("transaction_id", "is", null);
+        .not("transaction_id", "is", null).is("version_id", null);
       if (error) throw error;
       return (data ?? []).map((r: any) => r.transaction_id as string);
     },
@@ -670,7 +670,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       const { data, error } = await supabase
         .from("event_forecasts")
         .select("event_id, type, category_id, amount")
-        .in("event_id", splitParentEventIds);
+        .in("event_id", splitParentEventIds).is("version_id", null);
       if (error) throw error;
       return data;
     },
@@ -684,7 +684,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       const { data, error } = await supabase
         .from("event_forecasts")
         .select("event_id, type, category_id, amount")
-        .in("event_id", splitEventIds);
+        .in("event_id", splitEventIds).is("version_id", null);
       if (error) throw error;
       return data;
     },

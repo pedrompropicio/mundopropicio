@@ -33,7 +33,7 @@ export function useMasterCategoryDetection(
         .select("id, category_id, description, amount")
         .eq("event_id", parentEventId!)
         .eq("type", "expense")
-        .not("category_id", "is", null);
+        .not("category_id", "is", null).is("version_id", null);
       if (error) throw error;
       return (data ?? []) as MasterForecastInfo[];
     },

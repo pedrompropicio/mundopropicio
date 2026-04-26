@@ -419,8 +419,7 @@ export default function EventDetail() {
       // Fetch event data for trash
       const { data: eventData } = await supabase.from("events").select("*").eq("id", id!).single();
       const { data: eventDates } = await supabase.from("event_dates").select("*").eq("event_id", id!);
-      const { data: forecasts } = await supabase.from("event_forecasts").select("*").eq("event_id", id!);
-
+      const { data: forecasts } = await supabase.from("event_forecasts").select("*").eq("event_id", id!).is("version_id", null);
       if (eventData) {
         await moveToTrash({
           entity_type: "event",
@@ -436,7 +435,7 @@ export default function EventDetail() {
 
       // Delete related data first
       await supabase.from("event_dates").delete().eq("event_id", id!);
-      await supabase.from("event_forecasts").delete().eq("event_id", id!);
+      await supabase.from("event_forecasts").delete().eq("event_id", id!); // OK: eliminação total do evento (apaga Ativa + cenários)
       await supabase.from("event_cache_configs").delete().eq("event_id", id!);
       // Delete ticket lots via zones
       const { data: zones } = await supabase.from("event_ticket_zones").select("id").eq("event_id", id!);
@@ -1078,7 +1077,7 @@ export default function EventDetail() {
                     const { data: sourceForecasts } = await supabase
                       .from("event_forecasts")
                       .select("*")
-                      .eq("event_id", sourceId);
+                      .eq("event_id", sourceId).is("version_id", null);
                     if (!sourceForecasts || sourceForecasts.length === 0) {
                       toast({ title: "A data de origem não tem previsões no BP", variant: "destructive" });
                       return;

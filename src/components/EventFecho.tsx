@@ -99,7 +99,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
         .from("event_forecasts")
         .select("id, event_id, type, amount, iva_rate, description, account_categories(code, name)")
         .in("event_id", allEventIds)
-        .eq("is_overhead", true);
+        .eq("is_overhead", true).is("version_id", null);
       if (error) throw error;
       return data || [];
     },
@@ -120,7 +120,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
         .from("event_forecasts")
         .select("id, event_id, type, amount, iva_rate, description, account_categories(code, name)")
         .eq("event_id", parentEventId)
-        .eq("is_overhead", true);
+        .eq("is_overhead", true).is("version_id", null);
       if (ohErr) throw ohErr;
       return (oh ?? []).map((o: any) => ({
         ...o,

@@ -81,7 +81,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
         .select("category_id")
         .eq("event_id", masterEventId)
         .eq("type", "expense")
-        .not("category_id", "is", null);
+        .not("category_id", "is", null).is("version_id", null);
       if (error) throw error;
       return [...new Set((data ?? []).map((r: any) => r.category_id).filter(Boolean))] as string[];
     },
@@ -132,7 +132,8 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
       const { data: linkedFc, error: fcErr } = await supabase
         .from("event_forecasts")
         .select("transaction_id")
-        .in("transaction_id", txIds);
+        .in("transaction_id", txIds)
+        .is("version_id", null);
       if (fcErr) throw fcErr;
       const linkedSet = new Set((linkedFc ?? []).map((f: any) => f.transaction_id));
       return txs.filter((t) => !linkedSet.has(t.id));

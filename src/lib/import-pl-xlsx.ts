@@ -490,7 +490,7 @@ export async function importPLToEvent(
       const { data: existingForecasts } = await supabase
         .from("event_forecasts")
         .select("type, category_id, amount")
-        .eq("event_id", eventId);
+        .eq("event_id", eventId).is("version_id", null);
 
       const cacheLines = calculateCacheLinesForPL(
         cacheConfigs as unknown as CacheConfig[],
@@ -807,7 +807,7 @@ export async function attachLinksFromXlsx(
   const { data: forecasts, error: forecastErr } = await supabase
     .from("event_forecasts")
     .select("id, event_id, description, amount, iva_rate, transaction_id, attachment_refs")
-    .in("event_id", lookupEventIds);
+    .in("event_id", lookupEventIds).is("version_id", null);
 
   if (forecastErr) {
     result.errors.push(`Erro ao carregar BP: ${forecastErr.message}`);
@@ -1026,7 +1026,7 @@ export async function reprocessOrphanAttachments(
   const { data: forecasts, error: fErr } = await supabase
     .from("event_forecasts")
     .select("id, event_id, description, amount, iva_rate, transaction_id, attachment_refs")
-    .in("event_id", lookupEventIds);
+    .in("event_id", lookupEventIds).is("version_id", null);
   if (fErr) {
     out.errors.push(`Erro ao carregar BP: ${fErr.message}`);
     return out;

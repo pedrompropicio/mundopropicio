@@ -167,7 +167,7 @@ export default function AccountCategories() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       await supabase.from("transactions").update({ category_id: null }).eq("category_id", id);
-      await supabase.from("event_forecasts").update({ category_id: null }).eq("category_id", id);
+      await supabase.from("event_forecasts").update({ category_id: null }).eq("category_id", id); // OK: limpa em todas as versões (Ativa + cenários)
       const { error } = await supabase.from("account_categories").delete().eq("id", id);
       if (error) throw error;
     },

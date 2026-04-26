@@ -47,6 +47,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
         .select("*, account_categories(code, name, type), master:master_forecast_id(id, description, amount, account_categories(code, name))")
         .eq("event_id", eventId)
         .eq("is_overhead", true)
+        .is("version_id", null)
         .order("type")
         .order("created_at");
       if (error) throw error;
@@ -85,7 +86,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
         .select("category_id, event_id")
         .in("event_id", ids)
         .eq("is_overhead", false)
-        .not("category_id", "is", null);
+        .not("category_id", "is", null).is("version_id", null);
       if (error) throw error;
       return (data || []).map((r: any) => ({ category_id: r.category_id, scope: r.event_id === eventId ? "local" : "master" }));
     },
@@ -104,6 +105,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
         .select("id, event_id, type, description, amount, iva_rate, account_categories(code, name)")
         .in("event_id", ids)
         .eq("is_overhead", true)
+        .is("version_id", null)
         .order("type")
         .order("description");
       if (error) throw error;

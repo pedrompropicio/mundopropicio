@@ -227,14 +227,14 @@ export function CacheTransactionModal({
         .select("id, transaction_id, attachment_refs, description, formula_type")
         .eq("event_id", eventId)
         .eq("cache_config_id", cacheConfigId)
-        .eq("formula_type", "cache_module");
+        .eq("formula_type", "cache_module").is("version_id", null);
 
       const { data: freeFormCacheForecasts } = await supabase
         .from("event_forecasts")
         .select("id, transaction_id, attachment_refs, description, formula_type")
         .eq("event_id", eventId)
         .ilike("description", "Cach%")
-        .is("transaction_id", null);
+        .is("transaction_id", null).is("version_id", null);
 
       const allCacheForecasts = [
         ...((moduleForecasts as any[]) || []),

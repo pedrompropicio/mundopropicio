@@ -287,7 +287,7 @@ export default function ReportDREBrasil() {
       const { data, error } = await supabase
         .from("event_forecasts")
         .select("id, event_id, amount, description, category_id, account_categories(code, name)")
-        .eq("is_overhead", true);
+        .eq("is_overhead", true).is("version_id", null);
       if (error) throw error;
       return data;
     },

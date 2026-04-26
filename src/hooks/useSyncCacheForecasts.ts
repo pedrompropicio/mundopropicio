@@ -252,7 +252,7 @@ async function syncTourCacheForecasts(
     .from("event_forecasts")
     .select("id, event_id, cache_config_id, amount, type, category_id")
     .in("event_id", allTargetIds)
-    .not("cache_config_id", "is", null);
+    .not("cache_config_id", "is", null).is("version_id", null);
 
   // Also fetch non-cache expense forecasts per child for deduction calc
   const { data: childExpenseForecasts } = await supabase
@@ -260,7 +260,7 @@ async function syncTourCacheForecasts(
     .select("event_id, type, category_id, amount, iva_rate, cache_config_id")
     .in("event_id", childEventIds)
     .eq("type", "expense")
-    .is("cache_config_id", null);
+    .is("cache_config_id", null).is("version_id", null);
 
   // Fetch per-city settlements (override priority over master legacy fields)
   const cacheConfigIds = cacheConfigs.map((c) => c.id);
@@ -350,7 +350,7 @@ async function syncTourCacheForecasts(
     .in("event_id", [...childEventIds, masterEventId])
     .eq("type", "expense")
     .eq("formula_type", "cache_module")
-    .is("cache_config_id", null);
+    .is("cache_config_id", null).is("version_id", null);
   for (const orphan of (orphanCacheForecasts ?? [])) {
     await supabase.from("event_forecasts").delete().eq("id", orphan.id);
     changed = true;
@@ -419,7 +419,7 @@ async function syncSimpleCacheForecasts(
     .from("event_forecasts")
     .select("id, cache_config_id, amount")
     .eq("event_id", eventId)
-    .not("cache_config_id", "is", null);
+    .not("cache_config_id", "is", null).is("version_id", null);
 
   const existingMap = new Map(
     (existingForecasts ?? []).map((f: any) => [f.cache_config_id, f])
@@ -481,7 +481,7 @@ async function syncSimpleCacheForecasts(
     .eq("event_id", eventId)
     .eq("type", "expense")
     .eq("formula_type", "cache_module")
-    .is("cache_config_id", null);
+    .is("cache_config_id", null).is("version_id", null);
   for (const orphan of (simpleOrphanForecasts ?? [])) {
     await supabase.from("event_forecasts").delete().eq("id", orphan.id);
     changed = true;

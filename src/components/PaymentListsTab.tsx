@@ -85,7 +85,7 @@ function useForecastLookup(eventIds: string[]) {
         .select("event_id, category_id, amount, description")
         .in("event_id", uniqueEventIds)
         .eq("type", "expense")
-        .in("status", ["approved", "draft"]);
+        .in("status", ["approved", "draft"]).is("version_id", null);
       if (error) throw error;
       return data;
     },

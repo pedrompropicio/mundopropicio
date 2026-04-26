@@ -118,7 +118,7 @@ export function ResultsAnalysis() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, event_id, type, amount, category_id");
+        .select("id, event_id, type, amount, category_id").is("version_id", null);
       if (error) throw error;
       return data;
     },
@@ -163,7 +163,7 @@ export function ResultsAnalysis() {
       const { data, error } = await supabase
         .from("event_forecasts")
         .select("id, event_id, amount")
-        .eq("is_overhead", true);
+        .eq("is_overhead", true).is("version_id", null);
       if (error) throw error;
       return data;
     },

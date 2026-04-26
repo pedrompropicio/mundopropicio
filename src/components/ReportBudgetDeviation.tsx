@@ -42,7 +42,7 @@ export default function ReportBudgetDeviation() {
         .from("event_forecasts")
         .select("category_id, amount, type")
         .eq("event_id", selectedEventId)
-        .eq("type", "expense");
+        .eq("type", "expense").is("version_id", null);
       if (error) throw error;
       return data;
     },

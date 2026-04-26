@@ -35,7 +35,7 @@ export default function ReportPendencyIndex() {
       const { data, error } = await supabase
         .from("event_forecasts")
         .select("id, status, event_id, description, events(name)")
-        .eq("status", "pending");
+        .eq("status", "pending").is("version_id", null);
       if (error) throw error;
       return data;
     },

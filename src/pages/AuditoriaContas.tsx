@@ -166,7 +166,7 @@ function AnaliseIATab() {
         .from("event_forecasts")
         .select("id, description, specification, category_id, event_id, type")
         .in("event_id", eventIds)
-        .eq("type", "expense");
+        .eq("type", "expense").is("version_id", null);
       if (bpErr) throw bpErr;
 
       // Fetch transactions (expense)
@@ -693,8 +693,10 @@ function RenumberTab() {
   }
 
   async function fetchImpact(catIds: string[]) {
-    const { data: bps } = await supabase.from("event_forecasts").select("category_id").in("category_id", catIds);
-    const { data: txs } = await supabase.from("transactions").select("category_id").in("category_id", catIds);
+    const [{ data: bps }, { data: txs }] = await Promise.all([
+      supabase.from("event_forecasts").select("category_id").in("category_id", catIds).is("version_id", null),
+      supabase.from("transactions").select("category_id").in("category_id", catIds),
+    ]);
     const out: { catId: string; bp: number; tx: number }[] = catIds.map((id) => ({
       catId: id,
       bp: (bps || []).filter((b: any) => b.category_id === id).length,

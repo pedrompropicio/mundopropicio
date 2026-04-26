@@ -146,7 +146,7 @@ export default function OrphanAttachmentsResolver({
       const { data, error } = await supabase
         .from("event_forecasts")
         .select("id, event_id, description, amount, transaction_id, attachment_refs")
-        .in("event_id", allEventIds);
+        .in("event_id", allEventIds).is("version_id", null);
       if (error) throw error;
       return (data ?? []) as any;
     },

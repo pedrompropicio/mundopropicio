@@ -84,11 +84,12 @@ export async function deleteTransactionCascade({
     });
   }
 
-  // 4) Detach BP forecasts (frees budget)
+  // 4) Detach BP forecasts (frees budget) — apenas Ativa
   await supabase
     .from("event_forecasts")
     .update({ transaction_id: null })
-    .in("transaction_id", allIds);
+    .in("transaction_id", allIds)
+    .is("version_id", null);
 
   // 5) Detach cache payments (both columns)
   await supabase

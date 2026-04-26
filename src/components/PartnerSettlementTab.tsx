@@ -237,7 +237,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
         .from("event_forecasts")
           .select("id, event_id, type, amount, iva_rate, status, is_overhead, master_forecast_id, transaction_id, account_categories(name, code)")
         .in("event_id", allEventIds)
-        .eq("status", "approved");
+        .eq("status", "approved").is("version_id", null);
       if (error) throw error;
       return data;
     },
