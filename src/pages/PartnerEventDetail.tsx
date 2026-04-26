@@ -597,6 +597,16 @@ export default function PartnerEventDetail() {
             </Card>
           ) : (
             <div className="space-y-4">
+              {activeBPVersion && (
+                <div className="flex items-center justify-end -mb-1">
+                  <span className="text-[10px] sm:text-xs text-muted-foreground italic">
+                    Business Plan — versão v{activeBPVersion.version_number}
+                    {activeBPVersion.approved_at && (
+                      <> ({new Date(activeBPVersion.approved_at).toLocaleDateString("pt-PT", { day: "2-digit", month: "short", year: "numeric" })})</>
+                    )}
+                  </span>
+                </div>
+              )}
               <div className="grid gap-2 sm:gap-3 grid-cols-3">
                 <Card>
                   <CardContent className="p-2 sm:p-4 text-center">
