@@ -104,6 +104,10 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-semibold">v{activeVersion.version_number}</p>
             <Badge variant="default" className="text-[10px] uppercase tracking-wider">Ativa</Badge>
+            <HelpTooltip
+              size={13}
+              text="Versão Ativa = BP em produção. É a única que recebe transações reais, valida bypass e alimenta os relatórios contabilísticos (DRE, Rentabilidade)."
+            />
             {isSplit && activeVersion.cascaded_from_version_id && (
               <Badge variant="outline" className="text-[10px] gap-1">
                 <Layers className="h-2.5 w-2.5" />
