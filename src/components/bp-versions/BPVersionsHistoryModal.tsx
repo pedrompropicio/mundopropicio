@@ -55,6 +55,7 @@ export function BPVersionsHistoryModal({
   const [confirmDiscard, setConfirmDiscard] = useState<BPVersionRow | null>(null);
   const [confirmRevert, setConfirmRevert] = useState<BPVersionRow | null>(null);
   const [confirmPromote, setConfirmPromote] = useState<BPVersionRow | null>(null);
+  const [forcePromote, setForcePromote] = useState(false);
   const archive = useArchiveBPVersion(eventId);
   const unarchive = useUnarchiveBPVersion(eventId);
   const discard = useDiscardBPVersionDraft(eventId);
@@ -62,7 +63,7 @@ export function BPVersionsHistoryModal({
   const promote = usePromoteScenario(eventId);
   const togglePin = useToggleScenarioPin(eventId);
   const { data: linkedTxCount = 0 } = useBPLinkedTxCount(
-    confirmRevert ? eventId : null
+    confirmRevert || confirmPromote ? eventId : null
   );
 
   const pinnedCount = useMemo(
