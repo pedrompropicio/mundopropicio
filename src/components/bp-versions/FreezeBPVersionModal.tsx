@@ -15,6 +15,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { useFreezeBPVersion } from "@/hooks/useBPVersions";
 import { Snowflake } from "lucide-react";
+import HelpTooltip from "@/components/HelpTooltip";
 
 interface Props {
   open: boolean;
@@ -82,6 +83,10 @@ export function FreezeBPVersionModal({ open, onOpenChange, eventId, isMaster }: 
           <DialogTitle className="flex items-center gap-2">
             <Snowflake className="h-5 w-5 text-primary" />
             Congelar nova versão do BP
+            <HelpTooltip
+              size={14}
+              text="Cria uma fotografia imutável do BP. Escolhe entre rascunho (snapshot guardado), aprovar (substitui a Versão Ativa) ou cenário (sandbox paralelo nomeado)."
+            />
           </DialogTitle>
           <DialogDescription>
             Cria uma fotografia imutável do Business Plan atual.
