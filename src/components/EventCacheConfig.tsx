@@ -192,9 +192,9 @@ export function EventCacheConfig({ eventId, childEventIds, eventStatus }: Props)
     queryKey: ["event_forecasts", eventId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("*, account_categories(code, name, type)")
-        .eq("event_id", eventId);
+        .eq("event_id", eventId).is("version_id", null);
       if (error) throw error;
       return data;
     },

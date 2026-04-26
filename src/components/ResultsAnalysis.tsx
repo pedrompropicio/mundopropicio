@@ -117,8 +117,8 @@ export function ResultsAnalysis() {
     queryKey: ["ra_forecasts_v2"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
-        .select("id, event_id, type, amount, category_id");
+        .from("event_forecasts")
+        .select("id, event_id, type, amount, category_id").is("version_id", null);
       if (error) throw error;
       return data;
     },
@@ -161,9 +161,9 @@ export function ResultsAnalysis() {
     queryKey: ["ra_closing_costs"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("id, event_id, amount")
-        .eq("is_overhead", true);
+        .eq("is_overhead", true).is("version_id", null);
       if (error) throw error;
       return data;
     },

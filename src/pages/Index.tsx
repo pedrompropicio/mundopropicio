@@ -210,8 +210,8 @@ export default function Dashboard() {
     queryKey: ["dashboard_forecasts"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
-        .select("*");
+        .from("event_forecasts")
+        .select("*").is("version_id", null);
       if (error) throw error;
       return data;
     },

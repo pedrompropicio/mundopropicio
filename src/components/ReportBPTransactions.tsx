@@ -130,8 +130,7 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
   const { data: forecasts = [] } = useQuery({
     queryKey: ["all-forecasts"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("event_forecasts").select("*");  // TODO_VERSION_FILTER
-      if (error) throw error;
+      const { data, error } = await supabase.from("event_forecasts").select("*").is("version_id", null);
       return data;
     },
   });

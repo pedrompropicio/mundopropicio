@@ -419,8 +419,7 @@ export default function EventDetail() {
       // Fetch event data for trash
       const { data: eventData } = await supabase.from("events").select("*").eq("id", id!).single();
       const { data: eventDates } = await supabase.from("event_dates").select("*").eq("event_id", id!);
-      const { data: forecasts } = await supabase.from("event_forecasts").select("*").eq("event_id", id!);  // TODO_VERSION_FILTER
-
+      const { data: forecasts } = await supabase.from("event_forecasts").select("*").eq("event_id", id!).is("version_id", null);
       if (eventData) {
         await moveToTrash({
           entity_type: "event",
@@ -1076,9 +1075,9 @@ export default function EventDetail() {
                   subEvents={subEvents}
                   onCopy={async (sourceId: string) => {
                     const { data: sourceForecasts } = await supabase
-                      .from("event_forecasts")  // TODO_VERSION_FILTER
+                      .from("event_forecasts")
                       .select("*")
-                      .eq("event_id", sourceId);
+                      .eq("event_id", sourceId).is("version_id", null);
                     if (!sourceForecasts || sourceForecasts.length === 0) {
                       toast({ title: "A data de origem não tem previsões no BP", variant: "destructive" });
                       return;

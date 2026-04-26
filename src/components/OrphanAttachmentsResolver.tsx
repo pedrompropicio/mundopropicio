@@ -144,9 +144,9 @@ export default function OrphanAttachmentsResolver({
     queryKey: ["bp_forecasts_pool", allEventIds.join(",")],
     queryFn: async (): Promise<ForecastRow[]> => {
       const { data, error } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("id, event_id, description, amount, transaction_id, attachment_refs")
-        .in("event_id", allEventIds);
+        .in("event_id", allEventIds).is("version_id", null);
       if (error) throw error;
       return (data ?? []) as any;
     },

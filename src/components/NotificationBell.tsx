@@ -77,9 +77,9 @@ export function NotificationBell() {
     queryKey: ["notif-forecasts"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("id, description, event_id, type, status")
-        .eq("status", "draft");
+        .eq("status", "draft").is("version_id", null);
       return data ?? [];
     },
     staleTime: 60_000,

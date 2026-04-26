@@ -231,20 +231,20 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     queryFn: async () => {
       // Check if category exists in Master BP
       const { data: masterFc } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("id")
         .eq("event_id", parentTourEventId!)
         .eq("type", "expense")
         .eq("category_id", t.category_id!)
-        .limit(1);
+        .limit(1).is("version_id", null);
       if (!masterFc?.length) return { isLocal: false };
       // Check if this transaction is linked to a master forecast
       const { data: linkedFc } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("master_forecast_id")
         .eq("transaction_id", t.id)
         .not("master_forecast_id", "is", null)
-        .limit(1);
+        .limit(1).is("version_id", null);
       return { isLocal: !linkedFc?.length };
     },
     enabled: isTourSubEvent && t.type === "expense" && !!t.category_id,
@@ -641,12 +641,12 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                                 try {
                                   if (isLocalReinforcement) {
                                     const { data: masterFc } = await supabase
-                                      .from("event_forecasts")  // TODO_VERSION_FILTER
+                                      .from("event_forecasts")
                                       .select("id")
                                       .eq("event_id", parentTourEventId!)
                                       .eq("type", "expense")
                                       .eq("category_id", t.category_id!)
-                                      .limit(1);
+                                      .limit(1).is("version_id", null);
                                     if (!masterFc?.length) {
                                       toast({ title: "Linha Master não encontrada para esta categoria", variant: "destructive" });
                                       return;
@@ -665,10 +665,10 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                                     toast({ title: "Reclassificado como Rateio Master" });
                                   } else {
                                     const { data: linkedFc } = await supabase
-                                      .from("event_forecasts")  // TODO_VERSION_FILTER
+                                      .from("event_forecasts")
                                       .select("id")
                                       .eq("transaction_id", t.id)
-                                      .not("master_forecast_id", "is", null);
+                                      .not("master_forecast_id", "is", null).is("version_id", null);
                                     if (linkedFc?.length) {
                                       await supabase.from("event_forecasts").delete().in("id", linkedFc.map(f => f.id));
                                     }

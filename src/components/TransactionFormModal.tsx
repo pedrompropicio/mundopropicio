@@ -402,9 +402,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     queryKey: ["event_forecasts_budget", form.event_id, forecastEventIds],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("id, event_id, type, category_id, amount, status, description, iva_rate, specification")
-        .in("event_id", forecastEventIds);
+        .in("event_id", forecastEventIds).is("version_id", null);
       if (error) throw error;
       return data;
     },
@@ -431,10 +431,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     queryKey: ["master_linked_tx_ids", effectiveEventId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("transaction_id")
         .eq("event_id", effectiveEventId!)
-        .not("transaction_id", "is", null);
+        .not("transaction_id", "is", null).is("version_id", null);
       if (error) throw error;
       return (data ?? []).map((r: any) => r.transaction_id as string);
     },
@@ -668,9 +668,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     queryFn: async () => {
       if (splitParentEventIds.length === 0) return [];
       const { data, error } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("event_id, type, category_id, amount")
-        .in("event_id", splitParentEventIds);
+        .in("event_id", splitParentEventIds).is("version_id", null);
       if (error) throw error;
       return data;
     },
@@ -682,9 +682,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     queryFn: async () => {
       if (splitEventIds.length === 0) return [];
       const { data, error } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("event_id, type, category_id, amount")
-        .in("event_id", splitEventIds);
+        .in("event_id", splitEventIds).is("version_id", null);
       if (error) throw error;
       return data;
     },

@@ -81,11 +81,11 @@ function useForecastLookup(eventIds: string[]) {
     queryFn: async () => {
       if (uniqueEventIds.length === 0) return [];
       const { data, error } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("event_id, category_id, amount, description")
         .in("event_id", uniqueEventIds)
         .eq("type", "expense")
-        .in("status", ["approved", "draft"]);
+        .in("status", ["approved", "draft"]).is("version_id", null);
       if (error) throw error;
       return data;
     },

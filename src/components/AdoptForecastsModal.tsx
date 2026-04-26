@@ -77,11 +77,11 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
     queryKey: ["master_expense_category_ids", masterEventId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("category_id")
         .eq("event_id", masterEventId)
         .eq("type", "expense")
-        .not("category_id", "is", null);
+        .not("category_id", "is", null).is("version_id", null);
       if (error) throw error;
       return [...new Set((data ?? []).map((r: any) => r.category_id).filter(Boolean))] as string[];
     },
@@ -93,7 +93,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
     queryKey: ["sub_event_forecasts_for_adopt", childEventIds],
     queryFn: async () => {
       const { data, error } = await (supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("*, account_categories(code, name)") as any)
         .in("event_id", childEventIds)
         .is("master_forecast_id", null)
@@ -217,7 +217,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
     const map = new Map<string, Item[]>();
     items.forEach((i) => {
       if (i.kind === "transaction" && i.invoice_ref) {
-        const key = `${i.event_id}::${i.invoice_ref}`;
+        const key = `${i.event_id}::${i.invoice_ref}`.is("version_id", null);
         if (!map.has(key)) map.set(key, []);
         map.get(key)!.push(i);
       }
@@ -329,7 +329,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
         // Buscar splits existentes (linhas no sub-evento já vinculadas ao master, sem tx ainda)
         const subEventIds = [...new Set(selectedTxs.map((t) => t.event_id))];
         const { data: existingSplits, error: splitErr } = await (supabase
-          .from("event_forecasts")  // TODO_VERSION_FILTER
+          .from("event_forecasts")
           .select("id, event_id, transaction_id") as any)
           .eq("master_forecast_id", masterForecastId)
           .in("event_id", subEventIds);
@@ -339,7 +339,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
         const freeSplitsByEvent: Record<string, string[]> = {};
         (existingSplits ?? []).forEach((s: any) => {
           if (!s.transaction_id) {
-            if (!freeSplitsByEvent[s.event_id]) freeSplitsByEvent[s.event_id] = [];
+            if (!freeSplitsByEvent[s.event_id]) freeSplitsByEvent[s.event_id] = [].is("version_id", null);
             freeSplitsByEvent[s.event_id].push(s.id);
           }
         });

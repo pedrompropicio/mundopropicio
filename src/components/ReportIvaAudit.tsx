@@ -55,8 +55,9 @@ export default function ReportIvaAudit() {
     queryKey: ["iva-audit-fc", eventId],
     queryFn: async () => {
       let q = supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("id, description, amount, iva_rate, event_id, events(name)")
+        .is("version_id", null)
         .order("created_at", { ascending: false });
       if (eventId) q = q.eq("event_id", eventId);
       const { data, error } = await q.limit(5000);

@@ -67,10 +67,11 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
     queryFn: async () => {
       if (allSplitIds.length === 0) return [];
       const { data, error } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("id, description, specification, amount, iva_rate, category_id, event_id, type, account_categories:category_id(code, name)")
         .in("event_id", allSplitIds)
         .eq("type", "expense")
+        .is("version_id", null)
         .order("description");
       if (error) throw error;
       return data.map((f: any) => ({
@@ -87,10 +88,11 @@ export function ImplApportionmentTab({ implementation, masterEvent, splitEvents 
     queryKey: ["impl-master-forecasts", masterEvent.id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("id, description, specification, amount, iva_rate, category_id, account_categories:category_id(code, name)")
         .eq("event_id", masterEvent.id)
         .eq("type", "expense")
+        .is("version_id", null)
         .order("description");
       if (error) throw error;
       return data.map((f: any) => ({

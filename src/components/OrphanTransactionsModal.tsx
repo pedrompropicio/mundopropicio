@@ -60,9 +60,9 @@ export function OrphanTransactionsModal({ open, onOpenChange, masterEventId, chi
       if (list.length === 0) return [];
       const ids = list.map((t) => t.id);
       const { data: linked, error: lErr } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("transaction_id")
-        .in("transaction_id", ids);
+        .in("transaction_id", ids).is("version_id", null);
       if (lErr) throw lErr;
       const linkedSet = new Set((linked ?? []).map((r: any) => r.transaction_id));
       return list.filter((t) => !linkedSet.has(t.id));
@@ -75,10 +75,10 @@ export function OrphanTransactionsModal({ open, onOpenChange, masterEventId, chi
     queryKey: ["master_categories_for_orphans", masterEventId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("category_id")
         .eq("event_id", masterEventId)
-        .eq("type", "expense");
+        .eq("type", "expense").is("version_id", null);
       if (error) throw error;
       return new Set((data ?? []).map((r: any) => r.category_id).filter(Boolean) as string[]);
     },

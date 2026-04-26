@@ -29,11 +29,11 @@ export function useMasterCategoryDetection(
     queryKey: ["master_expense_forecasts_for_reinforcement", parentEventId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("id, category_id, description, amount")
         .eq("event_id", parentEventId!)
         .eq("type", "expense")
-        .not("category_id", "is", null);
+        .not("category_id", "is", null).is("version_id", null);
       if (error) throw error;
       return (data ?? []) as MasterForecastInfo[];
     },
