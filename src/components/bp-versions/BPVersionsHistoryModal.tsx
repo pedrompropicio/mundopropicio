@@ -535,6 +535,41 @@ function VersionRow({
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ScenarioAssumptionChips({ assumptions }: { assumptions: Record<string, any> }) {
+  const chips: { label: string; value: string }[] = [];
+  const pub = assumptions.publico_estimado;
+  const ticket = assumptions.ticket_medio;
+  const ocup = assumptions.ocupacao_pct;
+  const notas = assumptions.notas;
+  if (pub != null && pub !== "") chips.push({ label: "Público", value: Number(pub).toLocaleString("pt-PT") });
+  if (ticket != null && ticket !== "") chips.push({ label: "Ticket", value: `€${Number(ticket).toFixed(2)}` });
+  if (ocup != null && ocup !== "") chips.push({ label: "Ocupação", value: `${Number(ocup)}%` });
+  if (chips.length === 0 && !notas) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1 mt-1.5">
+      {chips.map((c) => (
+        <span
+          key={c.label}
+          className="inline-flex items-center gap-1 rounded-md bg-secondary/60 px-1.5 py-0.5 text-[10px] text-secondary-foreground"
+        >
+          <span className="text-muted-foreground">{c.label}:</span>
+          <span className="font-medium">{c.value}</span>
+        </span>
+      ))}
+      {notas && (
+        <span
+          className="text-[10px] text-muted-foreground italic max-w-[20rem] truncate"
+          title={String(notas)}
+        >
+          “{String(notas)}”
+        </span>
+      )}
+    </div>
+  );
+}
+
 function RevertConfirmDialog({
   version, linkedTxCount, isPending, onClose, onConfirm,
 }: {
