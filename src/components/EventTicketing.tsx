@@ -372,7 +372,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId, selectedVersionId ?? "active"] });
       toast({ title: "Lote eliminado" });
     },
   });
