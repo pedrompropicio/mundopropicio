@@ -135,13 +135,25 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
     return result;
   }, [events]);
 
-  const { data: forecasts = [] } = useQuery({
+  const { data: activeForecasts = [] } = useQuery({
     queryKey: ["all-forecasts"],
     queryFn: async () => {
       const { data, error } = await supabase.from("event_forecasts").select("*").is("version_id", null);
       return data;
     },
   });
+
+  const { data: scenarioForecasts = [] } = useScenarioForecasts(scenarioVersionId);
+
+  // Merge: quando há cenário ativo, substituímos os forecasts dos eventos
+  // cobertos pelo snapshot do cenário pelos do snapshot. Restantes eventos
+  // continuam a ler a versão Ativa.
+  const forecasts = useMemo(() => {
+    if (!scenarioVersionId || (scenarioForecasts as any[]).length === 0) return activeForecasts;
+    const scenarioEventIds = new Set((scenarioForecasts as any[]).map((f) => f.event_id));
+    const filteredActive = (activeForecasts as any[]).filter((f) => !scenarioEventIds.has(f.event_id));
+    return [...filteredActive, ...(scenarioForecasts as any[])];
+  }, [activeForecasts, scenarioForecasts, scenarioVersionId]);
 
   const { data: transactions = [] } = useQuery({
     queryKey: ["transactions-with-suppliers"],
