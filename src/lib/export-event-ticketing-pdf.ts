@@ -502,12 +502,24 @@ function drawFooter(ctx: RenderContext) {
   doc.setTextColor(0, 0, 0);
 }
 
-async function renderEventTicketingPage(ctx: RenderContext, eventId: string, isFirst: boolean) {
+async function renderEventTicketingPage(
+  ctx: RenderContext,
+  eventId: string,
+  isFirst: boolean,
+  versionId: string | null,
+  scenarioLabel: string | null,
+) {
   if (!isFirst) ctx.doc.addPage();
-  const { event, sessions, zones, lots, sales, assignments } = await fetchEventTicketingBundle(eventId);
+  const { event, sessions, zones, lots, sales, assignments } = await fetchEventTicketingBundle(eventId, versionId);
   const zoneStats = zones.map((z) => buildZoneStats(z, lots, sales));
 
-  let y = drawHeader(ctx, "Bilheteria — Relatório de Conferência", `Evento: ${event.name}`);
+  const subtitle = scenarioLabel
+    ? `Evento: ${event.name} · Cenário: ${scenarioLabel}`
+    : `Evento: ${event.name}`;
+  const title = scenarioLabel
+    ? "Bilheteria — Cenário (Sandbox)"
+    : "Bilheteria — Relatório de Conferência";
+  let y = drawHeader(ctx, title, subtitle);
   y = drawEventIdentity(ctx, y, event);
   y = drawSummaryCards(ctx, y, zoneStats);
   y = drawSessionsSection(ctx, y, sessions);
@@ -515,7 +527,12 @@ async function renderEventTicketingPage(ctx: RenderContext, eventId: string, isF
   y = drawTicketOfficesSection(ctx, y + 2, assignments);
 }
 
-export async function exportEventTicketingToPDF({ eventId, includeChildren = true }: TicketingExportInput): Promise<void> {
+export async function exportEventTicketingToPDF({
+  eventId,
+  includeChildren = true,
+  versionId = null,
+  scenarioLabel = null,
+}: TicketingExportInput): Promise<void> {
   let eventIds: string[] = [eventId];
   const masterRes = await supabase.from("events").select("id, name, event_type").eq("id", eventId).maybeSingle();
   if (masterRes.error) throw masterRes.error;
@@ -538,10 +555,13 @@ export async function exportEventTicketingToPDF({ eventId, includeChildren = tru
   const ctx: RenderContext = { doc, pageWidth, pageHeight, marginLeft, marginRight, contentWidth };
 
   for (let i = 0; i < eventIds.length; i++) {
-    await renderEventTicketingPage(ctx, eventIds[i], i === 0);
+    await renderEventTicketingPage(ctx, eventIds[i], i === 0, versionId ?? null, scenarioLabel ?? null);
   }
   drawFooter(ctx);
 
   const safeName = (masterEvent?.name ?? "evento").replace(/[^\w\d-]+/g, "_").slice(0, 40);
-  doc.save(`Bilheteria_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`);
+  const scenarioSuffix = scenarioLabel
+    ? `_Cenario_${scenarioLabel.replace(/[^\w\d-]+/g, "_").slice(0, 30)}`
+    : "";
+  doc.save(`Bilheteria_${safeName}${scenarioSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
