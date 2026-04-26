@@ -334,7 +334,7 @@ export function BPVersionsCompareModal({ open, onOpenChange, eventId, eventName 
                             ))}
                             <tr className="border-t bg-muted/30 font-medium">
                               <td colSpan={2} className="px-3 py-1.5 text-right text-xs">
-                                Subtotal
+                                Subtotal — {group.groupName}
                               </td>
                               {group.totalsBase.map((t, i) => (
                                 <td
