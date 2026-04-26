@@ -274,6 +274,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         event_id: eventId,
         name: form.name,
         total_capacity: parseInt(form.total_capacity) || 0,
+        version_id: selectedVersionId, // null=Active, uuid=scenario sandbox
       };
       if (sessionId) payload.session_id = sessionId;
       if (id) {
@@ -286,7 +287,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       }
     },
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ["event_ticket_zones", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_zones", eventId, selectedVersionId ?? "active"] });
       toast({ title: vars.id ? "Zona atualizada!" : "Zona criada!" });
       setAddingZone(false);
       setEditingZoneId(null);
@@ -301,8 +302,8 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["event_ticket_zones", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_zones", eventId, selectedVersionId ?? "active"] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId, selectedVersionId ?? "active"] });
       toast({ title: "Zona eliminada" });
     },
   });
@@ -340,6 +341,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         iva_rate: parseInt(form.iva_rate) || 6,
         lot_number: nextLotNumber,
         lot_type: form.lot_type || "regular",
+        version_id: selectedVersionId, // null=Active, uuid=scenario sandbox
       };
       if (id) {
         const { error } = await supabase.from("event_ticket_lots").update(payload).eq("id", id);
@@ -350,7 +352,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       }
     },
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId, selectedVersionId ?? "active"] });
       toast({ title: vars.id ? "Lote atualizado!" : "Lote adicionado!" });
       if (!vars.id) {
         setLotForm(emptyLot);
