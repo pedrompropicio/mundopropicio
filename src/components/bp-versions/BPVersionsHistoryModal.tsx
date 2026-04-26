@@ -50,9 +50,14 @@ export function BPVersionsHistoryModal({
   const { data: versions = [], isLoading } = useBPVersions(eventId);
   const [showArchived, setShowArchived] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState<BPVersionRow | null>(null);
+  const [confirmRevert, setConfirmRevert] = useState<BPVersionRow | null>(null);
   const archive = useArchiveBPVersion(eventId);
   const unarchive = useUnarchiveBPVersion(eventId);
   const discard = useDiscardBPVersionDraft(eventId);
+  const revert = useRevertBPVersion(eventId);
+  const { data: linkedTxCount = 0 } = useBPLinkedTxCount(
+    confirmRevert ? eventId : null
+  );
 
   const { official, scenarios } = useMemo(() => {
     const visible = showArchived ? versions : versions.filter((v) => v.state !== "archived");
