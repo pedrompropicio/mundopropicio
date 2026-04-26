@@ -99,17 +99,32 @@ export function BPVersionsHistoryModal({
             </DialogDescription>
           </DialogHeader>
 
-          {archivedCount > 0 && (
-            <div className="flex items-center justify-between gap-2 px-1">
-              <span className="text-xs text-muted-foreground">
-                {archivedCount} versão(ões) arquivada(s)
-              </span>
+          <div className="flex items-center justify-between gap-2 px-1">
+            <div className="flex items-center gap-2">
+              {canManage && !isSplit && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setOrphansOpen(true)}
+                  className="h-7 text-xs"
+                >
+                  <Link2 className="h-3.5 w-3.5 mr-1.5" />
+                  Auditar transações órfãs
+                </Button>
+              )}
+              {archivedCount > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {archivedCount} arquivada(s)
+                </span>
+              )}
+            </div>
+            {archivedCount > 0 && (
               <label className="flex items-center gap-2 text-xs cursor-pointer">
                 <span>Mostrar arquivadas</span>
                 <Switch checked={showArchived} onCheckedChange={setShowArchived} />
               </label>
-            </div>
-          )}
+            )}
+          </div>
 
           <ScrollArea className="flex-1 -mx-6 px-6">
             {isLoading ? (
