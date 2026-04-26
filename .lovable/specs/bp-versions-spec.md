@@ -391,11 +391,15 @@ Fica de fora desta primeira versão:
 4. **Fase 4 — Auto-criar v1**: trigger ao mudar evento para "Confirmado"/"Ativo"
 5. **Fase 5 — UI base**: card no topo do BP com versão ativa + botão "Congelar"
 6. **Fase 6 — Timeline e histórico**: página/modal de versões com cards e arquivamento
-7. **Fase 7 — Comparação**: vista lado-a-lado + cores + PDF
+7. **Fase 7 — Comparação 1-a-1**: vista lado-a-lado básica + cores + PDF
 8. **Fase 8 — Reconciliação automática**: lógica de auto-reconciliar ao aprovar versão (§11)
 9. **Fase 9 — Reverter/descartar**: botão destrutivo com confirmação + bloqueio por transações ligadas (§4.1)
 10. **Fase 10 — Geração de transações**: escolha da fonte (versão ativa vs BP ao vivo)
 11. **Fase 11 — Splits retroativos**: lógica para criar snapshot retroativo de Splits novos (§6.1)
 12. **Fase 12 — Portal do Sócio**: label discreto da versão ativa
 13. **Fase 13 — Permissões e cascade Trash**: RLS por role + cascade no Trash
-14. **Fase 14 — Polish e testes**: cenários canónicos, audit, edge cases
+14. **Fase 14 — Cenários (schema + UI)**: campos `scenario_label`, `scenario_assumptions`, `is_pinned_scenario` + agrupamento na timeline (§26)
+15. **Fase 15 — Multi-comparação 2-4 versões**: extensão da Fase 7 para suportar até 4 colunas (§27)
+16. **Fase 16 — Cenários nos relatórios**: dropdown "Comparar com" em DRE/PL/Análise de Resultados (§28)
+17. **Fase 17 — Promoção com modal de destino**: fluxo de decisão por cenário ao promover (§29)
+18. **Fase 18 — Polish e testes**: cenários canónicos, audit, edge cases
