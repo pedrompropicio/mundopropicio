@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Trash2, Check, X, Clock, Calendar, Copy } from "lucide-react";
+import { Plus, Trash2, Check, X, Clock, Calendar, Copy, Sparkles } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { DatePicker } from "@/components/ui/date-picker";
 import { formatDate } from "@/lib/mock-data";
 import { useAuth } from "@/contexts/AuthContext";
 import HelpTooltip from "@/components/HelpTooltip";
+import { useEventScenario } from "@/contexts/EventScenarioContext";
 
 interface Props {
   eventId: string;
@@ -25,7 +26,9 @@ const emptyForm: SessionForm = { date: "", label: "", start_time: "" };
 export function EventSessionsManager({ eventId, eventDate, eventStatus }: Props) {
   const queryClient = useQueryClient();
   const { isAdmin, isManager } = useAuth();
-  const canManage = (isAdmin || isManager) && eventStatus !== "completed";
+  const { selectedVersionId, isScenarioMode } = useEventScenario();
+  // Em modo cenário, mesmo eventos "completed" desbloqueiam edição (sandbox isolado)
+  const canManage = (isAdmin || isManager) && (eventStatus !== "completed" || isScenarioMode);
 
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
