@@ -64,10 +64,16 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
             </Button>
           )}
           {canManage && !isSplit && (
-            <Button size="sm" onClick={() => setFreezeOpen(true)}>
-              <Snowflake className="h-4 w-4 mr-1.5" />
-              Congelar v1
-            </Button>
+            <div className="flex items-center">
+              <Button size="sm" onClick={() => setFreezeOpen(true)}>
+                <Snowflake className="h-4 w-4 mr-1.5" />
+                Congelar v1
+              </Button>
+              <HelpTooltip
+                size={13}
+                text="Cria a primeira versão imutável do BP deste evento. Passa a ser a Versão Ativa de produção."
+              />
+            </div>
           )}
         </div>
         {!isSplit && (
