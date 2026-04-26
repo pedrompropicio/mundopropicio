@@ -334,9 +334,10 @@ export default function FormalidadeAudit() {
             {analysisRequested ? "Re-analisar" : "Analisar"}
           </Button>
 
-          {analysisRequested && data && (
+          {analysisRequested && data && lastAnalysisAt && (
             <span className="text-xs text-muted-foreground ml-auto">
-              {data.length} sugestão(ões) • {byEvent.size} evento(s)
+              Última análise: {lastAnalysisAt.toLocaleTimeString("pt-PT")} • {data.length}{" "}
+              sugestão(ões) em {byEvent.size} evento(s)
             </span>
           )}
         </CardContent>
