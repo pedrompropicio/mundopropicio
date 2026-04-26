@@ -80,8 +80,12 @@ function normalize(value: unknown): unknown {
 
 export function useActiveVersionDiff(eventId: string) {
   return useQuery<ActiveVersionDiff>({
-    queryKey: ["active-version-diff", eventId],
+    // Partilha o prefixo "event_forecasts" para que qualquer invalidação
+    // existente dos forecasts (criar/editar/eliminar linhas) faça este
+    // diff atualizar automaticamente — banner reativo sem F5.
+    queryKey: ["event_forecasts", eventId, "active-version-diff"],
     enabled: !!eventId,
+    staleTime: 0,
     queryFn: async () => {
       const { data: activeVersion, error: versionErr } = await supabase
         .from("bp_versions")
