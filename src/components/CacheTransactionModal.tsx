@@ -223,14 +223,14 @@ export function CacheTransactionModal({
       //     imported from XLSX as formula_type='fixed') that don't yet have a
       //     transaction associated.
       const { data: moduleForecasts } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("id, transaction_id, attachment_refs, description, formula_type")
         .eq("event_id", eventId)
         .eq("cache_config_id", cacheConfigId)
         .eq("formula_type", "cache_module");
 
       const { data: freeFormCacheForecasts } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("id, transaction_id, attachment_refs, description, formula_type")
         .eq("event_id", eventId)
         .ilike("description", "Cach%")

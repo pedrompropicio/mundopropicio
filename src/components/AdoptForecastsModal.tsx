@@ -77,7 +77,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
     queryKey: ["master_expense_category_ids", masterEventId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("category_id")
         .eq("event_id", masterEventId)
         .eq("type", "expense")
@@ -93,7 +93,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
     queryKey: ["sub_event_forecasts_for_adopt", childEventIds],
     queryFn: async () => {
       const { data, error } = await (supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("*, account_categories(code, name)") as any)
         .in("event_id", childEventIds)
         .is("master_forecast_id", null)
@@ -130,7 +130,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
       // Find which already have a forecast link
       const txIds = txs.map((t) => t.id);
       const { data: linkedFc, error: fcErr } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("transaction_id")
         .in("transaction_id", txIds);
       if (fcErr) throw fcErr;
@@ -329,7 +329,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
         // Buscar splits existentes (linhas no sub-evento já vinculadas ao master, sem tx ainda)
         const subEventIds = [...new Set(selectedTxs.map((t) => t.event_id))];
         const { data: existingSplits, error: splitErr } = await (supabase
-          .from("event_forecasts")
+          .from("event_forecasts")  // TODO_VERSION_FILTER
           .select("id, event_id, transaction_id") as any)
           .eq("master_forecast_id", masterForecastId)
           .in("event_id", subEventIds);

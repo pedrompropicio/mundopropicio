@@ -96,7 +96,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
     queryKey: ["fecho-overheads", allEventIds],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("id, event_id, type, amount, iva_rate, description, account_categories(code, name)")
         .in("event_id", allEventIds)
         .eq("is_overhead", true);
@@ -117,7 +117,7 @@ export function EventFecho({ eventId, eventName, childEventIds, parentEventId }:
       if (sErr) throw sErr;
       const n = (siblings ?? []).length || 1;
       const { data: oh, error: ohErr } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("id, event_id, type, amount, iva_rate, description, account_categories(code, name)")
         .eq("event_id", parentEventId)
         .eq("is_overhead", true);

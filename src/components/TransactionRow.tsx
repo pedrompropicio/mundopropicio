@@ -231,7 +231,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     queryFn: async () => {
       // Check if category exists in Master BP
       const { data: masterFc } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("id")
         .eq("event_id", parentTourEventId!)
         .eq("type", "expense")
@@ -240,7 +240,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
       if (!masterFc?.length) return { isLocal: false };
       // Check if this transaction is linked to a master forecast
       const { data: linkedFc } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("master_forecast_id")
         .eq("transaction_id", t.id)
         .not("master_forecast_id", "is", null)
@@ -641,7 +641,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                                 try {
                                   if (isLocalReinforcement) {
                                     const { data: masterFc } = await supabase
-                                      .from("event_forecasts")
+                                      .from("event_forecasts")  // TODO_VERSION_FILTER
                                       .select("id")
                                       .eq("event_id", parentTourEventId!)
                                       .eq("type", "expense")
@@ -665,7 +665,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                                     toast({ title: "Reclassificado como Rateio Master" });
                                   } else {
                                     const { data: linkedFc } = await supabase
-                                      .from("event_forecasts")
+                                      .from("event_forecasts")  // TODO_VERSION_FILTER
                                       .select("id")
                                       .eq("transaction_id", t.id)
                                       .not("master_forecast_id", "is", null);

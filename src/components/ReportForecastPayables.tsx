@@ -94,7 +94,7 @@ export default function ReportForecastPayables() {
   const { data: forecasts = [] } = useQuery({
     queryKey: ["all-forecasts"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("event_forecasts").select("*");
+      const { data, error } = await supabase.from("event_forecasts").select("*");  // TODO_VERSION_FILTER
       if (error) throw error;
       return data;
     },

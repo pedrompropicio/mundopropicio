@@ -419,7 +419,7 @@ export default function EventDetail() {
       // Fetch event data for trash
       const { data: eventData } = await supabase.from("events").select("*").eq("id", id!).single();
       const { data: eventDates } = await supabase.from("event_dates").select("*").eq("event_id", id!);
-      const { data: forecasts } = await supabase.from("event_forecasts").select("*").eq("event_id", id!);
+      const { data: forecasts } = await supabase.from("event_forecasts").select("*").eq("event_id", id!);  // TODO_VERSION_FILTER
 
       if (eventData) {
         await moveToTrash({
@@ -436,7 +436,7 @@ export default function EventDetail() {
 
       // Delete related data first
       await supabase.from("event_dates").delete().eq("event_id", id!);
-      await supabase.from("event_forecasts").delete().eq("event_id", id!);
+      await supabase.from("event_forecasts").delete().eq("event_id", id!);  // TODO_VERSION_FILTER_WRITE
       await supabase.from("event_cache_configs").delete().eq("event_id", id!);
       // Delete ticket lots via zones
       const { data: zones } = await supabase.from("event_ticket_zones").select("id").eq("event_id", id!);
@@ -1076,7 +1076,7 @@ export default function EventDetail() {
                   subEvents={subEvents}
                   onCopy={async (sourceId: string) => {
                     const { data: sourceForecasts } = await supabase
-                      .from("event_forecasts")
+                      .from("event_forecasts")  // TODO_VERSION_FILTER
                       .select("*")
                       .eq("event_id", sourceId);
                     if (!sourceForecasts || sourceForecasts.length === 0) {

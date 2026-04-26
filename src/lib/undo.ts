@@ -169,7 +169,7 @@ async function revertAdoptToMaster(r: UndoActionRecord) {
   // 3) If a new Master line was created, delete it (only if it has no remaining children)
   if (createdMasterId) {
     const { data: remainingChildren } = await (supabase as any)
-      .from("event_forecasts")
+      .from("event_forecasts")  // TODO_VERSION_FILTER
       .select("id")
       .eq("master_forecast_id", createdMasterId)
       .limit(1);

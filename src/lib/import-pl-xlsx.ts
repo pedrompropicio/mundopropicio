@@ -488,7 +488,7 @@ export async function importPLToEvent(
       }
 
       const { data: existingForecasts } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("type, category_id, amount")
         .eq("event_id", eventId);
 
@@ -805,7 +805,7 @@ export async function attachLinksFromXlsx(
   // (iva_rate is needed so we can also try matching by gross value, since the
   // XLSX BP can store either net or gross amounts in column F).
   const { data: forecasts, error: forecastErr } = await supabase
-    .from("event_forecasts")
+    .from("event_forecasts")  // TODO_VERSION_FILTER
     .select("id, event_id, description, amount, iva_rate, transaction_id, attachment_refs")
     .in("event_id", lookupEventIds);
 
@@ -1024,7 +1024,7 @@ export async function reprocessOrphanAttachments(
   const lookupEventIds = Array.from(new Set([...primaryEventIds, masterEventId]));
 
   const { data: forecasts, error: fErr } = await supabase
-    .from("event_forecasts")
+    .from("event_forecasts")  // TODO_VERSION_FILTER
     .select("id, event_id, description, amount, iva_rate, transaction_id, attachment_refs")
     .in("event_id", lookupEventIds);
   if (fErr) {

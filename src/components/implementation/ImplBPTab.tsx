@@ -144,7 +144,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     queryKey: ["impl-forecasts", selectedEventId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("*, account_categories:category_id(id, name, code)")
         .eq("event_id", selectedEventId)
         .order("created_at");
@@ -244,7 +244,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
       const counts: Record<string, number> = {};
       for (const eid of allEventIds) {
         const { count, error } = await supabase
-          .from("event_forecasts")
+          .from("event_forecasts")  // TODO_VERSION_FILTER
           .select("id", { count: "exact", head: true })
           .eq("event_id", eid)
           .eq("type", "expense");
@@ -260,7 +260,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     queryFn: async () => {
       // Get all forecast IDs for these events
       const { data: eventForecasts, error: fErr } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("id")
         .in("event_id", allEventIds);
       if (fErr || !eventForecasts || eventForecasts.length === 0) return [];
@@ -495,7 +495,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
     let existingMasterForecasts: any[] = [];
     if (masterEvent) {
       const { data } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("*, account_categories:category_id(id, name, code)")
         .eq("event_id", masterEvent.id)
         .eq("type", "expense");
@@ -901,7 +901,7 @@ export function ImplBPTab({ implementation, event, allEvents, eventDates = [], e
 
           // Fetch existing master forecasts for matching
           const { data: existingMasterForecasts } = await supabase
-            .from("event_forecasts")
+            .from("event_forecasts")  // TODO_VERSION_FILTER
             .select("*, account_categories(code, name)")
             .eq("event_id", selectedEventId)
             .eq("type", "expense");

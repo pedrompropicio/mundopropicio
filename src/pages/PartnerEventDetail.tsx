@@ -90,7 +90,7 @@ export default function PartnerEventDetail() {
     queryFn: async () => {
       const [zonesRes, forecastsRes, txRes, sessionsRes, activeVersionRes] = await Promise.all([
         supabase.from("event_ticket_zones").select("*, event_ticket_lots(*)").eq("event_id", activeEventId),
-        supabase.from("event_forecasts").select("*, account_categories(id, code, name, parent_id)").eq("event_id", activeEventId).order("created_at"),
+        supabase.from("event_forecasts").select("*, account_categories(id, code, name, parent_id)").eq("event_id", activeEventId).order("created_at"),  // TODO_VERSION_FILTER
         supabase.from("transactions").select("*, account_categories(id, code, name, parent_id)").eq("event_id", activeEventId).order("date", { ascending: false }),
         supabase.from("event_sessions").select("id, label, date, start_time, sort_order").eq("event_id", activeEventId).order("sort_order"),
         supabase.from("bp_versions").select("version_number, approved_at, description").eq("event_id", activeEventId).eq("state", "active").maybeSingle(),

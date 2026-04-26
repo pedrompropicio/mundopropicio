@@ -398,7 +398,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     queryKey: ["linked-forecast", transaction.id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("id")
         .eq("transaction_id", transaction.id)
         .maybeSingle();

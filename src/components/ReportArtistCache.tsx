@@ -121,7 +121,7 @@ export default function ReportArtistCache() {
     queryKey: ["cache-report-forecasts", selectedEventId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("*")
         .eq("event_id", selectedEventId);
       if (error) throw error;

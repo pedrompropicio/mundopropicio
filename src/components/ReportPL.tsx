@@ -422,7 +422,7 @@ export default function ReportPL() {
   const { data: forecasts = [] } = useQuery({
     queryKey: ["all-forecasts"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("event_forecasts").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("event_forecasts").select("*").order("created_at", { ascending: false });  // TODO_VERSION_FILTER
       if (error) throw error;
       return data;
     },

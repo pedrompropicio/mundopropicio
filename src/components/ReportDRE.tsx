@@ -294,7 +294,7 @@ export default function ReportDRE() {
     queryKey: ["closing-costs-all"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("id, event_id, amount, description, category_id, account_categories(code, name)")
         .eq("is_overhead", true);
       if (error) throw error;

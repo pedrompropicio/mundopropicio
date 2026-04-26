@@ -82,7 +82,7 @@ async function fetchEventBundle(eventId: string) {
       .eq("id", eventId)
       .maybeSingle(),
     supabase
-      .from("event_forecasts")
+      .from("event_forecasts")  // TODO_VERSION_FILTER
       .select("*, account_categories(code, name)")
       .eq("event_id", eventId)
       .order("type")

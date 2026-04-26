@@ -402,7 +402,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     queryKey: ["event_forecasts_budget", form.event_id, forecastEventIds],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("id, event_id, type, category_id, amount, status, description, iva_rate, specification")
         .in("event_id", forecastEventIds);
       if (error) throw error;
@@ -431,7 +431,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     queryKey: ["master_linked_tx_ids", effectiveEventId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("transaction_id")
         .eq("event_id", effectiveEventId!)
         .not("transaction_id", "is", null);
@@ -668,7 +668,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     queryFn: async () => {
       if (splitParentEventIds.length === 0) return [];
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("event_id, type, category_id, amount")
         .in("event_id", splitParentEventIds);
       if (error) throw error;
@@ -682,7 +682,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     queryFn: async () => {
       if (splitEventIds.length === 0) return [];
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("event_id, type, category_id, amount")
         .in("event_id", splitEventIds);
       if (error) throw error;

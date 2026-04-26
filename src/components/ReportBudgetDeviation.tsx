@@ -39,7 +39,7 @@ export default function ReportBudgetDeviation() {
     queryFn: async () => {
       if (!selectedEventId) return [];
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("category_id, amount, type")
         .eq("event_id", selectedEventId)
         .eq("type", "expense");

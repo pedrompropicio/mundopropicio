@@ -36,7 +36,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
     queryKey: ["source_forecast_count", selectedEventId],
     queryFn: async () => {
       const { count, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("*", { count: "exact", head: true })
         .eq("event_id", selectedEventId!);
       if (error) throw error;
@@ -51,7 +51,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
 
       // Fetch source forecasts
       const { data: sourceForecasts, error: fetchErr } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("*")
         .eq("event_id", selectedEventId);
       if (fetchErr) throw fetchErr;
@@ -62,7 +62,7 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
       // If replace mode, delete existing forecasts
       if (mode === "replace" && existingForecastCount > 0) {
         const { error: delErr } = await supabase
-          .from("event_forecasts")
+          .from("event_forecasts")  // TODO_VERSION_FILTER_WRITE
           .delete()
           .eq("event_id", targetEventId);
         if (delErr) throw delErr;

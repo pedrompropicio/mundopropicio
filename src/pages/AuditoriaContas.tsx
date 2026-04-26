@@ -163,7 +163,7 @@ function AnaliseIATab() {
 
       // Fetch BP forecasts (expense)
       const { data: bps, error: bpErr } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("id, description, specification, category_id, event_id, type")
         .in("event_id", eventIds)
         .eq("type", "expense");
@@ -693,7 +693,7 @@ function RenumberTab() {
   }
 
   async function fetchImpact(catIds: string[]) {
-    const { data: bps } = await supabase.from("event_forecasts").select("category_id").in("category_id", catIds);
+    const { data: bps } = await supabase.from("event_forecasts").select("category_id").in("category_id", catIds);  // TODO_VERSION_FILTER
     const { data: txs } = await supabase.from("transactions").select("category_id").in("category_id", catIds);
     const out: { catId: string; bp: number; tx: number }[] = catIds.map((id) => ({
       catId: id,

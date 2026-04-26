@@ -33,7 +33,7 @@ export default function ReportPendencyIndex() {
     queryKey: ["pendency-forecasts"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("id, status, event_id, description, events(name)")
         .eq("status", "pending");
       if (error) throw error;

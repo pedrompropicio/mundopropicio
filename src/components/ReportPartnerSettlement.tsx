@@ -68,7 +68,7 @@ export default function ReportPartnerSettlement() {
     queryKey: ["settlement-overheads"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("event_id, amount, status, is_overhead")
         .eq("is_overhead", true)
         .eq("status", "approved");

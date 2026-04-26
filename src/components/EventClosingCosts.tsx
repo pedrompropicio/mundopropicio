@@ -43,7 +43,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
     queryKey: ["event-overhead-forecasts", eventId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("*, account_categories(code, name, type), master:master_forecast_id(id, description, amount, account_categories(code, name))")
         .eq("event_id", eventId)
         .eq("is_overhead", true)
@@ -81,7 +81,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
       const ids = [eventId];
       if (eventInfo?.parent_event_id) ids.push(eventInfo.parent_event_id);
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("category_id, event_id")
         .in("event_id", ids)
         .eq("is_overhead", false)
@@ -100,7 +100,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
       const ids = [eventId];
       if (eventInfo?.parent_event_id) ids.push(eventInfo.parent_event_id);
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("id, event_id, type, description, amount, iva_rate, account_categories(code, name)")
         .in("event_id", ids)
         .eq("is_overhead", true)

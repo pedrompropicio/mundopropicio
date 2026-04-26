@@ -117,7 +117,7 @@ export function ResultsAnalysis() {
     queryKey: ["ra_forecasts_v2"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("id, event_id, type, amount, category_id");
       if (error) throw error;
       return data;
@@ -161,7 +161,7 @@ export function ResultsAnalysis() {
     queryKey: ["ra_closing_costs"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("id, event_id, amount")
         .eq("is_overhead", true);
       if (error) throw error;

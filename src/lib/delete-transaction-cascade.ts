@@ -86,7 +86,7 @@ export async function deleteTransactionCascade({
 
   // 4) Detach BP forecasts (frees budget)
   await supabase
-    .from("event_forecasts")
+    .from("event_forecasts")  // TODO_VERSION_FILTER_WRITE
     .update({ transaction_id: null })
     .in("transaction_id", allIds);
 

@@ -249,14 +249,14 @@ async function syncTourCacheForecasts(
   // 2. Fetch expense forecasts per child (for deduction calculation)
   const allTargetIds = [...childEventIds, masterEventId];
   const { data: existingForecasts } = await supabase
-    .from("event_forecasts")
+    .from("event_forecasts")  // TODO_VERSION_FILTER
     .select("id, event_id, cache_config_id, amount, type, category_id")
     .in("event_id", allTargetIds)
     .not("cache_config_id", "is", null);
 
   // Also fetch non-cache expense forecasts per child for deduction calc
   const { data: childExpenseForecasts } = await supabase
-    .from("event_forecasts")
+    .from("event_forecasts")  // TODO_VERSION_FILTER
     .select("event_id, type, category_id, amount, iva_rate, cache_config_id")
     .in("event_id", childEventIds)
     .eq("type", "expense")
@@ -345,7 +345,7 @@ async function syncTourCacheForecasts(
 
   // 5. Clean up orphan cache forecasts (formula_type='cache_module' but cache_config_id IS NULL)
   const { data: orphanCacheForecasts } = await supabase
-    .from("event_forecasts")
+    .from("event_forecasts")  // TODO_VERSION_FILTER
     .select("id")
     .in("event_id", [...childEventIds, masterEventId])
     .eq("type", "expense")
@@ -416,7 +416,7 @@ async function syncSimpleCacheForecasts(
   }
 
   const { data: existingForecasts } = await supabase
-    .from("event_forecasts")
+    .from("event_forecasts")  // TODO_VERSION_FILTER
     .select("id, cache_config_id, amount")
     .eq("event_id", eventId)
     .not("cache_config_id", "is", null);
@@ -476,7 +476,7 @@ async function syncSimpleCacheForecasts(
 
   // Clean up orphan cache forecasts (formula_type='cache_module' but cache_config_id IS NULL)
   const { data: simpleOrphanForecasts } = await supabase
-    .from("event_forecasts")
+    .from("event_forecasts")  // TODO_VERSION_FILTER
     .select("id")
     .eq("event_id", eventId)
     .eq("type", "expense")

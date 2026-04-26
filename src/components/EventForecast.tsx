@@ -226,7 +226,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     queryKey: ["event_forecasts", eventId, forecastEventIds.join(","), includeSubsInBP],
     queryFn: async () => {
       const query = supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("*, account_categories(code, name, type)")
         .in("event_id", forecastEventIds)
         .order("type")
@@ -251,7 +251,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       if (sErr) throw sErr;
       const n = (siblings ?? []).length || 1;
       const { data: oh, error: ohErr } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("*, account_categories(code, name, type)")
         .eq("event_id", parentEventId)
         .eq("is_overhead", true);
@@ -318,7 +318,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       if (masterForecastIds.length === 0) return [] as any[];
       // master_forecast_id is a new column not yet in types, use filter
       const { data, error } = await (supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("*, account_categories(code, name)") as any)
         .in("master_forecast_id", masterForecastIds);
       if (error) throw error;
@@ -514,7 +514,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     queryKey: ["parent_event_forecasts", parentEventId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("*, account_categories(code, name, type)")
         .eq("event_id", parentEventId!)
         .eq("type", "expense")
@@ -783,7 +783,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       }
       // Fetch full data before deleting
       const { data: forecastData } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("*")
         .eq("id", id)
         .single();

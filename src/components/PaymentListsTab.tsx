@@ -81,7 +81,7 @@ function useForecastLookup(eventIds: string[]) {
     queryFn: async () => {
       if (uniqueEventIds.length === 0) return [];
       const { data, error } = await supabase
-        .from("event_forecasts")
+        .from("event_forecasts")  // TODO_VERSION_FILTER
         .select("event_id, category_id, amount, description")
         .in("event_id", uniqueEventIds)
         .eq("type", "expense")
