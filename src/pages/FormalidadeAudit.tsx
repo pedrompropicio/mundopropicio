@@ -10,7 +10,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { formatCurrency } from "@/lib/currency";
+import { formatInCurrency } from "@/lib/currency";
+
+const formatCurrency = (v: number) => formatInCurrency(v ?? 0, "EUR");
 import { FORMALIDADE_OPTIONS, FormalidadeState } from "@/components/bp-versions/FormalidadeBadge";
 import { Sparkles, Shield, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 
