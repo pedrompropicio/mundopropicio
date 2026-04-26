@@ -150,6 +150,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [promoteCandidates, setPromoteCandidates] = useState<PromoteCandidate[]>([]);
   const [showPromoteModal, setShowPromoteModal] = useState(false);
   const [showOrphanResolver, setShowOrphanResolver] = useState(false);
+  // Cenário ativo na vista (null = versão Ativa). Quando definido, todas as queries
+  // e mutações de event_forecasts operam dentro desse working_draft.
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  const isScenarioMode = selectedVersionId !== null;
   const queryClient = useQueryClient();
   const { isAdmin: rawIsAdmin, isManager: rawIsManager, user, hasPermission } = useAuth();
   // forceReadOnly disables all admin/manager UI affordances so the same
