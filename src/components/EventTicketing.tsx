@@ -19,6 +19,9 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useEventScenario } from "@/contexts/EventScenarioContext";
+import { BPScenarioSelector } from "@/components/bp-versions/BPScenarioSelector";
+import { Sparkles } from "lucide-react";
 
 interface Props {
   eventId: string;
