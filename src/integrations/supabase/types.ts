@@ -1446,6 +1446,7 @@ export type Database = {
           transaction_id: string | null
           type: string
           updated_at: string
+          version_id: string | null
         }
         Insert: {
           amount?: number
@@ -1478,6 +1479,7 @@ export type Database = {
           transaction_id?: string | null
           type: string
           updated_at?: string
+          version_id?: string | null
         }
         Update: {
           amount?: number
@@ -1510,6 +1512,7 @@ export type Database = {
           transaction_id?: string | null
           type?: string
           updated_at?: string
+          version_id?: string | null
         }
         Relationships: [
           {
@@ -1545,6 +1548,13 @@ export type Database = {
             columns: ["transaction_id"]
             isOneToOne: false
             referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_forecasts_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "bp_versions"
             referencedColumns: ["id"]
           },
         ]
@@ -3862,6 +3872,15 @@ export type Database = {
         }
         Returns: string
       }
+      create_scenario_draft: {
+        Args: {
+          _description?: string
+          _event_id: string
+          _scenario_assumptions?: Json
+          _scenario_label: string
+        }
+        Returns: string
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -3872,6 +3891,10 @@ export type Database = {
           _performed_by_label?: string
           _version_id: string
         }
+        Returns: undefined
+      }
+      discard_scenario_draft: {
+        Args: { _version_id: string }
         Returns: undefined
       }
       enqueue_email: {
@@ -3943,6 +3966,14 @@ export type Database = {
           source_queue: string
         }
         Returns: number
+      }
+      promote_scenario_draft_to_active: {
+        Args: {
+          _new_active_description?: string
+          _new_active_label?: string
+          _scenario_version_id: string
+        }
+        Returns: string
       }
       promote_scenario_to_active: {
         Args: {

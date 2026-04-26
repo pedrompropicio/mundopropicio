@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getAuditUser } from "@/lib/audit";
 import { toast } from "sonner";
 
-export type BPVersionState = "draft" | "active" | "superseded" | "archived";
+export type BPVersionState = "draft" | "active" | "superseded" | "archived" | "working_draft";
 
 export interface BPVersionRow {
   id: string;
@@ -370,5 +370,85 @@ export function useRelinkOrphanTransactions(eventId: string) {
       }
     },
     onError: (err: any) => toast.error(err?.message ?? "Falha ao revincular"),
+  });
+}
+
+// ─── Working-draft scenarios (sandbox editável paralela à Ativa) ───────────
+
+/** Cria um cenário working_draft clonando linhas da Ativa (cascateia em turnês). */
+export function useCreateScenarioDraft(eventId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      scenarioLabel: string;
+      description?: string | null;
+      scenarioAssumptions?: Record<string, any> | null;
+    }) => {
+      const { data, error } = await supabase.rpc("create_scenario_draft" as any, {
+        _event_id: eventId,
+        _scenario_label: input.scenarioLabel,
+        _scenario_assumptions: (input.scenarioAssumptions ?? null) as any,
+        _description: input.description ?? null,
+      });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: (_id, vars) => {
+      qc.invalidateQueries({ queryKey: versionsKey(eventId) });
+      qc.invalidateQueries({ queryKey: ["event-forecasts"] });
+      qc.invalidateQueries({ queryKey: ["forecasts"] });
+      toast.success(`Cenário "${vars.scenarioLabel}" criado e pronto para editar`);
+    },
+    onError: (err: any) => toast.error(err?.message ?? "Falha ao criar cenário"),
+  });
+}
+
+/** Apaga um cenário working_draft (e cascade nos Splits). */
+export function useDiscardScenarioDraft(eventId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (versionId: string) => {
+      const { error } = await supabase.rpc("discard_scenario_draft" as any, {
+        _version_id: versionId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: versionsKey(eventId) });
+      qc.invalidateQueries({ queryKey: ["event-forecasts"] });
+      qc.invalidateQueries({ queryKey: ["forecasts"] });
+      toast.success("Cenário descartado");
+    },
+    onError: (err: any) => toast.error(err?.message ?? "Falha ao descartar cenário"),
+  });
+}
+
+/** Promove um cenário working_draft a Ativa (cascade Master→Splits). */
+export function usePromoteScenarioDraft(eventId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      scenarioVersionId: string;
+      newActiveLabel?: string | null;
+      newActiveDescription?: string | null;
+    }) => {
+      const { data, error } = await supabase.rpc(
+        "promote_scenario_draft_to_active" as any,
+        {
+          _scenario_version_id: input.scenarioVersionId,
+          _new_active_label: input.newActiveLabel ?? null,
+          _new_active_description: input.newActiveDescription ?? null,
+        }
+      );
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: versionsKey(eventId) });
+      qc.invalidateQueries({ queryKey: ["event-forecasts"] });
+      qc.invalidateQueries({ queryKey: ["forecasts"] });
+      toast.success("Cenário promovido — agora é a versão Ativa");
+    },
+    onError: (err: any) => toast.error(err?.message ?? "Falha ao promover cenário"),
   });
 }
