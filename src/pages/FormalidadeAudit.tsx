@@ -251,7 +251,10 @@ export default function FormalidadeAudit() {
   const runAnalysis = () => {
     setAnalysisRequested(true);
     setLastApplied(null);
-    if (analysisRequested) refetch();
+    if (analysisRequested) {
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ["formalidade-audit-stats"] });
+    }
   };
 
   const selectedEventsLabel =
