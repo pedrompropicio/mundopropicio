@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Archive, ArchiveRestore, Trash2, GitBranch, Layers, Sparkles,
-  CheckCircle2, FileText, History as HistoryIcon, Clock,
+  CheckCircle2, FileText, History as HistoryIcon, Clock, RotateCcw, AlertTriangle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
@@ -21,6 +21,8 @@ import {
   useArchiveBPVersion,
   useUnarchiveBPVersion,
   useDiscardBPVersionDraft,
+  useRevertBPVersion,
+  useBPLinkedTxCount,
   type BPVersionRow,
 } from "@/hooks/useBPVersions";
 
