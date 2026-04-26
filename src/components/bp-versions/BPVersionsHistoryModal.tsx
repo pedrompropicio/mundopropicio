@@ -308,6 +308,11 @@ export function BPVersionsHistoryModal({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <OrphanTransactionsReviewModal
+        open={orphansOpen}
+        onOpenChange={setOrphansOpen}
+        eventId={eventId}
+      />
     </>
   );
 }
