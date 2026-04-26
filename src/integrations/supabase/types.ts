@@ -3944,6 +3944,36 @@ export type Database = {
         }
         Returns: undefined
       }
+      analyze_formalidade_bulk: {
+        Args: { _event_ids?: string[] }
+        Returns: {
+          approved_total: number
+          bp_amount: number
+          category_code: string
+          category_name: string
+          confidence: string
+          current_formalidade: Database["public"]["Enums"]["bp_formalidade"]
+          description: string
+          event_id: string
+          event_name: string
+          forecast_id: string
+          has_transaction: boolean
+          paid_total: number
+          reason: string
+          suggested_formalidade: Database["public"]["Enums"]["bp_formalidade"]
+        }[]
+      }
+      apply_formalidade_suggestions: {
+        Args: {
+          _forecast_ids: string[]
+          _new_state: Database["public"]["Enums"]["bp_formalidade"]
+        }
+        Returns: number
+      }
+      apply_formalidade_suggestions_map: {
+        Args: { _payload: Json }
+        Returns: number
+      }
       archive_bp_version: {
         Args: {
           _performed_by?: string
