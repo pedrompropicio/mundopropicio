@@ -689,8 +689,17 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
     exportBPTransactionsToPDF(pdfData, mode);
   };
 
+  // Evento âncora para versões: Master se for sub, próprio caso contrário
+  const scenarioAnchorEventId = parentEventId ?? (selectedEventId || null);
+
   return (
     <div className="space-y-4">
+      <ReportScenarioSelector
+        eventId={scenarioAnchorEventId}
+        isMultiEvent={false}
+        value={scenarioVersionId}
+        onChange={setScenarioVersionId}
+      />
       <div className="flex flex-wrap items-center gap-3">
         <Select value={selectedEventId} onValueChange={setSelectedEventId}>
           <SelectTrigger className="w-80">
