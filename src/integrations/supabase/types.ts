@@ -3827,6 +3827,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      archive_bp_version: {
+        Args: {
+          _performed_by?: string
+          _performed_by_label?: string
+          _version_id: string
+        }
+        Returns: undefined
+      }
       create_bp_snapshot: {
         Args: {
           _approve_immediately?: boolean
@@ -3843,6 +3851,14 @@ export type Database = {
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
+      }
+      discard_bp_version_draft: {
+        Args: {
+          _performed_by?: string
+          _performed_by_label?: string
+          _version_id: string
+        }
+        Returns: undefined
       }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
@@ -3903,6 +3919,14 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      unarchive_bp_version: {
+        Args: {
+          _performed_by?: string
+          _performed_by_label?: string
+          _version_id: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
