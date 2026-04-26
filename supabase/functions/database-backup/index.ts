@@ -139,6 +139,26 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Cron gate: o agendamento corre 2x por dia (02:00 e 03:00 UTC) para cobrir
+    // horário de inverno e verão de Lisboa. Só executa se a hora local for 03:00.
+    // Chamadas manuais (com user admin, não machine) saltam esta verificação.
+    if (isMachine) {
+      const lisbonHour = Number(
+        new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Europe/Lisbon",
+          hour: "2-digit",
+          hour12: false,
+        }).format(new Date()),
+      );
+      if (lisbonHour !== 3) {
+        console.log(`[database-backup] Skipping run: Lisbon hour=${lisbonHour}, expected 03`);
+        return new Response(
+          JSON.stringify({ skipped: true, reason: "outside Europe/Lisbon 03:00 window", lisbonHour }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
     // Export all tables
     const backup: Record<string, unknown[]> = {};
     const errors: string[] = [];
