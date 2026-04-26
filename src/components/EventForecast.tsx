@@ -144,6 +144,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [inlineForm, setInlineForm] = useState<InlineForm>(emptyInline);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [pendingFechado, setPendingFechado] = useState<{ ids: string[]; trigger: string } | null>(null);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [editApprovedForecast, setEditApprovedForecast] = useState<any>(null);
   const [importingXlsx, setImportingXlsx] = useState(false);
