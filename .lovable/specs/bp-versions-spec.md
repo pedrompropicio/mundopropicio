@@ -309,8 +309,77 @@ Transação lançada via **bypass** porque excedia a verba da categoria. Tem `pl
 - Lock pessimista (decidido: sem lock)
 - Rascunhos pessoais por utilizador (decidido: edições são imediatas e partilhadas)
 - Notificações automáticas (decidido: sem)
-- Dropdown "BP base" em relatórios (decidido: sempre BP ao vivo)
 - Labels customizadas / major.minor (decidido: numeração sequencial simples)
+
+---
+
+## 26. Cenários múltiplos (versões nomeadas para análise comparativa)
+
+**Caso de uso**: durante a venda de bilhetes, a previsão de público pode oscilar (ex: BP previa 20k, vendas indicam 12k). Equipa precisa modelar **vários cenários em paralelo** (pessimista / base / otimista) sem promover nenhum, e compará-los entre si e contra o realizado.
+
+### 26.1 Modelo de dados — campos extra em `bp_versions`
+- `scenario_label` (text, nullable) — nome curto do cenário: "Pessimista 12k", "Base 16k", "Otimista 20k". Quando preenchido, a versão é **um cenário** (não uma simples revisão).
+- `scenario_assumptions` (jsonb, nullable) — pressupostos estruturados: `{ publico_estimado: 12000, ticket_medio: 35, ocupacao_pct: 60, notas: "..." }`. Renderizados como chips no card.
+- `is_pinned_scenario` (bool, default false) — cenários "fixados" aparecem sempre na multi-comparação e nos seletores de relatórios. Limite: até **4 cenários fixados** por evento simultaneamente.
+
+### 26.2 Estados aplicáveis
+- Cenários vivem como **rascunhos** (estado `draft`) com `scenario_label` preenchido
+- Não substituem a versão ativa nem entram em "superseded" — ficam vivos para análise
+- Podem ser promovidos a ativos a qualquer momento (vira o BP oficial e perde o estatuto de cenário)
+- Podem ser descartados como qualquer rascunho
+
+### 26.3 UI — Timeline com agrupamento
+- Timeline divide visualmente: **"Versões oficiais"** (ativa + superseded + arquivadas) e **"Cenários de trabalho"** (rascunhos com `scenario_label`)
+- Cada card de cenário mostra: label, pressupostos como chips, total receita/custo/margem, autor, data
+- Botão **"Fixar para comparação"** (toggle, máx 4)
+
+---
+
+## 27. Multi-comparação (até 4 versões lado a lado)
+
+- Substitui a comparação 1-a-1 da §10
+- Seletor permite escolher **2 a 4 versões** quaisquer (ativa + cenários fixados pré-selecionados por defeito)
+- Tabela com colunas dinâmicas: `Linha BP | v3 (ativa) | Pessimista 12k | Base 16k | Otimista 20k`
+- Linha de **totais por categoria** (Receitas, Custos diretos, Custos indiretos, Margem) destacada
+- Cores: verde se cenário X > ativa, vermelho se <, neutro se igual
+- Export PDF mantém todas as colunas selecionadas
+- Filtro "só mostrar linhas com diferenças entre as N versões"
+
+---
+
+## 28. Cenários nos relatórios (DRE / PL / Análise de Resultados)
+
+- DRE, PL e Análise de Resultados ganham **dropdown "Comparar com"** no topo
+  - Opções: "Nenhum (só real)", "BP ao vivo", "Versão ativa vX", "Cenário: Pessimista 12k", "Cenário: Base 16k", etc.
+  - Por defeito: "BP ao vivo" (comportamento atual preservado)
+- Quando seleciona uma versão/cenário, surge **coluna extra "vs [nome]"** com o gap absoluto e %
+- Permite mostrar a sócios/equipa: "Real até hoje vs cenário pessimista que assumimos em março"
+- Outros relatórios (Bilheteria, Vendas, Cashflow, etc.) **continuam a usar só BP ao vivo** — escopo cirúrgico para evitar explosão de complexidade
+
+---
+
+## 29. Promoção de cenário a ativo — destino dos outros cenários
+
+Quando admin promove um cenário (ex: Pessimista 12k) a versão ativa:
+
+1. Modal pergunta: **"Tens 2 outros cenários vivos. O que fazer?"**
+2. Para cada cenário restante, opções individuais:
+   - **Manter vivo** (continua como rascunho-cenário, útil se ainda há incerteza)
+   - **Arquivar** (esconde da timeline mas guarda)
+   - **Apagar** (descarta — só rascunhos puros, com confirmação)
+3. Botões rápidos: "Manter todos" / "Arquivar todos" / "Decidir um a um"
+4. Audit log regista a decisão por cenário
+
+---
+
+## 24-bis. Fora do escopo (atualizado)
+
+Fica de fora desta primeira versão:
+- Branching efetivo de versões (cenários NÃO são branches Git — são snapshots paralelos sem merge)
+- Templates de cenário entre eventos
+- Mais de 4 cenários fixados em multi-comparação
+- Cenários no Portal do Sócio (sócio vê só ativa)
+- Auto-recálculo de cenários quando vendas mudam (cenários são snapshots, não fórmulas vivas)
 
 ---
 
