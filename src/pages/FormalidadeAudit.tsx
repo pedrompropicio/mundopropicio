@@ -650,3 +650,13 @@ function SuggestionTable({
     </ScrollArea>
   );
 }
+
+function StatBlock({ label, value, hint }: { label: string; value: number; hint?: string }) {
+  return (
+    <div className="rounded-md border bg-card p-2.5">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-lg font-semibold tabular-nums">{value}</div>
+      {hint && <div className="text-[10px] text-muted-foreground mt-0.5">{hint}</div>}
+    </div>
+  );
+}
