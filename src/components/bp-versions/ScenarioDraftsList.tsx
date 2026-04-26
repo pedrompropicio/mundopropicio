@@ -28,7 +28,7 @@ interface Props {
  * Em Splits, mostra cenários cascateados como read-only (gerir só no Master).
  */
 export function ScenarioDraftsList({ eventId, canManage, isMaster, isSplit }: Props) {
-  const { versions } = useBPVersions(eventId);
+  const { data: versions = [] } = useBPVersions(eventId);
   const discard = useDiscardScenarioDraft(eventId);
   const promote = usePromoteScenarioDraft(eventId);
   const [confirmDiscard, setConfirmDiscard] = useState<string | null>(null);
