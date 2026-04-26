@@ -3958,6 +3958,7 @@ export type Database = {
             Args: {
               _description?: string
               _force?: boolean
+              _other_scenarios_actions?: Json
               _performed_by?: string
               _performed_by_label?: string
               _scenario_version_id: string
