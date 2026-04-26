@@ -69,6 +69,13 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   const queryClient = useQueryClient();
   const { isAdmin, isManager, hasPermission } = useAuth();
   const { selectedVersionId, setSelectedVersionId, isScenarioMode } = useEventScenario();
+  const { data: bpVersions = [] } = useBPVersions(eventId);
+  const scenarioLabelForExport = useMemo(() => {
+    if (!selectedVersionId) return null;
+    const v = bpVersions.find((x) => x.id === selectedVersionId);
+    if (!v) return null;
+    return v.scenario_label ?? `v${v.version_number}`;
+  }, [selectedVersionId, bpVersions]);
   const isEventLocked = eventStatus === "completed" && !isScenarioMode; // sandbox unlocks edits
   const isEditor = !isAdmin && !isManager;
   const canEditTickets = isEventLocked ? false : isEditor ? eventStatus === "planning" : true;
