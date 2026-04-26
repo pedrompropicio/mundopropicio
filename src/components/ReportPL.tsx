@@ -402,6 +402,12 @@ export default function ReportPL() {
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [mode, setMode] = useState<PLMode>("forecast");
   const [showPdfDialog, setShowPdfDialog] = useState(false);
+  const [scenarioVersionId, setScenarioVersionId] = useState<string | null>(null);
+
+  // Reset cenário quando muda o conjunto de eventos selecionados
+  useEffect(() => {
+    setScenarioVersionId(null);
+  }, [selectedEventIds.join(",")]);
 
   const toggleAuditLine = (key: string) => {
     setExpandedAuditLines((prev) => {
@@ -421,13 +427,22 @@ export default function ReportPL() {
     },
   });
 
-  const { data: forecasts = [] } = useQuery({
+  const { data: activeForecasts = [] } = useQuery({
     queryKey: ["all-forecasts"],
     queryFn: async () => {
       const { data, error } = await supabase.from("event_forecasts").select("*").is("version_id", null).order("created_at", { ascending: false });
       return data;
     },
   });
+
+  const { data: scenarioForecasts = [] } = useScenarioForecasts(scenarioVersionId);
+
+  const forecasts = useMemo(() => {
+    if (!scenarioVersionId || (scenarioForecasts as any[]).length === 0) return activeForecasts;
+    const scenarioEventIds = new Set((scenarioForecasts as any[]).map((f) => f.event_id));
+    const filteredActive = (activeForecasts as any[]).filter((f) => !scenarioEventIds.has(f.event_id));
+    return [...filteredActive, ...(scenarioForecasts as any[])];
+  }, [activeForecasts, scenarioForecasts, scenarioVersionId]);
 
   const { data: transactions = [] } = useQuery({
     queryKey: ["transactions"],
