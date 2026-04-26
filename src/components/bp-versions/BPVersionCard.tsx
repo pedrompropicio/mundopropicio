@@ -245,6 +245,13 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
         eventId={eventId}
         eventName={eventName ?? "Evento"}
       />
+
+      <ActiveVersionDiffModal
+        open={diffOpen}
+        onOpenChange={setDiffOpen}
+        eventId={eventId}
+        canManage={canManage}
+      />
     </div>
 
     <ScenarioDraftsList
