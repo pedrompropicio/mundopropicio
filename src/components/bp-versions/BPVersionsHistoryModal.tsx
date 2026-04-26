@@ -127,10 +127,13 @@ export function BPVersionsHistoryModal({
                   versions={official}
                   isSplit={isSplit}
                   canManage={canManage}
+                  pinnedCount={pinnedCount}
                   onArchive={(id) => archive.mutate(id)}
                   onUnarchive={(id) => unarchive.mutate(id)}
                   onDiscard={(v) => setConfirmDiscard(v)}
                   onRevert={(v) => setConfirmRevert(v)}
+                  onPromote={(v) => setConfirmPromote(v)}
+                  onTogglePin={(v) => togglePin.mutate({ versionId: v.id, pinned: !v.is_pinned_scenario })}
                 />
                 {scenarios.length > 0 && (
                   <Section
@@ -139,10 +142,13 @@ export function BPVersionsHistoryModal({
                     versions={scenarios}
                     isSplit={isSplit}
                     canManage={canManage}
+                    pinnedCount={pinnedCount}
                     onArchive={(id) => archive.mutate(id)}
                     onUnarchive={(id) => unarchive.mutate(id)}
                     onDiscard={(v) => setConfirmDiscard(v)}
                     onRevert={(v) => setConfirmRevert(v)}
+                    onPromote={(v) => setConfirmPromote(v)}
+                    onTogglePin={(v) => togglePin.mutate({ versionId: v.id, pinned: !v.is_pinned_scenario })}
                   />
                 )}
               </div>
