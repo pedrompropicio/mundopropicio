@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,12 +9,23 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { toast } from "@/hooks/use-toast";
 import { formatInCurrency } from "@/lib/currency";
+import { FORMALIDADE_OPTIONS, FormalidadeState } from "@/components/bp-versions/FormalidadeBadge";
+import {
+  Sparkles,
+  Shield,
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  ChevronDown,
+  ChevronRight,
+  Filter,
+  Play,
+} from "lucide-react";
 
 const formatCurrency = (v: number) => formatInCurrency(v ?? 0, "EUR");
-import { FORMALIDADE_OPTIONS, FormalidadeState } from "@/components/bp-versions/FormalidadeBadge";
-import { Sparkles, Shield, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 
 interface Suggestion {
   forecast_id: string;
@@ -31,6 +42,11 @@ interface Suggestion {
   paid_total: number;
   approved_total: number;
   has_transaction: boolean;
+}
+
+interface EventOption {
+  id: string;
+  name: string;
 }
 
 const optionFor = (s: FormalidadeState) =>
@@ -50,18 +66,41 @@ function FormalidadeChip({ state }: { state: FormalidadeState }) {
 
 export default function FormalidadeAudit() {
   const queryClient = useQueryClient();
-  const [selectedLow, setSelectedLow] = useState<Set<string>>(new Set());
+  const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
+  const [analysisRequested, setAnalysisRequested] = useState(false);
   const [activeTab, setActiveTab] = useState<"high" | "low">("high");
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [collapsedEvents, setCollapsedEvents] = useState<Set<string>>(new Set());
+  const [lastApplied, setLastApplied] = useState<number | null>(null);
+
+  // Lista de eventos para o filtro
+  const { data: events = [] } = useQuery({
+    queryKey: ["events-for-formalidade-audit"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, name")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as EventOption[];
+    },
+  });
+
+  const eventIdsParam = useMemo(
+    () => (selectedEventIds.size === 0 ? null : Array.from(selectedEventIds)),
+    [selectedEventIds],
+  );
 
   const { data, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ["formalidade-audit-bulk"],
+    queryKey: ["formalidade-audit-bulk", eventIdsParam?.join(",") ?? "ALL"],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("analyze_formalidade_bulk", {
-        _event_ids: null,
+        _event_ids: eventIdsParam,
       });
       if (error) throw error;
       return (data ?? []) as Suggestion[];
     },
+    enabled: analysisRequested,
   });
 
   const { high, low, byEvent } = useMemo(() => {
@@ -77,6 +116,15 @@ export default function FormalidadeAudit() {
     return { high: h, low: l, byEvent: grouped };
   }, [data]);
 
+  // Pré-seleciona todas as alta-confiança quando carrega
+  useEffect(() => {
+    if (data && data.length > 0) {
+      setSelectedRows(new Set(data.filter((s) => s.confidence === "high").map((s) => s.forecast_id)));
+    } else {
+      setSelectedRows(new Set());
+    }
+  }, [data]);
+
   const applyMapMutation = useMutation({
     mutationFn: async (items: Array<{ forecast_id: string; new_state: FormalidadeState }>) => {
       const { data, error } = await supabase.rpc("apply_formalidade_suggestions_map", {
@@ -86,11 +134,12 @@ export default function FormalidadeAudit() {
       return data as number;
     },
     onSuccess: (count) => {
+      setLastApplied(count);
       toast({
         title: "Sugestões aplicadas",
         description: `${count} linha(s) atualizada(s).`,
       });
-      setSelectedLow(new Set());
+      setSelectedRows(new Set());
       queryClient.invalidateQueries({ queryKey: ["formalidade-audit-bulk"] });
       queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
     },
@@ -103,18 +152,10 @@ export default function FormalidadeAudit() {
     },
   });
 
-  const applyAllHigh = () => {
-    const payload = high.map((s) => ({
-      forecast_id: s.forecast_id,
-      new_state: s.suggested_formalidade,
-    }));
-    if (!payload.length) return;
-    applyMapMutation.mutate(payload);
-  };
-
-  const applySelectedLow = () => {
-    const payload = low
-      .filter((s) => selectedLow.has(s.forecast_id))
+  const applySelected = () => {
+    const list = data ?? [];
+    const payload = list
+      .filter((s) => selectedRows.has(s.forecast_id))
       .map((s) => ({
         forecast_id: s.forecast_id,
         new_state: s.suggested_formalidade,
@@ -126,8 +167,8 @@ export default function FormalidadeAudit() {
     applyMapMutation.mutate(payload);
   };
 
-  const toggleLow = (id: string) => {
-    setSelectedLow((prev) => {
+  const toggleRow = (id: string) => {
+    setSelectedRows((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -135,41 +176,152 @@ export default function FormalidadeAudit() {
     });
   };
 
-  const toggleAllLow = () => {
-    if (selectedLow.size === low.length) setSelectedLow(new Set());
-    else setSelectedLow(new Set(low.map((s) => s.forecast_id)));
+  const toggleEventGroup = (eventId: string, checked: boolean, items: Suggestion[]) => {
+    setSelectedRows((prev) => {
+      const next = new Set(prev);
+      for (const s of items) {
+        if (checked) next.add(s.forecast_id);
+        else next.delete(s.forecast_id);
+      }
+      return next;
+    });
   };
+
+  const toggleCollapse = (eventId: string) => {
+    setCollapsedEvents((prev) => {
+      const next = new Set(prev);
+      if (next.has(eventId)) next.delete(eventId);
+      else next.add(eventId);
+      return next;
+    });
+  };
+
+  const toggleEventFilter = (eventId: string) => {
+    setSelectedEventIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(eventId)) next.delete(eventId);
+      else next.add(eventId);
+      return next;
+    });
+  };
+
+  const runAnalysis = () => {
+    setAnalysisRequested(true);
+    setLastApplied(null);
+    if (analysisRequested) refetch();
+  };
+
+  const selectedEventsLabel =
+    selectedEventIds.size === 0
+      ? "Todos os eventos"
+      : selectedEventIds.size === 1
+        ? events.find((e) => selectedEventIds.has(e.id))?.name ?? "1 evento"
+        : `${selectedEventIds.size} eventos`;
+
+  const tabSuggestions = activeTab === "high" ? high : low;
+  const selectedInTab = tabSuggestions.filter((s) => selectedRows.has(s.forecast_id)).length;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Sparkles className="h-6 w-6 text-primary" />
             Auditoria de Formalidade
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Analisa todas as linhas dos BPs ativos e sugere o estado de formalidade com base nas
-            transações reais.
+          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+            Selecione os eventos a analisar (ou deixe em branco para varrer todos) e clique em
+            <strong className="mx-1">Analisar</strong>. As sugestões abrem por evento — pode rever e
+            ajustar antes de aplicar.
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => refetch()}
-          disabled={isLoading || isRefetching}
-        >
-          {isRefetching ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-          Re-analisar
-        </Button>
       </div>
 
-      {isLoading ? (
+      {/* Painel de filtro + execução */}
+      <Card>
+        <CardContent className="pt-6 flex flex-wrap items-center gap-3">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <Filter className="h-4 w-4" />
+                {selectedEventsLabel}
+                <ChevronDown className="h-3 w-3 opacity-60" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-0" align="start">
+              <div className="p-3 border-b flex items-center justify-between">
+                <span className="text-sm font-semibold">Filtrar por evento</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setSelectedEventIds(new Set())}
+                >
+                  Limpar
+                </Button>
+              </div>
+              <ScrollArea className="h-72">
+                <div className="p-2 space-y-0.5">
+                  {events.map((e) => (
+                    <label
+                      key={e.id}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={selectedEventIds.has(e.id)}
+                        onCheckedChange={() => toggleEventFilter(e.id)}
+                      />
+                      <span className="text-sm truncate">{e.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
+
+          <Button onClick={runAnalysis} disabled={isLoading || isRefetching} className="gap-2">
+            {isLoading || isRefetching ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Play className="h-4 w-4" />
+            )}
+            {analysisRequested ? "Re-analisar" : "Analisar"}
+          </Button>
+
+          {analysisRequested && data && (
+            <span className="text-xs text-muted-foreground ml-auto">
+              {data.length} sugestão(ões) • {byEvent.size} evento(s)
+            </span>
+          )}
+        </CardContent>
+      </Card>
+
+      {!analysisRequested ? (
+        <Alert>
+          <Sparkles className="h-4 w-4" />
+          <AlertTitle>Pronto para analisar</AlertTitle>
+          <AlertDescription>
+            Escolha os eventos no filtro acima e clique em <strong>Analisar</strong>. Para fazer o
+            catch-up inicial pós-deploy, deixe o filtro em "Todos os eventos".
+          </AlertDescription>
+        </Alert>
+      ) : isLoading ? (
         <div className="space-y-3">
           <Skeleton className="h-24 w-full" />
           <Skeleton className="h-64 w-full" />
         </div>
       ) : (
         <>
+          {lastApplied !== null && (
+            <Alert>
+              <CheckCircle2 className="h-4 w-4 text-success" />
+              <AlertTitle>Última execução: {lastApplied} linha(s) atualizada(s)</AlertTitle>
+              <AlertDescription>
+                A nova análise abaixo já reflete o estado atualizado.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-3">
             <Card>
               <CardHeader className="pb-2">
@@ -179,7 +331,7 @@ export default function FormalidadeAudit() {
                 <CardTitle className="text-3xl">{high.length}</CardTitle>
               </CardHeader>
               <CardContent className="text-xs text-muted-foreground">
-                TX paga ou aprovada com match claro — pode aplicar tudo de uma vez.
+                TX paga ou aprovada com match claro — pré-selecionadas para aplicar.
               </CardContent>
             </Card>
             <Card>
@@ -190,7 +342,7 @@ export default function FormalidadeAudit() {
                 <CardTitle className="text-3xl">{low.length}</CardTitle>
               </CardHeader>
               <CardContent className="text-xs text-muted-foreground">
-                Casos ambíguos — selecione as linhas que deseja aplicar.
+                Sem TX vinculada ou ambíguas — selecione manualmente o que aplicar.
               </CardContent>
             </Card>
             <Card>
@@ -211,91 +363,82 @@ export default function FormalidadeAudit() {
               <CheckCircle2 className="h-4 w-4" />
               <AlertTitle>Tudo em ordem</AlertTitle>
               <AlertDescription>
-                Nenhuma sugestão pendente — todas as formalidades estão alinhadas com o estado real
-                das transações.
+                Nenhuma sugestão pendente nos eventos analisados — todas as formalidades estão
+                alinhadas com o estado real das transações.
               </AlertDescription>
             </Alert>
           ) : (
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-              <TabsList>
-                <TabsTrigger value="high">
-                  Alta confiança
-                  {high.length > 0 && (
-                    <Badge variant="secondary" className="ml-2">
-                      {high.length}
-                    </Badge>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <CardTitle className="text-base">Sugestões agrupadas por evento</CardTitle>
+                  <CardDescription>
+                    As linhas marcadas serão atualizadas. Alta confiança vem pré-selecionada;
+                    revisão manual fica desmarcada.
+                  </CardDescription>
+                </div>
+                <Button
+                  onClick={applySelected}
+                  disabled={!selectedRows.size || applyMapMutation.isPending}
+                  className="gap-2"
+                >
+                  {applyMapMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4" />
                   )}
-                </TabsTrigger>
-                <TabsTrigger value="low">
-                  Revisão manual
-                  {low.length > 0 && (
-                    <Badge variant="secondary" className="ml-2">
-                      {low.length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-              </TabsList>
+                  Aplicar selecionadas ({selectedRows.size})
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+                  <TabsList>
+                    <TabsTrigger value="high">
+                      Alta confiança
+                      {high.length > 0 && (
+                        <Badge variant="secondary" className="ml-2">
+                          {high.length}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger value="low">
+                      Revisão manual
+                      {low.length > 0 && (
+                        <Badge variant="secondary" className="ml-2">
+                          {low.length}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                  </TabsList>
 
-              <TabsContent value="high" className="space-y-3">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                      <CardTitle className="text-base">Sugestões de alta confiança</CardTitle>
-                      <CardDescription>
-                        Estas mudanças têm correspondência direta com transações reais.
-                      </CardDescription>
-                    </div>
-                    <Button
-                      onClick={applyAllHigh}
-                      disabled={!high.length || applyMapMutation.isPending}
-                    >
-                      {applyMapMutation.isPending ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : null}
-                      Aplicar todas ({high.length})
-                    </Button>
-                  </CardHeader>
-                  <CardContent>
-                    <SuggestionTable suggestions={high} />
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                  <TabsContent value="high" className="mt-4">
+                    <SuggestionTable
+                      suggestions={high}
+                      selected={selectedRows}
+                      onToggle={toggleRow}
+                      onToggleGroup={toggleEventGroup}
+                      collapsed={collapsedEvents}
+                      onToggleCollapse={toggleCollapse}
+                    />
+                  </TabsContent>
 
-              <TabsContent value="low" className="space-y-3">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                      <CardTitle className="text-base">Sugestões para revisão manual</CardTitle>
-                      <CardDescription>
-                        Selecione caso a caso — sem TX vinculada o sistema mantém o estado atual.
-                      </CardDescription>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" onClick={toggleAllLow} disabled={!low.length}>
-                        {selectedLow.size === low.length ? "Desmarcar tudo" : "Selecionar tudo"}
-                      </Button>
-                      <Button
-                        onClick={applySelectedLow}
-                        disabled={!selectedLow.size || applyMapMutation.isPending}
-                      >
-                        {applyMapMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : null}
-                        Aplicar selecionadas ({selectedLow.size})
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
+                  <TabsContent value="low" className="mt-4">
                     <SuggestionTable
                       suggestions={low}
-                      selectable
-                      selected={selectedLow}
-                      onToggle={toggleLow}
+                      selected={selectedRows}
+                      onToggle={toggleRow}
+                      onToggleGroup={toggleEventGroup}
+                      collapsed={collapsedEvents}
+                      onToggleCollapse={toggleCollapse}
                     />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
+                  </TabsContent>
+                </Tabs>
+
+                <div className="mt-3 text-xs text-muted-foreground text-right">
+                  {selectedInTab} de {tabSuggestions.length} selecionada(s) nesta aba.
+                </div>
+              </CardContent>
+            </Card>
           )}
         </>
       )}
@@ -305,14 +448,18 @@ export default function FormalidadeAudit() {
 
 function SuggestionTable({
   suggestions,
-  selectable,
   selected,
   onToggle,
+  onToggleGroup,
+  collapsed,
+  onToggleCollapse,
 }: {
   suggestions: Suggestion[];
-  selectable?: boolean;
-  selected?: Set<string>;
-  onToggle?: (id: string) => void;
+  selected: Set<string>;
+  onToggle: (id: string) => void;
+  onToggleGroup: (eventId: string, checked: boolean, items: Suggestion[]) => void;
+  collapsed: Set<string>;
+  onToggleCollapse: (eventId: string) => void;
 }) {
   if (!suggestions.length) {
     return (
@@ -331,54 +478,77 @@ function SuggestionTable({
   }
 
   return (
-    <ScrollArea className="h-[500px] pr-3">
-      <div className="space-y-5">
-        {Array.from(byEvent.entries()).map(([eventId, { event_name, items }]) => (
-          <div key={eventId}>
-            <div className="flex items-center gap-2 mb-2 pb-1 border-b">
-              <span className="text-sm font-semibold">{event_name}</span>
-              <Badge variant="secondary" className="text-[10px]">
-                {items.length}
-              </Badge>
-            </div>
-            <div className="space-y-1.5">
-              {items.map((s) => (
-                <div
-                  key={s.forecast_id}
-                  className="flex items-center gap-3 rounded-md border bg-card px-3 py-2 text-sm"
+    <ScrollArea className="h-[520px] pr-3">
+      <div className="space-y-4">
+        {Array.from(byEvent.entries()).map(([eventId, { event_name, items }]) => {
+          const isCollapsed = collapsed.has(eventId);
+          const allSelected = items.every((s) => selected.has(s.forecast_id));
+          const someSelected = items.some((s) => selected.has(s.forecast_id));
+          const groupChecked = allSelected ? true : someSelected ? "indeterminate" : false;
+
+          return (
+            <div key={eventId} className="border rounded-lg overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-2 bg-muted/40 border-b">
+                <Checkbox
+                  checked={groupChecked as any}
+                  onCheckedChange={(v) => onToggleGroup(eventId, !!v, items)}
+                />
+                <button
+                  type="button"
+                  onClick={() => onToggleCollapse(eventId)}
+                  className="flex items-center gap-1.5 flex-1 min-w-0 text-left"
                 >
-                  {selectable && (
-                    <Checkbox
-                      checked={selected?.has(s.forecast_id) ?? false}
-                      onCheckedChange={() => onToggle?.(s.forecast_id)}
-                    />
+                  {isCollapsed ? (
+                    <ChevronRight className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 shrink-0" />
                   )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium truncate">{s.description}</span>
-                      {s.category_code && (
-                        <span className="text-[10px] text-muted-foreground">
-                          {s.category_code}
-                        </span>
-                      )}
+                  <span className="text-sm font-semibold truncate">{event_name}</span>
+                </button>
+                <Badge variant="secondary" className="text-[10px] shrink-0">
+                  {items.filter((s) => selected.has(s.forecast_id)).length}/{items.length}
+                </Badge>
+              </div>
+
+              {!isCollapsed && (
+                <div className="divide-y">
+                  {items.map((s) => (
+                    <div
+                      key={s.forecast_id}
+                      className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-muted/20"
+                    >
+                      <Checkbox
+                        checked={selected.has(s.forecast_id)}
+                        onCheckedChange={() => onToggle(s.forecast_id)}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium truncate">{s.description}</span>
+                          {s.category_code && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {s.category_code}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                          {s.reason}
+                        </p>
+                      </div>
+                      <div className="text-right text-xs shrink-0">
+                        <div className="font-semibold">{formatCurrency(s.bp_amount)}</div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <FormalidadeChip state={s.current_formalidade} />
+                        <span className="text-muted-foreground text-xs">→</span>
+                        <FormalidadeChip state={s.suggested_formalidade} />
+                      </div>
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                      {s.reason}
-                    </p>
-                  </div>
-                  <div className="text-right text-xs">
-                    <div className="font-semibold">{formatCurrency(s.bp_amount)}</div>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <FormalidadeChip state={s.current_formalidade} />
-                    <span className="text-muted-foreground text-xs">→</span>
-                    <FormalidadeChip state={s.suggested_formalidade} />
-                  </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </ScrollArea>
   );

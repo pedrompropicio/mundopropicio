@@ -24,10 +24,14 @@ Três funções em `supabase/migrations/...`:
 Todas atualizam `formalidade_changed_at` e `formalidade_changed_by`, disparando o trigger `trg_log_formalidade_change` que regista no log.
 
 ## UI (`src/pages/FormalidadeAudit.tsx`)
+- **Filtro por evento (multi-select)** no topo via Popover — vazio = analisa todos
+- A análise NÃO corre automaticamente: utilizador clica **Analisar** (`enabled: analysisRequested`)
 - 3 cards de resumo: alta confiança / revisão manual / eventos afetados
-- Tabs: **Alta confiança** (botão "Aplicar todas") + **Revisão manual** (checkboxes + "Aplicar selecionadas")
-- Linhas agrupadas por evento, com chip "atual → sugerido" e razão legível
-- Após aplicar, invalida `event_forecasts` e `formalidade-audit-bulk`
+- Card único com tabs **Alta confiança** + **Revisão manual** e botão único **Aplicar selecionadas (N)**
+- Linhas agrupadas por evento em accordion (colapsável), com checkbox no header do grupo (tri-state) e contador `selecionadas/total`
+- Alta confiança vem **pré-selecionada por defeito** (mantém UX "1-clique" mas permite desmarcar antes de aplicar); revisão manual fica desmarcada
+- Cada linha mostra chip "atual → sugerido", razão legível e valor BP
+- Após aplicar, mostra alerta "Última execução: N linha(s) atualizada(s)" e invalida `event_forecasts` e `formalidade-audit-bulk`
 
 ## Fora do scope
 - Heurísticas adicionais por categoria/fornecedor (rejeitadas — manter regras atuais)
