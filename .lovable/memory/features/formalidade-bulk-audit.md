@@ -13,13 +13,17 @@ Após implantação inicial da feature de Versões/Formalidade em produção, fo
 - Acesso restrito a admin/manager (validado nas RPCs)
 
 ## Backend
-Três funções em `supabase/migrations/...`:
+Três funções (migrations `20260426165039` + `20260426170700`):
 
-1. **`analyze_formalidade_bulk(_event_ids uuid[] DEFAULT NULL)`** — devolve table com sugestões para todas as linhas da Versão Ativa (`version_id IS NULL`) de despesa. Aplica as mesmas regras de inferência da `suggest_formalidade` (TX paga = pago_total/pago_parcial; TX aprovada = fechado; sem TX = mantém). Atribui confiança `high` (TX paga ou aprovada com match claro) ou `low` (sem TX vinculada). Filtra apenas linhas onde sugestão difere do estado atual.
+1. **`analyze_formalidade_bulk(_event_ids uuid[] DEFAULT NULL)`** — devolve sugestões para todas as linhas da Versão Ativa (`version_id IS NULL`) de despesa. Aplica regras de inferência em duas fontes:
+   - **Match direto** via `event_forecasts.transaction_id` → confiança `high` (TX paga = pago_total/pago_parcial; TX aprovada = fechado).
+   - **Match por similaridade** (mesmo `event_id` + mesma `category_id`) quando não existe vínculo direto → confiança `low` (a UI mostra que a sugestão veio do match indireto e exige revisão manual).
+   - Sem nenhum match → mantém estado atual e não aparece na lista.
+   Filtra apenas linhas onde a sugestão difere do estado atual.
 
 2. **`apply_formalidade_suggestions(_forecast_ids uuid[], _new_state)`** — aplica um único estado a múltiplos IDs (não usado pela UI, mas útil para scripts).
 
-3. **`apply_formalidade_suggestions_map(_payload jsonb)`** — recebe array `[{forecast_id, new_state}]` e aplica cada linha com o seu próprio estado. Usado pela UI para aplicar tanto "todas alta confiança" como "selecionadas baixa confiança".
+3. **`apply_formalidade_suggestions_map(_payload jsonb)`** — recebe array `[{forecast_id, new_state}]` e aplica cada linha com o seu próprio estado. Usado pela UI para aplicar selecionadas.
 
 Todas atualizam `formalidade_changed_at` e `formalidade_changed_by`, disparando o trigger `trg_log_formalidade_change` que regista no log.
 
