@@ -97,3 +97,66 @@ export function useFreezeBPVersion() {
     },
   });
 }
+
+/** Archive a non-active version (cascades to splits). */
+export function useArchiveBPVersion(eventId: string) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (versionId: string) => {
+      const { error } = await supabase.rpc("archive_bp_version" as any, {
+        _version_id: versionId,
+        _performed_by: user?.id ?? null,
+        _performed_by_label: getAuditUser(user),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: versionsKey(eventId) });
+      toast.success("Versão arquivada");
+    },
+    onError: (err: any) => toast.error(err?.message ?? "Falha ao arquivar"),
+  });
+}
+
+/** Unarchive (restores to draft or superseded). */
+export function useUnarchiveBPVersion(eventId: string) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (versionId: string) => {
+      const { error } = await supabase.rpc("unarchive_bp_version" as any, {
+        _version_id: versionId,
+        _performed_by: user?.id ?? null,
+        _performed_by_label: getAuditUser(user),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: versionsKey(eventId) });
+      toast.success("Versão desarquivada");
+    },
+    onError: (err: any) => toast.error(err?.message ?? "Falha ao desarquivar"),
+  });
+}
+
+/** Permanently discard a draft version (cascades to split drafts). */
+export function useDiscardBPVersionDraft(eventId: string) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (versionId: string) => {
+      const { error } = await supabase.rpc("discard_bp_version_draft" as any, {
+        _version_id: versionId,
+        _performed_by: user?.id ?? null,
+        _performed_by_label: getAuditUser(user),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: versionsKey(eventId) });
+      toast.success("Rascunho descartado");
+    },
+    onError: (err: any) => toast.error(err?.message ?? "Falha ao descartar"),
+  });
+}
