@@ -2893,6 +2893,16 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
               <p className="font-medium">
                 {item.account_categories?.code && <span className="text-xs text-muted-foreground mr-1.5">{item.account_categories.code}</span>}
                 {item.description}
+                {!item._readonly && !item._prorated && !item._overhead_via_master && (
+                  <span className="ml-2 align-middle">
+                    <FormalidadeBadge
+                      forecastId={item.id}
+                      eventId={item.event_id ?? eventId ?? ""}
+                      current={item.formalidade}
+                      readOnly={readOnly}
+                    />
+                  </span>
+                )}
                 {item.is_overhead && canSeeOverhead && (
                   <span
                     className="ml-2 inline-flex items-center rounded-full bg-warning/15 text-warning px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider align-middle"
