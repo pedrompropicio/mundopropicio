@@ -72,6 +72,7 @@ export default function FormalidadeAudit() {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [collapsedEvents, setCollapsedEvents] = useState<Set<string>>(new Set());
   const [lastApplied, setLastApplied] = useState<number | null>(null);
+  const [lastAnalysisAt, setLastAnalysisAt] = useState<Date | null>(null);
 
   // Lista de eventos para o filtro
   const { data: events = [] } = useQuery({
@@ -105,7 +106,41 @@ export default function FormalidadeAudit() {
         _event_ids: eventIdsParam,
       });
       if (error) throw error;
-      return (data ?? []) as Suggestion[];
+      const rows = (data ?? []) as Suggestion[];
+      setLastAnalysisAt(new Date());
+      const high = rows.filter((s) => s.confidence === "high").length;
+      const low = rows.filter((s) => s.confidence === "low").length;
+      toast({
+        title: "Análise concluída",
+        description:
+          rows.length === 0
+            ? "Nenhuma sugestão pendente — tudo já está coerente."
+            : `${rows.length} sugestão(ões): ${high} alta confiança • ${low} revisão manual.`,
+      });
+      return rows;
+    },
+    enabled: analysisRequested,
+  });
+
+  // Estatísticas (totais varridos) — independentes das sugestões
+  const { data: stats } = useQuery({
+    queryKey: ["formalidade-audit-stats", eventIdsParam?.join(",") ?? "ALL"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("formalidade_audit_stats", {
+        _event_ids: eventIdsParam,
+      });
+      if (error) throw error;
+      return (data?.[0] ?? null) as null | {
+        total_lines: number;
+        total_events: number;
+        with_direct_tx: number;
+        with_category_match: number;
+        without_any_match: number;
+        count_estimado: number;
+        count_fechado: number;
+        count_pago_parcial: number;
+        count_pago_total: number;
+      };
     },
     enabled: analysisRequested,
   });
@@ -148,6 +183,7 @@ export default function FormalidadeAudit() {
       });
       setSelectedRows(new Set());
       queryClient.invalidateQueries({ queryKey: ["formalidade-audit-bulk"] });
+      queryClient.invalidateQueries({ queryKey: ["formalidade-audit-stats"] });
       queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
     },
     onError: (err: any) => {
@@ -215,7 +251,10 @@ export default function FormalidadeAudit() {
   const runAnalysis = () => {
     setAnalysisRequested(true);
     setLastApplied(null);
-    if (analysisRequested) refetch();
+    if (analysisRequested) {
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ["formalidade-audit-stats"] });
+    }
   };
 
   const selectedEventsLabel =
@@ -295,9 +334,10 @@ export default function FormalidadeAudit() {
             {analysisRequested ? "Re-analisar" : "Analisar"}
           </Button>
 
-          {analysisRequested && data && (
+          {analysisRequested && data && lastAnalysisAt && (
             <span className="text-xs text-muted-foreground ml-auto">
-              {data.length} sugestão(ões) • {byEvent.size} evento(s)
+              Última análise: {lastAnalysisAt.toLocaleTimeString("pt-PT")} • {data.length}{" "}
+              sugestão(ões) em {byEvent.size} evento(s)
             </span>
           )}
         </CardContent>
@@ -335,6 +375,49 @@ export default function FormalidadeAudit() {
                 A nova análise abaixo já reflete o estado atualizado.
               </AlertDescription>
             </Alert>
+          )}
+
+          {stats && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-success" />
+                  Análise concluída — resumo do que foi varrido
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Linhas de despesa da Versão Ativa nos eventos selecionados
+                  {lastAnalysisAt && ` • ${lastAnalysisAt.toLocaleString("pt-PT")}`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+                  <StatBlock label="Linhas analisadas" value={stats.total_lines} />
+                  <StatBlock label="Eventos varridos" value={stats.total_events} />
+                  <StatBlock
+                    label="C/ TX vinculada"
+                    value={stats.with_direct_tx}
+                    hint="match direto"
+                  />
+                  <StatBlock
+                    label="C/ match categoria"
+                    value={stats.with_category_match}
+                    hint="sem vínculo direto"
+                  />
+                  <StatBlock
+                    label="Sem qualquer TX"
+                    value={stats.without_any_match}
+                    hint="mantêm estimado"
+                  />
+                </div>
+                <div className="mt-3 pt-3 border-t flex flex-wrap gap-2 text-[11px]">
+                  <span className="text-muted-foreground">Distribuição atual:</span>
+                  <Badge variant="outline">Estimado: {stats.count_estimado}</Badge>
+                  <Badge variant="outline">Fechado: {stats.count_fechado}</Badge>
+                  <Badge variant="outline">Pago parcial: {stats.count_pago_parcial}</Badge>
+                  <Badge variant="outline">Pago total: {stats.count_pago_total}</Badge>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           <div className="grid gap-4 sm:grid-cols-3">
@@ -565,5 +648,15 @@ function SuggestionTable({
         })}
       </div>
     </ScrollArea>
+  );
+}
+
+function StatBlock({ label, value, hint }: { label: string; value: number; hint?: string }) {
+  return (
+    <div className="rounded-md border bg-card p-2.5">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-lg font-semibold tabular-nums">{value}</div>
+      {hint && <div className="text-[10px] text-muted-foreground mt-0.5">{hint}</div>}
+    </div>
   );
 }

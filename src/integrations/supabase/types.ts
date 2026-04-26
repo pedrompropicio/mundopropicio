@@ -4028,6 +4028,20 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      formalidade_audit_stats: {
+        Args: { _event_ids?: string[] }
+        Returns: {
+          count_estimado: number
+          count_fechado: number
+          count_pago_parcial: number
+          count_pago_total: number
+          total_events: number
+          total_lines: number
+          with_category_match: number
+          with_direct_tx: number
+          without_any_match: number
+        }[]
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
