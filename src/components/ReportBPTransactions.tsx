@@ -13,6 +13,8 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { exportBPTransactionsToPDF, type BPTransactionsPDFData } from "@/lib/export-bp-transactions";
+import { ReportScenarioSelector } from "@/components/reports/ReportScenarioSelector";
+import { useScenarioForecasts } from "@/hooks/useScenarioForecasts";
 
 interface TransactionWithMeta {
   id: string;
@@ -85,6 +87,12 @@ export default function ReportBPTransactions({ initialEventId }: Props = {}) {
   const [includeMasterApportionment, setIncludeMasterApportionment] = useState(true);
   const [includeOverhead, setIncludeOverhead] = useState(false);
   const [includeTransitory, setIncludeTransitory] = useState(false);
+  const [scenarioVersionId, setScenarioVersionId] = useState<string | null>(null);
+
+  // Reset scenario when changing event
+  useEffect(() => {
+    setScenarioVersionId(null);
+  }, [selectedEventId]);
 
   // If parent provides initialEventId after first render (e.g. async query param),
   // adopt it once. Manual user selection from the dropdown takes over from there.
