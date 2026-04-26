@@ -435,7 +435,7 @@ export default function EventDetail() {
 
       // Delete related data first
       await supabase.from("event_dates").delete().eq("event_id", id!);
-      await supabase.from("event_forecasts").delete().eq("event_id", id!);  // TODO_VERSION_FILTER_WRITE
+      await supabase.from("event_forecasts").delete().eq("event_id", id!); // OK: eliminação total do evento (apaga Ativa + cenários)
       await supabase.from("event_cache_configs").delete().eq("event_id", id!);
       // Delete ticket lots via zones
       const { data: zones } = await supabase.from("event_ticket_zones").select("id").eq("event_id", id!);
