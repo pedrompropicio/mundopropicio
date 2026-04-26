@@ -61,7 +61,19 @@ export function MarkAsFechadoDialog({
         .in("id", ids);
       if (snapshotError) throw snapshotError;
 
-      // 2. Aplicar UPDATE para "fechado".
+      // 2. Marca a próxima escrita como auto-sugerida (lida pelo trigger de log).
+      //    Se a RPC não existir/falhar, o UPDATE prossegue como manual.
+      try {
+        await supabase.rpc("set_config" as any, {
+          parameter: "app.formalidade_auto_suggested",
+          value: "true",
+          is_local: true,
+        });
+      } catch {
+        /* noop — log apenas perde a flag auto */
+      }
+
+      // 3. Aplicar UPDATE para "fechado".
       const { error } = await supabase
         .from("event_forecasts")
         .update({ formalidade: "fechado" })
