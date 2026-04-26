@@ -150,6 +150,157 @@ export type Database = {
           },
         ]
       }
+      bp_version_audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          event_id: string
+          id: string
+          metadata: Json | null
+          performed_by: string | null
+          performed_by_label: string | null
+          version_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          event_id: string
+          id?: string
+          metadata?: Json | null
+          performed_by?: string | null
+          performed_by_label?: string | null
+          version_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          metadata?: Json | null
+          performed_by?: string | null
+          performed_by_label?: string | null
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bp_version_audit_log_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bp_version_audit_log_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bp_version_audit_log_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "bp_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bp_versions: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          archived_at: string | null
+          cascaded_from_version_id: string | null
+          created_at: string
+          created_by: string | null
+          created_by_label: string | null
+          description: string | null
+          event_id: string
+          id: string
+          is_retroactive_snapshot: boolean
+          snapshot_payload: Json
+          state: string
+          superseded_at: string | null
+          superseded_by_version_id: string | null
+          updated_at: string
+          version_number: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          archived_at?: string | null
+          cascaded_from_version_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_label?: string | null
+          description?: string | null
+          event_id: string
+          id?: string
+          is_retroactive_snapshot?: boolean
+          snapshot_payload?: Json
+          state?: string
+          superseded_at?: string | null
+          superseded_by_version_id?: string | null
+          updated_at?: string
+          version_number: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          archived_at?: string | null
+          cascaded_from_version_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_label?: string | null
+          description?: string | null
+          event_id?: string
+          id?: string
+          is_retroactive_snapshot?: boolean
+          snapshot_payload?: Json
+          state?: string
+          superseded_at?: string | null
+          superseded_by_version_id?: string | null
+          updated_at?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bp_versions_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bp_versions_cascaded_from_version_id_fkey"
+            columns: ["cascaded_from_version_id"]
+            isOneToOne: false
+            referencedRelation: "bp_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bp_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bp_versions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bp_versions_superseded_by_version_id_fkey"
+            columns: ["superseded_by_version_id"]
+            isOneToOne: false
+            referencedRelation: "bp_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       camarim_fund_moves: {
         Row: {
           amount: number
@@ -1271,9 +1422,11 @@ export type Database = {
           formula_value: number
           fx_rate: number | null
           fx_rate_source: string | null
+          historic_overrides: Json
           id: string
           invoice_group_id: string | null
           is_overhead: boolean
+          is_retroactive_override: boolean
           is_transitory: boolean
           iva_rate: number
           master_forecast_id: string | null
@@ -1301,9 +1454,11 @@ export type Database = {
           formula_value?: number
           fx_rate?: number | null
           fx_rate_source?: string | null
+          historic_overrides?: Json
           id?: string
           invoice_group_id?: string | null
           is_overhead?: boolean
+          is_retroactive_override?: boolean
           is_transitory?: boolean
           iva_rate?: number
           master_forecast_id?: string | null
@@ -1331,9 +1486,11 @@ export type Database = {
           formula_value?: number
           fx_rate?: number | null
           fx_rate_source?: string | null
+          historic_overrides?: Json
           id?: string
           invoice_group_id?: string | null
           is_overhead?: boolean
+          is_retroactive_override?: boolean
           is_transitory?: boolean
           iva_rate?: number
           master_forecast_id?: string | null
