@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import { BPVersionCard } from "@/components/bp-versions/BPVersionCard";
 import { BPScenarioSelector } from "@/components/bp-versions/BPScenarioSelector";
+import { useEventScenario } from "@/contexts/EventScenarioContext";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/mock-data";
@@ -151,10 +152,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [promoteCandidates, setPromoteCandidates] = useState<PromoteCandidate[]>([]);
   const [showPromoteModal, setShowPromoteModal] = useState(false);
   const [showOrphanResolver, setShowOrphanResolver] = useState(false);
-  // Cenário ativo na vista (null = versão Ativa). Quando definido, todas as queries
-  // e mutações de event_forecasts operam dentro desse working_draft.
-  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
-  const isScenarioMode = selectedVersionId !== null;
+  // Cenário ativo na vista (null = versão Ativa). Sincronizado entre BP/Bilheteira/Cachê
+  // através do EventScenarioContext (provider em EventDetail).
+  const { selectedVersionId, setSelectedVersionId, isScenarioMode } = useEventScenario();
   const queryClient = useQueryClient();
   const { isAdmin: rawIsAdmin, isManager: rawIsManager, user, hasPermission } = useAuth();
   // forceReadOnly disables all admin/manager UI affordances so the same
