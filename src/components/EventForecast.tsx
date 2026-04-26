@@ -1061,7 +1061,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       }
       return { created, autoApproved, propagatedAttachments };
     },
-    onSuccess: ({ created, autoApproved, propagatedAttachments }) => {
+    onSuccess: ({ created, autoApproved, propagatedAttachments }, forecastItems) => {
       queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       setSelectedIds(new Set());
@@ -1074,6 +1074,14 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         ? `${propagatedAttachments} anexo(s) do BP propagado(s) para as transações.`
         : undefined;
       toast({ title: baseMsg, description: desc });
+      // Sugerir mudança de formalidade para "Fechado" nas linhas elegíveis.
+      const promotable = pickFormalidadePromotableIds(forecastItems);
+      if (promotable.length > 0) {
+        setPendingFechado({
+          ids: promotable,
+          trigger: forecastItems.length === 1 ? "após gerar a transação" : "após gerar as transações",
+        });
+      }
     },
     onError: (err: any) => {
       toast({ title: "Erro ao criar transações", description: err.message, variant: "destructive" });
