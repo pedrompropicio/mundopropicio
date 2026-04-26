@@ -377,6 +377,49 @@ export default function FormalidadeAudit() {
             </Alert>
           )}
 
+          {stats && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-success" />
+                  Análise concluída — resumo do que foi varrido
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Linhas de despesa da Versão Ativa nos eventos selecionados
+                  {lastAnalysisAt && ` • ${lastAnalysisAt.toLocaleString("pt-PT")}`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+                  <StatBlock label="Linhas analisadas" value={stats.total_lines} />
+                  <StatBlock label="Eventos varridos" value={stats.total_events} />
+                  <StatBlock
+                    label="C/ TX vinculada"
+                    value={stats.with_direct_tx}
+                    hint="match direto"
+                  />
+                  <StatBlock
+                    label="C/ match categoria"
+                    value={stats.with_category_match}
+                    hint="sem vínculo direto"
+                  />
+                  <StatBlock
+                    label="Sem qualquer TX"
+                    value={stats.without_any_match}
+                    hint="mantêm estimado"
+                  />
+                </div>
+                <div className="mt-3 pt-3 border-t flex flex-wrap gap-2 text-[11px]">
+                  <span className="text-muted-foreground">Distribuição atual:</span>
+                  <Badge variant="outline">Estimado: {stats.count_estimado}</Badge>
+                  <Badge variant="outline">Fechado: {stats.count_fechado}</Badge>
+                  <Badge variant="outline">Pago parcial: {stats.count_pago_parcial}</Badge>
+                  <Badge variant="outline">Pago total: {stats.count_pago_total}</Badge>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-3">
             <Card>
               <CardHeader className="pb-2">
