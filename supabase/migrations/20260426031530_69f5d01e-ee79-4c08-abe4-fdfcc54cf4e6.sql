@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.promote_scenario_to_active(uuid, text, uuid, text);
