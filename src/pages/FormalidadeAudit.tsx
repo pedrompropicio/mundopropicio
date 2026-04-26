@@ -106,7 +106,41 @@ export default function FormalidadeAudit() {
         _event_ids: eventIdsParam,
       });
       if (error) throw error;
-      return (data ?? []) as Suggestion[];
+      const rows = (data ?? []) as Suggestion[];
+      setLastAnalysisAt(new Date());
+      const high = rows.filter((s) => s.confidence === "high").length;
+      const low = rows.filter((s) => s.confidence === "low").length;
+      toast({
+        title: "Análise concluída",
+        description:
+          rows.length === 0
+            ? "Nenhuma sugestão pendente — tudo já está coerente."
+            : `${rows.length} sugestão(ões): ${high} alta confiança • ${low} revisão manual.`,
+      });
+      return rows;
+    },
+    enabled: analysisRequested,
+  });
+
+  // Estatísticas (totais varridos) — independentes das sugestões
+  const { data: stats } = useQuery({
+    queryKey: ["formalidade-audit-stats", eventIdsParam?.join(",") ?? "ALL"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("formalidade_audit_stats", {
+        _event_ids: eventIdsParam,
+      });
+      if (error) throw error;
+      return (data?.[0] ?? null) as null | {
+        total_lines: number;
+        total_events: number;
+        with_direct_tx: number;
+        with_category_match: number;
+        without_any_match: number;
+        count_estimado: number;
+        count_fechado: number;
+        count_pago_parcial: number;
+        count_pago_total: number;
+      };
     },
     enabled: analysisRequested,
   });
