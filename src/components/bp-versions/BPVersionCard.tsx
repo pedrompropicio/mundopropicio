@@ -102,9 +102,9 @@ export function BPVersionCard({ eventId, isMaster, isSplit, canManage }: Props) 
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
-        <Button variant="ghost" size="sm" disabled title="Disponível na próxima fase (timeline)">
+        <Button variant="ghost" size="sm" onClick={() => setHistoryOpen(true)}>
           <History className="h-4 w-4 mr-1.5" />
-          Histórico
+          Histórico ({versions.length})
         </Button>
         {canManage && !isSplit && (
           <Button size="sm" onClick={() => setFreezeOpen(true)}>
@@ -122,6 +122,14 @@ export function BPVersionCard({ eventId, isMaster, isSplit, canManage }: Props) 
           isMaster={isMaster}
         />
       )}
+
+      <BPVersionsHistoryModal
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        eventId={eventId}
+        isSplit={isSplit}
+        canManage={canManage}
+      />
     </div>
   );
 }
