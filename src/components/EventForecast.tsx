@@ -38,6 +38,22 @@ import BPImportModeDialog, { type BPImportMode } from "@/components/BPImportMode
 import PromoteToMasterModal, { type PromoteCandidate } from "@/components/PromoteToMasterModal";
 import OrphanAttachmentsResolver from "@/components/OrphanAttachmentsResolver";
 import { GenerateHistoricalModal, type XlsxRowForGeneration } from "@/components/GenerateHistoricalModal";
+import { MarkAsFechadoDialog } from "@/components/bp-versions/MarkAsFechadoDialog";
+
+/**
+ * Returns the subset of forecast IDs that are eligible to be auto-promoted to
+ * formalidade "fechado" — only rows currently in `estimado` or `negociacao`.
+ * Per project rule we never silently flip rows already in more advanced states
+ * (fechado / pago_parcial / pago_total).
+ */
+function pickFormalidadePromotableIds(items: any[]): string[] {
+  return items
+    .filter((f) => {
+      const formal = f?.formalidade ?? "estimado";
+      return formal === "estimado" || formal === "negociacao";
+    })
+    .map((f) => f.id);
+}
 
 function TransactionAttachmentButton({ transactionId, onClick }: { transactionId: string; onClick: () => void }) {
   const { data: docs = [] } = useQuery({
