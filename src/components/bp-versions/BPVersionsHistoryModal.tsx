@@ -119,6 +119,7 @@ export function BPVersionsHistoryModal({
                   onArchive={(id) => archive.mutate(id)}
                   onUnarchive={(id) => unarchive.mutate(id)}
                   onDiscard={(v) => setConfirmDiscard(v)}
+                  onRevert={(v) => setConfirmRevert(v)}
                 />
                 {scenarios.length > 0 && (
                   <Section
@@ -130,6 +131,7 @@ export function BPVersionsHistoryModal({
                     onArchive={(id) => archive.mutate(id)}
                     onUnarchive={(id) => unarchive.mutate(id)}
                     onDiscard={(v) => setConfirmDiscard(v)}
+                    onRevert={(v) => setConfirmRevert(v)}
                   />
                 )}
               </div>
