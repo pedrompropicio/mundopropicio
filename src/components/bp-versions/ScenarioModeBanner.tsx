@@ -3,6 +3,7 @@ import { useEventScenario } from "@/contexts/EventScenarioContext";
 import { useBPVersions } from "@/hooks/useBPVersions";
 import { Sparkles, X, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import HelpTooltip from "@/components/HelpTooltip";
 
 interface Props {
   eventId: string;
@@ -44,8 +45,12 @@ export function ScenarioModeBanner({ eventId }: Props) {
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-warning">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-warning inline-flex items-center gap-1">
                   Modo Sandbox
+                  <HelpTooltip
+                    size={11}
+                    text="Estás numa vista isolada de cenário. Edições aqui ficam contidas no rascunho e não geram transações reais nem afetam relatórios contabilísticos."
+                  />
                 </span>
                 <span className="text-[10px] text-muted-foreground">·</span>
                 <span className="inline-flex items-center gap-1 text-sm font-bold text-foreground">
