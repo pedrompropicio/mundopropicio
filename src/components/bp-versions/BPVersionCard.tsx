@@ -18,6 +18,7 @@ interface Props {
 export function BPVersionCard({ eventId, isMaster, isSplit, canManage }: Props) {
   const { activeVersion, versions, isLoading } = useActiveBPVersion(eventId);
   const [freezeOpen, setFreezeOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const scenarios = useMemo(
     () => (versions ?? []).filter((v) => v.scenario_label && v.state === "draft"),
