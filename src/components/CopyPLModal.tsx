@@ -62,9 +62,10 @@ export function CopyPLModal({ targetEventId, targetEventName, existingForecastCo
       // If replace mode, delete existing forecasts
       if (mode === "replace" && existingForecastCount > 0) {
         const { error: delErr } = await supabase
-          .from("event_forecasts")  // TODO_VERSION_FILTER_WRITE
+          .from("event_forecasts")
           .delete()
-          .eq("event_id", targetEventId);
+          .eq("event_id", targetEventId)
+          .is("version_id", null);
         if (delErr) throw delErr;
       }
 

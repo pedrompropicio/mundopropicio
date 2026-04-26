@@ -130,9 +130,10 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
       // Find which already have a forecast link
       const txIds = txs.map((t) => t.id);
       const { data: linkedFc, error: fcErr } = await supabase
-        .from("event_forecasts")  // TODO_VERSION_FILTER
+        .from("event_forecasts")
         .select("transaction_id")
-        .in("transaction_id", txIds);
+        .in("transaction_id", txIds)
+        .is("version_id", null);
       if (fcErr) throw fcErr;
       const linkedSet = new Set((linkedFc ?? []).map((f: any) => f.transaction_id));
       return txs.filter((t) => !linkedSet.has(t.id));
