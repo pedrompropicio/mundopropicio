@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive, Paperclip } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
+import { BPVersionCard } from "@/components/bp-versions/BPVersionCard";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/mock-data";
@@ -1689,8 +1690,20 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     );
   };
 
+  const isMasterEvent = Boolean(childEventIds && childEventIds.length > 0);
+  const isSplitEvent = Boolean(parentEventId);
+  const canManageVersions = isAdmin || isManager;
+
   return (
     <div className="space-y-6">
+      {!expenseOnly && (
+        <BPVersionCard
+          eventId={eventId}
+          isMaster={isMasterEvent}
+          isSplit={isSplitEvent}
+          canManage={canManageVersions}
+        />
+      )}
       {expenseOnly && (
         <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
           <TrendingDown className="h-5 w-5 text-primary shrink-0" />
