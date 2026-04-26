@@ -16,6 +16,7 @@ import {
   Pin, PinOff, Rocket, Link2,
 } from "lucide-react";
 import { OrphanTransactionsReviewModal } from "./OrphanTransactionsReviewModal";
+import { PromoteScenarioDialog } from "./PromoteScenarioDialog";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import {
