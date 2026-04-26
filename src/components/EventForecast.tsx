@@ -151,6 +151,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [bpSearch, setBpSearch] = useState("");
   const [partnerFilter, setPartnerFilter] = useState<string>("all"); // "all" | "company" | partner_id
   const [txLinkFilter, setTxLinkFilter] = useState<string>("all"); // "all" | "with_tx" | "without_tx"
+  // Filtra a vista do BP por estado de formalidade comercial. "all" mostra tudo;
+  // os outros valores correspondem 1:1 ao enum `bp_formalidade`.
+  const [formalidadeFilter, setFormalidadeFilter] = useState<string>("all");
   const [includeSubsInBP, setIncludeSubsInBP] = useState<boolean>(false); // master view: hide sub-event lines by default
   const [includeOverheadInComparison, setIncludeOverheadInComparison] = useState<boolean>(false); // Previsão vs Real: incluir linhas is_overhead
   const [adoptTarget, setAdoptTarget] = useState<{ id: string; description: string; category_id: string | null; type: string } | null>(null);
@@ -1463,8 +1466,16 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     return true;
   };
 
-  const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter);
-  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter);
+  // Filtra por estado de formalidade. Se a linha não tiver valor (legado/snapshot),
+  // assume "estimado" — coerente com o default do schema.
+  const matchesFormalidadeFilter = (f: any) => {
+    if (formalidadeFilter === "all") return true;
+    const formal = f?.formalidade ?? "estimado";
+    return formal === formalidadeFilter;
+  };
+
+  const incomeForecasts = forecasts.filter((f) => f.type === "income").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter);
+  const expenseForecasts = forecasts.filter((f) => f.type === "expense").filter(matchesBpSearch).filter(matchesPartnerFilter).filter(matchesTxLinkFilter).filter(matchesFormalidadeFilter);
   // Cache forecasts are now real forecast rows (synced via useSyncCacheForecasts)
   // No more virtual cache lines needed
   const filteredCacheLines: CachePLLine[] = [];
@@ -1490,12 +1501,18 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         if (txLinkFilter === "without_tx" && hasTx) return false;
       }
 
+      // Formalidade — coerente com matchesFormalidadeFilter aplicado às linhas normais.
+      if (formalidadeFilter !== "all") {
+        const formal = forecast?.formalidade ?? "estimado";
+        if (formal !== formalidadeFilter) return false;
+      }
+
       if (partnerFilter === "all") return true;
       const partners = forecastPartnerMap[forecast.id] ?? [];
       if (partnerFilter === "company") return partners.length === 0;
       return partners.includes(partnerFilter);
     });
-  }, [allProratedParentExpenses, forecastPartnerMap, partnerFilter, txLinkFilter, adoptedForecasts, eventId, hasTxForForecast]);
+  }, [allProratedParentExpenses, forecastPartnerMap, partnerFilter, txLinkFilter, formalidadeFilter, adoptedForecasts, eventId, hasTxForForecast]);
 
   // Build hierarchy lookup for grouping
   const catLookup = useMemo(() => buildCategoryLookup(categories), [categories]);
@@ -1853,6 +1870,23 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 <option value="all">Todas</option>
                 <option value="with_tx">Com transação</option>
                 <option value="without_tx">Sem transação</option>
+              </select>
+            </div>
+            {/* Formalidade filter — vista por estado de maturidade comercial.
+                Os ícones (🔴🟠🔵🟢) ecoam o sistema de cores da BPRow para reconhecimento rápido. */}
+            <div className="flex items-center gap-1.5" title="Filtrar por estado de formalidade comercial">
+              <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+              <select
+                value={formalidadeFilter}
+                onChange={(e) => setFormalidadeFilter(e.target.value)}
+                className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="all">Todas formalidades</option>
+                <option value="estimado">🔴 Estimado</option>
+                <option value="negociacao">🟠 Em negociação</option>
+                <option value="fechado">🔵 Fechado</option>
+                <option value="pago_parcial">🟢 Pago parcial</option>
+                <option value="pago_total">🟢 Pago total</option>
               </select>
             </div>
             {/* Master ↔ Master+Subs toggle (only on master with children) */}
