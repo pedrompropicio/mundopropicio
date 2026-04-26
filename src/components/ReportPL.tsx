@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
@@ -22,6 +22,8 @@ import { exportPLToPDF, exportPLToExcel } from "@/lib/export-pl";
 import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes } from "@/lib/utils";
+import { ReportScenarioSelector } from "@/components/reports/ReportScenarioSelector";
+import { useScenarioForecasts } from "@/hooks/useScenarioForecasts";
 
 export type PLMode = "forecast" | "comparison";
 
