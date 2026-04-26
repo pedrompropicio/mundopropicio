@@ -60,6 +60,8 @@ interface CategoryLine {
     isOverhead: boolean;
     isViaMaster?: boolean;
     splitShare?: number;
+    isRetroactiveOverride?: boolean;
+    historicOverrides?: Array<Record<string, any>>;
   }[];
   transactions: TransactionWithMeta[];
 }
