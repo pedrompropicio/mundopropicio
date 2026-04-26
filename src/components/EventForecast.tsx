@@ -1872,6 +1872,23 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 <option value="without_tx">Sem transação</option>
               </select>
             </div>
+            {/* Formalidade filter — vista por estado de maturidade comercial.
+                Os ícones (🔴🟠🔵🟢) ecoam o sistema de cores da BPRow para reconhecimento rápido. */}
+            <div className="flex items-center gap-1.5" title="Filtrar por estado de formalidade comercial">
+              <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+              <select
+                value={formalidadeFilter}
+                onChange={(e) => setFormalidadeFilter(e.target.value)}
+                className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="all">Todas formalidades</option>
+                <option value="estimado">🔴 Estimado</option>
+                <option value="negociacao">🟠 Em negociação</option>
+                <option value="fechado">🔵 Fechado</option>
+                <option value="pago_parcial">🟢 Pago parcial</option>
+                <option value="pago_total">🟢 Pago total</option>
+              </select>
+            </div>
             {/* Master ↔ Master+Subs toggle (only on master with children) */}
             {childEventIds && childEventIds.length > 0 && (
               <div className="flex items-center gap-1.5">
