@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
 import { useActiveBPVersion } from "@/hooks/useBPVersions";
+import { useActiveVersionDiff } from "@/hooks/useActiveVersionDiff";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Snowflake, GitBranch, History, Layers, Sparkles, GitCompare } from "lucide-react";
+import { Snowflake, GitBranch, History, Layers, Sparkles, GitCompare, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import HelpTooltip from "@/components/HelpTooltip";
@@ -11,6 +12,7 @@ import { BPVersionsHistoryModal } from "./BPVersionsHistoryModal";
 import { BPVersionsCompareModal } from "./BPVersionsCompareModal";
 import { NewScenarioDraftModal } from "./NewScenarioDraftModal";
 import { ScenarioDraftsList } from "./ScenarioDraftsList";
+import { ActiveVersionDiffModal } from "./ActiveVersionDiffModal";
 
 interface Props {
   eventId: string;
