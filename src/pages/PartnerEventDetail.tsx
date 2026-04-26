@@ -88,11 +88,12 @@ export default function PartnerEventDetail() {
   const { data: eventData } = useQuery({
     queryKey: ["partner_event_data", activeEventId],
     queryFn: async () => {
-      const [zonesRes, forecastsRes, txRes, sessionsRes] = await Promise.all([
+      const [zonesRes, forecastsRes, txRes, sessionsRes, activeVersionRes] = await Promise.all([
         supabase.from("event_ticket_zones").select("*, event_ticket_lots(*)").eq("event_id", activeEventId),
         supabase.from("event_forecasts").select("*, account_categories(id, code, name, parent_id)").eq("event_id", activeEventId).order("created_at"),
         supabase.from("transactions").select("*, account_categories(id, code, name, parent_id)").eq("event_id", activeEventId).order("date", { ascending: false }),
         supabase.from("event_sessions").select("id, label, date, start_time, sort_order").eq("event_id", activeEventId).order("sort_order"),
+        supabase.from("bp_versions").select("version_number, approved_at, description").eq("event_id", activeEventId).eq("state", "active").maybeSingle(),
       ]);
       if (zonesRes.error) throw zonesRes.error;
       if (forecastsRes.error) throw forecastsRes.error;
@@ -121,6 +122,7 @@ export default function PartnerEventDetail() {
         transactions: txs,
         transactionDocs: (docsRes.data ?? []) as any[],
         sessions: (sessionsRes.data ?? []) as any[],
+        activeBPVersion: (activeVersionRes.data ?? null) as { version_number: number; approved_at: string | null; description: string | null } | null,
       };
     },
     enabled: shouldFetchEventData,
@@ -132,6 +134,7 @@ export default function PartnerEventDetail() {
   const transactions = eventData?.transactions ?? [];
   const transactionDocs = eventData?.transactionDocs ?? [];
   const sessions = eventData?.sessions ?? [];
+  const activeBPVersion = eventData?.activeBPVersion ?? null;
 
   // Filter zones by selected session
   const filteredZones = useMemo(() => {
@@ -594,6 +597,16 @@ export default function PartnerEventDetail() {
             </Card>
           ) : (
             <div className="space-y-4">
+              {activeBPVersion && (
+                <div className="flex items-center justify-end -mb-1">
+                  <span className="text-[10px] sm:text-xs text-muted-foreground italic">
+                    Business Plan — versão v{activeBPVersion.version_number}
+                    {activeBPVersion.approved_at && (
+                      <> ({new Date(activeBPVersion.approved_at).toLocaleDateString("pt-PT", { day: "2-digit", month: "short", year: "numeric" })})</>
+                    )}
+                  </span>
+                </div>
+              )}
               <div className="grid gap-2 sm:gap-3 grid-cols-3">
                 <Card>
                   <CardContent className="p-2 sm:p-4 text-center">
