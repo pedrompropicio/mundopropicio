@@ -17,9 +17,10 @@ Três funções (migrations `20260426165039` + `20260426170700`):
 
 1. **`analyze_formalidade_bulk(_event_ids uuid[] DEFAULT NULL)`** — devolve sugestões para todas as linhas da Versão Ativa (`version_id IS NULL`) de despesa. Aplica regras de inferência em duas fontes:
    - **Match direto** via `event_forecasts.transaction_id` → confiança `high` (TX paga = pago_total/pago_parcial; TX aprovada = fechado).
-   - **Match por similaridade** (mesmo `event_id` + mesma `category_id`) quando não existe vínculo direto → confiança `low` (a UI mostra que a sugestão veio do match indireto e exige revisão manual).
+   - **Match por categoria** (mesmo `event_id` + mesma `category_id`) quando não existe vínculo direto → confiança `high` quando o total pago bate o BP ±5%, `low` caso contrário.
    - Sem nenhum match → mantém estado atual e não aparece na lista.
    Filtra apenas linhas onde a sugestão difere do estado atual.
+   ⚠️ **BUG histórico (corrigido 2026-04-26)**: a CTE `direct_tx` originalmente fazia LEFT JOIN para todas as linhas (mesmo sem `transaction_id`), produzindo `paid_total=0` em vez de NULL. O `COALESCE(dt.paid_total, ct.paid_total)` então pegava o 0 e ignorava o match por categoria. Corrigido para INNER JOIN com `WHERE af.transaction_id IS NOT NULL` na `direct_tx` (e mantido o filtro existente na `category_tx`), garantindo que cada linha aparece em apenas uma das CTEs.
 
 2. **`apply_formalidade_suggestions(_forecast_ids uuid[], _new_state)`** — aplica um único estado a múltiplos IDs (não usado pela UI, mas útil para scripts).
 
