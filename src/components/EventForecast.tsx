@@ -227,16 +227,18 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   }, [eventId, childEventIds, includeSubsInBP]);
 
   const { data: forecastsRaw = [], isLoading } = useQuery({
-    queryKey: ["event_forecasts", eventId, forecastEventIds.join(","), includeSubsInBP],
+    queryKey: ["event_forecasts", eventId, forecastEventIds.join(","), includeSubsInBP, selectedVersionId ?? "active"],
     queryFn: async () => {
-      const query = supabase
+      let query = supabase
         .from("event_forecasts")
         .select("*, account_categories(code, name, type)")
-        .in("event_id", forecastEventIds)
-        .is("version_id", null)
-        .order("type")
-        .order("created_at");
-      const { data, error } = await query;
+        .in("event_id", forecastEventIds);
+      if (selectedVersionId) {
+        query = query.eq("version_id", selectedVersionId);
+      } else {
+        query = query.is("version_id", null);
+      }
+      const { data, error } = await query.order("type").order("created_at");
       if (error) throw error;
       return data;
     },
