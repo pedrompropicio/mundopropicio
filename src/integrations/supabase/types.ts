@@ -3994,6 +3994,10 @@ export type Database = {
           skipped_count: number
         }[]
       }
+      restore_bp_versions_from_trash: {
+        Args: { _trash_id: string }
+        Returns: Json
+      }
       revert_to_bp_version: {
         Args: {
           _force?: boolean
