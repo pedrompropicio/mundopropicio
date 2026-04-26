@@ -277,6 +277,7 @@ export function BPVersionsHistoryModal({
                     onSuccess: () => {
                       setConfirmPromote(null);
                       setForcePromote(false);
+                      setOrphansOpen(true);
                     },
                     onError: (err: any) => {
                       // Surface inline; toast handled by hook caller fallback
