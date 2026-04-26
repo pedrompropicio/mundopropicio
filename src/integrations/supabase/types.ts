@@ -217,7 +217,10 @@ export type Database = {
           description: string | null
           event_id: string
           id: string
+          is_pinned_scenario: boolean
           is_retroactive_snapshot: boolean
+          scenario_assumptions: Json | null
+          scenario_label: string | null
           snapshot_payload: Json
           state: string
           superseded_at: string | null
@@ -236,7 +239,10 @@ export type Database = {
           description?: string | null
           event_id: string
           id?: string
+          is_pinned_scenario?: boolean
           is_retroactive_snapshot?: boolean
+          scenario_assumptions?: Json | null
+          scenario_label?: string | null
           snapshot_payload?: Json
           state?: string
           superseded_at?: string | null
@@ -255,7 +261,10 @@ export type Database = {
           description?: string | null
           event_id?: string
           id?: string
+          is_pinned_scenario?: boolean
           is_retroactive_snapshot?: boolean
+          scenario_assumptions?: Json | null
+          scenario_label?: string | null
           snapshot_payload?: Json
           state?: string
           superseded_at?: string | null
@@ -3818,6 +3827,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_bp_snapshot: {
+        Args: {
+          _approve_immediately?: boolean
+          _created_by?: string
+          _created_by_label?: string
+          _description?: string
+          _event_id: string
+          _is_pinned_scenario?: boolean
+          _scenario_assumptions?: Json
+          _scenario_label?: string
+        }
+        Returns: string
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -3844,6 +3866,26 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      list_bp_versions: {
+        Args: { _event_id: string }
+        Returns: {
+          approved_at: string
+          archived_at: string
+          cascaded_from_version_id: string
+          created_at: string
+          created_by: string
+          created_by_label: string
+          description: string
+          forecast_count: number
+          id: string
+          is_pinned_scenario: boolean
+          is_retroactive_snapshot: boolean
+          scenario_label: string
+          state: string
+          superseded_at: string
+          version_number: number
+        }[]
       }
       move_to_dlq: {
         Args: {
