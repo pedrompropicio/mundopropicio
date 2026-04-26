@@ -185,12 +185,21 @@ export function usePromoteScenario(eventId: string) {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: async ({ versionId, description }: { versionId: string; description?: string | null }) => {
+    mutationFn: async ({
+      versionId,
+      description,
+      force,
+    }: {
+      versionId: string;
+      description?: string | null;
+      force?: boolean;
+    }) => {
       const { data, error } = await supabase.rpc("promote_scenario_to_active" as any, {
         _scenario_version_id: versionId,
         _description: description ?? null,
         _performed_by: user?.id ?? null,
         _performed_by_label: getAuditUser(user),
+        _force: force ?? false,
       });
       if (error) throw error;
       return data as string;
@@ -201,7 +210,7 @@ export function usePromoteScenario(eventId: string) {
       qc.invalidateQueries({ queryKey: ["forecasts"] });
       toast.success("Cenário promovido — agora é a versão ativa");
     },
-    onError: (err: any) => toast.error(err?.message ?? "Falha ao promover cenário"),
+    // No onError toast — handled inline so callers can detect "blocked" errors
   });
 }
 
