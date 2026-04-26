@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { GitBranch, Sparkles } from "lucide-react";
+import HelpTooltip from "@/components/HelpTooltip";
 
 interface Props {
   eventId: string;
@@ -44,7 +45,13 @@ export function BPScenarioSelector({ eventId, selectedVersionId, onSelectVersion
           <Sparkles className={`h-4 w-4 ${isSandbox ? "text-warning" : "text-primary"}`} />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold">A editar</p>
+          <p className="text-sm font-semibold flex items-center gap-1">
+            A editar
+            <HelpTooltip
+              size={13}
+              text="Alterna entre a Versão Ativa (BP em produção, recebe transações reais) e cenários sandbox (rascunhos isolados, só para simulação)."
+            />
+          </p>
           <p className="text-xs text-muted-foreground mt-0.5 truncate">
             Escolhe a versão do BP que queres visualizar e editar nesta vista.
           </p>

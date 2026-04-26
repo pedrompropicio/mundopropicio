@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Snowflake, GitBranch, History, Layers, Sparkles, GitCompare } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
+import HelpTooltip from "@/components/HelpTooltip";
 import { FreezeBPVersionModal } from "./FreezeBPVersionModal";
 import { BPVersionsHistoryModal } from "./BPVersionsHistoryModal";
 import { BPVersionsCompareModal } from "./BPVersionsCompareModal";
@@ -63,10 +64,16 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
             </Button>
           )}
           {canManage && !isSplit && (
-            <Button size="sm" onClick={() => setFreezeOpen(true)}>
-              <Snowflake className="h-4 w-4 mr-1.5" />
-              Congelar v1
-            </Button>
+            <div className="flex items-center">
+              <Button size="sm" onClick={() => setFreezeOpen(true)}>
+                <Snowflake className="h-4 w-4 mr-1.5" />
+                Congelar v1
+              </Button>
+              <HelpTooltip
+                size={13}
+                text="Cria a primeira versão imutável do BP deste evento. Passa a ser a Versão Ativa de produção."
+              />
+            </div>
           )}
         </div>
         {!isSplit && (
@@ -103,6 +110,10 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-semibold">v{activeVersion.version_number}</p>
             <Badge variant="default" className="text-[10px] uppercase tracking-wider">Ativa</Badge>
+            <HelpTooltip
+              size={13}
+              text="Versão Ativa = BP em produção. É a única que recebe transações reais, valida bypass e alimenta os relatórios contabilísticos (DRE, Rentabilidade)."
+            />
             {isSplit && activeVersion.cascaded_from_version_id && (
               <Badge variant="outline" className="text-[10px] gap-1">
                 <Layers className="h-2.5 w-2.5" />
@@ -125,25 +136,49 @@ export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage
 
       <div className="flex items-center gap-1.5 shrink-0">
         {versions.length >= 2 && (
-          <Button variant="ghost" size="sm" onClick={() => setCompareOpen(true)}>
-            <GitCompare className="h-4 w-4 mr-1.5" />
-            Comparar
-          </Button>
+          <div className="flex items-center">
+            <Button variant="ghost" size="sm" onClick={() => setCompareOpen(true)}>
+              <GitCompare className="h-4 w-4 mr-1.5" />
+              Comparar
+            </Button>
+            <HelpTooltip
+              size={13}
+              text="Compara lado-a-lado a Versão Ativa com versões anteriores e/ou cenários fixados (até 4 colunas). Mostra diferenças por categoria."
+            />
+          </div>
         )}
-        <Button variant="ghost" size="sm" onClick={() => setHistoryOpen(true)}>
-          <History className="h-4 w-4 mr-1.5" />
-          Histórico ({versions.length})
-        </Button>
+        <div className="flex items-center">
+          <Button variant="ghost" size="sm" onClick={() => setHistoryOpen(true)}>
+            <History className="h-4 w-4 mr-1.5" />
+            Histórico ({versions.length})
+          </Button>
+          <HelpTooltip
+            size={13}
+            text="Linha do tempo de todas as versões oficiais e cenários de trabalho. Permite reverter, arquivar, descartar ou promover cenários a Ativa."
+          />
+        </div>
         {canManage && !isSplit && (
           <>
-            <Button variant="outline" size="sm" onClick={() => setNewScenarioOpen(true)}>
-              <Sparkles className="h-4 w-4 mr-1.5" />
-              Novo cenário
-            </Button>
-            <Button size="sm" onClick={() => setFreezeOpen(true)}>
-              <Snowflake className="h-4 w-4 mr-1.5" />
-              Congelar nova versão
-            </Button>
+            <div className="flex items-center">
+              <Button variant="outline" size="sm" onClick={() => setNewScenarioOpen(true)}>
+                <Sparkles className="h-4 w-4 mr-1.5" />
+                Novo cenário
+              </Button>
+              <HelpTooltip
+                size={13}
+                text="Cria um cenário sandbox (rascunho nomeado) clonando a Versão Ativa. Permite simular pressupostos sem afetar produção. Não recebe transações reais."
+              />
+            </div>
+            <div className="flex items-center">
+              <Button size="sm" onClick={() => setFreezeOpen(true)}>
+                <Snowflake className="h-4 w-4 mr-1.5" />
+                Congelar nova versão
+              </Button>
+              <HelpTooltip
+                size={13}
+                text="Cria uma fotografia imutável do BP atual (rascunho, versão ativa ou cenário). Em Master cascateia automaticamente para os Splits."
+              />
+            </div>
           </>
         )}
       </div>
