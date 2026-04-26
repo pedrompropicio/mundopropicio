@@ -19,6 +19,9 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useEventScenario } from "@/contexts/EventScenarioContext";
+import { BPScenarioSelector } from "@/components/bp-versions/BPScenarioSelector";
+import { Sparkles } from "lucide-react";
 
 interface Props {
   eventId: string;
@@ -64,7 +67,8 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   const [exportingPDF, setExportingPDF] = useState(false);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, hasPermission } = useAuth();
-  const isEventLocked = eventStatus === "completed";
+  const { selectedVersionId, setSelectedVersionId, isScenarioMode } = useEventScenario();
+  const isEventLocked = eventStatus === "completed" && !isScenarioMode; // sandbox unlocks edits
   const isEditor = !isAdmin && !isManager;
   const canEditTickets = isEventLocked ? false : isEditor ? eventStatus === "planning" : true;
   const canManageOffices = (isAdmin || hasPermission("manage_accounts")) && !isEventLocked;
@@ -104,28 +108,34 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   }, [addingLotForZone, editingLotId]);
 
   const { data: zones = [], isLoading } = useQuery({
-    queryKey: ["event_ticket_zones", eventId],
+    queryKey: ["event_ticket_zones", eventId, selectedVersionId ?? "active"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("event_ticket_zones")
         .select("*")
         .eq("event_id", eventId)
         .order("created_at");
+      if (selectedVersionId) q = q.eq("version_id", selectedVersionId);
+      else q = q.is("version_id", null);
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
   });
 
   const { data: allLots = [] } = useQuery({
-    queryKey: ["event_ticket_lots", eventId],
+    queryKey: ["event_ticket_lots", eventId, selectedVersionId ?? "active"],
     queryFn: async () => {
       const zoneIds = zones.map((z) => z.id);
       if (zoneIds.length === 0) return [];
-      const { data, error } = await supabase
+      let q = supabase
         .from("event_ticket_lots")
         .select("*")
         .in("zone_id", zoneIds)
         .order("lot_number");
+      if (selectedVersionId) q = q.eq("version_id", selectedVersionId);
+      else q = q.is("version_id", null);
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
@@ -264,6 +274,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         event_id: eventId,
         name: form.name,
         total_capacity: parseInt(form.total_capacity) || 0,
+        version_id: selectedVersionId, // null=Active, uuid=scenario sandbox
       };
       if (sessionId) payload.session_id = sessionId;
       if (id) {
@@ -276,7 +287,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       }
     },
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ["event_ticket_zones", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_zones", eventId, selectedVersionId ?? "active"] });
       toast({ title: vars.id ? "Zona atualizada!" : "Zona criada!" });
       setAddingZone(false);
       setEditingZoneId(null);
@@ -291,8 +302,8 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["event_ticket_zones", eventId] });
-      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_zones", eventId, selectedVersionId ?? "active"] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId, selectedVersionId ?? "active"] });
       toast({ title: "Zona eliminada" });
     },
   });
@@ -330,6 +341,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         iva_rate: parseInt(form.iva_rate) || 6,
         lot_number: nextLotNumber,
         lot_type: form.lot_type || "regular",
+        version_id: selectedVersionId, // null=Active, uuid=scenario sandbox
       };
       if (id) {
         const { error } = await supabase.from("event_ticket_lots").update(payload).eq("id", id);
@@ -340,7 +352,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       }
     },
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId, selectedVersionId ?? "active"] });
       toast({ title: vars.id ? "Lote atualizado!" : "Lote adicionado!" });
       if (!vars.id) {
         setLotForm(emptyLot);
@@ -360,7 +372,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId, selectedVersionId ?? "active"] });
       toast({ title: "Lote eliminado" });
     },
   });

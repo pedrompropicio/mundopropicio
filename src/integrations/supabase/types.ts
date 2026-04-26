@@ -1715,6 +1715,7 @@ export type Database = {
           sort_order: number
           start_time: string | null
           updated_at: string
+          version_id: string | null
         }
         Insert: {
           created_at?: string
@@ -1725,6 +1726,7 @@ export type Database = {
           sort_order?: number
           start_time?: string | null
           updated_at?: string
+          version_id?: string | null
         }
         Update: {
           created_at?: string
@@ -1735,6 +1737,7 @@ export type Database = {
           sort_order?: number
           start_time?: string | null
           updated_at?: string
+          version_id?: string | null
         }
         Relationships: [
           {
@@ -1742,6 +1745,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_sessions_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "bp_versions"
             referencedColumns: ["id"]
           },
         ]
@@ -1756,6 +1766,7 @@ export type Database = {
           name: string
           price: number
           quantity: number
+          version_id: string | null
           zone_id: string
         }
         Insert: {
@@ -1767,6 +1778,7 @@ export type Database = {
           name?: string
           price?: number
           quantity?: number
+          version_id?: string | null
           zone_id: string
         }
         Update: {
@@ -1778,9 +1790,17 @@ export type Database = {
           name?: string
           price?: number
           quantity?: number
+          version_id?: string | null
           zone_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "event_ticket_lots_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "bp_versions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_ticket_lots_zone_id_fkey"
             columns: ["zone_id"]
@@ -1908,6 +1928,7 @@ export type Database = {
           session_id: string | null
           total_capacity: number
           updated_at: string
+          version_id: string | null
         }
         Insert: {
           created_at?: string
@@ -1917,6 +1938,7 @@ export type Database = {
           session_id?: string | null
           total_capacity?: number
           updated_at?: string
+          version_id?: string | null
         }
         Update: {
           created_at?: string
@@ -1926,6 +1948,7 @@ export type Database = {
           session_id?: string | null
           total_capacity?: number
           updated_at?: string
+          version_id?: string | null
         }
         Relationships: [
           {
@@ -1940,6 +1963,13 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "event_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_ticket_zones_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "bp_versions"
             referencedColumns: ["id"]
           },
         ]
