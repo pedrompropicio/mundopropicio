@@ -745,8 +745,12 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         is_overhead: form.type === "expense" ? !!form.is_overhead : false,
         exclude_from_result: form.type === "expense" ? !!form.is_overhead : false,
       };
-      // Auto-approve forecasts on completed (historical) events
-      if (!id && isCompletedEvent) {
+      // Em modo cenário, novas linhas pertencem ao working_draft (não à Ativa)
+      if (selectedVersionId) {
+        payload.version_id = selectedVersionId;
+      }
+      // Auto-approve forecasts on completed (historical) events (apenas na Ativa)
+      if (!id && isCompletedEvent && !selectedVersionId) {
         payload.status = "approved";
         payload.approved_at = new Date().toISOString();
         payload.approved_by = user?.email || "system";
