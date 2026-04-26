@@ -67,7 +67,8 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   const [exportingPDF, setExportingPDF] = useState(false);
   const queryClient = useQueryClient();
   const { isAdmin, isManager, hasPermission } = useAuth();
-  const isEventLocked = eventStatus === "completed";
+  const { selectedVersionId, setSelectedVersionId, isScenarioMode } = useEventScenario();
+  const isEventLocked = eventStatus === "completed" && !isScenarioMode; // sandbox unlocks edits
   const isEditor = !isAdmin && !isManager;
   const canEditTickets = isEventLocked ? false : isEditor ? eventStatus === "planning" : true;
   const canManageOffices = (isAdmin || hasPermission("manage_accounts")) && !isEventLocked;
@@ -107,28 +108,34 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   }, [addingLotForZone, editingLotId]);
 
   const { data: zones = [], isLoading } = useQuery({
-    queryKey: ["event_ticket_zones", eventId],
+    queryKey: ["event_ticket_zones", eventId, selectedVersionId ?? "active"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("event_ticket_zones")
         .select("*")
         .eq("event_id", eventId)
         .order("created_at");
+      if (selectedVersionId) q = q.eq("version_id", selectedVersionId);
+      else q = q.is("version_id", null);
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
   });
 
   const { data: allLots = [] } = useQuery({
-    queryKey: ["event_ticket_lots", eventId],
+    queryKey: ["event_ticket_lots", eventId, selectedVersionId ?? "active"],
     queryFn: async () => {
       const zoneIds = zones.map((z) => z.id);
       if (zoneIds.length === 0) return [];
-      const { data, error } = await supabase
+      let q = supabase
         .from("event_ticket_lots")
         .select("*")
         .in("zone_id", zoneIds)
         .order("lot_number");
+      if (selectedVersionId) q = q.eq("version_id", selectedVersionId);
+      else q = q.is("version_id", null);
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
