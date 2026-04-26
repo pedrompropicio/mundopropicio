@@ -6,6 +6,7 @@ import { Snowflake, GitBranch, History, Layers, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { FreezeBPVersionModal } from "./FreezeBPVersionModal";
+import { BPVersionsHistoryModal } from "./BPVersionsHistoryModal";
 
 interface Props {
   eventId: string;
@@ -17,6 +18,7 @@ interface Props {
 export function BPVersionCard({ eventId, isMaster, isSplit, canManage }: Props) {
   const { activeVersion, versions, isLoading } = useActiveBPVersion(eventId);
   const [freezeOpen, setFreezeOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const scenarios = useMemo(
     () => (versions ?? []).filter((v) => v.scenario_label && v.state === "draft"),
@@ -47,12 +49,20 @@ export function BPVersionCard({ eventId, isMaster, isSplit, canManage }: Props) 
             </p>
           </div>
         </div>
-        {canManage && !isSplit && (
-          <Button size="sm" onClick={() => setFreezeOpen(true)}>
-            <Snowflake className="h-4 w-4 mr-1.5" />
-            Congelar v1
-          </Button>
-        )}
+        <div className="flex items-center gap-1.5">
+          {versions.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={() => setHistoryOpen(true)}>
+              <History className="h-4 w-4 mr-1.5" />
+              Histórico ({versions.length})
+            </Button>
+          )}
+          {canManage && !isSplit && (
+            <Button size="sm" onClick={() => setFreezeOpen(true)}>
+              <Snowflake className="h-4 w-4 mr-1.5" />
+              Congelar v1
+            </Button>
+          )}
+        </div>
         {!isSplit && (
           <FreezeBPVersionModal
             open={freezeOpen}
@@ -61,6 +71,13 @@ export function BPVersionCard({ eventId, isMaster, isSplit, canManage }: Props) 
             isMaster={isMaster}
           />
         )}
+        <BPVersionsHistoryModal
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+          eventId={eventId}
+          isSplit={isSplit}
+          canManage={canManage}
+        />
       </div>
     );
   }
@@ -100,9 +117,9 @@ export function BPVersionCard({ eventId, isMaster, isSplit, canManage }: Props) 
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
-        <Button variant="ghost" size="sm" disabled title="Disponível na próxima fase (timeline)">
+        <Button variant="ghost" size="sm" onClick={() => setHistoryOpen(true)}>
           <History className="h-4 w-4 mr-1.5" />
-          Histórico
+          Histórico ({versions.length})
         </Button>
         {canManage && !isSplit && (
           <Button size="sm" onClick={() => setFreezeOpen(true)}>
@@ -120,6 +137,14 @@ export function BPVersionCard({ eventId, isMaster, isSplit, canManage }: Props) 
           isMaster={isMaster}
         />
       )}
+
+      <BPVersionsHistoryModal
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+        eventId={eventId}
+        isSplit={isSplit}
+        canManage={canManage}
+      />
     </div>
   );
 }
