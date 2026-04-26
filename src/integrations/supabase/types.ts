@@ -3934,6 +3934,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _debug_analyze_formalidade: {
+        Args: { _event_ids: string[] }
+        Returns: {
+          bp: number
+          confidence: string
+          current_f: string
+          description: string
+          forecast_id: string
+          paid: number
+          suggested_f: string
+        }[]
+      }
       _revert_event_to_version: {
         Args: {
           _event_id: string
