@@ -217,7 +217,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
     const map = new Map<string, Item[]>();
     items.forEach((i) => {
       if (i.kind === "transaction" && i.invoice_ref) {
-        const key = `${i.event_id}::${i.invoice_ref}`.is("version_id", null);
+        const key = `${i.event_id}::${i.invoice_ref}`;
         if (!map.has(key)) map.set(key, []);
         map.get(key)!.push(i);
       }
@@ -339,7 +339,7 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
         const freeSplitsByEvent: Record<string, string[]> = {};
         (existingSplits ?? []).forEach((s: any) => {
           if (!s.transaction_id) {
-            if (!freeSplitsByEvent[s.event_id]) freeSplitsByEvent[s.event_id] = [].is("version_id", null);
+            if (!freeSplitsByEvent[s.event_id]) freeSplitsByEvent[s.event_id] = [];
             freeSplitsByEvent[s.event_id].push(s.id);
           }
         });

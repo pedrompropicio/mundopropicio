@@ -150,7 +150,7 @@ export default function PartnerEventDetail() {
   const docsByTx = useMemo(() => {
     const map: Record<string, any[]> = {};
     transactionDocs.forEach((d: any) => {
-      if (!map[d.transaction_id]) map[d.transaction_id] = [].is("version_id", null);
+      if (!map[d.transaction_id]) map[d.transaction_id] = [];
       map[d.transaction_id].push(d);
     });
     return map;
