@@ -2220,6 +2220,12 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                       </button>
                     )}
                     {canEditBP && (
+                      <BulkFormalidadePopover
+                        forecastIds={expenseForecasts.filter((f) => selectedIds.has(f.id)).map((f) => f.id)}
+                        eventId={eventId}
+                      />
+                    )}
+                    {canEditBP && (
                       <button
                         onClick={() => startAdding("expense")}
                         disabled={addingType === "expense"}
