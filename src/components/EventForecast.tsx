@@ -151,6 +151,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [bpSearch, setBpSearch] = useState("");
   const [partnerFilter, setPartnerFilter] = useState<string>("all"); // "all" | "company" | partner_id
   const [txLinkFilter, setTxLinkFilter] = useState<string>("all"); // "all" | "with_tx" | "without_tx"
+  // Filtra a vista do BP por estado de formalidade comercial. "all" mostra tudo;
+  // os outros valores correspondem 1:1 ao enum `bp_formalidade`.
+  const [formalidadeFilter, setFormalidadeFilter] = useState<string>("all");
   const [includeSubsInBP, setIncludeSubsInBP] = useState<boolean>(false); // master view: hide sub-event lines by default
   const [includeOverheadInComparison, setIncludeOverheadInComparison] = useState<boolean>(false); // Previsão vs Real: incluir linhas is_overhead
   const [adoptTarget, setAdoptTarget] = useState<{ id: string; description: string; category_id: string | null; type: string } | null>(null);
