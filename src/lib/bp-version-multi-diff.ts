@@ -5,8 +5,19 @@
  * per-version values and totals, plus a global summary. Designed for the
  * BPVersionsCompareModal "multi" mode and PDF export.
  */
-import type { ForecastSnapshot } from "./bp-version-diff";
 import type { CategoryLookup } from "./category-hierarchy";
+
+export interface ForecastSnapshot {
+  id: string;
+  type: "income" | "expense";
+  description: string;
+  specification: string | null;
+  amount: number;
+  iva_rate: number;
+  status: string;
+  category_id: string | null;
+  notes?: string | null;
+}
 
 export interface MultiDiffVersionMeta {
   id: string;
