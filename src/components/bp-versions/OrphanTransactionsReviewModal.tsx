@@ -26,7 +26,7 @@ import {
   type OrphanMatchReason,
   type OrphanTransactionRow,
 } from "@/hooks/useBPVersions";
-import { formatCurrency } from "@/lib/currency";
+import { formatInCurrency } from "@/lib/currency";
 import { format, parseISO } from "date-fns";
 import { pt } from "date-fns/locale";
 
@@ -247,14 +247,14 @@ function OrphanRow({
       </TableCell>
       <TableCell className="text-xs">{row.tx_category_name ?? "—"}</TableCell>
       <TableCell className="text-right font-mono text-sm">
-        {formatCurrency(row.tx_amount, "EUR")}
+        {formatInCurrency(row.tx_amount, "EUR")}
       </TableCell>
       <TableCell>
         {row.best_forecast_id ? (
           <div className="space-y-0.5">
             <div className="text-sm">{row.best_forecast_description ?? "—"}</div>
             <div className="text-xs text-muted-foreground font-mono">
-              {row.best_forecast_amount != null ? formatCurrency(row.best_forecast_amount, "EUR") : "—"}
+              {row.best_forecast_amount != null ? formatInCurrency(row.best_forecast_amount, "EUR") : "—"}
             </div>
           </div>
         ) : (
