@@ -85,6 +85,8 @@ export function useFreezeBPVersion() {
     },
     onSuccess: (_id, vars) => {
       qc.invalidateQueries({ queryKey: versionsKey(vars.eventId) });
+      // Invalidate diff so banner "alterações pendentes" reflects new snapshot
+      qc.invalidateQueries({ queryKey: ["event_forecasts", vars.eventId, "active-version-diff"] });
       toast.success(
         vars.scenarioLabel
           ? `Cenário "${vars.scenarioLabel}" criado`
