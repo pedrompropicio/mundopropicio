@@ -3827,6 +3827,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _revert_event_to_version: {
+        Args: {
+          _event_id: string
+          _force: boolean
+          _performed_by: string
+          _performed_by_label: string
+          _target_version_id: string
+        }
+        Returns: undefined
+      }
       archive_bp_version: {
         Args: {
           _performed_by?: string
@@ -3834,6 +3844,10 @@ export type Database = {
           _version_id: string
         }
         Returns: undefined
+      }
+      bp_version_linked_tx_count: {
+        Args: { _event_id: string }
+        Returns: number
       }
       create_bp_snapshot: {
         Args: {
@@ -3929,6 +3943,15 @@ export type Database = {
           _trigger_version_number: number
         }
         Returns: undefined
+      }
+      revert_to_bp_version: {
+        Args: {
+          _force?: boolean
+          _performed_by?: string
+          _performed_by_label?: string
+          _version_id: string
+        }
+        Returns: string
       }
       unarchive_bp_version: {
         Args: {
