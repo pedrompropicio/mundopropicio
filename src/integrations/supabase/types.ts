@@ -3917,6 +3917,23 @@ export type Database = {
           version_number: number
         }[]
       }
+      list_orphan_transactions_for_event: {
+        Args: { _event_id: string }
+        Returns: {
+          best_forecast_amount: number
+          best_forecast_description: string
+          best_forecast_id: string
+          match_reason: string
+          match_score: number
+          transaction_id: string
+          tx_amount: number
+          tx_category_id: string
+          tx_category_name: string
+          tx_date: string
+          tx_description: string
+          tx_status: string
+        }[]
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
@@ -3963,6 +3980,19 @@ export type Database = {
           _trigger_version_number: number
         }
         Returns: undefined
+      }
+      relink_orphan_transactions: {
+        Args: {
+          _event_id: string
+          _pairs: Json
+          _performed_by?: string
+          _performed_by_label?: string
+        }
+        Returns: {
+          details: Json
+          relinked_count: number
+          skipped_count: number
+        }[]
       }
       revert_to_bp_version: {
         Args: {
