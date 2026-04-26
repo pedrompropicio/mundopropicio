@@ -956,13 +956,20 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         )}
       </div>
 
-      {/* Sales Log */}
-      <SalesLogPanel
-        eventId={eventId}
-        lastSalesDate={(eventData as any)?.last_sales_date ?? null}
-        isEditable={canEditTickets}
-        sessionId={sessionId}
-      />
+      {/* Sales Log — sempre vinculado à Versão Ativa, nunca aos cenários sandbox */}
+      {!isScenarioMode && (
+        <SalesLogPanel
+          eventId={eventId}
+          lastSalesDate={(eventData as any)?.last_sales_date ?? null}
+          isEditable={canEditTickets}
+          sessionId={sessionId}
+        />
+      )}
+      {isScenarioMode && (
+        <div className="glass rounded-xl p-4 text-xs text-muted-foreground border border-dashed">
+          Log de vendas reais não está disponível em modo cenário — volta à Versão Ativa para registar/visualizar vendas.
+        </div>
+      )}
 
       <AlertDialog open={!!deletingOfficeId} onOpenChange={() => setDeletingOfficeId(null)}>
         <AlertDialogContent>
