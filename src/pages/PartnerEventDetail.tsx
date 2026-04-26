@@ -122,6 +122,7 @@ export default function PartnerEventDetail() {
         transactions: txs,
         transactionDocs: (docsRes.data ?? []) as any[],
         sessions: (sessionsRes.data ?? []) as any[],
+        activeBPVersion: (activeVersionRes.data ?? null) as { version_number: number; approved_at: string | null; description: string | null } | null,
       };
     },
     enabled: shouldFetchEventData,
@@ -133,6 +134,7 @@ export default function PartnerEventDetail() {
   const transactions = eventData?.transactions ?? [];
   const transactionDocs = eventData?.transactionDocs ?? [];
   const sessions = eventData?.sessions ?? [];
+  const activeBPVersion = eventData?.activeBPVersion ?? null;
 
   // Filter zones by selected session
   const filteredZones = useMemo(() => {
