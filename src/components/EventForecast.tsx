@@ -8,10 +8,11 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive, Paperclip } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive, Paperclip, Sparkles } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import { BPVersionCard } from "@/components/bp-versions/BPVersionCard";
+import { BPScenarioSelector } from "@/components/bp-versions/BPScenarioSelector";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/mock-data";
@@ -150,6 +151,10 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [promoteCandidates, setPromoteCandidates] = useState<PromoteCandidate[]>([]);
   const [showPromoteModal, setShowPromoteModal] = useState(false);
   const [showOrphanResolver, setShowOrphanResolver] = useState(false);
+  // Cenário ativo na vista (null = versão Ativa). Quando definido, todas as queries
+  // e mutações de event_forecasts operam dentro desse working_draft.
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  const isScenarioMode = selectedVersionId !== null;
   const queryClient = useQueryClient();
   const { isAdmin: rawIsAdmin, isManager: rawIsManager, user, hasPermission } = useAuth();
   // forceReadOnly disables all admin/manager UI affordances so the same
@@ -223,16 +228,18 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   }, [eventId, childEventIds, includeSubsInBP]);
 
   const { data: forecastsRaw = [], isLoading } = useQuery({
-    queryKey: ["event_forecasts", eventId, forecastEventIds.join(","), includeSubsInBP],
+    queryKey: ["event_forecasts", eventId, forecastEventIds.join(","), includeSubsInBP, selectedVersionId ?? "active"],
     queryFn: async () => {
-      const query = supabase
+      let query = supabase
         .from("event_forecasts")
         .select("*, account_categories(code, name, type)")
-        .in("event_id", forecastEventIds)
-        .is("version_id", null)
-        .order("type")
-        .order("created_at");
-      const { data, error } = await query;
+        .in("event_id", forecastEventIds);
+      if (selectedVersionId) {
+        query = query.eq("version_id", selectedVersionId);
+      } else {
+        query = query.is("version_id", null);
+      }
+      const { data, error } = await query.order("type").order("created_at");
       if (error) throw error;
       return data;
     },
@@ -332,7 +339,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const adoptedByMaster = useMemo(() => {
     const map: Record<string, any[]> = {};
     adoptedForecasts.forEach((f: any) => {
-      const mid = (f as any).master_forecast_id.is("version_id", null);
+      const mid = (f as any).master_forecast_id;
       if (mid) {
         if (!map[mid]) map[mid] = [];
         map[mid].push(f);
@@ -739,8 +746,12 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         is_overhead: form.type === "expense" ? !!form.is_overhead : false,
         exclude_from_result: form.type === "expense" ? !!form.is_overhead : false,
       };
-      // Auto-approve forecasts on completed (historical) events
-      if (!id && isCompletedEvent) {
+      // Em modo cenário, novas linhas pertencem ao working_draft (não à Ativa)
+      if (selectedVersionId) {
+        payload.version_id = selectedVersionId;
+      }
+      // Auto-approve forecasts on completed (historical) events (apenas na Ativa)
+      if (!id && isCompletedEvent && !selectedVersionId) {
         payload.status = "approved";
         payload.approved_at = new Date().toISOString();
         payload.approved_by = user?.email || "system";
@@ -1706,6 +1717,24 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         isSplit={isSplitEvent}
         canManage={canManageVersions}
       />
+      <BPScenarioSelector
+        eventId={eventId}
+        selectedVersionId={selectedVersionId}
+        onSelectVersion={setSelectedVersionId}
+      />
+      {isScenarioMode && (
+        <div className="rounded-lg border border-primary/40 bg-primary/10 px-4 py-3 flex items-start gap-3">
+          <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-semibold">A editar um cenário sandbox</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              As alterações ficam isoladas neste cenário e <strong>não afetam o BP em produção</strong>.
+              Para aplicar, promove o cenário a Ativa no card de versões em cima.
+              Geração de transações, aprovações e adoção Master↔Split estão desativadas em modo cenário.
+            </p>
+          </div>
+        </div>
+      )}
       {expenseOnly && (
         <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
           <TrendingDown className="h-5 w-5 text-primary shrink-0" />
