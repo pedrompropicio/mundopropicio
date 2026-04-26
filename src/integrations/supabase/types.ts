@@ -3920,6 +3920,16 @@ export type Database = {
           read_ct: number
         }[]
       }
+      reconcile_bp_overrides_for_event: {
+        Args: {
+          _event_id: string
+          _performed_by?: string
+          _performed_by_label?: string
+          _trigger_version_id: string
+          _trigger_version_number: number
+        }
+        Returns: undefined
+      }
       unarchive_bp_version: {
         Args: {
           _performed_by?: string
