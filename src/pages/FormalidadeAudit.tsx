@@ -183,6 +183,7 @@ export default function FormalidadeAudit() {
       });
       setSelectedRows(new Set());
       queryClient.invalidateQueries({ queryKey: ["formalidade-audit-bulk"] });
+      queryClient.invalidateQueries({ queryKey: ["formalidade-audit-stats"] });
       queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
     },
     onError: (err: any) => {
