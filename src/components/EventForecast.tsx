@@ -41,6 +41,7 @@ import { GenerateHistoricalModal, type XlsxRowForGeneration } from "@/components
 import { MarkAsFechadoDialog } from "@/components/bp-versions/MarkAsFechadoDialog";
 import { FormalidadeHistoryPopover } from "@/components/bp-versions/FormalidadeHistoryPopover";
 import { FormalidadeBadge } from "@/components/bp-versions/FormalidadeBadge";
+import { BulkFormalidadePopover } from "@/components/bp-versions/BulkFormalidadePopover";
 
 /**
  * Returns the subset of forecast IDs that are eligible to be auto-promoted to
