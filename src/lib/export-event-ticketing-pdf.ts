@@ -8,6 +8,10 @@ import { formatDatePT } from "@/lib/utils";
 interface TicketingExportInput {
   eventId: string;
   includeChildren?: boolean;
+  /** null/undefined = versão Ativa; uuid = cenário sandbox. */
+  versionId?: string | null;
+  /** Label opcional do cenário para mostrar no cabeçalho. */
+  scenarioLabel?: string | null;
 }
 
 interface EventRow {
@@ -71,7 +75,7 @@ function eventTypeLabel(t: string): string {
 
 const lotTypeLabel: Record<string, string> = { regular: "Regular", promo: "Promo", special: "Especial" };
 
-async function fetchEventTicketingBundle(eventId: string) {
+async function fetchEventTicketingBundle(eventId: string, versionId: string | null = null) {
   const evtRes = await supabase
     .from("events")
     .select("id, name, date, status, event_type, location, parent_event_id, cities:city_id(name, country), venues:venue_id(name)")
@@ -93,9 +97,16 @@ async function fetchEventTicketingBundle(eventId: string) {
     venue: evt.venues ?? null,
   };
 
+  let zonesQuery = supabase
+    .from("event_ticket_zones")
+    .select("id, name, total_capacity, session_id")
+    .eq("event_id", eventId)
+    .order("created_at");
+  zonesQuery = versionId ? zonesQuery.eq("version_id", versionId) : zonesQuery.is("version_id", null);
+
   const [sessionsRes, zonesRes, assignmentsRes] = await Promise.all([
     supabase.from("event_sessions").select("id, date, label, start_time, sort_order").eq("event_id", eventId).order("sort_order"),
-    supabase.from("event_ticket_zones").select("id, name, total_capacity, session_id").eq("event_id", eventId).order("created_at"),
+    zonesQuery,
     supabase
       .from("event_ticket_office_assignments")
       .select("id, event_date_id, is_conciliated, conciliated_at, conciliated_by, commission_notes, financial_accounts:financial_account_id(id, name, contact_name)")
@@ -113,22 +124,28 @@ async function fetchEventTicketingBundle(eventId: string) {
   let lots: LotRow[] = [];
   let sales: SaleRow[] = [];
   if (zoneIds.length > 0) {
-    const lotsRes = await supabase
+    let lotsQuery = supabase
       .from("event_ticket_lots")
       .select("id, zone_id, name, lot_number, lot_type, price, iva_rate, quantity")
       .in("zone_id", zoneIds)
       .order("lot_number");
+    lotsQuery = versionId ? lotsQuery.eq("version_id", versionId) : lotsQuery.is("version_id", null);
+    const lotsRes = await lotsQuery;
     if (lotsRes.error) throw lotsRes.error;
     lots = (lotsRes.data ?? []) as LotRow[];
 
     const lotIds = lots.map((l) => l.id);
     if (lotIds.length > 0) {
-      const salesRes = await supabase
-        .from("ticket_sales")
-        .select("lot_id, quantity, unit_price")
-        .in("lot_id", lotIds);
-      if (salesRes.error) throw salesRes.error;
-      sales = (salesRes.data ?? []) as SaleRow[];
+      // Vendas reais não têm versão — só as carregamos no modo Ativo.
+      // Em cenários sandbox, mostramos previsões/configurações sem o realizado.
+      if (!versionId) {
+        const salesRes = await supabase
+          .from("ticket_sales")
+          .select("lot_id, quantity, unit_price")
+          .in("lot_id", lotIds);
+        if (salesRes.error) throw salesRes.error;
+        sales = (salesRes.data ?? []) as SaleRow[];
+      }
     }
   }
 
