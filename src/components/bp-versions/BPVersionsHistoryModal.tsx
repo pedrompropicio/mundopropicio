@@ -203,7 +203,15 @@ export function BPVersionsHistoryModal({
         }}
       />
 
-      <AlertDialog open={!!confirmPromote} onOpenChange={(o) => !o && setConfirmPromote(null)}>
+      <AlertDialog
+        open={!!confirmPromote}
+        onOpenChange={(o) => {
+          if (!o) {
+            setConfirmPromote(null);
+            setForcePromote(false);
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -220,22 +228,56 @@ export function BPVersionsHistoryModal({
                   Em eventos Master, a promoção propaga-se aos Splits que tenham um cenário equivalente.
                   Bypasses ("Fora do BP") são reconciliados automaticamente face ao novo orçamento.
                 </p>
-                <p className="text-xs text-warning">
-                  Vinculações a transações da versão atual serão removidas (transações ficam órfãs).
-                </p>
+                {linkedTxCount > 0 && (
+                  <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs space-y-2">
+                    <p className="font-medium text-destructive flex items-center gap-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      {linkedTxCount} linha(s) do BP atual têm transações vinculadas
+                    </p>
+                    <p className="text-muted-foreground">
+                      Se prosseguir, essas transações ficam órfãs do BP (sem `forecast_id`).
+                      É necessário marcar "Forçar promoção" para confirmar.
+                    </p>
+                    <label className="flex items-center gap-2 pt-1">
+                      <input
+                        type="checkbox"
+                        checked={forcePromote}
+                        onChange={(e) => setForcePromote(e.target.checked)}
+                        className="h-4 w-4"
+                      />
+                      <span className="font-medium text-destructive">Forçar promoção</span>
+                    </label>
+                  </div>
+                )}
+                {linkedTxCount === 0 && (
+                  <p className="text-xs text-warning">
+                    Vinculações a transações da versão atual serão removidas (transações ficam órfãs).
+                  </p>
+                )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={promote.isPending}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              disabled={promote.isPending}
+              disabled={
+                promote.isPending || (linkedTxCount > 0 && !forcePromote)
+              }
               onClick={(e) => {
                 e.preventDefault();
                 if (!confirmPromote) return;
                 promote.mutate(
-                  { versionId: confirmPromote.id, description: null },
-                  { onSuccess: () => setConfirmPromote(null) }
+                  { versionId: confirmPromote.id, description: null, force: forcePromote },
+                  {
+                    onSuccess: () => {
+                      setConfirmPromote(null);
+                      setForcePromote(false);
+                    },
+                    onError: (err: any) => {
+                      // Surface inline; toast handled by hook caller fallback
+                      console.error("promote failed:", err);
+                    },
+                  }
                 );
               }}
             >
