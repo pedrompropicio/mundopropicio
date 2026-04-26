@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useEventScenario } from "@/contexts/EventScenarioContext";
 import { BPScenarioSelector } from "@/components/bp-versions/BPScenarioSelector";
+import { useBPVersions } from "@/hooks/useBPVersions";
 import { Sparkles } from "lucide-react";
 
 interface Props {
