@@ -8,6 +8,8 @@ import { pt } from "date-fns/locale";
 import { FreezeBPVersionModal } from "./FreezeBPVersionModal";
 import { BPVersionsHistoryModal } from "./BPVersionsHistoryModal";
 import { BPVersionsCompareModal } from "./BPVersionsCompareModal";
+import { NewScenarioDraftModal } from "./NewScenarioDraftModal";
+import { ScenarioDraftsList } from "./ScenarioDraftsList";
 
 interface Props {
   eventId: string;
