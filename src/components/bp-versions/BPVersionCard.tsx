@@ -2,23 +2,26 @@ import { useState, useMemo } from "react";
 import { useActiveBPVersion } from "@/hooks/useBPVersions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Snowflake, GitBranch, History, Layers, Sparkles } from "lucide-react";
+import { Snowflake, GitBranch, History, Layers, Sparkles, GitCompare } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { FreezeBPVersionModal } from "./FreezeBPVersionModal";
 import { BPVersionsHistoryModal } from "./BPVersionsHistoryModal";
+import { BPVersionsCompareModal } from "./BPVersionsCompareModal";
 
 interface Props {
   eventId: string;
+  eventName?: string;
   isMaster: boolean;
   isSplit: boolean;
   canManage: boolean; // admin or manager
 }
 
-export function BPVersionCard({ eventId, isMaster, isSplit, canManage }: Props) {
+export function BPVersionCard({ eventId, eventName, isMaster, isSplit, canManage }: Props) {
   const { activeVersion, versions, isLoading } = useActiveBPVersion(eventId);
   const [freezeOpen, setFreezeOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
 
   const scenarios = useMemo(
     () => (versions ?? []).filter((v) => v.scenario_label && v.state === "draft"),
@@ -117,6 +120,12 @@ export function BPVersionCard({ eventId, isMaster, isSplit, canManage }: Props) 
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
+        {versions.length >= 2 && (
+          <Button variant="ghost" size="sm" onClick={() => setCompareOpen(true)}>
+            <GitCompare className="h-4 w-4 mr-1.5" />
+            Comparar
+          </Button>
+        )}
         <Button variant="ghost" size="sm" onClick={() => setHistoryOpen(true)}>
           <History className="h-4 w-4 mr-1.5" />
           Histórico ({versions.length})
@@ -144,6 +153,13 @@ export function BPVersionCard({ eventId, isMaster, isSplit, canManage }: Props) 
         eventId={eventId}
         isSplit={isSplit}
         canManage={canManage}
+      />
+
+      <BPVersionsCompareModal
+        open={compareOpen}
+        onOpenChange={setCompareOpen}
+        eventId={eventId}
+        eventName={eventName ?? "Evento"}
       />
     </div>
   );
