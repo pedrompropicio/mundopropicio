@@ -41,6 +41,7 @@ import { GenerateHistoricalModal, type XlsxRowForGeneration } from "@/components
 import { MarkAsFechadoDialog } from "@/components/bp-versions/MarkAsFechadoDialog";
 import { FormalidadeHistoryPopover } from "@/components/bp-versions/FormalidadeHistoryPopover";
 import { FormalidadeBadge } from "@/components/bp-versions/FormalidadeBadge";
+import { BulkFormalidadePopover } from "@/components/bp-versions/BulkFormalidadePopover";
 
 /**
  * Returns the subset of forecast IDs that are eligible to be auto-promoted to
@@ -2040,6 +2041,12 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                       </button>
                     )}
                     {canEditBP && (
+                      <BulkFormalidadePopover
+                        forecastIds={incomeForecasts.filter((f) => selectedIds.has(f.id)).map((f) => f.id)}
+                        eventId={eventId}
+                      />
+                    )}
+                    {canEditBP && (
                       <button
                         onClick={() => startAdding("income")}
                         disabled={addingType === "income"}
@@ -2211,6 +2218,12 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                         <CheckCircle2 className="h-3.5 w-3.5" />
                         Aprovar ({expenseForecasts.filter((f) => selectedIds.has(f.id) && f.status === "draft").length})
                       </button>
+                    )}
+                    {canEditBP && (
+                      <BulkFormalidadePopover
+                        forecastIds={expenseForecasts.filter((f) => selectedIds.has(f.id)).map((f) => f.id)}
+                        eventId={eventId}
+                      />
                     )}
                     {canEditBP && (
                       <button
