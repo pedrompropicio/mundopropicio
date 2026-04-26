@@ -332,7 +332,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const adoptedByMaster = useMemo(() => {
     const map: Record<string, any[]> = {};
     adoptedForecasts.forEach((f: any) => {
-      const mid = (f as any).master_forecast_id.is("version_id", null);
+      const mid = (f as any).master_forecast_id;
       if (mid) {
         if (!map[mid]) map[mid] = [];
         map[mid].push(f);
