@@ -75,6 +75,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
   useEffect(() => {
     if (!open) return;
     void loadCategories();
+    void loadCardAccounts();
     if (itemId) {
       void loadItem(itemId);
     } else {
@@ -86,6 +87,17 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       }
     }
   }, [open, itemId, autoOpenCamera]);
+
+  // Cartões de débito ativos visíveis ao utilizador (RLS via financial_account_access trata da visibilidade).
+  const loadCardAccounts = async () => {
+    const { data } = await supabase
+      .from("financial_accounts")
+      .select("id,name")
+      .eq("type", "card")
+      .eq("is_active", true)
+      .order("name");
+    setCardAccounts(((data ?? []) as any[]).map((a) => ({ id: a.id, name: a.name })));
+  };
 
   // Allow-list de categorias permitidas para lançamentos de camarim.
   // 2.6.04 Camarins  → produtos/serviços do camarim em si
