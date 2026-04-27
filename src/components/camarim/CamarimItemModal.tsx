@@ -126,6 +126,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setTotalAmount("");
     setIvaAmount("");
     setPaymentOrigin("advance");
+    setFinancialAccountId(null);
     setBpScope("master_common");
     setNotes("");
     setHasDocument(true);
