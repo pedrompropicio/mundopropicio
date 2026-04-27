@@ -963,6 +963,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           category: item.transactions?.account_categories ? `${item.transactions.account_categories.code} ${item.transactions.account_categories.name}` : "",
           event_name: item.transactions?.events?.name ?? "-",
           supplier_name: item.transactions?.suppliers?.name ?? "-",
+          supplier_trade_name: item.transactions?.suppliers?.trade_name ?? null,
           supplier_id: item.transactions?.supplier_id ?? null,
           iban: item.transactions?.suppliers?.iban ?? "-",
           amount: Number(item.transactions?.amount ?? 0),
