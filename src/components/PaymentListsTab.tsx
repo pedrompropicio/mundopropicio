@@ -1422,7 +1422,7 @@ function ApproveModal({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
-        .select("*, transactions(*, events(name), suppliers(name), account_categories(code, name))")
+        .select("*, transactions(*, events(name), suppliers(name, trade_name), account_categories(code, name))")
         .eq("payment_list_id", listId);
       if (error) throw error;
       const filtered = (data ?? []).filter((item: any) => !item.transactions?.parent_transaction_id);
