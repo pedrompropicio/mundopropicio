@@ -95,9 +95,31 @@ const queryClient = new QueryClient({
 
 function ProtectedLayout() {
   const { user, loading, isPartner, isAdmin, isManager, hasPermission, signOut } = useAuth();
-  // Camarim-only = qualquer utilizador NÃO admin/manager com permissão camarim_team.
-  // Estes utilizadores são equipa de campo e devem ir sempre para o PWA compacto.
-  const isCamarimOnly = !isAdmin && !isManager && hasPermission("camarim_team");
+  // Camarim-only = utilizador de campo: tem APENAS camarim_team e nenhuma
+  // permissão de gestão (nem sequer camarim_manage). Editores que gerem o
+  // camarim ou outras áreas continuam a ver o dashboard normal.
+  const MANAGEMENT_PERMS = [
+    "camarim_manage",
+    "manage_events",
+    "view_events",
+    "manage_transactions",
+    "manage_suppliers",
+    "manage_quotations",
+    "manage_accounts",
+    "view_balances",
+    "manage_tickets",
+    "manage_ticket_offices",
+    "manage_payment_lists",
+    "manage_iva",
+    "manage_categories",
+    "manage_calendar",
+    "manage_recurring",
+    "view_reports",
+    "edit_approved_bp",
+  ] as const;
+  const hasAnyManagement = MANAGEMENT_PERMS.some((p) => hasPermission(p));
+  const isCamarimOnly =
+    !isAdmin && !isManager && hasPermission("camarim_team") && !hasAnyManagement;
 
   // Hook must be called unconditionally (Rules of Hooks)
   useInactivityTimeout(!loading && !!user);
