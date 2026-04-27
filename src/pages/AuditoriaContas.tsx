@@ -270,7 +270,7 @@ function AnaliseIATab() {
             current_category_id: t.category_id, current_category_code: c?.code ?? null, current_category_name: c?.name ?? null,
             event_label: eventLabelMap.get(t.event_id) ?? null, status: "pending" as const,
             details: {
-              amount: t.amount, iva_rate: t.iva_rate, currency: t.currency, status: t.status, notes: t.notes,
+              amount: t.amount, iva_rate: t.iva_rate, currency: t.currency, status: t.status,
               payment_date: t.payment_date, due_date: t.due_date,
               is_transitory: t.is_transitory, exclude_from_result: t.exclude_from_result,
             },
