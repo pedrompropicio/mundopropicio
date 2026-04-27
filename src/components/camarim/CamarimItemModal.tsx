@@ -218,6 +218,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setTotalAmount(String(it.total_amount ?? ""));
     setIvaAmount(String(it.iva_amount ?? ""));
     setPaymentOrigin(it.payment_origin);
+    setFinancialAccountId(it.financial_account_id ?? null);
     setBpScope(it.bp_scope);
     setNotes(it.notes ?? "");
     setHasDocument(it.has_document);
