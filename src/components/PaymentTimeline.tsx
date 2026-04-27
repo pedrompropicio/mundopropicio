@@ -412,6 +412,111 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
           </ul>
         </Section>
       )}
+
+      {/* Pagamento direto (sem parcelas em transaction_payments) — admin pode ajustar valor pago */}
+      {isDirectPaid && (
+        <Section
+          icon={<Receipt className="h-3.5 w-3.5" />}
+          title="Pagamento direto"
+          action={isAdmin && !editingDirect ? (
+            <button
+              type="button"
+              onClick={startDirectEdit}
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-primary hover:bg-primary/10"
+              title="Editar valor pago"
+            >
+              <Pencil className="h-3 w-3" /> Editar valor pago
+            </button>
+          ) : undefined}
+        >
+          {editingDirect ? (
+            <div className="space-y-2 py-1">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-muted-foreground">Valor pago (€)</label>
+                  <input
+                    type="number" step="0.01" min="0"
+                    value={directForm.paid_amount}
+                    onChange={(e) => setDirectForm({ ...directForm, paid_amount: e.target.value })}
+                    className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground">Data</label>
+                  <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <button type="button" className="w-full flex items-center justify-between rounded-md border border-border bg-background px-2 py-1.5 text-sm">
+                        {directForm.payment_date ? format(directForm.payment_date, "dd/MM/yyyy") : "—"}
+                        <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 z-[100]" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={directForm.payment_date ?? undefined}
+                        onSelect={(d) => {
+                          if (d) setDirectForm({ ...directForm, payment_date: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0) });
+                          setDatePickerOpen(false);
+                        }}
+                        initialFocus className="p-3"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] text-muted-foreground">Conta</label>
+                <SearchableSelect
+                  options={accountOptions}
+                  value={directForm.account_id}
+                  onValueChange={(v) => setDirectForm({ ...directForm, account_id: v })}
+                  placeholder="Selecionar…"
+                  searchPlaceholder="Pesquisar…"
+                />
+              </div>
+              <div className="flex justify-end gap-1 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setEditingDirect(false)}
+                  className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary"
+                >
+                  <XIcon className="h-3 w-3" /> Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => directPaidMutation.mutate()}
+                  disabled={directPaidMutation.isPending}
+                  className="flex items-center gap-1 rounded bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  <Check className="h-3 w-3" /> Guardar
+                </button>
+              </div>
+              <p className="text-[10px] text-muted-foreground italic">
+                Ajuste administrativo do valor liquidado. Será registado no histórico de auditoria.
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between py-1.5 text-xs">
+              <div className="flex items-center gap-2">
+                <span>{transaction.payment_date ? formatDatePT(transaction.payment_date) : "—"}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">
+                  Conta: {(financialAccounts as any[]).find((a) => a.id === transaction.account_id)?.name ?? "—"}
+                </span>
+              </div>
+              <span className="font-mono font-semibold">{formatCurrency(Number(transaction.paid_amount ?? 0))}</span>
+            </div>
+          )}
+        </Section>
+      )}
+
+      {showPaymentsModal && (
+        <TransactionPaymentsListModal
+          transaction={transaction}
+          isAdmin={isAdmin}
+          onClose={() => setShowPaymentsModal(false)}
+        />
+      )}
     </div>
   );
 }
