@@ -61,3 +61,6 @@ Para resolver a ambiguidade entre "Vista Empresa" (overhead fora, coerente com D
 
 ### Anexos
 Bucket `closing-cost-documents` reutilizado (mantém anexos antigos pré-migração).
+
+## IVA do Overhead em Gross
+Overhead tem `iva_rate` próprio (pode ser 0 ou 23). No Gross deve sempre passar por `calcTotalWithIva(amount, iva_rate)`. Bug 2026-04: `PartnerSettlementTab` somava overhead em Gross sem IVA, deflacionando despesas em ~IVA% (ex.: Mágicos 2.6.07 Taxa Ticketline 2% → faltava 425,32 €). Corrigido em `totalExpensesGross`, `cityBreakdown` (local + masterShare) e `expenseByCategory.amountGross`.
