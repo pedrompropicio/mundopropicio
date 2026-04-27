@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
-import { exportPaymentListToExcel, exportPaymentListToPDF, groupPaymentItems, formatSupplierFullName } from "@/lib/export-payment-list";
+import { exportPaymentListToExcel, exportPaymentListToPDF, groupPaymentItems, formatSupplierFullName, formatAmountForBank } from "@/lib/export-payment-list";
 import { calcWithIva } from "@/lib/utils";
 import { sendPushToAdminsAndManagers } from "@/lib/push-notifications";
 import { getPendingPaymentListsCount, refreshBadgeFromDB } from "@/lib/app-badge";
@@ -1249,7 +1249,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     {tx?.specification && (
                       <p className="text-xs text-muted-foreground pl-0.5">{tx.specification}</p>
                     )}
-                    <CopyLine label="Valor" value={formatCurrency(withIva)} mono bold />
+                    <CopyLine label="Valor" value={formatCurrency(withIva)} copyValue={formatAmountForBank(withIva)} mono bold />
                     {bpCheck.exceeds && (
                       <BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={amount} />
                     )}
@@ -1314,9 +1314,13 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       ) : (
                         <CopyLine label="IBAN" value={group.iban ?? "-"} mono />
                       )}
-                      <p className="font-semibold text-sm text-foreground">
-                        Total a transferir: <span className="font-mono">{formatCurrency(group.totalWithIva)}</span>
-                      </p>
+                      <CopyLine
+                        label="Total a transferir"
+                        value={formatCurrency(group.totalWithIva)}
+                        copyValue={formatAmountForBank(group.totalWithIva)}
+                        mono
+                        bold
+                      />
                     </div>
                     <div className="space-y-2 pl-2 border-l-2 border-primary/20 ml-1">
                       {groupItems.map((gi: any) => renderItem(gi))}
