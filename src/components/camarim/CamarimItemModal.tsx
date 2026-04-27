@@ -389,6 +389,10 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       toast({ variant: "destructive", title: "Indica o motivo da ausência de documento" });
       return;
     }
+    if (paymentOrigin === "card" && !financialAccountId) {
+      toast({ variant: "destructive", title: "Seleciona o cartão usado" });
+      return;
+    }
 
     // Pré-check de duplicados (mesma sessão + fornecedor + nº doc + total).
     if (!itemId && supplierName.trim() && docNumber.trim()) {
