@@ -278,7 +278,20 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
 
       {/* Parcelas */}
       {payments.length > 0 && (
-        <Section icon={<Receipt className="h-3.5 w-3.5" />} title={`Parcelas pagas (${payments.length})`}>
+        <Section
+          icon={<Receipt className="h-3.5 w-3.5" />}
+          title={`Parcelas pagas (${payments.length})`}
+          action={isAdmin ? (
+            <button
+              type="button"
+              onClick={() => setShowPaymentsModal(true)}
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-primary hover:bg-primary/10"
+              title="Editar parcelas"
+            >
+              <Pencil className="h-3 w-3" /> Editar
+            </button>
+          ) : undefined}
+        >
           <ul className="divide-y divide-border/40">
             {payments.map((p, i) => (
               <li key={p.id} className="flex items-center justify-between py-1.5 text-xs">
