@@ -242,7 +242,7 @@ function AnaliseIATab() {
       // Fetch transactions (expense)
       const { data: txs, error: txErr } = await supabase
         .from("transactions")
-        .select("id, description, category_id, event_id, type, amount, iva_rate, currency, status, notes, payment_date, due_date, is_transitory, exclude_from_result")
+        .select("id, description, category_id, event_id, type, amount, iva_rate, currency, status, payment_date, due_date, is_transitory, exclude_from_result")
         .in("event_id", eventIds)
         .eq("type", "expense");
       if (txErr) throw txErr;
