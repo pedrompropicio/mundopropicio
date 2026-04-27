@@ -88,12 +88,12 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     }
   }, [open, itemId, autoOpenCamera]);
 
-  // Cartões de débito ativos visíveis ao utilizador (RLS via financial_account_access trata da visibilidade).
+  // Cartões pré-pago ativos visíveis ao utilizador (RLS via financial_account_access trata da visibilidade).
   const loadCardAccounts = async () => {
     const { data } = await supabase
       .from("financial_accounts")
       .select("id,name")
-      .eq("type", "card")
+      .eq("type", "prepaid_card")
       .eq("is_active", true)
       .order("name");
     setCardAccounts(((data ?? []) as any[]).map((a) => ({ id: a.id, name: a.name })));
