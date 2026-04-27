@@ -258,6 +258,51 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
     },
   });
 
+  const updateDirectMutation = useMutation({
+    mutationFn: async () => {
+      const newPaid = parseFloat(directForm.paid_amount);
+      if (isNaN(newPaid) || newPaid < 0) throw new Error("Valor pago inválido");
+      if (newPaid > totalWithIva + 0.05) throw new Error("O valor pago não pode exceder o montante da transação");
+
+      const newDate = directForm.payment_date ? format(directForm.payment_date, "yyyy-MM-dd") : null;
+      const newStatus = newPaid <= 0 ? "approved" : isFullyPaid(newPaid, baseAmount, ivaRate) ? "paid" : "approved";
+      const finalPaid = newStatus === "paid" ? Math.max(newPaid, totalWithIva) : newPaid;
+
+      const { error } = await supabase
+        .from("transactions")
+        .update({
+          paid_amount: finalPaid,
+          status: newStatus,
+          payment_date: newPaid > 0 ? newDate : null,
+          account_id: directForm.account_id || null,
+        } as any)
+        .eq("id", transaction.id);
+      if (error) throw error;
+
+      const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+      const auditEntries: any[] = [];
+      const oldPaid = Number(transaction.paid_amount ?? 0);
+      if (oldPaid !== finalPaid) auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: "Valor pago (ajuste admin)", old_value: formatCurrency(oldPaid), new_value: formatCurrency(finalPaid) });
+      if ((transaction.payment_date ?? null) !== newDate) auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: "Data pgto (ajuste admin)", old_value: transaction.payment_date ?? "—", new_value: newDate ?? "—" });
+      if ((transaction.account_id ?? "") !== (directForm.account_id || "")) {
+        const oldName = financialAccounts.find((a: any) => a.id === transaction.account_id)?.name ?? "—";
+        const newName = financialAccounts.find((a: any) => a.id === directForm.account_id)?.name ?? "—";
+        auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: "Conta (ajuste admin)", old_value: oldName, new_value: newName });
+      }
+      if (transaction.status !== newStatus) auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: "Estado (ajuste admin)", old_value: transaction.status, new_value: newStatus });
+      if (auditEntries.length > 0) await supabase.from("transaction_audit_log").insert(auditEntries);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transaction_payments", transaction.id] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      setEditingDirect(false);
+      toast({ title: "Valor pago atualizado com sucesso" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    },
+  });
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
