@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
-import { exportPaymentListToExcel, exportPaymentListToPDF, groupPaymentItems } from "@/lib/export-payment-list";
+import { exportPaymentListToExcel, exportPaymentListToPDF, groupPaymentItems, formatSupplierFullName } from "@/lib/export-payment-list";
 import { calcWithIva } from "@/lib/utils";
 import { sendPushToAdminsAndManagers } from "@/lib/push-notifications";
 import { getPendingPaymentListsCount, refreshBadgeFromDB } from "@/lib/app-badge";
@@ -493,7 +493,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, events(name), suppliers(name, iban, iban_2, iban_3, swift_bic, swift_bic_2, swift_bic_3), account_categories(code, name)")
+        .select("*, events(name), suppliers(name, trade_name, iban, iban_2, iban_3, swift_bic, swift_bic_2, swift_bic_3), account_categories(code, name)")
         .eq("status", "approved")
         .eq("type", "expense")
         .is("parent_transaction_id", null)
@@ -693,7 +693,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                       </td>
                       <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "-"}</td>
                       <td className="p-2 text-muted-foreground hidden sm:table-cell">{t.events?.name ?? "-"}</td>
-                      <td className="p-2 text-muted-foreground hidden md:table-cell">{t.suppliers?.name ?? "-"}</td>
+                      <td className="p-2 text-muted-foreground hidden md:table-cell">{formatSupplierFullName(t.suppliers?.name, (t.suppliers as any)?.trade_name)}</td>
                       <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
                       <td className="p-2 text-right font-mono hidden sm:table-cell">{formatCurrency(paidWithIva)}</td>
                       <td className={`p-2 text-right font-mono font-semibold ${hasPartial ? "text-warning" : ""}`}>{formatCurrency(saldo)}</td>
@@ -821,7 +821,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
-        .select("*, transactions(*, events(name), suppliers(name, iban, email), account_categories(code, name, parent_id))")
+        .select("*, transactions(*, events(name), suppliers(name, trade_name, iban, email), account_categories(code, name, parent_id))")
         .eq("payment_list_id", listId)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -963,6 +963,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           category: item.transactions?.account_categories ? `${item.transactions.account_categories.code} ${item.transactions.account_categories.name}` : "",
           event_name: item.transactions?.events?.name ?? "-",
           supplier_name: item.transactions?.suppliers?.name ?? "-",
+          supplier_trade_name: item.transactions?.suppliers?.trade_name ?? null,
           supplier_id: item.transactions?.supplier_id ?? null,
           iban: item.transactions?.suppliers?.iban ?? "-",
           amount: Number(item.transactions?.amount ?? 0),
@@ -995,6 +996,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         category: tx?.account_categories ? `${tx.account_categories.code} ${tx.account_categories.name}` : "",
         event_name: tx?.events?.name ?? "-",
         supplier_name: tx?.suppliers?.name ?? "-",
+        supplier_trade_name: tx?.suppliers?.trade_name ?? null,
         supplier_id: tx?.supplier_id ?? null,
         iban: tx?.suppliers?.iban ?? "-",
         amount: Number(tx?.amount ?? 0),
@@ -1022,7 +1024,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     for (const group of groups) {
       const isRefPayment = group.payment_method === "service_payment" || group.payment_method === "state_payment";
       lines.push(`⬜ *${idx}.* 📎 Fatura Agrupada: ${group.invoice_ref}`);
-      lines.push(`Fornecedor: ${group.supplier_name}`);
+      lines.push(`Fornecedor: ${formatSupplierFullName(group.supplier_name, (group as any).supplier_trade_name)}`);
       if (isRefPayment) {
         lines.push(`Entidade: ${group.payment_entity ?? "-"}`);
         lines.push(`Referência: ${group.payment_reference ?? "-"}`);
@@ -1055,7 +1057,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       } else {
         lines.push(`IBAN: ${item.iban}`);
       }
-      lines.push(`Fornecedor: ${item.supplier_name}`);
+      lines.push(`Fornecedor: ${formatSupplierFullName(item.supplier_name, (item as any).supplier_trade_name)}`);
       lines.push(`Descrição: ${item.description}`);
       if (item.specification) lines.push(`Especificação: ${item.specification}`);
       lines.push(`Valor: ${formatCurrency(withIva)}`);
@@ -1173,6 +1175,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               category: tx?.account_categories ? `${tx.account_categories.code} ${tx.account_categories.name}` : "",
               event_name: tx?.events?.name ?? "-",
               supplier_name: tx?.suppliers?.name ?? "-",
+              supplier_trade_name: tx?.suppliers?.trade_name ?? null,
               supplier_id: tx?.supplier_id ?? null,
               iban: tx?.suppliers?.iban ?? "-",
               amount: Number(tx?.amount ?? 0),
@@ -1236,7 +1239,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     ) : (
                       <CopyLine label="IBAN" value={tx?.suppliers?.iban ?? "-"} mono />
                     )}
-                    <CopyLine label="Fornecedor" value={tx?.suppliers?.name ?? "-"} />
+                    <CopyLine label="Fornecedor" value={formatSupplierFullName(tx?.suppliers?.name, tx?.suppliers?.trade_name)} />
                     <CopyLine label="Email Fornecedor" value={tx?.suppliers?.email} />
                     {tx?.account_categories && (
                       <CopyLine label="Categoria" value={`${tx.account_categories.code} ${tx.account_categories.name}`} />
@@ -1297,7 +1300,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                   <div key={`group-${group.supplier_id}-${group.invoice_ref}`} className="rounded-xl border-2 border-primary/30 bg-primary/5 p-3 space-y-2">
                     <div className="flex items-center gap-2 text-sm">
                       <Badge variant="outline" className="border-primary/40 text-primary text-[10px]">📎 Fatura Agrupada</Badge>
-                      <span className="font-semibold">{group.supplier_name}</span>
+                      <span className="font-semibold">{formatSupplierFullName(group.supplier_name, (group as any).supplier_trade_name)}</span>
                       <span className="text-muted-foreground">—</span>
                       <span className="font-mono text-xs">{group.invoice_ref}</span>
                     </div>
@@ -1422,7 +1425,7 @@ function ApproveModal({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_list_items")
-        .select("*, transactions(*, events(name), suppliers(name), account_categories(code, name))")
+        .select("*, transactions(*, events(name), suppliers(name, trade_name), account_categories(code, name))")
         .eq("payment_list_id", listId);
       if (error) throw error;
       const filtered = (data ?? []).filter((item: any) => !item.transactions?.parent_transaction_id);
@@ -1594,7 +1597,7 @@ function ApproveModal({
                        </td>
                        <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{tx?.account_categories ? `${tx.account_categories.code} ${tx.account_categories.name}` : "-"}</td>
                        <td className="p-2 text-muted-foreground hidden sm:table-cell">{tx?.events?.name ?? "-"}</td>
-                       <td className="p-2 text-muted-foreground hidden md:table-cell">{tx?.suppliers?.name ?? "-"}</td>
+                       <td className="p-2 text-muted-foreground hidden md:table-cell">{formatSupplierFullName(tx?.suppliers?.name, (tx?.suppliers as any)?.trade_name)}</td>
                        <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
                        <td className="p-2 text-right font-mono font-semibold">{formatCurrency(withIva - paid)}</td>
                     </tr>

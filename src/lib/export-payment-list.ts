@@ -10,6 +10,7 @@ export interface PaymentItem {
   category?: string;
   event_name: string;
   supplier_name: string;
+  supplier_trade_name?: string | null;
   supplier_id?: string | null;
   iban: string;
   amount: number;
@@ -35,8 +36,18 @@ function calcWithIva(amount: number, ivaRate: number): number {
   return amount * (1 + ivaRate / 100);
 }
 
+/** Returns "Razão Social (Nome Fantasia)" when both exist; otherwise just the legal name. */
+export function formatSupplierFullName(name: string | null | undefined, tradeName?: string | null): string {
+  const legal = (name ?? "").trim();
+  const trade = (tradeName ?? "").trim();
+  if (!legal) return trade || "-";
+  if (!trade || trade.toLowerCase() === legal.toLowerCase()) return legal;
+  return `${legal} (${trade})`;
+}
+
 export interface PaymentGroup {
   supplier_name: string;
+  supplier_trade_name?: string | null;
   supplier_id: string | null;
   invoice_ref: string;
   iban: string;
@@ -71,6 +82,7 @@ export function groupPaymentItems(items: PaymentItem[]): { groups: PaymentGroup[
       const totalWithIva = groupItems.reduce((s, i) => s + calcWithIva(i.amount, i.iva_rate), 0);
       groups.push({
         supplier_name: first.supplier_name,
+        supplier_trade_name: first.supplier_trade_name ?? null,
         supplier_id: first.supplier_id ?? null,
         invoice_ref: first.invoice_ref!,
         iban: first.iban,
@@ -118,7 +130,7 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
       "",
       `AGRUPADO — Fatura: ${group.invoice_ref}`,
       "",
-      group.supplier_name,
+      formatSupplierFullName(group.supplier_name, group.supplier_trade_name),
       group.invoice_ref,
       paymentInfo,
       "",
@@ -174,7 +186,7 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
       item.category || "-",
       item.description,
       item.specification || "-",
-      item.supplier_name,
+      formatSupplierFullName(item.supplier_name, item.supplier_trade_name),
       item.invoice_ref || "-",
       paymentInfo,
       item.amount,
@@ -278,7 +290,7 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
     doc.setTextColor(120, 120, 120);
     doc.text("Fornecedor:", labelX, y);
     doc.setTextColor(0, 0, 0);
-    doc.text(group.supplier_name, valueX, y);
+    doc.text(formatSupplierFullName(group.supplier_name, group.supplier_trade_name), valueX, y);
     y += lineHeight;
 
     doc.setTextColor(120, 120, 120);
@@ -386,7 +398,7 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
     doc.setTextColor(120, 120, 120);
     doc.text("Fornecedor:", labelX, y);
     doc.setTextColor(0, 0, 0);
-    doc.text(item.supplier_name, valueX, y);
+    doc.text(formatSupplierFullName(item.supplier_name, item.supplier_trade_name), valueX, y);
     y += lineHeight;
 
     doc.setTextColor(120, 120, 120);
