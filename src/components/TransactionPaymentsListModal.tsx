@@ -319,18 +319,80 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Total pago:</span>
-            <span className="font-semibold text-success">{formatCurrency(totalPaid)}</span>
+            <span className="font-semibold text-success">{formatCurrency(effectiveTotalPaid)}</span>
           </div>
           <div className="flex justify-between border-t border-border/50 pt-1">
             <span className="text-muted-foreground">Saldo em aberto:</span>
-            <span className="font-bold text-warning">{formatCurrency(Math.max(0, totalWithIva - totalPaid))}</span>
+            <span className="font-bold text-warning">{formatCurrency(Math.max(0, totalWithIva - effectiveTotalPaid))}</span>
           </div>
         </div>
 
         {isLoading ? (
           <p className="text-sm text-muted-foreground">A carregar…</p>
         ) : payments.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Sem pagamentos registados.</p>
+          hasDirectPayment ? (
+            <div className="rounded-lg bg-secondary/30 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-primary">Pagamento direto</span>
+                {isAdmin && !editingDirect && (
+                  <button onClick={startDirectEdit}
+                    className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Editar valor pago">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              {editingDirect ? (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-muted-foreground">Valor pago (€)</label>
+                      <input type="number" step="0.01" min="0"
+                        value={directForm.paid_amount}
+                        onChange={(e) => setDirectForm({ ...directForm, paid_amount: e.target.value })}
+                        className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Data</label>
+                      <Popover open={directDateOpen} onOpenChange={setDirectDateOpen}>
+                        <PopoverTrigger asChild>
+                          <button className="w-full flex items-center justify-between rounded-md border border-border bg-background px-2 py-1.5 text-sm" type="button">
+                            {directForm.payment_date ? format(directForm.payment_date, "dd/MM/yyyy") : "—"}
+                            <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 z-[100]" align="start">
+                          <Calendar mode="single" selected={directForm.payment_date ?? undefined}
+                            onSelect={(d) => { if (d) setDirectForm({ ...directForm, payment_date: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0) }); setDirectDateOpen(false); }}
+                            initialFocus className="p-3" />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">Conta</label>
+                    <SearchableSelect options={accountOptions} value={directForm.account_id}
+                      onValueChange={(v) => setDirectForm({ ...directForm, account_id: v })}
+                      placeholder="Selecionar…" searchPlaceholder="Pesquisar…" />
+                  </div>
+                  <div className="flex justify-end gap-1 pt-1">
+                    <button onClick={() => setEditingDirect(false)} type="button" className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary">Cancelar</button>
+                    <button onClick={() => updateDirectMutation.mutate()} type="button" disabled={updateDirectMutation.isPending}
+                      className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-50">Guardar</button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground italic">Ajuste administrativo registado no histórico de auditoria.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Valor:</span><span className="font-semibold">{formatCurrency(directPaidAmount)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Data:</span><span>{transaction.payment_date ? formatDatePT(transaction.payment_date) : "—"}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Conta:</span><span>{financialAccounts.find((a: any) => a.id === transaction.account_id)?.name ?? "—"}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Origem:</span><span>Transação</span></div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Sem pagamentos registados.</p>
+          )
         ) : (
           <div className="space-y-3">
             {payments.map((p: any, idx: number) => (
