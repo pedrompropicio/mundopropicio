@@ -996,6 +996,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         category: tx?.account_categories ? `${tx.account_categories.code} ${tx.account_categories.name}` : "",
         event_name: tx?.events?.name ?? "-",
         supplier_name: tx?.suppliers?.name ?? "-",
+        supplier_trade_name: tx?.suppliers?.trade_name ?? null,
         supplier_id: tx?.supplier_id ?? null,
         iban: tx?.suppliers?.iban ?? "-",
         amount: Number(tx?.amount ?? 0),
