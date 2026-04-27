@@ -485,6 +485,7 @@ function AnaliseIATab() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="px-2 py-2.5 w-8" />
                   <th className="px-3 py-2.5 text-left font-medium">Origem</th>
                   <th className="px-3 py-2.5 text-left font-medium">Descrição</th>
                   <th className="px-3 py-2.5 text-left font-medium">Evento</th>
@@ -500,8 +501,21 @@ function AnaliseIATab() {
                   const isAccepted = r.status === "accepted";
                   const isRejected = r.status === "rejected";
                   const selectValue = r.chosen_id ?? r.suggested_id ?? "";
+                  const rowKey = `${r.source}-${r.id}`;
+                  const isExpanded = expandedRow === rowKey;
                   return (
-                    <tr key={`${r.source}-${r.id}`} className={`hover:bg-secondary/20 ${isRejected ? "opacity-50" : ""} ${isAccepted ? "bg-success/5" : ""}`}>
+                    <>
+                    <tr key={rowKey} className={`hover:bg-secondary/20 ${isRejected ? "opacity-50" : ""} ${isAccepted ? "bg-success/5" : ""}`}>
+                      <td className="px-2 py-2 align-top">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedRow(isExpanded ? null : rowKey)}
+                          className="rounded p-1 hover:bg-secondary text-muted-foreground hover:text-foreground"
+                          title={isExpanded ? "Fechar detalhes" : "Ver detalhes da linha"}
+                        >
+                          {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                        </button>
+                      </td>
                       <td className="px-3 py-2">
                         <Badge variant={r.source === "bp" ? "secondary" : "outline"} className="text-[10px]">{r.source === "bp" ? "BP" : "TX"}</Badge>
                       </td>
@@ -533,7 +547,7 @@ function AnaliseIATab() {
                           </div>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-xs min-w-[220px]">
+                      <td className="px-3 py-2 text-xs min-w-[260px]">
                         {r.suggested_code && (
                           <div className="mb-1">
                             <span className="text-[10px] uppercase text-muted-foreground mr-1">IA:</span>
@@ -545,12 +559,31 @@ function AnaliseIATab() {
                           <SelectTrigger className="h-7 text-xs">
                             <SelectValue placeholder="Escolher conta…" />
                           </SelectTrigger>
-                          <SelectContent className="max-h-72">
-                            {leafCats.map((c) => (
-                              <SelectItem key={c.id} value={c.id} className="text-xs">
-                                <span className="font-mono">{c.code}</span> · {c.name}
-                              </SelectItem>
-                            ))}
+                          <SelectContent className="max-h-[420px]">
+                            {flatCategoryItems.map((it) => {
+                              if (it.kind === "header-l1") {
+                                return (
+                                  <div key={it.id} className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-primary/80 border-t border-border/30 first:border-t-0">
+                                    <span className="font-mono">{it.code}</span> · {it.name}
+                                  </div>
+                                );
+                              }
+                              if (it.kind === "header-l2") {
+                                return (
+                                  <div key={it.id} className="pl-4 pr-2 pt-1.5 pb-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                                    <span className="font-mono">{it.code}</span> · {it.name}
+                                  </div>
+                                );
+                              }
+                              // leaf
+                              const depth = it.code.split(".").length; // 2 ou 3
+                              const padCls = depth === 3 ? "pl-8" : depth === 2 ? "pl-6" : "pl-4";
+                              return (
+                                <SelectItem key={it.id} value={it.id} className={`text-xs ${padCls}`}>
+                                  <span className="font-mono">{it.code}</span> · {it.name}
+                                </SelectItem>
+                              );
+                            })}
                           </SelectContent>
                         </Select>
                         {isAccepted && r.chosen_code && r.chosen_id !== r.suggested_id && (
@@ -580,10 +613,18 @@ function AnaliseIATab() {
                         </div>
                       </td>
                     </tr>
+                    {isExpanded && (
+                      <tr key={`${rowKey}-detail`} className="bg-secondary/10">
+                        <td colSpan={8} className="px-6 py-3">
+                          <RowDetailPanel row={r} />
+                        </td>
+                      </tr>
+                    )}
+                    </>
                   );
                 })}
                 {filteredRows.length === 0 && (
-                  <tr><td colSpan={7} className="text-center py-8 text-sm text-muted-foreground">Sem linhas para mostrar com este filtro.</td></tr>
+                  <tr><td colSpan={8} className="text-center py-8 text-sm text-muted-foreground">Sem linhas para mostrar com este filtro.</td></tr>
                 )}
               </tbody>
             </table>
