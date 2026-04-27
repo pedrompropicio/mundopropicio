@@ -501,7 +501,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           </TabsList>
 
           <TabsContent value="payment" className="pt-3">
-            <PaymentTimeline transaction={transaction} />
+            <PaymentTimeline transaction={transaction} isAdmin={isAdmin} />
           </TabsContent>
 
           <TabsContent value="details" className="pt-3">

@@ -1,7 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
-import { calcWithIva, formatDatePT } from "@/lib/utils";
+import { calcWithIva, formatDatePT, isFullyPaid } from "@/lib/utils";
 import {
   Receipt,
   ListChecks,
@@ -9,10 +11,21 @@ import {
   HandCoins,
   Users,
   Loader2,
+  Pencil,
+  Check,
+  X as XIcon,
 } from "lucide-react";
+import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsListModal";
+import { toast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { CalendarIcon } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface Props {
   transaction: any;
+  isAdmin?: boolean;
 }
 
 /**
@@ -23,12 +36,26 @@ interface Props {
  *  - Nota de reembolso (reimbursement_note_items + reimbursement_notes)
  *  - Crédito de fornecedor utilizado (supplier_credit_usages)
  *  - Pago por sócio (partner_paid_expenses)
+ *
+ * Se `isAdmin` for true, expõe edição direta do valor pago:
+ *  - Quando existem parcelas em `transaction_payments`, abre o modal de parcelas.
+ *  - Caso contrário, permite ajustar `paid_amount` (e data/conta) inline.
  */
-export function PaymentTimeline({ transaction }: Props) {
+export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
   const txId = transaction.id;
   const baseAmount = Number(transaction.amount ?? 0);
   const ivaRate = Number(transaction.iva_rate ?? 0);
   const totalWithIva = calcWithIva(baseAmount, ivaRate);
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const [showPaymentsModal, setShowPaymentsModal] = useState(false);
+  const [editingDirect, setEditingDirect] = useState(false);
+  const [directForm, setDirectForm] = useState<{ paid_amount: string; payment_date: Date | null; account_id: string }>({
+    paid_amount: "",
+    payment_date: null,
+    account_id: "",
+  });
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["payment-timeline", txId],
@@ -73,6 +100,118 @@ export function PaymentTimeline({ transaction }: Props) {
     },
   });
 
+  // Contas financeiras para o seletor (apenas se admin vai editar inline)
+  const { data: financialAccounts = [] } = useQuery({
+    queryKey: ["payment-timeline-accounts"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("financial_accounts")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const accountOptions = (financialAccounts as any[]).map((a) => ({ value: a.id, label: a.name }));
+
+  // Mutação: edição direta do paid_amount da transação (caso sem parcelas registadas)
+  const directPaidMutation = useMutation({
+    mutationFn: async () => {
+      const newPaid = parseFloat(directForm.paid_amount);
+      if (isNaN(newPaid) || newPaid < 0) throw new Error("Valor pago inválido");
+      if (newPaid > totalWithIva + 0.05) {
+        throw new Error("O valor pago não pode exceder o total da transação");
+      }
+      const newDate = directForm.payment_date ? format(directForm.payment_date, "yyyy-MM-dd") : null;
+      const newStatus = newPaid <= 0
+        ? "approved"
+        : isFullyPaid(newPaid, baseAmount, ivaRate)
+          ? "paid"
+          : "approved";
+      // Se ficar 'paid' garante que o valor armazenado é pelo menos o totalWithIva
+      const finalPaid = newStatus === "paid" ? Math.max(newPaid, totalWithIva) : newPaid;
+
+      const { error } = await supabase
+        .from("transactions")
+        .update({
+          paid_amount: finalPaid,
+          status: newStatus,
+          payment_date: newPaid > 0 ? newDate : null,
+          account_id: directForm.account_id || null,
+        } as any)
+        .eq("id", txId);
+      if (error) throw error;
+
+      // Audit log granular
+      const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+      const auditEntries: any[] = [];
+      const oldPaid = Number(transaction.paid_amount ?? 0);
+      if (oldPaid !== finalPaid) {
+        auditEntries.push({
+          transaction_id: txId,
+          changed_by: callerName,
+          field_name: "Valor pago (ajuste admin)",
+          old_value: formatCurrency(oldPaid),
+          new_value: formatCurrency(finalPaid),
+        });
+      }
+      if ((transaction.payment_date ?? null) !== newDate) {
+        auditEntries.push({
+          transaction_id: txId,
+          changed_by: callerName,
+          field_name: "Data pgto (ajuste admin)",
+          old_value: transaction.payment_date ?? "—",
+          new_value: newDate ?? "—",
+        });
+      }
+      if ((transaction.account_id ?? "") !== (directForm.account_id || "")) {
+        const oldName = (financialAccounts as any[]).find((a) => a.id === transaction.account_id)?.name ?? "—";
+        const newName = (financialAccounts as any[]).find((a) => a.id === directForm.account_id)?.name ?? "—";
+        auditEntries.push({
+          transaction_id: txId,
+          changed_by: callerName,
+          field_name: "Conta (ajuste admin)",
+          old_value: oldName,
+          new_value: newName,
+        });
+      }
+      if (transaction.status !== newStatus) {
+        auditEntries.push({
+          transaction_id: txId,
+          changed_by: callerName,
+          field_name: "Estado (ajuste admin)",
+          old_value: transaction.status,
+          new_value: newStatus,
+        });
+      }
+      if (auditEntries.length > 0) {
+        await supabase.from("transaction_audit_log").insert(auditEntries);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["payment-timeline", txId] });
+      setEditingDirect(false);
+      toast({ title: "Valor pago atualizado" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    },
+  });
+
+  function startDirectEdit() {
+    const [y, m, d] = (transaction.payment_date ?? "").split("-").map(Number);
+    setDirectForm({
+      paid_amount: String(transaction.paid_amount ?? totalWithIva),
+      payment_date: y && m && d ? new Date(y, m - 1, d, 12, 0, 0) : new Date(),
+      account_id: transaction.account_id ?? "",
+    });
+    setEditingDirect(true);
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center rounded-lg border border-border bg-secondary/30 p-4">
@@ -98,7 +237,10 @@ export function PaymentTimeline({ transaction }: Props) {
     creditUsages.length > 0 ||
     partnerPaid.length > 0;
 
-  if (!hasAny) {
+  // Pagamento direto (sem parcelas em transaction_payments) — admin pode ajustar.
+  const isDirectPaid = !hasAny && (transaction.status === "paid" || Number(transaction.paid_amount ?? 0) > 0);
+
+  if (!hasAny && !isDirectPaid && !isAdmin) {
     return (
       <div className="rounded-lg border border-border/50 bg-secondary/20 px-3 py-2 text-xs text-muted-foreground">
         Esta transação ainda não tem pagamentos, listas, reembolsos, créditos ou registos de pagamento por sócio.
@@ -136,7 +278,20 @@ export function PaymentTimeline({ transaction }: Props) {
 
       {/* Parcelas */}
       {payments.length > 0 && (
-        <Section icon={<Receipt className="h-3.5 w-3.5" />} title={`Parcelas pagas (${payments.length})`}>
+        <Section
+          icon={<Receipt className="h-3.5 w-3.5" />}
+          title={`Parcelas pagas (${payments.length})`}
+          action={isAdmin ? (
+            <button
+              type="button"
+              onClick={() => setShowPaymentsModal(true)}
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-primary hover:bg-primary/10"
+              title="Editar parcelas"
+            >
+              <Pencil className="h-3 w-3" /> Editar
+            </button>
+          ) : undefined}
+        >
           <ul className="divide-y divide-border/40">
             {payments.map((p, i) => (
               <li key={p.id} className="flex items-center justify-between py-1.5 text-xs">
@@ -257,16 +412,124 @@ export function PaymentTimeline({ transaction }: Props) {
           </ul>
         </Section>
       )}
+
+      {/* Pagamento direto (sem parcelas em transaction_payments) — admin pode ajustar valor pago */}
+      {isDirectPaid && (
+        <Section
+          icon={<Receipt className="h-3.5 w-3.5" />}
+          title="Pagamento direto"
+          action={isAdmin && !editingDirect ? (
+            <button
+              type="button"
+              onClick={startDirectEdit}
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-primary hover:bg-primary/10"
+              title="Editar valor pago"
+            >
+              <Pencil className="h-3 w-3" /> Editar valor pago
+            </button>
+          ) : undefined}
+        >
+          {editingDirect ? (
+            <div className="space-y-2 py-1">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-muted-foreground">Valor pago (€)</label>
+                  <input
+                    type="number" step="0.01" min="0"
+                    value={directForm.paid_amount}
+                    onChange={(e) => setDirectForm({ ...directForm, paid_amount: e.target.value })}
+                    className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground">Data</label>
+                  <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <button type="button" className="w-full flex items-center justify-between rounded-md border border-border bg-background px-2 py-1.5 text-sm">
+                        {directForm.payment_date ? format(directForm.payment_date, "dd/MM/yyyy") : "—"}
+                        <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 z-[100]" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={directForm.payment_date ?? undefined}
+                        onSelect={(d) => {
+                          if (d) setDirectForm({ ...directForm, payment_date: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0) });
+                          setDatePickerOpen(false);
+                        }}
+                        initialFocus className="p-3"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] text-muted-foreground">Conta</label>
+                <SearchableSelect
+                  options={accountOptions}
+                  value={directForm.account_id}
+                  onValueChange={(v) => setDirectForm({ ...directForm, account_id: v })}
+                  placeholder="Selecionar…"
+                  searchPlaceholder="Pesquisar…"
+                />
+              </div>
+              <div className="flex justify-end gap-1 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setEditingDirect(false)}
+                  className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary"
+                >
+                  <XIcon className="h-3 w-3" /> Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => directPaidMutation.mutate()}
+                  disabled={directPaidMutation.isPending}
+                  className="flex items-center gap-1 rounded bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  <Check className="h-3 w-3" /> Guardar
+                </button>
+              </div>
+              <p className="text-[10px] text-muted-foreground italic">
+                Ajuste administrativo do valor liquidado. Será registado no histórico de auditoria.
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between py-1.5 text-xs">
+              <div className="flex items-center gap-2">
+                <span>{transaction.payment_date ? formatDatePT(transaction.payment_date) : "—"}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">
+                  Conta: {(financialAccounts as any[]).find((a) => a.id === transaction.account_id)?.name ?? "—"}
+                </span>
+              </div>
+              <span className="font-mono font-semibold">{formatCurrency(Number(transaction.paid_amount ?? 0))}</span>
+            </div>
+          )}
+        </Section>
+      )}
+
+      {showPaymentsModal && (
+        <TransactionPaymentsListModal
+          transaction={transaction}
+          isAdmin={isAdmin}
+          onClose={() => setShowPaymentsModal(false)}
+        />
+      )}
     </div>
   );
 }
 
-function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+function Section({ icon, title, children, action }: { icon: React.ReactNode; title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-border bg-background/50">
-      <div className="flex items-center gap-1.5 border-b border-border/60 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {icon}
-        {title}
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          {icon}
+          {title}
+        </div>
+        {action}
       </div>
       <div className="px-3 py-1">{children}</div>
     </div>
