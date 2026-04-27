@@ -187,14 +187,20 @@ function AnaliseIATab() {
     },
   });
 
+  const leafSet = useMemo(() => buildLeafSet(categories), [categories]);
+
   const leafCats = useMemo(() => {
-    const leafSet = buildLeafSet(categories);
     return categories
       .filter((c) => leafSet.has(c.id) && c.type === "expense")
       .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
-  }, [categories]);
+  }, [categories, leafSet]);
 
   const leafCatsById = useMemo(() => new Map(leafCats.map((c) => [c.id, c])), [leafCats]);
+
+  const flatCategoryItems = useMemo(
+    () => buildFlatCategoryList(categories.filter((c) => c.type === "expense"), leafSet),
+    [categories, leafSet]
+  );
 
   const eventOptions = useMemo(() => {
     // Group: masters first with their subs nested visually
