@@ -347,8 +347,28 @@ function AuthRoute() {
   const isRecoveryFlow = sessionStorage.getItem("recovery_in_progress") === "true";
   if (user && !isRecoveryFlow) {
     if (isPartner) return <Navigate to="/parceiro" replace />;
+    const MANAGEMENT_PERMS = [
+      "camarim_manage",
+      "manage_events",
+      "view_events",
+      "manage_transactions",
+      "manage_suppliers",
+      "manage_quotations",
+      "manage_accounts",
+      "view_balances",
+      "manage_tickets",
+      "manage_ticket_offices",
+      "manage_payment_lists",
+      "manage_iva",
+      "manage_categories",
+      "manage_calendar",
+      "manage_recurring",
+      "view_reports",
+      "edit_approved_bp",
+    ];
+    const hasAnyManagement = MANAGEMENT_PERMS.some((p) => hasPermission(p));
     const isCamarimOnly =
-      !isAdmin && !isManager && hasPermission("camarim_team");
+      !isAdmin && !isManager && hasPermission("camarim_team") && !hasAnyManagement;
     if (isCamarimOnly) return <Navigate to="/camarim-equipa" replace />;
     // Preferência opcional: admin/manager pode forçar entrada direta na vista compacta
     try {
