@@ -7,7 +7,7 @@ type: feature
 ## Regra
 No `CamarimItemModal` o campo "Forma de pagamento" combina origem + conta numa só lista:
 - **Caixa do camarim (adiantamento)** → `payment_origin = 'advance'`, `financial_account_id = NULL`. No fecho, a transação sai da conta vinculada ao último `camarim_fund_moves` da sessão (advanceAccountId).
-- **Cada cartão de débito ativo** (`financial_accounts.type='card' AND is_active=true`, filtrado por RLS de visibilidade do user) → `payment_origin = 'card'`, `financial_account_id = <id do cartão>`. No fecho a transação sai exatamente desse cartão.
+- **Cada cartão pré-pago ativo** (`financial_accounts.type='prepaid_card' AND is_active=true`, filtrado por RLS de visibilidade do user) → `payment_origin = 'card'`, `financial_account_id = <id do cartão>`. No fecho a transação sai exatamente desse cartão.
 - **Recurso próprio (a reembolsar)** → `payment_origin = 'out_of_pocket'`, `financial_account_id = NULL`. Transação fica `approved` (não paga) para entrar no fluxo de reembolsos.
 
 ## Schema
