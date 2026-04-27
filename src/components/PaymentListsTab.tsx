@@ -693,7 +693,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                       </td>
                       <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{t.account_categories ? `${t.account_categories.code} ${t.account_categories.name}` : "-"}</td>
                       <td className="p-2 text-muted-foreground hidden sm:table-cell">{t.events?.name ?? "-"}</td>
-                      <td className="p-2 text-muted-foreground hidden md:table-cell">{t.suppliers?.name ?? "-"}</td>
+                      <td className="p-2 text-muted-foreground hidden md:table-cell">{formatSupplierFullName(t.suppliers?.name, (t.suppliers as any)?.trade_name)}</td>
                       <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
                       <td className="p-2 text-right font-mono hidden sm:table-cell">{formatCurrency(paidWithIva)}</td>
                       <td className={`p-2 text-right font-mono font-semibold ${hasPartial ? "text-warning" : ""}`}>{formatCurrency(saldo)}</td>
