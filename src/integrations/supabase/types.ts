@@ -544,7 +544,7 @@ export type Database = {
           document_issue_reason: string | null
           document_number: string | null
           document_type: string
-          event_id: string
+          event_id: string | null
           financial_account_id: string | null
           has_document: boolean
           id: string
@@ -582,7 +582,7 @@ export type Database = {
           document_issue_reason?: string | null
           document_number?: string | null
           document_type?: string
-          event_id: string
+          event_id?: string | null
           financial_account_id?: string | null
           has_document?: boolean
           id?: string
@@ -620,7 +620,7 @@ export type Database = {
           document_issue_reason?: string | null
           document_number?: string | null
           document_type?: string
-          event_id?: string
+          event_id?: string | null
           financial_account_id?: string | null
           has_document?: boolean
           id?: string
