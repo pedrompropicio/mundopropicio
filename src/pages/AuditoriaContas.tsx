@@ -213,9 +213,48 @@ function RowDetailPanel({
 
   const highlightId = row.source === "bp" ? row.id : null;
 
+  // Resolve L1 (root) and L2 (group) ancestors for a given L3 (or any) category id.
+  const getAncestors = (catId: string | null) => {
+    if (!catId) return { l1: null as any, l2: null as any };
+    const c = catMap.get(catId);
+    if (!c) return { l1: null, l2: null };
+    const parent = c.parent_id ? catMap.get(c.parent_id) : null;
+    const grand = parent?.parent_id ? catMap.get(parent.parent_id) : null;
+    if (grand) return { l1: grand, l2: parent }; // c is L3
+    if (parent) return { l1: parent, l2: c };    // c is L2
+    return { l1: c, l2: null };                  // c is L1
+  };
+
   const Section = ({ title, items }: { title: string; items: any[] }) => {
     if (items.length === 0) return null;
+
+    // Group rows by L1 → L2, preserving hierarchical sort already applied to items.
+    type L2Group = { l2Code: string; l2Name: string; rows: any[]; subtotal: number };
+    type L1Group = { l1Code: string; l1Name: string; l2s: Map<string, L2Group>; subtotal: number };
+    const l1Map = new Map<string, L1Group>();
     let total = 0;
+
+    for (const b of items) {
+      const { l1, l2 } = getAncestors(b.category_id);
+      const l1Code = l1?.code ?? "zzz";
+      const l1Name = l1?.name ?? "Sem categoria";
+      const l2Code = l2?.code ?? l1Code;
+      const l2Name = l2?.name ?? l1Name;
+      const amt = Number(b.amount) || 0;
+      total += amt;
+
+      let g1 = l1Map.get(l1Code);
+      if (!g1) { g1 = { l1Code, l1Name, l2s: new Map(), subtotal: 0 }; l1Map.set(l1Code, g1); }
+      g1.subtotal += amt;
+
+      let g2 = g1.l2s.get(l2Code);
+      if (!g2) { g2 = { l2Code, l2Name, rows: [], subtotal: 0 }; g1.l2s.set(l2Code, g2); }
+      g2.subtotal += amt;
+      g2.rows.push(b);
+    }
+
+    const l1Sorted = [...l1Map.values()].sort((a, b) => compareHierarchicalCodes(a.l1Code, b.l1Code));
+
     return (
       <div className="rounded border border-border/40">
         <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/30">{title}</div>
@@ -230,28 +269,53 @@ function RowDetailPanel({
             </tr>
           </thead>
           <tbody>
-            {items.map((b) => {
-              const c = b.category_id ? catMap.get(b.category_id) : null;
-              const isHL = b.id === highlightId;
-              total += Number(b.amount) || 0;
+            {l1Sorted.map((g1) => {
+              const l2Sorted = [...g1.l2s.values()].sort((a, b) => compareHierarchicalCodes(a.l2Code, b.l2Code));
               return (
-                <tr key={b.id} className={`border-b border-border/20 ${isHL ? "bg-primary/15 font-medium" : ""}`}>
-                  <td className="px-2 py-1 font-mono">{c?.code ?? "—"}</td>
-                  <td className="px-2 py-1">
-                    <div className="truncate">{b.description}</div>
-                    {b.specification && <div className="text-[10px] text-muted-foreground truncate">{b.specification}</div>}
-                  </td>
-                  <td className="px-2 py-1 text-right tabular-nums">{formatInCurrency(Number(b.amount) || 0, "EUR")}</td>
-                  <td className="px-2 py-1 text-right tabular-nums">{b.iva_rate ?? 0}%</td>
-                  <td className="px-2 py-1">
-                    <span className="text-[10px] text-muted-foreground">{b.status ?? "—"}</span>
-                  </td>
-                </tr>
+                <React.Fragment key={g1.l1Code}>
+                  {/* L1 header */}
+                  <tr className="bg-primary/10">
+                    <td className="px-2 py-1 font-mono font-semibold">{g1.l1Code}</td>
+                    <td className="px-2 py-1 font-semibold uppercase tracking-wide text-[10px]">{g1.l1Name}</td>
+                    <td className="px-2 py-1 text-right tabular-nums font-semibold">{formatInCurrency(g1.subtotal, "EUR")}</td>
+                    <td colSpan={2} />
+                  </tr>
+                  {l2Sorted.map((g2) => (
+                    <React.Fragment key={g2.l2Code}>
+                      {/* L2 header */}
+                      <tr className="bg-muted/40">
+                        <td className="px-2 py-1 pl-4 font-mono">{g2.l2Code}</td>
+                        <td className="px-2 py-1 font-medium">{g2.l2Name}</td>
+                        <td className="px-2 py-1 text-right tabular-nums font-medium">{formatInCurrency(g2.subtotal, "EUR")}</td>
+                        <td colSpan={2} />
+                      </tr>
+                      {/* L3 rows */}
+                      {g2.rows.map((b) => {
+                        const c = b.category_id ? catMap.get(b.category_id) : null;
+                        const isHL = b.id === highlightId;
+                        return (
+                          <tr key={b.id} className={`border-b border-border/20 ${isHL ? "bg-primary/15 font-medium" : ""}`}>
+                            <td className="px-2 py-1 pl-8 font-mono">{c?.code ?? "—"}</td>
+                            <td className="px-2 py-1">
+                              <div className="truncate">{b.description}</div>
+                              {b.specification && <div className="text-[10px] text-muted-foreground truncate">{b.specification}</div>}
+                            </td>
+                            <td className="px-2 py-1 text-right tabular-nums">{formatInCurrency(Number(b.amount) || 0, "EUR")}</td>
+                            <td className="px-2 py-1 text-right tabular-nums">{b.iva_rate ?? 0}%</td>
+                            <td className="px-2 py-1">
+                              <span className="text-[10px] text-muted-foreground">{b.status ?? "—"}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </React.Fragment>
+                  ))}
+                </React.Fragment>
               );
             })}
             <tr className="bg-muted/20">
-              <td colSpan={2} className="px-2 py-1 text-right text-[10px] uppercase text-muted-foreground">Subtotal</td>
-              <td className="px-2 py-1 text-right tabular-nums font-medium">{formatInCurrency(total, "EUR")}</td>
+              <td colSpan={2} className="px-2 py-1 text-right text-[10px] uppercase text-muted-foreground">Total</td>
+              <td className="px-2 py-1 text-right tabular-nums font-semibold">{formatInCurrency(total, "EUR")}</td>
               <td colSpan={2} />
             </tr>
           </tbody>
