@@ -1024,7 +1024,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     for (const group of groups) {
       const isRefPayment = group.payment_method === "service_payment" || group.payment_method === "state_payment";
       lines.push(`⬜ *${idx}.* 📎 Fatura Agrupada: ${group.invoice_ref}`);
-      lines.push(`Fornecedor: ${group.supplier_name}`);
+      lines.push(`Fornecedor: ${formatSupplierFullName(group.supplier_name, (group as any).supplier_trade_name)}`);
       if (isRefPayment) {
         lines.push(`Entidade: ${group.payment_entity ?? "-"}`);
         lines.push(`Referência: ${group.payment_reference ?? "-"}`);
