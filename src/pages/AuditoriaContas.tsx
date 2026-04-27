@@ -156,69 +156,131 @@ export default function AuditoriaContas() {
    ============================================================ */
 
 /** Painel de detalhes expandidos de uma linha BP/TX. */
-function RowDetailPanel({ row }: { row: AuditRow }) {
-  const d = row.details ?? {};
-  const currency = (d.currency || "EUR") as any;
-  const amount = typeof d.amount === "number" ? d.amount : null;
-  const ivaRate = typeof d.iva_rate === "number" ? d.iva_rate : null;
-  const ivaValue = amount !== null && ivaRate !== null ? amount * ivaRate / 100 : null;
-  const grossValue = amount !== null && ivaValue !== null ? amount + ivaValue : null;
+function RowDetailPanel({
+  row,
+  eventId,
+  eventIds,
+  categories,
+  eventLabelMap,
+}: {
+  row: AuditRow;
+  eventId: string;
+  eventIds: string[];
+  categories: Category[];
+  eventLabelMap: Map<string, string>;
+}) {
+  // Lazy-load: full BP for the event scope (Master + Splits) — fetched once per eventId, cached.
+  const { data: bpRows = [], isLoading } = useQuery({
+    queryKey: ["audit-row-detail-bp-full", eventId, eventIds.join(",")],
+    enabled: !!eventId && eventIds.length > 0,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("id, description, specification, category_id, event_id, type, amount, iva_rate, status, formalidade, notes, is_overhead, is_transitory, exclude_from_result")
+        .in("event_id", eventIds)
+        .is("version_id", null);
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
-  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="space-y-0.5">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className="text-xs font-medium">{children ?? <span className="text-muted-foreground">—</span>}</div>
-    </div>
-  );
+  const catMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
+
+  // Group by event then split revenue/expense; sort by category code (hierarchical).
+  const grouped = useMemo(() => {
+    const byEvent = new Map<string, { revenue: any[]; expense: any[] }>();
+    for (const b of bpRows as any[]) {
+      const bucket = byEvent.get(b.event_id) ?? { revenue: [], expense: [] };
+      (b.type === "revenue" ? bucket.revenue : bucket.expense).push(b);
+      byEvent.set(b.event_id, bucket);
+    }
+    const cmp = (a: any, b: any) => {
+      const ca = catMap.get(a.category_id)?.code ?? "zzz";
+      const cb = catMap.get(b.category_id)?.code ?? "zzz";
+      return compareHierarchicalCodes(ca, cb);
+    };
+    // Order: master first (eventIds[0]), then splits in given order
+    return eventIds
+      .filter((eid) => byEvent.has(eid))
+      .map((eid) => {
+        const bucket = byEvent.get(eid)!;
+        bucket.revenue.sort(cmp);
+        bucket.expense.sort(cmp);
+        return { eventId: eid, eventName: eventLabelMap.get(eid) ?? "—", ...bucket };
+      });
+  }, [bpRows, eventIds, catMap, eventLabelMap]);
+
+  const highlightId = row.source === "bp" ? row.id : null;
+
+  const Section = ({ title, items }: { title: string; items: any[] }) => {
+    if (items.length === 0) return null;
+    let total = 0;
+    return (
+      <div className="rounded border border-border/40">
+        <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground bg-muted/30">{title}</div>
+        <table className="w-full text-[11px]">
+          <thead className="text-muted-foreground">
+            <tr className="border-b border-border/30">
+              <th className="text-left px-2 py-1 font-medium w-[90px]">Código</th>
+              <th className="text-left px-2 py-1 font-medium">Descrição</th>
+              <th className="text-right px-2 py-1 font-medium w-[100px]">Valor</th>
+              <th className="text-right px-2 py-1 font-medium w-[60px]">IVA</th>
+              <th className="text-left px-2 py-1 font-medium w-[80px]">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((b) => {
+              const c = b.category_id ? catMap.get(b.category_id) : null;
+              const isHL = b.id === highlightId;
+              total += Number(b.amount) || 0;
+              return (
+                <tr key={b.id} className={`border-b border-border/20 ${isHL ? "bg-primary/15 font-medium" : ""}`}>
+                  <td className="px-2 py-1 font-mono">{c?.code ?? "—"}</td>
+                  <td className="px-2 py-1">
+                    <div className="truncate">{b.description}</div>
+                    {b.specification && <div className="text-[10px] text-muted-foreground truncate">{b.specification}</div>}
+                  </td>
+                  <td className="px-2 py-1 text-right tabular-nums">{formatInCurrency(Number(b.amount) || 0, "EUR")}</td>
+                  <td className="px-2 py-1 text-right tabular-nums">{b.iva_rate ?? 0}%</td>
+                  <td className="px-2 py-1">
+                    <span className="text-[10px] text-muted-foreground">{b.status ?? "—"}</span>
+                  </td>
+                </tr>
+              );
+            })}
+            <tr className="bg-muted/20">
+              <td colSpan={2} className="px-2 py-1 text-right text-[10px] uppercase text-muted-foreground">Subtotal</td>
+              <td className="px-2 py-1 text-right tabular-nums font-medium">{formatInCurrency(total, "EUR")}</td>
+              <td colSpan={2} />
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Eye className="h-3.5 w-3.5" />
-        Detalhes da {row.source === "bp" ? "linha do Business Plan" : "transação"}
+        Business Plan completo do evento {row.source === "bp" ? "— linha em destaque" : `(transação: ${row.description})`}
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <Field label="Valor (s/IVA)">
-          {amount !== null ? formatInCurrency(amount, currency) : null}
-        </Field>
-        <Field label="IVA">
-          {ivaRate !== null ? `${ivaRate}%${ivaValue !== null ? ` · ${formatInCurrency(ivaValue, currency)}` : ""}` : null}
-        </Field>
-        <Field label="Valor (c/IVA)">
-          {grossValue !== null ? formatInCurrency(grossValue, currency) : null}
-        </Field>
-        <Field label="Estado">{d.status}</Field>
-        {row.source === "bp" ? (
-          <>
-            <Field label="Formalidade">{d.formalidade}</Field>
-            <Field label="Fórmula">
-              {d.formula_type ? `${d.formula_type}${d.formula_value !== null && d.formula_value !== undefined ? ` · ${d.formula_value}` : ""}` : null}
-            </Field>
-          </>
-        ) : (
-          <>
-            <Field label="Vencimento">{d.due_date}</Field>
-            <Field label="Pagamento">{d.payment_date}</Field>
-          </>
-        )}
-      </div>
-      {(d.is_overhead || d.is_transitory || d.exclude_from_result) && (
-        <div className="flex flex-wrap gap-1.5">
-          {d.is_overhead && <Badge variant="outline" className="text-[10px]">Overhead</Badge>}
-          {d.is_transitory && <Badge variant="outline" className="text-[10px]">Transitória</Badge>}
-          {d.exclude_from_result && <Badge variant="outline" className="text-[10px]">Excluída do resultado</Badge>}
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground py-4">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> A carregar BP…
         </div>
-      )}
-      {row.specification && (
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Especificação</div>
-          <div className="text-xs whitespace-pre-wrap">{row.specification}</div>
-        </div>
-      )}
-      {d.notes && (
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Notas</div>
-          <div className="text-xs whitespace-pre-wrap">{d.notes}</div>
+      ) : grouped.length === 0 ? (
+        <div className="text-xs text-muted-foreground py-2">Sem linhas no BP deste evento.</div>
+      ) : (
+        <div className="max-h-[60vh] overflow-y-auto space-y-3 pr-1">
+          {grouped.map((g) => (
+            <div key={g.eventId} className="space-y-1.5">
+              <div className="text-xs font-semibold text-foreground/90">{g.eventName}</div>
+              <Section title="Receitas" items={g.revenue} />
+              <Section title="Despesas" items={g.expense} />
+            </div>
+          ))}
         </div>
       )}
     </div>
