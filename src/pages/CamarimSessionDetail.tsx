@@ -94,6 +94,8 @@ export default function CamarimSessionDetail() {
   const navigate = useNavigate();
   const { isAdmin, isManager, hasPermission } = useAuth();
   const canManage = isAdmin || isManager || hasPermission("camarim_manage");
+  // Fecho da sessão (revisão, fechar, integrar) é restrito a admin/manager.
+  const canCloseSession = isAdmin || isManager;
 
   const [session, setSession] = useState<SessionData | null>(null);
   const [items, setItems] = useState<ItemRow[]>([]);
