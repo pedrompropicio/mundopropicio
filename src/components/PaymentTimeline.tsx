@@ -1,7 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
-import { calcWithIva, formatDatePT } from "@/lib/utils";
+import { calcWithIva, formatDatePT, isFullyPaid } from "@/lib/utils";
 import {
   Receipt,
   ListChecks,
@@ -9,10 +11,21 @@ import {
   HandCoins,
   Users,
   Loader2,
+  Pencil,
+  Check,
+  X as XIcon,
 } from "lucide-react";
+import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsListModal";
+import { toast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { CalendarIcon } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface Props {
   transaction: any;
+  isAdmin?: boolean;
 }
 
 /**
@@ -23,12 +36,26 @@ interface Props {
  *  - Nota de reembolso (reimbursement_note_items + reimbursement_notes)
  *  - Crédito de fornecedor utilizado (supplier_credit_usages)
  *  - Pago por sócio (partner_paid_expenses)
+ *
+ * Se `isAdmin` for true, expõe edição direta do valor pago:
+ *  - Quando existem parcelas em `transaction_payments`, abre o modal de parcelas.
+ *  - Caso contrário, permite ajustar `paid_amount` (e data/conta) inline.
  */
-export function PaymentTimeline({ transaction }: Props) {
+export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
   const txId = transaction.id;
   const baseAmount = Number(transaction.amount ?? 0);
   const ivaRate = Number(transaction.iva_rate ?? 0);
   const totalWithIva = calcWithIva(baseAmount, ivaRate);
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const [showPaymentsModal, setShowPaymentsModal] = useState(false);
+  const [editingDirect, setEditingDirect] = useState(false);
+  const [directForm, setDirectForm] = useState<{ paid_amount: string; payment_date: Date | null; account_id: string }>({
+    paid_amount: "",
+    payment_date: null,
+    account_id: "",
+  });
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["payment-timeline", txId],
