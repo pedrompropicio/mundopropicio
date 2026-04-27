@@ -155,6 +155,76 @@ export default function AuditoriaContas() {
    Aba 1 — Análise IA
    ============================================================ */
 
+/** Painel de detalhes expandidos de uma linha BP/TX. */
+function RowDetailPanel({ row }: { row: AuditRow }) {
+  const d = row.details ?? {};
+  const currency = (d.currency || "EUR") as any;
+  const amount = typeof d.amount === "number" ? d.amount : null;
+  const ivaRate = typeof d.iva_rate === "number" ? d.iva_rate : null;
+  const ivaValue = amount !== null && ivaRate !== null ? amount * ivaRate / 100 : null;
+  const grossValue = amount !== null && ivaValue !== null ? amount + ivaValue : null;
+
+  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <div className="space-y-0.5">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-xs font-medium">{children ?? <span className="text-muted-foreground">—</span>}</div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Eye className="h-3.5 w-3.5" />
+        Detalhes da {row.source === "bp" ? "linha do Business Plan" : "transação"}
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <Field label="Valor (s/IVA)">
+          {amount !== null ? formatInCurrency(amount, currency) : null}
+        </Field>
+        <Field label="IVA">
+          {ivaRate !== null ? `${ivaRate}%${ivaValue !== null ? ` · ${formatInCurrency(ivaValue, currency)}` : ""}` : null}
+        </Field>
+        <Field label="Valor (c/IVA)">
+          {grossValue !== null ? formatInCurrency(grossValue, currency) : null}
+        </Field>
+        <Field label="Estado">{d.status}</Field>
+        {row.source === "bp" ? (
+          <>
+            <Field label="Formalidade">{d.formalidade}</Field>
+            <Field label="Fórmula">
+              {d.formula_type ? `${d.formula_type}${d.formula_value !== null && d.formula_value !== undefined ? ` · ${d.formula_value}` : ""}` : null}
+            </Field>
+          </>
+        ) : (
+          <>
+            <Field label="Vencimento">{d.due_date}</Field>
+            <Field label="Pagamento">{d.payment_date}</Field>
+          </>
+        )}
+      </div>
+      {(d.is_overhead || d.is_transitory || d.exclude_from_result) && (
+        <div className="flex flex-wrap gap-1.5">
+          {d.is_overhead && <Badge variant="outline" className="text-[10px]">Overhead</Badge>}
+          {d.is_transitory && <Badge variant="outline" className="text-[10px]">Transitória</Badge>}
+          {d.exclude_from_result && <Badge variant="outline" className="text-[10px]">Excluída do resultado</Badge>}
+        </div>
+      )}
+      {row.specification && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Especificação</div>
+          <div className="text-xs whitespace-pre-wrap">{row.specification}</div>
+        </div>
+      )}
+      {d.notes && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Notas</div>
+          <div className="text-xs whitespace-pre-wrap">{d.notes}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AnaliseIATab() {
   const qc = useQueryClient();
   const [eventId, setEventId] = useState<string>("");
@@ -1136,78 +1206,7 @@ function RenumberTab() {
         </SortableContext>
       </DndContext>
     );
-}
-
-/** Painel de detalhes expandidos de uma linha BP/TX. */
-function RowDetailPanel({ row }: { row: AuditRow }) {
-  const d = row.details ?? {};
-  const currency = (d.currency || "EUR") as any;
-  const amount = typeof d.amount === "number" ? d.amount : null;
-  const ivaRate = typeof d.iva_rate === "number" ? d.iva_rate : null;
-  const ivaValue = amount !== null && ivaRate !== null ? amount * ivaRate / 100 : null;
-  const grossValue = amount !== null && ivaValue !== null ? amount + ivaValue : null;
-
-  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="space-y-0.5">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className="text-xs font-medium">{children ?? <span className="text-muted-foreground">—</span>}</div>
-    </div>
-  );
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Eye className="h-3.5 w-3.5" />
-        Detalhes da {row.source === "bp" ? "linha do Business Plan" : "transação"}
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <Field label="Valor (s/IVA)">
-          {amount !== null ? formatInCurrency(amount, currency) : null}
-        </Field>
-        <Field label="IVA">
-          {ivaRate !== null ? `${ivaRate}%${ivaValue !== null ? ` · ${formatInCurrency(ivaValue, currency)}` : ""}` : null}
-        </Field>
-        <Field label="Valor (c/IVA)">
-          {grossValue !== null ? formatInCurrency(grossValue, currency) : null}
-        </Field>
-        <Field label="Estado">{d.status}</Field>
-        {row.source === "bp" ? (
-          <>
-            <Field label="Formalidade">{d.formalidade}</Field>
-            <Field label="Fórmula">
-              {d.formula_type ? `${d.formula_type}${d.formula_value !== null && d.formula_value !== undefined ? ` · ${d.formula_value}` : ""}` : null}
-            </Field>
-          </>
-        ) : (
-          <>
-            <Field label="Vencimento">{d.due_date}</Field>
-            <Field label="Pagamento">{d.payment_date}</Field>
-          </>
-        )}
-      </div>
-      {(d.is_overhead || d.is_transitory || d.exclude_from_result) && (
-        <div className="flex flex-wrap gap-1.5">
-          {d.is_overhead && <Badge variant="outline" className="text-[10px]">Overhead</Badge>}
-          {d.is_transitory && <Badge variant="outline" className="text-[10px]">Transitória</Badge>}
-          {d.exclude_from_result && <Badge variant="outline" className="text-[10px]">Excluída do resultado</Badge>}
-        </div>
-      )}
-      {row.specification && (
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Especificação</div>
-          <div className="text-xs whitespace-pre-wrap">{row.specification}</div>
-        </div>
-      )}
-      {d.notes && (
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Notas</div>
-          <div className="text-xs whitespace-pre-wrap">{d.notes}</div>
-        </div>
-      )}
-    </div>
-  );
-}
-
+ }
 
   // siblings list for swap dialog
   const swapTargets = useMemo(() => {
