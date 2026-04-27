@@ -30,6 +30,22 @@ interface AuditRow {
   current_category_code: string | null;
   current_category_name: string | null;
   event_label?: string | null;
+  // Detalhes adicionais do BP/TX para visão expandida
+  details?: {
+    amount?: number | null;
+    iva_rate?: number | null;
+    currency?: string | null;
+    status?: string | null;
+    formalidade?: string | null;
+    notes?: string | null;
+    formula_type?: string | null;
+    formula_value?: number | null;
+    is_overhead?: boolean | null;
+    is_transitory?: boolean | null;
+    exclude_from_result?: boolean | null;
+    payment_date?: string | null;
+    due_date?: string | null;
+  } | null;
   // populated after AI
   suggested_code?: string;
   suggested_id?: string | null;
@@ -46,6 +62,52 @@ interface AuditRow {
 function buildLeafSet(cats: Category[]) {
   const parents = new Set(cats.map((c) => c.parent_id).filter(Boolean) as string[]);
   return new Set(cats.filter((c) => !parents.has(c.id)).map((c) => c.id));
+}
+
+/** Constrói lista achatada e ordenada com cabeçalhos L1/L2 + folhas L3 selecionáveis. */
+interface FlatCatItem {
+  kind: "header-l1" | "header-l2" | "leaf";
+  id: string;
+  code: string;
+  name: string;
+}
+function buildFlatCategoryList(cats: Category[], leafSet: Set<string>): FlatCatItem[] {
+  const byId = new Map(cats.map((c) => [c.id, c]));
+  const childrenOf = new Map<string | null, Category[]>();
+  cats.forEach((c) => {
+    const k = c.parent_id;
+    if (!childrenOf.has(k)) childrenOf.set(k, []);
+    childrenOf.get(k)!.push(c);
+  });
+  childrenOf.forEach((arr) => arr.sort((a, b) => compareHierarchicalCodes(a.code, b.code)));
+
+  const out: FlatCatItem[] = [];
+  const roots = (childrenOf.get(null) || []).filter((c) => c.type === "expense");
+  for (const l1 of roots) {
+    // verificar se há folhas debaixo deste L1
+    const l2s = childrenOf.get(l1.id) || [];
+    const hasLeaves = (l2s.length === 0 && leafSet.has(l1.id))
+      || l2s.some((l2) => leafSet.has(l2.id) || (childrenOf.get(l2.id) || []).some((l3) => leafSet.has(l3.id)));
+    if (!hasLeaves) continue;
+    out.push({ kind: "header-l1", id: `h1-${l1.id}`, code: l1.code, name: l1.name });
+    if (leafSet.has(l1.id)) {
+      out.push({ kind: "leaf", id: l1.id, code: l1.code, name: l1.name });
+    }
+    for (const l2 of l2s) {
+      const l3s = childrenOf.get(l2.id) || [];
+      const l2HasLeaves = leafSet.has(l2.id) || l3s.some((l3) => leafSet.has(l3.id));
+      if (!l2HasLeaves) continue;
+      out.push({ kind: "header-l2", id: `h2-${l2.id}`, code: l2.code, name: l2.name });
+      if (leafSet.has(l2.id)) {
+        out.push({ kind: "leaf", id: l2.id, code: l2.code, name: l2.name });
+      }
+      for (const l3 of l3s) {
+        if (!leafSet.has(l3.id)) continue;
+        out.push({ kind: "leaf", id: l3.id, code: l3.code, name: l3.name });
+      }
+    }
+  }
+  return out;
 }
 
 export default function AuditoriaContas() {
