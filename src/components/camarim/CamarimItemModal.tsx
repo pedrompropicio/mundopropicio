@@ -693,19 +693,45 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Origem do pagamento</Label>
-              <Select value={paymentOrigin} onValueChange={(v) => setPaymentOrigin(v as CamarimItemPaymentOrigin)} disabled={hasLockedSplitStructure}>
+              <Label>Forma de pagamento</Label>
+              <Select
+                value={
+                  paymentOrigin === "advance"
+                    ? PAYMENT_ADVANCE
+                    : paymentOrigin === "out_of_pocket"
+                      ? PAYMENT_OUT_OF_POCKET
+                      : (financialAccountId ?? "")
+                }
+                onValueChange={(v) => {
+                  if (v === PAYMENT_ADVANCE) {
+                    setPaymentOrigin("advance");
+                    setFinancialAccountId(null);
+                  } else if (v === PAYMENT_OUT_OF_POCKET) {
+                    setPaymentOrigin("out_of_pocket");
+                    setFinancialAccountId(null);
+                  } else {
+                    setPaymentOrigin("card");
+                    setFinancialAccountId(v);
+                  }
+                }}
+                disabled={hasLockedSplitStructure}
+              >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Selecionar…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(PAYMENT_ORIGIN_LABELS) as CamarimItemPaymentOrigin[]).map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {PAYMENT_ORIGIN_LABELS[p]}
-                    </SelectItem>
+                  <SelectItem value={PAYMENT_ADVANCE}>Caixa do camarim (adiantamento)</SelectItem>
+                  {cardAccounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                   ))}
+                  <SelectItem value={PAYMENT_OUT_OF_POCKET}>Recurso próprio (a reembolsar)</SelectItem>
                 </SelectContent>
               </Select>
+              {paymentOrigin === "card" && financialAccountId && !cardAccounts.find((a) => a.id === financialAccountId) && (
+                <p className="text-[11px] text-muted-foreground">
+                  Cartão associado já não está disponível ou visível para ti.
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Verba (BP)</Label>
