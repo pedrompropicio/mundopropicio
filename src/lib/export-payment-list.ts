@@ -36,8 +36,18 @@ function calcWithIva(amount: number, ivaRate: number): number {
   return amount * (1 + ivaRate / 100);
 }
 
+/** Returns "Razão Social (Nome Fantasia)" when both exist; otherwise just the legal name. */
+export function formatSupplierFullName(name: string | null | undefined, tradeName?: string | null): string {
+  const legal = (name ?? "").trim();
+  const trade = (tradeName ?? "").trim();
+  if (!legal) return trade || "-";
+  if (!trade || trade.toLowerCase() === legal.toLowerCase()) return legal;
+  return `${legal} (${trade})`;
+}
+
 export interface PaymentGroup {
   supplier_name: string;
+  supplier_trade_name?: string | null;
   supplier_id: string | null;
   invoice_ref: string;
   iban: string;
