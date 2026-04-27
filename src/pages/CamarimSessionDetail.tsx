@@ -442,17 +442,17 @@ export default function CamarimSessionDetail() {
               <Pencil className="mr-2 h-4 w-4" /> Editar sessão
             </Button>
           )}
-          {session.status === "open" && canManage && (
+          {session.status === "open" && canCloseSession && (
             <Button variant="outline" onClick={() => updateSessionStatus("in_review")}>
               <Lock className="mr-2 h-4 w-4" /> Enviar para revisão
             </Button>
           )}
-          {session.status === "in_review" && canManage && (
+          {session.status === "in_review" && canCloseSession && (
             <Button variant="outline" onClick={() => updateSessionStatus("closed")}>
               <CheckCircle2 className="mr-2 h-4 w-4" /> Fechar sessão
             </Button>
           )}
-          {(session.status === "in_review" || session.status === "closed") && canManage && (
+          {(session.status === "in_review" || session.status === "closed") && canCloseSession && (
             <Button onClick={() => setShowIntegrate(true)} disabled={approvedItems.length === 0}>
               <Zap className="mr-2 h-4 w-4" /> Integrar ({approvedItems.length})
             </Button>
