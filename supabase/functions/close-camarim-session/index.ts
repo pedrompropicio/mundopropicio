@@ -174,10 +174,12 @@ Deno.serve(async (req) => {
           continue;
         }
       } else if (it.payment_origin === "card") {
-        accountId = body.card_account_id ?? null;
+        // Prefer per-item financial_account_id (each receipt records the exact card used);
+        // fall back to body.card_account_id for back-compat with older items.
+        accountId = it.financial_account_id ?? body.card_account_id ?? null;
         txStatus = "paid";
         if (!accountId) {
-          errors.push(`Item ${it.id}: pagamento por cartão exige conta financeira (card_account_id).`);
+          errors.push(`Item ${it.id}: pagamento por cartão exige conta financeira (financial_account_id no item ou card_account_id no fecho).`);
           continue;
         }
       } else if (it.payment_origin === "out_of_pocket") {
