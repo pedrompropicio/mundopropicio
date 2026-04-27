@@ -130,7 +130,7 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
       "",
       `AGRUPADO — Fatura: ${group.invoice_ref}`,
       "",
-      group.supplier_name,
+      formatSupplierFullName(group.supplier_name, group.supplier_trade_name),
       group.invoice_ref,
       paymentInfo,
       "",
