@@ -504,8 +504,8 @@ function AnaliseIATab() {
                   const rowKey = `${r.source}-${r.id}`;
                   const isExpanded = expandedRow === rowKey;
                   return (
-                    <>
-                    <tr key={rowKey} className={`hover:bg-secondary/20 ${isRejected ? "opacity-50" : ""} ${isAccepted ? "bg-success/5" : ""}`}>
+                    <Fragment key={rowKey}>
+                    <tr className={`hover:bg-secondary/20 ${isRejected ? "opacity-50" : ""} ${isAccepted ? "bg-success/5" : ""}`}>
                       <td className="px-2 py-2 align-top">
                         <button
                           type="button"
