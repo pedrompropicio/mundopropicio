@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
-import { exportPaymentListToExcel, exportPaymentListToPDF, groupPaymentItems, formatSupplierFullName } from "@/lib/export-payment-list";
+import { exportPaymentListToExcel, exportPaymentListToPDF, groupPaymentItems, formatSupplierFullName, formatAmountForBank } from "@/lib/export-payment-list";
 import { calcWithIva } from "@/lib/utils";
 import { sendPushToAdminsAndManagers } from "@/lib/push-notifications";
 import { getPendingPaymentListsCount, refreshBadgeFromDB } from "@/lib/app-badge";
@@ -722,12 +722,13 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
 }
 
 /* ─── Copy Line Helper ─── */
-function CopyLine({ label, value, mono, bold, hideIfEmpty = true }: { label: string; value: string | null | undefined; mono?: boolean; bold?: boolean; hideIfEmpty?: boolean }) {
+function CopyLine({ label, value, copyValue, mono, bold, hideIfEmpty = true }: { label: string; value: string | null | undefined; copyValue?: string | null; mono?: boolean; bold?: boolean; hideIfEmpty?: boolean }) {
   const trimmed = (value ?? "").toString().trim();
   if (hideIfEmpty && (!trimmed || trimmed === "-")) return null;
+  const toCopy = (copyValue ?? trimmed).toString().trim();
   const handleCopy = () => {
-    navigator.clipboard.writeText(trimmed).then(() => {
-      toast({ title: "Copiado!", description: `${label}: ${trimmed}` });
+    navigator.clipboard.writeText(toCopy).then(() => {
+      toast({ title: "Copiado!", description: `${label}: ${toCopy}` });
     });
   };
   return (
@@ -737,7 +738,7 @@ function CopyLine({ label, value, mono, bold, hideIfEmpty = true }: { label: str
       <button
         onClick={handleCopy}
         className="opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5 text-muted-foreground hover:text-foreground"
-        title={`Copiar ${label}`}
+        title={`Copiar ${label} (${toCopy})`}
       >
         <Copy className="h-3 w-3" />
       </button>
@@ -1248,7 +1249,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     {tx?.specification && (
                       <p className="text-xs text-muted-foreground pl-0.5">{tx.specification}</p>
                     )}
-                    <CopyLine label="Valor" value={formatCurrency(withIva)} mono bold />
+                    <CopyLine label="Valor" value={formatCurrency(withIva)} copyValue={formatAmountForBank(withIva)} mono bold />
                     {bpCheck.exceeds && (
                       <BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={amount} />
                     )}
@@ -1313,9 +1314,13 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       ) : (
                         <CopyLine label="IBAN" value={group.iban ?? "-"} mono />
                       )}
-                      <p className="font-semibold text-sm text-foreground">
-                        Total a transferir: <span className="font-mono">{formatCurrency(group.totalWithIva)}</span>
-                      </p>
+                      <CopyLine
+                        label="Total a transferir"
+                        value={formatCurrency(group.totalWithIva)}
+                        copyValue={formatAmountForBank(group.totalWithIva)}
+                        mono
+                        bold
+                      />
                     </div>
                     <div className="space-y-2 pl-2 border-l-2 border-primary/20 ml-1">
                       {groupItems.map((gi: any) => renderItem(gi))}
