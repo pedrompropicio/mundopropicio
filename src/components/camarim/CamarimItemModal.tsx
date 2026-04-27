@@ -546,14 +546,14 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     }
   };
 
-  const getPrimaryEventId = async (sid: string): Promise<string> => {
+  const getPrimaryEventId = async (sid: string): Promise<string | null> => {
     const { data } = await supabase
       .from("camarim_session_events" as any)
       .select("event_id,is_primary")
       .eq("session_id", sid);
     const arr = (data ?? []) as any[];
     const primary = arr.find((x) => x.is_primary) ?? arr[0];
-    return primary?.event_id ?? "";
+    return primary?.event_id ?? null;
   };
 
   return (
