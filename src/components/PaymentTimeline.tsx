@@ -100,6 +100,118 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
     },
   });
 
+  // Contas financeiras para o seletor (apenas se admin vai editar inline)
+  const { data: financialAccounts = [] } = useQuery({
+    queryKey: ["payment-timeline-accounts"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("financial_accounts")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const accountOptions = (financialAccounts as any[]).map((a) => ({ value: a.id, label: a.name }));
+
+  // Mutação: edição direta do paid_amount da transação (caso sem parcelas registadas)
+  const directPaidMutation = useMutation({
+    mutationFn: async () => {
+      const newPaid = parseFloat(directForm.paid_amount);
+      if (isNaN(newPaid) || newPaid < 0) throw new Error("Valor pago inválido");
+      if (newPaid > totalWithIva + 0.05) {
+        throw new Error("O valor pago não pode exceder o total da transação");
+      }
+      const newDate = directForm.payment_date ? format(directForm.payment_date, "yyyy-MM-dd") : null;
+      const newStatus = newPaid <= 0
+        ? "approved"
+        : isFullyPaid(newPaid, baseAmount, ivaRate)
+          ? "paid"
+          : "approved";
+      // Se ficar 'paid' garante que o valor armazenado é pelo menos o totalWithIva
+      const finalPaid = newStatus === "paid" ? Math.max(newPaid, totalWithIva) : newPaid;
+
+      const { error } = await supabase
+        .from("transactions")
+        .update({
+          paid_amount: finalPaid,
+          status: newStatus,
+          payment_date: newPaid > 0 ? newDate : null,
+          account_id: directForm.account_id || null,
+        } as any)
+        .eq("id", txId);
+      if (error) throw error;
+
+      // Audit log granular
+      const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+      const auditEntries: any[] = [];
+      const oldPaid = Number(transaction.paid_amount ?? 0);
+      if (oldPaid !== finalPaid) {
+        auditEntries.push({
+          transaction_id: txId,
+          changed_by: callerName,
+          field_name: "Valor pago (ajuste admin)",
+          old_value: formatCurrency(oldPaid),
+          new_value: formatCurrency(finalPaid),
+        });
+      }
+      if ((transaction.payment_date ?? null) !== newDate) {
+        auditEntries.push({
+          transaction_id: txId,
+          changed_by: callerName,
+          field_name: "Data pgto (ajuste admin)",
+          old_value: transaction.payment_date ?? "—",
+          new_value: newDate ?? "—",
+        });
+      }
+      if ((transaction.account_id ?? "") !== (directForm.account_id || "")) {
+        const oldName = (financialAccounts as any[]).find((a) => a.id === transaction.account_id)?.name ?? "—";
+        const newName = (financialAccounts as any[]).find((a) => a.id === directForm.account_id)?.name ?? "—";
+        auditEntries.push({
+          transaction_id: txId,
+          changed_by: callerName,
+          field_name: "Conta (ajuste admin)",
+          old_value: oldName,
+          new_value: newName,
+        });
+      }
+      if (transaction.status !== newStatus) {
+        auditEntries.push({
+          transaction_id: txId,
+          changed_by: callerName,
+          field_name: "Estado (ajuste admin)",
+          old_value: transaction.status,
+          new_value: newStatus,
+        });
+      }
+      if (auditEntries.length > 0) {
+        await supabase.from("transaction_audit_log").insert(auditEntries);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["payment-timeline", txId] });
+      setEditingDirect(false);
+      toast({ title: "Valor pago atualizado" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    },
+  });
+
+  function startDirectEdit() {
+    const [y, m, d] = (transaction.payment_date ?? "").split("-").map(Number);
+    setDirectForm({
+      paid_amount: String(transaction.paid_amount ?? totalWithIva),
+      payment_date: y && m && d ? new Date(y, m - 1, d, 12, 0, 0) : new Date(),
+      account_id: transaction.account_id ?? "",
+    });
+    setEditingDirect(true);
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center rounded-lg border border-border bg-secondary/30 p-4">
@@ -125,7 +237,10 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
     creditUsages.length > 0 ||
     partnerPaid.length > 0;
 
-  if (!hasAny) {
+  // Pagamento direto (sem parcelas em transaction_payments) — admin pode ajustar.
+  const isDirectPaid = !hasAny && (transaction.status === "paid" || Number(transaction.paid_amount ?? 0) > 0);
+
+  if (!hasAny && !isDirectPaid && !isAdmin) {
     return (
       <div className="rounded-lg border border-border/50 bg-secondary/20 px-3 py-2 text-xs text-muted-foreground">
         Esta transação ainda não tem pagamentos, listas, reembolsos, créditos ou registos de pagamento por sócio.
