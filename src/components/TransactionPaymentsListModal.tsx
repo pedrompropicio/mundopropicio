@@ -33,6 +33,13 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
   const [editDateOpen, setEditDateOpen] = useState(false);
+  const [editingDirect, setEditingDirect] = useState(false);
+  const [directForm, setDirectForm] = useState<{ paid_amount: string; payment_date: Date | null; account_id: string }>({
+    paid_amount: "",
+    payment_date: null,
+    account_id: "",
+  });
+  const [directDateOpen, setDirectDateOpen] = useState(false);
 
   const { data: payments = [], isLoading } = useQuery({
     queryKey: ["transaction_payments", transaction.id],
@@ -62,6 +69,9 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
   const ivaRate = Number(transaction.iva_rate ?? 0);
   const totalWithIva = calcWithIva(baseAmount, ivaRate);
   const totalPaid = payments.reduce((s: number, p: any) => s + Number(p.amount), 0);
+  const directPaidAmount = Number(transaction.paid_amount ?? 0);
+  const effectiveTotalPaid = payments.length > 0 ? totalPaid : directPaidAmount;
+  const hasDirectPayment = payments.length === 0 && (directPaidAmount > 0 || transaction.status === "paid");
   const isExpense = transaction.type === "expense";
 
   function startEdit(payment: any) {
@@ -77,6 +87,16 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
       notes: payment.notes ?? "",
     });
     setEditingId(payment.id);
+  }
+
+  function startDirectEdit() {
+    const [y, m, d] = (transaction.payment_date ?? "").split("-").map(Number);
+    setDirectForm({
+      paid_amount: String(transaction.paid_amount ?? 0),
+      payment_date: y && m && d ? new Date(y, m - 1, d, 12, 0, 0) : new Date(),
+      account_id: transaction.account_id ?? "",
+    });
+    setEditingDirect(true);
   }
 
   const updateMutation = useMutation({
@@ -238,6 +258,51 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
     },
   });
 
+  const updateDirectMutation = useMutation({
+    mutationFn: async () => {
+      const newPaid = parseFloat(directForm.paid_amount);
+      if (isNaN(newPaid) || newPaid < 0) throw new Error("Valor pago inválido");
+      if (newPaid > totalWithIva + 0.05) throw new Error("O valor pago não pode exceder o montante da transação");
+
+      const newDate = directForm.payment_date ? format(directForm.payment_date, "yyyy-MM-dd") : null;
+      const newStatus = newPaid <= 0 ? "approved" : isFullyPaid(newPaid, baseAmount, ivaRate) ? "paid" : "approved";
+      const finalPaid = newStatus === "paid" ? Math.max(newPaid, totalWithIva) : newPaid;
+
+      const { error } = await supabase
+        .from("transactions")
+        .update({
+          paid_amount: finalPaid,
+          status: newStatus,
+          payment_date: newPaid > 0 ? newDate : null,
+          account_id: directForm.account_id || null,
+        } as any)
+        .eq("id", transaction.id);
+      if (error) throw error;
+
+      const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+      const auditEntries: any[] = [];
+      const oldPaid = Number(transaction.paid_amount ?? 0);
+      if (oldPaid !== finalPaid) auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: "Valor pago (ajuste admin)", old_value: formatCurrency(oldPaid), new_value: formatCurrency(finalPaid) });
+      if ((transaction.payment_date ?? null) !== newDate) auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: "Data pgto (ajuste admin)", old_value: transaction.payment_date ?? "—", new_value: newDate ?? "—" });
+      if ((transaction.account_id ?? "") !== (directForm.account_id || "")) {
+        const oldName = financialAccounts.find((a: any) => a.id === transaction.account_id)?.name ?? "—";
+        const newName = financialAccounts.find((a: any) => a.id === directForm.account_id)?.name ?? "—";
+        auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: "Conta (ajuste admin)", old_value: oldName, new_value: newName });
+      }
+      if (transaction.status !== newStatus) auditEntries.push({ transaction_id: transaction.id, changed_by: callerName, field_name: "Estado (ajuste admin)", old_value: transaction.status, new_value: newStatus });
+      if (auditEntries.length > 0) await supabase.from("transaction_audit_log").insert(auditEntries);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transaction_payments", transaction.id] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      setEditingDirect(false);
+      toast({ title: "Valor pago atualizado com sucesso" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    },
+  });
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div className="glass w-full max-w-lg rounded-xl p-6 space-y-4 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -254,18 +319,80 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Total pago:</span>
-            <span className="font-semibold text-success">{formatCurrency(totalPaid)}</span>
+            <span className="font-semibold text-success">{formatCurrency(effectiveTotalPaid)}</span>
           </div>
           <div className="flex justify-between border-t border-border/50 pt-1">
             <span className="text-muted-foreground">Saldo em aberto:</span>
-            <span className="font-bold text-warning">{formatCurrency(Math.max(0, totalWithIva - totalPaid))}</span>
+            <span className="font-bold text-warning">{formatCurrency(Math.max(0, totalWithIva - effectiveTotalPaid))}</span>
           </div>
         </div>
 
         {isLoading ? (
           <p className="text-sm text-muted-foreground">A carregar…</p>
         ) : payments.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Sem pagamentos registados.</p>
+          hasDirectPayment ? (
+            <div className="rounded-lg bg-secondary/30 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-primary">Pagamento direto</span>
+                {isAdmin && !editingDirect && (
+                  <button onClick={startDirectEdit}
+                    className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground" title="Editar valor pago">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              {editingDirect ? (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-muted-foreground">Valor pago (€)</label>
+                      <input type="number" step="0.01" min="0"
+                        value={directForm.paid_amount}
+                        onChange={(e) => setDirectForm({ ...directForm, paid_amount: e.target.value })}
+                        className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Data</label>
+                      <Popover open={directDateOpen} onOpenChange={setDirectDateOpen}>
+                        <PopoverTrigger asChild>
+                          <button className="w-full flex items-center justify-between rounded-md border border-border bg-background px-2 py-1.5 text-sm" type="button">
+                            {directForm.payment_date ? format(directForm.payment_date, "dd/MM/yyyy") : "—"}
+                            <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 z-[100]" align="start">
+                          <Calendar mode="single" selected={directForm.payment_date ?? undefined}
+                            onSelect={(d) => { if (d) setDirectForm({ ...directForm, payment_date: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0) }); setDirectDateOpen(false); }}
+                            initialFocus className="p-3" />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">Conta</label>
+                    <SearchableSelect options={accountOptions} value={directForm.account_id}
+                      onValueChange={(v) => setDirectForm({ ...directForm, account_id: v })}
+                      placeholder="Selecionar…" searchPlaceholder="Pesquisar…" />
+                  </div>
+                  <div className="flex justify-end gap-1 pt-1">
+                    <button onClick={() => setEditingDirect(false)} type="button" className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary">Cancelar</button>
+                    <button onClick={() => updateDirectMutation.mutate()} type="button" disabled={updateDirectMutation.isPending}
+                      className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-50">Guardar</button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground italic">Ajuste administrativo registado no histórico de auditoria.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  <div className="flex justify-between"><span className="text-muted-foreground">Valor:</span><span className="font-semibold">{formatCurrency(directPaidAmount)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Data:</span><span>{transaction.payment_date ? formatDatePT(transaction.payment_date) : "—"}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Conta:</span><span>{financialAccounts.find((a: any) => a.id === transaction.account_id)?.name ?? "—"}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Origem:</span><span>Transação</span></div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Sem pagamentos registados.</p>
+          )
         ) : (
           <div className="space-y-3">
             {payments.map((p: any, idx: number) => (
