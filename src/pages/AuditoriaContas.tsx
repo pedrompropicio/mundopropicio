@@ -234,7 +234,7 @@ function AnaliseIATab() {
       // Fetch BP forecasts (expense)
       const { data: bps, error: bpErr } = await supabase
         .from("event_forecasts")
-        .select("id, description, specification, category_id, event_id, type")
+        .select("id, description, specification, category_id, event_id, type, amount, iva_rate, currency, status, formalidade, notes, formula_type, formula_value, is_overhead, is_transitory, exclude_from_result")
         .in("event_id", eventIds)
         .eq("type", "expense").is("version_id", null);
       if (bpErr) throw bpErr;
@@ -242,7 +242,7 @@ function AnaliseIATab() {
       // Fetch transactions (expense)
       const { data: txs, error: txErr } = await supabase
         .from("transactions")
-        .select("id, description, category_id, event_id, type")
+        .select("id, description, category_id, event_id, type, amount, iva_rate, currency, status, notes, payment_date, due_date, is_transitory, exclude_from_result")
         .in("event_id", eventIds)
         .eq("type", "expense");
       if (txErr) throw txErr;
@@ -256,6 +256,11 @@ function AnaliseIATab() {
             source: "bp" as const, id: b.id, description: b.description, specification: b.specification,
             current_category_id: b.category_id, current_category_code: c?.code ?? null, current_category_name: c?.name ?? null,
             event_label: eventLabelMap.get(b.event_id) ?? null, status: "pending" as const,
+            details: {
+              amount: b.amount, iva_rate: b.iva_rate, currency: b.currency, status: b.status,
+              formalidade: b.formalidade, notes: b.notes, formula_type: b.formula_type, formula_value: b.formula_value,
+              is_overhead: b.is_overhead, is_transitory: b.is_transitory, exclude_from_result: b.exclude_from_result,
+            },
           };
         }),
         ...(txs || []).map((t: any) => {
@@ -264,6 +269,11 @@ function AnaliseIATab() {
             source: "tx" as const, id: t.id, description: t.description, specification: null,
             current_category_id: t.category_id, current_category_code: c?.code ?? null, current_category_name: c?.name ?? null,
             event_label: eventLabelMap.get(t.event_id) ?? null, status: "pending" as const,
+            details: {
+              amount: t.amount, iva_rate: t.iva_rate, currency: t.currency, status: t.status, notes: t.notes,
+              payment_date: t.payment_date, due_date: t.due_date,
+              is_transitory: t.is_transitory, exclude_from_result: t.exclude_from_result,
+            },
           };
         }),
       ];
