@@ -75,7 +75,6 @@ serve(async (req) => {
                 properties: {
                   matches: {
                     type: "array",
-                    minItems: rows.length,
                     items: {
                       type: "object",
                       properties: {
