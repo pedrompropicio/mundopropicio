@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
+import { Fragment, useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Sparkles, ArrowUp, ArrowDown, ArrowLeftRight, Check, X, AlertTriangle, Loader2, ChevronDown, ChevronRight, RefreshCw, GripVertical, Plus, Trash2, Pencil } from "lucide-react";
+import { Sparkles, ArrowUp, ArrowDown, ArrowLeftRight, Check, X, AlertTriangle, Loader2, ChevronDown, ChevronRight, RefreshCw, GripVertical, Plus, Trash2, Pencil, Eye } from "lucide-react";
+import { formatInCurrency } from "@/lib/currency";
 import CategoryFormModal from "@/components/CategoryFormModal";
 import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
@@ -29,6 +30,22 @@ interface AuditRow {
   current_category_code: string | null;
   current_category_name: string | null;
   event_label?: string | null;
+  // Detalhes adicionais do BP/TX para visão expandida
+  details?: {
+    amount?: number | null;
+    iva_rate?: number | null;
+    currency?: string | null;
+    status?: string | null;
+    formalidade?: string | null;
+    notes?: string | null;
+    formula_type?: string | null;
+    formula_value?: number | null;
+    is_overhead?: boolean | null;
+    is_transitory?: boolean | null;
+    exclude_from_result?: boolean | null;
+    payment_date?: string | null;
+    due_date?: string | null;
+  } | null;
   // populated after AI
   suggested_code?: string;
   suggested_id?: string | null;
@@ -45,6 +62,52 @@ interface AuditRow {
 function buildLeafSet(cats: Category[]) {
   const parents = new Set(cats.map((c) => c.parent_id).filter(Boolean) as string[]);
   return new Set(cats.filter((c) => !parents.has(c.id)).map((c) => c.id));
+}
+
+/** Constrói lista achatada e ordenada com cabeçalhos L1/L2 + folhas L3 selecionáveis. */
+interface FlatCatItem {
+  kind: "header-l1" | "header-l2" | "leaf";
+  id: string;
+  code: string;
+  name: string;
+}
+function buildFlatCategoryList(cats: Category[], leafSet: Set<string>): FlatCatItem[] {
+  const byId = new Map(cats.map((c) => [c.id, c]));
+  const childrenOf = new Map<string | null, Category[]>();
+  cats.forEach((c) => {
+    const k = c.parent_id;
+    if (!childrenOf.has(k)) childrenOf.set(k, []);
+    childrenOf.get(k)!.push(c);
+  });
+  childrenOf.forEach((arr) => arr.sort((a, b) => compareHierarchicalCodes(a.code, b.code)));
+
+  const out: FlatCatItem[] = [];
+  const roots = (childrenOf.get(null) || []).filter((c) => c.type === "expense");
+  for (const l1 of roots) {
+    // verificar se há folhas debaixo deste L1
+    const l2s = childrenOf.get(l1.id) || [];
+    const hasLeaves = (l2s.length === 0 && leafSet.has(l1.id))
+      || l2s.some((l2) => leafSet.has(l2.id) || (childrenOf.get(l2.id) || []).some((l3) => leafSet.has(l3.id)));
+    if (!hasLeaves) continue;
+    out.push({ kind: "header-l1", id: `h1-${l1.id}`, code: l1.code, name: l1.name });
+    if (leafSet.has(l1.id)) {
+      out.push({ kind: "leaf", id: l1.id, code: l1.code, name: l1.name });
+    }
+    for (const l2 of l2s) {
+      const l3s = childrenOf.get(l2.id) || [];
+      const l2HasLeaves = leafSet.has(l2.id) || l3s.some((l3) => leafSet.has(l3.id));
+      if (!l2HasLeaves) continue;
+      out.push({ kind: "header-l2", id: `h2-${l2.id}`, code: l2.code, name: l2.name });
+      if (leafSet.has(l2.id)) {
+        out.push({ kind: "leaf", id: l2.id, code: l2.code, name: l2.name });
+      }
+      for (const l3 of l3s) {
+        if (!leafSet.has(l3.id)) continue;
+        out.push({ kind: "leaf", id: l3.id, code: l3.code, name: l3.name });
+      }
+    }
+  }
+  return out;
 }
 
 export default function AuditoriaContas() {
@@ -101,6 +164,7 @@ function AnaliseIATab() {
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [applying, setApplying] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   const { data: events = [] } = useQuery({
     queryKey: ["audit-events"],
@@ -123,14 +187,20 @@ function AnaliseIATab() {
     },
   });
 
+  const leafSet = useMemo(() => buildLeafSet(categories), [categories]);
+
   const leafCats = useMemo(() => {
-    const leafSet = buildLeafSet(categories);
     return categories
       .filter((c) => leafSet.has(c.id) && c.type === "expense")
       .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
-  }, [categories]);
+  }, [categories, leafSet]);
 
   const leafCatsById = useMemo(() => new Map(leafCats.map((c) => [c.id, c])), [leafCats]);
+
+  const flatCategoryItems = useMemo(
+    () => buildFlatCategoryList(categories.filter((c) => c.type === "expense"), leafSet),
+    [categories, leafSet]
+  );
 
   const eventOptions = useMemo(() => {
     // Group: masters first with their subs nested visually
@@ -164,7 +234,7 @@ function AnaliseIATab() {
       // Fetch BP forecasts (expense)
       const { data: bps, error: bpErr } = await supabase
         .from("event_forecasts")
-        .select("id, description, specification, category_id, event_id, type")
+        .select("id, description, specification, category_id, event_id, type, amount, iva_rate, currency, status, formalidade, notes, formula_type, formula_value, is_overhead, is_transitory, exclude_from_result")
         .in("event_id", eventIds)
         .eq("type", "expense").is("version_id", null);
       if (bpErr) throw bpErr;
@@ -172,7 +242,7 @@ function AnaliseIATab() {
       // Fetch transactions (expense)
       const { data: txs, error: txErr } = await supabase
         .from("transactions")
-        .select("id, description, category_id, event_id, type")
+        .select("id, description, category_id, event_id, type, amount, iva_rate, currency, status, notes, payment_date, due_date, is_transitory, exclude_from_result")
         .in("event_id", eventIds)
         .eq("type", "expense");
       if (txErr) throw txErr;
@@ -186,6 +256,11 @@ function AnaliseIATab() {
             source: "bp" as const, id: b.id, description: b.description, specification: b.specification,
             current_category_id: b.category_id, current_category_code: c?.code ?? null, current_category_name: c?.name ?? null,
             event_label: eventLabelMap.get(b.event_id) ?? null, status: "pending" as const,
+            details: {
+              amount: b.amount, iva_rate: b.iva_rate, currency: b.currency, status: b.status,
+              formalidade: b.formalidade, notes: b.notes, formula_type: b.formula_type, formula_value: b.formula_value,
+              is_overhead: b.is_overhead, is_transitory: b.is_transitory, exclude_from_result: b.exclude_from_result,
+            },
           };
         }),
         ...(txs || []).map((t: any) => {
@@ -194,6 +269,11 @@ function AnaliseIATab() {
             source: "tx" as const, id: t.id, description: t.description, specification: null,
             current_category_id: t.category_id, current_category_code: c?.code ?? null, current_category_name: c?.name ?? null,
             event_label: eventLabelMap.get(t.event_id) ?? null, status: "pending" as const,
+            details: {
+              amount: t.amount, iva_rate: t.iva_rate, currency: t.currency, status: t.status, notes: t.notes,
+              payment_date: t.payment_date, due_date: t.due_date,
+              is_transitory: t.is_transitory, exclude_from_result: t.exclude_from_result,
+            },
           };
         }),
       ];
@@ -405,6 +485,7 @@ function AnaliseIATab() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="px-2 py-2.5 w-8" />
                   <th className="px-3 py-2.5 text-left font-medium">Origem</th>
                   <th className="px-3 py-2.5 text-left font-medium">Descrição</th>
                   <th className="px-3 py-2.5 text-left font-medium">Evento</th>
@@ -420,8 +501,21 @@ function AnaliseIATab() {
                   const isAccepted = r.status === "accepted";
                   const isRejected = r.status === "rejected";
                   const selectValue = r.chosen_id ?? r.suggested_id ?? "";
+                  const rowKey = `${r.source}-${r.id}`;
+                  const isExpanded = expandedRow === rowKey;
                   return (
-                    <tr key={`${r.source}-${r.id}`} className={`hover:bg-secondary/20 ${isRejected ? "opacity-50" : ""} ${isAccepted ? "bg-success/5" : ""}`}>
+                    <Fragment key={rowKey}>
+                    <tr className={`hover:bg-secondary/20 ${isRejected ? "opacity-50" : ""} ${isAccepted ? "bg-success/5" : ""}`}>
+                      <td className="px-2 py-2 align-top">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedRow(isExpanded ? null : rowKey)}
+                          className="rounded p-1 hover:bg-secondary text-muted-foreground hover:text-foreground"
+                          title={isExpanded ? "Fechar detalhes" : "Ver detalhes da linha"}
+                        >
+                          {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                        </button>
+                      </td>
                       <td className="px-3 py-2">
                         <Badge variant={r.source === "bp" ? "secondary" : "outline"} className="text-[10px]">{r.source === "bp" ? "BP" : "TX"}</Badge>
                       </td>
@@ -453,7 +547,7 @@ function AnaliseIATab() {
                           </div>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-xs min-w-[220px]">
+                      <td className="px-3 py-2 text-xs min-w-[260px]">
                         {r.suggested_code && (
                           <div className="mb-1">
                             <span className="text-[10px] uppercase text-muted-foreground mr-1">IA:</span>
@@ -465,12 +559,31 @@ function AnaliseIATab() {
                           <SelectTrigger className="h-7 text-xs">
                             <SelectValue placeholder="Escolher conta…" />
                           </SelectTrigger>
-                          <SelectContent className="max-h-72">
-                            {leafCats.map((c) => (
-                              <SelectItem key={c.id} value={c.id} className="text-xs">
-                                <span className="font-mono">{c.code}</span> · {c.name}
-                              </SelectItem>
-                            ))}
+                          <SelectContent className="max-h-[420px]">
+                            {flatCategoryItems.map((it) => {
+                              if (it.kind === "header-l1") {
+                                return (
+                                  <div key={it.id} className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-primary/80 border-t border-border/30 first:border-t-0">
+                                    <span className="font-mono">{it.code}</span> · {it.name}
+                                  </div>
+                                );
+                              }
+                              if (it.kind === "header-l2") {
+                                return (
+                                  <div key={it.id} className="pl-4 pr-2 pt-1.5 pb-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                                    <span className="font-mono">{it.code}</span> · {it.name}
+                                  </div>
+                                );
+                              }
+                              // leaf
+                              const depth = it.code.split(".").length; // 2 ou 3
+                              const padCls = depth === 3 ? "pl-8" : depth === 2 ? "pl-6" : "pl-4";
+                              return (
+                                <SelectItem key={it.id} value={it.id} className={`text-xs ${padCls}`}>
+                                  <span className="font-mono">{it.code}</span> · {it.name}
+                                </SelectItem>
+                              );
+                            })}
                           </SelectContent>
                         </Select>
                         {isAccepted && r.chosen_code && r.chosen_id !== r.suggested_id && (
@@ -500,10 +613,18 @@ function AnaliseIATab() {
                         </div>
                       </td>
                     </tr>
+                    {isExpanded && (
+                      <tr key={`${rowKey}-detail`} className="bg-secondary/10">
+                        <td colSpan={8} className="px-6 py-3">
+                          <RowDetailPanel row={r} />
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })}
                 {filteredRows.length === 0 && (
-                  <tr><td colSpan={7} className="text-center py-8 text-sm text-muted-foreground">Sem linhas para mostrar com este filtro.</td></tr>
+                  <tr><td colSpan={8} className="text-center py-8 text-sm text-muted-foreground">Sem linhas para mostrar com este filtro.</td></tr>
                 )}
               </tbody>
             </table>
@@ -1015,7 +1136,77 @@ function RenumberTab() {
         </SortableContext>
       </DndContext>
     );
-  }
+}
+
+/** Painel de detalhes expandidos de uma linha BP/TX. */
+function RowDetailPanel({ row }: { row: AuditRow }) {
+  const d = row.details ?? {};
+  const currency = (d.currency || "EUR") as any;
+  const amount = typeof d.amount === "number" ? d.amount : null;
+  const ivaRate = typeof d.iva_rate === "number" ? d.iva_rate : null;
+  const ivaValue = amount !== null && ivaRate !== null ? amount * ivaRate / 100 : null;
+  const grossValue = amount !== null && ivaValue !== null ? amount + ivaValue : null;
+
+  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <div className="space-y-0.5">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-xs font-medium">{children ?? <span className="text-muted-foreground">—</span>}</div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Eye className="h-3.5 w-3.5" />
+        Detalhes da {row.source === "bp" ? "linha do Business Plan" : "transação"}
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <Field label="Valor (s/IVA)">
+          {amount !== null ? formatInCurrency(amount, currency) : null}
+        </Field>
+        <Field label="IVA">
+          {ivaRate !== null ? `${ivaRate}%${ivaValue !== null ? ` · ${formatInCurrency(ivaValue, currency)}` : ""}` : null}
+        </Field>
+        <Field label="Valor (c/IVA)">
+          {grossValue !== null ? formatInCurrency(grossValue, currency) : null}
+        </Field>
+        <Field label="Estado">{d.status}</Field>
+        {row.source === "bp" ? (
+          <>
+            <Field label="Formalidade">{d.formalidade}</Field>
+            <Field label="Fórmula">
+              {d.formula_type ? `${d.formula_type}${d.formula_value !== null && d.formula_value !== undefined ? ` · ${d.formula_value}` : ""}` : null}
+            </Field>
+          </>
+        ) : (
+          <>
+            <Field label="Vencimento">{d.due_date}</Field>
+            <Field label="Pagamento">{d.payment_date}</Field>
+          </>
+        )}
+      </div>
+      {(d.is_overhead || d.is_transitory || d.exclude_from_result) && (
+        <div className="flex flex-wrap gap-1.5">
+          {d.is_overhead && <Badge variant="outline" className="text-[10px]">Overhead</Badge>}
+          {d.is_transitory && <Badge variant="outline" className="text-[10px]">Transitória</Badge>}
+          {d.exclude_from_result && <Badge variant="outline" className="text-[10px]">Excluída do resultado</Badge>}
+        </div>
+      )}
+      {row.specification && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Especificação</div>
+          <div className="text-xs whitespace-pre-wrap">{row.specification}</div>
+        </div>
+      )}
+      {d.notes && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Notas</div>
+          <div className="text-xs whitespace-pre-wrap">{d.notes}</div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 
   // siblings list for swap dialog
