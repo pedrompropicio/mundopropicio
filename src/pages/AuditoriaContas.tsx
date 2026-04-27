@@ -764,7 +764,7 @@ function AnaliseIATab() {
                     {isExpanded && (
                       <tr key={`${rowKey}-detail`} className="bg-secondary/10">
                         <td colSpan={8} className="px-6 py-3">
-                          <RowDetailPanel row={r} />
+                          <RowDetailPanel row={r} eventId={eventId} eventIds={scopedEventIds} categories={categories} eventLabelMap={eventLabelMap} />
                         </td>
                       </tr>
                     )}
