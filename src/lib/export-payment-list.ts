@@ -36,13 +36,19 @@ function calcWithIva(amount: number, ivaRate: number): number {
   return amount * (1 + ivaRate / 100);
 }
 
-/** Returns "Razão Social (Nome Fantasia)" when both exist; otherwise just the legal name. */
+/** Returns "Razão Social (Nome Fantasia)" when both exist and differ; otherwise just the legal name. */
 export function formatSupplierFullName(name: string | null | undefined, tradeName?: string | null): string {
-  const legal = (name ?? "").trim();
-  const trade = (tradeName ?? "").trim();
+  const norm = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
+  const legal = (name ?? "").trim().replace(/\s+/g, " ");
+  const trade = (tradeName ?? "").trim().replace(/\s+/g, " ");
   if (!legal) return trade || "-";
-  if (!trade || trade.toLowerCase() === legal.toLowerCase()) return legal;
+  if (!trade || norm(trade) === norm(legal)) return legal;
   return `${legal} (${trade})`;
+}
+
+/** Formats a number for bank-form pasting: no currency symbol, no thousand separator, comma decimal (e.g. 1234,56). */
+export function formatAmountForBank(value: number): string {
+  return value.toFixed(2).replace(".", ",");
 }
 
 export interface PaymentGroup {
