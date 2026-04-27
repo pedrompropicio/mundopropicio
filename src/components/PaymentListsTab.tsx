@@ -1057,7 +1057,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       } else {
         lines.push(`IBAN: ${item.iban}`);
       }
-      lines.push(`Fornecedor: ${item.supplier_name}`);
+      lines.push(`Fornecedor: ${formatSupplierFullName(item.supplier_name, (item as any).supplier_trade_name)}`);
       lines.push(`Descrição: ${item.description}`);
       if (item.specification) lines.push(`Especificação: ${item.specification}`);
       lines.push(`Valor: ${formatCurrency(withIva)}`);
