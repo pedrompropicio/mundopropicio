@@ -520,6 +520,9 @@ function AnaliseIATab() {
           {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           {running ? "A analisar…" : "Analisar com IA"}
         </Button>
+        <Button variant="outline" onClick={() => setBpFullOpen(true)} disabled={!eventId} className="gap-2">
+          <Eye className="h-4 w-4" /> Ver BP completo
+        </Button>
       </div>
 
       {rows.length > 0 && (
