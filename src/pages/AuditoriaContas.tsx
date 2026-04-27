@@ -225,6 +225,153 @@ function RowDetailPanel({ row }: { row: AuditRow }) {
   );
 }
 
+/** Dialog que mostra o BP completo do evento (e subs, se Master), linha-a-linha. */
+function BPFullDialog({
+  open, onOpenChange, eventId, events, categories,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  eventId: string;
+  events: any[];
+  categories: Category[];
+}) {
+  const sel = events.find((e) => e.id === eventId);
+  const isMaster = sel && !sel.parent_event_id;
+  const subIds = isMaster ? events.filter((e) => e.parent_event_id === eventId).map((e) => e.id) : [];
+  const eventIds = eventId ? [eventId, ...subIds] : [];
+  const eventLabelMap = new Map<string, string>(events.map((e) => [e.id, e.name]));
+  const catMap = new Map(categories.map((c) => [c.id, c]));
+
+  const { data: bps = [], isLoading } = useQuery({
+    queryKey: ["bp-full-audit", eventId],
+    enabled: open && !!eventId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("id, description, specification, category_id, event_id, type, amount, iva_rate, currency, status, formalidade, notes, formula_type, formula_value, is_overhead, is_transitory, exclude_from_result")
+        .in("event_id", eventIds)
+        .is("version_id", null)
+        .order("event_id")
+        .order("type")
+        .order("description");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  // Group by event then type
+  const grouped = useMemo(() => {
+    const byEvent = new Map<string, { event_label: string; expense: any[]; revenue: any[] }>();
+    for (const id of eventIds) {
+      byEvent.set(id, { event_label: eventLabelMap.get(id) ?? "—", expense: [], revenue: [] });
+    }
+    for (const b of bps) {
+      const g = byEvent.get(b.event_id);
+      if (!g) continue;
+      (b.type === "revenue" ? g.revenue : g.expense).push(b);
+    }
+    // sort each list by category code
+    for (const g of byEvent.values()) {
+      const sortFn = (a: any, b: any) => {
+        const ca = catMap.get(a.category_id)?.code ?? "zzz";
+        const cb = catMap.get(b.category_id)?.code ?? "zzz";
+        return compareHierarchicalCodes(ca, cb);
+      };
+      g.expense.sort(sortFn);
+      g.revenue.sort(sortFn);
+    }
+    return Array.from(byEvent.entries());
+  }, [bps, eventIds.join(","), categories]);
+
+  const renderRows = (rows: any[]) => (
+    <table className="w-full text-xs">
+      <thead>
+        <tr className="border-b border-border/40 text-[10px] uppercase tracking-wider text-muted-foreground">
+          <th className="px-2 py-1.5 text-left font-medium w-24">Categoria</th>
+          <th className="px-2 py-1.5 text-left font-medium">Descrição</th>
+          <th className="px-2 py-1.5 text-right font-medium w-24">Valor s/IVA</th>
+          <th className="px-2 py-1.5 text-right font-medium w-16">IVA</th>
+          <th className="px-2 py-1.5 text-right font-medium w-24">Valor c/IVA</th>
+          <th className="px-2 py-1.5 text-left font-medium w-24">Estado</th>
+          <th className="px-2 py-1.5 text-left font-medium w-28">Formalidade</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-border/20">
+        {rows.map((b) => {
+          const c = b.category_id ? catMap.get(b.category_id) : null;
+          const amount = typeof b.amount === "number" ? b.amount : 0;
+          const iva = typeof b.iva_rate === "number" ? b.iva_rate : 0;
+          const ivaValue = amount * iva / 100;
+          const gross = amount + ivaValue;
+          const currency = (b.currency || "EUR") as any;
+          return (
+            <tr key={b.id} className="hover:bg-secondary/20">
+              <td className="px-2 py-1.5 font-mono text-[11px]">{c?.code ?? <span className="text-destructive">—</span>}</td>
+              <td className="px-2 py-1.5">
+                <div className="font-medium">{b.description}</div>
+                {b.specification && <div className="text-muted-foreground text-[11px]">{b.specification}</div>}
+                {(b.is_overhead || b.is_transitory || b.exclude_from_result) && (
+                  <div className="flex gap-1 mt-0.5">
+                    {b.is_overhead && <Badge variant="outline" className="text-[9px] py-0">Overhead</Badge>}
+                    {b.is_transitory && <Badge variant="outline" className="text-[9px] py-0">Transitória</Badge>}
+                    {b.exclude_from_result && <Badge variant="outline" className="text-[9px] py-0">Excluída</Badge>}
+                  </div>
+                )}
+                {b.notes && <div className="text-muted-foreground text-[10px] italic mt-0.5 whitespace-pre-wrap">{b.notes}</div>}
+              </td>
+              <td className="px-2 py-1.5 text-right tabular-nums">{formatInCurrency(amount, currency)}</td>
+              <td className="px-2 py-1.5 text-right tabular-nums">{iva}%</td>
+              <td className="px-2 py-1.5 text-right tabular-nums font-medium">{formatInCurrency(gross, currency)}</td>
+              <td className="px-2 py-1.5"><Badge variant="outline" className="text-[10px]">{b.status ?? "—"}</Badge></td>
+              <td className="px-2 py-1.5 text-muted-foreground">{b.formalidade ?? "—"}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>BP completo — {sel?.name ?? "Evento"}</DialogTitle>
+          <DialogDescription>
+            Visão expandida linha-a-linha do Business Plan{isMaster && subIds.length ? " (Master + sub-eventos)" : ""}.
+          </DialogDescription>
+        </DialogHeader>
+        {isLoading ? (
+          <div className="py-12 text-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin inline" /> A carregar…</div>
+        ) : grouped.length === 0 || bps.length === 0 ? (
+          <div className="py-12 text-center text-muted-foreground">Sem linhas de BP para este evento.</div>
+        ) : (
+          <div className="space-y-6">
+            {grouped.map(([eid, g]) => (
+              (g.expense.length + g.revenue.length === 0) ? null : (
+                <div key={eid} className="space-y-3">
+                  <div className="text-sm font-semibold border-b border-border/50 pb-1">{g.event_label}</div>
+                  {g.revenue.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-[10px] uppercase tracking-wider text-success">Receitas ({g.revenue.length})</div>
+                      <div className="rounded-lg border border-border/40 overflow-x-auto">{renderRows(g.revenue)}</div>
+                    </div>
+                  )}
+                  {g.expense.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-[10px] uppercase tracking-wider text-destructive">Despesas ({g.expense.length})</div>
+                      <div className="rounded-lg border border-border/40 overflow-x-auto">{renderRows(g.expense)}</div>
+                    </div>
+                  )}
+                </div>
+              )
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function AnaliseIATab() {
   const qc = useQueryClient();
   const [eventId, setEventId] = useState<string>("");
