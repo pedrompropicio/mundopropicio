@@ -784,6 +784,13 @@ function AnaliseIATab() {
           setEditingCategoryId(null);
         }}
       />
+      <BPFullDialog
+        open={bpFullOpen}
+        onOpenChange={setBpFullOpen}
+        eventId={eventId}
+        events={events}
+        categories={categories}
+      />
     </div>
   );
 }
