@@ -186,7 +186,7 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
       item.category || "-",
       item.description,
       item.specification || "-",
-      item.supplier_name,
+      formatSupplierFullName(item.supplier_name, item.supplier_trade_name),
       item.invoice_ref || "-",
       paymentInfo,
       item.amount,
