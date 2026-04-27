@@ -430,9 +430,12 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           masterInc.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0) +
           masterTbRows.reduce((s, r) => s + r.totalGross, 0)
         ) / childCount;
-         const masterOverheadShare = overheads
+         const masterOverheadShareNet = overheads
            .filter((o: any) => o.event_id === eventId)
            .reduce((s: number, o: any) => s + Number(o.amount), 0) / childCount;
+         const masterOverheadShareGross = overheads
+           .filter((o: any) => o.event_id === eventId)
+           .reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount), Number(o.iva_rate)), 0) / childCount;
          const masterExpensesNetShare = masterExp.reduce((s: number, t: any) => s + Number(t.amount), 0) / childCount;
          const masterExpensesGrossShare = masterExp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0) / childCount;
 
@@ -447,11 +450,14 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
           const tbGross = tbRows.reduce((s, r) => s + r.totalGross, 0);
           const revenueNet = tbNet + txRevenueNet + masterRevenueNetShare;
           const revenueGross = tbGross + txRevenueGross + masterRevenueGrossShare;
-           const localOverhead = overheads
+           const localOverheadNet = overheads
              .filter((o: any) => o.event_id === se.id)
              .reduce((s: number, o: any) => s + Number(o.amount), 0);
-           const expensesNet = exp.reduce((s: number, t: any) => s + Number(t.amount), 0) + localOverhead + masterExpensesNetShare + masterOverheadShare;
-           const expensesGross = exp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0) + localOverhead + masterExpensesGrossShare + masterOverheadShare;
+           const localOverheadGross = overheads
+             .filter((o: any) => o.event_id === se.id)
+             .reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount), Number(o.iva_rate)), 0);
+           const expensesNet = exp.reduce((s: number, t: any) => s + Number(t.amount), 0) + localOverheadNet + masterExpensesNetShare + masterOverheadShareNet;
+           const expensesGross = exp.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0) + localOverheadGross + masterExpensesGrossShare + masterOverheadShareGross;
           return {
             eventId: se.id,
             cityName: (se.cities as any)?.name || se.name,
