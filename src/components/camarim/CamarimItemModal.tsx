@@ -45,12 +45,14 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
   const [totalAmount, setTotalAmount] = useState("");
   const [ivaAmount, setIvaAmount] = useState("");
   const [paymentOrigin, setPaymentOrigin] = useState<CamarimItemPaymentOrigin>("advance");
+  const [financialAccountId, setFinancialAccountId] = useState<string | null>(null);
   const [bpScope, setBpScope] = useState<CamarimItemBpScope>("master_common");
   const [notes, setNotes] = useState("");
   const [hasDocument, setHasDocument] = useState(true);
   const [docIssueReason, setDocIssueReason] = useState("");
   const [categoryId, setCategoryId] = useState<string>("");
   const [categories, setCategories] = useState<Array<{ id: string; code: string; name: string }>>([]);
+  const [cardAccounts, setCardAccounts] = useState<Array<{ id: string; name: string }>>([]);
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPath, setPhotoPath] = useState<string | null>(null);
