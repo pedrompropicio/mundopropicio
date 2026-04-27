@@ -164,6 +164,7 @@ function AnaliseIATab() {
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [applying, setApplying] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   const { data: events = [] } = useQuery({
     queryKey: ["audit-events"],
