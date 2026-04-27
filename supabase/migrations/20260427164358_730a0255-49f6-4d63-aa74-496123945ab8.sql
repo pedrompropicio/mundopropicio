@@ -1,0 +1,1 @@
+ALTER TABLE public.camarim_items ALTER COLUMN event_id DROP NOT NULL;
