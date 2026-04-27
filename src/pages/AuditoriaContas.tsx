@@ -382,7 +382,6 @@ function AnaliseIATab() {
   const [applying, setApplying] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
-  const [bpFullOpen, setBpFullOpen] = useState(false);
 
   const { data: events = [] } = useQuery({
     queryKey: ["audit-events"],
@@ -667,9 +666,6 @@ function AnaliseIATab() {
           {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           {running ? "A analisar…" : "Analisar com IA"}
         </Button>
-        <Button variant="outline" onClick={() => setBpFullOpen(true)} disabled={!eventId} className="gap-2">
-          <Eye className="h-4 w-4" /> Ver BP completo
-        </Button>
       </div>
 
       {rows.length > 0 && (
@@ -930,13 +926,6 @@ function AnaliseIATab() {
           }
           setEditingCategoryId(null);
         }}
-      />
-      <BPFullDialog
-        open={bpFullOpen}
-        onOpenChange={setBpFullOpen}
-        eventId={eventId}
-        events={events}
-        categories={categories}
       />
     </div>
   );
