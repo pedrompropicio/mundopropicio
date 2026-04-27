@@ -1239,7 +1239,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     ) : (
                       <CopyLine label="IBAN" value={tx?.suppliers?.iban ?? "-"} mono />
                     )}
-                    <CopyLine label="Fornecedor" value={tx?.suppliers?.name ?? "-"} />
+                    <CopyLine label="Fornecedor" value={formatSupplierFullName(tx?.suppliers?.name, tx?.suppliers?.trade_name)} />
                     <CopyLine label="Email Fornecedor" value={tx?.suppliers?.email} />
                     {tx?.account_categories && (
                       <CopyLine label="Categoria" value={`${tx.account_categories.code} ${tx.account_categories.name}`} />
