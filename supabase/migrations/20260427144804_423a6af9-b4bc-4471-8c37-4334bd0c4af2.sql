@@ -1,0 +1,2 @@
+ALTER TABLE public.camarim_items ADD COLUMN IF NOT EXISTS financial_account_id uuid REFERENCES public.financial_accounts(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_camarim_items_financial_account_id ON public.camarim_items(financial_account_id);

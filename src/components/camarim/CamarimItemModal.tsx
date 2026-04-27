@@ -10,12 +10,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Camera, Loader2, Sparkles, Trash2, FileText, Upload, Split } from "lucide-react";
 import {
-  PAYMENT_ORIGIN_LABELS,
   BP_SCOPE_LABELS,
   type CamarimItemPaymentOrigin,
   type CamarimItemBpScope,
   type CamarimItemStatus,
 } from "@/lib/camarim-helpers";
+
+// Sentinel values used in the unified "Forma de pagamento" select.
+const PAYMENT_ADVANCE = "__advance__";
+const PAYMENT_OUT_OF_POCKET = "__out_of_pocket__";
 import { extractJpegFromDng, isDngFile } from "@/lib/dng-extract-preview";
 import { SplitItemModal } from "./SplitItemModal";
 
@@ -42,12 +45,14 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
   const [totalAmount, setTotalAmount] = useState("");
   const [ivaAmount, setIvaAmount] = useState("");
   const [paymentOrigin, setPaymentOrigin] = useState<CamarimItemPaymentOrigin>("advance");
+  const [financialAccountId, setFinancialAccountId] = useState<string | null>(null);
   const [bpScope, setBpScope] = useState<CamarimItemBpScope>("master_common");
   const [notes, setNotes] = useState("");
   const [hasDocument, setHasDocument] = useState(true);
   const [docIssueReason, setDocIssueReason] = useState("");
   const [categoryId, setCategoryId] = useState<string>("");
   const [categories, setCategories] = useState<Array<{ id: string; code: string; name: string }>>([]);
+  const [cardAccounts, setCardAccounts] = useState<Array<{ id: string; name: string }>>([]);
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPath, setPhotoPath] = useState<string | null>(null);
@@ -70,6 +75,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
   useEffect(() => {
     if (!open) return;
     void loadCategories();
+    void loadCardAccounts();
     if (itemId) {
       void loadItem(itemId);
     } else {
@@ -81,6 +87,17 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       }
     }
   }, [open, itemId, autoOpenCamera]);
+
+  // Cartões de débito ativos visíveis ao utilizador (RLS via financial_account_access trata da visibilidade).
+  const loadCardAccounts = async () => {
+    const { data } = await supabase
+      .from("financial_accounts")
+      .select("id,name")
+      .eq("type", "card")
+      .eq("is_active", true)
+      .order("name");
+    setCardAccounts(((data ?? []) as any[]).map((a) => ({ id: a.id, name: a.name })));
+  };
 
   // Allow-list de categorias permitidas para lançamentos de camarim.
   // 2.6.04 Camarins  → produtos/serviços do camarim em si
@@ -109,6 +126,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setTotalAmount("");
     setIvaAmount("");
     setPaymentOrigin("advance");
+    setFinancialAccountId(null);
     setBpScope("master_common");
     setNotes("");
     setHasDocument(true);
@@ -200,6 +218,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setTotalAmount(String(it.total_amount ?? ""));
     setIvaAmount(String(it.iva_amount ?? ""));
     setPaymentOrigin(it.payment_origin);
+    setFinancialAccountId(it.financial_account_id ?? null);
     setBpScope(it.bp_scope);
     setNotes(it.notes ?? "");
     setHasDocument(it.has_document);
@@ -370,6 +389,10 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       toast({ variant: "destructive", title: "Indica o motivo da ausência de documento" });
       return;
     }
+    if (paymentOrigin === "card" && !financialAccountId) {
+      toast({ variant: "destructive", title: "Seleciona o cartão usado" });
+      return;
+    }
 
     // Pré-check de duplicados (mesma sessão + fornecedor + nº doc + total).
     if (!itemId && supplierName.trim() && docNumber.trim()) {
@@ -414,6 +437,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
         iva_amount: Number(ivaAmount || 0),
         base_amount: Number(totalAmount) - Number(ivaAmount || 0),
         payment_origin: paymentOrigin,
+        financial_account_id: paymentOrigin === "card" ? financialAccountId : null,
         bp_scope: bpScope,
         notes: notes || null,
         has_document: hasDocument,
@@ -669,19 +693,45 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Origem do pagamento</Label>
-              <Select value={paymentOrigin} onValueChange={(v) => setPaymentOrigin(v as CamarimItemPaymentOrigin)} disabled={hasLockedSplitStructure}>
+              <Label>Forma de pagamento</Label>
+              <Select
+                value={
+                  paymentOrigin === "advance"
+                    ? PAYMENT_ADVANCE
+                    : paymentOrigin === "out_of_pocket"
+                      ? PAYMENT_OUT_OF_POCKET
+                      : (financialAccountId ?? "")
+                }
+                onValueChange={(v) => {
+                  if (v === PAYMENT_ADVANCE) {
+                    setPaymentOrigin("advance");
+                    setFinancialAccountId(null);
+                  } else if (v === PAYMENT_OUT_OF_POCKET) {
+                    setPaymentOrigin("out_of_pocket");
+                    setFinancialAccountId(null);
+                  } else {
+                    setPaymentOrigin("card");
+                    setFinancialAccountId(v);
+                  }
+                }}
+                disabled={hasLockedSplitStructure}
+              >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Selecionar…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(PAYMENT_ORIGIN_LABELS) as CamarimItemPaymentOrigin[]).map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {PAYMENT_ORIGIN_LABELS[p]}
-                    </SelectItem>
+                  <SelectItem value={PAYMENT_ADVANCE}>Caixa do camarim (adiantamento)</SelectItem>
+                  {cardAccounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                   ))}
+                  <SelectItem value={PAYMENT_OUT_OF_POCKET}>Recurso próprio (a reembolsar)</SelectItem>
                 </SelectContent>
               </Select>
+              {paymentOrigin === "card" && financialAccountId && !cardAccounts.find((a) => a.id === financialAccountId) && (
+                <p className="text-[11px] text-muted-foreground">
+                  Cartão associado já não está disponível ou visível para ti.
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Verba (BP)</Label>

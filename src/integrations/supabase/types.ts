@@ -545,6 +545,7 @@ export type Database = {
           document_number: string | null
           document_type: string
           event_id: string
+          financial_account_id: string | null
           has_document: boolean
           id: string
           integration_mode: string
@@ -582,6 +583,7 @@ export type Database = {
           document_number?: string | null
           document_type?: string
           event_id: string
+          financial_account_id?: string | null
           has_document?: boolean
           id?: string
           integration_mode?: string
@@ -619,6 +621,7 @@ export type Database = {
           document_number?: string | null
           document_type?: string
           event_id?: string
+          financial_account_id?: string | null
           has_document?: boolean
           id?: string
           integration_mode?: string
@@ -674,6 +677,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_items_financial_account_id_fkey"
+            columns: ["financial_account_id"]
+            isOneToOne: false
+            referencedRelation: "financial_accounts"
             referencedColumns: ["id"]
           },
           {
