@@ -94,6 +94,8 @@ export default function CamarimSessionDetail() {
   const navigate = useNavigate();
   const { isAdmin, isManager, hasPermission } = useAuth();
   const canManage = isAdmin || isManager || hasPermission("camarim_manage");
+  // Fecho da sessão (revisão, fechar, integrar) é restrito a admin/manager.
+  const canCloseSession = isAdmin || isManager;
 
   const [session, setSession] = useState<SessionData | null>(null);
   const [items, setItems] = useState<ItemRow[]>([]);
@@ -440,17 +442,17 @@ export default function CamarimSessionDetail() {
               <Pencil className="mr-2 h-4 w-4" /> Editar sessão
             </Button>
           )}
-          {session.status === "open" && canManage && (
+          {session.status === "open" && canCloseSession && (
             <Button variant="outline" onClick={() => updateSessionStatus("in_review")}>
               <Lock className="mr-2 h-4 w-4" /> Enviar para revisão
             </Button>
           )}
-          {session.status === "in_review" && canManage && (
+          {session.status === "in_review" && canCloseSession && (
             <Button variant="outline" onClick={() => updateSessionStatus("closed")}>
               <CheckCircle2 className="mr-2 h-4 w-4" /> Fechar sessão
             </Button>
           )}
-          {(session.status === "in_review" || session.status === "closed") && canManage && (
+          {(session.status === "in_review" || session.status === "closed") && canCloseSession && (
             <Button onClick={() => setShowIntegrate(true)} disabled={approvedItems.length === 0}>
               <Zap className="mr-2 h-4 w-4" /> Integrar ({approvedItems.length})
             </Button>
