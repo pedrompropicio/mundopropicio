@@ -402,7 +402,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
   const totalExpensesNet = expenseTransactions.reduce((s: number, t: any) => s + Number(t.amount), 0)
     + overheads.reduce((s: number, o: any) => s + Number(o.amount), 0);
   const totalExpensesGross = expenseTransactions.reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate)), 0)
-    + overheads.reduce((s: number, o: any) => s + Number(o.amount), 0);
+    + overheads.reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount), Number(o.iva_rate)), 0);
 
   const calcBasis = normalizePartnerCalcBasis(event?.partner_calc_basis);
   const revenueBase = getPartnerRevenueBase(totalRevenueNet);
