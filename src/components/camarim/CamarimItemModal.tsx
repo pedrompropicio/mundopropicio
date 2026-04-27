@@ -427,7 +427,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     try {
       const payload: any = {
         session_id: sessionId,
-        event_id: await getPrimaryEventId(sessionId),
+        event_id: (await getPrimaryEventId(sessionId)) || null,
         supplier_name_raw: supplierName || null,
         service_description: serviceDescription || null,
         document_number: docNumber || null,
