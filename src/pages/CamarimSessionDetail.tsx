@@ -92,8 +92,8 @@ interface FinAccount {
 export default function CamarimSessionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAdmin, isManager } = useAuth();
-  const canManage = isAdmin || isManager;
+  const { isAdmin, isManager, hasPermission } = useAuth();
+  const canManage = isAdmin || isManager || hasPermission("camarim_manage");
 
   const [session, setSession] = useState<SessionData | null>(null);
   const [items, setItems] = useState<ItemRow[]>([]);

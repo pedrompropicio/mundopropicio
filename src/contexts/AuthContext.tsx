@@ -82,6 +82,7 @@ export const ALL_PERMISSIONS = [
   { key: "view_report_artist_cache", label: "Relatório Cachê do Artista", group: "Relatórios" },
   { key: "edit_approved_bp", label: "Editar BP Aprovado (Em Curso)", group: "Operacional" },
   { key: "camarim_team", label: "Camarim — Equipa de Montagem", group: "Operacional" },
+  { key: "camarim_manage", label: "Camarim — Gerir Sessões (criar/aprovar/fechar)", group: "Operacional" },
 ];
 
 export function AuthProvider({ children }: { children: ReactNode }) {

@@ -36,7 +36,7 @@ interface SessionRow {
 export default function Camarim() {
   const navigate = useNavigate();
   const { isAdmin, isManager, hasPermission } = useAuth();
-  const canManage = isAdmin || isManager;
+  const canManage = isAdmin || isManager || hasPermission("camarim_manage");
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");

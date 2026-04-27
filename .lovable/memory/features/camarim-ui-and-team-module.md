@@ -5,12 +5,13 @@ type: feature
 ---
 
 ## Pontos de entrada
-- `/camarim` — listagem de sessões + abertura (admin/manager). Acessível via sidebar (ícone ShoppingBag).
-- `/camarim/:id` — detalhe da sessão para gestão: KPIs (orçamento, gasto, caixa em mão, pendentes), abas Itens/Fundos, aprovação/rejeição inline, transição open → in_review → closed.
+- `/camarim` — listagem de sessões + abertura (admin/manager ou permissão `camarim_manage`). Acessível via sidebar (ícone ShoppingBag).
+- `/camarim/:id` — detalhe da sessão para gestão (mesma regra acima): KPIs (orçamento, gasto, caixa em mão, pendentes), abas Itens/Fundos, aprovação/rejeição inline, transição open → in_review → closed.
 - `/camarim-equipa` — fora do `ProtectedLayout` (mobile-first, sem sidebar). FAB câmara para nova conta. Lista apenas sessões `open`/`in_review`. Apenas admin ou utilizadores com permissão `camarim_team`.
 
-## Permissão
-- `camarim_team` adicionada a `role_permissions` (admin + manager por defeito). Aparece em ALL_PERMISSIONS para atribuição granular via UserPermissionsModal.
+## Permissões
+- `camarim_team` (admin + manager por defeito): permite usar a vista mobile `/camarim-equipa`.
+- `camarim_manage` (admin + manager por defeito): permite criar e gerir sessões/itens em `/camarim` e `/camarim/:id`. Pode ser concedida a editores via UserPermissionsModal. RLS de `camarim_sessions` e `camarim_items` aceita esta permissão.
 
 ## OCR imediato
 - Edge function: `extract-camarim-receipt` (Lovable AI Gateway, modelo `google/gemini-2.5-flash`, sem JWT).
