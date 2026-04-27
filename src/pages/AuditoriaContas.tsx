@@ -272,7 +272,7 @@ function RowDetailPanel({
             {l1Sorted.map((g1) => {
               const l2Sorted = [...g1.l2s.values()].sort((a, b) => compareHierarchicalCodes(a.l2Code, b.l2Code));
               return (
-                <React.Fragment key={g1.l1Code}>
+                <Fragment key={g1.l1Code}>
                   {/* L1 header */}
                   <tr className="bg-primary/10">
                     <td className="px-2 py-1 font-mono font-semibold">{g1.l1Code}</td>
@@ -281,7 +281,7 @@ function RowDetailPanel({
                     <td colSpan={2} />
                   </tr>
                   {l2Sorted.map((g2) => (
-                    <React.Fragment key={g2.l2Code}>
+                    <Fragment key={g2.l2Code}>
                       {/* L2 header */}
                       <tr className="bg-muted/40">
                         <td className="px-2 py-1 pl-4 font-mono">{g2.l2Code}</td>
@@ -308,9 +308,9 @@ function RowDetailPanel({
                           </tr>
                         );
                       })}
-                    </React.Fragment>
+                    </Fragment>
                   ))}
-                </React.Fragment>
+                </Fragment>
               );
             })}
             <tr className="bg-muted/20">
