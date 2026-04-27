@@ -544,7 +544,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       }
       const amt = Number(o.amount || 0);
       map[key].amountNet += amt;
-      map[key].amountGross += amt;
+      map[key].amountGross += calcTotalWithIva(amt, Number(o.iva_rate));
       map[key].count += 1;
     });
     return Object.values(map).sort((a, b) => {
