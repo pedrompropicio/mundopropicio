@@ -1,0 +1,4 @@
+-- Editores passam a poder gerir camarim por defeito (criar, editar, aprovar). Fecho continua restrito a admin/manager (controlo no UI).
+INSERT INTO public.role_permissions (role, permission) VALUES ('editor', 'camarim_manage') ON CONFLICT (role, permission) DO NOTHING;
+-- Conceder permissão directa ao utilizador pedroneto@socialmusic.com.br (role viewer):
+INSERT INTO public.user_permissions (user_id, permission, granted) SELECT id, 'camarim_manage', true FROM public.profiles WHERE email = 'pedroneto@socialmusic.com.br' ON CONFLICT (user_id, permission) DO UPDATE SET granted = true;
