@@ -207,10 +207,10 @@ function AnaliseIATab() {
       // Send to AI in batches of 40
       const codeMap = new Map(leafCats.map((c) => [c.code, c]));
 
-      const BATCH = 40;
+      const BATCH = 20;
       const allMatches: (AuditMatch & { rowIndex: number })[] = [];
-      for (let i = 0; i < merged.length; i += BATCH) {
-        const slice = merged.slice(i, i + BATCH);
+
+      async function callBatch(slice: typeof merged, baseIndex: number, attempt = 0): Promise<void> {
         const { data, error } = await supabase.functions.invoke("audit-categories", {
           body: {
             rows: slice.map((r) => ({
@@ -221,9 +221,22 @@ function AnaliseIATab() {
             categories: leafCats.map((c) => ({ id: c.id, code: c.code, name: c.name })),
           },
         });
-        if (error) throw error;
+        if (error) {
+          // Retry with smaller chunks (split in half) up to 2 attempts
+          if (attempt < 2 && slice.length > 4) {
+            const mid = Math.floor(slice.length / 2);
+            await callBatch(slice.slice(0, mid), baseIndex, attempt + 1);
+            await callBatch(slice.slice(mid), baseIndex + mid, attempt + 1);
+            return;
+          }
+          throw error;
+        }
         const matches: AuditMatch[] = data?.matches ?? [];
-        matches.forEach((m) => allMatches.push({ ...m, rowIndex: i + m.index }));
+        matches.forEach((m) => allMatches.push({ ...m, rowIndex: baseIndex + m.index }));
+      }
+
+      for (let i = 0; i < merged.length; i += BATCH) {
+        await callBatch(merged.slice(i, i + BATCH), i);
       }
 
       const enriched = merged.map((r, idx) => {

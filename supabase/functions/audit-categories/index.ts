@@ -75,7 +75,6 @@ serve(async (req) => {
                 properties: {
                   matches: {
                     type: "array",
-                    minItems: rows.length,
                     items: {
                       type: "object",
                       properties: {
@@ -114,22 +113,35 @@ serve(async (req) => {
       }
       const t = await response.text();
       console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "AI gateway error" }), {
-        status: 500,
+      return new Response(JSON.stringify({ error: `AI gateway error ${response.status}`, detail: t.slice(0, 500) }), {
+        status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) {
-      return new Response(JSON.stringify({ error: "No tool call in response" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const message = data.choices?.[0]?.message;
+    const toolCall = message?.tool_calls?.[0];
+
+    let result: { matches: unknown[] } = { matches: [] };
+    if (toolCall?.function?.arguments) {
+      try {
+        result = JSON.parse(toolCall.function.arguments);
+      } catch (err) {
+        console.error("Failed to parse tool_call arguments:", err, toolCall.function.arguments?.slice?.(0, 300));
+      }
+    } else if (typeof message?.content === "string") {
+      // Fallback: model returned JSON in content instead of tool_call
+      try {
+        const m = message.content.match(/\{[\s\S]*\}/);
+        if (m) result = JSON.parse(m[0]);
+      } catch (err) {
+        console.error("Failed to parse content JSON fallback:", err);
+      }
     }
 
-    const result = JSON.parse(toolCall.function.arguments);
+    if (!Array.isArray(result.matches)) result.matches = [];
+
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
