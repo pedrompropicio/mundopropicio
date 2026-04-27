@@ -351,6 +351,21 @@ function AnaliseIATab() {
     return opts;
   }, [events]);
 
+  const eventLabelMap = useMemo(
+    () => new Map<string, string>(events.map((e: any) => [e.id, e.name])),
+    [events]
+  );
+
+  const scopedEventIds = useMemo(() => {
+    if (!eventId) return [] as string[];
+    const sel = events.find((e: any) => e.id === eventId);
+    const isMaster = sel && !sel.parent_event_id;
+    const subIds = isMaster
+      ? events.filter((e: any) => e.parent_event_id === eventId).map((e: any) => e.id)
+      : [];
+    return [eventId, ...subIds];
+  }, [eventId, events]);
+
   async function handleRun() {
     if (!eventId) { toast.error("Seleciona um evento"); return; }
     setRunning(true);
