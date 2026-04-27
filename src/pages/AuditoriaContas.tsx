@@ -620,7 +620,7 @@ function AnaliseIATab() {
                         </td>
                       </tr>
                     )}
-                    </>
+                    </Fragment>
                   );
                 })}
                 {filteredRows.length === 0 && (
