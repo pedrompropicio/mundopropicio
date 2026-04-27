@@ -1597,7 +1597,7 @@ function ApproveModal({
                        </td>
                        <td className="p-2 text-muted-foreground text-xs hidden sm:table-cell">{tx?.account_categories ? `${tx.account_categories.code} ${tx.account_categories.name}` : "-"}</td>
                        <td className="p-2 text-muted-foreground hidden sm:table-cell">{tx?.events?.name ?? "-"}</td>
-                       <td className="p-2 text-muted-foreground hidden md:table-cell">{tx?.suppliers?.name ?? "-"}</td>
+                       <td className="p-2 text-muted-foreground hidden md:table-cell">{formatSupplierFullName(tx?.suppliers?.name, (tx?.suppliers as any)?.trade_name)}</td>
                        <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
                        <td className="p-2 text-right font-mono font-semibold">{formatCurrency(withIva - paid)}</td>
                     </tr>
