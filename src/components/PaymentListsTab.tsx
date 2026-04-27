@@ -1300,7 +1300,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                   <div key={`group-${group.supplier_id}-${group.invoice_ref}`} className="rounded-xl border-2 border-primary/30 bg-primary/5 p-3 space-y-2">
                     <div className="flex items-center gap-2 text-sm">
                       <Badge variant="outline" className="border-primary/40 text-primary text-[10px]">📎 Fatura Agrupada</Badge>
-                      <span className="font-semibold">{group.supplier_name}</span>
+                      <span className="font-semibold">{formatSupplierFullName(group.supplier_name, (group as any).supplier_trade_name)}</span>
                       <span className="text-muted-foreground">—</span>
                       <span className="font-mono text-xs">{group.invoice_ref}</span>
                     </div>
