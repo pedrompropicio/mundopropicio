@@ -10,12 +10,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Camera, Loader2, Sparkles, Trash2, FileText, Upload, Split } from "lucide-react";
 import {
-  PAYMENT_ORIGIN_LABELS,
   BP_SCOPE_LABELS,
   type CamarimItemPaymentOrigin,
   type CamarimItemBpScope,
   type CamarimItemStatus,
 } from "@/lib/camarim-helpers";
+
+// Sentinel values used in the unified "Forma de pagamento" select.
+const PAYMENT_ADVANCE = "__advance__";
+const PAYMENT_OUT_OF_POCKET = "__out_of_pocket__";
 import { extractJpegFromDng, isDngFile } from "@/lib/dng-extract-preview";
 import { SplitItemModal } from "./SplitItemModal";
 
