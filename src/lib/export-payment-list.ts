@@ -82,6 +82,7 @@ export function groupPaymentItems(items: PaymentItem[]): { groups: PaymentGroup[
       const totalWithIva = groupItems.reduce((s, i) => s + calcWithIva(i.amount, i.iva_rate), 0);
       groups.push({
         supplier_name: first.supplier_name,
+        supplier_trade_name: first.supplier_trade_name ?? null,
         supplier_id: first.supplier_id ?? null,
         invoice_ref: first.invoice_ref!,
         iban: first.iban,
