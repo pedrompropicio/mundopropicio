@@ -416,12 +416,15 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
   );
 }
 
-function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+function Section({ icon, title, children, action }: { icon: React.ReactNode; title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-border bg-background/50">
-      <div className="flex items-center gap-1.5 border-b border-border/60 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {icon}
-        {title}
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          {icon}
+          {title}
+        </div>
+        {action}
       </div>
       <div className="px-3 py-1">{children}</div>
     </div>
