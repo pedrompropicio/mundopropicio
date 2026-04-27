@@ -33,6 +33,13 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
   const [editDateOpen, setEditDateOpen] = useState(false);
+  const [editingDirect, setEditingDirect] = useState(false);
+  const [directForm, setDirectForm] = useState<{ paid_amount: string; payment_date: Date | null; account_id: string }>({
+    paid_amount: "",
+    payment_date: null,
+    account_id: "",
+  });
+  const [directDateOpen, setDirectDateOpen] = useState(false);
 
   const { data: payments = [], isLoading } = useQuery({
     queryKey: ["transaction_payments", transaction.id],
@@ -62,6 +69,9 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
   const ivaRate = Number(transaction.iva_rate ?? 0);
   const totalWithIva = calcWithIva(baseAmount, ivaRate);
   const totalPaid = payments.reduce((s: number, p: any) => s + Number(p.amount), 0);
+  const directPaidAmount = Number(transaction.paid_amount ?? 0);
+  const effectiveTotalPaid = payments.length > 0 ? totalPaid : directPaidAmount;
+  const hasDirectPayment = payments.length === 0 && (directPaidAmount > 0 || transaction.status === "paid");
   const isExpense = transaction.type === "expense";
 
   function startEdit(payment: any) {
@@ -77,6 +87,16 @@ export function TransactionPaymentsListModal({ transaction, isAdmin, onClose }: 
       notes: payment.notes ?? "",
     });
     setEditingId(payment.id);
+  }
+
+  function startDirectEdit() {
+    const [y, m, d] = (transaction.payment_date ?? "").split("-").map(Number);
+    setDirectForm({
+      paid_amount: String(transaction.paid_amount ?? 0),
+      payment_date: y && m && d ? new Date(y, m - 1, d, 12, 0, 0) : new Date(),
+      account_id: transaction.account_id ?? "",
+    });
+    setEditingDirect(true);
   }
 
   const updateMutation = useMutation({
