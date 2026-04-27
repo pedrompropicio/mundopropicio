@@ -398,7 +398,7 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
     doc.setTextColor(120, 120, 120);
     doc.text("Fornecedor:", labelX, y);
     doc.setTextColor(0, 0, 0);
-    doc.text(item.supplier_name, valueX, y);
+    doc.text(formatSupplierFullName(item.supplier_name, item.supplier_trade_name), valueX, y);
     y += lineHeight;
 
     doc.setTextColor(120, 120, 120);
