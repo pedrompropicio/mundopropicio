@@ -722,12 +722,13 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
 }
 
 /* ─── Copy Line Helper ─── */
-function CopyLine({ label, value, mono, bold, hideIfEmpty = true }: { label: string; value: string | null | undefined; mono?: boolean; bold?: boolean; hideIfEmpty?: boolean }) {
+function CopyLine({ label, value, copyValue, mono, bold, hideIfEmpty = true }: { label: string; value: string | null | undefined; copyValue?: string | null; mono?: boolean; bold?: boolean; hideIfEmpty?: boolean }) {
   const trimmed = (value ?? "").toString().trim();
   if (hideIfEmpty && (!trimmed || trimmed === "-")) return null;
+  const toCopy = (copyValue ?? trimmed).toString().trim();
   const handleCopy = () => {
-    navigator.clipboard.writeText(trimmed).then(() => {
-      toast({ title: "Copiado!", description: `${label}: ${trimmed}` });
+    navigator.clipboard.writeText(toCopy).then(() => {
+      toast({ title: "Copiado!", description: `${label}: ${toCopy}` });
     });
   };
   return (
@@ -737,7 +738,7 @@ function CopyLine({ label, value, mono, bold, hideIfEmpty = true }: { label: str
       <button
         onClick={handleCopy}
         className="opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5 text-muted-foreground hover:text-foreground"
-        title={`Copiar ${label}`}
+        title={`Copiar ${label} (${toCopy})`}
       >
         <Copy className="h-3 w-3" />
       </button>
