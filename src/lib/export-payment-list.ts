@@ -10,6 +10,7 @@ export interface PaymentItem {
   category?: string;
   event_name: string;
   supplier_name: string;
+  supplier_trade_name?: string | null;
   supplier_id?: string | null;
   iban: string;
   amount: number;
