@@ -510,9 +510,18 @@ export default function CamarimSessionDetail() {
             </Button>
           )}
           {(session.status === "in_review" || session.status === "closed") && canCloseSession && (
-            <Button onClick={() => setShowIntegrate(true)} disabled={approvedItems.length === 0}>
-              <Zap className="mr-2 h-4 w-4" /> Integrar ({approvedItems.length})
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={() => updateSessionStatus("open")}
+                title="Voltar a abrir a sessão para edição da equipa"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" /> Reabrir sessão
+              </Button>
+              <Button onClick={() => setShowIntegrate(true)} disabled={approvedItems.length === 0}>
+                <Zap className="mr-2 h-4 w-4" /> Integrar ({approvedItems.length})
+              </Button>
+            </>
           )}
           {/* Eliminar sessão: admin enquanto não integrada; manager apenas em revisão */}
           {((isAdmin && session.status !== "integrated") ||
