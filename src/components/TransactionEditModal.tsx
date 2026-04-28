@@ -21,6 +21,7 @@ import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, isSupportedCurrency, eurToOriginal } from "@/lib/currency";
 import { TransactionCamarimTab } from "@/components/camarim/TransactionCamarimTab";
+import { WithholdingDeclaredFields } from "@/components/WithholdingDeclaredFields";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
@@ -53,6 +54,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     payment_method: (transaction.payment_method ?? "transfer") as PaymentMethod,
     payment_entity: transaction.payment_entity ?? "",
     payment_reference: transaction.payment_reference ?? "",
+    declared_withholding_rate: transaction.declared_withholding_rate != null ? String(transaction.declared_withholding_rate) : "",
+    declared_withholding_amount: transaction.declared_withholding_amount != null ? String(transaction.declared_withholding_amount) : "",
   });
   const queryClient = useQueryClient();
   const { user, isManager } = useAuth();
