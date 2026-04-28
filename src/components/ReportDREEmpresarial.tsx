@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { expandOverheadToSplits } from "@/lib/overhead-proration";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -71,22 +70,10 @@ export default function ReportDREEmpresarial() {
     },
   });
 
-  const { data: closingCostsRaw = [] } = useQuery({
-    queryKey: ["closing-costs-all"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_forecasts")
-        .select("id, event_id, amount, description, category_id")
-        .eq("is_overhead", true).is("version_id", null);
-      if (error) throw error;
-      return data;
-    },
-  });
-  // Proração Master→Splits (÷N) — ver src/lib/overhead-proration.ts
-  const closingCosts = useMemo(
-    () => expandOverheadToSplits(closingCostsRaw as any, events as any),
-    [closingCostsRaw, events],
-  );
+  // Overheads/Custos de Fecho NÃO entram no DRE Empresarial.
+  // O DRE Empresarial trabalha em valores líquidos (s/IVA) com base em
+  // transações reais. Overheads (rateios do BP) são previsões de gestão e
+  // só fazem sentido na "Vista Sócio" do DRE por evento. Aqui ficam de fora.
 
   const lookup = useMemo(() => buildCategoryLookup(categories), [categories]);
 
@@ -170,17 +157,9 @@ export default function ReportDREEmpresarial() {
       }
     });
 
-    // Closing costs by month (use event date for month)
-    const closingCostMonthly = new Array(12).fill(0);
-    closingCosts.forEach((cc: any) => {
-      const evt = events.find((e) => e.id === cc.event_id);
-      if (!evt || !evt.date.startsWith(String(year))) return;
-      const mi = getMonthIndex(evt.date);
-      closingCostMonthly[mi] += Number(cc.amount);
-    });
-
+    // Overheads/Custos de Fecho NÃO entram aqui (ver nota acima).
     const eventResultMonthly = eventIncomeMonthly.map(
-      (inc, i) => inc - eventExpenseMonthly[i] - closingCostMonthly[i]
+      (inc, i) => inc - eventExpenseMonthly[i]
     );
 
     // Partner distributions by month
@@ -195,11 +174,9 @@ export default function ReportDREEmpresarial() {
         .reduce((s, t) => s + Number(t.amount), 0);
       const exp = evtTx.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result)
         .reduce((s, t) => s + Number(t.amount), 0);
-      const evtClosing = closingCosts.filter((cc: any) => cc.event_id === evt.id)
-        .reduce((s: number, cc: any) => s + Number(cc.amount), 0);
-      const netResult = inc - exp - evtClosing;
+      const netResult = inc - exp;
       const calcBasis = (evt as any).partner_calc_basis || "net_result";
-      
+
       const mi = getMonthIndex(evt.date);
       partners.forEach((p: any) => {
         let base: number;
@@ -208,7 +185,7 @@ export default function ReportDREEmpresarial() {
         } else if (p.expense_includes_iva) {
           const expInc = evtTx.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result)
             .reduce((s, t) => s + calcAmountWithIva(Number(t.amount), Number(t.iva_rate ?? 23)), 0);
-          base = inc - expInc - evtClosing;
+          base = inc - expInc;
         } else {
           base = netResult;
         }
@@ -222,9 +199,6 @@ export default function ReportDREEmpresarial() {
     result.push(makeSectionTitle("RESULTADO OPERACIONAL DE EVENTOS"));
     result.push(makeLine("Receitas de Eventos", eventIncomeMonthly, false, false, true));
     result.push(makeLine("(-) Custos Directos de Eventos", eventExpenseMonthly.map((v) => -v), false, false, true));
-    if (closingCostMonthly.some((v) => v !== 0)) {
-      result.push(makeLine("(-) Custos de Fecho", closingCostMonthly.map((v) => -v), false, false, true));
-    }
     result.push(makeLine("= Resultado Líquido Eventos", eventResultMonthly, false, true));
     
     const hasPartners = partnerDistMonthly.some((v) => v !== 0);
@@ -305,7 +279,7 @@ export default function ReportDREEmpresarial() {
     }
 
     return result;
-  }, [eventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, closingCosts, year]);
+  }, [eventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, year]);
 
   const years = useMemo(() => {
     const ySet = new Set<number>();
