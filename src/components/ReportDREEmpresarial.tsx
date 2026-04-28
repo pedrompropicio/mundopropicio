@@ -75,10 +75,47 @@ export default function ReportDREEmpresarial() {
     },
   });
 
+  const { data: ticketZones = [] } = useQuery({
+    queryKey: ["ticket-zones-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_ticket_zones").select("id,event_id");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: ticketLots = [] } = useQuery({
+    queryKey: ["ticket-lots-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_ticket_lots").select("id,zone_id,iva_rate");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: ticketSales = [] } = useQuery({
+    queryKey: ["ticket-sales-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("ticket_sales").select("lot_id,sale_date,quantity,unit_price,total_value");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const ticketCategoryId = useMemo(
+    () => categories.find(
+      (c) => c.name.toLowerCase().includes("venda de bilhete") ||
+             c.name.toLowerCase().includes("bilhetes") ||
+             c.name.toLowerCase().includes("bilheteira")
+    )?.id ?? null,
+    [categories]
+  );
+
   // Overheads/Custos de Fecho NÃO entram no DRE Empresarial.
   // O DRE Empresarial trabalha em valores líquidos (s/IVA) com base em
   // transações reais. Overheads (rateios do BP) são previsões de gestão e
   // só fazem sentido na "Vista Sócio" do DRE por evento. Aqui ficam de fora.
+
 
   const lookup = useMemo(() => buildCategoryLookup(categories), [categories]);
 
