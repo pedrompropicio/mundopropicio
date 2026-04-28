@@ -20,6 +20,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, isSupportedCurrency, eurToOriginal } from "@/lib/currency";
+import { TransactionCamarimTab } from "@/components/camarim/TransactionCamarimTab";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
