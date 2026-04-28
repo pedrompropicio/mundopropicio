@@ -81,9 +81,13 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
         throw new Error("Sem permissão para remover este documento ou documento não encontrado.");
       }
       if (storagePath) {
-        await supabase.storage.from("transaction-documents").remove([storagePath]).catch((err) => {
-          console.warn("Storage cleanup failed (non-blocking):", err);
-        });
+        // Don't remove the underlying camarim file when deleting a transaction_documents
+        // row that points to it — the dossier/receipt is shared with the camarim session.
+        if (!doc.file_url?.startsWith("camarim://")) {
+          await supabase.storage.from("transaction-documents").remove([storagePath]).catch((err) => {
+            console.warn("Storage cleanup failed (non-blocking):", err);
+          });
+        }
       }
       await logAudit({
         entity_type: "transaction_document",
