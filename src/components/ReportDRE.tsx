@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { exportDREToExcel, exportDREToPDF } from "@/lib/export-dre";
 import { buildCategoryLookup, aggregateByHierarchyDRE } from "@/lib/category-hierarchy";
+import { calcIvaAmount } from "@/lib/iva";
 import { Switch } from "@/components/ui/switch";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
