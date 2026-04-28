@@ -4,6 +4,7 @@ import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
 import { buildCategoryLookup, aggregateByHierarchyDRE } from "@/lib/category-hierarchy";
 import { applyPTNumberFormat } from "@/lib/excel-format";
+import { calcIvaAmount } from "@/lib/iva";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
