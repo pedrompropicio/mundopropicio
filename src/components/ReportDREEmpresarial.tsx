@@ -71,22 +71,10 @@ export default function ReportDREEmpresarial() {
     },
   });
 
-  const { data: closingCostsRaw = [] } = useQuery({
-    queryKey: ["closing-costs-all"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_forecasts")
-        .select("id, event_id, amount, description, category_id")
-        .eq("is_overhead", true).is("version_id", null);
-      if (error) throw error;
-      return data;
-    },
-  });
-  // Proração Master→Splits (÷N) — ver src/lib/overhead-proration.ts
-  const closingCosts = useMemo(
-    () => expandOverheadToSplits(closingCostsRaw as any, events as any),
-    [closingCostsRaw, events],
-  );
+  // Overheads/Custos de Fecho NÃO entram no DRE Empresarial.
+  // O DRE Empresarial trabalha em valores líquidos (s/IVA) com base em
+  // transações reais. Overheads (rateios do BP) são previsões de gestão e
+  // só fazem sentido na "Vista Sócio" do DRE por evento. Aqui ficam de fora.
 
   const lookup = useMemo(() => buildCategoryLookup(categories), [categories]);
 
