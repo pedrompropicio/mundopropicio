@@ -158,17 +158,9 @@ export default function ReportDREEmpresarial() {
       }
     });
 
-    // Closing costs by month (use event date for month)
-    const closingCostMonthly = new Array(12).fill(0);
-    closingCosts.forEach((cc: any) => {
-      const evt = events.find((e) => e.id === cc.event_id);
-      if (!evt || !evt.date.startsWith(String(year))) return;
-      const mi = getMonthIndex(evt.date);
-      closingCostMonthly[mi] += Number(cc.amount);
-    });
-
+    // Overheads/Custos de Fecho NÃO entram aqui (ver nota acima).
     const eventResultMonthly = eventIncomeMonthly.map(
-      (inc, i) => inc - eventExpenseMonthly[i] - closingCostMonthly[i]
+      (inc, i) => inc - eventExpenseMonthly[i]
     );
 
     // Partner distributions by month
@@ -183,11 +175,9 @@ export default function ReportDREEmpresarial() {
         .reduce((s, t) => s + Number(t.amount), 0);
       const exp = evtTx.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result)
         .reduce((s, t) => s + Number(t.amount), 0);
-      const evtClosing = closingCosts.filter((cc: any) => cc.event_id === evt.id)
-        .reduce((s: number, cc: any) => s + Number(cc.amount), 0);
-      const netResult = inc - exp - evtClosing;
+      const netResult = inc - exp;
       const calcBasis = (evt as any).partner_calc_basis || "net_result";
-      
+
       const mi = getMonthIndex(evt.date);
       partners.forEach((p: any) => {
         let base: number;
@@ -196,7 +186,7 @@ export default function ReportDREEmpresarial() {
         } else if (p.expense_includes_iva) {
           const expInc = evtTx.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result)
             .reduce((s, t) => s + calcAmountWithIva(Number(t.amount), Number(t.iva_rate ?? 23)), 0);
-          base = inc - expInc - evtClosing;
+          base = inc - expInc;
         } else {
           base = netResult;
         }
@@ -210,9 +200,6 @@ export default function ReportDREEmpresarial() {
     result.push(makeSectionTitle("RESULTADO OPERACIONAL DE EVENTOS"));
     result.push(makeLine("Receitas de Eventos", eventIncomeMonthly, false, false, true));
     result.push(makeLine("(-) Custos Directos de Eventos", eventExpenseMonthly.map((v) => -v), false, false, true));
-    if (closingCostMonthly.some((v) => v !== 0)) {
-      result.push(makeLine("(-) Custos de Fecho", closingCostMonthly.map((v) => -v), false, false, true));
-    }
     result.push(makeLine("= Resultado Líquido Eventos", eventResultMonthly, false, true));
     
     const hasPartners = partnerDistMonthly.some((v) => v !== 0);
