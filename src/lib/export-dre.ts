@@ -528,7 +528,7 @@ export function exportDREToPDF(
 
     const childSummaries = childEvts.map((child: any) => {
       const effectiveTx = getEffectiveTransactionsForExport(child.id, transactions, eventsSource);
-      const summary = computeEventSummary(effectiveTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, child.id, ticketCategoryId, partners, eventsSource, brasilMode);
+      const summary = computeEventSummary(effectiveTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, child.id, ticketCategoryId, partners, eventsSource, brasilMode, closingCosts);
       return { name: child.name, ...summary };
     });
 
