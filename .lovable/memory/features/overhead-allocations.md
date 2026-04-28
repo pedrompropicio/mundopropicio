@@ -45,12 +45,12 @@ Para resolver a ambiguidade entre "Vista Empresa" (overhead fora, coerente com D
 | Relatório | Componente | Default | Mecanismo |
 |---|---|---|---|
 | **Previsão vs Real** (BP do evento) | `EventForecast.tsx` → `includeOverheadInComparison` | OFF (Sem overhead) | Quando ON, `comparisonForecasts` inclui linhas `is_overhead=true` do próprio evento + fatia `_overhead_via_master` no split. Coluna Real fica €0 nessas linhas (overhead não gera TX) — útil para auditar planeamento |
-| **DRE** | `ReportDRE.tsx` → `showPartnerView` | OFF (Vista Empresa) | Switch "Vista Sócio (com Overhead)" — gate em `closingCosts` |
-| **DRE Brasil** | `ReportDREBrasil.tsx` → `showPartnerView` | OFF (Vista Empresa) | Idem |
+| **DRE** | `ReportDRE.tsx` → `showPartnerView` | OFF (Vista Empresa) | Switch "Vista Sócio (com Overhead)" — gate em `closingCosts`. Overheads aplicam IVA linha-a-linha (default 23% se sem `iva_rate`); base do sócio com `expense_includes_iva` deduz overheads c/IVA. Resultado Líquido (s/IVA) deduz só base. |
+| **DRE Brasil** | `ReportDREBrasil.tsx` → `showPartnerView` | OFF (Vista Empresa) | Idem DRE; modo Brasil sempre c/IVA |
 | **Análise de Resultados** | `ResultsAnalysis.tsx` → `includeOverhead` | OFF (Vista Empresa) | Quando ON, `closingMap` é populado e soma ao `bpExpense` / `realExpense` de Planeado 100% / 80% / Real Atual |
 | **Acerto com Sócios** | `ReportPartnerSettlement.tsx` | sempre ON | Por natureza é sempre vista do sócio |
 | **BP x Transações (Despesas)** | `ReportBPTransactions.tsx` | OFF (Sem overhead) | Seletor local inclui/exclui linhas `event_forecasts.is_overhead=true`; quando ON, o Previsto passa a somar overhead do evento e também a fatia virtual via Master no split |
-| **DRE Empresarial** | `ReportDREEmpresarial.tsx` | sempre considera overhead em secção separada | Não é toggle, mas não duplica |
+| **DRE Empresarial** | `ReportDREEmpresarial.tsx` | **NÃO inclui overhead** (decisão 2026-04) | Overhead é previsão de gestão a nível de evento; não entra no DRE consolidado mensal da empresa, que trabalha em valores líquidos sobre transações reais |
 
 **Justificação**: o overhead é por design "informativo" para a empresa (já foi pago noutros momentos) e "computado" para o sócio (reduz o resultado dele). O toggle deixa o utilizador escolher a perspetiva sem misturar.
 
