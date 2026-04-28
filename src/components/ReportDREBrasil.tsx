@@ -744,15 +744,50 @@ export default function ReportDREBrasil() {
         const tourExpInc = childSummaries.reduce((s, c) => s + c.totalExpInc, 0);
         const tourResult = tourIncEx - tourExpInc;
 
+        // Distribuição da turnê: somar shares já calculadas em cada split
+        // (linhas isDistribution geradas por buildDREBrasil) — mesma fonte
+        // dos cards do topo, garantindo consistência total.
         const tourPartners = eventPartners.filter((p: any) => p.event_id === parentId);
+        const tourSharesByPartner = new Map<string, number>();
+        let tourHouseSum = 0;
+        childSummaries.forEach((c: any) => {
+          const evtTx = getEffectiveTransactions(c.id);
+          const calcBasisChild = (parentEvt as any).partner_calc_basis || "net_result";
+          const dre = buildDREBrasil(
+            evtTx,
+            categories,
+            ticketRevenueSource,
+            ticketZones,
+            ticketLots,
+            ticketSales,
+            c.id,
+            ticketCategoryId,
+            eventPartners,
+            calcBasisChild,
+            (c as any).parent_event_id,
+            showPartnerView ? closingCosts : [],
+            showPartnerView ? partnerExtras : [],
+            childrenByParent[c.id],
+          );
+          dre.filter((l: any) => l.isDistribution).forEach((l: any) => {
+            if (l.isHouse) {
+              tourHouseSum += l.amountExIva;
+              return;
+            }
+            const m = l.label.match(/^\s*(.+?)\s*\(/);
+            const key = (m ? m[1] : l.label).trim();
+            tourSharesByPartner.set(key, (tourSharesByPartner.get(key) || 0) + l.amountExIva);
+          });
+        });
+
         let tourTotalDistribution = 0;
         const tourPartnerShares = tourPartners.map((p: any) => {
-          const base = tourIncEx - tourExpInc;
-          const share = base * (Number(p.percentage) / 100);
+          const supplierName = p.suppliers?.name || "Sócio";
+          const share = tourSharesByPartner.get(supplierName) || 0;
           tourTotalDistribution += share;
-          return { name: p.suppliers?.name || "Sócio", percentage: Number(p.percentage), share };
+          return { name: supplierName, percentage: Number(p.percentage), share };
         });
-        const tourRetained = tourResult - tourTotalDistribution;
+        const tourRetained = tourHouseSum;
 
         return (
           <div key={`tour-summary-${parentId}`} className="glass rounded-xl p-4 space-y-4">
