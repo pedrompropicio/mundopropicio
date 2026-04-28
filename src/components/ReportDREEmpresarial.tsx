@@ -183,6 +183,8 @@ export default function ReportDREEmpresarial() {
   const lines = useMemo(() => {
     const result: MonthlyLine[] = [];
 
+    const useTicketSales = ticketRevenueSource === "ticket_sales";
+
     // ─── SECTION 1: RESULTADO OPERACIONAL DE EVENTOS ───
     // Monthly event results: for each month, sum income - expenses of event transactions
     const eventIncomeMonthly = new Array(12).fill(0);
@@ -192,12 +194,36 @@ export default function ReportDREEmpresarial() {
       const d = t.payment_date || t.date;
       if (!d) return;
       const mi = getMonthIndex(d);
+      // Quando a fonte é ticket_sales, ignoramos transações income da categoria de bilheteira
+      // para não duplicar com a soma direta de ticket_sales.
       if (t.type === "income" && !t.is_transitory && !t.exclude_from_result) {
+        if (useTicketSales && ticketCategoryId && t.category_id === ticketCategoryId) return;
         eventIncomeMonthly[mi] += Number(t.amount);
       } else if (t.type === "expense" && !t.is_transitory && !t.exclude_from_result) {
         eventExpenseMonthly[mi] += Number(t.amount);
       }
     });
+
+    // Soma de bilheteira (líquida s/IVA) a partir de ticket_sales — agrupada por mês de venda.
+    if (useTicketSales) {
+      ticketSales.forEach((s: any) => {
+        const sd: string = s.sale_date;
+        if (!sd || !sd.startsWith(String(year))) return;
+        const lot = ticketLots.find((l: any) => l.id === s.lot_id);
+        if (!lot) return;
+        // Só contar vendas de eventos cujas zonas existem (defensivo)
+        const zone = ticketZones.find((z: any) => z.id === (lot as any).zone_id);
+        if (!zone) return;
+        const rate = Number((lot as any).iva_rate ?? 6);
+        const gross = (s.total_value !== null && s.total_value !== undefined && s.total_value !== "")
+          ? Number(s.total_value)
+          : Number(s.quantity || 0) * Number(s.unit_price || 0);
+        const net = gross / (1 + rate / 100);
+        const mi = getMonthIndex(sd);
+        eventIncomeMonthly[mi] += net;
+      });
+    }
+
 
     // Overheads/Custos de Fecho NÃO entram aqui (ver nota acima).
     const eventResultMonthly = eventIncomeMonthly.map(
