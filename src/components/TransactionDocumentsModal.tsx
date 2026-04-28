@@ -22,22 +22,30 @@ interface Props {
   onClose: () => void;
 }
 
-/** Extract the storage path from a file_url (supports both old public URLs and new path-only format) */
-function extractStoragePath(fileUrl: string): string {
-  // If it's already just a path (no http), return as-is
-  if (!fileUrl.startsWith("http")) return fileUrl;
-  // Old format: full public URL
+/** Resolve a transaction_documents.file_url into { bucket, path }. Supports
+ *  legacy public/sign URLs (transaction-documents bucket), bare paths, and
+ *  the camarim:// prefix used by the Camarim integration. */
+function resolveStorageRef(fileUrl: string): { bucket: string; path: string } {
+  if (fileUrl?.startsWith("camarim://")) {
+    return { bucket: "camarim-documents", path: fileUrl.replace(/^camarim:\/\//, "") };
+  }
+  // Default bucket is transaction-documents
+  if (!fileUrl?.startsWith("http")) return { bucket: "transaction-documents", path: fileUrl };
   const marker = "/storage/v1/object/public/transaction-documents/";
   const idx = fileUrl.indexOf(marker);
-  if (idx !== -1) return fileUrl.substring(idx + marker.length);
-  // Fallback: try signed URL pattern
+  if (idx !== -1) return { bucket: "transaction-documents", path: fileUrl.substring(idx + marker.length) };
   const signedMarker = "/storage/v1/object/sign/transaction-documents/";
   const sIdx = fileUrl.indexOf(signedMarker);
   if (sIdx !== -1) {
     const pathWithQuery = fileUrl.substring(sIdx + signedMarker.length);
-    return pathWithQuery.split("?")[0];
+    return { bucket: "transaction-documents", path: pathWithQuery.split("?")[0] };
   }
-  return fileUrl;
+  return { bucket: "transaction-documents", path: fileUrl };
+}
+
+/** Back-compat helper for delete flow (only deletes from transaction-documents) */
+function extractStoragePath(fileUrl: string): string {
+  return resolveStorageRef(fileUrl).path;
 }
 
 export function TransactionDocumentsModal({ transactionId, transactionDescription, onClose }: Props) {
@@ -73,9 +81,13 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
         throw new Error("Sem permissão para remover este documento ou documento não encontrado.");
       }
       if (storagePath) {
-        await supabase.storage.from("transaction-documents").remove([storagePath]).catch((err) => {
-          console.warn("Storage cleanup failed (non-blocking):", err);
-        });
+        // Don't remove the underlying camarim file when deleting a transaction_documents
+        // row that points to it — the dossier/receipt is shared with the camarim session.
+        if (!doc.file_url?.startsWith("camarim://")) {
+          await supabase.storage.from("transaction-documents").remove([storagePath]).catch((err) => {
+            console.warn("Storage cleanup failed (non-blocking):", err);
+          });
+        }
       }
       await logAudit({
         entity_type: "transaction_document",
@@ -153,10 +165,10 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
   };
 
   const handleOpenDocument = async (fileUrl: string) => {
-    const storagePath = extractStoragePath(fileUrl);
+    const { bucket, path } = resolveStorageRef(fileUrl);
     const { data, error } = await supabase.storage
-      .from("transaction-documents")
-      .createSignedUrl(storagePath, 3600); // 1 hour expiry
+      .from(bucket)
+      .createSignedUrl(path, 3600); // 1 hour expiry
     if (error || !data?.signedUrl) {
       toast({ title: "Erro ao abrir documento", description: error?.message ?? "URL não disponível", variant: "destructive" });
       return;
