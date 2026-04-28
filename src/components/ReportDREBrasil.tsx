@@ -571,7 +571,7 @@ export default function ReportDREBrasil() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => exportDREToExcel(activeEvents, transactions, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, ticketCategoryId, eventPartners, events, true)}
+          onClick={() => exportDREToExcel(activeEvents, transactions, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, ticketCategoryId, eventPartners, events, true, showPartnerView ? closingCosts : [])}
           disabled={activeEvents.length === 0}
         >
           <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
@@ -579,7 +579,7 @@ export default function ReportDREBrasil() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => exportDREToPDF(activeEvents, transactions, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, ticketCategoryId, eventPartners, events, true)}
+          onClick={() => exportDREToPDF(activeEvents, transactions, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, ticketCategoryId, eventPartners, events, true, showPartnerView ? closingCosts : [])}
           disabled={activeEvents.length === 0}
         >
           <FileText className="mr-1.5 h-4 w-4" /> PDF

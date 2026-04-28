@@ -37,7 +37,9 @@ export function buildDREForExport(
   partners: any[] = [],
   events: any[] = [],
   /** When true, uses the "Brasil" mode: single-column, expenses inc-IVA */
-  brasilMode: boolean = false
+  brasilMode: boolean = false,
+  /** Overheads (BP is_overhead) já expandidos via expandOverheadToSplits — somam às despesas em modo Brasil/Vista Sócio */
+  closingCosts: any[] = []
 ): DRELine[] {
   const lookup = buildCategoryLookup(categories);
 
@@ -88,7 +90,11 @@ export function buildDREForExport(
   const totalIncInc = totalIncEx + totalIncIva;
   const totalExpEx = expGroups.reduce((s, g) => s + g.totalBase, 0);
   const totalExpIva = expGroups.reduce((s, g) => s + g.totalIva, 0);
-  const totalExpInc = totalExpEx + totalExpIva;
+
+  // Overheads BP — só somam quando em "Vista Sócio" (brasilMode), alinhado com Fecho dos Sócios
+  const eventClosingCosts = brasilMode ? (closingCosts || []).filter((cc: any) => cc.event_id === eventId) : [];
+  const totalClosingCosts = eventClosingCosts.reduce((s: number, cc: any) => s + Number(cc.amount || 0), 0);
+  const totalExpInc = totalExpEx + totalExpIva + totalClosingCosts;
 
   const lines: DRELine[] = [];
   lines.push({ label: "RECEITAS", amountExIva: totalIncEx, ivaAmount: totalIncIva, amountIncIva: totalIncInc, isTotal: true });
@@ -101,7 +107,7 @@ export function buildDREForExport(
     }
   });
 
-  lines.push({ label: "DESPESAS", amountExIva: totalExpEx, ivaAmount: totalExpIva, amountIncIva: totalExpInc, isTotal: true, isExpenseSide: true });
+  lines.push({ label: "DESPESAS", amountExIva: totalExpEx + totalClosingCosts, ivaAmount: totalExpIva, amountIncIva: totalExpInc, isTotal: true, isExpenseSide: true });
   expGroups.forEach((group) => {
     if (group.details.length > 1 || group.details[0]?.name !== group.groupName) {
       lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, isGroupHeader: true, isExpenseSide: true });
@@ -110,6 +116,18 @@ export function buildDREForExport(
       lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, indent: true, isExpenseSide: true });
     }
   });
+
+  // Detalhe dos rateios de overhead (mesmo tratamento do componente UI)
+  if (eventClosingCosts.length > 0) {
+    lines.push({ label: "RATEIOS / OVERHEAD (BP)", amountExIva: totalClosingCosts, ivaAmount: 0, amountIncIva: totalClosingCosts, isGroupHeader: true, isExpenseSide: true });
+    eventClosingCosts.forEach((cc: any) => {
+      const catLabel = cc.account_categories ? `${cc.account_categories.code} - ${cc.account_categories.name}` : "";
+      const viaMaster = cc._overhead_via_master ? " (via Master)" : "";
+      const desc = cc.description || "Overhead";
+      const label = catLabel ? `${desc} (${catLabel})${viaMaster}` : `${desc}${viaMaster}`;
+      lines.push({ label, amountExIva: Number(cc.amount), ivaAmount: 0, amountIncIva: Number(cc.amount), indent: true, isExpenseSide: true });
+    });
+  }
 
   const resEx = totalIncEx - totalExpEx;
   const resInc = totalIncInc - totalExpInc;
@@ -205,9 +223,10 @@ export function computeEventSummary(
   ticketCategoryId: string | null,
   partners: any[] = [],
   events: any[] = [],
-  brasilMode: boolean = false
+  brasilMode: boolean = false,
+  closingCosts: any[] = []
 ) {
-  const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, eventId, ticketCategoryId, partners, events, brasilMode);
+  const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, eventId, ticketCategoryId, partners, events, brasilMode, closingCosts);
   const rev = dre.find((l) => l.label === "RECEITAS");
   const exp = dre.find((l) => l.label === "DESPESAS");
   const retained = dre.find((l) => l.isRetained);
@@ -231,7 +250,8 @@ export function exportDREToExcel(
   ticketCategoryId: string | null = null,
   partners: any[] = [],
   allEvents: any[] = [],
-  brasilMode: boolean = false
+  brasilMode: boolean = false,
+  closingCosts: any[] = []
 ) {
   const allEventsSource = allEvents.length > 0 ? allEvents : events;
   const wb = XLSX.utils.book_new();
@@ -241,7 +261,7 @@ export function exportDREToExcel(
   const eventRows: any[][] = [];
   events.forEach((evt) => {
     const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, allEventsSource);
-    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource, brasilMode);
+    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource, brasilMode, closingCosts);
     gIncEx += summary.incEx; gIncInc += summary.incInc; gExpEx += summary.expEx; gExpInc += summary.expInc;
 
     if (brasilMode) {
@@ -288,7 +308,7 @@ export function exportDREToExcel(
 
   events.forEach((evt) => {
     const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, allEventsSource);
-    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource, brasilMode);
+    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource, brasilMode, closingCosts);
     if (evtTx.length === 0 && dre.length <= 3) return;
 
     const rows: any[][] = [
@@ -339,7 +359,8 @@ export function exportDREToPDF(
   ticketCategoryId: string | null = null,
   partners: any[] = [],
   allEvents: any[] = [],
-  brasilMode: boolean = false
+  brasilMode: boolean = false,
+  closingCosts: any[] = []
 ) {
   const eventsSource = allEvents.length > 0 ? allEvents : events;
   const doc = new jsPDF({ orientation: "portrait" });
@@ -394,7 +415,7 @@ export function exportDREToPDF(
   let gIncEx = 0, gIncInc = 0, gExpEx = 0, gExpInc = 0;
   events.forEach((evt) => {
     const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, eventsSource);
-    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, eventsSource, brasilMode);
+    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, eventsSource, brasilMode, closingCosts);
     gIncEx += summary.incEx; gIncInc += summary.incInc; gExpEx += summary.expEx; gExpInc += summary.expInc;
   });
 
@@ -402,7 +423,7 @@ export function exportDREToPDF(
   let isFirstEventPage = true;
   events.forEach((evt) => {
     const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, eventsSource);
-    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, eventsSource, brasilMode);
+    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, eventsSource, brasilMode, closingCosts);
     if (evtTx.length === 0 && dre.length <= 3) return;
 
     if (!isFirstEventPage) {
@@ -507,7 +528,7 @@ export function exportDREToPDF(
 
     const childSummaries = childEvts.map((child: any) => {
       const effectiveTx = getEffectiveTransactionsForExport(child.id, transactions, eventsSource);
-      const summary = computeEventSummary(effectiveTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, child.id, ticketCategoryId, partners, eventsSource, brasilMode);
+      const summary = computeEventSummary(effectiveTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, child.id, ticketCategoryId, partners, eventsSource, brasilMode, closingCosts);
       return { name: child.name, ...summary };
     });
 
