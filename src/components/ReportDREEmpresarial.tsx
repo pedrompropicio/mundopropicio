@@ -4,9 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { buildCategoryLookup, aggregateByHierarchyDRE, type AggregatedGroup } from "@/lib/category-hierarchy";
 import { Button } from "@/components/ui/button";
 import { FileSpreadsheet } from "lucide-react";
+
+type TicketRevenueSource = "transactions" | "ticket_sales";
 
 const MONTHS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -32,6 +36,7 @@ interface MonthlyLine {
 export default function ReportDREEmpresarial() {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(String(currentYear));
+  const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("ticket_sales");
   const year = Number(selectedYear);
 
   const { data: events = [] } = useQuery({
@@ -70,10 +75,47 @@ export default function ReportDREEmpresarial() {
     },
   });
 
+  const { data: ticketZones = [] } = useQuery({
+    queryKey: ["ticket-zones-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_ticket_zones").select("id,event_id");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: ticketLots = [] } = useQuery({
+    queryKey: ["ticket-lots-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_ticket_lots").select("id,zone_id,iva_rate");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: ticketSales = [] } = useQuery({
+    queryKey: ["ticket-sales-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("ticket_sales").select("lot_id,sale_date,quantity,unit_price,total_value");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const ticketCategoryId = useMemo(
+    () => categories.find(
+      (c) => c.name.toLowerCase().includes("venda de bilhete") ||
+             c.name.toLowerCase().includes("bilhetes") ||
+             c.name.toLowerCase().includes("bilheteira")
+    )?.id ?? null,
+    [categories]
+  );
+
   // Overheads/Custos de Fecho NÃO entram no DRE Empresarial.
   // O DRE Empresarial trabalha em valores líquidos (s/IVA) com base em
   // transações reais. Overheads (rateios do BP) são previsões de gestão e
   // só fazem sentido na "Vista Sócio" do DRE por evento. Aqui ficam de fora.
+
 
   const lookup = useMemo(() => buildCategoryLookup(categories), [categories]);
 
@@ -141,6 +183,8 @@ export default function ReportDREEmpresarial() {
   const lines = useMemo(() => {
     const result: MonthlyLine[] = [];
 
+    const useTicketSales = ticketRevenueSource === "ticket_sales";
+
     // ─── SECTION 1: RESULTADO OPERACIONAL DE EVENTOS ───
     // Monthly event results: for each month, sum income - expenses of event transactions
     const eventIncomeMonthly = new Array(12).fill(0);
@@ -150,12 +194,36 @@ export default function ReportDREEmpresarial() {
       const d = t.payment_date || t.date;
       if (!d) return;
       const mi = getMonthIndex(d);
+      // Quando a fonte é ticket_sales, ignoramos transações income da categoria de bilheteira
+      // para não duplicar com a soma direta de ticket_sales.
       if (t.type === "income" && !t.is_transitory && !t.exclude_from_result) {
+        if (useTicketSales && ticketCategoryId && t.category_id === ticketCategoryId) return;
         eventIncomeMonthly[mi] += Number(t.amount);
       } else if (t.type === "expense" && !t.is_transitory && !t.exclude_from_result) {
         eventExpenseMonthly[mi] += Number(t.amount);
       }
     });
+
+    // Soma de bilheteira (líquida s/IVA) a partir de ticket_sales — agrupada por mês de venda.
+    if (useTicketSales) {
+      ticketSales.forEach((s: any) => {
+        const sd: string = s.sale_date;
+        if (!sd || !sd.startsWith(String(year))) return;
+        const lot = ticketLots.find((l: any) => l.id === s.lot_id);
+        if (!lot) return;
+        // Só contar vendas de eventos cujas zonas existem (defensivo)
+        const zone = ticketZones.find((z: any) => z.id === (lot as any).zone_id);
+        if (!zone) return;
+        const rate = Number((lot as any).iva_rate ?? 6);
+        const gross = (s.total_value !== null && s.total_value !== undefined && s.total_value !== "")
+          ? Number(s.total_value)
+          : Number(s.quantity || 0) * Number(s.unit_price || 0);
+        const net = gross / (1 + rate / 100);
+        const mi = getMonthIndex(sd);
+        eventIncomeMonthly[mi] += net;
+      });
+    }
+
 
     // Overheads/Custos de Fecho NÃO entram aqui (ver nota acima).
     const eventResultMonthly = eventIncomeMonthly.map(
@@ -170,8 +238,25 @@ export default function ReportDREEmpresarial() {
       const partners = eventPartners.filter((p: any) => p.event_id === evt.id);
       if (partners.length === 0) return;
       const evtTx = eventTx.filter((t) => t.event_id === evt.id);
-      const inc = evtTx.filter((t) => t.type === "income" && !t.is_transitory && !t.exclude_from_result)
+      let inc = evtTx
+        .filter((t) => t.type === "income" && !t.is_transitory && !t.exclude_from_result)
+        .filter((t) => !(useTicketSales && ticketCategoryId && t.category_id === ticketCategoryId))
         .reduce((s, t) => s + Number(t.amount), 0);
+      // Adicionar receita líquida de bilheteira do evento (se fonte = ticket_sales)
+      if (useTicketSales) {
+        const evtZoneIds = ticketZones.filter((z: any) => z.event_id === evt.id).map((z: any) => z.id);
+        const evtLotIds = ticketLots.filter((l: any) => evtZoneIds.includes((l as any).zone_id)).map((l: any) => l.id);
+        const evtSales = ticketSales.filter((s: any) => evtLotIds.includes(s.lot_id));
+        const ticketNet = evtSales.reduce((sum: number, s: any) => {
+          const lot = ticketLots.find((l: any) => l.id === s.lot_id);
+          const rate = Number((lot as any)?.iva_rate ?? 6);
+          const gross = (s.total_value !== null && s.total_value !== undefined && s.total_value !== "")
+            ? Number(s.total_value)
+            : Number(s.quantity || 0) * Number(s.unit_price || 0);
+          return sum + gross / (1 + rate / 100);
+        }, 0);
+        inc += ticketNet;
+      }
       const exp = evtTx.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result)
         .reduce((s, t) => s + Number(t.amount), 0);
       const netResult = inc - exp;
@@ -279,7 +364,7 @@ export default function ReportDREEmpresarial() {
     }
 
     return result;
-  }, [eventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, year]);
+  }, [eventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, year, ticketRevenueSource, ticketSales, ticketLots, ticketZones, ticketCategoryId]);
 
   const years = useMemo(() => {
     const ySet = new Set<number>();
@@ -293,7 +378,7 @@ export default function ReportDREEmpresarial() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-4">
         <Select value={selectedYear} onValueChange={setSelectedYear}>
           <SelectTrigger className="w-32">
             <SelectValue />
@@ -304,7 +389,31 @@ export default function ReportDREEmpresarial() {
             ))}
           </SelectContent>
         </Select>
+
+        <div className="flex items-center gap-3 rounded-md border px-3 py-2">
+          <Label className="text-xs text-muted-foreground">Receita de bilheteira:</Label>
+          <RadioGroup
+            value={ticketRevenueSource}
+            onValueChange={(v) => setTicketRevenueSource(v as TicketRevenueSource)}
+            className="flex items-center gap-3"
+          >
+            <div className="flex items-center gap-1.5">
+              <RadioGroupItem value="ticket_sales" id="dre-emp-src-ts" />
+              <Label htmlFor="dre-emp-src-ts" className="text-xs cursor-pointer">Bilheteira (líquida)</Label>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <RadioGroupItem value="transactions" id="dre-emp-src-tx" />
+              <Label htmlFor="dre-emp-src-tx" className="text-xs cursor-pointer">Só transações</Label>
+            </div>
+          </RadioGroup>
+        </div>
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        Regra: tudo s/IVA (líquido). Sem overheads (rateios do BP). Sem transitórias nem exclusões de resultado.
+        Bilheteira convertida para líquido pela taxa de IVA do lote.
+      </p>
+
 
       <div className="overflow-x-auto border rounded-lg">
         <Table>
