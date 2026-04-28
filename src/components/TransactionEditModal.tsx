@@ -630,6 +630,17 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           </div>
           )}
 
+          {transaction.type === "expense" && !paidLocked && (
+            <WithholdingDeclaredFields
+              baseAmount={parseFloat(form.amount) || 0}
+              rate={form.declared_withholding_rate}
+              amount={form.declared_withholding_amount}
+              onRateChange={(v) => setForm((f) => ({ ...f, declared_withholding_rate: v }))}
+              onAmountChange={(v) => setForm((f) => ({ ...f, declared_withholding_amount: v }))}
+              disabled={valueLocked}
+            />
+          )}
+
           {/* Split adjustment panel when parent amount changes */}
           {hasChildren && !paidLocked && (
             <div className={`rounded-lg border p-3 space-y-2 ${amountChanged ? "border-warning/50 bg-warning/5" : "border-border/50 bg-secondary/20"}`}>
