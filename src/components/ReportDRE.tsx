@@ -135,38 +135,26 @@ function buildDRE(
     }
   });
 
-  // Closing costs / Overheads (BP) — só aparecem na "Vista Sócio"
-  // IVA aplicado linha-a-linha (default 23% se não houver iva_rate definido),
-  // alinhado com o Fecho dos Sócios e com o DRE Brasil.
-  const eventClosingCosts = (closingCosts || []).filter((cc: any) => cc.event_id === eventId);
-  let totalClosingCostsBase = 0;
-  let totalClosingCostsIva = 0;
+  // Overheads (BP) já foram alocados dentro das categorias acima (ver `expensesWithOverhead`).
+  // Mantemos um bloco DETALHE só com a lista linha-a-linha para rastreabilidade na vista do sócio,
+  // sem somar a totais (já contabilizados em DESPESAS).
   if (eventClosingCosts.length > 0) {
-    totalClosingCostsBase = eventClosingCosts.reduce((s: number, cc: any) => s + Number(cc.amount || 0), 0);
-    totalClosingCostsIva = eventClosingCosts.reduce((s: number, cc: any) => {
-      const rate = cc.iva_rate != null ? Number(cc.iva_rate) : 23;
-      return s + calcIvaAmount(Number(cc.amount || 0), rate);
-    }, 0);
-    const totalClosingCostsInc = totalClosingCostsBase + totalClosingCostsIva;
-    lines.push({ label: "CUSTOS DE FECHO", amountExIva: totalClosingCostsBase, ivaAmount: totalClosingCostsIva, amountIncIva: totalClosingCostsInc, isTotal: true, isExpenseSide: true });
+    lines.push({ label: "Detalhe de Overheads (já incluídos nas categorias acima)", amountExIva: 0, ivaAmount: 0, amountIncIva: 0, isGroupHeader: true, isExpenseSide: true });
     eventClosingCosts.forEach((cc: any) => {
-      const catLabel = cc.account_categories ? `${cc.account_categories.code} ${cc.account_categories.name}` : "";
+      const catLabel = cc.account_categories ? `${cc.account_categories.code} ${cc.account_categories.name}` : "(sem categoria)";
       const viaMaster = cc._overhead_via_master ? " (via Master)" : "";
       const baseDesc = cc.description || "Overhead";
-      const label = catLabel ? `${baseDesc} (${catLabel})${viaMaster}` : `${baseDesc}${viaMaster}`;
+      const label = `${baseDesc} → ${catLabel}${viaMaster}`;
       const base = Number(cc.amount || 0);
       const rate = cc.iva_rate != null ? Number(cc.iva_rate) : 23;
       const iva = calcIvaAmount(base, rate);
       lines.push({ label, amountExIva: base, ivaAmount: iva, amountIncIva: base + iva, indent: true, isExpenseSide: true });
     });
   }
-  const totalClosingCostsInc = totalClosingCostsBase + totalClosingCostsIva;
 
-  // Resultado Líquido (s/IVA) usa só a base dos overheads;
-  // a versão c/IVA usa overheads c/IVA. A base do sócio com `expense_includes_iva`
-  // deduz overheads c/IVA (igual ao Fecho dos Sócios).
-  const resEx = totalIncEx - totalExpEx - totalClosingCostsBase;
-  const resInc = totalIncInc - totalExpInc - totalClosingCostsInc;
+  // Resultado Líquido (s/IVA) e c/IVA — overheads já estão em totalExp*.
+  const resEx = totalIncEx - totalExpEx;
+  const resInc = totalIncInc - totalExpInc;
   lines.push({ label: "RESULTADO LÍQUIDO", amountExIva: resEx, ivaAmount: 0, amountIncIva: 0, isGrandTotal: true });
 
   // Partner distribution section — sub-events inherit from parent
