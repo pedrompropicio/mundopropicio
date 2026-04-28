@@ -110,7 +110,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setDocDate(new Date().toISOString().slice(0, 10));
     setTotalAmount("");
     setIvaAmount("");
-    setPaymentOrigin("advance");
+    setPaymentOrigin(null);
     setFinancialAccountId(null);
     setBpScope("master_common");
     setNotes("");
