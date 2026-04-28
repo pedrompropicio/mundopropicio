@@ -168,7 +168,7 @@ function buildDRE(
       if (calcBasis === "gross_revenue") {
         base = totalIncEx;
       } else if (p.expense_includes_iva) {
-        base = totalIncEx - totalExpInc - totalClosingCostsInc;
+        base = totalIncEx - totalExpInc;
       } else {
         base = resEx;
       }
