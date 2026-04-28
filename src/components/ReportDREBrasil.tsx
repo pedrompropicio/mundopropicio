@@ -54,12 +54,15 @@ function buildDREBrasil(
   calcBasis: string,
   parentEventId?: string | null,
   closingCosts?: any[],
-  partnerExtras?: any[]
+  partnerExtras?: any[],
+  childEventIds?: string[]
 ): DRELine[] {
   const lookup = buildCategoryLookup(categories);
 
   const useTicketSales = ticketRevenueSource === "ticket_sales";
-  const eventZones = ticketZones.filter((z) => z.event_id === eventId);
+  // Master de turnê: agrega zonas dos próprios e dos filhos (zonas vivem nos splits).
+  const scopeIds = [eventId, ...(childEventIds || [])];
+  const eventZones = ticketZones.filter((z) => scopeIds.includes(z.event_id));
   const hasTicketMgmt = eventZones.length > 0;
 
   let incomes = transactions.filter((t) => t.type === "income" && !t.is_transitory && !t.exclude_from_result);
@@ -94,9 +97,15 @@ function buildDREBrasil(
   const totalIncEx = incGroups.reduce((s, g) => s + g.totalBase, 0);
   const totalIncIva = incGroups.reduce((s, g) => s + g.totalIva, 0);
   const totalIncInc = totalIncEx + totalIncIva;
+
+  // Closing costs (overheads do BP) — quando vista do sócio está ON, somam-se às despesas
+  // exatamente como o Fecho dos Sócios faz (totalExpensesGross + totalOverhead).
+  const eventClosingCosts = (closingCosts || []).filter((cc: any) => cc.event_id === eventId);
+  const totalClosingCosts = eventClosingCosts.reduce((s: number, cc: any) => s + Number(cc.amount), 0);
+
   const totalExpEx = expGroups.reduce((s, g) => s + g.totalBase, 0);
   const totalExpIva = expGroups.reduce((s, g) => s + g.totalIva, 0);
-  const totalExpInc = totalExpEx + totalExpIva;
+  const totalExpInc = totalExpEx + totalExpIva + totalClosingCosts;
 
   const lines: DRELine[] = [];
   lines.push({ label: "RECEITAS", amountExIva: totalIncEx, ivaAmount: totalIncIva, amountIncIva: totalIncInc, isTotal: true });
@@ -109,7 +118,7 @@ function buildDREBrasil(
     }
   });
 
-  lines.push({ label: "DESPESAS", amountExIva: totalExpEx, ivaAmount: totalExpIva, amountIncIva: totalExpInc, isTotal: true, isExpenseSide: true });
+  lines.push({ label: "DESPESAS", amountExIva: totalExpEx + totalClosingCosts, ivaAmount: totalExpIva, amountIncIva: totalExpInc, isTotal: true, isExpenseSide: true });
   expGroups.forEach((group) => {
     if (group.details.length > 1 || group.details[0]?.name !== group.groupName) {
       lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, isGroupHeader: true, isExpenseSide: true });
@@ -119,21 +128,21 @@ function buildDREBrasil(
     }
   });
 
-  // Closing costs (internal costs for partner view)
-  const eventClosingCosts = (closingCosts || []).filter((cc: any) => cc.event_id === eventId);
-  let totalClosingCosts = 0;
+  // Detalhe dos rateios de overhead (mantém visibilidade)
   if (eventClosingCosts.length > 0) {
-    totalClosingCosts = eventClosingCosts.reduce((s: number, cc: any) => s + Number(cc.amount), 0);
-    lines.push({ label: "CUSTOS DE FECHO", amountExIva: totalClosingCosts, ivaAmount: 0, amountIncIva: totalClosingCosts, isTotal: true, isExpenseSide: true });
+    lines.push({ label: "RATEIOS / OVERHEAD (BP)", amountExIva: totalClosingCosts, ivaAmount: 0, amountIncIva: totalClosingCosts, isGroupHeader: true, isExpenseSide: true });
     eventClosingCosts.forEach((cc: any) => {
       const catLabel = cc.account_categories ? `${cc.account_categories.code} - ${cc.account_categories.name}` : "";
-      const label = catLabel ? `${cc.description} (${catLabel})` : cc.description;
+      const viaMaster = cc._overhead_via_master ? " (via Master)" : "";
+      const desc = cc.description || "Overhead";
+      const label = catLabel ? `${desc} (${catLabel})${viaMaster}` : `${desc}${viaMaster}`;
       lines.push({ label, amountExIva: Number(cc.amount), ivaAmount: 0, amountIncIva: Number(cc.amount), indent: true, isExpenseSide: true });
     });
   }
 
-  // Result = Revenue ex-IVA - Expenses inc-IVA - Closing Costs
-  const resultGrossExp = totalIncEx - totalExpInc - totalClosingCosts;
+
+  // Result = Receitas s/IVA − Despesas c/IVA (já inclui overheads quando vista do sócio ON)
+  const resultGrossExp = totalIncEx - totalExpInc;
   lines.push({ label: "RESULTADO", amountExIva: resultGrossExp, ivaAmount: 0, amountIncIva: resultGrossExp, isGrandTotal: true });
 
   // Partner distribution
@@ -141,16 +150,12 @@ function buildDREBrasil(
   const eventPartners = partners.filter((p: any) => p.event_id === resolvedPartnerId);
   if (eventPartners.length > 0) {
     let totalDistribution = 0;
-    const consistentBase = calcBasis === "gross_revenue" ? totalIncEx : totalIncEx - totalExpInc - totalClosingCosts;
+    const consistentBase = calcBasis === "gross_revenue" ? totalIncEx : resultGrossExp;
 
     eventPartners.forEach((p: any) => {
-      let base: number;
-      if (calcBasis === "gross_revenue") {
-        base = totalIncEx;
-      } else {
-        base = totalIncEx - totalExpInc - totalClosingCosts;
-      }
+      const base = calcBasis === "gross_revenue" ? totalIncEx : resultGrossExp;
       const share = base * (Number(p.percentage) / 100);
+
       const supplierName = p.suppliers?.name || "Sócio";
       lines.push({
         label: `  ${supplierName} (${Number(p.percentage).toFixed(1)}%)`,
@@ -215,7 +220,7 @@ function buildDREBrasil(
 export default function ReportDREBrasil() {
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
-  const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("transactions");
+  const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("ticket_sales");
   const [showPartnerView, setShowPartnerView] = useState(false);
 
   const { data: events = [] } = useQuery({
@@ -418,7 +423,7 @@ export default function ReportDREBrasil() {
     const evtTx = getEffectiveTransactions(e.id);
     const parentEvt = (e as any).parent_event_id ? events.find((pe) => pe.id === (e as any).parent_event_id) : null;
     const calcBasis = parentEvt ? (parentEvt as any).partner_calc_basis || "net_result" : (e as any).partner_calc_basis || "net_result";
-    const dre = buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, (e as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : []);
+    const dre = buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, (e as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], childrenByParent[e.id]);
     const revLine = dre.find((l) => l.label === "RECEITAS");
     const expLine = dre.find((l) => l.label === "DESPESAS");
     const resLine = dre.find((l) => l.isGrandTotal);
@@ -449,7 +454,7 @@ export default function ReportDREBrasil() {
     const evtTx = getEffectiveTransactions(evt.id);
     const parentEvt = (evt as any).parent_event_id ? events.find((pe) => pe.id === (evt as any).parent_event_id) : null;
     const calcBasis = parentEvt ? (parentEvt as any).partner_calc_basis || "net_result" : (evt as any).partner_calc_basis || "net_result";
-    const dre = buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : []);
+    const dre = buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], childrenByParent[evt.id]);
     dre.filter((l) => l.isDistribution).forEach((l) => {
       if (l.isHouse) {
         globalHouseSum += l.amountExIva;
@@ -624,7 +629,7 @@ export default function ReportDREBrasil() {
           const evtTx = getEffectiveTransactions(evt.id);
           const parentEvtDetail = (evt as any).parent_event_id ? events.find((pe) => pe.id === (evt as any).parent_event_id) : null;
           const calcBasis = parentEvtDetail ? (parentEvtDetail as any).partner_calc_basis || "net_result" : (evt as any).partner_calc_basis || "net_result";
-          const dre = isOpen ? buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : []) : [];
+          const dre = isOpen ? buildDREBrasil(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], childrenByParent[evt.id]) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">
