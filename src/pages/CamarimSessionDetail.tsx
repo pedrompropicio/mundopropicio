@@ -700,12 +700,12 @@ export default function CamarimSessionDetail() {
                   key={it.id}
                   className={cn(
                     "transition",
-                    session.status === "integrated"
+                    !canEditContent
                       ? "opacity-95"
                       : "cursor-pointer hover:border-primary/40",
                   )}
                   onClick={() => {
-                    if (session.status === "integrated") return;
+                    if (!canEditContent) return;
                     setEditingItemId(it.id);
                     setShowItem(true);
                   }}
