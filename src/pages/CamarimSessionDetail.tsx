@@ -719,27 +719,55 @@ export default function CamarimSessionDetail() {
             </Card>
           ) : (
             <div className="space-y-2">
-              {funds.map((f) => (
-                <Card key={f.id}>
-                  <CardContent className="flex items-center justify-between p-3">
-                    <div>
-                      <p className="text-sm font-medium">{FUND_MOVE_LABELS[f.move_type]}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {f.move_date} {f.notes ? `· ${f.notes}` : ""}
+              {funds.map((f) => {
+                const canEditMove = canManage && session.status !== "integrated";
+                return (
+                  <Card key={f.id}>
+                    <CardContent className="flex items-center justify-between gap-2 p-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium">{FUND_MOVE_LABELS[f.move_type]}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {f.move_date} {f.notes ? `· ${f.notes}` : ""}
+                        </p>
+                      </div>
+                      <p
+                        className={cn(
+                          "text-sm font-semibold whitespace-nowrap",
+                          f.move_type === "refund" ? "text-destructive" : "text-emerald-600",
+                        )}
+                      >
+                        {f.move_type === "refund" ? "-" : f.move_type === "adjustment" ? "" : "+"}
+                        {formatCurrency(f.amount, session.currency)}
                       </p>
-                    </div>
-                    <p
-                      className={cn(
-                        "text-sm font-semibold",
-                        f.move_type === "refund" ? "text-destructive" : "text-emerald-600",
+                      {canEditMove && (
+                        <div className="flex shrink-0 gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => {
+                              setEditingFund(f);
+                              setShowFund(true);
+                            }}
+                            aria-label="Editar movimento"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-destructive"
+                            onClick={() => setDeletingFundId(f.id)}
+                            aria-label="Eliminar movimento"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       )}
-                    >
-                      {f.move_type === "refund" ? "-" : "+"}
-                      {formatCurrency(f.amount, session.currency)}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>
