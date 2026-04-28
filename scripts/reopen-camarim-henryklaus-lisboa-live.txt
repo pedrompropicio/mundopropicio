@@ -1,8 +1,4 @@
--- Reabre a sessão de camarim "CAMARIM - Henry & Klauss (Coliseu - Lisboa)"
--- para reintegrar APENAS os 4 items que falharam o constraint iva_rate.
--- As 2 transações já criadas (5 items, €289,98) são preservadas.
 UPDATE camarim_sessions
 SET status='closed',
-    integrated_at=NULL,
-    integrated_by=NULL
+    integrated_at=NULL
 WHERE id='972d3e95-f717-449c-b545-7df15438edc2';
