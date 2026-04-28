@@ -194,7 +194,15 @@ Deno.serve(async (req) => {
       const total = Number(it.total_amount ?? 0);
       const base = Number(it.base_amount ?? 0);
       const iva = Number(it.iva_amount ?? 0);
-      const ivaRate = base > 0 ? Math.round((iva / base) * 100) : 0;
+      // DB constraint: iva_rate ∈ {0, 6, 13, 23}. Faturas com linhas em
+      // taxas mistas dão rácios intermédios (ex.: 17%, 20%) — fazemos
+      // snap para a taxa PT válida mais próxima. O valor real do IVA
+      // continua preservado em base_amount/iva_amount/total_amount.
+      const ALLOWED_IVA_RATES = [0, 6, 13, 23];
+      const rawRate = base > 0 ? (iva / base) * 100 : 0;
+      const ivaRate = ALLOWED_IVA_RATES.reduce((best, r) =>
+        Math.abs(r - rawRate) < Math.abs(best - rawRate) ? r : best
+      , 0);
 
       let accountId: string | null = null;
       let buyerId: string | null = null;
