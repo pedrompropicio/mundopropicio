@@ -223,9 +223,10 @@ export function computeEventSummary(
   ticketCategoryId: string | null,
   partners: any[] = [],
   events: any[] = [],
-  brasilMode: boolean = false
+  brasilMode: boolean = false,
+  closingCosts: any[] = []
 ) {
-  const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, eventId, ticketCategoryId, partners, events, brasilMode);
+  const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, eventId, ticketCategoryId, partners, events, brasilMode, closingCosts);
   const rev = dre.find((l) => l.label === "RECEITAS");
   const exp = dre.find((l) => l.label === "DESPESAS");
   const retained = dre.find((l) => l.isRetained);
