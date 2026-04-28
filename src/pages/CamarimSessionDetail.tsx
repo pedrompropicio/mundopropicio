@@ -75,6 +75,7 @@ interface ItemRow {
   created_at: string;
   ocr_confidence: string | null;
   category_id: string | null;
+  financial_account_id: string | null;
   has_attachment?: boolean;
 }
 
