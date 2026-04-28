@@ -968,6 +968,100 @@ export default function CamarimSessionDetail() {
               </div>
             )}
 
+            {/* RESUMO COMPLETO PARA AUDITAGEM */}
+            {approvedItems.length > 0 && (
+              <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">
+                <p className="text-sm font-semibold text-foreground">
+                  Resumo da integração — confere antes de confirmar
+                </p>
+
+                {/* Totais gerais */}
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="rounded border border-border bg-background/60 p-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Itens</p>
+                    <p className="text-sm font-semibold tabular-nums">{integrationPreview.itemsCount}</p>
+                  </div>
+                  <div className="rounded border border-border bg-background/60 p-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Base</p>
+                    <p className="text-sm font-semibold tabular-nums">{formatCurrency(integrationPreview.baseTotal, session.currency)}</p>
+                  </div>
+                  <div className="rounded border border-border bg-background/60 p-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">IVA</p>
+                    <p className="text-sm font-semibold tabular-nums">{formatCurrency(integrationPreview.ivaTotal, session.currency)}</p>
+                  </div>
+                  <div className="rounded border border-border bg-background/60 p-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total geral</p>
+                    <p className="text-base font-bold tabular-nums">{formatCurrency(integrationPreview.grandTotal, session.currency)}</p>
+                  </div>
+                </div>
+
+                {/* Por origem */}
+                <div className="rounded border border-border bg-background/60 p-2 text-xs">
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Por origem de pagamento
+                  </p>
+                  <div className="grid grid-cols-1 gap-1 sm:grid-cols-3">
+                    <div>
+                      <span className="text-muted-foreground">Adiantamento ({integrationPreview.countByOrigin.advance}): </span>
+                      <strong className="tabular-nums">{formatCurrency(integrationPreview.byOrigin.advance, session.currency)}</strong>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Cartão ({integrationPreview.countByOrigin.card}): </span>
+                      <strong className="tabular-nums">{formatCurrency(integrationPreview.byOrigin.card, session.currency)}</strong>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Reembolso ({integrationPreview.countByOrigin.out_of_pocket}): </span>
+                      <strong className="tabular-nums">{formatCurrency(integrationPreview.byOrigin.out_of_pocket, session.currency)}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Detalhe por cartão */}
+                {integrationPreview.cardBreakdown.length > 0 && (
+                  <div className="rounded border border-border bg-background/60 p-2 text-xs">
+                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Cartões usados
+                    </p>
+                    <ul className="space-y-0.5">
+                      {integrationPreview.cardBreakdown.map((c, i) => (
+                        <li key={i} className="flex items-center justify-between gap-2">
+                          <span className="truncate">{c.name} <span className="text-muted-foreground">· {c.count} item(ns)</span></span>
+                          <strong className="tabular-nums">{formatCurrency(c.amount, session.currency)}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Por verba (BP) */}
+                <div className="rounded border border-border bg-background/60 p-2 text-xs">
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Por verba (BP)
+                  </p>
+                  <div className="grid grid-cols-1 gap-1 sm:grid-cols-3">
+                    <div>
+                      <span className="text-muted-foreground">Master (rateio): </span>
+                      <strong className="tabular-nums">{formatCurrency(integrationPreview.byScope.master_common, session.currency)}</strong>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Local (cidade): </span>
+                      <strong className="tabular-nums">{formatCurrency(integrationPreview.byScope.local_city, session.currency)}</strong>
+                    </div>
+                    {integrationPreview.byScope.mixed > 0 && (
+                      <div>
+                        <span className="text-muted-foreground">Misto: </span>
+                        <strong className="tabular-nums">{formatCurrency(integrationPreview.byScope.mixed, session.currency)}</strong>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-muted-foreground">
+                  Estes valores serão consolidados em transações na categoria <strong>2.6.04 — Camarins</strong>, agrupadas por evento, origem, conta e taxa de IVA. Após integrar, a sessão fica <strong>bloqueada para edição</strong>.
+                </p>
+              </div>
+            )}
+
             {needsCardAccount && (
               <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
                 <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400">
