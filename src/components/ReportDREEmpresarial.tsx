@@ -347,7 +347,7 @@ export default function ReportDREEmpresarial() {
     }
 
     return result;
-  }, [eventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, year]);
+  }, [eventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, year, ticketRevenueSource, ticketSales, ticketLots, ticketZones, ticketCategoryId]);
 
   const years = useMemo(() => {
     const ySet = new Set<number>();
