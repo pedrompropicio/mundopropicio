@@ -50,8 +50,9 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
   const [notes, setNotes] = useState("");
   const [hasDocument, setHasDocument] = useState(true);
   const [docIssueReason, setDocIssueReason] = useState("");
-  const [categoryId, setCategoryId] = useState<string>("");
-  const [categories, setCategories] = useState<Array<{ id: string; code: string; name: string }>>([]);
+  // Tag analítica: usada apenas para análise no dossier contabilístico.
+  // NÃO afeta a categoria contabilística da transação (sempre 2.6.04 — Camarins).
+  const [analyticTag, setAnalyticTag] = useState<string>("");
   const [cardAccounts, setCardAccounts] = useState<Array<{ id: string; name: string }>>([]);
 
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -74,7 +75,6 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
 
   useEffect(() => {
     if (!open) return;
-    void loadCategories();
     void loadCardAccounts();
     if (itemId) {
       void loadItem(itemId);
@@ -99,24 +99,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setCardAccounts(((data ?? []) as any[]).map((a) => ({ id: a.id, name: a.name })));
   };
 
-  // Allow-list de categorias permitidas para lançamentos de camarim.
-  // 2.6.04 Camarins  → produtos/serviços do camarim em si
-  // 4.4.04 Catering  → comida/bebida da equipa/banda
-  const loadCategories = async () => {
-    const { data } = await supabase
-      .from("account_categories")
-      .select("id,code,name")
-      .in("code", ["2.6.04", "4.4.04"])
-      .eq("is_active", true)
-      .order("code");
-    const list = ((data ?? []) as any[]).map((c) => ({ id: c.id, code: c.code, name: c.name }));
-    setCategories(list);
-    // Pré-selecionar Camarins (2.6.04) por defeito quando a criar novo item
-    if (!itemId && !categoryId) {
-      const camarins = list.find((c) => c.code === "2.6.04");
-      if (camarins) setCategoryId(camarins.id);
-    }
-  };
+  // (Categoria contabilística é fixa — 2.6.04 Camarins, aplicada no fecho da sessão.)
 
   const reset = () => {
     setSupplierName("");
