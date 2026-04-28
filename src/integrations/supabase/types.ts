@@ -3569,6 +3569,8 @@ export type Database = {
           created_at: string
           currency: string
           date: string
+          declared_withholding_amount: number | null
+          declared_withholding_rate: number | null
           description: string
           due_date: string | null
           event_id: string | null
@@ -3608,6 +3610,8 @@ export type Database = {
           created_at?: string
           currency?: string
           date: string
+          declared_withholding_amount?: number | null
+          declared_withholding_rate?: number | null
           description: string
           due_date?: string | null
           event_id?: string | null
@@ -3647,6 +3651,8 @@ export type Database = {
           created_at?: string
           currency?: string
           date?: string
+          declared_withholding_amount?: number | null
+          declared_withholding_rate?: number | null
           description?: string
           due_date?: string | null
           event_id?: string | null

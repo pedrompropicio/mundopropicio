@@ -21,6 +21,7 @@ import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, isSupportedCurrency, eurToOriginal } from "@/lib/currency";
 import { TransactionCamarimTab } from "@/components/camarim/TransactionCamarimTab";
+import { WithholdingDeclaredFields } from "@/components/WithholdingDeclaredFields";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
@@ -53,6 +54,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     payment_method: (transaction.payment_method ?? "transfer") as PaymentMethod,
     payment_entity: transaction.payment_entity ?? "",
     payment_reference: transaction.payment_reference ?? "",
+    declared_withholding_rate: transaction.declared_withholding_rate != null ? String(transaction.declared_withholding_rate) : "",
+    declared_withholding_amount: transaction.declared_withholding_amount != null ? String(transaction.declared_withholding_amount) : "",
   });
   const queryClient = useQueryClient();
   const { user, isManager } = useAuth();
@@ -286,6 +289,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         payment_method: "Método Pagamento",
         payment_entity: "Entidade Pagamento",
         payment_reference: "Referência Pagamento",
+        declared_withholding_rate: "Retenção IRS declarada (%)",
+        declared_withholding_amount: "Retenção IRS declarada (€)",
       };
       const allowedFields = paidLocked
         ? ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference"]
@@ -335,6 +340,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
         fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
         fx_rate_source: currency === "EUR" ? null : fxRateSource,
+        declared_withholding_rate: transaction.type === "expense" && form.declared_withholding_rate && form.declared_withholding_rate !== "custom" ? Number(form.declared_withholding_rate) : null,
+        declared_withholding_amount: transaction.type === "expense" && parseFloat(form.declared_withholding_amount) > 0 ? parseFloat(form.declared_withholding_amount) : null,
       };
 
       if (!paidLocked && currency !== "EUR") {
@@ -621,6 +628,17 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
               );
             })()}
           </div>
+          )}
+
+          {transaction.type === "expense" && !paidLocked && (
+            <WithholdingDeclaredFields
+              baseAmount={parseFloat(form.amount) || 0}
+              rate={form.declared_withholding_rate}
+              amount={form.declared_withholding_amount}
+              onRateChange={(v) => setForm((f) => ({ ...f, declared_withholding_rate: v }))}
+              onAmountChange={(v) => setForm((f) => ({ ...f, declared_withholding_amount: v }))}
+              disabled={valueLocked}
+            />
           )}
 
           {/* Split adjustment panel when parent amount changes */}

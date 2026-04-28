@@ -36,7 +36,12 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const [showDocuments, setShowDocuments] = useState(false);
   const [paymentDateOpen, setPaymentDateOpen] = useState(false);
   const [invoiceRef, setInvoiceRef] = useState(transaction.invoice_ref ?? "");
-  const [withholdingAmount, setWithholdingAmount] = useState("");
+  const [withholdingAmount, setWithholdingAmount] = useState(() => {
+    // Pré-preenche com retenção já declarada na fatura no momento do lançamento.
+    // Pode ser editado pelo utilizador antes de confirmar a liquidação.
+    const declared = transaction.declared_withholding_amount;
+    return declared != null && Number(declared) > 0 ? String(declared) : "";
+  });
   const [notes, setNotes] = useState("");
   const [accountId, setAccountId] = useState(transaction.account_id ?? "");
   const [creditAllocations, setCreditAllocations] = useState<Record<string, string>>({});
@@ -714,7 +719,14 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
           {isExpense && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Retenção IRS (€) <span className="text-muted-foreground/60">— opcional</span></label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Retenção IRS (€) <span className="text-muted-foreground/60">— opcional</span>
+                {transaction.declared_withholding_amount != null && Number(transaction.declared_withholding_amount) > 0 && (
+                  <span className="ml-2 inline-flex items-center rounded-md bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                    Pré-preenchido da fatura{transaction.declared_withholding_rate ? ` (${Number(transaction.declared_withholding_rate)}%)` : ""}
+                  </span>
+                )}
+              </label>
               <input type="number" step="0.01" min="0" value={withholdingAmount}
                 onChange={(e) => setWithholdingAmount(e.target.value)}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="0.00" />
