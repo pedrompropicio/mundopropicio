@@ -618,3 +618,143 @@ function json(payload: unknown, status = 200) {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
+
+function escapeHtml(s: unknown): string {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function fmtMoney(n: number, cur = "EUR"): string {
+  return `${n.toFixed(2)} ${cur}`;
+}
+
+function buildCamarimDossierHtml(args: {
+  session: any;
+  resolved: any[];
+  itemDocs: { file_path: string; file_name: string; item_id: string }[];
+  tagLabel: Record<string, string>;
+}): string {
+  const { session, resolved, itemDocs, tagLabel } = args;
+  const cur = session.currency ?? "EUR";
+
+  const totalBase = resolved.reduce((s, r) => s + Number(r.base ?? 0), 0);
+  const totalIva = resolved.reduce((s, r) => s + Number(r.iva ?? 0), 0);
+  const totalTotal = resolved.reduce((s, r) => s + Number(r.total ?? 0), 0);
+
+  // Aggregate by tag
+  const tagAgg = new Map<string, { count: number; total: number }>();
+  for (const r of resolved) {
+    const tag = (r.raw.analytic_tag as string | null) ?? "outros";
+    const cur2 = tagAgg.get(tag) ?? { count: 0, total: 0 };
+    cur2.count += 1;
+    cur2.total += Number(r.total ?? 0);
+    tagAgg.set(tag, cur2);
+  }
+  const tagsRows = Array.from(tagAgg.entries())
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([tag, v]) =>
+      `<tr><td>${escapeHtml(tagLabel[tag] ?? tag)}</td><td class="num">${v.count}</td><td class="num">${fmtMoney(v.total, cur)}</td></tr>`,
+    ).join("");
+
+  // Items rows
+  const docsByItem = new Map<string, string[]>();
+  for (const d of itemDocs) {
+    const arr = docsByItem.get(d.item_id) ?? [];
+    arr.push(d.file_name ?? "talão");
+    docsByItem.set(d.item_id, arr);
+  }
+
+  const itemsRows = resolved
+    .sort((a, b) => String(a.raw.document_date ?? "").localeCompare(String(b.raw.document_date ?? "")))
+    .map((r) => {
+      const it = r.raw;
+      const tag = it.analytic_tag ? (tagLabel[it.analytic_tag] ?? it.analytic_tag) : "—";
+      const docs = docsByItem.get(it.id) ?? [];
+      const docInfo = docs.length > 0
+        ? `${docs.length} talão(ões): ${docs.map(escapeHtml).join(", ")}`
+        : (it.approved_without_document ? `<i>Aprovado sem documento — ${escapeHtml(it.approved_without_document_reason ?? "")}</i>` : "—");
+      const origin = r.paymentOrigin === "advance" ? "Adiantamento"
+        : r.paymentOrigin === "card" ? "Cartão" : "Reembolso";
+      return `<tr>
+        <td>${escapeHtml(it.document_date ?? "—")}</td>
+        <td>${escapeHtml(it.supplier_name_raw ?? "—")}<br><small>${escapeHtml(it.document_number ?? "(sem nº)")}</small></td>
+        <td>${escapeHtml(it.service_description ?? "—")}</td>
+        <td>${escapeHtml(tag)}</td>
+        <td>${escapeHtml(origin)}</td>
+        <td class="num">${fmtMoney(Number(it.base_amount), cur)}</td>
+        <td class="num">${fmtMoney(Number(it.iva_amount), cur)}</td>
+        <td class="num"><b>${fmtMoney(Number(it.total_amount), cur)}</b></td>
+        <td><small>${docInfo}</small></td>
+      </tr>`;
+    }).join("");
+
+  const generatedAt = new Date().toISOString().replace("T", " ").slice(0, 16) + " UTC";
+
+  return `<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<title>Dossier Camarim — ${escapeHtml(session.title)}</title>
+<style>
+  @page { size: A4; margin: 18mm 14mm; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; color: #111; font-size: 11px; line-height: 1.45; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  h2 { font-size: 13px; margin: 18px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #ccc; }
+  .meta { color: #555; font-size: 10px; margin-bottom: 12px; }
+  .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+  .card { border: 1px solid #ddd; border-radius: 6px; padding: 8px; }
+  .card .label { font-size: 9px; text-transform: uppercase; letter-spacing: .05em; color: #666; }
+  .card .value { font-size: 14px; font-weight: 600; margin-top: 2px; }
+  table { width: 100%; border-collapse: collapse; font-size: 10px; }
+  th, td { border-bottom: 1px solid #e5e5e5; padding: 5px 6px; text-align: left; vertical-align: top; }
+  th { background: #f5f5f5; font-weight: 600; text-transform: uppercase; font-size: 9px; letter-spacing: .03em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  small { color: #666; font-size: 9px; }
+  .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ccc; font-size: 9px; color: #888; text-align: center; }
+  .badge { display: inline-block; background: #eef; color: #225; padding: 1px 6px; border-radius: 3px; font-size: 9px; margin-right: 4px; }
+  @media print { .no-print { display: none; } body { font-size: 10px; } }
+</style>
+</head>
+<body>
+  <h1>Dossier de Camarim</h1>
+  <div class="meta">
+    <b>${escapeHtml(session.title)}</b><br>
+    Sessão aberta: ${escapeHtml(session.opened_at?.slice(0, 10) ?? "—")}
+    · Fechada: ${escapeHtml(session.closed_at?.slice(0, 10) ?? "—")}
+    · Gerado: ${escapeHtml(generatedAt)}<br>
+    Categoria contabilística: <span class="badge">2.6.04 — Camarins</span>
+    Itens consolidados: ${resolved.length} · Moeda: ${escapeHtml(cur)}
+  </div>
+
+  <div class="summary">
+    <div class="card"><div class="label">Total Base</div><div class="value">${fmtMoney(totalBase, cur)}</div></div>
+    <div class="card"><div class="label">Total IVA</div><div class="value">${fmtMoney(totalIva, cur)}</div></div>
+    <div class="card"><div class="label">Total Geral</div><div class="value">${fmtMoney(totalTotal, cur)}</div></div>
+  </div>
+
+  <h2>Resumo por Tag Analítica</h2>
+  <table>
+    <thead><tr><th>Tag</th><th class="num">Itens</th><th class="num">Total</th></tr></thead>
+    <tbody>${tagsRows || `<tr><td colspan="3"><i>Sem tags atribuídas</i></td></tr>`}</tbody>
+  </table>
+
+  <h2>Detalhe dos Itens (${resolved.length})</h2>
+  <table>
+    <thead><tr>
+      <th>Data</th><th>Fornecedor / Doc</th><th>Descrição</th><th>Tag</th><th>Origem</th>
+      <th class="num">Base</th><th class="num">IVA</th><th class="num">Total</th><th>Talões</th>
+    </tr></thead>
+    <tbody>${itemsRows}</tbody>
+  </table>
+
+  <div class="footer">
+    Documento gerado automaticamente pelo MP Gestão Eventos no fecho da sessão de camarim.<br>
+    Os talões originais estão arquivados como anexos individuais nas transações consolidadas.
+  </div>
+</body>
+</html>`;
+}
