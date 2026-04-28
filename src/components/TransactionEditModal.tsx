@@ -508,14 +508,21 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         <ReimbursementNoteRefBadge transactionId={transaction.id} variant="banner" />
 
         <Tabs defaultValue="details" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className={cn("grid w-full", hasCamarim ? "grid-cols-3" : "grid-cols-2")}>
             <TabsTrigger value="details">Detalhes</TabsTrigger>
             <TabsTrigger value="payment">Pagamento</TabsTrigger>
+            {hasCamarim && <TabsTrigger value="camarim">Camarim</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="payment" className="pt-3">
             <PaymentTimeline transaction={transaction} isAdmin={isAdmin} />
           </TabsContent>
+
+          {hasCamarim && (
+            <TabsContent value="camarim" className="pt-3">
+              <TransactionCamarimTab transactionId={transaction.id} />
+            </TabsContent>
+          )}
 
           <TabsContent value="details" className="pt-3">
         <form onSubmit={handleSubmit} className="space-y-4">
