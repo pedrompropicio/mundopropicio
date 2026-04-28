@@ -97,9 +97,15 @@ function buildDREBrasil(
   const totalIncEx = incGroups.reduce((s, g) => s + g.totalBase, 0);
   const totalIncIva = incGroups.reduce((s, g) => s + g.totalIva, 0);
   const totalIncInc = totalIncEx + totalIncIva;
+
+  // Closing costs (overheads do BP) — quando vista do sócio está ON, somam-se às despesas
+  // exatamente como o Fecho dos Sócios faz (totalExpensesGross + totalOverhead).
+  const eventClosingCosts = (closingCosts || []).filter((cc: any) => cc.event_id === eventId);
+  const totalClosingCosts = eventClosingCosts.reduce((s: number, cc: any) => s + Number(cc.amount), 0);
+
   const totalExpEx = expGroups.reduce((s, g) => s + g.totalBase, 0);
   const totalExpIva = expGroups.reduce((s, g) => s + g.totalIva, 0);
-  const totalExpInc = totalExpEx + totalExpIva;
+  const totalExpInc = totalExpEx + totalExpIva + totalClosingCosts;
 
   const lines: DRELine[] = [];
   lines.push({ label: "RECEITAS", amountExIva: totalIncEx, ivaAmount: totalIncIva, amountIncIva: totalIncInc, isTotal: true });
@@ -112,7 +118,7 @@ function buildDREBrasil(
     }
   });
 
-  lines.push({ label: "DESPESAS", amountExIva: totalExpEx, ivaAmount: totalExpIva, amountIncIva: totalExpInc, isTotal: true, isExpenseSide: true });
+  lines.push({ label: "DESPESAS", amountExIva: totalExpEx + totalClosingCosts, ivaAmount: totalExpIva, amountIncIva: totalExpInc, isTotal: true, isExpenseSide: true });
   expGroups.forEach((group) => {
     if (group.details.length > 1 || group.details[0]?.name !== group.groupName) {
       lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, isGroupHeader: true, isExpenseSide: true });
@@ -122,22 +128,18 @@ function buildDREBrasil(
     }
   });
 
-  // Closing costs (internal costs for partner view)
-  const eventClosingCosts = (closingCosts || []).filter((cc: any) => cc.event_id === eventId);
-  let totalClosingCosts = 0;
+  // Detalhe dos rateios de overhead (mantém visibilidade)
   if (eventClosingCosts.length > 0) {
-    totalClosingCosts = eventClosingCosts.reduce((s: number, cc: any) => s + Number(cc.amount), 0);
-    lines.push({ label: "CUSTOS DE FECHO", amountExIva: totalClosingCosts, ivaAmount: 0, amountIncIva: totalClosingCosts, isTotal: true, isExpenseSide: true });
+    lines.push({ label: "RATEIOS / OVERHEAD (BP)", amountExIva: totalClosingCosts, ivaAmount: 0, amountIncIva: totalClosingCosts, isGroupHeader: true, isExpenseSide: true });
     eventClosingCosts.forEach((cc: any) => {
       const catLabel = cc.account_categories ? `${cc.account_categories.code} - ${cc.account_categories.name}` : "";
-      const label = catLabel ? `${cc.description} (${catLabel})` : cc.description;
+      const viaMaster = cc._overhead_via_master ? " (via Master)" : "";
+      const desc = cc.description || "Overhead";
+      const label = catLabel ? `${desc} (${catLabel})${viaMaster}` : `${desc}${viaMaster}`;
       lines.push({ label, amountExIva: Number(cc.amount), ivaAmount: 0, amountIncIva: Number(cc.amount), indent: true, isExpenseSide: true });
     });
   }
 
-  // Result = Revenue ex-IVA - Expenses inc-IVA - Closing Costs
-  const resultGrossExp = totalIncEx - totalExpInc - totalClosingCosts;
-  lines.push({ label: "RESULTADO", amountExIva: resultGrossExp, ivaAmount: 0, amountIncIva: resultGrossExp, isGrandTotal: true });
 
   // Partner distribution
   const resolvedPartnerId = parentEventId || eventId;
