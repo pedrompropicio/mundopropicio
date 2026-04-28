@@ -37,7 +37,9 @@ export function buildDREForExport(
   partners: any[] = [],
   events: any[] = [],
   /** When true, uses the "Brasil" mode: single-column, expenses inc-IVA */
-  brasilMode: boolean = false
+  brasilMode: boolean = false,
+  /** Overheads (BP is_overhead) já expandidos via expandOverheadToSplits — somam às despesas em modo Brasil/Vista Sócio */
+  closingCosts: any[] = []
 ): DRELine[] {
   const lookup = buildCategoryLookup(categories);
 
