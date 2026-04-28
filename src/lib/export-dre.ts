@@ -423,7 +423,7 @@ export function exportDREToPDF(
   let isFirstEventPage = true;
   events.forEach((evt) => {
     const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, eventsSource);
-    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, eventsSource, brasilMode);
+    const dre = buildDREForExport(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, eventsSource, brasilMode, closingCosts);
     if (evtTx.length === 0 && dre.length <= 3) return;
 
     if (!isFirstEventPage) {
