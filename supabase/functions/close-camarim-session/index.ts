@@ -280,8 +280,20 @@ Deno.serve(async (req) => {
     for (const [key, groupItems] of groups.entries()) {
       const first = groupItems[0];
       const totalAmount = +groupItems.reduce((s, i) => s + i.total, 0).toFixed(2);
-      const baseAmount = +groupItems.reduce((s, i) => s + i.base, 0).toFixed(2);
-      const ivaAmount = +groupItems.reduce((s, i) => s + i.iva, 0).toFixed(2);
+      // Soma os IVAs reais dos items (preserva o valor exato do recibo).
+      const realIvaSum = +groupItems.reduce((s, i) => s + i.iva, 0).toFixed(2);
+      // CORE RULE do projeto: transactions.amount é o valor LÍQUIDO (sem IVA).
+      // Recalculamos a base a partir do total e da snapped iva_rate para que
+      // os consumidores (DRE, Relatório IVA, BP vs Real) que fazem
+      // `iva = amount × iva_rate / 100` produzam o IVA mais próximo possível
+      // do real. Pequena distorção (cêntimos) só na taxa reportada.
+      const snappedRate = first.ivaRate; // já snapped em {0,6,13,23}
+      const baseAmount = snappedRate > 0
+        ? +(totalAmount / (1 + snappedRate / 100)).toFixed(2)
+        : totalAmount;
+      const ivaAmount = +(totalAmount - baseAmount).toFixed(2);
+      // Diff em c\u00eantimos vs IVA real do recibo, para diagn\u00f3stico nas notas.
+      const ivaDriftCents = Math.round(Math.abs(ivaAmount - realIvaSum) * 100);
 
       // Use the most recent document_date in the group (or session fallback)
       const datesInGroup = groupItems
