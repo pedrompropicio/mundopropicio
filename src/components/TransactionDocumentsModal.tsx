@@ -166,12 +166,34 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
 
   const handleOpenDocument = async (fileUrl: string) => {
     const { bucket, path } = resolveStorageRef(fileUrl);
+    const isHtml = /\.html?(\?|$)/i.test(path);
     const { data, error } = await supabase.storage
       .from(bucket)
       .createSignedUrl(path, 3600); // 1 hour expiry
     if (error || !data?.signedUrl) {
       toast({ title: "Erro ao abrir documento", description: error?.message ?? "URL não disponível", variant: "destructive" });
       return;
+    }
+    // For HTML dossiers, fetch the bytes and open as a blob URL with the correct
+    // MIME type. This forces the browser to RENDER the page instead of letting
+    // the OS open it as raw text in an editor (common on macOS Safari).
+    if (isHtml) {
+      try {
+        const res = await fetch(data.signedUrl);
+        const text = await res.text();
+        const blob = new Blob([text], { type: "text/html; charset=utf-8" });
+        const blobUrl = URL.createObjectURL(blob);
+        const win = window.open(blobUrl, "_blank");
+        // Revoke after a delay to allow the new tab to load
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+        if (!win) {
+          toast({ title: "Pop-up bloqueado", description: "Permite pop-ups para abrir o dossiê.", variant: "destructive" });
+        }
+        return;
+      } catch (e: any) {
+        toast({ title: "Erro ao abrir dossiê", description: e?.message ?? String(e), variant: "destructive" });
+        return;
+      }
     }
     window.open(data.signedUrl, "_blank");
   };
