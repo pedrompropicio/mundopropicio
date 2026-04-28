@@ -1,29 +1,26 @@
 ---
 name: Mágicos H&K reconciliation pending
-description: Reconciliação pendente entre sistema (€4.103,42) e ficheiro Excel do sócio (€3.244,49) na turnê "Mágicos Henry & Klaus" (Lisboa+Porto). Diferença ≈ €858,93 a investigar quando o utilizador pedir para retomar.
+description: Reconciliação pendente entre sistema e ficheiro Excel do sócio na turnê "Mágicos Henry & Klaus" (Lisboa+Porto). Bug receita bilheteira c/IVA já corrigido (28/Abr/2026).
 type: feature
 ---
 
-## Estado atual (parado a pedido do utilizador — vamos resolver bug primeiro)
+## Bug corrigido (28/Abr/2026)
 
-Resultado geral da turnê Mágicos H&K:
-- **Sistema** (DRE Brasil + Fecho com Sócios, com overheads): **€4.103,42**
-- **Ficheiro Excel do sócio** (aba "Previsão Fecho"): **€3.244,49**
-- **Diferença**: ≈ **€858,93**
+**Receita de bilheteira no DRE Brasil (cards)** estava a tratar `unit_price` como **net (s/IVA)**, mostrando €345.635,28 em vez do correto €326.071,02. O PDF/export já estava certo. Corrigido em `src/components/ReportDREBrasil.tsx` → `buildDREBrasil`: agora extrai IVA do `lot.iva_rate` (default 6% para bilhetes PT), igual ao `buildDREForExport`.
 
-Receitas líquidas batem exatamente nos dois lados: **€326.070,99**.
+**Regra canónica**: na tabela `ticket_sales`, `unit_price` = preço de capa **c/IVA**. Para receita líquida usar `unit_price / (1 + iva_rate/100)`.
 
-## Hipóteses já levantadas (a confirmar quando retomarmos)
+## Estado de reconciliação a confirmar
 
-1. **Bug IVA 23% em overheads no `ReportDREBrasil.tsx`**: o select de `event_forecasts` não trazia `iva_rate`, fallback para 23% inflaciona overheads em ~€1.904,22. Corrigir adicionando `iva_rate` ao select e usar `calcTotalWithIva`.
-2. **Despesas Master ausentes no ficheiro**: ~€3.763,80 (campanha JCDecaux + produção) existem no sistema mas não aparecem distribuídas nas abas Lisboa/Porto do Excel.
-3. **"Descontar da bilheteira"**: várias linhas no ficheiro (BOL/Ticketline, Renda, Segurança) marcadas como dedução de receita; no sistema entram como despesas brutas — possível dupla contagem.
-4. **Itens "EM NEGOCIAÇÃO" no ficheiro** ainda não aprovados/registados no sistema.
+Após a correção, cards e PDF devem agora mostrar **Resultado ≈ €5.994,51** (Mágicos H&K consolidado, Vista Sócio ON). Comparar novamente com ficheiro do sócio (€3.244,49) — diferença residual ≈ €2.750 a investigar:
 
-## Artefactos gerados
-- `/mnt/documents/comparativo-magicos-sistema-vs-ficheiro_v2.xlsx` (último comparativo linha-a-linha).
+1. Despesas Master ausentes no ficheiro (~€3.763,80: campanha JCDecaux + produção)
+2. Linhas "descontar da bilheteira" no ficheiro tratadas como dedução vs no sistema como despesa bruta
+3. Itens "EM NEGOCIAÇÃO" ainda não registados no sistema
 
-## Próximos passos sugeridos (quando voltarmos)
-- A) Corrigir `iva_rate` no select de overheads em `ReportDREBrasil.tsx`.
-- B) Listar via SQL despesas "descontar da bilheteira" para simular sem duplicados.
-- C) Confirmar com utilizador se itens Master devem ratear nas cidades no ficheiro.
+## Hipóteses adicionais ainda em aberto
+
+- Bug `iva_rate` em overheads no `ReportDREBrasil.tsx` (select de `event_forecasts` sem `iva_rate` → fallback 23%) — verificar se afeta esta turnê.
+
+## Artefactos
+- `/mnt/documents/comparativo-magicos-sistema-vs-ficheiro_v2.xlsx`
