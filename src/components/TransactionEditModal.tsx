@@ -289,6 +289,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         payment_method: "Método Pagamento",
         payment_entity: "Entidade Pagamento",
         payment_reference: "Referência Pagamento",
+        declared_withholding_rate: "Retenção IRS declarada (%)",
+        declared_withholding_amount: "Retenção IRS declarada (€)",
       };
       const allowedFields = paidLocked
         ? ["specification", "supplier_id", "is_transitory", "exclude_from_result", "invoice_ref", "payment_method", "payment_entity", "payment_reference"]
@@ -338,6 +340,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
         fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
         fx_rate_source: currency === "EUR" ? null : fxRateSource,
+        declared_withholding_rate: transaction.type === "expense" && form.declared_withholding_rate && form.declared_withholding_rate !== "custom" ? Number(form.declared_withholding_rate) : null,
+        declared_withholding_amount: transaction.type === "expense" && parseFloat(form.declared_withholding_amount) > 0 ? parseFloat(form.declared_withholding_amount) : null,
       };
 
       if (!paidLocked && currency !== "EUR") {
