@@ -768,6 +768,8 @@ export type Database = {
           currency: string
           id: string
           integrated_at: string | null
+          integration_summary: Json | null
+          integration_transaction_ids: string[]
           master_event_id: string | null
           mode: string
           notes: string | null
@@ -790,6 +792,8 @@ export type Database = {
           currency?: string
           id?: string
           integrated_at?: string | null
+          integration_summary?: Json | null
+          integration_transaction_ids?: string[]
           master_event_id?: string | null
           mode?: string
           notes?: string | null
@@ -812,6 +816,8 @@ export type Database = {
           currency?: string
           id?: string
           integrated_at?: string | null
+          integration_summary?: Json | null
+          integration_transaction_ids?: string[]
           master_event_id?: string | null
           mode?: string
           notes?: string | null

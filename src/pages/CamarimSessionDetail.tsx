@@ -43,6 +43,7 @@ import { CamarimFundMoveModal } from "@/components/camarim/CamarimFundMoveModal"
 import { CamarimItemAttachmentButton } from "@/components/camarim/CamarimItemAttachmentButton";
 import { EditSessionModal } from "@/components/camarim/EditSessionModal";
 import { SplitItemModal } from "@/components/camarim/SplitItemModal";
+import { CamarimIntegrationSummary } from "@/components/camarim/CamarimIntegrationSummary";
 import { Split } from "lucide-react";
 
 interface SessionData {
@@ -53,7 +54,10 @@ interface SessionData {
   budget_amount: number;
   currency: string;
   opened_at: string;
+  integrated_at: string | null;
   notes: string | null;
+  integration_summary: any | null;
+  integration_transaction_ids: string[] | null;
 }
 
 interface ItemRow {
@@ -96,6 +100,9 @@ export default function CamarimSessionDetail() {
   const canManage = isAdmin || isManager || hasPermission("camarim_manage");
   // Fecho da sessão (revisão, fechar, integrar) é restrito a admin/manager.
   const canCloseSession = isAdmin || isManager;
+  // Lock total após integração — nem admin pode editar pela UI normal.
+  const isLocked = (session?: { status: CamarimSessionStatus } | null) =>
+    session?.status === "integrated";
 
   const [session, setSession] = useState<SessionData | null>(null);
   const [items, setItems] = useState<ItemRow[]>([]);
@@ -469,6 +476,15 @@ export default function CamarimSessionDetail() {
         </div>
       </div>
 
+      {session.status === "integrated" && (
+        <CamarimIntegrationSummary
+          summary={(session as any).integration_summary ?? null}
+          transactionIds={(session as any).integration_transaction_ids ?? []}
+          integratedAt={(session as any).integrated_at ?? null}
+          currency={session.currency}
+        />
+      )}
+
       {/* Categoria contabilística é fixa em 2.6.04 — Camarins, atribuída pelo motor de consolidação. */}
 
 
@@ -604,8 +620,14 @@ export default function CamarimSessionDetail() {
               {items.map((it) => (
                 <Card
                   key={it.id}
-                  className="cursor-pointer transition hover:border-primary/40"
+                  className={cn(
+                    "transition",
+                    session.status === "integrated"
+                      ? "opacity-95"
+                      : "cursor-pointer hover:border-primary/40",
+                  )}
                   onClick={() => {
+                    if (session.status === "integrated") return;
                     setEditingItemId(it.id);
                     setShowItem(true);
                   }}
@@ -682,7 +704,7 @@ export default function CamarimSessionDetail() {
 
         <TabsContent value="funds" className="space-y-3">
           <div className="flex justify-end">
-            <Button size="sm" onClick={() => setShowFund(true)} disabled={!canManage}>
+            <Button size="sm" onClick={() => setShowFund(true)} disabled={!canManage || session.status === "integrated"}>
               <Wallet className="mr-2 h-4 w-4" /> Registar movimento
             </Button>
           </div>
