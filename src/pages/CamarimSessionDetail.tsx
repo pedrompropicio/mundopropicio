@@ -472,6 +472,12 @@ export default function CamarimSessionDetail() {
   if (!session) return <p className="text-sm text-muted-foreground">Sessão não encontrada.</p>;
 
   const pct = session.budget_amount > 0 ? Math.min(100, (totals.spent / session.budget_amount) * 100) : 0;
+  // Edição de conteúdo (adicionar/editar/eliminar itens e fundos):
+  // - Equipa (editor): só com sessão Aberta.
+  // - Manager/Admin: enquanto não estiver Integrada (podem usar "Reabrir sessão" se preciso).
+  const canEditContent = canManage
+    ? session.status !== "integrated"
+    : session.status === "open";
 
   return (
     <div className="space-y-6">
