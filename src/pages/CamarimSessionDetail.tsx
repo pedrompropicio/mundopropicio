@@ -476,6 +476,15 @@ export default function CamarimSessionDetail() {
         </div>
       </div>
 
+      {session.status === "integrated" && (
+        <CamarimIntegrationSummary
+          summary={(session as any).integration_summary ?? null}
+          transactionIds={(session as any).integration_transaction_ids ?? []}
+          integratedAt={(session as any).integrated_at ?? null}
+          currency={session.currency}
+        />
+      )}
+
       {/* Categoria contabilística é fixa em 2.6.04 — Camarins, atribuída pelo motor de consolidação. */}
 
 
