@@ -353,15 +353,19 @@ Deno.serve(async (req) => {
       const txStatus: "paid" | "approved" =
         first.paymentOrigin === "out_of_pocket" ? "approved" : "paid";
 
+      const ivaNote = ivaDriftCents > 1
+        ? `\nIVA real do recibo: ${realIvaSum.toFixed(2)}€ · IVA recalculado a ${snappedRate}%: ${ivaAmount.toFixed(2)}€ · desvio ${(ivaDriftCents/100).toFixed(2)}€ (taxas mistas no recibo)`
+        : "";
+
       const txPayload: Record<string, unknown> = {
         description,
         type: "expense",
-        amount: totalAmount,
-        iva_rate: first.ivaRate,
+        amount: baseAmount, // CORE RULE: net (sem IVA)
+        iva_rate: snappedRate,
         event_id: first.eventId,
         category_id: camarimCategoryId, // FORCED to 2.6.04 — Camarins
         supplier_id: null, // consolidated — no single supplier
-        specification,
+        specification: specification + ivaNote,
         date: txDate,
         status: txStatus,
         invoice_ref: null,
