@@ -378,7 +378,7 @@ export default function ReportDREEmpresarial() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-4">
         <Select value={selectedYear} onValueChange={setSelectedYear}>
           <SelectTrigger className="w-32">
             <SelectValue />
@@ -389,7 +389,31 @@ export default function ReportDREEmpresarial() {
             ))}
           </SelectContent>
         </Select>
+
+        <div className="flex items-center gap-3 rounded-md border px-3 py-2">
+          <Label className="text-xs text-muted-foreground">Receita de bilheteira:</Label>
+          <RadioGroup
+            value={ticketRevenueSource}
+            onValueChange={(v) => setTicketRevenueSource(v as TicketRevenueSource)}
+            className="flex items-center gap-3"
+          >
+            <div className="flex items-center gap-1.5">
+              <RadioGroupItem value="ticket_sales" id="dre-emp-src-ts" />
+              <Label htmlFor="dre-emp-src-ts" className="text-xs cursor-pointer">Bilheteira (líquida)</Label>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <RadioGroupItem value="transactions" id="dre-emp-src-tx" />
+              <Label htmlFor="dre-emp-src-tx" className="text-xs cursor-pointer">Só transações</Label>
+            </div>
+          </RadioGroup>
+        </div>
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        Regra: tudo s/IVA (líquido). Sem overheads (rateios do BP). Sem transitórias nem exclusões de resultado.
+        Bilheteira convertida para líquido pela taxa de IVA do lote.
+      </p>
+
 
       <div className="overflow-x-auto border rounded-lg">
         <Table>
