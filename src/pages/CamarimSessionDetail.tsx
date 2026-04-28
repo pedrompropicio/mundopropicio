@@ -100,6 +100,9 @@ export default function CamarimSessionDetail() {
   const canManage = isAdmin || isManager || hasPermission("camarim_manage");
   // Fecho da sessão (revisão, fechar, integrar) é restrito a admin/manager.
   const canCloseSession = isAdmin || isManager;
+  // Lock total após integração — nem admin pode editar pela UI normal.
+  const isLocked = (session?: { status: CamarimSessionStatus } | null) =>
+    session?.status === "integrated";
 
   const [session, setSession] = useState<SessionData | null>(null);
   const [items, setItems] = useState<ItemRow[]>([]);
