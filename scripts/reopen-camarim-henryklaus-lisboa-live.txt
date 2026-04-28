@@ -1,11 +1,11 @@
--- Reset dos 5 items orfãos (transações já apagadas) e destranca da sessão
--- "CAMARIM - Henry & Klauss (Coliseu - Lisboa)"
+-- Reset orphaned items and unlock session (Lisboa - Henry & Klauss)
 UPDATE camarim_items
 SET status='approved', transaction_id=NULL
-WHERE session_id='972d3e95-f717-449c-b545-7df15438edc2'
-  AND status='integrated';
+WHERE session_id='972d3e95-f717-449c-b545-7df15438edc2' AND status='integrated';
 
 UPDATE camarim_sessions
-SET status='closed', integrated_at=NULL,
-    integration_summary=NULL, integration_transaction_ids=NULL
+SET status='closed',
+    integrated_at=NULL,
+    integration_summary=NULL,
+    integration_transaction_ids='{}'::uuid[]
 WHERE id='972d3e95-f717-449c-b545-7df15438edc2';
