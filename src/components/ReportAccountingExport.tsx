@@ -114,13 +114,17 @@ export default function ReportAccountingExport() {
     },
   });
 
-  // Download individual file
+  // Download individual file (handles both transaction-documents and camarim:// prefixed paths)
   async function downloadFile(filePath: string, fileName: string) {
-    const { data, error } = await supabase.storage
-      .from("transaction-documents")
-      .download(filePath);
+    let bucket = "transaction-documents";
+    let path = filePath;
+    if (filePath?.startsWith("camarim://")) {
+      bucket = "camarim-documents";
+      path = filePath.replace(/^camarim:\/\//, "");
+    }
+    const { data, error } = await supabase.storage.from(bucket).download(path);
     if (error) {
-      toast.error("Erro ao descarregar ficheiro");
+      toast.error(`Erro ao descarregar ${fileName}`);
       return;
     }
     const url = URL.createObjectURL(data);
