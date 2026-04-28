@@ -706,7 +706,14 @@ export default function CamarimSessionDetail() {
 
         <TabsContent value="funds" className="space-y-3">
           <div className="flex justify-end">
-            <Button size="sm" onClick={() => setShowFund(true)} disabled={!canManage || session.status === "integrated"}>
+            <Button
+              size="sm"
+              onClick={() => {
+                setEditingFund(null);
+                setShowFund(true);
+              }}
+              disabled={!canManage || session.status === "integrated"}
+            >
               <Wallet className="mr-2 h-4 w-4" /> Registar movimento
             </Button>
           </div>
