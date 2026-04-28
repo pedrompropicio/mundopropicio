@@ -620,8 +620,14 @@ export default function CamarimSessionDetail() {
               {items.map((it) => (
                 <Card
                   key={it.id}
-                  className="cursor-pointer transition hover:border-primary/40"
+                  className={cn(
+                    "transition",
+                    session.status === "integrated"
+                      ? "opacity-95"
+                      : "cursor-pointer hover:border-primary/40",
+                  )}
                   onClick={() => {
+                    if (session.status === "integrated") return;
                     setEditingItemId(it.id);
                     setShowItem(true);
                   }}
