@@ -36,6 +36,7 @@ interface MonthlyLine {
 export default function ReportDREEmpresarial() {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(String(currentYear));
+  const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("ticket_sales");
   const year = Number(selectedYear);
 
   const { data: events = [] } = useQuery({
