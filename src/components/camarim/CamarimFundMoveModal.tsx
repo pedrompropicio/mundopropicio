@@ -14,6 +14,7 @@ import { FUND_MOVE_LABELS, formatCurrency, type CamarimFundMoveType } from "@/li
 interface Account {
   id: string;
   name: string;
+  type: string;
 }
 
 interface ExistingMove {
@@ -71,8 +72,9 @@ export function CamarimFundMoveModal({
     if (!open) return;
     void supabase
       .from("financial_accounts")
-      .select("id,name")
+      .select("id,name,type")
       .eq("is_active", true)
+      .in("type", ["bank", "cash"])
       .order("name")
       .then(({ data }) => setAccounts((data ?? []) as Account[]));
   }, [open]);
