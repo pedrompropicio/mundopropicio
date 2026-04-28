@@ -14,15 +14,26 @@ interface ParkedDecision {
 
 interface RequestBody {
   session_id: string;
-  card_account_id?: string | null; // financial account id used for "card" payments
-  /** Decisão item-a-item para itens parqueados (status='pending_review'). */
+  card_account_id?: string | null;
   parked_decisions?: ParkedDecision[];
-  /** Conta financeira para gerar a transação de acerto (reforço/devolução do adiantamento). */
   settlement_account_id?: string | null;
-  /** ID do fornecedor (sócio/funcionário) para a transação de reforço quando há saldo a pagar à equipa. */
   settlement_supplier_id?: string | null;
 }
 
+/**
+ * Camarim session integration — CONSOLIDATED MODE.
+ *
+ * All approved items of a session are grouped into a small number of consolidated
+ * transactions, all booked under the FIXED accounting category 2.6.04 — Camarins
+ * (looked up by code). The original analytical detail is preserved at the item
+ * level (each `camarim_items` row keeps its `analytic_tag`, supplier, base/IVA,
+ * and `transaction_id` pointing to the consolidated transaction it belongs to).
+ *
+ * Grouping key: (event_id × payment_origin × account_id × buyer_id × iva_rate)
+ * - One transaction per group.
+ * - Multiple IVA rates produce multiple transactions (clean for AT/SAF-T).
+ * - All receipts of a group are attached to the consolidated transaction.
+ */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -57,7 +68,21 @@ Deno.serve(async (req) => {
     const body = (await req.json()) as RequestBody;
     if (!body?.session_id) return json({ error: "session_id obrigatório" }, 400);
 
-    // Load session
+    // ===== Resolve fixed accounting category 2.6.04 — Camarins =====
+    const { data: catRow, error: catErr } = await adminClient
+      .from("account_categories")
+      .select("id,code,name,is_active")
+      .eq("code", "2.6.04")
+      .eq("is_active", true)
+      .single();
+    if (catErr || !catRow) {
+      return json({
+        error: "Categoria 2.6.04 — Camarins não encontrada/ativa no plano de contas. Avisa um administrador.",
+      }, 500);
+    }
+    const camarimCategoryId = catRow.id as string;
+
+    // ===== Load session =====
     const { data: session, error: sErr } = await adminClient
       .from("camarim_sessions")
       .select("id,title,status,currency,master_event_id,opened_at,closed_at")
@@ -69,7 +94,7 @@ Deno.serve(async (req) => {
       return json({ error: "Apenas sessões em revisão ou fechadas podem ser integradas" }, 422);
     }
 
-    // Primary event
+    // Primary event (for items without explicit event_id)
     const { data: events } = await adminClient
       .from("camarim_session_events")
       .select("event_id,is_primary")
@@ -80,7 +105,7 @@ Deno.serve(async (req) => {
       return json({ error: "Sessão sem evento associado — impossível gerar transações" }, 422);
     }
 
-    // === Aplicar decisões sobre itens parqueados ANTES de carregar os aprovados ===
+    // ===== Apply decisions over parked items BEFORE loading approved =====
     const decisions = body.parked_decisions ?? [];
     if (decisions.length > 0) {
       for (const d of decisions) {
@@ -108,18 +133,18 @@ Deno.serve(async (req) => {
             .eq("id", d.item_id)
             .eq("status", "pending_review");
         }
-        // 'defer' → não faz nada, fica parqueado para próxima vez
+        // 'defer' → does nothing
       }
     }
 
-    // Verificar se ainda há parqueados (não decididos)
+    // Are there still parked items?
     const { data: stillParked } = await adminClient
       .from("camarim_items")
       .select("id")
       .eq("session_id", body.session_id)
       .eq("status", "pending_review");
 
-    // Approved items only (após aplicar decisões)
+    // ===== Load approved items =====
     const { data: items, error: iErr } = await adminClient
       .from("camarim_items")
       .select("*")
@@ -130,15 +155,7 @@ Deno.serve(async (req) => {
       return json({ error: "Não há itens aprovados para integrar" }, 422);
     }
 
-    // Validate: every item needs a category
-    const missingCat = items.filter((it: any) => !it.category_id);
-    if (missingCat.length > 0) {
-      return json({
-        error: `${missingCat.length} item(ns) aprovado(s) sem categoria contábil. Edita-os antes de integrar.`,
-      }, 422);
-    }
-
-    // Find advance financial account from latest fund_move
+    // ===== Find advance financial account from latest fund_move =====
     const { data: lastFundAdvance } = await adminClient
       .from("camarim_fund_moves")
       .select("financial_account_id")
@@ -148,72 +165,196 @@ Deno.serve(async (req) => {
       .limit(1);
     const advanceAccountId = (lastFundAdvance?.[0] as any)?.financial_account_id ?? null;
 
-    const created: string[] = [];
-    const errors: string[] = [];
+    // ===== Pre-flight: validate every item can be resolved into a group =====
+    type ResolvedItem = {
+      raw: any;
+      eventId: string;
+      paymentOrigin: "advance" | "card" | "out_of_pocket";
+      accountId: string | null;
+      buyerId: string | null;
+      ivaRate: number;
+      total: number;
+      base: number;
+      iva: number;
+    };
+
+    const resolved: ResolvedItem[] = [];
+    const preflightErrors: string[] = [];
 
     for (const it of items as any[]) {
       const txEventId = it.bp_scope === "master_common"
         ? (session.master_event_id ?? primaryEventId)
         : (primaryEventId ?? session.master_event_id);
 
+      if (!txEventId) {
+        preflightErrors.push(`Item ${it.id}: sem evento determinável.`);
+        continue;
+      }
+
       const total = Number(it.total_amount ?? 0);
-      const baseAmount = Number(it.base_amount ?? 0);
-      const ivaAmount = Number(it.iva_amount ?? 0);
-      const ivaRate = baseAmount > 0 ? Math.round((ivaAmount / baseAmount) * 100) : 0;
+      const base = Number(it.base_amount ?? 0);
+      const iva = Number(it.iva_amount ?? 0);
+      const ivaRate = base > 0 ? Math.round((iva / base) * 100) : 0;
 
       let accountId: string | null = null;
-      let txStatus: "paid" | "approved" = "approved";
-      let isReimbursement = false;
-      let reimbursementTo: string | null = null;
+      let buyerId: string | null = null;
 
       if (it.payment_origin === "advance") {
         accountId = advanceAccountId;
-        txStatus = "paid";
         if (!accountId) {
-          errors.push(`Item ${it.id}: sem conta de adiantamento configurada (regista um movimento de fundo primeiro).`);
+          preflightErrors.push(
+            `Item ${it.id}: pago pelo adiantamento, mas a sessão não tem movimento de adiantamento registado. Regista um movimento na aba "Fundos" antes de integrar.`,
+          );
           continue;
         }
       } else if (it.payment_origin === "card") {
-        // Prefer per-item financial_account_id (each receipt records the exact card used);
-        // fall back to body.card_account_id for back-compat with older items.
         accountId = it.financial_account_id ?? body.card_account_id ?? null;
-        txStatus = "paid";
         if (!accountId) {
-          errors.push(`Item ${it.id}: pagamento por cartão exige conta financeira (financial_account_id no item ou card_account_id no fecho).`);
+          preflightErrors.push(
+            `Item ${it.id}: pagamento por cartão exige conta financeira (financial_account_id no item ou card_account_id no fecho).`,
+          );
           continue;
         }
       } else if (it.payment_origin === "out_of_pocket") {
-        // Stays as approved (to be reimbursed)
-        txStatus = "approved";
-        isReimbursement = true;
-        reimbursementTo = it.buyer_profile_id ?? null;
+        buyerId = it.buyer_profile_id ?? null;
+        // accountId stays null — reimbursements are NOT linked to a financial account
       }
 
-      const description = (it.service_description?.trim()
-        || it.supplier_name_raw?.trim()
-        || `Camarim — ${session.title}`).slice(0, 250);
+      resolved.push({
+        raw: it,
+        eventId: txEventId,
+        paymentOrigin: it.payment_origin,
+        accountId,
+        buyerId,
+        ivaRate,
+        total,
+        base,
+        iva,
+      });
+    }
+
+    // If preflight has errors, return early without creating anything
+    if (preflightErrors.length > 0 && resolved.length === 0) {
+      return json({
+        success: false,
+        error: "Não foi possível integrar nenhum item — corrige os pré-requisitos.",
+        created: 0,
+        total_items: items.length,
+        errors: preflightErrors,
+      }, 422);
+    }
+
+    // ===== Group items by consolidation key =====
+    const groupKey = (r: ResolvedItem) =>
+      [
+        r.eventId,
+        r.paymentOrigin,
+        r.accountId ?? "",
+        r.buyerId ?? "",
+        r.ivaRate,
+      ].join("|");
+
+    const groups = new Map<string, ResolvedItem[]>();
+    for (const r of resolved) {
+      const k = groupKey(r);
+      const arr = groups.get(k) ?? [];
+      arr.push(r);
+      groups.set(k, arr);
+    }
+
+    // ===== Create one consolidated transaction per group =====
+    const created: string[] = [];
+    const errors: string[] = [...preflightErrors];
+
+    const sessionDateFallback = new Date(session.closed_at ?? session.opened_at)
+      .toISOString().slice(0, 10);
+
+    for (const [key, groupItems] of groups.entries()) {
+      const first = groupItems[0];
+      const totalAmount = +groupItems.reduce((s, i) => s + i.total, 0).toFixed(2);
+      const baseAmount = +groupItems.reduce((s, i) => s + i.base, 0).toFixed(2);
+      const ivaAmount = +groupItems.reduce((s, i) => s + i.iva, 0).toFixed(2);
+
+      // Use the most recent document_date in the group (or session fallback)
+      const datesInGroup = groupItems
+        .map((g) => g.raw.document_date)
+        .filter(Boolean)
+        .sort();
+      const txDate = datesInGroup[datesInGroup.length - 1] ?? sessionDateFallback;
+
+      // Build legible description and analytical specification
+      const itemCount = groupItems.length;
+      const originLabel =
+        first.paymentOrigin === "advance" ? "Adiantamento"
+        : first.paymentOrigin === "card" ? "Cartão"
+        : "Reembolso";
+
+      const description = `Camarim · ${session.title} · ${originLabel} · ${itemCount} ${itemCount === 1 ? "item" : "itens"}`.slice(0, 250);
+
+      // Aggregate per analytic_tag for the specification field
+      const tagAgg = new Map<string, { count: number; total: number }>();
+      for (const g of groupItems) {
+        const tag = (g.raw.analytic_tag as string | null) ?? "outros";
+        const cur = tagAgg.get(tag) ?? { count: 0, total: 0 };
+        cur.count += 1;
+        cur.total += g.total;
+        tagAgg.set(tag, cur);
+      }
+      const TAG_LABEL: Record<string, string> = {
+        bebidas: "Bebidas",
+        comida: "Comida",
+        frutas_snacks: "Frutas e Snacks",
+        higiene: "Higiene e Consumíveis",
+        equipa: "Equipa Camarim",
+        outros: "Outros / Sem classificação",
+      };
+      const tagSummary = Array.from(tagAgg.entries())
+        .sort((a, b) => b[1].total - a[1].total)
+        .map(([tag, v]) => `${TAG_LABEL[tag] ?? tag}: ${v.total.toFixed(2)}€ (${v.count})`)
+        .join(" · ");
+
+      const supplierList = Array.from(
+        new Set(
+          groupItems
+            .map((g) => (g.raw.supplier_name_raw as string | null)?.trim())
+            .filter(Boolean) as string[],
+        ),
+      ).slice(0, 8).join(", ");
+
+      const specification = [
+        `Sessão de Camarim: ${session.title}`,
+        `Itens consolidados: ${itemCount}`,
+        tagSummary ? `Análise: ${tagSummary}` : null,
+        supplierList ? `Fornecedores: ${supplierList}${supplierList.length >= 1 ? "" : "…"}` : null,
+        `Origem: ${originLabel}`,
+        `IVA: ${first.ivaRate}%`,
+      ].filter(Boolean).join("\n");
+
+      const isReimbursement = first.paymentOrigin === "out_of_pocket";
+      const txStatus: "paid" | "approved" =
+        first.paymentOrigin === "out_of_pocket" ? "approved" : "paid";
 
       const txPayload: Record<string, unknown> = {
         description,
         type: "expense",
-        amount: total,
-        iva_rate: ivaRate,
-        event_id: txEventId,
-        category_id: it.category_id,
-        supplier_id: it.supplier_id ?? null,
-        specification: it.notes ?? null,
-        date: it.document_date ?? new Date(session.closed_at ?? session.opened_at).toISOString().slice(0, 10),
+        amount: totalAmount,
+        iva_rate: first.ivaRate,
+        event_id: first.eventId,
+        category_id: camarimCategoryId, // FORCED to 2.6.04 — Camarins
+        supplier_id: null, // consolidated — no single supplier
+        specification,
+        date: txDate,
         status: txStatus,
-        invoice_ref: it.document_number ?? null,
-        currency: it.currency ?? "EUR",
+        invoice_ref: null,
+        currency: session.currency ?? "EUR",
         is_reimbursement: isReimbursement,
-        reimbursement_to: reimbursementTo,
+        reimbursement_to: isReimbursement ? first.buyerId : null,
       };
 
       if (txStatus === "paid") {
-        txPayload.paid_amount = total;
-        txPayload.payment_date = txPayload.date;
-        txPayload.account_id = accountId;
+        txPayload.paid_amount = totalAmount;
+        txPayload.payment_date = txDate;
+        txPayload.account_id = first.accountId;
       } else {
         txPayload.paid_amount = 0;
       }
@@ -225,25 +366,32 @@ Deno.serve(async (req) => {
         .single();
 
       if (txErr) {
-        errors.push(`Item ${it.id}: ${txErr.message}`);
+        errors.push(`Grupo [${key}]: ${txErr.message}`);
         continue;
       }
 
-      // Link item → transaction
-      await adminClient
-        .from("camarim_items")
-        .update({ transaction_id: newTx.id, status: "integrated" })
-        .eq("id", it.id);
+      const newTxId = (newTx as any).id as string;
 
-      // Carry documents into transaction_documents (private bucket "camarim-documents")
+      // Link every item in the group → consolidated transaction
+      const itemIds = groupItems.map((g) => g.raw.id as string);
+      const { error: linkErr } = await adminClient
+        .from("camarim_items")
+        .update({ transaction_id: newTxId, status: "integrated" })
+        .in("id", itemIds);
+      if (linkErr) {
+        errors.push(`Grupo [${key}] vínculo: ${linkErr.message}`);
+        // continue — transaction exists; manual linking still possible
+      }
+
+      // Carry every receipt into transaction_documents
       const { data: docs } = await adminClient
         .from("camarim_item_documents")
-        .select("file_path,file_name,mime_type")
-        .eq("item_id", it.id);
+        .select("file_path,file_name,mime_type,item_id")
+        .in("item_id", itemIds);
 
       for (const d of (docs ?? []) as any[]) {
         await adminClient.from("transaction_documents").insert({
-          transaction_id: newTx.id,
+          transaction_id: newTxId,
           name: d.file_name ?? "talão",
           file_url: `camarim://${d.file_path}`,
           doc_type: "outro",
@@ -252,11 +400,10 @@ Deno.serve(async (req) => {
         });
       }
 
-      created.push(newTx.id);
+      created.push(newTxId);
     }
 
-    // ===== ABATE AUTOMÁTICO DO ADIANTAMENTO =====
-    // Soma adiantamentos entregues (advance + reinforcement) menos devoluções já feitas
+    // ===== Settlement (advance balance) — unchanged logic =====
     const { data: fundMoves } = await adminClient
       .from("camarim_fund_moves")
       .select("move_type,amount")
@@ -270,13 +417,10 @@ Deno.serve(async (req) => {
       .reduce((acc: number, m: any) => acc + Number(m.amount ?? 0), 0);
     const advanceNet = advanceTotal - refundTotal;
 
-    // Total efetivamente gasto contra o adiantamento (apenas itens advance integrados)
-    const spentFromAdvance = (items as any[])
-      .filter((it) => it.payment_origin === "advance")
-      .reduce((acc, it) => acc + Number(it.total_amount ?? 0), 0);
+    const spentFromAdvance = resolved
+      .filter((r) => r.paymentOrigin === "advance")
+      .reduce((acc, r) => acc + r.total, 0);
 
-    // saldo positivo = falta dinheiro à equipa (REFORÇO a pagar)
-    // saldo negativo = sobrou dinheiro com a equipa (DEVOLUÇÃO a receber)
     const balance = +(spentFromAdvance - advanceNet).toFixed(2);
     let settlementType: "refund" | "reinforcement" | "balanced" = "balanced";
     let settlementTxId: string | null = null;
@@ -287,7 +431,6 @@ Deno.serve(async (req) => {
     if (advanceNet > 0 && Math.abs(balance) >= SETTLEMENT_TOLERANCE && settlementAccountId) {
       const settlementEventId = session.master_event_id ?? primaryEventId;
       if (balance > 0) {
-        // Falta pagar à equipa → cria expense 'approved' a favor do responsável
         settlementType = "reinforcement";
         const { data: stx, error: stxErr } = await adminClient
           .from("transactions")
@@ -311,10 +454,9 @@ Deno.serve(async (req) => {
         if (stxErr) {
           errors.push(`Acerto/reforço: ${stxErr.message}`);
         } else {
-          settlementTxId = stx.id;
+          settlementTxId = (stx as any).id;
         }
       } else {
-        // Sobrou caixa → cria income 'approved' a receber da equipa
         settlementType = "refund";
         const { data: stx, error: stxErr } = await adminClient
           .from("transactions")
@@ -338,15 +480,13 @@ Deno.serve(async (req) => {
         if (stxErr) {
           errors.push(`Acerto/devolução: ${stxErr.message}`);
         } else {
-          settlementTxId = stx.id;
+          settlementTxId = (stx as any).id;
         }
       }
     }
 
-    // Guard: se nenhum item virou transação E houve erros, não marcar sessão como integrada
     const allFailed = created.length === 0 && errors.length > 0;
 
-    // Update session status + settlement metadata (apenas se gerou pelo menos 1 transação)
     if (!allFailed) {
       await adminClient
         .from("camarim_sessions")
@@ -362,7 +502,6 @@ Deno.serve(async (req) => {
         .eq("id", body.session_id);
     }
 
-    // Audit / integration record
     const integrationStatus = allFailed
       ? "failed"
       : errors.length === 0
@@ -375,7 +514,8 @@ Deno.serve(async (req) => {
       status: integrationStatus,
       created_by: caller.id,
       summary_payload: {
-        created_count: created.length,
+        consolidated_groups: created.length,
+        items_integrated: resolved.length,
         error_count: errors.length,
         errors,
         advance_net: advanceNet,
@@ -387,11 +527,10 @@ Deno.serve(async (req) => {
       },
     });
 
-    // Se nenhum item integrou, devolve 422 com lista de erros
     if (allFailed) {
       return json({
         success: false,
-        error: "Nenhuma transação foi gerada — verifica os pré-requisitos (ex.: regista um movimento de adiantamento antes de integrar itens pagos pelo adiantamento).",
+        error: "Nenhuma transação foi gerada — verifica os pré-requisitos.",
         created: 0,
         total_items: items.length,
         errors,
@@ -400,7 +539,9 @@ Deno.serve(async (req) => {
 
     return json({
       success: true,
-      created: created.length,
+      created: created.length, // number of CONSOLIDATED transactions (not items)
+      consolidated_groups: created.length,
+      items_integrated: resolved.length,
       total_items: items.length,
       errors,
       settlement: {
