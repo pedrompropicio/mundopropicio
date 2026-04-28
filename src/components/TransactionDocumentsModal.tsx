@@ -22,22 +22,30 @@ interface Props {
   onClose: () => void;
 }
 
-/** Extract the storage path from a file_url (supports both old public URLs and new path-only format) */
-function extractStoragePath(fileUrl: string): string {
-  // If it's already just a path (no http), return as-is
-  if (!fileUrl.startsWith("http")) return fileUrl;
-  // Old format: full public URL
+/** Resolve a transaction_documents.file_url into { bucket, path }. Supports
+ *  legacy public/sign URLs (transaction-documents bucket), bare paths, and
+ *  the camarim:// prefix used by the Camarim integration. */
+function resolveStorageRef(fileUrl: string): { bucket: string; path: string } {
+  if (fileUrl?.startsWith("camarim://")) {
+    return { bucket: "camarim-documents", path: fileUrl.replace(/^camarim:\/\//, "") };
+  }
+  // Default bucket is transaction-documents
+  if (!fileUrl?.startsWith("http")) return { bucket: "transaction-documents", path: fileUrl };
   const marker = "/storage/v1/object/public/transaction-documents/";
   const idx = fileUrl.indexOf(marker);
-  if (idx !== -1) return fileUrl.substring(idx + marker.length);
-  // Fallback: try signed URL pattern
+  if (idx !== -1) return { bucket: "transaction-documents", path: fileUrl.substring(idx + marker.length) };
   const signedMarker = "/storage/v1/object/sign/transaction-documents/";
   const sIdx = fileUrl.indexOf(signedMarker);
   if (sIdx !== -1) {
     const pathWithQuery = fileUrl.substring(sIdx + signedMarker.length);
-    return pathWithQuery.split("?")[0];
+    return { bucket: "transaction-documents", path: pathWithQuery.split("?")[0] };
   }
-  return fileUrl;
+  return { bucket: "transaction-documents", path: fileUrl };
+}
+
+/** Back-compat helper for delete flow (only deletes from transaction-documents) */
+function extractStoragePath(fileUrl: string): string {
+  return resolveStorageRef(fileUrl).path;
 }
 
 export function TransactionDocumentsModal({ transactionId, transactionDescription, onClose }: Props) {
