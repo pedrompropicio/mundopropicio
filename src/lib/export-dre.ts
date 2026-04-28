@@ -250,7 +250,8 @@ export function exportDREToExcel(
   ticketCategoryId: string | null = null,
   partners: any[] = [],
   allEvents: any[] = [],
-  brasilMode: boolean = false
+  brasilMode: boolean = false,
+  closingCosts: any[] = []
 ) {
   const allEventsSource = allEvents.length > 0 ? allEvents : events;
   const wb = XLSX.utils.book_new();
