@@ -22,6 +22,7 @@ import { CurrencyAmountInput } from "@/components/CurrencyAmountInput";
 import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, formatInCurrency } from "@/lib/currency";
 import { SplitByIvaModal, type IvaSplitLine } from "@/components/SplitByIvaModal";
+import { WithholdingDeclaredFields } from "@/components/WithholdingDeclaredFields";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
@@ -47,6 +48,9 @@ interface TransactionForm {
   payment_reference: string;
   /** Hard-link entre linhas da mesma fatura com várias taxas de IVA. Não exposto no UI. */
   invoice_group_id?: string | null;
+  /** Retenção IRS já declarada na fatura. Pré-preenche o modal de pagamento. */
+  declared_withholding_rate: string;
+  declared_withholding_amount: string;
 }
 
 const emptyForm: TransactionForm = {
@@ -69,6 +73,8 @@ const emptyForm: TransactionForm = {
   payment_method: "transfer",
   payment_entity: "",
   payment_reference: "",
+  declared_withholding_rate: "",
+  declared_withholding_amount: "",
 };
 
 const formatDueDateInput = (value: string) => {
