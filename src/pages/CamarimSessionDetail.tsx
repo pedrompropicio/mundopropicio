@@ -43,6 +43,7 @@ import { CamarimFundMoveModal } from "@/components/camarim/CamarimFundMoveModal"
 import { CamarimItemAttachmentButton } from "@/components/camarim/CamarimItemAttachmentButton";
 import { EditSessionModal } from "@/components/camarim/EditSessionModal";
 import { SplitItemModal } from "@/components/camarim/SplitItemModal";
+import { CamarimIntegrationSummary } from "@/components/camarim/CamarimIntegrationSummary";
 import { Split } from "lucide-react";
 
 interface SessionData {
@@ -53,7 +54,10 @@ interface SessionData {
   budget_amount: number;
   currency: string;
   opened_at: string;
+  integrated_at: string | null;
   notes: string | null;
+  integration_summary: any | null;
+  integration_transaction_ids: string[] | null;
 }
 
 interface ItemRow {
