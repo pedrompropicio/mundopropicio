@@ -633,11 +633,15 @@ Deno.serve(async (req) => {
       summary: integrationSummary,
     });
   } catch (err: any) {
+    console.error("[close-camarim-session] Unhandled error:", err?.stack ?? err?.message ?? String(err));
     return json({ error: err?.message ?? String(err) }, 500);
   }
 });
 
 function json(payload: unknown, status = 200) {
+  if (status >= 400) {
+    console.error(`[close-camarim-session] ${status} →`, JSON.stringify(payload));
+  }
   return new Response(JSON.stringify(payload), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
