@@ -107,12 +107,6 @@ export function buildDREForExport(
   // Overheads BP — só somam quando em "Vista Sócio" (brasilMode), alinhado com Fecho dos Sócios
   // IVA aplicado linha-a-linha (default 23% se não houver iva_rate definido), igual ao Fecho dos Sócios
   const eventClosingCosts = eventClosingCostsForAlloc; // alias para o bloco de detalhe
-  const totalClosingCostsBase = eventClosingCosts.reduce((s: number, cc: any) => s + Number(cc.amount || 0), 0);
-  const totalClosingCostsIva = eventClosingCosts.reduce((s: number, cc: any) => {
-    const rate = cc.iva_rate != null ? Number(cc.iva_rate) : 23;
-    return s + calcIvaAmount(Number(cc.amount || 0), rate);
-  }, 0);
-  const totalClosingCosts = totalClosingCostsBase + totalClosingCostsIva;
   // Overheads JÁ estão dentro de expGroups → totalExp* já inclui-os. Não somar de novo.
   const totalExpInc = totalExpEx + totalExpIva;
 
