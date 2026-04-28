@@ -68,7 +68,7 @@ export function buildDREForExport(
     ticketIncomeIncIva = ticketGross;
   }
 
-  const expenses = transactions.filter((t) => t.type === "expense");
+  const expenses = transactions.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result);
 
   const incGroups = aggregateByHierarchyDRE(incomes, lookup, calcAmountWithIva);
   const expGroups = aggregateByHierarchyDRE(expenses, lookup, calcAmountWithIva);
