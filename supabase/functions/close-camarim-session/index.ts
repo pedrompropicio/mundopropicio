@@ -619,6 +619,8 @@ Deno.serve(async (req) => {
       success: true,
       created: created.length, // number of CONSOLIDATED transactions (not items)
       consolidated_groups: created.length,
+      consolidated_transaction_ids: created,
+      transaction_ids: allTxIds,
       items_integrated: resolved.length,
       total_items: items.length,
       errors,
@@ -630,6 +632,7 @@ Deno.serve(async (req) => {
         transaction_id: settlementTxId,
       },
       parked_remaining: (stillParked ?? []).length,
+      summary: integrationSummary,
     });
   } catch (err: any) {
     return json({ error: err?.message ?? String(err) }, 500);
