@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, ShoppingBag, CheckCircle2, XCircle, Wallet, Plus, Lock, Zap, AlertTriangle, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -124,6 +125,7 @@ export default function CamarimSessionDetail() {
   const [showDeleteSession, setShowDeleteSession] = useState(false);
   const [deletingSession, setDeletingSession] = useState(false);
   const [splitItemId, setSplitItemId] = useState<string | null>(null);
+  const [confirmIntegration, setConfirmIntegration] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -274,6 +276,53 @@ export default function CamarimSessionDetail() {
     if (advanceNet > 0 && Math.abs(balance) >= 0.01) type = balance > 0 ? "reinforcement" : "refund";
     return { advanceNet, spentFromAdvance, balance, type };
   }, [items, totals]);
+
+  // Resumo completo a apresentar para auditagem antes de integrar
+  const integrationPreview = useMemo(() => {
+    const baseTotal = approvedItems.reduce((a, i) => a + (Number(i.total_amount ?? 0) - Number(i.iva_amount ?? 0)), 0);
+    const ivaTotal = approvedItems.reduce((a, i) => a + Number(i.iva_amount ?? 0), 0);
+    const grandTotal = approvedItems.reduce((a, i) => a + Number(i.total_amount ?? 0), 0);
+
+    const byOrigin = {
+      advance: approvedItems.filter((i) => i.payment_origin === "advance").reduce((a, i) => a + Number(i.total_amount ?? 0), 0),
+      card: approvedItems.filter((i) => i.payment_origin === "card").reduce((a, i) => a + Number(i.total_amount ?? 0), 0),
+      out_of_pocket: approvedItems.filter((i) => i.payment_origin === "out_of_pocket").reduce((a, i) => a + Number(i.total_amount ?? 0), 0),
+    };
+    const countByOrigin = {
+      advance: approvedItems.filter((i) => i.payment_origin === "advance").length,
+      card: approvedItems.filter((i) => i.payment_origin === "card").length,
+      out_of_pocket: approvedItems.filter((i) => i.payment_origin === "out_of_pocket").length,
+    };
+    const byScope = {
+      master_common: approvedItems.filter((i) => i.bp_scope === "master_common").reduce((a, i) => a + Number(i.total_amount ?? 0), 0),
+      local_city: approvedItems.filter((i) => i.bp_scope === "local_city").reduce((a, i) => a + Number(i.total_amount ?? 0), 0),
+      mixed: approvedItems.filter((i) => i.bp_scope === "mixed").reduce((a, i) => a + Number(i.total_amount ?? 0), 0),
+    };
+
+    // Agrupamento por cartão (conta) — usado para sugerir nº de transações por cartão
+    const cardBreakdown = new Map<string, { name: string; amount: number; count: number }>();
+    for (const it of approvedItems.filter((i) => i.payment_origin === "card")) {
+      const key = it.financial_account_id ?? "__legacy__";
+      const name = it.financial_account_id
+        ? (accounts.find((a) => a.id === it.financial_account_id)?.name ?? "Cartão (sem nome)")
+        : "Cartão legado (sem conta)";
+      const cur = cardBreakdown.get(key) ?? { name, amount: 0, count: 0 };
+      cur.amount += Number(it.total_amount ?? 0);
+      cur.count += 1;
+      cardBreakdown.set(key, cur);
+    }
+
+    return {
+      baseTotal,
+      ivaTotal,
+      grandTotal,
+      byOrigin,
+      countByOrigin,
+      byScope,
+      cardBreakdown: Array.from(cardBreakdown.values()).sort((a, b) => b.amount - a.amount),
+      itemsCount: approvedItems.length,
+    };
+  }, [approvedItems, accounts]);
 
   // Bloqueios pré-integração: lista de problemas que impedem o fluxo
   const blockingIssues = useMemo(() => {
@@ -884,7 +933,7 @@ export default function CamarimSessionDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showIntegrate} onOpenChange={setShowIntegrate}>
+      <AlertDialog open={showIntegrate} onOpenChange={(o) => { setShowIntegrate(o); if (!o) setConfirmIntegration(false); }}>
         <AlertDialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Integrar sessão no sistema financeiro</AlertDialogTitle>
@@ -916,6 +965,100 @@ export default function CamarimSessionDetail() {
                 >
                   <Wallet className="mr-1.5 h-3.5 w-3.5" /> Registar movimento de fundo
                 </Button>
+              </div>
+            )}
+
+            {/* RESUMO COMPLETO PARA AUDITAGEM */}
+            {approvedItems.length > 0 && (
+              <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">
+                <p className="text-sm font-semibold text-foreground">
+                  Resumo da integração — confere antes de confirmar
+                </p>
+
+                {/* Totais gerais */}
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="rounded border border-border bg-background/60 p-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Itens</p>
+                    <p className="text-sm font-semibold tabular-nums">{integrationPreview.itemsCount}</p>
+                  </div>
+                  <div className="rounded border border-border bg-background/60 p-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Base</p>
+                    <p className="text-sm font-semibold tabular-nums">{formatCurrency(integrationPreview.baseTotal, session.currency)}</p>
+                  </div>
+                  <div className="rounded border border-border bg-background/60 p-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">IVA</p>
+                    <p className="text-sm font-semibold tabular-nums">{formatCurrency(integrationPreview.ivaTotal, session.currency)}</p>
+                  </div>
+                  <div className="rounded border border-border bg-background/60 p-2">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total geral</p>
+                    <p className="text-base font-bold tabular-nums">{formatCurrency(integrationPreview.grandTotal, session.currency)}</p>
+                  </div>
+                </div>
+
+                {/* Por origem */}
+                <div className="rounded border border-border bg-background/60 p-2 text-xs">
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Por origem de pagamento
+                  </p>
+                  <div className="grid grid-cols-1 gap-1 sm:grid-cols-3">
+                    <div>
+                      <span className="text-muted-foreground">Adiantamento ({integrationPreview.countByOrigin.advance}): </span>
+                      <strong className="tabular-nums">{formatCurrency(integrationPreview.byOrigin.advance, session.currency)}</strong>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Cartão ({integrationPreview.countByOrigin.card}): </span>
+                      <strong className="tabular-nums">{formatCurrency(integrationPreview.byOrigin.card, session.currency)}</strong>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Reembolso ({integrationPreview.countByOrigin.out_of_pocket}): </span>
+                      <strong className="tabular-nums">{formatCurrency(integrationPreview.byOrigin.out_of_pocket, session.currency)}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Detalhe por cartão */}
+                {integrationPreview.cardBreakdown.length > 0 && (
+                  <div className="rounded border border-border bg-background/60 p-2 text-xs">
+                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Cartões usados
+                    </p>
+                    <ul className="space-y-0.5">
+                      {integrationPreview.cardBreakdown.map((c, i) => (
+                        <li key={i} className="flex items-center justify-between gap-2">
+                          <span className="truncate">{c.name} <span className="text-muted-foreground">· {c.count} item(ns)</span></span>
+                          <strong className="tabular-nums">{formatCurrency(c.amount, session.currency)}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Por verba (BP) */}
+                <div className="rounded border border-border bg-background/60 p-2 text-xs">
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Por verba (BP)
+                  </p>
+                  <div className="grid grid-cols-1 gap-1 sm:grid-cols-3">
+                    <div>
+                      <span className="text-muted-foreground">Master (rateio): </span>
+                      <strong className="tabular-nums">{formatCurrency(integrationPreview.byScope.master_common, session.currency)}</strong>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Local (cidade): </span>
+                      <strong className="tabular-nums">{formatCurrency(integrationPreview.byScope.local_city, session.currency)}</strong>
+                    </div>
+                    {integrationPreview.byScope.mixed > 0 && (
+                      <div>
+                        <span className="text-muted-foreground">Misto: </span>
+                        <strong className="tabular-nums">{formatCurrency(integrationPreview.byScope.mixed, session.currency)}</strong>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-muted-foreground">
+                  Estes valores serão consolidados em transações na categoria <strong>2.6.04 — Camarins</strong>, agrupadas por evento, origem, conta e taxa de IVA. Após integrar, a sessão fica <strong>bloqueada para edição</strong>.
+                </p>
               </div>
             )}
 
@@ -1027,10 +1170,27 @@ export default function CamarimSessionDetail() {
             )}
           </div>
 
+          {approvedItems.length > 0 && blockingIssues.length === 0 && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
+              <Checkbox
+                id="confirm-integration"
+                checked={confirmIntegration}
+                onCheckedChange={(v) => setConfirmIntegration(v === true)}
+                className="mt-0.5"
+              />
+              <Label htmlFor="confirm-integration" className="cursor-pointer text-xs leading-relaxed">
+                Confirmo que revi o resumo acima e autorizo o <strong>fecho e encerramento</strong> desta sessão. Após integrar, a sessão fica bloqueada e só admin pode reabrir.
+              </Label>
+            </div>
+          )}
+
           <AlertDialogFooter>
             <AlertDialogCancel disabled={integrating}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={runIntegrate} disabled={integrating || blockingIssues.length > 0}>
-              {integrating ? "A integrar…" : "Integrar agora"}
+            <AlertDialogAction
+              onClick={runIntegrate}
+              disabled={integrating || blockingIssues.length > 0 || (approvedItems.length > 0 && !confirmIntegration)}
+            >
+              {integrating ? "A integrar…" : "Confirmar e integrar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
