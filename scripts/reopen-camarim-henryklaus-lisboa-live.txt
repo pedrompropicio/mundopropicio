@@ -1,0 +1,4 @@
+UPDATE camarim_sessions
+SET status='closed',
+    integrated_at=NULL
+WHERE id='972d3e95-f717-449c-b545-7df15438edc2';
