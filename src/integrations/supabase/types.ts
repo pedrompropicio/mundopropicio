@@ -530,6 +530,7 @@ export type Database = {
       }
       camarim_items: {
         Row: {
+          analytic_tag: string | null
           approved_without_document: boolean
           approved_without_document_reason: string | null
           base_amount: number
@@ -568,6 +569,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          analytic_tag?: string | null
           approved_without_document?: boolean
           approved_without_document_reason?: string | null
           base_amount?: number
@@ -606,6 +608,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          analytic_tag?: string | null
           approved_without_document?: boolean
           approved_without_document_reason?: string | null
           base_amount?: number
