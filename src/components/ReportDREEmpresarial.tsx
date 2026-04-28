@@ -280,7 +280,7 @@ export default function ReportDREEmpresarial() {
     }
 
     return result;
-  }, [eventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, closingCosts, year]);
+  }, [eventTx, corpTxAll, lookup, corporateExpenseCatIds, corporateIncomeCatIds, events, eventPartners, year]);
 
   const years = useMemo(() => {
     const ySet = new Set<number>();
