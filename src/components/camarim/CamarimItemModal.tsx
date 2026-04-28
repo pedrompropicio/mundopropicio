@@ -44,7 +44,8 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
   const [docDate, setDocDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [totalAmount, setTotalAmount] = useState("");
   const [ivaAmount, setIvaAmount] = useState("");
-  const [paymentOrigin, setPaymentOrigin] = useState<CamarimItemPaymentOrigin>("advance");
+  // Forma de pagamento é OBRIGATÓRIA — começa indefinida para forçar escolha explícita.
+  const [paymentOrigin, setPaymentOrigin] = useState<CamarimItemPaymentOrigin | null>(null);
   const [financialAccountId, setFinancialAccountId] = useState<string | null>(null);
   const [bpScope, setBpScope] = useState<CamarimItemBpScope>("master_common");
   const [notes, setNotes] = useState("");
