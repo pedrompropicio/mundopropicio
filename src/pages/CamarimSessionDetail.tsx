@@ -920,8 +920,15 @@ export default function CamarimSessionDetail() {
             )}
 
             {needsCardAccount && (
-              <div className="space-y-2">
-                <Label>Conta financeira do cartão da empresa</Label>
+              <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
+                <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-4 w-4" />
+                  {legacyCardItemsWithoutAccount.length} item(ns) antigo(s) pago(s) com cartão sem conta associada
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Estes lançamentos foram criados antes da forma de pagamento ser obrigatória. Escolhe a conta do cartão usada para os liquidar.
+                </p>
+                <Label className="text-xs">Conta financeira do cartão (fallback para itens legados)</Label>
                 <Select value={cardAccountId} onValueChange={setCardAccountId}>
                   <SelectTrigger><SelectValue placeholder="Selecionar conta…" /></SelectTrigger>
                   <SelectContent>
