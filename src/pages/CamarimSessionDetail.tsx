@@ -472,6 +472,12 @@ export default function CamarimSessionDetail() {
   if (!session) return <p className="text-sm text-muted-foreground">Sessão não encontrada.</p>;
 
   const pct = session.budget_amount > 0 ? Math.min(100, (totals.spent / session.budget_amount) * 100) : 0;
+  // Edição de conteúdo (adicionar/editar/eliminar itens e fundos):
+  // - Equipa (editor): só com sessão Aberta.
+  // - Manager/Admin: enquanto não estiver Integrada (podem usar "Reabrir sessão" se preciso).
+  const canEditContent = canManage
+    ? session.status !== "integrated"
+    : session.status === "open";
 
   return (
     <div className="space-y-6">
@@ -510,9 +516,18 @@ export default function CamarimSessionDetail() {
             </Button>
           )}
           {(session.status === "in_review" || session.status === "closed") && canCloseSession && (
-            <Button onClick={() => setShowIntegrate(true)} disabled={approvedItems.length === 0}>
-              <Zap className="mr-2 h-4 w-4" /> Integrar ({approvedItems.length})
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={() => updateSessionStatus("open")}
+                title="Voltar a abrir a sessão para edição da equipa"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" /> Reabrir sessão
+              </Button>
+              <Button onClick={() => setShowIntegrate(true)} disabled={approvedItems.length === 0}>
+                <Zap className="mr-2 h-4 w-4" /> Integrar ({approvedItems.length})
+              </Button>
+            </>
           )}
           {/* Eliminar sessão: admin enquanto não integrada; manager apenas em revisão */}
           {((isAdmin && session.status !== "integrated") ||
@@ -661,7 +676,12 @@ export default function CamarimSessionDetail() {
                 setEditingItemId(null);
                 setShowItem(true);
               }}
-              disabled={session.status === "integrated"}
+              disabled={!canEditContent}
+              title={
+                !canEditContent && session.status !== "integrated"
+                  ? "Sessão fechada — só gestor/admin pode adicionar (use Reabrir sessão)."
+                  : undefined
+              }
             >
               <Plus className="mr-2 h-4 w-4" /> Adicionar conta
             </Button>
@@ -680,12 +700,12 @@ export default function CamarimSessionDetail() {
                   key={it.id}
                   className={cn(
                     "transition",
-                    session.status === "integrated"
+                    !canEditContent
                       ? "opacity-95"
                       : "cursor-pointer hover:border-primary/40",
                   )}
                   onClick={() => {
-                    if (session.status === "integrated") return;
+                    if (!canEditContent) return;
                     setEditingItemId(it.id);
                     setShowItem(true);
                   }}

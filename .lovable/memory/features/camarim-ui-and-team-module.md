@@ -13,6 +13,7 @@ type: feature
 - `camarim_team` (admin + manager por defeito): permite usar a vista mobile `/camarim-equipa`.
 - `camarim_manage` (admin + manager + **editor** por defeito): permite criar e gerir sessões/itens em `/camarim` e `/camarim/:id` (criar sessão, editar, aprovar/rejeitar itens, mover fundos). Pode ser concedida individualmente a viewers via UserPermissionsModal. RLS de `camarim_sessions` e `camarim_items` aceita esta permissão.
 - **Fecho da sessão** (Enviar para revisão → Fechar → Integrar) está restrito a `isAdmin || isManager` no UI (`canCloseSession`). Editores com `camarim_manage` veem a sessão mas não veem os botões de fecho.
+- **Edição de conteúdo** (adicionar/editar/eliminar itens e fundos) segue `canEditContent`: equipa (editor com `camarim_team`/`camarim_manage`) só com sessão `open`; manager/admin enquanto não estiver `integrated`. RLS espelha (policies "team"/"session members" passam a exigir `s.status = 'open'`). Botão **"Reabrir sessão"** (manager/admin) volta de `in_review`/`closed` para `open`.
 
 ## OCR imediato
 - Edge function: `extract-camarim-receipt` (Lovable AI Gateway, modelo `google/gemini-2.5-flash`, sem JWT).
