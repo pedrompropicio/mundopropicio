@@ -238,8 +238,25 @@ export default function ReportDREEmpresarial() {
       const partners = eventPartners.filter((p: any) => p.event_id === evt.id);
       if (partners.length === 0) return;
       const evtTx = eventTx.filter((t) => t.event_id === evt.id);
-      const inc = evtTx.filter((t) => t.type === "income" && !t.is_transitory && !t.exclude_from_result)
+      let inc = evtTx
+        .filter((t) => t.type === "income" && !t.is_transitory && !t.exclude_from_result)
+        .filter((t) => !(useTicketSales && ticketCategoryId && t.category_id === ticketCategoryId))
         .reduce((s, t) => s + Number(t.amount), 0);
+      // Adicionar receita líquida de bilheteira do evento (se fonte = ticket_sales)
+      if (useTicketSales) {
+        const evtZoneIds = ticketZones.filter((z: any) => z.event_id === evt.id).map((z: any) => z.id);
+        const evtLotIds = ticketLots.filter((l: any) => evtZoneIds.includes((l as any).zone_id)).map((l: any) => l.id);
+        const evtSales = ticketSales.filter((s: any) => evtLotIds.includes(s.lot_id));
+        const ticketNet = evtSales.reduce((sum: number, s: any) => {
+          const lot = ticketLots.find((l: any) => l.id === s.lot_id);
+          const rate = Number((lot as any)?.iva_rate ?? 6);
+          const gross = (s.total_value !== null && s.total_value !== undefined && s.total_value !== "")
+            ? Number(s.total_value)
+            : Number(s.quantity || 0) * Number(s.unit_price || 0);
+          return sum + gross / (1 + rate / 100);
+        }, 0);
+        inc += ticketNet;
+      }
       const exp = evtTx.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result)
         .reduce((s, t) => s + Number(t.amount), 0);
       const netResult = inc - exp;
