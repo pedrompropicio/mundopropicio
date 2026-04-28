@@ -54,12 +54,15 @@ function buildDREBrasil(
   calcBasis: string,
   parentEventId?: string | null,
   closingCosts?: any[],
-  partnerExtras?: any[]
+  partnerExtras?: any[],
+  childEventIds?: string[]
 ): DRELine[] {
   const lookup = buildCategoryLookup(categories);
 
   const useTicketSales = ticketRevenueSource === "ticket_sales";
-  const eventZones = ticketZones.filter((z) => z.event_id === eventId);
+  // Master de turnê: agrega zonas dos próprios e dos filhos (zonas vivem nos splits).
+  const scopeIds = [eventId, ...(childEventIds || [])];
+  const eventZones = ticketZones.filter((z) => scopeIds.includes(z.event_id));
   const hasTicketMgmt = eventZones.length > 0;
 
   let incomes = transactions.filter((t) => t.type === "income" && !t.is_transitory && !t.exclude_from_result);
