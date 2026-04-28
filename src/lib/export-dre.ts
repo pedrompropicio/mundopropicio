@@ -359,7 +359,8 @@ export function exportDREToPDF(
   ticketCategoryId: string | null = null,
   partners: any[] = [],
   allEvents: any[] = [],
-  brasilMode: boolean = false
+  brasilMode: boolean = false,
+  closingCosts: any[] = []
 ) {
   const eventsSource = allEvents.length > 0 ? allEvents : events;
   const doc = new jsPDF({ orientation: "portrait" });
