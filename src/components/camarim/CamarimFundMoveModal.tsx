@@ -8,23 +8,57 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
-import { FUND_MOVE_LABELS, type CamarimFundMoveType } from "@/lib/camarim-helpers";
+import { Loader2, AlertTriangle } from "lucide-react";
+import { FUND_MOVE_LABELS, formatCurrency, type CamarimFundMoveType } from "@/lib/camarim-helpers";
 
 interface Account {
   id: string;
   name: string;
 }
 
+interface ExistingMove {
+  id: string;
+  move_type: CamarimFundMoveType;
+  amount: number;
+  move_date: string;
+  notes: string | null;
+  financial_account_id: string | null;
+}
+
+interface AllMove {
+  move_type: CamarimFundMoveType;
+  amount: number;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sessionId: string;
+  /** Movimento existente para editar; quando null/undefined cria novo. */
+  existing?: ExistingMove | null;
+  /** Moeda da sessão (EUR/BRL/USD). */
+  currency?: string;
+  /** Caixa em mão actual (já gasto via adiantamento descontado), para validar devoluções. */
+  cashOnHand?: number;
+  /** Total já gasto via adiantamento — usado para sugerir devolução máxima. */
+  spentFromAdvance?: number;
+  /** Todos os movimentos (excluindo o que está a ser editado), para validar saldos. */
+  allMoves?: AllMove[];
   onSaved?: () => void;
 }
 
-export function CamarimFundMoveModal({ open, onOpenChange, sessionId, onSaved }: Props) {
+export function CamarimFundMoveModal({
+  open,
+  onOpenChange,
+  sessionId,
+  existing,
+  currency = "EUR",
+  cashOnHand,
+  allMoves = [],
+  onSaved,
+}: Props) {
   const { user } = useAuth();
+  const isEdit = !!existing;
   const [moveType, setMoveType] = useState<CamarimFundMoveType>("advance");
   const [amount, setAmount] = useState("");
   const [moveDate, setMoveDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -43,29 +77,100 @@ export function CamarimFundMoveModal({ open, onOpenChange, sessionId, onSaved }:
       .then(({ data }) => setAccounts((data ?? []) as Account[]));
   }, [open]);
 
+  // Preencher campos quando abre em modo edição.
+  useEffect(() => {
+    if (!open) return;
+    if (existing) {
+      setMoveType(existing.move_type);
+      setAmount(String(existing.amount));
+      setMoveDate(existing.move_date);
+      setNotes(existing.notes ?? "");
+      setAccountId(existing.financial_account_id ?? "");
+    } else {
+      setMoveType("advance");
+      setAmount("");
+      setMoveDate(new Date().toISOString().slice(0, 10));
+      setNotes("");
+      setAccountId("");
+    }
+  }, [open, existing]);
+
+  const numericAmount = Number(amount);
+  const accountRequired = moveType === "advance" || moveType === "reinforcement";
+
+  // Cálculo do saldo previsto após este movimento (excluindo o próprio em edição).
+  const sumIn = allMoves
+    .filter((m) => m.move_type === "advance" || m.move_type === "reinforcement")
+    .reduce((s, m) => s + Number(m.amount || 0), 0);
+  const sumOut = allMoves
+    .filter((m) => m.move_type === "refund")
+    .reduce((s, m) => s + Number(m.amount || 0), 0);
+  const advanceNet = sumIn - sumOut;
+
+  // Aviso: devolução não pode exceder o líquido entregue.
+  const refundExceedsNet =
+    moveType === "refund" && numericAmount > 0 && numericAmount > advanceNet + 0.01;
+
+  // Aviso: caixa em mão ficaria negativa após este movimento.
+  const projectedCash =
+    cashOnHand !== undefined
+      ? moveType === "refund"
+        ? cashOnHand - numericAmount
+        : moveType === "advance" || moveType === "reinforcement"
+          ? cashOnHand + numericAmount
+          : cashOnHand
+      : null;
+  const cashWouldGoNegative = projectedCash !== null && projectedCash < -0.01;
+
   const handleSubmit = async () => {
-    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+    if (!amount || isNaN(numericAmount) || numericAmount <= 0) {
       toast({ variant: "destructive", title: "Valor inválido" });
+      return;
+    }
+    if (accountRequired && !accountId) {
+      toast({
+        variant: "destructive",
+        title: "Conta obrigatória",
+        description: "Adiantamentos e reforços precisam de identificar a conta de origem do dinheiro.",
+      });
+      return;
+    }
+    if (refundExceedsNet) {
+      toast({
+        variant: "destructive",
+        title: "Devolução superior ao entregue",
+        description: `Já só restam ${formatCurrency(advanceNet, currency)} líquidos por devolver.`,
+      });
       return;
     }
     setSaving(true);
     try {
-      const { error } = await supabase.from("camarim_fund_moves" as any).insert({
-        session_id: sessionId,
+      const payload = {
         move_type: moveType,
-        amount: Number(amount),
+        amount: numericAmount,
         move_date: moveDate,
-        currency: "EUR",
+        currency,
         financial_account_id: accountId || null,
         notes: notes || null,
-        created_by: user?.id ?? null,
-      } as any);
-      if (error) throw error;
-      toast({ title: "Movimento registado" });
+      };
+      if (isEdit && existing) {
+        const { error } = await supabase
+          .from("camarim_fund_moves" as any)
+          .update(payload as any)
+          .eq("id", existing.id);
+        if (error) throw error;
+        toast({ title: "Movimento atualizado" });
+      } else {
+        const { error } = await supabase.from("camarim_fund_moves" as any).insert({
+          session_id: sessionId,
+          ...payload,
+          created_by: user?.id ?? null,
+        } as any);
+        if (error) throw error;
+        toast({ title: "Movimento registado" });
+      }
       onSaved?.();
       onOpenChange(false);
-      setAmount("");
-      setNotes("");
     } catch (e: any) {
       toast({ variant: "destructive", title: "Erro", description: e.message });
     } finally {
@@ -77,7 +182,9 @@ export function CamarimFundMoveModal({ open, onOpenChange, sessionId, onSaved }:
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Movimento de caixa do camarim</DialogTitle>
+          <DialogTitle>
+            {isEdit ? "Editar movimento de caixa" : "Movimento de caixa do camarim"}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">
@@ -98,18 +205,26 @@ export function CamarimFundMoveModal({ open, onOpenChange, sessionId, onSaved }:
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Valor (€)</Label>
-              <Input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+              <Label>Valor ({currency})</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Data</Label>
               <Input type="date" value={moveDate} onChange={(e) => setMoveDate(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label>Conta de origem (opcional)</Label>
+              <Label>
+                Conta {accountRequired ? "" : "(opcional)"}
+                {accountRequired && <span className="text-destructive"> *</span>}
+              </Label>
               <Select value={accountId} onValueChange={setAccountId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Sem conta" />
+                  <SelectValue placeholder={accountRequired ? "Selecionar conta" : "Sem conta"} />
                 </SelectTrigger>
                 <SelectContent>
                   {accounts.map((a) => (
@@ -126,6 +241,24 @@ export function CamarimFundMoveModal({ open, onOpenChange, sessionId, onSaved }:
             <Label>Notas</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
           </div>
+
+          {(refundExceedsNet || cashWouldGoNegative) && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="space-y-0.5">
+                {refundExceedsNet && (
+                  <p>
+                    Devolução excede o líquido entregue ({formatCurrency(advanceNet, currency)}).
+                  </p>
+                )}
+                {cashWouldGoNegative && projectedCash !== null && (
+                  <p>
+                    Caixa em mão ficaria em {formatCurrency(projectedCash, currency)}.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
@@ -134,7 +267,7 @@ export function CamarimFundMoveModal({ open, onOpenChange, sessionId, onSaved }:
           </Button>
           <Button onClick={handleSubmit} disabled={saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Registar
+            {isEdit ? "Guardar" : "Registar"}
           </Button>
         </DialogFooter>
       </DialogContent>
