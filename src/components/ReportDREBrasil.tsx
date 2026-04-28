@@ -141,21 +141,21 @@ function buildDREBrasil(
   }
 
 
+  // Result = Receitas s/IVA − Despesas c/IVA (já inclui overheads quando vista do sócio ON)
+  const resultGrossExp = totalIncEx - totalExpInc;
+  lines.push({ label: "RESULTADO", amountExIva: resultGrossExp, ivaAmount: 0, amountIncIva: resultGrossExp, isGrandTotal: true });
+
   // Partner distribution
   const resolvedPartnerId = parentEventId || eventId;
   const eventPartners = partners.filter((p: any) => p.event_id === resolvedPartnerId);
   if (eventPartners.length > 0) {
     let totalDistribution = 0;
-    const consistentBase = calcBasis === "gross_revenue" ? totalIncEx : totalIncEx - totalExpInc - totalClosingCosts;
+    const consistentBase = calcBasis === "gross_revenue" ? totalIncEx : resultGrossExp;
 
     eventPartners.forEach((p: any) => {
-      let base: number;
-      if (calcBasis === "gross_revenue") {
-        base = totalIncEx;
-      } else {
-        base = totalIncEx - totalExpInc - totalClosingCosts;
-      }
+      const base = calcBasis === "gross_revenue" ? totalIncEx : resultGrossExp;
       const share = base * (Number(p.percentage) / 100);
+
       const supplierName = p.suppliers?.name || "Sócio";
       lines.push({
         label: `  ${supplierName} (${Number(p.percentage).toFixed(1)}%)`,
