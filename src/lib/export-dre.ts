@@ -45,7 +45,9 @@ export function buildDREForExport(
   const eventZones = ticketZones.filter((z: any) => z.event_id === eventId);
   const hasTicketMgmt = eventZones.length > 0;
 
-  let incomes = transactions.filter((t) => t.type === "income");
+  // Excluir transitórias (cauções) e exclude_from_result — alinhar com Fecho dos Sócios.
+  // Mantém o rateio Master→Splits (feito em getEffectiveTransactionsForExport).
+  let incomes = transactions.filter((t) => t.type === "income" && !t.is_transitory && !t.exclude_from_result);
   let ticketIncomeExIva = 0;
   let ticketIncomeIncIva = 0;
 
@@ -66,7 +68,7 @@ export function buildDREForExport(
     ticketIncomeIncIva = ticketGross;
   }
 
-  const expenses = transactions.filter((t) => t.type === "expense");
+  const expenses = transactions.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result);
 
   const incGroups = aggregateByHierarchyDRE(incomes, lookup, calcAmountWithIva);
   const expGroups = aggregateByHierarchyDRE(expenses, lookup, calcAmountWithIva);
