@@ -126,13 +126,16 @@ export function buildDREForExport(
 
   // Detalhe dos rateios de overhead (mesmo tratamento do componente UI)
   if (eventClosingCosts.length > 0) {
-    lines.push({ label: "RATEIOS / OVERHEAD (BP)", amountExIva: totalClosingCosts, ivaAmount: 0, amountIncIva: totalClosingCosts, isGroupHeader: true, isExpenseSide: true });
+    lines.push({ label: "RATEIOS / OVERHEAD (BP)", amountExIva: totalClosingCostsBase, ivaAmount: totalClosingCostsIva, amountIncIva: totalClosingCosts, isGroupHeader: true, isExpenseSide: true });
     eventClosingCosts.forEach((cc: any) => {
       const catLabel = cc.account_categories ? `${cc.account_categories.code} - ${cc.account_categories.name}` : "";
       const viaMaster = cc._overhead_via_master ? " (via Master)" : "";
       const desc = cc.description || "Overhead";
       const label = catLabel ? `${desc} (${catLabel})${viaMaster}` : `${desc}${viaMaster}`;
-      lines.push({ label, amountExIva: Number(cc.amount), ivaAmount: 0, amountIncIva: Number(cc.amount), indent: true, isExpenseSide: true });
+      const base = Number(cc.amount || 0);
+      const rate = cc.iva_rate != null ? Number(cc.iva_rate) : 23;
+      const iva = calcIvaAmount(base, rate);
+      lines.push({ label, amountExIva: base, ivaAmount: iva, amountIncIva: base + iva, indent: true, isExpenseSide: true });
     });
   }
 
