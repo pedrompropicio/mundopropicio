@@ -1,6 +1,6 @@
 ---
 name: Overhead allocations
-description: Rateios de overhead em event_forecasts (is_overhead=true) com proração virtual Master→Splits (÷N igualitário); aparecem em BP/DRE com badge "Overhead" (admin/manager) e "via Master" nos splits; exclude_from_result=true (não impactam empresa); somam ao acerto de sócios proporcionalmente em cada split; toggles "Com/Sem Overhead" em Previsão vs Real, DRE, DRE Brasil e Análise de Resultados
+description: Rateios de overhead em event_forecasts (is_overhead=true) com proração virtual Master→Splits (÷N igualitário); aparecem em BP/DRE com badge "Overhead" (admin/manager) e "via Master" nos splits; exclude_from_result=true (não impactam empresa); somam ao acerto de sócios proporcionalmente em cada split; toggles "Com/Sem Overhead" em Previsão vs Real, DRE, DRE Brasil e Análise de Resultados; nos relatórios DRE (Standard, Brasil e export) os overheads são alocados DENTRO da categoria contabilística respetiva (em vez de bloco separado), com lista de "Detalhe de Overheads (já incluídos nas categorias acima)" só para rastreabilidade
 type: feature
 ---
 
