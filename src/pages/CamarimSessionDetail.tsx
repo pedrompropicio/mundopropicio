@@ -276,6 +276,53 @@ export default function CamarimSessionDetail() {
     return { advanceNet, spentFromAdvance, balance, type };
   }, [items, totals]);
 
+  // Resumo completo a apresentar para auditagem antes de integrar
+  const integrationPreview = useMemo(() => {
+    const baseTotal = approvedItems.reduce((a, i) => a + (Number(i.total_amount ?? 0) - Number(i.iva_amount ?? 0)), 0);
+    const ivaTotal = approvedItems.reduce((a, i) => a + Number(i.iva_amount ?? 0), 0);
+    const grandTotal = approvedItems.reduce((a, i) => a + Number(i.total_amount ?? 0), 0);
+
+    const byOrigin = {
+      advance: approvedItems.filter((i) => i.payment_origin === "advance").reduce((a, i) => a + Number(i.total_amount ?? 0), 0),
+      card: approvedItems.filter((i) => i.payment_origin === "card").reduce((a, i) => a + Number(i.total_amount ?? 0), 0),
+      out_of_pocket: approvedItems.filter((i) => i.payment_origin === "out_of_pocket").reduce((a, i) => a + Number(i.total_amount ?? 0), 0),
+    };
+    const countByOrigin = {
+      advance: approvedItems.filter((i) => i.payment_origin === "advance").length,
+      card: approvedItems.filter((i) => i.payment_origin === "card").length,
+      out_of_pocket: approvedItems.filter((i) => i.payment_origin === "out_of_pocket").length,
+    };
+    const byScope = {
+      master_common: approvedItems.filter((i) => i.bp_scope === "master_common").reduce((a, i) => a + Number(i.total_amount ?? 0), 0),
+      local_city: approvedItems.filter((i) => i.bp_scope === "local_city").reduce((a, i) => a + Number(i.total_amount ?? 0), 0),
+      mixed: approvedItems.filter((i) => i.bp_scope === "mixed").reduce((a, i) => a + Number(i.total_amount ?? 0), 0),
+    };
+
+    // Agrupamento por cartão (conta) — usado para sugerir nº de transações por cartão
+    const cardBreakdown = new Map<string, { name: string; amount: number; count: number }>();
+    for (const it of approvedItems.filter((i) => i.payment_origin === "card")) {
+      const key = it.financial_account_id ?? "__legacy__";
+      const name = it.financial_account_id
+        ? (accounts.find((a) => a.id === it.financial_account_id)?.name ?? "Cartão (sem nome)")
+        : "Cartão legado (sem conta)";
+      const cur = cardBreakdown.get(key) ?? { name, amount: 0, count: 0 };
+      cur.amount += Number(it.total_amount ?? 0);
+      cur.count += 1;
+      cardBreakdown.set(key, cur);
+    }
+
+    return {
+      baseTotal,
+      ivaTotal,
+      grandTotal,
+      byOrigin,
+      countByOrigin,
+      byScope,
+      cardBreakdown: Array.from(cardBreakdown.values()).sort((a, b) => b.amount - a.amount),
+      itemsCount: approvedItems.length,
+    };
+  }, [approvedItems, accounts]);
+
   // Bloqueios pré-integração: lista de problemas que impedem o fluxo
   const blockingIssues = useMemo(() => {
     const issues: string[] = [];
