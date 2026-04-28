@@ -36,7 +36,12 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
   const [showDocuments, setShowDocuments] = useState(false);
   const [paymentDateOpen, setPaymentDateOpen] = useState(false);
   const [invoiceRef, setInvoiceRef] = useState(transaction.invoice_ref ?? "");
-  const [withholdingAmount, setWithholdingAmount] = useState("");
+  const [withholdingAmount, setWithholdingAmount] = useState(() => {
+    // Pré-preenche com retenção já declarada na fatura no momento do lançamento.
+    // Pode ser editado pelo utilizador antes de confirmar a liquidação.
+    const declared = transaction.declared_withholding_amount;
+    return declared != null && Number(declared) > 0 ? String(declared) : "";
+  });
   const [notes, setNotes] = useState("");
   const [accountId, setAccountId] = useState(transaction.account_id ?? "");
   const [creditAllocations, setCreditAllocations] = useState<Record<string, string>>({});
