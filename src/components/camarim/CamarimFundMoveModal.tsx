@@ -74,6 +74,7 @@ export function CamarimFundMoveModal({
       .from("financial_accounts")
       .select("id,name,type")
       .eq("is_active", true)
+      .eq("is_hidden", false)
       .in("type", ["bank", "cash"])
       .order("name")
       .then(({ data }) => setAccounts((data ?? []) as Account[]));

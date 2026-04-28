@@ -2183,6 +2183,7 @@ export type Database = {
           id: string
           initial_balance: number
           is_active: boolean
+          is_hidden: boolean
           name: string
           phone: string | null
           skip_balance_check: boolean
@@ -2201,6 +2202,7 @@ export type Database = {
           id?: string
           initial_balance?: number
           is_active?: boolean
+          is_hidden?: boolean
           name: string
           phone?: string | null
           skip_balance_check?: boolean
@@ -2219,6 +2221,7 @@ export type Database = {
           id?: string
           initial_balance?: number
           is_active?: boolean
+          is_hidden?: boolean
           name?: string
           phone?: string | null
           skip_balance_check?: boolean

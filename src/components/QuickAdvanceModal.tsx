@@ -45,6 +45,7 @@ export function QuickAdvanceModal({ open, onClose, officeId, officeName, eventId
         .select("id, name, type")
         .eq("type", "bank")
         .eq("is_active", true)
+        .eq("is_hidden", false)
         .neq("id", officeId)
         .order("name");
       return data || [];

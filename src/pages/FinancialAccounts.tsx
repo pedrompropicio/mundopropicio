@@ -42,6 +42,7 @@ interface AccountForm {
   card_number: string;
   skip_balance_check: boolean;
   withholds_revenue: boolean;
+  is_hidden: boolean;
 }
 
 const emptyForm: AccountForm = {
@@ -55,6 +56,7 @@ const emptyForm: AccountForm = {
   card_number: "",
   skip_balance_check: false,
   withholds_revenue: false,
+  is_hidden: false,
 };
 
 export default function FinancialAccounts() {
@@ -135,6 +137,7 @@ export default function FinancialAccounts() {
         card_number: form.type === "prepaid_card" ? (form.card_number.trim() || null) : null,
         skip_balance_check: form.skip_balance_check,
         withholds_revenue: form.withholds_revenue,
+        is_hidden: form.is_hidden,
       };
 
       if (editingId) {
@@ -179,6 +182,7 @@ export default function FinancialAccounts() {
       card_number: account.card_number ?? "",
       skip_balance_check: account.skip_balance_check ?? false,
       withholds_revenue: account.withholds_revenue ?? false,
+      is_hidden: account.is_hidden ?? false,
     });
     setEditingId(account.id);
     setShowForm(true);
@@ -389,6 +393,21 @@ export default function FinancialAccounts() {
                 <Switch
                   checked={form.withholds_revenue}
                   onCheckedChange={(v) => setForm({ ...form, withholds_revenue: v })}
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                <div>
+                  <Label className="text-sm font-medium">Ocultar de seletores</Label>
+                  <p className="text-xs text-muted-foreground">
+                    A conta deixa de aparecer ao criar transações, movimentos de camarim, reembolsos
+                    ou adiantamentos. Continua disponível em relatórios e fluxos administrativos.
+                    Útil para contas de uso restrito (ex.: "Eventos Históricos").
+                  </p>
+                </div>
+                <Switch
+                  checked={form.is_hidden}
+                  onCheckedChange={(v) => setForm({ ...form, is_hidden: v })}
                 />
               </div>
 
