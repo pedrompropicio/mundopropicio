@@ -787,11 +787,51 @@ export default function CamarimSessionDetail() {
       {showFund && (
         <CamarimFundMoveModal
           open={showFund}
-          onOpenChange={setShowFund}
+          onOpenChange={(o) => {
+            setShowFund(o);
+            if (!o) setEditingFund(null);
+          }}
           sessionId={session.id}
+          existing={editingFund}
+          currency={session.currency}
+          cashOnHand={totals.cashOnHand}
+          allMoves={funds.filter((f) => f.id !== editingFund?.id).map((f) => ({ move_type: f.move_type, amount: f.amount }))}
           onSaved={load}
         />
       )}
+
+      <AlertDialog open={!!deletingFundId} onOpenChange={(o) => !o && setDeletingFundId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar movimento de caixa?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O saldo da sessão será recalculado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (!deletingFundId) return;
+                const { error } = await supabase
+                  .from("camarim_fund_moves" as any)
+                  .delete()
+                  .eq("id", deletingFundId);
+                if (error) {
+                  toast({ variant: "destructive", title: "Erro", description: error.message });
+                } else {
+                  toast({ title: "Movimento eliminado" });
+                  await load();
+                }
+                setDeletingFundId(null);
+              }}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {showEditSession && (
         <EditSessionModal
