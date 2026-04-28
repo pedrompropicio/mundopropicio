@@ -220,7 +220,7 @@ function buildDREBrasil(
 export default function ReportDREBrasil() {
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
-  const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("transactions");
+  const [ticketRevenueSource, setTicketRevenueSource] = useState<TicketRevenueSource>("ticket_sales");
   const [showPartnerView, setShowPartnerView] = useState(false);
 
   const { data: events = [] } = useQuery({
