@@ -76,6 +76,8 @@ export function WithholdingDeclaredFields({
     ? Math.max(0, baseAmount - declaredAmount)
     : null;
 
+  const COMMON_RATES = [11.5, 16.5, 20, 23, 25];
+
   return (
     <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 space-y-2">
       <div className="flex items-center justify-between">
@@ -89,33 +91,17 @@ export function WithholdingDeclaredFields({
           <label className="mb-1 block text-[10px] font-medium text-muted-foreground">
             Taxa (%)
           </label>
-          <select
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            max="100"
             value={rate}
+            placeholder="0"
             onChange={(e) => handleRate(e.target.value)}
             disabled={disabled}
-            className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-60"
-          >
-            <option value="">— Sem retenção —</option>
-            <option value="11.5">11,5%</option>
-            <option value="16.5">16,5%</option>
-            <option value="20">20%</option>
-            <option value="23">23%</option>
-            <option value="25">25%</option>
-            <option value="custom">Outra…</option>
-          </select>
-          {rate === "custom" && (
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              max="100"
-              autoFocus
-              placeholder="Taxa %"
-              onChange={(e) => handleRate(e.target.value)}
-              disabled={disabled}
-              className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm font-mono"
-            />
-          )}
+            className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-60"
+          />
         </div>
         <div>
           <label className="mb-1 block text-[10px] font-medium text-muted-foreground">
@@ -132,6 +118,39 @@ export function WithholdingDeclaredFields({
             className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-60"
           />
         </div>
+      </div>
+      {/* Atalhos para taxas comuns IRS PT */}
+      <div className="flex flex-wrap gap-1">
+        <span className="text-[10px] text-muted-foreground self-center mr-1">Comuns:</span>
+        {COMMON_RATES.map((r) => {
+          const active = parseFloat(rate) === r;
+          return (
+            <button
+              key={r}
+              type="button"
+              onClick={() => handleRate(String(r))}
+              disabled={disabled}
+              className={
+                "rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors " +
+                (active
+                  ? "bg-warning text-warning-foreground"
+                  : "border border-border bg-background text-muted-foreground hover:bg-secondary")
+              }
+            >
+              {r.toString().replace(".", ",")}%
+            </button>
+          );
+        })}
+        {(parseFloat(rate) > 0 || parseFloat(amount) > 0) && (
+          <button
+            type="button"
+            onClick={() => { lastEdited.current = null; onRateChange(""); onAmountChange(""); }}
+            disabled={disabled}
+            className="ml-auto rounded-md px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:text-destructive"
+          >
+            Limpar
+          </button>
+        )}
       </div>
       {liquidoFornecedor != null && (
         <p className="text-[10px] text-muted-foreground">
