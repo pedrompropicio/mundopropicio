@@ -959,6 +959,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             payment_method: data.payment_method || "transfer",
             payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
             payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
+            declared_withholding_rate: data.type === "expense" && data.declared_withholding_rate && data.declared_withholding_rate !== "custom" ? Number(data.declared_withholding_rate) : null,
+            declared_withholding_amount: data.type === "expense" && parseFloat(data.declared_withholding_amount) > 0 ? +(parseFloat(data.declared_withholding_amount) * (entry.percentage / 100)).toFixed(2) : null,
           };
         });
 
@@ -996,6 +998,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           payment_method: data.payment_method || "transfer",
           payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
           payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
+          declared_withholding_rate: data.type === "expense" && data.declared_withholding_rate && data.declared_withholding_rate !== "custom" ? Number(data.declared_withholding_rate) : null,
+          declared_withholding_amount: data.type === "expense" && parseFloat(data.declared_withholding_amount) > 0 ? parseFloat(data.declared_withholding_amount) : null,
         } as any).select("id").single();
         if (parentError) throw parentError;
         const parentId = parentRow.id;
