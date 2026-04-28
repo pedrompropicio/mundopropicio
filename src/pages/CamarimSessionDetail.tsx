@@ -124,6 +124,7 @@ export default function CamarimSessionDetail() {
   const [showDeleteSession, setShowDeleteSession] = useState(false);
   const [deletingSession, setDeletingSession] = useState(false);
   const [splitItemId, setSplitItemId] = useState<string | null>(null);
+  const [confirmIntegration, setConfirmIntegration] = useState(false);
 
   useEffect(() => {
     if (!id) return;
