@@ -687,14 +687,18 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Forma de pagamento</Label>
+              <Label>
+                Forma de pagamento <span className="text-destructive">*</span>
+              </Label>
               <Select
                 value={
                   paymentOrigin === "advance"
                     ? PAYMENT_ADVANCE
                     : paymentOrigin === "out_of_pocket"
                       ? PAYMENT_OUT_OF_POCKET
-                      : (financialAccountId ?? "")
+                      : paymentOrigin === "card"
+                        ? (financialAccountId ?? "")
+                        : ""
                 }
                 onValueChange={(v) => {
                   if (v === PAYMENT_ADVANCE) {
