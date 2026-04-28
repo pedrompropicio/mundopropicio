@@ -611,19 +611,16 @@ export default function ReportDRE() {
         <div className="glass rounded-xl p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Receitas</p>
           <p className="mt-1 text-lg font-bold text-success">{formatCurrency(globalIncEx)}</p>
-          <p className="text-xs text-muted-foreground">c/ IVA: {formatCurrency(globalIncInc)}</p>
         </div>
         <div className="glass rounded-xl p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Despesas</p>
           <p className="mt-1 text-lg font-bold text-warning">{formatCurrency(globalExpEx)}</p>
-          <p className="text-xs text-muted-foreground">c/ IVA: {formatCurrency(globalExpInc)}</p>
         </div>
         <div className="glass rounded-xl p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resultado Líquido</p>
           <p className={`mt-1 text-lg font-bold ${globalResultEx >= 0 ? "text-success" : "text-destructive"}`}>
             {formatCurrency(globalResultEx)}
           </p>
-          <p className="text-xs text-muted-foreground">c/ IVA: {formatCurrency(globalResultInc)}</p>
         </div>
         {hasGlobalPartners && (
           <div className="glass rounded-xl p-4">
