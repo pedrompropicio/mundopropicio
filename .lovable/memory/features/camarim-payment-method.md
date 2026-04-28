@@ -15,11 +15,12 @@ No `CamarimItemModal` o campo "Forma de pagamento" combina origem + conta numa s
 - Só é gravado quando `payment_origin = 'card'`; nas outras origens fica NULL para manter consistência.
 
 ## Validação
+- Forma de pagamento é **OBRIGATÓRIA** — `paymentOrigin` arranca `null` no modal e o save bloqueia com toast "Forma de pagamento obrigatória" se não for escolhida.
 - Se `payment_origin = 'card'` e `financial_account_id` é null → bloqueia gravação com toast "Seleciona o cartão usado".
 
 ## Fecho (`close-camarim-session`)
 - Card: `accountId = it.financial_account_id ?? body.card_account_id ?? null` (per-item primeiro, fallback no body para back-compat com itens antigos).
-- Itens antigos sem `financial_account_id` continuam a funcionar se o caller passar `card_account_id` no body (comportamento legado).
+- O diálogo de integração só pede `card_account_id` (fallback) se existirem itens legados aprovados com `payment_origin='card' AND financial_account_id IS NULL`. Caso contrário o seletor está oculto — todos os itens trazem o cartão correto.
 
 ## Não tocar
 - `PAYMENT_ORIGIN_LABELS` em `camarim-helpers.ts` deixou de ser usado no select; manter para outros componentes que ainda referenciem (badges, dashboards).
