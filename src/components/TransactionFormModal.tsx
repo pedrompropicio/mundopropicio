@@ -2233,15 +2233,20 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             })()}
           </div>
 
-          {form.type === "expense" && (
-            <WithholdingDeclaredFields
-              baseAmount={parseFloat(form.amount) || 0}
-              rate={form.declared_withholding_rate}
-              amount={form.declared_withholding_amount}
-              onRateChange={(v) => setForm((f) => ({ ...f, declared_withholding_rate: v }))}
-              onAmountChange={(v) => setForm((f) => ({ ...f, declared_withholding_amount: v }))}
-            />
-          )}
+          {form.type === "expense" && (() => {
+            const base = parseFloat(form.amount) || 0;
+            const ivaRate = parseFloat(String(form.iva_rate)) || 0;
+            const totalCIva = +(base + base * ivaRate / 100).toFixed(2);
+            return (
+              <WithholdingDeclaredFields
+                baseAmount={totalCIva}
+                rate={form.declared_withholding_rate}
+                amount={form.declared_withholding_amount}
+                onRateChange={(v) => setForm((f) => ({ ...f, declared_withholding_rate: v }))}
+                onAmountChange={(v) => setForm((f) => ({ ...f, declared_withholding_amount: v }))}
+              />
+            );
+          })()}
 
           {/* Duplicate detection warning */}
           {showDuplicateConfirm && duplicateMatches.length > 0 && (

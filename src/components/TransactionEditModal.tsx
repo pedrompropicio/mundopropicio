@@ -630,16 +630,21 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           </div>
           )}
 
-          {transaction.type === "expense" && !paidLocked && (
-            <WithholdingDeclaredFields
-              baseAmount={parseFloat(form.amount) || 0}
-              rate={form.declared_withholding_rate}
-              amount={form.declared_withholding_amount}
-              onRateChange={(v) => setForm((f) => ({ ...f, declared_withholding_rate: v }))}
-              onAmountChange={(v) => setForm((f) => ({ ...f, declared_withholding_amount: v }))}
-              disabled={valueLocked}
-            />
-          )}
+          {transaction.type === "expense" && !paidLocked && (() => {
+            const base = parseFloat(form.amount) || 0;
+            const ivaRate = parseFloat(String(form.iva_rate)) || 0;
+            const totalCIva = +(base + base * ivaRate / 100).toFixed(2);
+            return (
+              <WithholdingDeclaredFields
+                baseAmount={totalCIva}
+                rate={form.declared_withholding_rate}
+                amount={form.declared_withholding_amount}
+                onRateChange={(v) => setForm((f) => ({ ...f, declared_withholding_rate: v }))}
+                onAmountChange={(v) => setForm((f) => ({ ...f, declared_withholding_amount: v }))}
+                disabled={valueLocked}
+              />
+            );
+          })()}
 
           {/* Split adjustment panel when parent amount changes */}
           {hasChildren && !paidLocked && (

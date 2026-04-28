@@ -11,6 +11,7 @@ import { useEffect, useRef } from "react";
  */
 
 interface Props {
+  /** Base de cálculo da retenção = TOTAL c/ IVA (base + IVA). */
   baseAmount: number;
   rate: string;          // %
   amount: string;        // €
@@ -154,7 +155,8 @@ export function WithholdingDeclaredFields({
       </div>
       {liquidoFornecedor != null && (
         <p className="text-[10px] text-muted-foreground">
-          Líquido a pagar ao fornecedor: <span className="font-semibold font-mono text-foreground">{liquidoFornecedor.toFixed(2)}€</span>
+          Calculado sobre o total c/ IVA: <span className="font-mono text-foreground">{baseAmount.toFixed(2)}€</span>
+          {" · "}Líquido a pagar ao fornecedor: <span className="font-semibold font-mono text-foreground">{liquidoFornecedor.toFixed(2)}€</span>
           {" · "}Pré-preenche a liquidação (poderá ser ajustado).
         </p>
       )}
