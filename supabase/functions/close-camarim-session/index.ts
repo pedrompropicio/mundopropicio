@@ -303,7 +303,6 @@ Deno.serve(async (req) => {
       const TAG_LABEL: Record<string, string> = {
         bebidas: "Bebidas",
         comida: "Comida",
-        frutas_snacks: "Frutas e Snacks",
         higiene: "Higiene e Consumíveis",
         equipa: "Equipa Camarim",
         outros: "Outros / Sem classificação",
@@ -418,7 +417,6 @@ Deno.serve(async (req) => {
           tagLabel: {
             bebidas: "Bebidas",
             comida: "Comida",
-            frutas_snacks: "Frutas e Snacks",
             higiene: "Higiene e Consumíveis",
             equipa: "Equipa Camarim",
             outros: "Outros / Sem classificação",

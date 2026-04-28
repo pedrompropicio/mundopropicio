@@ -9,7 +9,6 @@ import { ExternalLink, Sparkles } from "lucide-react";
 const TAG_LABEL: Record<string, string> = {
   bebidas: "Bebidas",
   comida: "Comida",
-  frutas_snacks: "Frutas e Snacks",
   higiene: "Higiene e Consumíveis",
   equipa: "Equipa Camarim",
   outros: "Outros",

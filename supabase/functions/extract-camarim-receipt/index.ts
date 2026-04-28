@@ -18,7 +18,7 @@ const SYSTEM_PROMPT = `Analisa esta foto de talão / recibo / fatura de uma comp
   "iva_rate": 6,
   "currency": "EUR",
   "service_description": "Resumo curto dos itens (ex: Águas, refrigerantes, frutas)",
-  "analytic_tag": "bebidas" | "comida" | "frutas_snacks" | "higiene" | "equipa" | "outros" | null,
+  "analytic_tag": "bebidas" | "comida" | "higiene" | "equipa" | "outros" | null,
   "confidence": "high" | "medium" | "low",
   "notes": "Observações relevantes (ex: talão ilegível, falta NIF)"
 }
@@ -30,8 +30,7 @@ REGRAS:
 - Não inventes valores. Se incerto, devolve null e usa "low" em confidence.
 - "analytic_tag" classifica o talão para análise interna (NÃO afeta a categoria contabilística):
   · "bebidas": águas, refrigerantes, sumos, álcool, café/chá engarrafado.
-  · "comida": pratos quentes, refeições, take-away, sandes, sopa, doces.
-  · "frutas_snacks": frutas frescas, frutos secos, snacks salgados/doces, mercearia leve.
+  · "comida": pratos quentes, refeições, take-away, sandes, sopa, doces, frutas frescas, frutos secos, snacks salgados/doces, mercearia leve.
   · "higiene": toalhas, copos, talheres descartáveis, gelo, papel, sabonete.
   · "equipa": despesas pessoais da equipa de camarim (refeições/bebidas só para a crew).
   · "outros": qualquer outro caso (ou se não tens certeza).
