@@ -135,6 +135,7 @@ Deno.serve(async (req) => {
       "payment_date", "is_transitory", "exclude_from_result", "split_mode",
       "invoice_ref", "payment_method", "payment_entity", "payment_reference",
       "status",
+      "declared_withholding_rate", "declared_withholding_amount",
     ];
     const sanitizedUpdates: Record<string, any> = {};
     for (const field of allowedFields) {
