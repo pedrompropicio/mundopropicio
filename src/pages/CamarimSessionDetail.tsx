@@ -249,10 +249,16 @@ export default function CamarimSessionDetail() {
 
   const approvedItems = useMemo(() => items.filter((i) => i.status === "approved"), [items]);
   const parkedItems = useMemo(() => items.filter((i) => i.status === "pending_review"), [items]);
-  const needsCardAccount = useMemo(
-    () => approvedItems.some((i) => i.payment_origin === "card"),
+  const cardItems = useMemo(
+    () => approvedItems.filter((i) => i.payment_origin === "card"),
     [approvedItems],
   );
+  const legacyCardItemsWithoutAccount = useMemo(
+    () => cardItems.filter((i) => !i.financial_account_id),
+    [cardItems],
+  );
+  // Só pedir conta de cartão no fecho se houver itens legados sem conta própria.
+  const needsCardAccount = legacyCardItemsWithoutAccount.length > 0;
   // (Categoria contabilística é fixa — 2.6.04 Camarins, atribuída no fecho.)
 
 
