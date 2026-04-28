@@ -75,6 +75,7 @@ interface ItemRow {
   created_at: string;
   ocr_confidence: string | null;
   category_id: string | null;
+  financial_account_id: string | null;
   has_attachment?: boolean;
 }
 
@@ -249,10 +250,16 @@ export default function CamarimSessionDetail() {
 
   const approvedItems = useMemo(() => items.filter((i) => i.status === "approved"), [items]);
   const parkedItems = useMemo(() => items.filter((i) => i.status === "pending_review"), [items]);
-  const needsCardAccount = useMemo(
-    () => approvedItems.some((i) => i.payment_origin === "card"),
+  const cardItems = useMemo(
+    () => approvedItems.filter((i) => i.payment_origin === "card"),
     [approvedItems],
   );
+  const legacyCardItemsWithoutAccount = useMemo(
+    () => cardItems.filter((i) => !i.financial_account_id),
+    [cardItems],
+  );
+  // Só pedir conta de cartão no fecho se houver itens legados sem conta própria.
+  const needsCardAccount = legacyCardItemsWithoutAccount.length > 0;
   // (Categoria contabilística é fixa — 2.6.04 Camarins, atribuída no fecho.)
 
 
@@ -913,8 +920,15 @@ export default function CamarimSessionDetail() {
             )}
 
             {needsCardAccount && (
-              <div className="space-y-2">
-                <Label>Conta financeira do cartão da empresa</Label>
+              <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
+                <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-4 w-4" />
+                  {legacyCardItemsWithoutAccount.length} item(ns) antigo(s) pago(s) com cartão sem conta associada
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Estes lançamentos foram criados antes da forma de pagamento ser obrigatória. Escolhe a conta do cartão usada para os liquidar.
+                </p>
+                <Label className="text-xs">Conta financeira do cartão (fallback para itens legados)</Label>
                 <Select value={cardAccountId} onValueChange={setCardAccountId}>
                   <SelectTrigger><SelectValue placeholder="Selecionar conta…" /></SelectTrigger>
                   <SelectContent>
