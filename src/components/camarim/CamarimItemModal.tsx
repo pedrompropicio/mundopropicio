@@ -298,7 +298,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       if (data.total_amount != null) setTotalAmount(String(data.total_amount));
       if (data.iva_amount != null) setIvaAmount(String(data.iva_amount));
       // Pré-preenche tag analítica se OCR sugeriu (e equipa ainda não escolheu uma)
-      const VALID_TAGS = ["bebidas", "comida", "frutas_snacks", "higiene", "equipa", "outros"];
+      const VALID_TAGS = ["bebidas", "comida", "higiene", "equipa", "outros"];
       if (data.analytic_tag && VALID_TAGS.includes(data.analytic_tag) && !analyticTag) {
         setAnalyticTag(data.analytic_tag);
       }
@@ -758,8 +758,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
                 <SelectContent>
                   <SelectItem value="__none__">Sem classificação</SelectItem>
                   <SelectItem value="bebidas">Bebidas (águas, refrigerantes, sumos, álcool)</SelectItem>
-                  <SelectItem value="comida">Comida (refeições, take-away, sandes)</SelectItem>
-                  <SelectItem value="frutas_snacks">Frutas e Snacks</SelectItem>
+                  <SelectItem value="comida">Comida (refeições, take-away, sandes, frutas, snacks)</SelectItem>
                   <SelectItem value="higiene">Higiene e Consumíveis (toalhas, copos, gelo)</SelectItem>
                   <SelectItem value="equipa">Equipa Camarim (despesas só para a crew)</SelectItem>
                   <SelectItem value="outros">Outros</SelectItem>
