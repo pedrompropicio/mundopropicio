@@ -161,10 +161,10 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
   };
 
   const handleOpenDocument = async (fileUrl: string) => {
-    const storagePath = extractStoragePath(fileUrl);
+    const { bucket, path } = resolveStorageRef(fileUrl);
     const { data, error } = await supabase.storage
-      .from("transaction-documents")
-      .createSignedUrl(storagePath, 3600); // 1 hour expiry
+      .from(bucket)
+      .createSignedUrl(path, 3600); // 1 hour expiry
     if (error || !data?.signedUrl) {
       toast({ title: "Erro ao abrir documento", description: error?.message ?? "URL não disponível", variant: "destructive" });
       return;
