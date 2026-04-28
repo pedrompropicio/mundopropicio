@@ -73,8 +73,20 @@ export function buildDREForExport(
 
   const expenses = transactions.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result);
 
+  // Overheads BP — só "Vista Sócio" (brasilMode). Alocados DENTRO da categoria respetiva,
+  // em vez de bloco separado. IVA default 23% se não definido.
+  const eventClosingCostsForAlloc = brasilMode ? (closingCosts || []).filter((cc: any) => cc.event_id === eventId) : [];
+  const overheadAsExpenses = eventClosingCostsForAlloc
+    .filter((cc: any) => cc.category_id)
+    .map((cc: any) => ({
+      category_id: cc.category_id,
+      amount: Number(cc.amount || 0),
+      iva_rate: cc.iva_rate != null ? Number(cc.iva_rate) : 23,
+    }));
+  const expensesWithOverhead = [...expenses, ...overheadAsExpenses];
+
   const incGroups = aggregateByHierarchyDRE(incomes, lookup, calcAmountWithIva);
-  const expGroups = aggregateByHierarchyDRE(expenses, lookup, calcAmountWithIva);
+  const expGroups = aggregateByHierarchyDRE(expensesWithOverhead, lookup, calcAmountWithIva);
 
   if (useTicketSales && hasTicketMgmt && ticketIncomeExIva > 0) {
     incGroups.push({
