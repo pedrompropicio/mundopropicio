@@ -81,8 +81,21 @@ function buildDRE(
 
   const expenses = transactions.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result);
 
+  // Overheads (BP) — só entram na "Vista Sócio". São alocados DENTRO da categoria
+  // contabilística respetiva (em vez de bloco separado), para que cada L2/L3 reflita
+  // o custo total do evento na ótica do sócio. IVA default 23% se não definido.
+  const eventClosingCosts = (closingCosts || []).filter((cc: any) => cc.event_id === eventId);
+  const overheadAsExpenses = eventClosingCosts
+    .filter((cc: any) => cc.category_id) // sem categoria não pode ser alocado — fica de fora
+    .map((cc: any) => ({
+      category_id: cc.category_id,
+      amount: Number(cc.amount || 0),
+      iva_rate: cc.iva_rate != null ? Number(cc.iva_rate) : 23,
+    }));
+  const expensesWithOverhead = [...expenses, ...overheadAsExpenses];
+
   const incGroups = aggregateByHierarchyDRE(incomes, lookup, calcAmountWithIva);
-  const expGroups = aggregateByHierarchyDRE(expenses, lookup, calcAmountWithIva);
+  const expGroups = aggregateByHierarchyDRE(expensesWithOverhead, lookup, calcAmountWithIva);
 
   if (useTicketSales && hasTicketMgmt && ticketIncomeExIva > 0) {
     incGroups.push({
