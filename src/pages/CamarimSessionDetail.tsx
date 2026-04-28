@@ -111,6 +111,8 @@ export default function CamarimSessionDetail() {
   const [showItem, setShowItem] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [showFund, setShowFund] = useState(false);
+  const [editingFund, setEditingFund] = useState<FundMove | null>(null);
+  const [deletingFundId, setDeletingFundId] = useState<string | null>(null);
   const [showIntegrate, setShowIntegrate] = useState(false);
   const [integrating, setIntegrating] = useState(false);
   const [cardAccountId, setCardAccountId] = useState<string>("");
@@ -704,7 +706,14 @@ export default function CamarimSessionDetail() {
 
         <TabsContent value="funds" className="space-y-3">
           <div className="flex justify-end">
-            <Button size="sm" onClick={() => setShowFund(true)} disabled={!canManage || session.status === "integrated"}>
+            <Button
+              size="sm"
+              onClick={() => {
+                setEditingFund(null);
+                setShowFund(true);
+              }}
+              disabled={!canManage || session.status === "integrated"}
+            >
               <Wallet className="mr-2 h-4 w-4" /> Registar movimento
             </Button>
           </div>
@@ -717,27 +726,55 @@ export default function CamarimSessionDetail() {
             </Card>
           ) : (
             <div className="space-y-2">
-              {funds.map((f) => (
-                <Card key={f.id}>
-                  <CardContent className="flex items-center justify-between p-3">
-                    <div>
-                      <p className="text-sm font-medium">{FUND_MOVE_LABELS[f.move_type]}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {f.move_date} {f.notes ? `· ${f.notes}` : ""}
+              {funds.map((f) => {
+                const canEditMove = canManage && session.status !== "integrated";
+                return (
+                  <Card key={f.id}>
+                    <CardContent className="flex items-center justify-between gap-2 p-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium">{FUND_MOVE_LABELS[f.move_type]}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {f.move_date} {f.notes ? `· ${f.notes}` : ""}
+                        </p>
+                      </div>
+                      <p
+                        className={cn(
+                          "text-sm font-semibold whitespace-nowrap",
+                          f.move_type === "refund" ? "text-destructive" : "text-emerald-600",
+                        )}
+                      >
+                        {f.move_type === "refund" ? "-" : f.move_type === "adjustment" ? "" : "+"}
+                        {formatCurrency(f.amount, session.currency)}
                       </p>
-                    </div>
-                    <p
-                      className={cn(
-                        "text-sm font-semibold",
-                        f.move_type === "refund" ? "text-destructive" : "text-emerald-600",
+                      {canEditMove && (
+                        <div className="flex shrink-0 gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => {
+                              setEditingFund(f);
+                              setShowFund(true);
+                            }}
+                            aria-label="Editar movimento"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-destructive"
+                            onClick={() => setDeletingFundId(f.id)}
+                            aria-label="Eliminar movimento"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       )}
-                    >
-                      {f.move_type === "refund" ? "-" : "+"}
-                      {formatCurrency(f.amount, session.currency)}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>
@@ -757,11 +794,51 @@ export default function CamarimSessionDetail() {
       {showFund && (
         <CamarimFundMoveModal
           open={showFund}
-          onOpenChange={setShowFund}
+          onOpenChange={(o) => {
+            setShowFund(o);
+            if (!o) setEditingFund(null);
+          }}
           sessionId={session.id}
+          existing={editingFund}
+          currency={session.currency}
+          cashOnHand={totals.cashOnHand}
+          allMoves={funds.filter((f) => f.id !== editingFund?.id).map((f) => ({ move_type: f.move_type, amount: f.amount }))}
           onSaved={load}
         />
       )}
+
+      <AlertDialog open={!!deletingFundId} onOpenChange={(o) => !o && setDeletingFundId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar movimento de caixa?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O saldo da sessão será recalculado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (!deletingFundId) return;
+                const { error } = await supabase
+                  .from("camarim_fund_moves" as any)
+                  .delete()
+                  .eq("id", deletingFundId);
+                if (error) {
+                  toast({ variant: "destructive", title: "Erro", description: error.message });
+                } else {
+                  toast({ title: "Movimento eliminado" });
+                  await load();
+                }
+                setDeletingFundId(null);
+              }}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {showEditSession && (
         <EditSessionModal
