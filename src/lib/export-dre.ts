@@ -261,7 +261,7 @@ export function exportDREToExcel(
   const eventRows: any[][] = [];
   events.forEach((evt) => {
     const evtTx = getEffectiveTransactionsForExport(evt.id, transactions, allEventsSource);
-    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource, brasilMode);
+    const summary = computeEventSummary(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, partners, allEventsSource, brasilMode, closingCosts);
     gIncEx += summary.incEx; gIncInc += summary.incInc; gExpEx += summary.expEx; gExpInc += summary.expInc;
 
     if (brasilMode) {
