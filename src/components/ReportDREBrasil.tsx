@@ -81,8 +81,20 @@ function buildDREBrasil(
 
   const expenses = transactions.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result);
 
+  // Overheads (BP) — vista do sócio. Alocados DENTRO da categoria respetiva
+  // (em vez de bloco separado). IVA default 23% se não definido.
+  const eventClosingCosts = (closingCosts || []).filter((cc: any) => cc.event_id === eventId);
+  const overheadAsExpenses = eventClosingCosts
+    .filter((cc: any) => cc.category_id)
+    .map((cc: any) => ({
+      category_id: cc.category_id,
+      amount: Number(cc.amount || 0),
+      iva_rate: cc.iva_rate != null ? Number(cc.iva_rate) : 23,
+    }));
+  const expensesWithOverhead = [...expenses, ...overheadAsExpenses];
+
   const incGroups = aggregateByHierarchyDRE(incomes, lookup, calcAmountWithIva);
-  const expGroups = aggregateByHierarchyDRE(expenses, lookup, calcAmountWithIva);
+  const expGroups = aggregateByHierarchyDRE(expensesWithOverhead, lookup, calcAmountWithIva);
 
   if (useTicketSales && hasTicketMgmt && ticketIncomeExIva > 0) {
     incGroups.push({
@@ -98,14 +110,9 @@ function buildDREBrasil(
   const totalIncIva = incGroups.reduce((s, g) => s + g.totalIva, 0);
   const totalIncInc = totalIncEx + totalIncIva;
 
-  // Closing costs (overheads do BP) — quando vista do sócio está ON, somam-se às despesas
-  // exatamente como o Fecho dos Sócios faz (totalExpensesGross + totalOverhead).
-  const eventClosingCosts = (closingCosts || []).filter((cc: any) => cc.event_id === eventId);
-  const totalClosingCosts = eventClosingCosts.reduce((s: number, cc: any) => s + Number(cc.amount), 0);
-
   const totalExpEx = expGroups.reduce((s, g) => s + g.totalBase, 0);
   const totalExpIva = expGroups.reduce((s, g) => s + g.totalIva, 0);
-  const totalExpInc = totalExpEx + totalExpIva + totalClosingCosts;
+  const totalExpInc = totalExpEx + totalExpIva;
 
   const lines: DRELine[] = [];
   lines.push({ label: "RECEITAS", amountExIva: totalIncEx, ivaAmount: totalIncIva, amountIncIva: totalIncInc, isTotal: true });
@@ -118,7 +125,7 @@ function buildDREBrasil(
     }
   });
 
-  lines.push({ label: "DESPESAS", amountExIva: totalExpEx + totalClosingCosts, ivaAmount: totalExpIva, amountIncIva: totalExpInc, isTotal: true, isExpenseSide: true });
+  lines.push({ label: "DESPESAS", amountExIva: totalExpEx, ivaAmount: totalExpIva, amountIncIva: totalExpInc, isTotal: true, isExpenseSide: true });
   expGroups.forEach((group) => {
     if (group.details.length > 1 || group.details[0]?.name !== group.groupName) {
       lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, isGroupHeader: true, isExpenseSide: true });
@@ -128,15 +135,18 @@ function buildDREBrasil(
     }
   });
 
-  // Detalhe dos rateios de overhead (mantém visibilidade)
+  // Detalhe dos rateios de overhead — informativo, JÁ contabilizado nas categorias acima.
   if (eventClosingCosts.length > 0) {
-    lines.push({ label: "RATEIOS / OVERHEAD (BP)", amountExIva: totalClosingCosts, ivaAmount: 0, amountIncIva: totalClosingCosts, isGroupHeader: true, isExpenseSide: true });
+    lines.push({ label: "Detalhe de Overheads (já incluídos nas categorias acima)", amountExIva: 0, ivaAmount: 0, amountIncIva: 0, isGroupHeader: true, isExpenseSide: true });
     eventClosingCosts.forEach((cc: any) => {
-      const catLabel = cc.account_categories ? `${cc.account_categories.code} - ${cc.account_categories.name}` : "";
+      const catLabel = cc.account_categories ? `${cc.account_categories.code} - ${cc.account_categories.name}` : "(sem categoria)";
       const viaMaster = cc._overhead_via_master ? " (via Master)" : "";
       const desc = cc.description || "Overhead";
-      const label = catLabel ? `${desc} (${catLabel})${viaMaster}` : `${desc}${viaMaster}`;
-      lines.push({ label, amountExIva: Number(cc.amount), ivaAmount: 0, amountIncIva: Number(cc.amount), indent: true, isExpenseSide: true });
+      const label = `${desc} → ${catLabel}${viaMaster}`;
+      const base = Number(cc.amount || 0);
+      const rate = cc.iva_rate != null ? Number(cc.iva_rate) : 23;
+      const iva = base * rate / 100;
+      lines.push({ label, amountExIva: base, ivaAmount: iva, amountIncIva: base + iva, indent: true, isExpenseSide: true });
     });
   }
 
