@@ -885,7 +885,7 @@ export default function CamarimSessionDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showIntegrate} onOpenChange={setShowIntegrate}>
+      <AlertDialog open={showIntegrate} onOpenChange={(o) => { setShowIntegrate(o); if (!o) setConfirmIntegration(false); }}>
         <AlertDialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Integrar sessão no sistema financeiro</AlertDialogTitle>
