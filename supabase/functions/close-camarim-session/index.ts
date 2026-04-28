@@ -541,6 +541,39 @@ Deno.serve(async (req) => {
 
     const allFailed = created.length === 0 && errors.length > 0;
 
+    // IDs de todas as transações geradas (consolidadas + settlement)
+    const allTxIds = [...created, ...(settlementTxId ? [settlementTxId] : [])];
+
+    // Snapshot completo do resumo
+    const integrationSummary = {
+      generated_at: new Date().toISOString(),
+      generated_by: caller.email ?? caller.id,
+      session_title: session.title,
+      currency: session.currency ?? "EUR",
+      consolidated_groups: created.length,
+      consolidated_transaction_ids: created,
+      items_integrated: resolved.length,
+      total_items: items.length,
+      total_base: +resolved.reduce((s, r) => s + r.base, 0).toFixed(2),
+      total_iva: +resolved.reduce((s, r) => s + r.iva, 0).toFixed(2),
+      total_amount: +resolved.reduce((s, r) => s + r.total, 0).toFixed(2),
+      by_origin: {
+        advance: +resolved.filter(r => r.paymentOrigin === "advance").reduce((s, r) => s + r.total, 0).toFixed(2),
+        card: +resolved.filter(r => r.paymentOrigin === "card").reduce((s, r) => s + r.total, 0).toFixed(2),
+        out_of_pocket: +resolved.filter(r => r.paymentOrigin === "out_of_pocket").reduce((s, r) => s + r.total, 0).toFixed(2),
+      },
+      settlement: {
+        advance_net: advanceNet,
+        spent_from_advance: spentFromAdvance,
+        balance,
+        type: settlementType,
+        transaction_id: settlementTxId,
+      },
+      parked_remaining: (stillParked ?? []).length,
+      error_count: errors.length,
+      errors,
+    };
+
     if (!allFailed) {
       await adminClient
         .from("camarim_sessions")
@@ -552,6 +585,8 @@ Deno.serve(async (req) => {
           settlement_balance: balance,
           settlement_type: settlementType,
           settlement_transaction_id: settlementTxId,
+          integration_summary: integrationSummary,
+          integration_transaction_ids: allTxIds,
         })
         .eq("id", body.session_id);
     }
@@ -559,26 +594,15 @@ Deno.serve(async (req) => {
     const integrationStatus = allFailed
       ? "failed"
       : errors.length === 0
-        ? "success"
+        ? "done"
         : "partial";
 
     await adminClient.from("camarim_integrations").insert({
       session_id: body.session_id,
-      integration_type: "transactions",
+      integration_type: "financial_close",
       status: integrationStatus,
       created_by: caller.id,
-      summary_payload: {
-        consolidated_groups: created.length,
-        items_integrated: resolved.length,
-        error_count: errors.length,
-        errors,
-        advance_net: advanceNet,
-        spent_from_advance: spentFromAdvance,
-        settlement_balance: balance,
-        settlement_type: settlementType,
-        settlement_transaction_id: settlementTxId,
-        parked_remaining: (stillParked ?? []).length,
-      },
+      summary_payload: integrationSummary,
     });
 
     if (allFailed) {
