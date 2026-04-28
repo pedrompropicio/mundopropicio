@@ -676,7 +676,12 @@ export default function CamarimSessionDetail() {
                 setEditingItemId(null);
                 setShowItem(true);
               }}
-              disabled={session.status === "integrated"}
+              disabled={!canEditContent}
+              title={
+                !canEditContent && session.status !== "integrated"
+                  ? "Sessão fechada — só gestor/admin pode adicionar (use Reabrir sessão)."
+                  : undefined
+              }
             >
               <Plus className="mr-2 h-4 w-4" /> Adicionar conta
             </Button>
