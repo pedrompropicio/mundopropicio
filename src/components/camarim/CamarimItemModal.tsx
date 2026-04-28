@@ -114,7 +114,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setNotes("");
     setHasDocument(true);
     setDocIssueReason("");
-    setCategoryId("");
+    setAnalyticTag("");
     setPhotoFile(null);
     setPhotoPath(null);
     setPreviewUrl(null);
@@ -206,7 +206,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
     setNotes(it.notes ?? "");
     setHasDocument(it.has_document);
     setDocIssueReason(it.document_issue_reason ?? "");
-    setCategoryId(it.category_id ?? "");
+    setAnalyticTag(it.analytic_tag ?? "");
     setOcrPayload(it.ocr_raw_payload);
     setItemCreatedBy(it.created_by ?? null);
     setItemStatus(it.status ?? null);
@@ -297,6 +297,11 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       if (data.document_date) setDocDate(data.document_date);
       if (data.total_amount != null) setTotalAmount(String(data.total_amount));
       if (data.iva_amount != null) setIvaAmount(String(data.iva_amount));
+      // Pré-preenche tag analítica se OCR sugeriu (e equipa ainda não escolheu uma)
+      const VALID_TAGS = ["bebidas", "comida", "frutas_snacks", "higiene", "equipa", "outros"];
+      if (data.analytic_tag && VALID_TAGS.includes(data.analytic_tag) && !analyticTag) {
+        setAnalyticTag(data.analytic_tag);
+      }
       toast({ title: "Talão lido com IA", description: data.confidence === "low" ? "Confiança baixa — confirma os dados." : undefined });
     } catch (e: any) {
       console.error(e);
@@ -427,7 +432,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
         document_issue_reason: hasDocument ? null : docIssueReason,
         pending_review_reason: effectiveStatus === "pending_review" ? docIssueReason : null,
         status: effectiveStatus,
-        category_id: categoryId || null,
+        analytic_tag: analyticTag || null,
         ocr_raw_payload: ocrPayload,
         ocr_confidence: ocrPayload?.confidence ?? null,
         currency: "EUR",
@@ -739,19 +744,30 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
               )}
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label>Categoria contábil</Label>
-              <Select value={categoryId} onValueChange={setCategoryId} disabled={hasLockedSplitStructure}>
+              <Label>
+                Tag analítica <span className="text-muted-foreground font-normal">(opcional)</span>
+              </Label>
+              <Select
+                value={analyticTag || "__none__"}
+                onValueChange={(v) => setAnalyticTag(v === "__none__" ? "" : v)}
+                disabled={hasLockedSplitStructure}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecionar categoria…" />
+                  <SelectValue placeholder="Sem classificação" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.code} — {c.name}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="__none__">Sem classificação</SelectItem>
+                  <SelectItem value="bebidas">Bebidas (águas, refrigerantes, sumos, álcool)</SelectItem>
+                  <SelectItem value="comida">Comida (refeições, take-away, sandes)</SelectItem>
+                  <SelectItem value="frutas_snacks">Frutas e Snacks</SelectItem>
+                  <SelectItem value="higiene">Higiene e Consumíveis (toalhas, copos, gelo)</SelectItem>
+                  <SelectItem value="equipa">Equipa Camarim (despesas só para a crew)</SelectItem>
+                  <SelectItem value="outros">Outros</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Usado apenas para análise no dossier do contabilista. Categoria contabilística é sempre <strong>2.6.04 — Camarins</strong>.
+              </p>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Descrição rápida</Label>
