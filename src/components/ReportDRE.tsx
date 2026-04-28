@@ -756,30 +756,53 @@ export default function ReportDRE() {
 
         const tourIncEx = childSummaries.reduce((s, c) => s + c.totalIncEx, 0);
         const tourExpEx = childSummaries.reduce((s, c) => s + c.totalExpEx, 0);
-        const tourResultEx = tourIncEx - tourExpEx;
-        const calcBasis = (parentEvt as any).partner_calc_basis || "net_result";
-
-        // Compute partner distribution for the tour
-        const tourPartners = eventPartners.filter((p: any) => p.event_id === parentId);
-        let tourTotalDistribution = 0;
         const tourExpInc = childSummaries.reduce((s, c) => s + c.totalExpInc, 0);
-        const tourPartnerShares = tourPartners.map((p: any) => {
-          let base: number;
-          if (calcBasis === "gross_revenue") {
-            base = tourIncEx;
-          } else if (p.expense_includes_iva) {
-            base = tourIncEx - tourExpInc;
-          } else {
-            base = tourIncEx - tourExpEx;
-          }
-          const share = base * (Number(p.percentage) / 100);
-          tourTotalDistribution += share;
-          const partnerBase = p.expense_includes_iva ? tourIncEx - tourExpInc : tourIncEx - tourExpEx;
-          const ivaLabel = p.expense_includes_iva ? ` (base: ${formatCurrency(tourIncEx)} - ${formatCurrency(tourExpInc)} = ${formatCurrency(partnerBase)})` : "";
-          return { name: `${p.suppliers?.name || "Sócio"}${ivaLabel}`, percentage: Number(p.percentage), share };
+        const tourResultEx = tourIncEx - tourExpEx;
+
+        // Distribuição da turnê: somar as shares já calculadas em cada split
+        // (linhas isDistribution geradas por buildDRE), garantindo que o painel
+        // da turnê bate com os cards do topo (que usam a mesma fonte).
+        const tourPartners = eventPartners.filter((p: any) => p.event_id === parentId);
+        const tourSharesByPartner = new Map<string, number>();
+        let tourHouseSum = 0;
+        childSummaries.forEach((c: any) => {
+          const evtTx = getEffectiveTransactions(c.id);
+          const calcBasisChild = (parentEvt as any).partner_calc_basis || "net_result";
+          const dre = buildDRE(
+            evtTx,
+            categories,
+            ticketRevenueSource,
+            ticketZones,
+            ticketLots,
+            ticketSales,
+            c.id,
+            ticketCategoryId,
+            eventPartners,
+            calcBasisChild,
+            (c as any).parent_event_id,
+            showPartnerView ? closingCosts : [],
+            showPartnerView ? partnerExtras : [],
+          );
+          dre.filter((l: any) => l.isDistribution).forEach((l: any) => {
+            if (l.isHouse) {
+              tourHouseSum += l.amountExIva;
+              return;
+            }
+            // label tem formato "  <NomeSócio> (XX.X%)..." — extrair nome até "("
+            const m = l.label.match(/^\s*(.+?)\s*\(/);
+            const key = (m ? m[1] : l.label).trim();
+            tourSharesByPartner.set(key, (tourSharesByPartner.get(key) || 0) + l.amountExIva);
+          });
         });
-        // MP retained from the real net result (s/IVA)
-        const tourRetained = tourResultEx - tourTotalDistribution;
+
+        let tourTotalDistribution = 0;
+        const tourPartnerShares = tourPartners.map((p: any) => {
+          const supplierName = p.suppliers?.name || "Sócio";
+          const share = tourSharesByPartner.get(supplierName) || 0;
+          tourTotalDistribution += share;
+          return { name: supplierName, percentage: Number(p.percentage), share };
+        });
+        const tourRetained = tourHouseSum;
 
         return (
           <div key={`tour-summary-${parentId}`} className="glass rounded-xl p-4 space-y-4">
