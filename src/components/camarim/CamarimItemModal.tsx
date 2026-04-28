@@ -95,6 +95,7 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       .select("id,name")
       .eq("type", "prepaid_card")
       .eq("is_active", true)
+      .eq("is_hidden", false)
       .order("name");
     setCardAccounts(((data ?? []) as any[]).map((a) => ({ id: a.id, name: a.name })));
   };

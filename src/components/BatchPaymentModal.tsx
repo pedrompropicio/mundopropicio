@@ -43,6 +43,7 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
         .from("financial_accounts")
         .select("id, name, type, initial_balance, skip_balance_check")
         .eq("is_active", true)
+        .eq("is_hidden", false)
         .order("name");
       if (error) throw error;
       return data;

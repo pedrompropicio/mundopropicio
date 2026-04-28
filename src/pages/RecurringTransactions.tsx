@@ -136,7 +136,7 @@ export default function RecurringTransactions() {
   const { data: accounts = [] } = useQuery({
     queryKey: ["financial-accounts-active"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("financial_accounts").select("id, name").eq("is_active", true).order("name");
+      const { data, error } = await supabase.from("financial_accounts").select("id, name").eq("is_active", true).eq("is_hidden", false).order("name");
       if (error) throw error;
       return data;
     },
