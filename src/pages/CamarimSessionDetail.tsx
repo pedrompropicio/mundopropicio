@@ -1170,10 +1170,27 @@ export default function CamarimSessionDetail() {
             )}
           </div>
 
+          {approvedItems.length > 0 && blockingIssues.length === 0 && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
+              <Checkbox
+                id="confirm-integration"
+                checked={confirmIntegration}
+                onCheckedChange={(v) => setConfirmIntegration(v === true)}
+                className="mt-0.5"
+              />
+              <Label htmlFor="confirm-integration" className="cursor-pointer text-xs leading-relaxed">
+                Confirmo que revi o resumo acima e autorizo o <strong>fecho e encerramento</strong> desta sessão. Após integrar, a sessão fica bloqueada e só admin pode reabrir.
+              </Label>
+            </div>
+          )}
+
           <AlertDialogFooter>
             <AlertDialogCancel disabled={integrating}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={runIntegrate} disabled={integrating || blockingIssues.length > 0}>
-              {integrating ? "A integrar…" : "Integrar agora"}
+            <AlertDialogAction
+              onClick={runIntegrate}
+              disabled={integrating || blockingIssues.length > 0 || (approvedItems.length > 0 && !confirmIntegration)}
+            >
+              {integrating ? "A integrar…" : "Confirmar e integrar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
