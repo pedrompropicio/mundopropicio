@@ -244,10 +244,8 @@ export default function CamarimSessionDetail() {
     () => approvedItems.some((i) => i.payment_origin === "card"),
     [approvedItems],
   );
-  const missingCategoryCount = useMemo(
-    () => approvedItems.filter((i) => !i.category_id).length,
-    [approvedItems],
-  );
+  // (Categoria contabilística é fixa — 2.6.04 Camarins, atribuída no fecho.)
+
 
   // Acerto previsto: gasto via adiantamento - adiantamento líquido entregue
   const settlementPreview = useMemo(() => {
@@ -337,14 +335,8 @@ export default function CamarimSessionDetail() {
       });
       return;
     }
-    if (missingCategoryCount > 0) {
-      toast({
-        variant: "destructive",
-        title: "Categorias em falta",
-        description: `${missingCategoryCount} item(ns) aprovado(s) sem categoria contábil.`,
-      });
-      return;
-    }
+    // (Sem verificação de categoria — fixa em 2.6.04 no fecho.)
+
     if (needsCardAccount && !cardAccountId) {
       toast({
         variant: "destructive",
@@ -477,15 +469,8 @@ export default function CamarimSessionDetail() {
         </div>
       </div>
 
-      {missingCategoryCount > 0 && (session.status === "in_review" || session.status === "closed") && (
-        <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <p>
-            {missingCategoryCount} item(ns) aprovado(s) sem categoria contábil. Edita-os antes de integrar
-            — caso contrário não serão convertidos em transações.
-          </p>
-        </div>
-      )}
+      {/* Categoria contabilística é fixa em 2.6.04 — Camarins, atribuída pelo motor de consolidação. */}
+
 
       {/* Fila: talões mistos por dividir */}
       {mixedPendingSplit.length > 0 && (
@@ -798,8 +783,7 @@ export default function CamarimSessionDetail() {
           <AlertDialogHeader>
             <AlertDialogTitle>Integrar sessão no sistema financeiro</AlertDialogTitle>
             <AlertDialogDescription>
-              Vou gerar {approvedItems.length} transação(ões) a partir dos itens aprovados.
-              Itens por adiantamento são liquidados na caixa do camarim; do bolso ficam a reembolsar.
+              Os {approvedItems.length} itens aprovados vão ser <strong>consolidados</strong> em transações na categoria <strong>2.6.04 — Camarins</strong>, agrupadas por evento, origem de pagamento, conta e taxa de IVA. O detalhe analítico de cada talão fica preservado e acessível na aba "Camarim" da transação. Itens pagos por adiantamento ficam liquidados na caixa do camarim; recursos próprios ficam a reembolsar.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
