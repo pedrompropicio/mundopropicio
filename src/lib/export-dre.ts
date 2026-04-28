@@ -4,6 +4,7 @@ import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
 import { buildCategoryLookup, aggregateByHierarchyDRE } from "@/lib/category-hierarchy";
 import { applyPTNumberFormat } from "@/lib/excel-format";
+import { calcIvaAmount } from "@/lib/iva";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
@@ -92,8 +93,14 @@ export function buildDREForExport(
   const totalExpIva = expGroups.reduce((s, g) => s + g.totalIva, 0);
 
   // Overheads BP — só somam quando em "Vista Sócio" (brasilMode), alinhado com Fecho dos Sócios
+  // IVA aplicado linha-a-linha (default 23% se não houver iva_rate definido), igual ao Fecho dos Sócios
   const eventClosingCosts = brasilMode ? (closingCosts || []).filter((cc: any) => cc.event_id === eventId) : [];
-  const totalClosingCosts = eventClosingCosts.reduce((s: number, cc: any) => s + Number(cc.amount || 0), 0);
+  const totalClosingCostsBase = eventClosingCosts.reduce((s: number, cc: any) => s + Number(cc.amount || 0), 0);
+  const totalClosingCostsIva = eventClosingCosts.reduce((s: number, cc: any) => {
+    const rate = cc.iva_rate != null ? Number(cc.iva_rate) : 23;
+    return s + calcIvaAmount(Number(cc.amount || 0), rate);
+  }, 0);
+  const totalClosingCosts = totalClosingCostsBase + totalClosingCostsIva;
   const totalExpInc = totalExpEx + totalExpIva + totalClosingCosts;
 
   const lines: DRELine[] = [];
@@ -119,13 +126,16 @@ export function buildDREForExport(
 
   // Detalhe dos rateios de overhead (mesmo tratamento do componente UI)
   if (eventClosingCosts.length > 0) {
-    lines.push({ label: "RATEIOS / OVERHEAD (BP)", amountExIva: totalClosingCosts, ivaAmount: 0, amountIncIva: totalClosingCosts, isGroupHeader: true, isExpenseSide: true });
+    lines.push({ label: "RATEIOS / OVERHEAD (BP)", amountExIva: totalClosingCostsBase, ivaAmount: totalClosingCostsIva, amountIncIva: totalClosingCosts, isGroupHeader: true, isExpenseSide: true });
     eventClosingCosts.forEach((cc: any) => {
       const catLabel = cc.account_categories ? `${cc.account_categories.code} - ${cc.account_categories.name}` : "";
       const viaMaster = cc._overhead_via_master ? " (via Master)" : "";
       const desc = cc.description || "Overhead";
       const label = catLabel ? `${desc} (${catLabel})${viaMaster}` : `${desc}${viaMaster}`;
-      lines.push({ label, amountExIva: Number(cc.amount), ivaAmount: 0, amountIncIva: Number(cc.amount), indent: true, isExpenseSide: true });
+      const base = Number(cc.amount || 0);
+      const rate = cc.iva_rate != null ? Number(cc.iva_rate) : 23;
+      const iva = calcIvaAmount(base, rate);
+      lines.push({ label, amountExIva: base, ivaAmount: iva, amountIncIva: base + iva, indent: true, isExpenseSide: true });
     });
   }
 
