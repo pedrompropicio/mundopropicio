@@ -2233,6 +2233,16 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             })()}
           </div>
 
+          {form.type === "expense" && (
+            <WithholdingDeclaredFields
+              baseAmount={parseFloat(form.amount) || 0}
+              rate={form.declared_withholding_rate}
+              amount={form.declared_withholding_amount}
+              onRateChange={(v) => setForm((f) => ({ ...f, declared_withholding_rate: v }))}
+              onAmountChange={(v) => setForm((f) => ({ ...f, declared_withholding_amount: v }))}
+            />
+          )}
+
           {/* Duplicate detection warning */}
           {showDuplicateConfirm && duplicateMatches.length > 0 && (
             <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 space-y-3">
