@@ -403,6 +403,60 @@ Deno.serve(async (req) => {
       created.push(newTxId);
     }
 
+    // ===== Generate Camarim Dossier (HTML) and attach to every consolidated tx =====
+    if (created.length > 0) {
+      try {
+        const allItemDocs = await adminClient
+          .from("camarim_item_documents")
+          .select("file_path,file_name,item_id")
+          .in("item_id", resolved.map((r) => r.raw.id as string));
+
+        const dossierHtml = buildCamarimDossierHtml({
+          session,
+          resolved,
+          itemDocs: (allItemDocs.data ?? []) as any[],
+          tagLabel: {
+            bebidas: "Bebidas",
+            comida: "Comida",
+            frutas_snacks: "Frutas e Snacks",
+            higiene: "Higiene e Consumíveis",
+            equipa: "Equipa Camarim",
+            outros: "Outros / Sem classificação",
+          },
+        });
+
+        const dossierPath = `dossiers/${body.session_id}.html`;
+        const { error: upErr } = await adminClient.storage
+          .from("camarim-documents")
+          .upload(dossierPath, new Blob([dossierHtml], { type: "text/html; charset=utf-8" }), {
+            upsert: true,
+            contentType: "text/html; charset=utf-8",
+          });
+
+        if (upErr) {
+          errors.push(`Dossier: upload falhou — ${upErr.message}`);
+        } else {
+          const dossierName = `Dossier Camarim · ${session.title}.html`;
+          const dossierRows = created.map((txId) => ({
+            transaction_id: txId,
+            name: dossierName,
+            file_url: `camarim://${dossierPath}`,
+            doc_type: "outro",
+            uploaded_by: caller.email ?? "sistema",
+            is_accounting: true,
+          }));
+          const { error: dossierLinkErr } = await adminClient
+            .from("transaction_documents")
+            .insert(dossierRows);
+          if (dossierLinkErr) {
+            errors.push(`Dossier: vínculo falhou — ${dossierLinkErr.message}`);
+          }
+        }
+      } catch (dErr: any) {
+        errors.push(`Dossier: ${dErr?.message ?? String(dErr)}`);
+      }
+    }
+
     // ===== Settlement (advance balance) — unchanged logic =====
     const { data: fundMoves } = await adminClient
       .from("camarim_fund_moves")
