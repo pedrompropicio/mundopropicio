@@ -9,6 +9,7 @@ import UserPermissionsModal from "@/components/UserPermissionsModal";
 import { logAudit, getAuditUser } from "@/lib/audit";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
+import { useCompany } from "@/hooks/useCompany";
 
 const ROLE_ICONS: Record<AppRole, React.ElementType> = {
   admin: ShieldCheck,
@@ -24,6 +25,7 @@ const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "editor", "viewer", "pa
 
 export default function UserManagement() {
   const { isAdmin, user } = useAuth();
+  const { companyId } = useCompany();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
@@ -33,18 +35,14 @@ export default function UserManagement() {
   const [permModalUser, setPermModalUser] = useState<{ id: string; name: string; role: AppRole } | null>(null);
 
   const { data: users = [], isLoading } = useQuery({
-    queryKey: ["users-with-roles"],
+    queryKey: ["users-with-roles", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
-      // Resolve the active company so platform_admin users only see members of
-      // the company they currently have selected (matches the rest of the UI).
-      const { data: activeCompanyId } = await supabase.rpc("current_company_id");
-
-      let query = supabase
+      const activeCompanyId = companyId;
+      const query = supabase
         .from("profiles")
         .select("id, full_name, email, created_at, company_id")
         .order("created_at", { ascending: true });
-      // Include profiles of the active company OR platform_admins (company_id NULL)
-      if (activeCompanyId) query = query.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
 
       const { data: profiles, error: pErr } = await query;
       if (pErr) throw pErr;
@@ -54,10 +52,26 @@ export default function UserManagement() {
         .select("user_id, role");
       if (rErr) throw rErr;
 
-      // Keep platform_admins always visible; filter out NULL company_id rows that aren't platform_admin
+      const priority: Record<string, number> = {
+        platform_admin: 0,
+        admin: 1,
+        manager: 2,
+        editor: 3,
+        partner: 4,
+        viewer: 5,
+        user: 6,
+      };
+      const roleByUser = new Map<string, AppRole>();
+      for (const row of roles ?? []) {
+        const current = roleByUser.get(row.user_id);
+        if (!current || (priority[row.role] ?? 99) < (priority[current] ?? 99)) {
+          roleByUser.set(row.user_id, row.role as AppRole);
+        }
+      }
+
       const profilesWithRoles = (profiles ?? []).map((p) => ({
         ...p,
-        role: (roles?.find((r) => r.user_id === p.id)?.role as AppRole) ?? "user",
+        role: roleByUser.get(p.id) ?? "user",
       }));
       return profilesWithRoles.filter(
         (p) => p.company_id === activeCompanyId || p.role === ("platform_admin" as AppRole)
