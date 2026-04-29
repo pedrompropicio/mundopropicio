@@ -314,7 +314,7 @@ Deno.serve(async (req) => {
     }
 
     try {
-      await ensureProfileAndRole(adminClient, userId, normalizedEmail, normalizedFullName, targetRole);
+      await ensureProfileAndRole(adminClient, userId, normalizedEmail, normalizedFullName, targetRole, callerCompanyId);
     } catch (syncError) {
       console.error("Sync user error:", syncError);
       return respond({
