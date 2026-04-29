@@ -87,26 +87,50 @@ export default function Companies() {
           <Card key={c.id}>
             <CardHeader>
               <CardTitle className="flex items-start justify-between gap-2">
-                <span>{c.display_name}</span>
+                <div className="flex items-center gap-2">
+                  {c.logo_url ? (
+                    <img src={c.logo_url} alt="" className="h-8 w-8 object-contain rounded" />
+                  ) : (
+                    <Building2 className="h-5 w-5 text-muted-foreground" />
+                  )}
+                  <span>{c.display_name}</span>
+                </div>
                 <Badge variant={c.status === "active" ? "default" : "secondary"}>{c.status}</Badge>
               </CardTitle>
               <p className="text-xs text-muted-foreground font-mono">{c.slug}</p>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="text-muted-foreground">{c.legal_name}</div>
-              <div className="flex gap-2 text-xs">
+              <div className="flex gap-2 text-xs items-center">
                 <Badge variant="outline">{c.country}</Badge>
                 <Badge variant="outline">{c.currency}</Badge>
+                {c.theme_config?.primary_color && (
+                  <span
+                    className="inline-block h-4 w-4 rounded-full border"
+                    style={{ backgroundColor: c.theme_config.primary_color }}
+                    title={`Cor: ${c.theme_config.primary_color}`}
+                  />
+                )}
               </div>
               {c.contact_email && <div className="text-xs text-muted-foreground">{c.contact_email}</div>}
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full mt-2"
-                onClick={() => setInviteOpen(c)}
-              >
-                <UserPlus className="h-3.5 w-3.5 mr-2" /> Convidar admin
-              </Button>
+              <div className="flex gap-2 mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setEditOpen(c)}
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-2" /> Editar
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setInviteOpen(c)}
+                >
+                  <UserPlus className="h-3.5 w-3.5 mr-2" /> Convidar
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}
