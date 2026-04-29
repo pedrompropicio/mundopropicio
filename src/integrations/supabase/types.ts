@@ -96,6 +96,7 @@ export type Database = {
       }
       bp_orphan_attachments: {
         Row: {
+          company_id: string | null
           created_at: string
           event_id: string
           id: string
@@ -111,6 +112,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           event_id: string
           id?: string
@@ -126,6 +128,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           event_id?: string
           id?: string
@@ -142,6 +145,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "bp_orphan_attachments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "bp_orphan_attachments_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
@@ -153,6 +163,7 @@ export type Database = {
       bp_version_audit_log: {
         Row: {
           action: string
+          company_id: string | null
           created_at: string
           event_id: string
           id: string
@@ -163,6 +174,7 @@ export type Database = {
         }
         Insert: {
           action: string
+          company_id?: string | null
           created_at?: string
           event_id: string
           id?: string
@@ -173,6 +185,7 @@ export type Database = {
         }
         Update: {
           action?: string
+          company_id?: string | null
           created_at?: string
           event_id?: string
           id?: string
@@ -182,6 +195,13 @@ export type Database = {
           version_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "bp_version_audit_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "bp_version_audit_log_event_id_fkey"
             columns: ["event_id"]
@@ -211,6 +231,7 @@ export type Database = {
           approved_by: string | null
           archived_at: string | null
           cascaded_from_version_id: string | null
+          company_id: string | null
           created_at: string
           created_by: string | null
           created_by_label: string | null
@@ -233,6 +254,7 @@ export type Database = {
           approved_by?: string | null
           archived_at?: string | null
           cascaded_from_version_id?: string | null
+          company_id?: string | null
           created_at?: string
           created_by?: string | null
           created_by_label?: string | null
@@ -255,6 +277,7 @@ export type Database = {
           approved_by?: string | null
           archived_at?: string | null
           cascaded_from_version_id?: string | null
+          company_id?: string | null
           created_at?: string
           created_by?: string | null
           created_by_label?: string | null
@@ -285,6 +308,13 @@ export type Database = {
             columns: ["cascaded_from_version_id"]
             isOneToOne: false
             referencedRelation: "bp_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bp_versions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
@@ -1422,6 +1452,7 @@ export type Database = {
         Row: {
           amount: number
           category_id: string | null
+          company_id: string | null
           created_at: string
           description: string
           event_id: string
@@ -1432,6 +1463,7 @@ export type Database = {
         Insert: {
           amount?: number
           category_id?: string | null
+          company_id?: string | null
           created_at?: string
           description: string
           event_id: string
@@ -1442,6 +1474,7 @@ export type Database = {
         Update: {
           amount?: number
           category_id?: string | null
+          company_id?: string | null
           created_at?: string
           description?: string
           event_id?: string
@@ -1458,6 +1491,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "event_closing_costs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "event_closing_costs_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
@@ -1468,6 +1508,7 @@ export type Database = {
       }
       event_dates: {
         Row: {
+          company_id: string | null
           created_at: string
           date: string
           event_id: string
@@ -1475,6 +1516,7 @@ export type Database = {
           label: string | null
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           date: string
           event_id: string
@@ -1482,6 +1524,7 @@ export type Database = {
           label?: string | null
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           date?: string
           event_id?: string
@@ -1489,6 +1532,13 @@ export type Database = {
           label?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "event_dates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_dates_event_id_fkey"
             columns: ["event_id"]
@@ -1504,6 +1554,7 @@ export type Database = {
           changed_at: string
           changed_by: string | null
           changed_by_label: string | null
+          company_id: string | null
           forecast_id: string
           from_state: Database["public"]["Enums"]["bp_formalidade"] | null
           id: string
@@ -1515,6 +1566,7 @@ export type Database = {
           changed_at?: string
           changed_by?: string | null
           changed_by_label?: string | null
+          company_id?: string | null
           forecast_id: string
           from_state?: Database["public"]["Enums"]["bp_formalidade"] | null
           id?: string
@@ -1526,6 +1578,7 @@ export type Database = {
           changed_at?: string
           changed_by?: string | null
           changed_by_label?: string | null
+          company_id?: string | null
           forecast_id?: string
           from_state?: Database["public"]["Enums"]["bp_formalidade"] | null
           id?: string
@@ -1541,6 +1594,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "event_forecast_formalidade_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "event_forecast_formalidade_log_forecast_id_fkey"
             columns: ["forecast_id"]
             isOneToOne: false
@@ -1551,24 +1611,34 @@ export type Database = {
       }
       event_forecast_partners: {
         Row: {
+          company_id: string | null
           created_at: string
           forecast_id: string
           id: string
           partner_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           forecast_id: string
           id?: string
           partner_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           forecast_id?: string
           id?: string
           partner_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "event_forecast_partners_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_forecast_partners_forecast_id_fkey"
             columns: ["forecast_id"]
@@ -1593,6 +1663,7 @@ export type Database = {
           attachment_refs: Json
           cache_config_id: string | null
           category_id: string | null
+          company_id: string | null
           created_at: string
           currency: string
           description: string
@@ -1629,6 +1700,7 @@ export type Database = {
           attachment_refs?: Json
           cache_config_id?: string | null
           category_id?: string | null
+          company_id?: string | null
           created_at?: string
           currency?: string
           description: string
@@ -1665,6 +1737,7 @@ export type Database = {
           attachment_refs?: Json
           cache_config_id?: string | null
           category_id?: string | null
+          company_id?: string | null
           created_at?: string
           currency?: string
           description?: string
@@ -1710,6 +1783,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "event_forecasts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "event_forecasts_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
@@ -1748,6 +1828,7 @@ export type Database = {
       }
       event_implementations: {
         Row: {
+          company_id: string | null
           created_at: string
           event_id: string | null
           event_structure: Json | null
@@ -1760,6 +1841,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           event_id?: string | null
           event_structure?: Json | null
@@ -1772,6 +1854,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           event_id?: string | null
           event_structure?: Json | null
@@ -1785,6 +1868,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "event_implementations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "event_implementations_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
@@ -1796,6 +1886,7 @@ export type Database = {
       event_partner_extras: {
         Row: {
           amount: number
+          company_id: string | null
           created_at: string
           description: string
           event_id: string
@@ -1806,6 +1897,7 @@ export type Database = {
         }
         Insert: {
           amount?: number
+          company_id?: string | null
           created_at?: string
           description: string
           event_id: string
@@ -1816,6 +1908,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          company_id?: string | null
           created_at?: string
           description?: string
           event_id?: string
@@ -1825,6 +1918,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "event_partner_extras_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_partner_extras_event_id_fkey"
             columns: ["event_id"]
@@ -1843,6 +1943,7 @@ export type Database = {
       }
       event_partners: {
         Row: {
+          company_id: string | null
           created_at: string
           event_id: string
           expense_includes_iva: boolean
@@ -1854,6 +1955,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           event_id: string
           expense_includes_iva?: boolean
@@ -1865,6 +1967,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           event_id?: string
           expense_includes_iva?: boolean
@@ -1876,6 +1979,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "event_partners_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_partners_event_id_fkey"
             columns: ["event_id"]
@@ -1894,6 +2004,7 @@ export type Database = {
       }
       event_sessions: {
         Row: {
+          company_id: string | null
           created_at: string
           date: string
           event_id: string
@@ -1905,6 +2016,7 @@ export type Database = {
           version_id: string | null
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           date: string
           event_id: string
@@ -1916,6 +2028,7 @@ export type Database = {
           version_id?: string | null
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           date?: string
           event_id?: string
@@ -1927,6 +2040,13 @@ export type Database = {
           version_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "event_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_sessions_event_id_fkey"
             columns: ["event_id"]
@@ -2165,6 +2285,7 @@ export type Database = {
         Row: {
           budget: number
           city_id: string | null
+          company_id: string | null
           created_at: string
           date: string
           event_type: string
@@ -2184,6 +2305,7 @@ export type Database = {
         Insert: {
           budget?: number
           city_id?: string | null
+          company_id?: string | null
           created_at?: string
           date: string
           event_type?: string
@@ -2203,6 +2325,7 @@ export type Database = {
         Update: {
           budget?: number
           city_id?: string | null
+          company_id?: string | null
           created_at?: string
           date?: string
           event_type?: string
@@ -2225,6 +2348,13 @@ export type Database = {
             columns: ["city_id"]
             isOneToOne: false
             referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
@@ -2335,6 +2465,7 @@ export type Database = {
       forecast_audit_log: {
         Row: {
           changed_by: string
+          company_id: string | null
           created_at: string
           field_name: string
           forecast_id: string
@@ -2345,6 +2476,7 @@ export type Database = {
         }
         Insert: {
           changed_by?: string
+          company_id?: string | null
           created_at?: string
           field_name: string
           forecast_id: string
@@ -2355,6 +2487,7 @@ export type Database = {
         }
         Update: {
           changed_by?: string
+          company_id?: string | null
           created_at?: string
           field_name?: string
           forecast_id?: string
@@ -2364,6 +2497,13 @@ export type Database = {
           old_value?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "forecast_audit_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "forecast_audit_log_forecast_id_fkey"
             columns: ["forecast_id"]
@@ -4341,6 +4481,10 @@ export type Database = {
           _version_id: string
         }
         Returns: string
+      }
+      row_belongs_to_current_company: {
+        Args: { _row_company_id: string }
+        Returns: boolean
       }
       set_formalidade_auto_suggested: {
         Args: { _value: boolean }
