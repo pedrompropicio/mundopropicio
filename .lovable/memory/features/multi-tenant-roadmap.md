@@ -1,10 +1,10 @@
 ---
 name: Multi-tenant roadmap
-description: Plano e estado da transição multi-empresa (Coala/Cloudscape como 2ª empresa); Fases 1+2+3 COMPLETAS em Test
+description: Plano e estado da transição multi-empresa (Coala/Cloudscape como 2ª empresa); Fases 1+2+3+4 COMPLETAS em Test
 type: feature
 ---
 
-## Estado: Fase 1 + Fase 2 (A→F) + Fase 3 (edge functions novas) COMPLETAS em Test (Fases 4–7 pendentes)
+## Estado: Fase 1 + Fase 2 (A→F) + Fase 3 + Fase 4 (storage) COMPLETAS em Test (Fases 5–7 pendentes)
 
 Plano completo em `.lovable/plan.md`. Decisões fechadas:
 - Single DB + `company_id` em tabelas core + RLS rigorosa
@@ -106,8 +106,16 @@ Migração suporte: `company_invitations` ganhou colunas `status` (CHECK pending
 
 Edge functions existentes (30): mantêm-se compatíveis — RLS RESTRICTIVE da Fase 2 protege automaticamente todas as tabelas isoladas. Functions com service_role (database-backup, restore-*, create-user, delete-user, send-transactional-email, etc.) continuarão a operar; quando consultam tabelas com `company_id`, qualquer query escrita já filtra implicitamente via current_company_id() dos chamadores autenticados, ou opera cross-company explicitamente (caso de backups, que devem permanecer globais para o platform_admin).
 
+## Fase 4 — Concluída ✅ (Test) — Isolamento de Storage por empresa
+- Helper `public.storage_path_belongs_to_current_company(name)` — valida que `(storage.foldername(name))[1] = current_company_id()::text`, ou que o utilizador é `platform_admin`.
+- Policies RESTRICTIVE em `storage.objects` (SELECT/INSERT/UPDATE/DELETE) para 11 buckets isolados:
+  - `bp-version-snapshots`, `cache-extra-documents`, `camarim-documents`, `closing-cost-documents`, `implementation-files`, `import-reports`, `partner-extra-documents`, `supplier-credit-documents`, `supplier-documents`, `ticket-office-settlements`, `transaction-documents`.
+- Convenção de path: `{company_id}/{...resto-do-path-original}/ficheiro.ext`.
+- Buckets globais (sem isolamento por empresa): `company-branding` (público) e `database-backups` (acesso via service-role/platform_admin).
+- Migração de dados em Test: ficheiros existentes foram prefixados com o id da Mundo Propício (`975254b9-6b92-4cdd-a971-36e4a4f98525`) quando ainda não estavam.
+- ⚠️ Implicação no código: todos os `supabase.storage.from(bucket).upload(path, ...)` em buckets isolados precisam, na Fase 5, de prefixar o path com `${currentCompanyId}/`. As policies PERMISSIVE atuais (CRUD por role) continuam a aplicar-se por cima.
+
 ## Como retomar
-- **Fase 4 (storage paths)**: prefixo `{company_id}/` nos buckets existentes.
-- **Fase 5 (UI)**: página `/admin/companies`, `useCompany()`, ThemeProvider dinâmico, logo/favicon dinâmicos.
-- **Fase 6**: validação cross-tenant.
+- **Fase 5 (UI)**: página `/admin/companies`, `useCompany()`, ThemeProvider dinâmico, logo/favicon dinâmicos, prefixação automática de paths em uploads.
+- **Fase 6**: validação cross-tenant (testar com 2ª empresa real).
 - **Fase 7**: migração Live (plano à parte).

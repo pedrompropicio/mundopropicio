@@ -5030,6 +5030,10 @@ export type Database = {
         Args: { _value: boolean }
         Returns: undefined
       }
+      storage_path_belongs_to_current_company: {
+        Args: { _name: string }
+        Returns: boolean
+      }
       suggest_formalidade: {
         Args: { _forecast_id: string }
         Returns: Database["public"]["Enums"]["bp_formalidade"]
