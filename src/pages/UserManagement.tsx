@@ -43,7 +43,8 @@ export default function UserManagement() {
         .from("profiles")
         .select("id, full_name, email, created_at, company_id")
         .order("created_at", { ascending: true });
-      if (activeCompanyId) query = query.eq("company_id", activeCompanyId);
+      // Include profiles of the active company OR platform_admins (company_id NULL)
+      if (activeCompanyId) query = query.or(`company_id.eq.${activeCompanyId},company_id.is.null`);
 
       const { data: profiles, error: pErr } = await query;
       if (pErr) throw pErr;
@@ -53,10 +54,14 @@ export default function UserManagement() {
         .select("user_id, role");
       if (rErr) throw rErr;
 
-      return (profiles ?? []).map((p) => ({
+      // Keep platform_admins always visible; filter out NULL company_id rows that aren't platform_admin
+      const profilesWithRoles = (profiles ?? []).map((p) => ({
         ...p,
         role: (roles?.find((r) => r.user_id === p.id)?.role as AppRole) ?? "user",
       }));
+      return profilesWithRoles.filter(
+        (p) => p.company_id === activeCompanyId || p.role === ("platform_admin" as AppRole)
+      );
     },
   });
 
