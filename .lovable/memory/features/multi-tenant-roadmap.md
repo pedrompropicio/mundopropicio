@@ -1,10 +1,10 @@
 ---
 name: Multi-tenant roadmap
-description: Plano e estado da transição multi-empresa (Coala Portugal/Cloudscape como 2ª empresa); Fases 1+2A+2B+2C+2D+2E CONCLUÍDAS em Test
+description: Plano e estado da transição multi-empresa (Coala/Cloudscape como 2ª empresa); Fase 2 (schema) COMPLETA em Test
 type: feature
 ---
 
-## Estado: Fases 1 + 2A + 2B + 2C + 2D + 2E CONCLUÍDAS em Test (Fase 2F + 3–7 pendentes)
+## Estado: Fase 1 + Fase 2 (A→F) COMPLETAS em Test (Fases 3–7 pendentes)
 
 Plano completo em `.lovable/plan.md`. Decisões fechadas:
 - Single DB + `company_id` em tabelas core + RLS rigorosa
@@ -78,8 +78,24 @@ Total seeded em 2D: 562 linhas → Mundo Propício.
 
 Total seeded em 2E: 115 linhas → Mundo Propício.
 
+## Fase 2F — Concluída ✅ (Test) — última de schema
+14 tabelas de sistema + comercial + comunicações + catálogos por empresa ganharam `company_id` + RLS RESTRICTIVE + trigger BEFORE INSERT:
+- **Sistema/Auditoria (4)**: trash (6), undo_actions (8), system_audit_log (28), user_activity_log (5116)
+- **Comercial (3)**: quotations (0), venue_reservations (56), accounting_exports (0)
+- **Comunicações (5)**: email_send_log (34), email_send_state, email_unsubscribe_tokens, suppressed_emails, push_subscriptions (1)
+- **Catálogos por empresa (2)**: account_categories (146), venues (66)
+
+Total seeded em 2F: ~5461 linhas → Mundo Propício.
+
+### Mantidas globais (intencionalmente sem company_id)
+- `cities` (catálogo geográfico universal)
+- `role_permissions` (matriz de permissões da app)
+- `login_attempts` (anti-brute-force pré-autenticação)
+- `companies` (tabela mãe)
+
+## Resumo Fase 2 (A→F): 65 tabelas isoladas, ~8634 linhas seeded para Mundo Propício.
+
 ## Como retomar
-- **Fase 2F (sistema)**: trash, undo_actions, system_audit_log, user_activity_log, etc.
 - **Fase 3 (edge functions)**: refactor de 30 functions + 3 novas (`create-company`, `invite-company-admin`, `accept-invitation`).
 - **Fase 4 (storage paths)**: prefixo `{company_id}/` nos buckets existentes.
 - **Fase 5 (UI)**: página `/admin/companies`, `useCompany()`, ThemeProvider dinâmico, logo/favicon dinâmicos.
