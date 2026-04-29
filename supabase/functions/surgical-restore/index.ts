@@ -14,8 +14,44 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    console.log("URL:", supabaseUrl, "Key length:", serviceRoleKey?.length);
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    // ---- AUTH (admin only) ----
+    const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization") ?? "";
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    let role: string | null = null;
+    let userId: string | null = null;
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1] ?? ""));
+      role = payload?.role ?? null;
+      userId = payload?.sub ?? null;
+    } catch {}
+
+    let isPlatformAdmin = false;
+    let callerCompanyId: string | null = null;
+
+    if (role !== "service_role") {
+      if (!userId) {
+        return new Response(JSON.stringify({ error: "Não autorizado" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: roleRow } = await adminClient
+        .from("user_roles").select("role")
+        .eq("user_id", userId).eq("role", "admin").maybeSingle();
+      if (!roleRow) {
+        return new Response(JSON.stringify({ error: "Apenas administradores podem restaurar" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: isPaRow } = await adminClient.rpc("is_platform_admin", { _user_id: userId });
+      isPlatformAdmin = Boolean(isPaRow);
+      const { data: profile } = await adminClient
+        .from("profiles").select("company_id, active_company_id").eq("id", userId).maybeSingle();
+      callerCompanyId = isPlatformAdmin
+        ? (profile?.active_company_id ?? profile?.company_id ?? null)
+        : (profile?.company_id ?? null);
+    }
 
     const body = await req.json();
     const { backup_file, event_ids } = body;
@@ -23,13 +59,11 @@ Deno.serve(async (req) => {
 
     // List files first to verify
     const { data: listData } = await adminClient.storage.from("database-backups").list();
-    console.log("Files in bucket:", listData?.map((f: any) => f.name));
 
     // Download backup
     const { data: fileData, error: downloadErr } = await adminClient.storage
       .from("database-backups")
       .download(backup_file);
-    console.log("Download result:", downloadErr ? `ERROR: ${downloadErr.message}` : `OK, size=${fileData?.size}`);
     if (downloadErr || !fileData) {
       return new Response(JSON.stringify({ error: `Download: ${downloadErr?.message}`, files: listData?.map((f: any) => f.name) }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -37,6 +71,44 @@ Deno.serve(async (req) => {
     }
 
     const backup = JSON.parse(await fileData.text());
+
+    // ---- MULTI-TENANT GUARD ----
+    const backupScope: "company" | "global" | "legacy" =
+      backup.scope === "company" ? "company"
+      : backup.scope === "global" ? "global"
+      : "legacy";
+    const backupCompanyId: string | null = backup.company_id ?? null;
+
+    if (backupScope === "global") {
+      return new Response(JSON.stringify({ error: "Backup global não suporta surgical-restore" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (backupScope === "company" && role !== "service_role" && backupCompanyId !== callerCompanyId) {
+      console.warn(`[surgical-restore] Cross-tenant block: caller=${userId} (${callerCompanyId}) tentou restaurar backup de ${backupCompanyId}`);
+      return new Response(JSON.stringify({ error: "Este backup pertence a outra empresa" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (backupScope === "legacy" && role !== "service_role" && !isPlatformAdmin) {
+      return new Response(JSON.stringify({ error: "Backups antigos (v2) só por platform_admin" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Adicionalmente: validar que TODOS os event_ids pedidos pertencem à company do caller
+    if (callerCompanyId && event_ids?.length) {
+      const { data: eventsCheck } = await adminClient
+        .from("events").select("id, company_id").in("id", event_ids);
+      const wrong = (eventsCheck ?? []).filter((e: any) => e.company_id !== callerCompanyId);
+      if (wrong.length > 0) {
+        console.warn(`[surgical-restore] Cross-tenant event ids: ${wrong.map((e: any) => e.id).join(",")}`);
+        return new Response(JSON.stringify({ error: "Alguns eventos não pertencem à sua empresa" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const tables = backup.tables;
     const results: Record<string, { found: number; inserted: number; error?: string }> = {};
 
