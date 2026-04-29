@@ -18,6 +18,7 @@ import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
 import { CompanyBrandingProvider } from "@/contexts/CompanyBrandingContext";
 import { BrandedLogo } from "@/components/BrandedLogo";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
+import { MfaRequiredGate } from "@/components/MfaRequiredGate";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Sun, Moon } from "lucide-react";
 import Index from "./pages/Index";
@@ -228,6 +229,7 @@ function ProtectedLayout() {
         <AppSidebar />
         <main className="flex-1 pl-16 lg:pl-56">
           <div className="mx-auto max-w-7xl p-4 lg:p-6">
+            <MfaRequiredGate>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/calendario" element={<EventCalendar />} />
@@ -292,9 +294,8 @@ function ProtectedLayout() {
               <Route path="/admin/auditoria-contas" element={<AuditoriaContas />} />
               <Route path="/admin/formalidade" element={<FormalidadeAudit />} />
               <Route path="/admin/empresas" element={<Companies />} />
-              <Route path="*" element={<NotFound />} />
             </Routes>
-            
+            </MfaRequiredGate>
           </div>
         </main>
       </div>
