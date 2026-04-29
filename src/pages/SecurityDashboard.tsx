@@ -250,6 +250,87 @@ export default function SecurityDashboard() {
         </div>
       </div>
 
+      {/* MFA Management (only when enrolled) */}
+      {hasMfa && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Trusted devices */}
+          <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Smartphone className="h-4 w-4" /> Dispositivos confiáveis (30 dias)
+              </h2>
+              {trustedDevices.length > 0 && (
+                <button
+                  onClick={() => revokeAllDevices.mutate()}
+                  className="text-xs text-destructive hover:underline"
+                >
+                  Remover todos
+                </button>
+              )}
+            </div>
+            {trustedDevices.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Nenhum dispositivo confiável. No próximo login pode marcar este dispositivo para evitar pedir TOTP durante 30 dias.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {trustedDevices.map((d: any) => (
+                  <div key={d.id} className="flex items-center justify-between rounded-lg bg-secondary/30 p-2 text-xs">
+                    <div className="space-y-0.5">
+                      <div className="font-medium text-foreground">{d.device_label || "Dispositivo"}</div>
+                      <div className="text-muted-foreground">
+                        Último uso: {new Date(d.last_used_at).toLocaleDateString("pt-PT")} · Expira:{" "}
+                        {new Date(d.expires_at).toLocaleDateString("pt-PT")}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => revokeDevice.mutate(d.id)}
+                      className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      title="Revogar"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Recovery codes */}
+          <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <KeyRound className="h-4 w-4" /> Códigos de recuperação
+            </h2>
+            <div className="rounded-lg bg-secondary/30 p-3 text-sm">
+              <div className="text-foreground">
+                <span className="text-2xl font-bold">{recoveryCount}</span>
+                <span className="text-muted-foreground"> / 5 códigos disponíveis</span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Use-os se perder a app autenticadora. Cada código só funciona uma vez.
+              </p>
+            </div>
+            {recoveryCount < 2 && recoveryCount > 0 && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-500">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                Restam poucos códigos. Considere gerar novos.
+              </div>
+            )}
+            <button
+              onClick={() => {
+                if (confirm("Gerar 5 novos códigos? Os antigos deixam de funcionar.")) {
+                  regenerateCodes.mutate();
+                }
+              }}
+              disabled={regenerateCodes.isPending}
+              className="flex w-full items-center justify-center gap-1 rounded-lg border border-border py-2 text-xs hover:bg-secondary disabled:opacity-50"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> {regenerateCodes.isPending ? "A gerar…" : "Gerar novos códigos"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Audit Log */}
       <div className="rounded-xl border border-border bg-card p-4 space-y-3">
         <h2 className="text-sm font-semibold text-foreground">Log de Auditoria (últimas 50)</h2>
@@ -291,9 +372,47 @@ export default function SecurityDashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowMfaSetup(false)}>
           <div className="glass w-full max-w-sm rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
             <MfaEnroll
-              onComplete={() => setShowMfaSetup(false)}
+              onComplete={() => {
+                setShowMfaSetup(false);
+                queryClient.invalidateQueries({ queryKey: ["my-mfa-factors"] });
+                queryClient.invalidateQueries({ queryKey: ["my-recovery-codes-count"] });
+              }}
               onSkip={() => setShowMfaSetup(false)}
             />
+          </div>
+        </div>
+      )}
+
+      {/* New Recovery Codes Modal */}
+      {newCodes && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="glass w-full max-w-sm rounded-xl p-6 space-y-4">
+            <div className="text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/15">
+                <AlertTriangle className="h-6 w-6 text-amber-500" />
+              </div>
+              <h2 className="mt-2 text-lg font-bold">Guarde os novos códigos</h2>
+              <p className="text-xs text-muted-foreground">Esta é a única vez que aparecem.</p>
+            </div>
+            <div className="grid grid-cols-1 gap-1 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 font-mono text-sm">
+              {newCodes.map((c) => (
+                <div key={c} className="text-center tracking-wider text-foreground">{c}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => copyCodes(newCodes)} className="flex items-center justify-center gap-1 rounded-lg border border-border py-2 text-xs hover:bg-secondary">
+                <Copy className="h-3.5 w-3.5" /> Copiar
+              </button>
+              <button onClick={() => downloadCodes(newCodes)} className="flex items-center justify-center gap-1 rounded-lg border border-border py-2 text-xs hover:bg-secondary">
+                <Download className="h-3.5 w-3.5" /> Descarregar
+              </button>
+            </div>
+            <button
+              onClick={() => setNewCodes(null)}
+              className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Já guardei
+            </button>
           </div>
         </div>
       )}
