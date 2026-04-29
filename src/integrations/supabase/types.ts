@@ -2710,6 +2710,7 @@ export type Database = {
       }
       partner_advance_expenses: {
         Row: {
+          company_id: string | null
           created_at: string
           event_id: string
           id: string
@@ -2719,6 +2720,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           event_id: string
           id?: string
@@ -2728,6 +2730,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           event_id?: string
           id?: string
@@ -2737,6 +2740,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "partner_advance_expenses_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "partner_advance_expenses_event_id_fkey"
             columns: ["event_id"]
@@ -2852,6 +2862,7 @@ export type Database = {
       }
       payment_list_items: {
         Row: {
+          company_id: string | null
           created_at: string
           id: string
           manually_marked_paid: boolean
@@ -2859,6 +2870,7 @@ export type Database = {
           transaction_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           id?: string
           manually_marked_paid?: boolean
@@ -2866,6 +2878,7 @@ export type Database = {
           transaction_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           id?: string
           manually_marked_paid?: boolean
@@ -2873,6 +2886,13 @@ export type Database = {
           transaction_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "payment_list_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payment_list_items_payment_list_id_fkey"
             columns: ["payment_list_id"]
@@ -2893,6 +2913,7 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          company_id: string | null
           created_at: string
           created_by: string
           id: string
@@ -2906,6 +2927,7 @@ export type Database = {
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          company_id?: string | null
           created_at?: string
           created_by?: string
           id?: string
@@ -2919,6 +2941,7 @@ export type Database = {
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          company_id?: string | null
           created_at?: string
           created_by?: string
           id?: string
@@ -2929,7 +2952,15 @@ export type Database = {
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "payment_lists_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -3058,6 +3089,7 @@ export type Database = {
           account_id: string | null
           amount: number
           category_id: string | null
+          company_id: string | null
           created_at: string
           created_by: string
           day_of_month: number
@@ -3080,6 +3112,7 @@ export type Database = {
           account_id?: string | null
           amount: number
           category_id?: string | null
+          company_id?: string | null
           created_at?: string
           created_by?: string
           day_of_month?: number
@@ -3102,6 +3135,7 @@ export type Database = {
           account_id?: string | null
           amount?: number
           category_id?: string | null
+          company_id?: string | null
           created_at?: string
           created_by?: string
           day_of_month?: number
@@ -3133,6 +3167,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "account_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_transactions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
@@ -3870,6 +3911,7 @@ export type Database = {
         Row: {
           changed_at: string
           changed_by: string
+          company_id: string | null
           field_name: string
           id: string
           new_value: string | null
@@ -3879,6 +3921,7 @@ export type Database = {
         Insert: {
           changed_at?: string
           changed_by?: string
+          company_id?: string | null
           field_name: string
           id?: string
           new_value?: string | null
@@ -3888,6 +3931,7 @@ export type Database = {
         Update: {
           changed_at?: string
           changed_by?: string
+          company_id?: string | null
           field_name?: string
           id?: string
           new_value?: string | null
@@ -3895,6 +3939,13 @@ export type Database = {
           transaction_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "transaction_audit_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "transaction_audit_log_transaction_id_fkey"
             columns: ["transaction_id"]
@@ -3906,6 +3957,7 @@ export type Database = {
       }
       transaction_documents: {
         Row: {
+          company_id: string | null
           doc_type: string
           file_url: string
           id: string
@@ -3916,6 +3968,7 @@ export type Database = {
           uploaded_by: string
         }
         Insert: {
+          company_id?: string | null
           doc_type?: string
           file_url: string
           id?: string
@@ -3926,6 +3979,7 @@ export type Database = {
           uploaded_by?: string
         }
         Update: {
+          company_id?: string | null
           doc_type?: string
           file_url?: string
           id?: string
@@ -3936,6 +3990,13 @@ export type Database = {
           uploaded_by?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "transaction_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "transaction_documents_transaction_id_fkey"
             columns: ["transaction_id"]
@@ -3949,6 +4010,7 @@ export type Database = {
         Row: {
           account_id: string | null
           amount: number
+          company_id: string | null
           created_at: string
           created_by: string
           credit_amount: number
@@ -3966,6 +4028,7 @@ export type Database = {
         Insert: {
           account_id?: string | null
           amount: number
+          company_id?: string | null
           created_at?: string
           created_by?: string
           credit_amount?: number
@@ -3983,6 +4046,7 @@ export type Database = {
         Update: {
           account_id?: string | null
           amount?: number
+          company_id?: string | null
           created_at?: string
           created_by?: string
           credit_amount?: number
@@ -4006,6 +4070,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "transaction_payments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "transaction_payments_transaction_id_fkey"
             columns: ["transaction_id"]
             isOneToOne: false
@@ -4019,6 +4090,7 @@ export type Database = {
           account_id: string | null
           amount: number
           category_id: string | null
+          company_id: string | null
           created_at: string
           currency: string
           date: string
@@ -4060,6 +4132,7 @@ export type Database = {
           account_id?: string | null
           amount: number
           category_id?: string | null
+          company_id?: string | null
           created_at?: string
           currency?: string
           date: string
@@ -4101,6 +4174,7 @@ export type Database = {
           account_id?: string | null
           amount?: number
           category_id?: string | null
+          company_id?: string | null
           created_at?: string
           currency?: string
           date?: string
@@ -4151,6 +4225,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "account_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
