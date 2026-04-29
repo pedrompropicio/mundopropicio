@@ -359,11 +359,17 @@ Deno.serve(async (req) => {
     const orderedTables = TABLE_ORDER.filter((t) => effective[t] && effective[t].length > 0);
 
     // Step 1: delete (children first → reverse)
+    // Quando há tenantFilter, NUNCA apaga _all_ — apaga só linhas dessa company.
     for (const table of [...orderedTables].reverse()) {
       try {
         if (scope === "tables") {
-          const err = await deleteAllInTable(adminClient, table);
-          results[table] = { deleted: "all", inserted: 0, ...(err ? { error: `delete: ${err}` } : {}) };
+          if (tenantFilter) {
+            const { error } = await adminClient.from(table).delete().eq("company_id", tenantFilter);
+            results[table] = { deleted: "all", inserted: 0, ...(error ? { error: `delete: ${error.message}` } : {}) };
+          } else {
+            const err = await deleteAllInTable(adminClient, table);
+            results[table] = { deleted: "all", inserted: 0, ...(err ? { error: `delete: ${err}` } : {}) };
+          }
         } else {
           const ids = effective[table].map((r: any) => r.id).filter(Boolean);
           const err = await deleteByIds(adminClient, table, ids);
