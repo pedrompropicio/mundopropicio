@@ -13,8 +13,9 @@ import {
   Preview,
   Text,
 } from 'npm:@react-email/components@0.0.22'
+import { BrandHeader, resolvePrimary, type BrandingProps } from './branding.tsx'
 
-interface SignupEmailProps {
+interface SignupEmailProps extends BrandingProps {
   siteName: string
   siteUrl: string
   recipient: string
@@ -26,37 +27,45 @@ export const SignupEmail = ({
   siteUrl,
   recipient,
   confirmationUrl,
-}: SignupEmailProps) => (
-  <Html lang="pt" dir="ltr">
-    <Head />
-    <Preview>Confirme o seu email — {siteName}</Preview>
-    <Body style={main}>
-      <Container style={container}>
-        <Heading style={h1}>Confirme o seu email</Heading>
-        <Text style={text}>
-          Obrigado por se registar em{' '}
-          <Link href={siteUrl} style={link}>
-            <strong>{siteName}</strong>
-          </Link>
-          !
-        </Text>
-        <Text style={text}>
-          Por favor confirme o seu endereço de email (
-          <Link href={`mailto:${recipient}`} style={link}>
-            {recipient}
-          </Link>
-          ) clicando no botão abaixo:
-        </Text>
-        <Button style={button} href={confirmationUrl}>
-          Verificar Email
-        </Button>
-        <Text style={footer}>
-          Se não criou uma conta, pode ignorar este email com segurança.
-        </Text>
-      </Container>
-    </Body>
-  </Html>
-)
+  brandName,
+  brandLogoUrl,
+  brandPrimaryColor,
+}: SignupEmailProps) => {
+  const displayName = brandName ?? siteName
+  const primary = resolvePrimary(brandPrimaryColor)
+  return (
+    <Html lang="pt" dir="ltr">
+      <Head />
+      <Preview>Confirme o seu email — {displayName}</Preview>
+      <Body style={main}>
+        <Container style={container}>
+          <BrandHeader brandLogoUrl={brandLogoUrl} brandName={displayName} />
+          <Heading style={h1}>Confirme o seu email</Heading>
+          <Text style={text}>
+            Obrigado por se registar em{' '}
+            <Link href={siteUrl} style={link}>
+              <strong>{displayName}</strong>
+            </Link>
+            !
+          </Text>
+          <Text style={text}>
+            Por favor confirme o seu endereço de email (
+            <Link href={`mailto:${recipient}`} style={link}>
+              {recipient}
+            </Link>
+            ) clicando no botão abaixo:
+          </Text>
+          <Button style={{ ...button, backgroundColor: primary }} href={confirmationUrl}>
+            Verificar Email
+          </Button>
+          <Text style={footer}>
+            Se não criou uma conta, pode ignorar este email com segurança.
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  )
+}
 
 export default SignupEmail
 
@@ -76,7 +85,6 @@ const text = {
 }
 const link = { color: 'inherit', textDecoration: 'underline' }
 const button = {
-  backgroundColor: '#1a6fb8',
   color: '#ffffff',
   fontSize: '14px',
   borderRadius: '8px',

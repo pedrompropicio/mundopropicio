@@ -11,8 +11,9 @@ import {
   Preview,
   Text,
 } from 'npm:@react-email/components@0.0.22'
+import { BrandHeader, resolvePrimary, type BrandingProps } from './branding.tsx'
 
-interface RecoveryEmailProps {
+interface RecoveryEmailProps extends BrandingProps {
   siteName: string
   token?: string
 }
@@ -20,28 +21,36 @@ interface RecoveryEmailProps {
 export const RecoveryEmail = ({
   siteName,
   token,
-}: RecoveryEmailProps) => (
-  <Html lang="pt" dir="ltr">
-    <Head />
-    <Preview>Código de recuperação de senha — {siteName}</Preview>
-    <Body style={main}>
-      <Container style={container}>
-        <Heading style={h1}>Recuperar senha</Heading>
-        <Text style={text}>
-          Recebemos um pedido para redefinir a sua senha em {siteName}. Use o
-          código abaixo para continuar na aplicação:
-        </Text>
-        {token ? (
-          <Text style={codeStyle}>{token}</Text>
-        ) : null}
-        <Text style={footer}>
-          Se não solicitou esta recuperação, pode ignorar este email. A sua
-          senha não será alterada. O código expira em poucos minutos.
-        </Text>
-      </Container>
-    </Body>
-  </Html>
-)
+  brandName,
+  brandLogoUrl,
+  brandPrimaryColor,
+}: RecoveryEmailProps) => {
+  const displayName = brandName ?? siteName
+  const primary = resolvePrimary(brandPrimaryColor)
+  return (
+    <Html lang="pt" dir="ltr">
+      <Head />
+      <Preview>Código de recuperação de senha — {displayName}</Preview>
+      <Body style={main}>
+        <Container style={container}>
+          <BrandHeader brandLogoUrl={brandLogoUrl} brandName={displayName} />
+          <Heading style={h1}>Recuperar senha</Heading>
+          <Text style={text}>
+            Recebemos um pedido para redefinir a sua senha em {displayName}. Use o
+            código abaixo para continuar na aplicação:
+          </Text>
+          {token ? (
+            <Text style={{ ...codeStyle, color: primary }}>{token}</Text>
+          ) : null}
+          <Text style={footer}>
+            Se não solicitou esta recuperação, pode ignorar este email. A sua
+            senha não será alterada. O código expira em poucos minutos.
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  )
+}
 
 export default RecoveryEmail
 
@@ -62,7 +71,6 @@ const text = {
 const codeStyle = {
   fontSize: '32px',
   fontWeight: 'bold' as const,
-  color: '#1a6fb8',
   letterSpacing: '6px',
   textAlign: 'center' as const,
   margin: '16px 0 28px',

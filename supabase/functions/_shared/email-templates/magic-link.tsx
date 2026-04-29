@@ -12,8 +12,9 @@ import {
   Preview,
   Text,
 } from 'npm:@react-email/components@0.0.22'
+import { BrandHeader, resolvePrimary, type BrandingProps } from './branding.tsx'
 
-interface MagicLinkEmailProps {
+interface MagicLinkEmailProps extends BrandingProps {
   siteName: string
   confirmationUrl: string
 }
@@ -21,26 +22,34 @@ interface MagicLinkEmailProps {
 export const MagicLinkEmail = ({
   siteName,
   confirmationUrl,
-}: MagicLinkEmailProps) => (
-  <Html lang="pt" dir="ltr">
-    <Head />
-    <Preview>O seu link de acesso — {siteName}</Preview>
-    <Body style={main}>
-      <Container style={container}>
-        <Heading style={h1}>O seu link de acesso</Heading>
-        <Text style={text}>
-          Clique no botão abaixo para aceder a {siteName}. Este link expira em breve.
-        </Text>
-        <Button style={button} href={confirmationUrl}>
-          Aceder
-        </Button>
-        <Text style={footer}>
-          Se não solicitou este link, pode ignorar este email com segurança.
-        </Text>
-      </Container>
-    </Body>
-  </Html>
-)
+  brandName,
+  brandLogoUrl,
+  brandPrimaryColor,
+}: MagicLinkEmailProps) => {
+  const displayName = brandName ?? siteName
+  const primary = resolvePrimary(brandPrimaryColor)
+  return (
+    <Html lang="pt" dir="ltr">
+      <Head />
+      <Preview>O seu link de acesso — {displayName}</Preview>
+      <Body style={main}>
+        <Container style={container}>
+          <BrandHeader brandLogoUrl={brandLogoUrl} brandName={displayName} />
+          <Heading style={h1}>O seu link de acesso</Heading>
+          <Text style={text}>
+            Clique no botão abaixo para aceder a {displayName}. Este link expira em breve.
+          </Text>
+          <Button style={{ ...button, backgroundColor: primary }} href={confirmationUrl}>
+            Aceder
+          </Button>
+          <Text style={footer}>
+            Se não solicitou este link, pode ignorar este email com segurança.
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  )
+}
 
 export default MagicLinkEmail
 
@@ -59,7 +68,6 @@ const text = {
   margin: '0 0 25px',
 }
 const button = {
-  backgroundColor: '#1a6fb8',
   color: '#ffffff',
   fontSize: '14px',
   borderRadius: '8px',
