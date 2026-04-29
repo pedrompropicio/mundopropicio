@@ -18,7 +18,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { Building2, UserPlus, Copy, Plus } from "lucide-react";
+import { Building2, UserPlus, Copy, Plus, Pencil, Upload, Trash2 } from "lucide-react";
 
 interface CompanyRow {
   id: string;
@@ -29,6 +29,8 @@ interface CompanyRow {
   currency: string;
   status: string;
   contact_email: string | null;
+  logo_url: string | null;
+  theme_config: { primary_color?: string } | null;
   created_at: string;
 }
 
