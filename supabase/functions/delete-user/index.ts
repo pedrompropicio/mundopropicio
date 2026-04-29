@@ -65,6 +65,36 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Multi-tenant guard: caller só pode eliminar utilizadores da SUA company.
+    // Platform_admin (resolvido server-side) bypassa.
+    const { data: isPa } = await adminClient.rpc("is_platform_admin", { _user_id: caller.id });
+    const isPlatformAdmin = Boolean(isPa);
+
+    if (!isPlatformAdmin) {
+      const { data: callerProfile } = await adminClient
+        .from("profiles").select("company_id").eq("id", caller.id).maybeSingle();
+      const { data: targetProfile } = await adminClient
+        .from("profiles").select("company_id").eq("id", user_id).maybeSingle();
+
+      if (!targetProfile) {
+        return new Response(JSON.stringify({ error: "Utilizador não encontrado" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (callerProfile?.company_id !== targetProfile.company_id) {
+        console.warn(
+          `[delete-user] Cross-tenant block: caller=${caller.id} (${callerProfile?.company_id}) ` +
+          `tentou eliminar ${user_id} (${targetProfile.company_id})`
+        );
+        return new Response(JSON.stringify({ error: "Não autorizado a eliminar este utilizador" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const { error } = await adminClient.auth.admin.deleteUser(user_id);
     if (error) {
       return new Response(JSON.stringify({ error: error.message }), {

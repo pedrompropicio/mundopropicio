@@ -147,12 +147,39 @@ Deno.serve(async (req) => {
 
     const siteUrl = "https://mpgestaoeventos.com";
 
-    // Get user profile for name
+    // Get user profile for name + company validation
     const { data: profile } = await adminClient
       .from("profiles")
-      .select("full_name")
+      .select("full_name, company_id")
       .eq("email", email)
       .single();
+
+    if (!profile) {
+      return new Response(JSON.stringify({ error: "Utilizador não encontrado" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Multi-tenant guard: caller só pode reenviar emails para utilizadores da SUA company
+    const { data: isPa } = await adminClient.rpc("is_platform_admin", { _user_id: caller.id });
+    const isPlatformAdmin = Boolean(isPa);
+
+    if (!isPlatformAdmin) {
+      const { data: callerProfile } = await adminClient
+        .from("profiles").select("company_id").eq("id", caller.id).maybeSingle();
+      if (callerProfile?.company_id !== profile.company_id) {
+        console.warn(
+          `[resend-reset-email] Cross-tenant block: caller=${caller.id} ` +
+          `(${callerProfile?.company_id}) tentou reenviar email para ${email} (${profile.company_id})`
+        );
+        return new Response(JSON.stringify({ error: "Não autorizado a reenviar email para este utilizador" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const fullName = profile?.full_name || "Utilizador";
 
     // Generate direct link (bypasses Lovable/Supabase auth page)
