@@ -1,0 +1,331 @@
+-- ============================================================
+-- MULTI-TENANT RLS ISOLATION TEST SUITE (Test environment)
+-- ============================================================
+-- Como correr: SQL Editor do Supabase Dashboard, ambiente Test.
+-- Este script cria 2 utilizadores fake (1 Mundo Propício, 1 Demo 2),
+-- simula login de cada um via SET LOCAL ROLE authenticated +
+-- SET LOCAL "request.jwt.claims" e valida que NÃO veem dados da
+-- outra empresa. NO END: limpa os utilizadores fake.
+--
+-- IDs FIXOS:
+--   Mundo Propício : 975254b9-6b92-4cdd-a971-36e4a4f98525
+--   Demo 2         : 6e174fca-69b6-4173-9aca-11a0a8355840
+--   Fake user MP   : 00000000-0000-0000-0000-000000000d01
+--   Fake user D2   : 00000000-0000-0000-0000-000000000d02
+-- ============================================================
+
+\set MP_ID '975254b9-6b92-4cdd-a971-36e4a4f98525'
+\set D2_ID '6e174fca-69b6-4173-9aca-11a0a8355840'
+\set MP_USER '00000000-0000-0000-0000-000000000d01'
+\set D2_USER '00000000-0000-0000-0000-000000000d02'
+
+-- ───── SETUP: criar 2 users fake (admin de cada empresa) ─────
+BEGIN;
+
+DELETE FROM public.user_roles WHERE user_id IN (:'MP_USER'::uuid, :'D2_USER'::uuid);
+DELETE FROM public.profiles WHERE id IN (:'MP_USER'::uuid, :'D2_USER'::uuid);
+DELETE FROM auth.users WHERE id IN (:'MP_USER'::uuid, :'D2_USER'::uuid);
+
+INSERT INTO auth.users (id, instance_id, email, encrypted_password, email_confirmed_at, created_at, updated_at, aud, role)
+VALUES
+  (:'MP_USER'::uuid, '00000000-0000-0000-0000-000000000000', 'rls-test-mp@example.invalid', 'x', now(), now(), now(), 'authenticated', 'authenticated'),
+  (:'D2_USER'::uuid, '00000000-0000-0000-0000-000000000000', 'rls-test-d2@example.invalid', 'x', now(), now(), now(), 'authenticated', 'authenticated');
+
+INSERT INTO public.profiles (id, email, full_name, company_id) VALUES
+  (:'MP_USER'::uuid, 'rls-test-mp@example.invalid', 'RLS Test MP', :'MP_ID'::uuid),
+  (:'D2_USER'::uuid, 'rls-test-d2@example.invalid', 'RLS Test D2', :'D2_ID'::uuid);
+
+INSERT INTO public.user_roles (user_id, role, company_id) VALUES
+  (:'MP_USER'::uuid, 'admin', :'MP_ID'::uuid),
+  (:'D2_USER'::uuid, 'admin', :'D2_ID'::uuid);
+
+COMMIT;
+
+-- ============================================================
+-- BLOCO 1 — BASELINE como service_role (sem RLS)
+-- ============================================================
+\echo ''
+\echo '═══════════════════════════════════════════════════════════'
+\echo ' BASELINE — contagens reais por empresa (como postgres)    '
+\echo '═══════════════════════════════════════════════════════════'
+
+SELECT 'events' AS tabela,
+  (SELECT count(*) FROM public.events WHERE company_id = :'MP_ID'::uuid) AS mp,
+  (SELECT count(*) FROM public.events WHERE company_id = :'D2_ID'::uuid) AS d2
+UNION ALL SELECT 'transactions',
+  (SELECT count(*) FROM public.transactions WHERE company_id = :'MP_ID'::uuid),
+  (SELECT count(*) FROM public.transactions WHERE company_id = :'D2_ID'::uuid)
+UNION ALL SELECT 'suppliers',
+  (SELECT count(*) FROM public.suppliers WHERE company_id = :'MP_ID'::uuid),
+  (SELECT count(*) FROM public.suppliers WHERE company_id = :'D2_ID'::uuid)
+UNION ALL SELECT 'account_categories',
+  (SELECT count(*) FROM public.account_categories WHERE company_id = :'MP_ID'::uuid),
+  (SELECT count(*) FROM public.account_categories WHERE company_id = :'D2_ID'::uuid)
+UNION ALL SELECT 'venues',
+  (SELECT count(*) FROM public.venues WHERE company_id = :'MP_ID'::uuid),
+  (SELECT count(*) FROM public.venues WHERE company_id = :'D2_ID'::uuid)
+UNION ALL SELECT 'camarim_items',
+  (SELECT count(*) FROM public.camarim_items WHERE company_id = :'MP_ID'::uuid),
+  (SELECT count(*) FROM public.camarim_items WHERE company_id = :'D2_ID'::uuid)
+UNION ALL SELECT 'event_forecasts',
+  (SELECT count(*) FROM public.event_forecasts WHERE company_id = :'MP_ID'::uuid),
+  (SELECT count(*) FROM public.event_forecasts WHERE company_id = :'D2_ID'::uuid)
+UNION ALL SELECT 'financial_accounts',
+  (SELECT count(*) FROM public.financial_accounts WHERE company_id = :'MP_ID'::uuid),
+  (SELECT count(*) FROM public.financial_accounts WHERE company_id = :'D2_ID'::uuid)
+ORDER BY tabela;
+
+-- ============================================================
+-- BLOCO 2 — Login como user da Demo 2; deve ver SÓ dados D2
+-- ============================================================
+\echo ''
+\echo '═══════════════════════════════════════════════════════════'
+\echo ' BLOCO 2 — User da DEMO 2: deve ver 0 linhas da MP         '
+\echo ' (esperado: todas as colunas mp=0; d2 = baseline)          '
+\echo '═══════════════════════════════════════════════════════════'
+
+BEGIN;
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub":"00000000-0000-0000-0000-000000000d02","role":"authenticated"}';
+
+SELECT 'current_company_id' AS info, public.current_company_id()::text AS value
+UNION ALL SELECT 'auth.uid', auth.uid()::text
+UNION ALL SELECT 'is_platform_admin', public.is_platform_admin(auth.uid())::text;
+
+\echo ''
+\echo '── Contagens visíveis ao user da Demo 2 (esperado: 0 em todas) ──'
+SELECT 'events' AS tabela, count(*) AS visible FROM public.events
+UNION ALL SELECT 'transactions', count(*) FROM public.transactions
+UNION ALL SELECT 'suppliers', count(*) FROM public.suppliers
+UNION ALL SELECT 'account_categories', count(*) FROM public.account_categories
+UNION ALL SELECT 'venues', count(*) FROM public.venues
+UNION ALL SELECT 'camarim_items', count(*) FROM public.camarim_items
+UNION ALL SELECT 'event_forecasts', count(*) FROM public.event_forecasts
+UNION ALL SELECT 'financial_accounts', count(*) FROM public.financial_accounts
+UNION ALL SELECT 'transaction_documents', count(*) FROM public.transaction_documents
+UNION ALL SELECT 'payment_lists', count(*) FROM public.payment_lists
+UNION ALL SELECT 'bp_versions', count(*) FROM public.bp_versions
+UNION ALL SELECT 'event_dates', count(*) FROM public.event_dates
+UNION ALL SELECT 'ticket_sales', count(*) FROM public.ticket_sales
+UNION ALL SELECT 'system_audit_log', count(*) FROM public.system_audit_log
+ORDER BY tabela;
+
+\echo ''
+\echo '── PROFILES: D2 user só vê o próprio (esperado: 1) ──'
+SELECT count(*) AS profiles_visible, string_agg(email, ', ') AS emails
+FROM public.profiles;
+
+\echo ''
+\echo '── COMPANIES: D2 user só vê a sua (esperado: 1 = Demo 2) ──'
+SELECT count(*) AS visible, string_agg(display_name, ', ') AS names
+FROM public.companies;
+
+ROLLBACK;
+
+-- ============================================================
+-- BLOCO 3 — Login como user da MP; deve ver SÓ dados MP
+-- ============================================================
+\echo ''
+\echo '═══════════════════════════════════════════════════════════'
+\echo ' BLOCO 3 — User da MP: deve ver tudo da MP, 0 da D2        '
+\echo '═══════════════════════════════════════════════════════════'
+
+BEGIN;
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub":"00000000-0000-0000-0000-000000000d01","role":"authenticated"}';
+
+SELECT 'current_company_id' AS info, public.current_company_id()::text AS value;
+
+SELECT 'events' AS tabela, count(*) AS visible FROM public.events
+UNION ALL SELECT 'transactions', count(*) FROM public.transactions
+UNION ALL SELECT 'suppliers', count(*) FROM public.suppliers
+UNION ALL SELECT 'account_categories', count(*) FROM public.account_categories
+ORDER BY tabela;
+
+ROLLBACK;
+
+-- ============================================================
+-- BLOCO 4 — INSERT cross-tenant: D2 user tenta inserir com company_id da MP
+-- ============================================================
+\echo ''
+\echo '═══════════════════════════════════════════════════════════'
+\echo ' BLOCO 4 — INSERT cross-tenant (esperado: ERRO RLS ou      '
+\echo ' company_id sobrescrito pelo trigger para Demo 2)          '
+\echo '═══════════════════════════════════════════════════════════'
+
+BEGIN;
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub":"00000000-0000-0000-0000-000000000d02","role":"authenticated"}';
+
+-- Tenta inserir um supplier com company_id=MP. Esperado: ou erro RLS
+-- (RESTRICTIVE company_isolation rejeita) ou trigger sobrescreve para D2.
+DO $$
+DECLARE
+  inserted_company uuid;
+  inserted_id uuid;
+BEGIN
+  BEGIN
+    INSERT INTO public.suppliers (name, company_id)
+    VALUES ('FAKE SUPPLIER cross-tenant test', '975254b9-6b92-4cdd-a971-36e4a4f98525'::uuid)
+    RETURNING company_id, id INTO inserted_company, inserted_id;
+    RAISE NOTICE 'INSERT teve sucesso. company_id final = %', inserted_company;
+    IF inserted_company = '975254b9-6b92-4cdd-a971-36e4a4f98525'::uuid THEN
+      RAISE WARNING 'FALHA DE ISOLAMENTO: row criada na empresa errada';
+    ELSIF inserted_company = '6e174fca-69b6-4173-9aca-11a0a8355840'::uuid THEN
+      RAISE NOTICE 'OK: trigger sobrescreveu company_id para Demo 2';
+    END IF;
+    DELETE FROM public.suppliers WHERE id = inserted_id;
+  EXCEPTION WHEN insufficient_privilege OR check_violation THEN
+    RAISE NOTICE 'OK: INSERT bloqueado por RLS (%)', SQLERRM;
+  END;
+END $$;
+
+ROLLBACK;
+
+-- ============================================================
+-- BLOCO 5 — UPDATE cross-tenant: D2 user tenta editar tx da MP
+-- ============================================================
+\echo ''
+\echo '═══════════════════════════════════════════════════════════'
+\echo ' BLOCO 5 — UPDATE/DELETE cross-tenant (esperado: 0 rows)   '
+\echo '═══════════════════════════════════════════════════════════'
+
+BEGIN;
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub":"00000000-0000-0000-0000-000000000d02","role":"authenticated"}';
+
+-- Tenta atualizar TODAS as transações da MP. Esperado: 0 rows afetadas.
+WITH upd AS (
+  UPDATE public.transactions
+  SET notes = 'cross-tenant tampering attempt'
+  WHERE company_id = '975254b9-6b92-4cdd-a971-36e4a4f98525'::uuid
+  RETURNING id
+)
+SELECT count(*) AS rows_updated_should_be_zero FROM upd;
+
+-- Tenta apagar TODAS as transações da MP. Esperado: 0 rows afetadas.
+WITH del AS (
+  DELETE FROM public.transactions
+  WHERE company_id = '975254b9-6b92-4cdd-a971-36e4a4f98525'::uuid
+  RETURNING id
+)
+SELECT count(*) AS rows_deleted_should_be_zero FROM del;
+
+ROLLBACK;
+
+-- ============================================================
+-- BLOCO 6 — STORAGE: D2 user tenta gravar em pasta MP
+-- ============================================================
+\echo ''
+\echo '═══════════════════════════════════════════════════════════'
+\echo ' BLOCO 6 — STORAGE cross-tenant (esperado: ERRO RLS)        '
+\echo '═══════════════════════════════════════════════════════════'
+
+BEGIN;
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub":"00000000-0000-0000-0000-000000000d02","role":"authenticated"}';
+
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO storage.objects (bucket_id, name, owner)
+    VALUES (
+      'transaction-documents',
+      '975254b9-6b92-4cdd-a971-36e4a4f98525/cross-tenant-fake.txt',
+      '00000000-0000-0000-0000-000000000d02'::uuid
+    );
+    RAISE WARNING 'FALHA STORAGE: D2 user conseguiu escrever na pasta da MP';
+    DELETE FROM storage.objects
+      WHERE bucket_id='transaction-documents'
+        AND name='975254b9-6b92-4cdd-a971-36e4a4f98525/cross-tenant-fake.txt';
+  EXCEPTION WHEN insufficient_privilege OR check_violation THEN
+    RAISE NOTICE 'OK: Storage RLS bloqueou (%)', SQLERRM;
+  END;
+END $$;
+
+-- D2 user a gravar na sua própria pasta (esperado: OK, depois apagar)
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO storage.objects (bucket_id, name, owner)
+    VALUES (
+      'transaction-documents',
+      '6e174fca-69b6-4173-9aca-11a0a8355840/own-folder-test.txt',
+      '00000000-0000-0000-0000-000000000d02'::uuid
+    );
+    RAISE NOTICE 'OK: D2 user pode escrever na sua própria pasta';
+    DELETE FROM storage.objects
+      WHERE bucket_id='transaction-documents'
+        AND name='6e174fca-69b6-4173-9aca-11a0a8355840/own-folder-test.txt';
+  EXCEPTION WHEN insufficient_privilege OR check_violation THEN
+    RAISE WARNING 'FALHA: D2 user não consegue escrever na própria pasta (%)', SQLERRM;
+  END;
+END $$;
+
+ROLLBACK;
+
+-- ============================================================
+-- BLOCO 7 — Cobertura: 66 tabelas isoladas em "varredura cega"
+-- ============================================================
+\echo ''
+\echo '═══════════════════════════════════════════════════════════'
+\echo ' BLOCO 7 — Varredura cega: para cada tabela com company_id, '
+\echo ' D2 user nunca deve ver linhas com company_id <> Demo 2     '
+\echo '═══════════════════════════════════════════════════════════'
+
+BEGIN;
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub":"00000000-0000-0000-0000-000000000d02","role":"authenticated"}';
+
+DO $$
+DECLARE
+  r record;
+  leaked bigint;
+  total_leaked bigint := 0;
+  total_tables int := 0;
+BEGIN
+  FOR r IN
+    SELECT c.relname AS tablename
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    JOIN information_schema.columns col
+      ON col.table_schema='public' AND col.table_name=c.relname AND col.column_name='company_id'
+    WHERE n.nspname='public' AND c.relkind='r'
+    ORDER BY c.relname
+  LOOP
+    total_tables := total_tables + 1;
+    EXECUTE format(
+      'SELECT count(*) FROM public.%I WHERE company_id <> %L::uuid',
+      r.tablename,
+      '6e174fca-69b6-4173-9aca-11a0a8355840'
+    ) INTO leaked;
+    IF leaked > 0 THEN
+      RAISE WARNING 'LEAK em %: % linhas visíveis com company_id != Demo 2', r.tablename, leaked;
+      total_leaked := total_leaked + leaked;
+    END IF;
+  END LOOP;
+  RAISE NOTICE '── Varredura concluída: % tabelas testadas, % linhas leaked total', total_tables, total_leaked;
+  IF total_leaked = 0 THEN
+    RAISE NOTICE '✅ ISOLAMENTO RLS 100%% — 0 leakage cross-tenant';
+  ELSE
+    RAISE WARNING '❌ ISOLAMENTO COMPROMETIDO — % leaks no total', total_leaked;
+  END IF;
+END $$;
+
+ROLLBACK;
+
+-- ============================================================
+-- CLEANUP
+-- ============================================================
+\echo ''
+\echo '═══════════════════════════════════════════════════════════'
+\echo ' CLEANUP — remove utilizadores fake                         '
+\echo '═══════════════════════════════════════════════════════════'
+
+BEGIN;
+DELETE FROM public.user_roles WHERE user_id IN (:'MP_USER'::uuid, :'D2_USER'::uuid);
+DELETE FROM public.profiles WHERE id IN (:'MP_USER'::uuid, :'D2_USER'::uuid);
+DELETE FROM auth.users WHERE id IN (:'MP_USER'::uuid, :'D2_USER'::uuid);
+COMMIT;
+
+\echo '✅ Suite RLS terminada. Lê os WARNING/NOTICE acima.'
