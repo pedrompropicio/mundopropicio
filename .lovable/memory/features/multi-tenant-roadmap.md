@@ -1,10 +1,10 @@
 ---
 name: Multi-tenant roadmap
-description: Plano e estado da transição multi-empresa (Coala/Cloudscape como 2ª empresa); Fases 1+2+3+4 COMPLETAS em Test
+description: Plano e estado da transição multi-empresa (Coala/Cloudscape como 2ª empresa); Fases 1+2+3+4+5 COMPLETAS em Test
 type: feature
 ---
 
-## Estado: Fase 1 + Fase 2 (A→F) + Fase 3 + Fase 4 (storage) COMPLETAS em Test (Fases 5–7 pendentes)
+## Estado: Fase 1 + Fase 2 (A→F) + Fase 3 + Fase 4 + Fase 5 (UI) COMPLETAS em Test (Fases 6–7 pendentes)
 
 Plano completo em `.lovable/plan.md`. Decisões fechadas:
 - Single DB + `company_id` em tabelas core + RLS rigorosa
@@ -115,7 +115,26 @@ Edge functions existentes (30): mantêm-se compatíveis — RLS RESTRICTIVE da F
 - Migração de dados em Test: ficheiros existentes foram prefixados com o id da Mundo Propício (`975254b9-6b92-4cdd-a971-36e4a4f98525`) quando ainda não estavam.
 - ⚠️ Implicação no código: todos os `supabase.storage.from(bucket).upload(path, ...)` em buckets isolados precisam, na Fase 5, de prefixar o path com `${currentCompanyId}/`. As policies PERMISSIVE atuais (CRUD por role) continuam a aplicar-se por cima.
 
+## Fase 5 — Concluída ✅ (Test) — UI multi-empresa
+- **Hook `useCompany()`** (`src/hooks/useCompany.ts`): devolve a empresa ativa do utilizador (via `profiles.company_id` → `companies`), `companyId`, `isPlatformAdmin`. Cache TanStack 5min.
+- **Helper de Storage** (`src/lib/storage.ts`): `uploadToCompanyBucket()`, `downloadFromCompanyBucket()`, `removeFromCompanyBucket()`, `signedCompanyUrl()`, `withCompanyPath()`. Prefixa idempotentemente `${companyId}/` nos 11 buckets isolados; ignora os 2 globais (`company-branding`, `database-backups`).
+- **Refactor de uploads**: 11 call-sites passaram a usar `uploadToCompanyBucket` e a guardar o `path` retornado (já com prefixo) na DB:
+  `BPAttachmentModal`, `CacheExtrasPanel`, `EventClosingCosts` (×2), `EventForecast`, `PartnerExtrasPanel`, `SupplierCreditsPanel` (×3), `TicketOfficeSettlementModal`, `TransactionDocumentsModal`, `CamarimItemModal`, `EventImplementations`. Os `download/createSignedUrl/remove` ficam inalterados — usam o path tal como armazenado.
+- **Branding dinâmico** (`src/contexts/CompanyBrandingContext.tsx` + `src/components/BrandedLogo.tsx`): aplica `companies.logo_url`, `favicon_url` e overrides de `theme_config` (chaves `primary`, `primary_foreground`, `accent`, `sidebar` em formato HSL `"H S% L%"`) como CSS variables. Fallback para o logo Mundo Propício.
+- **Header global** (`src/App.tsx`): substitui `<img logoMundoPropicio>` por `<BrandedLogo />`. App agora envolto em `<CompanyBrandingProvider>` (dentro de `AuthProvider`).
+- **Páginas novas**:
+  - `/accept-invitation?token=...` (público) — formulário para o convidado definir nome+password e ativar a conta via edge function `accept-invitation`.
+  - `/admin/empresas` (super-admin only) — lista empresas, cria novas (chama `create-company`) e gera convites (`invite-company-admin`) com link copiável.
+- **AdminPanel**: card "Empresas" só aparece a `platform_admin`.
+- **Auth**: `AppRole` em `src/contexts/AuthContext.tsx` ganhou valor `platform_admin` (label "Super-Admin", cor rosa). `UserManagement` mapeia ícone.
+
+### Convenção `theme_config`
+JSON em `companies.theme_config`. Chaves opcionais (HSL string sem prefixo `hsl()`):
+```json
+{ "primary": "210 80% 50%", "primary_foreground": "0 0% 100%", "accent": "120 60% 45%", "sidebar": "220 15% 12%" }
+```
+Aplica-se via `documentElement.style.setProperty("--primary", ...)` no `CompanyBrandingProvider`. Limpa ao desmontar.
+
 ## Como retomar
-- **Fase 5 (UI)**: página `/admin/companies`, `useCompany()`, ThemeProvider dinâmico, logo/favicon dinâmicos, prefixação automática de paths em uploads.
-- **Fase 6**: validação cross-tenant (testar com 2ª empresa real).
-- **Fase 7**: migração Live (plano à parte).
+- **Fase 6**: validação cross-tenant (criar 2ª empresa em Test, convidar admin, validar isolamento RLS+Storage end-to-end, verificar branding).
+- **Fase 7**: migração Live (plano à parte — ver `.lovable/plan.md`).
