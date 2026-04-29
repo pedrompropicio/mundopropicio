@@ -32,6 +32,8 @@ interface FilterPanelProps {
   setOnlyNoDueDate: (v: boolean) => void;
   onlyGrouped: boolean;
   setOnlyGrouped: (v: boolean) => void;
+  onlyAdmin: boolean;
+  setOnlyAdmin: (v: boolean) => void;
   showHidden: boolean;
   setShowHidden: (v: boolean) => void;
   isAdmin: boolean;
