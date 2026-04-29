@@ -1248,6 +1248,7 @@ export default function Transactions() {
         if (onlyPending) chips.push({ key: "pending", label: "Aprovação pendente", onRemove: () => setOnlyPending(false) });
         if (onlyNoDueDate) chips.push({ key: "nodue", label: "Sem vencimento", onRemove: () => setOnlyNoDueDate(false) });
         if (onlyGrouped) chips.push({ key: "grouped", label: "Agrupadas por fatura", onRemove: () => setOnlyGrouped(false) });
+        if (onlyAdmin) chips.push({ key: "admin", label: "Apenas Adm/Financeiras", onRemove: () => setOnlyAdmin(false) });
         if (showHidden) chips.push({ key: "hidden", label: "Ocultas visíveis", onRemove: () => setShowHidden(false) });
         if (chips.length === 0) return null;
         return (
