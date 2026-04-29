@@ -3,6 +3,8 @@ import { Navigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ShieldAlert } from "lucide-react";
+// Note: trusted-device skip aplica-se ao desafio de login (Auth.tsx).
+// Aqui apenas verificamos se o utilizador tem MFA registado.
 
 /**
  * Bloqueia admin / platform_admin sem MFA TOTP registado.
