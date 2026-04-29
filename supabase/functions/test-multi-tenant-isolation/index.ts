@@ -30,15 +30,17 @@ Deno.serve(async (req) => {
     const cleanup: Array<() => Promise<void>> = [];
 
     // 1. Create 2 throwaway companies
-    const { data: co1, error: e1 } = await admin.from("companies").insert({
-      name: `__test_isolation_A_${stamp}`, status: "active", country: "PT"
-    }).select("id").single();
+    const mkCompany = (suffix: string) => ({
+      legal_name: `__test_isolation_${suffix}_${stamp}`,
+      display_name: `__test_isolation_${suffix}_${stamp}`,
+      slug: `__iso-${suffix}-${stamp}`,
+      status: "active", country: "PT", currency: "EUR", timezone: "Europe/Lisbon",
+    });
+    const { data: co1, error: e1 } = await admin.from("companies").insert(mkCompany("A")).select("id").single();
     if (e1) throw new Error(`create co1: ${e1.message}`);
     cleanup.unshift(async () => { await admin.from("companies").delete().eq("id", co1.id); });
 
-    const { data: co2, error: e2 } = await admin.from("companies").insert({
-      name: `__test_isolation_B_${stamp}`, status: "active", country: "PT"
-    }).select("id").single();
+    const { data: co2, error: e2 } = await admin.from("companies").insert(mkCompany("B")).select("id").single();
     if (e2) throw new Error(`create co2: ${e2.message}`);
     cleanup.unshift(async () => { await admin.from("companies").delete().eq("id", co2.id); });
 
