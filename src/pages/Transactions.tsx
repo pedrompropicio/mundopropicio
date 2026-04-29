@@ -1001,6 +1001,7 @@ export default function Transactions() {
             (onlyPending ? 1 : 0) +
             (onlyNoDueDate ? 1 : 0) +
             (onlyGrouped ? 1 : 0) +
+            (onlyAdmin ? 1 : 0) +
             (showHidden ? 1 : 0);
           return (
             <Button
