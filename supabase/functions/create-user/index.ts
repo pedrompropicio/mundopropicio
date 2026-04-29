@@ -201,6 +201,24 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Resolve caller's company — new user MUST belong to the SAME company.
+    const { data: callerProfile } = await adminClient
+      .from("profiles")
+      .select("company_id, active_company_id")
+      .eq("id", caller.id)
+      .maybeSingle();
+    const { data: isPa } = await adminClient.rpc("is_platform_admin", { _user_id: caller.id });
+    const callerCompanyId: string | null = isPa
+      ? (callerProfile?.active_company_id ?? callerProfile?.company_id ?? null)
+      : (callerProfile?.company_id ?? null);
+
+    if (!callerCompanyId) {
+      return respond({
+        error: "Não foi possível determinar a empresa do administrador. Contacte o suporte.",
+        diagnostics: { stage: "company_resolution", processing_time_ms: Date.now() - startTime },
+      });
+    }
+
     const { email, full_name, role } = await req.json();
     const normalizedEmail = String(email ?? "").trim().toLowerCase();
     const normalizedFullName = String(full_name ?? "").trim();
@@ -219,11 +237,12 @@ Deno.serve(async (req) => {
     const tempPassword = crypto.randomUUID() + "Aa1!";
 
     // Step 1: Create user with confirmed email and temporary password
+    // Pass company_id in user_metadata so handle_new_user trigger picks it up.
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email: normalizedEmail,
       password: tempPassword,
       email_confirm: true,
-      user_metadata: { full_name: normalizedFullName },
+      user_metadata: { full_name: normalizedFullName, company_id: callerCompanyId },
     });
 
     let userId = newUser.user?.id;
