@@ -5033,6 +5033,15 @@ export type Database = {
         Args: { _row_company_id: string }
         Returns: boolean
       }
+      run_rls_isolation_test: {
+        Args: never
+        Returns: {
+          block: string
+          check_name: string
+          details: string
+          status: string
+        }[]
+      }
       set_formalidade_auto_suggested: {
         Args: { _value: boolean }
         Returns: undefined
