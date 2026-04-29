@@ -53,6 +53,7 @@ export default function Transactions() {
   const [onlyPending, setOnlyPending] = useState(false);
   const [onlyNoDueDate, setOnlyNoDueDate] = useState(false);
   const [onlyGrouped, setOnlyGrouped] = useState(false);
+  const [onlyAdmin, setOnlyAdmin] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
