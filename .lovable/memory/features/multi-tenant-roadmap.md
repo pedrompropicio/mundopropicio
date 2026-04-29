@@ -32,8 +32,27 @@ Migrações aplicadas:
 
 ID da empresa Mundo Propício em Test: `975254b9-6b92-4cdd-a971-36e4a4f98525`
 
+## Fase 2A — Concluída ✅ (Test)
+14 tabelas de eventos/BP ganharam `company_id` (nullable), seed para Mundo Propício, RLS RESTRICTIVE de isolamento por empresa, trigger BEFORE INSERT que preenche automaticamente:
+- events, event_dates, event_sessions, event_partners, event_forecasts, event_forecast_partners
+- event_implementations, event_closing_costs, event_partner_extras
+- bp_versions, bp_version_audit_log, bp_orphan_attachments
+- event_forecast_formalidade_log, forecast_audit_log
+
+Helpers criados:
+- `row_belongs_to_current_company(uuid)` — NULL-safe (linhas sem company_id ainda são visíveis durante transição)
+- `set_company_id_on_insert()` — trigger genérico, lê de `current_company_id()`
+
+**Estratégia adotada**: policies RESTRICTIVE adicionais (não substituem as existentes). Toda a lógica de admin/manager/editor/viewer/partner/accountant fica intacta — apenas é aplicada uma camada de filtragem por empresa por cima.
+
+Total de linhas seeded: 1144 (12 eventos, 740 forecasts, 31 bp_versions, 255 forecast_audit_log, etc.)
+
 ## Como retomar
-- **Fase 2A–2F (`company_id` em tabelas operacionais)**: pedir "avançar Fase 2A multi-empresa" (eventos), depois 2B (bilhética), 2C (cache), 2D (camarim), 2E (financeiro), 2F (suporte). Cada fase é uma migração separada para minimizar risco.
+- **Fase 2B (bilhética)**: pedir "avançar Fase 2B multi-empresa" (event_ticket_zones, event_ticket_lots, event_ticket_office_assignments, event_ticket_office_advances, ticket_office_settlements, ticket_sales, ticket_import_logs).
+- **Fase 2C (cache artista)**: event_cache_*
+- **Fase 2D (camarim)**: camarim_*
+- **Fase 2E (financeiro)**: transactions, transaction_*, payment_lists, suppliers, financial_accounts, etc.
+- **Fase 2F (suporte)**: trash, undo_actions, system_audit_log, user_activity_log, etc.
 - **Fase 3 (edge functions)**: refactor de 30 functions + 3 novas (`create-company`, `invite-company-admin`, `accept-invitation`).
 - **Fase 4 (storage paths)**: prefixo `{company_id}/` nos buckets existentes.
 - **Fase 5 (UI)**: página `/admin/companies`, `useCompany()`, ThemeProvider dinâmico, logo/favicon dinâmicos.
