@@ -18,6 +18,7 @@ import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
 import { CompanyBrandingProvider } from "@/contexts/CompanyBrandingContext";
 import { BrandedLogo } from "@/components/BrandedLogo";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
+import { MfaRequiredGate } from "@/components/MfaRequiredGate";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Sun, Moon } from "lucide-react";
 import Index from "./pages/Index";
