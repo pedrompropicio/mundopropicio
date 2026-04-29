@@ -39,6 +39,7 @@ export default function Companies() {
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState<CompanyRow | null>(null);
+  const [editOpen, setEditOpen] = useState<CompanyRow | null>(null);
 
   const { data: companies, isLoading } = useQuery({
     queryKey: ["admin-companies"],
