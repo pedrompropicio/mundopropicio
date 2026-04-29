@@ -293,9 +293,8 @@ function ProtectedLayout() {
               <Route path="/admin/auditoria-contas" element={<AuditoriaContas />} />
               <Route path="/admin/formalidade" element={<FormalidadeAudit />} />
               <Route path="/admin/empresas" element={<Companies />} />
-              <Route path="*" element={<NotFound />} />
             </Routes>
-            
+            </MfaRequiredGate>
           </div>
         </main>
       </div>
