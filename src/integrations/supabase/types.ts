@@ -3065,6 +3065,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          active_company_id: string | null
           company_id: string
           created_at: string
           email: string | null
@@ -3073,6 +3074,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          active_company_id?: string | null
           company_id?: string
           created_at?: string
           email?: string | null
@@ -3081,6 +3083,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          active_company_id?: string | null
           company_id?: string
           created_at?: string
           email?: string | null
@@ -3089,6 +3092,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_active_company_id_fkey"
+            columns: ["active_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_company_id_fkey"
             columns: ["company_id"]
@@ -5041,6 +5051,10 @@ export type Database = {
           details: string
           status: string
         }[]
+      }
+      set_active_company: {
+        Args: { target_company_id: string }
+        Returns: string
       }
       set_formalidade_auto_suggested: {
         Args: { _value: boolean }
