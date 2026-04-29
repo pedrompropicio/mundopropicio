@@ -85,13 +85,27 @@ Deno.serve(async (req) => {
     // ===== Load session =====
     const { data: session, error: sErr } = await adminClient
       .from("camarim_sessions")
-      .select("id,title,status,currency,master_event_id,opened_at,closed_at")
+      .select("id,title,status,currency,master_event_id,opened_at,closed_at,company_id")
       .eq("id", body.session_id)
       .single();
     if (sErr || !session) return json({ error: "Sessão não encontrada" }, 404);
     if (session.status === "integrated") return json({ error: "Sessão já integrada" }, 422);
     if (session.status !== "closed" && session.status !== "in_review") {
       return json({ error: "Apenas sessões em revisão ou fechadas podem ser integradas" }, 422);
+    }
+
+    // MULTI-TENANT GUARD: caller must belong to the session's company.
+    {
+      const { data: callerProfile } = await adminClient
+        .from("profiles").select("company_id, active_company_id").eq("id", caller.id).maybeSingle();
+      const { data: isPa } = await adminClient.rpc("is_platform_admin", { _user_id: caller.id });
+      const callerCompanyId = isPa
+        ? (callerProfile?.active_company_id ?? callerProfile?.company_id ?? null)
+        : (callerProfile?.company_id ?? null);
+      const allowCrossTenant = isPa && callerCompanyId == null;
+      if (!allowCrossTenant && (session as any).company_id !== callerCompanyId) {
+        return json({ error: "Cross-tenant access denied" }, 403);
+      }
     }
 
     // Primary event (for items without explicit event_id)
