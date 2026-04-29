@@ -32,6 +32,8 @@ interface FilterPanelProps {
   setOnlyNoDueDate: (v: boolean) => void;
   onlyGrouped: boolean;
   setOnlyGrouped: (v: boolean) => void;
+  onlyAdmin: boolean;
+  setOnlyAdmin: (v: boolean) => void;
   showHidden: boolean;
   setShowHidden: (v: boolean) => void;
   isAdmin: boolean;
@@ -122,6 +124,7 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
     onlyPending, setOnlyPending,
     onlyNoDueDate, setOnlyNoDueDate,
     onlyGrouped, setOnlyGrouped,
+    onlyAdmin, setOnlyAdmin,
     showHidden, setShowHidden,
     isAdmin,
     onClearAll,
@@ -249,6 +252,7 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
                   </>
                 )}
                 <ToggleChip active={onlyGrouped} onClick={() => setOnlyGrouped(!onlyGrouped)} label="Agrupadas por fatura" />
+                <ToggleChip active={onlyAdmin} onClick={() => setOnlyAdmin(!onlyAdmin)} label="Apenas Adm/Financeiras" />
                 {isAdmin && (
                   <ToggleChip active={showHidden} onClick={() => setShowHidden(!showHidden)} label="Mostrar ocultas" />
                 )}

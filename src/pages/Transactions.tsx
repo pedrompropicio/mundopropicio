@@ -53,6 +53,7 @@ export default function Transactions() {
   const [onlyPending, setOnlyPending] = useState(false);
   const [onlyNoDueDate, setOnlyNoDueDate] = useState(false);
   const [onlyGrouped, setOnlyGrouped] = useState(false);
+  const [onlyAdmin, setOnlyAdmin] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
@@ -511,6 +512,7 @@ export default function Transactions() {
       return paidAmount < amount - 0.01;
     })
     .filter((t) => !onlyPending || t.status === "pending")
+    .filter((t: any) => !onlyAdmin || (!t.event_id && !t.parent_transaction_id))
     .filter((t: any) => !onlyGrouped || groupedInvoiceRefs.has(t.invoice_ref?.trim()));
 
   // Group transactions: overdue, period, no-date
@@ -633,6 +635,7 @@ export default function Transactions() {
         const amount = Number(t.amount);
         return paidAmount >= amount - 0.01 || t.status === "paid";
       })
+      .filter((t: any) => !onlyAdmin || (!t.event_id && !t.parent_transaction_id))
       .filter((t: any) => !onlyGrouped || groupedInvoiceRefs.has(t.invoice_ref?.trim()));
 
     const today = new Date();
@@ -998,6 +1001,7 @@ export default function Transactions() {
             (onlyPending ? 1 : 0) +
             (onlyNoDueDate ? 1 : 0) +
             (onlyGrouped ? 1 : 0) +
+            (onlyAdmin ? 1 : 0) +
             (showHidden ? 1 : 0);
           return (
             <Button
@@ -1244,6 +1248,7 @@ export default function Transactions() {
         if (onlyPending) chips.push({ key: "pending", label: "Aprovação pendente", onRemove: () => setOnlyPending(false) });
         if (onlyNoDueDate) chips.push({ key: "nodue", label: "Sem vencimento", onRemove: () => setOnlyNoDueDate(false) });
         if (onlyGrouped) chips.push({ key: "grouped", label: "Agrupadas por fatura", onRemove: () => setOnlyGrouped(false) });
+        if (onlyAdmin) chips.push({ key: "admin", label: "Apenas Adm/Financeiras", onRemove: () => setOnlyAdmin(false) });
         if (showHidden) chips.push({ key: "hidden", label: "Ocultas visíveis", onRemove: () => setShowHidden(false) });
         if (chips.length === 0) return null;
         return (
@@ -1295,6 +1300,8 @@ export default function Transactions() {
         setOnlyNoDueDate={setOnlyNoDueDate}
         onlyGrouped={onlyGrouped}
         setOnlyGrouped={setOnlyGrouped}
+        onlyAdmin={onlyAdmin}
+        setOnlyAdmin={setOnlyAdmin}
         showHidden={showHidden}
         setShowHidden={setShowHidden}
         isAdmin={isAdmin}
@@ -1306,6 +1313,7 @@ export default function Transactions() {
           setOnlyPending(false);
           setOnlyNoDueDate(false);
           setOnlyGrouped(false);
+          setOnlyAdmin(false);
           setShowHidden(false);
         }}
       />
