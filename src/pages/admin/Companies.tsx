@@ -88,16 +88,13 @@ export default function Companies() {
         {companies?.map((c) => (
           <Card key={c.id}>
             <CardHeader>
-              <CardTitle className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  {c.logo_url ? (
-                    <img src={c.logo_url} alt="" className="h-8 w-8 object-contain rounded" />
-                  ) : (
-                    <Building2 className="h-5 w-5 text-muted-foreground" />
-                  )}
-                  <span>{c.display_name}</span>
-                </div>
-                <Badge variant={c.status === "active" ? "default" : "secondary"}>{c.status}</Badge>
+              <CardTitle className="flex items-center gap-2">
+                {c.logo_url ? (
+                  <img src={c.logo_url} alt="" className="h-8 w-8 object-contain rounded" />
+                ) : (
+                  <Building2 className="h-5 w-5 text-muted-foreground" />
+                )}
+                <span>{c.display_name}</span>
               </CardTitle>
               <p className="text-xs text-muted-foreground font-mono">{c.slug}</p>
             </CardHeader>
