@@ -173,15 +173,17 @@ export default function BPAttachmentModal({ open, onOpenChange, forecast }: Prop
     setUploading(true);
     try {
       const ext = file.name.split(".").pop() ?? "bin";
-      const path = `${forecast.transaction_id}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from("transaction-documents")
-        .upload(path, file, { contentType: file.type, upsert: false });
+      const { error: upErr, path: storedPath } = await uploadToCompanyBucket(
+        "transaction-documents",
+        `${forecast.transaction_id}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`,
+        file,
+        { contentType: file.type, upsert: false },
+      );
       if (upErr) throw upErr;
       const { error: dbErr } = await supabase.from("transaction_documents").insert({
         transaction_id: forecast.transaction_id,
         name: file.name,
-        file_url: path,
+        file_url: storedPath,
         doc_type: "outro",
         uploaded_by: user?.email ?? "system",
         is_accounting: true,

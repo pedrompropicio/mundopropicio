@@ -468,13 +468,15 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
         try {
           const rawExt = (photoFile.name.split(".").pop() || "jpg").toLowerCase();
           const ext = /^[a-z0-9]{2,5}$/.test(rawExt) ? rawExt : "jpg";
-          const path = `${sessionId}/${savedId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-          const { error: upErr } = await supabase.storage
-            .from("camarim-documents")
-            .upload(path, photoFile, {
+          const { error: upErr, path } = await uploadToCompanyBucket(
+            "camarim-documents",
+            `${sessionId}/${savedId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`,
+            photoFile,
+            {
               contentType: photoFile.type || "application/octet-stream",
               upsert: true,
-            });
+            },
+          );
           if (upErr) throw upErr;
           const documentSource = photoFile.name ? "upload" : "camera";
           const { error: docInsErr } = await supabase

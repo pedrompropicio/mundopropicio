@@ -97,8 +97,12 @@ export function CacheExtrasPanel({ cacheConfigId, artistName, eventId, canEdit =
   }
 
   async function handleFileUpload(extraId: string, file: File) {
-    const path = `${extraId}/${file.name}`;
-    const { error } = await supabase.storage.from("cache-extra-documents").upload(path, file, { upsert: true });
+    const { error } = await uploadToCompanyBucket(
+      "cache-extra-documents",
+      `${extraId}/${file.name}`,
+      file,
+      { upsert: true },
+    );
     if (error) {
       toast({ title: "Erro ao anexar ficheiro", variant: "destructive" });
     } else {

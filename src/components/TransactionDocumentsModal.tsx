@@ -135,11 +135,11 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     setUploading(true);
     try {
       const ext = file.name.split(".").pop();
-      const filePath = `${transactionId}/${Date.now()}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("transaction-documents")
-        .upload(filePath, file);
+      const { error: uploadError, path: filePath } = await uploadToCompanyBucket(
+        "transaction-documents",
+        `${transactionId}/${Date.now()}.${ext}`,
+        file,
+      );
       if (uploadError) throw uploadError;
 
       // Store just the path — signed URLs are generated on demand

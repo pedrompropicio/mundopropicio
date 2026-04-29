@@ -142,10 +142,13 @@ function CreditLine({ credit, supplierId, onEdit }: { credit: any; supplierId: s
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       const ext = file.name.split(".").pop();
-      const path = `${supplierId}/${credit.id}/${Date.now()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from("supplier-credit-documents").upload(path, file);
+      const { error: uploadErr, path: storedPath } = await uploadToCompanyBucket(
+        "supplier-credit-documents",
+        `${supplierId}/${credit.id}/${Date.now()}.${ext}`,
+        file,
+      );
       if (uploadErr) throw uploadErr;
-      await supabase.from("supplier_credits" as any).update({ file_url: path }).eq("id", credit.id);
+      await supabase.from("supplier_credits" as any).update({ file_url: storedPath }).eq("id", credit.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["supplier-credits", supplierId] });
@@ -287,10 +290,13 @@ function CreditForm({
         // Handle file upload for edit
         if (file) {
           const ext = file.name.split(".").pop();
-          const path = `${supplierId}/${existingCredit.id}/${Date.now()}.${ext}`;
-          const { error: uploadErr } = await supabase.storage.from("supplier-credit-documents").upload(path, file);
+          const { error: uploadErr, path: storedPath } = await uploadToCompanyBucket(
+            "supplier-credit-documents",
+            `${supplierId}/${existingCredit.id}/${Date.now()}.${ext}`,
+            file,
+          );
           if (uploadErr) throw uploadErr;
-          await supabase.from("supplier_credits" as any).update({ file_url: path }).eq("id", existingCredit.id);
+          await supabase.from("supplier_credits" as any).update({ file_url: storedPath }).eq("id", existingCredit.id);
         }
       } else {
         // Create new credit
@@ -310,10 +316,13 @@ function CreditForm({
 
         if (file && inserted?.id) {
           const ext = file.name.split(".").pop();
-          const path = `${supplierId}/${inserted.id}/${Date.now()}.${ext}`;
-          const { error: uploadErr } = await supabase.storage.from("supplier-credit-documents").upload(path, file);
+          const { error: uploadErr, path: storedPath } = await uploadToCompanyBucket(
+            "supplier-credit-documents",
+            `${supplierId}/${inserted.id}/${Date.now()}.${ext}`,
+            file,
+          );
           if (uploadErr) throw uploadErr;
-          await supabase.from("supplier_credits" as any).update({ file_url: path }).eq("id", inserted.id);
+          await supabase.from("supplier_credits" as any).update({ file_url: storedPath }).eq("id", inserted.id);
         }
       }
     },

@@ -1239,10 +1239,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
       // Upload the new file regardless — each import gets its own copy so the
       // user can re-run with a fresh ficheiro if needed.
-      const filePath = `${Date.now()}_${file.name}`;
-      const { error: uploadErr } = await supabase.storage
-        .from("implementation-files")
-        .upload(filePath, file);
+      const { error: uploadErr, path: filePath } = await uploadToCompanyBucket(
+        "implementation-files",
+        `${Date.now()}_${file.name}`,
+        file,
+      );
       if (uploadErr) throw uploadErr;
 
       let implementationId: string;

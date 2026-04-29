@@ -179,7 +179,12 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
       }
       if (costId && pendingFiles.length > 0) {
         for (const file of pendingFiles) {
-          await supabase.storage.from("closing-cost-documents").upload(`${costId}/${file.name}`, file, { upsert: true });
+          await uploadToCompanyBucket(
+            "closing-cost-documents",
+            `${costId}/${file.name}`,
+            file,
+            { upsert: true },
+          );
         }
       }
     },
@@ -215,8 +220,12 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
   });
 
   async function handleFileUpload(costId: string, file: File) {
-    const path = `${costId}/${file.name}`;
-    const { error } = await supabase.storage.from("closing-cost-documents").upload(path, file, { upsert: true });
+    const { error } = await uploadToCompanyBucket(
+      "closing-cost-documents",
+      `${costId}/${file.name}`,
+      file,
+      { upsert: true },
+    );
     if (error) {
       toast({ title: "Erro ao anexar ficheiro", variant: "destructive" });
     } else {
