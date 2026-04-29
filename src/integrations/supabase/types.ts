@@ -2789,6 +2789,69 @@ export type Database = {
         }
         Relationships: []
       }
+      mfa_recovery_codes: {
+        Row: {
+          code_hash: string
+          created_at: string
+          id: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          code_hash: string
+          created_at?: string
+          id?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          code_hash?: string
+          created_at?: string
+          id?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mfa_trusted_devices: {
+        Row: {
+          created_at: string
+          device_label: string | null
+          device_token_hash: string
+          expires_at: string
+          id: string
+          ip_address: string | null
+          last_used_at: string
+          revoked_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_label?: string | null
+          device_token_hash: string
+          expires_at?: string
+          id?: string
+          ip_address?: string | null
+          last_used_at?: string
+          revoked_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_label?: string | null
+          device_token_hash?: string
+          expires_at?: string
+          id?: string
+          ip_address?: string | null
+          last_used_at?: string
+          revoked_at?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       partner_advance_expenses: {
         Row: {
           company_id: string
@@ -4852,6 +4915,7 @@ export type Database = {
           oldest_kept: string
         }[]
       }
+      consume_recovery_code: { Args: { _code_hash: string }; Returns: boolean }
       create_bp_snapshot: {
         Args: {
           _approve_immediately?: boolean
@@ -5083,6 +5147,10 @@ export type Database = {
           _version_id: string
         }
         Returns: undefined
+      }
+      validate_trusted_device: {
+        Args: { _token_hash: string }
+        Returns: boolean
       }
     }
     Enums: {
