@@ -95,8 +95,18 @@ Total seeded em 2F: ~5461 linhas → Mundo Propício.
 
 ## Resumo Fase 2 (A→F): 65 tabelas isoladas, ~8634 linhas seeded para Mundo Propício.
 
+## Fase 3 — Concluída ✅ (Test) — edge functions de gestão de empresas
+3 edge functions novas criadas (super-admin only, exceto a 3ª que é pública para fluxo de convite):
+
+1. **create-company** — `platform_admin` cria nova empresa-cliente. Body: `legal_name`, `display_name`, `slug`, opcionais `tax_id`, `country`, `currency`, `timezone`, `contact_email`, `theme_config`, `address`. Defaults: PT/EUR/Europe/Lisbon, status=active.
+2. **invite-company-admin** — `platform_admin` convida admin/manager para uma empresa. Gera token de 64 chars hex, válido 7 dias. Devolve `accept_url`. Insere em `company_invitations` com status=pending.
+3. **accept-invitation** — pública (`verify_jwt = false`). Recebe `token` + `password` + `full_name` opcional. Valida convite (não usado, não expirado), cria utilizador no Auth (auto-confirmado, com `company_id` no metadata), faz upsert de `profiles` e `user_roles`, marca convite como accepted.
+
+Migração suporte: `company_invitations` ganhou colunas `status` (CHECK pending/accepted/expired/revoked) e `accepted_user_id` (FK auth.users). Índice parcial em `token WHERE status='pending'`.
+
+Edge functions existentes (30): mantêm-se compatíveis — RLS RESTRICTIVE da Fase 2 protege automaticamente todas as tabelas isoladas. Functions com service_role (database-backup, restore-*, create-user, delete-user, send-transactional-email, etc.) continuarão a operar; quando consultam tabelas com `company_id`, qualquer query escrita já filtra implicitamente via current_company_id() dos chamadores autenticados, ou opera cross-company explicitamente (caso de backups, que devem permanecer globais para o platform_admin).
+
 ## Como retomar
-- **Fase 3 (edge functions)**: refactor de 30 functions + 3 novas (`create-company`, `invite-company-admin`, `accept-invitation`).
 - **Fase 4 (storage paths)**: prefixo `{company_id}/` nos buckets existentes.
 - **Fase 5 (UI)**: página `/admin/companies`, `useCompany()`, ThemeProvider dinâmico, logo/favicon dinâmicos.
 - **Fase 6**: validação cross-tenant.
