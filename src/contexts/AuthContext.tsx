@@ -97,14 +97,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const userIdRef = useRef<string | null>(null);
 
   const fetchRoleAndPermissions = useCallback(async (userId: string) => {
-    const { data: roleData } = await supabase
+    const { data: roleRows } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", userId)
-      .limit(1)
-      .single();
+      .eq("user_id", userId);
 
-    const userRole = (roleData?.role as AppRole) ?? "user";
+    // Priority: platform_admin > admin > manager > accountant > editor > partner > viewer > user
+    const priority: Record<string, number> = {
+      platform_admin: 0, admin: 1, manager: 2, accountant: 3,
+      editor: 4, partner: 5, viewer: 6, user: 7,
+    };
+    const roles = (roleRows ?? []).map((r: any) => r.role as string);
+    roles.sort((a, b) => (priority[a] ?? 99) - (priority[b] ?? 99));
+    const userRole = (roles[0] as AppRole) ?? "user";
     setRole(userRole);
 
     const { data: rolePerms } = await supabase
@@ -205,7 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, session, role, permissions,
-      isAdmin: role === "admin",
+      isAdmin: role === "admin" || role === ("platform_admin" as AppRole),
       isManager: role === "manager",
       isPartner: role === "partner",
       loading, hasPermission, signOut,
