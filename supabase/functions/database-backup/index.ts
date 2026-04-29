@@ -232,23 +232,18 @@ Deno.serve(async (req) => {
     let isPlatformAdmin = false;
 
     if (isMachine) {
-      // Bypass do gate com header explícito (operação manual via SQL/curl)
-      const forceRun =
-        (req.headers.get("x-force-run") ?? req.headers.get("X-Force-Run")) === "true";
-
-      if (!forceRun) {
-        // Cron gate Lisbon 03:00
-        const lisbonHour = Number(
-          new Intl.DateTimeFormat("en-GB", {
-            timeZone: "Europe/Lisbon", hour: "2-digit", hour12: false,
-          }).format(new Date()),
+      // Cron gate Lisbon 03:00 (sem bypass — execuções manuais devem usar
+      // role admin via UI/CLI, não JWT anon)
+      const lisbonHour = Number(
+        new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Europe/Lisbon", hour: "2-digit", hour12: false,
+        }).format(new Date()),
+      );
+      if (lisbonHour !== 3) {
+        return new Response(
+          JSON.stringify({ skipped: true, reason: "outside Europe/Lisbon 03:00", lisbonHour }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
-        if (lisbonHour !== 3) {
-          return new Response(
-            JSON.stringify({ skipped: true, reason: "outside Europe/Lisbon 03:00", lisbonHour }),
-            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-          );
-        }
       }
       // Cron faz backup de TODAS as empresas ativas
       const { data: companies } = await adminClient
