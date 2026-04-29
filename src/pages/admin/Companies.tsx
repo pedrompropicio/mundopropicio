@@ -142,6 +142,17 @@ export default function Companies() {
           onClose={() => setInviteOpen(null)}
         />
       )}
+
+      {editOpen && (
+        <EditCompanyDialog
+          company={editOpen}
+          onClose={() => setEditOpen(null)}
+          onSaved={() => {
+            setEditOpen(null);
+            qc.invalidateQueries({ queryKey: ["admin-companies"] });
+          }}
+        />
+      )}
     </div>
   );
 }
