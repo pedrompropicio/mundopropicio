@@ -55,9 +55,15 @@ Total de linhas seeded em 2A: 1144 (12 eventos, 740 forecasts, 31 bp_versions, 2
 
 Total seeded em 2B: 1233 linhas → Mundo Propício.
 
+## Fase 2C — Concluída ✅ (Test)
+13 tabelas de cache de artistas + camarim ganharam `company_id` + RLS RESTRICTIVE + trigger BEFORE INSERT:
+- **Cache artista (6)**: event_cache_configs (1), event_cache_tiers (0), event_cache_extras (0), event_cache_deductions (0), event_cache_payments (0), event_cache_city_settlements (2)
+- **Camarim (7)**: camarim_sessions (2), camarim_session_events (1), camarim_items (6), camarim_item_documents (0), camarim_item_reviews (0), camarim_fund_moves (5), camarim_integrations (0)
+
+Total seeded em 2C: 17 linhas → Mundo Propício.
+
 ## Como retomar
-- **Fase 2C (cache artista)**: event_cache_*
-- **Fase 2D (camarim)**: camarim_*
+- **Fase 2D (financeiro core)**: transactions, transaction_*, payment_lists, transaction_payments
 - **Fase 2E (financeiro)**: transactions, transaction_*, payment_lists, suppliers, financial_accounts, etc.
 - **Fase 2F (suporte)**: trash, undo_actions, system_audit_log, user_activity_log, etc.
 - **Fase 3 (edge functions)**: refactor de 30 functions + 3 novas (`create-company`, `invite-company-admin`, `accept-invitation`).
