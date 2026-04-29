@@ -232,9 +232,8 @@ Deno.serve(async (req) => {
     let isPlatformAdmin = false;
 
     if (isMachine) {
-      // Bypass do gate apenas com service_role + header explícito (operação manual)
+      // Bypass do gate com header explícito (operação manual via SQL/curl)
       const forceRun =
-        role === "service_role" &&
         (req.headers.get("x-force-run") ?? req.headers.get("X-Force-Run")) === "true";
 
       if (!forceRun) {
