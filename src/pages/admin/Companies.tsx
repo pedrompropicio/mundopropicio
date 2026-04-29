@@ -78,6 +78,7 @@ export default function Companies() {
             onCreated={() => {
               setCreateOpen(false);
               qc.invalidateQueries({ queryKey: ["admin-companies"] });
+              qc.invalidateQueries({ queryKey: ["companies-list"] });
             }}
           />
         </Dialog>
