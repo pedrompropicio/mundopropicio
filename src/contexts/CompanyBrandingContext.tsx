@@ -17,8 +17,10 @@ export function CompanyBrandingProvider({ children }: { children: ReactNode }) {
   const logoUrl = company?.logo_url ?? null;
   const faviconUrl = company?.favicon_url ?? null;
 
-  // Apply CSS variable overrides from theme_config (HSL strings, e.g. "210 80% 50%").
-  // Keys understood: primary, primary_foreground, accent, sidebar.
+  // Apply CSS variable overrides from theme_config.
+  // Two formats are supported:
+  //  - HSL strings (e.g. "210 80% 50%") under keys: primary, primary_foreground, accent, sidebar.
+  //  - Hex string under `primary_color` (e.g. "#5e30eb") — converted to HSL and applied to --primary + --ring.
   useEffect(() => {
     const root = document.documentElement;
     const overrideKeys: Array<[string, string]> = [
@@ -35,6 +37,18 @@ export function CompanyBrandingProvider({ children }: { children: ReactNode }) {
         cleanupKeys.push(cssVar);
       }
     });
+
+    // Hex `primary_color` from the company editor → applies to --primary, --ring, --sidebar-primary.
+    const hex = typeof theme?.primary_color === "string" ? theme.primary_color.trim() : "";
+    const hsl = hexToHslString(hex);
+    if (hsl) {
+      const hexVars = ["--primary", "--ring", "--sidebar-primary"];
+      hexVars.forEach((cssVar) => {
+        root.style.setProperty(cssVar, hsl);
+        cleanupKeys.push(cssVar);
+      });
+    }
+
     return () => {
       cleanupKeys.forEach((k) => root.style.removeProperty(k));
     };
