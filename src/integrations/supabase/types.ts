@@ -4845,6 +4845,13 @@ export type Database = {
         Args: { _event_id: string }
         Returns: number
       }
+      cleanup_old_backups: {
+        Args: never
+        Returns: {
+          deleted_count: number
+          oldest_kept: string
+        }[]
+      }
       create_bp_snapshot: {
         Args: {
           _approve_immediately?: boolean
@@ -5068,6 +5075,7 @@ export type Database = {
         Args: { _forecast_id: string }
         Returns: Database["public"]["Enums"]["bp_formalidade"]
       }
+      test_latest_backup: { Args: never; Returns: Json }
       unarchive_bp_version: {
         Args: {
           _performed_by?: string
