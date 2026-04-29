@@ -88,6 +88,7 @@ import TrashPage from "./pages/Trash";
 import NotFound from "./pages/NotFound";
 import AcceptInvitation from "./pages/AcceptInvitation";
 import Companies from "./pages/admin/Companies";
+import Reminders from "./pages/admin/Reminders";
 import { PartnerLayout } from "./components/PartnerLayout";
 
 const queryClient = new QueryClient({
@@ -294,6 +295,7 @@ function ProtectedLayout() {
               <Route path="/admin/auditoria-contas" element={<AuditoriaContas />} />
               <Route path="/admin/formalidade" element={<FormalidadeAudit />} />
               <Route path="/admin/empresas" element={<Companies />} />
+              <Route path="/admin/lembretes" element={<Reminders />} />
             </Routes>
           </div>
         </main>

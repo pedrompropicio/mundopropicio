@@ -1,9 +1,10 @@
 import { useNavigate } from "react-router-dom";
-import { Users, Database, ShieldAlert, Trash2, History, Activity, ClipboardCheck, Sparkles, Building2 } from "lucide-react";
+import { Users, Database, ShieldAlert, Trash2, History, Activity, ClipboardCheck, Sparkles, Building2, Bell } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useCompany } from "@/hooks/useCompany";
+import SystemRemindersBanner from "@/components/SystemRemindersBanner";
 
 const adminCards = [
   {
@@ -54,6 +55,12 @@ const adminCards = [
     title: "Auditoria Formalidade",
     description: "Analisa todos os BPs ativos e sugere o estado de formalidade com base nas transações reais",
   },
+  {
+    to: "/admin/lembretes",
+    icon: Bell,
+    title: "Lembretes",
+    description: "Lembretes automáticos da plataforma — banner no admin + WhatsApp diário via Twilio",
+  },
 ];
 
 export default function AdminPanel() {
@@ -74,6 +81,7 @@ export default function AdminPanel() {
 
   return (
     <div className="space-y-6">
+      <SystemRemindersBanner />
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">Administração <HelpTooltip text={helpTexts.adminPanel} /></h1>
         <p className="text-sm text-muted-foreground mt-1">

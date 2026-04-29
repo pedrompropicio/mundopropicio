@@ -3871,6 +3871,90 @@ export type Database = {
           },
         ]
       }
+      system_reminder_settings: {
+        Row: {
+          daily_send_hour_lisbon: number
+          default_twilio_from: string | null
+          default_whatsapp_recipient: string | null
+          id: number
+          updated_at: string
+        }
+        Insert: {
+          daily_send_hour_lisbon?: number
+          default_twilio_from?: string | null
+          default_whatsapp_recipient?: string | null
+          id?: number
+          updated_at?: string
+        }
+        Update: {
+          daily_send_hour_lisbon?: number
+          default_twilio_from?: string | null
+          default_whatsapp_recipient?: string | null
+          id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      system_reminders: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          created_by: string | null
+          due_date: string
+          frequency: string
+          id: string
+          is_active: boolean
+          key: string
+          last_sent_at: string | null
+          link_url: string | null
+          message: string
+          send_count: number
+          title: string
+          twilio_from: string | null
+          updated_at: string
+          whatsapp_recipient: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          key: string
+          last_sent_at?: string | null
+          link_url?: string | null
+          message: string
+          send_count?: number
+          title: string
+          twilio_from?: string | null
+          updated_at?: string
+          whatsapp_recipient?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          key?: string
+          last_sent_at?: string | null
+          link_url?: string | null
+          message?: string
+          send_count?: number
+          title?: string
+          twilio_from?: string | null
+          updated_at?: string
+          whatsapp_recipient?: string | null
+        }
+        Relationships: []
+      }
       ticket_import_logs: {
         Row: {
           company_id: string
