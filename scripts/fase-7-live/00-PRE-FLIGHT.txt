@@ -1,0 +1,46 @@
+-- =========================================================
+-- FASE 7 LIVE — 00 PRE-FLIGHT (CORRER ANTES DE TUDO)
+-- Onde: Cloud (LIVE) → SQL Editor
+-- Objetivo: snapshot de contagens + backup forçado + validações
+-- Tempo estimado: 5 min
+-- =========================================================
+
+-- 1) Snapshot de contagens atuais (guardar este resultado!)
+SELECT 'profiles' AS t, count(*) FROM public.profiles
+UNION ALL SELECT 'user_roles', count(*) FROM public.user_roles
+UNION ALL SELECT 'user_permissions', count(*) FROM public.user_permissions
+UNION ALL SELECT 'events', count(*) FROM public.events
+UNION ALL SELECT 'event_dates', count(*) FROM public.event_dates
+UNION ALL SELECT 'event_forecasts', count(*) FROM public.event_forecasts
+UNION ALL SELECT 'transactions', count(*) FROM public.transactions
+UNION ALL SELECT 'transaction_documents', count(*) FROM public.transaction_documents
+UNION ALL SELECT 'suppliers', count(*) FROM public.suppliers
+UNION ALL SELECT 'financial_accounts', count(*) FROM public.financial_accounts
+UNION ALL SELECT 'venues', count(*) FROM public.venues
+UNION ALL SELECT 'payment_lists', count(*) FROM public.payment_lists
+UNION ALL SELECT 'camarim_sessions', count(*) FROM public.camarim_sessions
+UNION ALL SELECT 'ticket_sales', count(*) FROM public.ticket_sales
+ORDER BY t;
+
+-- 2) Confirmar que NÃO existe ainda a tabela companies
+SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='companies') AS companies_existe;
+-- esperado: false
+
+-- 3) Confirmar id do utilizador a promover a platform_admin
+SELECT id, email FROM auth.users WHERE email = 'pedroneto@mundopropicio.com';
+-- esperado: d8e502f7-9ceb-4dae-bd73-7291832d0d6f
+
+-- 4) Disparar backup MANUAL agora (não esperar pelas 03:00 UTC)
+--    Vai criar 'backup-2026-04-29T...json' no bucket database-backups.
+SELECT net.http_post(
+  url := 'https://sfohvvlqccmmebvjgibx.supabase.co/functions/v1/database-backup',
+  headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmb2h2dmxxY2NtbWVidmpnaWJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MjUyNzgsImV4cCI6MjA4OTMwMTI3OH0.Js56uldkgHZ0kkOUZmpXI2Ker0Av0u7LJrHZ6rxSRd0"}'::jsonb,
+  body := '{}'::jsonb
+) AS pre_flight_backup_request_id;
+-- NOTA: Em Live ainda NÃO temos o bypass x-force-run, mas a função antiga
+-- (versão pre-multi-tenant) corre sempre que chamada. Confirmar passados ~30s:
+--   SELECT id, status_code, content FROM net._http_response ORDER BY id DESC LIMIT 3;
+-- e o ficheiro novo em:
+--   SELECT name, created_at FROM storage.objects WHERE bucket_id='database-backups' ORDER BY created_at DESC LIMIT 3;
+
+-- ⚠️ NÃO AVANÇAR PARA O BATCH 0 SEM CONFIRMAR O BACKUP NOVO NO BUCKET ⚠️
