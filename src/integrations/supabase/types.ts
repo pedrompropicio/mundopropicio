@@ -876,6 +876,107 @@ export type Database = {
         }
         Relationships: []
       }
+      companies: {
+        Row: {
+          address: Json | null
+          contact_email: string | null
+          country: string
+          created_at: string
+          currency: string
+          display_name: string
+          favicon_url: string | null
+          id: string
+          legal_name: string
+          logo_url: string | null
+          slug: string
+          status: string
+          tax_id: string | null
+          theme_config: Json | null
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          address?: Json | null
+          contact_email?: string | null
+          country?: string
+          created_at?: string
+          currency?: string
+          display_name: string
+          favicon_url?: string | null
+          id?: string
+          legal_name: string
+          logo_url?: string | null
+          slug: string
+          status?: string
+          tax_id?: string | null
+          theme_config?: Json | null
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: Json | null
+          contact_email?: string | null
+          country?: string
+          created_at?: string
+          currency?: string
+          display_name?: string
+          favicon_url?: string | null
+          id?: string
+          legal_name?: string
+          logo_url?: string | null
+          slug?: string
+          status?: string
+          tax_id?: string | null
+          theme_config?: Json | null
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      company_invitations: {
+        Row: {
+          accepted_at: string | null
+          company_id: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          company_id: string
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          token: string
+        }
+        Update: {
+          accepted_at?: string | null
+          company_id?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_invitations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_send_log: {
         Row: {
           created_at: string
@@ -2521,6 +2622,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          company_id: string | null
           created_at: string
           email: string | null
           full_name: string
@@ -2528,6 +2630,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           email?: string | null
           full_name?: string
@@ -2535,13 +2638,22 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           email?: string | null
           full_name?: string
           id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       push_subscriptions: {
         Row: {
@@ -3840,6 +3952,7 @@ export type Database = {
       }
       user_permissions: {
         Row: {
+          company_id: string | null
           created_at: string
           granted: boolean
           id: string
@@ -3847,6 +3960,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           granted?: boolean
           id?: string
@@ -3854,31 +3968,51 @@ export type Database = {
           user_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           granted?: boolean
           id?: string
           permission?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_permissions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
+          company_id: string | null
           id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Insert: {
+          company_id?: string | null
           id?: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
+          company_id?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       venue_reservations: {
         Row: {
@@ -4036,6 +4170,7 @@ export type Database = {
         }
         Returns: string
       }
+      current_company_id: { Args: never; Returns: string }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -4089,6 +4224,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_platform_admin: { Args: { _user_id?: string }; Returns: boolean }
       list_bp_versions: {
         Args: { _event_id: string }
         Returns: {
@@ -4224,7 +4360,14 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "user" | "manager" | "editor" | "viewer" | "partner"
+      app_role:
+        | "admin"
+        | "user"
+        | "manager"
+        | "editor"
+        | "viewer"
+        | "partner"
+        | "platform_admin"
       bp_formalidade:
         | "estimado"
         | "negociacao"
@@ -4358,7 +4501,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user", "manager", "editor", "viewer", "partner"],
+      app_role: [
+        "admin",
+        "user",
+        "manager",
+        "editor",
+        "viewer",
+        "partner",
+        "platform_admin",
+      ],
       bp_formalidade: [
         "estimado",
         "negociacao",
