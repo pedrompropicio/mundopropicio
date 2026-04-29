@@ -150,6 +150,7 @@ export default function Companies() {
           onSaved={() => {
             setEditOpen(null);
             qc.invalidateQueries({ queryKey: ["admin-companies"] });
+            qc.invalidateQueries({ queryKey: ["companies-list"] });
           }}
         />
       )}
