@@ -1,10 +1,10 @@
 ---
 name: Multi-tenant roadmap
-description: Plano e estado da transição multi-empresa (Coala/Cloudscape como 2ª empresa); Fases 1+2+3+4+5 COMPLETAS em Test
+description: Plano e estado da transição multi-empresa (Coala/Cloudscape como 2ª empresa); Fases 1+2+3+4+5+6 COMPLETAS em Test (Fase 7 = migração Live, pendente)
 type: feature
 ---
 
-## Estado: Fase 1 + Fase 2 (A→F) + Fase 3 + Fase 4 + Fase 5 (UI) COMPLETAS em Test (Fases 6–7 pendentes)
+## Estado: Fase 1 + Fase 2 (A→F) + Fase 3 + Fase 4 + Fase 5 (UI) + Fase 6 (validação cross-tenant) COMPLETAS em Test (Fase 7 = Live, pendente)
 
 Plano completo em `.lovable/plan.md`. Decisões fechadas:
 - Single DB + `company_id` em tabelas core + RLS rigorosa
@@ -14,9 +14,9 @@ Plano completo em `.lovable/plan.md`. Decisões fechadas:
 - Super-admin (`platform_admin`) cria empresas e convida admins
 - Test fica vazio durante dev; Live migra-se na Fase 7
 
-## Empresas previstas
-1. **Mundo Propício, Lda** (PT, EUR) — empresa atual, slug `mundo-propicio`
-2. **CLOUDSCAPE EVENTOS E PRODUCOES ARTISTICAS LDA** (Coala Portugal) — 1ª empresa-cliente externa
+## Empresas em Test
+1. **Mundo Propício, Lda** (PT, EUR) — slug `mundo-propicio`, id `975254b9-6b92-4cdd-a971-36e4a4f98525`
+2. **Demo 2** (PT, EUR) — slug `demo-2`, id `6e174fca-69b6-4173-9aca-11a0a8355840`, tema laranja/verde (primary `15 85% 55%`, accent `160 60% 45%`) — usada para validação cross-tenant; vazia de dados de negócio.
 
 ## Fase 1 — Concluída ✅ (Test)
 Migrações aplicadas:
@@ -135,6 +135,32 @@ JSON em `companies.theme_config`. Chaves opcionais (HSL string sem prefixo `hsl(
 ```
 Aplica-se via `documentElement.style.setProperty("--primary", ...)` no `CompanyBrandingProvider`. Limpa ao desmontar.
 
+## Fase 6 — Concluída ✅ (Test) — Validação cross-tenant
+
+### Validação estática (DB)
+- 66 tabelas com policy RESTRICTIVE `company_isolation_<tabela>` usando `row_belongs_to_current_company(company_id)` — confirmado por `pg_policies`.
+- 11 buckets de Storage com policies RESTRICTIVE × 4 (SELECT/INSERT/UPDATE/DELETE) usando `storage_path_belongs_to_current_company(name)` — INSERT tem `WITH CHECK` correto, impedindo escrever fora da pasta da empresa.
+- `current_company_id()` SECURITY DEFINER lê `profiles.company_id` do `auth.uid()`.
+- `is_platform_admin(uuid)` SECURITY DEFINER valida em `user_roles` (role `platform_admin`).
+- Buckets globais (`company-branding`, `database-backups`) corretamente isentos de isolamento por empresa.
+
+### Empresa de teste criada
+- "Demo 2" (`6e174fca-69b6-4173-9aca-11a0a8355840`) com tema distinto para validar branding dinâmico.
+
+### Validação dinâmica (UI — recomendada manualmente pelo utilizador)
+A validação RLS end-to-end via `psql` no sandbox **não é possível** porque o role `sandbox_exec` tem `BYPASSRLS=true` e não pode mudar para o role `authenticated`. Para confirmação 100% real:
+
+1. Em `/admin/empresas`, criar convite para a empresa "Demo 2" (e-mail próprio do tester).
+2. Aceitar o convite em `/accept-invitation?token=…`, criar password.
+3. Fazer login com a conta da Demo 2 e confirmar que:
+   - Dashboard mostra **0 eventos / 0 transações / 0 fornecedores / 0 categorias** (a Mundo Propício tem 12/139/91/146 mas não devem aparecer).
+   - O logo no header e cores trocam para o tema da Demo 2 (laranja/verde) caso `logo_url` esteja preenchido — caso contrário aparece o fallback Mundo Propício mas o `--primary` muda.
+   - Tentativa de upload em qualquer documento (transação, supplier, camarim, etc.) deve criar paths em Storage prefixados com `6e174fca-…/`.
+4. Fazer logout e login de volta como admin Mundo Propício — confirmar que **nada foi alterado** e os dados continuam todos visíveis.
+
+### Limitações conhecidas
+- A validação RLS automatizada via SQL no sandbox foi **inconclusiva** por limitações do role `sandbox_exec` (BYPASSRLS). A análise estática das policies é sólida e a estrutura está correta, mas a confirmação final exige passo manual via UI (acima).
+- Caso o teste manual encontre vazamento, é provável que esteja num código que faz query com service_role (edge functions) sem filtrar por `company_id`. Auditar com prioridade `database-backup`, `database-restore-v2`, `selective-restore`, `surgical-restore`, `match-categories`, `audit-categories`, `generate-historical-transactions`.
+
 ## Como retomar
-- **Fase 6**: validação cross-tenant (criar 2ª empresa em Test, convidar admin, validar isolamento RLS+Storage end-to-end, verificar branding).
-- **Fase 7**: migração Live (plano à parte — ver `.lovable/plan.md`).
+- **Fase 7 (Live)**: plano à parte. Será preciso (a) backup completo, (b) criar empresa "Mundo Propício" em Live, (c) `UPDATE` em todas as tabelas para gravar `company_id`, (d) mover ficheiros de Storage para pasta prefixada, (e) tornar `company_id NOT NULL` quando seguro, (f) publicar. Documento separado a criar quando der ordem.
