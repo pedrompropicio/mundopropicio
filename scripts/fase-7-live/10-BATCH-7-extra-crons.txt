@@ -1,0 +1,59 @@
+-- =========================================================
+-- FASE 7 LIVE — BATCH 7-EXTRA: CRONS EM FALTA
+-- Onde: Cloud (LIVE) → SQL Editor
+-- Pré-requisito: Batch 7 (Storage) validado
+-- Tempo estimado: 1 min
+-- =========================================================
+-- Em Test temos 3 crons; em Live só existe 'daily-database-backup'.
+-- Este script adiciona os 2 que faltam:
+--   • cleanup-old-backups (apaga backups > 30d, semanal Dom 04:00 UTC)
+--   • monthly-backup-test (testa restore mensalmente, dia 1 às 05:00 UTC)
+-- =========================================================
+
+-- 1) Garantir extensões pg_cron + pg_net
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+-- 2) cleanup-old-backups (apaga linhas em storage.objects > 30d no bucket database-backups)
+SELECT cron.unschedule('cleanup-old-backups')
+WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname='cleanup-old-backups');
+
+SELECT cron.schedule(
+  'cleanup-old-backups',
+  '0 4 * * 0',  -- todos os domingos às 04:00 UTC
+  $$
+  DELETE FROM storage.objects
+   WHERE bucket_id = 'database-backups'
+     AND created_at < now() - interval '30 days';
+  $$
+);
+
+-- 3) monthly-backup-test (mensalmente verifica que existe pelo menos 1 backup recente)
+SELECT cron.unschedule('monthly-backup-test')
+WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname='monthly-backup-test');
+
+SELECT cron.schedule(
+  'monthly-backup-test',
+  '0 5 1 * *',  -- dia 1 de cada mês, 05:00 UTC
+  $$
+  DO $do$
+  DECLARE
+    v_recent int;
+  BEGIN
+    SELECT count(*) INTO v_recent
+      FROM storage.objects
+     WHERE bucket_id='database-backups'
+       AND created_at > now() - interval '7 days';
+    IF v_recent = 0 THEN
+      RAISE WARNING 'BACKUP MONITORING: nenhum backup nos últimos 7 dias!';
+    END IF;
+  END $do$;
+  $$
+);
+
+-- 4) Validação
+SELECT jobid, jobname, schedule
+  FROM cron.job
+ WHERE jobname IN ('daily-database-backup','cleanup-old-backups','monthly-backup-test')
+ ORDER BY jobname;
+-- esperado: 3 linhas

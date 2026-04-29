@@ -1,0 +1,97 @@
+-- =========================================================
+-- FASE 7 LIVE — BATCH 4
+-- FASE 2D — Financeiro Core (8 tabelas)
+-- Onde: Cloud (LIVE) → SQL Editor
+-- Pré-requisito: Batch 3 validado
+-- Tempo estimado: 2–4 min
+-- =========================================================
+
+-- Fase 2D: Multi-tenant para Financeiro Core (8 tabelas)
+
+-- 1) Adicionar company_id
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id);
+ALTER TABLE public.transaction_documents ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id);
+ALTER TABLE public.transaction_payments ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id);
+ALTER TABLE public.transaction_audit_log ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id);
+ALTER TABLE public.payment_lists ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id);
+ALTER TABLE public.payment_list_items ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id);
+ALTER TABLE public.recurring_transactions ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id);
+ALTER TABLE public.partner_advance_expenses ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id);
+
+-- 2) Índices
+CREATE INDEX IF NOT EXISTS idx_transactions_company ON public.transactions(company_id);
+CREATE INDEX IF NOT EXISTS idx_transaction_documents_company ON public.transaction_documents(company_id);
+CREATE INDEX IF NOT EXISTS idx_transaction_payments_company ON public.transaction_payments(company_id);
+CREATE INDEX IF NOT EXISTS idx_transaction_audit_log_company ON public.transaction_audit_log(company_id);
+CREATE INDEX IF NOT EXISTS idx_payment_lists_company ON public.payment_lists(company_id);
+CREATE INDEX IF NOT EXISTS idx_payment_list_items_company ON public.payment_list_items(company_id);
+CREATE INDEX IF NOT EXISTS idx_recurring_transactions_company ON public.recurring_transactions(company_id);
+CREATE INDEX IF NOT EXISTS idx_partner_advance_expenses_company ON public.partner_advance_expenses(company_id);
+
+-- 3) Seed para Mundo Propício
+DO $$
+DECLARE
+  v_company_id uuid;
+BEGIN
+  SELECT id INTO v_company_id FROM public.companies WHERE slug = 'mundo-propicio' LIMIT 1;
+  IF v_company_id IS NULL THEN
+    RAISE EXCEPTION 'Empresa mundo-propicio não encontrada';
+  END IF;
+
+  UPDATE public.transactions SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.transaction_documents SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.transaction_payments SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.transaction_audit_log SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.payment_lists SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.payment_list_items SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.recurring_transactions SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.partner_advance_expenses SET company_id = v_company_id WHERE company_id IS NULL;
+END $$;
+
+-- 4) RLS RESTRICTIVE policies
+DO $$
+DECLARE
+  t text;
+  tables text[] := ARRAY[
+    'transactions','transaction_documents','transaction_payments','transaction_audit_log',
+    'payment_lists','payment_list_items','recurring_transactions','partner_advance_expenses'
+  ];
+BEGIN
+  FOREACH t IN ARRAY tables LOOP
+    EXECUTE format('DROP POLICY IF EXISTS "company_isolation_%I" ON public.%I', t, t);
+    EXECUTE format(
+      'CREATE POLICY "company_isolation_%I" ON public.%I AS RESTRICTIVE FOR ALL TO authenticated USING (public.row_belongs_to_current_company(company_id)) WITH CHECK (public.row_belongs_to_current_company(company_id))',
+      t, t
+    );
+  END LOOP;
+END $$;
+
+-- 5) Trigger BEFORE INSERT
+DO $$
+DECLARE
+  t text;
+  tables text[] := ARRAY[
+    'transactions','transaction_documents','transaction_payments','transaction_audit_log',
+    'payment_lists','payment_list_items','recurring_transactions','partner_advance_expenses'
+  ];
+BEGIN
+  FOREACH t IN ARRAY tables LOOP
+    EXECUTE format('DROP TRIGGER IF EXISTS set_company_id_trigger ON public.%I', t);
+    EXECUTE format(
+      'CREATE TRIGGER set_company_id_trigger BEFORE INSERT ON public.%I FOR EACH ROW EXECUTE FUNCTION public.set_company_id_on_insert()',
+      t
+    );
+  END LOOP;
+END $$;
+-- =========================================================
+-- VALIDAÇÃO BATCH 4 — TODAS as linhas têm de ter company_id
+-- =========================================================
+SELECT 'partner_advance_expenses' AS tabela, count(*) AS sem_company_id FROM public.partner_advance_expenses WHERE company_id IS NULL;
+SELECT 'payment_list_items' AS tabela, count(*) AS sem_company_id FROM public.payment_list_items WHERE company_id IS NULL;
+SELECT 'payment_lists' AS tabela, count(*) AS sem_company_id FROM public.payment_lists WHERE company_id IS NULL;
+SELECT 'recurring_transactions' AS tabela, count(*) AS sem_company_id FROM public.recurring_transactions WHERE company_id IS NULL;
+SELECT 'transaction_audit_log' AS tabela, count(*) AS sem_company_id FROM public.transaction_audit_log WHERE company_id IS NULL;
+SELECT 'transaction_documents' AS tabela, count(*) AS sem_company_id FROM public.transaction_documents WHERE company_id IS NULL;
+SELECT 'transaction_payments' AS tabela, count(*) AS sem_company_id FROM public.transaction_payments WHERE company_id IS NULL;
+SELECT 'transactions' AS tabela, count(*) AS sem_company_id FROM public.transactions WHERE company_id IS NULL;
+-- esperado: 0 em todas as linhas acima

@@ -1,0 +1,256 @@
+-- =========================================================
+-- FASE 7 LIVE — BATCH 1
+-- FASE 2A — Eventos & BP (14 tabelas)
+-- Onde: Cloud (LIVE) → SQL Editor
+-- Pré-requisito: Batch 0 validado
+-- Tempo estimado: 2–4 min
+-- =========================================================
+
+
+-- =============================================================
+-- FASE 2A — company_id em tabelas de eventos/BP
+-- =============================================================
+
+-- 1) Adicionar company_id a todas as 14 tabelas (nullable em Fase 2)
+ALTER TABLE public.events                          ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE RESTRICT;
+ALTER TABLE public.event_dates                     ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE RESTRICT;
+ALTER TABLE public.event_sessions                  ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE RESTRICT;
+ALTER TABLE public.event_partners                  ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE RESTRICT;
+ALTER TABLE public.event_forecasts                 ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE RESTRICT;
+ALTER TABLE public.event_forecast_partners         ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE RESTRICT;
+ALTER TABLE public.event_implementations           ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE RESTRICT;
+ALTER TABLE public.event_closing_costs             ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE RESTRICT;
+ALTER TABLE public.event_partner_extras            ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE RESTRICT;
+ALTER TABLE public.bp_versions                     ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE RESTRICT;
+ALTER TABLE public.bp_version_audit_log            ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE RESTRICT;
+ALTER TABLE public.bp_orphan_attachments           ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE RESTRICT;
+ALTER TABLE public.event_forecast_formalidade_log  ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE RESTRICT;
+ALTER TABLE public.forecast_audit_log              ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES public.companies(id) ON DELETE RESTRICT;
+
+-- 2) Índices em company_id para performance de filtragem
+CREATE INDEX IF NOT EXISTS idx_events_company                          ON public.events(company_id);
+CREATE INDEX IF NOT EXISTS idx_event_dates_company                     ON public.event_dates(company_id);
+CREATE INDEX IF NOT EXISTS idx_event_sessions_company                  ON public.event_sessions(company_id);
+CREATE INDEX IF NOT EXISTS idx_event_partners_company                  ON public.event_partners(company_id);
+CREATE INDEX IF NOT EXISTS idx_event_forecasts_company                 ON public.event_forecasts(company_id);
+CREATE INDEX IF NOT EXISTS idx_event_forecast_partners_company         ON public.event_forecast_partners(company_id);
+CREATE INDEX IF NOT EXISTS idx_event_implementations_company           ON public.event_implementations(company_id);
+CREATE INDEX IF NOT EXISTS idx_event_closing_costs_company             ON public.event_closing_costs(company_id);
+CREATE INDEX IF NOT EXISTS idx_event_partner_extras_company            ON public.event_partner_extras(company_id);
+CREATE INDEX IF NOT EXISTS idx_bp_versions_company                     ON public.bp_versions(company_id);
+CREATE INDEX IF NOT EXISTS idx_bp_version_audit_log_company            ON public.bp_version_audit_log(company_id);
+CREATE INDEX IF NOT EXISTS idx_bp_orphan_attachments_company           ON public.bp_orphan_attachments(company_id);
+CREATE INDEX IF NOT EXISTS idx_event_forecast_formalidade_log_company  ON public.event_forecast_formalidade_log(company_id);
+CREATE INDEX IF NOT EXISTS idx_forecast_audit_log_company              ON public.forecast_audit_log(company_id);
+
+-- 3) Seed: associar todas as linhas existentes à Mundo Propício
+DO $$
+DECLARE
+  v_company_id uuid;
+BEGIN
+  SELECT id INTO v_company_id FROM public.companies WHERE slug = 'mundo-propicio';
+  IF v_company_id IS NULL THEN
+    RAISE EXCEPTION 'Mundo Propício company not found — run Phase 1 first';
+  END IF;
+
+  UPDATE public.events                          SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.event_dates                     SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.event_sessions                  SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.event_partners                  SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.event_forecasts                 SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.event_forecast_partners         SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.event_implementations           SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.event_closing_costs             SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.event_partner_extras            SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.bp_versions                     SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.bp_version_audit_log            SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.bp_orphan_attachments           SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.event_forecast_formalidade_log  SET company_id = v_company_id WHERE company_id IS NULL;
+  UPDATE public.forecast_audit_log              SET company_id = v_company_id WHERE company_id IS NULL;
+END $$;
+
+-- 4) Função helper para verificar se uma linha pertence à empresa do utilizador
+-- (usa NULL-safe: se a linha tem company_id NULL, considera que pertence — fase de transição)
+CREATE OR REPLACE FUNCTION public.row_belongs_to_current_company(_row_company_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    public.is_platform_admin()
+    OR _row_company_id IS NULL
+    OR _row_company_id = public.current_company_id()
+$$;
+
+-- 5) Policies RESTRICTIVE de isolamento por empresa
+-- Estas policies são APLICADAS EM CONJUNTO com as existentes (AND).
+-- Não removem qualquer permissão; apenas filtram por empresa.
+
+-- events
+DROP POLICY IF EXISTS "company_isolation_events" ON public.events;
+CREATE POLICY "company_isolation_events" ON public.events
+  AS RESTRICTIVE FOR ALL
+  TO authenticated
+  USING (public.row_belongs_to_current_company(company_id))
+  WITH CHECK (public.row_belongs_to_current_company(company_id));
+
+-- event_dates
+DROP POLICY IF EXISTS "company_isolation_event_dates" ON public.event_dates;
+CREATE POLICY "company_isolation_event_dates" ON public.event_dates
+  AS RESTRICTIVE FOR ALL
+  TO authenticated
+  USING (public.row_belongs_to_current_company(company_id))
+  WITH CHECK (public.row_belongs_to_current_company(company_id));
+
+-- event_sessions
+DROP POLICY IF EXISTS "company_isolation_event_sessions" ON public.event_sessions;
+CREATE POLICY "company_isolation_event_sessions" ON public.event_sessions
+  AS RESTRICTIVE FOR ALL
+  TO authenticated
+  USING (public.row_belongs_to_current_company(company_id))
+  WITH CHECK (public.row_belongs_to_current_company(company_id));
+
+-- event_partners
+DROP POLICY IF EXISTS "company_isolation_event_partners" ON public.event_partners;
+CREATE POLICY "company_isolation_event_partners" ON public.event_partners
+  AS RESTRICTIVE FOR ALL
+  TO authenticated
+  USING (public.row_belongs_to_current_company(company_id))
+  WITH CHECK (public.row_belongs_to_current_company(company_id));
+
+-- event_forecasts
+DROP POLICY IF EXISTS "company_isolation_event_forecasts" ON public.event_forecasts;
+CREATE POLICY "company_isolation_event_forecasts" ON public.event_forecasts
+  AS RESTRICTIVE FOR ALL
+  TO authenticated
+  USING (public.row_belongs_to_current_company(company_id))
+  WITH CHECK (public.row_belongs_to_current_company(company_id));
+
+-- event_forecast_partners
+DROP POLICY IF EXISTS "company_isolation_event_forecast_partners" ON public.event_forecast_partners;
+CREATE POLICY "company_isolation_event_forecast_partners" ON public.event_forecast_partners
+  AS RESTRICTIVE FOR ALL
+  TO authenticated
+  USING (public.row_belongs_to_current_company(company_id))
+  WITH CHECK (public.row_belongs_to_current_company(company_id));
+
+-- event_implementations
+DROP POLICY IF EXISTS "company_isolation_event_implementations" ON public.event_implementations;
+CREATE POLICY "company_isolation_event_implementations" ON public.event_implementations
+  AS RESTRICTIVE FOR ALL
+  TO authenticated
+  USING (public.row_belongs_to_current_company(company_id))
+  WITH CHECK (public.row_belongs_to_current_company(company_id));
+
+-- event_closing_costs
+DROP POLICY IF EXISTS "company_isolation_event_closing_costs" ON public.event_closing_costs;
+CREATE POLICY "company_isolation_event_closing_costs" ON public.event_closing_costs
+  AS RESTRICTIVE FOR ALL
+  TO authenticated
+  USING (public.row_belongs_to_current_company(company_id))
+  WITH CHECK (public.row_belongs_to_current_company(company_id));
+
+-- event_partner_extras
+DROP POLICY IF EXISTS "company_isolation_event_partner_extras" ON public.event_partner_extras;
+CREATE POLICY "company_isolation_event_partner_extras" ON public.event_partner_extras
+  AS RESTRICTIVE FOR ALL
+  TO authenticated
+  USING (public.row_belongs_to_current_company(company_id))
+  WITH CHECK (public.row_belongs_to_current_company(company_id));
+
+-- bp_versions
+DROP POLICY IF EXISTS "company_isolation_bp_versions" ON public.bp_versions;
+CREATE POLICY "company_isolation_bp_versions" ON public.bp_versions
+  AS RESTRICTIVE FOR ALL
+  TO authenticated
+  USING (public.row_belongs_to_current_company(company_id))
+  WITH CHECK (public.row_belongs_to_current_company(company_id));
+
+-- bp_version_audit_log
+DROP POLICY IF EXISTS "company_isolation_bp_version_audit_log" ON public.bp_version_audit_log;
+CREATE POLICY "company_isolation_bp_version_audit_log" ON public.bp_version_audit_log
+  AS RESTRICTIVE FOR ALL
+  TO authenticated
+  USING (public.row_belongs_to_current_company(company_id))
+  WITH CHECK (public.row_belongs_to_current_company(company_id));
+
+-- bp_orphan_attachments
+DROP POLICY IF EXISTS "company_isolation_bp_orphan_attachments" ON public.bp_orphan_attachments;
+CREATE POLICY "company_isolation_bp_orphan_attachments" ON public.bp_orphan_attachments
+  AS RESTRICTIVE FOR ALL
+  TO authenticated
+  USING (public.row_belongs_to_current_company(company_id))
+  WITH CHECK (public.row_belongs_to_current_company(company_id));
+
+-- event_forecast_formalidade_log
+DROP POLICY IF EXISTS "company_isolation_event_forecast_formalidade_log" ON public.event_forecast_formalidade_log;
+CREATE POLICY "company_isolation_event_forecast_formalidade_log" ON public.event_forecast_formalidade_log
+  AS RESTRICTIVE FOR ALL
+  TO authenticated
+  USING (public.row_belongs_to_current_company(company_id))
+  WITH CHECK (public.row_belongs_to_current_company(company_id));
+
+-- forecast_audit_log
+DROP POLICY IF EXISTS "company_isolation_forecast_audit_log" ON public.forecast_audit_log;
+CREATE POLICY "company_isolation_forecast_audit_log" ON public.forecast_audit_log
+  AS RESTRICTIVE FOR ALL
+  TO authenticated
+  USING (public.row_belongs_to_current_company(company_id))
+  WITH CHECK (public.row_belongs_to_current_company(company_id));
+
+-- 6) Trigger genérico para preencher company_id automaticamente em INSERT
+-- (lê de current_company_id() do utilizador autenticado se a coluna ficar NULL)
+CREATE OR REPLACE FUNCTION public.set_company_id_on_insert()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.company_id IS NULL THEN
+    NEW.company_id := public.current_company_id();
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+-- 7) Aplicar trigger BEFORE INSERT às tabelas
+DO $$
+DECLARE
+  v_table text;
+  v_tables text[] := ARRAY[
+    'events','event_dates','event_sessions','event_partners','event_forecasts',
+    'event_forecast_partners','event_implementations','event_closing_costs',
+    'event_partner_extras','bp_versions','bp_version_audit_log',
+    'bp_orphan_attachments','event_forecast_formalidade_log','forecast_audit_log'
+  ];
+BEGIN
+  FOREACH v_table IN ARRAY v_tables LOOP
+    EXECUTE format('DROP TRIGGER IF EXISTS trg_set_company_id ON public.%I', v_table);
+    EXECUTE format(
+      'CREATE TRIGGER trg_set_company_id BEFORE INSERT ON public.%I FOR EACH ROW EXECUTE FUNCTION public.set_company_id_on_insert()',
+      v_table
+    );
+  END LOOP;
+END $$;
+
+-- =========================================================
+-- VALIDAÇÃO BATCH 1 — TODAS as linhas têm de ter company_id
+-- =========================================================
+SELECT 'bp_orphan_attachments' AS tabela, count(*) AS sem_company_id FROM public.bp_orphan_attachments WHERE company_id IS NULL;
+SELECT 'bp_version_audit_log' AS tabela, count(*) AS sem_company_id FROM public.bp_version_audit_log WHERE company_id IS NULL;
+SELECT 'bp_versions' AS tabela, count(*) AS sem_company_id FROM public.bp_versions WHERE company_id IS NULL;
+SELECT 'event_closing_costs' AS tabela, count(*) AS sem_company_id FROM public.event_closing_costs WHERE company_id IS NULL;
+SELECT 'event_dates' AS tabela, count(*) AS sem_company_id FROM public.event_dates WHERE company_id IS NULL;
+SELECT 'event_forecast_formalidade_log' AS tabela, count(*) AS sem_company_id FROM public.event_forecast_formalidade_log WHERE company_id IS NULL;
+SELECT 'event_forecast_partners' AS tabela, count(*) AS sem_company_id FROM public.event_forecast_partners WHERE company_id IS NULL;
+SELECT 'event_forecasts' AS tabela, count(*) AS sem_company_id FROM public.event_forecasts WHERE company_id IS NULL;
+SELECT 'event_implementations' AS tabela, count(*) AS sem_company_id FROM public.event_implementations WHERE company_id IS NULL;
+SELECT 'event_partner_extras' AS tabela, count(*) AS sem_company_id FROM public.event_partner_extras WHERE company_id IS NULL;
+SELECT 'event_partners' AS tabela, count(*) AS sem_company_id FROM public.event_partners WHERE company_id IS NULL;
+SELECT 'event_sessions' AS tabela, count(*) AS sem_company_id FROM public.event_sessions WHERE company_id IS NULL;
+SELECT 'events' AS tabela, count(*) AS sem_company_id FROM public.events WHERE company_id IS NULL;
+SELECT 'forecast_audit_log' AS tabela, count(*) AS sem_company_id FROM public.forecast_audit_log WHERE company_id IS NULL;
+-- esperado: 0 em todas as linhas acima

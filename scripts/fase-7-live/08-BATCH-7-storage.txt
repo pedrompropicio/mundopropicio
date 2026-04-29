@@ -1,0 +1,95 @@
+-- =========================================================
+-- FASE 7 LIVE — BATCH 7 STORAGE RLS (Fase 4)
+-- Onde: Cloud (LIVE) → SQL Editor
+-- Pré-requisito: Batches 0–6 validados
+-- Tempo estimado: 3 min
+-- =========================================================
+-- Aplica camada RESTRICTIVE em storage.objects para 11 buckets isolados:
+-- o primeiro segmento do path tem de ser o company_id do user atual.
+-- platform_admin passa por cima de tudo.
+-- Migra ficheiros existentes prefixando com '<MP-LIVE>/'.
+-- =========================================================
+
+-- 1) Helper
+CREATE OR REPLACE FUNCTION public.storage_path_belongs_to_current_company(_name text)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT public.is_platform_admin(auth.uid())
+    OR (public.current_company_id() IS NOT NULL
+        AND _name IS NOT NULL
+        AND (storage.foldername(_name))[1] = public.current_company_id()::text)
+$$;
+GRANT EXECUTE ON FUNCTION public.storage_path_belongs_to_current_company(text) TO anon, authenticated;
+
+-- 2) Criar policies RESTRICTIVE para 11 buckets isolados
+DO $$
+DECLARE
+  b text;
+  isolated_buckets text[] := ARRAY[
+    'bp-version-snapshots','cache-extra-documents','camarim-documents',
+    'closing-cost-documents','implementation-files','import-reports',
+    'partner-extra-documents','supplier-credit-documents','supplier-documents',
+    'ticket-office-settlements','transaction-documents'
+  ];
+  cmd text;
+  pol_name text;
+BEGIN
+  FOREACH b IN ARRAY isolated_buckets LOOP
+    FOREACH cmd IN ARRAY ARRAY['SELECT','INSERT','UPDATE','DELETE'] LOOP
+      pol_name := 'company_isolation_' || replace(b,'-','_') || '_' || lower(cmd);
+      EXECUTE format('DROP POLICY IF EXISTS %I ON storage.objects', pol_name);
+      IF cmd = 'INSERT' THEN
+        EXECUTE format($f$ CREATE POLICY %I ON storage.objects AS RESTRICTIVE FOR INSERT TO authenticated
+          WITH CHECK (bucket_id <> %L OR public.storage_path_belongs_to_current_company(name)) $f$, pol_name, b);
+      ELSIF cmd = 'UPDATE' THEN
+        EXECUTE format($f$ CREATE POLICY %I ON storage.objects AS RESTRICTIVE FOR UPDATE TO authenticated
+          USING (bucket_id <> %L OR public.storage_path_belongs_to_current_company(name))
+          WITH CHECK (bucket_id <> %L OR public.storage_path_belongs_to_current_company(name)) $f$, pol_name, b, b);
+      ELSE
+        EXECUTE format($f$ CREATE POLICY %I ON storage.objects AS RESTRICTIVE FOR %s TO authenticated
+          USING (bucket_id <> %L OR public.storage_path_belongs_to_current_company(name)) $f$, pol_name, cmd, b);
+      END IF;
+    END LOOP;
+  END LOOP;
+END $$;
+
+-- 3) Migrar paths existentes — usa o ID dinâmico da Mundo Propício em LIVE
+DO $$
+DECLARE
+  mp_id text := (SELECT id::text FROM public.companies WHERE slug = 'mundo-propicio');
+  isolated_buckets text[] := ARRAY[
+    'bp-version-snapshots','cache-extra-documents','camarim-documents',
+    'closing-cost-documents','implementation-files','import-reports',
+    'partner-extra-documents','supplier-credit-documents','supplier-documents',
+    'ticket-office-settlements','transaction-documents'
+  ];
+  b text;
+  moved int;
+BEGIN
+  IF mp_id IS NULL THEN
+    RAISE EXCEPTION 'Mundo Propício não encontrada — abortar migração de paths!';
+  END IF;
+  RAISE NOTICE 'Mundo Propício LIVE id: %', mp_id;
+  FOREACH b IN ARRAY isolated_buckets LOOP
+    UPDATE storage.objects
+       SET name = mp_id || '/' || name
+     WHERE bucket_id = b
+       AND (storage.foldername(name))[1] <> mp_id
+       AND (storage.foldername(name))[1] NOT IN (SELECT id::text FROM public.companies);
+    GET DIAGNOSTICS moved = ROW_COUNT;
+    RAISE NOTICE 'Bucket %: % objetos migrados para prefixo %/', b, moved, mp_id;
+  END LOOP;
+END $$;
+
+-- =========================================================
+-- VALIDAÇÃO BATCH 7 — todos os ficheiros já têm prefixo de empresa
+-- =========================================================
+SELECT bucket_id,
+       count(*) FILTER (WHERE (storage.foldername(name))[1] IN (SELECT id::text FROM public.companies)) AS com_prefixo,
+       count(*) FILTER (WHERE (storage.foldername(name))[1] NOT IN (SELECT id::text FROM public.companies)) AS sem_prefixo
+  FROM storage.objects
+ WHERE bucket_id IN ('bp-version-snapshots','cache-extra-documents','camarim-documents',
+   'closing-cost-documents','implementation-files','import-reports','partner-extra-documents',
+   'supplier-credit-documents','supplier-documents','ticket-office-settlements','transaction-documents')
+ GROUP BY bucket_id
+ ORDER BY bucket_id;
+-- esperado: sem_prefixo = 0 em todos os buckets

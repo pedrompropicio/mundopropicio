@@ -1,0 +1,67 @@
+-- =========================================================
+-- FASE 7 LIVE — BATCH 9: NOT NULL company_id (APENAS D+7)
+-- Onde: Cloud (LIVE) → SQL Editor
+-- Pré-requisito: 7 dias completos sem erros após Batches 0–8
+-- Tempo estimado: 2 min
+-- =========================================================
+-- ⚠️ NÃO CORRER NA NOITE DA MIGRAÇÃO ⚠️
+-- Este script blinda company_id como NOT NULL em ~70 tabelas.
+-- Qualquer linha com company_id IS NULL faz FALHAR a migração — é por design.
+-- Antes de correr:
+--   1. Confirmar que `audit_multi_tenant_isolation()` não retorna nenhuma
+--      linha com profiles_without_company > 0 nem variantes equivalentes.
+--   2. Confirmar que não houve erros nos logs nas últimas 24h.
+-- =========================================================
+
+-- 1) Pré-check: tabelas que ainda têm linhas com company_id NULL
+DO $$
+DECLARE
+  r record;
+  v_total int;
+  v_problemas text[] := '{}';
+BEGIN
+  FOR r IN
+    SELECT table_name FROM information_schema.columns
+    WHERE table_schema='public' AND column_name='company_id' AND is_nullable='YES'
+    ORDER BY table_name
+  LOOP
+    EXECUTE format('SELECT count(*) FROM public.%I WHERE company_id IS NULL', r.table_name) INTO v_total;
+    IF v_total > 0 THEN
+      v_problemas := v_problemas || format('%s: %s linhas órfãs', r.table_name, v_total);
+    END IF;
+  END LOOP;
+  IF array_length(v_problemas,1) IS NOT NULL THEN
+    RAISE EXCEPTION 'NÃO PROSSEGUIR — corrigir órfãs primeiro: %', v_problemas;
+  END IF;
+  RAISE NOTICE '✅ Pré-check OK — todas as tabelas estão prontas para NOT NULL';
+END $$;
+
+-- 2) Aplicar NOT NULL
+DO $$
+DECLARE
+  r record;
+  v_count int := 0;
+  v_failed text[] := '{}';
+BEGIN
+  FOR r IN
+    SELECT table_name FROM information_schema.columns
+    WHERE table_schema='public' AND column_name='company_id' AND is_nullable='YES'
+      AND table_name NOT IN ('user_roles')  -- platform_admin tem company_id NULL legitimamente
+    ORDER BY table_name
+  LOOP
+    BEGIN
+      EXECUTE format('ALTER TABLE public.%I ALTER COLUMN company_id SET NOT NULL', r.table_name);
+      v_count := v_count + 1;
+    EXCEPTION WHEN OTHERS THEN
+      v_failed := v_failed || format('%s: %s', r.table_name, SQLERRM);
+    END;
+  END LOOP;
+  RAISE NOTICE '✅ NOT NULL aplicado em % tabelas', v_count;
+  IF array_length(v_failed,1) IS NOT NULL THEN
+    RAISE WARNING '❌ Falhas: %', v_failed;
+  END IF;
+END $$;
+
+-- 3) Validação
+SELECT * FROM public.audit_multi_tenant_isolation();
+-- esperado: tables_company_id_not_null = tables_with_company_id - 1 (user_roles fica nullable)
