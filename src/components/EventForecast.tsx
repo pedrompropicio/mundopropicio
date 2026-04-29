@@ -7,6 +7,7 @@ import { deleteTransactionCascade } from "@/lib/delete-transaction-cascade";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadToCompanyBucket } from "@/lib/storage";
 import { useAuth } from "@/contexts/AuthContext";
 import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive, Paperclip, Sparkles } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -1239,10 +1240,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
       // Upload the new file regardless — each import gets its own copy so the
       // user can re-run with a fresh ficheiro if needed.
-      const filePath = `${Date.now()}_${file.name}`;
-      const { error: uploadErr } = await supabase.storage
-        .from("implementation-files")
-        .upload(filePath, file);
+      const { error: uploadErr, path: filePath } = await uploadToCompanyBucket(
+        "implementation-files",
+        `${Date.now()}_${file.name}`,
+        file,
+      );
       if (uploadErr) throw uploadErr;
 
       let implementationId: string;

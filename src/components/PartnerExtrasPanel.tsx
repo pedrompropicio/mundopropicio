@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadToCompanyBucket } from "@/lib/storage";
 import { formatCurrency } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,10 +103,12 @@ export function PartnerExtrasPanel({ partnerId, partnerName, eventId, canEdit }:
   }
 
   async function handleFileUpload(extraId: string, file: File) {
-    const path = `${extraId}/${file.name}`;
-    const { error } = await supabase.storage
-      .from("partner-extra-documents")
-      .upload(path, file, { upsert: true });
+    const { error } = await uploadToCompanyBucket(
+      "partner-extra-documents",
+      `${extraId}/${file.name}`,
+      file,
+      { upsert: true },
+    );
     if (error) {
       toast({ title: "Erro ao anexar ficheiro", variant: "destructive" });
     } else {

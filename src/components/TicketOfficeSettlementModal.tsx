@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadToCompanyBucket } from "@/lib/storage";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -385,12 +386,14 @@ export function TicketOfficeSettlementModal({ open, onClose, officeId, officeNam
       let docUrl = existingDocUrl;
       let docName = existingDocName;
       if (file) {
-        const path = `${officeId}/${Date.now()}_${file.name}`;
-        const { error: upErr } = await supabase.storage
-          .from("ticket-office-settlements")
-          .upload(path, file, { upsert: false });
+        const { error: upErr, path: storedPath } = await uploadToCompanyBucket(
+          "ticket-office-settlements",
+          `${officeId}/${Date.now()}_${file.name}`,
+          file,
+          { upsert: false },
+        );
         if (upErr) throw upErr;
-        docUrl = path;
+        docUrl = storedPath;
         docName = file.name;
       }
 

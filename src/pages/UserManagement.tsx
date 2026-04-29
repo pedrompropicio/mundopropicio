@@ -17,6 +17,7 @@ const ROLE_ICONS: Record<AppRole, React.ElementType> = {
   viewer: Eye,
   user: User,
   partner: Handshake,
+  platform_admin: ShieldCheck,
 };
 
 const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "editor", "viewer", "partner"];

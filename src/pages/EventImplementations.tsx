@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadToCompanyBucket } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -88,10 +89,11 @@ export default function EventImplementations() {
       let fileName: string | null = null;
       if (selectedFile) {
         fileName = selectedFile.name;
-        const filePath = `${Date.now()}_${selectedFile.name}`;
-        const { error: uploadErr } = await supabase.storage
-          .from("implementation-files")
-          .upload(filePath, selectedFile);
+        const { error: uploadErr, path: filePath } = await uploadToCompanyBucket(
+          "implementation-files",
+          `${Date.now()}_${selectedFile.name}`,
+          selectedFile,
+        );
         if (uploadErr) throw uploadErr;
         fileUrl = filePath;
       }

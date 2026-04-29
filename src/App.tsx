@@ -5,7 +5,7 @@ import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { useGlobalModalScrollLock } from "@/hooks/useGlobalModalScrollLock";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
-import logoMundoPropicio from "@/assets/logo-horizontal.png";
+// Logo agora vem de BrandedLogo (suporta multi-empresa)
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ApprovedPaymentListReminder } from "@/components/ApprovedPaymentListReminder";
@@ -15,6 +15,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
+import { CompanyBrandingProvider } from "@/contexts/CompanyBrandingContext";
+import { BrandedLogo } from "@/components/BrandedLogo";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Sun, Moon } from "lucide-react";
 import Index from "./pages/Index";
@@ -82,6 +84,8 @@ import CamarimEquipa from "./pages/CamarimEquipa";
 
 import TrashPage from "./pages/Trash";
 import NotFound from "./pages/NotFound";
+import AcceptInvitation from "./pages/AcceptInvitation";
+import Companies from "./pages/admin/Companies";
 import { PartnerLayout } from "./components/PartnerLayout";
 
 const queryClient = new QueryClient({
@@ -211,11 +215,7 @@ function ProtectedLayout() {
     <div className="flex min-h-screen flex-col">
       <ApprovedPaymentListReminder />
       <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-border bg-sidebar shadow-sm px-4 lg:px-6">
-        <img
-          src={logoMundoPropicio}
-          alt="MP Gestão Eventos Entretenimento"
-          className="h-9 object-contain"
-        />
+        <BrandedLogo />
         <div className="flex items-center gap-2">
           <GlobalSearch />
           <NotificationBell />
@@ -289,6 +289,7 @@ function ProtectedLayout() {
               <Route path="/admin/atividade" element={<UserActivityLog />} />
               <Route path="/admin/auditoria-contas" element={<AuditoriaContas />} />
               <Route path="/admin/formalidade" element={<FormalidadeAudit />} />
+              <Route path="/admin/empresas" element={<Companies />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
             
@@ -322,17 +323,20 @@ function App() {
           <Toaster />
           <Sonner />
           <AuthProvider>
-            <BrowserRouter>
-              <ScrollToTop />
-              <Routes>
-                <Route path="/login" element={<AuthRoute />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/unsubscribe" element={<Unsubscribe />} />
-                <Route path="/camarim-equipa" element={<CamarimEquipa />} />
-                <Route path="/parceiro/*" element={<PartnerLayout />} />
-                <Route path="/*" element={<ProtectedLayout />} />
-              </Routes>
-            </BrowserRouter>
+            <CompanyBrandingProvider>
+              <BrowserRouter>
+                <ScrollToTop />
+                <Routes>
+                  <Route path="/login" element={<AuthRoute />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/unsubscribe" element={<Unsubscribe />} />
+                  <Route path="/accept-invitation" element={<AcceptInvitation />} />
+                  <Route path="/camarim-equipa" element={<CamarimEquipa />} />
+                  <Route path="/parceiro/*" element={<PartnerLayout />} />
+                  <Route path="/*" element={<ProtectedLayout />} />
+                </Routes>
+              </BrowserRouter>
+            </CompanyBrandingProvider>
           </AuthProvider>
         </TooltipProvider>
       </QueryClientProvider>
