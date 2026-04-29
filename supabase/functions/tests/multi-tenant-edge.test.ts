@@ -112,3 +112,62 @@ Deno.test("accept-invitation: rejects weak password (if validated)", async () =>
   // Either rejected for short password OR for unknown token; both are >= 400
   assertEquals(status >= 400, true);
 });
+
+// ─────────────────────────────────────────────────────────────
+// delete-user — bloqueia delete cross-tenant (sem JWT → 401)
+// ─────────────────────────────────────────────────────────────
+
+Deno.test("delete-user: rejects unauthenticated request", async () => {
+  const { status, data } = await call("delete-user", {
+    user_id: "00000000-0000-0000-0000-000000000001",
+  });
+  assertEquals([401, 403].includes(status), true, `expected 401/403, got ${status}`);
+  assertExists(data.error ?? data.message);
+});
+
+Deno.test("delete-user: rejects invalid token", async () => {
+  const { status } = await call(
+    "delete-user",
+    { user_id: "00000000-0000-0000-0000-000000000001" },
+    "invalid-token-xxx",
+  );
+  assertEquals([401, 403].includes(status), true);
+});
+
+// ─────────────────────────────────────────────────────────────
+// resend-reset-email — bloqueia cross-tenant (sem JWT → 401)
+// ─────────────────────────────────────────────────────────────
+
+Deno.test("resend-reset-email: rejects unauthenticated request", async () => {
+  const { status, data } = await call("resend-reset-email", {
+    email: "x@example.com",
+  });
+  assertEquals([401, 403].includes(status), true);
+  assertExists(data.error ?? data.message);
+});
+
+// ─────────────────────────────────────────────────────────────
+// database-restore — sem JWT bloqueia
+// ─────────────────────────────────────────────────────────────
+
+Deno.test("database-restore: rejects unauthenticated request", async () => {
+  const { status } = await call("database-restore", {
+    backup_file: "fake.json", mode: "preview",
+  });
+  assertEquals([401, 403].includes(status), true);
+});
+
+Deno.test("selective-restore: rejects unauthenticated request", async () => {
+  const { status } = await call("selective-restore", {
+    backup_file: "fake.json", mode: "preview", scope: "tables", tables: ["events"],
+  });
+  assertEquals([401, 403].includes(status), true);
+});
+
+Deno.test("surgical-restore: rejects unauthenticated request", async () => {
+  const { status } = await call("surgical-restore", {
+    backup_file: "fake.json", mode: "preview",
+    event_ids: ["00000000-0000-0000-0000-000000000001"],
+  });
+  assertEquals([401, 403].includes(status), true);
+});
