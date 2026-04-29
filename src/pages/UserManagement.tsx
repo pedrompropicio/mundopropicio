@@ -35,10 +35,17 @@ export default function UserManagement() {
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["users-with-roles"],
     queryFn: async () => {
-      const { data: profiles, error: pErr } = await supabase
+      // Resolve the active company so platform_admin users only see members of
+      // the company they currently have selected (matches the rest of the UI).
+      const { data: activeCompanyId } = await supabase.rpc("current_company_id");
+
+      let query = supabase
         .from("profiles")
-        .select("id, full_name, email, created_at")
+        .select("id, full_name, email, created_at, company_id")
         .order("created_at", { ascending: true });
+      if (activeCompanyId) query = query.eq("company_id", activeCompanyId);
+
+      const { data: profiles, error: pErr } = await query;
       if (pErr) throw pErr;
 
       const { data: roles, error: rErr } = await supabase
