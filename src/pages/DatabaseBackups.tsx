@@ -23,10 +23,12 @@ import { Navigate, useNavigate } from "react-router-dom";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import SelectiveRestoreModal from "@/components/SelectiveRestoreModal";
+import { useCompany } from "@/hooks/useCompany";
 
 export default function DatabaseBackups() {
   const AUTO_REFRESH_INTERVAL_MS = 60_000;
   const { isAdmin } = useAuth();
+  const { company, isPlatformAdmin } = useCompany();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
@@ -37,14 +39,31 @@ export default function DatabaseBackups() {
   const [previewing, setPreviewing] = useState(false);
   const [selectiveTarget, setSelectiveTarget] = useState<string | null>(null);
 
+  const companySlug = company?.slug ?? null;
+
   const { data: backups = [], isLoading, refetch: refetchBackups, isFetching } = useQuery({
-    queryKey: ["database-backups"],
+    queryKey: ["database-backups", companySlug, isPlatformAdmin],
+    enabled: !!companySlug,
     queryFn: async () => {
       const { data, error } = await supabase.storage
         .from("database-backups")
-        .list("", { limit: 100, sortBy: { column: "created_at", order: "desc" } });
+        .list("", { limit: 1000, sortBy: { column: "created_at", order: "desc" } });
       if (error) throw error;
-      return data.filter((f) => f.name.endsWith(".json"));
+      const all = (data ?? []).filter((f) => f.name.endsWith(".json"));
+      // Filtra por empresa: só ficheiros do tipo `backup-<slug>-...json`.
+      // Ficheiros legacy sem slug (`backup-YYYY-...json`) ou globais (`backup-global-...`)
+      // só são visíveis ao platform_admin.
+      return all.filter((f) => {
+        const name = f.name;
+        if (companySlug && name.startsWith(`backup-${companySlug}-`)) return true;
+        if (isPlatformAdmin) {
+          // Mostra também legacy/global ao super-admin para gestão histórica
+          if (name.startsWith("backup-global-")) return true;
+          // Legacy: backup-YYYY-... (sem slug)
+          if (/^backup-\d{4}-\d{2}-\d{2}T/.test(name)) return true;
+        }
+        return false;
+      });
     },
     staleTime: 0,
     gcTime: 0,

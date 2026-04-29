@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/hooks/useCompany";
 import { Navigate, useNavigate } from "react-router-dom";
 import { ArrowLeft, Clock, BarChart3, Users } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -16,6 +17,7 @@ interface ProfileRow {
   id: string;
   full_name: string;
   email: string | null;
+  company_id: string | null;
 }
 
 function formatDuration(minutes: number): string {
@@ -28,23 +30,29 @@ function formatDuration(minutes: number): string {
 
 export default function UserActivityLog() {
   const { isAdmin } = useAuth();
+  const { companyId } = useCompany();
   const navigate = useNavigate();
 
   const { data: profiles = [] } = useQuery<ProfileRow[]>({
-    queryKey: ["profiles-activity"],
+    queryKey: ["profiles-activity", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("id, full_name, email");
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, company_id");
       if (error) throw error;
-      return data;
+      // Mostra utilizadores da empresa ativa + platform_admins (company_id=null) para auditoria
+      return (data ?? []).filter((p: any) => p.company_id === companyId || p.company_id === null) as ProfileRow[];
     },
   });
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const { data: activities = [], isLoading } = useQuery<ActivityRow[]>({
-    queryKey: ["user-activity-log-7d"],
+    queryKey: ["user-activity-log-7d", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
-      // Paginate to bypass default 1000-row limit
+      // Paginate to bypass default 1000-row limit. RLS filtra por company_id automaticamente.
       const PAGE_SIZE = 1000;
       let all: ActivityRow[] = [];
       let from = 0;

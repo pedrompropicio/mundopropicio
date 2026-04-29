@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/hooks/useCompany";
 import { entityTypeLabels } from "@/lib/trash";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -15,13 +16,15 @@ import { pt } from "date-fns/locale";
 
 export default function TrashPage() {
   const { isAdmin } = useAuth();
+  const { companyId } = useCompany();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
   const { data: trashItems = [], isLoading } = useQuery({
-    queryKey: ["trash"],
+    queryKey: ["trash", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trash" as any)
