@@ -635,6 +635,7 @@ export default function Transactions() {
         const amount = Number(t.amount);
         return paidAmount >= amount - 0.01 || t.status === "paid";
       })
+      .filter((t: any) => !onlyAdmin || (!t.event_id && !t.parent_transaction_id))
       .filter((t: any) => !onlyGrouped || groupedInvoiceRefs.has(t.invoice_ref?.trim()));
 
     const today = new Date();
