@@ -57,6 +57,18 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
+    // Multi-tenant: resolve caller's active company; restrict push delivery to that tenant.
+    const { data: callerProfile } = await adminClient
+      .from("profiles")
+      .select("company_id, active_company_id")
+      .eq("id", user.id)
+      .maybeSingle();
+    const { data: isPaRow } = await adminClient.rpc("is_platform_admin", { _user_id: user.id });
+    const isPlatformAdmin = Boolean(isPaRow);
+    const callerCompanyId = isPlatformAdmin
+      ? (callerProfile?.active_company_id ?? callerProfile?.company_id ?? null)
+      : (callerProfile?.company_id ?? null);
+
     const { user_ids, title, body, url, badge_count } = await req.json();
 
     if (!title || !body) {
@@ -66,8 +78,18 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get subscriptions
+    // Get subscriptions — ALWAYS filter by caller's company to prevent cross-tenant push.
+    // Platform admin without active company falls back to no filter (rare; backups/system).
     let query = adminClient.from("push_subscriptions").select("*");
+    if (callerCompanyId) {
+      query = query.eq("company_id", callerCompanyId);
+    } else if (!isPlatformAdmin) {
+      // Caller has no company and is not platform admin → reject.
+      return new Response(JSON.stringify({ error: "Caller has no company" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     if (user_ids && Array.isArray(user_ids) && user_ids.length > 0) {
       query = query.in("user_id", user_ids);
     }
