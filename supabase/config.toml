@@ -1,6 +1,8 @@
 project_id = "ukpuhoynrqobqtzdbysp"
 
 [functions]
+  [functions.accept-invitation]
+    verify_jwt = false
   [functions.auth-email-hook]
     verify_jwt = false
   [functions.process-email-queue]
