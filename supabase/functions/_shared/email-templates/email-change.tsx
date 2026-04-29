@@ -13,8 +13,9 @@ import {
   Preview,
   Text,
 } from 'npm:@react-email/components@0.0.22'
+import { BrandHeader, resolvePrimary, type BrandingProps } from './branding.tsx'
 
-interface EmailChangeEmailProps {
+interface EmailChangeEmailProps extends BrandingProps {
   siteName: string
   email: string
   newEmail: string
@@ -26,37 +27,45 @@ export const EmailChangeEmail = ({
   email,
   newEmail,
   confirmationUrl,
-}: EmailChangeEmailProps) => (
-  <Html lang="pt" dir="ltr">
-    <Head />
-    <Preview>Confirme a alteração de email — {siteName}</Preview>
-    <Body style={main}>
-      <Container style={container}>
-        <Heading style={h1}>Confirme a alteração de email</Heading>
-        <Text style={text}>
-          Solicitou a alteração do seu endereço de email em {siteName} de{' '}
-          <Link href={`mailto:${email}`} style={link}>
-            {email}
-          </Link>{' '}
-          para{' '}
-          <Link href={`mailto:${newEmail}`} style={link}>
-            {newEmail}
-          </Link>
-          .
-        </Text>
-        <Text style={text}>
-          Clique no botão abaixo para confirmar esta alteração:
-        </Text>
-        <Button style={button} href={confirmationUrl}>
-          Confirmar Alteração
-        </Button>
-        <Text style={footer}>
-          Se não solicitou esta alteração, proteja a sua conta imediatamente.
-        </Text>
-      </Container>
-    </Body>
-  </Html>
-)
+  brandName,
+  brandLogoUrl,
+  brandPrimaryColor,
+}: EmailChangeEmailProps) => {
+  const displayName = brandName ?? siteName
+  const primary = resolvePrimary(brandPrimaryColor)
+  return (
+    <Html lang="pt" dir="ltr">
+      <Head />
+      <Preview>Confirme a alteração de email — {displayName}</Preview>
+      <Body style={main}>
+        <Container style={container}>
+          <BrandHeader brandLogoUrl={brandLogoUrl} brandName={displayName} />
+          <Heading style={h1}>Confirme a alteração de email</Heading>
+          <Text style={text}>
+            Solicitou a alteração do seu endereço de email em {displayName} de{' '}
+            <Link href={`mailto:${email}`} style={link}>
+              {email}
+            </Link>{' '}
+            para{' '}
+            <Link href={`mailto:${newEmail}`} style={link}>
+              {newEmail}
+            </Link>
+            .
+          </Text>
+          <Text style={text}>
+            Clique no botão abaixo para confirmar esta alteração:
+          </Text>
+          <Button style={{ ...button, backgroundColor: primary }} href={confirmationUrl}>
+            Confirmar Alteração
+          </Button>
+          <Text style={footer}>
+            Se não solicitou esta alteração, proteja a sua conta imediatamente.
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  )
+}
 
 export default EmailChangeEmail
 
@@ -76,7 +85,6 @@ const text = {
 }
 const link = { color: 'inherit', textDecoration: 'underline' }
 const button = {
-  backgroundColor: '#1a6fb8',
   color: '#ffffff',
   fontSize: '14px',
   borderRadius: '8px',

@@ -215,6 +215,40 @@ async function handleWebhook(req: Request): Promise<Response> {
   const rawToken = payload.data.token
   const otpToken = rawToken && /^\d{6,10}$/.test(rawToken) ? rawToken : undefined
 
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  )
+
+  // Resolve per-company branding from the recipient's profile.
+  // Fallback: keep the global MP defaults (brand* props remain undefined).
+  let brandName: string | undefined
+  let brandLogoUrl: string | undefined
+  let brandPrimaryColor: string | undefined
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('company_id')
+      .eq('email', payload.data.email)
+      .maybeSingle()
+    if (profile?.company_id) {
+      const { data: company } = await supabase
+        .from('companies')
+        .select('display_name, logo_url, theme_config')
+        .eq('id', profile.company_id)
+        .maybeSingle()
+      if (company) {
+        brandName = company.display_name ?? undefined
+        brandLogoUrl = company.logo_url ?? undefined
+        const primary = (company.theme_config as { primary_color?: string } | null)?.primary_color
+        brandPrimaryColor = typeof primary === 'string' && primary.length > 0 ? primary : undefined
+      }
+    }
+  } catch (err) {
+    // Non-fatal: branding lookup failure → fall back to MP defaults.
+    console.warn('Branding lookup failed', { email: payload.data.email, err })
+  }
+
   const templateProps = {
     siteName: SITE_NAME,
     siteUrl: `https://${ROOT_DOMAIN}`,
@@ -223,17 +257,15 @@ async function handleWebhook(req: Request): Promise<Response> {
     token: emailType === 'recovery' ? otpToken : payload.data.token,
     email: payload.data.email,
     newEmail: payload.data.new_email,
+    brandName,
+    brandLogoUrl,
+    brandPrimaryColor,
   }
 
   const html = await renderAsync(React.createElement(EmailTemplate, templateProps))
   const text = await renderAsync(React.createElement(EmailTemplate, templateProps), {
     plainText: true,
   })
-
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  )
 
   const messageId = crypto.randomUUID()
 
@@ -250,7 +282,7 @@ async function handleWebhook(req: Request): Promise<Response> {
       run_id,
       message_id: messageId,
       to: payload.data.email,
-      from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
+      from: `${brandName ?? SITE_NAME} <noreply@${FROM_DOMAIN}>`,
       sender_domain: SENDER_DOMAIN,
       subject: EMAIL_SUBJECTS[emailType] || 'Notificação',
       html,

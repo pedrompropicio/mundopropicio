@@ -18,7 +18,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { Building2, UserPlus, Copy, Plus } from "lucide-react";
+import { Building2, UserPlus, Copy, Plus, Pencil, Upload, Trash2 } from "lucide-react";
 
 interface CompanyRow {
   id: string;
@@ -29,6 +29,8 @@ interface CompanyRow {
   currency: string;
   status: string;
   contact_email: string | null;
+  logo_url: string | null;
+  theme_config: { primary_color?: string } | null;
   created_at: string;
 }
 
@@ -37,6 +39,7 @@ export default function Companies() {
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState<CompanyRow | null>(null);
+  const [editOpen, setEditOpen] = useState<CompanyRow | null>(null);
 
   const { data: companies, isLoading } = useQuery({
     queryKey: ["admin-companies"],
@@ -84,26 +87,50 @@ export default function Companies() {
           <Card key={c.id}>
             <CardHeader>
               <CardTitle className="flex items-start justify-between gap-2">
-                <span>{c.display_name}</span>
+                <div className="flex items-center gap-2">
+                  {c.logo_url ? (
+                    <img src={c.logo_url} alt="" className="h-8 w-8 object-contain rounded" />
+                  ) : (
+                    <Building2 className="h-5 w-5 text-muted-foreground" />
+                  )}
+                  <span>{c.display_name}</span>
+                </div>
                 <Badge variant={c.status === "active" ? "default" : "secondary"}>{c.status}</Badge>
               </CardTitle>
               <p className="text-xs text-muted-foreground font-mono">{c.slug}</p>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="text-muted-foreground">{c.legal_name}</div>
-              <div className="flex gap-2 text-xs">
+              <div className="flex gap-2 text-xs items-center">
                 <Badge variant="outline">{c.country}</Badge>
                 <Badge variant="outline">{c.currency}</Badge>
+                {c.theme_config?.primary_color && (
+                  <span
+                    className="inline-block h-4 w-4 rounded-full border"
+                    style={{ backgroundColor: c.theme_config.primary_color }}
+                    title={`Cor: ${c.theme_config.primary_color}`}
+                  />
+                )}
               </div>
               {c.contact_email && <div className="text-xs text-muted-foreground">{c.contact_email}</div>}
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full mt-2"
-                onClick={() => setInviteOpen(c)}
-              >
-                <UserPlus className="h-3.5 w-3.5 mr-2" /> Convidar admin
-              </Button>
+              <div className="flex gap-2 mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setEditOpen(c)}
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-2" /> Editar
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setInviteOpen(c)}
+                >
+                  <UserPlus className="h-3.5 w-3.5 mr-2" /> Convidar
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -113,6 +140,17 @@ export default function Companies() {
         <InviteAdminDialog
           company={inviteOpen}
           onClose={() => setInviteOpen(null)}
+        />
+      )}
+
+      {editOpen && (
+        <EditCompanyDialog
+          company={editOpen}
+          onClose={() => setEditOpen(null)}
+          onSaved={() => {
+            setEditOpen(null);
+            qc.invalidateQueries({ queryKey: ["admin-companies"] });
+          }}
         />
       )}
     </div>
@@ -306,6 +344,182 @@ function InviteAdminDialog({ company, onClose }: { company: CompanyRow; onClose:
             </DialogFooter>
           </div>
         )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditCompanyDialog({
+  company,
+  onClose,
+  onSaved,
+}: {
+  company: CompanyRow;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [displayName, setDisplayName] = useState(company.display_name);
+  const [legalName, setLegalName] = useState(company.legal_name);
+  const [primaryColor, setPrimaryColor] = useState(
+    company.theme_config?.primary_color ?? "#1a6fb8"
+  );
+  const [logoUrl, setLogoUrl] = useState<string | null>(company.logo_url);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleLogoUpload = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Ficheiro inválido", description: "Envia uma imagem (PNG, JPG ou SVG).", variant: "destructive" });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "Ficheiro grande", description: "Máx. 2 MB.", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() ?? "png";
+      const path = `${company.id}/logo-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("company-logos")
+        .upload(path, file, { cacheControl: "3600", upsert: true });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from("company-logos").getPublicUrl(path);
+      setLogoUrl(data.publicUrl);
+      toast({ title: "Logo carregado" });
+    } catch (e: any) {
+      toast({ title: "Erro no upload", description: e.message ?? String(e), variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveLogo = () => setLogoUrl(null);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("companies" as any)
+        .update({
+          display_name: displayName,
+          legal_name: legalName,
+          logo_url: logoUrl,
+          theme_config: { ...(company.theme_config ?? {}), primary_color: primaryColor },
+        })
+        .eq("id", company.id);
+      if (error) throw error;
+      toast({ title: "Empresa atualizada" });
+      onSaved();
+    } catch (e: any) {
+      toast({ title: "Erro ao guardar", description: e.message ?? String(e), variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar empresa — {company.display_name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label>Nome de apresentação</Label>
+            <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
+            <p className="text-xs text-muted-foreground mt-1">
+              Aparece nos emails (ex: "Bem-vindo a {displayName || "..."}").
+            </p>
+          </div>
+
+          <div>
+            <Label>Nome legal</Label>
+            <Input value={legalName} onChange={(e) => setLegalName(e.target.value)} />
+          </div>
+
+          <div>
+            <Label>Logo (header da app + emails)</Label>
+            <div className="flex items-center gap-3 mt-2">
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt="Logo"
+                  className="h-14 w-14 object-contain rounded border bg-white p-1"
+                />
+              ) : (
+                <div className="h-14 w-14 rounded border border-dashed flex items-center justify-center text-muted-foreground">
+                  <Building2 className="h-6 w-6" />
+                </div>
+              )}
+              <div className="flex flex-col gap-2">
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleLogoUpload(f);
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={uploading}
+                    asChild
+                  >
+                    <span>
+                      <Upload className="h-3.5 w-3.5 mr-2" />
+                      {uploading ? "A carregar…" : logoUrl ? "Substituir" : "Carregar logo"}
+                    </span>
+                  </Button>
+                </label>
+                {logoUrl && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRemoveLogo}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-2" /> Remover
+                  </Button>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              PNG/SVG transparente recomendado, máx. 2 MB. URL pública (visível em emails).
+            </p>
+          </div>
+
+          <div>
+            <Label>Cor primária</Label>
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                type="color"
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                className="h-9 w-12 rounded border cursor-pointer"
+              />
+              <Input
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                placeholder="#1a6fb8"
+                className="font-mono"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Usada nos botões e códigos OTP dos emails de auth.
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? "A guardar…" : "Guardar"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
