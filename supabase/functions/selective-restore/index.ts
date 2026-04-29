@@ -233,6 +233,8 @@ Deno.serve(async (req) => {
       userId = payload?.sub ?? null;
     } catch { /* not a JWT */ }
 
+    let isPlatformAdmin = false;
+    let callerCompanyId: string | null = null;
     if (role !== "service_role") {
       if (!userId) {
         return new Response(JSON.stringify({ error: "Não autorizado" }), {
@@ -246,6 +248,13 @@ Deno.serve(async (req) => {
           status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      const { data: isPaRow } = await adminClient.rpc("is_platform_admin", { _user_id: userId });
+      isPlatformAdmin = Boolean(isPaRow);
+      const { data: profile } = await adminClient
+        .from("profiles").select("company_id, active_company_id").eq("id", userId).maybeSingle();
+      callerCompanyId = isPlatformAdmin
+        ? (profile?.active_company_id ?? profile?.company_id ?? null)
+        : (profile?.company_id ?? null);
     }
 
     const body = await req.json();
@@ -284,18 +293,52 @@ Deno.serve(async (req) => {
     const backup = JSON.parse(await fileData.text());
     const allTables: Record<string, any[]> = backup.tables || {};
 
+    // ---- MULTI-TENANT GUARD ----
+    const backupScope: "company" | "global" | "legacy" =
+      backup.scope === "company" ? "company"
+      : backup.scope === "global" ? "global"
+      : "legacy";
+    const backupCompanyId: string | null = backup.company_id ?? null;
+
+    if (backupScope === "global") {
+      return new Response(JSON.stringify({ error: "Backup global não suporta restore seletivo" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (backupScope === "company" && role !== "service_role" && backupCompanyId !== callerCompanyId) {
+      console.warn(`[selective-restore] Cross-tenant block: caller=${userId} (${callerCompanyId}) tentou restaurar backup de ${backupCompanyId}`);
+      return new Response(JSON.stringify({ error: "Este backup pertence a outra empresa" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (backupScope === "legacy" && role !== "service_role" && !isPlatformAdmin) {
+      return new Response(JSON.stringify({ error: "Backups antigos (v2) só por platform_admin" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Filtro tenant aplicado a todas as rows efetivas
+    const tenantFilter = backupScope === "company" ? backupCompanyId : null;
+
     // Build effective row sets per table
     const effective: Record<string, any[]> = {};
 
     if (scope === "tables") {
       for (const t of tablesFilter!) {
-        if (allTables[t]) effective[t] = allTables[t];
+        if (allTables[t]) {
+          effective[t] = tenantFilter
+            ? allTables[t].filter((r: any) => r.company_id === tenantFilter)
+            : allTables[t];
+        }
       }
     } else {
       const scoped = collectEventScopedIds(allTables, event_ids!);
       for (const [t, idSet] of Object.entries(scoped)) {
         if (!allTables[t]) continue;
-        effective[t] = allTables[t].filter((r: any) => idSet.has(r.id));
+        const rows = allTables[t].filter((r: any) => idSet.has(r.id));
+        effective[t] = tenantFilter
+          ? rows.filter((r: any) => r.company_id === tenantFilter)
+          : rows;
       }
     }
 
