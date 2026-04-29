@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef, ty
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
-export type AppRole = "admin" | "manager" | "editor" | "viewer" | "user" | "partner";
+export type AppRole = "admin" | "manager" | "editor" | "viewer" | "user" | "partner" | "platform_admin";
 
 interface AuthContextType {
   user: User | null;
@@ -39,6 +39,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   viewer: "Viewer",
   user: "Utilizador",
   partner: "Parceiro",
+  platform_admin: "Super-Admin",
 };
 
 export const ROLE_COLORS: Record<AppRole, string> = {
@@ -48,6 +49,7 @@ export const ROLE_COLORS: Record<AppRole, string> = {
   viewer: "bg-emerald-500/15 text-emerald-600",
   user: "bg-secondary text-secondary-foreground",
   partner: "bg-indigo-500/15 text-indigo-600",
+  platform_admin: "bg-rose-500/15 text-rose-600",
 };
 
 export const ALL_PERMISSIONS = [

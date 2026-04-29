@@ -1,8 +1,9 @@
 import { useNavigate } from "react-router-dom";
-import { Users, Database, ShieldAlert, Trash2, History, Activity, ClipboardCheck, Sparkles } from "lucide-react";
+import { Users, Database, ShieldAlert, Trash2, History, Activity, ClipboardCheck, Sparkles, Building2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
+import { useCompany } from "@/hooks/useCompany";
 
 const adminCards = [
   {
@@ -57,6 +58,19 @@ const adminCards = [
 
 export default function AdminPanel() {
   const navigate = useNavigate();
+  const { isPlatformAdmin } = useCompany();
+
+  const cards = [
+    ...adminCards,
+    ...(isPlatformAdmin
+      ? [{
+          to: "/admin/empresas",
+          icon: Building2,
+          title: "Empresas",
+          description: "Gestão multi-empresa — criar empresas-cliente e convidar admins (super-admin)",
+        }]
+      : []),
+  ];
 
   return (
     <div className="space-y-6">
@@ -68,7 +82,7 @@ export default function AdminPanel() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {adminCards.map((card) => (
+        {cards.map((card) => (
           <Card
             key={card.to}
             className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-md hover:shadow-primary/10"
