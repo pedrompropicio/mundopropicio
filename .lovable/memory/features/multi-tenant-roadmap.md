@@ -64,8 +64,8 @@ Total seeded em 2C: 17 linhas → Mundo Propício.
 
 ## Como retomar
 - **Fase 2D (financeiro core)**: transactions, transaction_*, payment_lists, transaction_payments
-- **Fase 2E (financeiro)**: transactions, transaction_*, payment_lists, suppliers, financial_accounts, etc.
-- **Fase 2F (suporte)**: trash, undo_actions, system_audit_log, user_activity_log, etc.
+- **Fase 2E (suporte/financeiro extra)**: suppliers, financial_accounts, advances, reimbursements, supplier_credits
+- **Fase 2F (sistema)**: trash, undo_actions, system_audit_log, user_activity_log, etc.
 - **Fase 3 (edge functions)**: refactor de 30 functions + 3 novas (`create-company`, `invite-company-admin`, `accept-invitation`).
 - **Fase 4 (storage paths)**: prefixo `{company_id}/` nos buckets existentes.
 - **Fase 5 (UI)**: página `/admin/companies`, `useCompany()`, ThemeProvider dinâmico, logo/favicon dinâmicos.
