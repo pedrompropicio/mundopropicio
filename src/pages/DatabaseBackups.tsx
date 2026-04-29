@@ -23,10 +23,12 @@ import { Navigate, useNavigate } from "react-router-dom";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import SelectiveRestoreModal from "@/components/SelectiveRestoreModal";
+import { useCompany } from "@/hooks/useCompany";
 
 export default function DatabaseBackups() {
   const AUTO_REFRESH_INTERVAL_MS = 60_000;
   const { isAdmin } = useAuth();
+  const { company, isPlatformAdmin } = useCompany();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
