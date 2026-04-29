@@ -2065,6 +2065,7 @@ export type Database = {
       }
       event_ticket_lots: {
         Row: {
+          company_id: string | null
           created_at: string
           id: string
           iva_rate: number
@@ -2077,6 +2078,7 @@ export type Database = {
           zone_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           id?: string
           iva_rate?: number
@@ -2089,6 +2091,7 @@ export type Database = {
           zone_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           id?: string
           iva_rate?: number
@@ -2101,6 +2104,13 @@ export type Database = {
           zone_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "event_ticket_lots_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_ticket_lots_version_id_fkey"
             columns: ["version_id"]
@@ -2121,6 +2131,7 @@ export type Database = {
         Row: {
           advance_date: string
           amount: number
+          company_id: string | null
           created_at: string
           created_by: string
           event_id: string
@@ -2135,6 +2146,7 @@ export type Database = {
         Insert: {
           advance_date?: string
           amount?: number
+          company_id?: string | null
           created_at?: string
           created_by?: string
           event_id: string
@@ -2149,6 +2161,7 @@ export type Database = {
         Update: {
           advance_date?: string
           amount?: number
+          company_id?: string | null
           created_at?: string
           created_by?: string
           event_id?: string
@@ -2160,12 +2173,21 @@ export type Database = {
           transaction_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "event_ticket_office_advances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       event_ticket_office_assignments: {
         Row: {
           commission_notes: string | null
           commission_type: string
+          company_id: string | null
           conciliated_at: string | null
           conciliated_by: string | null
           created_at: string
@@ -2179,6 +2201,7 @@ export type Database = {
         Insert: {
           commission_notes?: string | null
           commission_type?: string
+          company_id?: string | null
           conciliated_at?: string | null
           conciliated_by?: string | null
           created_at?: string
@@ -2192,6 +2215,7 @@ export type Database = {
         Update: {
           commission_notes?: string | null
           commission_type?: string
+          company_id?: string | null
           conciliated_at?: string | null
           conciliated_by?: string | null
           created_at?: string
@@ -2203,6 +2227,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "event_ticket_office_assignments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_ticket_office_assignments_event_date_id_fkey"
             columns: ["event_date_id"]
@@ -2228,6 +2259,7 @@ export type Database = {
       }
       event_ticket_zones: {
         Row: {
+          company_id: string | null
           created_at: string
           event_id: string
           id: string
@@ -2238,6 +2270,7 @@ export type Database = {
           version_id: string | null
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           event_id: string
           id?: string
@@ -2248,6 +2281,7 @@ export type Database = {
           version_id?: string | null
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           event_id?: string
           id?: string
@@ -2258,6 +2292,13 @@ export type Database = {
           version_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "event_ticket_zones_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_ticket_zones_event_id_fkey"
             columns: ["event_id"]
@@ -3383,6 +3424,7 @@ export type Database = {
       }
       ticket_import_logs: {
         Row: {
+          company_id: string | null
           created_at: string
           event_id: string | null
           file_name: string | null
@@ -3399,6 +3441,7 @@ export type Database = {
           zones_created: number
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           event_id?: string | null
           file_name?: string | null
@@ -3415,6 +3458,7 @@ export type Database = {
           zones_created?: number
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           event_id?: string | null
           file_name?: string | null
@@ -3431,6 +3475,13 @@ export type Database = {
           zones_created?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "ticket_import_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ticket_import_logs_event_id_fkey"
             columns: ["event_id"]
@@ -3452,6 +3503,7 @@ export type Database = {
           adjustment_notes: string | null
           closed_at: string | null
           closed_by: string | null
+          company_id: string | null
           created_at: string
           created_by: string
           document_name: string | null
@@ -3485,6 +3537,7 @@ export type Database = {
           adjustment_notes?: string | null
           closed_at?: string | null
           closed_by?: string | null
+          company_id?: string | null
           created_at?: string
           created_by?: string
           document_name?: string | null
@@ -3518,6 +3571,7 @@ export type Database = {
           adjustment_notes?: string | null
           closed_at?: string | null
           closed_by?: string | null
+          company_id?: string | null
           created_at?: string
           created_by?: string
           document_name?: string | null
@@ -3548,6 +3602,13 @@ export type Database = {
           venue_retained_payment_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ticket_office_settlements_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ticket_office_settlements_event_id_fkey"
             columns: ["event_id"]
@@ -3594,6 +3655,7 @@ export type Database = {
       }
       ticket_sales: {
         Row: {
+          company_id: string | null
           created_at: string
           created_by: string
           financial_account_id: string | null
@@ -3610,6 +3672,7 @@ export type Database = {
           zone_id: string | null
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           created_by?: string
           financial_account_id?: string | null
@@ -3626,6 +3689,7 @@ export type Database = {
           zone_id?: string | null
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           created_by?: string
           financial_account_id?: string | null
@@ -3642,6 +3706,13 @@ export type Database = {
           zone_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ticket_sales_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ticket_sales_financial_account_id_fkey"
             columns: ["financial_account_id"]
