@@ -434,7 +434,7 @@ function EditCompanyDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Editar empresa — {company.display_name}</DialogTitle>
         </DialogHeader>
