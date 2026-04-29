@@ -1,10 +1,10 @@
 ---
 name: Multi-tenant roadmap
-description: Plano e estado da transição multi-empresa (Coala Portugal/Cloudscape como 2ª empresa); Fases 1+2A CONCLUÍDAS em Test
+description: Plano e estado da transição multi-empresa (Coala Portugal/Cloudscape como 2ª empresa); Fases 1+2A+2B CONCLUÍDAS em Test
 type: feature
 ---
 
-## Estado: Fases 1 + 2A CONCLUÍDAS em Test (Fases 2B–7 pendentes)
+## Estado: Fases 1 + 2A + 2B CONCLUÍDAS em Test (Fases 2C–7 pendentes)
 
 Plano completo em `.lovable/plan.md`. Decisões fechadas:
 - Single DB + `company_id` em tabelas core + RLS rigorosa
@@ -45,10 +45,17 @@ Helpers criados:
 
 **Estratégia adotada**: policies RESTRICTIVE adicionais (não substituem as existentes). Toda a lógica de admin/manager/editor/viewer/partner/accountant fica intacta — apenas é aplicada uma camada de filtragem por empresa por cima.
 
-Total de linhas seeded: 1144 (12 eventos, 740 forecasts, 31 bp_versions, 255 forecast_audit_log, etc.)
+Total de linhas seeded em 2A: 1144 (12 eventos, 740 forecasts, 31 bp_versions, 255 forecast_audit_log, etc.)
+
+## Fase 2B — Concluída ✅ (Test)
+7 tabelas de bilhética ganharam `company_id` + RLS RESTRICTIVE + trigger BEFORE INSERT:
+- event_ticket_zones (223), event_ticket_lots (456)
+- event_ticket_office_assignments (8), event_ticket_office_advances (0)
+- ticket_office_settlements (2), ticket_sales (530), ticket_import_logs (14)
+
+Total seeded em 2B: 1233 linhas → Mundo Propício.
 
 ## Como retomar
-- **Fase 2B (bilhética)**: pedir "avançar Fase 2B multi-empresa" (event_ticket_zones, event_ticket_lots, event_ticket_office_assignments, event_ticket_office_advances, ticket_office_settlements, ticket_sales, ticket_import_logs).
 - **Fase 2C (cache artista)**: event_cache_*
 - **Fase 2D (camarim)**: camarim_*
 - **Fase 2E (financeiro)**: transactions, transaction_*, payment_lists, suppliers, financial_accounts, etc.
