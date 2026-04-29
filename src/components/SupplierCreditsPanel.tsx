@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadToCompanyBucket } from "@/lib/storage";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { ChevronDown, Plus, CreditCard, Calendar, Trash2, Paperclip, FileText, Loader2, Pencil } from "lucide-react";

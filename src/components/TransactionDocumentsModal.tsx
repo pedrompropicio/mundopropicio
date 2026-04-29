@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadToCompanyBucket } from "@/lib/storage";
 import { X, Upload, FileText, Trash2, ExternalLink, BookOpen, Info } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "@/hooks/use-toast";
