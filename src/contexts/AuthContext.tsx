@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       platform_admin: 0, admin: 1, manager: 2, accountant: 3,
       editor: 4, partner: 5, viewer: 6, user: 7,
     };
-    const roles = Array.from(new Set((roleRows ?? []).map((r: any) => r.role as string)));
+    const roles = Array.from(new Set((roleRows ?? []).map((r: any) => r.role as AppRole)));
     roles.sort((a, b) => (priority[a] ?? 99) - (priority[b] ?? 99));
     const userRole = (roles[0] as AppRole) ?? "user";
     setRole(userRole);
