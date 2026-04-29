@@ -1,10 +1,10 @@
 ---
 name: Multi-tenant roadmap
-description: Plano e estado da transição multi-empresa (Coala Portugal/Cloudscape como 2ª empresa); Fases 1+2A+2B+2C+2D+2E CONCLUÍDAS em Test
+description: Plano e estado da transição multi-empresa (Coala/Cloudscape como 2ª empresa); Fase 2 (schema) COMPLETA em Test
 type: feature
 ---
 
-## Estado: Fases 1 + 2A + 2B + 2C + 2D + 2E CONCLUÍDAS em Test (Fase 2F + 3–7 pendentes)
+## Estado: Fase 1 + Fase 2 (A→F) COMPLETAS em Test (Fases 3–7 pendentes)
 
 Plano completo em `.lovable/plan.md`. Decisões fechadas:
 - Single DB + `company_id` em tabelas core + RLS rigorosa
