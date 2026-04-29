@@ -19,7 +19,7 @@
 
 BEGIN;
 
--- 0) Garantir constraint multi-tenant em account_categories
+-- 0a) Garantir constraint multi-tenant em account_categories
 ALTER TABLE public.account_categories
   DROP CONSTRAINT IF EXISTS account_categories_code_key;
 
@@ -35,6 +35,13 @@ BEGIN
       UNIQUE (company_id, code);
   END IF;
 END $$;
+
+-- 0b) Garantir índice multi-tenant em suppliers (nome único por empresa)
+DROP INDEX IF EXISTS public.suppliers_name_unique;
+
+CREATE UNIQUE INDEX IF NOT EXISTS suppliers_company_name_unique
+  ON public.suppliers (company_id, lower(trim(name)))
+  WHERE is_active = true;
 
 -- 1) Plano de Contas com mapa antigo->novo (preserva parent_id)
 WITH id_map AS (
