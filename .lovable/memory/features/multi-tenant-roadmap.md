@@ -69,8 +69,16 @@ Total seeded em 2C: 17 linhas → Mundo Propício.
 
 Total seeded em 2D: 562 linhas → Mundo Propício.
 
+## Fase 2E — Concluída ✅ (Test)
+10 tabelas de suporte financeiro ganharam `company_id` + RLS RESTRICTIVE + trigger BEFORE INSERT:
+- **Fornecedores (4)**: suppliers (91), supplier_documents (0), supplier_credits (0), supplier_credit_usages (0)
+- **Contas financeiras (2)**: financial_accounts (7), financial_account_access (1)
+- **Reembolsos (2)**: reimbursement_notes (4), reimbursement_note_items (7)
+- **Sócios (2)**: partner_paid_expenses (5), partner_event_access (0)
+
+Total seeded em 2E: 115 linhas → Mundo Propício.
+
 ## Como retomar
-- **Fase 2E (suporte/financeiro extra)**: suppliers, financial_accounts, advances, reimbursements, supplier_credits
 - **Fase 2F (sistema)**: trash, undo_actions, system_audit_log, user_activity_log, etc.
 - **Fase 3 (edge functions)**: refactor de 30 functions + 3 novas (`create-company`, `invite-company-admin`, `accept-invitation`).
 - **Fase 4 (storage paths)**: prefixo `{company_id}/` nos buckets existentes.
