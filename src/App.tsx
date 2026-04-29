@@ -228,6 +228,7 @@ function ProtectedLayout() {
         <AppSidebar />
         <main className="flex-1 pl-16 lg:pl-56">
           <div className="mx-auto max-w-7xl p-4 lg:p-6">
+            <MfaRequiredGate>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/calendario" element={<EventCalendar />} />
