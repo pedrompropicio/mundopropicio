@@ -6,13 +6,35 @@
 -- IDs:
 --   MP    = 7c858982-6ccd-47ca-bd65-e0dd3eebf01c
 --   Coala = 7d831e59-6e82-427b-95a0-64904aae5dd2
--- Pré-condições verificadas:
+-- Pré-condições:
 --   - Coala tem 0 contas e 0 fornecedores (base zerada)
 --   - MP tem 161 contas (3 níveis) e 93 fornecedores
 -- Executar como role 'postgres' (default no SQL Editor).
 -- ===========================================================
+-- NOTA: A constraint global UNIQUE(code) em account_categories
+-- será trocada por UNIQUE(company_id, code) — necessário para
+-- multi-tenant. Em Test já está aplicado por migration; aqui
+-- aplicamos manualmente em Live antes da cópia.
+-- ===========================================================
 
 BEGIN;
+
+-- 0) Garantir constraint multi-tenant em account_categories
+ALTER TABLE public.account_categories
+  DROP CONSTRAINT IF EXISTS account_categories_code_key;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.account_categories'::regclass
+      AND conname = 'account_categories_company_code_key'
+  ) THEN
+    ALTER TABLE public.account_categories
+      ADD CONSTRAINT account_categories_company_code_key
+      UNIQUE (company_id, code);
+  END IF;
+END $$;
 
 -- 1) Plano de Contas com mapa antigo->novo (preserva parent_id)
 WITH id_map AS (
