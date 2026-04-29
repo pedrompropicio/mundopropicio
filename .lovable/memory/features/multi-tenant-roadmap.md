@@ -1,10 +1,10 @@
 ---
 name: Multi-tenant roadmap
-description: Plano e estado da transição multi-empresa (Coala Portugal/Cloudscape como 2ª empresa); Fases 1+2A+2B+2C CONCLUÍDAS em Test
+description: Plano e estado da transição multi-empresa (Coala Portugal/Cloudscape como 2ª empresa); Fases 1+2A+2B+2C+2D CONCLUÍDAS em Test
 type: feature
 ---
 
-## Estado: Fases 1 + 2A + 2B + 2C CONCLUÍDAS em Test (Fases 2D–7 pendentes)
+## Estado: Fases 1 + 2A + 2B + 2C + 2D CONCLUÍDAS em Test (Fases 2E–7 pendentes)
 
 Plano completo em `.lovable/plan.md`. Decisões fechadas:
 - Single DB + `company_id` em tabelas core + RLS rigorosa
@@ -62,8 +62,14 @@ Total seeded em 2B: 1233 linhas → Mundo Propício.
 
 Total seeded em 2C: 17 linhas → Mundo Propício.
 
+## Fase 2D — Concluída ✅ (Test)
+8 tabelas do financeiro core ganharam `company_id` + RLS RESTRICTIVE + trigger BEFORE INSERT:
+- transactions (139), transaction_documents (134), transaction_payments (2), transaction_audit_log (239)
+- payment_lists (7), payment_list_items (39), recurring_transactions (2), partner_advance_expenses (0)
+
+Total seeded em 2D: 562 linhas → Mundo Propício.
+
 ## Como retomar
-- **Fase 2D (financeiro core)**: transactions, transaction_*, payment_lists, transaction_payments
 - **Fase 2E (suporte/financeiro extra)**: suppliers, financial_accounts, advances, reimbursements, supplier_credits
 - **Fase 2F (sistema)**: trash, undo_actions, system_audit_log, user_activity_log, etc.
 - **Fase 3 (edge functions)**: refactor de 30 functions + 3 novas (`create-company`, `invite-company-admin`, `accept-invitation`).
