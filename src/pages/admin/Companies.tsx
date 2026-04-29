@@ -25,8 +25,10 @@ interface CompanyRow {
   legal_name: string;
   display_name: string;
   slug: string;
+  tax_id: string | null;
   country: string;
   currency: string;
+  timezone: string;
   status: string;
   contact_email: string | null;
   logo_url: string | null;
