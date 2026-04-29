@@ -102,7 +102,9 @@ export function useCompaniesList(enabled: boolean) {
   return useQuery({
     queryKey: ["companies-list"],
     enabled,
-    staleTime: 5 * 60_000,
+    staleTime: 30_000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async (): Promise<Company[]> => {
       const { data, error } = await supabase
         .from("companies" as any)
