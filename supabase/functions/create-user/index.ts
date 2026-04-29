@@ -27,9 +27,10 @@ async function ensureProfileAndRole(
   email: string,
   fullName: string,
   role: string,
+  companyId: string | null,
 ) {
   const { error: profileError } = await adminClient.from("profiles").upsert(
-    { id: userId, full_name: fullName, email },
+    { id: userId, full_name: fullName, email, company_id: companyId },
     { onConflict: "id" },
   );
 
@@ -51,7 +52,7 @@ async function ensureProfileAndRole(
   if (existingRole?.id) {
     const { error: roleUpdateError } = await adminClient
       .from("user_roles")
-      .update({ role })
+      .update({ role, company_id: companyId })
       .eq("id", existingRole.id);
 
     if (roleUpdateError) {
@@ -63,7 +64,7 @@ async function ensureProfileAndRole(
 
   const { error: roleInsertError } = await adminClient
     .from("user_roles")
-    .insert({ user_id: userId, role });
+    .insert({ user_id: userId, role, company_id: companyId });
 
   if (roleInsertError) {
     throw new Error(`Erro ao criar permissões: ${roleInsertError.message}`);
