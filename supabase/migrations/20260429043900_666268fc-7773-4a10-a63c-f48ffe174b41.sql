@@ -1,0 +1,1 @@
+ALTER FUNCTION public.run_rls_isolation_test() SECURITY DEFINER;
