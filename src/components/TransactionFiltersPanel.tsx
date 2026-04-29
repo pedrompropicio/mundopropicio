@@ -124,6 +124,7 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
     onlyPending, setOnlyPending,
     onlyNoDueDate, setOnlyNoDueDate,
     onlyGrouped, setOnlyGrouped,
+    onlyAdmin, setOnlyAdmin,
     showHidden, setShowHidden,
     isAdmin,
     onClearAll,
