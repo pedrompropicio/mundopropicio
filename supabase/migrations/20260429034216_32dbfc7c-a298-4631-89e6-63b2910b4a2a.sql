@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.run_rls_isolation_test() TO postgres, service_role;
