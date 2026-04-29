@@ -343,6 +343,7 @@ export type Database = {
       camarim_fund_moves: {
         Row: {
           amount: number
+          company_id: string | null
           created_at: string
           created_by: string | null
           currency: string
@@ -357,6 +358,7 @@ export type Database = {
         }
         Insert: {
           amount?: number
+          company_id?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -371,6 +373,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          company_id?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -384,6 +387,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "camarim_fund_moves_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "camarim_fund_moves_created_by_fkey"
             columns: ["created_by"]
@@ -416,6 +426,7 @@ export type Database = {
       }
       camarim_integrations: {
         Row: {
+          company_id: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -425,6 +436,7 @@ export type Database = {
           summary_payload: Json | null
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -434,6 +446,7 @@ export type Database = {
           summary_payload?: Json | null
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -443,6 +456,13 @@ export type Database = {
           summary_payload?: Json | null
         }
         Relationships: [
+          {
+            foreignKeyName: "camarim_integrations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "camarim_integrations_created_by_fkey"
             columns: ["created_by"]
@@ -461,6 +481,7 @@ export type Database = {
       }
       camarim_item_documents: {
         Row: {
+          company_id: string | null
           created_at: string
           created_by: string | null
           document_source: string
@@ -472,6 +493,7 @@ export type Database = {
           mime_type: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           created_by?: string | null
           document_source?: string
@@ -483,6 +505,7 @@ export type Database = {
           mime_type: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           created_by?: string | null
           document_source?: string
@@ -494,6 +517,13 @@ export type Database = {
           mime_type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "camarim_item_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "camarim_item_documents_created_by_fkey"
             columns: ["created_by"]
@@ -513,6 +543,7 @@ export type Database = {
       camarim_item_reviews: {
         Row: {
           comment: string | null
+          company_id: string | null
           created_at: string
           id: string
           item_id: string
@@ -523,6 +554,7 @@ export type Database = {
         }
         Insert: {
           comment?: string | null
+          company_id?: string | null
           created_at?: string
           id?: string
           item_id: string
@@ -533,6 +565,7 @@ export type Database = {
         }
         Update: {
           comment?: string | null
+          company_id?: string | null
           created_at?: string
           id?: string
           item_id?: string
@@ -542,6 +575,13 @@ export type Database = {
           reviewed_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "camarim_item_reviews_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "camarim_item_reviews_item_id_fkey"
             columns: ["item_id"]
@@ -568,6 +608,7 @@ export type Database = {
           bp_scope: string
           buyer_profile_id: string | null
           category_id: string | null
+          company_id: string | null
           created_at: string
           created_by: string | null
           currency: string
@@ -607,6 +648,7 @@ export type Database = {
           bp_scope?: string
           buyer_profile_id?: string | null
           category_id?: string | null
+          company_id?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -646,6 +688,7 @@ export type Database = {
           bp_scope?: string
           buyer_profile_id?: string | null
           category_id?: string | null
+          company_id?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -696,6 +739,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "account_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "camarim_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
@@ -751,6 +801,7 @@ export type Database = {
       }
       camarim_session_events: {
         Row: {
+          company_id: string | null
           created_at: string
           event_id: string
           id: string
@@ -758,6 +809,7 @@ export type Database = {
           session_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           event_id: string
           id?: string
@@ -765,6 +817,7 @@ export type Database = {
           session_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           event_id?: string
           id?: string
@@ -772,6 +825,13 @@ export type Database = {
           session_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "camarim_session_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "camarim_session_events_event_id_fkey"
             columns: ["event_id"]
@@ -793,6 +853,7 @@ export type Database = {
           advance_total: number
           budget_amount: number
           closed_at: string | null
+          company_id: string | null
           created_at: string
           created_by: string | null
           currency: string
@@ -817,6 +878,7 @@ export type Database = {
           advance_total?: number
           budget_amount?: number
           closed_at?: string | null
+          company_id?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -841,6 +903,7 @@ export type Database = {
           advance_total?: number
           budget_amount?: number
           closed_at?: string | null
+          company_id?: string | null
           created_at?: string
           created_by?: string | null
           currency?: string
@@ -862,6 +925,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "camarim_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "camarim_sessions_created_by_fkey"
             columns: ["created_by"]
@@ -1099,6 +1169,7 @@ export type Database = {
           adjusted_amount: number | null
           agreement_notes: string | null
           cache_config_id: string
+          company_id: string | null
           created_at: string
           event_id: string
           finalized_at: string | null
@@ -1112,6 +1183,7 @@ export type Database = {
           adjusted_amount?: number | null
           agreement_notes?: string | null
           cache_config_id: string
+          company_id?: string | null
           created_at?: string
           event_id: string
           finalized_at?: string | null
@@ -1125,6 +1197,7 @@ export type Database = {
           adjusted_amount?: number | null
           agreement_notes?: string | null
           cache_config_id?: string
+          company_id?: string | null
           created_at?: string
           event_id?: string
           finalized_at?: string | null
@@ -1140,6 +1213,13 @@ export type Database = {
             columns: ["cache_config_id"]
             isOneToOne: false
             referencedRelation: "event_cache_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cache_city_settlements_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
@@ -1159,6 +1239,7 @@ export type Database = {
           cache_deduction_basis: string
           cache_revenue_basis: string
           cache_type: string
+          company_id: string | null
           created_at: string
           event_id: string
           finalized_at: string | null
@@ -1182,6 +1263,7 @@ export type Database = {
           cache_deduction_basis?: string
           cache_revenue_basis?: string
           cache_type?: string
+          company_id?: string | null
           created_at?: string
           event_id: string
           finalized_at?: string | null
@@ -1205,6 +1287,7 @@ export type Database = {
           cache_deduction_basis?: string
           cache_revenue_basis?: string
           cache_type?: string
+          company_id?: string | null
           created_at?: string
           event_id?: string
           finalized_at?: string | null
@@ -1222,6 +1305,13 @@ export type Database = {
           withholding_rate?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "event_cache_configs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_cache_configs_event_id_fkey"
             columns: ["event_id"]
@@ -1242,18 +1332,21 @@ export type Database = {
         Row: {
           cache_config_id: string
           category_id: string
+          company_id: string | null
           created_at: string
           id: string
         }
         Insert: {
           cache_config_id: string
           category_id: string
+          company_id?: string | null
           created_at?: string
           id?: string
         }
         Update: {
           cache_config_id?: string
           category_id?: string
+          company_id?: string | null
           created_at?: string
           id?: string
         }
@@ -1272,12 +1365,20 @@ export type Database = {
             referencedRelation: "account_categories"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "event_cache_deductions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
         ]
       }
       event_cache_extras: {
         Row: {
           amount: number
           cache_config_id: string
+          company_id: string | null
           created_at: string
           description: string
           event_id: string
@@ -1288,6 +1389,7 @@ export type Database = {
         Insert: {
           amount?: number
           cache_config_id: string
+          company_id?: string | null
           created_at?: string
           description: string
           event_id: string
@@ -1298,6 +1400,7 @@ export type Database = {
         Update: {
           amount?: number
           cache_config_id?: string
+          company_id?: string | null
           created_at?: string
           description?: string
           event_id?: string
@@ -1314,6 +1417,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "event_cache_extras_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "event_cache_extras_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
@@ -1327,6 +1437,7 @@ export type Database = {
           amount: number
           cache_config_id: string
           category_id: string | null
+          company_id: string | null
           created_at: string
           description: string
           event_id: string
@@ -1342,6 +1453,7 @@ export type Database = {
           amount?: number
           cache_config_id: string
           category_id?: string | null
+          company_id?: string | null
           created_at?: string
           description?: string
           event_id: string
@@ -1357,6 +1469,7 @@ export type Database = {
           amount?: number
           cache_config_id?: string
           category_id?: string | null
+          company_id?: string | null
           created_at?: string
           description?: string
           event_id?: string
@@ -1381,6 +1494,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "account_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cache_payments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
           {
@@ -1416,6 +1536,7 @@ export type Database = {
       event_cache_tiers: {
         Row: {
           cache_config_id: string
+          company_id: string | null
           created_at: string
           id: string
           occupancy_threshold: number
@@ -1424,6 +1545,7 @@ export type Database = {
         }
         Insert: {
           cache_config_id: string
+          company_id?: string | null
           created_at?: string
           id?: string
           occupancy_threshold?: number
@@ -1432,6 +1554,7 @@ export type Database = {
         }
         Update: {
           cache_config_id?: string
+          company_id?: string | null
           created_at?: string
           id?: string
           occupancy_threshold?: number
@@ -1444,6 +1567,13 @@ export type Database = {
             columns: ["cache_config_id"]
             isOneToOne: false
             referencedRelation: "event_cache_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cache_tiers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
