@@ -5,7 +5,7 @@ import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { useGlobalModalScrollLock } from "@/hooks/useGlobalModalScrollLock";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
-import logoMundoPropicio from "@/assets/logo-horizontal.png";
+// Logo agora vem de BrandedLogo (suporta multi-empresa)
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ApprovedPaymentListReminder } from "@/components/ApprovedPaymentListReminder";
