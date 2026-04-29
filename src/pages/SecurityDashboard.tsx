@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/hooks/useCompany";
 import { Navigate, useNavigate } from "react-router-dom";
 import { ShieldCheck, Users, FileText, AlertTriangle, Activity, ArrowLeft, Smartphone, KeyRound, Trash2, RefreshCw, Copy, Download } from "lucide-react";
 import { MfaEnroll } from "@/components/MfaEnroll";
@@ -12,13 +13,16 @@ import { toast } from "@/hooks/use-toast";
 
 export default function SecurityDashboard() {
   const { isAdmin, user } = useAuth();
+  const { companyId } = useCompany();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showMfaSetup, setShowMfaSetup] = useState(false);
   const [newCodes, setNewCodes] = useState<string[] | null>(null);
 
+  // RLS já filtra transaction_audit_log por company_id (RESTRICTIVE policy).
   const { data: auditLogs = [], isLoading: loadingAudit } = useQuery({
-    queryKey: ["audit-logs-recent"],
+    queryKey: ["audit-logs-recent", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transaction_audit_log")
@@ -30,17 +34,25 @@ export default function SecurityDashboard() {
     },
   });
 
+  // profiles não tem isolamento por empresa via RLS (correto, pois platform_admins
+  // são partilhados); filtramos no client para mostrar só os da empresa ativa
+  // + platform_admins (company_id NULL).
   const { data: profiles = [] } = useQuery({
-    queryKey: ["all-profiles"],
+    queryKey: ["all-profiles", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("id, full_name, email");
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, company_id");
       if (error) throw error;
-      return data;
+      return (data ?? []).filter((p: any) => p.company_id === companyId || p.company_id === null);
     },
   });
 
+  // user_roles tem RLS company-isolation (RESTRICTIVE) — basta versionar pela tenant.
   const { data: roles = [] } = useQuery({
-    queryKey: ["all-roles"],
+    queryKey: ["all-roles", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
       const { data, error } = await supabase.from("user_roles").select("user_id, role");
       if (error) throw error;
