@@ -72,6 +72,29 @@ Deno.serve(async (req) => {
       );
     }
 
+    // MULTI-TENANT GUARD: ensure caller belongs to same company as the transaction.
+    // Service-role bypasses RLS, so we MUST check company_id explicitly.
+    {
+      const { data: callerProfile } = await adminClient
+        .from("profiles")
+        .select("company_id, active_company_id")
+        .eq("id", caller.id)
+        .maybeSingle();
+      const { data: isPa } = await adminClient.rpc("is_platform_admin", { _user_id: caller.id });
+      const callerCompanyId = isPa
+        ? (callerProfile?.active_company_id ?? callerProfile?.company_id ?? null)
+        : (callerProfile?.company_id ?? null);
+      const allowCrossTenant = isPa && callerCompanyId == null;
+      if (!allowCrossTenant && transaction.company_id !== callerCompanyId) {
+        return new Response(
+          JSON.stringify({ error: "Cross-tenant access denied" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      // Defense-in-depth: never let payload override company_id
+      if ("company_id" in updates) delete updates.company_id;
+    }
+
     // RULE: Paid transactions — only specification and supplier_id can be edited (unless admin)
     const isPaid = transaction.status === "paid";
     if (isPaid && !isAdmin) {

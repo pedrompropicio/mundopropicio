@@ -27,9 +27,10 @@ async function ensureProfileAndRole(
   email: string,
   fullName: string,
   role: string,
+  companyId: string | null,
 ) {
   const { error: profileError } = await adminClient.from("profiles").upsert(
-    { id: userId, full_name: fullName, email },
+    { id: userId, full_name: fullName, email, company_id: companyId },
     { onConflict: "id" },
   );
 
@@ -51,7 +52,7 @@ async function ensureProfileAndRole(
   if (existingRole?.id) {
     const { error: roleUpdateError } = await adminClient
       .from("user_roles")
-      .update({ role })
+      .update({ role, company_id: companyId })
       .eq("id", existingRole.id);
 
     if (roleUpdateError) {
@@ -63,7 +64,7 @@ async function ensureProfileAndRole(
 
   const { error: roleInsertError } = await adminClient
     .from("user_roles")
-    .insert({ user_id: userId, role });
+    .insert({ user_id: userId, role, company_id: companyId });
 
   if (roleInsertError) {
     throw new Error(`Erro ao criar permissões: ${roleInsertError.message}`);
@@ -200,6 +201,24 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Resolve caller's company — new user MUST belong to the SAME company.
+    const { data: callerProfile } = await adminClient
+      .from("profiles")
+      .select("company_id, active_company_id")
+      .eq("id", caller.id)
+      .maybeSingle();
+    const { data: isPa } = await adminClient.rpc("is_platform_admin", { _user_id: caller.id });
+    const callerCompanyId: string | null = isPa
+      ? (callerProfile?.active_company_id ?? callerProfile?.company_id ?? null)
+      : (callerProfile?.company_id ?? null);
+
+    if (!callerCompanyId) {
+      return respond({
+        error: "Não foi possível determinar a empresa do administrador. Contacte o suporte.",
+        diagnostics: { stage: "company_resolution", processing_time_ms: Date.now() - startTime },
+      });
+    }
+
     const { email, full_name, role } = await req.json();
     const normalizedEmail = String(email ?? "").trim().toLowerCase();
     const normalizedFullName = String(full_name ?? "").trim();
@@ -218,11 +237,12 @@ Deno.serve(async (req) => {
     const tempPassword = crypto.randomUUID() + "Aa1!";
 
     // Step 1: Create user with confirmed email and temporary password
+    // Pass company_id in user_metadata so handle_new_user trigger picks it up.
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email: normalizedEmail,
       password: tempPassword,
       email_confirm: true,
-      user_metadata: { full_name: normalizedFullName },
+      user_metadata: { full_name: normalizedFullName, company_id: callerCompanyId },
     });
 
     let userId = newUser.user?.id;
@@ -294,7 +314,7 @@ Deno.serve(async (req) => {
     }
 
     try {
-      await ensureProfileAndRole(adminClient, userId, normalizedEmail, normalizedFullName, targetRole);
+      await ensureProfileAndRole(adminClient, userId, normalizedEmail, normalizedFullName, targetRole, callerCompanyId);
     } catch (syncError) {
       console.error("Sync user error:", syncError);
       return respond({

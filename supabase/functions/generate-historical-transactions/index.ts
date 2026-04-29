@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
 
     const { data: event, error: eventError } = await adminClient
       .from("events")
-      .select("id, name, date, status, parent_event_id, event_type")
+      .select("id, name, date, status, parent_event_id, event_type, company_id")
       .eq("id", event_id)
       .single();
 
@@ -116,6 +116,23 @@ Deno.serve(async (req) => {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // MULTI-TENANT GUARD: caller must belong to the event's company.
+    {
+      const { data: callerProfile } = await adminClient
+        .from("profiles").select("company_id, active_company_id").eq("id", caller.id).maybeSingle();
+      const { data: isPa } = await adminClient.rpc("is_platform_admin", { _user_id: caller.id });
+      const callerCompanyId = isPa
+        ? (callerProfile?.active_company_id ?? callerProfile?.company_id ?? null)
+        : (callerProfile?.company_id ?? null);
+      const allowCrossTenant = isPa && callerCompanyId == null;
+      if (!allowCrossTenant && (event as any).company_id !== callerCompanyId) {
+        return new Response(JSON.stringify({ error: "Cross-tenant access denied" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     if (event.status !== "completed" && event.status !== "active") {
