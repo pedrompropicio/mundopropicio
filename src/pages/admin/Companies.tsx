@@ -362,6 +362,12 @@ function EditCompanyDialog({
 }) {
   const [displayName, setDisplayName] = useState(company.display_name);
   const [legalName, setLegalName] = useState(company.legal_name);
+  const [taxId, setTaxId] = useState(company.tax_id ?? "");
+  const [country, setCountry] = useState(company.country);
+  const [currency, setCurrency] = useState(company.currency);
+  const [timezone, setTimezone] = useState(company.timezone);
+  const [contactEmail, setContactEmail] = useState(company.contact_email ?? "");
+  const [status, setStatus] = useState(company.status);
   const [primaryColor, setPrimaryColor] = useState(
     company.theme_config?.primary_color ?? "#1a6fb8"
   );
@@ -406,6 +412,12 @@ function EditCompanyDialog({
         .update({
           display_name: displayName,
           legal_name: legalName,
+          tax_id: taxId || null,
+          country,
+          currency,
+          timezone,
+          contact_email: contactEmail || null,
+          status,
           logo_url: logoUrl,
           theme_config: { ...(company.theme_config ?? {}), primary_color: primaryColor },
         })
