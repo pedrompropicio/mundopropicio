@@ -58,6 +58,103 @@ export default function SecurityDashboard() {
 
   const hasMfa = mfaFactors?.totp && mfaFactors.totp.length > 0;
 
+  // Trusted devices
+  const { data: trustedDevices = [] } = useQuery({
+    queryKey: ["my-trusted-devices", user?.id],
+    enabled: !!user && hasMfa,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("mfa_trusted_devices")
+        .select("*")
+        .is("revoked_at", null)
+        .gt("expires_at", new Date().toISOString())
+        .order("last_used_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  // Recovery codes — count unused
+  const { data: recoveryCount = 0 } = useQuery({
+    queryKey: ["my-recovery-codes-count", user?.id],
+    enabled: !!user && hasMfa,
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("mfa_recovery_codes")
+        .select("id", { count: "exact", head: true })
+        .is("used_at", null);
+      return count ?? 0;
+    },
+  });
+
+  const revokeDevice = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("mfa_trusted_devices")
+        .update({ revoked_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Dispositivo removido", description: "Próximo login exigirá código TOTP." });
+      queryClient.invalidateQueries({ queryKey: ["my-trusted-devices"] });
+    },
+  });
+
+  const revokeAllDevices = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("not authed");
+      const { error } = await supabase
+        .from("mfa_trusted_devices")
+        .update({ revoked_at: new Date().toISOString() })
+        .eq("user_id", user.id)
+        .is("revoked_at", null);
+      if (error) throw error;
+      forgetCurrentDeviceLocally();
+    },
+    onSuccess: () => {
+      toast({ title: "Todos os dispositivos removidos" });
+      queryClient.invalidateQueries({ queryKey: ["my-trusted-devices"] });
+    },
+  });
+
+  const regenerateCodes = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("not authed");
+      const codes = generateRecoveryCodes(5);
+      const hashes = await hashRecoveryCodes(codes);
+      await supabase.from("mfa_recovery_codes").delete().eq("user_id", user.id);
+      const { error } = await supabase
+        .from("mfa_recovery_codes")
+        .insert(hashes.map((h) => ({ user_id: user.id, code_hash: h })));
+      if (error) throw error;
+      return codes;
+    },
+    onSuccess: (codes) => {
+      setNewCodes(codes);
+      queryClient.invalidateQueries({ queryKey: ["my-recovery-codes-count"] });
+    },
+  });
+
+  const copyCodes = (codes: string[]) => {
+    navigator.clipboard.writeText(codes.join("\n"));
+    toast({ title: "Copiado" });
+  };
+
+  const downloadCodes = (codes: string[]) => {
+    const content =
+      `MP Gestão Eventos — Códigos de recuperação MFA\n` +
+      `Gerado em: ${new Date().toLocaleString("pt-PT")}\n\n` +
+      codes.map((c, i) => `${i + 1}. ${c}`).join("\n");
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `mp-recovery-codes-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (!isAdmin) return <Navigate to="/" replace />;
 
   // Stats
