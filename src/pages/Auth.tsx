@@ -6,6 +6,7 @@ import { Music2, Lock } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { MfaVerify } from "@/components/MfaVerify";
 import { PasswordStrengthIndicator, validatePassword } from "@/components/PasswordStrengthIndicator";
+import { isCurrentDeviceTrusted } from "@/lib/mfa-trusted-device";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_DURATIONS = [30, 60, 120, 300]; // seconds – escalating
@@ -144,7 +145,11 @@ export default function Auth() {
     const { data: factors } = await supabase.auth.mfa.listFactors();
     const hasTotp = factors?.totp && factors.totp.length > 0;
     if (hasTotp) {
-      setMode("mfa");
+      // Saltar TOTP se o dispositivo é confiável (≤ 30 dias)
+      const trusted = await isCurrentDeviceTrusted();
+      if (!trusted) {
+        setMode("mfa");
+      }
     }
     setLoading(false);
   };
