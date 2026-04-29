@@ -25,8 +25,10 @@ interface CompanyRow {
   legal_name: string;
   display_name: string;
   slug: string;
+  tax_id: string | null;
   country: string;
   currency: string;
+  timezone: string;
   status: string;
   contact_email: string | null;
   logo_url: string | null;
@@ -360,6 +362,12 @@ function EditCompanyDialog({
 }) {
   const [displayName, setDisplayName] = useState(company.display_name);
   const [legalName, setLegalName] = useState(company.legal_name);
+  const [taxId, setTaxId] = useState(company.tax_id ?? "");
+  const [country, setCountry] = useState(company.country);
+  const [currency, setCurrency] = useState(company.currency);
+  const [timezone, setTimezone] = useState(company.timezone);
+  const [contactEmail, setContactEmail] = useState(company.contact_email ?? "");
+  const [status, setStatus] = useState(company.status);
   const [primaryColor, setPrimaryColor] = useState(
     company.theme_config?.primary_color ?? "#1a6fb8"
   );
@@ -404,6 +412,12 @@ function EditCompanyDialog({
         .update({
           display_name: displayName,
           legal_name: legalName,
+          tax_id: taxId || null,
+          country,
+          currency,
+          timezone,
+          contact_email: contactEmail || null,
+          status,
           logo_url: logoUrl,
           theme_config: { ...(company.theme_config ?? {}), primary_color: primaryColor },
         })
@@ -436,6 +450,75 @@ function EditCompanyDialog({
           <div>
             <Label>Nome legal</Label>
             <Input value={legalName} onChange={(e) => setLegalName(e.target.value)} />
+          </div>
+
+          <div>
+            <Label>Slug (identificador interno)</Label>
+            <Input value={company.slug} readOnly disabled className="font-mono bg-muted" />
+            <p className="text-xs text-muted-foreground mt-1">
+              Identificador URL-friendly fixo (ex: <code>{company.slug}</code>). Não editável após criação.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>NIF / Tax ID</Label>
+              <Input value={taxId} onChange={(e) => setTaxId(e.target.value)} />
+            </div>
+            <div>
+              <Label>Email de contacto</Label>
+              <Input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label>País</Label>
+              <Select value={country} onValueChange={setCountry}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PT">Portugal</SelectItem>
+                  <SelectItem value="BR">Brasil</SelectItem>
+                  <SelectItem value="ES">Espanha</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Moeda</Label>
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="EUR">EUR</SelectItem>
+                  <SelectItem value="BRL">BRL</SelectItem>
+                  <SelectItem value="USD">USD</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Estado</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Ativa</SelectItem>
+                  <SelectItem value="suspended">Suspensa</SelectItem>
+                  <SelectItem value="archived">Arquivada</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label>Fuso horário</Label>
+            <Select value={timezone} onValueChange={setTimezone}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Europe/Lisbon">Europe/Lisbon</SelectItem>
+                <SelectItem value="Europe/Madrid">Europe/Madrid</SelectItem>
+                <SelectItem value="America/Sao_Paulo">America/Sao_Paulo</SelectItem>
+                <SelectItem value="Atlantic/Azores">Atlantic/Azores</SelectItem>
+                <SelectItem value="Atlantic/Madeira">Atlantic/Madeira</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div>
