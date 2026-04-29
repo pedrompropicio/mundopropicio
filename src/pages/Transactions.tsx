@@ -512,6 +512,7 @@ export default function Transactions() {
       return paidAmount < amount - 0.01;
     })
     .filter((t) => !onlyPending || t.status === "pending")
+    .filter((t: any) => !onlyAdmin || (!t.event_id && !t.parent_transaction_id))
     .filter((t: any) => !onlyGrouped || groupedInvoiceRefs.has(t.invoice_ref?.trim()));
 
   // Group transactions: overdue, period, no-date
