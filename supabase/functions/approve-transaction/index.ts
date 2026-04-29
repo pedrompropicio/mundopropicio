@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
 
     const { data: transactions, error: fetchError } = await adminClient
       .from("transactions")
-      .select("id, status, type, event_id, amount")
+      .select("id, status, type, event_id, amount, company_id")
       .in("id", expandedIds);
 
     if (fetchError) {
@@ -110,6 +110,26 @@ Deno.serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // MULTI-TENANT GUARD: every transaction must belong to caller's company.
+    {
+      const { data: callerProfile } = await adminClient
+        .from("profiles").select("company_id, active_company_id").eq("id", callerId).maybeSingle();
+      const { data: isPa } = await adminClient.rpc("is_platform_admin", { _user_id: callerId });
+      const callerCompanyId = isPa
+        ? (callerProfile?.active_company_id ?? callerProfile?.company_id ?? null)
+        : (callerProfile?.company_id ?? null);
+      const allowCrossTenant = isPa && callerCompanyId == null;
+      if (!allowCrossTenant) {
+        const foreign = (transactions ?? []).filter((t: any) => t.company_id !== callerCompanyId);
+        if (foreign.length > 0) {
+          return new Response(
+            JSON.stringify({ error: "Cross-tenant access denied", offending_ids: foreign.map((t: any) => t.id) }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
     }
 
     if (!transactions || transactions.length === 0) {
