@@ -1300,6 +1300,8 @@ export default function Transactions() {
         setOnlyNoDueDate={setOnlyNoDueDate}
         onlyGrouped={onlyGrouped}
         setOnlyGrouped={setOnlyGrouped}
+        onlyAdmin={onlyAdmin}
+        setOnlyAdmin={setOnlyAdmin}
         showHidden={showHidden}
         setShowHidden={setShowHidden}
         isAdmin={isAdmin}
@@ -1311,6 +1313,7 @@ export default function Transactions() {
           setOnlyPending(false);
           setOnlyNoDueDate(false);
           setOnlyGrouped(false);
+          setOnlyAdmin(false);
           setShowHidden(false);
         }}
       />
