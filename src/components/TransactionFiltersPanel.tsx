@@ -252,6 +252,7 @@ export function TransactionFiltersPanel(props: FilterPanelProps) {
                   </>
                 )}
                 <ToggleChip active={onlyGrouped} onClick={() => setOnlyGrouped(!onlyGrouped)} label="Agrupadas por fatura" />
+                <ToggleChip active={onlyAdmin} onClick={() => setOnlyAdmin(!onlyAdmin)} label="Apenas Adm/Financeiras" />
                 {isAdmin && (
                   <ToggleChip active={showHidden} onClick={() => setShowHidden(!showHidden)} label="Mostrar ocultas" />
                 )}
