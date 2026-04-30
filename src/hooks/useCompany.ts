@@ -30,12 +30,13 @@ const ACTIVE_COMPANY_CACHE_KEY = "mp_active_company_id";
  * the server is always the source of truth.
  */
 export function useCompany() {
-  const { user, role } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
   const isPlatformAdmin = role === ("platform_admin" as any);
+  const canResolveCompany = !!user && !authLoading && !!role;
 
   const query = useQuery({
-    queryKey: ["current-company", user?.id],
-    enabled: !!user,
+    queryKey: ["current-company", user?.id, role],
+    enabled: canResolveCompany,
     // Tenant scope must always reflect the server. A stale value here causes
     // the entire app to render data from the wrong company on boot or after
     // a switch — keep it fresh and refetch on mount/focus.
@@ -44,13 +45,14 @@ export function useCompany() {
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
     queryFn: async (): Promise<Company | null> => {
-      if (!user) return null;
+      if (!user || !role) return null;
 
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("company_id, active_company_id")
         .eq("id", user.id)
         .maybeSingle();
+      if (profileError) throw profileError;
 
       const p = profile as any;
       const effectiveId: string | null = isPlatformAdmin
@@ -78,7 +80,7 @@ export function useCompany() {
   return {
     company: query.data ?? null,
     companyId: query.data?.id ?? null,
-    isLoading: query.isLoading,
+    isLoading: canResolveCompany && (query.isLoading || (isPlatformAdmin && query.isFetching)),
     isPlatformAdmin,
     refetch: query.refetch,
   };
@@ -131,6 +133,10 @@ export function useCompaniesList(enabled: boolean) {
 export function useSetActiveCompany() {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: ["set-active-company"],
+    onMutate: async () => {
+      await qc.cancelQueries();
+    },
     mutationFn: async (companyId: string) => {
       const { data, error } = await supabase.rpc("set_active_company" as any, {
         target_company_id: companyId,
@@ -144,21 +150,21 @@ export function useSetActiveCompany() {
       return data as string;
     },
     onSuccess: async (newCompanyId) => {
-      // 1) Cancel any in-flight queries from the previous tenant so their late
-      //    responses don't overwrite the new tenant's data after invalidation.
-      await qc.cancelQueries();
-      // 2) Drop ALL cached data immediately — every query is tenant-scoped.
-      //    removeQueries is stronger than invalidate: it deletes the cache so
-      //    consumers re-render with `isLoading=true` instead of stale data.
-      qc.removeQueries();
-      // 3) Force the current-company query to refetch FIRST, so downstream
-      //    queries that depend on `companyId` see the new value before firing.
+      // 1) Force the current-company query to refetch FIRST, so the header,
+      //    branding and the database RLS scope agree before pages render.
       await qc.refetchQueries({
         queryKey: ["current-company"],
         type: "active",
       });
-      // 4) Now refetch everything else that's mounted.
-      await qc.invalidateQueries({ refetchType: "active" });
+      // 2) Reset tenant-scoped cached data. Unlike removeQueries(), resetQueries
+      //    also affects active queries, so old-company rows are cleared while
+      //    the new company is loading.
+      await qc.resetQueries({
+        predicate: (query) => {
+          const rootKey = query.queryKey[0];
+          return rootKey !== "current-company" && rootKey !== "companies-list";
+        },
+      });
     },
   });
 }
