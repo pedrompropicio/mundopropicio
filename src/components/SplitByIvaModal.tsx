@@ -87,7 +87,14 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
     const ivaSum = lines.reduce((s, l) => s + calcIvaAmount(Number(l.base) || 0, l.iva_rate), 0);
     const grandTotal = roundCents(baseSum + ivaSum);
     const diff = expectedTotal != null ? roundCents(grandTotal - expectedTotal) : 0;
-    return { baseSum: roundCents(baseSum), ivaSum: roundCents(ivaSum), grandTotal, diff };
+    // IVA médio (snap): rácio real → taxa PT mais próxima; recalcula base líquida
+    // a partir do total c/IVA para garantir que `base × (1 + rate/100) ≈ total`.
+    const realRatio = baseSum > 0 ? (ivaSum / baseSum) * 100 : 0;
+    const blendedRate = snapToStandardRate(realRatio);
+    const blendedBase = roundCents(grandTotal / (1 + blendedRate / 100));
+    const blendedIva = roundCents(grandTotal - blendedBase);
+    const blendedDeviation = roundCents(blendedIva - ivaSum);
+    return { baseSum: roundCents(baseSum), ivaSum: roundCents(ivaSum), grandTotal, diff, realRatio, blendedRate, blendedBase, blendedIva, blendedDeviation };
   }, [lines, expectedTotal]);
 
   const updateLine = (idx: number, patch: Partial<IvaSplitLine>) => {
