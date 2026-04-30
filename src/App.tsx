@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { QueryClient, QueryClientProvider, useIsMutating } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import { QueryClient, QueryClientProvider, useIsMutating, useQueryClient } from "@tanstack/react-query";
 import { supabase as supabaseClient } from "@/integrations/supabase/client";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
@@ -105,7 +105,9 @@ const queryClient = new QueryClient({
 
 function ProtectedLayout() {
   const { user, loading, isPartner, isAdmin, isManager, hasPermission, signOut } = useAuth();
-  const { isLoading: companyLoading, isPlatformAdmin } = useCompany();
+  const { companyId, isLoading: companyLoading, isPlatformAdmin } = useCompany();
+  const queryClient = useQueryClient();
+  const previousCompanyIdRef = useRef<string | null>(null);
   const isSwitchingCompany = useIsMutating({ mutationKey: ["set-active-company"] }) > 0;
   // Camarim-only = utilizador de campo: tem APENAS camarim_team e nenhuma
   // permissão de gestão (nem sequer camarim_manage). Editores que gerem o
@@ -182,6 +184,20 @@ function ProtectedLayout() {
       void supabaseClient.removeChannel(channel);
     };
   }, [loading, user, isAdmin, isManager]);
+
+  useEffect(() => {
+    if (!isPlatformAdmin || !companyId) return;
+    const previousCompanyId = previousCompanyIdRef.current;
+    previousCompanyIdRef.current = companyId;
+    if (!previousCompanyId || previousCompanyId === companyId) return;
+
+    void queryClient.resetQueries({
+      predicate: (query) => {
+        const rootKey = query.queryKey[0];
+        return rootKey !== "current-company" && rootKey !== "companies-list";
+      },
+    });
+  }, [companyId, isPlatformAdmin, queryClient]);
 
   if (loading) {
     return (
