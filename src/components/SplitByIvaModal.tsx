@@ -24,6 +24,13 @@ interface SplitByIvaModalProps {
   onClose: () => void;
   /** Confirma a divisão. Recebe N linhas (≥2). O caller cria as transações. */
   onConfirm: (lines: IvaSplitLine[]) => void;
+  /**
+   * Alternativa contabilisticamente aceite: aplica a fatura como **uma única**
+   * transação usando IVA médio (snap para a taxa-padrão PT mais próxima do
+   * rácio total). O caller deve preencher os campos `amount` (base) e
+   * `iva_rate` no formulário e fechar o modal.
+   */
+  onApplyBlended?: (baseNet: number, rate: IvaRate) => void;
   /** Total esperado da fatura (incl. IVA). Mostra alerta se as linhas não fecham. */
   expectedTotal?: number;
   /** Pré-preencher com base inicial (ex.: o valor já digitado no form). */
@@ -40,7 +47,7 @@ const RATE_OPTIONS: IvaRate[] = [0, 6, 13, 23];
 
 const blankLine = (rate: IvaRate = 23): IvaSplitLine => ({ base: 0, iva_rate: rate, suffix: `IVA ${rate}%` });
 
-export function SplitByIvaModal({ open, onClose, onConfirm, expectedTotal, initialBase, initialRate, prefilledLines }: SplitByIvaModalProps) {
+export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expectedTotal, initialBase, initialRate, prefilledLines }: SplitByIvaModalProps) {
   const [lines, setLines] = useState<IvaSplitLine[]>(() =>
     prefilledLines && prefilledLines.length >= 2
       ? prefilledLines
