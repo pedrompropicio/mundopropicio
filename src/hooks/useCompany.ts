@@ -137,9 +137,22 @@ export function useSetActiveCompany() {
       } catch {}
       return data as string;
     },
-    onSuccess: () => {
-      // After switching tenant, invalidate everything — all data scopes change.
-      qc.invalidateQueries();
+    onSuccess: async (newCompanyId) => {
+      // 1) Cancel any in-flight queries from the previous tenant so their late
+      //    responses don't overwrite the new tenant's data after invalidation.
+      await qc.cancelQueries();
+      // 2) Drop ALL cached data immediately — every query is tenant-scoped.
+      //    removeQueries is stronger than invalidate: it deletes the cache so
+      //    consumers re-render with `isLoading=true` instead of stale data.
+      qc.removeQueries();
+      // 3) Force the current-company query to refetch FIRST, so downstream
+      //    queries that depend on `companyId` see the new value before firing.
+      await qc.refetchQueries({
+        queryKey: ["current-company"],
+        type: "active",
+      });
+      // 4) Now refetch everything else that's mounted.
+      await qc.invalidateQueries({ refetchType: "active" });
     },
   });
 }
