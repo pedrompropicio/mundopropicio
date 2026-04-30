@@ -3107,6 +3107,17 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             description: `Ao guardar, serão criadas ${lines.length} transações ligadas pelo mesmo Nº fatura.`,
           });
         }}
+        onApplyBlended={(baseNet, rate) => {
+          // IVA médio (snap): preenche o formulário com 1 só transação.
+          setPendingIvaSplit(null);
+          setShowSplitByIvaModal(false);
+          setAiPrefilledLines(null);
+          setForm((f) => ({ ...f, amount: String(baseNet), iva_rate: rate }));
+          toast({
+            title: "IVA médio aplicado",
+            description: `1 transação a ${rate}% sobre base ${baseNet.toFixed(2)}€. Verifica e guarda.`,
+          });
+        }}
       />
     </div>
   );
