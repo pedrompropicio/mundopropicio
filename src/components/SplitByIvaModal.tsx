@@ -161,7 +161,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, expectedTotal, initi
 
   return (
     <Dialog open={open} onOpenChange={(v) => (!v ? onClose() : null)}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl z-[120]" overlayClassName="z-[110]">
         <DialogHeader>
           <DialogTitle>Dividir lançamento por taxa de IVA</DialogTitle>
           <DialogDescription>
