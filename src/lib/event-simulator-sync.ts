@@ -123,7 +123,7 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
         }
         const { error } = await supabase
           .from("event_simulator_inputs")
-          .update(patch).eq("id", existingRow.id);
+          .update(patch as any).eq("id", existingRow.id);
         if (!error) report.sessionsUpdated++;
       } else {
         const { error } = await supabase
