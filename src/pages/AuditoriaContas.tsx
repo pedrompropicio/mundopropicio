@@ -736,6 +736,11 @@ function AnaliseIATab() {
                         {r.specification && <div className="text-xs text-muted-foreground truncate">{r.specification}</div>}
                         {r.reason && <div className="text-[11px] text-muted-foreground italic mt-0.5">💡 {r.reason}</div>}
                       </td>
+                      <td className="px-3 py-2 text-right text-xs tabular-nums whitespace-nowrap">
+                        {r.details?.amount != null
+                          ? formatInCurrency(Number(r.details.amount) || 0, (r.details.currency as any) || "EUR")
+                          : <span className="text-muted-foreground">—</span>}
+                      </td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">{r.event_label}</td>
                       <td className="px-3 py-2 text-xs">
                         {r.current_category_code ? (
