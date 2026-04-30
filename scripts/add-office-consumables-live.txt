@@ -1,0 +1,50 @@
+-- ============================================================================
+-- NOVAS CONTAS L3 EM 10.8 ESTRUTURA — Consumíveis / Material / Mobiliário
+-- Aplicar nas DUAS empresas (Mundo Propicio + Coala) em LIVE.
+-- Executar no Cloud View > SQL > LIVE.
+-- ============================================================================
+
+BEGIN;
+
+-- 10.8 Estrutura: pais conhecidos (Live)
+--   mundo-propicio : 162a8be5-fca8-4e46-aab9-956a4a2919de
+--   coala-portugal : 808f4ff0-d771-49d5-ba4a-e6cadfb5f38d
+
+WITH parents AS (
+  SELECT ac.id AS parent_id, ac.company_id, c.slug
+  FROM public.account_categories ac
+  JOIN public.companies c ON c.id = ac.company_id
+  WHERE ac.code = '10.8'
+), new_rows AS (
+  SELECT * FROM (VALUES
+    ('10.8.04', 'Consumíveis de Escritório'),
+    ('10.8.05', 'Material de Escritório'),
+    ('10.8.06', 'Mobiliário e Utensílios')
+  ) AS v(code, name)
+)
+INSERT INTO public.account_categories
+  (id, code, name, type, parent_id, company_id, event_required, allocate_to_active_event)
+SELECT
+  gen_random_uuid(),
+  n.code,
+  n.name,
+  'expense',
+  p.parent_id,
+  p.company_id,
+  false,   -- não exige evento (corporativo)
+  false    -- por defeito fica no DRE Empresarial; ligar manualmente se quiser absorver para evento ativo
+FROM new_rows n
+CROSS JOIN parents p
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.account_categories x
+  WHERE x.code = n.code AND x.company_id = p.company_id
+);
+
+-- ---------- VALIDAÇÃO ----------
+SELECT c.slug, ac.code, ac.name, ac.type, ac.event_required, ac.allocate_to_active_event
+FROM public.account_categories ac
+JOIN public.companies c ON c.id = ac.company_id
+WHERE ac.code IN ('10.8.04','10.8.05','10.8.06')
+ORDER BY c.slug, ac.code;
+
+COMMIT;
