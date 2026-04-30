@@ -15,6 +15,7 @@ import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { ResultsAnalysis } from "@/components/ResultsAnalysis";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/hooks/useCompany";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { Progress } from "@/components/ui/progress";
@@ -160,8 +161,10 @@ function groupWithParents(items: ComputedEvent[], allEvents: EnrichedEvent[]): C
 
 export default function Dashboard() {
   const { isAdmin, isManager } = useAuth();
+  const { companyId, isLoading: companyLoading } = useCompany();
   const { data: events = [], isLoading: loadingEvents } = useQuery({
-    queryKey: ["dashboard_events"],
+    queryKey: ["dashboard_events", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
@@ -173,7 +176,8 @@ export default function Dashboard() {
   });
 
   const { data: transactions = [], isLoading: loadingTxns } = useQuery({
-    queryKey: ["dashboard_transactions"],
+    queryKey: ["dashboard_transactions", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
@@ -185,7 +189,8 @@ export default function Dashboard() {
   });
 
   const { data: ticketSales = [] } = useQuery({
-    queryKey: ["dashboard_ticket_sales"],
+    queryKey: ["dashboard_ticket_sales", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ticket_sales")
@@ -196,7 +201,8 @@ export default function Dashboard() {
   });
 
   const { data: ticketZones = [] } = useQuery({
-    queryKey: ["dashboard_ticket_zones"],
+    queryKey: ["dashboard_ticket_zones", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_ticket_zones")
@@ -207,7 +213,8 @@ export default function Dashboard() {
   });
 
   const { data: forecasts = [] } = useQuery({
-    queryKey: ["dashboard_forecasts"],
+    queryKey: ["dashboard_forecasts", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
@@ -217,7 +224,7 @@ export default function Dashboard() {
     },
   });
 
-  const isLoading = loadingEvents || loadingTxns;
+  const isLoading = companyLoading || loadingEvents || loadingTxns;
 
   const computed = useMemo(() => {
     const capacityMap: Record<string, number> = {};
