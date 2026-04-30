@@ -115,8 +115,9 @@ export function parseSponsorsXlsx(buf: ArrayBuffer): SponsorsParseResult {
   const sheetName = wb.SheetNames.find((n) => wantedSet.has(normalizeText(n)));
   if (!sheetName) {
     throw new Error(
-      `Aba de patrocínios não encontrada. Esperado uma de: ${SHEET_CANDIDATES.join(", ")}. ` +
-        `Abas presentes: ${wb.SheetNames.join(", ")}`
+      `Não encontrei a aba de patrocínios. ` +
+        `Este ficheiro tem as abas: ${wb.SheetNames.join(", ")}. ` +
+        `Parece ser o ficheiro de mapeamento contabilístico — para importar patrocínios carrega o BP original do Coala (que tem a aba "Pipe" com os patrocinadores).`
     );
   }
 
