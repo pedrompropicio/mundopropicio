@@ -239,8 +239,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
    */
   const handleExtractInvoice = async (original: File) => {
     if (!original) return;
-    if (original.size > 25 * 1024 * 1024) {
-      toast({ title: "Ficheiro grande", description: "Limite 25MB.", variant: "destructive" });
+    // Limite generoso (50MB) — ficheiros são comprimidos a ~150-300KB antes do envio
+    // (PDF→JPEG 1ª página, DNG→preview JPEG, imagens ≤1280px @70%).
+    if (original.size > 50 * 1024 * 1024) {
+      toast({ title: "Ficheiro grande", description: "Limite 50MB.", variant: "destructive" });
       return;
     }
     setExtractingInvoice(true);
