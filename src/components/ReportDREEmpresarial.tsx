@@ -175,10 +175,21 @@ export default function ReportDREEmpresarial() {
     [yearTx, corporateCatIds]
   );
 
-  // Also include corporate-category transactions that have event_id (edge case)
+  // Mapa de absorção: tx.id -> evento absorvedor (Fase 3 da alocação Group 10).
+  // Usa TODAS as transações do ano (não só corporativas) por consistência, mas o helper
+  // já filtra por categoria absorvível.
+  const absorptionMap = useMemo(
+    () => buildAbsorptionMap(yearTx as any, categories as any, events as any),
+    [yearTx, categories, events]
+  );
+
+  // Also include corporate-category transactions that have event_id (edge case).
+  // Excluímos do DRE Empresarial qualquer transação absorvida por evento ativo.
   const corpTxAll = useMemo(
-    () => yearTx.filter((t) => corporateCatIds.has(t.category_id || "")),
-    [yearTx, corporateCatIds]
+    () => yearTx.filter(
+      (t) => corporateCatIds.has(t.category_id || "") && !absorptionMap.has(t.id)
+    ),
+    [yearTx, corporateCatIds, absorptionMap]
   );
 
   const lines = useMemo(() => {
