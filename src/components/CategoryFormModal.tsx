@@ -143,6 +143,15 @@ export default function CategoryFormModal({
   }, [effectiveParentId, categories, isEditing]);
 
 
+  // Detect if this would be an L3 inside Group 10 (Corporate Costs)
+  const isL3InGroup10 = useMemo(() => {
+    if (!effectiveParentId) return false;
+    const parent = categories.find((c) => c.id === effectiveParentId);
+    if (!parent || !parent.parent_id) return false; // L3 means parent has a parent (L2)
+    const grandParent = categories.find((c) => c.id === parent.parent_id);
+    return grandParent?.code === "10";
+  }, [effectiveParentId, categories]);
+
   const createMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.from("account_categories").insert({
@@ -151,6 +160,7 @@ export default function CategoryFormModal({
         type,
         parent_id: effectiveParentId || null,
         event_required: !effectiveParentId ? eventRequired : true,
+        allocate_to_active_event: isL3InGroup10 ? allocateToActiveEvent : false,
       }).select("id").single();
       if (error) throw error;
       return data.id;
@@ -170,6 +180,7 @@ export default function CategoryFormModal({
       if (!editingCategory) return;
       const updateData: any = { code, name, type, parent_id: effectiveParentId || null };
       if (!effectiveParentId) updateData.event_required = eventRequired;
+      if (isL3InGroup10) updateData.allocate_to_active_event = allocateToActiveEvent;
       const { error } = await supabase.from("account_categories").update(updateData).eq("id", editingCategory.id);
       if (error) throw error;
       return editingCategory.id;
