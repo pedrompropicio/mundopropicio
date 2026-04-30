@@ -613,7 +613,7 @@ function AnaliseIATab() {
           update.is_overhead = true;
           update.exclude_from_result = true;
         }
-        const { error } = await supabase.from(table).update(update).eq("id", r.id);
+        const { error } = await supabase.from(table).update(update as any).eq("id", r.id);
         if (error) throw error;
         ok++;
       } catch { fail++; }
