@@ -28,7 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Calculator, TrendingUp, Save, Sparkles, Loader2, Beer, UtensilsCrossed, Ticket, Info } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
-import { addDays, format, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
 
 // =============================================================================
 // Types
