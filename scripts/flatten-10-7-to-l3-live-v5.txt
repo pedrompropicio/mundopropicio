@@ -14,6 +14,10 @@
 -- Os 3 pais L3 antigos (10.7.01/02/03) são apagados no fim.
 -- ============================================================
 
+-- Se a tentativa anterior falhou dentro de uma transacção, isto limpa o estado abortado.
+-- Se não houver transacção aberta, apenas mostra um aviso inofensivo.
+ROLLBACK;
+
 BEGIN;
 
 -- 0) Empresas alvo
@@ -74,43 +78,21 @@ WHERE l.company_id = p.company_id
   AND l.code IN ('TMP_10.7.01','TMP_10.7.02','TMP_10.7.03')
   AND l.company_id IN (SELECT company_id FROM _co);
 
--- 3b) Folhas de 10.7.02.* -> filhos de 10.8 com códigos 10.8.01..03
-WITH p AS (
-  SELECT ac.id AS new_parent, ac.company_id
-  FROM account_categories ac
-  WHERE ac.code = '10.8'
-    AND ac.company_id IN (SELECT company_id FROM _co)
-)
 UPDATE account_categories l
-SET parent_id = p.new_parent,
-    code = CASE l.code
-      WHEN '10.7.02.01' THEN '10.8.01'
-      WHEN '10.7.02.02' THEN '10.8.02'
-      WHEN '10.7.02.03' THEN '10.8.03'
-      ELSE l.code
-    END
-FROM p
+SET parent_id = p.id
+FROM account_categories p
 WHERE l.company_id = p.company_id
-  AND l.code LIKE '10.7.02.%';
+  AND p.code = '10.8'
+  AND l.code IN ('TMP_10.8.01','TMP_10.8.02','TMP_10.8.03')
+  AND l.company_id IN (SELECT company_id FROM _co);
 
--- 3c) Folhas de 10.7.03.* -> filhos de 10.9 com códigos 10.9.01..03
-WITH p AS (
-  SELECT ac.id AS new_parent, ac.company_id
-  FROM account_categories ac
-  WHERE ac.code = '10.9'
-    AND ac.company_id IN (SELECT company_id FROM _co)
-)
 UPDATE account_categories l
-SET parent_id = p.new_parent,
-    code = CASE l.code
-      WHEN '10.7.03.01' THEN '10.9.01'
-      WHEN '10.7.03.02' THEN '10.9.02'
-      WHEN '10.7.03.03' THEN '10.9.03'
-      ELSE l.code
-    END
-FROM p
+SET parent_id = p.id
+FROM account_categories p
 WHERE l.company_id = p.company_id
-  AND l.code LIKE '10.7.03.%';
+  AND p.code = '10.9'
+  AND l.code IN ('TMP_10.9.01','TMP_10.9.02','TMP_10.9.03')
+  AND l.company_id IN (SELECT company_id FROM _co);
 
 -- 4) Apagar os 3 pais L3 antigos (10.7.01/02/03) — agora sem filhos
 DELETE FROM account_categories
@@ -125,7 +107,13 @@ WHERE company_id IN (SELECT company_id FROM _co)
     'c97a8757-416d-4607-a59d-5fce3f9a3a7c'::uuid
   );
 
--- 5) AUDITORIA por empresa
+-- 5) Fase final: remover TMP_ e deixar as folhas como L3 definitivas.
+UPDATE account_categories
+SET code = REPLACE(code, 'TMP_', '')
+WHERE company_id IN (SELECT company_id FROM _co)
+  AND code LIKE 'TMP\_%' ESCAPE '\';
+
+-- 6) AUDITORIA por empresa
 WITH RECURSIVE tree AS (
   SELECT id, parent_id, code, company_id, 1 AS depth
   FROM account_categories WHERE parent_id IS NULL
@@ -136,7 +124,7 @@ WITH RECURSIVE tree AS (
 SELECT
   company_id,
   COUNT(*) FILTER (WHERE depth >= 4) AS l4_hierarquia,
-  COUNT(*) FILTER (WHERE code ~ '^10\.7\.[0-9]+\.[0-9]+$') AS l4_codigo,
+  COUNT(*) FILTER (WHERE code ~ '^10\.[0-9]+\.[0-9]+\.[0-9]+$') AS l4_codigo,
   COUNT(*) FILTER (WHERE code IN ('10.7.01','10.7.02','10.7.03')) AS antigos_grupos,
   COUNT(*) FILTER (WHERE code IN ('10.7','10.8','10.9')) AS novos_l2,
   COUNT(*) FILTER (WHERE code ~ '^10\.[789]\.[0-9]+$') AS novas_folhas_l3
