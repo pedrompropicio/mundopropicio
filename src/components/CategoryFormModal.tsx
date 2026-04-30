@@ -59,6 +59,7 @@ export default function CategoryFormModal({
   const [type, setType] = useState<string>(defaultType);
   const [parentId, setParentId] = useState<string>("");
   const [eventRequired, setEventRequired] = useState(true);
+  const [allocateToActiveEvent, setAllocateToActiveEvent] = useState(false);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["account-categories"],
