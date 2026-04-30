@@ -168,30 +168,137 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const queryClient = useQueryClient();
 
   /**
-   * Lê uma fatura (PDF/imagem) via edge function `extract-invoice-total` e
-   * preenche o formulário automaticamente. Se detetar 2+ taxas de IVA,
-   * abre o SplitByIvaModal já populado para confirmação rápida.
+   * Converte File → base64 (sem prefixo data URL).
    */
-  const handleExtractInvoice = async (file: File) => {
-    if (!file) return;
-    if (file.size > 15 * 1024 * 1024) {
-      toast({ title: "Ficheiro grande", description: "Limite 15MB.", variant: "destructive" });
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const s = reader.result as string;
+        const comma = s.indexOf(",");
+        resolve(comma >= 0 ? s.slice(comma + 1) : s);
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+
+  /**
+   * Comprime imagem para limitar payload OCR (~150-300 KB) e evitar
+   * "Memory limit exceeded" na edge function. Imagens pequenas (< 200 KB) passam diretas.
+   * (Mesma lógica do CamarimItemModal.)
+   */
+  const prepareImageForOcr = async (file: File): Promise<File> => {
+    if (file.size < 200 * 1024 && /^image\/jpe?g$/i.test(file.type)) return file;
+
+    let objectUrl: string | null = null;
+    try {
+      objectUrl = URL.createObjectURL(file);
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error("Não foi possível preparar a imagem para OCR"));
+        image.src = objectUrl!;
+      });
+
+      const maxSide = 1280;
+      const srcW = img.naturalWidth || img.width;
+      const srcH = img.naturalHeight || img.height;
+      const scale = Math.min(1, maxSide / Math.max(srcW, srcH));
+      const width = Math.max(1, Math.round(srcW * scale));
+      const height = Math.max(1, Math.round(srcH * scale));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas indisponível para OCR");
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((result) => resolve(result), "image/jpeg", 0.7);
+      });
+
+      if (!blob) return file;
+
+      const baseName = file.name.replace(/\.[^.]+$/, "") || "invoice";
+      console.log(`[invoice-ocr] compressed ${(file.size / 1024).toFixed(0)}KB → ${(blob.size / 1024).toFixed(0)}KB`);
+      return new File([blob], `${baseName}-ocr.jpg`, { type: "image/jpeg" });
+    } catch (err) {
+      console.warn("OCR image preparation failed, using original file", err);
+      return file;
+    } finally {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    }
+  };
+
+  /**
+   * Lê uma fatura (PDF/imagem/DNG) via edge function `extract-invoice-total` e
+   * preenche o formulário automaticamente. Usa o mesmo pipeline de pré-processamento
+   * do Camarim (DNG→JPEG, PDF 1ª página→JPEG, compressão ≤1280px) para performance.
+   * Se detetar 2+ taxas de IVA, abre o SplitByIvaModal já populado.
+   */
+  const handleExtractInvoice = async (original: File) => {
+    if (!original) return;
+    if (original.size > 25 * 1024 * 1024) {
+      toast({ title: "Ficheiro grande", description: "Limite 25MB.", variant: "destructive" });
       return;
     }
     setExtractingInvoice(true);
     try {
-      const fileBase64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          const comma = result.indexOf(",");
-          resolve(comma >= 0 ? result.slice(comma + 1) : result);
-        };
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(file);
-      });
+      let file = original;
+
+      // 1) DNG/RAW → extrai JPEG embutido
+      if (isDngFile(original)) {
+        toast({ title: "A processar ficheiro RAW…", description: "A extrair pré-visualização para OCR." });
+        try {
+          const jpeg = await extractJpegFromDng(original);
+          if (jpeg) file = jpeg;
+          else {
+            toast({
+              variant: "destructive",
+              title: "RAW sem preview JPEG",
+              description: "Tenta exportar como JPG ou desligar o ProRAW na câmara.",
+            });
+            return;
+          }
+        } catch (err) {
+          console.error("DNG extract failed", err);
+          toast({ variant: "destructive", title: "Erro a processar RAW", description: "Exporta como JPG e tenta de novo." });
+          return;
+        }
+      }
+
+      // 2) PDF → 1ª página como JPEG (Gemini só aceita imagem por este caminho)
+      let ocrSource: File | null = null;
+      if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
+        toast({ title: "A processar PDF…", description: "A extrair primeira página para OCR." });
+        const jpg = await pdfFirstPageToJpeg(file);
+        if (jpg) ocrSource = jpg;
+        else {
+          toast({
+            variant: "destructive",
+            title: "Não consegui ler o PDF",
+            description: "Preenche os campos à mão.",
+          });
+          return;
+        }
+      } else if (/^image\/(jpeg|jpg|png|webp|heic|heif)$/i.test(file.type)) {
+        ocrSource = file;
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Formato não suportado",
+          description: "Usa JPG, PNG, WEBP, HEIC, PDF ou DNG.",
+        });
+        return;
+      }
+
+      // 3) Compressão ≤1280px / ~70% JPEG
+      const prepared = await prepareImageForOcr(ocrSource);
+      const fileBase64 = await fileToBase64(prepared);
+
       const { data, error } = await supabase.functions.invoke("extract-invoice-total", {
-        body: { fileBase64, fileName: file.name, mimeType: file.type || "application/pdf" },
+        body: { fileBase64, fileName: prepared.name, mimeType: prepared.type || "image/jpeg" },
       });
       if (error) throw error;
       const allowed: IvaRate[] = [0, 6, 13, 23];
