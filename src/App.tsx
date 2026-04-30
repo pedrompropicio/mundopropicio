@@ -239,6 +239,7 @@ function ProtectedLayout() {
               <Route path="/eventos" element={<Events />} />
               <Route path="/eventos/:id" element={<EventDetail />} />
               <Route path="/eventos/:id/simulador" element={<EventSimulator />} />
+              <Route path="/demo/simulador" element={<EventSimulatorDemo />} />
               <Route path="/transacoes" element={<Transactions />} />
               <Route path="/plano-contas" element={<AccountCategories />} />
               <Route path="/contas" element={<FinancialAccounts />} />
