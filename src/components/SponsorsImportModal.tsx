@@ -28,7 +28,7 @@ interface Props {
   eventDate: string;
 }
 
-const SPONSORS_CATEGORY_ID = "c0000004-0000-0000-0000-000000000001"; // 1.2.01 Patrocínios
+const SPONSORS_CATEGORY_CODE = "1.2.01"; // resolvido por empresa do evento em runtime
 
 const KIND_ICON: Record<SponsorImportKind, React.ReactNode> = {
   paid: <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />,
