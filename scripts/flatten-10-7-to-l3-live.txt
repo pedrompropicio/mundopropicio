@@ -1,25 +1,18 @@
 -- =====================================================================
 -- APLANAMENTO DO PLANO DE CONTAS: 10.7.* (4 níveis) → L3 puro
--- Variante A2: cria 3 L2 distintos (10.7 Serviços, 10.8 Estrutura, 10.9 Tecnologia)
--- Aplica simultaneamente às empresas Mundo Propício e Coala
--- Multi-tenant: itera por company_id; resolve IDs por (company_id, code)
--- IDs das categorias-folha são PRESERVADOS → não há FKs a atualizar em
--- transactions / event_forecasts / bp_versions / payment_list_items / etc.
+-- Variante A2: 10.7 Serviços / 10.8 Estrutura / 10.9 Tecnologia
+-- Multi-tenant: aplica a Mundo Propício e Coala simultaneamente
+-- IDs das folhas L4 são PRESERVADOS → não há FKs a atualizar
+-- Inclui re-routing defensivo de TX/BP eventualmente vinculados aos L3-grupo
 -- =====================================================================
 
 BEGIN;
 
--- 1) AUDITORIA INICIAL (deve mostrar 18 contas L4 antes; 0 depois)
-SELECT 'ANTES' AS fase, (length(code)-length(replace(code,'.',''))) + 1 AS depth, COUNT(*)
-FROM account_categories
-WHERE code LIKE '10.7%'
-GROUP BY 2 ORDER BY 2;
+-- 1) AUDITORIA INICIAL (esperado: depth 4 com 18 contas em 10.7.*)
+SELECT 'ANTES' fase, (length(code)-length(replace(code,'.',''))) + 1 depth, COUNT(*)
+FROM account_categories WHERE code LIKE '10.%' OR code='10' GROUP BY 2 ORDER BY 2;
 
--- =====================================================================
--- 2) PARA CADA EMPRESA: criar L2 10.8 Estrutura e 10.9 Tecnologia
--- =====================================================================
-
--- 2a) Criar 10.8 Estrutura (parent = 10) — por empresa
+-- 2) Criar 10.8 Estrutura (L2) por empresa
 INSERT INTO account_categories (id, code, name, type, parent_id, company_id, is_active, event_required)
 SELECT gen_random_uuid(), '10.8', 'Estrutura', 'expense',
        (SELECT id FROM account_categories WHERE code='10' AND company_id=c.id),
@@ -28,7 +21,7 @@ FROM companies c
 WHERE EXISTS (SELECT 1 FROM account_categories WHERE code='10' AND company_id=c.id)
   AND NOT EXISTS (SELECT 1 FROM account_categories WHERE code='10.8' AND company_id=c.id);
 
--- 2b) Criar 10.9 Tecnologia (parent = 10) — por empresa
+-- 3) Criar 10.9 Tecnologia (L2) por empresa
 INSERT INTO account_categories (id, code, name, type, parent_id, company_id, is_active, event_required)
 SELECT gen_random_uuid(), '10.9', 'Tecnologia', 'expense',
        (SELECT id FROM account_categories WHERE code='10' AND company_id=c.id),
@@ -37,104 +30,88 @@ FROM companies c
 WHERE EXISTS (SELECT 1 FROM account_categories WHERE code='10' AND company_id=c.id)
   AND NOT EXISTS (SELECT 1 FROM account_categories WHERE code='10.9' AND company_id=c.id);
 
--- 2c) Renomear 10.7 "Serviços e Estrutura" → "Serviços" (mantém o ID)
-UPDATE account_categories
-SET name = 'Serviços'
-WHERE code = '10.7';
+-- 4) Renomear 10.7
+UPDATE account_categories SET name = 'Serviços' WHERE code = '10.7';
 
--- =====================================================================
--- 3) MOVER L4 → L3 (preservar IDs; só altera code + parent_id)
---    Fase 1: usar codes temporários para evitar colisão com unique(code, company_id)
--- =====================================================================
-
--- 10.7.01.01 Contabilidade  → 10.7.01 (parent: 10.7)
+-- 5) Fase 1: codes temporários nas folhas L4 (evitar colisão de unique)
 UPDATE account_categories SET code = 'TMP_10.7.01' WHERE code = '10.7.01.01';
--- 10.7.01.02 Jurídico       → 10.7.02
 UPDATE account_categories SET code = 'TMP_10.7.02' WHERE code = '10.7.01.02';
--- 10.7.01.03 Consultoria    → 10.7.03
 UPDATE account_categories SET code = 'TMP_10.7.03' WHERE code = '10.7.01.03';
-
--- 10.7.02.01 Aluguer / Renda → 10.8.01 (parent: 10.8)
 UPDATE account_categories SET code = 'TMP_10.8.01' WHERE code = '10.7.02.01';
--- 10.7.02.02 Energia         → 10.8.02
 UPDATE account_categories SET code = 'TMP_10.8.02' WHERE code = '10.7.02.02';
--- 10.7.02.03 Internet        → 10.8.03
 UPDATE account_categories SET code = 'TMP_10.8.03' WHERE code = '10.7.02.03';
-
--- 10.7.03.01 Softwares       → 10.9.01 (parent: 10.9)
 UPDATE account_categories SET code = 'TMP_10.9.01' WHERE code = '10.7.03.01';
--- 10.7.03.02 Cloud           → 10.9.02
 UPDATE account_categories SET code = 'TMP_10.9.02' WHERE code = '10.7.03.02';
--- 10.7.03.03 Equipamentos    → 10.9.03
 UPDATE account_categories SET code = 'TMP_10.9.03' WHERE code = '10.7.03.03';
 
--- =====================================================================
--- 4) ELIMINAR os antigos L3-grupo (10.7.01, 10.7.02, 10.7.03)
---    Estes não têm transações/BPs vinculados (são nós intermédios)
--- =====================================================================
-DELETE FROM account_categories
-WHERE code IN ('10.7.01', '10.7.02', '10.7.03');
+-- 6) Re-rotar TX/BP eventualmente vinculados aos antigos L3-grupo (defensivo)
+UPDATE transactions t
+SET category_id = (SELECT id FROM account_categories WHERE code='TMP_10.7.01' AND company_id=t.company_id)
+WHERE category_id IN (SELECT id FROM account_categories WHERE code='10.7.01');
 
--- =====================================================================
--- 5) Re-parentar os L4-renomeados aos novos L2 (por empresa)
--- =====================================================================
+UPDATE event_forecasts f
+SET category_id = (SELECT id FROM account_categories WHERE code='TMP_10.7.01' AND company_id=f.company_id)
+WHERE category_id IN (SELECT id FROM account_categories WHERE code='10.7.01');
 
--- 10.7.01/02/03 → parent = 10.7 (Serviços)
+UPDATE transactions t
+SET category_id = (SELECT id FROM account_categories WHERE code='TMP_10.8.01' AND company_id=t.company_id)
+WHERE category_id IN (SELECT id FROM account_categories WHERE code='10.7.02');
+
+UPDATE event_forecasts f
+SET category_id = (SELECT id FROM account_categories WHERE code='TMP_10.8.01' AND company_id=f.company_id)
+WHERE category_id IN (SELECT id FROM account_categories WHERE code='10.7.02');
+
+UPDATE transactions t
+SET category_id = (SELECT id FROM account_categories WHERE code='TMP_10.9.01' AND company_id=t.company_id)
+WHERE category_id IN (SELECT id FROM account_categories WHERE code='10.7.03');
+
+UPDATE event_forecasts f
+SET category_id = (SELECT id FROM account_categories WHERE code='TMP_10.9.01' AND company_id=f.company_id)
+WHERE category_id IN (SELECT id FROM account_categories WHERE code='10.7.03');
+
+-- 7) Re-parentar as folhas (por empresa)
 UPDATE account_categories ac
 SET parent_id = (SELECT id FROM account_categories WHERE code='10.7' AND company_id=ac.company_id)
 WHERE code IN ('TMP_10.7.01', 'TMP_10.7.02', 'TMP_10.7.03');
 
--- 10.8.01/02/03 → parent = 10.8 (Estrutura)
 UPDATE account_categories ac
 SET parent_id = (SELECT id FROM account_categories WHERE code='10.8' AND company_id=ac.company_id)
 WHERE code IN ('TMP_10.8.01', 'TMP_10.8.02', 'TMP_10.8.03');
 
--- 10.9.01/02/03 → parent = 10.9 (Tecnologia)
 UPDATE account_categories ac
 SET parent_id = (SELECT id FROM account_categories WHERE code='10.9' AND company_id=ac.company_id)
 WHERE code IN ('TMP_10.9.01', 'TMP_10.9.02', 'TMP_10.9.03');
 
--- =====================================================================
--- 6) FASE 2: remover prefixo TMP_ (codes finais)
--- =====================================================================
+-- 8) Eliminar antigos L3-grupo (já sem dependências)
+DELETE FROM account_categories WHERE code IN ('10.7.01', '10.7.02', '10.7.03');
+
+-- 9) Fase 2: remover prefixo TMP_
 UPDATE account_categories SET code = REPLACE(code, 'TMP_', '')
 WHERE code LIKE 'TMP\_%' ESCAPE '\';
 
 -- =====================================================================
--- 7) AUDITORIA FINAL
+-- AUDITORIA FINAL
 -- =====================================================================
 
--- 7a) Distribuição de níveis em 10.* (esperado: depth 1 com 1, depth 2 com 3, depth 3 com 9 — por empresa)
-SELECT 'DEPOIS' AS fase, company_id, (length(code)-length(replace(code,'.',''))) + 1 AS depth, COUNT(*)
-FROM account_categories
-WHERE code LIKE '10.%' OR code = '10'
-GROUP BY 2, 3 ORDER BY 2, 3;
-
--- 7b) Não devem existir mais L4 em todo o plano (esperado: 0 linhas)
-SELECT 'L4 REMANESCENTES' AS check_name, code, name, company_id
+-- 10a) Não devem existir L4 (esperado: 0)
+SELECT 'L4 REMANESCENTES' check_name, code, name, company_id
 FROM account_categories
 WHERE (length(code)-length(replace(code,'.',''))) + 1 = 4;
 
--- 7c) Listagem nova de 10.7/10.8/10.9 (esperado: 9 folhas + 3 grupos por empresa)
-SELECT company_id, code, name, parent_id
-FROM account_categories
-WHERE code ~ '^10\.[7-9]'
-ORDER BY company_id, code;
+-- 10b) Distribuição de níveis (esperado: depth 1/2/3 apenas)
+SELECT 'DEPOIS' fase, (length(code)-length(replace(code,'.',''))) + 1 depth, COUNT(*)
+FROM account_categories WHERE code LIKE '10.%' OR code='10' GROUP BY 2 ORDER BY 2;
 
--- 7d) Confirmar que transações e BPs continuam vinculados (esperado: contagens preservadas)
-SELECT 'TX em 10.7.*' AS check_name, COUNT(*)
-FROM transactions t JOIN account_categories c ON c.id = t.category_id
-WHERE c.code ~ '^10\.[7-9]';
+-- 10c) Listagem final de 10.7/10.8/10.9 (esperado: 3 L2 + 9 L3 por empresa)
+SELECT company_id, code, name
+FROM account_categories WHERE code ~ '^10\.[7-9]' ORDER BY company_id, code;
 
-SELECT 'BP em 10.7.*' AS check_name, COUNT(*)
-FROM event_forecasts f JOIN account_categories c ON c.id = f.category_id
-WHERE c.code ~ '^10\.[7-9]';
+-- 10d) BPs e TX preservados (esperado: contagens > 0 onde já havia)
+SELECT 'TX em 10.7-9' check_name, COUNT(*) FROM transactions t JOIN account_categories c ON c.id=t.category_id WHERE c.code ~ '^10\.[7-9]';
+SELECT 'BP em 10.7-9' check_name, COUNT(*) FROM event_forecasts f JOIN account_categories c ON c.id=f.category_id WHERE c.code ~ '^10\.[7-9]';
 
 -- =====================================================================
--- 8) DECISÃO FINAL
--- Se 7b devolver 0 linhas E 7d mostrar contagens > 0 (TX e BP preservados)
--- → COMMIT
--- Caso contrário → ROLLBACK e avisar
+-- DECISÃO: se 10a devolver 0 linhas → COMMIT; caso contrário → ROLLBACK
 -- =====================================================================
 
 -- COMMIT;
