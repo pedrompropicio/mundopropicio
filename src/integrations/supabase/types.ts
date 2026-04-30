@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       account_categories: {
         Row: {
+          allocate_to_active_event: boolean
           code: string
           company_id: string
           created_at: string
@@ -28,6 +29,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          allocate_to_active_event?: boolean
           code: string
           company_id?: string
           created_at?: string
@@ -40,6 +42,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          allocate_to_active_event?: boolean
           code?: string
           company_id?: string
           created_at?: string
@@ -2514,6 +2517,9 @@ export type Database = {
       }
       events: {
         Row: {
+          absorbs_admin_costs: boolean
+          admin_window_end: string | null
+          admin_window_start: string | null
           budget: number
           city_id: string | null
           company_id: string
@@ -2534,6 +2540,9 @@ export type Database = {
           venue_id: string | null
         }
         Insert: {
+          absorbs_admin_costs?: boolean
+          admin_window_end?: string | null
+          admin_window_start?: string | null
           budget?: number
           city_id?: string | null
           company_id?: string
@@ -2554,6 +2563,9 @@ export type Database = {
           venue_id?: string | null
         }
         Update: {
+          absorbs_admin_costs?: boolean
+          admin_window_end?: string | null
+          admin_window_start?: string | null
           budget?: number
           city_id?: string | null
           company_id?: string
@@ -5042,6 +5054,16 @@ export type Database = {
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
+      }
+      find_admin_absorbing_events: {
+        Args: { p_company_id: string; p_date: string }
+        Returns: {
+          admin_window_end: string
+          admin_window_start: string
+          event_date: string
+          event_id: string
+          event_name: string
+        }[]
       }
       formalidade_audit_stats: {
         Args: { _event_ids?: string[] }
