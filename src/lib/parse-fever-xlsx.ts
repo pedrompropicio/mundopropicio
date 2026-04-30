@@ -299,7 +299,7 @@ export async function parseFeverXlsx(
   }
   // ordena variantes por preço asc (barato esgota primeiro)
   for (const arr of lotsByTicketType.values()) {
-    arr.sort((a, b) => a.unitPrice - b.unitPrice);
+    arr.sort((a, b) => a.ticketPrice - b.ticketPrice);
   }
 
   // Coleciona vendas brutas por (ticket_type, date) preservando ordem
@@ -376,9 +376,9 @@ export async function parseFeverXlsx(
             weekday: r.weekday,
             lotKey: fallback.key,
             ticketType: fallback.ticketType,
-              unitPrice: fallback.unitPrice,
-              quantity: need,
-              totalValue: roundCents(need * fallback.unitPrice),
+            unitPrice: fallback.unitPrice,
+            quantity: need,
+            totalValue: roundCents(need * fallback.unitPrice),
           });
           warnings.push(
             `Excedente de ${need} bilhete(s) "${ticketType}" em ${r.date} sem stock no ficheiro de preços — atribuídos a €${fallback.unitPrice.toFixed(2)}.`,
