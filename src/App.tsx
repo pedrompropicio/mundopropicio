@@ -24,6 +24,7 @@ import { Sun, Moon } from "lucide-react";
 import Index from "./pages/Index";
 import Events from "./pages/Events";
 import EventDetail from "./pages/EventDetail";
+import EventSimulator from "./pages/EventSimulator";
 import Transactions from "./pages/Transactions";
 import IvaManagement from "./pages/IvaManagement";
 import Suppliers from "./pages/Suppliers";
@@ -236,6 +237,7 @@ function ProtectedLayout() {
               <Route path="/calendario" element={<EventCalendar />} />
               <Route path="/eventos" element={<Events />} />
               <Route path="/eventos/:id" element={<EventDetail />} />
+              <Route path="/eventos/:id/simulador" element={<EventSimulator />} />
               <Route path="/transacoes" element={<Transactions />} />
               <Route path="/plano-contas" element={<AccountCategories />} />
               <Route path="/contas" element={<FinancialAccounts />} />
