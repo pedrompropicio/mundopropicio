@@ -1,0 +1,87 @@
+-- ============================================================================
+-- FIX CRITICO: remover policies SELECT "legacy" que furam isolamento multi-tenant
+-- ============================================================================
+-- Sintoma: utilizador da empresa A vê eventos/dados da empresa B porque existem
+-- policies PERMISSIVE com expressao `auth.uid() IS NOT NULL` (qualquer auth ve tudo)
+-- coexistindo com as policies `company_id = current_company_id()`.
+-- Como policies PERMISSIVE sao OR'ed, a primeira sobrepoe a segunda.
+--
+-- Em Test estas policies ja foram removidas; em Live ficaram.
+-- Este script DROP-a as 54 policies identificadas. Mantém intactas:
+--   - policies INSERT/UPDATE/DELETE
+--   - policies SELECT especificas (admin, partner, etc.)
+--   - policies company_isolation_*
+-- ============================================================================
+
+BEGIN;
+
+DROP POLICY IF EXISTS "Account categories are viewable by authenticated users" ON public.account_categories;
+DROP POLICY IF EXISTS "Orphan attachments viewable by authenticated" ON public.bp_orphan_attachments;
+DROP POLICY IF EXISTS "Authenticated users can view bp_version_audit_log" ON public.bp_version_audit_log;
+DROP POLICY IF EXISTS "Authenticated users can view bp_versions" ON public.bp_versions;
+DROP POLICY IF EXISTS "Camarim fund moves viewable by authenticated" ON public.camarim_fund_moves;
+DROP POLICY IF EXISTS "Camarim integrations viewable by authenticated" ON public.camarim_integrations;
+DROP POLICY IF EXISTS "Camarim item documents viewable by authenticated" ON public.camarim_item_documents;
+DROP POLICY IF EXISTS "Camarim item reviews viewable by authenticated" ON public.camarim_item_reviews;
+DROP POLICY IF EXISTS "Camarim items viewable by authenticated" ON public.camarim_items;
+DROP POLICY IF EXISTS "Camarim session events viewable by authenticated" ON public.camarim_session_events;
+DROP POLICY IF EXISTS "Camarim sessions viewable by authenticated" ON public.camarim_sessions;
+DROP POLICY IF EXISTS "Cities viewable by authenticated" ON public.cities;
+DROP POLICY IF EXISTS "City settlements viewable by authenticated" ON public.event_cache_city_settlements;
+DROP POLICY IF EXISTS "Cache configs viewable by authenticated" ON public.event_cache_configs;
+DROP POLICY IF EXISTS "Cache deductions viewable by authenticated" ON public.event_cache_deductions;
+DROP POLICY IF EXISTS "Cache extras viewable by authenticated" ON public.event_cache_extras;
+DROP POLICY IF EXISTS "Cache payments viewable by authenticated" ON public.event_cache_payments;
+DROP POLICY IF EXISTS "Cache tiers viewable by authenticated" ON public.event_cache_tiers;
+DROP POLICY IF EXISTS "Closing costs viewable by authenticated" ON public.event_closing_costs;
+DROP POLICY IF EXISTS "Event dates viewable by authenticated" ON public.event_dates;
+DROP POLICY IF EXISTS "Authenticated users can view formalidade log" ON public.event_forecast_formalidade_log;
+DROP POLICY IF EXISTS "Forecast partners viewable by authenticated" ON public.event_forecast_partners;
+DROP POLICY IF EXISTS "Event forecasts viewable by authenticated" ON public.event_forecasts;
+DROP POLICY IF EXISTS "Partner extras viewable by authenticated" ON public.event_partner_extras;
+DROP POLICY IF EXISTS "Event partners viewable by authenticated" ON public.event_partners;
+DROP POLICY IF EXISTS "Sessions viewable by authenticated" ON public.event_sessions;
+DROP POLICY IF EXISTS "Ticket lots viewable by authenticated" ON public.event_ticket_lots;
+DROP POLICY IF EXISTS "Advances viewable by authenticated" ON public.event_ticket_office_advances;
+DROP POLICY IF EXISTS "Assignments viewable by authenticated" ON public.event_ticket_office_assignments;
+DROP POLICY IF EXISTS "Ticket zones viewable by authenticated" ON public.event_ticket_zones;
+DROP POLICY IF EXISTS "Events are viewable by authenticated users" ON public.events;
+DROP POLICY IF EXISTS "Authenticated users can view forecast audit logs" ON public.forecast_audit_log;
+DROP POLICY IF EXISTS "Partner advance expenses viewable by authenticated" ON public.partner_advance_expenses;
+DROP POLICY IF EXISTS "Authenticated users can view partner paid expenses" ON public.partner_paid_expenses;
+DROP POLICY IF EXISTS "Payment list items viewable by authenticated" ON public.payment_list_items;
+DROP POLICY IF EXISTS "Payment lists viewable by authenticated" ON public.payment_lists;
+DROP POLICY IF EXISTS "Quotations are viewable by authenticated users" ON public.quotations;
+DROP POLICY IF EXISTS "Recurring transactions viewable by authenticated" ON public.recurring_transactions;
+DROP POLICY IF EXISTS "Reimbursement note items viewable by authenticated" ON public.reimbursement_note_items;
+DROP POLICY IF EXISTS "Reimbursement notes viewable by authenticated" ON public.reimbursement_notes;
+DROP POLICY IF EXISTS "Role permissions viewable by authenticated" ON public.role_permissions;
+DROP POLICY IF EXISTS "Credit usages viewable by authenticated" ON public.supplier_credit_usages;
+DROP POLICY IF EXISTS "Supplier credits viewable by authenticated" ON public.supplier_credits;
+DROP POLICY IF EXISTS "Authenticated users can view supplier credits" ON public.supplier_credits;
+DROP POLICY IF EXISTS "Supplier documents are viewable by authenticated users" ON public.supplier_documents;
+DROP POLICY IF EXISTS "Authenticated users can view import logs" ON public.ticket_import_logs;
+DROP POLICY IF EXISTS "Authenticated users can view settlements" ON public.ticket_office_settlements;
+DROP POLICY IF EXISTS "Ticket sales viewable by authenticated" ON public.ticket_sales;
+DROP POLICY IF EXISTS "Audit log is viewable by authenticated" ON public.transaction_audit_log;
+DROP POLICY IF EXISTS "Transaction docs viewable by authenticated" ON public.transaction_documents;
+DROP POLICY IF EXISTS "Transaction payments viewable by authenticated" ON public.transaction_payments;
+DROP POLICY IF EXISTS "Transactions are viewable by authenticated users" ON public.transactions;
+DROP POLICY IF EXISTS "Undo actions viewable by authenticated" ON public.undo_actions;
+DROP POLICY IF EXISTS "Venue reservations viewable by authenticated" ON public.venue_reservations;
+DROP POLICY IF EXISTS "Venues viewable by authenticated" ON public.venues;
+
+-- VERIFICACAO: nao deve sobrar nenhuma policy SELECT com `auth.uid() IS NOT NULL`
+SELECT c.relname AS table_name, p.polname
+FROM pg_policy p
+JOIN pg_class c ON c.oid=p.polrelid
+JOIN pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public'
+  AND p.polcmd IN ('r','*')
+  AND p.polpermissive=true
+  AND pg_get_expr(p.polqual, p.polrelid) = '(auth.uid() IS NOT NULL)'
+ORDER BY 1;
+
+-- Se a query acima devolver 0 linhas, faz COMMIT.
+-- Se aparecer algo inesperado, faz ROLLBACK e avisa.
+COMMIT;
