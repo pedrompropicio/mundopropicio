@@ -94,6 +94,10 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
           tickets_total: parseInt(ticketsTotal) || 0,
           status,
           pl_mode: plMode,
+          // Absorção de custos administrativos (só Single/Master)
+          absorbs_admin_costs: canAbsorb ? absorbsAdminCosts : false,
+          admin_window_start: canAbsorb && absorbsAdminCosts && adminWindowStart ? adminWindowStart : null,
+          admin_window_end: canAbsorb && absorbsAdminCosts && adminWindowEnd ? adminWindowEnd : null,
         } as any)
         .eq("id", event.id);
       if (error) throw error;
