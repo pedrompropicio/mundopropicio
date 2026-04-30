@@ -7,7 +7,7 @@ import { Loader2, Sparkles, Plus, Trash2, FileText, AlertTriangle } from "lucide
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { calcIvaAmount, calcTotalWithIva, roundCents } from "@/lib/iva";
+import { calcIvaAmount, calcTotalWithIva, roundCents, snapToStandardRate } from "@/lib/iva";
 import type { IvaRate } from "@/lib/mock-data";
 
 export interface IvaSplitLine {
