@@ -252,13 +252,16 @@ export async function parseFeverXlsx(
   const lots = Array.from(lotMap.values());
 
   // ----- SALES (uma linha por dia × tipo) -----
-  // Como o ficheiro de vendas NÃO tem preço, e podem existir vários preços para
-  // o mesmo Ticket Type, atribuímos cada venda ao lote do MESMO ticket_type
-  // proporcionalmente ao peso de cada preço. Na prática quase todos os tipos
-  // só têm 1 preço — o caso especial é "Passe fim de semana ... lote 4" (95/105).
+  // O ficheiro de vendas NÃO traz preço; o de preços diz quantos bilhetes
+  // existiram a cada preço. Quando há vários preços para o mesmo Ticket Type
+  // (ex.: "Passe fim de semana ... lote 4" a 95€ e 105€) usamos
+  // **chronological capacity-fill**: por ordem de data crescente e por ordem
+  // de preço crescente, vamos consumindo o "stock" de cada preço (totalQty
+  // do ficheiro PRICES). Quando o preço barato esgota, salta para o seguinte.
+  // Isto reproduz o que aconteceu na realidade — o lote esgotou e subiu.
   //
-  // Estratégia: para cada Ticket Type, somar qty diária por preço usando o peso
-  // (qty desse preço / qty total desse tipo no ficheiro de PRICES).
+  // Em caso de stock insuficiente no último preço, o excedente fica nesse
+  // mesmo preço (mais alto) com aviso. O total por tipo bate sempre.
 
   const lotsByTicketType = new Map<string, FeverParsedLot[]>();
   for (const lot of lots) {
@@ -266,14 +269,14 @@ export async function parseFeverXlsx(
     arr.push(lot);
     lotsByTicketType.set(lot.ticketType, arr);
   }
-
-  // Total qty por ticket type (do ficheiro PRICES)
-  const totalQtyByType = new Map<string, number>();
-  for (const lot of lots) {
-    totalQtyByType.set(lot.ticketType, (totalQtyByType.get(lot.ticketType) || 0) + lot.totalQty);
+  // ordena variantes por preço asc (barato esgota primeiro)
+  for (const arr of lotsByTicketType.values()) {
+    arr.sort((a, b) => a.unitPrice - b.unitPrice);
   }
 
-  const sales: FeverParsedSale[] = [];
+  // Coleciona vendas brutas por (ticket_type, date) preservando ordem
+  interface RawDailySale { date: string; weekday: string; ticketType: string; qty: number }
+  const raw: RawDailySale[] = [];
   let periodFrom: string | null = null;
   let periodTo: string | null = null;
   let totalQtySales = 0;
@@ -283,53 +286,89 @@ export async function parseFeverXlsx(
     if (!row || row.length === 0) continue;
     const [dateRaw, weekday, ticketType, qtyRaw] = row;
     if (!ticketType) continue;
-
     const date = toLocalDate(dateRaw);
     const qty = Number(qtyRaw) || 0;
     if (!date || qty <= 0) continue;
-
     if (!periodFrom || date < periodFrom) periodFrom = date;
     if (!periodTo || date > periodTo) periodTo = date;
     totalQtySales += qty;
+    raw.push({ date, weekday: String(weekday || ""), ticketType: (ticketType as string).trim(), qty });
+  }
 
-    const variants = lotsByTicketType.get((ticketType as string).trim());
+  // Agrupa por ticket_type, ordena por data crescente, e faz capacity-fill.
+  const byType = new Map<string, RawDailySale[]>();
+  for (const r of raw) {
+    const arr = byType.get(r.ticketType) || [];
+    arr.push(r);
+    byType.set(r.ticketType, arr);
+  }
+
+  const sales: FeverParsedSale[] = [];
+  for (const [ticketType, dailyRows] of byType.entries()) {
+    const variants = lotsByTicketType.get(ticketType);
     if (!variants || variants.length === 0) {
-      warnings.push(`Tipo de bilhete "${ticketType}" sem preço associado — venda ignorada (${qty} bilhetes em ${date}).`);
+      const skipped = dailyRows.reduce((s, r) => s + r.qty, 0);
+      warnings.push(`Tipo de bilhete "${ticketType}" sem preço associado — ${skipped} bilhete(s) ignorados.`);
       continue;
     }
 
     if (variants.length === 1) {
       const lot = variants[0];
-      sales.push({
-        purchaseDate: date,
-        weekday: String(weekday || ""),
-        lotKey: lot.key,
-        ticketType: lot.ticketType,
-        unitPrice: lot.unitPrice,
-        quantity: qty,
-      });
-    } else {
-      // Múltiplos preços para o mesmo Ticket Type → distribuir por peso.
-      // Evita arredondamentos: distribui sequencialmente e ajusta no último.
-      const totalForType = totalQtyByType.get((ticketType as string).trim()) || 0;
-      let remaining = qty;
-      for (let j = 0; j < variants.length; j++) {
-        const lot = variants[j];
-        const isLast = j === variants.length - 1;
-        const share = isLast
-          ? remaining
-          : Math.round((qty * lot.totalQty) / totalForType);
-        if (share > 0) {
-          sales.push({
-            purchaseDate: date,
-            weekday: String(weekday || ""),
-            lotKey: lot.key,
-            ticketType: lot.ticketType,
-            unitPrice: lot.unitPrice,
-            quantity: share,
-          });
-          remaining -= share;
+      for (const r of dailyRows) {
+        sales.push({
+          purchaseDate: r.date,
+          weekday: r.weekday,
+          lotKey: lot.key,
+          ticketType: lot.ticketType,
+          unitPrice: lot.unitPrice,
+          quantity: r.qty,
+        });
+      }
+      continue;
+    }
+
+    // Múltiplos preços → capacity-fill cronológico.
+    dailyRows.sort((a, b) => a.date.localeCompare(b.date));
+    const remainingByLot = new Map<string, number>(variants.map(v => [v.key, v.totalQty]));
+    let cursor = 0; // índice da variante atual (mais barata para mais cara)
+
+    for (const r of dailyRows) {
+      let need = r.qty;
+      while (need > 0) {
+        // avança até encontrar variante com stock
+        while (cursor < variants.length && (remainingByLot.get(variants[cursor].key) || 0) <= 0) {
+          cursor++;
         }
+        if (cursor >= variants.length) {
+          // sem stock — atribui tudo ao lote mais caro (último) com aviso
+          const fallback = variants[variants.length - 1];
+          sales.push({
+            purchaseDate: r.date,
+            weekday: r.weekday,
+            lotKey: fallback.key,
+            ticketType: fallback.ticketType,
+            unitPrice: fallback.unitPrice,
+            quantity: need,
+          });
+          warnings.push(
+            `Excedente de ${need} bilhete(s) "${ticketType}" em ${r.date} sem stock no ficheiro de preços — atribuídos a €${fallback.unitPrice.toFixed(2)}.`,
+          );
+          need = 0;
+          break;
+        }
+        const lot = variants[cursor];
+        const stock = remainingByLot.get(lot.key) || 0;
+        const take = Math.min(need, stock);
+        sales.push({
+          purchaseDate: r.date,
+          weekday: r.weekday,
+          lotKey: lot.key,
+          ticketType: lot.ticketType,
+          unitPrice: lot.unitPrice,
+          quantity: take,
+        });
+        remainingByLot.set(lot.key, stock - take);
+        need -= take;
       }
     }
   }
