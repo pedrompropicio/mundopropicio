@@ -21,6 +21,7 @@ import {
 const PAYMENT_ADVANCE = "__advance__";
 const PAYMENT_OUT_OF_POCKET = "__out_of_pocket__";
 import { extractJpegFromDng, isDngFile } from "@/lib/dng-extract-preview";
+import { pdfFirstPageToJpeg } from "@/lib/pdf-first-page-to-jpeg";
 import { SplitItemModal } from "./SplitItemModal";
 
 interface Props {
