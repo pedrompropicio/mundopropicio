@@ -18,6 +18,7 @@ interface Category {
   parent_id: string | null;
   is_active: boolean;
   event_required: boolean;
+  allocate_to_active_event?: boolean;
   children?: Category[];
 }
 
