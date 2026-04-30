@@ -873,9 +873,6 @@ function AnaliseIATab() {
                     <td className="px-2 py-1.5">
                       <span className="font-mono text-primary font-semibold">{r.chosen_code}</span>
                       {r.chosen_name && <div className="text-[10px] text-muted-foreground">{r.chosen_name}</div>}
-                      {r.source === "bp" && (r.chosen_code ?? "").startsWith("10.") && (
-                        <Badge variant="outline" className="mt-1 text-[9px] border-warning/50 text-warning">→ marca como Overhead</Badge>
-                      )}
                     </td>
                   </tr>
                 ))}
