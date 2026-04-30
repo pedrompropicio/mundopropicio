@@ -1,5 +1,5 @@
 -- ============================================================
--- FLATTEN 10.7.* L4 -> L3  (LIVE v5, multi-tenant focado)
+-- FLATTEN 10.7.* L4 -> L3  (LIVE v6, multi-tenant focado)
 -- Para empresas 7c858982... e 7d831e59...
 -- Estado actual:
 --   10.7 (L2 "Serviços e Estrutura")
@@ -32,8 +32,9 @@ WHERE ac.company_id = _co.company_id
   AND ac.code = '10.7';
 
 -- 2) Criar 10.8 Estrutura e 10.9 Tecnologia (L2, filhos de "10") por empresa, se não existirem
-INSERT INTO account_categories (id, company_id, parent_id, code, name)
-SELECT gen_random_uuid(), _co.company_id, p10.id, '10.8', 'Estrutura'
+-- IMPORTANTE: type é NOT NULL em Live.
+INSERT INTO account_categories (id, company_id, parent_id, code, name, type, is_active, event_required)
+SELECT gen_random_uuid(), _co.company_id, p10.id, '10.8', 'Estrutura', 'expense', true, true
 FROM _co
 JOIN account_categories p10
   ON p10.company_id = _co.company_id AND p10.code = '10' AND p10.parent_id IS NULL
@@ -42,8 +43,8 @@ WHERE NOT EXISTS (
   WHERE x.company_id = _co.company_id AND x.code = '10.8'
 );
 
-INSERT INTO account_categories (id, company_id, parent_id, code, name)
-SELECT gen_random_uuid(), _co.company_id, p10.id, '10.9', 'Tecnologia'
+INSERT INTO account_categories (id, company_id, parent_id, code, name, type, is_active, event_required)
+SELECT gen_random_uuid(), _co.company_id, p10.id, '10.9', 'Tecnologia', 'expense', true, true
 FROM _co
 JOIN account_categories p10
   ON p10.company_id = _co.company_id AND p10.code = '10' AND p10.parent_id IS NULL
@@ -52,28 +53,26 @@ WHERE NOT EXISTS (
   WHERE x.company_id = _co.company_id AND x.code = '10.9'
 );
 
--- 3) Re-parentar + renumerar as 17 folhas L4 (preservando IDs)
--- 3a) Folhas de 10.7.01.* -> filhos directos de 10.7 com códigos 10.7.01..03
-WITH p AS (
-  SELECT ac.id AS new_parent, ac.company_id
-  FROM account_categories ac
-  WHERE ac.code = '10.7'
-    AND ac.company_id IN (SELECT company_id FROM _co)
-)
-UPDATE account_categories l
-SET parent_id = p.new_parent,
-    code = CASE l.code
-      WHEN '10.7.01.01' THEN '10.7.01'
-      WHEN '10.7.01.02' THEN '10.7.01' -- placeholder, corrigido abaixo
-      ELSE l.code
-    END
-FROM p
-WHERE l.company_id = p.company_id
-  AND l.code LIKE '10.7.01.%';
+-- 3) Fase temporária: renumerar folhas para TMP_* antes de apagar os pais antigos
+-- Isto evita colisões com unique(company_id, code) enquanto 10.7.01/02/03 ainda existem.
+UPDATE account_categories SET code = 'TMP_10.7.01' WHERE code = '10.7.01.01' AND company_id IN (SELECT company_id FROM _co);
+UPDATE account_categories SET code = 'TMP_10.7.02' WHERE code = '10.7.01.02' AND company_id IN (SELECT company_id FROM _co);
+UPDATE account_categories SET code = 'TMP_10.7.03' WHERE code = '10.7.01.03' AND company_id IN (SELECT company_id FROM _co);
+UPDATE account_categories SET code = 'TMP_10.8.01' WHERE code = '10.7.02.01' AND company_id IN (SELECT company_id FROM _co);
+UPDATE account_categories SET code = 'TMP_10.8.02' WHERE code = '10.7.02.02' AND company_id IN (SELECT company_id FROM _co);
+UPDATE account_categories SET code = 'TMP_10.8.03' WHERE code = '10.7.02.03' AND company_id IN (SELECT company_id FROM _co);
+UPDATE account_categories SET code = 'TMP_10.9.01' WHERE code = '10.7.03.01' AND company_id IN (SELECT company_id FROM _co);
+UPDATE account_categories SET code = 'TMP_10.9.02' WHERE code = '10.7.03.02' AND company_id IN (SELECT company_id FROM _co);
+UPDATE account_categories SET code = 'TMP_10.9.03' WHERE code = '10.7.03.03' AND company_id IN (SELECT company_id FROM _co);
 
--- (corrigir os códigos 10.7.01.* individualmente p/ não chocar com unique)
-UPDATE account_categories SET code = '10.7.02' WHERE code = '10.7.01.02' AND company_id IN (SELECT company_id FROM _co);
-UPDATE account_categories SET code = '10.7.03' WHERE code = '10.7.01.03' AND company_id IN (SELECT company_id FROM _co);
+-- 4) Re-parentar folhas temporárias (preservando IDs)
+UPDATE account_categories l
+SET parent_id = p.id
+FROM account_categories p
+WHERE l.company_id = p.company_id
+  AND p.code = '10.7'
+  AND l.code IN ('TMP_10.7.01','TMP_10.7.02','TMP_10.7.03')
+  AND l.company_id IN (SELECT company_id FROM _co);
 
 -- 3b) Folhas de 10.7.02.* -> filhos de 10.8 com códigos 10.8.01..03
 WITH p AS (
