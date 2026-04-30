@@ -47,17 +47,15 @@ export function useCompany() {
     queryFn: async (): Promise<Company | null> => {
       if (!user || !role) return null;
 
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("company_id, active_company_id")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (profileError) throw profileError;
+      // Use the same server-side resolver that RLS uses. This prevents the
+      // header selector from showing the profile's base company while page data
+      // is already scoped to the selected active company.
+      const { data: resolvedCompanyId, error: resolveError } = await supabase.rpc(
+        "current_company_id" as any,
+      );
+      if (resolveError) throw resolveError;
 
-      const p = profile as any;
-      const effectiveId: string | null = isPlatformAdmin
-        ? p?.active_company_id ?? p?.company_id ?? null
-        : p?.company_id ?? null;
+      const effectiveId = (resolvedCompanyId as string | null) ?? null;
 
       if (!effectiveId) return null;
 
@@ -98,13 +96,8 @@ export function useCompany() {
 export async function getCurrentCompanyId(): Promise<string | null> {
   const { data } = await supabase.auth.getUser();
   if (!data.user) return null;
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("company_id, active_company_id")
-    .eq("id", data.user.id)
-    .maybeSingle();
-  const p = profile as any;
-  return p?.active_company_id ?? p?.company_id ?? null;
+  const { data: resolvedCompanyId } = await supabase.rpc("current_company_id" as any);
+  return (resolvedCompanyId as string | null) ?? null;
 }
 
 /**
