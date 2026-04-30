@@ -25,6 +25,7 @@ import Index from "./pages/Index";
 import Events from "./pages/Events";
 import EventDetail from "./pages/EventDetail";
 import EventSimulator from "./pages/EventSimulator";
+import EventSimulatorDemo from "./pages/EventSimulatorDemo";
 import Transactions from "./pages/Transactions";
 import IvaManagement from "./pages/IvaManagement";
 import Suppliers from "./pages/Suppliers";
