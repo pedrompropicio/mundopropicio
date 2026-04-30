@@ -36,7 +36,13 @@ export function useCompany() {
   const query = useQuery({
     queryKey: ["current-company", user?.id],
     enabled: !!user,
-    staleTime: 5 * 60_000,
+    // Tenant scope must always reflect the server. A stale value here causes
+    // the entire app to render data from the wrong company on boot or after
+    // a switch — keep it fresh and refetch on mount/focus.
+    staleTime: 0,
+    gcTime: 5 * 60_000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async (): Promise<Company | null> => {
       if (!user) return null;
 
