@@ -20,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, Trash2, Loader2, Save, Calculator } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Loader2, Save, Calculator, RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
 import {
@@ -28,6 +28,7 @@ import {
   computeScenarioRevenue, computeScenarioCosts, computeScenarioResult,
   computeScenarioKpis, solveBreakEven, computeIvaTable,
 } from "@/lib/event-simulator-coala";
+import { syncSimulatorFromSources } from "@/lib/event-simulator-sync";
 
 // ----- Tipos DB -----
 type DbConfig = {
@@ -221,7 +222,21 @@ export default function EventSimulator() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["sim-coala-costs", eventId] }),
   });
 
-  // ------- Cálculos -------
+  const syncFromSources = useMutation({
+    mutationFn: async () => {
+      if (!eventId) throw new Error("Sem evento");
+      return syncSimulatorFromSources(eventId);
+    },
+    onSuccess: (r) => {
+      toast({
+        title: "Simulador sincronizado",
+        description: `Sessões: +${r.sessionsCreated} criadas, ${r.sessionsUpdated} atualizadas. Custos: +${r.costLinesCreated} criadas, ${r.costLinesUpdated} atualizadas.`,
+      });
+      qc.invalidateQueries({ queryKey: ["sim-coala-inputs", eventId] });
+      qc.invalidateQueries({ queryKey: ["sim-coala-costs", eventId] });
+    },
+    onError: (e: any) => toast({ title: "Erro a sincronizar", description: e.message, variant: "destructive" }),
+  });
   const calcCfg: CoalaConfig = useMemo(() => ({
     ab_drink_avg_ticket: Number(localCfg?.default_drink_avg_ticket || 0),
     ab_food_avg_ticket: Number(localCfg?.default_food_avg_ticket || 0),
