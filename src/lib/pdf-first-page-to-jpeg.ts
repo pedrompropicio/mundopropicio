@@ -1,7 +1,6 @@
 // Renders the first page of a PDF File to a JPEG File suitable for OCR.
 // Uses pdfjs-dist with the bundled worker. Returns null if rendering fails.
 import * as pdfjsLib from "pdfjs-dist";
-// @ts-expect-error — Vite resolves the worker via ?url
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 // Configure worker once (idempotent).
