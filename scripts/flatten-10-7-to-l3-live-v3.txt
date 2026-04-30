@@ -101,11 +101,10 @@ SET code = map.new_code,
     is_active = true,
     event_required = true,
     updated_at = now()
-FROM map
-JOIN public.account_categories parent
-  ON parent.company_id = leaf.company_id
- AND parent.code = map.parent_code
-WHERE leaf.code = map.old_code;
+FROM map, public.account_categories parent
+WHERE leaf.code = map.old_code
+  AND parent.company_id = leaf.company_id
+  AND parent.code = map.parent_code;
 
 -- 6) Remover os nós intermédios antigos, agora sem filhos nem referências BP/TX
 DELETE FROM public.account_categories
