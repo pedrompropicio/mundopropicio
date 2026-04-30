@@ -323,7 +323,15 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
             <div className="text-muted-foreground leading-relaxed">
               Em vez de criar {lines.length} transações, regista <strong>uma só</strong> com taxa{" "}
               <strong>{totals.blendedRate}%</strong> (mais próxima do rácio real {totals.realRatio.toFixed(2)}%) e
-              base ajustada para que <strong>base + IVA = total da fatura</strong>. Aceite contabilisticamente.
+              base ajustada para que <strong>base + IVA = total da fatura</strong>.
+            </div>
+            <div className="flex gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-[11px] text-amber-700 dark:text-amber-300">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+              <div>
+                <strong>Usa apenas para despesas sem dedução de IVA</strong> (ex.: representação, camarim,
+                viaturas ligeiras). Para faturas com <strong>IVA dedutível</strong>, usa "Aplicar {lines.length} linhas"
+                para preservar a discriminação fiscal exigida na Modelo Periódica.
+              </div>
             </div>
             <div className="font-mono flex flex-wrap gap-x-4 gap-y-1">
               <span>Base: <strong>{totals.blendedBase.toFixed(2)}€</strong></span>
