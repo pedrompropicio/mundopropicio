@@ -125,7 +125,14 @@ SELECT
   company_id,
   COUNT(*) FILTER (WHERE depth >= 4) AS l4_hierarquia,
   COUNT(*) FILTER (WHERE code ~ '^10\.[0-9]+\.[0-9]+\.[0-9]+$') AS l4_codigo,
-  COUNT(*) FILTER (WHERE code IN ('10.7.01','10.7.02','10.7.03')) AS antigos_grupos,
+  COUNT(*) FILTER (WHERE id IN (
+    'd1072000-0000-0000-0000-000000000001'::uuid,
+    'd1073000-0000-0000-0000-000000000001'::uuid,
+    'd1074000-0000-0000-0000-000000000001'::uuid,
+    '7c754989-68bb-4ecc-9b2b-00651841e9ae'::uuid,
+    '56226c2d-de68-4253-8adc-22cb7504f9cb'::uuid,
+    'c97a8757-416d-4607-a59d-5fce3f9a3a7c'::uuid
+  )) AS antigos_grupos,
   COUNT(*) FILTER (WHERE code IN ('10.7','10.8','10.9')) AS novos_l2,
   COUNT(*) FILTER (WHERE code ~ '^10\.[789]\.[0-9]+$') AS novas_folhas_l3
 FROM tree
