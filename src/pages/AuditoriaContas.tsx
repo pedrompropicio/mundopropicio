@@ -699,6 +699,7 @@ function AnaliseIATab() {
                   <th className="px-2 py-2.5 w-8" />
                   <th className="px-3 py-2.5 text-left font-medium">Origem</th>
                   <th className="px-3 py-2.5 text-left font-medium">Descrição</th>
+                  <th className="px-3 py-2.5 text-right font-medium">Valor</th>
                   <th className="px-3 py-2.5 text-left font-medium">Evento</th>
                   <th className="px-3 py-2.5 text-left font-medium">Categoria atual</th>
                   <th className="px-3 py-2.5 text-left font-medium">Escolha</th>
@@ -734,6 +735,11 @@ function AnaliseIATab() {
                         <div className="font-medium truncate">{r.description}</div>
                         {r.specification && <div className="text-xs text-muted-foreground truncate">{r.specification}</div>}
                         {r.reason && <div className="text-[11px] text-muted-foreground italic mt-0.5">💡 {r.reason}</div>}
+                      </td>
+                      <td className="px-3 py-2 text-right text-xs tabular-nums whitespace-nowrap">
+                        {r.details?.amount != null
+                          ? formatInCurrency(Number(r.details.amount) || 0, (r.details.currency as any) || "EUR")
+                          : <span className="text-muted-foreground">—</span>}
                       </td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">{r.event_label}</td>
                       <td className="px-3 py-2 text-xs">
@@ -826,7 +832,7 @@ function AnaliseIATab() {
                     </tr>
                     {isExpanded && (
                       <tr key={`${rowKey}-detail`} className="bg-secondary/10">
-                        <td colSpan={8} className="px-6 py-3">
+                        <td colSpan={9} className="px-6 py-3">
                           <RowDetailPanel row={r} eventId={eventId} eventIds={scopedEventIds} categories={categories} eventLabelMap={eventLabelMap} />
                         </td>
                       </tr>
@@ -835,7 +841,7 @@ function AnaliseIATab() {
                   );
                 })}
                 {filteredRows.length === 0 && (
-                  <tr><td colSpan={8} className="text-center py-8 text-sm text-muted-foreground">Sem linhas para mostrar com este filtro.</td></tr>
+                  <tr><td colSpan={9} className="text-center py-8 text-sm text-muted-foreground">Sem linhas para mostrar com este filtro.</td></tr>
                 )}
               </tbody>
             </table>
