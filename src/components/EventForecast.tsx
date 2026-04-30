@@ -40,6 +40,7 @@ import PromoteToMasterModal, { type PromoteCandidate } from "@/components/Promot
 import OrphanAttachmentsResolver from "@/components/OrphanAttachmentsResolver";
 import { GenerateHistoricalModal, type XlsxRowForGeneration } from "@/components/GenerateHistoricalModal";
 import { MarkAsFechadoDialog } from "@/components/bp-versions/MarkAsFechadoDialog";
+import { SponsorsImportModal } from "@/components/SponsorsImportModal";
 import { FormalidadeHistoryPopover } from "@/components/bp-versions/FormalidadeHistoryPopover";
 import { FormalidadeBadge } from "@/components/bp-versions/FormalidadeBadge";
 import { BulkFormalidadePopover } from "@/components/bp-versions/BulkFormalidadePopover";
@@ -176,6 +177,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [promoteCandidates, setPromoteCandidates] = useState<PromoteCandidate[]>([]);
   const [showPromoteModal, setShowPromoteModal] = useState(false);
   const [showOrphanResolver, setShowOrphanResolver] = useState(false);
+  const [showSponsorsImport, setShowSponsorsImport] = useState(false);
   // Cenário ativo na vista (null = versão Ativa). Sincronizado entre BP/Bilheteira/Cachê
   // através do EventScenarioContext (provider em EventDetail).
   const { selectedVersionId, setSelectedVersionId, isScenarioMode } = useEventScenario();
@@ -1984,10 +1986,26 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 >
                   <Copy className="h-3.5 w-3.5" /> Copiar BP
                 </button>
+                <button
+                  onClick={() => setShowSponsorsImport(true)}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                  title="Importar aba 'Pipe' do BP: cria linhas BP de patrocínios e (opcional) transações de receita"
+                >
+                  <Sparkles className="h-3.5 w-3.5" /> Importar Patrocínios
+                </button>
               </>
             )}
           </div>
         </div>
+
+        <SponsorsImportModal
+          open={showSponsorsImport}
+          onOpenChange={setShowSponsorsImport}
+          eventId={eventId}
+          eventName={eventName || ""}
+          eventDate={eventDate}
+        />
+
 
         <TabsContent value="forecasts">
           {isLoading ? (
