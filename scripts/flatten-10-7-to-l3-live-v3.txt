@@ -1,24 +1,30 @@
 -- =====================================================================
--- CORREÇÃO FINAL — APLANAMENTO 10.7.* L4→L3 — Live multi-empresa
+-- CORREÇÃO FINAL v4 — APLANAMENTO 10.7.* L4→L3 — Live multi-empresa
 -- Situação corrigida: ainda existem contas em 4 níveis sob 10.7.*
 -- IDs das folhas são preservados; BP/TX continuam ligados às mesmas folhas.
 -- =====================================================================
 -- INSTRUÇÕES:
 --   1) Cola TUDO no SQL Editor com ambiente Live selecionado
 --   2) Run
---   3) Confirma a linha final:
---      l4_hierarquia=0 | l4_codigo=0 | folhas_l3_10_7_9=18 |
---      pais_l2_10_7_9=6 | bp_preservados=17 | tx_preservados=3
---   4) Se bater certo, corre depois só: COMMIT;
---   5) Se não bater certo, corre: ROLLBACK;
+--   3) Confirma a linha final por empresa:
+--      l4_hierarquia=0 | l4_codigo=0 | antigos_grupos=0
+--   4) Se TODAS as linhas estiverem corretas, corre depois só: COMMIT;
+--   5) Se qualquer linha falhar, corre: ROLLBACK;
 -- =====================================================================
 
 BEGIN;
 
--- 1) Criar pais L2 10.8 / 10.9 por empresa, se ainda não existirem
+-- 1) Empresas afetadas: só as que ainda têm códigos 10.7.* de 4 níveis
+CREATE TEMP TABLE _affected_companies AS
+SELECT DISTINCT company_id
+FROM public.account_categories
+WHERE code ~ '^10\.7\.[0-9]{2}\.[0-9]{2}$';
+
+-- 2) Criar pais L2 10.8 / 10.9 por empresa afetada, se ainda não existirem
 INSERT INTO public.account_categories (id, code, name, type, parent_id, company_id, is_active, event_required)
 SELECT gen_random_uuid(), v.code, v.name, 'expense', root10.id, root10.company_id, true, true
 FROM public.account_categories root10
+JOIN _affected_companies ac ON ac.company_id = root10.company_id
 CROSS JOIN (VALUES ('10.8', 'Estrutura'), ('10.9', 'Tecnologia')) AS v(code, name)
 WHERE root10.code = '10'
   AND NOT EXISTS (
@@ -28,7 +34,7 @@ WHERE root10.code = '10'
       AND existing.code = v.code
   );
 
--- 2) Garantir 10.7 como pai L2 "Serviços"
+-- 3) Garantir 10.7 como pai L2 "Serviços"
 UPDATE public.account_categories c
 SET name = 'Serviços',
     parent_id = root10.id,
@@ -36,6 +42,7 @@ SET name = 'Serviços',
     event_required = true,
     updated_at = now()
 FROM public.account_categories root10
+JOIN _affected_companies ac ON ac.company_id = root10.company_id
 WHERE c.company_id = root10.company_id
   AND c.code = '10.7'
   AND root10.code = '10';
