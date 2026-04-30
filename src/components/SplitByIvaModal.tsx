@@ -314,6 +314,38 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
           )}
         </div>
 
+        {/* Alternativa IVA médio (snap) — 1 só transação, contabilisticamente aceite */}
+        {onApplyBlended && totals.baseSum > 0 && totals.ivaSum > 0 && (
+          <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-xs space-y-2">
+            <div className="font-medium text-foreground">
+              Alternativa: aplicar como <span className="text-primary">IVA médio</span> (1 transação)
+            </div>
+            <div className="text-muted-foreground leading-relaxed">
+              Em vez de criar {lines.length} transações, regista <strong>uma só</strong> com taxa{" "}
+              <strong>{totals.blendedRate}%</strong> (mais próxima do rácio real {totals.realRatio.toFixed(2)}%) e
+              base ajustada para que <strong>base + IVA = total da fatura</strong>. Aceite contabilisticamente.
+            </div>
+            <div className="font-mono flex flex-wrap gap-x-4 gap-y-1">
+              <span>Base: <strong>{totals.blendedBase.toFixed(2)}€</strong></span>
+              <span>IVA {totals.blendedRate}%: <strong>{totals.blendedIva.toFixed(2)}€</strong></span>
+              <span>Total: <strong>{totals.grandTotal.toFixed(2)}€</strong></span>
+              {Math.abs(totals.blendedDeviation) > 0.01 && (
+                <span className="text-amber-600 dark:text-amber-400">
+                  Desvio IVA vs. real: {totals.blendedDeviation > 0 ? "+" : ""}{totals.blendedDeviation.toFixed(2)}€
+                </span>
+              )}
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => onApplyBlended(totals.blendedBase, totals.blendedRate)}
+            >
+              Aplicar IVA médio ({totals.blendedRate}%)
+            </Button>
+          </div>
+        )}
+
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose} type="button">
             Cancelar
