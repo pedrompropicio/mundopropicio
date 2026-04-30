@@ -565,6 +565,24 @@ export default function ReportPL() {
 
   const activeEvents = selectedEventIds.length > 0 ? events.filter((e) => selectedEventIds.includes(e.id)) : events;
 
+  // Mapa de absorção de custos administrativos (Group 10) por evento ativo.
+  // Calculado uma única vez sobre todas as transações.
+  const absorptionMap = useMemo(
+    () => buildAbsorptionMap(transactions as any, categories as any, events as any),
+    [transactions, categories, events]
+  );
+  // Índice inverso: eventId absorvedor -> lista de transações absorvidas
+  const absorbedByEvent = useMemo(() => {
+    const idx: Record<string, any[]> = {};
+    (transactions as any[]).forEach((t) => {
+      const eid = absorptionMap.get(t.id);
+      if (!eid) return;
+      if (!idx[eid]) idx[eid] = [];
+      idx[eid].push(t);
+    });
+    return idx;
+  }, [transactions, absorptionMap]);
+
   // Helper: get effective transactions/forecasts for an event (with proration)
   function getEffectiveData(eventId: string) {
     let evtF = forecasts.filter((f: any) => f.event_id === eventId);
@@ -589,6 +607,14 @@ export default function ReportPL() {
         evtF = [...evtF, ...childF];
         evtT = [...evtT, ...childT];
       });
+    }
+    // Custos corporativos absorvidos por este evento (Fase 3 da alocação Group 10).
+    // Apenas Master/Single absorvem (Splits nunca aparecem como chave em absorbedByEvent).
+    const absorbed = absorbedByEvent[eventId];
+    if (absorbed && absorbed.length > 0) {
+      // Marcar como absorvidas para eventual debug/UI futura
+      const tagged = absorbed.map((t: any) => ({ ...t, _absorbed_admin: true }));
+      evtT = [...evtT, ...tagged];
     }
     return { evtF, evtT };
   }
