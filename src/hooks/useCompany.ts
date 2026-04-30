@@ -80,7 +80,12 @@ export function useCompany() {
   return {
     company: query.data ?? null,
     companyId: query.data?.id ?? null,
-    isLoading: canResolveCompany && (query.isLoading || (isPlatformAdmin && query.isFetching)),
+    // Only block on the very first load (no cached data yet). Background refetches
+    // (refetchOnMount/refetchOnWindowFocus) must NOT bring the fullscreen gate back
+    // — that's what was leaving platform_admin stuck on "A sincronizar empresa ativa…".
+    isLoading: canResolveCompany && query.isLoading && !query.data,
+    isError: query.isError,
+    error: query.error as Error | null,
     isPlatformAdmin,
     refetch: query.refetch,
   };
