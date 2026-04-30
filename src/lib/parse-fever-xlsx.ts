@@ -32,7 +32,9 @@ export interface FeverParsedLot {
   key: string;
   /** "Ticket Type" original do Fever */
   ticketType: string;
-  /** preço unitário bruto (com surcharge ≈ proporcional) */
+  /** preço facial original do Fever (coluna Ticket Price) */
+  ticketPrice: number;
+  /** preço unitário efetivo bruto, derivado de Total Gross Revenue / Tickets sold */
   unitPrice: number;
   /** preço líquido sugerido (sem IVA 6%) — calculado como unitPrice / 1.06 */
   unitPriceNet: number;
@@ -61,6 +63,8 @@ export interface FeverParsedSale {
   ticketType: string;
   unitPrice: number;
   quantity: number;
+  /** valor bruto exato da linha, distribuído a partir de Total Gross Revenue */
+  totalValue: number;
 }
 
 export interface FeverParseResult {
@@ -85,6 +89,19 @@ const norm = (s: string) =>
 
 function lotKey(ticketType: string, price: number): string {
   return `${ticketType.trim()}|${Number(price).toFixed(2)}`;
+}
+
+function roundCents(value: number): number {
+  return Math.round((Number(value) || 0) * 100) / 100;
+}
+
+function headerIndex(headers: string[]): Map<string, number> {
+  return new Map(headers.map((header, idx) => [norm(header), idx]));
+}
+
+function cellByHeader(row: any[], indexes: Map<string, number>, header: string): any {
+  const idx = indexes.get(norm(header));
+  return idx === undefined ? undefined : row[idx];
 }
 
 function toLocalDate(value: any): string | null {
@@ -202,6 +219,7 @@ export async function parseFeverXlsx(
 
   const salesHeaders = (salesRowsRaw[0] || []) as string[];
   const pricesHeaders = (pricesRowsRaw[0] || []) as string[];
+  const pricesHeaderIndexes = headerIndex(pricesHeaders);
 
   if (!isFeverSalesFormat(salesHeaders)) {
     throw new Error(
@@ -219,7 +237,12 @@ export async function parseFeverXlsx(
   for (let i = 1; i < pricesRowsRaw.length; i++) {
     const row = pricesRowsRaw[i] as any[];
     if (!row || row.length === 0) continue;
-    const [ticketType, ticketPrice, _isAddon, sold, _inv, totalGross, _ticketGross, _surcharge, discount, userPayment] = row;
+    const ticketType = cellByHeader(row, pricesHeaderIndexes, "Ticket Type");
+    const ticketPrice = cellByHeader(row, pricesHeaderIndexes, "Ticket Price");
+    const sold = cellByHeader(row, pricesHeaderIndexes, "Tickets sold");
+    const totalGross = cellByHeader(row, pricesHeaderIndexes, "Total Gross Revenue");
+    const discount = cellByHeader(row, pricesHeaderIndexes, "Discount");
+    const userPayment = cellByHeader(row, pricesHeaderIndexes, "User Payment");
     if (!ticketType) continue;
     const price = Number(ticketPrice);
     if (!Number.isFinite(price)) continue;
@@ -232,18 +255,23 @@ export async function parseFeverXlsx(
       continue;
     }
 
+    const soldQty = Number(sold) || 0;
+    const grossTotal = Number(totalGross) || 0;
+    const effectiveUnitPrice = soldQty > 0 && grossTotal > 0 ? grossTotal / soldQty : price;
+
     lotMap.set(key, {
       key,
       ticketType: ticketType.trim(),
-      unitPrice: price,
-      unitPriceNet: +(price / (1 + FEVER_IVA_RATE / 100)).toFixed(4),
+      ticketPrice: price,
+      unitPrice: effectiveUnitPrice,
+      unitPriceNet: +(effectiveUnitPrice / (1 + FEVER_IVA_RATE / 100)).toFixed(4),
       lotName: meta.lotName,
       zoneName: meta.zoneName,
       zoneKind: meta.zoneKind,
       lotKind: meta.lotKind,
       daySlot: meta.daySlot,
-      totalQty: Number(sold) || 0,
-      totalGross: Number(totalGross) || 0,
+      totalQty: soldQty,
+      totalGross: grossTotal,
       totalDiscount: Number(discount) || 0,
       totalUserPayment: Number(userPayment) || 0,
     });
@@ -271,7 +299,7 @@ export async function parseFeverXlsx(
   }
   // ordena variantes por preço asc (barato esgota primeiro)
   for (const arr of lotsByTicketType.values()) {
-    arr.sort((a, b) => a.unitPrice - b.unitPrice);
+    arr.sort((a, b) => a.ticketPrice - b.ticketPrice);
   }
 
   // Coleciona vendas brutas por (ticket_type, date) preservando ordem
@@ -322,6 +350,7 @@ export async function parseFeverXlsx(
           ticketType: lot.ticketType,
           unitPrice: lot.unitPrice,
           quantity: r.qty,
+          totalValue: roundCents(r.qty * lot.unitPrice),
         });
       }
       continue;
@@ -349,6 +378,7 @@ export async function parseFeverXlsx(
             ticketType: fallback.ticketType,
             unitPrice: fallback.unitPrice,
             quantity: need,
+            totalValue: roundCents(need * fallback.unitPrice),
           });
           warnings.push(
             `Excedente de ${need} bilhete(s) "${ticketType}" em ${r.date} sem stock no ficheiro de preços — atribuídos a €${fallback.unitPrice.toFixed(2)}.`,
@@ -366,10 +396,30 @@ export async function parseFeverXlsx(
           ticketType: lot.ticketType,
           unitPrice: lot.unitPrice,
           quantity: take,
+          totalValue: roundCents(take * lot.unitPrice),
         });
         remainingByLot.set(lot.key, stock - take);
         need -= take;
       }
+    }
+  }
+
+  // Ajusta resíduos de cêntimos por lote para que Σ total_value = Total Gross Revenue do Fever.
+  const salesByLotKey = new Map<string, FeverParsedSale[]>();
+  for (const sale of sales) {
+    const arr = salesByLotKey.get(sale.lotKey) || [];
+    arr.push(sale);
+    salesByLotKey.set(sale.lotKey, arr);
+  }
+  for (const lot of lots) {
+    const lotSales = salesByLotKey.get(lot.key) || [];
+    if (lotSales.length === 0) continue;
+    const importedQty = lotSales.reduce((sum, sale) => sum + sale.quantity, 0);
+    const importedGross = roundCents(lotSales.reduce((sum, sale) => sum + sale.totalValue, 0));
+    const diff = roundCents(lot.totalGross - importedGross);
+    if (importedQty === lot.totalQty && Math.abs(diff) >= 0.01) {
+      const lastSale = lotSales[lotSales.length - 1];
+      lastSale.totalValue = roundCents(lastSale.totalValue + diff);
     }
   }
 

@@ -169,7 +169,7 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
       if (zones.length > 0 && feverAccountId) {
         const { data: salesData } = await supabase
           .from("ticket_sales")
-          .select("lot_id, quantity, unit_price")
+          .select("lot_id, quantity, unit_price, total_value")
           .in("zone_id", zones.map((z) => z.id))
           .eq("financial_account_id", feverAccountId);
         currentSales = salesData || [];
@@ -199,7 +199,7 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
             (l) =>
               l.zone_id === match?.id &&
               norm(l.name) === norm(lot.lotName) &&
-              Math.abs(l.price - lot.unitPrice) < 0.01,
+              (Math.abs(l.price - lot.unitPrice) < 0.01 || Math.abs(l.price - lot.ticketPrice) < 0.01),
           );
           lotMapping[lot.key] = existingLot?.id || null;
         }
@@ -231,7 +231,7 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
           .reduce(
             (acc, s) => ({
               qty: acc.qty + (s.quantity || 0),
-              revenue: acc.revenue + (s.quantity || 0) * (s.unit_price || 0),
+              revenue: acc.revenue + (s.total_value != null ? Number(s.total_value) : (s.quantity || 0) * (s.unit_price || 0)),
             }),
             { qty: 0, revenue: 0 },
           );
@@ -373,6 +373,15 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
           const lot = m.group.lots[j];
           const existingLotId = m.lotMapping[lot.key];
           if (existingLotId) {
+            const { error } = await supabase
+              .from("event_ticket_lots")
+              .update({
+                price: lot.unitPrice,
+                quantity: lot.totalQty,
+                iva_rate: FEVER_IVA_RATE,
+              })
+              .eq("id", existingLotId);
+            if (error) throw error;
             resolvedLotIds[lot.key] = existingLotId;
           } else {
             const { data, error } = await supabase
@@ -442,7 +451,7 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
         sale_date: s.purchaseDate,
         quantity: s.quantity,
         unit_price: s.unitPrice,
-        total_value: +(s.quantity * s.unitPrice).toFixed(2),
+        total_value: s.totalValue,
         financial_account_id: feverAccountId,
         source: "fever_import",
         notes: `Fever • ${s.weekday} • ${s.ticketType}`,

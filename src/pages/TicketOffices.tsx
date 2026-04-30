@@ -70,7 +70,7 @@ export default function TicketOffices() {
       const zoneIds = zones.map((z: any) => z.id);
       const { data: sales, error: sErr } = await supabase
         .from("ticket_sales")
-        .select("zone_id, quantity, unit_price, financial_account_id")
+        .select("zone_id, quantity, unit_price, total_value, financial_account_id")
         .in("zone_id", zoneIds);
       if (sErr) throw sErr;
       return sales || [];
@@ -134,7 +134,7 @@ export default function TicketOffices() {
         const saleEventId = zoneEventMap[s.zone_id];
         if (saleEventId && assignedEvents.has(saleEventId)) {
           if (!s.financial_account_id || s.financial_account_id === o.id) {
-            total += s.quantity * Number(s.unit_price);
+            total += s.total_value != null ? Number(s.total_value) : s.quantity * Number(s.unit_price);
           }
         }
       });
