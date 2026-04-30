@@ -1,0 +1,35 @@
+---
+name: Multi-tenant leaky SELECT policies fix (Live 2026-04-30)
+description: 54 policies SELECT legacy `auth.uid() IS NOT NULL` em Live coexistiam com `company_isolation_*` e furavam isolamento (PERMISSIVE OR-combinadas); removidas via scripts/fix-multi-tenant-leaky-policies-live.txt
+type: constraint
+---
+
+## Sintoma reportado
+Utilizador autenticado como `pedroneto@mundopropicio.com` (active_company = Mundo Propício) via no Eventos o "Coala Festival Portugal 2026", que pertence à empresa `Coala Festival Portugal`. Só "organizava" depois de entrar num evento e voltar (refetch/filtro client-side por company_id).
+
+## Causa
+54 tabelas em Live tinham 2 policies SELECT PERMISSIVE coexistentes:
+1. Legacy: `(auth.uid() IS NOT NULL)` — qualquer autenticado vê tudo
+2. Nova: `company_id = current_company_id()` — isolamento por tenant
+
+Como PERMISSIVE policies são combinadas por **OR**, a legacy ganhava sempre e qualquer user via dados de qualquer empresa. Em Test estas policies já tinham sido limpas; em Live ficaram da migração antiga (BATCH-8 não as removeu).
+
+## Fix aplicado
+Script `scripts/fix-multi-tenant-leaky-policies-live.txt` (BEGIN + 54 DROP POLICY IF EXISTS + verificação + COMMIT). Aplicado em Live a 2026-04-30. Verificação pós-fix devolveu 0 linhas.
+
+## Regra para futuro
+Sempre que criar policies `company_isolation_*` numa tabela, verificar que **não existe nenhuma policy SELECT PERMISSIVE com expressão genérica** (`auth.uid() IS NOT NULL`, `true`, `is_authenticated()`) na mesma tabela — caso contrário o isolamento é furado silenciosamente.
+
+Query de auditoria:
+```sql
+SELECT c.relname, p.polname, pg_get_expr(p.polqual, p.polrelid)
+FROM pg_policy p
+JOIN pg_class c ON c.oid=p.polrelid
+JOIN pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public'
+  AND p.polcmd IN ('r','*')
+  AND p.polpermissive=true
+  AND pg_get_expr(p.polqual, p.polrelid) IN ('(auth.uid() IS NOT NULL)', 'true');
+```
+
+Deve devolver 0 linhas em Test e em Live.
