@@ -240,18 +240,23 @@ export async function parseFeverXlsx(
       continue;
     }
 
+    const soldQty = Number(sold) || 0;
+    const grossTotal = Number(totalGross) || 0;
+    const effectiveUnitPrice = soldQty > 0 && grossTotal > 0 ? grossTotal / soldQty : price;
+
     lotMap.set(key, {
       key,
       ticketType: ticketType.trim(),
-      unitPrice: price,
-      unitPriceNet: +(price / (1 + FEVER_IVA_RATE / 100)).toFixed(4),
+      ticketPrice: price,
+      unitPrice: effectiveUnitPrice,
+      unitPriceNet: +(effectiveUnitPrice / (1 + FEVER_IVA_RATE / 100)).toFixed(4),
       lotName: meta.lotName,
       zoneName: meta.zoneName,
       zoneKind: meta.zoneKind,
       lotKind: meta.lotKind,
       daySlot: meta.daySlot,
-      totalQty: Number(sold) || 0,
-      totalGross: Number(totalGross) || 0,
+      totalQty: soldQty,
+      totalGross: grossTotal,
       totalDiscount: Number(discount) || 0,
       totalUserPayment: Number(userPayment) || 0,
     });
@@ -330,6 +335,7 @@ export async function parseFeverXlsx(
           ticketType: lot.ticketType,
           unitPrice: lot.unitPrice,
           quantity: r.qty,
+          totalValue: roundCents(r.qty * lot.unitPrice),
         });
       }
       continue;
@@ -357,6 +363,7 @@ export async function parseFeverXlsx(
             ticketType: fallback.ticketType,
             unitPrice: fallback.unitPrice,
             quantity: need,
+            totalValue: roundCents(need * fallback.unitPrice),
           });
           warnings.push(
             `Excedente de ${need} bilhete(s) "${ticketType}" em ${r.date} sem stock no ficheiro de preços — atribuídos a €${fallback.unitPrice.toFixed(2)}.`,
@@ -374,6 +381,7 @@ export async function parseFeverXlsx(
           ticketType: lot.ticketType,
           unitPrice: lot.unitPrice,
           quantity: take,
+          totalValue: roundCents(take * lot.unitPrice),
         });
         remainingByLot.set(lot.key, stock - take);
         need -= take;
