@@ -115,11 +115,37 @@ WHERE leaf.code = map.old_code
   AND parent.company_id = leaf.company_id
   AND parent.code = map.parent_code;
 
--- 6) Remover os nós intermédios antigos, agora sem filhos nem referências BP/TX
+-- 7) Remover os nós intermédios antigos, agora sem filhos nem referências BP/TX
 DELETE FROM public.account_categories
-WHERE code IN ('__OLD_10.7.01', '__OLD_10.7.02', '__OLD_10.7.03');
+WHERE code IN ('__OLD_10.7.01', '__OLD_10.7.02', '__OLD_10.7.03')
+  AND company_id IN (SELECT company_id FROM _affected_companies);
 
--- 7) Auditoria final real por parent_id + por código
+-- 8) Corrigir eventuais remanescentes com código antigo, preservando UUIDs
+WITH map(old_code, new_code, parent_code) AS (
+  VALUES
+    ('10.7.01.01', '10.7.01', '10.7'),
+    ('10.7.01.02', '10.7.02', '10.7'),
+    ('10.7.01.03', '10.7.03', '10.7'),
+    ('10.7.02.01', '10.8.01', '10.8'),
+    ('10.7.02.02', '10.8.02', '10.8'),
+    ('10.7.02.03', '10.8.03', '10.8'),
+    ('10.7.03.01', '10.9.01', '10.9'),
+    ('10.7.03.02', '10.9.02', '10.9'),
+    ('10.7.03.03', '10.9.03', '10.9')
+)
+UPDATE public.account_categories leaf
+SET code = map.new_code,
+    parent_id = parent.id,
+    is_active = true,
+    event_required = true,
+    updated_at = now()
+FROM map, public.account_categories parent
+WHERE leaf.code = map.old_code
+  AND leaf.company_id IN (SELECT company_id FROM _affected_companies)
+  AND parent.company_id = leaf.company_id
+  AND parent.code = map.parent_code;
+
+-- 9) Auditoria final real por parent_id + por código
 WITH RECURSIVE tree AS (
   SELECT id, code, name, parent_id, company_id, 1 AS depth
   FROM public.account_categories
