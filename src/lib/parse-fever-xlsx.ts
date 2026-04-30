@@ -361,9 +361,9 @@ export async function parseFeverXlsx(
             weekday: r.weekday,
             lotKey: fallback.key,
             ticketType: fallback.ticketType,
-            unitPrice: fallback.unitPrice,
-            quantity: need,
-            totalValue: roundCents(need * fallback.unitPrice),
+              unitPrice: fallback.unitPrice,
+              quantity: need,
+              totalValue: roundCents(need * fallback.unitPrice),
           });
           warnings.push(
             `Excedente de ${need} bilhete(s) "${ticketType}" em ${r.date} sem stock no ficheiro de preços — atribuídos a €${fallback.unitPrice.toFixed(2)}.`,
@@ -386,6 +386,25 @@ export async function parseFeverXlsx(
         remainingByLot.set(lot.key, stock - take);
         need -= take;
       }
+    }
+  }
+
+  // Ajusta resíduos de cêntimos por lote para que Σ total_value = Total Gross Revenue do Fever.
+  const salesByLotKey = new Map<string, FeverParsedSale[]>();
+  for (const sale of sales) {
+    const arr = salesByLotKey.get(sale.lotKey) || [];
+    arr.push(sale);
+    salesByLotKey.set(sale.lotKey, arr);
+  }
+  for (const lot of lots) {
+    const lotSales = salesByLotKey.get(lot.key) || [];
+    if (lotSales.length === 0) continue;
+    const importedQty = lotSales.reduce((sum, sale) => sum + sale.quantity, 0);
+    const importedGross = roundCents(lotSales.reduce((sum, sale) => sum + sale.totalValue, 0));
+    const diff = roundCents(lot.totalGross - importedGross);
+    if (importedQty === lot.totalQty && Math.abs(diff) >= 0.01) {
+      const lastSale = lotSales[lotSales.length - 1];
+      lastSale.totalValue = roundCents(lastSale.totalValue + diff);
     }
   }
 
