@@ -174,10 +174,21 @@ Deno.serve(async (req) => {
       .eq("id", transaction_id);
 
     if (updateError) {
-      return new Response(JSON.stringify({ error: updateError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      console.error("[update-transaction] update failed", {
+        transaction_id,
+        sanitizedUpdates,
+        rawUpdates: updates,
+        error: updateError,
       });
+      return new Response(
+        JSON.stringify({
+          error: updateError.message,
+          details: updateError.details ?? null,
+          hint: updateError.hint ?? null,
+          code: updateError.code ?? null,
+        }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Propagate changes to child split transactions
