@@ -78,7 +78,7 @@ type DbCostLine = {
   display_order: number;
 };
 
-type AccountCategory = { id: string; code: string; name: string; level: number };
+type AccountCategory = { id: string; code: string; name: string };
 
 const fmt = (v: number) => formatCurrency(Number.isFinite(v) ? v : 0);
 const fmtNum = (v: number) => (Number.isFinite(v) ? v : 0).toLocaleString("pt-PT", { maximumFractionDigits: 0 });
