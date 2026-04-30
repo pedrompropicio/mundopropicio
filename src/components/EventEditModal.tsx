@@ -23,8 +23,13 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
   const [ticketsTotal, setTicketsTotal] = useState(String(event.tickets_total || ""));
   const [status, setStatus] = useState(event.status);
   const [plMode, setPlMode] = useState(event.pl_mode || "passive");
+  const [absorbsAdminCosts, setAbsorbsAdminCosts] = useState<boolean>(!!event.absorbs_admin_costs);
+  const [adminWindowStart, setAdminWindowStart] = useState<string>(event.admin_window_start || "");
+  const [adminWindowEnd, setAdminWindowEnd] = useState<string>(event.admin_window_end || "");
 
   const eventType = event.event_type || "simple";
+  const isSplit = !!event.parent_event_id;
+  const canAbsorb = !isSplit; // Só Single ou Master podem absorver (trigger DB também valida)
 
   // Festival dates
   const { data: festivalDates = [] } = useQuery({
@@ -89,6 +94,10 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
           tickets_total: parseInt(ticketsTotal) || 0,
           status,
           pl_mode: plMode,
+          // Absorção de custos administrativos (só Single/Master)
+          absorbs_admin_costs: canAbsorb ? absorbsAdminCosts : false,
+          admin_window_start: canAbsorb && absorbsAdminCosts && adminWindowStart ? adminWindowStart : null,
+          admin_window_end: canAbsorb && absorbsAdminCosts && adminWindowEnd ? adminWindowEnd : null,
         } as any)
         .eq("id", event.id);
       if (error) throw error;
@@ -127,7 +136,31 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
       toast({ title: "Preencha o nome e data do evento", variant: "destructive" });
       return;
     }
+    if (canAbsorb && absorbsAdminCosts) {
+      if (!adminWindowStart || !adminWindowEnd) {
+        toast({ title: "Defina a janela administrativa (início e fim)", variant: "destructive" });
+        return;
+      }
+      if (adminWindowStart > adminWindowEnd) {
+        toast({ title: "A data de início da janela tem de ser ≤ à data de fim", variant: "destructive" });
+        return;
+      }
+    }
     updateMutation.mutate();
+  };
+
+  // Toggle absorção: ao ativar pela 1ª vez, sugerir janela default (10 meses antes + 2 depois da data do evento)
+  const handleToggleAbsorb = (checked: boolean) => {
+    setAbsorbsAdminCosts(checked);
+    if (checked && date && (!adminWindowStart || !adminWindowEnd)) {
+      const eventDate = new Date(date + "T00:00:00");
+      const start = new Date(eventDate); start.setMonth(start.getMonth() - 10);
+      const end = new Date(eventDate); end.setMonth(end.getMonth() + 2);
+      const fmt = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      setAdminWindowStart(fmt(start));
+      setAdminWindowEnd(fmt(end));
+    }
   };
 
   const addFestivalDate = () => {
@@ -280,6 +313,44 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
               />
             </div>
           </div>
+
+          {/* Absorção de Custos Administrativos */}
+          {canAbsorb ? (
+            <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+              <div className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  id="ev_absorbs_admin"
+                  checked={absorbsAdminCosts}
+                  onChange={(e) => handleToggleAbsorb(e.target.checked)}
+                  className="mt-0.5 rounded border-border"
+                />
+                <label htmlFor="ev_absorbs_admin" className="text-xs leading-relaxed cursor-pointer flex-1">
+                  <span className="font-semibold text-primary">Este evento absorve custos administrativos</span>
+                  <span className="block text-[10px] text-muted-foreground mt-0.5">
+                    Para empresas de evento único: contas administrativas marcadas no Plano de Contas (Group 10) com despesas dentro da janela abaixo serão alocadas ao DRE deste evento, em vez do DRE empresarial anual.
+                  </span>
+                </label>
+              </div>
+
+              {absorbsAdminCosts && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-muted-foreground">Janela: início</label>
+                    <DatePicker value={adminWindowStart} onChange={setAdminWindowStart} />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-muted-foreground">Janela: fim</label>
+                    <DatePicker value={adminWindowEnd} onChange={setAdminWindowEnd} />
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border/50 bg-muted/20 p-3 text-[10px] text-muted-foreground">
+              Sub-eventos (Splits) não podem absorver custos administrativos — só o evento Master ou eventos Single.
+            </div>
+          )}
 
           <button
             type="submit"

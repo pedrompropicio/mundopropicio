@@ -17,6 +17,7 @@ interface Category {
   parent_id: string | null;
   is_active: boolean;
   event_required: boolean;
+  allocate_to_active_event?: boolean;
 }
 
 interface CategoryFormModalProps {
@@ -58,6 +59,7 @@ export default function CategoryFormModal({
   const [type, setType] = useState<string>(defaultType);
   const [parentId, setParentId] = useState<string>("");
   const [eventRequired, setEventRequired] = useState(true);
+  const [allocateToActiveEvent, setAllocateToActiveEvent] = useState(false);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["account-categories"],
@@ -113,12 +115,14 @@ export default function CategoryFormModal({
         setType(editingCategory.type);
         setParentId(editingCategory.parent_id || "");
         setEventRequired(editingCategory.event_required);
+        setAllocateToActiveEvent(editingCategory.allocate_to_active_event ?? false);
       } else {
         setCode("");
         setName("");
         setType(defaultType);
         setParentId(defaultParentId || "");
         setEventRequired(true);
+        setAllocateToActiveEvent(false);
       }
     }
   }, [open, editingCategory, defaultParentId, defaultType]);
@@ -139,6 +143,15 @@ export default function CategoryFormModal({
   }, [effectiveParentId, categories, isEditing]);
 
 
+  // Detect if this would be an L3 inside Group 10 (Corporate Costs)
+  const isL3InGroup10 = useMemo(() => {
+    if (!effectiveParentId) return false;
+    const parent = categories.find((c) => c.id === effectiveParentId);
+    if (!parent || !parent.parent_id) return false; // L3 means parent has a parent (L2)
+    const grandParent = categories.find((c) => c.id === parent.parent_id);
+    return grandParent?.code === "10";
+  }, [effectiveParentId, categories]);
+
   const createMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.from("account_categories").insert({
@@ -147,6 +160,7 @@ export default function CategoryFormModal({
         type,
         parent_id: effectiveParentId || null,
         event_required: !effectiveParentId ? eventRequired : true,
+        allocate_to_active_event: isL3InGroup10 ? allocateToActiveEvent : false,
       }).select("id").single();
       if (error) throw error;
       return data.id;
@@ -166,6 +180,7 @@ export default function CategoryFormModal({
       if (!editingCategory) return;
       const updateData: any = { code, name, type, parent_id: effectiveParentId || null };
       if (!effectiveParentId) updateData.event_required = eventRequired;
+      if (isL3InGroup10) updateData.allocate_to_active_event = allocateToActiveEvent;
       const { error } = await supabase.from("account_categories").update(updateData).eq("id", editingCategory.id);
       if (error) throw error;
       return editingCategory.id;
@@ -282,6 +297,27 @@ export default function CategoryFormModal({
                   className="rounded border-border"
                 />
                 <Label htmlFor="cat_event_required" className="text-sm">Evento obrigatório</Label>
+              </div>
+            </div>
+          )}
+
+          {isL3InGroup10 && (
+            <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
+              <p className="text-xs font-medium text-primary">Absorção pelo evento ativo</p>
+              <div className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  id="cat_allocate_active"
+                  checked={allocateToActiveEvent}
+                  onChange={(e) => setAllocateToActiveEvent(e.target.checked)}
+                  className="mt-0.5 rounded border-border"
+                />
+                <Label htmlFor="cat_allocate_active" className="text-xs leading-relaxed cursor-pointer">
+                  <span className="font-semibold">Absorver esta conta pelo evento ativo</span>
+                  <span className="block text-[10px] text-muted-foreground mt-0.5">
+                    Quando ativada, transações desta conta dentro da janela administrativa de um evento ficam alocadas ao DRE desse evento (e saem do DRE empresarial). Útil para empresas de evento único.
+                  </span>
+                </Label>
               </div>
             </div>
           )}
