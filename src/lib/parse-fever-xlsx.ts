@@ -219,6 +219,7 @@ export async function parseFeverXlsx(
 
   const salesHeaders = (salesRowsRaw[0] || []) as string[];
   const pricesHeaders = (pricesRowsRaw[0] || []) as string[];
+  const pricesHeaderIndexes = headerIndex(pricesHeaders);
 
   if (!isFeverSalesFormat(salesHeaders)) {
     throw new Error(
@@ -236,7 +237,12 @@ export async function parseFeverXlsx(
   for (let i = 1; i < pricesRowsRaw.length; i++) {
     const row = pricesRowsRaw[i] as any[];
     if (!row || row.length === 0) continue;
-    const [ticketType, ticketPrice, _isAddon, sold, _inv, totalGross, _ticketGross, _surcharge, discount, userPayment] = row;
+    const ticketType = cellByHeader(row, pricesHeaderIndexes, "Ticket Type");
+    const ticketPrice = cellByHeader(row, pricesHeaderIndexes, "Ticket Price");
+    const sold = cellByHeader(row, pricesHeaderIndexes, "Tickets sold");
+    const totalGross = cellByHeader(row, pricesHeaderIndexes, "Total Gross Revenue");
+    const discount = cellByHeader(row, pricesHeaderIndexes, "Discount");
+    const userPayment = cellByHeader(row, pricesHeaderIndexes, "User Payment");
     if (!ticketType) continue;
     const price = Number(ticketPrice);
     if (!Number.isFinite(price)) continue;
