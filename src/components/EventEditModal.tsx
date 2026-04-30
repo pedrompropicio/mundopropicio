@@ -136,7 +136,31 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
       toast({ title: "Preencha o nome e data do evento", variant: "destructive" });
       return;
     }
+    if (canAbsorb && absorbsAdminCosts) {
+      if (!adminWindowStart || !adminWindowEnd) {
+        toast({ title: "Defina a janela administrativa (início e fim)", variant: "destructive" });
+        return;
+      }
+      if (adminWindowStart > adminWindowEnd) {
+        toast({ title: "A data de início da janela tem de ser ≤ à data de fim", variant: "destructive" });
+        return;
+      }
+    }
     updateMutation.mutate();
+  };
+
+  // Toggle absorção: ao ativar pela 1ª vez, sugerir janela default (10 meses antes + 2 depois da data do evento)
+  const handleToggleAbsorb = (checked: boolean) => {
+    setAbsorbsAdminCosts(checked);
+    if (checked && date && (!adminWindowStart || !adminWindowEnd)) {
+      const eventDate = new Date(date + "T00:00:00");
+      const start = new Date(eventDate); start.setMonth(start.getMonth() - 10);
+      const end = new Date(eventDate); end.setMonth(end.getMonth() + 2);
+      const fmt = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      setAdminWindowStart(fmt(start));
+      setAdminWindowEnd(fmt(end));
+    }
   };
 
   const addFestivalDate = () => {
