@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { buildCategoryLookup, aggregateByHierarchyDRE, type AggregatedGroup } from "@/lib/category-hierarchy";
 import { Button } from "@/components/ui/button";
 import { FileSpreadsheet } from "lucide-react";
+import { buildAbsorptionMap } from "@/lib/admin-cost-allocation";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
