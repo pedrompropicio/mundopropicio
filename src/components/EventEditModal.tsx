@@ -314,6 +314,44 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
             </div>
           </div>
 
+          {/* Absorção de Custos Administrativos */}
+          {canAbsorb ? (
+            <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+              <div className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  id="ev_absorbs_admin"
+                  checked={absorbsAdminCosts}
+                  onChange={(e) => handleToggleAbsorb(e.target.checked)}
+                  className="mt-0.5 rounded border-border"
+                />
+                <label htmlFor="ev_absorbs_admin" className="text-xs leading-relaxed cursor-pointer flex-1">
+                  <span className="font-semibold text-primary">Este evento absorve custos administrativos</span>
+                  <span className="block text-[10px] text-muted-foreground mt-0.5">
+                    Para empresas de evento único: contas administrativas marcadas no Plano de Contas (Group 10) com despesas dentro da janela abaixo serão alocadas ao DRE deste evento, em vez do DRE empresarial anual.
+                  </span>
+                </label>
+              </div>
+
+              {absorbsAdminCosts && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-muted-foreground">Janela: início</label>
+                    <DatePicker value={adminWindowStart} onChange={setAdminWindowStart} />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-muted-foreground">Janela: fim</label>
+                    <DatePicker value={adminWindowEnd} onChange={setAdminWindowEnd} />
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border/50 bg-muted/20 p-3 text-[10px] text-muted-foreground">
+              Sub-eventos (Splits) não podem absorver custos administrativos — só o evento Master ou eventos Single.
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={updateMutation.isPending}
