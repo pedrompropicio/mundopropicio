@@ -301,6 +301,27 @@ export default function CategoryFormModal({
             </div>
           )}
 
+          {isL3InGroup10 && (
+            <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
+              <p className="text-xs font-medium text-primary">Absorção pelo evento ativo</p>
+              <div className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  id="cat_allocate_active"
+                  checked={allocateToActiveEvent}
+                  onChange={(e) => setAllocateToActiveEvent(e.target.checked)}
+                  className="mt-0.5 rounded border-border"
+                />
+                <Label htmlFor="cat_allocate_active" className="text-xs leading-relaxed cursor-pointer">
+                  <span className="font-semibold">Absorver esta conta pelo evento ativo</span>
+                  <span className="block text-[10px] text-muted-foreground mt-0.5">
+                    Quando ativada, transações desta conta dentro da janela administrativa de um evento ficam alocadas ao DRE desse evento (e saem do DRE empresarial). Útil para empresas de evento único.
+                  </span>
+                </Label>
+              </div>
+            </div>
+          )}
+
           <Button type="submit" disabled={isPending} className="mt-2 w-full">
             {isPending ? "A guardar…" : isEditing ? "Guardar Alterações" : "Criar Conta"}
           </Button>
