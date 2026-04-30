@@ -213,8 +213,42 @@ function ProtectedLayout() {
 
   if (isPlatformAdmin && (companyLoading || isSwitchingCompany)) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
         <p className="text-muted-foreground">A sincronizar empresa ativa…</p>
+        <button
+          type="button"
+          onClick={() => signOut()}
+          className="text-xs text-muted-foreground underline hover:text-foreground"
+        >
+          Sair
+        </button>
+      </div>
+    );
+  }
+
+  if (isPlatformAdmin && companyError && !companyId) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-6 text-center">
+        <p className="text-destructive font-medium">Não foi possível resolver a empresa ativa.</p>
+        <p className="text-xs text-muted-foreground max-w-md break-words">
+          {companyErrorObj?.message ?? "Erro desconhecido"}
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => refetchCompany()}
+            className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted"
+          >
+            Tentar novamente
+          </button>
+          <button
+            type="button"
+            onClick={() => signOut()}
+            className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted"
+          >
+            Sair
+          </button>
+        </div>
       </div>
     );
   }
