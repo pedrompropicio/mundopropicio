@@ -7,7 +7,7 @@ import { Loader2, Sparkles, Plus, Trash2, FileText, AlertTriangle } from "lucide
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { calcIvaAmount, calcTotalWithIva, roundCents } from "@/lib/iva";
+import { calcIvaAmount, calcTotalWithIva, roundCents, snapToStandardRate } from "@/lib/iva";
 import type { IvaRate } from "@/lib/mock-data";
 
 export interface IvaSplitLine {
@@ -24,6 +24,13 @@ interface SplitByIvaModalProps {
   onClose: () => void;
   /** Confirma a divisão. Recebe N linhas (≥2). O caller cria as transações. */
   onConfirm: (lines: IvaSplitLine[]) => void;
+  /**
+   * Alternativa contabilisticamente aceite: aplica a fatura como **uma única**
+   * transação usando IVA médio (snap para a taxa-padrão PT mais próxima do
+   * rácio total). O caller deve preencher os campos `amount` (base) e
+   * `iva_rate` no formulário e fechar o modal.
+   */
+  onApplyBlended?: (baseNet: number, rate: IvaRate) => void;
   /** Total esperado da fatura (incl. IVA). Mostra alerta se as linhas não fecham. */
   expectedTotal?: number;
   /** Pré-preencher com base inicial (ex.: o valor já digitado no form). */
@@ -40,7 +47,7 @@ const RATE_OPTIONS: IvaRate[] = [0, 6, 13, 23];
 
 const blankLine = (rate: IvaRate = 23): IvaSplitLine => ({ base: 0, iva_rate: rate, suffix: `IVA ${rate}%` });
 
-export function SplitByIvaModal({ open, onClose, onConfirm, expectedTotal, initialBase, initialRate, prefilledLines }: SplitByIvaModalProps) {
+export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expectedTotal, initialBase, initialRate, prefilledLines }: SplitByIvaModalProps) {
   const [lines, setLines] = useState<IvaSplitLine[]>(() =>
     prefilledLines && prefilledLines.length >= 2
       ? prefilledLines
@@ -80,7 +87,14 @@ export function SplitByIvaModal({ open, onClose, onConfirm, expectedTotal, initi
     const ivaSum = lines.reduce((s, l) => s + calcIvaAmount(Number(l.base) || 0, l.iva_rate), 0);
     const grandTotal = roundCents(baseSum + ivaSum);
     const diff = expectedTotal != null ? roundCents(grandTotal - expectedTotal) : 0;
-    return { baseSum: roundCents(baseSum), ivaSum: roundCents(ivaSum), grandTotal, diff };
+    // IVA médio (snap): rácio real → taxa PT mais próxima; recalcula base líquida
+    // a partir do total c/IVA para garantir que `base × (1 + rate/100) ≈ total`.
+    const realRatio = baseSum > 0 ? (ivaSum / baseSum) * 100 : 0;
+    const blendedRate = snapToStandardRate(realRatio);
+    const blendedBase = roundCents(grandTotal / (1 + blendedRate / 100));
+    const blendedIva = roundCents(grandTotal - blendedBase);
+    const blendedDeviation = roundCents(blendedIva - ivaSum);
+    return { baseSum: roundCents(baseSum), ivaSum: roundCents(ivaSum), grandTotal, diff, realRatio, blendedRate, blendedBase, blendedIva, blendedDeviation };
   }, [lines, expectedTotal]);
 
   const updateLine = (idx: number, patch: Partial<IvaSplitLine>) => {
@@ -299,6 +313,38 @@ export function SplitByIvaModal({ open, onClose, onConfirm, expectedTotal, initi
             </div>
           )}
         </div>
+
+        {/* Alternativa IVA médio (snap) — 1 só transação, contabilisticamente aceite */}
+        {onApplyBlended && totals.baseSum > 0 && totals.ivaSum > 0 && (
+          <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-xs space-y-2">
+            <div className="font-medium text-foreground">
+              Alternativa: aplicar como <span className="text-primary">IVA médio</span> (1 transação)
+            </div>
+            <div className="text-muted-foreground leading-relaxed">
+              Em vez de criar {lines.length} transações, regista <strong>uma só</strong> com taxa{" "}
+              <strong>{totals.blendedRate}%</strong> (mais próxima do rácio real {totals.realRatio.toFixed(2)}%) e
+              base ajustada para que <strong>base + IVA = total da fatura</strong>. Aceite contabilisticamente.
+            </div>
+            <div className="font-mono flex flex-wrap gap-x-4 gap-y-1">
+              <span>Base: <strong>{totals.blendedBase.toFixed(2)}€</strong></span>
+              <span>IVA {totals.blendedRate}%: <strong>{totals.blendedIva.toFixed(2)}€</strong></span>
+              <span>Total: <strong>{totals.grandTotal.toFixed(2)}€</strong></span>
+              {Math.abs(totals.blendedDeviation) > 0.01 && (
+                <span className="text-amber-600 dark:text-amber-400">
+                  Desvio IVA vs. real: {totals.blendedDeviation > 0 ? "+" : ""}{totals.blendedDeviation.toFixed(2)}€
+                </span>
+              )}
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => onApplyBlended(totals.blendedBase, totals.blendedRate)}
+            >
+              Aplicar IVA médio ({totals.blendedRate}%)
+            </Button>
+          </div>
+        )}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose} type="button">
