@@ -265,13 +265,31 @@ export function CamarimItemModal({ open, onOpenChange, sessionId, itemId, mode, 
       }
     }
 
-    setPhotoFile(file);
-    setPreviewUrl(URL.createObjectURL(file));
+    // Se for PDF, anexamos o original na mesma mas convertemos a 1ª página
+    // para JPEG só para alimentar o OCR (Gemini via gateway só aceita imagem).
+    let ocrSource: File | null = null;
+    if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
+      toast({ title: "A processar PDF…", description: "A extrair primeira página para OCR." });
+      const jpg = await pdfFirstPageToJpeg(file);
+      if (jpg) {
+        ocrSource = jpg;
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Não consegui ler o PDF",
+          description: "Anexei o ficheiro mesmo assim. Preenche os campos à mão.",
+        });
+      }
+    } else if (/^image\/(jpeg|jpg|png|webp|heic|heif)$/i.test(file.type)) {
+      ocrSource = file;
+    }
 
-    // Só corre OCR se o ficheiro for um formato suportado pelo modelo (imagem comum).
-    const ocrSupported = /^image\/(jpeg|jpg|png|webp|heic|heif)$/i.test(file.type);
-    if (ocrSupported) {
-      await runOcr(file);
+    setPhotoFile(file);
+    // Preview: imagem se possível (PDFs não renderizam em <img>); senão, sem preview.
+    setPreviewUrl(ocrSource ? URL.createObjectURL(ocrSource) : null);
+
+    if (ocrSource) {
+      await runOcr(ocrSource);
     } else {
       toast({
         title: "OCR não suportado para este formato",
