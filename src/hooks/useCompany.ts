@@ -96,8 +96,18 @@ export function useCompany() {
 export async function getCurrentCompanyId(): Promise<string | null> {
   const { data } = await supabase.auth.getUser();
   if (!data.user) return null;
-  const { data: resolvedCompanyId } = await supabase.rpc("current_company_id" as any);
-  return (resolvedCompanyId as string | null) ?? null;
+  if (typeof (supabase as any).rpc === "function") {
+    const { data: resolvedCompanyId } = await supabase.rpc("current_company_id" as any);
+    return (resolvedCompanyId as string | null) ?? null;
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("company_id, active_company_id")
+    .eq("id", data.user.id)
+    .maybeSingle();
+  const p = profile as any;
+  return p?.active_company_id ?? p?.company_id ?? null;
 }
 
 /**
