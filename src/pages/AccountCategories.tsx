@@ -85,7 +85,15 @@ function CategoryRow({
           </div>
         </td>
         <td className={`py-2.5 pr-4 ${level === 0 ? "font-bold" : level === 1 ? "font-semibold" : "font-medium"}`}>
-          {cat.name}
+          <span>{cat.name}</span>
+          {cat.allocate_to_active_event && (
+            <span
+              className="ml-2 inline-flex items-center rounded-full bg-primary/15 text-primary px-2 py-0.5 text-[10px] font-medium align-middle"
+              title="Esta conta é absorvida pelo evento ativo (Group 10)"
+            >
+              ↪ Absorvida pelo evento ativo
+            </span>
+          )}
         </td>
         <td className="py-2.5 text-center">
           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
