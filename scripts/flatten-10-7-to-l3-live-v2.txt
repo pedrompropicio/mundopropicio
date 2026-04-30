@@ -1,0 +1,84 @@
+-- =====================================================================
+-- APLANAMENTO 10.7.* L4→L3 — Live (Mundo Propício + Coala)
+-- Versão iPad-friendly: bloco DO atómico + COMMIT/ROLLBACK no final
+-- IDs preservados, multi-tenant, defensive re-routing
+-- =====================================================================
+-- INSTRUÇÕES:
+--   1) Cola TUDO no SQL Editor (Live)
+--   2) Run → vê o resultado da query final (deve mostrar L4=0, L3=27, BP=17, TX=3)
+--   3) Se OK, descomenta a linha COMMIT no fim e Run
+--   4) Se algo falhar, a transação faz rollback sozinha
+-- =====================================================================
+
+BEGIN;
+
+DO $$
+BEGIN
+  -- 1) Criar 10.8 Estrutura (L2)
+  INSERT INTO account_categories (id, code, name, type, parent_id, company_id, is_active, event_required)
+  SELECT gen_random_uuid(), '10.8', 'Estrutura', 'expense',
+         (SELECT id FROM account_categories WHERE code='10' AND company_id=c.id),
+         c.id, true, true
+  FROM companies c
+  WHERE EXISTS (SELECT 1 FROM account_categories WHERE code='10' AND company_id=c.id)
+    AND NOT EXISTS (SELECT 1 FROM account_categories WHERE code='10.8' AND company_id=c.id);
+
+  -- 2) Criar 10.9 Tecnologia (L2)
+  INSERT INTO account_categories (id, code, name, type, parent_id, company_id, is_active, event_required)
+  SELECT gen_random_uuid(), '10.9', 'Tecnologia', 'expense',
+         (SELECT id FROM account_categories WHERE code='10' AND company_id=c.id),
+         c.id, true, true
+  FROM companies c
+  WHERE EXISTS (SELECT 1 FROM account_categories WHERE code='10' AND company_id=c.id)
+    AND NOT EXISTS (SELECT 1 FROM account_categories WHERE code='10.9' AND company_id=c.id);
+
+  -- 3) Renomear 10.7
+  UPDATE account_categories SET name = 'Serviços' WHERE code = '10.7';
+
+  -- 4) Codes temporários nas folhas L4
+  UPDATE account_categories SET code = 'TMP_10.7.01' WHERE code = '10.7.01.01';
+  UPDATE account_categories SET code = 'TMP_10.7.02' WHERE code = '10.7.01.02';
+  UPDATE account_categories SET code = 'TMP_10.7.03' WHERE code = '10.7.01.03';
+  UPDATE account_categories SET code = 'TMP_10.8.01' WHERE code = '10.7.02.01';
+  UPDATE account_categories SET code = 'TMP_10.8.02' WHERE code = '10.7.02.02';
+  UPDATE account_categories SET code = 'TMP_10.8.03' WHERE code = '10.7.02.03';
+  UPDATE account_categories SET code = 'TMP_10.9.01' WHERE code = '10.7.03.01';
+  UPDATE account_categories SET code = 'TMP_10.9.02' WHERE code = '10.7.03.02';
+  UPDATE account_categories SET code = 'TMP_10.9.03' WHERE code = '10.7.03.03';
+
+  -- 5) Re-rotar TX/BP defensivo (caso vinculados aos L3-grupo)
+  UPDATE transactions t SET category_id = (SELECT id FROM account_categories WHERE code='TMP_10.7.01' AND company_id=t.company_id) WHERE category_id IN (SELECT id FROM account_categories WHERE code='10.7.01');
+  UPDATE event_forecasts f SET category_id = (SELECT id FROM account_categories WHERE code='TMP_10.7.01' AND company_id=f.company_id) WHERE category_id IN (SELECT id FROM account_categories WHERE code='10.7.01');
+  UPDATE transactions t SET category_id = (SELECT id FROM account_categories WHERE code='TMP_10.8.01' AND company_id=t.company_id) WHERE category_id IN (SELECT id FROM account_categories WHERE code='10.7.02');
+  UPDATE event_forecasts f SET category_id = (SELECT id FROM account_categories WHERE code='TMP_10.8.01' AND company_id=f.company_id) WHERE category_id IN (SELECT id FROM account_categories WHERE code='10.7.02');
+  UPDATE transactions t SET category_id = (SELECT id FROM account_categories WHERE code='TMP_10.9.01' AND company_id=t.company_id) WHERE category_id IN (SELECT id FROM account_categories WHERE code='10.7.03');
+  UPDATE event_forecasts f SET category_id = (SELECT id FROM account_categories WHERE code='TMP_10.9.01' AND company_id=f.company_id) WHERE category_id IN (SELECT id FROM account_categories WHERE code='10.7.03');
+
+  -- 6) Re-parentar folhas
+  UPDATE account_categories ac SET parent_id = (SELECT id FROM account_categories WHERE code='10.7' AND company_id=ac.company_id) WHERE code IN ('TMP_10.7.01','TMP_10.7.02','TMP_10.7.03');
+  UPDATE account_categories ac SET parent_id = (SELECT id FROM account_categories WHERE code='10.8' AND company_id=ac.company_id) WHERE code IN ('TMP_10.8.01','TMP_10.8.02','TMP_10.8.03');
+  UPDATE account_categories ac SET parent_id = (SELECT id FROM account_categories WHERE code='10.9' AND company_id=ac.company_id) WHERE code IN ('TMP_10.9.01','TMP_10.9.02','TMP_10.9.03');
+
+  -- 7) Eliminar antigos L3-grupo
+  DELETE FROM account_categories WHERE code IN ('10.7.01', '10.7.02', '10.7.03');
+
+  -- 8) Remover prefixo TMP_
+  UPDATE account_categories SET code = REPLACE(code, 'TMP_', '') WHERE code LIKE 'TMP\_%' ESCAPE '\';
+END $$;
+
+-- AUDITORIA FINAL — esta é a query cujo resultado vais ver no iPad
+SELECT
+  (SELECT COUNT(*) FROM account_categories WHERE (length(code)-length(replace(code,'.',''))) + 1 = 4) AS l4_remanescentes,
+  (SELECT COUNT(*) FROM account_categories WHERE code ~ '^10\.[7-9]') AS l3_em_10_7_9,
+  (SELECT COUNT(*) FROM account_categories WHERE code IN ('10.7','10.8','10.9')) AS l2_novos,
+  (SELECT COUNT(*) FROM event_forecasts f JOIN account_categories c ON c.id=f.category_id WHERE c.code ~ '^10\.[7-9]') AS bp_preservados,
+  (SELECT COUNT(*) FROM transactions t JOIN account_categories c ON c.id=t.category_id WHERE c.code ~ '^10\.[7-9]') AS tx_preservados;
+
+-- =====================================================================
+-- ESPERADO: l4_remanescentes=0, l3_em_10_7_9=18, l2_novos=6 (3 por empresa),
+--           bp_preservados=17, tx_preservados=3
+-- =====================================================================
+-- Se OK → descomenta COMMIT e corre só essa linha:
+-- COMMIT;
+-- Se errado → descomenta ROLLBACK:
+-- ROLLBACK;
