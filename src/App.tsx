@@ -25,6 +25,7 @@ import Index from "./pages/Index";
 import Events from "./pages/Events";
 import EventDetail from "./pages/EventDetail";
 import EventSimulator from "./pages/EventSimulator";
+import EventSimulatorDemo from "./pages/EventSimulatorDemo";
 import Transactions from "./pages/Transactions";
 import IvaManagement from "./pages/IvaManagement";
 import Suppliers from "./pages/Suppliers";
@@ -238,6 +239,7 @@ function ProtectedLayout() {
               <Route path="/eventos" element={<Events />} />
               <Route path="/eventos/:id" element={<EventDetail />} />
               <Route path="/eventos/:id/simulador" element={<EventSimulator />} />
+              <Route path="/demo/simulador" element={<EventSimulatorDemo />} />
               <Route path="/transacoes" element={<Transactions />} />
               <Route path="/plano-contas" element={<AccountCategories />} />
               <Route path="/contas" element={<FinancialAccounts />} />
