@@ -24,6 +24,7 @@ import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from 
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { ReportScenarioSelector } from "@/components/reports/ReportScenarioSelector";
 import { useScenarioForecasts } from "@/hooks/useScenarioForecasts";
+import { buildAbsorptionMap } from "@/lib/admin-cost-allocation";
 
 export type PLMode = "forecast" | "comparison";
 
