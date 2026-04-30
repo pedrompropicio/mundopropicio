@@ -143,10 +143,11 @@ export default function EventSimulator() {
     queryFn: async () => {
       const { data } = await supabase
         .from("account_categories")
-        .select("id, code, name, level")
-        .eq("level", 3)
+        .select("id, code, name")
+        .eq("is_active", true)
         .order("code");
-      return (data as any) ?? [];
+      // L3 = code com 3 níveis (x.y.z)
+      return ((data as any) ?? []).filter((c: any) => /^\d+\.\d+\.\d+$/.test(c.code));
     },
   });
 
