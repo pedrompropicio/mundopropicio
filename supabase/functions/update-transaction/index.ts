@@ -38,15 +38,15 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Get caller role
-    const { data: roleData } = await adminClient
+    // Get caller roles. A user can now have more than one role (e.g. platform_admin + admin),
+    // so using .single() would fail or pick the wrong role and incorrectly block admin edits.
+    const { data: roleRows } = await adminClient
       .from("user_roles")
       .select("role")
-      .eq("user_id", caller.id)
-      .single();
+      .eq("user_id", caller.id);
 
-    const callerRole = roleData?.role ?? "user";
-    const isAdmin = callerRole === "admin";
+    const callerRoles = (roleRows ?? []).map((row: any) => row.role);
+    const isAdmin = callerRoles.includes("admin") || callerRoles.includes("platform_admin");
 
     const body = await req.json();
     const { transaction_id, updates, changes, child_adjustments } = body;
