@@ -2273,7 +2273,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                         {extractingInvoice ? "A ler…" : "Ler fatura (IA)"}
                         <input
                           type="file"
-                          accept="application/pdf,image/*"
+                          accept="image/*,application/pdf,.dng,.tif,.tiff,image/x-adobe-dng"
                           className="hidden"
                           disabled={extractingInvoice}
                           onChange={(e) => {
