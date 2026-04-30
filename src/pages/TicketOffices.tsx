@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { TicketOfficeFormModal } from "@/components/TicketOfficeFormModal";
 import { TicketImportModal } from "@/components/TicketUploadModals";
+import { FeverImportModal } from "@/components/FeverImportModal";
+import { Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatCurrency } from "@/lib/mock-data";
 import { TicketOfficeBalancePanel } from "@/components/TicketOfficeBalancePanel";
@@ -27,6 +29,7 @@ export default function TicketOffices() {
   const [editingOffice, setEditingOffice] = useState<any>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [showFeverImport, setShowFeverImport] = useState(false);
   const [selectedOfficeId, setSelectedOfficeId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { isAdmin, hasPermission } = useAuth();
@@ -332,6 +335,13 @@ export default function TicketOffices() {
         {canManage && (
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setShowFeverImport(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground hover:bg-accent/80"
+              title="Importar 2 ficheiros XLSX exportados do back-office Fever"
+            >
+              <Sparkles className="h-4 w-4" /> Importar Fever
+            </button>
+            <button
               onClick={() => setShowImport(true)}
               className="inline-flex items-center gap-2 rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary/80"
             >
@@ -466,6 +476,7 @@ export default function TicketOffices() {
       <TicketOfficeEventsList />
 
       <TicketImportModal open={showImport} onClose={() => setShowImport(false)} />
+      <FeverImportModal open={showFeverImport} onClose={() => setShowFeverImport(false)} />
     </div>
   );
 }
