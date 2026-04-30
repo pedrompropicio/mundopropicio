@@ -1,0 +1,16 @@
+-- Mover forecasts de patrocínios do Coala para o category_id da empresa Coala
+-- (foram criados com o ID hardcoded da MP)
+UPDATE event_forecasts ef
+SET category_id = '3312f0f0-b5ae-4a74-94b5-32fda4c8b920'
+FROM events e
+WHERE ef.event_id = e.id
+  AND e.company_id = '7d831e59-6e82-427b-95a0-64904aae5dd2'
+  AND ef.category_id = 'c0000004-0000-0000-0000-000000000001';
+
+-- Idem para transações eventualmente criadas
+UPDATE transactions t
+SET category_id = '3312f0f0-b5ae-4a74-94b5-32fda4c8b920'
+FROM events e
+WHERE t.event_id = e.id
+  AND e.company_id = '7d831e59-6e82-427b-95a0-64904aae5dd2'
+  AND t.category_id = 'c0000004-0000-0000-0000-000000000001';
