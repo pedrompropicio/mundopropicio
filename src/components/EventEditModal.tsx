@@ -23,8 +23,13 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
   const [ticketsTotal, setTicketsTotal] = useState(String(event.tickets_total || ""));
   const [status, setStatus] = useState(event.status);
   const [plMode, setPlMode] = useState(event.pl_mode || "passive");
+  const [absorbsAdminCosts, setAbsorbsAdminCosts] = useState<boolean>(!!event.absorbs_admin_costs);
+  const [adminWindowStart, setAdminWindowStart] = useState<string>(event.admin_window_start || "");
+  const [adminWindowEnd, setAdminWindowEnd] = useState<string>(event.admin_window_end || "");
 
   const eventType = event.event_type || "simple";
+  const isSplit = !!event.parent_event_id;
+  const canAbsorb = !isSplit; // Só Single ou Master podem absorver (trigger DB também valida)
 
   // Festival dates
   const { data: festivalDates = [] } = useQuery({
