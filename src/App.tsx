@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import { QueryClient, QueryClientProvider, useIsMutating, useQueryClient } from "@tanstack/react-query";
 import { supabase as supabaseClient } from "@/integrations/supabase/client";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
@@ -16,6 +16,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
 import { CompanyBrandingProvider } from "@/contexts/CompanyBrandingContext";
+import { useCompany } from "@/hooks/useCompany";
 import { BrandedLogo } from "@/components/BrandedLogo";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
 import { MfaRequiredGate } from "@/components/MfaRequiredGate";
@@ -104,6 +105,10 @@ const queryClient = new QueryClient({
 
 function ProtectedLayout() {
   const { user, loading, isPartner, isAdmin, isManager, hasPermission, signOut } = useAuth();
+  const { companyId, isLoading: companyLoading, isPlatformAdmin } = useCompany();
+  const queryClient = useQueryClient();
+  const previousCompanyIdRef = useRef<string | null>(null);
+  const isSwitchingCompany = useIsMutating({ mutationKey: ["set-active-company"] }) > 0;
   // Camarim-only = utilizador de campo: tem APENAS camarim_team e nenhuma
   // permissão de gestão (nem sequer camarim_manage). Editores que gerem o
   // camarim ou outras áreas continuam a ver o dashboard normal.
@@ -180,6 +185,20 @@ function ProtectedLayout() {
     };
   }, [loading, user, isAdmin, isManager]);
 
+  useEffect(() => {
+    if (!isPlatformAdmin || !companyId) return;
+    const previousCompanyId = previousCompanyIdRef.current;
+    previousCompanyIdRef.current = companyId;
+    if (!previousCompanyId || previousCompanyId === companyId) return;
+
+    void queryClient.resetQueries({
+      predicate: (query) => {
+        const rootKey = query.queryKey[0];
+        return rootKey !== "current-company" && rootKey !== "companies-list";
+      },
+    });
+  }, [companyId, isPlatformAdmin, queryClient]);
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -190,6 +209,14 @@ function ProtectedLayout() {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (isPlatformAdmin && (companyLoading || isSwitchingCompany)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <p className="text-muted-foreground">A sincronizar empresa ativa…</p>
+      </div>
+    );
   }
 
   // Partner users are redirected to their dedicated layout
