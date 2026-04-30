@@ -32,7 +32,9 @@ export interface FeverParsedLot {
   key: string;
   /** "Ticket Type" original do Fever */
   ticketType: string;
-  /** preço unitário bruto (com surcharge ≈ proporcional) */
+  /** preço facial original do Fever (coluna Ticket Price) */
+  ticketPrice: number;
+  /** preço unitário efetivo bruto, derivado de Total Gross Revenue / Tickets sold */
   unitPrice: number;
   /** preço líquido sugerido (sem IVA 6%) — calculado como unitPrice / 1.06 */
   unitPriceNet: number;
@@ -61,6 +63,8 @@ export interface FeverParsedSale {
   ticketType: string;
   unitPrice: number;
   quantity: number;
+  /** valor bruto exato da linha, distribuído a partir de Total Gross Revenue */
+  totalValue: number;
 }
 
 export interface FeverParseResult {
@@ -85,6 +89,10 @@ const norm = (s: string) =>
 
 function lotKey(ticketType: string, price: number): string {
   return `${ticketType.trim()}|${Number(price).toFixed(2)}`;
+}
+
+function roundCents(value: number): number {
+  return Math.round((Number(value) || 0) * 100) / 100;
 }
 
 function toLocalDate(value: any): string | null {
