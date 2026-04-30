@@ -147,11 +147,11 @@ export default function EventSimulator() {
     enabled: !!eventId,
   });
 
-  // Zonas vindas das ticket_zones (se existirem); fallback para ["Pista"]
+  // Zonas vindas das event_ticket_zones (se existirem); fallback para ["Pista"]
   const { data: ticketZones = [] } = useQuery({
     queryKey: ["ticket-zones-simulator", eventId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("ticket_zones").select("name, capacity").eq("event_id", eventId).order("name");
+      const { data, error } = await supabase.from("event_ticket_zones").select("name, capacity").eq("event_id", eventId).order("name");
       if (error) throw error;
       return data || [];
     },
@@ -208,7 +208,7 @@ export default function EventSimulator() {
   // ---------------------------------------------------------------------------
   const cfg: SimulatorConfig = configRow ?? { event_id: eventId!, ...DEFAULT_CONFIG };
   const [cfgDraft, setCfgDraft] = useState<SimulatorConfig>(cfg);
-  useEffect(() => { setCfgDraft(cfg); }, [configRow?.event_id, configRow?.updated_at as any]);
+  useEffect(() => { setCfgDraft(cfg); }, [configRow]);
 
   // Zonas: usa as do simulador; se não houver ainda, usa as do bilheteira (capacity informativa)
   const zoneLabels: string[] = useMemo(() => {
@@ -237,7 +237,7 @@ export default function EventSimulator() {
   const saveConfig = useMutation({
     mutationFn: async () => {
       const payload = { ...cfgDraft, event_id: eventId! };
-      const { error } = await supabase.from("event_simulator_config").upsert(payload, { onConflict: "event_id" });
+      const { error } = await supabase.from("event_simulator_config").upsert([payload as any], { onConflict: "event_id" });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -263,7 +263,7 @@ export default function EventSimulator() {
         projected_revenue: row.projected_revenue ?? existing?.projected_revenue ?? null,
         notes: row.notes ?? existing?.notes ?? null,
       };
-      const { error } = await supabase.from("event_simulator_inputs").upsert(payload, { onConflict: "event_id,day_index,zone_label" });
+      const { error } = await supabase.from("event_simulator_inputs").upsert([payload as any], { onConflict: "event_id,day_index,zone_label" });
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["simulator-inputs", eventId] }),
@@ -284,7 +284,7 @@ export default function EventSimulator() {
         food_conversion_pct: row.food_conversion_pct ?? existing?.food_conversion_pct ?? null,
         display_order: row.display_order ?? existing?.display_order ?? 0,
       };
-      const { error } = await supabase.from("event_simulator_zone_config").upsert(payload, { onConflict: "event_id,zone_label" });
+      const { error } = await supabase.from("event_simulator_zone_config").upsert([payload as any], { onConflict: "event_id,zone_label" });
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["simulator-zone-config", eventId] }),
