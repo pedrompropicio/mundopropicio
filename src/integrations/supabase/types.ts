@@ -2256,6 +2256,180 @@ export type Database = {
           },
         ]
       }
+      event_simulator_config: {
+        Row: {
+          company_id: string
+          created_at: string
+          default_drink_avg_ticket: number
+          default_drink_cmv_pct: number
+          default_drink_conversion_pct: number
+          default_food_avg_ticket: number
+          default_food_cmv_pct: number
+          default_food_conversion_pct: number
+          event_id: string
+          notes: string | null
+          prior_year_notes: string | null
+          prior_year_real_expenses: number | null
+          prior_year_real_revenue: number | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          default_drink_avg_ticket?: number
+          default_drink_cmv_pct?: number
+          default_drink_conversion_pct?: number
+          default_food_avg_ticket?: number
+          default_food_cmv_pct?: number
+          default_food_conversion_pct?: number
+          event_id: string
+          notes?: string | null
+          prior_year_notes?: string | null
+          prior_year_real_expenses?: number | null
+          prior_year_real_revenue?: number | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          default_drink_avg_ticket?: number
+          default_drink_cmv_pct?: number
+          default_drink_conversion_pct?: number
+          default_food_avg_ticket?: number
+          default_food_cmv_pct?: number
+          default_food_conversion_pct?: number
+          event_id?: string
+          notes?: string | null
+          prior_year_notes?: string | null
+          prior_year_real_expenses?: number | null
+          prior_year_real_revenue?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_simulator_config_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_simulator_inputs: {
+        Row: {
+          break_even_qty_manual: number | null
+          capacity_target: number | null
+          company_id: string
+          courtesy_qty: number
+          created_at: string
+          day_date: string | null
+          day_index: number
+          event_id: string
+          id: string
+          notes: string | null
+          projected_qty: number
+          projected_revenue: number | null
+          updated_at: string
+          zone_label: string
+        }
+        Insert: {
+          break_even_qty_manual?: number | null
+          capacity_target?: number | null
+          company_id: string
+          courtesy_qty?: number
+          created_at?: string
+          day_date?: string | null
+          day_index: number
+          event_id: string
+          id?: string
+          notes?: string | null
+          projected_qty?: number
+          projected_revenue?: number | null
+          updated_at?: string
+          zone_label: string
+        }
+        Update: {
+          break_even_qty_manual?: number | null
+          capacity_target?: number | null
+          company_id?: string
+          courtesy_qty?: number
+          created_at?: string
+          day_date?: string | null
+          day_index?: number
+          event_id?: string
+          id?: string
+          notes?: string | null
+          projected_qty?: number
+          projected_revenue?: number | null
+          updated_at?: string
+          zone_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_simulator_inputs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_simulator_zone_config: {
+        Row: {
+          company_id: string
+          created_at: string
+          display_order: number
+          drink_avg_ticket: number | null
+          drink_cmv_pct: number | null
+          drink_conversion_pct: number | null
+          event_id: string
+          food_avg_ticket: number | null
+          food_cmv_pct: number | null
+          food_conversion_pct: number | null
+          id: string
+          updated_at: string
+          zone_label: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          display_order?: number
+          drink_avg_ticket?: number | null
+          drink_cmv_pct?: number | null
+          drink_conversion_pct?: number | null
+          event_id: string
+          food_avg_ticket?: number | null
+          food_cmv_pct?: number | null
+          food_conversion_pct?: number | null
+          id?: string
+          updated_at?: string
+          zone_label: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          display_order?: number
+          drink_avg_ticket?: number | null
+          drink_cmv_pct?: number | null
+          drink_conversion_pct?: number | null
+          event_id?: string
+          food_avg_ticket?: number | null
+          food_cmv_pct?: number | null
+          food_conversion_pct?: number | null
+          id?: string
+          updated_at?: string
+          zone_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_simulator_zone_config_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_ticket_lots: {
         Row: {
           company_id: string

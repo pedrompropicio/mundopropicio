@@ -1993,6 +1993,13 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 >
                   <Sparkles className="h-3.5 w-3.5" /> Importar Patrocínios
                 </button>
+                <button
+                  onClick={() => navigate(`/eventos/${eventId}/simulador`)}
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                  title="Simulador de cenários (bilheteira × A&B × DRE comparativa)"
+                >
+                  <BarChart3 className="h-3.5 w-3.5" /> Simulador
+                </button>
               </>
             )}
           </div>
