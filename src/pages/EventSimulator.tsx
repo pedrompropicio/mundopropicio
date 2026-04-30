@@ -1,17 +1,21 @@
 /**
  * Simulador de Evento — `/eventos/:id/simulador`
  *
- * Página standalone que permite simular cenários financeiros para um evento:
- *  - Matriz Bilheteira por (dia × zona): projetado, cortesias, break-even (sugerido + override).
- *  - Conversão público → consumo A&B (taxa de conversão por zona) com ticket médio e CMV.
- *  - DRE comparativa: Real 2025 (manual) | Projetado | Break-Even | Forecast DVT (BP atual).
+ * Modelo "Bilheteira é o motor":
+ *  - Bilheteira (matriz dia × zona): input livre + botão "Puxar do BP".
+ *  - Público total = bilhetes pagos + cortesias.
+ *  - Receitas derivadas escalam com o público:
+ *      • F&B (1.1.03)   = público × conv% × ticket médio
+ *      • Merch (1.1.02) = público × conv% × ticket médio
+ *  - Patrocínios (1.2.01/1.2.02): independentes do público (input manual).
+ *  - Despesas variáveis (% sobre receita bruta): SPA + Comissão de bilheteira.
+ *  - Curva de vendas (informativa): preset / edição anterior / similar.
+ *  - DRE projetado em tempo real vs Real ano anterior, BP, Break-Even.
  *
  * Decisões fixadas (2026-04-30):
- *  - Break-Even: sugestão automática + override manual.
- *  - A&B: granularidade por zona (Pista vs VIP).
- *  - DRE: reusa categorias do BP do evento (event_forecasts agrupado por L1).
- *  - Ano anterior: input manual por evento.
- *  - "Adoptar cenário" → marcado como TODO Entrega 4 (cria forecasts reais).
+ *  - Bilheteira: input livre + botão "Puxar do BP" (mantém edição local).
+ *  - Aprendizado histórico: defaults manuais; benchmarks ativam quando ≥3 eventos.
+ *  - "Adoptar cenário" → Entrega 4.
  */
 import React, { useMemo, useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -25,7 +29,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calculator, TrendingUp, Save, Sparkles, Loader2, Beer, UtensilsCrossed, Ticket, Info } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Calculator, TrendingUp, Save, Loader2, Beer, UtensilsCrossed, Ticket, Info, Shirt, Megaphone, Percent, Download, LineChart } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
 import { format, parseISO } from "date-fns";
@@ -44,6 +49,15 @@ type SimulatorConfig = {
   default_food_cmv_pct: number;
   default_drink_conversion_pct: number;
   default_food_conversion_pct: number;
+  default_merch_avg_ticket: number;
+  default_merch_cmv_pct: number;
+  default_merch_conversion_pct: number;
+  sponsorship_revenue: number;
+  sponsorship_notes: string | null;
+  variable_spa_pct: number;
+  variable_commission_pct: number;
+  sales_curve_mode: "preset" | "prior_event" | "similar" | "manual";
+  sales_curve_prior_event_id: string | null;
   notes: string | null;
 };
 
@@ -57,6 +71,9 @@ type ZoneConfig = {
   food_cmv_pct: number | null;
   drink_conversion_pct: number | null;
   food_conversion_pct: number | null;
+  merch_avg_ticket: number | null;
+  merch_cmv_pct: number | null;
+  merch_conversion_pct: number | null;
   display_order: number;
 };
 
@@ -84,8 +101,37 @@ const DEFAULT_CONFIG: Omit<SimulatorConfig, "event_id"> = {
   default_food_cmv_pct: 75,
   default_drink_conversion_pct: 100,
   default_food_conversion_pct: 60,
+  default_merch_avg_ticket: 25,
+  default_merch_cmv_pct: 45,
+  default_merch_conversion_pct: 8,
+  sponsorship_revenue: 0,
+  sponsorship_notes: null,
+  variable_spa_pct: 5,
+  variable_commission_pct: 5,
+  sales_curve_mode: "preset",
+  sales_curve_prior_event_id: null,
   notes: null,
 };
+
+// Categorias relevantes para "Puxar do BP" e DRE projetado
+const CAT_CODE_MERCH = "1.1.02";
+const CAT_CODE_FB = "1.1.03";
+const CAT_CODES_SPONSORS = ["1.2.01", "1.2.02"]; // Patrocínios + Apoios
+const CAT_CODE_TICKET = "1.1.01"; // Bilheteira (legacy guess)
+
+// Curva de vendas — preset por defeito (cumulativo % vs dias até evento)
+const PRESET_CURVE: { daysBefore: number; cumulativePct: number }[] = [
+  { daysBefore: 90, cumulativePct: 5 },
+  { daysBefore: 60, cumulativePct: 12 },
+  { daysBefore: 45, cumulativePct: 22 },
+  { daysBefore: 30, cumulativePct: 35 },
+  { daysBefore: 21, cumulativePct: 45 },
+  { daysBefore: 14, cumulativePct: 58 },
+  { daysBefore: 7, cumulativePct: 72 },
+  { daysBefore: 3, cumulativePct: 85 },
+  { daysBefore: 1, cumulativePct: 95 },
+  { daysBefore: 0, cumulativePct: 100 },
+];
 
 // =============================================================================
 // Helpers
@@ -95,14 +141,12 @@ function n(v: any, fb = 0): number {
   return Number.isFinite(x) ? x : fb;
 }
 
-/** Gera lista de dias do evento a partir das event_dates (ou só `events.date`). */
 function buildDayList(eventDate: string, eventDates: { date: string }[]): { idx: number; date: string }[] {
   const sorted = (eventDates || []).map((d) => d.date).sort();
   if (sorted.length === 0) return [{ idx: 0, date: eventDate }];
   return sorted.map((date, idx) => ({ idx, date }));
 }
 
-/** Resolve o valor efetivo de A&B (zona override → default global). */
 function effectiveAB(zone: ZoneConfig | null, cfg: SimulatorConfig) {
   return {
     drinkTicket: zone?.drink_avg_ticket ?? cfg.default_drink_avg_ticket,
@@ -111,6 +155,9 @@ function effectiveAB(zone: ZoneConfig | null, cfg: SimulatorConfig) {
     foodCmvPct: zone?.food_cmv_pct ?? cfg.default_food_cmv_pct,
     drinkConvPct: zone?.drink_conversion_pct ?? cfg.default_drink_conversion_pct,
     foodConvPct: zone?.food_conversion_pct ?? cfg.default_food_conversion_pct,
+    merchTicket: zone?.merch_avg_ticket ?? cfg.default_merch_avg_ticket,
+    merchCmvPct: zone?.merch_cmv_pct ?? cfg.default_merch_cmv_pct,
+    merchConvPct: zone?.merch_conversion_pct ?? cfg.default_merch_conversion_pct,
   };
 }
 
@@ -147,7 +194,6 @@ export default function EventSimulator() {
     enabled: !!eventId,
   });
 
-  // Zonas vindas das event_ticket_zones (se existirem); fallback para ["Pista"]
   const { data: ticketZones = [] } = useQuery({
     queryKey: ["ticket-zones-simulator", eventId],
     queryFn: async () => {
@@ -188,7 +234,7 @@ export default function EventSimulator() {
     enabled: !!eventId,
   });
 
-  // BP do evento (para DRE comparativa "Forecast DVT") — agrupa por L1
+  // BP do evento — para DRE comparativa e botão "Puxar do BP"
   const { data: bpRows = [] } = useQuery({
     queryKey: ["simulator-bp", eventId],
     queryFn: async () => {
@@ -203,14 +249,32 @@ export default function EventSimulator() {
     enabled: !!eventId,
   });
 
+  // Eventos anteriores (mesma série/nome) — para curva "edição anterior"
+  const { data: priorEvents = [] } = useQuery({
+    queryKey: ["simulator-prior-events", eventId, event?.name],
+    queryFn: async () => {
+      if (!event?.name) return [];
+      const baseName = event.name.replace(/\s*\d{4}\s*$/, "").trim();
+      const { data, error } = await supabase
+        .from("events")
+        .select("id, name, date")
+        .ilike("name", `%${baseName}%`)
+        .neq("id", eventId)
+        .order("date", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!event?.name,
+  });
+
   // ---------------------------------------------------------------------------
-  // Local state (cópias editáveis das queries)
+  // Local state
   // ---------------------------------------------------------------------------
   const cfg: SimulatorConfig = configRow ?? { event_id: eventId!, ...DEFAULT_CONFIG };
   const [cfgDraft, setCfgDraft] = useState<SimulatorConfig>(cfg);
   useEffect(() => { setCfgDraft(cfg); }, [configRow]);
 
-  // Zonas: usa as do simulador; se não houver ainda, usa as do bilheteira (capacity informativa)
   const zoneLabels: string[] = useMemo(() => {
     if (zoneCfgRows.length > 0) return zoneCfgRows.map((z) => z.zone_label);
     if (ticketZones.length > 0) return Array.from(new Set(ticketZones.map((t: any) => t.name)));
@@ -231,12 +295,18 @@ export default function EventSimulator() {
     return m;
   }, [zoneCfgRows]);
 
+  const ticketZoneCapMap = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const t of ticketZones as any[]) m.set(t.name, n(t.capacity));
+    return m;
+  }, [ticketZones]);
+
   // ---------------------------------------------------------------------------
   // Mutations
   // ---------------------------------------------------------------------------
   const saveConfig = useMutation({
     mutationFn: async () => {
-      const payload = { ...cfgDraft, event_id: eventId! };
+      const payload = { ...cfgDraft, event_id: eventId!, company_id: event?.company_id };
       const { error } = await supabase.from("event_simulator_config").upsert([payload as any], { onConflict: "event_id" });
       if (error) throw error;
     },
@@ -253,6 +323,7 @@ export default function EventSimulator() {
       const dayDate = days.find((d) => d.idx === row.day_index)?.date ?? null;
       const payload = {
         event_id: eventId!,
+        company_id: event?.company_id,
         day_index: row.day_index,
         zone_label: row.zone_label,
         day_date: dayDate,
@@ -275,6 +346,7 @@ export default function EventSimulator() {
       const existing = zoneCfgMap.get(row.zone_label);
       const payload = {
         event_id: eventId!,
+        company_id: event?.company_id,
         zone_label: row.zone_label,
         drink_avg_ticket: row.drink_avg_ticket ?? existing?.drink_avg_ticket ?? null,
         food_avg_ticket: row.food_avg_ticket ?? existing?.food_avg_ticket ?? null,
@@ -282,6 +354,9 @@ export default function EventSimulator() {
         food_cmv_pct: row.food_cmv_pct ?? existing?.food_cmv_pct ?? null,
         drink_conversion_pct: row.drink_conversion_pct ?? existing?.drink_conversion_pct ?? null,
         food_conversion_pct: row.food_conversion_pct ?? existing?.food_conversion_pct ?? null,
+        merch_avg_ticket: row.merch_avg_ticket ?? existing?.merch_avg_ticket ?? null,
+        merch_cmv_pct: row.merch_cmv_pct ?? existing?.merch_cmv_pct ?? null,
+        merch_conversion_pct: row.merch_conversion_pct ?? existing?.merch_conversion_pct ?? null,
         display_order: row.display_order ?? existing?.display_order ?? 0,
       };
       const { error } = await supabase.from("event_simulator_zone_config").upsert([payload as any], { onConflict: "event_id,zone_label" });
@@ -290,6 +365,28 @@ export default function EventSimulator() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["simulator-zone-config", eventId] }),
     onError: (e: any) => toast({ title: "Erro a guardar zona", description: e.message, variant: "destructive" }),
   });
+
+  // ---------------------------------------------------------------------------
+  // Derived: BP aggregates por categoria
+  // ---------------------------------------------------------------------------
+  const bpAggregate = useMemo(() => {
+    let revenue = 0, expenses = 0;
+    let bpTicket = 0, bpFB = 0, bpMerch = 0, bpSponsors = 0;
+    for (const r of bpRows as any[]) {
+      const amt = n(r.amount);
+      const code = r.account_categories?.code as string | undefined;
+      if (r.type === "income") {
+        revenue += amt;
+        if (code === CAT_CODE_TICKET) bpTicket += amt;
+        else if (code === CAT_CODE_FB) bpFB += amt;
+        else if (code === CAT_CODE_MERCH) bpMerch += amt;
+        else if (code && CAT_CODES_SPONSORS.includes(code)) bpSponsors += amt;
+      } else if (r.type === "expense") {
+        expenses += amt;
+      }
+    }
+    return { revenue, expenses, result: revenue - expenses, bpTicket, bpFB, bpMerch, bpSponsors };
+  }, [bpRows]);
 
   // ---------------------------------------------------------------------------
   // Derived: cálculos do simulador
@@ -307,12 +404,15 @@ export default function EventSimulator() {
       ab_food_revenue: number;
       ab_drink_cogs: number;
       ab_food_cogs: number;
-      ab_margin: number;
+      merch_revenue: number;
+      merch_cogs: number;
+      derivedMargin: number;
     };
 
     const cells: Cell[] = [];
     let totalProjQty = 0, totalCourtesy = 0, totalTicketRev = 0;
     let totalDrinkRev = 0, totalFoodRev = 0, totalDrinkCogs = 0, totalFoodCogs = 0;
+    let totalMerchRev = 0, totalMerchCogs = 0;
 
     for (const d of days) {
       for (const z of zoneLabels) {
@@ -322,87 +422,124 @@ export default function EventSimulator() {
 
         const projected = n(inp?.projected_qty);
         const courtesy = n(inp?.courtesy_qty);
-        const ticketRevenue = n(inp?.projected_revenue); // manual (preço médio embutido)
-        const paidPublic = projected; // paying audience
-        const totalPublic = projected + courtesy; // consumidores totais
+        const ticketRevenue = n(inp?.projected_revenue);
+        const totalPublic = projected + courtesy;
 
         const drinkUnits = totalPublic * (eff.drinkConvPct / 100);
         const foodUnits = totalPublic * (eff.foodConvPct / 100);
+        const merchUnits = totalPublic * (eff.merchConvPct / 100);
         const ab_drink_revenue = drinkUnits * eff.drinkTicket;
         const ab_food_revenue = foodUnits * eff.foodTicket;
+        const merch_revenue = merchUnits * eff.merchTicket;
         const ab_drink_cogs = ab_drink_revenue * (eff.drinkCmvPct / 100);
         const ab_food_cogs = ab_food_revenue * (eff.foodCmvPct / 100);
-        const ab_margin = (ab_drink_revenue + ab_food_revenue) - (ab_drink_cogs + ab_food_cogs);
+        const merch_cogs = merch_revenue * (eff.merchCmvPct / 100);
+        const derivedMargin = (ab_drink_revenue + ab_food_revenue + merch_revenue) - (ab_drink_cogs + ab_food_cogs + merch_cogs);
 
         cells.push({
           day_index: d.idx, day_date: d.date, zone_label: z,
-          projected_qty: paidPublic, courtesy_qty: courtesy,
+          projected_qty: projected, courtesy_qty: courtesy,
           capacity_target: n(inp?.capacity_target),
-          ticketRevenue, ab_drink_revenue, ab_food_revenue, ab_drink_cogs, ab_food_cogs, ab_margin,
+          ticketRevenue, ab_drink_revenue, ab_food_revenue, ab_drink_cogs, ab_food_cogs,
+          merch_revenue, merch_cogs, derivedMargin,
         });
 
-        totalProjQty += paidPublic; totalCourtesy += courtesy; totalTicketRev += ticketRevenue;
+        totalProjQty += projected; totalCourtesy += courtesy; totalTicketRev += ticketRevenue;
         totalDrinkRev += ab_drink_revenue; totalFoodRev += ab_food_revenue;
         totalDrinkCogs += ab_drink_cogs; totalFoodCogs += ab_food_cogs;
+        totalMerchRev += merch_revenue; totalMerchCogs += merch_cogs;
       }
     }
+
+    const sponsors = n(cfgDraft.sponsorship_revenue);
+    const grossRevenue = totalTicketRev + totalDrinkRev + totalFoodRev + totalMerchRev + sponsors;
+    const variableSpa = grossRevenue * (n(cfgDraft.variable_spa_pct) / 100);
+    const variableCommission = totalTicketRev * (n(cfgDraft.variable_commission_pct) / 100);
+    const cogsTotal = totalDrinkCogs + totalFoodCogs + totalMerchCogs;
 
     return {
       cells,
       totals: {
         projectedQty: totalProjQty,
         courtesyQty: totalCourtesy,
+        totalPublic: totalProjQty + totalCourtesy,
         ticketRevenue: totalTicketRev,
         drinkRevenue: totalDrinkRev,
         foodRevenue: totalFoodRev,
+        merchRevenue: totalMerchRev,
+        sponsorsRevenue: sponsors,
         drinkCogs: totalDrinkCogs,
         foodCogs: totalFoodCogs,
-        abMargin: (totalDrinkRev + totalFoodRev) - (totalDrinkCogs + totalFoodCogs),
-        grossRevenue: totalTicketRev + totalDrinkRev + totalFoodRev,
+        merchCogs: totalMerchCogs,
+        cogsTotal,
+        derivedMargin: (totalDrinkRev + totalFoodRev + totalMerchRev) - cogsTotal,
+        grossRevenue,
+        variableSpa,
+        variableCommission,
+        variableTotal: variableSpa + variableCommission,
       },
     };
   }, [days, zoneLabels, inputsMap, zoneCfgMap, cfgDraft]);
 
-  // ---------------------------------------------------------------------------
-  // Derived: BP do evento (Forecast DVT) — agrega receitas vs despesas
-  // ---------------------------------------------------------------------------
-  const bpAggregate = useMemo(() => {
-    let revenue = 0, expenses = 0;
-    for (const r of bpRows as any[]) {
-      const amt = n(r.amount);
-      if (r.type === "income") revenue += amt;
-      else if (r.type === "expense") expenses += amt;
-    }
-    return { revenue, expenses, result: revenue - expenses };
-  }, [bpRows]);
-
-  // Break-Even sugerido = (despesas BP) / (margem média por bilhete vendido)
+  // Break-Even sugerido
   const breakEvenSuggestion = useMemo(() => {
-    const totalAB = calc.totals.drinkRevenue + calc.totals.foodRevenue - calc.totals.drinkCogs - calc.totals.foodCogs;
     const marginPerPub = calc.totals.projectedQty > 0
-      ? (calc.totals.ticketRevenue + totalAB) / calc.totals.projectedQty
+      ? (calc.totals.ticketRevenue + calc.totals.derivedMargin) / calc.totals.projectedQty
       : 0;
     if (marginPerPub <= 0) return null;
-    const needed = bpAggregate.expenses / marginPerPub;
-    return Math.ceil(needed);
+    const fixedExpenses = bpAggregate.expenses - calc.totals.cogsTotal; // evitar duplicar CMV
+    if (fixedExpenses <= 0) return null;
+    return Math.ceil(fixedExpenses / marginPerPub);
   }, [calc, bpAggregate.expenses]);
 
-  // DRE comparativa: 4 colunas
+  // DRE projetado vs cenários
   const dreComparison = useMemo(() => {
     const projectedRev = calc.totals.grossRevenue;
-    const projectedAbCogs = calc.totals.drinkCogs + calc.totals.foodCogs;
-    const projectedExpenses = bpAggregate.expenses + projectedAbCogs;
-
-    // Break-Even = nível em que receitas = despesas
-    const beRev = bpAggregate.expenses; // por definição
+    // Despesas projetadas = (BP excluindo CMV genérico) + CMV simulado + variáveis
+    const projectedExpenses = bpAggregate.expenses + calc.totals.cogsTotal + calc.totals.variableTotal;
+    const beRev = bpAggregate.expenses;
 
     return [
-      { label: "Real 2025", revenue: n(cfgDraft.prior_year_real_revenue), expenses: n(cfgDraft.prior_year_real_expenses), kind: "manual" as const },
+      { label: "Real (ano anterior)", revenue: n(cfgDraft.prior_year_real_revenue), expenses: n(cfgDraft.prior_year_real_expenses), kind: "manual" as const },
       { label: "Forecast DVT (BP atual)", revenue: bpAggregate.revenue, expenses: bpAggregate.expenses, kind: "bp" as const },
       { label: "Projetado (simulador)", revenue: projectedRev, expenses: projectedExpenses, kind: "sim" as const },
       { label: "Break-Even", revenue: beRev, expenses: beRev, kind: "be" as const },
     ];
   }, [calc, bpAggregate, cfgDraft.prior_year_real_revenue, cfgDraft.prior_year_real_expenses]);
+
+  // ---------------------------------------------------------------------------
+  // Action: Puxar bilheteira do BP (1.1.01) — distribui pelos dias×zonas
+  // ---------------------------------------------------------------------------
+  const pullTicketingFromBP = useMutation({
+    mutationFn: async () => {
+      const total = bpAggregate.bpTicket;
+      if (total <= 0) throw new Error("BP não tem receita de bilheteira (1.1.01).");
+      const cells = days.flatMap((d) => zoneLabels.map((z) => ({ day_index: d.idx, zone_label: z })));
+      if (cells.length === 0) return;
+      const per = total / cells.length;
+      for (const c of cells) {
+        await supabase.from("event_simulator_inputs").upsert([{
+          event_id: eventId!,
+          company_id: event?.company_id,
+          day_index: c.day_index,
+          zone_label: c.zone_label,
+          day_date: days.find((d) => d.idx === c.day_index)?.date ?? null,
+          projected_revenue: Number(per.toFixed(2)),
+        } as any], { onConflict: "event_id,day_index,zone_label" });
+      }
+    },
+    onSuccess: () => {
+      toast({ title: "Bilheteira preenchida a partir do BP" });
+      queryClient.invalidateQueries({ queryKey: ["simulator-inputs", eventId] });
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+  });
+
+  // Curva de vendas — calcula vendas previstas em cada milestone
+  const salesCurve = useMemo(() => {
+    const totalQty = calc.totals.projectedQty;
+    return PRESET_CURVE.map((p) => ({ ...p, qty: Math.round(totalQty * (p.cumulativePct / 100)) }));
+  }, [calc.totals.projectedQty]);
 
   // ---------------------------------------------------------------------------
   // Render
@@ -432,7 +569,7 @@ export default function EventSimulator() {
           </h1>
           <p className="text-xs text-muted-foreground">
             {days.length} dia{days.length === 1 ? "" : "s"} × {zoneLabels.length} zona{zoneLabels.length === 1 ? "" : "s"}
-            {" "}• Modo: <Badge variant="outline" className="ml-1">read-only no BP</Badge>
+            {" "}• <Badge variant="outline" className="ml-1">Bilheteira é o motor</Badge>
           </p>
         </div>
         <div className="flex gap-2">
@@ -444,28 +581,36 @@ export default function EventSimulator() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KPI icon={<Ticket className="h-4 w-4" />} label="Bilhetes projetados" value={calc.totals.projectedQty.toLocaleString("pt-PT")} sub={`+ ${calc.totals.courtesyQty} cortesias`} />
-        <KPI icon={<TrendingUp className="h-4 w-4" />} label="Receita bruta projetada" value={formatCurrency(calc.totals.grossRevenue)} sub={`Bilheteira ${formatCurrency(calc.totals.ticketRevenue)}`} />
-        <KPI icon={<Beer className="h-4 w-4" />} label="Margem A&B" value={formatCurrency(calc.totals.abMargin)} sub={`Receita ${formatCurrency(calc.totals.drinkRevenue + calc.totals.foodRevenue)}`} />
-        <KPI icon={<Calculator className="h-4 w-4" />} label="Break-Even sugerido" value={breakEvenSuggestion ? `${breakEvenSuggestion.toLocaleString("pt-PT")} bilhetes` : "—"} sub={`Despesas BP ${formatCurrency(bpAggregate.expenses)}`} />
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <KPI icon={<Ticket className="h-4 w-4" />} label="Público pagante" value={calc.totals.projectedQty.toLocaleString("pt-PT")} sub={`+ ${calc.totals.courtesyQty} cortesias`} />
+        <KPI icon={<TrendingUp className="h-4 w-4" />} label="Receita bruta" value={formatCurrency(calc.totals.grossRevenue)} sub={`Bilh. ${formatCurrency(calc.totals.ticketRevenue)}`} />
+        <KPI icon={<Beer className="h-4 w-4" />} label="F&B + Merch" value={formatCurrency(calc.totals.drinkRevenue + calc.totals.foodRevenue + calc.totals.merchRevenue)} sub={`Margem ${formatCurrency(calc.totals.derivedMargin)}`} />
+        <KPI icon={<Megaphone className="h-4 w-4" />} label="Patrocínios" value={formatCurrency(calc.totals.sponsorsRevenue)} sub={cfgDraft.sponsorship_notes || "Independente do público"} />
+        <KPI icon={<Calculator className="h-4 w-4" />} label="Break-Even" value={breakEvenSuggestion ? `${breakEvenSuggestion.toLocaleString("pt-PT")} pax` : "—"} sub={`Despesas ${formatCurrency(bpAggregate.expenses)}`} />
       </div>
 
       <Tabs defaultValue="matrix" className="w-full">
-        <TabsList>
-          <TabsTrigger value="matrix">Matriz Bilheteira</TabsTrigger>
-          <TabsTrigger value="zones">A&B por Zona</TabsTrigger>
-          <TabsTrigger value="dre">DRE Comparativa</TabsTrigger>
+        <TabsList className="flex-wrap h-auto">
+          <TabsTrigger value="matrix">Bilheteira</TabsTrigger>
+          <TabsTrigger value="zones">F&B / Merch</TabsTrigger>
+          <TabsTrigger value="sponsors">Patrocínios</TabsTrigger>
+          <TabsTrigger value="variable">Despesas variáveis</TabsTrigger>
+          <TabsTrigger value="curve">Curva de vendas</TabsTrigger>
+          <TabsTrigger value="dre">DRE</TabsTrigger>
           <TabsTrigger value="config">Configurações</TabsTrigger>
         </TabsList>
 
-        {/* === Matriz === */}
+        {/* === Bilheteira === */}
         <TabsContent value="matrix" className="space-y-4">
           <Card>
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Ticket className="h-4 w-4 text-primary" /> Inputs por dia × zona
               </CardTitle>
+              <Button size="sm" variant="outline" onClick={() => pullTicketingFromBP.mutate()} disabled={!canEdit || pullTicketingFromBP.isPending || bpAggregate.bpTicket <= 0}>
+                {pullTicketingFromBP.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Download className="h-3 w-3 mr-1" />}
+                Puxar do BP ({formatCurrency(bpAggregate.bpTicket)})
+              </Button>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -475,17 +620,18 @@ export default function EventSimulator() {
                       <TableHead>Dia</TableHead>
                       <TableHead>Zona</TableHead>
                       <TableHead className="text-right">Capacidade</TableHead>
-                      <TableHead className="text-right">Projetado</TableHead>
+                      <TableHead className="text-right">Pagantes</TableHead>
                       <TableHead className="text-right">Cortesias</TableHead>
-                      <TableHead className="text-right">Receita bilheteira (€)</TableHead>
-                      <TableHead className="text-right">Break-Even (override)</TableHead>
-                      <TableHead className="text-right">Margem A&B</TableHead>
+                      <TableHead className="text-right">Receita bilh. (€)</TableHead>
+                      <TableHead className="text-right">Break-Even</TableHead>
+                      <TableHead className="text-right">Margem F&B+Merch</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {days.map((d) => zoneLabels.map((z) => {
                       const inp = inputsMap.get(`${d.idx}::${z}`);
                       const cell = calc.cells.find((c) => c.day_index === d.idx && c.zone_label === z);
+                      const capPlaceholder = ticketZoneCapMap.get(z);
                       return (
                         <TableRow key={`${d.idx}-${z}`}>
                           <TableCell className="text-xs whitespace-nowrap">{format(parseISO(d.date), "dd/MM")}</TableCell>
@@ -493,6 +639,7 @@ export default function EventSimulator() {
                           <TableCell className="text-right">
                             <NumInput
                               value={inp?.capacity_target ?? null}
+                              placeholder={capPlaceholder ? String(capPlaceholder) : ""}
                               disabled={!canEdit}
                               onCommit={(v) => upsertInput.mutate({ day_index: d.idx, zone_label: z, capacity_target: v })}
                               className="w-20 ml-auto"
@@ -532,7 +679,7 @@ export default function EventSimulator() {
                               className="w-20 ml-auto"
                             />
                           </TableCell>
-                          <TableCell className="text-right font-mono text-xs">{formatCurrency(cell?.ab_margin ?? 0)}</TableCell>
+                          <TableCell className="text-right font-mono text-xs">{formatCurrency(cell?.derivedMargin ?? 0)}</TableCell>
                         </TableRow>
                       );
                     }))}
@@ -542,7 +689,7 @@ export default function EventSimulator() {
                       <TableCell className="text-right">{calc.totals.courtesyQty}</TableCell>
                       <TableCell className="text-right">{formatCurrency(calc.totals.ticketRevenue)}</TableCell>
                       <TableCell />
-                      <TableCell className="text-right">{formatCurrency(calc.totals.abMargin)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(calc.totals.derivedMargin)}</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
@@ -551,26 +698,31 @@ export default function EventSimulator() {
           </Card>
         </TabsContent>
 
-        {/* === Zonas A&B === */}
+        {/* === F&B / Merch por Zona === */}
         <TabsContent value="zones" className="space-y-4">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Beer className="h-4 w-4 text-primary" /> Conversão e Ticket Médio por Zona
               </CardTitle>
-              <p className="text-xs text-muted-foreground">Valores em branco usam os defaults globais (separador "Configurações").</p>
+              <p className="text-xs text-muted-foreground">
+                Receitas escalam com o público total (pagantes + cortesias). Vazio = usa defaults globais.
+              </p>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Zona</TableHead>
+                      <TableHead rowSpan={2}>Zona</TableHead>
                       <TableHead className="text-right" colSpan={3}><Beer className="inline h-3 w-3 mr-1" /> Bebidas</TableHead>
                       <TableHead className="text-right" colSpan={3}><UtensilsCrossed className="inline h-3 w-3 mr-1" /> Comida</TableHead>
+                      <TableHead className="text-right" colSpan={3}><Shirt className="inline h-3 w-3 mr-1" /> Merch</TableHead>
                     </TableRow>
                     <TableRow>
-                      <TableHead />
+                      <TableHead className="text-right text-xs">Conv.%</TableHead>
+                      <TableHead className="text-right text-xs">Ticket €</TableHead>
+                      <TableHead className="text-right text-xs">CMV %</TableHead>
                       <TableHead className="text-right text-xs">Conv.%</TableHead>
                       <TableHead className="text-right text-xs">Ticket €</TableHead>
                       <TableHead className="text-right text-xs">CMV %</TableHead>
@@ -591,11 +743,186 @@ export default function EventSimulator() {
                           <TableCell className="text-right"><NumInput value={zc?.food_conversion_pct ?? null} placeholder={`${cfgDraft.default_food_conversion_pct}`} step="0.1" disabled={!canEdit} onCommit={(v) => upsertZoneCfg.mutate({ zone_label: z, food_conversion_pct: v })} className="w-16 ml-auto" /></TableCell>
                           <TableCell className="text-right"><NumInput value={zc?.food_avg_ticket ?? null} placeholder={`${cfgDraft.default_food_avg_ticket}`} step="0.01" disabled={!canEdit} onCommit={(v) => upsertZoneCfg.mutate({ zone_label: z, food_avg_ticket: v })} className="w-20 ml-auto" /></TableCell>
                           <TableCell className="text-right"><NumInput value={zc?.food_cmv_pct ?? null} placeholder={`${cfgDraft.default_food_cmv_pct}`} step="0.1" disabled={!canEdit} onCommit={(v) => upsertZoneCfg.mutate({ zone_label: z, food_cmv_pct: v })} className="w-16 ml-auto" /></TableCell>
+                          <TableCell className="text-right"><NumInput value={zc?.merch_conversion_pct ?? null} placeholder={`${cfgDraft.default_merch_conversion_pct}`} step="0.1" disabled={!canEdit} onCommit={(v) => upsertZoneCfg.mutate({ zone_label: z, merch_conversion_pct: v })} className="w-16 ml-auto" /></TableCell>
+                          <TableCell className="text-right"><NumInput value={zc?.merch_avg_ticket ?? null} placeholder={`${cfgDraft.default_merch_avg_ticket}`} step="0.01" disabled={!canEdit} onCommit={(v) => upsertZoneCfg.mutate({ zone_label: z, merch_avg_ticket: v })} className="w-20 ml-auto" /></TableCell>
+                          <TableCell className="text-right"><NumInput value={zc?.merch_cmv_pct ?? null} placeholder={`${cfgDraft.default_merch_cmv_pct}`} step="0.1" disabled={!canEdit} onCommit={(v) => upsertZoneCfg.mutate({ zone_label: z, merch_cmv_pct: v })} className="w-16 ml-auto" /></TableCell>
                         </TableRow>
                       );
                     })}
+                    <TableRow className="font-semibold bg-secondary/30 [&>td]:text-xs">
+                      <TableCell>Receita projetada</TableCell>
+                      <TableCell colSpan={3} className="text-right font-mono">{formatCurrency(calc.totals.drinkRevenue)}</TableCell>
+                      <TableCell colSpan={3} className="text-right font-mono">{formatCurrency(calc.totals.foodRevenue)}</TableCell>
+                      <TableCell colSpan={3} className="text-right font-mono">{formatCurrency(calc.totals.merchRevenue)}</TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* === Patrocínios === */}
+        <TabsContent value="sponsors" className="space-y-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Megaphone className="h-4 w-4 text-primary" /> Patrocínios e Apoios
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Independente do público projetado. BP atual: <strong>{formatCurrency(bpAggregate.bpSponsors)}</strong> (1.2.01 + 1.2.02).
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <Field label="Receita de patrocínios projetada (€)">
+                  <NumInput
+                    value={cfgDraft.sponsorship_revenue}
+                    step="0.01"
+                    disabled={!canEdit}
+                    onCommit={(v) => setCfgDraft((s) => ({ ...s, sponsorship_revenue: n(v) }))}
+                  />
+                </Field>
+                <div className="space-y-1">
+                  <Label className="text-xs">Notas / Patrocinadores</Label>
+                  <Input
+                    value={cfgDraft.sponsorship_notes ?? ""}
+                    placeholder="Ex.: Coca-Cola 30k confirmado, Super Bock em pipe…"
+                    disabled={!canEdit}
+                    onChange={(e) => setCfgDraft((s) => ({ ...s, sponsorship_notes: e.target.value || null }))}
+                  />
+                </div>
+              </div>
+              {bpAggregate.bpSponsors > 0 && Math.abs(bpAggregate.bpSponsors - cfgDraft.sponsorship_revenue) > 0.5 && (
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 text-xs">
+                  <span>BP atual tem {formatCurrency(bpAggregate.bpSponsors)} em patrocínios.</span>
+                  <Button size="sm" variant="outline" onClick={() => setCfgDraft((s) => ({ ...s, sponsorship_revenue: bpAggregate.bpSponsors }))} disabled={!canEdit}>
+                    <Download className="h-3 w-3 mr-1" /> Puxar do BP
+                  </Button>
+                </div>
+              )}
+              <div className="flex justify-end">
+                <Button size="sm" onClick={() => saveConfig.mutate()} disabled={!canEdit || saveConfig.isPending}>
+                  <Save className="h-3 w-3 mr-1" /> Guardar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* === Despesas variáveis === */}
+        <TabsContent value="variable" className="space-y-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Percent className="h-4 w-4 text-primary" /> Despesas variáveis (escalam com receita)
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Calculadas em tempo real sobre a receita bruta projetada.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <Field label="SPA / Direitos autorais (% receita bruta)">
+                  <NumInput value={cfgDraft.variable_spa_pct} step="0.1" disabled={!canEdit} onCommit={(v) => setCfgDraft((s) => ({ ...s, variable_spa_pct: n(v) }))} />
+                </Field>
+                <Field label="Comissão de bilheteira (% receita de bilheteira)">
+                  <NumInput value={cfgDraft.variable_commission_pct} step="0.1" disabled={!canEdit} onCommit={(v) => setCfgDraft((s) => ({ ...s, variable_commission_pct: n(v) }))} />
+                </Field>
+              </div>
+              <Table>
+                <TableBody className="[&>tr>td]:text-xs">
+                  <TableRow>
+                    <TableCell>SPA ({cfgDraft.variable_spa_pct}% × receita bruta {formatCurrency(calc.totals.grossRevenue)})</TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(calc.totals.variableSpa)}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Comissão ({cfgDraft.variable_commission_pct}% × bilheteira {formatCurrency(calc.totals.ticketRevenue)})</TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(calc.totals.variableCommission)}</TableCell>
+                  </TableRow>
+                  <TableRow className="font-semibold bg-secondary/30">
+                    <TableCell>Total despesas variáveis</TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(calc.totals.variableTotal)}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+              <div className="flex justify-end">
+                <Button size="sm" onClick={() => saveConfig.mutate()} disabled={!canEdit || saveConfig.isPending}>
+                  <Save className="h-3 w-3 mr-1" /> Guardar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* === Curva de vendas === */}
+        <TabsContent value="curve" className="space-y-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <LineChart className="h-4 w-4 text-primary" /> Curva de vendas projetada
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Distribuição esperada de vendas ao longo do tempo. Total projetado: <strong>{calc.totals.projectedQty.toLocaleString("pt-PT")} bilhetes</strong>.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <Field label="Modo da curva">
+                  <Select
+                    value={cfgDraft.sales_curve_mode}
+                    onValueChange={(v: any) => setCfgDraft((s) => ({ ...s, sales_curve_mode: v }))}
+                    disabled={!canEdit}
+                  >
+                    <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="preset">Preset (curva típica)</SelectItem>
+                      <SelectItem value="prior_event">Edição anterior</SelectItem>
+                      <SelectItem value="similar">Eventos similares</SelectItem>
+                      <SelectItem value="manual">Manual</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                {cfgDraft.sales_curve_mode === "prior_event" && priorEvents.length > 0 && (
+                  <Field label="Evento de referência">
+                    <Select
+                      value={cfgDraft.sales_curve_prior_event_id ?? ""}
+                      onValueChange={(v) => setCfgDraft((s) => ({ ...s, sales_curve_prior_event_id: v || null }))}
+                      disabled={!canEdit}
+                    >
+                      <SelectTrigger className="h-8"><SelectValue placeholder="Escolher…" /></SelectTrigger>
+                      <SelectContent>
+                        {priorEvents.map((p: any) => (
+                          <SelectItem key={p.id} value={p.id}>{p.name} ({format(parseISO(p.date), "dd/MM/yyyy")})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                )}
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Dias antes do evento</TableHead>
+                    <TableHead className="text-right">Cumulativo %</TableHead>
+                    <TableHead className="text-right">Bilhetes vendidos (cum.)</TableHead>
+                    <TableHead className="text-right">Receita esperada (cum.)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {salesCurve.map((p) => (
+                    <TableRow key={p.daysBefore}>
+                      <TableCell className="text-xs">{p.daysBefore === 0 ? "Dia do evento" : `D-${p.daysBefore}`}</TableCell>
+                      <TableCell className="text-right font-mono text-xs">{p.cumulativePct}%</TableCell>
+                      <TableCell className="text-right font-mono text-xs">{p.qty.toLocaleString("pt-PT")}</TableCell>
+                      <TableCell className="text-right font-mono text-xs">{formatCurrency(calc.totals.ticketRevenue * (p.cumulativePct / 100))}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <div className="p-3 rounded-lg bg-muted/30 text-xs text-muted-foreground flex items-start gap-2">
+                <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>Curva é informativa. Modos "Edição anterior" e "Eventos similares" usam vendas reais quando disponíveis (ainda não implementado o cálculo do histórico — aparece quando ≥3 eventos com vendas registadas).</span>
               </div>
             </CardContent>
           </Card>
@@ -606,9 +933,11 @@ export default function EventSimulator() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-primary" /> DRE Comparativa
+                <TrendingUp className="h-4 w-4 text-primary" /> DRE projetado em tempo real
               </CardTitle>
-              <p className="text-xs text-muted-foreground">Receita bruta vs despesas para cada cenário. Forecast DVT lê do BP atual.</p>
+              <p className="text-xs text-muted-foreground">
+                Projetado = Bilheteira + F&B + Merch + Patrocínios − (BP despesas + CMV simulado + variáveis).
+              </p>
             </CardHeader>
             <CardContent>
               <Table>
@@ -642,11 +971,35 @@ export default function EventSimulator() {
                   })}
                 </TableBody>
               </Table>
+
+              {/* Decomposição da receita projetada */}
+              <div className="mt-4 grid sm:grid-cols-2 gap-3">
+                <Card className="bg-muted/20">
+                  <CardHeader className="pb-1"><CardTitle className="text-xs">Receita projetada</CardTitle></CardHeader>
+                  <CardContent className="text-xs space-y-1">
+                    <RowKV label="Bilheteira" value={formatCurrency(calc.totals.ticketRevenue)} />
+                    <RowKV label="Bebidas" value={formatCurrency(calc.totals.drinkRevenue)} />
+                    <RowKV label="Comida" value={formatCurrency(calc.totals.foodRevenue)} />
+                    <RowKV label="Merchandising" value={formatCurrency(calc.totals.merchRevenue)} />
+                    <RowKV label="Patrocínios" value={formatCurrency(calc.totals.sponsorsRevenue)} />
+                    <RowKV label="TOTAL" value={formatCurrency(calc.totals.grossRevenue)} bold />
+                  </CardContent>
+                </Card>
+                <Card className="bg-muted/20">
+                  <CardHeader className="pb-1"><CardTitle className="text-xs">Despesa projetada</CardTitle></CardHeader>
+                  <CardContent className="text-xs space-y-1">
+                    <RowKV label="BP atual (todas)" value={formatCurrency(bpAggregate.expenses)} />
+                    <RowKV label="CMV F&B + Merch (simulado)" value={formatCurrency(calc.totals.cogsTotal)} />
+                    <RowKV label="SPA + Comissões" value={formatCurrency(calc.totals.variableTotal)} />
+                    <RowKV label="TOTAL" value={formatCurrency(bpAggregate.expenses + calc.totals.cogsTotal + calc.totals.variableTotal)} bold />
+                  </CardContent>
+                </Card>
+              </div>
+
               <div className="mt-4 p-3 rounded-lg bg-muted/30 text-xs text-muted-foreground flex items-start gap-2">
                 <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Adoptar cenário</strong> (criar forecasts reais a partir do simulador) chega na <em>Entrega 4</em>.
-                  Para já, o simulador é read-only no BP.
+                  <strong>Adoptar cenário</strong> (criar/atualizar forecasts reais a partir do simulador) chega na <em>Entrega 4</em>.
                 </span>
               </div>
             </CardContent>
@@ -657,15 +1010,27 @@ export default function EventSimulator() {
         <TabsContent value="config" className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm">Defaults A&B</CardTitle></CardHeader>
-              <CardContent className="grid grid-cols-2 gap-3">
-                <Field label="Bebidas — Conversão %"><NumInput value={cfgDraft.default_drink_conversion_pct} step="0.1" disabled={!canEdit} onCommit={(v) => setCfgDraft((s) => ({ ...s, default_drink_conversion_pct: n(v) }))} /></Field>
-                <Field label="Bebidas — Ticket médio €"><NumInput value={cfgDraft.default_drink_avg_ticket} step="0.01" disabled={!canEdit} onCommit={(v) => setCfgDraft((s) => ({ ...s, default_drink_avg_ticket: n(v) }))} /></Field>
-                <Field label="Bebidas — CMV %"><NumInput value={cfgDraft.default_drink_cmv_pct} step="0.1" disabled={!canEdit} onCommit={(v) => setCfgDraft((s) => ({ ...s, default_drink_cmv_pct: n(v) }))} /></Field>
-                <div />
-                <Field label="Comida — Conversão %"><NumInput value={cfgDraft.default_food_conversion_pct} step="0.1" disabled={!canEdit} onCommit={(v) => setCfgDraft((s) => ({ ...s, default_food_conversion_pct: n(v) }))} /></Field>
-                <Field label="Comida — Ticket médio €"><NumInput value={cfgDraft.default_food_avg_ticket} step="0.01" disabled={!canEdit} onCommit={(v) => setCfgDraft((s) => ({ ...s, default_food_avg_ticket: n(v) }))} /></Field>
-                <Field label="Comida — CMV %"><NumInput value={cfgDraft.default_food_cmv_pct} step="0.1" disabled={!canEdit} onCommit={(v) => setCfgDraft((s) => ({ ...s, default_food_cmv_pct: n(v) }))} /></Field>
+              <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Beer className="h-4 w-4" /> Defaults Bebidas</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-3 gap-3">
+                <Field label="Conv. %"><NumInput value={cfgDraft.default_drink_conversion_pct} step="0.1" disabled={!canEdit} onCommit={(v) => setCfgDraft((s) => ({ ...s, default_drink_conversion_pct: n(v) }))} /></Field>
+                <Field label="Ticket €"><NumInput value={cfgDraft.default_drink_avg_ticket} step="0.01" disabled={!canEdit} onCommit={(v) => setCfgDraft((s) => ({ ...s, default_drink_avg_ticket: n(v) }))} /></Field>
+                <Field label="CMV %"><NumInput value={cfgDraft.default_drink_cmv_pct} step="0.1" disabled={!canEdit} onCommit={(v) => setCfgDraft((s) => ({ ...s, default_drink_cmv_pct: n(v) }))} /></Field>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><UtensilsCrossed className="h-4 w-4" /> Defaults Comida</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-3 gap-3">
+                <Field label="Conv. %"><NumInput value={cfgDraft.default_food_conversion_pct} step="0.1" disabled={!canEdit} onCommit={(v) => setCfgDraft((s) => ({ ...s, default_food_conversion_pct: n(v) }))} /></Field>
+                <Field label="Ticket €"><NumInput value={cfgDraft.default_food_avg_ticket} step="0.01" disabled={!canEdit} onCommit={(v) => setCfgDraft((s) => ({ ...s, default_food_avg_ticket: n(v) }))} /></Field>
+                <Field label="CMV %"><NumInput value={cfgDraft.default_food_cmv_pct} step="0.1" disabled={!canEdit} onCommit={(v) => setCfgDraft((s) => ({ ...s, default_food_cmv_pct: n(v) }))} /></Field>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Shirt className="h-4 w-4" /> Defaults Merchandising</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-3 gap-3">
+                <Field label="Conv. %"><NumInput value={cfgDraft.default_merch_conversion_pct} step="0.1" disabled={!canEdit} onCommit={(v) => setCfgDraft((s) => ({ ...s, default_merch_conversion_pct: n(v) }))} /></Field>
+                <Field label="Ticket €"><NumInput value={cfgDraft.default_merch_avg_ticket} step="0.01" disabled={!canEdit} onCommit={(v) => setCfgDraft((s) => ({ ...s, default_merch_avg_ticket: n(v) }))} /></Field>
+                <Field label="CMV %"><NumInput value={cfgDraft.default_merch_cmv_pct} step="0.1" disabled={!canEdit} onCommit={(v) => setCfgDraft((s) => ({ ...s, default_merch_cmv_pct: n(v) }))} /></Field>
               </CardContent>
             </Card>
             <Card>
@@ -706,7 +1071,7 @@ function KPI({ icon, label, value, sub }: { icon: React.ReactNode; label: string
       <CardContent className="p-3">
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">{icon}{label}</div>
         <div className="text-lg font-semibold mt-1">{value}</div>
-        {sub && <div className="text-[10px] text-muted-foreground mt-0.5">{sub}</div>}
+        {sub && <div className="text-[10px] text-muted-foreground mt-0.5 truncate">{sub}</div>}
       </CardContent>
     </Card>
   );
@@ -717,6 +1082,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div className="space-y-1">
       <Label className="text-xs">{label}</Label>
       {children}
+    </div>
+  );
+}
+
+function RowKV({ label, value, bold }: { label: string; value: React.ReactNode; bold?: boolean }) {
+  return (
+    <div className={`flex justify-between ${bold ? "font-semibold border-t pt-1 mt-1" : ""}`}>
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-mono">{value}</span>
     </div>
   );
 }
