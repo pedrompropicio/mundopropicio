@@ -115,12 +115,14 @@ export default function CategoryFormModal({
         setType(editingCategory.type);
         setParentId(editingCategory.parent_id || "");
         setEventRequired(editingCategory.event_required);
+        setAllocateToActiveEvent(editingCategory.allocate_to_active_event ?? false);
       } else {
         setCode("");
         setName("");
         setType(defaultType);
         setParentId(defaultParentId || "");
         setEventRequired(true);
+        setAllocateToActiveEvent(false);
       }
     }
   }, [open, editingCategory, defaultParentId, defaultType]);
