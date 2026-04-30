@@ -95,6 +95,15 @@ function roundCents(value: number): number {
   return Math.round((Number(value) || 0) * 100) / 100;
 }
 
+function headerIndex(headers: string[]): Map<string, number> {
+  return new Map(headers.map((header, idx) => [norm(header), idx]));
+}
+
+function cellByHeader(row: any[], indexes: Map<string, number>, header: string): any {
+  const idx = indexes.get(norm(header));
+  return idx === undefined ? undefined : row[idx];
+}
+
 function toLocalDate(value: any): string | null {
   if (!value) return null;
   if (value instanceof Date) {
