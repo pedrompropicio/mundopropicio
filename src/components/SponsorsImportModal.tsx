@@ -116,6 +116,25 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
       if (filteredRows.length === 0) throw new Error("Nada selecionado para importar.");
       if (needsAccount && !accountId) throw new Error("Seleciona a conta de receita para os patrocínios já recebidos.");
 
+      // 0) Resolver categoria Patrocínios (1.2.01) na empresa do evento (multi-tenant safe)
+      const { data: ev, error: evErr } = await supabase
+        .from("events")
+        .select("company_id")
+        .eq("id", eventId)
+        .single();
+      if (evErr) throw evErr;
+      const companyId = (ev as any)?.company_id;
+      const catQuery = supabase
+        .from("account_categories")
+        .select("id")
+        .eq("code", SPONSORS_CATEGORY_CODE);
+      const { data: catRows, error: catErr } = companyId
+        ? await catQuery.eq("company_id", companyId).limit(1)
+        : await catQuery.is("company_id", null).limit(1);
+      if (catErr) throw catErr;
+      const SPONSORS_CATEGORY_ID = (catRows?.[0] as any)?.id;
+      if (!SPONSORS_CATEGORY_ID) throw new Error(`Categoria 1.2.01 Patrocínios não encontrada para esta empresa.`);
+
       // 1) Resolver/criar suppliers por nome (procura case-insensitive na MESMA empresa).
       const uniqueNames = Array.from(new Set(filteredRows.map((r) => r.supplierName.trim())));
       const { data: existingSuppliers, error: supErr } = await supabase
