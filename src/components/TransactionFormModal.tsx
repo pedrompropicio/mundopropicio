@@ -23,6 +23,8 @@ import { CurrencyBadge } from "@/components/CurrencyBadge";
 import { CurrencyCode, formatInCurrency } from "@/lib/currency";
 import { SplitByIvaModal, type IvaSplitLine } from "@/components/SplitByIvaModal";
 import { WithholdingDeclaredFields } from "@/components/WithholdingDeclaredFields";
+import { extractJpegFromDng, isDngFile } from "@/lib/dng-extract-preview";
+import { pdfFirstPageToJpeg } from "@/lib/pdf-first-page-to-jpeg";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
