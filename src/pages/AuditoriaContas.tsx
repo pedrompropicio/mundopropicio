@@ -608,15 +608,7 @@ function AnaliseIATab() {
     for (const r of toApply) {
       try {
         const table = r.source === "bp" ? "event_forecasts" : "transactions";
-        const isOverhead = (r.chosen_code ?? "").startsWith("10.");
-        // Para BP: ao mover para Grupo 10, marca como overhead (não-operacional, fora do resultado)
-        // Para transações: só atualiza categoria — flags is_overhead não existem nessa tabela
-        const update: Record<string, any> = { category_id: r.chosen_id };
-        if (r.source === "bp" && isOverhead) {
-          update.is_overhead = true;
-          update.exclude_from_result = true;
-        }
-        const { error } = await supabase.from(table).update(update as any).eq("id", r.id);
+        const { error } = await supabase.from(table).update({ category_id: r.chosen_id }).eq("id", r.id);
         if (error) throw error;
         ok++;
       } catch { fail++; }
@@ -881,9 +873,6 @@ function AnaliseIATab() {
                     <td className="px-2 py-1.5">
                       <span className="font-mono text-primary font-semibold">{r.chosen_code}</span>
                       {r.chosen_name && <div className="text-[10px] text-muted-foreground">{r.chosen_name}</div>}
-                      {r.source === "bp" && (r.chosen_code ?? "").startsWith("10.") && (
-                        <Badge variant="outline" className="mt-1 text-[9px] border-warning/50 text-warning">→ marca como Overhead</Badge>
-                      )}
                     </td>
                   </tr>
                 ))}
