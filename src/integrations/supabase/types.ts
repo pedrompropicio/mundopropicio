@@ -2258,6 +2258,9 @@ export type Database = {
       }
       event_simulator_config: {
         Row: {
+          ab_drink_passthrough_pct: number
+          ab_food_passthrough_pct: number
+          bonif_bebidas: number
           company_id: string
           created_at: string
           default_drink_avg_ticket: number
@@ -2271,18 +2274,31 @@ export type Database = {
           default_merch_conversion_pct: number | null
           event_id: string
           notes: string | null
+          ponto_vendido: number
+          prior_year_drink: number
+          prior_year_food: number
           prior_year_notes: string | null
+          prior_year_other: number
           prior_year_real_expenses: number | null
           prior_year_real_revenue: number | null
+          prior_year_souvenir: number
+          prior_year_sponsor: number
+          prior_year_tickets: number
           sales_curve_mode: string | null
           sales_curve_prior_event_id: string | null
+          souvenir_cost: number
+          souvenir_revenue: number
           sponsorship_notes: string | null
           sponsorship_revenue: number | null
+          ticket_iva_pct: number
           updated_at: string
           variable_commission_pct: number | null
           variable_spa_pct: number | null
         }
         Insert: {
+          ab_drink_passthrough_pct?: number
+          ab_food_passthrough_pct?: number
+          bonif_bebidas?: number
           company_id: string
           created_at?: string
           default_drink_avg_ticket?: number
@@ -2296,18 +2312,31 @@ export type Database = {
           default_merch_conversion_pct?: number | null
           event_id: string
           notes?: string | null
+          ponto_vendido?: number
+          prior_year_drink?: number
+          prior_year_food?: number
           prior_year_notes?: string | null
+          prior_year_other?: number
           prior_year_real_expenses?: number | null
           prior_year_real_revenue?: number | null
+          prior_year_souvenir?: number
+          prior_year_sponsor?: number
+          prior_year_tickets?: number
           sales_curve_mode?: string | null
           sales_curve_prior_event_id?: string | null
+          souvenir_cost?: number
+          souvenir_revenue?: number
           sponsorship_notes?: string | null
           sponsorship_revenue?: number | null
+          ticket_iva_pct?: number
           updated_at?: string
           variable_commission_pct?: number | null
           variable_spa_pct?: number | null
         }
         Update: {
+          ab_drink_passthrough_pct?: number
+          ab_food_passthrough_pct?: number
+          bonif_bebidas?: number
           company_id?: string
           created_at?: string
           default_drink_avg_ticket?: number
@@ -2321,13 +2350,23 @@ export type Database = {
           default_merch_conversion_pct?: number | null
           event_id?: string
           notes?: string | null
+          ponto_vendido?: number
+          prior_year_drink?: number
+          prior_year_food?: number
           prior_year_notes?: string | null
+          prior_year_other?: number
           prior_year_real_expenses?: number | null
           prior_year_real_revenue?: number | null
+          prior_year_souvenir?: number
+          prior_year_sponsor?: number
+          prior_year_tickets?: number
           sales_curve_mode?: string | null
           sales_curve_prior_event_id?: string | null
+          souvenir_cost?: number
+          souvenir_revenue?: number
           sponsorship_notes?: string | null
           sponsorship_revenue?: number | null
+          ticket_iva_pct?: number
           updated_at?: string
           variable_commission_pct?: number | null
           variable_spa_pct?: number | null
@@ -2349,8 +2388,69 @@ export type Database = {
           },
         ]
       }
+      event_simulator_cost_lines: {
+        Row: {
+          break_even_amount: number
+          category_id: string | null
+          company_id: string
+          created_at: string
+          display_order: number
+          event_id: string
+          forecast_amount: number
+          id: string
+          is_ab_passthrough: boolean
+          label: string
+          prior_year_amount: number
+          updated_at: string
+        }
+        Insert: {
+          break_even_amount?: number
+          category_id?: string | null
+          company_id: string
+          created_at?: string
+          display_order?: number
+          event_id: string
+          forecast_amount?: number
+          id?: string
+          is_ab_passthrough?: boolean
+          label: string
+          prior_year_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          break_even_amount?: number
+          category_id?: string | null
+          company_id?: string
+          created_at?: string
+          display_order?: number
+          event_id?: string
+          forecast_amount?: number
+          id?: string
+          is_ab_passthrough?: boolean
+          label?: string
+          prior_year_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_simulator_cost_lines_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "account_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_simulator_cost_lines_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_simulator_inputs: {
         Row: {
+          avg_ticket_override: number | null
           break_even_qty_manual: number | null
           capacity_target: number | null
           company_id: string
@@ -2359,14 +2459,21 @@ export type Database = {
           day_date: string | null
           day_index: number
           event_id: string
+          forecast_qty: number | null
           id: string
+          iva_pct: number
           notes: string | null
+          prior_year_qty: number | null
+          prior_year_revenue: number | null
           projected_qty: number
           projected_revenue: number | null
+          real_sales_qty: number
+          real_sales_revenue: number
           updated_at: string
           zone_label: string
         }
         Insert: {
+          avg_ticket_override?: number | null
           break_even_qty_manual?: number | null
           capacity_target?: number | null
           company_id: string
@@ -2375,14 +2482,21 @@ export type Database = {
           day_date?: string | null
           day_index: number
           event_id: string
+          forecast_qty?: number | null
           id?: string
+          iva_pct?: number
           notes?: string | null
+          prior_year_qty?: number | null
+          prior_year_revenue?: number | null
           projected_qty?: number
           projected_revenue?: number | null
+          real_sales_qty?: number
+          real_sales_revenue?: number
           updated_at?: string
           zone_label: string
         }
         Update: {
+          avg_ticket_override?: number | null
           break_even_qty_manual?: number | null
           capacity_target?: number | null
           company_id?: string
@@ -2391,10 +2505,16 @@ export type Database = {
           day_date?: string | null
           day_index?: number
           event_id?: string
+          forecast_qty?: number | null
           id?: string
+          iva_pct?: number
           notes?: string | null
+          prior_year_qty?: number | null
+          prior_year_revenue?: number | null
           projected_qty?: number
           projected_revenue?: number | null
+          real_sales_qty?: number
+          real_sales_revenue?: number
           updated_at?: string
           zone_label?: string
         }
