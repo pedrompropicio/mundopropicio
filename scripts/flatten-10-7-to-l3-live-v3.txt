@@ -15,6 +15,8 @@
 BEGIN;
 
 -- 1) Empresas afetadas: só as que ainda têm códigos 10.7.* de 4 níveis
+DROP TABLE IF EXISTS _affected_companies;
+
 CREATE TEMP TABLE _affected_companies AS
 SELECT DISTINCT company_id
 FROM public.account_categories
