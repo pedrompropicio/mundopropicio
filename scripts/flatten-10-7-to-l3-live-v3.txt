@@ -47,7 +47,7 @@ WHERE c.company_id = root10.company_id
   AND c.code = '10.7'
   AND root10.code = '10';
 
--- 3) Se alguma BP/TX estiver ligada aos nós intermédios antigos, mover para a 1.ª folha do grupo
+-- 4) Se alguma BP/TX estiver ligada aos nós intermédios antigos, mover para a 1.ª folha do grupo
 WITH map AS (
   SELECT g.id AS old_id, leaf.id AS new_id
   FROM public.account_categories g
@@ -82,14 +82,15 @@ SET category_id = map.new_id
 FROM map
 WHERE f.category_id = map.old_id;
 
--- 4) Libertar os códigos 10.7.01 / 10.7.02 / 10.7.03 para as folhas reais
+-- 5) Libertar os códigos 10.7.01 / 10.7.02 / 10.7.03 para as folhas reais
 UPDATE public.account_categories
 SET code = '__OLD_' || code,
     is_active = false,
     updated_at = now()
-WHERE code IN ('10.7.01', '10.7.02', '10.7.03');
+WHERE code IN ('10.7.01', '10.7.02', '10.7.03')
+  AND company_id IN (SELECT company_id FROM _affected_companies);
 
--- 5) Promover folhas L4 para L3, preservando os UUIDs originais
+-- 6) Promover folhas L4 para L3, preservando os UUIDs originais
 WITH map(old_code, new_code, parent_code) AS (
   VALUES
     ('10.7.01.01', '10.7.01', '10.7'),
@@ -110,6 +111,7 @@ SET code = map.new_code,
     updated_at = now()
 FROM map, public.account_categories parent
 WHERE leaf.code = map.old_code
+  AND leaf.company_id IN (SELECT company_id FROM _affected_companies)
   AND parent.company_id = leaf.company_id
   AND parent.code = map.parent_code;
 
