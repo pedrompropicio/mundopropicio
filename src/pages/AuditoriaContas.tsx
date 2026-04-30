@@ -832,7 +832,7 @@ function AnaliseIATab() {
                     </tr>
                     {isExpanded && (
                       <tr key={`${rowKey}-detail`} className="bg-secondary/10">
-                        <td colSpan={8} className="px-6 py-3">
+                        <td colSpan={9} className="px-6 py-3">
                           <RowDetailPanel row={r} eventId={eventId} eventIds={scopedEventIds} categories={categories} eventLabelMap={eventLabelMap} />
                         </td>
                       </tr>
@@ -841,7 +841,7 @@ function AnaliseIATab() {
                   );
                 })}
                 {filteredRows.length === 0 && (
-                  <tr><td colSpan={8} className="text-center py-8 text-sm text-muted-foreground">Sem linhas para mostrar com este filtro.</td></tr>
+                  <tr><td colSpan={9} className="text-center py-8 text-sm text-muted-foreground">Sem linhas para mostrar com este filtro.</td></tr>
                 )}
               </tbody>
             </table>
