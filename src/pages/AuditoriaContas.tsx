@@ -72,7 +72,6 @@ interface FlatCatItem {
   name: string;
 }
 function buildFlatCategoryList(cats: Category[], leafSet: Set<string>): FlatCatItem[] {
-  const byId = new Map(cats.map((c) => [c.id, c]));
   const childrenOf = new Map<string | null, Category[]>();
   cats.forEach((c) => {
     const k = c.parent_id;
@@ -81,32 +80,29 @@ function buildFlatCategoryList(cats: Category[], leafSet: Set<string>): FlatCatI
   });
   childrenOf.forEach((arr) => arr.sort((a, b) => compareHierarchicalCodes(a.code, b.code)));
 
+  // Verifica recursivamente se a subárvore tem alguma folha
+  const hasLeafBelow = (id: string): boolean => {
+    if (leafSet.has(id)) return true;
+    const kids = childrenOf.get(id) || [];
+    return kids.some((k) => hasLeafBelow(k.id));
+  };
+
   const out: FlatCatItem[] = [];
+  const walk = (node: Category, depth: number) => {
+    if (!hasLeafBelow(node.id)) return;
+    if (leafSet.has(node.id)) {
+      // É folha — adiciona como selecionável
+      out.push({ kind: "leaf", id: node.id, code: node.code, name: node.name });
+    } else {
+      // Não é folha — cabeçalho (L1 só no topo, restantes como L2)
+      out.push({ kind: depth === 0 ? "header-l1" : "header-l2", id: `h${depth}-${node.id}`, code: node.code, name: node.name });
+    }
+    const kids = childrenOf.get(node.id) || [];
+    for (const k of kids) walk(k, depth + 1);
+  };
+
   const roots = (childrenOf.get(null) || []).filter((c) => c.type === "expense");
-  for (const l1 of roots) {
-    // verificar se há folhas debaixo deste L1
-    const l2s = childrenOf.get(l1.id) || [];
-    const hasLeaves = (l2s.length === 0 && leafSet.has(l1.id))
-      || l2s.some((l2) => leafSet.has(l2.id) || (childrenOf.get(l2.id) || []).some((l3) => leafSet.has(l3.id)));
-    if (!hasLeaves) continue;
-    out.push({ kind: "header-l1", id: `h1-${l1.id}`, code: l1.code, name: l1.name });
-    if (leafSet.has(l1.id)) {
-      out.push({ kind: "leaf", id: l1.id, code: l1.code, name: l1.name });
-    }
-    for (const l2 of l2s) {
-      const l3s = childrenOf.get(l2.id) || [];
-      const l2HasLeaves = leafSet.has(l2.id) || l3s.some((l3) => leafSet.has(l3.id));
-      if (!l2HasLeaves) continue;
-      out.push({ kind: "header-l2", id: `h2-${l2.id}`, code: l2.code, name: l2.name });
-      if (leafSet.has(l2.id)) {
-        out.push({ kind: "leaf", id: l2.id, code: l2.code, name: l2.name });
-      }
-      for (const l3 of l3s) {
-        if (!leafSet.has(l3.id)) continue;
-        out.push({ kind: "leaf", id: l3.id, code: l3.code, name: l3.name });
-      }
-    }
-  }
+  for (const l1 of roots) walk(l1, 0);
   return out;
 }
 
@@ -609,7 +605,15 @@ function AnaliseIATab() {
     for (const r of toApply) {
       try {
         const table = r.source === "bp" ? "event_forecasts" : "transactions";
-        const { error } = await supabase.from(table).update({ category_id: r.chosen_id }).eq("id", r.id);
+        const isOverhead = (r.chosen_code ?? "").startsWith("10.");
+        // Para BP: ao mover para Grupo 10, marca como overhead (não-operacional, fora do resultado)
+        // Para transações: só atualiza categoria — flags is_overhead não existem nessa tabela
+        const update: Record<string, any> = { category_id: r.chosen_id };
+        if (r.source === "bp" && isOverhead) {
+          update.is_overhead = true;
+          update.exclude_from_result = true;
+        }
+        const { error } = await supabase.from(table).update(update as any).eq("id", r.id);
         if (error) throw error;
         ok++;
       } catch { fail++; }
@@ -874,6 +878,9 @@ function AnaliseIATab() {
                     <td className="px-2 py-1.5">
                       <span className="font-mono text-primary font-semibold">{r.chosen_code}</span>
                       {r.chosen_name && <div className="text-[10px] text-muted-foreground">{r.chosen_name}</div>}
+                      {r.source === "bp" && (r.chosen_code ?? "").startsWith("10.") && (
+                        <Badge variant="outline" className="mt-1 text-[9px] border-warning/50 text-warning">→ marca como Overhead</Badge>
+                      )}
                     </td>
                   </tr>
                 ))}
