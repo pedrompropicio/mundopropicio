@@ -14,91 +14,146 @@
 -- Os 3 pais L3 antigos (10.7.01/02/03) são apagados no fim.
 -- ============================================================
 
--- Se a tentativa anterior falhou dentro de uma transacção, isto limpa o estado abortado.
--- Se não houver transacção aberta, apenas mostra um aviso inofensivo.
+-- Copiar e executar o ficheiro inteiro no Live SQL Editor.
+-- NÃO há COMMIT manual: se passar na auditoria, fica gravado automaticamente.
+-- Se falhar, o bloco lança erro e desfaz tudo.
+
 ROLLBACK;
 
-BEGIN;
+DO $fix$
+DECLARE
+  v_bad_l4_hierarquia int;
+  v_bad_l4_codigo int;
+  v_bad_antigos int;
+  v_collision_count int;
+BEGIN
+  DROP TABLE IF EXISTS _fix_companies;
+  CREATE TEMP TABLE _fix_companies(company_id uuid primary key) ON COMMIT DROP;
+  INSERT INTO _fix_companies(company_id) VALUES
+    ('7c858982-6ccd-47ca-bd65-e0dd3eebf01c'::uuid),
+    ('7d831e59-6e82-427b-95a0-64904aae5dd2'::uuid);
 
--- 0) Empresas alvo
-DROP TABLE IF EXISTS _co;
-CREATE TEMP TABLE _co AS
-SELECT unnest(ARRAY[
-  '7c858982-6ccd-47ca-bd65-e0dd3eebf01c'::uuid,
-  '7d831e59-6e82-427b-95a0-64904aae5dd2'::uuid
-]) AS company_id;
+  DROP TABLE IF EXISTS _fix_map;
+  CREATE TEMP TABLE _fix_map(
+    company_id uuid,
+    old_code text,
+    tmp_code text,
+    final_code text,
+    final_parent_code text
+  ) ON COMMIT DROP;
 
--- 1) Renomear 10.7 -> "Serviços" (mantém o ID; passa a ser o pai dos serviços)
-UPDATE account_categories ac
-SET name = 'Serviços'
-FROM _co
-WHERE ac.company_id = _co.company_id
-  AND ac.code = '10.7';
+  INSERT INTO _fix_map(company_id, old_code, tmp_code, final_code, final_parent_code)
+  SELECT c.company_id, m.old_code, m.tmp_code, m.final_code, m.final_parent_code
+  FROM _fix_companies c
+  CROSS JOIN (VALUES
+    ('10.7.01.01','__FIX_10_7_01','10.7.01','10.7'),
+    ('10.7.01.02','__FIX_10_7_02','10.7.02','10.7'),
+    ('10.7.01.03','__FIX_10_7_03','10.7.03','10.7'),
+    ('10.7.02.01','__FIX_10_8_01','10.8.01','10.8'),
+    ('10.7.02.02','__FIX_10_8_02','10.8.02','10.8'),
+    ('10.7.02.03','__FIX_10_8_03','10.8.03','10.8'),
+    ('10.7.03.01','__FIX_10_9_01','10.9.01','10.9'),
+    ('10.7.03.02','__FIX_10_9_02','10.9.02','10.9'),
+    ('10.7.03.03','__FIX_10_9_03','10.9.03','10.9')
+  ) AS m(old_code, tmp_code, final_code, final_parent_code);
 
--- 2) Criar 10.8 Estrutura e 10.9 Tecnologia (L2, filhos de "10") por empresa, se não existirem
--- IMPORTANTE: type é NOT NULL em Live.
-INSERT INTO account_categories (id, company_id, parent_id, code, name, type, is_active, event_required)
-SELECT gen_random_uuid(), _co.company_id, p10.id, '10.8', 'Estrutura', 'expense', true, true
-FROM _co
-JOIN account_categories p10
-  ON p10.company_id = _co.company_id AND p10.code = '10' AND p10.parent_id IS NULL
-WHERE NOT EXISTS (
-  SELECT 1 FROM account_categories x
-  WHERE x.company_id = _co.company_id AND x.code = '10.8'
-);
+  IF EXISTS (
+    SELECT 1
+    FROM _fix_companies c
+    WHERE NOT EXISTS (
+      SELECT 1 FROM public.account_categories r
+      WHERE r.company_id = c.company_id AND r.code = '10' AND r.parent_id IS NULL
+    )
+  ) THEN
+    RAISE EXCEPTION 'Falha: existe empresa alvo sem raiz 10.';
+  END IF;
 
-INSERT INTO account_categories (id, company_id, parent_id, code, name, type, is_active, event_required)
-SELECT gen_random_uuid(), _co.company_id, p10.id, '10.9', 'Tecnologia', 'expense', true, true
-FROM _co
-JOIN account_categories p10
-  ON p10.company_id = _co.company_id AND p10.code = '10' AND p10.parent_id IS NULL
-WHERE NOT EXISTS (
-  SELECT 1 FROM account_categories x
-  WHERE x.company_id = _co.company_id AND x.code = '10.9'
-);
+  -- Normalizar L2 existentes/criados.
+  UPDATE public.account_categories ac
+  SET name = 'Serviços',
+      type = 'expense',
+      parent_id = root10.id
+  FROM _fix_companies c
+  JOIN public.account_categories root10
+    ON root10.company_id = c.company_id AND root10.code = '10' AND root10.parent_id IS NULL
+  WHERE ac.company_id = c.company_id AND ac.code = '10.7';
 
--- 3) Fase temporária: renumerar folhas para TMP_* antes de apagar os pais antigos
--- Isto evita colisões com unique(company_id, code) enquanto 10.7.01/02/03 ainda existem.
-UPDATE account_categories SET code = 'TMP_10.7.01' WHERE code = '10.7.01.01' AND company_id IN (SELECT company_id FROM _co);
-UPDATE account_categories SET code = 'TMP_10.7.02' WHERE code = '10.7.01.02' AND company_id IN (SELECT company_id FROM _co);
-UPDATE account_categories SET code = 'TMP_10.7.03' WHERE code = '10.7.01.03' AND company_id IN (SELECT company_id FROM _co);
-UPDATE account_categories SET code = 'TMP_10.8.01' WHERE code = '10.7.02.01' AND company_id IN (SELECT company_id FROM _co);
-UPDATE account_categories SET code = 'TMP_10.8.02' WHERE code = '10.7.02.02' AND company_id IN (SELECT company_id FROM _co);
-UPDATE account_categories SET code = 'TMP_10.8.03' WHERE code = '10.7.02.03' AND company_id IN (SELECT company_id FROM _co);
-UPDATE account_categories SET code = 'TMP_10.9.01' WHERE code = '10.7.03.01' AND company_id IN (SELECT company_id FROM _co);
-UPDATE account_categories SET code = 'TMP_10.9.02' WHERE code = '10.7.03.02' AND company_id IN (SELECT company_id FROM _co);
-UPDATE account_categories SET code = 'TMP_10.9.03' WHERE code = '10.7.03.03' AND company_id IN (SELECT company_id FROM _co);
+  INSERT INTO public.account_categories (id, company_id, parent_id, code, name, type, is_active, event_required)
+  SELECT gen_random_uuid(), c.company_id, root10.id, '10.8', 'Estrutura', 'expense', true, true
+  FROM _fix_companies c
+  JOIN public.account_categories root10
+    ON root10.company_id = c.company_id AND root10.code = '10' AND root10.parent_id IS NULL
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.account_categories x WHERE x.company_id = c.company_id AND x.code = '10.8'
+  );
 
--- 4) Re-parentar folhas temporárias (preservando IDs)
-UPDATE account_categories l
-SET parent_id = p.id
-FROM account_categories p
-WHERE l.company_id = p.company_id
-  AND p.code = '10.7'
-  AND l.code IN ('TMP_10.7.01','TMP_10.7.02','TMP_10.7.03')
-  AND l.company_id IN (SELECT company_id FROM _co);
+  INSERT INTO public.account_categories (id, company_id, parent_id, code, name, type, is_active, event_required)
+  SELECT gen_random_uuid(), c.company_id, root10.id, '10.9', 'Tecnologia', 'expense', true, true
+  FROM _fix_companies c
+  JOIN public.account_categories root10
+    ON root10.company_id = c.company_id AND root10.code = '10' AND root10.parent_id IS NULL
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.account_categories x WHERE x.company_id = c.company_id AND x.code = '10.9'
+  );
 
-UPDATE account_categories l
-SET parent_id = p.id
-FROM account_categories p
-WHERE l.company_id = p.company_id
-  AND p.code = '10.8'
-  AND l.code IN ('TMP_10.8.01','TMP_10.8.02','TMP_10.8.03')
-  AND l.company_id IN (SELECT company_id FROM _co);
+  UPDATE public.account_categories ac
+  SET name = CASE ac.code WHEN '10.8' THEN 'Estrutura' WHEN '10.9' THEN 'Tecnologia' ELSE ac.name END,
+      type = 'expense',
+      parent_id = root10.id
+  FROM _fix_companies c
+  JOIN public.account_categories root10
+    ON root10.company_id = c.company_id AND root10.code = '10' AND root10.parent_id IS NULL
+  WHERE ac.company_id = c.company_id AND ac.code IN ('10.8','10.9');
 
-UPDATE account_categories l
-SET parent_id = p.id
-FROM account_categories p
-WHERE l.company_id = p.company_id
-  AND p.code = '10.9'
-  AND l.code IN ('TMP_10.9.01','TMP_10.9.02','TMP_10.9.03')
-  AND l.company_id IN (SELECT company_id FROM _co);
+  -- Mover as folhas L4 para códigos temporários únicos, preservando os IDs originais.
+  UPDATE public.account_categories leaf
+  SET code = m.tmp_code
+  FROM _fix_map m
+  WHERE leaf.company_id = m.company_id
+    AND leaf.code = m.old_code;
 
--- 4) Apagar os 3 pais L3 antigos (10.7.01/02/03) — agora sem filhos
-DELETE FROM account_categories
-WHERE company_id IN (SELECT company_id FROM _co)
-  AND code IN ('10.7.01','10.7.02','10.7.03')
-  AND id IN (
+  -- Se alguma tentativa anterior deixou códigos temporários, também entram no fluxo.
+  UPDATE public.account_categories leaf
+  SET parent_id = parent.id,
+      type = 'expense'
+  FROM _fix_map m
+  JOIN public.account_categories parent
+    ON parent.company_id = m.company_id AND parent.code = m.final_parent_code
+  WHERE leaf.company_id = m.company_id
+    AND leaf.code = m.tmp_code;
+
+  -- Referências defensivas: os antigos grupos não tinham BP/TX no audit, mas isto evita perda se aparecerem.
+  UPDATE public.transactions t
+  SET category_id = target.id
+  FROM public.account_categories old_group
+  JOIN _fix_map m
+    ON m.company_id = old_group.company_id
+   AND old_group.code = CASE m.final_parent_code
+     WHEN '10.7' THEN '10.7.01'
+     WHEN '10.8' THEN '10.7.02'
+     WHEN '10.9' THEN '10.7.03'
+   END
+  JOIN public.account_categories target
+    ON target.company_id = m.company_id AND target.code = m.tmp_code
+  WHERE t.category_id = old_group.id;
+
+  UPDATE public.event_forecasts f
+  SET category_id = target.id
+  FROM public.account_categories old_group
+  JOIN _fix_map m
+    ON m.company_id = old_group.company_id
+   AND old_group.code = CASE m.final_parent_code
+     WHEN '10.7' THEN '10.7.01'
+     WHEN '10.8' THEN '10.7.02'
+     WHEN '10.9' THEN '10.7.03'
+   END
+  JOIN public.account_categories target
+    ON target.company_id = m.company_id AND target.code = m.tmp_code
+  WHERE f.category_id = old_group.id;
+
+  -- Apagar apenas os IDs dos antigos pais intermédios, nunca as folhas promovidas.
+  DELETE FROM public.account_categories
+  WHERE id IN (
     'd1072000-0000-0000-0000-000000000001'::uuid,
     'd1073000-0000-0000-0000-000000000001'::uuid,
     'd1074000-0000-0000-0000-000000000001'::uuid,
@@ -107,25 +162,76 @@ WHERE company_id IN (SELECT company_id FROM _co)
     'c97a8757-416d-4607-a59d-5fce3f9a3a7c'::uuid
   );
 
--- 5) Fase final: remover TMP_ e deixar as folhas como L3 definitivas.
-UPDATE account_categories
-SET code = REPLACE(code, 'TMP_', '')
-WHERE company_id IN (SELECT company_id FROM _co)
-  AND code LIKE 'TMP\_%' ESCAPE '\';
+  SELECT COUNT(*) INTO v_collision_count
+  FROM _fix_map m
+  JOIN public.account_categories tmp
+    ON tmp.company_id = m.company_id AND tmp.code = m.tmp_code
+  JOIN public.account_categories final
+    ON final.company_id = m.company_id AND final.code = m.final_code AND final.id <> tmp.id;
 
--- 6) AUDITORIA por empresa
+  IF v_collision_count > 0 THEN
+    RAISE EXCEPTION 'Falha: colisão antes de converter códigos temporários para finais (%).', v_collision_count;
+  END IF;
+
+  UPDATE public.account_categories leaf
+  SET code = m.final_code
+  FROM _fix_map m
+  WHERE leaf.company_id = m.company_id
+    AND leaf.code = m.tmp_code;
+
+  WITH RECURSIVE tree AS (
+    SELECT id, parent_id, code, company_id, 1 AS depth
+    FROM public.account_categories
+    WHERE parent_id IS NULL
+    UNION ALL
+    SELECT c.id, c.parent_id, c.code, c.company_id, t.depth + 1
+    FROM public.account_categories c
+    JOIN tree t ON c.parent_id = t.id
+  )
+  SELECT
+    COUNT(*) FILTER (WHERE company_id IN (SELECT company_id FROM _fix_companies) AND depth >= 4),
+    COUNT(*) FILTER (WHERE company_id IN (SELECT company_id FROM _fix_companies) AND code ~ '^10\.[0-9]+\.[0-9]+\.[0-9]+$'),
+    COUNT(*) FILTER (WHERE id IN (
+      'd1072000-0000-0000-0000-000000000001'::uuid,
+      'd1073000-0000-0000-0000-000000000001'::uuid,
+      'd1074000-0000-0000-0000-000000000001'::uuid,
+      '7c754989-68bb-4ecc-9b2b-00651841e9ae'::uuid,
+      '56226c2d-de68-4253-8adc-22cb7504f9cb'::uuid,
+      'c97a8757-416d-4607-a59d-5fce3f9a3a7c'::uuid
+    ))
+  INTO v_bad_l4_hierarquia, v_bad_l4_codigo, v_bad_antigos
+  FROM tree;
+
+  IF COALESCE(v_bad_l4_hierarquia,0) <> 0 OR COALESCE(v_bad_l4_codigo,0) <> 0 OR COALESCE(v_bad_antigos,0) <> 0 THEN
+    RAISE EXCEPTION 'Auditoria falhou: l4_hierarquia=%, l4_codigo=%, antigos_grupos=%',
+      v_bad_l4_hierarquia, v_bad_l4_codigo, v_bad_antigos;
+  END IF;
+
+  RAISE NOTICE 'OK: 10.7.* foi aplanado para L3 nas empresas alvo.';
+END
+$fix$;
+
+-- Auditoria final visível no Results. Esperado por empresa:
+-- l4_hierarquia=0 | l4_codigo=0 | antigos_grupos=0 | novos_l2=3
 WITH RECURSIVE tree AS (
   SELECT id, parent_id, code, company_id, 1 AS depth
-  FROM account_categories WHERE parent_id IS NULL
+  FROM public.account_categories
+  WHERE parent_id IS NULL
   UNION ALL
-  SELECT c.id, c.parent_id, c.code, c.company_id, t.depth+1
-  FROM account_categories c JOIN tree t ON c.parent_id = t.id
+  SELECT c.id, c.parent_id, c.code, c.company_id, t.depth + 1
+  FROM public.account_categories c
+  JOIN tree t ON c.parent_id = t.id
+), target_companies AS (
+  SELECT unnest(ARRAY[
+    '7c858982-6ccd-47ca-bd65-e0dd3eebf01c'::uuid,
+    '7d831e59-6e82-427b-95a0-64904aae5dd2'::uuid
+  ]) AS company_id
 )
 SELECT
-  company_id,
-  COUNT(*) FILTER (WHERE depth >= 4) AS l4_hierarquia,
-  COUNT(*) FILTER (WHERE code ~ '^10\.[0-9]+\.[0-9]+\.[0-9]+$') AS l4_codigo,
-  COUNT(*) FILTER (WHERE id IN (
+  tc.company_id,
+  COUNT(t.id) FILTER (WHERE t.depth >= 4) AS l4_hierarquia,
+  COUNT(t.id) FILTER (WHERE t.code ~ '^10\.[0-9]+\.[0-9]+\.[0-9]+$') AS l4_codigo,
+  COUNT(t.id) FILTER (WHERE t.id IN (
     'd1072000-0000-0000-0000-000000000001'::uuid,
     'd1073000-0000-0000-0000-000000000001'::uuid,
     'd1074000-0000-0000-0000-000000000001'::uuid,
@@ -133,15 +239,9 @@ SELECT
     '56226c2d-de68-4253-8adc-22cb7504f9cb'::uuid,
     'c97a8757-416d-4607-a59d-5fce3f9a3a7c'::uuid
   )) AS antigos_grupos,
-  COUNT(*) FILTER (WHERE code IN ('10.7','10.8','10.9')) AS novos_l2,
-  COUNT(*) FILTER (WHERE code ~ '^10\.[789]\.[0-9]+$') AS novas_folhas_l3
-FROM tree
-WHERE company_id IN (SELECT company_id FROM _co)
-GROUP BY company_id
-ORDER BY company_id;
-
--- Esperado por empresa:
---   l4_hierarquia=0 | l4_codigo=0 | antigos_grupos=0
---   novos_l2=3 | novas_folhas_l3=9 (7c tem 8: faltava Softwares)
--- Se OK: COMMIT;
--- Senão: ROLLBACK;
+  COUNT(t.id) FILTER (WHERE t.code IN ('10.7','10.8','10.9')) AS novos_l2,
+  COUNT(t.id) FILTER (WHERE t.code ~ '^10\.[789]\.[0-9]+$') AS folhas_l3_10_7_9
+FROM target_companies tc
+LEFT JOIN tree t ON t.company_id = tc.company_id
+GROUP BY tc.company_id
+ORDER BY tc.company_id;
