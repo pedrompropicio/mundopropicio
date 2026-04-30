@@ -2266,12 +2266,21 @@ export type Database = {
           default_food_avg_ticket: number
           default_food_cmv_pct: number
           default_food_conversion_pct: number
+          default_merch_avg_ticket: number | null
+          default_merch_cmv_pct: number | null
+          default_merch_conversion_pct: number | null
           event_id: string
           notes: string | null
           prior_year_notes: string | null
           prior_year_real_expenses: number | null
           prior_year_real_revenue: number | null
+          sales_curve_mode: string | null
+          sales_curve_prior_event_id: string | null
+          sponsorship_notes: string | null
+          sponsorship_revenue: number | null
           updated_at: string
+          variable_commission_pct: number | null
+          variable_spa_pct: number | null
         }
         Insert: {
           company_id: string
@@ -2282,12 +2291,21 @@ export type Database = {
           default_food_avg_ticket?: number
           default_food_cmv_pct?: number
           default_food_conversion_pct?: number
+          default_merch_avg_ticket?: number | null
+          default_merch_cmv_pct?: number | null
+          default_merch_conversion_pct?: number | null
           event_id: string
           notes?: string | null
           prior_year_notes?: string | null
           prior_year_real_expenses?: number | null
           prior_year_real_revenue?: number | null
+          sales_curve_mode?: string | null
+          sales_curve_prior_event_id?: string | null
+          sponsorship_notes?: string | null
+          sponsorship_revenue?: number | null
           updated_at?: string
+          variable_commission_pct?: number | null
+          variable_spa_pct?: number | null
         }
         Update: {
           company_id?: string
@@ -2298,18 +2316,34 @@ export type Database = {
           default_food_avg_ticket?: number
           default_food_cmv_pct?: number
           default_food_conversion_pct?: number
+          default_merch_avg_ticket?: number | null
+          default_merch_cmv_pct?: number | null
+          default_merch_conversion_pct?: number | null
           event_id?: string
           notes?: string | null
           prior_year_notes?: string | null
           prior_year_real_expenses?: number | null
           prior_year_real_revenue?: number | null
+          sales_curve_mode?: string | null
+          sales_curve_prior_event_id?: string | null
+          sponsorship_notes?: string | null
+          sponsorship_revenue?: number | null
           updated_at?: string
+          variable_commission_pct?: number | null
+          variable_spa_pct?: number | null
         }
         Relationships: [
           {
             foreignKeyName: "event_simulator_config_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_simulator_config_sales_curve_prior_event_id_fkey"
+            columns: ["sales_curve_prior_event_id"]
+            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
@@ -2374,6 +2408,88 @@ export type Database = {
           },
         ]
       }
+      event_simulator_pax_benchmarks: {
+        Row: {
+          avg_ticket_per_pax: number
+          category_code: string
+          company_id: string | null
+          created_at: string
+          id: string
+          last_calculated_at: string
+          sample_size: number
+          scope: string
+          scope_value: string | null
+          updated_at: string
+        }
+        Insert: {
+          avg_ticket_per_pax?: number
+          category_code: string
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          last_calculated_at?: string
+          sample_size?: number
+          scope: string
+          scope_value?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avg_ticket_per_pax?: number
+          category_code?: string
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          last_calculated_at?: string
+          sample_size?: number
+          scope?: string
+          scope_value?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_simulator_pax_benchmarks_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_simulator_sales_curve_buckets: {
+        Row: {
+          created_at: string
+          cumulative_pct: number
+          days_before: number
+          event_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          cumulative_pct?: number
+          days_before: number
+          event_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          cumulative_pct?: number
+          days_before?: number
+          event_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_simulator_sales_curve_buckets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_simulator_zone_config: {
         Row: {
           company_id: string
@@ -2387,6 +2503,9 @@ export type Database = {
           food_cmv_pct: number | null
           food_conversion_pct: number | null
           id: string
+          merch_avg_ticket: number | null
+          merch_cmv_pct: number | null
+          merch_conversion_pct: number | null
           updated_at: string
           zone_label: string
         }
@@ -2402,6 +2521,9 @@ export type Database = {
           food_cmv_pct?: number | null
           food_conversion_pct?: number | null
           id?: string
+          merch_avg_ticket?: number | null
+          merch_cmv_pct?: number | null
+          merch_conversion_pct?: number | null
           updated_at?: string
           zone_label: string
         }
@@ -2417,6 +2539,9 @@ export type Database = {
           food_cmv_pct?: number | null
           food_conversion_pct?: number | null
           id?: string
+          merch_avg_ticket?: number | null
+          merch_cmv_pct?: number | null
+          merch_conversion_pct?: number | null
           updated_at?: string
           zone_label?: string
         }
@@ -5353,6 +5478,10 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      recalculate_pax_benchmarks: {
+        Args: { _company_id?: string }
+        Returns: number
       }
       reconcile_bp_overrides_for_event: {
         Args: {
