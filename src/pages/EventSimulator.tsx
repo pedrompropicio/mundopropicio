@@ -363,10 +363,16 @@ export default function EventSimulator() {
             </p>
           </div>
         </div>
-        <Button onClick={() => saveAll.mutate()} disabled={saveAll.isPending}>
-          {saveAll.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-          Guardar
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => syncFromSources.mutate()} disabled={syncFromSources.isPending}>
+            {syncFromSources.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+            Sincronizar BP + Bilheteira
+          </Button>
+          <Button onClick={() => saveAll.mutate()} disabled={saveAll.isPending}>
+            {saveAll.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            Guardar
+          </Button>
+        </div>
       </div>
 
       {/* KPIs scenario summary */}
