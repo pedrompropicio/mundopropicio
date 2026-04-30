@@ -699,6 +699,7 @@ function AnaliseIATab() {
                   <th className="px-2 py-2.5 w-8" />
                   <th className="px-3 py-2.5 text-left font-medium">Origem</th>
                   <th className="px-3 py-2.5 text-left font-medium">Descrição</th>
+                  <th className="px-3 py-2.5 text-right font-medium">Valor</th>
                   <th className="px-3 py-2.5 text-left font-medium">Evento</th>
                   <th className="px-3 py-2.5 text-left font-medium">Categoria atual</th>
                   <th className="px-3 py-2.5 text-left font-medium">Escolha</th>
