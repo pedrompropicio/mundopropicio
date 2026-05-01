@@ -297,8 +297,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         // Alguns sistemas (iOS/macOS, partilha entre apps) entregam o ficheiro
         // sem MIME ou com MIME genérico (p.ex. application/octet-stream).
         // Por isso, aceitamos também via extensão do nome para evitar falsos negativos.
-        const isImageMime = /^image\/(jpeg|jpg|png|webp|heic|heif)$/i.test(file.type);
-        const isImageExt = /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name);
+        const isImageMime = /^image\/(jpeg|jpg|png|webp|heic|heif|tiff|x-adobe-dng|dng)$/i.test(file.type);
+        const isImageExt = /\.(jpe?g|png|webp|heic|heif|dng|tiff?)$/i.test(file.name);
         if (isImageMime || isImageExt) {
           ocrSource = file;
         } else {
