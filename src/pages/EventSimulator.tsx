@@ -613,8 +613,8 @@ export default function EventSimulator() {
                     <TableHead className="text-right">Forecast (qty)</TableHead>
                     <TableHead className="text-right">TM override</TableHead>
                     <TableHead className="text-right">IVA %</TableHead>
-                    <TableHead className="text-right">2025 qty</TableHead>
-                    <TableHead className="text-right">2025 €</TableHead>
+                    <TableHead className="text-right" title="Manual — referência ano anterior">2025 qty (manual)</TableHead>
+                    <TableHead className="text-right" title="Manual — referência ano anterior">2025 € (manual)</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
