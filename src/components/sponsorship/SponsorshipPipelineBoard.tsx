@@ -365,12 +365,17 @@ function SponsorCard({
       <CardContent className="p-3 space-y-2">
         <div className="flex items-start justify-between gap-2">
           <p className="font-semibold text-sm leading-tight">{row.supplier_name}</p>
-          {row.linked_transaction_id && (
-            <Badge variant="outline" className="text-[10px] gap-1 border-primary/40 text-primary">
+          {row.linked_transaction_id ? (
+            <Badge variant="outline" className="text-[10px] gap-1 border-primary/40 text-primary shrink-0">
               <ExternalLink className="h-3 w-3" />
               BP
             </Badge>
-          )}
+          ) : row.stage === "closed" && !row.is_barter ? (
+            <Badge variant="outline" className="text-[10px] gap-1 border-amber-500/50 text-amber-400 shrink-0">
+              <AlertCircle className="h-3 w-3" />
+              Sem BP
+            </Badge>
+          ) : null}
         </div>
         <div className="flex items-center justify-between text-xs">
           <span className="font-bold tabular-nums">{fmtMoney(v, row.currency)}</span>
