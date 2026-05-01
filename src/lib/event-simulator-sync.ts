@@ -149,19 +149,64 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
     }
   }
 
-  // 5) Custos forecast por categoria L3
-  // L3 = code com x.y.z
+  // 5) Custos por categoria L3
+  // L3 = code com x.y.z; só categorias de DESPESA (não 1.x receitas, não 10.x corporate por agora — incluímos todas L3 que tenham forecast/TX)
   const l3 = categories.filter((c) => /^\d+\.\d+\.\d+$/.test(c.code));
   const l3ById = new Map<string, Row>();
   for (const c of l3) l3ById.set(c.id, c);
 
-  // Aggrega forecast por category_id
+  // 5a) Forecast aprovado (despesa) por categoria
   const fcByCat = new Map<string, number>();
+  // map forecast_id → category_id (para descobrir BP sem TX)
+  const fcCategoryByForecast = new Map<string, string>();
+  // forecasts já vinculados a TX (não somar duas vezes em "Atual")
+  const forecastsWithTx = new Set<string>();
   for (const f of forecasts) {
-    if (!f.category_id) continue;
-    if (!l3ById.has(f.category_id)) continue;
+    if (!f.category_id || !l3ById.has(f.category_id)) continue;
     fcByCat.set(f.category_id, (fcByCat.get(f.category_id) ?? 0) + Number(f.amount || 0));
+    fcCategoryByForecast.set(f.id, f.category_id);
+    if (f.transaction_id) forecastsWithTx.add(f.id);
   }
+
+  // 5b) Transações reais (qualquer status) por categoria L3
+  // Carregar tudo do evento de uma vez
+  const { data: txRaw } = await supabase
+    .from("transactions")
+    .select("id, amount, status, category_id, type")
+    .eq("event_id", eventId);
+  const txs = (txRaw ?? []) as Array<{
+    id: string; amount: number; status: string; category_id: string | null; type: string;
+  }>;
+
+  const actualTxByCat = new Map<string, number>();        // todas as TX de despesa
+  const actualPaidByCat = new Map<string, number>();      // só TX paid
+  for (const t of txs) {
+    if (t.type !== "expense") continue;
+    if (!t.category_id || !l3ById.has(t.category_id)) continue;
+    const v = Number(t.amount || 0);
+    actualTxByCat.set(t.category_id, (actualTxByCat.get(t.category_id) ?? 0) + v);
+    if (t.status === "paid") {
+      actualPaidByCat.set(t.category_id, (actualPaidByCat.get(t.category_id) ?? 0) + v);
+    }
+  }
+
+  // 5c) BP aprovado AINDA SEM TX (por categoria): forecasts sem transaction_id
+  const committedBpByCat = new Map<string, number>();
+  for (const f of forecasts) {
+    if (!f.category_id || !l3ById.has(f.category_id)) continue;
+    if (f.transaction_id) continue; // já gerou TX, vai contar pelo lado das transações
+    committedBpByCat.set(
+      f.category_id,
+      (committedBpByCat.get(f.category_id) ?? 0) + Number(f.amount || 0),
+    );
+  }
+
+  // 5d) União de categorias afetadas
+  const allCatIds = new Set<string>([
+    ...fcByCat.keys(),
+    ...actualTxByCat.keys(),
+    ...committedBpByCat.keys(),
+  ]);
 
   const existingCostByCat = new Map<string, Row>();
   for (const c of existingCosts) {
@@ -169,13 +214,26 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
   }
 
   let order = existingCosts.length;
-  for (const [catId, total] of fcByCat.entries()) {
-    const cat = l3ById.get(catId)!;
+  for (const catId of allCatIds) {
+    const cat = l3ById.get(catId);
+    if (!cat) continue;
+    const fcAmount = fcByCat.get(catId) ?? 0;
+    const actualPaid = actualPaidByCat.get(catId) ?? 0;
+    const actualTxAll = actualTxByCat.get(catId) ?? 0;
+    const committedBp = committedBpByCat.get(catId) ?? 0;
+    // "Atual" = TX (qualquer status, evita duplicar BP que já virou TX) + BP-sem-TX
+    const actualAmount = actualTxAll + committedBp;
+
     const exists = existingCostByCat.get(catId);
     if (exists) {
       const { error } = await supabase
         .from("event_simulator_cost_lines")
-        .update({ forecast_amount: total })
+        .update({
+          forecast_amount: fcAmount,
+          actual_amount: actualAmount,
+          actual_paid: actualPaid,
+          actual_committed_bp: committedBp,
+        })
         .eq("id", exists.id);
       if (!error) report.costLinesUpdated++;
     } else {
@@ -187,12 +245,37 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
           label: `${cat.code} — ${cat.name}`,
           prior_year_amount: 0,
           break_even_amount: 0,
-          forecast_amount: total,
+          forecast_amount: fcAmount,
+          actual_amount: actualAmount,
+          actual_paid: actualPaid,
+          actual_committed_bp: committedBp,
           is_ab_passthrough: false,
           display_order: order++,
         } as any);
       if (!error) report.costLinesCreated++;
     }
+  }
+
+  // 6) Patrocinadores: totaliza receitas de qualquer L3 abaixo de 1.2 e atualiza
+  //    event_simulator_config.sponsorship_revenue (mantém compatibilidade com os cálculos atuais).
+  const { data: allFcRevenue } = await supabase
+    .from("event_forecasts")
+    .select("amount, category_id")
+    .eq("event_id", eventId)
+    .eq("type", "revenue")
+    .eq("status", "approved");
+  // l3 abaixo de 1.2 (default; o utilizador pode customizar via sponsor_category_l2_id)
+  const sponsorL3Ids = new Set(l3.filter((c) => c.code.startsWith("1.2.")).map((c) => c.id));
+  const sponsorsTotal = ((allFcRevenue ?? []) as any[])
+    .filter((f) => f.category_id && sponsorL3Ids.has(f.category_id))
+    .reduce((acc, f) => acc + Number(f.amount || 0), 0);
+  report.sponsorsTotal = sponsorsTotal;
+
+  if (sponsorsTotal > 0) {
+    await supabase
+      .from("event_simulator_config")
+      .update({ sponsorship_revenue: sponsorsTotal })
+      .eq("event_id", eventId);
   }
 
   return report;
