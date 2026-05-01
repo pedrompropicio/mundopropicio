@@ -484,10 +484,12 @@ export default function EventDetail() {
   const incomeTransactions = realizedTransactions.filter((t) => t.type === "income");
   const expenseTransactions = realizedTransactions.filter((t) => t.type === "expense");
   const operationalExpenseTransactions = expenseTransactions.filter((t) => !t.is_transitory);
+  const nonTicketIncomeTransactions = incomeTransactions.filter((t: any) => t.account_categories?.code !== "1.1.01");
   const transactionIncome = incomeTransactions.reduce((s, t) => s + Number(t.amount), 0);
-  // If ticket sales exist, use them as revenue source; otherwise fall back to transactions
+  const nonTicketTransactionIncome = nonTicketIncomeTransactions.reduce((s, t) => s + Number(t.amount), 0);
+  // If ticket sales exist, they replace only ticket-office transactions; other income (e.g. sponsors) still counts.
   const hasTicketSales = ticketSalesRevenue > 0;
-  const totalIncome = hasTicketSales ? ticketSalesRevenue : transactionIncome;
+  const totalIncome = hasTicketSales ? ticketSalesRevenue + nonTicketTransactionIncome : transactionIncome;
   // Despesas reais do próprio evento + quota-parte do Master (apenas para vista de sub-evento isolado).
   const ownExpenses = operationalExpenseTransactions.reduce((s, t) => s + Number(t.amount), 0);
   const totalExpenses = ownExpenses + Number(masterExpenseShare || 0);
@@ -819,10 +821,10 @@ export default function EventDetail() {
           value={formatCurrency(totalIncome)}
           icon={TrendingUp}
           variant="accent"
-          subtitle={hasTicketSales ? "Via bilheteira" : (transactionIncome > 0 ? "Via transações" : undefined)}
+          subtitle={hasTicketSales ? (nonTicketTransactionIncome > 0 ? "Bilheteira + outras receitas" : "Via bilheteira") : (transactionIncome > 0 ? "Via transações" : undefined)}
           tooltip={
             hasTicketSales
-              ? "Receita bruta de vendas registadas na Bilheteira (quando existem vendas, esta substitui as transações de receita para evitar dupla contagem)."
+              ? "Receita de vendas registadas na Bilheteira + receitas não-bilheteira aprovadas/pagas, como patrocínios. Transações de bilheteira são substituídas para evitar dupla contagem."
               : "Soma das transações de receita aprovadas ou pagas (exclui pendentes). Quando existem vendas de bilheteira, passa a usar essa fonte."
           }
         />
