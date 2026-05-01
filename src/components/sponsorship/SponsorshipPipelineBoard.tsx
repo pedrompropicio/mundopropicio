@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import {
   Dialog,
   DialogContent,
@@ -56,6 +57,10 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [closingPrompt, setClosingPrompt] = useState<{
+    row: SponsorshipPipelineRow;
+    amount: number;
+  } | null>(null);
 
   const grouped = useMemo(() => {
     const map = Object.fromEntries(STAGE_ORDER.map((s) => [s, [] as SponsorshipPipelineRow[]]));
@@ -94,16 +99,25 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
   function handleDrop(stage: SponsorshipStage) {
     if (!draggingId) return;
     const row = rows.find((r) => r.id === draggingId);
-    if (!row || row.stage === stage) {
-      setDraggingId(null);
+    setDraggingId(null);
+    if (!row || row.stage === stage) return;
+
+    // Ao mover para "Fechado" (não permuta), confirma o valor com o utilizador
+    // — usa o proposto como sugestão e permite editar antes de gravar.
+    if (stage === "closed" && !row.is_barter) {
+      const suggested = Number(row.confirmed_amount) || Number(row.proposed_amount) || 0;
+      setClosingPrompt({ row, amount: suggested });
       return;
     }
-    changeStage(draggingId, stage, {
-      proposed_amount: row.proposed_amount,
-      confirmed_amount: row.confirmed_amount,
-      is_barter: row.is_barter,
-    });
-    setDraggingId(null);
+
+    changeStage(row.id, stage);
+  }
+
+  async function confirmClosing() {
+    if (!closingPrompt) return;
+    const { row, amount } = closingPrompt;
+    setClosingPrompt(null);
+    await changeStage(row.id, "closed", { confirmed_amount: amount });
   }
 
   return (
@@ -216,6 +230,50 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
           companyId={companyId}
         />
       )}
+
+      <Dialog open={!!closingPrompt} onOpenChange={(o) => !o && setClosingPrompt(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar valor fechado</DialogTitle>
+          </DialogHeader>
+          {closingPrompt && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Estás a mover <strong>{closingPrompt.row.supplier_name}</strong> para{" "}
+                <strong>Fechado</strong>. Confirma o valor que ficou acordado — será este
+                que entra no BP e gera a transação.
+              </p>
+              <div>
+                <Label>Valor confirmado</Label>
+                <MoneyInput
+                  value={closingPrompt.amount}
+                  currency={closingPrompt.row.currency || "EUR"}
+                  onChange={(v) =>
+                    setClosingPrompt((p) => (p ? { ...p, amount: v } : p))
+                  }
+                />
+                {Number(closingPrompt.row.proposed_amount) > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Proposta original:{" "}
+                    {fmtMoney(
+                      Number(closingPrompt.row.proposed_amount),
+                      closingPrompt.row.currency,
+                    )}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClosingPrompt(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmClosing} disabled={!closingPrompt || closingPrompt.amount <= 0}>
+              Confirmar e mover
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

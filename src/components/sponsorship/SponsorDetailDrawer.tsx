@@ -7,6 +7,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/ui/money-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -62,12 +63,18 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
   }
 
   async function save() {
-    const diff: Partial<SponsorshipPipelineRow> = {};
+    const READONLY: (keyof SponsorshipPipelineRow)[] = [
+      "id", "company_id", "event_id", "created_at", "updated_at",
+      "created_by", "linked_forecast_id", "linked_transaction_id", "closed_at",
+      "sort_order",
+    ];
+    const diff: Record<string, unknown> = {};
     (Object.keys(draft) as (keyof SponsorshipPipelineRow)[]).forEach((k) => {
-      if (draft[k] !== row[k]) (diff as never as Record<string, unknown>)[k as string] = draft[k];
+      if (READONLY.includes(k)) return;
+      if (draft[k] !== row[k]) diff[k as string] = draft[k];
     });
     if (Object.keys(diff).length > 0) {
-      await update.mutateAsync({ id: row.id, patch: diff });
+      await update.mutateAsync({ id: row.id, patch: diff as Partial<SponsorshipPipelineRow> });
     }
     onClose();
   }
@@ -170,21 +177,19 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Valor proposto</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={draft.proposed_amount}
-                onChange={(e) => patch("proposed_amount", Number(e.target.value))}
+              <MoneyInput
+                value={Number(draft.proposed_amount) || 0}
+                currency={draft.currency || "EUR"}
+                onChange={(v) => patch("proposed_amount", v)}
                 disabled={!canEdit}
               />
             </div>
             <div>
               <Label>Valor confirmado</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={draft.confirmed_amount}
-                onChange={(e) => patch("confirmed_amount", Number(e.target.value))}
+              <MoneyInput
+                value={Number(draft.confirmed_amount) || 0}
+                currency={draft.currency || "EUR"}
+                onChange={(v) => patch("confirmed_amount", v)}
                 disabled={!canEdit}
               />
             </div>
@@ -209,12 +214,12 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
               </Select>
             </div>
             <div>
-              <Label>IVA %</Label>
-              <Input
-                type="number"
-                value={draft.iva_rate}
-                onChange={(e) => patch("iva_rate", Number(e.target.value))}
+              <Label>IVA</Label>
+              <MoneyInput
+                value={Number(draft.iva_rate) || 0}
+                onChange={(v) => patch("iva_rate", v)}
                 disabled={!canEdit}
+                percent
               />
             </div>
             <div className="flex items-center gap-2 pt-7">
