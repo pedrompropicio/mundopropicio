@@ -159,7 +159,12 @@ export function SponsorshipPipelineImportModal({
           currency: "EUR",
           iva_rate: 23,
           priority: "medium",
-          auto_sync_bp: row.kind === "paid",
+          // Patrocínios "fechados" (com fatura recebida, enviada ou pós-evento) sincronizam
+          // automaticamente para o BP/TX. Permutas e leads em negociação ficam só no pipeline.
+          auto_sync_bp:
+            row.kind === "paid" ||
+            row.kind === "pending_invoiced" ||
+            row.kind === "pending_post_event",
           notes: row.rawStatus
             ? `Importado de ${fileName} • estado original: "${row.rawStatus}"`
             : `Importado de ${fileName}`,
