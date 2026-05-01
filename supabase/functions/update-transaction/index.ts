@@ -48,6 +48,26 @@ Deno.serve(async (req) => {
     const callerRoles = (roleRows ?? []).map((row: any) => row.role);
     const isAdmin = callerRoles.includes("admin") || callerRoles.includes("platform_admin");
 
+    // SECURITY: only privileged roles may update transactions. Viewers/partners
+    // were able to flip status (incl. → paid) bypassing approve-transaction.
+    const PRIVILEGED = new Set(["admin", "platform_admin", "manager", "editor"]);
+    const hasPrivilegedRole = callerRoles.some((r: string) => PRIVILEGED.has(r));
+    if (!hasPrivilegedRole) {
+      // Fallback: explicit manage_transactions permission grant
+      const { data: permRow } = await adminClient
+        .from("user_permissions")
+        .select("granted")
+        .eq("user_id", caller.id)
+        .eq("permission", "manage_transactions")
+        .maybeSingle();
+      if (!permRow?.granted) {
+        return new Response(
+          JSON.stringify({ error: "Sem permissão para atualizar transações" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     const body = await req.json();
     const { transaction_id, updates, changes, child_adjustments } = body;
 
@@ -152,12 +172,13 @@ Deno.serve(async (req) => {
     }
 
     // Build sanitized update object (only allowed fields)
+    // SECURITY: `status` removed — status transitions must go through the
+    // dedicated approve-transaction / liquidate flows (which enforce admin/manager).
     const allowedFields = [
       "description", "amount", "iva_rate", "event_id", "category_id",
       "supplier_id", "account_id", "specification", "date", "due_date",
       "payment_date", "is_transitory", "exclude_from_result", "split_mode",
       "invoice_ref", "payment_method", "payment_entity", "payment_reference",
-      "status",
       "declared_withholding_rate", "declared_withholding_amount",
     ];
     const sanitizedUpdates: Record<string, any> = {};
