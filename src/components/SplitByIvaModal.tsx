@@ -435,7 +435,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
           {onApplyBlended && totals.baseSum > 0 && totals.ivaSum > 0 && (
             <Button
               type="button"
-              variant="secondary"
+              variant={nonDeductibleHint.suggested ? "default" : "secondary"}
               onClick={() => onApplyBlended(totals.blendedBase, totals.blendedRate, attachInvoice, localFile)}
             >
               Aplicar IVA médio ({totals.blendedRate}%)
@@ -443,6 +443,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
           )}
           <Button
             type="button"
+            variant={nonDeductibleHint.suggested ? "secondary" : "default"}
             disabled={!canConfirm}
             onClick={() =>
               onConfirm(
