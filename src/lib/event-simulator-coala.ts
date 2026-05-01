@@ -57,6 +57,40 @@ const n = (v: any, fb = 0): number => {
   return Number.isFinite(x) ? x : fb;
 };
 
+// ---------- Lotes / capacidade (input opcional para o solver BE) ----------
+
+export type SessionLotInfo = {
+  /** chave que casa com `${day_index}-${zone_label}` em CoalaSession */
+  key: string;
+  /** capacidade total da zona/sessão */
+  capacity: number;
+  /** lotes ordenados por lot_number (ascendente) */
+  lots: Array<{ lot_number: number; price: number; quantity: number; sold: number }>;
+  /** dias decorridos desde a 1ª venda (mínimo 1) — usado para velocidade */
+  days_selling: number;
+};
+
+export type BreakEvenBreakdownItem = {
+  key: string;
+  zone_label: string;
+  day_index: number;
+  current_qty: number;
+  extra_qty: number;
+  capacity_left: number;
+  marginal_price: number;
+  velocity: number;          // bilhetes/dia
+  reason?: "no_velocity" | "capacity_full" | "no_price" | "ok";
+};
+
+export type BreakEvenSolution = {
+  qtyByKey: Record<string, number>;
+  reachable: boolean;
+  deficit: number;            // € que faltam para empatar
+  totalExtraTickets: number;  // soma dos bilhetes extras alocados
+  unfilled: number;           // € que NÃO foi possível alocar (capacidade esgotada)
+  breakdown: BreakEvenBreakdownItem[];
+};
+
 // ---------- Por sessão (dia × zona) ----------
 
 export function sessionAvgTicket(s: CoalaSession): number {
