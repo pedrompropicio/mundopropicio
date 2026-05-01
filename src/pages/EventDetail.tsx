@@ -1150,11 +1150,12 @@ export default function EventDetail() {
 
         {(isAdmin || isManager) && (
           <TabsContent value="fecho">
-            <EventFecho
-              eventId={selectedSubEvent || event.id}
-              eventName={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.name || event.name) : event.name}
-              childEventIds={!selectedSubEvent && isMultiEvent ? subEvents.map((s: any) => s.id) : []}
-              parentEventId={selectedSubEvent ? event.id : event.parent_event_id}
+            <FechoUnifiedTab
+              event={event}
+              selectedSubEvent={selectedSubEvent}
+              subEvents={subEvents}
+              isMultiEvent={isMultiEvent}
+              canSeePartners={!event?.parent_event_id && !selectedSubEvent}
             />
           </TabsContent>
         )}
@@ -1162,16 +1163,6 @@ export default function EventDetail() {
         {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && (
           <TabsContent value="partner-expenses">
             <PartnerPaidExpensesPanel eventId={event.id} eventStatus={event.status} />
-          </TabsContent>
-        )}
-
-        {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && (
-          <TabsContent value="partner-settlement">
-            <PartnerSettlementTab
-              eventId={event.id}
-              eventName={event.name}
-              childEventIds={isMultiEvent ? subEvents.map((s: any) => s.id) : []}
-            />
           </TabsContent>
         )}
 
