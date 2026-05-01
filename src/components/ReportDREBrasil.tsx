@@ -145,20 +145,8 @@ function buildDREBrasil(
     }
   });
 
-  // Detalhe dos rateios de overhead — informativo, JÁ contabilizado nas categorias acima.
-  if (eventClosingCosts.length > 0) {
-    lines.push({ label: "Detalhe de Overheads (já incluídos nas categorias acima)", amountExIva: 0, ivaAmount: 0, amountIncIva: 0, isGroupHeader: true, isExpenseSide: true });
-    eventClosingCosts.forEach((cc: any) => {
-      const catLabel = cc.account_categories ? `${cc.account_categories.code} - ${cc.account_categories.name}` : "(sem categoria)";
-      const viaMaster = cc._overhead_via_master ? " (via Master)" : "";
-      const desc = cc.description || "Overhead";
-      const label = `${desc} → ${catLabel}${viaMaster}`;
-      const base = Number(cc.amount || 0);
-      const rate = cc.iva_rate != null ? Number(cc.iva_rate) : 23;
-      const iva = base * rate / 100;
-      lines.push({ label, amountExIva: base, ivaAmount: iva, amountIncIva: base + iva, indent: true, isExpenseSide: true });
-    });
-  }
+  // Nota: rateios de overhead já estão incluídos nas categorias acima (vista do sócio).
+  // No DRE Brasil omitimos o detalhe para não poluir a apresentação.
 
 
   // Result = Receitas s/IVA − Despesas c/IVA (já inclui overheads quando vista do sócio ON)
