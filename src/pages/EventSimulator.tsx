@@ -245,7 +245,80 @@ export default function EventSimulator() {
     enabled: !!eventId,
   });
 
-  // ------- Local state for editing -------
+  // Estrutura detalhada de lotes/capacidades/ritmo p/ solver Break-Even
+  // (key = `${day_index}-${zone_label}`, igual à CoalaSession)
+  const { data: beLotInfo } = useQuery({
+    queryKey: ["sim-coala-be-lots", eventId],
+    queryFn: async () => {
+      const { data: zones } = await supabase
+        .from("event_ticket_zones")
+        .select("id, name, session_id, total_capacity").eq("event_id", eventId!);
+      const zoneIds = (zones ?? []).map((z: any) => z.id);
+      if (!zoneIds.length) return {} as Record<string, import("@/lib/event-simulator-coala").SessionLotInfo>;
+
+      const { data: lots } = await supabase
+        .from("event_ticket_lots")
+        .select("id, zone_id, lot_number, price, quantity")
+        .in("zone_id", zoneIds);
+
+      const { data: sessionRows } = await supabase
+        .from("event_sessions")
+        .select("id, date").eq("event_id", eventId!).order("date");
+      const sessionList = (sessionRows ?? []) as { id: string; date: string | null }[];
+      const sessionIdToIdx = new Map<string, number>();
+      sessionList.forEach((s, i) => { if (s.id) sessionIdToIdx.set(s.id, i); });
+
+      const lotIds = (lots ?? []).map((l: any) => l.id);
+      const { data: sales } = lotIds.length
+        ? await supabase.from("ticket_sales")
+            .select("lot_id, zone_id, sale_date, quantity").in("lot_id", lotIds)
+        : { data: [] as any[] };
+
+      // Vendas por lote (qty total) + 1ª data de venda por zona
+      const soldByLot = new Map<string, number>();
+      const firstSaleByZone = new Map<string, string>();
+      for (const s of (sales ?? []) as any[]) {
+        soldByLot.set(s.lot_id, (soldByLot.get(s.lot_id) ?? 0) + Number(s.quantity || 0));
+        const cur = firstSaleByZone.get(s.zone_id);
+        if (s.sale_date && (!cur || s.sale_date < cur)) firstSaleByZone.set(s.zone_id, s.sale_date);
+      }
+
+      const today = new Date().toISOString().slice(0, 10);
+      const out: Record<string, import("@/lib/event-simulator-coala").SessionLotInfo> = {};
+
+      // Para zonas COM session_id → uma sessão por zona
+      // Para zonas SEM session_id (passes 2 dias) → uma sessão por cada dia da zona vai
+      // mas o solver trabalha pela CHAVE da CoalaSession; então criamos 1 entrada para
+      // a primeira ocorrência (a quantidade real já está distribuída em CoalaSession).
+      for (const z of (zones ?? []) as any[]) {
+        const zoneSessionId = z.session_id ?? null;
+        const dayIdx = zoneSessionId ? (sessionIdToIdx.get(zoneSessionId) ?? 0) : 0;
+        const zoneLots = (lots ?? []).filter((l: any) => l.zone_id === z.id);
+        const lotsArr = zoneLots.map((l: any) => ({
+          lot_number: Number(l.lot_number || 1),
+          price: Number(l.price || 0),
+          quantity: Number(l.quantity || 0),
+          sold: Number(soldByLot.get(l.id) ?? 0),
+        }));
+        const firstSale = firstSaleByZone.get(z.id);
+        let daysSelling = 1;
+        if (firstSale) {
+          const ms = (new Date(today).getTime() - new Date(firstSale).getTime());
+          daysSelling = Math.max(1, Math.round(ms / 86400000));
+        }
+        const key = `${dayIdx}-${z.name}`;
+        out[key] = {
+          key,
+          capacity: Number(z.total_capacity || 0),
+          lots: lotsArr,
+          days_selling: daysSelling,
+        };
+      }
+      return out;
+    },
+    enabled: !!eventId,
+  });
+
   const [localCfg, setLocalCfg] = useState<DbConfig | null>(null);
   const [localSessions, setLocalSessions] = useState<DbInput[]>([]);
   const [localCosts, setLocalCosts] = useState<DbCostLine[]>([]);
