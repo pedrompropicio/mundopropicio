@@ -34,6 +34,7 @@ import type {
   SponsorshipDocStatus,
   SponsorshipStage,
 } from "@/lib/sponsorship-pipeline";
+import { syncSponsorToBP } from "@/lib/sponsorship-bp-sync";
 
 interface Props {
   open: boolean;
@@ -165,8 +166,9 @@ export function SponsorshipPipelineImportModal({
         };
 
         const found = map.get(norm(row.supplierName));
+        let synced: { id: string; row: any } | null = null;
         if (found) {
-          const { error } = await supabase
+          const { data: upd, error } = await supabase
             .from("sponsorship_pipeline" as never)
             .update({
               stage: payload.stage,
@@ -174,24 +176,41 @@ export function SponsorshipPipelineImportModal({
               proposed_amount: payload.proposed_amount,
               confirmed_amount: payload.confirmed_amount,
               notes: payload.notes,
+              auto_sync_bp: payload.auto_sync_bp,
             } as never)
-            .eq("id", found.id);
-          if (error) {
+            .eq("id", found.id)
+            .select()
+            .single();
+          if (error || !upd) {
             console.error("[sponsors-import] update failed", row.supplierName, error);
-            failures.push(`${row.supplierName}: ${error.message}`);
+            failures.push(`${row.supplierName}: ${error?.message ?? "update vazio"}`);
             continue;
           }
           updated++;
+          synced = { id: (upd as any).id, row: upd };
         } else {
-          const { error } = await supabase
+          const { data: ins, error } = await supabase
             .from("sponsorship_pipeline" as never)
-            .insert(payload as never);
-          if (error) {
+            .insert(payload as never)
+            .select()
+            .single();
+          if (error || !ins) {
             console.error("[sponsors-import] insert failed", row.supplierName, payload, error);
-            failures.push(`${row.supplierName}: ${error.message}`);
+            failures.push(`${row.supplierName}: ${error?.message ?? "insert vazio"}`);
             continue;
           }
           inserted++;
+          synced = { id: (ins as any).id, row: ins };
+        }
+
+        // Sincronização BP/TX (best-effort, não bloqueia o import)
+        if (synced) {
+          try {
+            await syncSponsorToBP(synced.row);
+          } catch (e) {
+            console.error("[sponsors-import] sync BP failed", row.supplierName, e);
+            failures.push(`${row.supplierName} (sync BP): ${e instanceof Error ? e.message : String(e)}`);
+          }
         }
       }
 
@@ -200,6 +219,8 @@ export function SponsorshipPipelineImportModal({
     },
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["sponsorship-pipeline", eventId] });
+      qc.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
 
       if (res.inserted === 0 && res.updated === 0) {
         // Tudo falhou — não fechar e mostrar erro detalhado

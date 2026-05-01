@@ -5,6 +5,7 @@ import type {
   SponsorshipPipelineRow,
   SponsorshipStage,
 } from "@/lib/sponsorship-pipeline";
+import { syncSponsorToBP } from "@/lib/sponsorship-bp-sync";
 import { toast } from "@/hooks/use-toast";
 
 export function useSponsorshipPipeline(eventId: string | null | undefined) {
@@ -82,11 +83,30 @@ export function useUpdateSponsor(eventId: string) {
         .select()
         .single();
       if (error) throw error;
-      return data as unknown as SponsorshipPipelineRow;
+      const row = data as unknown as SponsorshipPipelineRow;
+
+      // Sincroniza com BP/Transação se já estiver fechado/permuta com auto_sync_bp ON.
+      // Não bloqueia o fluxo em caso de falha — só faz log + toast.
+      try {
+        const result = await syncSponsorToBP(row);
+        if (result.skipped === false && result.created) {
+          toast({ title: "BP e transação criados", description: row.supplier_name });
+        }
+      } catch (e) {
+        console.error("[sponsor-sync] failed", e);
+        toast({
+          title: "Falha ao sincronizar com BP",
+          description: e instanceof Error ? e.message : String(e),
+          variant: "destructive",
+        });
+      }
+      return row;
     },
     onSuccess: (row) => {
       qc.invalidateQueries({ queryKey: ["sponsorship-pipeline", eventId] });
       qc.invalidateQueries({ queryKey: ["sponsorship-activities", row.id] });
+      qc.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
     },
     onError: (e: Error) =>
       toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" }),
