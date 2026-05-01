@@ -330,15 +330,24 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
       return { forecastsCreated, forecastsUpdated, forecastsRecovered, txCreated, txSkipped, failures };
     },
     onSuccess: (res) => {
+      const recoveryNote = res.forecastsRecovered > 0
+        ? ` • Recuperadas ${res.forecastsRecovered} linhas BP a partir de transações órfãs.`
+        : "";
+      const failNote = res.failures.length > 0
+        ? ` • ${res.failures.length} falhas: ${res.failures.slice(0, 3).join(" | ")}${res.failures.length > 3 ? "…" : ""}`
+        : "";
       toast({
-        title: "Importação concluída",
-        description: `BP: ${res.forecastsCreated} criadas, ${res.forecastsUpdated} atualizadas. Transações: ${res.txCreated} criadas${res.txSkipped ? `, ${res.txSkipped} ignoradas (já existiam)` : ""}.`,
+        title: res.failures.length > 0 ? "Importação concluída com avisos" : "Importação concluída",
+        description: `BP: ${res.forecastsCreated} criadas, ${res.forecastsUpdated} atualizadas. Transações: ${res.txCreated} criadas${res.txSkipped ? `, ${res.txSkipped} ignoradas (já existiam)` : ""}.${recoveryNote}${failNote}`,
+        variant: res.failures.length > 0 ? "destructive" : "default",
       });
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["suppliers-active"] });
-      onOpenChange(false);
-      reset();
+      if (res.failures.length === 0) {
+        onOpenChange(false);
+        reset();
+      }
     },
     onError: (err: any) => {
       toast({ title: "Erro na importação", description: err.message || String(err), variant: "destructive" });
