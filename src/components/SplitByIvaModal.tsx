@@ -208,6 +208,11 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
     lines.every((l) => Number(l.base) > 0) &&
     new Set(lines.map((l) => l.iva_rate)).size === lines.length; // sem taxas duplicadas
 
+  const nonDeductibleHint = useMemo(
+    () => detectNonDeductibleHint(supplierName, transactionDescription),
+    [supplierName, transactionDescription],
+  );
+
   return (
     <Dialog open={open} onOpenChange={(v) => (!v ? onClose() : null)}>
       <DialogContent className="max-w-2xl z-[210] max-h-[90vh] overflow-y-auto" overlayClassName="z-[200]">
