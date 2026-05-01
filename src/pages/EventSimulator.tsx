@@ -19,12 +19,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Plus, Trash2, Loader2, Save, Calculator, RefreshCw, FileSpreadsheet, FileText } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
 import {
-  type CoalaSession, type CoalaCostLine, type CoalaConfig,
+  type CoalaSession, type CoalaCostLine, type CoalaConfig, type BreakEvenSolution,
   computeScenarioRevenue, computeScenarioCosts, computeScenarioResult,
   computeScenarioKpis, solveBreakEven, computeIvaTable,
 } from "@/lib/event-simulator-coala";
@@ -245,7 +246,80 @@ export default function EventSimulator() {
     enabled: !!eventId,
   });
 
-  // ------- Local state for editing -------
+  // Estrutura detalhada de lotes/capacidades/ritmo p/ solver Break-Even
+  // (key = `${day_index}-${zone_label}`, igual à CoalaSession)
+  const { data: beLotInfo } = useQuery({
+    queryKey: ["sim-coala-be-lots", eventId],
+    queryFn: async () => {
+      const { data: zones } = await supabase
+        .from("event_ticket_zones")
+        .select("id, name, session_id, total_capacity").eq("event_id", eventId!);
+      const zoneIds = (zones ?? []).map((z: any) => z.id);
+      if (!zoneIds.length) return {} as Record<string, import("@/lib/event-simulator-coala").SessionLotInfo>;
+
+      const { data: lots } = await supabase
+        .from("event_ticket_lots")
+        .select("id, zone_id, lot_number, price, quantity")
+        .in("zone_id", zoneIds);
+
+      const { data: sessionRows } = await supabase
+        .from("event_sessions")
+        .select("id, date").eq("event_id", eventId!).order("date");
+      const sessionList = (sessionRows ?? []) as { id: string; date: string | null }[];
+      const sessionIdToIdx = new Map<string, number>();
+      sessionList.forEach((s, i) => { if (s.id) sessionIdToIdx.set(s.id, i); });
+
+      const lotIds = (lots ?? []).map((l: any) => l.id);
+      const { data: sales } = lotIds.length
+        ? await supabase.from("ticket_sales")
+            .select("lot_id, zone_id, sale_date, quantity").in("lot_id", lotIds)
+        : { data: [] as any[] };
+
+      // Vendas por lote (qty total) + 1ª data de venda por zona
+      const soldByLot = new Map<string, number>();
+      const firstSaleByZone = new Map<string, string>();
+      for (const s of (sales ?? []) as any[]) {
+        soldByLot.set(s.lot_id, (soldByLot.get(s.lot_id) ?? 0) + Number(s.quantity || 0));
+        const cur = firstSaleByZone.get(s.zone_id);
+        if (s.sale_date && (!cur || s.sale_date < cur)) firstSaleByZone.set(s.zone_id, s.sale_date);
+      }
+
+      const today = new Date().toISOString().slice(0, 10);
+      const out: Record<string, import("@/lib/event-simulator-coala").SessionLotInfo> = {};
+
+      // Para zonas COM session_id → uma sessão por zona
+      // Para zonas SEM session_id (passes 2 dias) → uma sessão por cada dia da zona vai
+      // mas o solver trabalha pela CHAVE da CoalaSession; então criamos 1 entrada para
+      // a primeira ocorrência (a quantidade real já está distribuída em CoalaSession).
+      for (const z of (zones ?? []) as any[]) {
+        const zoneSessionId = z.session_id ?? null;
+        const dayIdx = zoneSessionId ? (sessionIdToIdx.get(zoneSessionId) ?? 0) : 0;
+        const zoneLots = (lots ?? []).filter((l: any) => l.zone_id === z.id);
+        const lotsArr = zoneLots.map((l: any) => ({
+          lot_number: Number(l.lot_number || 1),
+          price: Number(l.price || 0),
+          quantity: Number(l.quantity || 0),
+          sold: Number(soldByLot.get(l.id) ?? 0),
+        }));
+        const firstSale = firstSaleByZone.get(z.id);
+        let daysSelling = 1;
+        if (firstSale) {
+          const ms = (new Date(today).getTime() - new Date(firstSale).getTime());
+          daysSelling = Math.max(1, Math.round(ms / 86400000));
+        }
+        const key = `${dayIdx}-${z.name}`;
+        out[key] = {
+          key,
+          capacity: Number(z.total_capacity || 0),
+          lots: lotsArr,
+          days_selling: daysSelling,
+        };
+      }
+      return out;
+    },
+    enabled: !!eventId,
+  });
+
   const [localCfg, setLocalCfg] = useState<DbConfig | null>(null);
   const [localSessions, setLocalSessions] = useState<DbInput[]>([]);
   const [localCosts, setLocalCosts] = useState<DbCostLine[]>([]);
@@ -380,8 +454,8 @@ export default function EventSimulator() {
     })), [localCosts]);
 
   const beSolution = useMemo(
-    () => solveBreakEven(calcSessions, calcCosts, calcCfg),
-    [calcSessions, calcCosts, calcCfg],
+    () => solveBreakEven(calcSessions, calcCosts, calcCfg, beLotInfo),
+    [calcSessions, calcCosts, calcCfg, beLotInfo],
   );
 
   const today = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "today"), [calcSessions, calcCfg]);
@@ -614,7 +688,7 @@ export default function EventSimulator() {
           cost={beCosts}
           res={beRes}
           kpis={beKpis}
-          extra={beSolution.reachable ? null : <Badge variant="destructive">Inalcançável com margem atual</Badge>}
+          extra={<BreakEvenSummary solution={beSolution} />}
         />
         <ScenarioCard title="Forecast" tone="success" rev={forecast} cost={fcCosts} res={fcRes} kpis={fcKpis} />
       </div>
@@ -1101,6 +1175,76 @@ export default function EventSimulator() {
 }
 
 // ---------- Subcomponentes ----------
+function BreakEvenSummary({ solution }: { solution: BreakEvenSolution }) {
+  // Popover importado no topo via dynamic-friendly import abaixo
+  if (!solution || solution.deficit <= 0.5) {
+    return <Badge variant="outline" className="text-emerald-500 border-emerald-500/40">Já no break-even</Badge>;
+  }
+  const reachable = solution.reachable;
+  const allocated = solution.breakdown.filter(b => b.extra_qty > 0);
+  const ignored = solution.breakdown.filter(b => b.extra_qty === 0 && b.reason !== "ok");
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/5 px-2 py-0.5 text-[11px] hover:bg-amber-500/10">
+          <span className="font-semibold">{fmt(solution.deficit)}</span>
+          <span className="text-muted-foreground">·</span>
+          <span>{fmtNum(solution.totalExtraTickets)} bilh.</span>
+          {!reachable && <Badge variant="destructive" className="ml-1 px-1 py-0 text-[9px]">parcial</Badge>}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[360px] text-xs">
+        <div className="space-y-2">
+          <div className="font-semibold text-sm">Como atingir o equilíbrio</div>
+          <div className="grid grid-cols-2 gap-2 rounded bg-muted/40 p-2">
+            <div><div className="text-muted-foreground text-[10px]">Falta cobrir</div><div className="font-semibold">{fmt(solution.deficit)}</div></div>
+            <div><div className="text-muted-foreground text-[10px]">Bilhetes a vender</div><div className="font-semibold">{fmtNum(solution.totalExtraTickets)}</div></div>
+            {solution.unfilled > 0.5 && (
+              <div className="col-span-2 text-rose-500 text-[10px]">⚠️ Capacidade insuficiente para cobrir {fmt(solution.unfilled)}</div>
+            )}
+          </div>
+          {allocated.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Distribuição sugerida</div>
+              <div className="space-y-0.5 max-h-48 overflow-auto">
+                {allocated.sort((a,b) => b.extra_qty - a.extra_qty).map(b => (
+                  <div key={b.key} className="flex justify-between gap-2">
+                    <span className="truncate">D{b.day_index+1} · {b.zone_label}</span>
+                    <span className="tabular-nums whitespace-nowrap">
+                      +{fmtNum(b.extra_qty)} <span className="text-muted-foreground">@ {fmt(b.marginal_price)}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {ignored.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Zonas excluídas</div>
+              <div className="space-y-0.5 max-h-32 overflow-auto">
+                {ignored.map(b => {
+                  const reasonTxt = b.reason === "no_velocity" ? "sem ritmo de venda"
+                    : b.reason === "capacity_full" ? "lotação esgotada"
+                    : b.reason === "no_price" ? "sem preço definido" : "—";
+                  return (
+                    <div key={b.key} className="flex justify-between gap-2 text-muted-foreground">
+                      <span className="truncate">D{b.day_index+1} · {b.zone_label}</span>
+                      <span className="text-[10px]">{reasonTxt}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <div className="text-[10px] text-muted-foreground border-t pt-1">
+            Distribuição pondera <strong>velocidade × margem</strong> e respeita capacidade + preço do próximo lote.
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function ScenarioCard({ title, tone, rev, cost, res, kpis, extra, dailyTotals }: any) {
   const toneCls = tone === "warning" ? "border-amber-500/40" : tone === "success" ? "border-emerald-500/40" : "border-border";
   const resColor = res.general >= 0 ? "text-emerald-500" : "text-rose-500";

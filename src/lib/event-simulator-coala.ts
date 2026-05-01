@@ -57,6 +57,40 @@ const n = (v: any, fb = 0): number => {
   return Number.isFinite(x) ? x : fb;
 };
 
+// ---------- Lotes / capacidade (input opcional para o solver BE) ----------
+
+export type SessionLotInfo = {
+  /** chave que casa com `${day_index}-${zone_label}` em CoalaSession */
+  key: string;
+  /** capacidade total da zona/sessão */
+  capacity: number;
+  /** lotes ordenados por lot_number (ascendente) */
+  lots: Array<{ lot_number: number; price: number; quantity: number; sold: number }>;
+  /** dias decorridos desde a 1ª venda (mínimo 1) — usado para velocidade */
+  days_selling: number;
+};
+
+export type BreakEvenBreakdownItem = {
+  key: string;
+  zone_label: string;
+  day_index: number;
+  current_qty: number;
+  extra_qty: number;
+  capacity_left: number;
+  marginal_price: number;
+  velocity: number;          // bilhetes/dia
+  reason?: "no_velocity" | "capacity_full" | "no_price" | "ok";
+};
+
+export type BreakEvenSolution = {
+  qtyByKey: Record<string, number>;
+  reachable: boolean;
+  deficit: number;            // € que faltam para empatar
+  totalExtraTickets: number;  // soma dos bilhetes extras alocados
+  unfilled: number;           // € que NÃO foi possível alocar (capacidade esgotada)
+  breakdown: BreakEvenBreakdownItem[];
+};
+
 // ---------- Por sessão (dia × zona) ----------
 
 export function sessionAvgTicket(s: CoalaSession): number {
@@ -246,32 +280,30 @@ export function computeScenarioKpis(
  * Resolve quantos bilhetes adicionais (acima do real) é preciso vender
  * para zerar o resultado geral do cenário Break-Even.
  *
- * Regras (decisão de produto):
- *  - Só a receita de bilheteira é a "alavanca" (o utilizador só controla isso).
- *  - O aumento de público arrasta automaticamente A&B (Bebida + Alimento)
- *    proporcional ao público — esse efeito está modelado em
- *    `computeScenarioRevenue` (`abForPublic`) e em `computeScenarioCosts`
- *    (CMV A&B = receita A&B × passthrough%).
- *  - Souvenir, Patrocínio e Outros Créditos NÃO escalam com público —
- *    permanecem como o cfg do cenário Break-Even.
- *  - Os custos de evento usados são os do cenário Break-Even
- *    (`break_even_amount` em cada `costLine`), e não os de "today".
+ * Regras de produto (validadas com utilizador):
+ *  - Só a receita de bilheteira é a "alavanca". A&B escala proporcional
+ *    ao público; Souvenir/Patrocínio/Outros são fixos.
+ *  - Custos usados são os do cenário Break-Even (`break_even_amount`).
+ *  - Cada sessão (dia × zona) respeita a CAPACIDADE da zona — nunca
+ *    aloca acima de `total_capacity − qty_real`.
+ *  - PREÇO MARGINAL: usa o preço do próximo lote disponível (vendido
+ *    < quantity); se já está no último lote ou não há plano, usa o
+ *    último preço definido (ou TM real como fallback).
+ *  - PESO POR ZONA: proporcional ao **ritmo de venda** (qty/dia),
+ *    ponderado pela margem unitária. Zona com ritmo zero não recebe
+ *    esforço (não adianta projetar venda onde ninguém compra).
+ *  - Distribuição é iterativa por "ondas": a cada iteração distribui
+ *    o restante do défice pelas zonas elegíveis, respeita capacidade,
+ *    e repete até cobrir o défice ou esgotar capacidade.
  *
- * Margem unitária por bilhete adicional:
- *    margem = TM_sessão
- *           + drinkAvgTicket × (1 − drinkPassthrough%)
- *           + foodAvgTicket  × (1 − foodPassthrough%)
- *
- * Como nenhuma das parcelas depende não-linearmente do nº de bilhetes
- * adicionais, basta resolver linearmente:
- *    extra = ceil(deficit_BE / margem_média_ponderada)
- * e distribuir o `extra` proporcional ao TM de cada sessão.
+ * Retorna também um breakdown detalhado para a UI mostrar o "porquê".
  */
 export function solveBreakEven(
   sessions: CoalaSession[],
   costLines: CoalaCostLine[],
   cfg: CoalaConfig,
-): { qtyByKey: Record<string, number>; reachable: boolean } {
+  lotInfoByKey?: Record<string, SessionLotInfo>,
+): BreakEvenSolution {
   const baseMap: Record<string, number> = {};
   for (const s of sessions) baseMap[`${s.day_index}-${s.zone_label}`] = sessionTodayQty(s);
 
@@ -280,46 +312,160 @@ export function solveBreakEven(
   const baseCosts = computeScenarioCosts(costLines, baseRev, cfg, "breakeven");
   const baseRes = computeScenarioResult(baseRev, baseCosts);
 
+  const emptyBreakdown: BreakEvenBreakdownItem[] = sessions.map((s) => ({
+    key: `${s.day_index}-${s.zone_label}`,
+    zone_label: s.zone_label,
+    day_index: s.day_index,
+    current_qty: sessionTodayQty(s),
+    extra_qty: 0,
+    capacity_left: 0,
+    marginal_price: 0,
+    velocity: 0,
+    reason: "ok",
+  }));
+
   if (baseRes.general >= 0) {
-    // Já está no positivo (ou exato) → BE = real
-    return { qtyByKey: baseMap, reachable: true };
+    return {
+      qtyByKey: baseMap, reachable: true, deficit: 0,
+      totalExtraTickets: 0, unfilled: 0, breakdown: emptyBreakdown,
+    };
   }
 
   const deficit = -baseRes.general;
 
-  // Margem unitária por sessão (bilhete + A&B líquido por pessoa)
+  // A&B líquido por pessoa adicional (igual em todas as sessões)
   const abMarginPerPub =
     n(cfg.ab_drink_avg_ticket) * (1 - n(cfg.ab_drink_passthrough_pct) / 100) +
     n(cfg.ab_food_avg_ticket) * (1 - n(cfg.ab_food_passthrough_pct) / 100);
 
-  const marginPerSeat = sessions.map((s) => Math.max(0, sessionAvgTicket(s) + abMarginPerPub));
-  const sumMargin = marginPerSeat.reduce((a, b) => a + b, 0);
+  // Pré-cálculo por sessão
+  type Slot = {
+    idx: number;
+    key: string;
+    capLeft: number;
+    velocity: number;
+    margPrice: number;          // preço do próximo bilhete a vender
+    margin: number;             // preço + A&B líquido
+    weight: number;             // velocidade × margem
+    eligible: boolean;
+    reason: BreakEvenBreakdownItem["reason"];
+    // estado mutável
+    extra: number;
+    // cópia mutável dos lotes para "consumir"
+    lotsRemaining: Array<{ price: number; left: number }>;
+    fallbackPrice: number;
+  };
 
-  if (sumMargin <= 0) {
-    // Sem TM nem A&B → impossível resolver
-    return { qtyByKey: baseMap, reachable: false };
-  }
-
-  // Margem média ponderada (cada sessão contribui igual em "uma pessoa adicional"):
-  const avgMargin = sumMargin / marginPerSeat.length;
-  const totalExtra = Math.ceil(deficit / avgMargin);
-
-  // Distribuição proporcional ao TM (sessões com TM maior absorvem mais bilhetes)
-  const totalTM = sessions.reduce((a, s) => a + sessionAvgTicket(s), 0);
-  const map: Record<string, number> = { ...baseMap };
-  let allocated = 0;
-  sessions.forEach((s, i) => {
+  const slots: Slot[] = sessions.map((s, idx) => {
     const key = `${s.day_index}-${s.zone_label}`;
-    const tm = sessionAvgTicket(s);
-    const weight = totalTM > 0 ? tm / totalTM : 1 / sessions.length;
-    const share = i === sessions.length - 1
-      ? totalExtra - allocated
-      : Math.round(totalExtra * weight);
-    allocated += share;
-    map[key] = sessionTodayQty(s) + Math.max(0, share);
+    const info = lotInfoByKey?.[key];
+    const realQty = sessionTodayQty(s);
+    const capacity = info?.capacity ?? 0;
+    const capLeft = Math.max(0, capacity - realQty);
+    const days = Math.max(1, info?.days_selling ?? 1);
+    const velocity = realQty / days;
+
+    // Lotes ordenados; "left" = quantity − assumido vendido proporcional
+    const lots = (info?.lots ?? []).slice().sort((a, b) => a.lot_number - b.lot_number);
+    let lotsRemaining = lots.map((l) => ({ price: n(l.price), left: Math.max(0, n(l.quantity) - n(l.sold)) }));
+    // Próximo preço marginal: 1º lote com left>0
+    const nextLot = lotsRemaining.find((l) => l.left > 0);
+    const lastDefinedPrice = lots.length ? n(lots[lots.length - 1].price) : 0;
+    const fallbackPrice = lastDefinedPrice || sessionAvgTicket(s);
+    const margPrice = nextLot?.price ?? fallbackPrice;
+
+    let eligible = true;
+    let reason: BreakEvenBreakdownItem["reason"] = "ok";
+    if (capacity > 0 && capLeft <= 0) { eligible = false; reason = "capacity_full"; }
+    else if (realQty === 0 && (info?.days_selling ?? 0) > 0) { eligible = false; reason = "no_velocity"; }
+    else if (margPrice <= 0) { eligible = false; reason = "no_price"; }
+
+    const margin = Math.max(0, margPrice + abMarginPerPub);
+    const weight = velocity * margin;
+
+    return {
+      idx, key, capLeft, velocity, margPrice, margin, weight,
+      eligible, reason, extra: 0, lotsRemaining, fallbackPrice,
+    };
   });
 
-  return { qtyByKey: map, reachable: true };
+  // Se nenhuma zona é elegível, devolve sem solução
+  const eligibleSlots = slots.filter((sl) => sl.eligible);
+  if (!eligibleSlots.length) {
+    return {
+      qtyByKey: baseMap, reachable: false, deficit,
+      totalExtraTickets: 0, unfilled: deficit,
+      breakdown: slots.map((sl) => ({
+        key: sl.key, zone_label: sessions[sl.idx].zone_label, day_index: sessions[sl.idx].day_index,
+        current_qty: sessionTodayQty(sessions[sl.idx]), extra_qty: 0,
+        capacity_left: sl.capLeft, marginal_price: sl.margPrice, velocity: sl.velocity, reason: sl.reason,
+      })),
+    };
+  }
+
+  // Distribuição iterativa por ondas — para lidar com capacidade limitada e
+  // mudança de preço entre lotes.
+  let remainingDeficit = deficit;
+  const MAX_WAVES = 50;
+  for (let wave = 0; wave < MAX_WAVES && remainingDeficit > 0.005; wave++) {
+    const active = slots.filter((sl) => sl.eligible && sl.capLeft > 0 && sl.weight > 0);
+    if (!active.length) break;
+    const sumW = active.reduce((a, sl) => a + sl.weight, 0);
+    let progressed = false;
+
+    for (const sl of active) {
+      const share = remainingDeficit * (sl.weight / sumW);
+      // Quantos bilhetes para cobrir essa fatia, respeitando lote atual + capacidade
+      let toAlloc = Math.ceil(share / sl.margin);
+      if (toAlloc <= 0) continue;
+      toAlloc = Math.min(toAlloc, sl.capLeft);
+      // Limita ao stock do próximo lote (depois recalculamos preço marginal)
+      const lot = sl.lotsRemaining.find((l) => l.left > 0);
+      if (lot) toAlloc = Math.min(toAlloc, lot.left);
+      if (toAlloc <= 0) { sl.eligible = false; sl.reason = "capacity_full"; continue; }
+
+      sl.extra += toAlloc;
+      sl.capLeft -= toAlloc;
+      if (lot) lot.left -= toAlloc;
+      remainingDeficit -= toAlloc * sl.margin;
+      progressed = true;
+
+      // Recalcula preço marginal para próxima onda
+      const nextLot = sl.lotsRemaining.find((l) => l.left > 0);
+      sl.margPrice = nextLot?.price ?? sl.fallbackPrice;
+      sl.margin = Math.max(0, sl.margPrice + abMarginPerPub);
+      sl.weight = sl.velocity * sl.margin;
+      if (sl.capLeft <= 0) { sl.eligible = false; sl.reason = "capacity_full"; }
+    }
+    if (!progressed) break;
+  }
+
+  const map: Record<string, number> = { ...baseMap };
+  let totalExtra = 0;
+  const breakdown: BreakEvenBreakdownItem[] = slots.map((sl) => {
+    map[sl.key] = sessionTodayQty(sessions[sl.idx]) + sl.extra;
+    totalExtra += sl.extra;
+    return {
+      key: sl.key,
+      zone_label: sessions[sl.idx].zone_label,
+      day_index: sessions[sl.idx].day_index,
+      current_qty: sessionTodayQty(sessions[sl.idx]),
+      extra_qty: sl.extra,
+      capacity_left: sl.capLeft,
+      marginal_price: sl.margPrice,
+      velocity: sl.velocity,
+      reason: sl.reason,
+    };
+  });
+
+  return {
+    qtyByKey: map,
+    reachable: remainingDeficit <= 0.5,
+    deficit,
+    totalExtraTickets: totalExtra,
+    unfilled: Math.max(0, remainingDeficit),
+    breakdown,
+  };
 }
 
 // ---------- IVA por sessão ----------
