@@ -205,6 +205,8 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
           open={importOpen}
           onOpenChange={setImportOpen}
           eventId={eventId}
+          eventName={eventName ?? ""}
+          eventDate={eventDate ?? ""}
         />
       )}
     </div>
