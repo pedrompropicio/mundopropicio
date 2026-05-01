@@ -29,6 +29,8 @@ import {
   computeScenarioKpis, solveBreakEven, computeIvaTable,
 } from "@/lib/event-simulator-coala";
 import { syncSimulatorFromSources } from "@/lib/event-simulator-sync";
+import { expandLotSalesToDailyAttendance, type LotSale } from "@/lib/event-simulator-combos";
+import { loadSponsors, type SponsorRow } from "@/lib/event-simulator-sponsors";
 
 // ----- Tipos DB -----
 type DbConfig = {
@@ -49,6 +51,8 @@ type DbConfig = {
   prior_year_souvenir: number;
   prior_year_other: number;
   ticket_iva_pct: number;
+  combo_lot_keywords: string;
+  sponsor_category_l2_id: string | null;
 };
 
 type DbInput = {
@@ -75,6 +79,9 @@ type DbCostLine = {
   prior_year_amount: number;
   break_even_amount: number;
   forecast_amount: number;
+  actual_amount: number;
+  actual_paid: number;
+  actual_committed_bp: number;
   is_ab_passthrough: boolean;
   display_order: number;
 };
