@@ -1,61 +1,112 @@
--- ============================================================
--- CLEANUP: Patrocinios antigos do Coala Festival Portugal 2026
--- Apaga BP (event_forecasts) + transacoes (transactions) das
--- categorias 1.2.01 Patrocinios e 1.2.02 Apoios.
--- AMBIENTE: LIVE
--- ============================================================
--- Passo 1: correr o bloco DRY-RUN (so SELECT).
--- Passo 2: validar contagens/valores.
--- Passo 3: descomentar bloco DELETE e correr.
--- ============================================================
+-- ============================================================================
+-- Limpeza Coala Festival Portugal 2026 — Patrocínios (1.2.01) e Apoios (1.2.02)
+-- Ambiente: LIVE (Cloud > Run SQL > selecionar Live)
+-- ============================================================================
+-- INSTRUÇÕES:
+--   1) Executa o BLOCO 1 (DRY-RUN) — vê os totais.
+--   2) Se OK, executa o BLOCO 2 (DELETE). Não precisa de COMMIT manual.
+--   Cada bloco corre numa transação implícita do dashboard.
+-- ============================================================================
 
--- ============== DRY-RUN (so leitura) ==========================
+
+-- ╔══════════════════════════════════════════════════════════════════════════╗
+-- ║ BLOCO 1 — DRY-RUN (só consulta, não apaga nada)                          ║
+-- ╚══════════════════════════════════════════════════════════════════════════╝
+
 WITH ev AS (
-  SELECT id FROM events WHERE name = 'Coala Festival Portugal 2026'
+  SELECT id FROM events WHERE name ILIKE '%Coala%Portugal%2026%'
 ),
 cats AS (
   SELECT id FROM account_categories WHERE code IN ('1.2.01','1.2.02')
-),
-bp AS (
-  SELECT f.id, f.amount FROM event_forecasts f
-  JOIN ev ON ev.id = f.event_id
-  WHERE f.category_id IN (SELECT id FROM cats)
-),
-tx AS (
-  SELECT t.id, t.amount FROM transactions t
-  JOIN ev ON ev.id = t.event_id
-  WHERE t.category_id IN (SELECT id FROM cats)
 )
 SELECT
-  (SELECT COUNT(*) FROM bp) AS bp_linhas,
-  (SELECT COALESCE(SUM(amount),0) FROM bp) AS bp_total_eur,
-  (SELECT COUNT(*) FROM tx) AS tx_linhas,
-  (SELECT COALESCE(SUM(amount),0) FROM tx) AS tx_total_eur;
+  (SELECT count(*) FROM event_forecasts f
+     WHERE f.event_id IN (SELECT id FROM ev)
+       AND f.category_id IN (SELECT id FROM cats))                AS bp_linhas,
+  (SELECT COALESCE(sum(amount),0) FROM event_forecasts f
+     WHERE f.event_id IN (SELECT id FROM ev)
+       AND f.category_id IN (SELECT id FROM cats))                AS bp_total_eur,
+  (SELECT count(*) FROM transactions t
+     WHERE t.event_id IN (SELECT id FROM ev)
+       AND t.category_id IN (SELECT id FROM cats))                AS tx_linhas,
+  (SELECT COALESCE(sum(amount),0) FROM transactions t
+     WHERE t.event_id IN (SELECT id FROM ev)
+       AND t.category_id IN (SELECT id FROM cats))                AS tx_total_eur;
 
--- ============== DELETE (descomentar apos validar) =============
--- BEGIN;
---
--- WITH ev AS (SELECT id FROM events WHERE name = 'Coala Festival Portugal 2026'),
--- cats AS (SELECT id FROM account_categories WHERE code IN ('1.2.01','1.2.02')),
--- tx_ids AS (
---   SELECT t.id FROM transactions t
---   JOIN ev ON ev.id = t.event_id
---   WHERE t.category_id IN (SELECT id FROM cats)
--- ),
--- bp_ids AS (
---   SELECT f.id FROM event_forecasts f
---   JOIN ev ON ev.id = f.event_id
---   WHERE f.category_id IN (SELECT id FROM cats)
--- )
--- , del_payments AS (DELETE FROM transaction_payments WHERE transaction_id IN (SELECT id FROM tx_ids) RETURNING 1)
--- , del_docs     AS (DELETE FROM transaction_documents WHERE transaction_id IN (SELECT id FROM tx_ids) RETURNING 1)
--- , del_tx       AS (DELETE FROM transactions WHERE id IN (SELECT id FROM tx_ids) RETURNING 1)
--- , del_bp       AS (DELETE FROM event_forecasts WHERE id IN (SELECT id FROM bp_ids) RETURNING 1)
--- SELECT
---   (SELECT COUNT(*) FROM del_payments) AS pagamentos_apagados,
---   (SELECT COUNT(*) FROM del_docs)     AS docs_apagados,
---   (SELECT COUNT(*) FROM del_tx)       AS transacoes_apagadas,
---   (SELECT COUNT(*) FROM del_bp)       AS bp_linhas_apagadas;
---
--- COMMIT;
--- -- Em caso de duvida: ROLLBACK;
+
+-- ╔══════════════════════════════════════════════════════════════════════════╗
+-- ║ BLOCO 2 — DELETE DEFINITIVO (corre tudo de uma vez)                      ║
+-- ║ Devolve uma linha NOTICE com os contadores reais de cada DELETE.         ║
+-- ╚══════════════════════════════════════════════════════════════════════════╝
+
+DO $$
+DECLARE
+  v_event_ids uuid[];
+  v_cat_ids   uuid[];
+  v_tx_ids    uuid[];
+  v_fc_ids    uuid[];
+  n_link int := 0; n_pay int := 0; n_doc int := 0; n_tx int := 0; n_bp int := 0;
+BEGIN
+  SELECT array_agg(id) INTO v_event_ids
+    FROM events WHERE name ILIKE '%Coala%Portugal%2026%';
+  SELECT array_agg(id) INTO v_cat_ids
+    FROM account_categories WHERE code IN ('1.2.01','1.2.02');
+
+  SELECT array_agg(id) INTO v_tx_ids FROM transactions
+    WHERE event_id = ANY(v_event_ids) AND category_id = ANY(v_cat_ids);
+  SELECT array_agg(id) INTO v_fc_ids FROM event_forecasts
+    WHERE event_id = ANY(v_event_ids) AND category_id = ANY(v_cat_ids);
+
+  RAISE NOTICE 'ALVO: events=%, cats=%, tx=%, fc=%',
+    array_length(v_event_ids,1), array_length(v_cat_ids,1),
+    COALESCE(array_length(v_tx_ids,1),0), COALESCE(array_length(v_fc_ids,1),0);
+
+  -- 1) desligar Pipeline
+  UPDATE sponsorship_pipeline
+     SET linked_transaction_id = NULL, linked_forecast_id = NULL
+   WHERE linked_transaction_id = ANY(COALESCE(v_tx_ids, ARRAY[]::uuid[]))
+      OR linked_forecast_id    = ANY(COALESCE(v_fc_ids, ARRAY[]::uuid[]));
+  GET DIAGNOSTICS n_link = ROW_COUNT;
+
+  -- 2) pagamentos parcelados
+  DELETE FROM transaction_payments
+   WHERE transaction_id = ANY(COALESCE(v_tx_ids, ARRAY[]::uuid[]));
+  GET DIAGNOSTICS n_pay = ROW_COUNT;
+
+  -- 3) documentos anexados
+  DELETE FROM transaction_documents
+   WHERE transaction_id = ANY(COALESCE(v_tx_ids, ARRAY[]::uuid[]));
+  GET DIAGNOSTICS n_doc = ROW_COUNT;
+
+  -- 4) transações
+  DELETE FROM transactions
+   WHERE id = ANY(COALESCE(v_tx_ids, ARRAY[]::uuid[]));
+  GET DIAGNOSTICS n_tx = ROW_COUNT;
+
+  -- 5) linhas BP
+  DELETE FROM event_forecasts
+   WHERE id = ANY(COALESCE(v_fc_ids, ARRAY[]::uuid[]));
+  GET DIAGNOSTICS n_bp = ROW_COUNT;
+
+  RAISE NOTICE 'APAGADO: pipeline_unlinked=%, payments=%, docs=%, tx=%, bp=%',
+    n_link, n_pay, n_doc, n_tx, n_bp;
+END $$;
+
+
+-- ╔══════════════════════════════════════════════════════════════════════════╗
+-- ║ BLOCO 3 — VERIFICAÇÃO (deve devolver tudo a zero)                        ║
+-- ╚══════════════════════════════════════════════════════════════════════════╝
+
+WITH ev AS (
+  SELECT id FROM events WHERE name ILIKE '%Coala%Portugal%2026%'
+),
+cats AS (
+  SELECT id FROM account_categories WHERE code IN ('1.2.01','1.2.02')
+)
+SELECT
+  (SELECT count(*) FROM event_forecasts f
+     WHERE f.event_id IN (SELECT id FROM ev)
+       AND f.category_id IN (SELECT id FROM cats))                AS bp_restantes,
+  (SELECT count(*) FROM transactions t
+     WHERE t.event_id IN (SELECT id FROM ev)
+       AND t.category_id IN (SELECT id FROM cats))                AS tx_restantes;
