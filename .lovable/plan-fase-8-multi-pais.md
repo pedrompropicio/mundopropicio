@@ -1,0 +1,379 @@
+# Fase 8 — Suporte multi-país (PT + BR gerencial)
+
+> **Estado**: aprovado, pronto a executar.
+> **Estimativa**: 4–5 semanas com 1 dev focado.
+> **Pré-requisito**: Fase 7 (multi-tenant Live) concluída ✅
+
+---
+
+## 1. Contexto e escopo
+
+A plataforma já é multi-empresa (Fases 1–7). Falta torná-la **country-aware** para receber a primeira empresa-cliente brasileira.
+
+### Escopo confirmado
+- ✅ Países suportados: **PT e BR** (apenas).
+- ✅ Em BR a plataforma é **gerencial pura**: zero apuração fiscal, zero emissão de NF-e, zero integração SEFAZ.
+- ✅ A contabilidade fiscal BR vive **fora** do sistema (ERP/contador). Nós só temos de fornecer dados suficientes para integração.
+- ✅ Export para o contador: **XLSX genérico** estruturado (não há ERP-alvo definido).
+- ✅ Em BR, `amount` da transação = **valor bruto** (com impostos). Impostos viram deduções no DRE.
+- ✅ Em PT mantém-se tudo como hoje: `amount = líquido`, `IVA = amount × tax / 100` (CIVA Art. 18).
+
+### Fora de escopo
+- ❌ Emissão de NF-e / NFS-e
+- ❌ Cálculo automático de ICMS, ISS, PIS, COFINS, IRRF
+- ❌ SPED Contábil/Fiscal
+- ❌ Suporte a regimes fiscais BR (Simples / Presumido / Real) com lógica diferenciada
+- ❌ I18n EN ou outros países (Espanha, Angola, EUA…)
+- ❌ Reconciliação Mágicos H&K (tratada noutra esfera)
+
+---
+
+## 2. Decisões arquiteturais (invariantes)
+
+São **regras duras** que não podem ser quebradas sem reabrir este plano.
+
+### D1 — `country-of-amount = country-of-company`
+Cada empresa tem **um país**. Todas as transações e forecasts dessa empresa seguem a convenção semântica desse país.
+- **Empresa PT**: `amount` é líquido, `iva_rate` aplicável, `fiscal_meta` deve ser NULL.
+- **Empresa BR**: `amount` é bruto, `iva_rate` é NULL/ignorado, `fiscal_meta` carrega impostos e retenções.
+- **Consequência**: turnês mistas PT+BR são **proibidas** ao nível de modelo. Uma turnê inteira pertence ao país da sua empresa.
+
+### D2 — `amount` continua a ser SSoT por empresa
+Não introduzimos coluna `gross_amount` paralela. O significado de `amount` é **resolvido pela empresa** via `country`. Helper único `getAmountSemantics(company)` decide.
+
+### D3 — `fiscal_meta jsonb` é informativo, nunca calculado
+A coluna `fiscal_meta` em `transactions` e `event_forecasts` guarda dados que **o utilizador insere** ou que vêm de OCR/import — nunca é calculada pelo sistema. Para BR contém: `nf_number`, `cnpj`, `taxes_total`, `withholdings_total`, `breakdown_note`. Para PT é NULL.
+
+### D4 — Adapters em vez de `if (country === 'BR')`
+Todo o código que muda comportamento por país consome `useTaxEngine()` / `useLocale()` / `useLegalLabels()`. Nenhum componente de UI faz `if` direto sobre `country`.
+
+### D5 — Refactor PT é zero-comportamento
+A Fase 1 (extração do TaxEngine PT) **não pode** mudar nem 1 cêntimo em nenhum cálculo PT existente. Validação obrigatória com testes Vitest snapshot.
+
+### D6 — Relatórios consolidados super-admin convertem tudo para uma base canónica
+Quando o `platform_admin` vê PT+BR juntos, o consolidado normaliza para "líquido em EUR". Nunca soma `amount` directo entre empresas de países diferentes.
+
+### D7 — Cliente BR opera em **BRL** dentro da app, EUR é só camada de armazenamento
+Mantém-se o sistema multi-currency atual (`amount` em EUR, `original_amount + fx_rate` para traçabilidade). UI da empresa BR mostra tudo em BRL.
+
+---
+
+## 3. Stress-test — riscos identificados e mitigações
+
+| # | Risco | Probabilidade | Impacto | Mitigação |
+|---|---|---|---|---|
+| R1 | Refactor TaxEngine PT introduz regressão de cêntimo | Média | Alto | Testes Vitest snapshot ANTES do refactor; baseline de DRE de 5 eventos PT recentes. CI bloqueia se mudar. |
+| R2 | `fiscal_meta` é mal preenchido (campos inconsistentes entre transações BR) | Alta | Médio | Schema Zod estrito no frontend; Edge function/trigger valida estrutura mínima ao gravar. |
+| R3 | Utilizador da empresa BR esquece-se de preencher `fiscal_meta` em transações | Alta | Alto (export para contador fica vazio) | Validação obrigatória ao "Aprovar" transação BR; relatório "Pendências fiscais BR" análogo ao "Document Pendencies" PT. |
+| R4 | DRE BR passa a misturar `amount` líquido (PT antigo) com bruto (BR novo) se houver bug em company-detection | Baixa | Crítico | Trigger DB rejeita: `country='PT' AND fiscal_meta IS NOT NULL` e simétrico. Auditoria SQL no fim de cada fase. |
+| R5 | Plano de contas BR diverge tanto que relatório consolidado super-admin perde sentido | Média | Médio | Mapeamento "categoria → DRE bucket universal" centralizado. Categorias BR mapeiam para os mesmos 8 buckets do DRE (Receita Bruta, Deduções, CPV, Despesas Operacionais, etc.). |
+| R6 | BP consolidado de turnê BR confunde brutos com líquidos | Baixa (D1 protege) | Alto | Invariante D1 + teste de regressão em turnê BR após cada fase. |
+| R7 | Edge functions (close-camarim-session, generate-historical-transactions, audit-categories, match-categories) têm cálculo IVA inline e quebram em BR | Certa | Médio | Inventário no início; mover lógica fiscal para shared module Deno chamado pelo TaxEngine server-side. |
+| R8 | `audit-categories` (Gemini) treinada em PT-SNC sugere disparate em BR | Alta | Baixo | Prompt da edge fn passa a receber `country` + plano de contas da empresa. |
+| R9 | Cache de artistas em BR retém ISS na fonte do cachê — modelo atual não suporta | Média | Médio | Adicionar `withholding_meta jsonb` em `event_cache_payments` (paralelo à coluna existente `tax_withholding`). PT continua a usar a coluna antiga. |
+| R10 | Fluxo de recibo verde / IRS em PT confunde-se com IRRF em BR | Baixa | Médio | `useLegalLabels()` muda labels; `tax_withholding` schema fica polimórfico via TaxEngine. |
+| R11 | Templates de email auth (já multi-tenant) não consideram país | Baixa | Baixo | `multi-tenant-email-branding` já lê company; adicionar passagem do `country` para escolher idioma do template (pt-PT vs pt-BR). |
+| R12 | Backups e restores misturam dados de empresas de países diferentes | Baixa (RLS protege) | Baixo | Já testado na Fase 7; nenhuma mudança necessária. |
+| R13 | Importação BP XLSX assume estrutura PT (cabeçalhos, IVA) | Alta | Médio | Versão BR do parser detecta headers diferentes; ou template BP separado por país. |
+| R14 | Conversão BRL↔EUR em câmbio errado afecta DRE | Média | Médio | Já mitigado no sistema multi-currency; revisar fixação do FX no momento do pagamento (não no momento do registo). |
+| R15 | Cliente BR muda de contador → novo formato de export | Baixa | Baixo | Export "neutro" XLSX é SSoT; adapters por ERP são opcionais (Fase futura, fora deste plano). |
+
+---
+
+## 4. Inventário de impacto (ficheiros e tabelas)
+
+### 4.1 Tabelas DB que ganham `fiscal_meta jsonb`
+1. `transactions`
+2. `event_forecasts`
+3. `event_cache_payments` (via `withholding_meta` separada)
+
+### 4.2 Tabela `companies` — campos já existentes a usar
+- `country` (já existe — usar como SSoT)
+- `currency` (já existe)
+- `timezone` (já existe)
+- `theme_config` (já existe — sem mudança)
+
+### 4.3 Templates de plano de contas
+- Tabela nova: `account_category_templates` (id, country, name, structure jsonb)
+- Seed inicial: `PT-SNC` (snapshot do plano atual MP) e `BR-DRE-gerencial` (novo)
+- `create-company` edge fn passa a aceitar `template_id`
+
+### 4.4 Código frontend a tocar (alto nível)
+- **Novo**: `src/lib/tax/types.ts`, `src/lib/tax/index.ts`, `src/lib/tax/pt/`, `src/lib/tax/br/`
+- **Novo**: `src/lib/locale/`, `src/lib/legal-labels/`
+- **Novo**: `src/hooks/useTaxEngine.ts`, `src/hooks/useLocale.ts`, `src/hooks/useLegalLabels.ts`
+- **Refactor**: `TransactionFormModal`, `TransactionEditModal`, `SplitByIvaModal`, `CamarimItemModal`, `BPRowEditor`, `RecurringTransactionForm`, `ReimbursementNoteModal`, `CacheExtrasPanel`, `PartnerExtrasPanel`
+- **Refactor relatórios**: `ReportDREBrasil`, `ReportPL`, `ReportDRE`, `ReportIvaAudit`, `ReportContasPagar`, `ReportBankStatement`, `ReportBPTransactions`
+- **Novo relatório**: `ReportContabilExportBR` (export XLSX para contador)
+- **Novo relatório**: `ReportPendenciasFiscaisBR` (transações sem `fiscal_meta` completo)
+
+### 4.5 Edge functions a tocar
+- `close-camarim-session` — usar TaxEngine server-side
+- `generate-historical-transactions` — country-aware
+- `audit-categories` — passar `country` no prompt Gemini
+- `match-categories` — idem
+- `create-company` — aceitar `template_id` e país
+- **Nova**: `export-accounting-br` — gera XLSX para contador
+
+### 4.6 Memórias a atualizar
+- `iva-portugal` → renomear para `tax-portugal` e referenciar TaxEngine
+- Nova: `tax-engine-architecture` (descreve adapters)
+- Nova: `tax-brazil-managerial` (descreve modelo BR sem fiscal)
+- Nova: `multi-country-invariants` (D1–D7)
+- Atualizar Core: regra "DB amount is Net" passa a ser "DB amount semantics depends on company.country"
+
+---
+
+## 5. Plano por fases
+
+### Fase 8.0 — Preparação e baselines (2 dias)
+**Objetivo**: ter rede de segurança antes de tocar em código fiscal.
+
+- [ ] Snapshot DRE de 5 eventos PT recentes (Live) → guardar JSON em `tests/fixtures/dre-baselines-pt.json`
+- [ ] Snapshot DRE de 3 eventos BR (Live) → `tests/fixtures/dre-baselines-br.json`
+- [ ] Snapshot BP "Realizado" de 5 eventos PT recentes
+- [ ] Inventário grep de todos os `iva_rate` / `* tax / 100` / `STANDARD_IVA_RATES` no código → lista de ficheiros a refactor
+- [ ] Inventário de strings hard-coded ("IVA", "NIF", "IBAN", "Modelo Periódica", "Art.º") → lista de strings a substituir por `useLegalLabels()`
+- [ ] Confirmar com cliente BR a lista exata de campos que o contador quer ver no export (NF, CNPJ, base, impostos discriminados ou agregados, retenções)
+- [ ] Decisão: o export BR é por evento, mensal, ou ambos?
+
+**Saída**: `tests/fixtures/`, `docs/multi-country-inventory.md`
+
+### Fase 8.1 — TaxEngine adapter PT (zero comportamento) (1 semana)
+**Objetivo**: extrair lógica IVA atual para adapter, sem mudar 1 cêntimo.
+
+- [ ] Criar `src/lib/tax/types.ts` com interface `TaxEngine`:
+  ```ts
+  interface TaxEngine {
+    country: 'PT' | 'BR';
+    currency: CurrencyCode;
+    isFiscal: boolean; // PT=true, BR=false
+    standardRates: number[];
+    calcTax(base: number, rate: number): number;
+    calcTotalWithTax(base: number, rate: number): number;
+    snapToStandardRate(rate: number): number;
+    inferRateFromTotal(base: number, total: number): number;
+    checkConsistency(base: number, rate: number, recorded: number, tol?: number): { ok: boolean; expected: number };
+    formatTaxLabel(rate: number): string;
+    getAmountSemantics(): 'net' | 'gross';
+    validateFiscalMeta(meta: unknown): { ok: boolean; errors: string[] };
+  }
+  ```
+- [ ] `src/lib/tax/pt/index.ts` — wrapper que chama `iva.ts` existente; `getAmountSemantics()` = `'net'`; `validateFiscalMeta` exige NULL
+- [ ] `src/lib/tax/index.ts` — `getTaxEngine(country): TaxEngine`
+- [ ] `src/hooks/useTaxEngine.ts` — lê `useCompany().country`, devolve adapter
+- [ ] Migrar 5 ficheiros piloto: `TransactionFormModal`, `SplitByIvaModal`, `ReportIvaAudit`, `BPRowEditor`, `CamarimItemModal`
+- [ ] Testes Vitest: para cada baseline da Fase 8.0, recalcular com TaxEngine e validar match exato
+- [ ] Migrar restantes ficheiros do inventário (incremental, 1–3 por commit)
+- [ ] Edge functions: criar `supabase/functions/_shared/tax-engine.ts` (versão Deno do mesmo contrato)
+- [ ] Migrar `close-camarim-session`, `generate-historical-transactions`
+
+**Critério de saída**: todos os baselines da Fase 8.0 continuam idênticos ao cêntimo.
+
+### Fase 8.2 — Schema fiscal informativo (2 dias)
+**Objetivo**: preparar DB para BR sem tocar em PT.
+
+- [ ] Migration:
+  ```sql
+  ALTER TABLE transactions ADD COLUMN fiscal_meta jsonb;
+  ALTER TABLE event_forecasts ADD COLUMN fiscal_meta jsonb;
+  ALTER TABLE event_cache_payments ADD COLUMN withholding_meta jsonb;
+
+  -- Trigger guard: PT não pode ter fiscal_meta
+  CREATE FUNCTION enforce_fiscal_meta_country() RETURNS trigger AS $$
+  DECLARE v_country text;
+  BEGIN
+    SELECT c.country INTO v_country FROM companies c WHERE c.id = NEW.company_id;
+    IF v_country = 'PT' AND NEW.fiscal_meta IS NOT NULL THEN
+      RAISE EXCEPTION 'fiscal_meta is BR-only (company is PT)';
+    END IF;
+    RETURN NEW;
+  END $$ LANGUAGE plpgsql;
+
+  CREATE TRIGGER trg_fiscal_meta_country_tx
+    BEFORE INSERT OR UPDATE ON transactions
+    FOR EACH ROW EXECUTE FUNCTION enforce_fiscal_meta_country();
+  -- idem para event_forecasts
+  ```
+- [ ] Atualizar `create_bp_snapshot` para copiar `fiscal_meta`
+- [ ] Atualizar trigger de Trash para preservar `fiscal_meta` no JSONB
+- [ ] Tipos TS regenerados automaticamente
+
+**Critério de saída**: PT continua a funcionar exatamente como antes; nenhuma transação PT existente é tocada.
+
+### Fase 8.3 — TaxEngine adapter BR + plano de contas (1 semana)
+**Objetivo**: capturar dados fiscais BR sem cálculo.
+
+- [ ] `src/lib/tax/br/index.ts`:
+  - `isFiscal = false`
+  - `standardRates = []` (não há "rates standard" no modelo gerencial)
+  - `getAmountSemantics() = 'gross'`
+  - `calcTax()` = throw (não usar — usar `fiscal_meta.taxes_total` direto)
+  - `validateFiscalMeta()`: schema Zod com `nf_number?`, `cnpj?`, `taxes_total: number`, `withholdings_total: number`, `breakdown_note?: string`
+  - `formatTaxLabel()` = "Impostos s/ Receita" (deduções) ou "Retenções" conforme tipo
+- [ ] Tabela `account_category_templates`:
+  ```sql
+  CREATE TABLE account_category_templates (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    country text NOT NULL CHECK (country IN ('PT', 'BR')),
+    name text NOT NULL UNIQUE,
+    description text,
+    structure jsonb NOT NULL, -- L1>L2>L3 hierarchy
+    is_default boolean DEFAULT false,
+    created_at timestamptz DEFAULT now()
+  );
+  ```
+- [ ] Seed `PT-SNC` (extraído do plano atual da Mundo Propício, sem `company_id`)
+- [ ] Seed `BR-DRE-gerencial` (novo, ver §6 abaixo)
+- [ ] Edge fn `create-company` aceita `account_template_id`; clona template para a nova empresa
+- [ ] UI `/admin/empresas` no wizard "criar" pergunta país e template
+
+### Fase 8.4 — Locale, labels e UI BR (1 semana)
+**Objetivo**: app sente-se brasileira para utilizador BR.
+
+- [ ] `src/lib/locale/pt.ts` e `src/lib/locale/br.ts` com `dateFormat`, `numberFormat`, `currencyCode`, `firstDayOfWeek`
+- [ ] `src/lib/legal-labels/pt.ts` e `src/lib/legal-labels/br.ts`:
+  - `taxId`: "NIF" / "CNPJ"
+  - `personalTaxId`: "NIF" / "CPF"
+  - `bankAccount`: "IBAN" / "Agência + Conta"
+  - `taxName`: "IVA" / "Impostos s/ Receita"
+  - `withholdingName`: "Retenção IRS" / "Retenção (IRRF/INSS/ISS)"
+- [ ] Hooks `useLocale()`, `useLegalLabels()`
+- [ ] `TransactionFormModal` em modo BR:
+  - Esconde dropdown de IVA, esconde "Dividir por IVA", esconde "IVA médio"
+  - Mostra: Nº NF, CNPJ fornecedor, Valor (bruto), Impostos s/ Receita (total), Retenções (total), Notas fiscais
+  - `amount` = valor que o utilizador digita (bruto)
+  - `fiscal_meta` = `{ nf_number, cnpj, taxes_total, withholdings_total, breakdown_note }`
+- [ ] `CamarimItemModal` em BR: sem snap de IVA; campo "Valor" = bruto; `fiscal_meta` opcional
+- [ ] `Suppliers`: campo "NIF" passa a usar `legalLabels.taxId`; validação muda por país
+- [ ] `FinancialAccounts`: campo "IBAN" → "IBAN" ou "Agência + Conta"
+- [ ] BPRowEditor em BR: sem coluna IVA (forecasts são brutos)
+
+### Fase 8.5 — Relatórios BR + Export contador (1 semana)
+**Objetivo**: dar ao contador BR o que ele precisa.
+
+- [ ] `ReportDREBrasil` revisto:
+  - Estrutura clássica: Receita Bruta → (-) Deduções (impostos s/ receita) → Receita Líquida → (-) CPV/CSP → Lucro Bruto → (-) Despesas Operacionais → EBITDA → (-) D&A → EBIT → (-/+) Resultado Financeiro → LAIR → (-) IR/CSLL (informativo) → Lucro Líquido
+  - Lê `amount` direto (bruto) + soma `fiscal_meta.taxes_total` como dedução
+- [ ] `ReportContabilExportBR` (novo):
+  - Filtros: período, evento(s), opcional CNPJ específico
+  - Output XLSX com colunas: Data, Histórico, Conta Débito, Conta Crédito, Valor, NF, CNPJ Fornecedor, Impostos, Retenções, Categoria, Evento, Notas
+  - Versão "neutra" sem assumir ERP-alvo
+  - Edge fn `export-accounting-br` gera o ZIP com XLSX + PDF de auditoria
+- [ ] `ReportPendenciasFiscaisBR` (novo):
+  - Lista transações BR sem `nf_number` ou sem `cnpj` ou com `fiscal_meta` incompleto
+  - Análogo ao `ReportDocumentPendencies` de PT
+- [ ] Menu de relatórios filtra por `useCompany().country`:
+  - PT-only: `ReportIvaAudit`, `ReportAccountingExport` (formato PT-SNC)
+  - BR-only: `ReportContabilExportBR`, `ReportPendenciasFiscaisBR`, `ReportDREBrasil`
+  - Universais: BP vs Real, Cash Flow, Aging, Bank Statement, etc.
+
+### Fase 8.6 — Onboarding cliente BR (3 dias)
+**Objetivo**: cliente BR a usar em Live.
+
+- [ ] Criar empresa BR em **Test** primeiro
+- [ ] Convidar 1 utilizador admin BR
+- [ ] Importar histórico (se existir XLSX do cliente)
+- [ ] Validar export → enviar amostra ao contador BR → confirmar legibilidade
+- [ ] Replicar em Live (criar empresa, convite, branding)
+- [ ] Acompanhar primeiros 7 dias com daily check
+
+### Fase 8.7 — Hardening e documentação (3 dias)
+- [ ] Memórias atualizadas (ver §4.6)
+- [ ] Guia "Onboarding empresa BR" em `docs/`
+- [ ] Guia "Adicionar novo país" em `docs/` (caso futuro)
+- [ ] Testes E2E Playwright: 1 fluxo completo PT + 1 fluxo completo BR
+- [ ] Auditoria SQL final: trigger guard funciona; nenhuma transação PT tem `fiscal_meta`; nenhuma transação BR tem `iva_rate` não-NULL
+
+---
+
+## 6. Plano de contas BR — proposta inicial
+
+Estrutura DRE gerencial brasileira clássica (a refinar com input do cliente):
+
+```
+1. RECEITA BRUTA
+   1.1 Bilheteira
+   1.2 Patrocínios
+   1.3 Outros (merchandising, F&B, etc.)
+
+2. DEDUÇÕES DA RECEITA
+   2.1 Impostos s/ Receita (ISS, PIS, COFINS, ICMS quando aplicável)
+   2.2 Devoluções e cancelamentos
+   2.3 Comissões de bilheteira
+   → RECEITA LÍQUIDA
+
+3. CUSTOS DOS SERVIÇOS PRESTADOS (CSP)
+   3.1 Cachet artistas
+   3.2 Produção (palco, som, luz)
+   3.3 Aluguer de espaço
+   3.4 Equipa técnica
+   → LUCRO BRUTO
+
+4. DESPESAS OPERACIONAIS
+   4.1 Marketing e divulgação
+   4.2 Logística (transporte, alojamento, alimentação)
+   4.3 Serviços profissionais
+   4.4 Camarim
+   → EBITDA
+
+5. DEPRECIAÇÃO E AMORTIZAÇÃO
+   → EBIT
+
+6. RESULTADO FINANCEIRO
+   6.1 Receitas financeiras
+   6.2 Despesas financeiras (juros, taxas bancárias)
+   → LAIR (Lucro Antes do IR)
+
+7. IMPOSTO DE RENDA E CSLL (informativo gerencial)
+   → LUCRO LÍQUIDO
+
+10. CUSTOS CORPORATIVOS (overhead, não alocado a evento — paralelo ao Group 10 PT)
+    10.1 Estrutura admin
+    10.2 Tecnologia
+    10.3 Serviços corporativos
+```
+
+Mantém-se a regra Core "Only L3 nodes are selectable".
+
+---
+
+## 7. Cronograma sugerido
+
+| Semana | Fase | Entregável visível |
+|---|---|---|
+| 1 | 8.0 + 8.1 (parte) | Baselines, TaxEngine PT, refactor 5 ficheiros piloto |
+| 2 | 8.1 (resto) + 8.2 | Refactor completo PT, schema `fiscal_meta` em DB |
+| 3 | 8.3 | TaxEngine BR + templates de plano de contas |
+| 4 | 8.4 | UI BR (modais, labels, locale) |
+| 5 | 8.5 + 8.6 | Relatórios BR, export contador, onboarding cliente |
+| 5+ | 8.7 | Hardening, docs, testes E2E |
+
+**Buffer**: +1 semana para imprevistos (validação contador, ajustes UX).
+
+---
+
+## 8. Critérios de sucesso
+
+1. Empresa MP (PT) não muda absolutamente nada no comportamento — todos os baselines da Fase 8.0 continuam idênticos.
+2. Empresa BR cria transação com Nº NF + CNPJ + valor bruto + impostos + retenções; gera DRE gerencial BR; gera export XLSX que o contador BR aceita.
+3. Super-admin (`platform_admin`) navega entre empresas PT e BR sem ver dados cruzados.
+4. Trigger guard rejeita: `fiscal_meta` em PT, `iva_rate != 0` em BR.
+5. Adicionar 3º país (Espanha hipotético) custa **só** criar `src/lib/tax/es/`, `src/lib/locale/es.ts`, `src/lib/legal-labels/es.ts`, template plano de contas, UI labels — sem mexer no core.
+
+---
+
+## 9. Pontos pendentes para o utilizador
+
+- [ ] **Mágicos H&K**: tratado em separado, **fora deste plano**.
+- [ ] **Plano de contas BR §6**: validar estrutura proposta com sócio brasileiro / contador antes da Fase 8.3.
+- [ ] **Lista de campos do export contador**: confirmar na Fase 8.0 com cliente BR.
+- [ ] **Histórico do cliente BR**: existe XLSX a importar ou começam do zero?
+
+---
+
+## 10. Resumo executivo
+
+Plataforma fica **country-aware** sem refactor pesado: PT mantém-se 100% igual, BR usa modelo gerencial puro com `fiscal_meta jsonb` informativo. Adapters (`TaxEngine`, `useLocale`, `useLegalLabels`) substituem `if (country === 'BR')` espalhados. Plano de contas por país via templates. Relatórios fiscais segregados, gerenciais universais. Export XLSX neutro para contador BR.
+
+**Esforço**: 4–5 semanas. **Risco principal**: regressão silenciosa em PT — mitigado por baselines + testes snapshot. **Saída**: pronto para receber cliente BR sem comprometer estabilidade da operação MP.
