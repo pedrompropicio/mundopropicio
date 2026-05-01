@@ -3156,13 +3156,15 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         initialBase={parseFloat(form.amount) || undefined}
         initialRate={form.iva_rate}
         prefilledLines={aiPrefilledLines ?? undefined}
+        attachmentFile={pendingInvoiceFile}
         expectedTotal={
           (parseFloat(form.amount) || 0) > 0
             ? (parseFloat(form.amount) || 0) * (1 + form.iva_rate / 100)
             : undefined
         }
-        onConfirm={(lines) => {
+        onConfirm={(lines, attach) => {
           setPendingIvaSplit(lines);
+          setAttachIvaSplitFile(attach && pendingInvoiceFile ? pendingInvoiceFile : null);
           setShowSplitByIvaModal(false);
           setAiPrefilledLines(null);
           // Reflete o total no campo amount apenas como referência visual (somatório das bases).
@@ -3170,18 +3172,20 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           setForm((f) => ({ ...f, amount: String(totalBase) }));
           toast({
             title: "Divisão por IVA pronta",
-            description: `Ao guardar, serão criadas ${lines.length} transações ligadas pelo mesmo Nº fatura.`,
+            description: `Ao guardar, serão criadas ${lines.length} transações ligadas pelo mesmo Nº fatura${attach && pendingInvoiceFile ? " (com fatura anexa)" : ""}.`,
           });
         }}
-        onApplyBlended={(baseNet, rate) => {
+        onApplyBlended={(baseNet, rate, attach) => {
           // IVA médio (snap): preenche o formulário com 1 só transação.
           setPendingIvaSplit(null);
+          setAttachIvaSplitFile(null);
+          setAttachAfterCreateFile(attach && pendingInvoiceFile ? pendingInvoiceFile : null);
           setShowSplitByIvaModal(false);
           setAiPrefilledLines(null);
           setForm((f) => ({ ...f, amount: String(baseNet), iva_rate: rate }));
           toast({
             title: "IVA médio aplicado",
-            description: `1 transação a ${rate}% sobre base ${baseNet.toFixed(2)}€. Verifica e guarda.`,
+            description: `1 transação a ${rate}% sobre base ${baseNet.toFixed(2)}€${attach && pendingInvoiceFile ? " — fatura será anexada" : ""}. Verifica e guarda.`,
           });
         }}
       />
