@@ -797,7 +797,7 @@ export default function EventSimulator() {
                       ))}
                       {dailyTotals.length > 1 && (
                         <TableRow className="bg-primary/10 font-bold border-t-2">
-                          <TableCell colSpan={3}>TOTAL EVENTO ({dailyTotals.length} dias)</TableCell>
+                          <TableCell colSpan={3}>PRESENÇAS TOTAIS ({dailyTotals.length} dias · soma)</TableCell>
                           <TableCell className="text-right">{fmtNum(grandTotal.paying)}</TableCell>
                           <TableCell className="text-right">{fmtNum(grandTotal.courtesy)}</TableCell>
                           <TableCell className="text-right">{fmtNum(grandTotal.total)}</TableCell>
