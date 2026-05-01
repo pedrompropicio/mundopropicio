@@ -240,8 +240,9 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
                 Estás a mover <strong>{closingPrompt.row.supplier_name}</strong> para{" "}
-                <strong>Fechado</strong>. Confirma o valor que ficou acordado — será este
-                que entra no BP e gera a transação.
+                <strong>Fechado</strong>. Confirma o valor acordado — depois, abre o card
+                e clica em <strong>"Gerar BP + Transação"</strong> para criar a linha do
+                BP e a transação aprovada.
               </p>
               <div>
                 <Label>Valor confirmado</Label>
@@ -364,12 +365,17 @@ function SponsorCard({
       <CardContent className="p-3 space-y-2">
         <div className="flex items-start justify-between gap-2">
           <p className="font-semibold text-sm leading-tight">{row.supplier_name}</p>
-          {row.linked_transaction_id && (
-            <Badge variant="outline" className="text-[10px] gap-1 border-primary/40 text-primary">
+          {row.linked_transaction_id ? (
+            <Badge variant="outline" className="text-[10px] gap-1 border-primary/40 text-primary shrink-0">
               <ExternalLink className="h-3 w-3" />
               BP
             </Badge>
-          )}
+          ) : row.stage === "closed" && !row.is_barter ? (
+            <Badge variant="outline" className="text-[10px] gap-1 border-amber-500/50 text-amber-400 shrink-0">
+              <AlertCircle className="h-3 w-3" />
+              Sem BP
+            </Badge>
+          ) : null}
         </div>
         <div className="flex items-center justify-between text-xs">
           <span className="font-bold tabular-nums">{fmtMoney(v, row.currency)}</span>

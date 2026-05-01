@@ -34,11 +34,23 @@ import {
 import {
   useAddSponsorNote,
   useSponsorshipActivities,
+  useSyncSponsorBP,
   useUpdateSponsor,
 } from "@/hooks/useSponsorshipPipeline";
+import { isLinkedTransactionPaid } from "@/lib/sponsorship-bp-sync";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
-import { Send } from "lucide-react";
+import { Send, RefreshCw, Plus as PlusIcon, Lock } from "lucide-react";
 
 interface Props {
   row: SponsorshipPipelineRow;
@@ -50,25 +62,48 @@ interface Props {
 
 export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose }: Props) {
   const update = useUpdateSponsor(eventId);
+  const sync = useSyncSponsorBP(eventId);
   const { data: activities = [] } = useSponsorshipActivities(row.id);
   const addNote = useAddSponsorNote(row.id, companyId);
 
   const [draft, setDraft] = useState<SponsorshipPipelineRow>(row);
   const [note, setNote] = useState("");
+  const [confirmAmount, setConfirmAmount] = useState<{
+    oldAmount: number;
+    newAmount: number;
+  } | null>(null);
+  const [isLinkedPaid, setIsLinkedPaid] = useState(false);
 
   useEffect(() => setDraft(row), [row.id, row.updated_at]);
+
+  // Detecta se a TX vinculada já está paga (bloqueia edição de valor).
+  useEffect(() => {
+    let active = true;
+    if (row.linked_transaction_id) {
+      isLinkedTransactionPaid(row.linked_transaction_id).then((p) => {
+        if (active) setIsLinkedPaid(p);
+      });
+    } else {
+      setIsLinkedPaid(false);
+    }
+    return () => {
+      active = false;
+    };
+  }, [row.linked_transaction_id, row.updated_at]);
+
+  const hasLink = !!(row.linked_transaction_id && row.linked_forecast_id);
 
   function patch<K extends keyof SponsorshipPipelineRow>(key: K, value: SponsorshipPipelineRow[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
   }
 
-  async function save() {
+  async function persistDiff(extraDiff: Record<string, unknown> = {}) {
     const READONLY: (keyof SponsorshipPipelineRow)[] = [
       "id", "company_id", "event_id", "created_at", "updated_at",
       "created_by", "linked_forecast_id", "linked_transaction_id", "closed_at",
       "sort_order",
     ];
-    const diff: Record<string, unknown> = {};
+    const diff: Record<string, unknown> = { ...extraDiff };
     (Object.keys(draft) as (keyof SponsorshipPipelineRow)[]).forEach((k) => {
       if (READONLY.includes(k)) return;
       if (draft[k] !== row[k]) diff[k as string] = draft[k];
@@ -76,8 +111,38 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
     if (Object.keys(diff).length > 0) {
       await update.mutateAsync({ id: row.id, patch: diff as Partial<SponsorshipPipelineRow> });
     }
+  }
+
+  async function save() {
+    const oldAmount = Number(row.confirmed_amount) || 0;
+    const newAmount = Number(draft.confirmed_amount) || 0;
+
+    // Se já existe BP+TX vinculados e o valor confirmado mudou, pede confirmação
+    // antes de propagar a alteração ao BP e à transação.
+    if (hasLink && oldAmount !== newAmount) {
+      setConfirmAmount({ oldAmount, newAmount });
+      return;
+    }
+
+    await persistDiff();
     onClose();
   }
+
+  // Confirma alteração de valor: grava o card + sincroniza BP+TX com o novo valor.
+  async function confirmAmountChange() {
+    if (!confirmAmount) return;
+    setConfirmAmount(null);
+    await persistDiff();
+    // Re-fetch implícito via invalidate; usa o draft atualizado para sincronizar.
+    await sync.mutateAsync({ ...row, ...draft });
+    onClose();
+  }
+
+  async function handleManualSync() {
+    await persistDiff();
+    await sync.mutateAsync({ ...row, ...draft });
+  }
+
 
   async function submitNote() {
     const v = note.trim();
@@ -185,13 +250,21 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
               />
             </div>
             <div>
-              <Label>Valor confirmado</Label>
+              <Label className="flex items-center gap-1">
+                Valor confirmado
+                {isLinkedPaid && <Lock className="h-3 w-3 text-muted-foreground" />}
+              </Label>
               <MoneyInput
                 value={Number(draft.confirmed_amount) || 0}
                 currency={draft.currency || "EUR"}
                 onChange={(v) => patch("confirmed_amount", v)}
-                disabled={!canEdit}
+                disabled={!canEdit || isLinkedPaid}
               />
+              {isLinkedPaid && (
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Transação já liquidada — para alterar o valor, desfaz primeiro a liquidação.
+                </p>
+              )}
             </div>
           </div>
 
@@ -282,18 +355,55 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
             />
           </div>
 
-          <div className="flex items-center gap-2 rounded-md border p-3">
-            <Switch
-              checked={draft.auto_sync_bp}
-              onCheckedChange={(v) => patch("auto_sync_bp", v)}
-              disabled={!canEdit}
-            />
-            <div className="text-sm">
-              <p className="font-medium">Sincronização automática com BP</p>
-              <p className="text-xs text-muted-foreground">
-                Quando ativo, ao mover para Fechado a linha será promovida ao BP. Desliga para gerir manualmente.
-              </p>
+          <div className="rounded-md border p-3 space-y-2 bg-muted/20">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-medium">Business Plan & Transação</p>
+                <p className="text-xs text-muted-foreground">
+                  {hasLink
+                    ? "Este patrocínio já tem linha no BP e transação aprovada."
+                    : draft.is_barter
+                      ? "Permutas ficam só no pipeline — não geram BP nem transação."
+                      : "Ainda não foi gerada linha no BP. Cria abaixo quando o valor estiver confirmado."}
+                </p>
+              </div>
+              {hasLink && (
+                <Badge variant="outline" className="border-primary/40 text-primary shrink-0">
+                  Vinculado
+                </Badge>
+              )}
             </div>
+            {canEdit && !draft.is_barter && (
+              <Button
+                size="sm"
+                variant={hasLink ? "outline" : "default"}
+                onClick={handleManualSync}
+                disabled={
+                  sync.isPending ||
+                  update.isPending ||
+                  Number(draft.confirmed_amount) <= 0 ||
+                  isLinkedPaid
+                }
+                className="w-full"
+              >
+                {hasLink ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Atualizar BP + Transação
+                  </>
+                ) : (
+                  <>
+                    <PlusIcon className="h-4 w-4 mr-2" />
+                    Gerar BP + Transação
+                  </>
+                )}
+              </Button>
+            )}
+            {Number(draft.confirmed_amount) <= 0 && !draft.is_barter && (
+              <p className="text-[11px] text-amber-500">
+                Define um valor confirmado &gt; 0 para gerar.
+              </p>
+            )}
           </div>
 
           {canEdit && (
@@ -341,6 +451,42 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
           </div>
         </div>
       </SheetContent>
+
+      <AlertDialog open={!!confirmAmount} onOpenChange={(o) => !o && setConfirmAmount(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Alterar valor confirmado?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAmount && (
+                <>
+                  Vais alterar o valor confirmado de{" "}
+                  <strong>
+                    {new Intl.NumberFormat("pt-PT", {
+                      style: "currency",
+                      currency: row.currency || "EUR",
+                    }).format(confirmAmount.oldAmount)}
+                  </strong>{" "}
+                  para{" "}
+                  <strong>
+                    {new Intl.NumberFormat("pt-PT", {
+                      style: "currency",
+                      currency: row.currency || "EUR",
+                    }).format(confirmAmount.newAmount)}
+                  </strong>
+                  . Esta alteração será propagada para a linha do BP e para a
+                  transação aprovada vinculadas a este patrocínio.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmAmountChange}>
+              Confirmar e atualizar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   );
 }

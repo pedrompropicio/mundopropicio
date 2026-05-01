@@ -54,11 +54,19 @@ async function getDefaultIncomeAccountId(companyId: string): Promise<string | nu
   return (data?.[0] as { id: string } | undefined)?.id ?? null;
 }
 
+/**
+ * Sincroniza um card de Pipeline com o BP + Transação.
+ * - Cria 1 linha em event_forecasts (income, approved) + 1 transação (income, approved).
+ * - Se já existir vínculo, ATUALIZA ambos com o novo amount/iva/desc.
+ * - Sempre approved (pendente de pagamento). A liquidação é feita depois,
+ *   no fluxo normal de pagamentos.
+ * - Permutas (is_barter) ficam só no pipeline — nunca geram BP/TX.
+ *
+ * Disparado MANUALMENTE pelo utilizador (botão "Gerar BP+TX" / "Atualizar BP+TX"
+ * no drawer). NÃO é chamado automaticamente em mudanças de stage.
+ */
 export async function syncSponsorToBP(row: SponsorshipPipelineRow): Promise<SyncResult> {
-  // Permutas e leads não geram BP/TX automaticamente — ficam só no pipeline.
-  if (row.stage !== "closed") return { skipped: true, reason: "stage_not_closed" };
   if (row.is_barter) return { skipped: true, reason: "barter_pipeline_only" };
-  if (!row.auto_sync_bp) return { skipped: true, reason: "auto_sync_disabled" };
   if (!row.company_id) return { skipped: true, reason: "no_company" };
 
   const amount = Number(row.confirmed_amount || 0);
@@ -71,12 +79,8 @@ export async function syncSponsorToBP(row: SponsorshipPipelineRow): Promise<Sync
   const ivaRate = Number(row.iva_rate ?? 23);
   const today = todayLocalISO();
 
-  // doc_status=invoice_received → fatura recebida = TX paga (cria com payment_date e conta).
-  // Restantes (invoice_sent, post_event, awaiting) → TX approved pendente de pagamento.
-  const isPaid = row.doc_status === "invoice_received";
-  const accountId = isPaid ? await getDefaultIncomeAccountId(row.company_id) : null;
-
-  // Caso 1: já tem TX e BP vinculados → update em ambos
+  // Caso 1: já tem TX e BP vinculados → update em ambos.
+  // (Nunca toca em payment_date / status — se TX já foi paga, mantém pago.)
   if (row.linked_transaction_id && row.linked_forecast_id) {
     const [{ error: txErr }, { error: fcErr }] = await Promise.all([
       supabase
@@ -111,28 +115,22 @@ export async function syncSponsorToBP(row: SponsorshipPipelineRow): Promise<Sync
     };
   }
 
-  // Caso 2: criar do zero → 1) TX, 2) BP vinculada, 3) update do card
-  const txPayload: Record<string, unknown> = {
-    type: "income",
-    status: isPaid ? "paid" : "approved",
-    event_id: row.event_id,
-    category_id: categoryId,
-    supplier_id: row.supplier_id,
-    description,
-    amount,
-    iva_rate: ivaRate,
-    date: today,
-    company_id: row.company_id,
-    paid_amount: isPaid ? amount : 0,
-  };
-  if (isPaid) {
-    txPayload.payment_date = today;
-    if (accountId) txPayload.account_id = accountId;
-  }
-
+  // Caso 2: criar do zero → 1) TX approved, 2) BP vinculada, 3) update do card.
   const { data: tx, error: txErr } = await supabase
     .from("transactions")
-    .insert(txPayload as never)
+    .insert({
+      type: "income",
+      status: "approved",
+      event_id: row.event_id,
+      category_id: categoryId,
+      supplier_id: row.supplier_id,
+      description,
+      amount,
+      iva_rate: ivaRate,
+      date: today,
+      company_id: row.company_id,
+      paid_amount: 0,
+    } as never)
     .select("id")
     .single();
   if (txErr || !tx) {
@@ -156,12 +154,11 @@ export async function syncSponsorToBP(row: SponsorshipPipelineRow): Promise<Sync
       is_transitory: false,
       transaction_id: transactionId,
       company_id: row.company_id,
-      notes: `Gerado automaticamente do Pipeline de Patrocínios (${isPaid ? "Pago" : "Fechado"})`,
+      notes: "Gerado a partir do Pipeline de Patrocínios",
     } as never)
     .select("id")
     .single();
   if (fcErr || !fc) {
-    // Rollback: apaga a TX que acabámos de criar
     await supabase.from("transactions").delete().eq("id", transactionId);
     console.error("[sponsor-sync] insert forecast failed", fcErr);
     throw fcErr ?? new Error("Falha a criar linha BP");
@@ -177,8 +174,22 @@ export async function syncSponsorToBP(row: SponsorshipPipelineRow): Promise<Sync
     .eq("id", row.id);
   if (linkErr) {
     console.error("[sponsor-sync] link update failed", linkErr);
-    // Não dá rollback — o utilizador pode re-vincular manualmente.
   }
 
   return { skipped: false, forecast_id: forecastId, transaction_id: transactionId, created: true };
+}
+
+/**
+ * Verifica se a TX vinculada já tem pagamento (paid_amount > 0 ou status='paid').
+ * Usado para bloquear edição de valor sem desfazer liquidação.
+ */
+export async function isLinkedTransactionPaid(transactionId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("transactions")
+    .select("status, paid_amount")
+    .eq("id", transactionId)
+    .maybeSingle();
+  if (!data) return false;
+  const r = data as { status: string; paid_amount: number | null };
+  return r.status === "paid" || Number(r.paid_amount || 0) > 0.005;
 }
