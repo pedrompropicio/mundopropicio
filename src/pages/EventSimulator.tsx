@@ -1094,6 +1094,7 @@ export default function EventSimulator() {
             </CardContent>
           </Card>
         </TabsContent>
+        </div>
       </Tabs>
     </div>
   );
