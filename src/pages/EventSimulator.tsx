@@ -619,8 +619,9 @@ export default function EventSimulator() {
         <ScenarioCard title="Forecast DVT" tone="success" rev={forecast} cost={fcCosts} res={fcRes} kpis={fcKpis} />
       </div>
 
-      <Tabs defaultValue="sessions" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="flex flex-wrap gap-1">
+          <TabsTrigger value="dashboard"><LayoutDashboard className="mr-1 h-4 w-4" />Dashboard</TabsTrigger>
           <TabsTrigger value="sessions">Sessões (Dia × Zona)</TabsTrigger>
           <TabsTrigger value="daily">Público diário</TabsTrigger>
           <TabsTrigger value="revenue">Faturamento</TabsTrigger>
@@ -630,6 +631,21 @@ export default function EventSimulator() {
           <TabsTrigger value="result">Resultados</TabsTrigger>
           <TabsTrigger value="config">Configuração</TabsTrigger>
         </TabsList>
+
+        <div ref={tabContentRef} className="bg-background">
+
+        {/* ---------------- Dashboard (widgets fixos) ---------------- */}
+        <TabsContent value="dashboard">
+          <SimulatorDashboard
+            eventName={event?.name ?? ""}
+            today={today} todayCosts={todayCosts} todayRes={todayRes} todayKpis={todayKpis}
+            breakeven={breakeven} beCosts={beCosts} beRes={beRes} beKpis={beKpis}
+            forecast={forecast} fcCosts={fcCosts} fcRes={fcRes} fcKpis={fcKpis}
+            costLines={localCosts}
+            dailyTotals={dailyTotals}
+            ivaTable={ivaTable}
+          />
+        </TabsContent>
 
         {/* ---------------- Sessões ---------------- */}
         <TabsContent value="sessions">
