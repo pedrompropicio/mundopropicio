@@ -1,0 +1,46 @@
+-- ========================================================================
+-- RECOVERY: Criar linhas do BP em falta para os 9 patrocínios do Coala
+-- Live ONLY. Executar no Supabase Dashboard > SQL Editor com a Live selecionada.
+--
+-- Contexto: O importador de patrocínios criou as 9 transações em
+-- categoria 1.2.01 Patrocínios mas, por algum motivo, NÃO inseriu as
+-- correspondentes linhas em event_forecasts (BP). Resultado: BP, Simulador
+-- e Cards do evento mostram 0 patrocínios apesar das TX existirem.
+--
+-- Este script espelha cada TX numa linha BP aprovada, vinculada por
+-- transaction_id (1:1). Idempotente: NOT EXISTS evita duplicados.
+-- ========================================================================
+
+INSERT INTO public.event_forecasts (
+  event_id, category_id, type, description, amount, iva_rate,
+  status, formula_type, formula_value, is_transitory,
+  transaction_id, company_id, notes
+)
+SELECT
+  t.event_id,
+  t.category_id,
+  'income',
+  t.description,
+  t.amount,
+  COALESCE(t.iva_rate, 23),
+  'approved',
+  'fixed',
+  t.amount,
+  false,
+  t.id,
+  t.company_id,
+  'Linha BP recriada a partir da transação importada (recovery 2026-05-01)'
+FROM public.transactions t
+WHERE t.event_id = '5a1da5fb-3115-4ae3-af50-15ce1f869a5c'
+  AND t.category_id = '3312f0f0-b5ae-4a74-94b5-32fda4c8b920'
+  AND t.type = 'income'
+  AND NOT EXISTS (
+    SELECT 1 FROM public.event_forecasts f WHERE f.transaction_id = t.id
+  );
+
+-- Verificação:
+SELECT count(*) AS bp_lines_after, sum(amount) AS bp_total
+FROM public.event_forecasts
+WHERE event_id = '5a1da5fb-3115-4ae3-af50-15ce1f869a5c'
+  AND category_id = '3312f0f0-b5ae-4a74-94b5-32fda4c8b920';
+-- Esperado: 9 linhas, total 209.375,00 €
