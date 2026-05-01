@@ -1100,7 +1100,71 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     },
   });
 
-  // A BP line is "eligible to auto-generate a TX" only when it does not yet
+  // Schedule N installment transactions from a single approved BP line.
+  // Each installment becomes a transaction with its own date and amount.
+  const [scheduleTarget, setScheduleTarget] = useState<any | null>(null);
+  const scheduleInstallmentsMutation = useMutation({
+    mutationFn: async ({ forecast, installments }: { forecast: any; installments: Installment[] }) => {
+      const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+      const isBPApproved = forecast.status === "approved";
+      const txStatus = isBPApproved ? "approved" : "pending";
+      const ids: string[] = [];
+      for (let i = 0; i < installments.length; i++) {
+        const inst = installments[i];
+        const { data: insertedTx, error } = await supabase.from("transactions").insert({
+          event_id: eventId,
+          type: forecast.type,
+          description: inst.description || `${forecast.description} (${i + 1}/${installments.length})`,
+          specification: forecast.specification || null,
+          amount: Number(inst.amount),
+          iva_rate: Number(forecast.iva_rate),
+          category_id: forecast.category_id || null,
+          date: inst.date,
+          due_date: inst.date,
+          status: txStatus,
+        } as any).select("id").single();
+        if (error) throw error;
+        if (insertedTx?.id) {
+          ids.push(insertedTx.id);
+          await supabase.from("transaction_audit_log").insert({
+            transaction_id: insertedTx.id,
+            changed_by: callerName,
+            field_name: "Criação",
+            old_value: null,
+            new_value: `Programação de parcelas — ${i + 1}/${installments.length} de "${forecast.description}" — ${Number(inst.amount).toFixed(2)} €`,
+          });
+          if (isBPApproved) {
+            await supabase.from("transaction_audit_log").insert({
+              transaction_id: insertedTx.id,
+              changed_by: callerName,
+              field_name: "status",
+              old_value: "pending",
+              new_value: "approved",
+              observation: "Aprovação automática — linha do BP já aprovada",
+            } as any);
+          }
+        }
+      }
+      // Back-link first transaction to the forecast (matches single-tx convention).
+      if (!forecast.transaction_id && ids[0]) {
+        await supabase
+          .from("event_forecasts")
+          .update({ transaction_id: ids[0] } as any)
+          .eq("id", forecast.id);
+      }
+      return ids.length;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+      toast({ title: `${count} transação(ões) programada(s) com sucesso.` });
+      setScheduleTarget(null);
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao programar parcelas", description: err.message, variant: "destructive" });
+    },
+  });
   // have one. Rule: 1 auto-generated TX per BP line — additional TXs for the
   // same category must be created from the Transactions modal.
   const isEligibleForBulkTx = useCallback(
