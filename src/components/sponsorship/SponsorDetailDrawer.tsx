@@ -171,21 +171,19 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Valor proposto</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={draft.proposed_amount}
-                onChange={(e) => patch("proposed_amount", Number(e.target.value))}
+              <MoneyInput
+                value={Number(draft.proposed_amount) || 0}
+                currency={draft.currency || "EUR"}
+                onChange={(v) => patch("proposed_amount", v)}
                 disabled={!canEdit}
               />
             </div>
             <div>
               <Label>Valor confirmado</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={draft.confirmed_amount}
-                onChange={(e) => patch("confirmed_amount", Number(e.target.value))}
+              <MoneyInput
+                value={Number(draft.confirmed_amount) || 0}
+                currency={draft.currency || "EUR"}
+                onChange={(v) => patch("confirmed_amount", v)}
                 disabled={!canEdit}
               />
             </div>
