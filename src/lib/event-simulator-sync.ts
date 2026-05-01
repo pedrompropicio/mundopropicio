@@ -244,12 +244,14 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
           actual_committed_bp: committedBp,
         })
         .eq("id", exists.id);
-      if (!error) report.costLinesUpdated++;
+      if (error) throw error;
+      report.costLinesUpdated++;
     } else {
       const { error } = await supabase
         .from("event_simulator_cost_lines")
         .insert({
           event_id: eventId,
+          company_id: companyId,
           category_id: catId,
           label: `${cat.code} — ${cat.name}`,
           prior_year_amount: 0,
@@ -261,7 +263,8 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
           is_ab_passthrough: false,
           display_order: order++,
         } as any);
-      if (!error) report.costLinesCreated++;
+      if (error) throw error;
+      report.costLinesCreated++;
     }
   }
 
@@ -294,7 +297,7 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
   } else {
     await supabase
       .from("event_simulator_config")
-      .insert({ event_id: eventId, sponsorship_revenue: sponsorsTotal } as any);
+      .insert({ event_id: eventId, company_id: companyId, sponsorship_revenue: sponsorsTotal } as any);
   }
 
   return report;
