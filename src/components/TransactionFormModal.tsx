@@ -1378,7 +1378,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       }
       return createdTxId;
     },
-    onSuccess: (newTxId) => {
+    onSuccess: async (newTxId) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-map-by-supplier"] });
@@ -1386,6 +1386,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       queryClient.invalidateQueries({ queryKey: ["reimbursement-notes"] });
       queryClient.invalidateQueries({ queryKey: ["reimbursement-notes-active"] });
       queryClient.invalidateQueries({ queryKey: ["settlement_eligible_txns"] });
+      // Single-tx path: anexa fatura lida pelo OCR (IVA médio ou OCR só com 1 taxa).
+      // No path multi-IVA, attachAfterCreateFile fica null e o anexo é gerido pelo loop.
+      if (newTxId && attachAfterCreateFile) {
+        await attachInvoiceToTransactions(attachAfterCreateFile, [newTxId]);
+        setAttachAfterCreateFile(null);
+        setPendingInvoiceFile(null);
+      }
       if (newTxId) onCreated?.(newTxId);
       onClose();
       toast({ title: isSplit ? "Rateio criado com sucesso!" : (autoMarkPaid ? "Despesa registada e liquidada!" : "Transação criada com sucesso!") });
