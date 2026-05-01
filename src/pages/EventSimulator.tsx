@@ -24,7 +24,7 @@ import { ArrowLeft, Plus, Trash2, Loader2, Save, Calculator, RefreshCw, FileSpre
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
 import {
-  type CoalaSession, type CoalaCostLine, type CoalaConfig,
+  type CoalaSession, type CoalaCostLine, type CoalaConfig, type BreakEvenSolution,
   computeScenarioRevenue, computeScenarioCosts, computeScenarioResult,
   computeScenarioKpis, solveBreakEven, computeIvaTable,
 } from "@/lib/event-simulator-coala";
