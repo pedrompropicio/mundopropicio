@@ -583,6 +583,108 @@ export default function EventSimulator() {
           </Card>
         </TabsContent>
 
+        {/* ---------------- Público diário (combos expandidos) ---------------- */}
+        <TabsContent value="daily">
+          <Card>
+            <CardHeader>
+              <CardTitle>Público diário por zona</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Combos multi-dia contam 1 pessoa em cada dia (ex: 1 PASSE 2 DIAS = 1 pessoa no dia 1 + 1 pessoa no dia 2).
+                Override por lote em <code>event_ticket_lots.applies_to_days</code>; heurística por nome configurável em "Configuração → Combos".
+              </p>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Dia</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Zona</TableHead>
+                    <TableHead className="text-right">Pagantes</TableHead>
+                    <TableHead className="text-right">Cortesias</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dailyAttendance.map((r) => (
+                    <TableRow key={`${r.day_index}-${r.zone_label}`}>
+                      <TableCell>{r.day_index + 1}</TableCell>
+                      <TableCell>{r.day_date ?? "—"}</TableCell>
+                      <TableCell>{r.zone_label}</TableCell>
+                      <TableCell className="text-right">{fmtNum(r.paying)}</TableCell>
+                      <TableCell className="text-right">{fmtNum(r.courtesy)}</TableCell>
+                      <TableCell className="text-right font-semibold">{fmtNum(r.total)}</TableCell>
+                    </TableRow>
+                  ))}
+                  {dailyTotals.map(([day, t]) => (
+                    <TableRow key={`tot-${day}`} className="bg-muted/40 font-semibold">
+                      <TableCell>{day + 1}</TableCell>
+                      <TableCell>{t.date ?? "—"}</TableCell>
+                      <TableCell>TOTAL DIA</TableCell>
+                      <TableCell className="text-right">{fmtNum(t.paying)}</TableCell>
+                      <TableCell className="text-right">{fmtNum(t.courtesy)}</TableCell>
+                      <TableCell className="text-right">{fmtNum(t.total)}</TableCell>
+                    </TableRow>
+                  ))}
+                  {!dailyAttendance.length && (
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Sem vendas registadas. Sincroniza primeiro.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ---------------- Patrocinadores ---------------- */}
+        <TabsContent value="sponsors">
+          <Card>
+            <CardHeader>
+              <CardTitle>Patrocinadores — detalhe por linha do BP</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Lê linhas de receita aprovadas no Business Plan (categorias L3 abaixo de <strong>1.2</strong> ou da L2 escolhida na Configuração).
+                Realizado vem da transação vinculada ao forecast.
+              </p>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Patrocinador</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead className="text-right">Previsto (BP)</TableHead>
+                    <TableHead className="text-right">Realizado</TableHead>
+                    <TableHead className="text-center">Estado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sponsors.map((s) => (
+                    <TableRow key={s.forecast_id}>
+                      <TableCell className="font-medium">{s.sponsor_name}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{s.category_code} — {s.category_name}</TableCell>
+                      <TableCell className="text-right">{fmt(s.planned_amount)}</TableCell>
+                      <TableCell className="text-right">{fmt(s.actual_amount)}</TableCell>
+                      <TableCell className="text-center">
+                        {s.status_hint === "fully_received" && <Badge className="bg-emerald-600">Recebido</Badge>}
+                        {s.status_hint === "partial" && <Badge variant="secondary">Parcial</Badge>}
+                        {s.status_hint === "pending" && <Badge variant="outline">Pendente</Badge>}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow className="font-bold border-t-2">
+                    <TableCell colSpan={2}>TOTAL</TableCell>
+                    <TableCell className="text-right">{fmt(sponsors.reduce((a, s) => a + s.planned_amount, 0))}</TableCell>
+                    <TableCell className="text-right">{fmt(sponsors.reduce((a, s) => a + s.actual_amount, 0))}</TableCell>
+                    <TableCell></TableCell>
+                  </TableRow>
+                  {!sponsors.length && (
+                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Nenhum patrocínio aprovado no BP. Verifica a categoria L2 na Configuração.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* ---------------- Faturamento ---------------- */}
         <TabsContent value="revenue">
           <Card>
