@@ -197,14 +197,14 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
           </DialogDescription>
         </DialogHeader>
 
-        {/* Upload PDF */}
+        {/* Upload ficheiro (PDF ou imagem) */}
         <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3">
           <Label className="flex items-center gap-2 text-xs font-medium text-muted-foreground cursor-pointer">
             <FileText className="h-4 w-4" />
-            <span>Anexar PDF da fatura para extrair subtotais por IVA</span>
+            <span>Anexar fatura (PDF, JPG, PNG, WEBP, HEIC, TIFF, DNG) para extrair subtotais por IVA</span>
             <input
               type="file"
-              accept="application/pdf,image/*"
+              accept="application/pdf,image/*,.dng,.tif,.tiff,.heic,.heif,image/x-adobe-dng"
               className="hidden"
               disabled={extracting}
               onChange={(e) => {
@@ -220,7 +220,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
               )}
             >
               {extracting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-              {extracting ? "A ler…" : "Escolher PDF"}
+              {extracting ? "A ler…" : lastFileName ? "Escolher outro" : "Escolher ficheiro"}
             </span>
           </Label>
           {extractedNote && <p className="mt-2 text-[11px] text-muted-foreground">{extractedNote}</p>}
