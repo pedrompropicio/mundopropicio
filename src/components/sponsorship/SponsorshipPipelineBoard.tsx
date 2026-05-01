@@ -230,6 +230,50 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
           companyId={companyId}
         />
       )}
+
+      <Dialog open={!!closingPrompt} onOpenChange={(o) => !o && setClosingPrompt(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar valor fechado</DialogTitle>
+          </DialogHeader>
+          {closingPrompt && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Estás a mover <strong>{closingPrompt.row.supplier_name}</strong> para{" "}
+                <strong>Fechado</strong>. Confirma o valor que ficou acordado — será este
+                que entra no BP e gera a transação.
+              </p>
+              <div>
+                <Label>Valor confirmado</Label>
+                <MoneyInput
+                  value={closingPrompt.amount}
+                  currency={closingPrompt.row.currency || "EUR"}
+                  onChange={(v) =>
+                    setClosingPrompt((p) => (p ? { ...p, amount: v } : p))
+                  }
+                />
+                {Number(closingPrompt.row.proposed_amount) > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Proposta original:{" "}
+                    {fmtMoney(
+                      Number(closingPrompt.row.proposed_amount),
+                      closingPrompt.row.currency,
+                    )}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClosingPrompt(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmClosing} disabled={!closingPrompt || closingPrompt.amount <= 0}>
+              Confirmar e mover
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
