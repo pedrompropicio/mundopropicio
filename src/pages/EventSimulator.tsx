@@ -29,6 +29,8 @@ import {
   computeScenarioKpis, solveBreakEven, computeIvaTable,
 } from "@/lib/event-simulator-coala";
 import { syncSimulatorFromSources } from "@/lib/event-simulator-sync";
+import { expandLotSalesToDailyAttendance, type LotSale } from "@/lib/event-simulator-combos";
+import { loadSponsors, type SponsorRow } from "@/lib/event-simulator-sponsors";
 
 // ----- Tipos DB -----
 type DbConfig = {
@@ -49,6 +51,8 @@ type DbConfig = {
   prior_year_souvenir: number;
   prior_year_other: number;
   ticket_iva_pct: number;
+  combo_lot_keywords: string;
+  sponsor_category_l2_id: string | null;
 };
 
 type DbInput = {
@@ -75,6 +79,9 @@ type DbCostLine = {
   prior_year_amount: number;
   break_even_amount: number;
   forecast_amount: number;
+  actual_amount: number;
+  actual_paid: number;
+  actual_committed_bp: number;
   is_ab_passthrough: boolean;
   display_order: number;
 };
@@ -150,6 +157,78 @@ export default function EventSimulator() {
       // L3 = code com 3 níveis (x.y.z)
       return ((data as any) ?? []).filter((c: any) => /^\d+\.\d+\.\d+$/.test(c.code));
     },
+  });
+
+  // L2 categories — para o seletor de "categoria de patrocínios"
+  const { data: l2Categories = [] } = useQuery<AccountCategory[]>({
+    queryKey: ["account-categories-l2"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("account_categories")
+        .select("id, code, name")
+        .eq("is_active", true)
+        .order("code");
+      return ((data as any) ?? []).filter((c: any) => /^\d+\.\d+$/.test(c.code));
+    },
+  });
+
+  // Patrocinadores detalhados (BP type=revenue na L2 configurada)
+  const { data: sponsors = [] } = useQuery<SponsorRow[]>({
+    queryKey: ["sim-coala-sponsors", eventId, cfg?.sponsor_category_l2_id],
+    queryFn: () => loadSponsors(eventId!, cfg?.sponsor_category_l2_id ?? null),
+    enabled: !!eventId,
+  });
+
+  // Lotes + vendas para construir o público diário (combos expandidos)
+  const { data: lotSalesData } = useQuery({
+    queryKey: ["sim-coala-lot-sales", eventId],
+    queryFn: async () => {
+      // 1) zonas do evento
+      const { data: zones } = await supabase
+        .from("event_ticket_zones")
+        .select("id, name").eq("event_id", eventId!);
+      const zoneIds = (zones ?? []).map((z: any) => z.id);
+      if (!zoneIds.length) return { lotSales: [] as LotSale[], dates: [] as { date: string | null }[] };
+
+      // 2) lotes dessas zonas
+      const { data: lots } = await supabase
+        .from("event_ticket_lots")
+        .select("id, name, zone_id, applies_to_days")
+        .in("zone_id", zoneIds);
+
+      // 3) datas do evento (para mapear sale_date → day_index)
+      const { data: dates } = await supabase
+        .from("event_dates")
+        .select("date").eq("event_id", eventId!).order("date");
+      const dateToIdx = new Map<string, number>();
+      (dates ?? []).forEach((d: any, i: number) => { if (d.date) dateToIdx.set(d.date, i); });
+
+      // 4) vendas
+      const lotIds = (lots ?? []).map((l: any) => l.id);
+      const { data: sales } = lotIds.length
+        ? await supabase.from("ticket_sales")
+            .select("lot_id, zone_id, sale_date, quantity").in("lot_id", lotIds)
+        : { data: [] as any[] };
+
+      const lotById = new Map((lots ?? []).map((l: any) => [l.id, l]));
+      const zoneById = new Map((zones ?? []).map((z: any) => [z.id, z]));
+
+      const lotSales: LotSale[] = ((sales ?? []) as any[]).map((s) => {
+        const lot = lotById.get(s.lot_id);
+        const zone = zoneById.get(s.zone_id);
+        return {
+          lot_id: s.lot_id,
+          lot_name: lot?.name ?? "",
+          applies_to_days: lot?.applies_to_days ?? 1,
+          zone_id: s.zone_id,
+          zone_name: zone?.name ?? "",
+          sale_day_index: s.sale_date ? (dateToIdx.get(s.sale_date) ?? null) : null,
+          qty: Number(s.quantity || 0),
+        };
+      });
+      return { lotSales, dates: (dates ?? []) as { date: string | null }[] };
+    },
+    enabled: !!eventId,
   });
 
   // ------- Local state for editing -------
@@ -230,10 +309,12 @@ export default function EventSimulator() {
     onSuccess: (r) => {
       toast({
         title: "Simulador sincronizado",
-        description: `Sessões: +${r.sessionsCreated} criadas, ${r.sessionsUpdated} atualizadas. Custos: +${r.costLinesCreated} criadas, ${r.costLinesUpdated} atualizadas.`,
+        description: `Sessões: +${r.sessionsCreated} / ~${r.sessionsUpdated} · Custos: +${r.costLinesCreated} / ~${r.costLinesUpdated} · Patrocínio total: ${fmt(r.sponsorsTotal)}.`,
       });
       qc.invalidateQueries({ queryKey: ["sim-coala-inputs", eventId] });
       qc.invalidateQueries({ queryKey: ["sim-coala-costs", eventId] });
+      qc.invalidateQueries({ queryKey: ["sim-coala-cfg", eventId] });
+      qc.invalidateQueries({ queryKey: ["sim-coala-sponsors", eventId] });
     },
     onError: (e: any) => toast({ title: "Erro a sincronizar", description: e.message, variant: "destructive" }),
   });
@@ -303,6 +384,35 @@ export default function EventSimulator() {
 
   const ivaTable = useMemo(() => computeIvaTable(calcSessions), [calcSessions]);
 
+  // Presença diária expandindo combos
+  const dailyAttendance = useMemo(() => {
+    if (!lotSalesData) return [];
+    const totalDays = Math.max(1, lotSalesData.dates.length || (Math.max(0, ...localSessions.map(s => s.day_index)) + 1));
+    const zoneSet = new Map<string, { name: string }>();
+    localSessions.forEach(s => zoneSet.set(s.zone_label, { name: s.zone_label }));
+    lotSalesData.lotSales.forEach(s => zoneSet.set(s.zone_name, { name: s.zone_name }));
+    const courtesyMap = new Map<string, number>();
+    localSessions.forEach(s => courtesyMap.set(`${s.day_index}|${s.zone_label}`, Number(s.courtesy_qty || 0)));
+    return expandLotSalesToDailyAttendance(
+      lotSalesData.lotSales,
+      Array.from(zoneSet.values()),
+      totalDays,
+      localCfg?.combo_lot_keywords || "COMBO,PASSE,2 DIAS,3 DIAS,FULL PASS",
+      lotSalesData.dates,
+      courtesyMap,
+    );
+  }, [lotSalesData, localSessions, localCfg?.combo_lot_keywords]);
+
+  const dailyTotals = useMemo(() => {
+    const byDay = new Map<number, { paying: number; courtesy: number; total: number; date: string | null }>();
+    for (const r of dailyAttendance) {
+      const cur = byDay.get(r.day_index) ?? { paying: 0, courtesy: 0, total: 0, date: r.day_date };
+      cur.paying += r.paying; cur.courtesy += r.courtesy; cur.total += r.total;
+      byDay.set(r.day_index, cur);
+    }
+    return Array.from(byDay.entries()).sort((a, b) => a[0] - b[0]);
+  }, [dailyAttendance]);
+
   // ------- Helpers de edição -------
   const updateSession = (idx: number, patch: Partial<DbInput>) =>
     setLocalSessions((arr) => arr.map((s, i) => i === idx ? { ...s, ...patch } : s));
@@ -336,6 +446,9 @@ export default function EventSimulator() {
       prior_year_amount: 0,
       break_even_amount: 0,
       forecast_amount: 0,
+      actual_amount: 0,
+      actual_paid: 0,
+      actual_committed_bp: 0,
       is_ab_passthrough: false,
       display_order: arr.length,
     }]);
@@ -393,7 +506,9 @@ export default function EventSimulator() {
       <Tabs defaultValue="sessions" className="space-y-4">
         <TabsList className="flex flex-wrap gap-1">
           <TabsTrigger value="sessions">Sessões (Dia × Zona)</TabsTrigger>
+          <TabsTrigger value="daily">Público diário</TabsTrigger>
           <TabsTrigger value="revenue">Faturamento</TabsTrigger>
+          <TabsTrigger value="sponsors">Patrocínios</TabsTrigger>
           <TabsTrigger value="costs">Custos</TabsTrigger>
           <TabsTrigger value="iva">IVA</TabsTrigger>
           <TabsTrigger value="result">Resultados</TabsTrigger>
@@ -468,6 +583,108 @@ export default function EventSimulator() {
           </Card>
         </TabsContent>
 
+        {/* ---------------- Público diário (combos expandidos) ---------------- */}
+        <TabsContent value="daily">
+          <Card>
+            <CardHeader>
+              <CardTitle>Público diário por zona</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Combos multi-dia contam 1 pessoa em cada dia (ex: 1 PASSE 2 DIAS = 1 pessoa no dia 1 + 1 pessoa no dia 2).
+                Override por lote em <code>event_ticket_lots.applies_to_days</code>; heurística por nome configurável em "Configuração → Combos".
+              </p>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Dia</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Zona</TableHead>
+                    <TableHead className="text-right">Pagantes</TableHead>
+                    <TableHead className="text-right">Cortesias</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dailyAttendance.map((r) => (
+                    <TableRow key={`${r.day_index}-${r.zone_label}`}>
+                      <TableCell>{r.day_index + 1}</TableCell>
+                      <TableCell>{r.day_date ?? "—"}</TableCell>
+                      <TableCell>{r.zone_label}</TableCell>
+                      <TableCell className="text-right">{fmtNum(r.paying)}</TableCell>
+                      <TableCell className="text-right">{fmtNum(r.courtesy)}</TableCell>
+                      <TableCell className="text-right font-semibold">{fmtNum(r.total)}</TableCell>
+                    </TableRow>
+                  ))}
+                  {dailyTotals.map(([day, t]) => (
+                    <TableRow key={`tot-${day}`} className="bg-muted/40 font-semibold">
+                      <TableCell>{day + 1}</TableCell>
+                      <TableCell>{t.date ?? "—"}</TableCell>
+                      <TableCell>TOTAL DIA</TableCell>
+                      <TableCell className="text-right">{fmtNum(t.paying)}</TableCell>
+                      <TableCell className="text-right">{fmtNum(t.courtesy)}</TableCell>
+                      <TableCell className="text-right">{fmtNum(t.total)}</TableCell>
+                    </TableRow>
+                  ))}
+                  {!dailyAttendance.length && (
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Sem vendas registadas. Sincroniza primeiro.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ---------------- Patrocinadores ---------------- */}
+        <TabsContent value="sponsors">
+          <Card>
+            <CardHeader>
+              <CardTitle>Patrocinadores — detalhe por linha do BP</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Lê linhas de receita aprovadas no Business Plan (categorias L3 abaixo de <strong>1.2</strong> ou da L2 escolhida na Configuração).
+                Realizado vem da transação vinculada ao forecast.
+              </p>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Patrocinador</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead className="text-right">Previsto (BP)</TableHead>
+                    <TableHead className="text-right">Realizado</TableHead>
+                    <TableHead className="text-center">Estado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sponsors.map((s) => (
+                    <TableRow key={s.forecast_id}>
+                      <TableCell className="font-medium">{s.sponsor_name}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{s.category_code} — {s.category_name}</TableCell>
+                      <TableCell className="text-right">{fmt(s.planned_amount)}</TableCell>
+                      <TableCell className="text-right">{fmt(s.actual_amount)}</TableCell>
+                      <TableCell className="text-center">
+                        {s.status_hint === "fully_received" && <Badge className="bg-emerald-600">Recebido</Badge>}
+                        {s.status_hint === "partial" && <Badge variant="secondary">Parcial</Badge>}
+                        {s.status_hint === "pending" && <Badge variant="outline">Pendente</Badge>}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow className="font-bold border-t-2">
+                    <TableCell colSpan={2}>TOTAL</TableCell>
+                    <TableCell className="text-right">{fmt(sponsors.reduce((a, s) => a + s.planned_amount, 0))}</TableCell>
+                    <TableCell className="text-right">{fmt(sponsors.reduce((a, s) => a + s.actual_amount, 0))}</TableCell>
+                    <TableCell></TableCell>
+                  </TableRow>
+                  {!sponsors.length && (
+                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Nenhum patrocínio aprovado no BP. Verifica a categoria L2 na Configuração.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* ---------------- Faturamento ---------------- */}
         <TabsContent value="revenue">
           <Card>
@@ -517,6 +734,7 @@ export default function EventSimulator() {
                     <TableHead>Categoria L3</TableHead>
                     <TableHead>Rótulo</TableHead>
                     <TableHead className="text-right">2025</TableHead>
+                    <TableHead className="text-right">Atual (TX+BP)</TableHead>
                     <TableHead className="text-right">Break Even</TableHead>
                     <TableHead className="text-right">Forecast</TableHead>
                     <TableHead className="text-center">A&B?</TableHead>
@@ -539,6 +757,9 @@ export default function EventSimulator() {
                       <TableCell><Input className="h-8 w-48" value={c.label} onChange={(e) => updateCost(i, { label: e.target.value })} /></TableCell>
                       <TableCell><Input className="h-8 w-28 text-right" type="number" step="0.01" value={c.prior_year_amount}
                         onChange={(e) => updateCost(i, { prior_year_amount: Number(e.target.value) })} /></TableCell>
+                      <TableCell className="text-right text-muted-foreground" title={`Pago: ${fmt(c.actual_paid)} · BP s/TX: ${fmt(c.actual_committed_bp)}`}>
+                        {fmt(Number(c.actual_amount || 0))}
+                      </TableCell>
                       <TableCell><Input className="h-8 w-28 text-right" type="number" step="0.01" value={c.break_even_amount}
                         onChange={(e) => updateCost(i, { break_even_amount: Number(e.target.value) })} /></TableCell>
                       <TableCell><Input className="h-8 w-28 text-right" type="number" step="0.01" value={c.forecast_amount}
@@ -559,6 +780,7 @@ export default function EventSimulator() {
                   <TableRow className="font-bold border-t-2">
                     <TableCell colSpan={2}>CUSTO TOTAL</TableCell>
                     <TableCell className="text-right">{fmt(localCosts.reduce((a, c) => a + Number(c.prior_year_amount || 0), 0))}</TableCell>
+                    <TableCell className="text-right">{fmt(localCosts.reduce((a, c) => a + Number(c.actual_amount || 0), 0))}</TableCell>
                     <TableCell className="text-right">{fmt(beCosts.totalCost)}</TableCell>
                     <TableCell className="text-right">{fmt(fcCosts.totalCost)}</TableCell>
                     <TableCell colSpan={2}></TableCell>
