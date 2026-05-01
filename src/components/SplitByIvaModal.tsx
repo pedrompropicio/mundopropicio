@@ -394,7 +394,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
             <Button
               type="button"
               variant="secondary"
-              onClick={() => onApplyBlended(totals.blendedBase, totals.blendedRate, attachInvoice)}
+              onClick={() => onApplyBlended(totals.blendedBase, totals.blendedRate, attachInvoice, localFile)}
             >
               Aplicar IVA médio ({totals.blendedRate}%)
             </Button>
@@ -410,6 +410,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
                   suffix: l.suffix || `IVA ${l.iva_rate}%`,
                 })),
                 attachInvoice,
+                localFile,
               )
             }
           >
