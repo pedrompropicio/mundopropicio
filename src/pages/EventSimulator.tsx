@@ -1243,7 +1243,26 @@ function SimulatorDashboard({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <KpiTile label="Público (Hoje)" value={fmtNum(todayKpis.totalPublic)} />
+        {(dailyTotals?.length ?? 0) > 1 ? (
+          <Card>
+            <CardContent className="pt-4">
+              <div className="text-xs text-muted-foreground">Público presente / dia (Hoje)</div>
+              <div className="mt-1 space-y-0.5">
+                {dailyTotals.map(([d, t]: any) => (
+                  <div key={d} className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{fmtDate(t.date) || `Dia ${d + 1}`}</span>
+                    <span className="font-semibold tabular-nums">{fmtNum(t.total)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-1 text-[10px] text-muted-foreground border-t pt-1">
+                Produtos vendidos: {fmtNum(todayKpis.totalPublic)}
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <KpiTile label="Público (Hoje)" value={fmtNum(todayKpis.totalPublic)} />
+        )}
         <KpiTile label="Receita (Hoje)" value={fmt(today.totalRevenue)} />
         <KpiTile label="Custo (Hoje)" value={fmt(todayCosts.totalCost)} />
         <KpiTile label="Resultado (Hoje)" value={fmt(todayRes.general)} tone={todayRes.general >= 0 ? "ok" : "bad"} />
