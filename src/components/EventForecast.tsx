@@ -3483,7 +3483,7 @@ function SummaryCard({ label, helpText, forecast, actual, icon, isProfit }: {
 // Pure helper: returns transactions that match a single BP line.
 // Same logic used by ComparisonRowItem hover/expand and by the bulk
 // "Gerar Transações" button to enforce "1 auto-generated tx per BP line".
-function findMatchingTransactionsForForecast(
+export function findMatchingTransactionsForForecast(
   forecast: any,
   eventTransactions: any[],
   allForecasts: any[],
