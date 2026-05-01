@@ -606,7 +606,7 @@ export default function EventSimulator() {
 
       {/* KPIs scenario summary */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <ScenarioCard title="Hoje (Edição 2026)" tone="muted" rev={today} cost={todayCosts} res={todayRes} kpis={todayKpis} />
+        <ScenarioCard title="Hoje (Edição 2026)" tone="muted" rev={today} cost={todayCosts} res={todayRes} kpis={todayKpis} dailyTotals={dailyTotals} />
         <ScenarioCard
           title="Break Even"
           tone="warning"
@@ -797,7 +797,7 @@ export default function EventSimulator() {
                       ))}
                       {dailyTotals.length > 1 && (
                         <TableRow className="bg-primary/10 font-bold border-t-2">
-                          <TableCell colSpan={3}>TOTAL EVENTO ({dailyTotals.length} dias)</TableCell>
+                          <TableCell colSpan={3}>PRESENÇAS TOTAIS ({dailyTotals.length} dias · soma)</TableCell>
                           <TableCell className="text-right">{fmtNum(grandTotal.paying)}</TableCell>
                           <TableCell className="text-right">{fmtNum(grandTotal.courtesy)}</TableCell>
                           <TableCell className="text-right">{fmtNum(grandTotal.total)}</TableCell>
@@ -1101,9 +1101,19 @@ export default function EventSimulator() {
 }
 
 // ---------- Subcomponentes ----------
-function ScenarioCard({ title, tone, rev, cost, res, kpis, extra }: any) {
+function ScenarioCard({ title, tone, rev, cost, res, kpis, extra, dailyTotals }: any) {
   const toneCls = tone === "warning" ? "border-amber-500/40" : tone === "success" ? "border-emerald-500/40" : "border-border";
   const resColor = res.general >= 0 ? "text-emerald-500" : "text-rose-500";
+  const fmtDayShort = (d: string | null, idx: number) => {
+    if (!d) return `Dia ${idx + 1}`;
+    const m = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return d;
+    const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    const s = dt.toLocaleDateString("pt-PT", { weekday: "short", day: "2-digit", month: "short" });
+    return s.charAt(0).toUpperCase() + s.slice(1).replace(".", "");
+  };
+  const days: Array<[number, { paying: number; courtesy: number; total: number; date: string | null }]> = dailyTotals ?? [];
+  const showDailyBreakdown = days.length > 1;
   return (
     <Card className={toneCls}>
       <CardHeader className="pb-2">
@@ -1112,7 +1122,22 @@ function ScenarioCard({ title, tone, rev, cost, res, kpis, extra }: any) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-1 text-sm">
-        <div className="flex justify-between"><span className="text-muted-foreground">Público</span><span>{fmtNum(kpis.totalPublic)}</span></div>
+        {showDailyBreakdown ? (
+          <>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Público presente</div>
+            {days.map(([d, t]) => (
+              <div key={d} className="flex justify-between">
+                <span className="text-muted-foreground">{fmtDayShort(t.date, d)}</span>
+                <span className="tabular-nums">{fmtNum(t.total)}</span>
+              </div>
+            ))}
+            <div className="flex justify-between text-xs text-muted-foreground border-t pt-1">
+              <span>Produtos vendidos</span><span className="tabular-nums">{fmtNum(kpis.totalPublic)}</span>
+            </div>
+          </>
+        ) : (
+          <div className="flex justify-between"><span className="text-muted-foreground">Público</span><span>{fmtNum(kpis.totalPublic)}</span></div>
+        )}
         <div className="flex justify-between"><span className="text-muted-foreground">Receita</span><span>{fmt(rev.totalRevenue)}</span></div>
         <div className="flex justify-between"><span className="text-muted-foreground">Custo</span><span>{fmt(cost.totalCost)}</span></div>
         <div className={`flex justify-between font-bold border-t pt-1 mt-1 ${resColor}`}>
@@ -1218,7 +1243,26 @@ function SimulatorDashboard({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <KpiTile label="Público (Hoje)" value={fmtNum(todayKpis.totalPublic)} />
+        {(dailyTotals?.length ?? 0) > 1 ? (
+          <Card>
+            <CardContent className="pt-4">
+              <div className="text-xs text-muted-foreground">Público presente / dia (Hoje)</div>
+              <div className="mt-1 space-y-0.5">
+                {dailyTotals.map(([d, t]: any) => (
+                  <div key={d} className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{fmtDate(t.date) || `Dia ${d + 1}`}</span>
+                    <span className="font-semibold tabular-nums">{fmtNum(t.total)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-1 text-[10px] text-muted-foreground border-t pt-1">
+                Produtos vendidos: {fmtNum(todayKpis.totalPublic)}
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <KpiTile label="Público (Hoje)" value={fmtNum(todayKpis.totalPublic)} />
+        )}
         <KpiTile label="Receita (Hoje)" value={fmt(today.totalRevenue)} />
         <KpiTile label="Custo (Hoje)" value={fmt(todayCosts.totalCost)} />
         <KpiTile label="Resultado (Hoje)" value={fmt(todayRes.general)} tone={todayRes.general >= 0 ? "ok" : "bad"} />
