@@ -343,6 +343,9 @@ export default function EventSimulator() {
       prior_year_amount: 0,
       break_even_amount: 0,
       forecast_amount: 0,
+      actual_amount: 0,
+      actual_paid: 0,
+      actual_committed_bp: 0,
       is_ab_passthrough: false,
       display_order: arr.length,
     }]);
