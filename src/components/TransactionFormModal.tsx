@@ -3183,9 +3183,11 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             ? (parseFloat(form.amount) || 0) * (1 + form.iva_rate / 100)
             : undefined
         }
-        onConfirm={(lines, attach) => {
+        onConfirm={(lines, attach, replacementFile) => {
+          const fileToAttach = replacementFile ?? pendingInvoiceFile;
+          if (replacementFile) setPendingInvoiceFile(replacementFile);
           setPendingIvaSplit(lines);
-          setAttachIvaSplitFile(attach && pendingInvoiceFile ? pendingInvoiceFile : null);
+          setAttachIvaSplitFile(attach && fileToAttach ? fileToAttach : null);
           setShowSplitByIvaModal(false);
           setAiPrefilledLines(null);
           // Reflete o total no campo amount apenas como referência visual (somatório das bases).
@@ -3193,20 +3195,22 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           setForm((f) => ({ ...f, amount: String(totalBase) }));
           toast({
             title: "Divisão por IVA pronta",
-            description: `Ao guardar, serão criadas ${lines.length} transações ligadas pelo mesmo Nº fatura${attach && pendingInvoiceFile ? " (com fatura anexa)" : ""}.`,
+            description: `Ao guardar, serão criadas ${lines.length} transações ligadas pelo mesmo Nº fatura${attach && fileToAttach ? " (com fatura anexa)" : ""}.`,
           });
         }}
-        onApplyBlended={(baseNet, rate, attach) => {
+        onApplyBlended={(baseNet, rate, attach, replacementFile) => {
           // IVA médio (snap): preenche o formulário com 1 só transação.
+          const fileToAttach = replacementFile ?? pendingInvoiceFile;
+          if (replacementFile) setPendingInvoiceFile(replacementFile);
           setPendingIvaSplit(null);
           setAttachIvaSplitFile(null);
-          setAttachAfterCreateFile(attach && pendingInvoiceFile ? pendingInvoiceFile : null);
+          setAttachAfterCreateFile(attach && fileToAttach ? fileToAttach : null);
           setShowSplitByIvaModal(false);
           setAiPrefilledLines(null);
           setForm((f) => ({ ...f, amount: String(baseNet), iva_rate: rate }));
           toast({
             title: "IVA médio aplicado",
-            description: `1 transação a ${rate}% sobre base ${baseNet.toFixed(2)}€${attach && pendingInvoiceFile ? " — fatura será anexada" : ""}. Verifica e guarda.`,
+            description: `1 transação a ${rate}% sobre base ${baseNet.toFixed(2)}€${attach && fileToAttach ? " — fatura será anexada" : ""}. Verifica e guarda.`,
           });
         }}
       />

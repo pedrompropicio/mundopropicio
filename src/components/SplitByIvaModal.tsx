@@ -23,15 +23,17 @@ interface SplitByIvaModalProps {
   open: boolean;
   onClose: () => void;
   /** Confirma a divisão. Recebe N linhas (≥2). O caller cria as transações. */
-  /** Confirma criação de N transações (≥2). Recebe `attach` se o utilizador quer anexar a fatura. */
-  onConfirm: (lines: IvaSplitLine[], attach: boolean) => void;
+  /** Confirma criação de N transações (≥2). Recebe `attach` se o utilizador quer anexar a fatura.
+   *  `replacementFile` vem preenchido se o utilizador escolheu um novo ficheiro dentro do modal
+   *  (substitui o que foi lido inicialmente no formulário pai). */
+  onConfirm: (lines: IvaSplitLine[], attach: boolean, replacementFile?: File | null) => void;
   /**
    * Alternativa contabilisticamente aceite: aplica a fatura como **uma única**
    * transação usando IVA médio (snap para a taxa-padrão PT mais próxima do
    * rácio total). O caller deve preencher os campos `amount` (base) e
    * `iva_rate` no formulário e fechar o modal.
    */
-  onApplyBlended?: (baseNet: number, rate: IvaRate, attach: boolean) => void;
+  onApplyBlended?: (baseNet: number, rate: IvaRate, attach: boolean, replacementFile?: File | null) => void;
   /** Total esperado da fatura (incl. IVA). Mostra alerta se as linhas não fecham. */
   expectedTotal?: number;
   /** Pré-preencher com base inicial (ex.: o valor já digitado no form). */
@@ -75,10 +77,14 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
       ? `Pré-preenchido a partir da fatura: ${prefilledLines.map((l) => `${l.base.toFixed(2)}€ a ${l.iva_rate}%`).join(" · ")}`
       : null,
   );
+  /** Ficheiro re-escolhido dentro do modal (substitui o que veio por prop). */
+  const [localFile, setLocalFile] = useState<File | null>(null);
+  const lastFileName = localFile?.name ?? attachmentFile?.name ?? attachmentLabel ?? null;
 
   // Reset lines whenever the modal re-opens
   useEffect(() => {
     if (open) {
+      setLocalFile(null);
       if (prefilledLines && prefilledLines.length >= 2) {
         setLines(prefilledLines);
         setExtractedNote(
@@ -125,6 +131,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
     }
     setExtracting(true);
     setExtractedNote(null);
+    setLocalFile(file);
     try {
       const fileBase64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -197,14 +204,14 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
           </DialogDescription>
         </DialogHeader>
 
-        {/* Upload PDF */}
+        {/* Upload ficheiro (PDF ou imagem) */}
         <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3">
           <Label className="flex items-center gap-2 text-xs font-medium text-muted-foreground cursor-pointer">
             <FileText className="h-4 w-4" />
-            <span>Anexar PDF da fatura para extrair subtotais por IVA</span>
+            <span>Anexar fatura (PDF, JPG, PNG, WEBP, HEIC, TIFF, DNG) para extrair subtotais por IVA</span>
             <input
               type="file"
-              accept="application/pdf,image/*"
+              accept="application/pdf,image/*,.dng,.tif,.tiff,.heic,.heif,image/x-adobe-dng"
               className="hidden"
               disabled={extracting}
               onChange={(e) => {
@@ -220,7 +227,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
               )}
             >
               {extracting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-              {extracting ? "A ler…" : "Escolher PDF"}
+              {extracting ? "A ler…" : lastFileName ? "Escolher outro" : "Escolher ficheiro"}
             </span>
           </Label>
           {extractedNote && <p className="mt-2 text-[11px] text-muted-foreground">{extractedNote}</p>}
@@ -387,7 +394,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
             <Button
               type="button"
               variant="secondary"
-              onClick={() => onApplyBlended(totals.blendedBase, totals.blendedRate, attachInvoice)}
+              onClick={() => onApplyBlended(totals.blendedBase, totals.blendedRate, attachInvoice, localFile)}
             >
               Aplicar IVA médio ({totals.blendedRate}%)
             </Button>
@@ -403,6 +410,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
                   suffix: l.suffix || `IVA ${l.iva_rate}%`,
                 })),
                 attachInvoice,
+                localFile,
               )
             }
           >
