@@ -355,18 +355,55 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
             />
           </div>
 
-          <div className="flex items-center gap-2 rounded-md border p-3">
-            <Switch
-              checked={draft.auto_sync_bp}
-              onCheckedChange={(v) => patch("auto_sync_bp", v)}
-              disabled={!canEdit}
-            />
-            <div className="text-sm">
-              <p className="font-medium">Sincronização automática com BP</p>
-              <p className="text-xs text-muted-foreground">
-                Quando ativo, ao mover para Fechado a linha será promovida ao BP. Desliga para gerir manualmente.
-              </p>
+          <div className="rounded-md border p-3 space-y-2 bg-muted/20">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-medium">Business Plan & Transação</p>
+                <p className="text-xs text-muted-foreground">
+                  {hasLink
+                    ? "Este patrocínio já tem linha no BP e transação aprovada."
+                    : draft.is_barter
+                      ? "Permutas ficam só no pipeline — não geram BP nem transação."
+                      : "Ainda não foi gerada linha no BP. Cria abaixo quando o valor estiver confirmado."}
+                </p>
+              </div>
+              {hasLink && (
+                <Badge variant="outline" className="border-primary/40 text-primary shrink-0">
+                  Vinculado
+                </Badge>
+              )}
             </div>
+            {canEdit && !draft.is_barter && (
+              <Button
+                size="sm"
+                variant={hasLink ? "outline" : "default"}
+                onClick={handleManualSync}
+                disabled={
+                  sync.isPending ||
+                  update.isPending ||
+                  Number(draft.confirmed_amount) <= 0 ||
+                  isLinkedPaid
+                }
+                className="w-full"
+              >
+                {hasLink ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Atualizar BP + Transação
+                  </>
+                ) : (
+                  <>
+                    <PlusIcon className="h-4 w-4 mr-2" />
+                    Gerar BP + Transação
+                  </>
+                )}
+              </Button>
+            )}
+            {Number(draft.confirmed_amount) <= 0 && !draft.is_barter && (
+              <p className="text-[11px] text-amber-500">
+                Define um valor confirmado &gt; 0 para gerar.
+              </p>
+            )}
           </div>
 
           {canEdit && (
