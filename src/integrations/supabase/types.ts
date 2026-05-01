@@ -5630,6 +5630,13 @@ export type Database = {
           previous_formalidade: Database["public"]["Enums"]["bp_formalidade"]
         }[]
       }
+      merge_forecasts_into_active_snapshot: {
+        Args: { _event_id: string; _forecast_ids: string[] }
+        Returns: {
+          merged_into_master: number
+          merged_into_splits: number
+        }[]
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
