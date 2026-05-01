@@ -20,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, Trash2, Loader2, Save, Calculator, RefreshCw } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Loader2, Save, Calculator, RefreshCw, FileSpreadsheet, FileText } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
 import {
@@ -31,6 +31,7 @@ import {
 import { syncSimulatorFromSources } from "@/lib/event-simulator-sync";
 import { expandLotSalesToDailyAttendance, type LotSale } from "@/lib/event-simulator-combos";
 import { loadSponsors, type SponsorRow } from "@/lib/event-simulator-sponsors";
+import { exportSimulatorToXlsx, exportSimulatorToPdf, type SimulatorExportData } from "@/lib/event-simulator-export";
 
 // ----- Tipos DB -----
 type DbConfig = {
@@ -384,6 +385,77 @@ export default function EventSimulator() {
 
   const ivaTable = useMemo(() => computeIvaTable(calcSessions), [calcSessions]);
 
+  // ----- Exportações XLSX/PDF (layout idêntico ao Excel de referência) -----
+  const buildExportData = (): SimulatorExportData => {
+    const dayLabel = (idx: number) => {
+      // tenta usar a data real associada à sessão via dailyAttendance
+      const found = dailyAttendance.find(d => d.day_index === idx);
+      if (found?.day_date) {
+        const dt = new Date(found.day_date);
+        return dt.toLocaleDateString("pt-PT", { weekday: "short", day: "2-digit", month: "short" });
+      }
+      return `Dia ${idx + 1}`;
+    };
+    const sessionsExp = localSessions.map(s => {
+      const fcQty = Number(s.forecast_qty ?? s.real_sales_qty) || 0;
+      const tm = s.avg_ticket_override != null && Number(s.avg_ticket_override) > 0
+        ? Number(s.avg_ticket_override)
+        : (s.real_sales_qty ? Number(s.real_sales_revenue) / Number(s.real_sales_qty) : 0);
+      return {
+        day_label: dayLabel(s.day_index),
+        zone_label: s.zone_label,
+        capacity: undefined as number | undefined,
+        price: tm || undefined,
+        real_qty: Number(s.real_sales_qty || 0),
+        real_eur: Number(s.real_sales_revenue || 0),
+        projected_qty: Number(s.projected_qty || 0),
+        courtesy_qty: Number(s.courtesy_qty || 0),
+        forecast_qty: fcQty,
+        forecast_eur: fcQty * tm,
+      };
+    });
+    const costsExp = localCosts.map(c => {
+      const cat = l3Categories.find((x: any) => x.id === c.category_id);
+      return {
+        category_code: cat?.code ?? null,
+        label: c.label,
+        prior_year: Number(c.prior_year_amount || 0),
+        actual: Number(c.actual_amount || 0),
+        break_even: Number(c.break_even_amount || 0),
+        forecast: Number(c.forecast_amount || 0),
+      };
+    });
+    const ivaExp = ivaTable.map(r => {
+      const [day, zone] = r.label.split(" · ");
+      return {
+        day_label: day ?? r.label, zone_label: zone ?? "",
+        gross: r.gross, iva_pct: 6, iva: r.iva, net: r.net,
+      };
+    });
+    return {
+      eventName: event?.name ?? "Evento",
+      subtitle: "3 cenários paralelos · Hoje (vendas reais) · Break Even · Forecast DVT",
+      today, breakeven, forecast,
+      todayCosts, beCosts, fcCosts,
+      todayRes, beRes, fcRes,
+      todayKpis, beKpis, fcKpis,
+      ivaTotalToday: ivaTable.reduce((a, r) => a + r.iva, 0),
+      sessions: sessionsExp,
+      costs: costsExp,
+      iva: ivaExp,
+    };
+  };
+
+  const handleExportXlsx = () => {
+    try { exportSimulatorToXlsx(buildExportData()); toast({ title: "Excel exportado", description: "Layout idêntico ao Simulador_Coala_2026.xlsx (4 abas)." }); }
+    catch (e: any) { toast({ title: "Erro a exportar Excel", description: e.message, variant: "destructive" }); }
+  };
+  const handleExportPdf = () => {
+    try { exportSimulatorToPdf(buildExportData()); toast({ title: "PDF exportado", description: "4 páginas: Resumo · Sessões · Custos · IVA." }); }
+    catch (e: any) { toast({ title: "Erro a exportar PDF", description: e.message, variant: "destructive" }); }
+  };
+
+
   // Presença diária expandindo combos
   const dailyAttendance = useMemo(() => {
     if (!lotSalesData) return [];
@@ -476,10 +548,16 @@ export default function EventSimulator() {
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => syncFromSources.mutate()} disabled={syncFromSources.isPending}>
             {syncFromSources.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Sincronizar BP + Bilheteira
+          </Button>
+          <Button variant="outline" onClick={handleExportXlsx}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel
+          </Button>
+          <Button variant="outline" onClick={handleExportPdf}>
+            <FileText className="mr-2 h-4 w-4" /> PDF
           </Button>
           <Button onClick={() => saveAll.mutate()} disabled={saveAll.isPending}>
             {saveAll.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
