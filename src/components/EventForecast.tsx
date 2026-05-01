@@ -2840,7 +2840,14 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
       (f: any) => f.category_id === item.category_id && f.type === item.type && f.event_id === item.event_id
     ) ?? [];
     
-    if (forecastsWithSameCat.length <= 1) return sameCat;
+    // Helper to merge directTx with another list, de-duplicated by id
+    const mergeWithDirect = (list: any[]) => {
+      if (directTx.length === 0) return list;
+      const ids = new Set(list.map((t: any) => t.id));
+      return [...list, ...directTx.filter((t: any) => !ids.has(t.id))];
+    };
+
+    if (forecastsWithSameCat.length <= 1) return mergeWithDirect(sameCat);
 
     // Multiple forecasts share this category — assign each transaction to the
     // forecast with the BEST description match, so a transaction is never shown
@@ -2885,7 +2892,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
       return myScore > bestOther;
     });
 
-    return matched.length > 0 ? matched : [];
+    return mergeWithDirect(matched);
   }, [eventTransactions, item.category_id, item.type, item.transaction_id, item.description, item.event_id, item.id, allForecasts]);
 
   const hasMatchingTx = matchingTransactions.length > 0;
