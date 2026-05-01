@@ -98,6 +98,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
   useEffect(() => {
     if (open) {
       setLocalFile(null);
+      setPreviewExpanded(false);
       if (prefilledLines && prefilledLines.length >= 2) {
         setLines(prefilledLines);
         setExtractedNote(
@@ -113,6 +114,57 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Gera/limpa preview leve a partir do ficheiro ativo (sem refazer OCR).
+  useEffect(() => {
+    let cancelled = false;
+    const sourceFile = localFile ?? attachmentFile ?? null;
+    if (!open || !sourceFile) {
+      setPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      return;
+    }
+    (async () => {
+      try {
+        const prep = await prepareFileForInvoiceOcr(sourceFile);
+        if (cancelled) return;
+        if (prep.ok === true) {
+          const url = URL.createObjectURL(prep.file);
+          setPreviewUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return url;
+          });
+        } else {
+          setPreviewUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return null;
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setPreviewUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return null;
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, localFile, attachmentFile]);
+
+  // Cleanup final do objectURL.
+  useEffect(() => {
+    return () => {
+      setPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    };
+  }, []);
 
   const totals = useMemo(() => {
     const baseSum = lines.reduce((s, l) => s + (Number(l.base) || 0), 0);
