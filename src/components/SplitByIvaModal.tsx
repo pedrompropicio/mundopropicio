@@ -90,6 +90,9 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
   /** Ficheiro re-escolhido dentro do modal (substitui o que veio por prop). */
   const [localFile, setLocalFile] = useState<File | null>(null);
   const lastFileName = localFile?.name ?? attachmentFile?.name ?? attachmentLabel ?? null;
+  /** URL leve (objectURL) para pré-visualizar a fatura sem abrir o anexo. */
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
 
   // Reset lines whenever the modal re-opens
   useEffect(() => {
