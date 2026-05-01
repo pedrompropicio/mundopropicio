@@ -2351,6 +2351,27 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                           }}
                         />
                       </label>
+                      {pendingInvoiceFile && !extractingInvoice && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPendingInvoiceFile(null);
+                            setAiPrefilledLines(null);
+                            setPendingIvaSplit(null);
+                            setAttachIvaSplitFile(null);
+                            setAttachAfterCreateFile(null);
+                            toast({
+                              title: "Leitura limpa",
+                              description: "Podes anexar uma nova fatura.",
+                            });
+                          }}
+                          className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          title={`Limpar fatura lida (${pendingInvoiceFile.name}) e ler outra`}
+                        >
+                          <X className="h-3 w-3" />
+                          Limpar
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => {
