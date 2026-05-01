@@ -544,7 +544,7 @@ export default function EventSimulator() {
               Simulador — {event?.name}
             </h1>
             <p className="text-sm text-muted-foreground">
-              3 cenários paralelos: <strong>Hoje</strong> · <strong>Break Even</strong> · <strong>Forecast DVT</strong>
+              <strong>2025</strong>: introduzido manualmente (referência) · <strong>Hoje (Edição 2026)</strong>: alimentado pela plataforma (vendas + BP + transações) · <strong>Break Even</strong> e <strong>Forecast DVT</strong>: cenários simulados.
             </p>
           </div>
         </div>
