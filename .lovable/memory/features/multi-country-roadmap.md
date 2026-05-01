@@ -1,8 +1,29 @@
 ---
 name: Multi-country roadmap (Fase 8)
-description: Plano aprovado PT + BR (gerencial puro), invariantes D1–D7, convivência Modelo B+C (mono-repo + sandbox curtas; forks proibidos)
+description: Plano PT+BR APROVADO mas EM QUARENTENA até 2026-05-29; arranque condicionado a 6 gatilhos; convivência Modelo B+C; protocolo §10.7 pós-fase
 type: feature
 ---
+
+## Estado atual: EM QUARENTENA (decidido 2026-05-01)
+
+**Fase 8.1 (código de produção) NÃO arranca antes de 2026-05-29** e antes de TODOS estes gatilhos verdes:
+1. Batch 9 NOT NULL aplicado em Live sem incidente
+2. Auditoria RLS legacy (`auth.uid() IS NOT NULL`) = 0 linhas em Live
+3. ≥ 14 dias consecutivos sem bug multi-tenant reportado
+4. ≥ 1 segundo cliente real operacional em Live
+5. Baselines DRE/BP capturados (Fase 8.0 concluída)
+6. Decisão go/no-go formal do utilizador
+
+Razão: Fase 7 (multi-tenant Live) ainda a estabilizar; Fase 8 toca nas mesmas camadas (RLS, companies, profiles, edge fns). Empilhar agora cria sobreposição cognitiva e baselines D5 frágeis.
+
+**Durante a quarentena pode-se:** Fase 8.0 (baselines + grep + análise), validar plano de contas BR com contador, confirmar campos export contador, observar Live, fechar pendências multi-tenant.
+
+**Durante a quarentena NÃO:** criar `fiscal_meta`, refactor `iva.ts→TaxEngine`, criar `src/lib/tax/{pt,br}/`, mexer RLS por motivo de país, onboarding cliente BR em Live.
+
+**Sem ambiente paralelo / branch longa**: Modelo B+C proíbe forks > 30d; Test+Live já são os 2 ambientes; isolamento real é D5 + guards de país. Sandbox curta (≤ 1 sem) dentro da Fase 8 continua permitida pontualmente.
+
+Detalhes em §0 do `.lovable/plan-fase-8-multi-pais.md`.
+
 
 ## Modelo de convivência PT vs BR (decidido)
 
