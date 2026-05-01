@@ -92,6 +92,7 @@ import NotFound from "./pages/NotFound";
 import AcceptInvitation from "./pages/AcceptInvitation";
 import Companies from "./pages/admin/Companies";
 import Reminders from "./pages/admin/Reminders";
+import RlsLegacyAudit from "./pages/admin/RlsLegacyAudit";
 import { PartnerLayout } from "./components/PartnerLayout";
 
 const queryClient = new QueryClient({
@@ -361,6 +362,7 @@ function ProtectedLayout() {
               <Route path="/admin/formalidade" element={<FormalidadeAudit />} />
               <Route path="/admin/empresas" element={<Companies />} />
               <Route path="/admin/lembretes" element={<Reminders />} />
+              <Route path="/admin/auditoria-rls" element={<RlsLegacyAudit />} />
             </Routes>
           </div>
         </main>
