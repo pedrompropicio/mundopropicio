@@ -5,6 +5,7 @@ import type {
   SponsorshipPipelineRow,
   SponsorshipStage,
 } from "@/lib/sponsorship-pipeline";
+import { syncSponsorToBP } from "@/lib/sponsorship-bp-sync";
 import { toast } from "@/hooks/use-toast";
 
 export function useSponsorshipPipeline(eventId: string | null | undefined) {
