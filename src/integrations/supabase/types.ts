@@ -3940,6 +3940,48 @@ export type Database = {
           },
         ]
       }
+      rls_legacy_audit_reports: {
+        Row: {
+          created_at: string
+          details: Json
+          environment: string
+          id: string
+          legacy_count: number
+          notes: string | null
+          ran_at: string
+          status: string
+          total_policies: number
+          triggered_by: string
+          triggered_by_user: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: Json
+          environment?: string
+          id?: string
+          legacy_count: number
+          notes?: string | null
+          ran_at?: string
+          status: string
+          total_policies: number
+          triggered_by?: string
+          triggered_by_user?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: Json
+          environment?: string
+          id?: string
+          legacy_count?: number
+          notes?: string | null
+          ran_at?: string
+          status?: string
+          total_policies?: number
+          triggered_by?: string
+          triggered_by_user?: string | null
+        }
+        Relationships: []
+      }
       role_permissions: {
         Row: {
           created_at: string
@@ -5651,6 +5693,50 @@ export type Database = {
           details: string
           status: string
         }[]
+      }
+      run_rls_legacy_audit: {
+        Args: { _triggered_by?: string; _triggered_by_user?: string }
+        Returns: {
+          created_at: string
+          details: Json
+          environment: string
+          id: string
+          legacy_count: number
+          notes: string | null
+          ran_at: string
+          status: string
+          total_policies: number
+          triggered_by: string
+          triggered_by_user: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rls_legacy_audit_reports"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      run_rls_legacy_audit_cron: {
+        Args: never
+        Returns: {
+          created_at: string
+          details: Json
+          environment: string
+          id: string
+          legacy_count: number
+          notes: string | null
+          ran_at: string
+          status: string
+          total_policies: number
+          triggered_by: string
+          triggered_by_user: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rls_legacy_audit_reports"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       set_active_company: {
         Args: { target_company_id: string }
