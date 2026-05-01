@@ -34,11 +34,23 @@ import {
 import {
   useAddSponsorNote,
   useSponsorshipActivities,
+  useSyncSponsorBP,
   useUpdateSponsor,
 } from "@/hooks/useSponsorshipPipeline";
+import { isLinkedTransactionPaid } from "@/lib/sponsorship-bp-sync";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
-import { Send } from "lucide-react";
+import { Send, RefreshCw, Plus as PlusIcon, Lock } from "lucide-react";
 
 interface Props {
   row: SponsorshipPipelineRow;
