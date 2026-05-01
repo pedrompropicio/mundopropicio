@@ -9,7 +9,7 @@ CREATE POLICY "Suppliers viewable by editor"
 ON public.suppliers
 FOR SELECT
 TO authenticated
-USING (has_role(auth.uid(), 'editor'::app_role));
+USING (public.has_role(auth.uid(), 'editor'::app_role));
 
 -- FIX 2: storage — remover policies fracas que furam role check
 DROP POLICY IF EXISTS "Authenticated users can upload supplier documents" ON storage.objects;
@@ -28,7 +28,7 @@ ON storage.objects FOR INSERT
 TO authenticated
 WITH CHECK (
   bucket_id = 'supplier-documents'
-  AND (has_role(auth.uid(),'admin'::app_role) OR has_role(auth.uid(),'manager'::app_role) OR has_role(auth.uid(),'editor'::app_role))
+  AND (public.has_role(auth.uid(),'admin'::app_role) OR public.has_role(auth.uid(),'manager'::app_role) OR public.has_role(auth.uid(),'editor'::app_role))
 );
 
 CREATE POLICY "Transaction docs uploadable by privileged roles"
@@ -36,7 +36,7 @@ ON storage.objects FOR INSERT
 TO authenticated
 WITH CHECK (
   bucket_id = 'transaction-documents'
-  AND (has_role(auth.uid(),'admin'::app_role) OR has_role(auth.uid(),'manager'::app_role) OR has_role(auth.uid(),'editor'::app_role))
+  AND (public.has_role(auth.uid(),'admin'::app_role) OR public.has_role(auth.uid(),'manager'::app_role) OR public.has_role(auth.uid(),'editor'::app_role))
 );
 
 CREATE POLICY "Credit docs uploadable by admin or manager"
@@ -44,7 +44,7 @@ ON storage.objects FOR INSERT
 TO authenticated
 WITH CHECK (
   bucket_id = 'supplier-credit-documents'
-  AND (has_role(auth.uid(),'admin'::app_role) OR has_role(auth.uid(),'manager'::app_role))
+  AND (public.has_role(auth.uid(),'admin'::app_role) OR public.has_role(auth.uid(),'manager'::app_role))
 );
 
 CREATE POLICY "Import reports uploadable by privileged roles"
@@ -52,7 +52,7 @@ ON storage.objects FOR INSERT
 TO authenticated
 WITH CHECK (
   bucket_id = 'import-reports'
-  AND (has_role(auth.uid(),'admin'::app_role) OR has_role(auth.uid(),'manager'::app_role) OR has_role(auth.uid(),'editor'::app_role))
+  AND (public.has_role(auth.uid(),'admin'::app_role) OR public.has_role(auth.uid(),'manager'::app_role) OR public.has_role(auth.uid(),'editor'::app_role))
 );
 
 -- FIX 3: Realtime — removido desta migração.

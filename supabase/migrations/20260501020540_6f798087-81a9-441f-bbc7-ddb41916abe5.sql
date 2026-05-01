@@ -25,6 +25,7 @@ CREATE INDEX IF NOT EXISTS idx_rls_legacy_audit_status ON public.rls_legacy_audi
 -- 2. RLS — só admin/platform_admin lê; INSERT só via SECURITY DEFINER
 ALTER TABLE public.rls_legacy_audit_reports ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins read RLS audit reports" ON public.rls_legacy_audit_reports;
 CREATE POLICY "Admins read RLS audit reports"
 ON public.rls_legacy_audit_reports
 FOR SELECT
