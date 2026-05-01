@@ -368,6 +368,7 @@ export default function EventSimulator() {
     localCosts.map((c) => ({
       label: c.label,
       prior_year_amount: Number(c.prior_year_amount || 0),
+      actual_amount: Number(c.actual_amount || 0),
       break_even_amount: Number(c.break_even_amount || 0),
       forecast_amount: Number(c.forecast_amount || 0),
       is_ab_passthrough: !!c.is_ab_passthrough,
