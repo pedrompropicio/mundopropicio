@@ -606,7 +606,7 @@ export default function EventSimulator() {
 
       {/* KPIs scenario summary */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <ScenarioCard title="Hoje (Edição 2026)" tone="muted" rev={today} cost={todayCosts} res={todayRes} kpis={todayKpis} />
+        <ScenarioCard title="Hoje (Edição 2026)" tone="muted" rev={today} cost={todayCosts} res={todayRes} kpis={todayKpis} dailyTotals={dailyTotals} />
         <ScenarioCard
           title="Break Even"
           tone="warning"
