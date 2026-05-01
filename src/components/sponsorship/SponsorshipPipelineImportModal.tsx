@@ -34,6 +34,7 @@ import type {
   SponsorshipDocStatus,
   SponsorshipStage,
 } from "@/lib/sponsorship-pipeline";
+import { syncSponsorToBP } from "@/lib/sponsorship-bp-sync";
 
 interface Props {
   open: boolean;
