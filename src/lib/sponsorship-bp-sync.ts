@@ -35,21 +35,46 @@ async function getCategoryIdForCompany(code: "1.2.01" | "1.2.02", companyId: str
   return (data?.id as string) ?? null;
 }
 
+function todayLocalISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+async function getDefaultIncomeAccountId(companyId: string): Promise<string | null> {
+  // Heurística: primeira conta bancária ativa, não oculta, da empresa.
+  const { data } = await supabase
+    .from("financial_accounts")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("is_active", true)
+    .eq("is_hidden", false)
+    .in("type", ["bank", "cash"])
+    .order("created_at", { ascending: true })
+    .limit(1);
+  return (data?.[0] as { id: string } | undefined)?.id ?? null;
+}
+
 export async function syncSponsorToBP(row: SponsorshipPipelineRow): Promise<SyncResult> {
-  const isClosed = row.stage === "closed" || row.stage === "barter";
-  if (!isClosed) return { skipped: true, reason: "stage_not_closed" };
+  // Permutas e leads não geram BP/TX automaticamente — ficam só no pipeline.
+  if (row.stage !== "closed") return { skipped: true, reason: "stage_not_closed" };
+  if (row.is_barter) return { skipped: true, reason: "barter_pipeline_only" };
   if (!row.auto_sync_bp) return { skipped: true, reason: "auto_sync_disabled" };
   if (!row.company_id) return { skipped: true, reason: "no_company" };
 
   const amount = Number(row.confirmed_amount || 0);
-  if (!(amount > 0) && !row.is_barter) return { skipped: true, reason: "zero_amount" };
+  if (!(amount > 0)) return { skipped: true, reason: "zero_amount" };
 
-  const code = row.stage === "barter" || row.is_barter ? "1.2.02" : "1.2.01";
-  const categoryId = await getCategoryIdForCompany(code, row.company_id);
-  if (!categoryId) return { skipped: true, reason: `category_${code}_not_found` };
+  const categoryId = await getCategoryIdForCompany("1.2.01", row.company_id);
+  if (!categoryId) return { skipped: true, reason: "category_1.2.01_not_found" };
 
   const description = row.supplier_name || "Patrocínio";
   const ivaRate = Number(row.iva_rate ?? 23);
+  const today = todayLocalISO();
+
+  // doc_status=invoice_received → fatura recebida = TX paga (cria com payment_date e conta).
+  // Restantes (invoice_sent, post_event, awaiting) → TX approved pendente de pagamento.
+  const isPaid = row.doc_status === "invoice_received";
+  const accountId = isPaid ? await getDefaultIncomeAccountId(row.company_id) : null;
 
   // Caso 1: já tem TX e BP vinculados → update em ambos
   if (row.linked_transaction_id && row.linked_forecast_id) {
@@ -87,20 +112,27 @@ export async function syncSponsorToBP(row: SponsorshipPipelineRow): Promise<Sync
   }
 
   // Caso 2: criar do zero → 1) TX, 2) BP vinculada, 3) update do card
+  const txPayload: Record<string, unknown> = {
+    type: "income",
+    status: isPaid ? "paid" : "approved",
+    event_id: row.event_id,
+    category_id: categoryId,
+    supplier_id: row.supplier_id,
+    description,
+    amount,
+    iva_rate: ivaRate,
+    transaction_date: today,
+    company_id: row.company_id,
+    paid_amount: isPaid ? amount : 0,
+  };
+  if (isPaid) {
+    txPayload.payment_date = today;
+    if (accountId) txPayload.account_id = accountId;
+  }
+
   const { data: tx, error: txErr } = await supabase
     .from("transactions")
-    .insert({
-      type: "income",
-      status: "approved",
-      event_id: row.event_id,
-      category_id: categoryId,
-      supplier_id: row.supplier_id,
-      description,
-      amount,
-      iva_rate: ivaRate,
-      transaction_date: new Date().toISOString().slice(0, 10),
-      company_id: row.company_id,
-    } as never)
+    .insert(txPayload as never)
     .select("id")
     .single();
   if (txErr || !tx) {
@@ -124,7 +156,7 @@ export async function syncSponsorToBP(row: SponsorshipPipelineRow): Promise<Sync
       is_transitory: false,
       transaction_id: transactionId,
       company_id: row.company_id,
-      notes: `Gerado automaticamente do Pipeline de Patrocínios (${row.stage === "barter" ? "Permuta" : "Fechado"})`,
+      notes: `Gerado automaticamente do Pipeline de Patrocínios (${isPaid ? "Pago" : "Fechado"})`,
     } as never)
     .select("id")
     .single();

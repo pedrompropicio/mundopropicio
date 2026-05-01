@@ -159,7 +159,12 @@ export function SponsorshipPipelineImportModal({
           currency: "EUR",
           iva_rate: 23,
           priority: "medium",
-          auto_sync_bp: row.kind === "paid",
+          // Patrocínios "fechados" (com fatura recebida, enviada ou pós-evento) sincronizam
+          // automaticamente para o BP/TX. Permutas e leads em negociação ficam só no pipeline.
+          auto_sync_bp:
+            row.kind === "paid" ||
+            row.kind === "pending_invoiced" ||
+            row.kind === "pending_post_event",
           notes: row.rawStatus
             ? `Importado de ${fileName} • estado original: "${row.rawStatus}"`
             : `Importado de ${fileName}`,
@@ -325,8 +330,9 @@ export function SponsorshipPipelineImportModal({
                   })}
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Apenas <b>"Fatura recebida"</b> entra com auto-sync ao BP. Os restantes ficam no pipeline
-                  até promoveres manualmente (botão "Promover ao BP" no card).
+                  <b>Fatura recebida</b>, <b>Fatura enviada</b> e <b>Pós-evento</b> entram com auto-sync ao BP
+                  (fatura recebida cria TX paga; restantes ficam pendentes). <b>Permutas</b> e linhas
+                  em negociação ficam só no pipeline até promoção manual.
                 </p>
               </div>
 
