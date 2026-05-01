@@ -2806,26 +2806,30 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     queryClient.invalidateQueries({ queryKey: ["forecast_partners", eventId] });
   };
 
-  // Find transactions matching this forecast line
-  // Priority: 1) direct transaction_id link, 2) category + description match
+  // Find transactions matching this forecast line.
+  // Strategy: union of (a) direct transaction_id back-link and
+  // (b) category + description match. This is critical for installment
+  // schedules where ONE BP line generates N transactions but only the
+  // first is back-linked via event_forecasts.transaction_id — the
+  // remaining N-1 must still appear here so balance, paid checks and
+  // cascade delete work correctly.
   const matchingTransactions = useMemo(() => {
     if (!eventTransactions) return [];
-    
-    // If forecast has a direct transaction_id, show only that transaction
-    if (item.transaction_id) {
-      const direct = eventTransactions.filter((t: any) => t.id === item.transaction_id);
-      if (direct.length > 0) return direct;
-    }
-    
+
     // Scope transactions to the same event as the forecast (or null for master splits)
     // This prevents sub-event transactions from appearing under master forecasts
     const allowedEventIds = new Set([item.event_id, null, item._master_event_id].filter(Boolean));
     const scopedTransactions = eventTransactions.filter(
       (t: any) => allowedEventIds.has(t.event_id)
     );
-    
-    // Otherwise match by category + description similarity
-    if (!item.category_id) return [];
+
+    // (a) Direct back-link (always include, even if event scope would have excluded it)
+    const directTx = item.transaction_id
+      ? eventTransactions.filter((t: any) => t.id === item.transaction_id)
+      : [];
+
+    // (b) Category + description match
+    if (!item.category_id) return directTx;
     const sameCat = scopedTransactions.filter(
       (t: any) => t.category_id === item.category_id && t.type === item.type
     );
