@@ -2806,26 +2806,30 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
     queryClient.invalidateQueries({ queryKey: ["forecast_partners", eventId] });
   };
 
-  // Find transactions matching this forecast line
-  // Priority: 1) direct transaction_id link, 2) category + description match
+  // Find transactions matching this forecast line.
+  // Strategy: union of (a) direct transaction_id back-link and
+  // (b) category + description match. This is critical for installment
+  // schedules where ONE BP line generates N transactions but only the
+  // first is back-linked via event_forecasts.transaction_id — the
+  // remaining N-1 must still appear here so balance, paid checks and
+  // cascade delete work correctly.
   const matchingTransactions = useMemo(() => {
     if (!eventTransactions) return [];
-    
-    // If forecast has a direct transaction_id, show only that transaction
-    if (item.transaction_id) {
-      const direct = eventTransactions.filter((t: any) => t.id === item.transaction_id);
-      if (direct.length > 0) return direct;
-    }
-    
+
     // Scope transactions to the same event as the forecast (or null for master splits)
     // This prevents sub-event transactions from appearing under master forecasts
     const allowedEventIds = new Set([item.event_id, null, item._master_event_id].filter(Boolean));
     const scopedTransactions = eventTransactions.filter(
       (t: any) => allowedEventIds.has(t.event_id)
     );
-    
-    // Otherwise match by category + description similarity
-    if (!item.category_id) return [];
+
+    // (a) Direct back-link (always include, even if event scope would have excluded it)
+    const directTx = item.transaction_id
+      ? eventTransactions.filter((t: any) => t.id === item.transaction_id)
+      : [];
+
+    // (b) Category + description match
+    if (!item.category_id) return directTx;
     const sameCat = scopedTransactions.filter(
       (t: any) => t.category_id === item.category_id && t.type === item.type
     );
@@ -2836,7 +2840,14 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
       (f: any) => f.category_id === item.category_id && f.type === item.type && f.event_id === item.event_id
     ) ?? [];
     
-    if (forecastsWithSameCat.length <= 1) return sameCat;
+    // Helper to merge directTx with another list, de-duplicated by id
+    const mergeWithDirect = (list: any[]) => {
+      if (directTx.length === 0) return list;
+      const ids = new Set(list.map((t: any) => t.id));
+      return [...list, ...directTx.filter((t: any) => !ids.has(t.id))];
+    };
+
+    if (forecastsWithSameCat.length <= 1) return mergeWithDirect(sameCat);
 
     // Multiple forecasts share this category — assign each transaction to the
     // forecast with the BEST description match, so a transaction is never shown
@@ -2881,7 +2892,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
       return myScore > bestOther;
     });
 
-    return matched.length > 0 ? matched : [];
+    return mergeWithDirect(matched);
   }, [eventTransactions, item.category_id, item.type, item.transaction_id, item.description, item.event_id, item.id, allForecasts]);
 
   const hasMatchingTx = matchingTransactions.length > 0;
@@ -3478,24 +3489,32 @@ function findMatchingTransactionsForForecast(
   allForecasts: any[],
 ): any[] {
   if (!eventTransactions) return [];
-  if (forecast.transaction_id) {
-    const direct = eventTransactions.filter((t: any) => t.id === forecast.transaction_id);
-    if (direct.length > 0) return direct;
-  }
+  // Direct back-link (always include)
+  const directTx = forecast.transaction_id
+    ? eventTransactions.filter((t: any) => t.id === forecast.transaction_id)
+    : [];
+
   const allowedEventIds = new Set([
     forecast.event_id,
     null,
     forecast._master_event_id,
   ].filter((value) => value !== undefined));
   const scoped = eventTransactions.filter((t: any) => allowedEventIds.has(t.event_id));
-  if (!forecast.category_id) return [];
+
+  const mergeWithDirect = (list: any[]) => {
+    if (directTx.length === 0) return list;
+    const ids = new Set(list.map((t: any) => t.id));
+    return [...list, ...directTx.filter((t: any) => !ids.has(t.id))];
+  };
+
+  if (!forecast.category_id) return directTx;
   const sameCat = scoped.filter(
     (t: any) => t.category_id === forecast.category_id && t.type === forecast.type,
   );
   const sameCatForecasts = (allForecasts ?? []).filter(
     (f: any) => f.category_id === forecast.category_id && f.type === forecast.type && f.event_id === forecast.event_id,
   );
-  if (sameCatForecasts.length <= 1) return sameCat;
+  if (sameCatForecasts.length <= 1) return mergeWithDirect(sameCat);
   const tokenize = (s: string) =>
     String(s ?? "").toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w.length >= 3);
   const score = (fd: string, td: string) => {
@@ -3512,7 +3531,7 @@ function findMatchingTransactionsForForecast(
     if (shared === 0) return 0;
     return shared * 100 + (shared / fT.size) * 10 - Math.abs(f.length - t.length) / 10000;
   };
-  return sameCat.filter((t: any) => {
+  const matched = sameCat.filter((t: any) => {
     const my = score(forecast.description, t.description);
     if (my <= 0) return false;
     const bestOther = sameCatForecasts.reduce((max: number, f: any) => {
@@ -3522,6 +3541,7 @@ function findMatchingTransactionsForForecast(
     }, 0);
     return my > bestOther;
   });
+  return mergeWithDirect(matched);
 }
 
 interface ComparisonRow {
