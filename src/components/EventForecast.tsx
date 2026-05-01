@@ -39,6 +39,7 @@ import BPImportModeDialog, { type BPImportMode } from "@/components/BPImportMode
 import PromoteToMasterModal, { type PromoteCandidate } from "@/components/PromoteToMasterModal";
 import OrphanAttachmentsResolver from "@/components/OrphanAttachmentsResolver";
 import { GenerateHistoricalModal, type XlsxRowForGeneration } from "@/components/GenerateHistoricalModal";
+import { ScheduleInstallmentsModal, type Installment } from "@/components/ScheduleInstallmentsModal";
 import { MarkAsFechadoDialog } from "@/components/bp-versions/MarkAsFechadoDialog";
 import { SponsorsImportModal } from "@/components/SponsorsImportModal";
 import { FormalidadeHistoryPopover } from "@/components/bp-versions/FormalidadeHistoryPopover";
