@@ -180,7 +180,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   const [promoteCandidates, setPromoteCandidates] = useState<PromoteCandidate[]>([]);
   const [showPromoteModal, setShowPromoteModal] = useState(false);
   const [showOrphanResolver, setShowOrphanResolver] = useState(false);
-  const [showSponsorsImport, setShowSponsorsImport] = useState(false);
+  // (removido) showSponsorsImport — botão "Importar Patrocínios" foi para o Pipeline
   // Cenário ativo na vista (null = versão Ativa). Sincronizado entre BP/Bilheteira/Cachê
   // através do EventScenarioContext (provider em EventDetail).
   const { selectedVersionId, setSelectedVersionId, isScenarioMode } = useEventScenario();
