@@ -971,7 +971,10 @@ export default function EventSimulator() {
                   <CfgInput label="Ponto Vendido (€)" value={localCfg.ponto_vendido}
                     onChange={(v) => setLocalCfg({ ...localCfg, ponto_vendido: v })} step={0.01} />
                   <div className="col-span-full mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
-                    <p className="col-span-full text-sm font-semibold text-muted-foreground">Ano anterior (2025)</p>
+                    <div className="col-span-full">
+                      <p className="text-sm font-semibold">Ano anterior (2025) — manual</p>
+                      <p className="text-xs text-muted-foreground">Estes valores são introduzidos manualmente e servem só de referência. <strong>Não</strong> são alimentados pela plataforma — a Edição 2026 vem de Vendas + BP + Transações.</p>
+                    </div>
                     <CfgInput label="Ingressos 2025 (€)" value={localCfg.prior_year_tickets}
                       onChange={(v) => setLocalCfg({ ...localCfg, prior_year_tickets: v })} step={0.01} />
                     <CfgInput label="Bebida 2025 (€)" value={localCfg.prior_year_drink}
