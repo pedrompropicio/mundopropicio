@@ -58,7 +58,7 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
     pending_invoiced: true,
     pending_post_event: true,
     barter: true,
-    forecast_only: true,
+    forecast_only: false, // OFF por defeito: linhas sem estado documental são "leads", não confirmadas
   });
   const [accountId, setAccountId] = useState<string>("");
   const [createTransactions, setCreateTransactions] = useState(true);
@@ -86,7 +86,7 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
   function reset() {
     setParsed(null);
     setFileName("");
-    setIncludeKinds({ paid: true, pending_invoiced: true, pending_post_event: true, barter: true, forecast_only: true });
+    setIncludeKinds({ paid: true, pending_invoiced: true, pending_post_event: true, barter: true, forecast_only: false });
     setAccountId("");
     setCreateTransactions(true);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -448,6 +448,35 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Resumo de Confirmados vs Pipeline */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Confirmado real</div>
+                <div className="text-lg font-bold text-emerald-600 tabular-nums">
+                  {formatCurrency(totals!.sumPaid + totals!.sumPending)}
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  {totals!.countPaid + totals!.countPendingInvoiced + totals!.countPendingPostEvent} linhas com estado documental
+                </div>
+              </div>
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Pipeline / sem estado</div>
+                <div className="text-lg font-bold text-amber-600 tabular-nums">
+                  {formatCurrency(totals!.sumForecastOnly)}
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  {totals!.countForecastOnly} linhas — desligadas por defeito
+                </div>
+              </div>
+              <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-3">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Permutas (sem caixa)</div>
+                <div className="text-lg font-bold text-purple-600 tabular-nums">
+                  {totals!.countBarter}
+                </div>
+                <div className="text-[10px] text-muted-foreground">forecast transitório</div>
+              </div>
+            </div>
+
             {/* Resumo */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               {(["paid", "pending_invoiced", "pending_post_event", "barter", "forecast_only"] as SponsorImportKind[]).map((k) => {
@@ -457,6 +486,12 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
                   k === "pending_post_event" ? totals!.countPendingPostEvent :
                   k === "barter" ? totals!.countBarter :
                   totals!.countForecastOnly;
+                const sum =
+                  k === "paid" ? totals!.sumPaid :
+                  k === "pending_invoiced" || k === "pending_post_event"
+                    ? parsed.rows.filter((r) => r.kind === k).reduce((s, r) => s + r.effectiveAmount, 0)
+                  : k === "barter" ? totals!.sumBarter
+                  : totals!.sumForecastOnly;
                 return (
                   <label key={k} className="flex items-start gap-2 rounded-lg border border-border bg-secondary/20 p-2 cursor-pointer hover:bg-secondary/40">
                     <Checkbox
@@ -469,7 +504,9 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
                         {KIND_ICON[k]}
                         <span className="truncate">{SPONSOR_KIND_LABEL[k]}</span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">{count} linha{count === 1 ? "" : "s"}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {count} linha{count === 1 ? "" : "s"} {k !== "barter" && sum > 0 ? `· ${formatCurrency(sum)}` : ""}
+                      </p>
                     </div>
                   </label>
                 );
