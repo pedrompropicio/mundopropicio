@@ -177,7 +177,7 @@ export function computeScenarioCosts(
   let eventCosts = 0;
   for (const l of costLines) {
     if (l.is_ab_passthrough) continue;
-    if (scenario === "today") eventCosts += n(l.prior_year_amount);
+    if (scenario === "today") eventCosts += n(l.actual_amount ?? l.prior_year_amount);
     else if (scenario === "breakeven") eventCosts += n(l.break_even_amount);
     else eventCosts += n(l.forecast_amount);
   }
