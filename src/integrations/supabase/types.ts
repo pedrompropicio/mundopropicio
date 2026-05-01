@@ -2261,6 +2261,7 @@ export type Database = {
           ab_drink_passthrough_pct: number
           ab_food_passthrough_pct: number
           bonif_bebidas: number
+          combo_lot_keywords: string
           company_id: string
           created_at: string
           default_drink_avg_ticket: number
@@ -2288,6 +2289,7 @@ export type Database = {
           sales_curve_prior_event_id: string | null
           souvenir_cost: number
           souvenir_revenue: number
+          sponsor_category_l2_id: string | null
           sponsorship_notes: string | null
           sponsorship_revenue: number | null
           ticket_iva_pct: number
@@ -2299,6 +2301,7 @@ export type Database = {
           ab_drink_passthrough_pct?: number
           ab_food_passthrough_pct?: number
           bonif_bebidas?: number
+          combo_lot_keywords?: string
           company_id: string
           created_at?: string
           default_drink_avg_ticket?: number
@@ -2326,6 +2329,7 @@ export type Database = {
           sales_curve_prior_event_id?: string | null
           souvenir_cost?: number
           souvenir_revenue?: number
+          sponsor_category_l2_id?: string | null
           sponsorship_notes?: string | null
           sponsorship_revenue?: number | null
           ticket_iva_pct?: number
@@ -2337,6 +2341,7 @@ export type Database = {
           ab_drink_passthrough_pct?: number
           ab_food_passthrough_pct?: number
           bonif_bebidas?: number
+          combo_lot_keywords?: string
           company_id?: string
           created_at?: string
           default_drink_avg_ticket?: number
@@ -2364,6 +2369,7 @@ export type Database = {
           sales_curve_prior_event_id?: string | null
           souvenir_cost?: number
           souvenir_revenue?: number
+          sponsor_category_l2_id?: string | null
           sponsorship_notes?: string | null
           sponsorship_revenue?: number | null
           ticket_iva_pct?: number
@@ -2386,10 +2392,20 @@ export type Database = {
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "event_simulator_config_sponsor_category_l2_id_fkey"
+            columns: ["sponsor_category_l2_id"]
+            isOneToOne: false
+            referencedRelation: "account_categories"
+            referencedColumns: ["id"]
+          },
         ]
       }
       event_simulator_cost_lines: {
         Row: {
+          actual_amount: number
+          actual_committed_bp: number
+          actual_paid: number
           break_even_amount: number
           category_id: string | null
           company_id: string
@@ -2404,6 +2420,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          actual_amount?: number
+          actual_committed_bp?: number
+          actual_paid?: number
           break_even_amount?: number
           category_id?: string | null
           company_id: string
@@ -2418,6 +2437,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          actual_amount?: number
+          actual_committed_bp?: number
+          actual_paid?: number
           break_even_amount?: number
           category_id?: string | null
           company_id?: string
@@ -2677,6 +2699,7 @@ export type Database = {
       }
       event_ticket_lots: {
         Row: {
+          applies_to_days: number
           company_id: string
           created_at: string
           id: string
@@ -2690,6 +2713,7 @@ export type Database = {
           zone_id: string
         }
         Insert: {
+          applies_to_days?: number
           company_id?: string
           created_at?: string
           id?: string
@@ -2703,6 +2727,7 @@ export type Database = {
           zone_id: string
         }
         Update: {
+          applies_to_days?: number
           company_id?: string
           created_at?: string
           id?: string
