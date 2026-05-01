@@ -445,6 +445,87 @@ Quando aparecer 3º país (ES, AO, etc.), o custo é apenas: 1 adapter `tax/es/`
 
 ---
 
+### 10.7 Protocolo operacional pós-Fase 8 (evolução PT vs BR em ritmos diferentes)
+
+Depois de PT e BR estarem estáveis, surgem semanas em que só queres mexer num lado. **Não se cria "ambiente PT" e "ambiente BR" paralelos** (divergem em meses, ninguém volta a juntar). A separação de ritmo é **temporal**, não estrutural — e funciona via classificação A/B/C + feature flags por empresa.
+
+**10.7.1 Classificação obrigatória de cada pedido**
+
+Antes de tocar em código, cada pedido é classificado pela AI:
+
+| Cenário | O que é | Onde vive | Quem vê em produção no merge |
+|---|---|---|---|
+| **A — só-PT** | Feature/bug que afeta só empresas PT | `src/lib/tax/pt/`, `src/lib/locale/pt.ts`, ou guard `country === 'PT'` em rota/menu | Só empresas PT. BR fica intocado. |
+| **B — só-BR** | Feature/bug que afeta só empresas BR | `src/lib/tax/br/`, `src/lib/locale/br.ts`, ou guard `country === 'BR'` em rota/menu | Só empresas BR. PT fica intocado. |
+| **C — partilhada** | Bug fix ou melhoria em código comum (Master/Split, BP, ticketing, UI base) | `src/lib/` raiz, hooks partilhados, componentes neutros | Ambos os países no mesmo deploy. |
+
+Se a AI não conseguir classificar com certeza, **pergunta antes de codar**: *"Isto é só-PT, só-BR, ou partilhado?"*
+
+**10.7.2 Como ter "duas implementações em paralelo" sem fork**
+
+Cenário típico: estás 3 semanas a evoluir BR (novos relatórios gerenciais) e em paralelo queres ajustar PT (novo campo IVA). Fluxo:
+
+1. **Semana 1–3 (BR)**: cada commit toca só `src/lib/tax/br/`, `src/components/reports/.../br/`, ou rotas com guard `country === 'BR'`. Vai para `main`. Empresas PT não veem nada (rota oculta + adapter PT inalterado).
+2. **Semana 2 (PT, em simultâneo)**: pedido PT entra. Toca só `src/lib/tax/pt/` ou guards `country === 'PT'`. Vai para `main` no mesmo dia. Empresas BR não veem nada.
+3. **Não há "merge" entre PT e BR** porque nunca divergiram — viveram em pastas diferentes do mesmo repo.
+
+A ilusão de "dois ambientes" é dada pelos **guards em runtime**, não por dois repositórios.
+
+**10.7.3 Quando uma feature começa só-BR e depois quer ir para PT**
+
+Acontece muito: testas em BR, valida-se, decides estender a PT. Receita:
+
+1. Mover a lógica de `src/lib/tax/br/feature.ts` para `src/lib/tax/_shared/feature.ts` (ou criar versão equivalente em `tax/pt/`).
+2. Remover o guard `country === 'BR'` da rota/menu, ou trocar por `['PT','BR'].includes(country)`.
+3. Adicionar baseline de testes PT antes do deploy (D5).
+4. Comunicar ao cliente PT que a feature passou a estar visível.
+
+**Não há rebase, não há merge entre branches, não há "portar de um lado para o outro"**. É uma promoção de pasta + remover guard.
+
+**10.7.4 Quando usar feature flag por empresa (em vez de guard de país)**
+
+Se queres testar uma feature **só com 1 empresa BR específica** antes de libertar a todas as BR (ou só com MP antes de todas as PT):
+
+- Usar campo `companies.feature_flags jsonb` (a criar quando precisar).
+- Hook `useFeatureFlag('nova_feature')` lê do contexto da empresa ativa.
+- Não usar variáveis de ambiente nem branches Git para isto.
+
+Exemplo: *"Quero testar novo DRE BR só com a primeira empresa BR durante 2 semanas"* → flag `dre_br_v2` ligada só nessa empresa, depois liga-se a todas. Zero impacto em PT, zero deploy diferente.
+
+**10.7.5 Quando branch sandbox (Modelo C) é justificada — pós-Fase 8**
+
+Pós-Fase 8, sandbox só faz sentido se:
+
+- Vais reescrever algo **partilhado** (ex.: refactor profundo do motor de Master/Split) e queres iterar sem partir produção;
+- A experiência leva **< 1 mês** e tens compromisso de a integrar OU descartar nesse prazo;
+- Não envolve plano de contas nem schema fiscal (esses vão sempre por migration em `main`).
+
+Se for só-PT ou só-BR, **não precisas de sandbox** — vai direto para `main` atrás de guard de país. O guard já é o isolamento.
+
+**10.7.6 Quem decide o quê**
+
+| Decisão | Decisor | Quando |
+|---|---|---|
+| Classificar pedido em A/B/C | AI propõe, **utilizador confirma** | Antes de codar, em cada pedido ambíguo |
+| Promover feature só-BR para partilhada (ou vice-versa) | **Utilizador** (sócio/PO) | Quando sentir maturidade da feature |
+| Abrir branch sandbox > 1 semana | **Utilizador**, com data de fim definida | Antes de começar |
+| Forçar convergência (juntar PT+BR num refactor) | **Utilizador** decide o "quando", AI executa | Quando código duplicado começa a doer |
+| Ligar/desligar feature flag por empresa | **Admin/platform_admin** via UI | A qualquer momento |
+
+**Regra de ouro**: a AI nunca abre sandbox nem cria flag sem perguntar. A AI **sempre** classifica A/B/C e propõe a localização exata do código antes de escrever.
+
+**10.7.7 O que **NÃO** é permitido fazer pós-Fase 8 (mesmo que pareça mais rápido)**
+
+- Duplicar componente UI em versão PT e versão BR sem passar por adapter;
+- Criar branch Git de longa duração com nome `pt-only` ou `br-only`;
+- Comentar código com `// TODO: portar para PT depois` (sinaliza divergência futura);
+- Adicionar coluna DB só usada por um país sem default seguro para o outro (parte D2);
+- Mexer em código partilhado sem rodar baselines PT (parte D5).
+
+Estes pontos vão para `mem://constraints/multi-country-evolution` quando Fase 8 arrancar, para servirem de checklist em code review.
+
+---
+
 ## 11. Resumo executivo
 
 Plataforma fica **country-aware** sem refactor pesado: PT mantém-se 100% igual, BR usa modelo gerencial puro com `fiscal_meta jsonb` informativo. Adapters (`TaxEngine`, `useLocale`, `useLegalLabels`) substituem `if (country === 'BR')` espalhados. Plano de contas por país via templates. Relatórios fiscais segregados, gerenciais universais. Export XLSX neutro para contador BR.
