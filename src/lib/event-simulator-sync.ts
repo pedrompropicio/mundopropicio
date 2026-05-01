@@ -132,12 +132,14 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
         const { error } = await supabase
           .from("event_simulator_inputs")
           .update(patch as any).eq("id", existingRow.id);
-        if (!error) report.sessionsUpdated++;
+        if (error) throw error;
+        report.sessionsUpdated++;
       } else {
         const { error } = await supabase
           .from("event_simulator_inputs")
           .insert({
             event_id: eventId,
+            company_id: companyId,
             day_index: dIdx,
             day_date: d.date ?? null,
             zone_label: z.name,
@@ -150,7 +152,8 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
             avg_ticket_override: null,
             iva_pct: 6,
           } as any);
-        if (!error) report.sessionsCreated++;
+        if (error) throw error;
+        report.sessionsCreated++;
       }
     }
   }
