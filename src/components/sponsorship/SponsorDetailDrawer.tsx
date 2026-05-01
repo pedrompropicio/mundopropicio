@@ -250,13 +250,21 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
               />
             </div>
             <div>
-              <Label>Valor confirmado</Label>
+              <Label className="flex items-center gap-1">
+                Valor confirmado
+                {isLinkedPaid && <Lock className="h-3 w-3 text-muted-foreground" />}
+              </Label>
               <MoneyInput
                 value={Number(draft.confirmed_amount) || 0}
                 currency={draft.currency || "EUR"}
                 onChange={(v) => patch("confirmed_amount", v)}
-                disabled={!canEdit}
+                disabled={!canEdit || isLinkedPaid}
               />
+              {isLinkedPaid && (
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Transação já liquidada — para alterar o valor, desfaz primeiro a liquidação.
+                </p>
+              )}
             </div>
           </div>
 
