@@ -2467,7 +2467,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                     <p className="py-4 text-center text-xs text-muted-foreground">Sem despesas previstas</p>
                   )}
                 </div>
-              </div>
+              </div>}
 
               {/* BP summary row */}
               {(incomeForecasts.length > 0 || expenseForecasts.length > 0) && (
