@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Users, Database, ShieldAlert, Trash2, History, Activity, ClipboardCheck, Sparkles, Building2, Bell } from "lucide-react";
+import { Users, Database, ShieldAlert, ShieldCheck, Trash2, History, Activity, ClipboardCheck, Sparkles, Building2, Bell } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -60,6 +60,12 @@ const adminCards = [
     icon: Bell,
     title: "Lembretes",
     description: "Lembretes automáticos da plataforma — banner no admin + WhatsApp diário via Twilio",
+  },
+  {
+    to: "/admin/auditoria-rls",
+    icon: ShieldCheck,
+    title: "Auditoria RLS Legacy",
+    description: "Verificação diária automática de policies RLS antigas (auth.uid() IS NOT NULL); histórico e execução manual",
   },
 ];
 
