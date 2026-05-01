@@ -306,6 +306,35 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
             </span>
           </Label>
           {extractedNote && <p className="mt-2 text-[11px] text-muted-foreground">{extractedNote}</p>}
+          {previewUrl && (
+            <div className="mt-2 flex items-start gap-3 rounded-md border border-border bg-card/50 p-2">
+              <button
+                type="button"
+                onClick={() => setPreviewExpanded((v) => !v)}
+                className="shrink-0 overflow-hidden rounded border border-border bg-background hover:ring-2 hover:ring-primary/50 transition"
+                title={previewExpanded ? "Reduzir pré-visualização" : "Ampliar pré-visualização"}
+              >
+                <img
+                  src={previewUrl}
+                  alt={`Pré-visualização de ${lastFileName ?? "fatura"}`}
+                  className={cn(
+                    "object-contain bg-background transition-all",
+                    previewExpanded ? "h-72 w-auto max-w-[90vw]" : "h-16 w-16",
+                  )}
+                  loading="lazy"
+                />
+              </button>
+              <div className="flex-1 text-[11px] text-muted-foreground leading-snug">
+                <div className="font-medium text-foreground">Pré-visualização da fatura</div>
+                <div className="truncate" title={lastFileName ?? undefined}>{lastFileName}</div>
+                <div className="mt-1 italic">
+                  {previewExpanded
+                    ? "Clica de novo para reduzir."
+                    : "Clica na miniatura para ampliar — sem precisar de abrir o anexo."}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Linhas */}
