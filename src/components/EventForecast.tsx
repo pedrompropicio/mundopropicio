@@ -1898,6 +1898,22 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 <option value="pago_total">🟢 Pago total</option>
               </select>
             </div>
+            {/* Tipo: Receitas / Despesas / Ambos.
+                Esconde a secção respetiva e o card de Resumo correspondente. */}
+            {!expenseOnly && (
+              <div className="flex items-center gap-1.5" title="Filtrar por tipo (Receitas / Despesas / Ambos)">
+                <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value as "all" | "income" | "expense")}
+                  className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="all">Receitas + Despesas</option>
+                  <option value="income">Só Receitas</option>
+                  <option value="expense">Só Despesas</option>
+                </select>
+              </div>
+            )}
             {/* Master ↔ Master+Subs toggle (only on master with children) */}
             {childEventIds && childEventIds.length > 0 && (
               <div className="flex items-center gap-1.5">
