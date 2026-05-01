@@ -2698,7 +2698,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         }}
       />
 
-
+      <MarkAsFechadoDialog
         open={!!pendingFechado}
         onOpenChange={(o) => { if (!o) setPendingFechado(null); }}
         eligibleForecastIds={pendingFechado?.ids ?? []}
