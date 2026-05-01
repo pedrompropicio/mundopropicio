@@ -251,6 +251,50 @@ export function SponsorshipPipelineImportModal({
       toast({ title: "Erro na importação", description: e.message, variant: "destructive" }),
   });
 
+  // Re-sync de cards já existentes no pipeline cujo BP/TX ainda não foi criado
+  // (útil quando uma importação anterior falhou no sync mas inseriu o card).
+  const resyncMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase
+        .from("sponsorship_pipeline" as never)
+        .select("*")
+        .eq("event_id", eventId)
+        .eq("auto_sync_bp", true)
+        .eq("stage", "closed")
+        .is("linked_transaction_id", null);
+      if (error) throw error;
+      const rows = (data as any[]) || [];
+      let synced = 0;
+      const failures: string[] = [];
+      for (const r of rows) {
+        try {
+          const res = await syncSponsorToBP(r);
+          if (!("skipped" in res) || !res.skipped) synced++;
+          else failures.push(`${r.supplier_name}: ${res.reason}`);
+        } catch (e) {
+          failures.push(`${r.supplier_name}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+      console.log("[sponsors-resync] done", { total: rows.length, synced, failures });
+      return { total: rows.length, synced, failures };
+    },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["sponsorship-pipeline", eventId] });
+      qc.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      const failNote = res.failures.length
+        ? ` • ${res.failures.length} falhas: ${res.failures.slice(0, 2).join(" | ")}`
+        : "";
+      toast({
+        title: "Re-sincronização concluída",
+        description: `${res.synced}/${res.total} cards sincronizados com BP/TX.${failNote}`,
+        variant: res.synced === 0 && res.total > 0 ? "destructive" : "default",
+      });
+    },
+    onError: (e: Error) =>
+      toast({ title: "Erro na re-sincronização", description: e.message, variant: "destructive" }),
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -387,7 +431,18 @@ export function SponsorshipPipelineImportModal({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-2 flex-wrap">
+          <Button
+            variant="secondary"
+            onClick={() => resyncMutation.mutate()}
+            disabled={resyncMutation.isPending || importMutation.isPending}
+            title="Cria BP e transações para cards 'fechados' do pipeline que ainda não foram sincronizados"
+          >
+            {resyncMutation.isPending ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : null}
+            Re-sincronizar pendentes
+          </Button>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
