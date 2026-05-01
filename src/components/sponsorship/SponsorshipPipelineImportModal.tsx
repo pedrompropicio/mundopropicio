@@ -330,8 +330,9 @@ export function SponsorshipPipelineImportModal({
                   })}
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Apenas <b>"Fatura recebida"</b> entra com auto-sync ao BP. Os restantes ficam no pipeline
-                  até promoveres manualmente (botão "Promover ao BP" no card).
+                  <b>Fatura recebida</b>, <b>Fatura enviada</b> e <b>Pós-evento</b> entram com auto-sync ao BP
+                  (fatura recebida cria TX paga; restantes ficam pendentes). <b>Permutas</b> e linhas
+                  em negociação ficam só no pipeline até promoção manual.
                 </p>
               </div>
 
