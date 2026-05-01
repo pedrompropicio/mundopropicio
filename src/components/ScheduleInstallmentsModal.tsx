@@ -42,7 +42,7 @@ const fromYmd = (s: string) => {
   return new Date(y, (m ?? 1) - 1, d ?? 1);
 };
 
-function distributeEvenly(total: number, n: number): number[] {
+export function distributeEvenly(total: number, n: number): number[] {
   const cents = Math.round(total * 100);
   const base = Math.floor(cents / n);
   const remainder = cents - base * n;
@@ -50,7 +50,7 @@ function distributeEvenly(total: number, n: number): number[] {
   return arr;
 }
 
-function addByInterval(date: Date, interval: "weekly" | "biweekly" | "monthly", step: number): Date {
+export function addByInterval(date: Date, interval: "weekly" | "biweekly" | "monthly", step: number): Date {
   const d = new Date(date);
   if (interval === "weekly") d.setDate(d.getDate() + 7 * step);
   else if (interval === "biweekly") d.setDate(d.getDate() + 14 * step);
