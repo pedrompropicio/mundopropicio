@@ -243,67 +243,82 @@ export function computeScenarioKpis(
 // ---------- Break-Even solver ----------
 
 /**
- * Procura a quantidade adicional de pagantes (acima do real) por sessão
- * que zera o resultado geral, mantendo as proporções do real.
- * Distribui proporcionalmente ao TM da sessão.
+ * Resolve quantos bilhetes adicionais (acima do real) é preciso vender
+ * para zerar o resultado geral do cenário Break-Even.
+ *
+ * Regras (decisão de produto):
+ *  - Só a receita de bilheteira é a "alavanca" (o utilizador só controla isso).
+ *  - O aumento de público arrasta automaticamente A&B (Bebida + Alimento)
+ *    proporcional ao público — esse efeito está modelado em
+ *    `computeScenarioRevenue` (`abForPublic`) e em `computeScenarioCosts`
+ *    (CMV A&B = receita A&B × passthrough%).
+ *  - Souvenir, Patrocínio e Outros Créditos NÃO escalam com público —
+ *    permanecem como o cfg do cenário Break-Even.
+ *  - Os custos de evento usados são os do cenário Break-Even
+ *    (`break_even_amount` em cada `costLine`), e não os de "today".
+ *
+ * Margem unitária por bilhete adicional:
+ *    margem = TM_sessão
+ *           + drinkAvgTicket × (1 − drinkPassthrough%)
+ *           + foodAvgTicket  × (1 − foodPassthrough%)
+ *
+ * Como nenhuma das parcelas depende não-linearmente do nº de bilhetes
+ * adicionais, basta resolver linearmente:
+ *    extra = ceil(deficit_BE / margem_média_ponderada)
+ * e distribuir o `extra` proporcional ao TM de cada sessão.
  */
 export function solveBreakEven(
   sessions: CoalaSession[],
   costLines: CoalaCostLine[],
   cfg: CoalaConfig,
 ): { qtyByKey: Record<string, number>; reachable: boolean } {
-  // marginPerExtraPub = TM_médio + ticketABMédio − repasseAB − comissão (não consideramos comissão aqui)
-  // Vamos resolver por bisseção sobre fator multiplicador de "delta"
-  const today = computeScenarioRevenue(sessions, cfg, "today");
-  const todayCosts = computeScenarioCosts(costLines, today, cfg, "today");
-  const todayRes = computeScenarioResult(today, todayCosts);
+  const baseMap: Record<string, number> = {};
+  for (const s of sessions) baseMap[`${s.day_index}-${s.zone_label}`] = sessionTodayQty(s);
 
-  if (todayRes.general >= 0) {
-    // Já está no positivo → BE = real
-    const map: Record<string, number> = {};
-    for (const s of sessions) map[`${s.day_index}-${s.zone_label}`] = sessionTodayQty(s);
-    return { qtyByKey: map, reachable: true };
+  // Ponto de partida: cenário "Break Even" usando só o real como vendas.
+  const baseRev = computeScenarioRevenue(sessions, cfg, "breakeven", baseMap);
+  const baseCosts = computeScenarioCosts(costLines, baseRev, cfg, "breakeven");
+  const baseRes = computeScenarioResult(baseRev, baseCosts);
+
+  if (baseRes.general >= 0) {
+    // Já está no positivo (ou exato) → BE = real
+    return { qtyByKey: baseMap, reachable: true };
   }
 
-  // Para cada sessão, custo marginal de uma pessoa adicional:
-  //   receita = TM + (drinkAvgTicket + foodAvgTicket)
-  //   custo   = drinkAvgTicket*passthrough% + foodAvgTicket*passthrough%
-  //   margem  = TM + drinkAvgTicket*(1 - p_d) + foodAvgTicket*(1 - p_f)
-  const marginPerSeat = sessions.map((s) => {
-    const tm = sessionAvgTicket(s);
-    const margin =
-      tm +
-      n(cfg.ab_drink_avg_ticket) * (1 - n(cfg.ab_drink_passthrough_pct) / 100) +
-      n(cfg.ab_food_avg_ticket) * (1 - n(cfg.ab_food_passthrough_pct) / 100);
-    return Math.max(0, margin);
-  });
+  const deficit = -baseRes.general;
 
-  // Necessidade de margem extra
-  const need = -todayRes.general;
-  // Distribui em partes iguais (mais simples e estável que ponderação por TM)
+  // Margem unitária por sessão (bilhete + A&B líquido por pessoa)
+  const abMarginPerPub =
+    n(cfg.ab_drink_avg_ticket) * (1 - n(cfg.ab_drink_passthrough_pct) / 100) +
+    n(cfg.ab_food_avg_ticket) * (1 - n(cfg.ab_food_passthrough_pct) / 100);
+
+  const marginPerSeat = sessions.map((s) => Math.max(0, sessionAvgTicket(s) + abMarginPerPub));
   const sumMargin = marginPerSeat.reduce((a, b) => a + b, 0);
+
   if (sumMargin <= 0) {
-    const map: Record<string, number> = {};
-    for (const s of sessions) map[`${s.day_index}-${s.zone_label}`] = sessionTodayQty(s);
-    return { qtyByKey: map, reachable: false };
+    // Sem TM nem A&B → impossível resolver
+    return { qtyByKey: baseMap, reachable: false };
   }
 
-  // total extra de pagantes (somando margens médias). Usamos margem média ponderada igual.
+  // Margem média ponderada (cada sessão contribui igual em "uma pessoa adicional"):
   const avgMargin = sumMargin / marginPerSeat.length;
-  const totalExtra = Math.ceil(need / avgMargin);
+  const totalExtra = Math.ceil(deficit / avgMargin);
 
-  const map: Record<string, number> = {};
-  // distribui proporcional à participação do TM da sessão
-  const totalTM = sessions.reduce((a, s) => a + sessionAvgTicket(s), 0) || 1;
+  // Distribuição proporcional ao TM (sessões com TM maior absorvem mais bilhetes)
+  const totalTM = sessions.reduce((a, s) => a + sessionAvgTicket(s), 0);
+  const map: Record<string, number> = { ...baseMap };
   let allocated = 0;
   sessions.forEach((s, i) => {
     const key = `${s.day_index}-${s.zone_label}`;
+    const tm = sessionAvgTicket(s);
+    const weight = totalTM > 0 ? tm / totalTM : 1 / sessions.length;
     const share = i === sessions.length - 1
       ? totalExtra - allocated
-      : Math.round(totalExtra * (sessionAvgTicket(s) / totalTM));
+      : Math.round(totalExtra * weight);
     allocated += share;
-    map[key] = sessionTodayQty(s) + share;
+    map[key] = sessionTodayQty(s) + Math.max(0, share);
   });
+
   return { qtyByKey: map, reachable: true };
 }
 
