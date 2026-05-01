@@ -53,7 +53,7 @@ export default function RlsLegacyAudit() {
         .order("ran_at", { ascending: false })
         .limit(60);
       if (error) throw error;
-      return (data ?? []) as AuditReport[];
+      return (data ?? []) as unknown as AuditReport[];
     },
     enabled: isAuthorized,
   });
