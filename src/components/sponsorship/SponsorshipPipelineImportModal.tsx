@@ -118,15 +118,21 @@ export function SponsorshipPipelineImportModal({
 
   const importMutation = useMutation({
     mutationFn: async () => {
-      if (!companyId) throw new Error("Empresa não identificada.");
-      if (!filteredRows.length) throw new Error("Nada para importar.");
+      if (!companyId) throw new Error("Empresa não identificada — recarrega a página.");
+      if (!filteredRows.length) throw new Error("Nada para importar (todos os tipos desligados).");
+
+      const { data: userRes } = await supabase.auth.getUser();
+      const userId = userRes?.user?.id ?? null;
 
       // Carregar pipeline existente para idempotência por (event_id, supplier_name)
       const { data: existing, error: exErr } = await supabase
         .from("sponsorship_pipeline" as never)
-        .select("id, supplier_name, stage, doc_status, proposed_amount, confirmed_amount")
+        .select("id, supplier_name")
         .eq("event_id", eventId);
-      if (exErr) throw exErr;
+      if (exErr) {
+        console.error("[sponsors-import] select existing failed", exErr);
+        throw new Error(`Não consegui ler o pipeline existente: ${exErr.message}`);
+      }
 
       const norm = (s: string) =>
         s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
@@ -143,6 +149,7 @@ export function SponsorshipPipelineImportModal({
         const payload: any = {
           event_id: eventId,
           company_id: companyId,
+          created_by: userId,
           supplier_name: row.supplierName,
           stage,
           doc_status,
@@ -151,7 +158,7 @@ export function SponsorshipPipelineImportModal({
           currency: "EUR",
           iva_rate: 23,
           priority: "medium",
-          auto_sync_bp: row.kind === "paid", // só "Fatura recebida" promove automaticamente ao BP
+          auto_sync_bp: row.kind === "paid",
           notes: row.rawStatus
             ? `Importado de ${fileName} • estado original: "${row.rawStatus}"`
             : `Importado de ${fileName}`,
@@ -170,6 +177,7 @@ export function SponsorshipPipelineImportModal({
             } as never)
             .eq("id", found.id);
           if (error) {
+            console.error("[sponsors-import] update failed", row.supplierName, error);
             failures.push(`${row.supplierName}: ${error.message}`);
             continue;
           }
@@ -179,6 +187,7 @@ export function SponsorshipPipelineImportModal({
             .from("sponsorship_pipeline" as never)
             .insert(payload as never);
           if (error) {
+            console.error("[sponsors-import] insert failed", row.supplierName, payload, error);
             failures.push(`${row.supplierName}: ${error.message}`);
             continue;
           }
@@ -186,11 +195,26 @@ export function SponsorshipPipelineImportModal({
         }
       }
 
+      console.log("[sponsors-import] done", { inserted, updated, failuresCount: failures.length, failures });
       return { inserted, updated, failures };
     },
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["sponsorship-pipeline", eventId] });
-      const failNote = res.failures.length ? ` • ${res.failures.length} falhas.` : "";
+
+      if (res.inserted === 0 && res.updated === 0) {
+        // Tudo falhou — não fechar e mostrar erro detalhado
+        const sample = res.failures.slice(0, 3).join(" | ");
+        toast({
+          title: "Nada foi importado",
+          description: res.failures.length
+            ? `${res.failures.length} falhas. Exemplo: ${sample}`
+            : "Verifica permissões ou conteúdo do ficheiro.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const failNote = res.failures.length ? ` • ${res.failures.length} falhas (ver consola)` : "";
       toast({
         title: "Pipeline atualizado",
         description: `${res.inserted} novos, ${res.updated} atualizados.${failNote}`,
