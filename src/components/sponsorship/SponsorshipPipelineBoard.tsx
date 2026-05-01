@@ -201,12 +201,11 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
       )}
 
       {importOpen && (
-        <SponsorsImportModal
+        <SponsorshipPipelineImportModal
           open={importOpen}
           onOpenChange={setImportOpen}
           eventId={eventId}
-          eventName={eventName ?? ""}
-          eventDate={eventDate ?? ""}
+          companyId={companyId}
         />
       )}
     </div>
