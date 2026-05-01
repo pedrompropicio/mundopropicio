@@ -165,6 +165,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   // AI invoice extraction (auto-fills amount + iva_rate, opens split modal if multi-rate).
   const [extractingInvoice, setExtractingInvoice] = useState(false);
   const [aiPrefilledLines, setAiPrefilledLines] = useState<IvaSplitLine[] | null>(null);
+  // Ficheiro original lido pelo OCR — pode ser anexado às transações criadas.
+  const [pendingInvoiceFile, setPendingInvoiceFile] = useState<File | null>(null);
+  // Quando o utilizador escolhe IVA médio (1 transação), guardamos o file aqui
+  // para anexar via callback onSuccess da mutation single.
+  const [attachAfterCreateFile, setAttachAfterCreateFile] = useState<File | null>(null);
+  // Em IVA misto, guardamos o file para anexar a TODAS as transações irmãs.
+  const [attachIvaSplitFile, setAttachIvaSplitFile] = useState<File | null>(null);
   const queryClient = useQueryClient();
 
   /**
