@@ -811,8 +811,8 @@ export default function EventSimulator() {
                   <TableRow>
                     <TableHead>Categoria L3</TableHead>
                     <TableHead>Rótulo</TableHead>
-                    <TableHead className="text-right">2025</TableHead>
-                    <TableHead className="text-right">Atual (TX+BP)</TableHead>
+                    <TableHead className="text-right" title="Manual — introduzido para referência">2025 (manual)</TableHead>
+                    <TableHead className="text-right">Hoje (Edição 2026) = TX+BP</TableHead>
                     <TableHead className="text-right">Break Even</TableHead>
                     <TableHead className="text-right">Forecast</TableHead>
                     <TableHead className="text-center">A&B?</TableHead>
