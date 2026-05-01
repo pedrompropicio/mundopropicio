@@ -1185,10 +1185,52 @@ function KpiRow({ label, a, b, c, isInt }: { label: string; a: number; b: number
 }
 
 function CfgInput({ label, value, onChange, step = 1 }: { label: string; value: number; onChange: (v: number) => void; step?: number }) {
+  const isPercent = /\(%\)/.test(label);
+  const isCurrency = /\(€\)/.test(label);
+  const [focused, setFocused] = useState(false);
+  const [draft, setDraft] = useState<string>("");
+
+  const formatDisplay = (n: number) => {
+    if (!Number.isFinite(n)) return "";
+    if (isCurrency) {
+      return new Intl.NumberFormat("pt-PT", {
+        style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2,
+      }).format(n);
+    }
+    if (isPercent) {
+      return new Intl.NumberFormat("pt-PT", {
+        minimumFractionDigits: 0, maximumFractionDigits: 2,
+      }).format(n) + " %";
+    }
+    return new Intl.NumberFormat("pt-PT", { maximumFractionDigits: 2 }).format(n);
+  };
+
+  // Edição: aceita vírgula ou ponto, mantém o que o utilizador escreve
+  const parseDraft = (s: string): number => {
+    const cleaned = s.replace(/[^\d,.\-]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".");
+    const n = parseFloat(cleaned);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const display = focused ? draft : formatDisplay(Number(value) || 0);
+
   return (
     <div className="space-y-1">
       <Label className="text-xs">{label}</Label>
-      <Input type="number" step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
+      <Input
+        type="text"
+        inputMode="decimal"
+        value={display}
+        onFocus={() => {
+          setFocused(true);
+          setDraft(value ? String(value).replace(".", ",") : "");
+        }}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          setFocused(false);
+          onChange(parseDraft(draft));
+        }}
+      />
     </div>
   );
 }
