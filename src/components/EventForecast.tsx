@@ -3489,24 +3489,32 @@ function findMatchingTransactionsForForecast(
   allForecasts: any[],
 ): any[] {
   if (!eventTransactions) return [];
-  if (forecast.transaction_id) {
-    const direct = eventTransactions.filter((t: any) => t.id === forecast.transaction_id);
-    if (direct.length > 0) return direct;
-  }
+  // Direct back-link (always include)
+  const directTx = forecast.transaction_id
+    ? eventTransactions.filter((t: any) => t.id === forecast.transaction_id)
+    : [];
+
   const allowedEventIds = new Set([
     forecast.event_id,
     null,
     forecast._master_event_id,
   ].filter((value) => value !== undefined));
   const scoped = eventTransactions.filter((t: any) => allowedEventIds.has(t.event_id));
-  if (!forecast.category_id) return [];
+
+  const mergeWithDirect = (list: any[]) => {
+    if (directTx.length === 0) return list;
+    const ids = new Set(list.map((t: any) => t.id));
+    return [...list, ...directTx.filter((t: any) => !ids.has(t.id))];
+  };
+
+  if (!forecast.category_id) return directTx;
   const sameCat = scoped.filter(
     (t: any) => t.category_id === forecast.category_id && t.type === forecast.type,
   );
   const sameCatForecasts = (allForecasts ?? []).filter(
     (f: any) => f.category_id === forecast.category_id && f.type === forecast.type && f.event_id === forecast.event_id,
   );
-  if (sameCatForecasts.length <= 1) return sameCat;
+  if (sameCatForecasts.length <= 1) return mergeWithDirect(sameCat);
   const tokenize = (s: string) =>
     String(s ?? "").toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w.length >= 3);
   const score = (fd: string, td: string) => {
@@ -3523,7 +3531,7 @@ function findMatchingTransactionsForForecast(
     if (shared === 0) return 0;
     return shared * 100 + (shared / fT.size) * 10 - Math.abs(f.length - t.length) / 10000;
   };
-  return sameCat.filter((t: any) => {
+  const matched = sameCat.filter((t: any) => {
     const my = score(forecast.description, t.description);
     if (my <= 0) return false;
     const bestOther = sameCatForecasts.reduce((max: number, f: any) => {
@@ -3533,6 +3541,7 @@ function findMatchingTransactionsForForecast(
     }, 0);
     return my > bestOther;
   });
+  return mergeWithDirect(matched);
 }
 
 interface ComparisonRow {
