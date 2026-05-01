@@ -156,7 +156,7 @@ export async function syncSponsorToBP(row: SponsorshipPipelineRow): Promise<Sync
       is_transitory: false,
       transaction_id: transactionId,
       company_id: row.company_id,
-      notes: `Gerado automaticamente do Pipeline de Patrocínios (${row.stage === "barter" ? "Permuta" : "Fechado"})`,
+      notes: `Gerado automaticamente do Pipeline de Patrocínios (${isPaid ? "Pago" : "Fechado"})`,
     } as never)
     .select("id")
     .single();
