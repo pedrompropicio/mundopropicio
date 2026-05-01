@@ -372,8 +372,83 @@ Mantém-se a regra Core "Only L3 nodes are selectable".
 
 ---
 
-## 10. Resumo executivo
+## 10. Estratégia de convivência PT vs BR (Modelo B + C)
+
+**Decisão arquitetural**: mono-repo único com adapters por país (Modelo B), com possibilidade pontual de branches sandbox curtas para experiências arriscadas (Modelo C). **Forks paralelos PT vs BR estão proibidos** — divergem em meses e duplicam manutenção para sempre.
+
+### 10.1 Princípios
+
+- **1 codebase, 1 deploy, 1 base de migrations.** PT e BR convivem em runtime, nunca em branches paralelas longas.
+- **Isolamento por adapter, não por branch.** Tudo que muda por país vive em `src/lib/{tax,locale,legal-labels}/{pt,br}/` e é resolvido por hook (`useTaxEngine`, `useLocale`, `useLegalLabels`).
+- **Zero `if (country === 'BR')` em componentes UI.** Se aparece, é red flag — refatorar para adapter.
+- **Features 100% só-BR ou só-PT são permitidas e encorajadas**, desde que isoladas (ver §10.3). Não impactam o outro país.
+- **Branches sandbox vivem no máximo 1 mês.** Depois disso, ou merge para main com flag, ou descartar. Nunca deixar branch BR-only viva indefinidamente.
+
+### 10.2 Como adicionar uma feature **só-BR** sem impactar PT
+
+Exemplo: integração específica com ERP brasileiro Omie.
+
+1. **Código de domínio** → `src/lib/integrations/omie/` (pasta nova, BR-only por nome).
+2. **Componente UI** → `src/components/br/OmieExportButton.tsx`.
+3. **Página/rota** → registar em `App.tsx` envolvida em guard:
+   ```tsx
+   {company.country === 'BR' && <Route path="/integracoes/omie" element={<OmieExport/>} />}
+   ```
+4. **Item de menu** → `src/components/AppSidebar.tsx` filtrar por `useLocale().country`.
+5. **Edge function** (se precisar) → `supabase/functions/omie-export/` — internamente verifica `company.country` e devolve 403 se PT.
+6. **Migrations** → tabelas BR-only podem usar prefixo `br_` (ex: `br_omie_sync_log`) ou simplesmente ter `country = 'BR'` na coluna. Ambas válidas.
+7. **Testes** → `src/lib/__tests__/omie.test.ts` com fixtures BR.
+
+**Resultado**: utilizador PT nunca vê o botão, nunca atinge a rota, nunca executa a edge function. Bundle JS carrega o código mas isso é ~KBs negligenciáveis (e mitigável com `React.lazy` se crescer).
+
+### 10.3 Como adicionar uma feature **só-PT** sem impactar BR
+
+Exemplo: ficheiro SAF-T para a AT.
+
+Mesma receita, espelhada:
+
+1. `src/lib/integrations/saft/`
+2. `src/components/pt/SaftExportButton.tsx`
+3. `App.tsx` → `{company.country === 'PT' && ...}`
+4. Menu filtrado por `useLocale().country === 'PT'`
+5. Edge function `generate-saft/` rejeita BR
+6. Migration: tabela `pt_saft_runs` ou coluna com filtro `country = 'PT'`
+
+### 10.4 Quando usar branch sandbox (Modelo C)
+
+Use branch sandbox **apenas** quando:
+- A experiência envolve **mudar comportamento partilhado** e não tens certeza se vai funcionar (ex: testar novo motor de DRE só com cliente BR antes de generalizar).
+- O risco de partir PT em main é alto e a feature flag não chega.
+- A duração estimada é **< 1 mês**.
+
+Ciclo:
+1. Cria branch `sandbox/br-novo-dre` a partir de main.
+2. Desenvolve e testa **só com clientes BR** em ambiente Test.
+3. Validação concluída → merge para main com flag `country === 'BR'` no adapter.
+4. Branch é apagada. **Nunca** fica a viver paralelamente.
+
+Se uma sandbox passar dos 30 dias, parar e decidir: ou merge agora (com flag) ou abandonar.
+
+### 10.5 Anti-padrões a rejeitar em code review
+
+- ❌ `if (country === 'BR') { ... } else { ... }` num componente UI.
+- ❌ Componente único `<TransactionForm>` com 2 ramos enormes por país. → Em vez disso: `<TransactionFormPT>` e `<TransactionFormBR>` selecionados por hook.
+- ❌ Duplicar uma página inteira (`EventDetailBR.tsx`) só por causa de 2 labels. → Usar `useLegalLabels()`.
+- ❌ Branch `feature/br-omie` viva > 1 mês.
+- ❌ Hardcode `'IVA'` ou `'NIF'` em strings — sempre via `useLegalLabels()`.
+
+### 10.6 O que **convergência automática** garante
+
+Em Modelo B, qualquer bug fix em código partilhado (`src/lib/iva.ts` substituído por `src/lib/tax/index.ts`, helpers de DRE, lógica de Master/Split, etc.) **beneficia ambos os países no mesmo deploy**. Não há risco de "esqueci-me de portar para o fork BR" porque não existe fork.
+
+Quando aparecer 3º país (ES, AO, etc.), o custo é apenas: 1 adapter `tax/es/`, 1 `locale/es.ts`, 1 `legal-labels/es.ts`, 1 template plano de contas. Não há código duplicado a manter.
+
+---
+
+## 11. Resumo executivo
 
 Plataforma fica **country-aware** sem refactor pesado: PT mantém-se 100% igual, BR usa modelo gerencial puro com `fiscal_meta jsonb` informativo. Adapters (`TaxEngine`, `useLocale`, `useLegalLabels`) substituem `if (country === 'BR')` espalhados. Plano de contas por país via templates. Relatórios fiscais segregados, gerenciais universais. Export XLSX neutro para contador BR.
+
+**Convivência PT/BR**: mono-repo único (Modelo B) com adapters; branches sandbox curtas (< 1 mês, Modelo C) só para experiências arriscadas. Forks paralelos proibidos.
 
 **Esforço**: 4–5 semanas. **Risco principal**: regressão silenciosa em PT — mitigado por baselines + testes snapshot. **Saída**: pronto para receber cliente BR sem comprometer estabilidade da operação MP.
