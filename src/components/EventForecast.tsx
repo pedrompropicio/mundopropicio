@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive, Paperclip, Sparkles } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive, Paperclip, Sparkles, CalendarPlus } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import { BPVersionCard } from "@/components/bp-versions/BPVersionCard";
@@ -39,6 +39,7 @@ import BPImportModeDialog, { type BPImportMode } from "@/components/BPImportMode
 import PromoteToMasterModal, { type PromoteCandidate } from "@/components/PromoteToMasterModal";
 import OrphanAttachmentsResolver from "@/components/OrphanAttachmentsResolver";
 import { GenerateHistoricalModal, type XlsxRowForGeneration } from "@/components/GenerateHistoricalModal";
+import { ScheduleInstallmentsModal, type Installment } from "@/components/ScheduleInstallmentsModal";
 import { MarkAsFechadoDialog } from "@/components/bp-versions/MarkAsFechadoDialog";
 import { SponsorsImportModal } from "@/components/SponsorsImportModal";
 import { FormalidadeHistoryPopover } from "@/components/bp-versions/FormalidadeHistoryPopover";
@@ -1099,7 +1100,71 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     },
   });
 
-  // A BP line is "eligible to auto-generate a TX" only when it does not yet
+  // Schedule N installment transactions from a single approved BP line.
+  // Each installment becomes a transaction with its own date and amount.
+  const [scheduleTarget, setScheduleTarget] = useState<any | null>(null);
+  const scheduleInstallmentsMutation = useMutation({
+    mutationFn: async ({ forecast, installments }: { forecast: any; installments: Installment[] }) => {
+      const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+      const isBPApproved = forecast.status === "approved";
+      const txStatus = isBPApproved ? "approved" : "pending";
+      const ids: string[] = [];
+      for (let i = 0; i < installments.length; i++) {
+        const inst = installments[i];
+        const { data: insertedTx, error } = await supabase.from("transactions").insert({
+          event_id: eventId,
+          type: forecast.type,
+          description: inst.description || `${forecast.description} (${i + 1}/${installments.length})`,
+          specification: forecast.specification || null,
+          amount: Number(inst.amount),
+          iva_rate: Number(forecast.iva_rate),
+          category_id: forecast.category_id || null,
+          date: inst.date,
+          due_date: inst.date,
+          status: txStatus,
+        } as any).select("id").single();
+        if (error) throw error;
+        if (insertedTx?.id) {
+          ids.push(insertedTx.id);
+          await supabase.from("transaction_audit_log").insert({
+            transaction_id: insertedTx.id,
+            changed_by: callerName,
+            field_name: "Criação",
+            old_value: null,
+            new_value: `Programação de parcelas — ${i + 1}/${installments.length} de "${forecast.description}" — ${Number(inst.amount).toFixed(2)} €`,
+          });
+          if (isBPApproved) {
+            await supabase.from("transaction_audit_log").insert({
+              transaction_id: insertedTx.id,
+              changed_by: callerName,
+              field_name: "status",
+              old_value: "pending",
+              new_value: "approved",
+              observation: "Aprovação automática — linha do BP já aprovada",
+            } as any);
+          }
+        }
+      }
+      // Back-link first transaction to the forecast (matches single-tx convention).
+      if (!forecast.transaction_id && ids[0]) {
+        await supabase
+          .from("event_forecasts")
+          .update({ transaction_id: ids[0] } as any)
+          .eq("id", forecast.id);
+      }
+      return ids.length;
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+      toast({ title: `${count} transação(ões) programada(s) com sucesso.` });
+      setScheduleTarget(null);
+    },
+    onError: (err: any) => {
+      toast({ title: "Erro ao programar parcelas", description: err.message, variant: "destructive" });
+    },
+  });
   // have one. Rule: 1 auto-generated TX per BP line — additional TXs for the
   // same category must be created from the Transactions modal.
   const isEligibleForBulkTx = useCallback(
@@ -2171,7 +2236,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                   </td>
                                 </tr>
                               ) : (
-                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} />
+                                <ForecastRow key={f.id} item={f} colorClass="text-success" onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onScheduleInstallments={canApprove ? setScheduleTarget : undefined} />
                               )
                             ))}
                           </React.Fragment>
@@ -2403,7 +2468,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                                 <ForecastRow key={f.id} item={f} colorClass="text-warning" isExpense onEdit={undefined} onDelete={undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} readOnly indented={showGroupHeader} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} />
                               ) : (
                                 <React.Fragment key={f.id}>
-                                  <ForecastRow item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onAdoptFromSplits={childEventIds && childEventIds.length > 0 && canEditBP ? (item) => setAdoptTarget({ id: item.id, description: item.description, category_id: item.category_id, type: item.type }) : undefined} adoptedChildren={adoptedByMaster[f.id] ?? []} />
+                                  <ForecastRow item={f} colorClass="text-warning" isExpense onEdit={(canEditBP || canEditBPPartial) ? startEdit : undefined} onDelete={(canEditBP || canDeleteBP) ? (id, cascadeTransactionIds) => deleteMutation.mutate({ id, cascadeTransactionIds }) : undefined} onApprove={(item) => approveMutation.mutate(item)} isAdmin={canApprove} isApproving={approveMutation.isPending} isSelected={selectedIds.has(f.id)} onToggleSelect={toggleSelect} isEligibleForGen={isEligibleForBulkTx(f)} indented={showGroupHeader} onEditApproved={canApprove ? setEditApprovedForecast : undefined} canEditApproved={canEditApprovedBP} eventTransactions={transactions} assignedPartnerIds={forecastPartnerMap[f.id] ?? []} eventPartners={eventPartners} canManagePartners={canEditBP} queryClient={queryClient} eventId={eventId} canDeleteAlways={canDeleteBP} allForecasts={forecasts} onDistributeToSplits={childEventIds && childEventIds.length > 0 && canEditBP ? setDistributeTarget : undefined} onAdoptFromSplits={childEventIds && childEventIds.length > 0 && canEditBP ? (item) => setAdoptTarget({ id: item.id, description: item.description, category_id: item.category_id, type: item.type }) : undefined} adoptedChildren={adoptedByMaster[f.id] ?? []} onScheduleInstallments={canApprove ? setScheduleTarget : undefined} />
                                   {/* Adopted sub-event children */}
                                   {(adoptedByMaster[f.id] ?? []).map((af: any) => (
                                     <tr key={`adopted-${af.id}`} className="bg-primary/5 opacity-70 hover:opacity-100 transition-all">
@@ -2622,6 +2687,17 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         onConfirm={(xlsxRows) => generateHistoricalMutation.mutate(xlsxRows)}
       />
 
+      <ScheduleInstallmentsModal
+        open={!!scheduleTarget}
+        onOpenChange={(o) => { if (!o) setScheduleTarget(null); }}
+        forecast={scheduleTarget}
+        isSubmitting={scheduleInstallmentsMutation.isPending}
+        onConfirm={(installments) => {
+          if (!scheduleTarget) return;
+          scheduleInstallmentsMutation.mutate({ forecast: scheduleTarget, installments });
+        }}
+      />
+
       <MarkAsFechadoDialog
         open={!!pendingFechado}
         onOpenChange={(o) => { if (!o) setPendingFechado(null); }}
@@ -2685,7 +2761,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
 
 /* ── Sub-components ── */
 
-function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, isEligibleForGen = true, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [] }: {
+function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove, isAdmin, isApproving, isSelected, onToggleSelect, isEligibleForGen = true, indented, readOnly, onEditApproved, canEditApproved, eventTransactions, assignedPartnerIds = [], eventPartners = [], canManagePartners, queryClient, eventId, canDeleteAlways, allForecasts = [], onDistributeToSplits, onAdoptFromSplits, adoptedChildren = [], onScheduleInstallments }: {
   item: any; colorClass: string; isExpense?: boolean;
   onEdit?: (item: any) => void; onDelete?: (id: string, cascadeTransactionIds?: string[]) => void;
   onApprove: (item: any) => void; isAdmin: boolean; isApproving: boolean;
@@ -2700,6 +2776,7 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   onDistributeToSplits?: (item: any) => void;
   onAdoptFromSplits?: (item: any) => void;
   adoptedChildren?: any[];
+  onScheduleInstallments?: (item: any) => void;
 }) {
   const { isAdmin: isAdminAuth, isManager: isManagerAuth } = useAuth();
   const canSeeOverhead = isAdminAuth || isManagerAuth;
@@ -3144,6 +3221,15 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   title="Adotar linhas dos sub-eventos"
                 >
                   <ArrowUpRight className="h-3.5 w-3.5 text-primary" />
+                </button>
+              )}
+              {isApproved && isAdmin && isEligibleForGen && onScheduleInstallments && (
+                <button
+                  onClick={() => onScheduleInstallments(item)}
+                  className="rounded p-1 hover:bg-primary/20"
+                  title={isExpense ? "Programar pagamentos (parcelas)" : "Programar recebimentos (parcelas)"}
+                >
+                  <CalendarPlus className="h-3.5 w-3.5 text-primary" />
                 </button>
               )}
               {isApproved && isAdmin && onEditApproved && (
