@@ -100,6 +100,8 @@ export default function EventSimulator() {
   const { id: eventId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [activeTab, setActiveTab] = useState<string>("dashboard");
+  const tabContentRef = React.useRef<HTMLDivElement>(null);
 
   // ------- Queries -------
   const { data: event } = useQuery({
