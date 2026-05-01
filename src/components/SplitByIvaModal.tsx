@@ -66,7 +66,7 @@ const RATE_OPTIONS: IvaRate[] = [0, 6, 13, 23];
 
 const blankLine = (rate: IvaRate = 23): IvaSplitLine => ({ base: 0, iva_rate: rate, suffix: `IVA ${rate}%` });
 
-export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expectedTotal, initialBase, initialRate, prefilledLines, attachmentFile, attachmentLabel }: SplitByIvaModalProps) {
+export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expectedTotal, initialBase, initialRate, prefilledLines, attachmentFile, attachmentLabel, supplierName, transactionDescription }: SplitByIvaModalProps) {
   const hasAttachment = !!(attachmentFile || attachmentLabel);
   const [attachInvoice, setAttachInvoice] = useState<boolean>(true);
   useEffect(() => {
