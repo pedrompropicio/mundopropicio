@@ -63,6 +63,10 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
   const [accountId, setAccountId] = useState<string>("");
   const [createTransactions, setCreateTransactions] = useState(true);
   const [parsing, setParsing] = useState(false);
+  const [mergePrompt, setMergePrompt] = useState<{
+    forecastIds: string[];
+    summary: string;
+  } | null>(null);
 
   // Contas (banco / caixa) visíveis e não-ocultas
   const { data: accounts = [] } = useQuery({
