@@ -32,7 +32,8 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
   };
 
   // 1) Carrega fontes
-  const [datesRes, zonesRes, salesRes, existingRes, fcRes, catsRes, cfgRes] = await Promise.all([
+  const [eventRes, datesRes, zonesRes, salesRes, existingRes, fcRes, catsRes, cfgRes] = await Promise.all([
+    supabase.from("events").select("id, company_id").eq("id", eventId).maybeSingle(),
     supabase.from("event_dates").select("id, date").eq("event_id", eventId).order("date"),
     supabase.from("event_ticket_zones").select("id, name, total_capacity, session_id").eq("event_id", eventId).order("name"),
     supabase.from("ticket_sales").select("zone_id, sale_date, quantity, unit_price, total_value")
@@ -44,6 +45,11 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
     supabase.from("account_categories").select("id, code, name").eq("is_active", true),
     supabase.from("event_simulator_cost_lines").select("*").eq("event_id", eventId),
   ]);
+
+  if (eventRes.error) throw eventRes.error;
+  if (!eventRes.data?.company_id) throw new Error("Evento sem empresa associada; não é possível sincronizar o simulador.");
+
+  const companyId = eventRes.data.company_id;
 
   const dates = (datesRes.data ?? []) as Row[];
   const zones = (zonesRes.data ?? []) as Row[];
@@ -126,12 +132,14 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
         const { error } = await supabase
           .from("event_simulator_inputs")
           .update(patch as any).eq("id", existingRow.id);
-        if (!error) report.sessionsUpdated++;
+        if (error) throw error;
+        report.sessionsUpdated++;
       } else {
         const { error } = await supabase
           .from("event_simulator_inputs")
           .insert({
             event_id: eventId,
+            company_id: companyId,
             day_index: dIdx,
             day_date: d.date ?? null,
             zone_label: z.name,
@@ -144,7 +152,8 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
             avg_ticket_override: null,
             iva_pct: 6,
           } as any);
-        if (!error) report.sessionsCreated++;
+        if (error) throw error;
+        report.sessionsCreated++;
       }
     }
   }
@@ -235,12 +244,14 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
           actual_committed_bp: committedBp,
         })
         .eq("id", exists.id);
-      if (!error) report.costLinesUpdated++;
+      if (error) throw error;
+      report.costLinesUpdated++;
     } else {
       const { error } = await supabase
         .from("event_simulator_cost_lines")
         .insert({
           event_id: eventId,
+          company_id: companyId,
           category_id: catId,
           label: `${cat.code} — ${cat.name}`,
           prior_year_amount: 0,
@@ -252,7 +263,8 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
           is_ab_passthrough: false,
           display_order: order++,
         } as any);
-      if (!error) report.costLinesCreated++;
+      if (error) throw error;
+      report.costLinesCreated++;
     }
   }
 
@@ -285,7 +297,7 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
   } else {
     await supabase
       .from("event_simulator_config")
-      .insert({ event_id: eventId, sponsorship_revenue: sponsorsTotal } as any);
+      .insert({ event_id: eventId, company_id: companyId, sponsorship_revenue: sponsorsTotal } as any);
   }
 
   return report;
