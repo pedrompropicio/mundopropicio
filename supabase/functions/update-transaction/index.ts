@@ -172,12 +172,13 @@ Deno.serve(async (req) => {
     }
 
     // Build sanitized update object (only allowed fields)
+    // SECURITY: `status` removed — status transitions must go through the
+    // dedicated approve-transaction / liquidate flows (which enforce admin/manager).
     const allowedFields = [
       "description", "amount", "iva_rate", "event_id", "category_id",
       "supplier_id", "account_id", "specification", "date", "due_date",
       "payment_date", "is_transitory", "exclude_from_result", "split_mode",
       "invoice_ref", "payment_method", "payment_entity", "payment_reference",
-      "status",
       "declared_withholding_rate", "declared_withholding_amount",
     ];
     const sanitizedUpdates: Record<string, any> = {};
