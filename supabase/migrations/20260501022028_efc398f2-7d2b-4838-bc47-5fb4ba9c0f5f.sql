@@ -18,6 +18,10 @@ DROP POLICY IF EXISTS "Authenticated users can upload transaction docs" ON stora
 DROP POLICY IF EXISTS "Authenticated users can delete transaction docs" ON storage.objects;
 DROP POLICY IF EXISTS "Authenticated users can upload credit docs" ON storage.objects;
 DROP POLICY IF EXISTS "Authenticated users can upload import reports" ON storage.objects;
+DROP POLICY IF EXISTS "Supplier docs uploadable by privileged roles" ON storage.objects;
+DROP POLICY IF EXISTS "Transaction docs uploadable by privileged roles" ON storage.objects;
+DROP POLICY IF EXISTS "Credit docs uploadable by admin or manager" ON storage.objects;
+DROP POLICY IF EXISTS "Import reports uploadable by privileged roles" ON storage.objects;
 
 CREATE POLICY "Supplier docs uploadable by privileged roles"
 ON storage.objects FOR INSERT
