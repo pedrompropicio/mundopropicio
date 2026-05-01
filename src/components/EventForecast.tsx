@@ -41,7 +41,7 @@ import OrphanAttachmentsResolver from "@/components/OrphanAttachmentsResolver";
 import { GenerateHistoricalModal, type XlsxRowForGeneration } from "@/components/GenerateHistoricalModal";
 import { ScheduleInstallmentsModal, type Installment } from "@/components/ScheduleInstallmentsModal";
 import { MarkAsFechadoDialog } from "@/components/bp-versions/MarkAsFechadoDialog";
-import { SponsorsImportModal } from "@/components/SponsorsImportModal";
+// SponsorsImportModal removido — substituído pelo Pipeline de Patrocínios
 import { FormalidadeHistoryPopover } from "@/components/bp-versions/FormalidadeHistoryPopover";
 import { FormalidadeBadge } from "@/components/bp-versions/FormalidadeBadge";
 import { BulkFormalidadePopover } from "@/components/bp-versions/BulkFormalidadePopover";
