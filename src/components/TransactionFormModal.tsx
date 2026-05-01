@@ -1406,6 +1406,41 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   const rootFlags = getRootFlags(form.category_id);
 
+  /** Faz upload do ficheiro e cria N rows em transaction_documents — um por id. */
+  const attachInvoiceToTransactions = async (file: File, txIds: string[]) => {
+    if (!file || txIds.length === 0) return;
+    try {
+      const ext = (file.name.split(".").pop() || "bin").toLowerCase();
+      // Faz upload uma vez (path baseado na 1ª tx) e reutiliza o mesmo path em todos os rows.
+      const path = `${txIds[0]}/${Date.now()}-invoice.${ext}`;
+      const { error: uploadError, path: filePath } = await uploadToCompanyBucket(
+        "transaction-documents",
+        path,
+        file,
+      );
+      if (uploadError) throw uploadError;
+      const docType = ext === "pdf" ? "pdf" : (["jpg", "jpeg", "png", "webp", "heic", "heif"].includes(ext) ? "imagem" : "outro");
+      const rows = txIds.map((tid) => ({
+        transaction_id: tid,
+        name: file.name,
+        file_url: filePath,
+        doc_type: docType,
+        uploaded_by: user?.email ?? "sistema",
+        is_accounting: true,
+      }));
+      const { error: dbError } = await supabase.from("transaction_documents").insert(rows as any);
+      if (dbError) throw dbError;
+      toast({ title: "Fatura anexada", description: `Anexada a ${txIds.length} transação(ões).` });
+    } catch (err: any) {
+      console.error("attachInvoiceToTransactions", err);
+      toast({
+        title: "Erro a anexar fatura",
+        description: err?.message ?? "Podes anexar manualmente depois.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const proceedWithCreate = async () => {
     setShowDuplicateConfirm(false);
     setShowProrationConfirm(false);
@@ -1416,12 +1451,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         `auto-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
       const { newInvoiceGroupId } = await import("@/lib/invoice-group");
       const sharedGroupId = newInvoiceGroupId();
+      const createdIds: string[] = [];
       try {
         for (const line of pendingIvaSplit) {
           const desc = line.suffix
             ? `${form.description} (${line.suffix})`
             : form.description;
-          await createMutation.mutateAsync({
+          const newId = await createMutation.mutateAsync({
             ...form,
             description: desc,
             amount: String(line.base),
@@ -1429,12 +1465,19 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             invoice_ref: sharedInvoiceRef,
             invoice_group_id: sharedGroupId,
           });
+          if (newId) createdIds.push(newId);
+        }
+        // Anexa a fatura a todas as transações criadas, se solicitado.
+        if (attachIvaSplitFile && createdIds.length > 0) {
+          await attachInvoiceToTransactions(attachIvaSplitFile, createdIds);
         }
         toast({
           title: "Transações criadas",
           description: `${pendingIvaSplit.length} linhas vinculadas pelo Nº fatura ${sharedInvoiceRef}. Eliminar, liquidar ou aprovar uma propaga às outras.`,
         });
         setPendingIvaSplit(null);
+        setAttachIvaSplitFile(null);
+        setPendingInvoiceFile(null);
         onClose();
       } catch (e) {
         // mutation onError already toasts; nothing else to do
