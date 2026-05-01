@@ -687,7 +687,7 @@ export default function EventSimulator() {
           cost={beCosts}
           res={beRes}
           kpis={beKpis}
-          extra={beSolution.reachable ? null : <Badge variant="destructive">Inalcançável com margem atual</Badge>}
+          extra={<BreakEvenSummary solution={beSolution} />}
         />
         <ScenarioCard title="Forecast" tone="success" rev={forecast} cost={fcCosts} res={fcRes} kpis={fcKpis} />
       </div>
