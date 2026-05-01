@@ -866,8 +866,9 @@ export default function EventSimulator() {
                 </TableBody>
               </Table>
               <p className="mt-3 text-xs text-muted-foreground">
-                Marque "A&B?" nas linhas <em>A&B Bebida</em> e <em>A&B Alimento</em> — esses valores são recalculados automaticamente
-                pelo % de repasse aplicado à receita derivada (não somam diretamente).
+                <strong>2025 (manual)</strong>: introduzido manualmente para referência (não é puxado da DB).
+                <strong> Hoje (Edição 2026)</strong>: soma <em>Transações (qualquer status)</em> + <em>BP aprovado sem TX vinculada</em>.
+                Marque "A&B?" nas linhas <em>A&B Bebida/Alimento</em> — recalculadas pelo % de repasse.
               </p>
             </CardContent>
           </Card>
