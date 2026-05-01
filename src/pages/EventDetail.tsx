@@ -10,6 +10,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { StatCard } from "@/components/StatCard";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { EventForecast } from "@/components/EventForecast";
+import { SponsorshipPipelineBoard } from "@/components/sponsorship/SponsorshipPipelineBoard";
 import { EventTicketing } from "@/components/EventTicketing";
 import { EventCacheConfig } from "@/components/EventCacheConfig";
 import { EventPartnersTab } from "@/components/EventPartnersTab";
@@ -884,6 +885,7 @@ export default function EventDetail() {
           <TabsTrigger value="ticketing" className="flex items-center gap-1">Bilheteira <HelpTooltip text={helpTexts.eventTicketing} size={13} /></TabsTrigger>
           {(isAdmin || isManager) && <TabsTrigger value="cache" className="flex items-center gap-1">Cachê <HelpTooltip text={helpTexts.eventCache} size={13} /></TabsTrigger>}
           <TabsTrigger value="forecast" className="flex items-center gap-1">Business Plan <HelpTooltip text={helpTexts.eventForecast} size={13} /></TabsTrigger>
+          <TabsTrigger value="sponsors">Patrocínios</TabsTrigger>
           {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partners" className="flex items-center gap-1">Sócios <HelpTooltip text={helpTexts.eventPartners} size={13} /></TabsTrigger>}
           {(isAdmin || isManager) && <TabsTrigger value="closing-costs" className="flex items-center gap-1">Overhead <HelpTooltip text={helpTexts.eventClosingTab} size={13} /></TabsTrigger>}
           {(isAdmin || isManager) && <TabsTrigger value="fecho" className="flex items-center gap-1">Fecho</TabsTrigger>}
@@ -1109,6 +1111,16 @@ export default function EventDetail() {
               <EventForecast eventId={selectedSubEvent || event.id} eventDate={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.date || event.date) : event.date} eventName={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.name || event.name) : event.name} childEventIds={!selectedSubEvent && isMultiEvent ? subEvents.map((s: any) => s.id) : undefined} parentEventId={(selectedSubEvent && isMultiEvent ? id : undefined) || (event?.parent_event_id ? event.parent_event_id : undefined)} eventStatus={event.status} />
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="sponsors">
+          <SponsorshipPipelineBoard
+            eventId={selectedSubEvent || event.id}
+            eventName={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.name || event.name) : event.name}
+            eventDate={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.date || event.date) : event.date}
+            companyId={event.company_id ?? null}
+            canEdit={isAdmin || isManager}
+          />
         </TabsContent>
 
         {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && (
