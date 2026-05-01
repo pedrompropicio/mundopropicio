@@ -1101,9 +1101,19 @@ export default function EventSimulator() {
 }
 
 // ---------- Subcomponentes ----------
-function ScenarioCard({ title, tone, rev, cost, res, kpis, extra }: any) {
+function ScenarioCard({ title, tone, rev, cost, res, kpis, extra, dailyTotals }: any) {
   const toneCls = tone === "warning" ? "border-amber-500/40" : tone === "success" ? "border-emerald-500/40" : "border-border";
   const resColor = res.general >= 0 ? "text-emerald-500" : "text-rose-500";
+  const fmtDayShort = (d: string | null, idx: number) => {
+    if (!d) return `Dia ${idx + 1}`;
+    const m = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return d;
+    const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    const s = dt.toLocaleDateString("pt-PT", { weekday: "short", day: "2-digit", month: "short" });
+    return s.charAt(0).toUpperCase() + s.slice(1).replace(".", "");
+  };
+  const days: Array<[number, { paying: number; courtesy: number; total: number; date: string | null }]> = dailyTotals ?? [];
+  const showDailyBreakdown = days.length > 1;
   return (
     <Card className={toneCls}>
       <CardHeader className="pb-2">
@@ -1112,7 +1122,22 @@ function ScenarioCard({ title, tone, rev, cost, res, kpis, extra }: any) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-1 text-sm">
-        <div className="flex justify-between"><span className="text-muted-foreground">Público</span><span>{fmtNum(kpis.totalPublic)}</span></div>
+        {showDailyBreakdown ? (
+          <>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Público presente</div>
+            {days.map(([d, t]) => (
+              <div key={d} className="flex justify-between">
+                <span className="text-muted-foreground">{fmtDayShort(t.date, d)}</span>
+                <span className="tabular-nums">{fmtNum(t.total)}</span>
+              </div>
+            ))}
+            <div className="flex justify-between text-xs text-muted-foreground border-t pt-1">
+              <span>Produtos vendidos</span><span className="tabular-nums">{fmtNum(kpis.totalPublic)}</span>
+            </div>
+          </>
+        ) : (
+          <div className="flex justify-between"><span className="text-muted-foreground">Público</span><span>{fmtNum(kpis.totalPublic)}</span></div>
+        )}
         <div className="flex justify-between"><span className="text-muted-foreground">Receita</span><span>{fmt(rev.totalRevenue)}</span></div>
         <div className="flex justify-between"><span className="text-muted-foreground">Custo</span><span>{fmt(cost.totalCost)}</span></div>
         <div className={`flex justify-between font-bold border-t pt-1 mt-1 ${resColor}`}>
