@@ -471,6 +471,24 @@ export default function EventSimulator() {
     try { exportSimulatorToPdf(buildExportData()); toast({ title: "PDF exportado", description: "4 páginas: Resumo · Sessões · Custos · IVA." }); }
     catch (e: any) { toast({ title: "Erro a exportar PDF", description: e.message, variant: "destructive" }); }
   };
+  const handleExportViewPdf = async () => {
+    if (!tabContentRef.current) return;
+    const tabLabel: Record<string, string> = {
+      dashboard: "Dashboard", sessions: "Sessões (Dia × Zona)", daily: "Público diário",
+      revenue: "Faturamento", sponsors: "Patrocínios", costs: "Custos", iva: "IVA",
+      result: "Resultados", config: "Configuração",
+    };
+    try {
+      await exportNodeToPdf(
+        tabContentRef.current,
+        `Simulador_${event?.name ?? "evento"}_${tabLabel[activeTab] ?? activeTab}.pdf`,
+        { orientation: "l", title: `Simulador — ${event?.name ?? ""} · ${tabLabel[activeTab] ?? activeTab}` },
+      );
+      toast({ title: "PDF da vista exportado", description: tabLabel[activeTab] ?? activeTab });
+    } catch (e: any) {
+      toast({ title: "Erro a exportar PDF", description: e.message, variant: "destructive" });
+    }
+  };
 
 
   // Presença diária expandindo combos
