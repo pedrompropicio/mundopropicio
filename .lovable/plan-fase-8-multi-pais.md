@@ -1,10 +1,51 @@
 # Fase 8 — Suporte multi-país (PT + BR gerencial)
 
-> **Estado**: aprovado, pronto a executar.
-> **Estimativa**: 4–5 semanas com 1 dev focado.
-> **Pré-requisito**: Fase 7 (multi-tenant Live) concluída ✅
+> **Estado**: aprovado, **EM QUARENTENA** até 2026-05-29 (4 semanas pós multi-tenant).
+> **Estimativa**: 4–5 semanas com 1 dev focado, após arranque.
+> **Pré-requisito**: Fase 7 (multi-tenant Live) concluída ✅ + janela de quarentena (§0) cumprida.
 
 ---
+
+## 0. Janela de quarentena pós multi-tenant (decidido 2026-05-01)
+
+A multi-empresa (Fase 7) só foi a Live em meados de Abril/2026 e ainda está a estabilizar (54 RLS leaky policies corrigidas a 2026-04-30, batch 9 NOT NULL pendente para 2026-05-06). Fase 8 toca exatamente nas mesmas camadas (RLS, `companies`, `profiles`, edge fns, branding, `current_company_id()`). Empilhar agora cria sobreposição cognitiva e baselines D5 frágeis.
+
+### Regra
+**Fase 8.1 (mexer em código de produção) não arranca antes de 2026-05-29 e antes de TODOS os gatilhos abaixo serem verdes.**
+
+### Gatilhos obrigatórios de arranque (todos verdes)
+1. ✅ Batch 9 NOT NULL aplicado em Live sem incidente
+2. ✅ Auditoria RLS legacy (`auth.uid() IS NOT NULL`) devolve 0 linhas em Live
+3. ✅ ≥ 14 dias consecutivos sem bug multi-tenant reportado
+4. ✅ ≥ 1 segundo cliente real operacional em Live (prova que a base aguenta)
+5. ✅ Baselines DRE/BP capturados (Fase 8.0 concluída) — snapshot Vitest da operação MP atual
+6. ✅ Decisão go/no-go formal do utilizador
+
+### O que **pode** ser feito durante a quarentena
+- **Fase 8.0** (baselines + grep + decisões com cliente BR) — só leitura/análise, não muda código.
+- Validar plano de contas BR (§6) com sócio/contador.
+- Confirmar campos exatos do export contador BR.
+- Confirmar se há histórico XLSX BR a importar.
+- Estabilizar multi-tenant: fechar pendências, fazer o batch 9, observar Live.
+
+### O que **NÃO** pode ser feito durante a quarentena
+- ❌ Criar `transactions.fiscal_meta` ou qualquer schema da Fase 8.
+- ❌ Refactorizar `src/lib/iva.ts` para `TaxEngine` adapter.
+- ❌ Adicionar pasta `src/lib/tax/{pt,br}/` ou hooks `useTaxEngine` etc.
+- ❌ Tocar em RLS por motivos relacionados com país.
+- ❌ Onboarding de cliente BR em Live.
+
+### Por que **não** ambiente paralelo / branch longa
+- Modelo B+C (§10) proíbe forks > 30 dias. Fase 8 inteira (4–5 sem) num branch divergiria de `main` que continua a receber fixes multi-tenant.
+- O isolamento real durante Fase 8 é dado pela invariante D5 (zero-cêntimo PT) + guards `country === 'XX'`, não por ambiente paralelo.
+- Test e Live já são os "dois ambientes" que servem este propósito.
+- Sandbox curta (≤ 1 sem) **dentro** da Fase 8 (ex.: refactor TaxEngine) continua permitida pontualmente.
+
+### Critério de saída da quarentena
+Quando os 6 gatilhos estiverem verdes, abrir Fase 8.1 atrás de PR com baselines de regressão ligados em CI. Se algum gatilho falhar, **estender** a quarentena, não saltá-la.
+
+---
+
 
 ## 1. Contexto e escopo
 
