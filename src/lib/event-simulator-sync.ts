@@ -32,7 +32,8 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
   };
 
   // 1) Carrega fontes
-  const [datesRes, zonesRes, salesRes, existingRes, fcRes, catsRes, cfgRes] = await Promise.all([
+  const [eventRes, datesRes, zonesRes, salesRes, existingRes, fcRes, catsRes, cfgRes] = await Promise.all([
+    supabase.from("events").select("id, company_id").eq("id", eventId).maybeSingle(),
     supabase.from("event_dates").select("id, date").eq("event_id", eventId).order("date"),
     supabase.from("event_ticket_zones").select("id, name, total_capacity, session_id").eq("event_id", eventId).order("name"),
     supabase.from("ticket_sales").select("zone_id, sale_date, quantity, unit_price, total_value")
@@ -44,6 +45,11 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
     supabase.from("account_categories").select("id, code, name").eq("is_active", true),
     supabase.from("event_simulator_cost_lines").select("*").eq("event_id", eventId),
   ]);
+
+  if (eventRes.error) throw eventRes.error;
+  if (!eventRes.data?.company_id) throw new Error("Evento sem empresa associada; não é possível sincronizar o simulador.");
+
+  const companyId = eventRes.data.company_id;
 
   const dates = (datesRes.data ?? []) as Row[];
   const zones = (zonesRes.data ?? []) as Row[];
