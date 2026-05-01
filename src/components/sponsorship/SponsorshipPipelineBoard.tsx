@@ -203,7 +203,6 @@ export function SponsorshipPipelineBoard({ eventId, companyId, canEdit }: Props)
           open={importOpen}
           onOpenChange={setImportOpen}
           eventId={eventId}
-          targetMode="pipeline"
         />
       )}
     </div>
