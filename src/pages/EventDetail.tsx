@@ -879,18 +879,24 @@ export default function EventDetail() {
       {/* Main tabs — wrapped in scenario provider so BP/Bilheteira/Cachê share the same selected version */}
       <EventScenarioProvider eventId={activeEventId}>
       <ScenarioModeBanner eventId={activeEventId} />
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={(v) => {
+        if (v === "simulador") {
+          navigate(`/eventos/${selectedSubEvent || event.id}/simulador`);
+          return;
+        }
+        setActiveTab(v);
+      }} className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Resumo</TabsTrigger>
           <TabsTrigger value="ticketing" className="flex items-center gap-1">Bilheteira <HelpTooltip text={helpTexts.eventTicketing} size={13} /></TabsTrigger>
           {(isAdmin || isManager) && <TabsTrigger value="cache" className="flex items-center gap-1">Cachê <HelpTooltip text={helpTexts.eventCache} size={13} /></TabsTrigger>}
+          {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partners" className="flex items-center gap-1">Sócios <HelpTooltip text={helpTexts.eventPartners} size={13} /></TabsTrigger>}
           <TabsTrigger value="forecast" className="flex items-center gap-1">Business Plan <HelpTooltip text={helpTexts.eventForecast} size={13} /></TabsTrigger>
           <TabsTrigger value="sponsors">Patrocínios</TabsTrigger>
-          {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partners" className="flex items-center gap-1">Sócios <HelpTooltip text={helpTexts.eventPartners} size={13} /></TabsTrigger>}
           {(isAdmin || isManager) && <TabsTrigger value="closing-costs" className="flex items-center gap-1">Overhead <HelpTooltip text={helpTexts.eventClosingTab} size={13} /></TabsTrigger>}
           {(isAdmin || isManager) && <TabsTrigger value="fecho" className="flex items-center gap-1">Fecho</TabsTrigger>}
           {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partner-expenses" className="flex items-center gap-1">Desp. Sócios <HelpTooltip text={helpTexts.partnerExpenses} size={13} /></TabsTrigger>}
-          {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partner-settlement" className="flex items-center gap-1">Fecho Parceiros <HelpTooltip text={helpTexts.partnerSettlement} size={13} /></TabsTrigger>}
+          <TabsTrigger value="simulador" className="flex items-center gap-1">Simulador</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -1144,11 +1150,12 @@ export default function EventDetail() {
 
         {(isAdmin || isManager) && (
           <TabsContent value="fecho">
-            <EventFecho
-              eventId={selectedSubEvent || event.id}
-              eventName={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.name || event.name) : event.name}
-              childEventIds={!selectedSubEvent && isMultiEvent ? subEvents.map((s: any) => s.id) : []}
-              parentEventId={selectedSubEvent ? event.id : event.parent_event_id}
+            <FechoUnifiedTab
+              event={event}
+              selectedSubEvent={selectedSubEvent}
+              subEvents={subEvents}
+              isMultiEvent={isMultiEvent}
+              canSeePartners={!event?.parent_event_id && !selectedSubEvent}
             />
           </TabsContent>
         )}
@@ -1156,16 +1163,6 @@ export default function EventDetail() {
         {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && (
           <TabsContent value="partner-expenses">
             <PartnerPaidExpensesPanel eventId={event.id} eventStatus={event.status} />
-          </TabsContent>
-        )}
-
-        {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && (
-          <TabsContent value="partner-settlement">
-            <PartnerSettlementTab
-              eventId={event.id}
-              eventName={event.name}
-              childEventIds={isMultiEvent ? subEvents.map((s: any) => s.id) : []}
-            />
           </TabsContent>
         )}
 
@@ -1190,6 +1187,66 @@ export default function EventDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+/**
+ * Tab unificada de Fecho: alterna entre o fecho geral do evento e o fecho de
+ * sócios/parceiros via sub-toggle. Substitui as antigas tabs separadas
+ * "Fecho" e "Fecho Parceiros".
+ */
+function FechoUnifiedTab({
+  event,
+  selectedSubEvent,
+  subEvents,
+  isMultiEvent,
+  canSeePartners,
+}: {
+  event: any;
+  selectedSubEvent: string | null;
+  subEvents: any[];
+  isMultiEvent: boolean;
+  canSeePartners: boolean;
+}) {
+  const [mode, setMode] = useState<"general" | "partners">("general");
+  const eventName = selectedSubEvent
+    ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.name || event.name)
+    : event.name;
+
+  return (
+    <div className="space-y-4">
+      {canSeePartners && (
+        <div className="inline-flex rounded-lg border border-border/60 bg-secondary/30 p-1 text-xs font-medium">
+          <button
+            onClick={() => setMode("general")}
+            className={`px-3 py-1.5 rounded-md transition-colors ${mode === "general" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Geral do evento
+          </button>
+          <button
+            onClick={() => setMode("partners")}
+            className={`px-3 py-1.5 rounded-md transition-colors ${mode === "partners" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Sócios / Parceiros
+          </button>
+        </div>
+      )}
+
+      {mode === "general" || !canSeePartners ? (
+        <EventFecho
+          eventId={selectedSubEvent || event.id}
+          eventName={eventName}
+          childEventIds={!selectedSubEvent && isMultiEvent ? subEvents.map((s: any) => s.id) : []}
+          parentEventId={selectedSubEvent ? event.id : event.parent_event_id}
+        />
+      ) : (
+        <PartnerSettlementTab
+          eventId={event.id}
+          eventName={event.name}
+          childEventIds={isMultiEvent ? subEvents.map((s: any) => s.id) : []}
+        />
+      )}
     </div>
   );
 }
