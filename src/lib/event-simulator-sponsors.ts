@@ -45,42 +45,55 @@ export async function loadSponsors(
   if (!l3Ids.length) return [];
 
   // 2) Carregar forecasts de receita aprovados nessas categorias para o evento
-  const { data: forecasts } = await supabase
+  const { data: forecastsRaw } = await supabase
     .from("event_forecasts")
-    .select("id, description, amount, category_id, supplier_id, account_categories(code, name), suppliers(name)")
+    .select("id, description, amount, category_id, supplier_id")
     .eq("event_id", eventId)
     .eq("type", "revenue")
     .eq("status", "approved")
     .in("category_id", l3Ids);
 
-  if (!forecasts?.length) return [];
+  const forecasts = (forecastsRaw ?? []) as Array<{
+    id: string; description: string | null; amount: number;
+    category_id: string | null; supplier_id: string | null;
+  }>;
+  if (!forecasts.length) return [];
 
-  const forecastIds = forecasts.map((f: any) => f.id);
+  const forecastIds = forecasts.map((f) => f.id);
+  const supplierIds = Array.from(new Set(forecasts.map((f) => f.supplier_id).filter(Boolean) as string[]));
+  const catIds = Array.from(new Set(forecasts.map((f) => f.category_id).filter(Boolean) as string[]));
 
-  // 3) Carregar transações vinculadas para calcular o realizado
-  const { data: txs } = await supabase
-    .from("transactions")
-    .select("amount, status, forecast_id")
-    .in("forecast_id", forecastIds);
+  // 3) Lookups paralelos
+  const [{ data: txs }, { data: suppliers }, { data: cats }] = await Promise.all([
+    supabase.from("transactions").select("amount, forecast_id").in("forecast_id", forecastIds),
+    supplierIds.length
+      ? supabase.from("suppliers").select("id, name").in("id", supplierIds)
+      : Promise.resolve({ data: [] as any[] }),
+    catIds.length
+      ? supabase.from("account_categories").select("id, code, name").in("id", catIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
 
   const actualByForecast = new Map<string, number>();
-  for (const t of txs ?? []) {
-    const k = (t as any).forecast_id;
-    if (!k) continue;
-    actualByForecast.set(k, (actualByForecast.get(k) ?? 0) + Number((t as any).amount || 0));
+  for (const t of (txs ?? []) as Array<{ forecast_id: string | null; amount: number }>) {
+    if (!t.forecast_id) continue;
+    actualByForecast.set(t.forecast_id, (actualByForecast.get(t.forecast_id) ?? 0) + Number(t.amount || 0));
   }
+  const supplierById = new Map((suppliers ?? []).map((s: any) => [s.id, s.name as string]));
+  const catById = new Map((cats ?? []).map((c: any) => [c.id, { code: c.code as string, name: c.name as string }]));
 
-  return forecasts.map((f: any): SponsorRow => {
+  return forecasts.map((f): SponsorRow => {
     const planned = Number(f.amount || 0);
     const actual = actualByForecast.get(f.id) ?? 0;
     const ratio = planned > 0 ? actual / planned : 0;
     const status_hint =
       ratio >= 0.99 ? "fully_received" : ratio > 0 ? "partial" : "pending";
+    const cat = f.category_id ? catById.get(f.category_id) : undefined;
     return {
       forecast_id: f.id,
-      sponsor_name: f.suppliers?.name || f.description || "Patrocinador",
-      category_code: f.account_categories?.code || "",
-      category_name: f.account_categories?.name || "",
+      sponsor_name: (f.supplier_id && supplierById.get(f.supplier_id)) || f.description || "Patrocinador",
+      category_code: cat?.code || "",
+      category_name: cat?.name || "",
       planned_amount: planned,
       actual_amount: actual,
       status_hint,
