@@ -89,7 +89,7 @@ export function useUpdateSponsor(eventId: string) {
       // Não bloqueia o fluxo em caso de falha — só faz log + toast.
       try {
         const result = await syncSponsorToBP(row);
-        if (!result.skipped && result.created) {
+        if (result.skipped === false && result.created) {
           toast({ title: "BP e transação criados", description: row.supplier_name });
         }
       } catch (e) {
