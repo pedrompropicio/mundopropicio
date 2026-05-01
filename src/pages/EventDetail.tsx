@@ -1112,7 +1112,16 @@ export default function EventDetail() {
           )}
         </TabsContent>
 
-        {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && (
+        <TabsContent value="sponsors">
+          <SponsorshipPipelineBoard
+            eventId={selectedSubEvent || event.id}
+            eventName={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.name || event.name) : event.name}
+            eventDate={selectedSubEvent ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.date || event.date) : event.date}
+            companyId={event.company_id ?? null}
+            canEdit={isAdmin || isManager}
+          />
+        </TabsContent>
+
           <TabsContent value="partners">
             <div className="space-y-6">
               <EventPartnersTab eventId={event.id} eventStatus={event.status} />
