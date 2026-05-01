@@ -109,7 +109,7 @@ export function useSyncSponsorBP(eventId: string) {
       qc.invalidateQueries({ queryKey: ["sponsorship-pipeline", eventId] });
       qc.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
       qc.invalidateQueries({ queryKey: ["transactions"] });
-      if (result.skipped) {
+      if (result.skipped === true) {
         const reasons: Record<string, string> = {
           barter_pipeline_only: "Permutas ficam só no pipeline.",
           no_company: "Empresa não identificada.",
@@ -121,12 +121,12 @@ export function useSyncSponsorBP(eventId: string) {
           description: reasons[result.reason] ?? result.reason,
           variant: "destructive",
         });
-      } else {
-        toast({
-          title: result.created ? "BP e transação criados" : "BP e transação atualizados",
-          description: row.supplier_name,
-        });
+        return;
       }
+      toast({
+        title: result.created ? "BP e transação criados" : "BP e transação atualizados",
+        description: row.supplier_name,
+      });
     },
     onError: (e: Error) =>
       toast({ title: "Erro ao sincronizar", description: e.message, variant: "destructive" }),
