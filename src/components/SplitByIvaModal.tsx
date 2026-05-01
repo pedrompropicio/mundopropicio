@@ -126,27 +126,32 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
 
   const handleFile = async (file: File) => {
     if (!file) return;
-    if (file.size > 15 * 1024 * 1024) {
-      toast({ title: "Ficheiro grande", description: "Limite 15MB.", variant: "destructive" });
+    if (file.size > 50 * 1024 * 1024) {
+      toast({ title: "Ficheiro grande", description: "Limite 50MB.", variant: "destructive" });
       return;
     }
     setExtracting(true);
     setExtractedNote(null);
     setLocalFile(file);
     try {
-      const fileBase64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result as string;
-          const comma = result.indexOf(",");
-          resolve(comma >= 0 ? result.slice(comma + 1) : result);
-        };
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(file);
-      });
+      // Pipeline partilhado: DNG→JPEG, PDF→1ª página JPEG, compressão ≤1280px
+      const prep = await prepareFileForInvoiceOcr(file);
+      if (!prep.ok) {
+        const msgMap = {
+          raw_no_preview: { title: "RAW sem preview JPEG", description: "Tenta exportar como JPG ou desligar o ProRAW na câmara." },
+          raw_failed: { title: "Erro a processar RAW", description: "Exporta como JPG e tenta de novo." },
+          pdf_failed: { title: "Não consegui ler o PDF", description: "Preenche os campos à mão." },
+          unsupported_format: { title: "Formato não suportado", description: "Usa JPG, PNG, WEBP, HEIC, PDF ou DNG." },
+        } as const;
+        const m = msgMap[prep.error.kind];
+        toast({ variant: "destructive", title: m.title, description: m.description });
+        return;
+      }
+      const prepared = prep.file;
+      const fileBase64 = await fileToBase64(prepared);
 
       const { data, error } = await supabase.functions.invoke("extract-invoice-total", {
-        body: { fileBase64, fileName: file.name, mimeType: file.type || "application/pdf" },
+        body: { fileBase64, fileName: prepared.name, mimeType: prepared.type || "image/jpeg" },
       });
       if (error) throw error;
       const breakdown: Array<{ rate: number; base: number; iva: number; total: number }> = Array.isArray(data?.vat_breakdown)
