@@ -1,7 +1,7 @@
 /**
  * Simulador de Evento — formato Coala (BP_COALA_PT_2026 v12.6)
  *
- * 3 cenários paralelos: Hoje · Break Even · Forecast DVT
+ * 3 cenários paralelos: Hoje · Break Even · Forecast
  * Bloco 1: Matriz por Dia × Zona (Vendas Reais + Projeção + Cortesia + Forecast + IVA)
  * Bloco 2: Faturamento comparativo (2025 / Orçamento / BE / Forecast)
  * Bloco 3: Custos por categoria L3 do Plano de Contas (2025 / BE / Forecast)
@@ -451,7 +451,7 @@ export default function EventSimulator() {
     });
     return {
       eventName: event?.name ?? "Evento",
-      subtitle: "3 cenários paralelos · Hoje (vendas reais) · Break Even · Forecast DVT",
+      subtitle: "3 cenários paralelos · Hoje (vendas reais) · Break Even · Forecast",
       today, breakeven, forecast,
       todayCosts, beCosts, fcCosts,
       todayRes, beRes, fcRes,
@@ -579,7 +579,7 @@ export default function EventSimulator() {
               Simulador — {event?.name}
             </h1>
             <p className="text-sm text-muted-foreground">
-              <strong>2025</strong>: introduzido manualmente (referência) · <strong>Hoje (Edição 2026)</strong>: alimentado pela plataforma (vendas + BP + transações) · <strong>Break Even</strong> e <strong>Forecast DVT</strong>: cenários simulados.
+              <strong>2025</strong>: introduzido manualmente (referência) · <strong>Hoje (Edição 2026)</strong>: alimentado pela plataforma (vendas + BP + transações) · <strong>Break Even</strong> e <strong>Forecast</strong>: cenários simulados.
             </p>
           </div>
         </div>
@@ -616,7 +616,7 @@ export default function EventSimulator() {
           kpis={beKpis}
           extra={beSolution.reachable ? null : <Badge variant="destructive">Inalcançável com margem atual</Badge>}
         />
-        <ScenarioCard title="Forecast DVT" tone="success" rev={forecast} cost={fcCosts} res={fcRes} kpis={fcKpis} />
+        <ScenarioCard title="Forecast" tone="success" rev={forecast} cost={fcCosts} res={fcRes} kpis={fcKpis} />
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -876,7 +876,7 @@ export default function EventSimulator() {
                     <TableHead className="text-right" title="Manual — referência ano anterior">2025 (manual)</TableHead>
                     <TableHead className="text-right">Hoje (Edição 2026)</TableHead>
                     <TableHead className="text-right">Break Even</TableHead>
-                    <TableHead className="text-right">Forecast DVT</TableHead>
+                    <TableHead className="text-right">Forecast</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1268,7 +1268,7 @@ function SimulatorDashboard({
   const scenarioChart = [
     { name: "Hoje", Receita: today.totalRevenue, Custo: todayCosts.totalCost, Resultado: todayRes.general },
     { name: "Break Even", Receita: breakeven.totalRevenue, Custo: beCosts.totalCost, Resultado: beRes.general },
-    { name: "Forecast DVT", Receita: forecast.totalRevenue, Custo: fcCosts.totalCost, Resultado: fcRes.general },
+    { name: "Forecast", Receita: forecast.totalRevenue, Custo: fcCosts.totalCost, Resultado: fcRes.general },
   ];
 
   const revenueMix = [
