@@ -23,14 +23,15 @@ interface SplitByIvaModalProps {
   open: boolean;
   onClose: () => void;
   /** Confirma a divisão. Recebe N linhas (≥2). O caller cria as transações. */
-  onConfirm: (lines: IvaSplitLine[]) => void;
+  /** Confirma criação de N transações (≥2). Recebe `attach` se o utilizador quer anexar a fatura. */
+  onConfirm: (lines: IvaSplitLine[], attach: boolean) => void;
   /**
    * Alternativa contabilisticamente aceite: aplica a fatura como **uma única**
    * transação usando IVA médio (snap para a taxa-padrão PT mais próxima do
    * rácio total). O caller deve preencher os campos `amount` (base) e
    * `iva_rate` no formulário e fechar o modal.
    */
-  onApplyBlended?: (baseNet: number, rate: IvaRate) => void;
+  onApplyBlended?: (baseNet: number, rate: IvaRate, attach: boolean) => void;
   /** Total esperado da fatura (incl. IVA). Mostra alerta se as linhas não fecham. */
   expectedTotal?: number;
   /** Pré-preencher com base inicial (ex.: o valor já digitado no form). */
@@ -41,6 +42,13 @@ interface SplitByIvaModalProps {
    * o modal abre já populado com estas linhas em vez do par padrão.
    */
   prefilledLines?: IvaSplitLine[];
+  /**
+   * Ficheiro original lido pelo OCR (se houver). Quando presente, mostra a
+   * checkbox "Anexar fatura às transações" e passa o sinal de volta ao caller.
+   */
+  attachmentFile?: File | null;
+  /** Nome amigável a mostrar na checkbox quando attachmentFile não está disponível. */
+  attachmentLabel?: string | null;
 }
 
 const RATE_OPTIONS: IvaRate[] = [0, 6, 13, 23];
