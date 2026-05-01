@@ -208,12 +208,12 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
               </Select>
             </div>
             <div>
-              <Label>IVA %</Label>
-              <Input
-                type="number"
-                value={draft.iva_rate}
-                onChange={(e) => patch("iva_rate", Number(e.target.value))}
+              <Label>IVA</Label>
+              <MoneyInput
+                value={Number(draft.iva_rate) || 0}
+                onChange={(v) => patch("iva_rate", v)}
                 disabled={!canEdit}
+                percent
               />
             </div>
             <div className="flex items-center gap-2 pt-7">
