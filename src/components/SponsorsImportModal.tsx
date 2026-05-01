@@ -344,21 +344,55 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
       const failNote = res.failures.length > 0
         ? ` • ${res.failures.length} falhas: ${res.failures.slice(0, 3).join(" | ")}${res.failures.length > 3 ? "…" : ""}`
         : "";
+      const summary = `BP: ${res.forecastsCreated} criadas, ${res.forecastsUpdated} atualizadas. Transações: ${res.txCreated} criadas${res.txSkipped ? `, ${res.txSkipped} ignoradas (já existiam)` : ""}.${recoveryNote}${failNote}`;
       toast({
         title: res.failures.length > 0 ? "Importação concluída com avisos" : "Importação concluída",
-        description: `BP: ${res.forecastsCreated} criadas, ${res.forecastsUpdated} atualizadas. Transações: ${res.txCreated} criadas${res.txSkipped ? `, ${res.txSkipped} ignoradas (já existiam)` : ""}.${recoveryNote}${failNote}`,
+        description: summary,
         variant: res.failures.length > 0 ? "destructive" : "default",
       });
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["suppliers-active"] });
-      if (res.failures.length === 0) {
+
+      // Pergunta se quer incorporar as linhas na versão ativa do BP (sem aparecer como pendente)
+      if (res.touchedForecastIds.length > 0) {
+        setMergePrompt({ forecastIds: res.touchedForecastIds, summary });
+      } else if (res.failures.length === 0) {
         onOpenChange(false);
         reset();
       }
     },
     onError: (err: any) => {
       toast({ title: "Erro na importação", description: err.message || String(err), variant: "destructive" });
+    },
+  });
+
+  const mergeMutation = useMutation({
+    mutationFn: async (forecastIds: string[]) => {
+      const { data, error } = await supabase.rpc("merge_forecasts_into_active_snapshot" as any, {
+        _event_id: eventId,
+        _forecast_ids: forecastIds,
+      });
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      return {
+        master: Number((row as any)?.merged_into_master ?? 0),
+        splits: Number((row as any)?.merged_into_splits ?? 0),
+      };
+    },
+    onSuccess: (res) => {
+      toast({
+        title: "Linhas incorporadas na versão ativa",
+        description: `Master: ${res.master}${res.splits ? ` • Splits: ${res.splits}` : ""}. Não aparecem em "alterações pendentes".`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["bp-versions", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId, "active-version-diff"] });
+      setMergePrompt(null);
+      onOpenChange(false);
+      reset();
+    },
+    onError: (err: any) => {
+      toast({ title: "Falha ao incorporar na versão ativa", description: err.message || String(err), variant: "destructive" });
     },
   });
 
