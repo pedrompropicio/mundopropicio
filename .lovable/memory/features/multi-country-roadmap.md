@@ -13,6 +13,16 @@ type: feature
 - Bug fix em código partilhado beneficia ambos os países automaticamente (convergência sem merge manual).
 - Receita para feature só-BR ou só-PT documentada em §10.2/§10.3 do plano.
 
+## Protocolo operacional pós-Fase 8 (§10.7)
+
+Evolução em ritmos diferentes PT vs BR é feita por **classificação A/B/C + feature flags por empresa**, nunca por ambientes paralelos:
+- **A só-PT / B só-BR / C partilhada** — AI classifica antes de codar; utilizador confirma se ambíguo.
+- "Duas implementações em paralelo" = commits diferentes na mesma `main`, isolados por pasta + guard de país. Não há merge entre PT e BR porque nunca divergem.
+- Promover feature só-BR → partilhada = mover de `tax/br/` para `tax/_shared/` + remover guard. Decisão do utilizador.
+- Feature flag por empresa (`companies.feature_flags jsonb` — a criar quando precisar) para rollout gradual dentro do mesmo país, via `useFeatureFlag()`.
+- Sandbox pós-Fase 8 só para refactor de código partilhado, com data fim ≤ 1 mês.
+- AI nunca abre sandbox nem cria flag sem perguntar; sempre classifica A/B/C e propõe localização exata antes de escrever.
+
 ## Estado: APROVADO, pronto a executar (não iniciado)
 
 Plano detalhado em `.lovable/plan-fase-8-multi-pais.md`.
