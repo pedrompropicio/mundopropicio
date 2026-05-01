@@ -62,25 +62,48 @@ interface Props {
 
 export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose }: Props) {
   const update = useUpdateSponsor(eventId);
+  const sync = useSyncSponsorBP(eventId);
   const { data: activities = [] } = useSponsorshipActivities(row.id);
   const addNote = useAddSponsorNote(row.id, companyId);
 
   const [draft, setDraft] = useState<SponsorshipPipelineRow>(row);
   const [note, setNote] = useState("");
+  const [confirmAmount, setConfirmAmount] = useState<{
+    oldAmount: number;
+    newAmount: number;
+  } | null>(null);
+  const [isLinkedPaid, setIsLinkedPaid] = useState(false);
 
   useEffect(() => setDraft(row), [row.id, row.updated_at]);
+
+  // Detecta se a TX vinculada já está paga (bloqueia edição de valor).
+  useEffect(() => {
+    let active = true;
+    if (row.linked_transaction_id) {
+      isLinkedTransactionPaid(row.linked_transaction_id).then((p) => {
+        if (active) setIsLinkedPaid(p);
+      });
+    } else {
+      setIsLinkedPaid(false);
+    }
+    return () => {
+      active = false;
+    };
+  }, [row.linked_transaction_id, row.updated_at]);
+
+  const hasLink = !!(row.linked_transaction_id && row.linked_forecast_id);
 
   function patch<K extends keyof SponsorshipPipelineRow>(key: K, value: SponsorshipPipelineRow[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
   }
 
-  async function save() {
+  async function persistDiff(extraDiff: Record<string, unknown> = {}) {
     const READONLY: (keyof SponsorshipPipelineRow)[] = [
       "id", "company_id", "event_id", "created_at", "updated_at",
       "created_by", "linked_forecast_id", "linked_transaction_id", "closed_at",
       "sort_order",
     ];
-    const diff: Record<string, unknown> = {};
+    const diff: Record<string, unknown> = { ...extraDiff };
     (Object.keys(draft) as (keyof SponsorshipPipelineRow)[]).forEach((k) => {
       if (READONLY.includes(k)) return;
       if (draft[k] !== row[k]) diff[k as string] = draft[k];
@@ -88,8 +111,38 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
     if (Object.keys(diff).length > 0) {
       await update.mutateAsync({ id: row.id, patch: diff as Partial<SponsorshipPipelineRow> });
     }
+  }
+
+  async function save() {
+    const oldAmount = Number(row.confirmed_amount) || 0;
+    const newAmount = Number(draft.confirmed_amount) || 0;
+
+    // Se já existe BP+TX vinculados e o valor confirmado mudou, pede confirmação
+    // antes de propagar a alteração ao BP e à transação.
+    if (hasLink && oldAmount !== newAmount) {
+      setConfirmAmount({ oldAmount, newAmount });
+      return;
+    }
+
+    await persistDiff();
     onClose();
   }
+
+  // Confirma alteração de valor: grava o card + sincroniza BP+TX com o novo valor.
+  async function confirmAmountChange() {
+    if (!confirmAmount) return;
+    setConfirmAmount(null);
+    await persistDiff();
+    // Re-fetch implícito via invalidate; usa o draft atualizado para sincronizar.
+    await sync.mutateAsync({ ...row, ...draft });
+    onClose();
+  }
+
+  async function handleManualSync() {
+    await persistDiff();
+    await sync.mutateAsync({ ...row, ...draft });
+  }
+
 
   async function submitNote() {
     const v = note.trim();
