@@ -384,6 +384,35 @@ export default function EventSimulator() {
 
   const ivaTable = useMemo(() => computeIvaTable(calcSessions), [calcSessions]);
 
+  // Presença diária expandindo combos
+  const dailyAttendance = useMemo(() => {
+    if (!lotSalesData) return [];
+    const totalDays = Math.max(1, lotSalesData.dates.length || (Math.max(0, ...localSessions.map(s => s.day_index)) + 1));
+    const zoneSet = new Map<string, { name: string }>();
+    localSessions.forEach(s => zoneSet.set(s.zone_label, { name: s.zone_label }));
+    lotSalesData.lotSales.forEach(s => zoneSet.set(s.zone_name, { name: s.zone_name }));
+    const courtesyMap = new Map<string, number>();
+    localSessions.forEach(s => courtesyMap.set(`${s.day_index}|${s.zone_label}`, Number(s.courtesy_qty || 0)));
+    return expandLotSalesToDailyAttendance(
+      lotSalesData.lotSales,
+      Array.from(zoneSet.values()),
+      totalDays,
+      localCfg?.combo_lot_keywords || "COMBO,PASSE,2 DIAS,3 DIAS,FULL PASS",
+      lotSalesData.dates,
+      courtesyMap,
+    );
+  }, [lotSalesData, localSessions, localCfg?.combo_lot_keywords]);
+
+  const dailyTotals = useMemo(() => {
+    const byDay = new Map<number, { paying: number; courtesy: number; total: number; date: string | null }>();
+    for (const r of dailyAttendance) {
+      const cur = byDay.get(r.day_index) ?? { paying: 0, courtesy: 0, total: 0, date: r.day_date };
+      cur.paying += r.paying; cur.courtesy += r.courtesy; cur.total += r.total;
+      byDay.set(r.day_index, cur);
+    }
+    return Array.from(byDay.entries()).sort((a, b) => a[0] - b[0]);
+  }, [dailyAttendance]);
+
   // ------- Helpers de edição -------
   const updateSession = (idx: number, patch: Partial<DbInput>) =>
     setLocalSessions((arr) => arr.map((s, i) => i === idx ? { ...s, ...patch } : s));
