@@ -271,11 +271,21 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
     .reduce((acc, f) => acc + Number(f.amount || 0), 0);
   report.sponsorsTotal = sponsorsTotal;
 
-  if (sponsorsTotal > 0) {
+  const { data: existingConfig } = await supabase
+    .from("event_simulator_config")
+    .select("event_id")
+    .eq("event_id", eventId)
+    .maybeSingle();
+
+  if (existingConfig) {
     await supabase
       .from("event_simulator_config")
       .update({ sponsorship_revenue: sponsorsTotal })
       .eq("event_id", eventId);
+  } else {
+    await supabase
+      .from("event_simulator_config")
+      .insert({ event_id: eventId, sponsorship_revenue: sponsorsTotal } as any);
   }
 
   return report;
