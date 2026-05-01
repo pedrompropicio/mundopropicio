@@ -63,12 +63,18 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
   }
 
   async function save() {
-    const diff: Partial<SponsorshipPipelineRow> = {};
+    const READONLY: (keyof SponsorshipPipelineRow)[] = [
+      "id", "company_id", "event_id", "created_at", "updated_at",
+      "created_by", "linked_forecast_id", "linked_transaction_id", "closed_at",
+      "sort_order",
+    ];
+    const diff: Record<string, unknown> = {};
     (Object.keys(draft) as (keyof SponsorshipPipelineRow)[]).forEach((k) => {
-      if (draft[k] !== row[k]) (diff as never as Record<string, unknown>)[k as string] = draft[k];
+      if (READONLY.includes(k)) return;
+      if (draft[k] !== row[k]) diff[k as string] = draft[k];
     });
     if (Object.keys(diff).length > 0) {
-      await update.mutateAsync({ id: row.id, patch: diff });
+      await update.mutateAsync({ id: row.id, patch: diff as Partial<SponsorshipPipelineRow> });
     }
     onClose();
   }
