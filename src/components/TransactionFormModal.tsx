@@ -253,6 +253,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       return;
     }
     setExtractingInvoice(true);
+    setPendingInvoiceFile(original);
     try {
       let file = original;
 
