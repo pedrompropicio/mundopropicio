@@ -121,7 +121,7 @@ export async function syncSponsorToBP(row: SponsorshipPipelineRow): Promise<Sync
     description,
     amount,
     iva_rate: ivaRate,
-    transaction_date: today,
+    date: today,
     company_id: row.company_id,
     paid_amount: isPaid ? amount : 0,
   };
