@@ -159,6 +159,78 @@ export default function EventSimulator() {
     },
   });
 
+  // L2 categories — para o seletor de "categoria de patrocínios"
+  const { data: l2Categories = [] } = useQuery<AccountCategory[]>({
+    queryKey: ["account-categories-l2"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("account_categories")
+        .select("id, code, name")
+        .eq("is_active", true)
+        .order("code");
+      return ((data as any) ?? []).filter((c: any) => /^\d+\.\d+$/.test(c.code));
+    },
+  });
+
+  // Patrocinadores detalhados (BP type=revenue na L2 configurada)
+  const { data: sponsors = [] } = useQuery<SponsorRow[]>({
+    queryKey: ["sim-coala-sponsors", eventId, cfg?.sponsor_category_l2_id],
+    queryFn: () => loadSponsors(eventId!, cfg?.sponsor_category_l2_id ?? null),
+    enabled: !!eventId,
+  });
+
+  // Lotes + vendas para construir o público diário (combos expandidos)
+  const { data: lotSalesData } = useQuery({
+    queryKey: ["sim-coala-lot-sales", eventId],
+    queryFn: async () => {
+      // 1) zonas do evento
+      const { data: zones } = await supabase
+        .from("event_ticket_zones")
+        .select("id, name").eq("event_id", eventId!);
+      const zoneIds = (zones ?? []).map((z: any) => z.id);
+      if (!zoneIds.length) return { lotSales: [] as LotSale[], dates: [] as { date: string | null }[] };
+
+      // 2) lotes dessas zonas
+      const { data: lots } = await supabase
+        .from("event_ticket_lots")
+        .select("id, name, zone_id, applies_to_days")
+        .in("zone_id", zoneIds);
+
+      // 3) datas do evento (para mapear sale_date → day_index)
+      const { data: dates } = await supabase
+        .from("event_dates")
+        .select("date").eq("event_id", eventId!).order("date");
+      const dateToIdx = new Map<string, number>();
+      (dates ?? []).forEach((d: any, i: number) => { if (d.date) dateToIdx.set(d.date, i); });
+
+      // 4) vendas
+      const lotIds = (lots ?? []).map((l: any) => l.id);
+      const { data: sales } = lotIds.length
+        ? await supabase.from("ticket_sales")
+            .select("lot_id, zone_id, sale_date, quantity").in("lot_id", lotIds)
+        : { data: [] as any[] };
+
+      const lotById = new Map((lots ?? []).map((l: any) => [l.id, l]));
+      const zoneById = new Map((zones ?? []).map((z: any) => [z.id, z]));
+
+      const lotSales: LotSale[] = ((sales ?? []) as any[]).map((s) => {
+        const lot = lotById.get(s.lot_id);
+        const zone = zoneById.get(s.zone_id);
+        return {
+          lot_id: s.lot_id,
+          lot_name: lot?.name ?? "",
+          applies_to_days: lot?.applies_to_days ?? 1,
+          zone_id: s.zone_id,
+          zone_name: zone?.name ?? "",
+          sale_day_index: s.sale_date ? (dateToIdx.get(s.sale_date) ?? null) : null,
+          qty: Number(s.quantity || 0),
+        };
+      });
+      return { lotSales, dates: (dates ?? []) as { date: string | null }[] };
+    },
+    enabled: !!eventId,
+  });
+
   // ------- Local state for editing -------
   const [localCfg, setLocalCfg] = useState<DbConfig | null>(null);
   const [localSessions, setLocalSessions] = useState<DbInput[]>([]);
