@@ -506,7 +506,9 @@ export default function EventSimulator() {
       <Tabs defaultValue="sessions" className="space-y-4">
         <TabsList className="flex flex-wrap gap-1">
           <TabsTrigger value="sessions">Sessões (Dia × Zona)</TabsTrigger>
+          <TabsTrigger value="daily">Público diário</TabsTrigger>
           <TabsTrigger value="revenue">Faturamento</TabsTrigger>
+          <TabsTrigger value="sponsors">Patrocínios</TabsTrigger>
           <TabsTrigger value="costs">Custos</TabsTrigger>
           <TabsTrigger value="iva">IVA</TabsTrigger>
           <TabsTrigger value="result">Resultados</TabsTrigger>
