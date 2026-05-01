@@ -188,6 +188,7 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
       let txCreated = 0, txSkipped = 0;
       const today = todayLocalISO();
       const failures: string[] = [];
+      const touchedForecastIds: string[] = [];
 
       for (const row of filteredRows) {
         const supplierId = nameToId[row.supplierName.toLowerCase()];
