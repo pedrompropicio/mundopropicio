@@ -757,6 +757,9 @@ export default function EventSimulator() {
                       <TableCell><Input className="h-8 w-48" value={c.label} onChange={(e) => updateCost(i, { label: e.target.value })} /></TableCell>
                       <TableCell><Input className="h-8 w-28 text-right" type="number" step="0.01" value={c.prior_year_amount}
                         onChange={(e) => updateCost(i, { prior_year_amount: Number(e.target.value) })} /></TableCell>
+                      <TableCell className="text-right text-muted-foreground" title={`Pago: ${fmt(c.actual_paid)} · BP s/TX: ${fmt(c.actual_committed_bp)}`}>
+                        {fmt(Number(c.actual_amount || 0))}
+                      </TableCell>
                       <TableCell><Input className="h-8 w-28 text-right" type="number" step="0.01" value={c.break_even_amount}
                         onChange={(e) => updateCost(i, { break_even_amount: Number(e.target.value) })} /></TableCell>
                       <TableCell><Input className="h-8 w-28 text-right" type="number" step="0.01" value={c.forecast_amount}
@@ -777,6 +780,7 @@ export default function EventSimulator() {
                   <TableRow className="font-bold border-t-2">
                     <TableCell colSpan={2}>CUSTO TOTAL</TableCell>
                     <TableCell className="text-right">{fmt(localCosts.reduce((a, c) => a + Number(c.prior_year_amount || 0), 0))}</TableCell>
+                    <TableCell className="text-right">{fmt(localCosts.reduce((a, c) => a + Number(c.actual_amount || 0), 0))}</TableCell>
                     <TableCell className="text-right">{fmt(beCosts.totalCost)}</TableCell>
                     <TableCell className="text-right">{fmt(fcCosts.totalCost)}</TableCell>
                     <TableCell colSpan={2}></TableCell>
