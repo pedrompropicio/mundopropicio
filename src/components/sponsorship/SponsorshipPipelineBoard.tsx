@@ -57,6 +57,10 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [closingPrompt, setClosingPrompt] = useState<{
+    row: SponsorshipPipelineRow;
+    amount: number;
+  } | null>(null);
 
   const grouped = useMemo(() => {
     const map = Object.fromEntries(STAGE_ORDER.map((s) => [s, [] as SponsorshipPipelineRow[]]));
