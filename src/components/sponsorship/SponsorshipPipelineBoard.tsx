@@ -36,6 +36,8 @@ import { SponsorsImportModal } from "@/components/SponsorsImportModal";
 
 interface Props {
   eventId: string;
+  eventName?: string;
+  eventDate?: string;
   companyId: string | null;
   canEdit: boolean;
 }
@@ -43,7 +45,7 @@ interface Props {
 const fmtMoney = (n: number, ccy = "EUR") =>
   new Intl.NumberFormat("pt-PT", { style: "currency", currency: ccy, maximumFractionDigits: 0 }).format(n || 0);
 
-export function SponsorshipPipelineBoard({ eventId, companyId, canEdit }: Props) {
+export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, companyId, canEdit }: Props) {
   const { data: rows = [], isLoading } = useSponsorshipPipeline(eventId);
   const create = useCreateSponsor(eventId, companyId);
   const remove = useDeleteSponsor(eventId);
