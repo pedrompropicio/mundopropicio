@@ -1122,6 +1122,7 @@ export default function EventDetail() {
           />
         </TabsContent>
 
+        {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && (
           <TabsContent value="partners">
             <div className="space-y-6">
               <EventPartnersTab eventId={event.id} eventStatus={event.status} />
