@@ -86,7 +86,7 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
   function reset() {
     setParsed(null);
     setFileName("");
-    setIncludeKinds({ paid: true, pending_invoiced: true, pending_post_event: true, barter: true, forecast_only: true });
+    setIncludeKinds({ paid: true, pending_invoiced: true, pending_post_event: true, barter: true, forecast_only: false });
     setAccountId("");
     setCreateTransactions(true);
     if (fileInputRef.current) fileInputRef.current.value = "";
