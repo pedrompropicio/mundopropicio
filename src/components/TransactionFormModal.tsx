@@ -3178,6 +3178,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         initialRate={form.iva_rate}
         prefilledLines={aiPrefilledLines ?? undefined}
         attachmentFile={pendingInvoiceFile}
+        supplierName={selectedSupplier?.name ?? null}
+        transactionDescription={form.description ?? null}
         expectedTotal={
           (parseFloat(form.amount) || 0) > 0
             ? (parseFloat(form.amount) || 0) * (1 + form.iva_rate / 100)

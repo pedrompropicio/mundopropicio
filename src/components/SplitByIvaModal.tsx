@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { calcIvaAmount, calcTotalWithIva, roundCents, snapToStandardRate } from "@/lib/iva";
 import type { IvaRate } from "@/lib/mock-data";
 import { prepareFileForInvoiceOcr, fileToBase64 } from "@/lib/invoice-ocr-prepare";
+import { detectNonDeductibleHint } from "@/lib/iva-non-deductible-hint";
 
 export interface IvaSplitLine {
   /** Base (sem IVA) em EUR */
@@ -52,13 +53,21 @@ interface SplitByIvaModalProps {
   attachmentFile?: File | null;
   /** Nome amigável a mostrar na checkbox quando attachmentFile não está disponível. */
   attachmentLabel?: string | null;
+  /**
+   * Nome do fornecedor e descrição da transação — usados apenas como
+   * heurística para sugerir visualmente o botão "IVA médio" em despesas
+   * tipicamente sem dedução de IVA (Art.º 21 CIVA: alojamento, refeições,
+   * combustíveis, representação, etc.). Nunca esconde o botão.
+   */
+  supplierName?: string | null;
+  transactionDescription?: string | null;
 }
 
 const RATE_OPTIONS: IvaRate[] = [0, 6, 13, 23];
 
 const blankLine = (rate: IvaRate = 23): IvaSplitLine => ({ base: 0, iva_rate: rate, suffix: `IVA ${rate}%` });
 
-export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expectedTotal, initialBase, initialRate, prefilledLines, attachmentFile, attachmentLabel }: SplitByIvaModalProps) {
+export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expectedTotal, initialBase, initialRate, prefilledLines, attachmentFile, attachmentLabel, supplierName, transactionDescription }: SplitByIvaModalProps) {
   const hasAttachment = !!(attachmentFile || attachmentLabel);
   const [attachInvoice, setAttachInvoice] = useState<boolean>(true);
   useEffect(() => {
@@ -198,6 +207,11 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
     lines.length >= 2 &&
     lines.every((l) => Number(l.base) > 0) &&
     new Set(lines.map((l) => l.iva_rate)).size === lines.length; // sem taxas duplicadas
+
+  const nonDeductibleHint = useMemo(
+    () => detectNonDeductibleHint(supplierName, transactionDescription),
+    [supplierName, transactionDescription],
+  );
 
   return (
     <Dialog open={open} onOpenChange={(v) => (!v ? onClose() : null)}>
@@ -342,10 +356,32 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
 
         {/* Alternativa IVA médio (snap) — explicação; botão fica no footer */}
         {onApplyBlended && totals.baseSum > 0 && totals.ivaSum > 0 && (
-          <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-xs space-y-2">
-            <div className="font-medium text-foreground">
-              Alternativa: aplicar como <span className="text-primary">IVA médio</span> (1 transação)
+          <div
+            className={cn(
+              "rounded-lg border border-dashed p-3 text-xs space-y-2",
+              nonDeductibleHint.suggested
+                ? "border-success/60 bg-success/10"
+                : "border-primary/40 bg-primary/5",
+            )}
+          >
+            <div className="font-medium text-foreground flex items-center gap-2 flex-wrap">
+              <span>
+                Alternativa: aplicar como <span className="text-primary">IVA médio</span> (1 transação)
+              </span>
+              {nonDeductibleHint.suggested && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-success/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success">
+                  <Sparkles className="h-3 w-3" />
+                  Sugerido ({nonDeductibleHint.reason})
+                </span>
+              )}
             </div>
+            {nonDeductibleHint.suggested && (
+              <div className="text-[11px] text-success/90 leading-relaxed">
+                Detetámos "<strong>{nonDeductibleHint.matchedTerm}</strong>" no fornecedor/descrição —
+                este tipo de despesa normalmente <strong>não tem IVA dedutível</strong> (Art.º 21 CIVA),
+                pelo que registar como IVA médio costuma ser suficiente.
+              </div>
+            )}
             <div className="text-muted-foreground leading-relaxed">
               Em vez de criar {lines.length} transações, regista <strong>uma só</strong> com taxa{" "}
               <strong>{totals.blendedRate}%</strong> (mais próxima do rácio real {totals.realRatio.toFixed(2)}%) e
@@ -399,7 +435,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
           {onApplyBlended && totals.baseSum > 0 && totals.ivaSum > 0 && (
             <Button
               type="button"
-              variant="secondary"
+              variant={nonDeductibleHint.suggested ? "default" : "secondary"}
               onClick={() => onApplyBlended(totals.blendedBase, totals.blendedRate, attachInvoice, localFile)}
             >
               Aplicar IVA médio ({totals.blendedRate}%)
@@ -407,6 +443,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
           )}
           <Button
             type="button"
+            variant={nonDeductibleHint.suggested ? "secondary" : "default"}
             disabled={!canConfirm}
             onClick={() =>
               onConfirm(
