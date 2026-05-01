@@ -684,43 +684,90 @@ export default function EventSimulator() {
               </p>
             </CardHeader>
             <CardContent className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Dia</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Zona</TableHead>
-                    <TableHead className="text-right">Pagantes</TableHead>
-                    <TableHead className="text-right">Cortesias</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dailyAttendance.map((r) => (
-                    <TableRow key={`${r.day_index}-${r.zone_label}`}>
-                      <TableCell>{r.day_index + 1}</TableCell>
-                      <TableCell>{r.day_date ?? "—"}</TableCell>
-                      <TableCell>{r.zone_label}</TableCell>
-                      <TableCell className="text-right">{fmtNum(r.paying)}</TableCell>
-                      <TableCell className="text-right">{fmtNum(r.courtesy)}</TableCell>
-                      <TableCell className="text-right font-semibold">{fmtNum(r.total)}</TableCell>
-                    </TableRow>
-                  ))}
-                  {dailyTotals.map(([day, t]) => (
-                    <TableRow key={`tot-${day}`} className="bg-muted/40 font-semibold">
-                      <TableCell>{day + 1}</TableCell>
-                      <TableCell>{t.date ?? "—"}</TableCell>
-                      <TableCell>TOTAL DIA</TableCell>
-                      <TableCell className="text-right">{fmtNum(t.paying)}</TableCell>
-                      <TableCell className="text-right">{fmtNum(t.courtesy)}</TableCell>
-                      <TableCell className="text-right">{fmtNum(t.total)}</TableCell>
-                    </TableRow>
-                  ))}
-                  {!dailyAttendance.length && (
-                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Sem vendas registadas. Sincroniza primeiro.</TableCell></TableRow>
-                  )}
-                </TableBody>
-              </Table>
+              {(() => {
+                const fmtDate = (d: string | null) => {
+                  if (!d) return "—";
+                  const m = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                  if (!m) return d;
+                  const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+                  const s = dt.toLocaleDateString("pt-PT", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
+                  return s.charAt(0).toUpperCase() + s.slice(1);
+                };
+                const totalsMap = new Map(dailyTotals.map(([d, t]) => [d, t]));
+                // Agrupar linhas por dia, com sub-total imediatamente a seguir
+                const grouped: Array<{ type: "row" | "total"; row?: typeof dailyAttendance[number]; day?: number; total?: { paying: number; courtesy: number; total: number; date: string | null } }> = [];
+                const seen = new Set<number>();
+                for (const r of dailyAttendance) {
+                  // se passou para um novo dia, fecha o anterior
+                  if (grouped.length && grouped[grouped.length - 1].type === "row") {
+                    const prev = grouped[grouped.length - 1].row!;
+                    if (prev.day_index !== r.day_index) {
+                      const t = totalsMap.get(prev.day_index);
+                      if (t) grouped.push({ type: "total", day: prev.day_index, total: t });
+                      seen.add(prev.day_index);
+                    }
+                  }
+                  grouped.push({ type: "row", row: r });
+                }
+                // fecha último dia
+                if (grouped.length) {
+                  const last = [...grouped].reverse().find(g => g.type === "row");
+                  if (last && !seen.has(last.row!.day_index)) {
+                    const t = totalsMap.get(last.row!.day_index);
+                    if (t) grouped.push({ type: "total", day: last.row!.day_index, total: t });
+                  }
+                }
+                const grandTotal = dailyTotals.reduce(
+                  (a, [, t]) => ({ paying: a.paying + t.paying, courtesy: a.courtesy + t.courtesy, total: a.total + t.total }),
+                  { paying: 0, courtesy: 0, total: 0 },
+                );
+                return (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Dia</TableHead>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Zona</TableHead>
+                        <TableHead className="text-right">Pagantes</TableHead>
+                        <TableHead className="text-right">Cortesias</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {grouped.map((g, i) => g.type === "row" ? (
+                        <TableRow key={`r-${g.row!.day_index}-${g.row!.zone_label}`}>
+                          <TableCell>{g.row!.day_index + 1}</TableCell>
+                          <TableCell>{fmtDate(g.row!.day_date)}</TableCell>
+                          <TableCell>{g.row!.zone_label}</TableCell>
+                          <TableCell className="text-right">{fmtNum(g.row!.paying)}</TableCell>
+                          <TableCell className="text-right">{fmtNum(g.row!.courtesy)}</TableCell>
+                          <TableCell className="text-right font-semibold">{fmtNum(g.row!.total)}</TableCell>
+                        </TableRow>
+                      ) : (
+                        <TableRow key={`t-${g.day}`} className="bg-muted/40 font-semibold border-b-2">
+                          <TableCell>{g.day! + 1}</TableCell>
+                          <TableCell>{fmtDate(g.total!.date)}</TableCell>
+                          <TableCell>Subtotal Dia {g.day! + 1}</TableCell>
+                          <TableCell className="text-right">{fmtNum(g.total!.paying)}</TableCell>
+                          <TableCell className="text-right">{fmtNum(g.total!.courtesy)}</TableCell>
+                          <TableCell className="text-right">{fmtNum(g.total!.total)}</TableCell>
+                        </TableRow>
+                      ))}
+                      {dailyTotals.length > 1 && (
+                        <TableRow className="bg-primary/10 font-bold border-t-2">
+                          <TableCell colSpan={3}>TOTAL EVENTO ({dailyTotals.length} dias)</TableCell>
+                          <TableCell className="text-right">{fmtNum(grandTotal.paying)}</TableCell>
+                          <TableCell className="text-right">{fmtNum(grandTotal.courtesy)}</TableCell>
+                          <TableCell className="text-right">{fmtNum(grandTotal.total)}</TableCell>
+                        </TableRow>
+                      )}
+                      {!dailyAttendance.length && (
+                        <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Sem vendas registadas. Sincroniza primeiro.</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
