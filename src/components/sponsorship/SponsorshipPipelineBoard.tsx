@@ -99,16 +99,25 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
   function handleDrop(stage: SponsorshipStage) {
     if (!draggingId) return;
     const row = rows.find((r) => r.id === draggingId);
-    if (!row || row.stage === stage) {
-      setDraggingId(null);
+    setDraggingId(null);
+    if (!row || row.stage === stage) return;
+
+    // Ao mover para "Fechado" (não permuta), confirma o valor com o utilizador
+    // — usa o proposto como sugestão e permite editar antes de gravar.
+    if (stage === "closed" && !row.is_barter) {
+      const suggested = Number(row.confirmed_amount) || Number(row.proposed_amount) || 0;
+      setClosingPrompt({ row, amount: suggested });
       return;
     }
-    changeStage(draggingId, stage, {
-      proposed_amount: row.proposed_amount,
-      confirmed_amount: row.confirmed_amount,
-      is_barter: row.is_barter,
-    });
-    setDraggingId(null);
+
+    changeStage(row.id, stage);
+  }
+
+  async function confirmClosing() {
+    if (!closingPrompt) return;
+    const { row, amount } = closingPrompt;
+    setClosingPrompt(null);
+    await changeStage(row.id, "closed", { confirmed_amount: amount });
   }
 
   return (
