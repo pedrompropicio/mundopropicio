@@ -63,6 +63,10 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
   const [accountId, setAccountId] = useState<string>("");
   const [createTransactions, setCreateTransactions] = useState(true);
   const [parsing, setParsing] = useState(false);
+  const [mergePrompt, setMergePrompt] = useState<{
+    forecastIds: string[];
+    summary: string;
+  } | null>(null);
 
   // Contas (banco / caixa) visíveis e não-ocultas
   const { data: accounts = [] } = useQuery({
@@ -188,6 +192,7 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
       let txCreated = 0, txSkipped = 0;
       const today = todayLocalISO();
       const failures: string[] = [];
+      const touchedForecastIds: string[] = [];
 
       for (const row of filteredRows) {
         const supplierId = nameToId[row.supplierName.toLowerCase()];
@@ -235,6 +240,7 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
             forecastId = (data as any).id;
             forecastsCreated++;
           }
+          if (forecastId) touchedForecastIds.push(forecastId);
         } catch (fcErr: any) {
           // Não interromper a importação inteira: regista falha e continua para próximo patrocinador.
           failures.push(`BP "${row.supplierName}": ${fcErr?.message || String(fcErr)}`);
@@ -309,7 +315,7 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
       const linkedTxIds = new Set(((existingFcAfter ?? []) as any[]).map((f) => f.transaction_id));
       for (const t of (orphanTx ?? []) as any[]) {
         if (linkedTxIds.has(t.id)) continue;
-        const { error } = await supabase.from("event_forecasts").insert({
+        const { data: ins, error } = await supabase.from("event_forecasts").insert({
           event_id: eventId,
           category_id: SPONSORS_CATEGORY_ID,
           type: "income",
@@ -322,12 +328,14 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
           is_transitory: false,
           transaction_id: t.id,
           notes: `Linha BP recriada a partir de transação importada (recovery automático)`,
-        });
-        if (!error) forecastsRecovered++;
-        else failures.push(`Recovery "${t.description}": ${error.message}`);
+        }).select("id").single();
+        if (!error) {
+          forecastsRecovered++;
+          if (ins?.id) touchedForecastIds.push(ins.id);
+        } else failures.push(`Recovery "${t.description}": ${error.message}`);
       }
 
-      return { forecastsCreated, forecastsUpdated, forecastsRecovered, txCreated, txSkipped, failures };
+      return { forecastsCreated, forecastsUpdated, forecastsRecovered, txCreated, txSkipped, failures, touchedForecastIds };
     },
     onSuccess: (res) => {
       const recoveryNote = res.forecastsRecovered > 0
@@ -336,21 +344,55 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
       const failNote = res.failures.length > 0
         ? ` • ${res.failures.length} falhas: ${res.failures.slice(0, 3).join(" | ")}${res.failures.length > 3 ? "…" : ""}`
         : "";
+      const summary = `BP: ${res.forecastsCreated} criadas, ${res.forecastsUpdated} atualizadas. Transações: ${res.txCreated} criadas${res.txSkipped ? `, ${res.txSkipped} ignoradas (já existiam)` : ""}.${recoveryNote}${failNote}`;
       toast({
         title: res.failures.length > 0 ? "Importação concluída com avisos" : "Importação concluída",
-        description: `BP: ${res.forecastsCreated} criadas, ${res.forecastsUpdated} atualizadas. Transações: ${res.txCreated} criadas${res.txSkipped ? `, ${res.txSkipped} ignoradas (já existiam)` : ""}.${recoveryNote}${failNote}`,
+        description: summary,
         variant: res.failures.length > 0 ? "destructive" : "default",
       });
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["suppliers-active"] });
-      if (res.failures.length === 0) {
+
+      // Pergunta se quer incorporar as linhas na versão ativa do BP (sem aparecer como pendente)
+      if (res.touchedForecastIds.length > 0) {
+        setMergePrompt({ forecastIds: res.touchedForecastIds, summary });
+      } else if (res.failures.length === 0) {
         onOpenChange(false);
         reset();
       }
     },
     onError: (err: any) => {
       toast({ title: "Erro na importação", description: err.message || String(err), variant: "destructive" });
+    },
+  });
+
+  const mergeMutation = useMutation({
+    mutationFn: async (forecastIds: string[]) => {
+      const { data, error } = await supabase.rpc("merge_forecasts_into_active_snapshot" as any, {
+        _event_id: eventId,
+        _forecast_ids: forecastIds,
+      });
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      return {
+        master: Number((row as any)?.merged_into_master ?? 0),
+        splits: Number((row as any)?.merged_into_splits ?? 0),
+      };
+    },
+    onSuccess: (res) => {
+      toast({
+        title: "Linhas incorporadas na versão ativa",
+        description: `Master: ${res.master}${res.splits ? ` • Splits: ${res.splits}` : ""}. Não aparecem em "alterações pendentes".`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["bp-versions", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId, "active-version-diff"] });
+      setMergePrompt(null);
+      onOpenChange(false);
+      reset();
+    },
+    onError: (err: any) => {
+      toast({ title: "Falha ao incorporar na versão ativa", description: err.message || String(err), variant: "destructive" });
     },
   });
 
@@ -538,6 +580,64 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
           )}
         </DialogFooter>
       </DialogContent>
+
+      {/* Diálogo: incorporar linhas importadas no snapshot da versão ativa */}
+      <Dialog
+        open={!!mergePrompt}
+        onOpenChange={(v) => {
+          if (!v && !mergeMutation.isPending) {
+            setMergePrompt(null);
+            onOpenChange(false);
+            reset();
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Incorporar na versão ativa do BP?</DialogTitle>
+            <DialogDescription>
+              {mergePrompt?.summary}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p>
+              Estas linhas acabaram de ser importadas. Por defeito, vão aparecer no banner de
+              <strong> "alterações pendentes"</strong> da versão ativa, até que congeles uma nova versão.
+            </p>
+            <p>
+              Se preferires, posso <strong>incorporá-las directamente no snapshot da versão ativa atual</strong>
+              {' '}(e nos Splits, quando aplicável). Não cria nova versão e <strong>não aparecem como pendentes</strong>.
+            </p>
+            <div className="rounded-lg border border-warning/40 bg-warning/10 p-2.5 text-xs text-muted-foreground">
+              <strong className="text-warning">Atenção:</strong> isto altera retroactivamente a versão ativa.
+              Usa só se o objectivo é tratar a importação como parte do plano original.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={mergeMutation.isPending}
+              onClick={() => {
+                setMergePrompt(null);
+                onOpenChange(false);
+                reset();
+              }}
+            >
+              Manter como pendente
+            </Button>
+            <Button
+              disabled={mergeMutation.isPending}
+              onClick={() => mergePrompt && mergeMutation.mutate(mergePrompt.forecastIds)}
+            >
+              {mergeMutation.isPending ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> A incorporar…</>
+              ) : (
+                "Incorporar na versão ativa"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
