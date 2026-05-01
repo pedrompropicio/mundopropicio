@@ -356,10 +356,32 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
 
         {/* Alternativa IVA médio (snap) — explicação; botão fica no footer */}
         {onApplyBlended && totals.baseSum > 0 && totals.ivaSum > 0 && (
-          <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-xs space-y-2">
-            <div className="font-medium text-foreground">
-              Alternativa: aplicar como <span className="text-primary">IVA médio</span> (1 transação)
+          <div
+            className={cn(
+              "rounded-lg border border-dashed p-3 text-xs space-y-2",
+              nonDeductibleHint.suggested
+                ? "border-success/60 bg-success/10"
+                : "border-primary/40 bg-primary/5",
+            )}
+          >
+            <div className="font-medium text-foreground flex items-center gap-2 flex-wrap">
+              <span>
+                Alternativa: aplicar como <span className="text-primary">IVA médio</span> (1 transação)
+              </span>
+              {nonDeductibleHint.suggested && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-success/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success">
+                  <Sparkles className="h-3 w-3" />
+                  Sugerido ({nonDeductibleHint.reason})
+                </span>
+              )}
             </div>
+            {nonDeductibleHint.suggested && (
+              <div className="text-[11px] text-success/90 leading-relaxed">
+                Detetámos "<strong>{nonDeductibleHint.matchedTerm}</strong>" no fornecedor/descrição —
+                este tipo de despesa normalmente <strong>não tem IVA dedutível</strong> (Art.º 21 CIVA),
+                pelo que registar como IVA médio costuma ser suficiente.
+              </div>
+            )}
             <div className="text-muted-foreground leading-relaxed">
               Em vez de criar {lines.length} transações, regista <strong>uma só</strong> com taxa{" "}
               <strong>{totals.blendedRate}%</strong> (mais próxima do rácio real {totals.realRatio.toFixed(2)}%) e
