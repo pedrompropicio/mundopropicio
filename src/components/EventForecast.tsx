@@ -2217,7 +2217,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
               </div>}
 
               {/* Expense section */}
-              <div className="glass rounded-xl p-5">
+              {typeFilter !== "income" && <div className="glass rounded-xl p-5">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Despesas Previstas</h3>
