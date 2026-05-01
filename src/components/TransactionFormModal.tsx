@@ -284,15 +284,22 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           });
           return;
         }
-      } else if (/^image\/(jpeg|jpg|png|webp|heic|heif)$/i.test(file.type)) {
-        ocrSource = file;
       } else {
-        toast({
-          variant: "destructive",
-          title: "Formato não suportado",
-          description: "Usa JPG, PNG, WEBP, HEIC, PDF ou DNG.",
-        });
-        return;
+        // Alguns sistemas (iOS/macOS, partilha entre apps) entregam o ficheiro
+        // sem MIME ou com MIME genérico (p.ex. application/octet-stream).
+        // Por isso, aceitamos também via extensão do nome para evitar falsos negativos.
+        const isImageMime = /^image\/(jpeg|jpg|png|webp|heic|heif)$/i.test(file.type);
+        const isImageExt = /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name);
+        if (isImageMime || isImageExt) {
+          ocrSource = file;
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Formato não suportado",
+            description: "Usa JPG, PNG, WEBP, HEIC, PDF ou DNG.",
+          });
+          return;
+        }
       }
 
       // 3) Compressão ≤1280px / ~70% JPEG
