@@ -13,7 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   STAGE_COLORS,
   STAGE_LABELS,
@@ -156,8 +156,8 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
       </div>
 
       {/* Kanban */}
-      <ScrollArea className="w-full">
-        <div className="flex gap-3 pb-3 min-w-max">
+      <ScrollArea className="w-full whitespace-nowrap">
+        <div className="flex gap-3 pb-3 w-max">
           {STAGE_ORDER.map((stage) => (
             <Column
               key={stage}
@@ -184,6 +184,7 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
             </Column>
           ))}
         </div>
+        <ScrollBar orientation="horizontal" />
       </ScrollArea>
 
       {isLoading && (
