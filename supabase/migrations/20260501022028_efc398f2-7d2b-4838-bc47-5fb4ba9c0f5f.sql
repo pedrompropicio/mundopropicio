@@ -1,0 +1,61 @@
+-- ============================================================================
+-- SECURITY HARDENING 2026-05-01 (post multi-tenant) — v2
+-- ============================================================================
+
+-- FIX 1: suppliers — viewer já não lê dados bancários
+DROP POLICY IF EXISTS "Suppliers viewable by editor" ON public.suppliers;
+
+CREATE POLICY "Suppliers viewable by editor"
+ON public.suppliers
+FOR SELECT
+TO authenticated
+USING (has_role(auth.uid(), 'editor'::app_role));
+
+-- FIX 2: storage — remover policies fracas que furam role check
+DROP POLICY IF EXISTS "Authenticated users can upload supplier documents" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can delete supplier documents" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can upload transaction docs" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can delete transaction docs" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can upload credit docs" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can upload import reports" ON storage.objects;
+
+CREATE POLICY "Supplier docs uploadable by privileged roles"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'supplier-documents'
+  AND (has_role(auth.uid(),'admin'::app_role) OR has_role(auth.uid(),'manager'::app_role) OR has_role(auth.uid(),'editor'::app_role))
+);
+
+CREATE POLICY "Transaction docs uploadable by privileged roles"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'transaction-documents'
+  AND (has_role(auth.uid(),'admin'::app_role) OR has_role(auth.uid(),'manager'::app_role) OR has_role(auth.uid(),'editor'::app_role))
+);
+
+CREATE POLICY "Credit docs uploadable by admin or manager"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'supplier-credit-documents'
+  AND (has_role(auth.uid(),'admin'::app_role) OR has_role(auth.uid(),'manager'::app_role))
+);
+
+CREATE POLICY "Import reports uploadable by privileged roles"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'import-reports'
+  AND (has_role(auth.uid(),'admin'::app_role) OR has_role(auth.uid(),'manager'::app_role) OR has_role(auth.uid(),'editor'::app_role))
+);
+
+-- FIX 3: Realtime — anon deixa de subscrever
+ALTER TABLE IF EXISTS realtime.messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Authenticated users can receive realtime messages" ON realtime.messages;
+CREATE POLICY "Authenticated users can receive realtime messages"
+ON realtime.messages
+FOR SELECT
+TO authenticated
+USING (true);
