@@ -66,8 +66,10 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
     (Object.keys(draft) as (keyof SponsorshipPipelineRow)[]).forEach((k) => {
       if (draft[k] !== row[k]) (diff as never as Record<string, unknown>)[k as string] = draft[k];
     });
-    if (Object.keys(diff).length === 0) return;
-    await update.mutateAsync({ id: row.id, patch: diff });
+    if (Object.keys(diff).length > 0) {
+      await update.mutateAsync({ id: row.id, patch: diff });
+    }
+    onClose();
   }
 
   async function submitNote() {
