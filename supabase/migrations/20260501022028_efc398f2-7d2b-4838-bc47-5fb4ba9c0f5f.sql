@@ -18,6 +18,10 @@ DROP POLICY IF EXISTS "Authenticated users can upload transaction docs" ON stora
 DROP POLICY IF EXISTS "Authenticated users can delete transaction docs" ON storage.objects;
 DROP POLICY IF EXISTS "Authenticated users can upload credit docs" ON storage.objects;
 DROP POLICY IF EXISTS "Authenticated users can upload import reports" ON storage.objects;
+DROP POLICY IF EXISTS "Supplier docs uploadable by privileged roles" ON storage.objects;
+DROP POLICY IF EXISTS "Transaction docs uploadable by privileged roles" ON storage.objects;
+DROP POLICY IF EXISTS "Credit docs uploadable by admin or manager" ON storage.objects;
+DROP POLICY IF EXISTS "Import reports uploadable by privileged roles" ON storage.objects;
 
 CREATE POLICY "Supplier docs uploadable by privileged roles"
 ON storage.objects FOR INSERT
@@ -51,11 +55,7 @@ WITH CHECK (
   AND (has_role(auth.uid(),'admin'::app_role) OR has_role(auth.uid(),'manager'::app_role) OR has_role(auth.uid(),'editor'::app_role))
 );
 
--- FIX 3: Realtime — anon deixa de subscrever
-ALTER TABLE IF EXISTS realtime.messages ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Authenticated users can receive realtime messages" ON realtime.messages;
-CREATE POLICY "Authenticated users can receive realtime messages"
-ON realtime.messages
-FOR SELECT
-TO authenticated
-USING (true);
+-- FIX 3: Realtime — removido desta migração.
+-- O schema `realtime` é reservado pela plataforma e não deve ser alterado em
+-- migrações de publicação. Esta hardening fica documentada/gerida fora do
+-- pipeline de publish para evitar bloqueio de deploy em Live.
