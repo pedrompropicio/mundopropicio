@@ -27,6 +27,7 @@ export type CoalaSession = {
 export type CoalaCostLine = {
   label: string;
   prior_year_amount: number;
+  actual_amount?: number;     // Hoje (Edição atual) = TX pagas/aprovadas + BP s/ TX
   break_even_amount: number;
   forecast_amount: number;
   is_ab_passthrough?: boolean; // marca linhas A&B Bebida/Alimento (recalculadas)
@@ -176,7 +177,7 @@ export function computeScenarioCosts(
   let eventCosts = 0;
   for (const l of costLines) {
     if (l.is_ab_passthrough) continue;
-    if (scenario === "today") eventCosts += n(l.prior_year_amount);
+    if (scenario === "today") eventCosts += n(l.actual_amount ?? l.prior_year_amount);
     else if (scenario === "breakeven") eventCosts += n(l.break_even_amount);
     else eventCosts += n(l.forecast_amount);
   }
