@@ -548,10 +548,16 @@ export default function EventSimulator() {
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => syncFromSources.mutate()} disabled={syncFromSources.isPending}>
             {syncFromSources.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Sincronizar BP + Bilheteira
+          </Button>
+          <Button variant="outline" onClick={handleExportXlsx}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel
+          </Button>
+          <Button variant="outline" onClick={handleExportPdf}>
+            <FileText className="mr-2 h-4 w-4" /> PDF
           </Button>
           <Button onClick={() => saveAll.mutate()} disabled={saveAll.isPending}>
             {saveAll.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
