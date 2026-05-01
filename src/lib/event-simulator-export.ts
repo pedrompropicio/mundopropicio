@@ -84,9 +84,9 @@ function buildResumoAoA(d: SimulatorExportData): any[][] {
 
   return [
     [`Simulador ${d.eventName}`],
-    [d.subtitle ?? "3 cenários paralelos · Hoje (vendas reais) · Break Even · Forecast DVT"],
+    [d.subtitle ?? "2025 (manual) · Hoje Edição 2026 (TX+BP) · Break Even · Forecast DVT"],
     [],
-    ["Indicador", "Hoje", "Break Even", "Forecast DVT", "Δ Forecast vs Hoje"],
+    ["Indicador", "Hoje (Edição 2026)", "Break Even", "Forecast DVT", "Δ Forecast vs Hoje"],
     ["Bilhetes vendidos (qty)", totalQtyToday, totalQtyBe, totalQtyFc, totalQtyFc - totalQtyToday],
     ["Cortesias (qty)", totalCourtesy, totalCourtesy, totalCourtesy, 0],
     ["Receita Bilheteira", r2(t.ticketsRevenue), r2(be.ticketsRevenue), r2(fc.ticketsRevenue), delta(fc.ticketsRevenue, t.ticketsRevenue)],
@@ -140,7 +140,7 @@ function buildCustosAoA(d: SimulatorExportData): any[][] {
   const rows: any[][] = [
     ["Custos por categoria L3 (3 cenários)"],
     [],
-    ["Categoria L3", "2025 (Hoje)", "Break Even", "Forecast DVT", "Δ FC vs 2025"],
+    ["Categoria L3", "2025 (manual)", "Break Even", "Forecast DVT", "Δ FC vs 2025"],
   ];
   for (const c of d.costs) {
     const label = c.category_code ? `${c.category_code} ${c.label}` : c.label;

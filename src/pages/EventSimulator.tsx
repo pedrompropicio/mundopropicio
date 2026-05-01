@@ -544,7 +544,7 @@ export default function EventSimulator() {
               Simulador — {event?.name}
             </h1>
             <p className="text-sm text-muted-foreground">
-              3 cenários paralelos: <strong>Hoje</strong> · <strong>Break Even</strong> · <strong>Forecast DVT</strong>
+              <strong>2025</strong>: introduzido manualmente (referência) · <strong>Hoje (Edição 2026)</strong>: alimentado pela plataforma (vendas + BP + transações) · <strong>Break Even</strong> e <strong>Forecast DVT</strong>: cenários simulados.
             </p>
           </div>
         </div>
@@ -568,7 +568,7 @@ export default function EventSimulator() {
 
       {/* KPIs scenario summary */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <ScenarioCard title="Hoje" tone="muted" rev={today} cost={todayCosts} res={todayRes} kpis={todayKpis} />
+        <ScenarioCard title="Hoje (Edição 2026)" tone="muted" rev={today} cost={todayCosts} res={todayRes} kpis={todayKpis} />
         <ScenarioCard
           title="Break Even"
           tone="warning"
@@ -613,8 +613,8 @@ export default function EventSimulator() {
                     <TableHead className="text-right">Forecast (qty)</TableHead>
                     <TableHead className="text-right">TM override</TableHead>
                     <TableHead className="text-right">IVA %</TableHead>
-                    <TableHead className="text-right">2025 qty</TableHead>
-                    <TableHead className="text-right">2025 €</TableHead>
+                    <TableHead className="text-right" title="Manual — referência ano anterior">2025 qty (manual)</TableHead>
+                    <TableHead className="text-right" title="Manual — referência ano anterior">2025 € (manual)</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -772,8 +772,8 @@ export default function EventSimulator() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Linha</TableHead>
-                    <TableHead className="text-right">2025 (real)</TableHead>
-                    <TableHead className="text-right">Hoje</TableHead>
+                    <TableHead className="text-right" title="Manual — referência ano anterior">2025 (manual)</TableHead>
+                    <TableHead className="text-right">Hoje (Edição 2026)</TableHead>
                     <TableHead className="text-right">Break Even</TableHead>
                     <TableHead className="text-right">Forecast DVT</TableHead>
                   </TableRow>
@@ -811,8 +811,8 @@ export default function EventSimulator() {
                   <TableRow>
                     <TableHead>Categoria L3</TableHead>
                     <TableHead>Rótulo</TableHead>
-                    <TableHead className="text-right">2025</TableHead>
-                    <TableHead className="text-right">Atual (TX+BP)</TableHead>
+                    <TableHead className="text-right" title="Manual — introduzido para referência">2025 (manual)</TableHead>
+                    <TableHead className="text-right">Hoje (Edição 2026) = TX+BP</TableHead>
                     <TableHead className="text-right">Break Even</TableHead>
                     <TableHead className="text-right">Forecast</TableHead>
                     <TableHead className="text-center">A&B?</TableHead>
@@ -866,8 +866,9 @@ export default function EventSimulator() {
                 </TableBody>
               </Table>
               <p className="mt-3 text-xs text-muted-foreground">
-                Marque "A&B?" nas linhas <em>A&B Bebida</em> e <em>A&B Alimento</em> — esses valores são recalculados automaticamente
-                pelo % de repasse aplicado à receita derivada (não somam diretamente).
+                <strong>2025 (manual)</strong>: introduzido manualmente para referência (não é puxado da DB).
+                <strong> Hoje (Edição 2026)</strong>: soma <em>Transações (qualquer status)</em> + <em>BP aprovado sem TX vinculada</em>.
+                Marque "A&B?" nas linhas <em>A&B Bebida/Alimento</em> — recalculadas pelo % de repasse.
               </p>
             </CardContent>
           </Card>
@@ -970,7 +971,10 @@ export default function EventSimulator() {
                   <CfgInput label="Ponto Vendido (€)" value={localCfg.ponto_vendido}
                     onChange={(v) => setLocalCfg({ ...localCfg, ponto_vendido: v })} step={0.01} />
                   <div className="col-span-full mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
-                    <p className="col-span-full text-sm font-semibold text-muted-foreground">Ano anterior (2025)</p>
+                    <div className="col-span-full">
+                      <p className="text-sm font-semibold">Ano anterior (2025) — manual</p>
+                      <p className="text-xs text-muted-foreground">Estes valores são introduzidos manualmente e servem só de referência. <strong>Não</strong> são alimentados pela plataforma — a Edição 2026 vem de Vendas + BP + Transações.</p>
+                    </div>
                     <CfgInput label="Ingressos 2025 (€)" value={localCfg.prior_year_tickets}
                       onChange={(v) => setLocalCfg({ ...localCfg, prior_year_tickets: v })} step={0.01} />
                     <CfgInput label="Bebida 2025 (€)" value={localCfg.prior_year_drink}
