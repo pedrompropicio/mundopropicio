@@ -1174,6 +1174,76 @@ export default function EventSimulator() {
 }
 
 // ---------- Subcomponentes ----------
+function BreakEvenSummary({ solution }: { solution: BreakEvenSolution }) {
+  const { Popover, PopoverTrigger, PopoverContent } = require("@/components/ui/popover");
+  if (!solution || solution.deficit <= 0.5) {
+    return <Badge variant="outline" className="text-emerald-500 border-emerald-500/40">Já no break-even</Badge>;
+  }
+  const reachable = solution.reachable;
+  const allocated = solution.breakdown.filter(b => b.extra_qty > 0);
+  const ignored = solution.breakdown.filter(b => b.extra_qty === 0 && b.reason !== "ok");
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/5 px-2 py-0.5 text-[11px] hover:bg-amber-500/10">
+          <span className="font-semibold">{fmt(solution.deficit)}</span>
+          <span className="text-muted-foreground">·</span>
+          <span>{fmtNum(solution.totalExtraTickets)} bilh.</span>
+          {!reachable && <Badge variant="destructive" className="ml-1 px-1 py-0 text-[9px]">parcial</Badge>}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[360px] text-xs">
+        <div className="space-y-2">
+          <div className="font-semibold text-sm">Como atingir o equilíbrio</div>
+          <div className="grid grid-cols-2 gap-2 rounded bg-muted/40 p-2">
+            <div><div className="text-muted-foreground text-[10px]">Falta cobrir</div><div className="font-semibold">{fmt(solution.deficit)}</div></div>
+            <div><div className="text-muted-foreground text-[10px]">Bilhetes a vender</div><div className="font-semibold">{fmtNum(solution.totalExtraTickets)}</div></div>
+            {solution.unfilled > 0.5 && (
+              <div className="col-span-2 text-rose-500 text-[10px]">⚠️ Capacidade insuficiente para cobrir {fmt(solution.unfilled)}</div>
+            )}
+          </div>
+          {allocated.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Distribuição sugerida</div>
+              <div className="space-y-0.5 max-h-48 overflow-auto">
+                {allocated.sort((a,b) => b.extra_qty - a.extra_qty).map(b => (
+                  <div key={b.key} className="flex justify-between gap-2">
+                    <span className="truncate">D{b.day_index+1} · {b.zone_label}</span>
+                    <span className="tabular-nums whitespace-nowrap">
+                      +{fmtNum(b.extra_qty)} <span className="text-muted-foreground">@ {fmt(b.marginal_price)}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {ignored.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Zonas excluídas</div>
+              <div className="space-y-0.5 max-h-32 overflow-auto">
+                {ignored.map(b => {
+                  const reasonTxt = b.reason === "no_velocity" ? "sem ritmo de venda"
+                    : b.reason === "capacity_full" ? "lotação esgotada"
+                    : b.reason === "no_price" ? "sem preço definido" : "—";
+                  return (
+                    <div key={b.key} className="flex justify-between gap-2 text-muted-foreground">
+                      <span className="truncate">D{b.day_index+1} · {b.zone_label}</span>
+                      <span className="text-[10px]">{reasonTxt}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <div className="text-[10px] text-muted-foreground border-t pt-1">
+            Distribuição pondera <strong>velocidade × margem</strong> e respeita capacidade + preço do próximo lote.
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function ScenarioCard({ title, tone, rev, cost, res, kpis, extra, dailyTotals }: any) {
   const toneCls = tone === "warning" ? "border-amber-500/40" : tone === "success" ? "border-emerald-500/40" : "border-border";
   const resColor = res.general >= 0 ? "text-emerald-500" : "text-rose-500";
