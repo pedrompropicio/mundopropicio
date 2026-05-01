@@ -879,7 +879,13 @@ export default function EventDetail() {
       {/* Main tabs — wrapped in scenario provider so BP/Bilheteira/Cachê share the same selected version */}
       <EventScenarioProvider eventId={activeEventId}>
       <ScenarioModeBanner eventId={activeEventId} />
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={(v) => {
+        if (v === "simulador") {
+          navigate(`/eventos/${selectedSubEvent || event.id}/simulador`);
+          return;
+        }
+        setActiveTab(v);
+      }} className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Resumo</TabsTrigger>
           <TabsTrigger value="ticketing" className="flex items-center gap-1">Bilheteira <HelpTooltip text={helpTexts.eventTicketing} size={13} /></TabsTrigger>
