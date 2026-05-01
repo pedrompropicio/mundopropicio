@@ -1190,3 +1190,63 @@ export default function EventDetail() {
     </div>
   );
 }
+
+/**
+ * Tab unificada de Fecho: alterna entre o fecho geral do evento e o fecho de
+ * sócios/parceiros via sub-toggle. Substitui as antigas tabs separadas
+ * "Fecho" e "Fecho Parceiros".
+ */
+function FechoUnifiedTab({
+  event,
+  selectedSubEvent,
+  subEvents,
+  isMultiEvent,
+  canSeePartners,
+}: {
+  event: any;
+  selectedSubEvent: string | null;
+  subEvents: any[];
+  isMultiEvent: boolean;
+  canSeePartners: boolean;
+}) {
+  const [mode, setMode] = useState<"general" | "partners">("general");
+  const eventName = selectedSubEvent
+    ? (subEvents.find((s: any) => s.id === selectedSubEvent)?.name || event.name)
+    : event.name;
+
+  return (
+    <div className="space-y-4">
+      {canSeePartners && (
+        <div className="inline-flex rounded-lg border border-border/60 bg-secondary/30 p-1 text-xs font-medium">
+          <button
+            onClick={() => setMode("general")}
+            className={`px-3 py-1.5 rounded-md transition-colors ${mode === "general" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Geral do evento
+          </button>
+          <button
+            onClick={() => setMode("partners")}
+            className={`px-3 py-1.5 rounded-md transition-colors ${mode === "partners" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Sócios / Parceiros
+          </button>
+        </div>
+      )}
+
+      {mode === "general" || !canSeePartners ? (
+        <EventFecho
+          eventId={selectedSubEvent || event.id}
+          eventName={eventName}
+          childEventIds={!selectedSubEvent && isMultiEvent ? subEvents.map((s: any) => s.id) : []}
+          parentEventId={selectedSubEvent ? event.id : event.parent_event_id}
+        />
+      ) : (
+        <PartnerSettlementTab
+          eventId={event.id}
+          eventName={event.name}
+          childEventIds={isMultiEvent ? subEvents.map((s: any) => s.id) : []}
+        />
+      )}
+    </div>
+  );
+}
