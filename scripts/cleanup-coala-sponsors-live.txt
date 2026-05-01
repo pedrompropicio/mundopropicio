@@ -45,7 +45,7 @@ DECLARE
   v_cat_ids   uuid[];
   v_tx_ids    uuid[];
   v_fc_ids    uuid[];
-  n_link int := 0; n_pay int := 0; n_doc int := 0; n_tx int := 0; n_bp int := 0;
+  n_link int := 0; n_fc_unlink int := 0; n_parent int := 0; n_pay int := 0; n_doc int := 0; n_tx int := 0; n_bp int := 0;
 BEGIN
   SELECT array_agg(id) INTO v_event_ids
     FROM events WHERE name ILIKE '%Coala%Portugal%2026%';
@@ -68,28 +68,40 @@ BEGIN
       OR linked_forecast_id    = ANY(COALESCE(v_fc_ids, ARRAY[]::uuid[]));
   GET DIAGNOSTICS n_link = ROW_COUNT;
 
-  -- 2) pagamentos parcelados
+  -- 2) desligar BP -> Transação (necessário por causa da FK event_forecasts_transaction_id_fkey)
+  UPDATE event_forecasts
+     SET transaction_id = NULL
+   WHERE transaction_id = ANY(COALESCE(v_tx_ids, ARRAY[]::uuid[]));
+  GET DIAGNOSTICS n_fc_unlink = ROW_COUNT;
+
+  -- 3) desligar transações-filhas, se houver
+  UPDATE transactions
+     SET parent_transaction_id = NULL
+   WHERE parent_transaction_id = ANY(COALESCE(v_tx_ids, ARRAY[]::uuid[]));
+  GET DIAGNOSTICS n_parent = ROW_COUNT;
+
+  -- 4) pagamentos parcelados
   DELETE FROM transaction_payments
    WHERE transaction_id = ANY(COALESCE(v_tx_ids, ARRAY[]::uuid[]));
   GET DIAGNOSTICS n_pay = ROW_COUNT;
 
-  -- 3) documentos anexados
+  -- 5) documentos anexados
   DELETE FROM transaction_documents
    WHERE transaction_id = ANY(COALESCE(v_tx_ids, ARRAY[]::uuid[]));
   GET DIAGNOSTICS n_doc = ROW_COUNT;
 
-  -- 4) transações
+  -- 6) transações
   DELETE FROM transactions
    WHERE id = ANY(COALESCE(v_tx_ids, ARRAY[]::uuid[]));
   GET DIAGNOSTICS n_tx = ROW_COUNT;
 
-  -- 5) linhas BP
+  -- 7) linhas BP
   DELETE FROM event_forecasts
    WHERE id = ANY(COALESCE(v_fc_ids, ARRAY[]::uuid[]));
   GET DIAGNOSTICS n_bp = ROW_COUNT;
 
-  RAISE NOTICE 'APAGADO: pipeline_unlinked=%, payments=%, docs=%, tx=%, bp=%',
-    n_link, n_pay, n_doc, n_tx, n_bp;
+  RAISE NOTICE 'APAGADO: pipeline_unlinked=%, bp_tx_unlinked=%, child_tx_unlinked=%, payments=%, docs=%, tx=%, bp=%',
+    n_link, n_fc_unlink, n_parent, n_pay, n_doc, n_tx, n_bp;
 END $$;
 
 
