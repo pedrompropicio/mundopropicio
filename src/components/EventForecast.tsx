@@ -3212,6 +3212,15 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   <ArrowUpRight className="h-3.5 w-3.5 text-primary" />
                 </button>
               )}
+              {isApproved && isAdmin && isEligibleForGen && onScheduleInstallments && (
+                <button
+                  onClick={() => onScheduleInstallments(item)}
+                  className="rounded p-1 hover:bg-primary/20"
+                  title={isExpense ? "Programar pagamentos (parcelas)" : "Programar recebimentos (parcelas)"}
+                >
+                  <CalendarPlus className="h-3.5 w-3.5 text-primary" />
+                </button>
+              )}
               {isApproved && isAdmin && onEditApproved && (
                 <button
                   onClick={() => onEditApproved(item)}
