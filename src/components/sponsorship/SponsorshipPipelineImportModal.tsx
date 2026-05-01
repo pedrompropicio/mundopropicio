@@ -219,6 +219,8 @@ export function SponsorshipPipelineImportModal({
     },
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["sponsorship-pipeline", eventId] });
+      qc.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
 
       if (res.inserted === 0 && res.updated === 0) {
         // Tudo falhou — não fechar e mostrar erro detalhado
