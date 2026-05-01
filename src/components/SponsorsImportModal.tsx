@@ -580,6 +580,64 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
           )}
         </DialogFooter>
       </DialogContent>
+
+      {/* Diálogo: incorporar linhas importadas no snapshot da versão ativa */}
+      <Dialog
+        open={!!mergePrompt}
+        onOpenChange={(v) => {
+          if (!v && !mergeMutation.isPending) {
+            setMergePrompt(null);
+            onOpenChange(false);
+            reset();
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Incorporar na versão ativa do BP?</DialogTitle>
+            <DialogDescription>
+              {mergePrompt?.summary}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p>
+              Estas linhas acabaram de ser importadas. Por defeito, vão aparecer no banner de
+              <strong> "alterações pendentes"</strong> da versão ativa, até que congeles uma nova versão.
+            </p>
+            <p>
+              Se preferires, posso <strong>incorporá-las directamente no snapshot da versão ativa atual</strong>
+              {' '}(e nos Splits, quando aplicável). Não cria nova versão e <strong>não aparecem como pendentes</strong>.
+            </p>
+            <div className="rounded-lg border border-warning/40 bg-warning/10 p-2.5 text-xs text-muted-foreground">
+              <strong className="text-warning">Atenção:</strong> isto altera retroactivamente a versão ativa.
+              Usa só se o objectivo é tratar a importação como parte do plano original.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={mergeMutation.isPending}
+              onClick={() => {
+                setMergePrompt(null);
+                onOpenChange(false);
+                reset();
+              }}
+            >
+              Manter como pendente
+            </Button>
+            <Button
+              disabled={mergeMutation.isPending}
+              onClick={() => mergePrompt && mergeMutation.mutate(mergePrompt.forecastIds)}
+            >
+              {mergeMutation.isPending ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> A incorporar…</>
+              ) : (
+                "Incorporar na versão ativa"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
