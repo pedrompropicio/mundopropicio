@@ -28,6 +28,7 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
   const report: SyncReport = {
     sessionsCreated: 0, sessionsUpdated: 0,
     costLinesCreated: 0, costLinesUpdated: 0,
+    sponsorsTotal: 0,
   };
 
   // 1) Carrega fontes
