@@ -431,7 +431,18 @@ export function SponsorshipPipelineImportModal({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-2 flex-wrap">
+          <Button
+            variant="secondary"
+            onClick={() => resyncMutation.mutate()}
+            disabled={resyncMutation.isPending || importMutation.isPending}
+            title="Cria BP e transações para cards 'fechados' do pipeline que ainda não foram sincronizados"
+          >
+            {resyncMutation.isPending ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : null}
+            Re-sincronizar pendentes
+          </Button>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
