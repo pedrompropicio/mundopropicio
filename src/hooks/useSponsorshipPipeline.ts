@@ -155,17 +155,12 @@ export function useAddSponsorNote(pipelineId: string, companyId: string | null) 
 
 export function useChangeStage(eventId: string) {
   const update = useUpdateSponsor(eventId);
-  return async (id: string, stage: SponsorshipStage, current?: { proposed_amount?: number; confirmed_amount?: number; is_barter?: boolean }) => {
-    const patch: Partial<SponsorshipPipelineRow> = { stage };
-    // Ao mover para "Fechado" (não permuta), promove o valor proposto para confirmado
-    // se o confirmado ainda estiver a 0. Caso contrário, o card aparecia a 0€.
-    if (stage === "closed" && !current?.is_barter) {
-      const conf = Number(current?.confirmed_amount || 0);
-      const prop = Number(current?.proposed_amount || 0);
-      if (conf <= 0 && prop > 0) {
-        (patch as Record<string, unknown>).confirmed_amount = prop;
-      }
-    }
+  return async (
+    id: string,
+    stage: SponsorshipStage,
+    extraPatch?: Partial<SponsorshipPipelineRow>,
+  ) => {
+    const patch: Partial<SponsorshipPipelineRow> = { stage, ...(extraPatch ?? {}) };
     return update.mutateAsync({ id, patch });
   };
 }
