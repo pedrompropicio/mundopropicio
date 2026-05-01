@@ -453,8 +453,8 @@ export default function EventSimulator() {
     })), [localCosts]);
 
   const beSolution = useMemo(
-    () => solveBreakEven(calcSessions, calcCosts, calcCfg),
-    [calcSessions, calcCosts, calcCfg],
+    () => solveBreakEven(calcSessions, calcCosts, calcCfg, beLotInfo),
+    [calcSessions, calcCosts, calcCfg, beLotInfo],
   );
 
   const today = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "today"), [calcSessions, calcCfg]);
