@@ -159,6 +159,8 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   // Filtra a vista do BP por estado de formalidade comercial. "all" mostra tudo;
   // os outros valores correspondem 1:1 ao enum `bp_formalidade`.
   const [formalidadeFilter, setFormalidadeFilter] = useState<string>("all");
+  // Tipo: "all" | "income" | "expense" — controla se mostramos só Receitas, só Despesas ou Ambos
+  const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
   const [includeSubsInBP, setIncludeSubsInBP] = useState<boolean>(false); // master view: hide sub-event lines by default
   const [includeOverheadInComparison, setIncludeOverheadInComparison] = useState<boolean>(false); // Previsão vs Real: incluir linhas is_overhead
   const [adoptTarget, setAdoptTarget] = useState<{ id: string; description: string; category_id: string | null; type: string } | null>(null);
@@ -1804,9 +1806,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
       )}
       {/* Summary cards */}
       <div className={`grid gap-4 ${expenseOnly ? "sm:grid-cols-2" : parentEventId ? "sm:grid-cols-2 lg:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
-        {!expenseOnly && <SummaryCard label="Receitas" helpText="Previsão = receitas BP no perímetro comparável; se não houver linhas de receita, usa a receita prevista de bilheteira sem IVA. Real = transações de receita aprovadas/pagas no mesmo perímetro + bilheteira vendida sem IVA. Este card trabalha sem IVA." forecast={totalForecastIncome} actual={totalActualIncome} icon={<TrendingUp className="h-4 w-4 text-success" />} />}
-        <SummaryCard label="Despesas" helpText="Previsão = soma das despesas do BP no perímetro comparável, sempre sem IVA. Real = soma das transações de despesa aprovadas/pagas no mesmo perímetro, também sem IVA. Este card trabalha sem IVA." forecast={totalForecastExpense} actual={totalActualExpense} icon={<TrendingDown className="h-4 w-4 text-warning" />} />
-        {!expenseOnly && !parentEventId && <SummaryCard label="Resultado" helpText="Resultado = Receitas − Despesas. Como Receitas e Despesas neste resumo são calculadas sem IVA, o Resultado também é exibido sem IVA. A variação compara o real com a previsão; para despesas, gastar menos é melhor, por isso a cor positiva é invertida." forecast={forecastProfit} actual={actualProfit} icon={<BarChart3 className="h-4 w-4 text-primary" />} isProfit />}
+        {!expenseOnly && typeFilter !== "expense" && <SummaryCard label="Receitas" helpText="Previsão = receitas BP no perímetro comparável; se não houver linhas de receita, usa a receita prevista de bilheteira sem IVA. Real = transações de receita aprovadas/pagas no mesmo perímetro + bilheteira vendida sem IVA. Este card trabalha sem IVA." forecast={totalForecastIncome} actual={totalActualIncome} icon={<TrendingUp className="h-4 w-4 text-success" />} />}
+        {typeFilter !== "income" && <SummaryCard label="Despesas" helpText="Previsão = soma das despesas do BP no perímetro comparável, sempre sem IVA. Real = soma das transações de despesa aprovadas/pagas no mesmo perímetro, também sem IVA. Este card trabalha sem IVA." forecast={totalForecastExpense} actual={totalActualExpense} icon={<TrendingDown className="h-4 w-4 text-warning" />} />}
+        {!expenseOnly && !parentEventId && typeFilter === "all" && <SummaryCard label="Resultado" helpText="Resultado = Receitas − Despesas. Como Receitas e Despesas neste resumo são calculadas sem IVA, o Resultado também é exibido sem IVA. A variação compara o real com a previsão; para despesas, gastar menos é melhor, por isso a cor positiva é invertida." forecast={forecastProfit} actual={actualProfit} icon={<BarChart3 className="h-4 w-4 text-primary" />} isProfit />}
         <div className="glass rounded-xl p-4 space-y-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="h-4 w-4 text-primary" />
@@ -1896,6 +1898,22 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 <option value="pago_total">🟢 Pago total</option>
               </select>
             </div>
+            {/* Tipo: Receitas / Despesas / Ambos.
+                Esconde a secção respetiva e o card de Resumo correspondente. */}
+            {!expenseOnly && (
+              <div className="flex items-center gap-1.5" title="Filtrar por tipo (Receitas / Despesas / Ambos)">
+                <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value as "all" | "income" | "expense")}
+                  className="rounded-lg border border-border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="all">Receitas + Despesas</option>
+                  <option value="income">Só Receitas</option>
+                  <option value="expense">Só Despesas</option>
+                </select>
+              </div>
+            )}
             {/* Master ↔ Master+Subs toggle (only on master with children) */}
             {childEventIds && childEventIds.length > 0 && (
               <div className="flex items-center gap-1.5">
@@ -2020,7 +2038,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           ) : (
             <div className="space-y-6">
               {/* Income section */}
-              {!expenseOnly && <div className="glass rounded-xl p-5">
+              {!expenseOnly && typeFilter !== "expense" && <div className="glass rounded-xl p-5">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Receitas Previstas</h3>
@@ -2199,7 +2217,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
               </div>}
 
               {/* Expense section */}
-              <div className="glass rounded-xl p-5">
+              {typeFilter !== "income" && <div className="glass rounded-xl p-5">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Despesas Previstas</h3>
@@ -2449,7 +2467,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                     <p className="py-4 text-center text-xs text-muted-foreground">Sem despesas previstas</p>
                   )}
                 </div>
-              </div>
+              </div>}
 
               {/* BP summary row */}
               {(incomeForecasts.length > 0 || expenseForecasts.length > 0) && (
