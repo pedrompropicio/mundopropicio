@@ -15,6 +15,7 @@ export type SyncReport = {
   sessionsUpdated: number;
   costLinesCreated: number;
   costLinesUpdated: number;
+  sponsorsTotal: number;
 };
 
 type Row = Record<string, any>;
