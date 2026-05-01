@@ -240,8 +240,9 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
                 Estás a mover <strong>{closingPrompt.row.supplier_name}</strong> para{" "}
-                <strong>Fechado</strong>. Confirma o valor que ficou acordado — será este
-                que entra no BP e gera a transação.
+                <strong>Fechado</strong>. Confirma o valor acordado — depois, abre o card
+                e clica em <strong>"Gerar BP + Transação"</strong> para criar a linha do
+                BP e a transação aprovada.
               </p>
               <div>
                 <Label>Valor confirmado</Label>
