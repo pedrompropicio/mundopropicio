@@ -184,10 +184,10 @@ export default function EventSimulator() {
   const { data: lotSalesData } = useQuery({
     queryKey: ["sim-coala-lot-sales", eventId],
     queryFn: async () => {
-      // 1) zonas do evento
+      // 1) zonas do evento (com session_id → identifica dia do festival)
       const { data: zones } = await supabase
         .from("event_ticket_zones")
-        .select("id, name").eq("event_id", eventId!);
+        .select("id, name, session_id").eq("event_id", eventId!);
       const zoneIds = (zones ?? []).map((z: any) => z.id);
       if (!zoneIds.length) return { lotSales: [] as LotSale[], dates: [] as { date: string | null }[] };
 
@@ -197,12 +197,16 @@ export default function EventSimulator() {
         .select("id, name, zone_id, applies_to_days")
         .in("zone_id", zoneIds);
 
-      // 3) datas do evento (para mapear sale_date → day_index)
-      const { data: dates } = await supabase
-        .from("event_dates")
-        .select("date").eq("event_id", eventId!).order("date");
-      const dateToIdx = new Map<string, number>();
-      (dates ?? []).forEach((d: any, i: number) => { if (d.date) dateToIdx.set(d.date, i); });
+      // 3) DIAS REAIS do festival = event_sessions (cada sessão = 1 dia)
+      // event_dates pode ter só 1 entrada (último dia agregador); event_sessions é a fonte fiável.
+      const { data: sessionRows } = await supabase
+        .from("event_sessions")
+        .select("id, date").eq("event_id", eventId!).order("date");
+      const sessions = (sessionRows ?? []) as { id: string; date: string | null }[];
+      const sessionIdToIdx = new Map<string, number>();
+      sessions.forEach((s, i) => { if (s.id) sessionIdToIdx.set(s.id, i); });
+      // Datas indexadas pelo dia do festival (0..N-1)
+      const dates = sessions.map((s) => ({ date: s.date }));
 
       // 4) vendas
       const lotIds = (lots ?? []).map((l: any) => l.id);
@@ -217,17 +221,21 @@ export default function EventSimulator() {
       const lotSales: LotSale[] = ((sales ?? []) as any[]).map((s) => {
         const lot = lotById.get(s.lot_id);
         const zone = zoneById.get(s.zone_id);
+        // Dia do festival vem da sessão da ZONA (não da data da venda).
+        // Zonas sem session_id (ex: "Passe 2 dias") → null, expandidas a todos os dias.
+        const zoneSessionId = (zone as any)?.session_id ?? null;
+        const dayIdx = zoneSessionId ? (sessionIdToIdx.get(zoneSessionId) ?? null) : null;
         return {
           lot_id: s.lot_id,
           lot_name: lot?.name ?? "",
           applies_to_days: lot?.applies_to_days ?? 1,
           zone_id: s.zone_id,
           zone_name: zone?.name ?? "",
-          sale_day_index: s.sale_date ? (dateToIdx.get(s.sale_date) ?? null) : null,
+          sale_day_index: dayIdx,
           qty: Number(s.quantity || 0),
         };
       });
-      return { lotSales, dates: (dates ?? []) as { date: string | null }[] };
+      return { lotSales, dates };
     },
     enabled: !!eventId,
   });
