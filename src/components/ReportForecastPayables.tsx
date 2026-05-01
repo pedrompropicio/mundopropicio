@@ -171,7 +171,7 @@ export default function ReportForecastPayables() {
         .map((t: any) => ({ occupancy_threshold: Number(t.occupancy_threshold), percentage: Number(t.percentage) })),
     }));
 
-    const revenueForecasts = allEventForecasts.filter((f: any) => f.type === "revenue");
+    const revenueForecasts = allEventForecasts.filter((f: any) => f.type === "income");
     const ticketRevenueNet = revenueForecasts.reduce((s: number, f: any) => s + Number(f.amount), 0);
     const ticketRevenueGross = revenueForecasts.reduce((s: number, f: any) => {
       const amt = Number(f.amount);
