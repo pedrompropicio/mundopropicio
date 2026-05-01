@@ -82,6 +82,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
   // Reset lines whenever the modal re-opens
   useEffect(() => {
     if (open) {
+      setLocalFile(null);
       if (prefilledLines && prefilledLines.length >= 2) {
         setLines(prefilledLines);
         setExtractedNote(
