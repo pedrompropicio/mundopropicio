@@ -75,6 +75,9 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
       ? `Pré-preenchido a partir da fatura: ${prefilledLines.map((l) => `${l.base.toFixed(2)}€ a ${l.iva_rate}%`).join(" · ")}`
       : null,
   );
+  /** Ficheiro re-escolhido dentro do modal (substitui o que veio por prop). */
+  const [localFile, setLocalFile] = useState<File | null>(null);
+  const lastFileName = localFile?.name ?? attachmentFile?.name ?? attachmentLabel ?? null;
 
   // Reset lines whenever the modal re-opens
   useEffect(() => {
