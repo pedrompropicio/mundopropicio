@@ -4028,6 +4028,178 @@ export type Database = {
         }
         Relationships: []
       }
+      sponsorship_pipeline: {
+        Row: {
+          auto_sync_bp: boolean
+          barter_description: string | null
+          closed_at: string | null
+          company_id: string
+          confirmed_amount: number | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          doc_status:
+            | Database["public"]["Enums"]["sponsorship_doc_status"]
+            | null
+          event_id: string
+          id: string
+          is_barter: boolean
+          iva_rate: number | null
+          linked_forecast_id: string | null
+          linked_transaction_id: string | null
+          lost_reason: string | null
+          next_followup_date: string | null
+          notes: string | null
+          owner_user_id: string | null
+          priority: string
+          proposed_amount: number | null
+          sort_order: number
+          stage: Database["public"]["Enums"]["sponsorship_stage"]
+          supplier_id: string | null
+          supplier_name: string
+          updated_at: string
+        }
+        Insert: {
+          auto_sync_bp?: boolean
+          barter_description?: string | null
+          closed_at?: string | null
+          company_id: string
+          confirmed_amount?: number | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          doc_status?:
+            | Database["public"]["Enums"]["sponsorship_doc_status"]
+            | null
+          event_id: string
+          id?: string
+          is_barter?: boolean
+          iva_rate?: number | null
+          linked_forecast_id?: string | null
+          linked_transaction_id?: string | null
+          lost_reason?: string | null
+          next_followup_date?: string | null
+          notes?: string | null
+          owner_user_id?: string | null
+          priority?: string
+          proposed_amount?: number | null
+          sort_order?: number
+          stage?: Database["public"]["Enums"]["sponsorship_stage"]
+          supplier_id?: string | null
+          supplier_name: string
+          updated_at?: string
+        }
+        Update: {
+          auto_sync_bp?: boolean
+          barter_description?: string | null
+          closed_at?: string | null
+          company_id?: string
+          confirmed_amount?: number | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          doc_status?:
+            | Database["public"]["Enums"]["sponsorship_doc_status"]
+            | null
+          event_id?: string
+          id?: string
+          is_barter?: boolean
+          iva_rate?: number | null
+          linked_forecast_id?: string | null
+          linked_transaction_id?: string | null
+          lost_reason?: string | null
+          next_followup_date?: string | null
+          notes?: string | null
+          owner_user_id?: string | null
+          priority?: string
+          proposed_amount?: number | null
+          sort_order?: number
+          stage?: Database["public"]["Enums"]["sponsorship_stage"]
+          supplier_id?: string | null
+          supplier_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sponsorship_pipeline_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sponsorship_pipeline_linked_forecast_id_fkey"
+            columns: ["linked_forecast_id"]
+            isOneToOne: false
+            referencedRelation: "event_forecasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sponsorship_pipeline_linked_transaction_id_fkey"
+            columns: ["linked_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sponsorship_pipeline_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sponsorship_pipeline_activities: {
+        Row: {
+          body: string | null
+          company_id: string
+          id: string
+          kind: Database["public"]["Enums"]["sponsorship_activity_kind"]
+          metadata: Json | null
+          occurred_at: string
+          pipeline_id: string
+          user_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          company_id: string
+          id?: string
+          kind?: Database["public"]["Enums"]["sponsorship_activity_kind"]
+          metadata?: Json | null
+          occurred_at?: string
+          pipeline_id: string
+          user_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          company_id?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["sponsorship_activity_kind"]
+          metadata?: Json | null
+          occurred_at?: string
+          pipeline_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sponsorship_pipeline_activities_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "sponsorship_pipeline"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_credit_usages: {
         Row: {
           amount: number
@@ -5776,6 +5948,25 @@ export type Database = {
         | "fechado"
         | "pago_parcial"
         | "pago_total"
+      sponsorship_activity_kind:
+        | "note"
+        | "stage_change"
+        | "doc_status_change"
+        | "sync"
+        | "system"
+      sponsorship_doc_status:
+        | "awaiting"
+        | "invoice_sent"
+        | "invoice_received"
+        | "post_event"
+      sponsorship_stage:
+        | "lead"
+        | "contacted"
+        | "proposal_sent"
+        | "negotiating"
+        | "closed"
+        | "barter"
+        | "lost"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -5918,6 +6109,28 @@ export const Constants = {
         "fechado",
         "pago_parcial",
         "pago_total",
+      ],
+      sponsorship_activity_kind: [
+        "note",
+        "stage_change",
+        "doc_status_change",
+        "sync",
+        "system",
+      ],
+      sponsorship_doc_status: [
+        "awaiting",
+        "invoice_sent",
+        "invoice_received",
+        "post_event",
+      ],
+      sponsorship_stage: [
+        "lead",
+        "contacted",
+        "proposal_sent",
+        "negotiating",
+        "closed",
+        "barter",
+        "lost",
       ],
     },
   },
