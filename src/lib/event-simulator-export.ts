@@ -20,8 +20,8 @@ export type ExportScenario = {
 };
 export type ExportCosts = {
   totalCost: number;
-  abDrinkCost: number;
-  abFoodCost: number;
+  abDrinkCost?: number;
+  abFoodCost?: number;
   souvenirCost: number;
   eventCost?: number;
 };
