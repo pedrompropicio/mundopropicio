@@ -311,7 +311,7 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
       const linkedTxIds = new Set(((existingFcAfter ?? []) as any[]).map((f) => f.transaction_id));
       for (const t of (orphanTx ?? []) as any[]) {
         if (linkedTxIds.has(t.id)) continue;
-        const { error } = await supabase.from("event_forecasts").insert({
+        const { data: ins, error } = await supabase.from("event_forecasts").insert({
           event_id: eventId,
           category_id: SPONSORS_CATEGORY_ID,
           type: "income",
@@ -324,12 +324,14 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
           is_transitory: false,
           transaction_id: t.id,
           notes: `Linha BP recriada a partir de transação importada (recovery automático)`,
-        });
-        if (!error) forecastsRecovered++;
-        else failures.push(`Recovery "${t.description}": ${error.message}`);
+        }).select("id").single();
+        if (!error) {
+          forecastsRecovered++;
+          if (ins?.id) touchedForecastIds.push(ins.id);
+        } else failures.push(`Recovery "${t.description}": ${error.message}`);
       }
 
-      return { forecastsCreated, forecastsUpdated, forecastsRecovered, txCreated, txSkipped, failures };
+      return { forecastsCreated, forecastsUpdated, forecastsRecovered, txCreated, txSkipped, failures, touchedForecastIds };
     },
     onSuccess: (res) => {
       const recoveryNote = res.forecastsRecovered > 0
