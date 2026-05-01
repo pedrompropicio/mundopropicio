@@ -1175,7 +1175,7 @@ export default function EventSimulator() {
 
 // ---------- Subcomponentes ----------
 function BreakEvenSummary({ solution }: { solution: BreakEvenSolution }) {
-  const { Popover, PopoverTrigger, PopoverContent } = require("@/components/ui/popover");
+  // Popover importado no topo via dynamic-friendly import abaixo
   if (!solution || solution.deficit <= 0.5) {
     return <Badge variant="outline" className="text-emerald-500 border-emerald-500/40">Já no break-even</Badge>;
   }
