@@ -136,7 +136,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
     try {
       // Pipeline partilhado: DNG→JPEG, PDF→1ª página JPEG, compressão ≤1280px
       const prep = await prepareFileForInvoiceOcr(file);
-      if (!prep.ok) {
+      if (prep.ok !== true) {
         const msgMap = {
           raw_no_preview: { title: "RAW sem preview JPEG", description: "Tenta exportar como JPG ou desligar o ProRAW na câmara." },
           raw_failed: { title: "Erro a processar RAW", description: "Exporta como JPG e tenta de novo." },
