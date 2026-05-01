@@ -451,6 +451,42 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
           </div>
         </div>
       </SheetContent>
+
+      <AlertDialog open={!!confirmAmount} onOpenChange={(o) => !o && setConfirmAmount(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Alterar valor confirmado?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAmount && (
+                <>
+                  Vais alterar o valor confirmado de{" "}
+                  <strong>
+                    {new Intl.NumberFormat("pt-PT", {
+                      style: "currency",
+                      currency: row.currency || "EUR",
+                    }).format(confirmAmount.oldAmount)}
+                  </strong>{" "}
+                  para{" "}
+                  <strong>
+                    {new Intl.NumberFormat("pt-PT", {
+                      style: "currency",
+                      currency: row.currency || "EUR",
+                    }).format(confirmAmount.newAmount)}
+                  </strong>
+                  . Esta alteração será propagada para a linha do BP e para a
+                  transação aprovada vinculadas a este patrocínio.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmAmountChange}>
+              Confirmar e atualizar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   );
 }
