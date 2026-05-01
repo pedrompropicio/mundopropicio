@@ -134,11 +134,13 @@ describe("findMatchingTransactionsForForecast — bug regressão das parcelas", 
   });
 
   it("com 2 forecasts mesma categoria: distingue por descrição (scoring)", () => {
-    const fA = fcast({ description: "Patrocínio Marca X" });
-    const fB = fcast({ description: "Patrocínio Marca Y" });
-    const tA1 = tx({ description: "Patrocínio Marca X (1/2)" });
-    const tA2 = tx({ description: "Patrocínio Marca X (2/2)" });
-    const tB1 = tx({ description: "Patrocínio Marca Y (1/3)" });
+    // Descrições têm de ter tokens distintivos suficientes para o scoring
+    // (mínimo 3 chars, único ao forecast) — caso contrário empata e devolve [].
+    const fA = fcast({ description: "Patrocinio MarcaXcorp anual" });
+    const fB = fcast({ description: "Patrocinio MarcaYglobal trimestral" });
+    const tA1 = tx({ description: "Patrocinio MarcaXcorp anual parcela 1" });
+    const tA2 = tx({ description: "Patrocinio MarcaXcorp anual parcela 2" });
+    const tB1 = tx({ description: "Patrocinio MarcaYglobal trimestral parcela 1" });
     const txs = [tA1, tA2, tB1];
     const all = [fA, fB];
     expect(findMatchingTransactionsForForecast(fA, txs, all).map((r) => r.id).sort()).toEqual([tA1.id, tA2.id].sort());
