@@ -1167,3 +1167,184 @@ function CfgInput({ label, value, onChange, step = 1 }: { label: string; value: 
     </div>
   );
 }
+
+// ---------- Dashboard (widgets fixos) ----------
+function SimulatorDashboard({
+  eventName, today, todayCosts, todayRes, todayKpis,
+  breakeven, beCosts, beRes, beKpis,
+  forecast, fcCosts, fcRes, fcKpis,
+  costLines, dailyTotals, ivaTable,
+}: any) {
+  const fmtDate = (d: string | null) => {
+    if (!d) return "—";
+    const m = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return d;
+    const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    const s = dt.toLocaleDateString("pt-PT", { weekday: "short", day: "2-digit", month: "short" });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  };
+
+  // Top 10 custos (Hoje) — usa actual_amount
+  const topCosts = [...(costLines ?? [])]
+    .filter((c: any) => !c.is_ab_passthrough)
+    .map((c: any) => ({ name: c.label || "—", value: Number(c.actual_amount || 0) }))
+    .filter((c) => c.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 10);
+
+  const dailyChart = (dailyTotals ?? []).map(([d, t]: any) => ({
+    name: fmtDate(t.date) || `Dia ${d + 1}`,
+    Pagantes: t.paying,
+    Cortesias: t.courtesy,
+  }));
+
+  const scenarioChart = [
+    { name: "Hoje", Receita: today.totalRevenue, Custo: todayCosts.totalCost, Resultado: todayRes.general },
+    { name: "Break Even", Receita: breakeven.totalRevenue, Custo: beCosts.totalCost, Resultado: beRes.general },
+    { name: "Forecast DVT", Receita: forecast.totalRevenue, Custo: fcCosts.totalCost, Resultado: fcRes.general },
+  ];
+
+  const revenueMix = [
+    { name: "Bilheteira", value: today.ticketsRevenue },
+    { name: "Bebida", value: today.drinkRevenue },
+    { name: "Alimento", value: today.foodRevenue },
+    { name: "Patrocínios", value: today.sponsorRevenue },
+    { name: "Souvenir", value: today.souvenirRevenue },
+    { name: "Outros", value: today.otherCredits },
+  ].filter((r) => r.value > 0);
+
+  const PIE_COLORS = ["#3b82f6", "#84cc16", "#f59e0b", "#a855f7", "#06b6d4", "#ef4444"];
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <KpiTile label="Público (Hoje)" value={fmtNum(todayKpis.totalPublic)} />
+        <KpiTile label="Receita (Hoje)" value={fmt(today.totalRevenue)} />
+        <KpiTile label="Custo (Hoje)" value={fmt(todayCosts.totalCost)} />
+        <KpiTile label="Resultado (Hoje)" value={fmt(todayRes.general)} tone={todayRes.general >= 0 ? "ok" : "bad"} />
+        <KpiTile label="TM Ingresso" value={fmt(todayKpis.tmTickets)} />
+        <KpiTile label="TM A&B / pessoa" value={fmt(todayKpis.tmAB)} />
+        <KpiTile label="Custo / pessoa" value={fmt(todayKpis.costPerPerson)} />
+        <KpiTile label="Resultado / pessoa" value={fmt(todayKpis.resultPerPerson)} tone={todayKpis.resultPerPerson >= 0 ? "ok" : "bad"} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Cenários: Receita · Custo · Resultado</CardTitle></CardHeader>
+          <CardContent style={{ height: 280 }}>
+            <ResponsiveContainer>
+              <BarChart data={scenarioChart}>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                <Tooltip formatter={(v: any) => fmt(Number(v))} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="Receita" fill="#3b82f6" />
+                <Bar dataKey="Custo" fill="#ef4444" />
+                <Bar dataKey="Resultado" fill="#84cc16" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Mix de Receita (Hoje)</CardTitle></CardHeader>
+          <CardContent style={{ height: 280 }}>
+            <ResponsiveContainer>
+              <PieChart>
+                <Pie data={revenueMix} dataKey="value" nameKey="name" outerRadius={90} label={(e: any) => `${e.name}: ${fmt(e.value)}`}>
+                  {revenueMix.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                </Pie>
+                <Tooltip formatter={(v: any) => fmt(Number(v))} />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Público diário</CardTitle></CardHeader>
+          <CardContent style={{ height: 280 }}>
+            {dailyChart.length ? (
+              <ResponsiveContainer>
+                <BarChart data={dailyChart}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="Pagantes" stackId="a" fill="#3b82f6" />
+                  <Bar dataKey="Cortesias" stackId="a" fill="#a855f7" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">Sem dados</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Top 10 Custos (Hoje)</CardTitle></CardHeader>
+          <CardContent style={{ height: 280 }}>
+            {topCosts.length ? (
+              <ResponsiveContainer>
+                <BarChart data={topCosts} layout="vertical" margin={{ left: 80 }}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                  <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={140} />
+                  <Tooltip formatter={(v: any) => fmt(Number(v))} />
+                  <Bar dataKey="value" fill="#ef4444" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">Sem custos registados</div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm">IVA Bilheteira por sessão (Hoje)</CardTitle></CardHeader>
+        <CardContent className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Sessão</TableHead>
+                <TableHead className="text-right">Bruto</TableHead>
+                <TableHead className="text-right">IVA</TableHead>
+                <TableHead className="text-right">Líquido</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(ivaTable ?? []).map((r: any) => (
+                <TableRow key={r.label}>
+                  <TableCell>{r.label}</TableCell>
+                  <TableCell className="text-right">{fmt(r.gross)}</TableCell>
+                  <TableCell className="text-right">{fmt(r.iva)}</TableCell>
+                  <TableCell className="text-right">{fmt(r.net)}</TableCell>
+                </TableRow>
+              ))}
+              <TableRow className="font-bold border-t-2">
+                <TableCell>TOTAL</TableCell>
+                <TableCell className="text-right">{fmt((ivaTable ?? []).reduce((a: number, r: any) => a + r.gross, 0))}</TableCell>
+                <TableCell className="text-right">{fmt((ivaTable ?? []).reduce((a: number, r: any) => a + r.iva, 0))}</TableCell>
+                <TableCell className="text-right">{fmt((ivaTable ?? []).reduce((a: number, r: any) => a + r.net, 0))}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function KpiTile({ label, value, tone }: { label: string; value: string; tone?: "ok" | "bad" }) {
+  const cls = tone === "ok" ? "text-emerald-500" : tone === "bad" ? "text-rose-500" : "";
+  return (
+    <Card>
+      <CardContent className="pt-4">
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className={`text-lg font-bold mt-1 ${cls}`}>{value}</div>
+      </CardContent>
+    </Card>
+  );
+}
