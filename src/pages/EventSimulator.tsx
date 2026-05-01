@@ -309,10 +309,12 @@ export default function EventSimulator() {
     onSuccess: (r) => {
       toast({
         title: "Simulador sincronizado",
-        description: `Sessões: +${r.sessionsCreated} criadas, ${r.sessionsUpdated} atualizadas. Custos: +${r.costLinesCreated} criadas, ${r.costLinesUpdated} atualizadas.`,
+        description: `Sessões: +${r.sessionsCreated} / ~${r.sessionsUpdated} · Custos: +${r.costLinesCreated} / ~${r.costLinesUpdated} · Patrocínio total: ${fmt(r.sponsorsTotal)}.`,
       });
       qc.invalidateQueries({ queryKey: ["sim-coala-inputs", eventId] });
       qc.invalidateQueries({ queryKey: ["sim-coala-costs", eventId] });
+      qc.invalidateQueries({ queryKey: ["sim-coala-cfg", eventId] });
+      qc.invalidateQueries({ queryKey: ["sim-coala-sponsors", eventId] });
     },
     onError: (e: any) => toast({ title: "Erro a sincronizar", description: e.message, variant: "destructive" }),
   });
