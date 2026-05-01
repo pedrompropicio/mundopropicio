@@ -90,11 +90,15 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
   /** Ficheiro re-escolhido dentro do modal (substitui o que veio por prop). */
   const [localFile, setLocalFile] = useState<File | null>(null);
   const lastFileName = localFile?.name ?? attachmentFile?.name ?? attachmentLabel ?? null;
+  /** URL leve (objectURL) para pré-visualizar a fatura sem abrir o anexo. */
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
 
   // Reset lines whenever the modal re-opens
   useEffect(() => {
     if (open) {
       setLocalFile(null);
+      setPreviewExpanded(false);
       if (prefilledLines && prefilledLines.length >= 2) {
         setLines(prefilledLines);
         setExtractedNote(
@@ -110,6 +114,57 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Gera/limpa preview leve a partir do ficheiro ativo (sem refazer OCR).
+  useEffect(() => {
+    let cancelled = false;
+    const sourceFile = localFile ?? attachmentFile ?? null;
+    if (!open || !sourceFile) {
+      setPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      return;
+    }
+    (async () => {
+      try {
+        const prep = await prepareFileForInvoiceOcr(sourceFile);
+        if (cancelled) return;
+        if (prep.ok === true) {
+          const url = URL.createObjectURL(prep.file);
+          setPreviewUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return url;
+          });
+        } else {
+          setPreviewUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return null;
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setPreviewUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return null;
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, localFile, attachmentFile]);
+
+  // Cleanup final do objectURL.
+  useEffect(() => {
+    return () => {
+      setPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    };
+  }, []);
 
   const totals = useMemo(() => {
     const baseSum = lines.reduce((s, l) => s + (Number(l.base) || 0), 0);
@@ -251,6 +306,35 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
             </span>
           </Label>
           {extractedNote && <p className="mt-2 text-[11px] text-muted-foreground">{extractedNote}</p>}
+          {previewUrl && (
+            <div className="mt-2 flex items-start gap-3 rounded-md border border-border bg-card/50 p-2">
+              <button
+                type="button"
+                onClick={() => setPreviewExpanded((v) => !v)}
+                className="shrink-0 overflow-hidden rounded border border-border bg-background hover:ring-2 hover:ring-primary/50 transition"
+                title={previewExpanded ? "Reduzir pré-visualização" : "Ampliar pré-visualização"}
+              >
+                <img
+                  src={previewUrl}
+                  alt={`Pré-visualização de ${lastFileName ?? "fatura"}`}
+                  className={cn(
+                    "object-contain bg-background transition-all",
+                    previewExpanded ? "h-72 w-auto max-w-[90vw]" : "h-16 w-16",
+                  )}
+                  loading="lazy"
+                />
+              </button>
+              <div className="flex-1 text-[11px] text-muted-foreground leading-snug">
+                <div className="font-medium text-foreground">Pré-visualização da fatura</div>
+                <div className="truncate" title={lastFileName ?? undefined}>{lastFileName}</div>
+                <div className="mt-1 italic">
+                  {previewExpanded
+                    ? "Clica de novo para reduzir."
+                    : "Clica na miniatura para ampliar — sem precisar de abrir o anexo."}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Linhas */}
