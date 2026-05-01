@@ -1,8 +1,17 @@
 ---
 name: Multi-country roadmap (Fase 8)
-description: Plano aprovado para suportar PT + BR (gerencial puro), invariantes D1–D7 e estado das fases
+description: Plano aprovado PT + BR (gerencial puro), invariantes D1–D7, convivência Modelo B+C (mono-repo + sandbox curtas; forks proibidos)
 type: feature
 ---
+
+## Modelo de convivência PT vs BR (decidido)
+
+**Modelo B + C** (ver §10 do plano):
+- **B (regra)**: 1 codebase, 1 deploy. Features por país isoladas em `src/lib/{tax,locale,legal-labels}/{pt,br}/` + guards `company.country === 'XX'` em rotas/menu. Zero `if (country)` em UI.
+- **C (exceção)**: branches sandbox curtas (< 1 mês) só para experiências arriscadas que mudam comportamento partilhado; depois merge para main com flag.
+- **Forks paralelos PT vs BR PROIBIDOS** — divergem em meses, anulam D4, dobram manutenção.
+- Bug fix em código partilhado beneficia ambos os países automaticamente (convergência sem merge manual).
+- Receita para feature só-BR ou só-PT documentada em §10.2/§10.3 do plano.
 
 ## Estado: APROVADO, pronto a executar (não iniciado)
 
