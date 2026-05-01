@@ -35,6 +35,25 @@ async function getCategoryIdForCompany(code: "1.2.01" | "1.2.02", companyId: str
   return (data?.id as string) ?? null;
 }
 
+function todayLocalISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+async function getDefaultIncomeAccountId(companyId: string): Promise<string | null> {
+  // Heurística: primeira conta bancária ativa, não oculta, da empresa.
+  const { data } = await supabase
+    .from("financial_accounts")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("is_active", true)
+    .eq("is_hidden", false)
+    .in("type", ["bank", "cash"])
+    .order("created_at", { ascending: true })
+    .limit(1);
+  return (data?.[0] as { id: string } | undefined)?.id ?? null;
+}
+
 export async function syncSponsorToBP(row: SponsorshipPipelineRow): Promise<SyncResult> {
   const isClosed = row.stage === "closed" || row.stage === "barter";
   if (!isClosed) return { skipped: true, reason: "stage_not_closed" };
