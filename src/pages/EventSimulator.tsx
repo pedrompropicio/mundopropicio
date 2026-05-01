@@ -319,7 +319,7 @@ export default function EventSimulator() {
     },
     onError: (e: any) => toast({ title: "Erro a sincronizar", description: e.message, variant: "destructive" }),
   });
-  const calcCfg: CoalaConfig = useMemo(() => ({
+  const calcCfg: CoalaConfig = useMemo(() => {
     const sponsorRevenueFromBp = sponsors.reduce((sum, sponsor) => sum + Number(sponsor.planned_amount || 0), 0);
     return {
     ab_drink_avg_ticket: Number(localCfg?.default_drink_avg_ticket || 0),
@@ -339,7 +339,7 @@ export default function EventSimulator() {
     prior_year_other: Number(localCfg?.prior_year_other || 0),
     ticket_iva_pct: Number(localCfg?.ticket_iva_pct || 6),
   };
-  }), [localCfg, sponsors]);
+  }, [localCfg, sponsors]);
 
   const calcSessions: CoalaSession[] = useMemo(() =>
     localSessions.map((s) => ({
