@@ -39,7 +39,7 @@ CREATE OR REPLACE FUNCTION public.run_rls_legacy_audit(
   _triggered_by text DEFAULT 'cron',
   _triggered_by_user uuid DEFAULT NULL
 )
-RETURNS public.rls_legacy_audit_reports
+RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_catalog
@@ -48,7 +48,7 @@ DECLARE
   v_legacy int;
   v_total int;
   v_details jsonb;
-  v_row public.rls_legacy_audit_reports;
+  v_row jsonb;
 BEGIN
   -- Total de policies em public
   SELECT count(*) INTO v_total
@@ -85,7 +85,7 @@ BEGIN
     _triggered_by,
     _triggered_by_user
   )
-  RETURNING * INTO v_row;
+  RETURNING to_jsonb(public.rls_legacy_audit_reports.*) INTO v_row;
 
   RETURN v_row;
 END;
@@ -97,7 +97,7 @@ GRANT EXECUTE ON FUNCTION public.run_rls_legacy_audit(text, uuid) TO authenticat
 
 -- 5. Wrapper público (sem args) para ser chamado pelo cron via service_role
 CREATE OR REPLACE FUNCTION public.run_rls_legacy_audit_cron()
-RETURNS public.rls_legacy_audit_reports
+RETURNS jsonb
 LANGUAGE sql
 SECURITY DEFINER
 SET search_path = public, pg_catalog

@@ -5721,48 +5721,9 @@ export type Database = {
       }
       run_rls_legacy_audit: {
         Args: { _triggered_by?: string; _triggered_by_user?: string }
-        Returns: {
-          created_at: string
-          details: Json
-          environment: string
-          id: string
-          legacy_count: number
-          notes: string | null
-          ran_at: string
-          status: string
-          total_policies: number
-          triggered_by: string
-          triggered_by_user: string | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "rls_legacy_audit_reports"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+        Returns: Json
       }
-      run_rls_legacy_audit_cron: {
-        Args: never
-        Returns: {
-          created_at: string
-          details: Json
-          environment: string
-          id: string
-          legacy_count: number
-          notes: string | null
-          ran_at: string
-          status: string
-          total_policies: number
-          triggered_by: string
-          triggered_by_user: string | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "rls_legacy_audit_reports"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      run_rls_legacy_audit_cron: { Args: never; Returns: Json }
       set_active_company: {
         Args: { target_company_id: string }
         Returns: string
