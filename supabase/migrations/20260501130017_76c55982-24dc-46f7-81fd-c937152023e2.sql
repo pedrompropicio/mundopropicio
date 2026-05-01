@@ -1,6 +1,3 @@
--- Reverter alteração acidental em schema reservado: deixar o estado de Test alinhado com Live
-DROP POLICY IF EXISTS "Authenticated users can receive realtime messages" ON realtime.messages;
-
 -- Substituir CHECK constraint por trigger de validação (prática segura para Cloud)
 ALTER TABLE public.event_ticket_lots
   DROP CONSTRAINT IF EXISTS event_ticket_lots_applies_to_days_check;
