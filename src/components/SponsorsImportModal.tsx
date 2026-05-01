@@ -58,7 +58,7 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
     pending_invoiced: true,
     pending_post_event: true,
     barter: true,
-    forecast_only: true,
+    forecast_only: false, // OFF por defeito: linhas sem estado documental são "leads", não confirmadas
   });
   const [accountId, setAccountId] = useState<string>("");
   const [createTransactions, setCreateTransactions] = useState(true);
