@@ -1,7 +1,7 @@
 /**
  * Lista detalhada de patrocinadores no Simulador formato Coala.
  *
- * Fonte: event_forecasts (type='revenue', status='approved') cuja categoria L3
+ * Fonte: event_forecasts (type='income', status='approved') cuja categoria L3
  * tenha como pai a categoria L2 configurada em event_simulator_config.sponsor_category_l2_id
  * (default: code começando por '1.2').
  *
@@ -48,7 +48,7 @@ export async function loadSponsors(
     .from("event_forecasts")
     .select("id, description, amount, category_id, transaction_id")
     .eq("event_id", eventId)
-    .eq("type", "revenue")
+    .eq("type", "income")
     .eq("status", "approved")
     .in("category_id", l3Ids);
 
