@@ -236,6 +236,7 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
             forecastId = (data as any).id;
             forecastsCreated++;
           }
+          if (forecastId) touchedForecastIds.push(forecastId);
         } catch (fcErr: any) {
           // Não interromper a importação inteira: regista falha e continua para próximo patrocinador.
           failures.push(`BP "${row.supplierName}": ${fcErr?.message || String(fcErr)}`);
