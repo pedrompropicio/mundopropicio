@@ -23,14 +23,15 @@ interface SplitByIvaModalProps {
   open: boolean;
   onClose: () => void;
   /** Confirma a divisão. Recebe N linhas (≥2). O caller cria as transações. */
-  onConfirm: (lines: IvaSplitLine[]) => void;
+  /** Confirma criação de N transações (≥2). Recebe `attach` se o utilizador quer anexar a fatura. */
+  onConfirm: (lines: IvaSplitLine[], attach: boolean) => void;
   /**
    * Alternativa contabilisticamente aceite: aplica a fatura como **uma única**
    * transação usando IVA médio (snap para a taxa-padrão PT mais próxima do
    * rácio total). O caller deve preencher os campos `amount` (base) e
    * `iva_rate` no formulário e fechar o modal.
    */
-  onApplyBlended?: (baseNet: number, rate: IvaRate) => void;
+  onApplyBlended?: (baseNet: number, rate: IvaRate, attach: boolean) => void;
   /** Total esperado da fatura (incl. IVA). Mostra alerta se as linhas não fecham. */
   expectedTotal?: number;
   /** Pré-preencher com base inicial (ex.: o valor já digitado no form). */
@@ -41,13 +42,25 @@ interface SplitByIvaModalProps {
    * o modal abre já populado com estas linhas em vez do par padrão.
    */
   prefilledLines?: IvaSplitLine[];
+  /**
+   * Ficheiro original lido pelo OCR (se houver). Quando presente, mostra a
+   * checkbox "Anexar fatura às transações" e passa o sinal de volta ao caller.
+   */
+  attachmentFile?: File | null;
+  /** Nome amigável a mostrar na checkbox quando attachmentFile não está disponível. */
+  attachmentLabel?: string | null;
 }
 
 const RATE_OPTIONS: IvaRate[] = [0, 6, 13, 23];
 
 const blankLine = (rate: IvaRate = 23): IvaSplitLine => ({ base: 0, iva_rate: rate, suffix: `IVA ${rate}%` });
 
-export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expectedTotal, initialBase, initialRate, prefilledLines }: SplitByIvaModalProps) {
+export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expectedTotal, initialBase, initialRate, prefilledLines, attachmentFile, attachmentLabel }: SplitByIvaModalProps) {
+  const hasAttachment = !!(attachmentFile || attachmentLabel);
+  const [attachInvoice, setAttachInvoice] = useState<boolean>(true);
+  useEffect(() => {
+    if (open) setAttachInvoice(true);
+  }, [open, attachmentFile, attachmentLabel]);
   const [lines, setLines] = useState<IvaSplitLine[]>(() =>
     prefilledLines && prefilledLines.length >= 2
       ? prefilledLines
@@ -314,7 +327,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
           )}
         </div>
 
-        {/* Alternativa IVA médio (snap) — 1 só transação, contabilisticamente aceite */}
+        {/* Alternativa IVA médio (snap) — explicação; botão fica no footer */}
         {onApplyBlended && totals.baseSum > 0 && totals.ivaSum > 0 && (
           <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-xs space-y-2">
             <div className="font-medium text-foreground">
@@ -343,21 +356,42 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
                 </span>
               )}
             </div>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => onApplyBlended(totals.blendedBase, totals.blendedRate)}
-            >
-              Aplicar IVA médio ({totals.blendedRate}%)
-            </Button>
           </div>
         )}
 
-        <div className="flex justify-end gap-2 pt-2">
+        {/* Checkbox anexar fatura — só se houver ficheiro lido pelo OCR */}
+        {hasAttachment && (
+          <label className="flex items-start gap-2 rounded-lg border border-border bg-secondary/30 p-2.5 text-xs cursor-pointer">
+            <input
+              type="checkbox"
+              checked={attachInvoice}
+              onChange={(e) => setAttachInvoice(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-input"
+            />
+            <div className="leading-snug">
+              <div className="font-medium text-foreground">
+                Anexar fatura{attachmentFile ? ` (${attachmentFile.name})` : attachmentLabel ? ` (${attachmentLabel})` : ""} às transações criadas
+              </div>
+              <div className="text-muted-foreground">
+                Em IVA misto, o mesmo ficheiro fica anexado a todas as transações irmãs.
+              </div>
+            </div>
+          </label>
+        )}
+
+        <div className="flex flex-wrap justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose} type="button">
             Cancelar
           </Button>
+          {onApplyBlended && totals.baseSum > 0 && totals.ivaSum > 0 && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => onApplyBlended(totals.blendedBase, totals.blendedRate, attachInvoice)}
+            >
+              Aplicar IVA médio ({totals.blendedRate}%)
+            </Button>
+          )}
           <Button
             type="button"
             disabled={!canConfirm}
@@ -368,6 +402,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
                   iva_rate: l.iva_rate,
                   suffix: l.suffix || `IVA ${l.iva_rate}%`,
                 })),
+                attachInvoice,
               )
             }
           >

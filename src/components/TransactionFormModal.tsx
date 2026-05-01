@@ -25,6 +25,7 @@ import { SplitByIvaModal, type IvaSplitLine } from "@/components/SplitByIvaModal
 import { WithholdingDeclaredFields } from "@/components/WithholdingDeclaredFields";
 import { extractJpegFromDng, isDngFile } from "@/lib/dng-extract-preview";
 import { pdfFirstPageToJpeg } from "@/lib/pdf-first-page-to-jpeg";
+import { uploadToCompanyBucket } from "@/lib/storage";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
@@ -165,6 +166,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   // AI invoice extraction (auto-fills amount + iva_rate, opens split modal if multi-rate).
   const [extractingInvoice, setExtractingInvoice] = useState(false);
   const [aiPrefilledLines, setAiPrefilledLines] = useState<IvaSplitLine[] | null>(null);
+  // Ficheiro original lido pelo OCR — pode ser anexado às transações criadas.
+  const [pendingInvoiceFile, setPendingInvoiceFile] = useState<File | null>(null);
+  // Quando o utilizador escolhe IVA médio (1 transação), guardamos o file aqui
+  // para anexar via callback onSuccess da mutation single.
+  const [attachAfterCreateFile, setAttachAfterCreateFile] = useState<File | null>(null);
+  // Em IVA misto, guardamos o file para anexar a TODAS as transações irmãs.
+  const [attachIvaSplitFile, setAttachIvaSplitFile] = useState<File | null>(null);
   const queryClient = useQueryClient();
 
   /**
@@ -246,6 +254,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       return;
     }
     setExtractingInvoice(true);
+    setPendingInvoiceFile(original);
     try {
       let file = original;
 
@@ -1369,7 +1378,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       }
       return createdTxId;
     },
-    onSuccess: (newTxId) => {
+    onSuccess: async (newTxId) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["partner-paid-expenses-map-by-supplier"] });
@@ -1377,6 +1386,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       queryClient.invalidateQueries({ queryKey: ["reimbursement-notes"] });
       queryClient.invalidateQueries({ queryKey: ["reimbursement-notes-active"] });
       queryClient.invalidateQueries({ queryKey: ["settlement_eligible_txns"] });
+      // Single-tx path: anexa fatura lida pelo OCR (IVA médio ou OCR só com 1 taxa).
+      // No path multi-IVA, attachAfterCreateFile fica null e o anexo é gerido pelo loop.
+      if (newTxId && attachAfterCreateFile) {
+        await attachInvoiceToTransactions(attachAfterCreateFile, [newTxId]);
+        setAttachAfterCreateFile(null);
+        setPendingInvoiceFile(null);
+      }
       if (newTxId) onCreated?.(newTxId);
       onClose();
       toast({ title: isSplit ? "Rateio criado com sucesso!" : (autoMarkPaid ? "Despesa registada e liquidada!" : "Transação criada com sucesso!") });
@@ -1397,6 +1413,41 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
   const rootFlags = getRootFlags(form.category_id);
 
+  /** Faz upload do ficheiro e cria N rows em transaction_documents — um por id. */
+  const attachInvoiceToTransactions = async (file: File, txIds: string[]) => {
+    if (!file || txIds.length === 0) return;
+    try {
+      const ext = (file.name.split(".").pop() || "bin").toLowerCase();
+      // Faz upload uma vez (path baseado na 1ª tx) e reutiliza o mesmo path em todos os rows.
+      const path = `${txIds[0]}/${Date.now()}-invoice.${ext}`;
+      const { error: uploadError, path: filePath } = await uploadToCompanyBucket(
+        "transaction-documents",
+        path,
+        file,
+      );
+      if (uploadError) throw uploadError;
+      const docType = ext === "pdf" ? "pdf" : (["jpg", "jpeg", "png", "webp", "heic", "heif"].includes(ext) ? "imagem" : "outro");
+      const rows = txIds.map((tid) => ({
+        transaction_id: tid,
+        name: file.name,
+        file_url: filePath,
+        doc_type: docType,
+        uploaded_by: user?.email ?? "sistema",
+        is_accounting: true,
+      }));
+      const { error: dbError } = await supabase.from("transaction_documents").insert(rows as any);
+      if (dbError) throw dbError;
+      toast({ title: "Fatura anexada", description: `Anexada a ${txIds.length} transação(ões).` });
+    } catch (err: any) {
+      console.error("attachInvoiceToTransactions", err);
+      toast({
+        title: "Erro a anexar fatura",
+        description: err?.message ?? "Podes anexar manualmente depois.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const proceedWithCreate = async () => {
     setShowDuplicateConfirm(false);
     setShowProrationConfirm(false);
@@ -1407,12 +1458,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         `auto-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
       const { newInvoiceGroupId } = await import("@/lib/invoice-group");
       const sharedGroupId = newInvoiceGroupId();
+      const createdIds: string[] = [];
       try {
         for (const line of pendingIvaSplit) {
           const desc = line.suffix
             ? `${form.description} (${line.suffix})`
             : form.description;
-          await createMutation.mutateAsync({
+          const newId = await createMutation.mutateAsync({
             ...form,
             description: desc,
             amount: String(line.base),
@@ -1420,12 +1472,19 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             invoice_ref: sharedInvoiceRef,
             invoice_group_id: sharedGroupId,
           });
+          if (newId) createdIds.push(newId);
+        }
+        // Anexa a fatura a todas as transações criadas, se solicitado.
+        if (attachIvaSplitFile && createdIds.length > 0) {
+          await attachInvoiceToTransactions(attachIvaSplitFile, createdIds);
         }
         toast({
           title: "Transações criadas",
           description: `${pendingIvaSplit.length} linhas vinculadas pelo Nº fatura ${sharedInvoiceRef}. Eliminar, liquidar ou aprovar uma propaga às outras.`,
         });
         setPendingIvaSplit(null);
+        setAttachIvaSplitFile(null);
+        setPendingInvoiceFile(null);
         onClose();
       } catch (e) {
         // mutation onError already toasts; nothing else to do
@@ -3097,13 +3156,15 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         initialBase={parseFloat(form.amount) || undefined}
         initialRate={form.iva_rate}
         prefilledLines={aiPrefilledLines ?? undefined}
+        attachmentFile={pendingInvoiceFile}
         expectedTotal={
           (parseFloat(form.amount) || 0) > 0
             ? (parseFloat(form.amount) || 0) * (1 + form.iva_rate / 100)
             : undefined
         }
-        onConfirm={(lines) => {
+        onConfirm={(lines, attach) => {
           setPendingIvaSplit(lines);
+          setAttachIvaSplitFile(attach && pendingInvoiceFile ? pendingInvoiceFile : null);
           setShowSplitByIvaModal(false);
           setAiPrefilledLines(null);
           // Reflete o total no campo amount apenas como referência visual (somatório das bases).
@@ -3111,18 +3172,20 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           setForm((f) => ({ ...f, amount: String(totalBase) }));
           toast({
             title: "Divisão por IVA pronta",
-            description: `Ao guardar, serão criadas ${lines.length} transações ligadas pelo mesmo Nº fatura.`,
+            description: `Ao guardar, serão criadas ${lines.length} transações ligadas pelo mesmo Nº fatura${attach && pendingInvoiceFile ? " (com fatura anexa)" : ""}.`,
           });
         }}
-        onApplyBlended={(baseNet, rate) => {
+        onApplyBlended={(baseNet, rate, attach) => {
           // IVA médio (snap): preenche o formulário com 1 só transação.
           setPendingIvaSplit(null);
+          setAttachIvaSplitFile(null);
+          setAttachAfterCreateFile(attach && pendingInvoiceFile ? pendingInvoiceFile : null);
           setShowSplitByIvaModal(false);
           setAiPrefilledLines(null);
           setForm((f) => ({ ...f, amount: String(baseNet), iva_rate: rate }));
           toast({
             title: "IVA médio aplicado",
-            description: `1 transação a ${rate}% sobre base ${baseNet.toFixed(2)}€. Verifica e guarda.`,
+            description: `1 transação a ${rate}% sobre base ${baseNet.toFixed(2)}€${attach && pendingInvoiceFile ? " — fatura será anexada" : ""}. Verifica e guarda.`,
           });
         }}
       />
