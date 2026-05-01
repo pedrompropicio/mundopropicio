@@ -83,33 +83,53 @@ export function useUpdateSponsor(eventId: string) {
         .select()
         .single();
       if (error) throw error;
-      const row = data as unknown as SponsorshipPipelineRow;
-
-      // Sincroniza com BP/Transação se já estiver fechado/permuta com auto_sync_bp ON.
-      // Não bloqueia o fluxo em caso de falha — só faz log + toast.
-      try {
-        const result = await syncSponsorToBP(row);
-        if (result.skipped === false && result.created) {
-          toast({ title: "BP e transação criados", description: row.supplier_name });
-        }
-      } catch (e) {
-        console.error("[sponsor-sync] failed", e);
-        toast({
-          title: "Falha ao sincronizar com BP",
-          description: e instanceof Error ? e.message : String(e),
-          variant: "destructive",
-        });
-      }
-      return row;
+      return data as unknown as SponsorshipPipelineRow;
     },
     onSuccess: (row) => {
       qc.invalidateQueries({ queryKey: ["sponsorship-pipeline", eventId] });
       qc.invalidateQueries({ queryKey: ["sponsorship-activities", row.id] });
-      qc.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
-      qc.invalidateQueries({ queryKey: ["transactions"] });
     },
     onError: (e: Error) =>
       toast({ title: "Erro ao atualizar", description: e.message, variant: "destructive" }),
+  });
+}
+
+/**
+ * Mutation MANUAL: cria ou atualiza BP+TX a partir do card.
+ * Disparada pelo botão "Gerar BP+TX" / "Atualizar BP+TX" no drawer.
+ */
+export function useSyncSponsorBP(eventId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (row: SponsorshipPipelineRow) => {
+      const result = await syncSponsorToBP(row);
+      return result;
+    },
+    onSuccess: (result, row) => {
+      qc.invalidateQueries({ queryKey: ["sponsorship-pipeline", eventId] });
+      qc.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+      qc.invalidateQueries({ queryKey: ["transactions"] });
+      if (result.skipped) {
+        const reasons: Record<string, string> = {
+          barter_pipeline_only: "Permutas ficam só no pipeline.",
+          no_company: "Empresa não identificada.",
+          zero_amount: "O valor confirmado tem de ser maior que zero.",
+          "category_1.2.01_not_found": "Categoria 1.2.01 (Patrocínios) não existe nesta empresa.",
+        };
+        toast({
+          title: "Não foi possível gerar BP/TX",
+          description: reasons[result.reason] ?? result.reason,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: result.created ? "BP e transação criados" : "BP e transação atualizados",
+          description: row.supplier_name,
+        });
+      }
+    },
+    onError: (e: Error) =>
+      toast({ title: "Erro ao sincronizar", description: e.message, variant: "destructive" }),
   });
 }
 
