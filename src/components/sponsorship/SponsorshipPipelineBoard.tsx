@@ -69,11 +69,14 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
     let barter = 0;
     let lost = 0;
     for (const r of rows) {
-      const v = effectiveAmount(r);
-      if (r.stage === "closed") confirmed += v;
-      else if (r.stage === "barter") barter += v;
-      else if (r.stage === "lost") lost += Number(r.proposed_amount || 0);
-      else pipelineVal += Number(r.proposed_amount || 0);
+      const conf = Number(r.confirmed_amount || 0);
+      const prop = Number(r.proposed_amount || 0);
+      // "Confirmado real" = qualquer linha com confirmed_amount > 0, em qualquer fase
+      // (alinhado com a coluna "Confirmados" do ficheiro Excel do sócio)
+      if (conf > 0 && r.stage !== "lost") confirmed += conf;
+      if (r.stage === "barter") barter += conf;
+      else if (r.stage === "lost") lost += prop;
+      else if (conf === 0) pipelineVal += prop;
     }
     return { confirmed, pipelineVal, barter, lost, total: rows.length };
   }, [rows]);
