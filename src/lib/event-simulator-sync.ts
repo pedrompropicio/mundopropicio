@@ -39,7 +39,7 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
       .in("zone_id", []) // placeholder substituído logo abaixo
       .limit(1),
     supabase.from("event_simulator_inputs").select("*").eq("event_id", eventId),
-    supabase.from("event_forecasts").select("category_id, amount, type, status")
+    supabase.from("event_forecasts").select("id, category_id, amount, type, status, transaction_id")
       .eq("event_id", eventId).eq("status", "approved").eq("type", "expense"),
     supabase.from("account_categories").select("id, code, name").eq("is_active", true),
     supabase.from("event_simulator_cost_lines").select("*").eq("event_id", eventId),
