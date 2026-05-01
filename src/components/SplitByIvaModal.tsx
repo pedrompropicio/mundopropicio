@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { calcIvaAmount, calcTotalWithIva, roundCents, snapToStandardRate } from "@/lib/iva";
 import type { IvaRate } from "@/lib/mock-data";
 import { prepareFileForInvoiceOcr, fileToBase64 } from "@/lib/invoice-ocr-prepare";
+import { detectNonDeductibleHint } from "@/lib/iva-non-deductible-hint";
 
 export interface IvaSplitLine {
   /** Base (sem IVA) em EUR */
