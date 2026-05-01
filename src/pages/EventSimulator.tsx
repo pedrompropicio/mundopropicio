@@ -592,7 +592,10 @@ export default function EventSimulator() {
             <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel
           </Button>
           <Button variant="outline" onClick={handleExportPdf}>
-            <FileText className="mr-2 h-4 w-4" /> PDF
+            <FileText className="mr-2 h-4 w-4" /> PDF (4 págs)
+          </Button>
+          <Button variant="outline" onClick={handleExportViewPdf}>
+            <FileText className="mr-2 h-4 w-4" /> PDF desta vista
           </Button>
           <Button onClick={() => saveAll.mutate()} disabled={saveAll.isPending}>
             {saveAll.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
