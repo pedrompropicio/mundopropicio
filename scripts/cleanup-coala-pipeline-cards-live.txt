@@ -1,0 +1,16 @@
+-- Limpa Pipeline de Patrocínios do Coala 2026 em LIVE para nova importação
+-- Cloud > Run SQL > Live selecionada
+
+DELETE FROM sponsorship_pipeline_activities
+ WHERE pipeline_id IN (
+   SELECT id FROM sponsorship_pipeline
+   WHERE event_id IN (SELECT id FROM events WHERE name ILIKE '%Coala%Portugal%2026%')
+ );
+
+DELETE FROM sponsorship_pipeline
+ WHERE event_id IN (SELECT id FROM events WHERE name ILIKE '%Coala%Portugal%2026%');
+
+SELECT count(*) AS cards_restantes
+  FROM sponsorship_pipeline
+ WHERE event_id IN (SELECT id FROM events WHERE name ILIKE '%Coala%Portugal%2026%');
+-- Esperado: 0
