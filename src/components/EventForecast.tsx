@@ -2687,7 +2687,18 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         onConfirm={(xlsxRows) => generateHistoricalMutation.mutate(xlsxRows)}
       />
 
-      <MarkAsFechadoDialog
+      <ScheduleInstallmentsModal
+        open={!!scheduleTarget}
+        onOpenChange={(o) => { if (!o) setScheduleTarget(null); }}
+        forecast={scheduleTarget}
+        isSubmitting={scheduleInstallmentsMutation.isPending}
+        onConfirm={(installments) => {
+          if (!scheduleTarget) return;
+          scheduleInstallmentsMutation.mutate({ forecast: scheduleTarget, installments });
+        }}
+      />
+
+
         open={!!pendingFechado}
         onOpenChange={(o) => { if (!o) setPendingFechado(null); }}
         eligibleForecastIds={pendingFechado?.ids ?? []}
