@@ -98,7 +98,11 @@ export function SponsorshipPipelineBoard({ eventId, eventName, eventDate, compan
       setDraggingId(null);
       return;
     }
-    changeStage(draggingId, stage);
+    changeStage(draggingId, stage, {
+      proposed_amount: row.proposed_amount,
+      confirmed_amount: row.confirmed_amount,
+      is_barter: row.is_barter,
+    });
     setDraggingId(null);
   }
 
