@@ -27,6 +27,7 @@ export type CoalaSession = {
 export type CoalaCostLine = {
   label: string;
   prior_year_amount: number;
+  actual_amount?: number;     // Hoje (Edição atual) = TX pagas/aprovadas + BP s/ TX
   break_even_amount: number;
   forecast_amount: number;
   is_ab_passthrough?: boolean; // marca linhas A&B Bebida/Alimento (recalculadas)
