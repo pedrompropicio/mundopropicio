@@ -212,7 +212,13 @@ export function computeScenarioCosts(
   for (const l of costLines) {
     if (l.is_ab_passthrough) continue;
     if (scenario === "today") eventCosts += n(l.actual_amount ?? l.prior_year_amount);
-    else if (scenario === "breakeven") eventCosts += n(l.break_even_amount);
+    else if (scenario === "breakeven") {
+      // BE: assume custos = reais atuais (a alavanca é só receita de bilheteira).
+      // Fallback se a coluna BE estiver vazia: actual → prior → forecast.
+      const be = n(l.break_even_amount);
+      if (be > 0) eventCosts += be;
+      else eventCosts += n(l.actual_amount) || n(l.prior_year_amount) || n(l.forecast_amount);
+    }
     else eventCosts += n(l.forecast_amount);
   }
   // Em "today" o A&B real é desconhecido → usa mesma fórmula proporcional ao público
