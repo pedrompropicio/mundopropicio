@@ -10,6 +10,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { StatCard } from "@/components/StatCard";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { EventForecast } from "@/components/EventForecast";
+import { SponsorshipPipelineBoard } from "@/components/sponsorship/SponsorshipPipelineBoard";
 import { EventTicketing } from "@/components/EventTicketing";
 import { EventCacheConfig } from "@/components/EventCacheConfig";
 import { EventPartnersTab } from "@/components/EventPartnersTab";
