@@ -327,7 +327,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
           )}
         </div>
 
-        {/* Alternativa IVA médio (snap) — 1 só transação, contabilisticamente aceite */}
+        {/* Alternativa IVA médio (snap) — explicação; botão fica no footer */}
         {onApplyBlended && totals.baseSum > 0 && totals.ivaSum > 0 && (
           <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 text-xs space-y-2">
             <div className="font-medium text-foreground">
@@ -356,21 +356,42 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
                 </span>
               )}
             </div>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => onApplyBlended(totals.blendedBase, totals.blendedRate)}
-            >
-              Aplicar IVA médio ({totals.blendedRate}%)
-            </Button>
           </div>
         )}
 
-        <div className="flex justify-end gap-2 pt-2">
+        {/* Checkbox anexar fatura — só se houver ficheiro lido pelo OCR */}
+        {hasAttachment && (
+          <label className="flex items-start gap-2 rounded-lg border border-border bg-secondary/30 p-2.5 text-xs cursor-pointer">
+            <input
+              type="checkbox"
+              checked={attachInvoice}
+              onChange={(e) => setAttachInvoice(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-input"
+            />
+            <div className="leading-snug">
+              <div className="font-medium text-foreground">
+                Anexar fatura{attachmentFile ? ` (${attachmentFile.name})` : attachmentLabel ? ` (${attachmentLabel})` : ""} às transações criadas
+              </div>
+              <div className="text-muted-foreground">
+                Em IVA misto, o mesmo ficheiro fica anexado a todas as transações irmãs.
+              </div>
+            </div>
+          </label>
+        )}
+
+        <div className="flex flex-wrap justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose} type="button">
             Cancelar
           </Button>
+          {onApplyBlended && totals.baseSum > 0 && totals.ivaSum > 0 && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => onApplyBlended(totals.blendedBase, totals.blendedRate, attachInvoice)}
+            >
+              Aplicar IVA médio ({totals.blendedRate}%)
+            </Button>
+          )}
           <Button
             type="button"
             disabled={!canConfirm}
@@ -381,6 +402,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
                   iva_rate: l.iva_rate,
                   suffix: l.suffix || `IVA ${l.iva_rate}%`,
                 })),
+                attachInvoice,
               )
             }
           >
