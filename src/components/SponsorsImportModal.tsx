@@ -184,8 +184,10 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
       }
 
       let forecastsCreated = 0, forecastsUpdated = 0;
+      let forecastsRecovered = 0;
       let txCreated = 0, txSkipped = 0;
       const today = todayLocalISO();
+      const failures: string[] = [];
 
       for (const row of filteredRows) {
         const supplierId = nameToId[row.supplierName.toLowerCase()];
@@ -199,36 +201,44 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
           description: row.supplierName,
           amount: isBarter ? 0 : Number(row.effectiveAmount.toFixed(2)),
           iva_rate: 23,
-          status: "pending",
+          status: "approved", // patrocínios entram já como aprovados (linha de receita confirmada/pipe)
           formula_type: "fixed",
           formula_value: isBarter ? 0 : Number(row.effectiveAmount.toFixed(2)),
           is_transitory: isBarter,
           notes: `Importado de ${fileName} • ${SPONSOR_KIND_LABEL[row.kind]}${row.rawStatus ? ` • estado original: "${row.rawStatus}"` : ""}`,
         };
         const existingFc = fcByName[row.supplierName.trim().toLowerCase()];
-        let forecastId: string;
-        if (existingFc) {
-          const { error } = await supabase
-            .from("event_forecasts")
-            .update({
-              amount: forecastPayload.amount,
-              formula_value: forecastPayload.formula_value,
-              is_transitory: forecastPayload.is_transitory,
-              notes: forecastPayload.notes,
-            })
-            .eq("id", existingFc.id);
-          if (error) throw error;
-          forecastId = existingFc.id;
-          forecastsUpdated++;
-        } else {
-          const { data, error } = await supabase
-            .from("event_forecasts")
-            .insert(forecastPayload)
-            .select("id")
-            .single();
-          if (error) throw error;
-          forecastId = (data as any).id;
-          forecastsCreated++;
+        let forecastId: string | null = null;
+        try {
+          if (existingFc) {
+            const { error } = await supabase
+              .from("event_forecasts")
+              .update({
+                amount: forecastPayload.amount,
+                formula_value: forecastPayload.formula_value,
+                is_transitory: forecastPayload.is_transitory,
+                status: forecastPayload.status,
+                notes: forecastPayload.notes,
+              })
+              .eq("id", existingFc.id);
+            if (error) throw error;
+            forecastId = existingFc.id;
+            forecastsUpdated++;
+          } else {
+            const { data, error } = await supabase
+              .from("event_forecasts")
+              .insert(forecastPayload)
+              .select("id")
+              .single();
+            if (error) throw error;
+            if (!data?.id) throw new Error("INSERT do BP devolveu 0 linhas (RLS?)");
+            forecastId = (data as any).id;
+            forecastsCreated++;
+          }
+        } catch (fcErr: any) {
+          // Não interromper a importação inteira: regista falha e continua para próximo patrocinador.
+          failures.push(`BP "${row.supplierName}": ${fcErr?.message || String(fcErr)}`);
+          continue;
         }
 
         // ---- Transação ----
@@ -262,23 +272,82 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
           payment_date,
           account_id: status === "paid" ? accountId : null,
         };
-        const { error: insTxErr } = await supabase.from("transactions").insert(txPayload);
-        if (insTxErr) throw insTxErr;
+        const { data: insTx, error: insTxErr } = await supabase
+          .from("transactions")
+          .insert(txPayload)
+          .select("id")
+          .single();
+        if (insTxErr) {
+          failures.push(`TX "${row.supplierName}": ${insTxErr.message}`);
+          continue;
+        }
         txCreated++;
+
+        // Vincular forecast à TX recém-criada (1:1) para que o BP mostre realizado
+        if (forecastId && insTx?.id) {
+          await supabase
+            .from("event_forecasts")
+            .update({ transaction_id: insTx.id })
+            .eq("id", forecastId);
+        }
       }
 
-      return { forecastsCreated, forecastsUpdated, txCreated, txSkipped };
+      // ---- Recovery: TX existem mas sem linha BP vinculada ----
+      // Cobre o bug histórico em que a TX foi criada mas o INSERT do forecast falhou silenciosamente.
+      const { data: orphanTx } = await supabase
+        .from("transactions")
+        .select("id, description, amount, iva_rate, company_id")
+        .eq("event_id", eventId)
+        .eq("category_id", SPONSORS_CATEGORY_ID)
+        .eq("type", "income");
+      const { data: existingFcAfter } = await supabase
+        .from("event_forecasts")
+        .select("transaction_id")
+        .eq("event_id", eventId)
+        .eq("category_id", SPONSORS_CATEGORY_ID)
+        .not("transaction_id", "is", null);
+      const linkedTxIds = new Set(((existingFcAfter ?? []) as any[]).map((f) => f.transaction_id));
+      for (const t of (orphanTx ?? []) as any[]) {
+        if (linkedTxIds.has(t.id)) continue;
+        const { error } = await supabase.from("event_forecasts").insert({
+          event_id: eventId,
+          category_id: SPONSORS_CATEGORY_ID,
+          type: "income",
+          description: t.description,
+          amount: Number(t.amount || 0),
+          iva_rate: t.iva_rate ?? 23,
+          status: "approved",
+          formula_type: "fixed",
+          formula_value: Number(t.amount || 0),
+          is_transitory: false,
+          transaction_id: t.id,
+          notes: `Linha BP recriada a partir de transação importada (recovery automático)`,
+        });
+        if (!error) forecastsRecovered++;
+        else failures.push(`Recovery "${t.description}": ${error.message}`);
+      }
+
+      return { forecastsCreated, forecastsUpdated, forecastsRecovered, txCreated, txSkipped, failures };
     },
     onSuccess: (res) => {
+      const recoveryNote = res.forecastsRecovered > 0
+        ? ` • Recuperadas ${res.forecastsRecovered} linhas BP a partir de transações órfãs.`
+        : "";
+      const failNote = res.failures.length > 0
+        ? ` • ${res.failures.length} falhas: ${res.failures.slice(0, 3).join(" | ")}${res.failures.length > 3 ? "…" : ""}`
+        : "";
       toast({
-        title: "Importação concluída",
-        description: `BP: ${res.forecastsCreated} criadas, ${res.forecastsUpdated} atualizadas. Transações: ${res.txCreated} criadas${res.txSkipped ? `, ${res.txSkipped} ignoradas (já existiam)` : ""}.`,
+        title: res.failures.length > 0 ? "Importação concluída com avisos" : "Importação concluída",
+        description: `BP: ${res.forecastsCreated} criadas, ${res.forecastsUpdated} atualizadas. Transações: ${res.txCreated} criadas${res.txSkipped ? `, ${res.txSkipped} ignoradas (já existiam)` : ""}.${recoveryNote}${failNote}`,
+        variant: res.failures.length > 0 ? "destructive" : "default",
       });
       queryClient.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["suppliers-active"] });
-      onOpenChange(false);
-      reset();
+      if (res.failures.length === 0) {
+        onOpenChange(false);
+        reset();
+      }
     },
     onError: (err: any) => {
       toast({ title: "Erro na importação", description: err.message || String(err), variant: "destructive" });
