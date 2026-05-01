@@ -129,6 +129,7 @@ export function SplitByIvaModal({ open, onClose, onConfirm, onApplyBlended, expe
     }
     setExtracting(true);
     setExtractedNote(null);
+    setLocalFile(file);
     try {
       const fileBase64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
