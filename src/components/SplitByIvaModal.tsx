@@ -52,6 +52,14 @@ interface SplitByIvaModalProps {
   attachmentFile?: File | null;
   /** Nome amigável a mostrar na checkbox quando attachmentFile não está disponível. */
   attachmentLabel?: string | null;
+  /**
+   * Nome do fornecedor e descrição da transação — usados apenas como
+   * heurística para sugerir visualmente o botão "IVA médio" em despesas
+   * tipicamente sem dedução de IVA (Art.º 21 CIVA: alojamento, refeições,
+   * combustíveis, representação, etc.). Nunca esconde o botão.
+   */
+  supplierName?: string | null;
+  transactionDescription?: string | null;
 }
 
 const RATE_OPTIONS: IvaRate[] = [0, 6, 13, 23];
