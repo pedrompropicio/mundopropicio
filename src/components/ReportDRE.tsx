@@ -13,6 +13,7 @@ import { exportDREToExcel, exportDREToPDF } from "@/lib/export-dre";
 import { buildCategoryLookup, aggregateByHierarchyDRE } from "@/lib/category-hierarchy";
 import { calcIvaAmount } from "@/lib/iva";
 import { Switch } from "@/components/ui/switch";
+import { computeTotals as computeABTotals, type ABTotals, type ABZoneInput, type ABFoodConfig } from "@/lib/event-ab-calc";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
@@ -50,7 +51,8 @@ function buildDRE(
   calcBasis: string,
   parentEventId?: string | null,
   closingCosts?: any[],
-  partnerExtras?: any[]
+  partnerExtras?: any[],
+  abTotals?: ABTotals | null
 ): DRELine[] {
   const lookup = buildCategoryLookup(categories);
 
@@ -107,10 +109,15 @@ function buildDRE(
     });
   }
 
-  const totalIncEx = incGroups.reduce((s, g) => s + g.totalBase, 0);
+  // A&B — linhas virtuais (sem IVA, sem transações). Receita = receitaTotal,
+  // Custo = custoTotal (repasse ao operador).
+  const abReceita = abTotals ? Number(abTotals.receitaTotal || 0) : 0;
+  const abCusto = abTotals ? Number(abTotals.custoTotal || 0) : 0;
+
+  const totalIncEx = incGroups.reduce((s, g) => s + g.totalBase, 0) + abReceita;
   const totalIncIva = incGroups.reduce((s, g) => s + g.totalIva, 0);
   const totalIncInc = totalIncEx + totalIncIva;
-  const totalExpEx = expGroups.reduce((s, g) => s + g.totalBase, 0);
+  const totalExpEx = expGroups.reduce((s, g) => s + g.totalBase, 0) + abCusto;
   const totalExpIva = expGroups.reduce((s, g) => s + g.totalIva, 0);
   const totalExpInc = totalExpEx + totalExpIva;
 
@@ -124,6 +131,13 @@ function buildDRE(
       lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, indent: true });
     }
   });
+  if (abReceita > 0 || (abTotals && abTotals.faturacaoTotal > 0)) {
+    lines.push({ label: "A&B (Alimentos & Bebidas)", amountExIva: abReceita, ivaAmount: 0, amountIncIva: abReceita, isGroupHeader: true });
+    if (abTotals && abTotals.receitaBebidas !== 0)
+      lines.push({ label: "Receita Bebidas", amountExIva: abTotals.receitaBebidas, ivaAmount: 0, amountIncIva: abTotals.receitaBebidas, indent: true });
+    if (abTotals && abTotals.receitaAlimentos !== 0)
+      lines.push({ label: "Receita Alimentos", amountExIva: abTotals.receitaAlimentos, ivaAmount: 0, amountIncIva: abTotals.receitaAlimentos, indent: true });
+  }
 
   lines.push({ label: "DESPESAS", amountExIva: totalExpEx, ivaAmount: totalExpIva, amountIncIva: totalExpInc, isTotal: true, isExpenseSide: true });
   expGroups.forEach((group) => {
@@ -134,6 +148,13 @@ function buildDRE(
       lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, indent: true, isExpenseSide: true });
     }
   });
+  if (abCusto > 0) {
+    lines.push({ label: "A&B — Repasse ao Operador", amountExIva: abCusto, ivaAmount: 0, amountIncIva: abCusto, isGroupHeader: true, isExpenseSide: true });
+    if (abTotals && abTotals.custoBebidas !== 0)
+      lines.push({ label: "Custo Bebidas", amountExIva: abTotals.custoBebidas, ivaAmount: 0, amountIncIva: abTotals.custoBebidas, indent: true, isExpenseSide: true });
+    if (abTotals && abTotals.custoAlimentos !== 0)
+      lines.push({ label: "Custo Alimentos", amountExIva: abTotals.custoAlimentos, ivaAmount: 0, amountIncIva: abTotals.custoAlimentos, indent: true, isExpenseSide: true });
+  }
 
   // Overheads (BP) já foram alocados dentro das categorias acima (ver `expensesWithOverhead`).
   // Mantemos um bloco DETALHE só com a lista linha-a-linha para rastreabilidade na vista do sócio,
@@ -337,6 +358,67 @@ export default function ReportDRE() {
     enabled: showPartnerView,
   });
 
+  // A&B — todas as zonas + configs (todos os eventos). Linhas virtuais no DRE
+  // baseadas no cenário Real (participantes vindos de ticket_sales).
+  const { data: abZonesAll = [] } = useQuery({
+    queryKey: ["ab-zones-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_ab_zones").select("*");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const { data: abConfigsAll = [] } = useQuery({
+    queryKey: ["ab-configs-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_ab_config").select("*");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const realParticipantsByZoneId = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const s of ticketSales as any[]) {
+      if (!s.zone_id) continue;
+      map[s.zone_id] = (map[s.zone_id] ?? 0) + Number(s.quantity || 0);
+    }
+    return map;
+  }, [ticketSales]);
+
+  const abTotalsByEvent = useMemo(() => {
+    const out: Record<string, ABTotals> = {};
+    const zonesByEvent: Record<string, any[]> = {};
+    for (const z of abZonesAll as any[]) {
+      (zonesByEvent[z.event_id] ||= []).push(z);
+    }
+    for (const evtId of Object.keys(zonesByEvent)) {
+      const zones = zonesByEvent[evtId];
+      const cfg = (abConfigsAll as any[]).find((c) => c.event_id === evtId);
+      const food: ABFoodConfig = {
+        fee_alimentos: Number(cfg?.fee_alimentos || 0),
+        repasse_alimentos_pct: Number(cfg?.repasse_alimentos_pct || 0),
+        per_capita_alimentos: Number(cfg?.per_capita_alimentos || 0),
+      };
+      const inputs: ABZoneInput[] = zones.map((z: any) => ({
+        id: z.id,
+        zone_label: z.zone_label,
+        participants:
+          z.participants_manual != null
+            ? Number(z.participants_manual)
+            : z.source_ticket_zone_id
+              ? realParticipantsByZoneId[z.source_ticket_zone_id] ?? 0
+              : 0,
+        open_bar: !!z.open_bar,
+        open_food: !!z.open_food,
+        per_capita_bebidas: Number(z.per_capita_bebidas || 0),
+        repasse_bebidas_pct: Number(z.repasse_bebidas_pct || 0),
+      }));
+      out[evtId] = computeABTotals(inputs, food);
+    }
+    return out;
+  }, [abZonesAll, abConfigsAll, realParticipantsByZoneId]);
+
   const ticketCategoryId = categories.find(
     (c) => c.name.toLowerCase().includes("venda de bilhete") || c.name.toLowerCase().includes("bilhetes") || c.name.toLowerCase().includes("bilheteira")
   )?.id ?? null;
@@ -436,7 +518,7 @@ export default function ReportDRE() {
     const evtTx = getEffectiveTransactions(e.id);
     const parentEvt = (e as any).parent_event_id ? events.find((pe) => pe.id === (e as any).parent_event_id) : null;
     const calcBasis = parentEvt ? (parentEvt as any).partner_calc_basis || "net_result" : (e as any).partner_calc_basis || "net_result";
-    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, (e as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : []);
+    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, e.id, ticketCategoryId, eventPartners, calcBasis, (e as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], abTotalsByEvent[e.id] ?? null);
     const revLine = dre.find((l) => l.label === "RECEITAS");
     const expLine = dre.find((l) => l.label === "DESPESAS");
     const resLine = dre.find((l) => l.isGrandTotal);
@@ -474,7 +556,7 @@ export default function ReportDRE() {
     const evtTx = getEffectiveTransactions(evt.id);
     const parentEvt = (evt as any).parent_event_id ? events.find((pe) => pe.id === (evt as any).parent_event_id) : null;
     const calcBasis = parentEvt ? (parentEvt as any).partner_calc_basis || "net_result" : (evt as any).partner_calc_basis || "net_result";
-    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : []);
+    const dre = buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], abTotalsByEvent[evt.id] ?? null);
     dre.filter((l) => l.isDistribution).forEach((l) => {
       if (l.isHouse) {
         globalHouseSum += l.amountExIva;
@@ -652,7 +734,7 @@ export default function ReportDRE() {
           const evtTx = getEffectiveTransactions(evt.id);
           const parentEvtDetail = (evt as any).parent_event_id ? events.find((pe) => pe.id === (evt as any).parent_event_id) : null;
           const calcBasis = parentEvtDetail ? (parentEvtDetail as any).partner_calc_basis || "net_result" : (evt as any).partner_calc_basis || "net_result";
-          const dre = isOpen ? buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : []) : [];
+          const dre = isOpen ? buildDRE(evtTx, categories, ticketRevenueSource, ticketZones, ticketLots, ticketSales, evt.id, ticketCategoryId, eventPartners, calcBasis, (evt as any).parent_event_id, showPartnerView ? closingCosts : [], showPartnerView ? partnerExtras : [], abTotalsByEvent[evt.id] ?? null) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">
@@ -781,6 +863,7 @@ export default function ReportDRE() {
             (c as any).parent_event_id,
             showPartnerView ? closingCosts : [],
             showPartnerView ? partnerExtras : [],
+            abTotalsByEvent[c.id] ?? null,
           );
           dre.filter((l: any) => l.isDistribution).forEach((l: any) => {
             if (l.isHouse) {
