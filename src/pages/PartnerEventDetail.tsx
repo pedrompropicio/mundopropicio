@@ -278,6 +278,7 @@ export default function PartnerEventDetail() {
   const sessions = eventData?.sessions ?? [];
   void eventData?.activeBPVersion;
   const overheads = eventData?.overheads ?? [];
+  const perCityBreakdown = eventData?.perCityBreakdown ?? [];
 
   // Filter zones by selected session
   const filteredZones = useMemo(() => {
