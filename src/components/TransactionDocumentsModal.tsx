@@ -184,7 +184,9 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     const { bucket, path } = resolveStorageRef(fileUrl);
     const isHtml = /\.html?(\?|$)/i.test(path);
     const doc = documents.find((d: any) => d.file_url === fileUrl) as any;
-    const companyId = doc?.transactions?.company_id ?? null;
+    const txRelation = doc?.transactions;
+    const transactionCompanyId = Array.isArray(txRelation) ? txRelation[0]?.company_id : txRelation?.company_id;
+    const companyId = doc?.company_id ?? transactionCompanyId ?? null;
     let data: { signedUrl: string } | null = null;
     let error: any = null;
 
