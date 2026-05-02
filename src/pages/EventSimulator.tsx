@@ -35,6 +35,7 @@ import { loadSponsors, type SponsorRow } from "@/lib/event-simulator-sponsors";
 import { exportSimulatorToXlsx, exportSimulatorToPdf, type SimulatorExportData } from "@/lib/event-simulator-export";
 import { exportNodeToPdf } from "@/lib/event-simulator-view-pdf";
 import { ForecastBoostCalibrator } from "@/components/simulator/ForecastBoostCalibrator";
+import { useEventABScenarios, type ABScenarioParticipants } from "@/hooks/useEventABScenarios";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid } from "recharts";
 import { LayoutDashboard } from "lucide-react";
 
