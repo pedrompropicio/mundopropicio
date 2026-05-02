@@ -1,0 +1,40 @@
+-- ============================================================
+-- CORRECCAO: mover evento historico Coala 2025 para empresa Coala
+-- Executar em Cloud View > Run SQL com LIVE seleccionado
+-- ============================================================
+
+DO $$
+DECLARE
+  v_coala_company uuid;
+  v_event uuid;
+BEGIN
+  SELECT id INTO v_coala_company
+  FROM companies
+  WHERE slug = 'coala-portugal'
+  LIMIT 1;
+
+  IF v_coala_company IS NULL THEN
+    RAISE EXCEPTION 'Empresa Coala (slug=coala-portugal) nao encontrada';
+  END IF;
+
+  SELECT id INTO v_event
+  FROM events
+  WHERE name = 'Coala Festival Portugal 2025 (Histórico)'
+  LIMIT 1;
+
+  IF v_event IS NULL THEN
+    RAISE EXCEPTION 'Evento historico nao encontrado';
+  END IF;
+
+  UPDATE events
+  SET company_id = v_coala_company
+  WHERE id = v_event;
+
+  RAISE NOTICE 'Evento % movido para empresa Coala (%)', v_event, v_coala_company;
+END $$;
+
+-- Validacao
+SELECT e.id, e.name, c.legal_name, c.slug
+FROM events e
+JOIN companies c ON c.id = e.company_id
+WHERE e.name = 'Coala Festival Portugal 2025 (Histórico)';
