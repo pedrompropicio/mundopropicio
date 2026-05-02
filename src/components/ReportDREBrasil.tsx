@@ -211,15 +211,18 @@ function buildDREBrasil(
       0,
       100 - eventPartners.reduce((s: number, p: any) => s + Number(p.percentage || 0), 0),
     );
-    lines.push({
-      label: `MUNDO PROPÍCIO (${housePct.toFixed(1)}%)`,
-      amountExIva: retained,
-      ivaAmount: 0,
-      amountIncIva: retained,
-      isDistribution: true,
-      isHouse: true,
-      indent: true,
-    });
+    // Só mostra a Mundo Propício se houver quota residual (sócios externos < 100%)
+    if (housePct > 0.0001) {
+      lines.push({
+        label: `MUNDO PROPÍCIO (${housePct.toFixed(1)}%)`,
+        amountExIva: retained,
+        ivaAmount: 0,
+        amountIncIva: retained,
+        isDistribution: true,
+        isHouse: true,
+        indent: true,
+      });
+    }
   }
 
   return lines;
