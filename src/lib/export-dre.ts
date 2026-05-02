@@ -186,13 +186,15 @@ export function buildDREForExport(
     // In standard mode, retained = resEx - totalDistribution (MP benefits from real net result)
     const retained = brasilMode ? (totalIncEx - totalExpInc) - totalDistribution : resEx - totalDistribution;
     const housePct = Math.max(0, 100 - partners.reduce((s: number, p: any) => s + Number(p.percentage || 0), 0));
-    lines.push({
-      label: `MUNDO PROPÍCIO (${housePct.toFixed(1)}%)`,
-      amountExIva: retained,
-      ivaAmount: 0,
-      amountIncIva: retained,
-      isRetained: true,
-    });
+    if (housePct > 0.0001) {
+      lines.push({
+        label: `MUNDO PROPÍCIO (${housePct.toFixed(1)}%)`,
+        amountExIva: retained,
+        ivaAmount: 0,
+        amountIncIva: retained,
+        isRetained: true,
+      });
+    }
   }
 
   return lines;

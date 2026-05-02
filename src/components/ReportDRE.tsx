@@ -222,15 +222,17 @@ function buildDRE(
       0,
       100 - eventPartners.reduce((s: number, p: any) => s + Number(p.percentage || 0), 0),
     );
-    lines.push({
-      label: `MUNDO PROPÍCIO (${housePct.toFixed(1)}%)`,
-      amountExIva: retained,
-      ivaAmount: 0,
-      amountIncIva: retained,
-      isDistribution: true,
-      isHouse: true,
-      indent: true,
-    });
+    if (housePct > 0.0001) {
+      lines.push({
+        label: `MUNDO PROPÍCIO (${housePct.toFixed(1)}%)`,
+        amountExIva: retained,
+        ivaAmount: 0,
+        amountIncIva: retained,
+        isDistribution: true,
+        isHouse: true,
+        indent: true,
+      });
+    }
   }
 
   return lines;
