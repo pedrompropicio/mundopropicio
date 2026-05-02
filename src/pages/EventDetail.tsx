@@ -27,6 +27,7 @@ import { formatDatePT } from "@/lib/utils";
 import { EventEditModal } from "@/components/EventEditModal";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { buildSessionCopyMap } from "@/lib/session-copy";
+import EventABTab from "@/components/EventABTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -894,6 +895,7 @@ export default function EventDetail() {
           <TabsTrigger value="forecast" className="flex items-center gap-1">Business Plan <HelpTooltip text={helpTexts.eventForecast} size={13} /></TabsTrigger>
           <TabsTrigger value="sponsors">Patrocínios</TabsTrigger>
           {(isAdmin || isManager) && <TabsTrigger value="closing-costs" className="flex items-center gap-1">Overhead <HelpTooltip text={helpTexts.eventClosingTab} size={13} /></TabsTrigger>}
+          <TabsTrigger value="ab">A&B</TabsTrigger>
           {(isAdmin || isManager) && <TabsTrigger value="fecho" className="flex items-center gap-1">Fecho</TabsTrigger>}
           {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partner-expenses" className="flex items-center gap-1">Desp. Sócios <HelpTooltip text={helpTexts.partnerExpenses} size={13} /></TabsTrigger>}
           <TabsTrigger value="simulador" className="flex items-center gap-1">Simulador</TabsTrigger>
@@ -1146,6 +1148,10 @@ export default function EventDetail() {
 
         <TabsContent value="closing-costs">
           <EventClosingCosts eventId={selectedSubEvent || event.id} eventStatus={event.status} />
+        </TabsContent>
+
+        <TabsContent value="ab">
+          <EventABTab eventId={selectedSubEvent || event.id} />
         </TabsContent>
 
         {(isAdmin || isManager) && (
