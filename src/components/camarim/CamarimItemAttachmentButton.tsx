@@ -37,11 +37,26 @@ export function CamarimItemAttachmentButton({ itemId, iconOnly, className }: Pro
         toast({ variant: "destructive", title: "Sem anexo", description: "Este item não tem fatura/talão anexo." });
         return;
       }
-      const { data: signed, error: signErr } = await supabase.functions.invoke("resolve-attachment-url", {
-        body: { kind: "camarim_item_document", documentId: doc.id },
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Sessão expirada. Volta a iniciar sessão.");
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/resolve-attachment-url`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ kind: "camarim_item_document", documentId: doc.id, mode: "download" }),
       });
-      if (signErr || !(signed as any)?.signedUrl) throw signErr ?? new Error("Não foi possível gerar link.");
-      window.open((signed as any).signedUrl, "_blank", "noopener,noreferrer");
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? "Não foi possível abrir o anexo.");
+      }
+      const blobUrl = URL.createObjectURL(await response.blob());
+      window.open(blobUrl, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
     } catch (err: any) {
       console.error(err);
       toast({ variant: "destructive", title: "Erro a abrir anexo", description: err.message });

@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Expose-Headers": "Content-Disposition, Content-Type, X-Resolved-Attachment-Path",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
@@ -90,7 +91,7 @@ function canAccessCompany(ctx: { activeCompanyId: string | null; isPlatformAdmin
 async function resolveTransactionDocument(adminClient: any, documentId: string, callerCtx: any) {
   const { data: doc, error } = await adminClient
     .from("transaction_documents")
-    .select("id,file_url,company_id,transaction_id")
+    .select("id,name,file_url,company_id,transaction_id")
     .eq("id", documentId)
     .maybeSingle();
 
@@ -119,13 +120,13 @@ async function resolveTransactionDocument(adminClient: any, documentId: string, 
   if (!canAccessCompany(callerCtx, ownerCompanyId)) return { error: "Sem permissão para abrir este documento", status: 403 };
 
   const { bucket, path } = storagePathFromTransactionUrl(doc.file_url);
-  return { bucket, candidates: buildCandidates(path, ownerCompanyId) };
+  return { bucket, candidates: buildCandidates(path, ownerCompanyId), filename: doc.name ?? path.split("/").pop() };
 }
 
 async function resolveCamarimItemDocument(adminClient: any, documentId: string, callerCtx: any) {
   const { data: doc, error } = await adminClient
     .from("camarim_item_documents")
-    .select("id,file_path,company_id,item_id")
+    .select("id,file_path,file_name,mime_type,company_id,item_id")
     .eq("id", documentId)
     .maybeSingle();
 
@@ -152,7 +153,17 @@ async function resolveCamarimItemDocument(adminClient: any, documentId: string, 
   const ownerCompanyId = doc.company_id ?? nestedCompanyId;
   if (!canAccessCompany(callerCtx, ownerCompanyId)) return { error: "Sem permissão para abrir este documento", status: 403 };
 
-  return { bucket: "camarim-documents", candidates: buildCandidates(doc.file_path, ownerCompanyId) };
+  return {
+    bucket: "camarim-documents",
+    candidates: buildCandidates(doc.file_path, ownerCompanyId),
+    filename: doc.file_name ?? doc.file_path.split("/").pop(),
+    contentType: doc.mime_type ?? undefined,
+  };
+}
+
+function contentDisposition(filename?: string | null) {
+  const clean = (filename ?? "anexo").replace(/[\r\n"]/g, "_");
+  return `inline; filename="${clean}"; filename*=UTF-8''${encodeURIComponent(clean)}`;
 }
 
 Deno.serve(async (req) => {
@@ -176,6 +187,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const kind = body.kind as AttachmentKind;
     const documentId = body.documentId as string | undefined;
+    const mode = body.mode === "download" ? "download" : "signed-url";
     if (!documentId || !["transaction_document", "camarim_item_document"].includes(kind)) {
       return json({ error: "Pedido inválido" }, 400);
     }
@@ -188,6 +200,22 @@ Deno.serve(async (req) => {
     if (resolved.error) return json({ error: resolved.error }, resolved.status ?? 400);
 
     for (const candidate of resolved.candidates ?? []) {
+      const downloaded = await adminClient.storage.from(resolved.bucket).download(candidate);
+      if (downloaded.error || !downloaded.data) continue;
+
+      if (mode === "download") {
+        const contentType = resolved.contentType ?? downloaded.data.type ?? "application/octet-stream";
+        return new Response(downloaded.data, {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": contentType,
+            "Content-Disposition": contentDisposition(resolved.filename),
+            "X-Resolved-Attachment-Path": candidate,
+          },
+        });
+      }
+
       const { data, error } = await adminClient.storage.from(resolved.bucket).createSignedUrl(candidate, 60 * 60);
       if (!error && data?.signedUrl) return json({ signedUrl: data.signedUrl, bucket: resolved.bucket, path: candidate });
     }
