@@ -273,9 +273,22 @@ export default function PartnerEventDetail() {
               if (o.event_id === id) return [{ ...o, amount: Number(o.amount) / masterChildCount }];
               return [];
             });
-            const income = cityTx
+            // Receita de bilheteira líquida da cidade
+            const cityZoneIds = new Set(zones.filter((z: any) => z.event_id === sub.id).map((z: any) => z.id));
+            const cityLotIva: Record<string, number> = {};
+            zones.filter((z: any) => z.event_id === sub.id).forEach((z: any) => {
+              (z.event_ticket_lots || []).forEach((l: any) => { cityLotIva[l.id] = Number(l.iva_rate ?? 6); });
+            });
+            const citySales = (salesRes.data ?? []).filter((s: any) => cityZoneIds.has(s.zone_id));
+            const cityTicketNet = citySales.reduce((s: number, sale: any) => {
+              const gross = Number(sale.quantity) * Number(sale.unit_price);
+              const iva = cityLotIva[sale.lot_id] ?? 6;
+              return s + gross / (1 + iva / 100);
+            }, 0);
+            const txIncome = cityTx
               .filter((t: any) => t.type === "income")
               .reduce((s: number, t: any) => s + Number(t.amount), 0);
+            const income = txIncome + cityTicketNet;
             const expense = cityTx
               .filter((t: any) => t.type === "expense")
               .reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0)
