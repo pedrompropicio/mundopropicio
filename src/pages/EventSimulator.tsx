@@ -1241,6 +1241,26 @@ export default function EventSimulator() {
                     onChange={(v) => setLocalCfg({ ...localCfg, ponto_vendido: v })} step={0.01} />
                   <div className="col-span-full mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
                     <div className="col-span-full">
+                      <p className="text-sm font-semibold">Forecast — Reta final</p>
+                      <p className="text-xs text-muted-foreground">
+                        O Forecast extrapola o ritmo de vendas recente até ao dia do evento e aplica um <strong>boost</strong> nos últimos N dias (efeito "curva em J"). Default: <strong>+60%</strong> nos últimos <strong>30 dias</strong>.
+                      </p>
+                    </div>
+                    <CfgInput
+                      label="Multiplicador reta final (×)"
+                      value={Number(localCfg.forecast_final_accel ?? 1.6)}
+                      onChange={(v) => setLocalCfg({ ...localCfg, forecast_final_accel: v })}
+                      step={0.1}
+                    />
+                    <CfgInput
+                      label="Janela reta final (dias)"
+                      value={Number(localCfg.forecast_final_window_days ?? 30)}
+                      onChange={(v) => setLocalCfg({ ...localCfg, forecast_final_window_days: Math.round(v) })}
+                      step={1}
+                    />
+                  </div>
+                  <div className="col-span-full mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
+                    <div className="col-span-full">
                       <p className="text-sm font-semibold">Ano anterior (2025) — manual</p>
                       <p className="text-xs text-muted-foreground">Estes valores são introduzidos manualmente e servem só de referência. <strong>Não</strong> são alimentados pela plataforma — a Edição 2026 vem de Vendas + BP + Transações.</p>
                     </div>
