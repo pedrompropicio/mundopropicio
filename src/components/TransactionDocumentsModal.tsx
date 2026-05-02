@@ -170,7 +170,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
       window.open(fileUrl, "_blank", "noopener,noreferrer");
       return;
     }
-    const { bucket, path } = resolveStorageRef(fileUrl);
+    const { path } = resolveStorageRef(fileUrl);
     const isHtml = /\.html?(\?|$)/i.test(path);
     let blobUrl: string | null = null;
 
