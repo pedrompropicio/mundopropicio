@@ -69,7 +69,7 @@ vi.mock("@/integrations/supabase/client", () => {
         case "event_ab_zones":
           return {
             ...okThen(zonesData),
-            insert: (p: any) => { insertedZones(p); return Promise.resolve({ error: null }); },
+            insert: () => Promise.resolve({ error: null }),
             update: () => ({ eq: () => Promise.resolve({ error: null }) }),
             delete: () => ({ eq: () => Promise.resolve({ error: null }) }),
             upsert: () => Promise.resolve({ error: null }),
@@ -77,7 +77,7 @@ vi.mock("@/integrations/supabase/client", () => {
         case "event_ab_config":
           return {
             ...okThen([configData]),
-            upsert: (p: any) => { updatedConfig(p); return Promise.resolve({ error: null }); },
+            upsert: () => Promise.resolve({ error: null }),
           };
         case "event_ticket_zones":
           return okThen(ticketZonesData);
