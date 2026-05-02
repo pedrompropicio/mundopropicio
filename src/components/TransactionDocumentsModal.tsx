@@ -50,9 +50,7 @@ async function createDocumentSignedUrl(bucket: string, path: string, companyId?:
   const cleanPath = path.replace(/^\/+/, "");
   const attempts = new Set<string>();
 
-  if (UUID_PREFIX_RE.test(cleanPath)) attempts.add(cleanPath);
-  else if (companyId) attempts.add(`${companyId}/${cleanPath}`);
-
+  if (companyId && !cleanPath.startsWith(`${companyId}/`)) attempts.add(`${companyId}/${cleanPath}`);
   attempts.add(cleanPath);
 
   for (const candidate of attempts) {
