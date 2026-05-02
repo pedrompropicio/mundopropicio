@@ -420,10 +420,6 @@ export default function PartnerEventDetail() {
               <p className="text-muted-foreground">Sem bilheteira configurada para este evento.</p>
             </Card>
           ) : (
-            <Card className="p-8 text-center">
-              <p className="text-muted-foreground">Sem bilheteira configurada para este evento.</p>
-            </Card>
-          ) : (
             <div className="space-y-4">
               {/* Session filter tabs */}
               {sessions.length > 0 && (
