@@ -35,6 +35,7 @@ import { loadSponsors, type SponsorRow } from "@/lib/event-simulator-sponsors";
 import { exportSimulatorToXlsx, exportSimulatorToPdf, type SimulatorExportData } from "@/lib/event-simulator-export";
 import { exportNodeToPdf } from "@/lib/event-simulator-view-pdf";
 import { ForecastBoostCalibrator } from "@/components/simulator/ForecastBoostCalibrator";
+import ExecutiveDashboard from "@/components/simulator/ExecutiveDashboard";
 import { useEventABScenarios, type ABScenarioParticipants } from "@/hooks/useEventABScenarios";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid } from "recharts";
 import { LayoutDashboard } from "lucide-react";
@@ -863,9 +864,9 @@ export default function EventSimulator() {
 
         <div ref={tabContentRef} className="bg-background">
 
-        {/* ---------------- Dashboard (widgets fixos) ---------------- */}
+        {/* ---------------- Dashboard executivo (3 cenários lado-a-lado) ---------------- */}
         <TabsContent value="dashboard">
-          <SimulatorDashboard
+          <ExecutiveDashboard
             eventName={event?.name ?? ""}
             today={today} todayCosts={todayCosts} todayRes={todayRes} todayKpis={todayKpis}
             breakeven={breakeven} beCosts={beCosts} beRes={beRes} beKpis={beKpis}
@@ -873,6 +874,10 @@ export default function EventSimulator() {
             costLines={localCosts}
             dailyTotals={dailyTotals}
             ivaTable={ivaTable}
+            sessions={localSessions as any}
+            abModule={abModule as any}
+            beSolution={{ totalQty: Object.values(beSolution.qtyByKey || {}).reduce((a, b) => a + Number(b || 0), 0), totalRevenue: Object.values(beSolution.revenueByKey || {}).reduce((a, b) => a + Number(b || 0), 0) }}
+            fcSolution={{ totalQty: Object.values(fcSolution.qtyByKey || {}).reduce((a, b) => a + Number(b || 0), 0), totalRevenue: Object.values(fcSolution.revenueByKey || {}).reduce((a, b) => a + Number(b || 0), 0) }}
           />
         </TabsContent>
 
