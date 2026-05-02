@@ -1252,74 +1252,67 @@ export default function EventSimulator() {
                         </summary>
                         <div className="mt-3 space-y-3 text-muted-foreground">
                           <p>
-                            Modelo <strong>híbrido por sessão (dia × zona × lote)</strong>: cada combinação projeta o seu próprio ritmo, respeita a capacidade do lote/zona e usa o forecast manual como piso mínimo. A receita é calculada lote-a-lote com o preço corrente.
+                            A projeção é feita <strong>sessão a sessão</strong> — cada combinação de dia, zona e lote tem o seu próprio ritmo de venda. Cada sessão respeita a capacidade que ainda resta e usa o forecast manual como piso mínimo. A receita é somada lote a lote, ao preço de venda em vigor.
                           </p>
 
                           <div>
-                            <p className="font-semibold text-foreground">1. Velocidade recente (por sessão)</p>
+                            <p className="font-semibold text-foreground">1. Ritmo recente de vendas</p>
+                            <p className="mt-1">
+                              Para cada sessão medimos quantos bilhetes se venderam por dia desde o arranque das vendas:
+                            </p>
                             <pre className="mt-1 overflow-x-auto rounded bg-background p-2 font-mono text-[11px]">
-{`v = vendas_atuais / dias_em_venda`}
+{`ritmo = bilhetes vendidos / dias em venda`}
                             </pre>
                             <p className="mt-1">
-                              Calculada à granularidade <em>dia × zona × lote</em>, a partir das tabelas <code>ticket_sales</code>, <code>event_ticket_lots</code> e <code>event_ticket_zones</code>. Permite que zonas com mais apetite acelerem mais rápido do que outras.
+                              Cada zona evolui ao seu próprio ritmo: as zonas com mais procura aceleram naturalmente mais depressa.
                             </p>
                           </div>
 
                           <div>
-                            <p className="font-semibold text-foreground">2. Janela base + reta final</p>
+                            <p className="font-semibold text-foreground">2. Fase base + reta final</p>
+                            <p className="mt-1">
+                              O período até ao evento é dividido em duas fases. Na <strong>fase base</strong> assume-se que as vendas continuam ao ritmo atual. Na <strong>reta final</strong> (últimos N dias antes do evento) aplica-se um <strong>multiplicador (boost)</strong> que reflete a aceleração típica das curvas de bilheteira.
+                            </p>
                             <pre className="mt-1 overflow-x-auto rounded bg-background p-2 font-mono text-[11px]">
-{`dias_até_evento = data_evento − hoje
-janela_final    = min(N, dias_até_evento)        // default N = 30
-janela_base     = max(0, dias_até_evento − N)
-
-projeção_base  = v × janela_base
-projeção_final = v × boost × janela_final
-qty_projetada  = round(projeção_base + projeção_final)`}
+{`projeção = (ritmo × dias da fase base)
+         + (ritmo × boost × dias da reta final)`}
                             </pre>
                             <p className="mt-1">
-                              O <strong>boost</strong> (campo "Multiplicador reta final") representa o quanto o ritmo da reta final se acelera face ao ritmo médio da fase base. Um valor de <strong>1,6×</strong> significa que nos últimos N dias se vende 60% mais por dia do que na velocidade atual.
+                              Um boost de <strong>1,6×</strong> significa que, na reta final, se estima vender 60% mais por dia do que no ritmo atual.
                             </p>
                           </div>
 
                           <div>
-                            <p className="font-semibold text-foreground">3. Restrições aplicadas (por esta ordem)</p>
+                            <p className="font-semibold text-foreground">3. Limites e ajustes</p>
                             <ul className="ml-4 list-disc space-y-1">
-                              <li><strong>Capacidade rígida</strong>: <code>qty ≤ capacidade_zona − vendido</code> (nunca ultrapassa o que ainda há para vender).</li>
-                              <li><strong>Piso manual</strong>: se o "forecast manual" (descontando cortesias) for superior à projeção, prevalece o manual (limitado à capacidade).</li>
-                              <li><strong>Receita</strong>: o avanço é alocado ao próximo lote ativo pelo preço corrente; se o lote esgota, transita para o seguinte.</li>
+                              <li><strong>Capacidade</strong>: a projeção nunca ultrapassa o que ainda há para vender em cada zona.</li>
+                              <li><strong>Piso manual</strong>: se o forecast inserido manualmente for superior à projeção automática, prevalece o manual (até ao limite da capacidade).</li>
+                              <li><strong>Receita</strong>: cada bilhete extra entra no próximo lote ativo ao preço corrente; quando esse lote esgota, transita para o seguinte.</li>
                             </ul>
                           </div>
 
                           <div>
-                            <p className="font-semibold text-foreground">4. Calibração do boost a partir de evento histórico</p>
+                            <p className="font-semibold text-foreground">4. Calibração do boost com eventos passados</p>
                             <p>
-                              O botão <em>"Calibrar a partir de evento…"</em> chama a RPC <code>calibrate_forecast_boost(event_id, window)</code>, que mede em dados reais:
+                              É possível calibrar o boost a partir de um evento já realizado. O sistema compara o ritmo médio da reta final com o ritmo médio de toda a fase anterior:
                             </p>
                             <pre className="mt-1 overflow-x-auto rounded bg-background p-2 font-mono text-[11px]">
-{`v_final = qty(últimos N dias) / N
-v_base  = qty(do 1.º dia de venda até D−N) / dias_base
-boost   = v_final / v_base`}
+{`ritmo final = bilhetes dos últimos N dias / N
+ritmo base  = bilhetes desde o início até D−N / dias da fase base
+boost       = ritmo final / ritmo base`}
                             </pre>
                             <p className="mt-1">
-                              ⚠️ <strong>Importante</strong>: o boost é um <strong>multiplicador (×)</strong>, não uma percentagem. Comparações tipo "+164% nos últimos 30 dias vs 30 dias anteriores" medem coisa diferente — usam janelas iguais (30 vs 30), enquanto o nosso boost compara reta final (N) vs <em>média</em> de toda a fase base (D−N dias). Por isso valores como <strong>3,4×</strong> (Lovable) e <strong>2,65×</strong> (janelas 30 vs 30) podem coexistir sem contradição.
+                              ⚠️ <strong>Importante</strong>: o boost é um <strong>multiplicador (×)</strong>, não uma percentagem. É diferente de comparar "últimos 30 dias vs 30 dias anteriores" — essa comparação usa janelas iguais, enquanto o boost aqui mede a reta final face à <em>média de toda a fase base</em>. Por isso valores como <strong>3,4×</strong> e <strong>2,65×</strong> podem coexistir sem se contradizerem: medem coisas diferentes.
                             </p>
                           </div>
 
                           <div>
                             <p className="font-semibold text-foreground">5. Pressupostos e limitações</p>
                             <ul className="ml-4 list-disc space-y-1">
-                              <li>Assume velocidade <strong>linear na janela base</strong> e aceleração <strong>constante na reta final</strong> (não modela picos pontuais como anúncio de cartaz ou abertura de novo lote).</li>
-                              <li>Não pondera sazonalidade semanal nem efeitos de preço entre lotes (apenas respeita o preço do lote ativo).</li>
-                              <li>Eventos com poucos dias de venda (&lt;7) tendem a sobre-extrapolar — usar piso manual.</li>
-                            </ul>
-                          </div>
-
-                          <div>
-                            <p className="font-semibold text-foreground">Referências</p>
-                            <ul className="ml-4 list-disc space-y-1">
-                              <li>Implementação: <code>src/lib/event-simulator-coala.ts → solveForecast()</code></li>
-                              <li>Calibrador: <code>supabase RPC calibrate_forecast_boost(uuid, int)</code></li>
-                              <li>Persistência: <code>event_simulator_configs.forecast_final_accel</code> + <code>forecast_final_window_days</code></li>
+                              <li>Assume ritmo <strong>linear</strong> na fase base e aceleração <strong>constante</strong> na reta final — não modela picos pontuais (ex.: anúncio de cartaz, abertura de novo lote, campanhas).</li>
+                              <li>Não pondera sazonalidade semanal nem efeitos de variação de preço entre lotes (apenas respeita o preço do lote ativo).</li>
+                              <li>Eventos com poucos dias de venda (menos de 7) tendem a sobre-estimar — recomenda-se usar piso manual.</li>
+                              <li>O modelo extrapola o passado: mudanças de mercado, concorrência ou comunicação podem alterar significativamente o resultado real.</li>
                             </ul>
                           </div>
                         </div>
