@@ -183,8 +183,10 @@ export default function PartnerEventDetail() {
       const siblingCount = siblingsRes.data?.length || 1;
       const masterChildCount = subIds.length || 1;
 
+      // Em Master view, buscar zonas de TODOS os sub-eventos (para receita de bilheteira agregada).
+      const zonesEventIds = isMasterView ? [id!, ...subIds] : [activeEventId];
       const [zonesRes, txRes, sessionsRes, activeVersionRes, overheadsRes] = await Promise.all([
-        supabase.from("event_ticket_zones").select("*, event_ticket_lots(*)").eq("event_id", activeEventId),
+        supabase.from("event_ticket_zones").select("*, event_ticket_lots(*)").in("event_id", zonesEventIds),
         supabase
           .from("transactions")
           .select("*, account_categories(id, code, name, parent_id)")
@@ -271,9 +273,22 @@ export default function PartnerEventDetail() {
               if (o.event_id === id) return [{ ...o, amount: Number(o.amount) / masterChildCount }];
               return [];
             });
-            const income = cityTx
+            // Receita de bilheteira líquida da cidade
+            const cityZoneIds = new Set(zones.filter((z: any) => z.event_id === sub.id).map((z: any) => z.id));
+            const cityLotIva: Record<string, number> = {};
+            zones.filter((z: any) => z.event_id === sub.id).forEach((z: any) => {
+              (z.event_ticket_lots || []).forEach((l: any) => { cityLotIva[l.id] = Number(l.iva_rate ?? 6); });
+            });
+            const citySales = (salesRes.data ?? []).filter((s: any) => cityZoneIds.has(s.zone_id));
+            const cityTicketNet = citySales.reduce((s: number, sale: any) => {
+              const gross = Number(sale.quantity) * Number(sale.unit_price);
+              const iva = cityLotIva[sale.lot_id] ?? 6;
+              return s + gross / (1 + iva / 100);
+            }, 0);
+            const txIncome = cityTx
               .filter((t: any) => t.type === "income")
               .reduce((s: number, t: any) => s + Number(t.amount), 0);
+            const income = txIncome + cityTicketNet;
             const expense = cityTx
               .filter((t: any) => t.type === "expense")
               .reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0)
@@ -563,7 +578,61 @@ export default function PartnerEventDetail() {
         </Button>
       </div>
 
-      {/* Tabs — só Bilhetes e Transações */}
+      {/* Em vista Master só mostramos os cards (sem tabs nem listas detalhadas) */}
+      {isMasterView ? (
+        <div className="space-y-4">
+          <Card className="border-primary/40 bg-primary/5">
+            <CardContent className="p-3 sm:p-4">
+              <p className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground mb-2 text-center">Total do Evento</p>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receitas</p>
+                  <p className="text-[11px] sm:text-xl font-bold font-mono text-emerald-500 truncate">{formatCurrency(transactionIncome)}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Despesas</p>
+                  <p className="text-[11px] sm:text-xl font-bold font-mono text-amber-500 truncate">{formatCurrency(transactionExpense)}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
+                  <p className={`text-[11px] sm:text-xl font-bold font-mono truncate ${transactionResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                    {formatCurrency(transactionResult)}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {perCityBreakdown.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Por Cidade</p>
+              {perCityBreakdown.map((c: any) => (
+                <Card key={c.id}>
+                  <CardContent className="p-3 sm:p-4">
+                    <p className="text-xs font-semibold mb-2">{c.name}</p>
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      <div>
+                        <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receitas</p>
+                        <p className="text-[11px] sm:text-base font-bold font-mono text-emerald-500 truncate">{formatCurrency(c.income)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Despesas</p>
+                        <p className="text-[11px] sm:text-base font-bold font-mono text-amber-500 truncate">{formatCurrency(c.expense)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
+                        <p className={`text-[11px] sm:text-base font-bold font-mono truncate ${c.result >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                          {formatCurrency(c.result)}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
       <Tabs defaultValue="ticketing" className="space-y-4">
         <TabsList className="w-full">
           <TabsTrigger value="ticketing" className="gap-1.5 flex-1"><Ticket className="h-3.5 w-3.5" /> Bilhetes</TabsTrigger>
@@ -760,87 +829,29 @@ export default function PartnerEventDetail() {
             </Card>
           ) : (
             <div className="space-y-4">
-              {/* Vista Master (turnê): card único de TOTAL do evento, depois cards por cidade */}
-              {isMasterView && (
-                <>
-                  <Card className="border-primary/40 bg-primary/5">
-                    <CardContent className="p-3 sm:p-4">
-                      <p className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground mb-2 text-center">Total do Evento</p>
-                      <div className="grid grid-cols-3 gap-3 text-center">
-                        <div>
-                          <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receitas</p>
-                          <p className="text-[11px] sm:text-xl font-bold font-mono text-emerald-500 truncate">{formatCurrency(transactionIncome)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Despesas</p>
-                          <p className="text-[11px] sm:text-xl font-bold font-mono text-amber-500 truncate">{formatCurrency(transactionExpense)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
-                          <p className={`text-[11px] sm:text-xl font-bold font-mono truncate ${transactionResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                            {formatCurrency(transactionResult)}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {perCityBreakdown.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Por Cidade</p>
-                      {perCityBreakdown.map((c: any) => (
-                        <Card key={c.id}>
-                          <CardContent className="p-3 sm:p-4">
-                            <p className="text-xs font-semibold mb-2">{c.name}</p>
-                            <div className="grid grid-cols-3 gap-3 text-center">
-                              <div>
-                                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receitas</p>
-                                <p className="text-[11px] sm:text-base font-bold font-mono text-emerald-500 truncate">{formatCurrency(c.income)}</p>
-                              </div>
-                              <div>
-                                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Despesas</p>
-                                <p className="text-[11px] sm:text-base font-bold font-mono text-amber-500 truncate">{formatCurrency(c.expense)}</p>
-                              </div>
-                              <div>
-                                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
-                                <p className={`text-[11px] sm:text-base font-bold font-mono truncate ${c.result >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                                  {formatCurrency(c.result)}
-                                </p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* Vista cidade (ou evento simples): cards Receitas / Despesas / Resultado */}
-              {!isMasterView && (
-                <div className="grid gap-2 sm:gap-3 grid-cols-3">
-                  <Card>
-                    <CardContent className="p-2 sm:p-4 text-center">
-                      <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receitas</p>
-                      <p className="text-[11px] sm:text-xl font-bold font-mono text-emerald-500 truncate">{formatCurrency(transactionIncome)}</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-2 sm:p-4 text-center">
-                      <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Despesas</p>
-                      <p className="text-[11px] sm:text-xl font-bold font-mono text-amber-500 truncate">{formatCurrency(transactionExpense)}</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-2 sm:p-4 text-center">
-                      <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
-                      <p className={`text-[11px] sm:text-xl font-bold font-mono truncate ${transactionResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                        {formatCurrency(transactionResult)}
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
+              {/* Cards Receitas / Despesas / Resultado (vista cidade ou evento simples) */}
+              <div className="grid gap-2 sm:gap-3 grid-cols-3">
+                <Card>
+                  <CardContent className="p-2 sm:p-4 text-center">
+                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receitas</p>
+                    <p className="text-[11px] sm:text-xl font-bold font-mono text-emerald-500 truncate">{formatCurrency(transactionIncome)}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-2 sm:p-4 text-center">
+                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Despesas</p>
+                    <p className="text-[11px] sm:text-xl font-bold font-mono text-amber-500 truncate">{formatCurrency(transactionExpense)}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-2 sm:p-4 text-center">
+                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
+                    <p className={`text-[11px] sm:text-xl font-bold font-mono truncate ${transactionResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                      {formatCurrency(transactionResult)}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
 
               {(["income", "expense"] as const).map((kind) => {
                 const groups = txGroupedHier[kind];
@@ -928,6 +939,7 @@ export default function PartnerEventDetail() {
           )}
         </TabsContent>
       </Tabs>
+      )}
 
       {/* DRE Dialog — para turnê, passa sempre o Master para consolidar todas as cidades + resumo */}
       {(() => {
