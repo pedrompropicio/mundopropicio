@@ -563,15 +563,23 @@ export function solveForecast(
   cfg: CoalaConfig,
   lotInfoByKey?: Record<string, SessionLotInfo>,
   eventDate?: string | null,
+  opts?: { finalAccel?: number; finalWindowDays?: number },
 ): ForecastSolution {
+  const finalAccel = Number.isFinite(opts?.finalAccel) && (opts!.finalAccel as number) > 0
+    ? (opts!.finalAccel as number)
+    : FORECAST_FINAL_ACCEL_DEFAULT;
+  const finalWindowDays = Number.isFinite(opts?.finalWindowDays) && (opts!.finalWindowDays as number) > 0
+    ? Math.round(opts!.finalWindowDays as number)
+    : FORECAST_FINAL_WINDOW_DAYS_DEFAULT;
+
   const todayStr = new Date().toISOString().slice(0, 10);
   let daysToEvent = 30;
   if (eventDate) {
     const ms = new Date(eventDate).getTime() - new Date(todayStr).getTime();
     daysToEvent = Math.max(1, Math.round(ms / 86400000));
   }
-  const finalWindow = Math.min(FORECAST_FINAL_WINDOW_DAYS, daysToEvent);
-  const baseWindow = Math.max(0, daysToEvent - FORECAST_FINAL_WINDOW_DAYS);
+  const finalWindow = Math.min(finalWindowDays, daysToEvent);
+  const baseWindow = Math.max(0, daysToEvent - finalWindowDays);
 
   const qtyByKey: Record<string, number> = {};
   const revenueByKey: Record<string, number> = {};
@@ -596,7 +604,7 @@ export function solveForecast(
     const recentVelocity = daysSelling > 1 ? realQty / daysSelling : realQty;
 
     const baseProjection = recentVelocity * baseWindow;
-    const finalProjection = recentVelocity * FORECAST_FINAL_ACCEL * finalWindow;
+    const finalProjection = recentVelocity * finalAccel * finalWindow;
     let projectedQty = Math.round(baseProjection + finalProjection);
 
     let cappedByCapacity = false;
