@@ -728,9 +728,14 @@ export default function PartnerEventDetail() {
                                         {t.docs.length > 0 && (
                                           <div className="flex flex-wrap gap-1 mt-1">
                                             {t.docs.map((d: any) => (
-                                              <a key={d.id} href={d.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[9px] text-primary hover:underline">
+                                              <button
+                                                key={d.id}
+                                                type="button"
+                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); openDoc(d.file_url); }}
+                                                className="inline-flex items-center gap-0.5 text-[9px] text-primary hover:underline"
+                                              >
                                                 <Paperclip className="h-2.5 w-2.5" />{d.name}
-                                              </a>
+                                              </button>
                                             ))}
                                           </div>
                                         )}
