@@ -13,6 +13,7 @@ import { exportDREToExcel, exportDREToPDF } from "@/lib/export-dre";
 import { buildCategoryLookup, aggregateByHierarchyDRE } from "@/lib/category-hierarchy";
 import { calcIvaAmount } from "@/lib/iva";
 import { Switch } from "@/components/ui/switch";
+import { computeTotals as computeABTotals, type ABTotals, type ABZoneInput, type ABFoodConfig } from "@/lib/event-ab-calc";
 
 type TicketRevenueSource = "transactions" | "ticket_sales";
 
