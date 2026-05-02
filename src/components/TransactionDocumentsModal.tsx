@@ -44,6 +44,25 @@ function resolveStorageRef(fileUrl: string): { bucket: string; path: string } {
   return { bucket: "transaction-documents", path: fileUrl };
 }
 
+const UUID_PREFIX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\//i;
+
+async function createDocumentSignedUrl(bucket: string, path: string, companyId?: string | null) {
+  const cleanPath = path.replace(/^\/+/, "");
+  const attempts = new Set<string>();
+
+  if (UUID_PREFIX_RE.test(cleanPath)) attempts.add(cleanPath);
+  else if (companyId) attempts.add(`${companyId}/${cleanPath}`);
+
+  attempts.add(cleanPath);
+
+  for (const candidate of attempts) {
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(candidate, 3600);
+    if (!error && data?.signedUrl) return { data, error: null };
+  }
+
+  return signedCompanyUrl(bucket as Bucket, cleanPath, 3600);
+}
+
 /** Back-compat helper for delete flow (only deletes from transaction-documents) */
 function extractStoragePath(fileUrl: string): string {
   return resolveStorageRef(fileUrl).path;
@@ -60,7 +79,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transaction_documents")
-        .select("*")
+        .select("*, transactions(company_id)")
         .eq("transaction_id", transactionId)
         .order("uploaded_at", { ascending: false });
       if (error) throw error;
@@ -168,24 +187,17 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
   const handleOpenDocument = async (fileUrl: string) => {
     const { bucket, path } = resolveStorageRef(fileUrl);
     const isHtml = /\.html?(\?|$)/i.test(path);
+    const doc = documents.find((d: any) => d.file_url === fileUrl) as any;
+    const companyId = doc?.transactions?.company_id ?? null;
     let data: { signedUrl: string } | null = null;
     let error: any = null;
 
     try {
-      const signed = await signedCompanyUrl(bucket as Bucket, path, 3600);
+      const signed = await createDocumentSignedUrl(bucket, path, companyId);
       data = signed.data;
       error = signed.error;
     } catch (err) {
       error = err;
-    }
-
-    // Fallback para anexos históricos que ainda existam fisicamente sem prefixo de empresa.
-    if (error || !data?.signedUrl) {
-      const legacy = await supabase.storage
-        .from(bucket)
-        .createSignedUrl(path, 3600);
-      data = legacy.data;
-      error = legacy.error;
     }
 
     if (error || !data?.signedUrl) {
