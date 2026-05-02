@@ -186,67 +186,74 @@ export default function PartnerDREDialog({ open, onOpenChange, eventId, eventNam
           </Button>
         </div>
 
-        {isLoading || !dreData ? (
+        {isLoading || !dreBlocks ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Rubrica</TableHead>
-                <TableHead className="text-right">Valor (€)</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {dreData.lines.map((line: any, i: number) => {
-                const rowClass = line.isRetained
-                  ? "border-t-2 border-accent/40 bg-accent/10"
-                  : line.isGrandTotal
-                  ? "border-t-2 border-primary/30 bg-primary/5"
-                  : line.isTotal
-                  ? "bg-secondary/20"
-                  : line.isGroupHeader
-                  ? "bg-secondary/10 border-t border-border/20"
-                  : line.isDistribution
-                  ? "bg-amber-500/5"
-                  : "";
-                const labelClass = `${line.indent ? "pl-8" : line.isGroupHeader ? "pl-4" : ""} ${
-                  line.isTotal || line.isGrandTotal || line.isRetained
-                    ? "font-bold text-xs uppercase tracking-wider"
-                    : line.isDistribution
-                    ? "text-sm italic text-muted-foreground"
-                    : line.isGroupHeader
-                    ? "font-semibold text-sm"
-                    : "text-sm"
-                }`;
-                const displayVal = line.isExpenseSide
-                  ? line.amountIncIva
-                  : line.amountExIva;
-                const formattedVal =
-                  displayVal < 0
-                    ? `-${formatCurrency(Math.abs(displayVal))}`
-                    : formatCurrency(displayVal);
-                const valClass = `text-right font-mono ${
-                  line.isRetained || line.isGrandTotal
-                    ? `text-base font-bold ${displayVal >= 0 ? "text-success" : "text-destructive"}`
-                    : line.isDistribution
-                    ? "text-sm text-amber-500"
-                    : line.isTotal
-                    ? "font-semibold"
-                    : line.isGroupHeader
-                    ? "font-semibold text-sm"
-                    : "text-muted-foreground"
-                }`;
-                return (
-                  <TableRow key={i} className={rowClass}>
-                    <TableCell className={labelClass}>{line.label}</TableCell>
-                    <TableCell className={valClass}>{formattedVal}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          <div className="space-y-6">
+            {dreBlocks.map((block, bIdx) => (
+              <div key={bIdx} className="space-y-2">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-primary border-b border-primary/30 pb-1">
+                  {block.title}
+                </h3>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Rubrica</TableHead>
+                      <TableHead className="text-right">Valor (€)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {block.lines.map((line: any, i: number) => {
+                      const rowClass = line.isRetained
+                        ? "border-t-2 border-accent/40 bg-accent/10"
+                        : line.isGrandTotal
+                        ? "border-t-2 border-primary/30 bg-primary/5"
+                        : line.isTotal
+                        ? "bg-secondary/20"
+                        : line.isGroupHeader
+                        ? "bg-secondary/10 border-t border-border/20"
+                        : line.isDistribution
+                        ? "bg-amber-500/5"
+                        : "";
+                      const labelClass = `${line.indent ? "pl-8" : line.isGroupHeader ? "pl-4" : ""} ${
+                        line.isTotal || line.isGrandTotal || line.isRetained
+                          ? "font-bold text-xs uppercase tracking-wider"
+                          : line.isDistribution
+                          ? "text-sm italic text-muted-foreground"
+                          : line.isGroupHeader
+                          ? "font-semibold text-sm"
+                          : "text-sm"
+                      }`;
+                      const displayVal = line.isExpenseSide ? line.amountIncIva : line.amountExIva;
+                      const formattedVal =
+                        displayVal < 0
+                          ? `-${formatCurrency(Math.abs(displayVal))}`
+                          : formatCurrency(displayVal);
+                      const valClass = `text-right font-mono ${
+                        line.isRetained || line.isGrandTotal
+                          ? `text-base font-bold ${displayVal >= 0 ? "text-success" : "text-destructive"}`
+                          : line.isDistribution
+                          ? "text-sm text-amber-500"
+                          : line.isTotal
+                          ? "font-semibold"
+                          : line.isGroupHeader
+                          ? "font-semibold text-sm"
+                          : "text-muted-foreground"
+                      }`;
+                      return (
+                        <TableRow key={i} className={rowClass}>
+                          <TableCell className={labelClass}>{line.label}</TableCell>
+                          <TableCell className={valClass}>{formattedVal}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            ))}
+          </div>
         )}
       </DialogContent>
     </Dialog>
