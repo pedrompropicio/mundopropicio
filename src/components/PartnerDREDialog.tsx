@@ -117,8 +117,13 @@ export default function PartnerDREDialog({ open, onOpenChange, eventId, eventNam
     if (!bundle) return;
     const evt = bundle.events.find((e: any) => e.id === eventId);
     if (!evt) return;
+    // Se o evento é Master (turnê), exporta todos os sub-eventos para que o PDF
+    // contenha DRE de cada cidade + página de Resumo da Turnê no final.
+    // Caso contrário (evento simples / sub-evento isolado), exporta só o próprio.
+    const children = bundle.events.filter((e: any) => e.parent_event_id === eventId);
+    const eventsToExport = children.length > 0 ? children : [evt];
     exportDREToPDF(
-      [evt],
+      eventsToExport,
       bundle.transactions,
       bundle.categories,
       "ticket_sales",
