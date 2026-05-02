@@ -15,7 +15,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within, waitFor, fireEvent } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import EventABTab from "@/components/EventABTab";
-import { ALL_ZONES, FOOD_DEFAULT } from "./event-ab-fixtures";
+import { ALL_ZONES, FOOD_DEFAULT } from "@/lib/__tests__/event-ab-fixtures";
 
 // ── mocks ───────────────────────────────────────────────
 vi.mock("@/hooks/use-toast", () => ({
