@@ -93,6 +93,37 @@ export type BreakEvenSolution = {
   breakdown: BreakEvenBreakdownItem[];
 };
 
+// ---------- Forecast solver ----------
+
+export type ForecastBreakdownItem = {
+  key: string;
+  zone_label: string;
+  day_index: number;
+  current_qty: number;
+  projected_qty: number;       // projeção autom. (recente + curva final)
+  forecast_qty: number;        // total final (com piso manual e teto de capacidade)
+  capacity_left: number;       // capacidade restante após forecast (Infinity se sem plano)
+  recent_velocity: number;     // bilhetes/dia (janela recente)
+  days_to_event: number;
+  capped_by_capacity: boolean;
+  manual_floor_used: boolean;
+  reason?: "no_velocity" | "capacity_full" | "ok";
+};
+
+export type ForecastSolution = {
+  qtyByKey: Record<string, number>;       // forecast TOTAL por sessão (inclui real + extras)
+  revenueByKey: Record<string, number>;   // receita por sessão (real + extras lote-a-lote)
+  breakdown: ForecastBreakdownItem[];
+  daysToEvent: number;                    // máx. entre todas as sessões
+  hasCapacityPlan: boolean;               // true se ALGUMA zona tem capacidade definida
+};
+
+/** Multiplicador de aceleração na "reta final" (últimos N dias antes do evento). */
+const FORECAST_FINAL_ACCEL = 1.6;
+const FORECAST_FINAL_WINDOW_DAYS = 30;
+/** Janela recente para calcular ritmo (preferimos os últimos X dias para captar tendência). */
+const FORECAST_RECENT_WINDOW_DAYS = 14;
+
 // ---------- Por sessão (dia × zona) ----------
 
 export function sessionAvgTicket(s: CoalaSession): number {
