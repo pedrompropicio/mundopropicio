@@ -614,8 +614,20 @@ export default function PartnerEventDetail() {
         </Card>
       )}
 
-      {/* DRE button (top-right) */}
-      <div className="flex justify-end">
+      {/* Action buttons (top-right) */}
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button size="sm" variant="outline" onClick={() => setAdvancesOpen(true)} disabled={!activeEventId}>
+          <TrendingDown className="mr-1.5 h-4 w-4" /> Extras Sócios
+          {partnerAdvances.length > 0 && (
+            <Badge variant="secondary" className="ml-2">{partnerAdvances.length}</Badge>
+          )}
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setPaidByPartnerOpen(true)} disabled={!activeEventId}>
+          <TrendingUp className="mr-1.5 h-4 w-4" /> Despesas Pagas pelo Sócio
+          {partnerPaidExpenses.length > 0 && (
+            <Badge variant="secondary" className="ml-2">{partnerPaidExpenses.length}</Badge>
+          )}
+        </Button>
         <Button size="sm" onClick={() => setDreOpen(true)} disabled={!activeEventId}>
           <FileText className="mr-1.5 h-4 w-4" /> DRE
         </Button>
