@@ -449,9 +449,21 @@ export default function EventSimulator() {
     [calcSessions, calcCosts, calcCfg, beLotInfo],
   );
 
+  // Data do evento = última sessão (festival multi-dia) ou end_date/start_date.
+  const eventDate = useMemo(() => {
+    const dates = (lotSalesData?.dates ?? []).map((d) => d.date).filter(Boolean) as string[];
+    if (dates.length) return dates[dates.length - 1];
+    return (event as any)?.end_date ?? (event as any)?.start_date ?? null;
+  }, [lotSalesData, event]);
+
+  const fcSolution: ForecastSolution = useMemo(
+    () => solveForecast(calcSessions, calcCfg, beLotInfo, eventDate),
+    [calcSessions, calcCfg, beLotInfo, eventDate],
+  );
+
   const today = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "today"), [calcSessions, calcCfg]);
   const breakeven = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolution.qtyByKey, beSolution.revenueByKey), [calcSessions, calcCfg, beSolution]);
-  const forecast = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "forecast"), [calcSessions, calcCfg]);
+  const forecast = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "forecast", fcSolution.qtyByKey, fcSolution.revenueByKey), [calcSessions, calcCfg, fcSolution]);
 
   const todayCosts = useMemo(() => computeScenarioCosts(calcCosts, today, calcCfg, "today"), [calcCosts, today, calcCfg]);
   const beCosts = useMemo(() => computeScenarioCosts(calcCosts, breakeven, calcCfg, "breakeven"), [calcCosts, breakeven, calcCfg]);
