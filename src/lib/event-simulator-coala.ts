@@ -376,6 +376,7 @@ export function solveBreakEven(
     reason: BreakEvenBreakdownItem["reason"];
     // estado mutável
     extra: number;
+    extraRevenue: number;       // soma (extras × preço marginal real, lote-a-lote)
     // cópia mutável dos lotes para "consumir"
     lotsRemaining: Array<{ price: number; left: number }>;
     fallbackPrice: number;
