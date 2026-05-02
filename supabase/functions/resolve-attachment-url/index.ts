@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-// v4 — força redeploy em Live: prioriza candidato {company}/{path} e valida com download() antes de devolver.
+// v5 — força redeploy em Live (2ª tentativa): prioriza candidato {company}/{path} e valida com download() antes de devolver.
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Expose-Headers": "Content-Disposition, Content-Type, X-Resolved-Attachment-Path",
