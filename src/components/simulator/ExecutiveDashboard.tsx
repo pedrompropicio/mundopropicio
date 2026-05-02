@@ -81,18 +81,36 @@ function CompareCard({
   active: ScenarioKey;
   rows: { label: string; values: [React.ReactNode, React.ReactNode, React.ReactNode]; bold?: boolean }[];
 }) {
+  const activeIdx = (["real", "breakeven", "forecast"] as ScenarioKey[]).indexOf(active);
   return (
     <Card>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-sm">{title}</CardTitle>
-          <Badge variant="outline" className="text-[10px]">
+          <Badge variant="outline" className="text-[10px] shrink-0 sm:hidden">
+            {SCEN_LABELS[active]}
+          </Badge>
+          <Badge variant="outline" className="text-[10px] shrink-0 hidden sm:inline-flex">
             destaque: {SCEN_LABELS[active]}
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="grid grid-cols-[1fr_repeat(3,minmax(0,1fr))] gap-x-2 text-xs">
+        {/* Mobile: 2 colunas (label + cenário activo) */}
+        <div className="grid grid-cols-[1fr_auto] gap-x-2 text-xs sm:hidden">
+          {rows.map((r, i) => (
+            <React.Fragment key={i}>
+              <div className={`py-1 ${r.bold ? "font-semibold" : "text-muted-foreground"}`}>
+                {r.label}
+              </div>
+              <div className="py-1 text-right tabular-nums">
+                {r.values[activeIdx]}
+              </div>
+            </React.Fragment>
+          ))}
+        </div>
+        {/* Desktop: 4 colunas comparação */}
+        <div className="hidden sm:grid grid-cols-[1fr_repeat(3,minmax(0,1fr))] gap-x-2 text-xs">
           <div />
           {(["real", "breakeven", "forecast"] as ScenarioKey[]).map((k) => (
             <div
@@ -265,43 +283,44 @@ export default function ExecutiveDashboard(props: Props) {
     <div className="space-y-4">
       {/* Toolbar (não vai para o PDF) */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between print:hidden">
-        <div className="flex gap-1 rounded-md border p-1">
+        <div className="flex w-full gap-1 rounded-md border p-1 sm:w-auto">
           {(["real", "breakeven", "forecast"] as ScenarioKey[]).map((k) => (
             <Button
               key={k}
               size="sm"
               variant={active === k ? "default" : "ghost"}
               onClick={() => setActive(k)}
-              className="h-8"
+              className="h-8 flex-1 sm:flex-none text-xs px-2"
             >
               {SCEN_LABELS[k]}
             </Button>
           ))}
         </div>
-        <Button onClick={handleExport} disabled={exporting} variant="outline">
+        <Button onClick={handleExport} disabled={exporting} variant="outline" size="sm" className="w-full sm:w-auto">
           {exporting ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
             <FileText className="mr-2 h-4 w-4" />
           )}
-          Exportar PDF (landscape)
+          <span className="sm:hidden">PDF</span>
+          <span className="hidden sm:inline">Exportar PDF (landscape)</span>
         </Button>
       </div>
 
       {/* Conteúdo capturado para PDF */}
       <div ref={rootRef} className="space-y-3 bg-background p-2">
         {/* Cabeçalho do PDF */}
-        <div className="flex items-end justify-between border-b pb-2">
+        <div className="flex flex-col gap-1 border-b pb-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-lg font-bold">{eventName || "Evento"}</h2>
-            <p className="text-xs text-muted-foreground">
-              Dashboard Executivo do Simulador · Cenário em destaque:{" "}
+            <h2 className="text-base sm:text-lg font-bold">{eventName || "Evento"}</h2>
+            <p className="text-[11px] sm:text-xs text-muted-foreground">
+              Dashboard Executivo · Cenário:{" "}
               <span className="font-semibold text-foreground">{SCEN_LABELS[active]}</span>
             </p>
           </div>
-          <div className="text-right text-[10px] text-muted-foreground">
+          <div className="text-left sm:text-right text-[10px] text-muted-foreground">
             <div>Exportado em {new Date().toLocaleDateString("pt-PT")}</div>
-            <div>Comparação: Real · Break Even · Forecast</div>
+            <div className="hidden sm:block">Comparação: Real · Break Even · Forecast</div>
           </div>
         </div>
 
