@@ -1259,6 +1259,17 @@ export default function EventSimulator() {
                       onChange={(v) => setLocalCfg({ ...localCfg, forecast_final_window_days: Math.round(v) })}
                       step={1}
                     />
+                    <ForecastBoostCalibrator
+                      currentEventId={eventId}
+                      defaultWindowDays={Number(localCfg.forecast_final_window_days ?? 30)}
+                      onApply={(boost, windowDays) =>
+                        setLocalCfg({
+                          ...localCfg,
+                          forecast_final_accel: Number(boost.toFixed(2)),
+                          forecast_final_window_days: Math.round(windowDays),
+                        })
+                      }
+                    />
                   </div>
                   <div className="col-span-full mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
                     <div className="col-span-full">
