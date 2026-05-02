@@ -1008,6 +1008,111 @@ export default function PartnerEventDetail() {
           />
         ) : null;
       })()}
+
+      {/* Extras Sócios Dialog */}
+      <Dialog open={advancesOpen} onOpenChange={setAdvancesOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Extras Sócios — Despesas pagas pela empresa</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            Despesas pagas pela empresa em nome do sócio. São abatidas do payout no fecho do evento.
+          </p>
+          {partnerAdvances.length === 0 ? (
+            <Card className="p-6 text-center mt-3">
+              <p className="text-sm text-muted-foreground">Sem registos de Extras Sócios para este evento.</p>
+            </Card>
+          ) : (
+            <div className="mt-3">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    {isMasterView && <TableHead>Cidade</TableHead>}
+                    <TableHead>Descrição</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(partnerAdvances as any[]).map((a) => {
+                    const total = calcTotalWithIva(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0));
+                    return (
+                      <TableRow key={a.id}>
+                        <TableCell className="text-xs">{a.transactions?.date ? formatDate(a.transactions.date) : "—"}</TableCell>
+                        {isMasterView && <TableCell className="text-xs">{eventNameById[a.event_id] || "—"}</TableCell>}
+                        <TableCell className="text-xs">
+                          {a.transactions?.description || "—"}
+                          {a.notes && <span className="block text-muted-foreground">{a.notes}</span>}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-amber-500">{formatCurrency(total)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+                <TableFooter>
+                  <TableRow>
+                    <TableCell colSpan={isMasterView ? 3 : 2} className="font-semibold">Total a abater do payout</TableCell>
+                    <TableCell className="text-right font-mono font-bold text-amber-500">{formatCurrency(totalAdvances)}</TableCell>
+                  </TableRow>
+                </TableFooter>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Despesas Pagas pelo Sócio Dialog */}
+      <Dialog open={paidByPartnerOpen} onOpenChange={setPaidByPartnerOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Despesas Pagas pelo Sócio</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            Despesas do evento pagas diretamente pelo sócio. São somadas ao payout no fecho.
+          </p>
+          {partnerPaidExpenses.length === 0 ? (
+            <Card className="p-6 text-center mt-3">
+              <p className="text-sm text-muted-foreground">Sem despesas pagas pelo sócio para este evento.</p>
+            </Card>
+          ) : (
+            <div className="mt-3">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    {isMasterView && <TableHead>Cidade</TableHead>}
+                    <TableHead>Descrição</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(partnerPaidExpenses as any[]).map((a) => {
+                    const total = calcTotalWithIva(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0));
+                    const dateVal = a.paid_date || a.transactions?.date;
+                    return (
+                      <TableRow key={a.id}>
+                        <TableCell className="text-xs">{dateVal ? formatDate(dateVal) : "—"}</TableCell>
+                        {isMasterView && <TableCell className="text-xs">{eventNameById[a.event_id] || "—"}</TableCell>}
+                        <TableCell className="text-xs">
+                          {a.transactions?.description || "—"}
+                          {a.notes && <span className="block text-muted-foreground">{a.notes}</span>}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-emerald-500">{formatCurrency(total)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+                <TableFooter>
+                  <TableRow>
+                    <TableCell colSpan={isMasterView ? 3 : 2} className="font-semibold">Total a somar ao payout</TableCell>
+                    <TableCell className="text-right font-mono font-bold text-emerald-500">{formatCurrency(totalPaidByPartner)}</TableCell>
+                  </TableRow>
+                </TableFooter>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
