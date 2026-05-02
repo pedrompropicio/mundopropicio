@@ -1227,6 +1227,130 @@ export type Database = {
           },
         ]
       }
+      event_ab_config: {
+        Row: {
+          auto_sync_bp: boolean
+          company_id: string | null
+          created_at: string
+          event_id: string
+          fee_alimentos: number
+          id: string
+          notes: string | null
+          per_capita_alimentos: number
+          repasse_alimentos_pct: number
+          updated_at: string
+        }
+        Insert: {
+          auto_sync_bp?: boolean
+          company_id?: string | null
+          created_at?: string
+          event_id: string
+          fee_alimentos?: number
+          id?: string
+          notes?: string | null
+          per_capita_alimentos?: number
+          repasse_alimentos_pct?: number
+          updated_at?: string
+        }
+        Update: {
+          auto_sync_bp?: boolean
+          company_id?: string | null
+          created_at?: string
+          event_id?: string
+          fee_alimentos?: number
+          id?: string
+          notes?: string | null
+          per_capita_alimentos?: number
+          repasse_alimentos_pct?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_ab_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_ab_config_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_ab_zones: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          event_id: string
+          id: string
+          open_bar: boolean
+          open_food: boolean
+          participants_manual: number | null
+          per_capita_bebidas: number
+          repasse_bebidas_pct: number
+          sort_order: number
+          source_ticket_zone_id: string | null
+          updated_at: string
+          zone_label: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          event_id: string
+          id?: string
+          open_bar?: boolean
+          open_food?: boolean
+          participants_manual?: number | null
+          per_capita_bebidas?: number
+          repasse_bebidas_pct?: number
+          sort_order?: number
+          source_ticket_zone_id?: string | null
+          updated_at?: string
+          zone_label: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          event_id?: string
+          id?: string
+          open_bar?: boolean
+          open_food?: boolean
+          participants_manual?: number | null
+          per_capita_bebidas?: number
+          repasse_bebidas_pct?: number
+          sort_order?: number
+          source_ticket_zone_id?: string | null
+          updated_at?: string
+          zone_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_ab_zones_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_ab_zones_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_ab_zones_source_ticket_zone_id_fkey"
+            columns: ["source_ticket_zone_id"]
+            isOneToOne: false
+            referencedRelation: "event_ticket_zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_cache_city_settlements: {
         Row: {
           adjusted_amount: number | null
