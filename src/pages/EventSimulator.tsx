@@ -707,6 +707,7 @@ export default function EventSimulator() {
           cost={beCosts}
           res={beRes}
           kpis={beKpis}
+          dailyTotals={beDailyTotals}
           extra={<BreakEvenSummary solution={beSolution} />}
         />
         <ScenarioCard
@@ -716,6 +717,7 @@ export default function EventSimulator() {
           cost={fcCosts}
           res={fcRes}
           kpis={fcKpis}
+          dailyTotals={fcDailyTotals}
           extra={<ForecastSummary solution={fcSolution} />}
         />
       </div>
