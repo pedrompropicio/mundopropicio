@@ -5668,6 +5668,25 @@ export type Database = {
         Args: { _event_id: string }
         Returns: number
       }
+      calibrate_forecast_boost: {
+        Args: { p_event_id: string; p_window_days?: number }
+        Returns: {
+          base_qty: number
+          base_velocity: number
+          base_window_days: number
+          event_date: string
+          event_id: string
+          event_name: string
+          final_qty: number
+          final_velocity: number
+          first_sale_date: string
+          last_sale_date: string
+          observed_boost: number
+          total_qty: number
+          warning: string
+          window_days: number
+        }[]
+      }
       cleanup_old_backups: {
         Args: never
         Returns: {
