@@ -472,7 +472,7 @@ export function solveBreakEven(
       day_index: sessions[sl.idx].day_index,
       current_qty: sessionTodayQty(sessions[sl.idx]),
       extra_qty: sl.extra,
-      capacity_left: sl.capLeft,
+      capacity_left: Number.isFinite(sl.capLeft) ? sl.capLeft : 0,
       marginal_price: sl.margPrice,
       velocity: sl.velocity,
       reason: sl.reason,
