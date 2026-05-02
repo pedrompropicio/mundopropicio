@@ -102,10 +102,7 @@ const renderTab = () => {
   );
 };
 
-beforeEach(() => {
-  insertedZones.mockClear();
-  updatedConfig.mockClear();
-});
+beforeEach(() => {});
 
 describe("EventABTab — UI smoke tests", () => {
   it("renderiza sem crashar e mostra os labels das zonas", async () => {
