@@ -366,24 +366,39 @@ export function solveBreakEven(
     const key = `${s.day_index}-${s.zone_label}`;
     const info = lotInfoByKey?.[key];
     const realQty = sessionTodayQty(s);
-    const capacity = info?.capacity ?? 0;
-    const capLeft = Math.max(0, capacity - realQty);
-    const days = Math.max(1, info?.days_selling ?? 1);
-    const velocity = realQty / days;
 
-    // Lotes ordenados; "left" = quantity − assumido vendido proporcional
+    // Capacidade: usa lote/zona se definido (>0), senão fica "ilimitada"
+    // (Number.POSITIVE_INFINITY) para não bloquear solver quando não há
+    // planeamento de zonas/lotes registado.
+    const hasCapacity = (info?.capacity ?? 0) > 0;
+    const capLeft = hasCapacity
+      ? Math.max(0, (info!.capacity) - realQty)
+      : Number.POSITIVE_INFINITY;
+
+    // Velocidade: ritmo real (qty/dia). Se não há histórico de vendas reais,
+    // usa projected_qty + forecast_qty como proxy de "potencial" para que o
+    // solver possa distribuir esforço em eventos que ainda não abriram venda.
+    const days = Math.max(1, info?.days_selling ?? 1);
+    const realVelocity = realQty / days;
+    const proxyVelocity = n(s.projected_qty) + n(s.forecast_qty);
+    const velocity = realVelocity > 0 ? realVelocity : proxyVelocity;
+
+    // Lotes ordenados; "left" = quantity − vendido
     const lots = (info?.lots ?? []).slice().sort((a, b) => a.lot_number - b.lot_number);
     let lotsRemaining = lots.map((l) => ({ price: n(l.price), left: Math.max(0, n(l.quantity) - n(l.sold)) }));
-    // Próximo preço marginal: 1º lote com left>0
     const nextLot = lotsRemaining.find((l) => l.left > 0);
     const lastDefinedPrice = lots.length ? n(lots[lots.length - 1].price) : 0;
-    const fallbackPrice = lastDefinedPrice || sessionAvgTicket(s);
+    // Fallback de preço: último lote definido → TM real → TM projetado (revenue/qty)
+    const projTM = n(s.projected_qty) > 0
+      ? n(s.real_sales_revenue) / Math.max(1, n(s.real_sales_qty)) || 0
+      : 0;
+    const fallbackPrice = lastDefinedPrice || sessionAvgTicket(s) || projTM;
     const margPrice = nextLot?.price ?? fallbackPrice;
 
     let eligible = true;
     let reason: BreakEvenBreakdownItem["reason"] = "ok";
-    if (capacity > 0 && capLeft <= 0) { eligible = false; reason = "capacity_full"; }
-    else if (realQty === 0 && (info?.days_selling ?? 0) > 0) { eligible = false; reason = "no_velocity"; }
+    if (hasCapacity && capLeft <= 0) { eligible = false; reason = "capacity_full"; }
+    else if (velocity <= 0) { eligible = false; reason = "no_velocity"; }
     else if (margPrice <= 0) { eligible = false; reason = "no_price"; }
 
     const margin = Math.max(0, margPrice + abMarginPerPub);
