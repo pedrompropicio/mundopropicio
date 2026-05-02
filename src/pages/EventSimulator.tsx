@@ -472,17 +472,76 @@ export default function EventSimulator() {
   const breakeven = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolution.qtyByKey, beSolution.revenueByKey), [calcSessions, calcCfg, beSolution]);
   const forecast = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "forecast", fcSolution.qtyByKey, fcSolution.revenueByKey), [calcSessions, calcCfg, fcSolution]);
 
-  const todayCosts = useMemo(() => computeScenarioCosts(calcCosts, today, calcCfg, "today"), [calcCosts, today, calcCfg]);
-  const beCosts = useMemo(() => computeScenarioCosts(calcCosts, breakeven, calcCfg, "breakeven"), [calcCosts, breakeven, calcCfg]);
-  const fcCosts = useMemo(() => computeScenarioCosts(calcCosts, forecast, calcCfg, "forecast"), [calcCosts, forecast, calcCfg]);
+  // ── Participantes (pagantes + cortesia) por zona em cada cenário,
+  //    para alimentar o módulo A&B canónico do evento. ──
+  const abParticipants = useMemo<ABScenarioParticipants>(() => {
+    const realMap: Record<string, number> = {};
+    const beMap: Record<string, number> = {};
+    const fcMap: Record<string, number> = {};
+    for (const s of calcSessions) {
+      const key = `${s.day_index}-${s.zone_label}`;
+      const zoneKey = (s.zone_label || "").toLowerCase();
+      const realQty = (Number(s.real_sales_qty) || 0) + (Number(s.courtesy_qty) || 0);
+      realMap[zoneKey] = (realMap[zoneKey] ?? 0) + realQty;
+      const beQty = (beSolution.qtyByKey?.[key] ?? realQty) + (Number(s.courtesy_qty) || 0);
+      beMap[zoneKey] = (beMap[zoneKey] ?? 0) + beQty;
+      const fcQty = (fcSolution.qtyByKey?.[key] ?? realQty) + (Number(s.courtesy_qty) || 0);
+      fcMap[zoneKey] = (fcMap[zoneKey] ?? 0) + fcQty;
+    }
+    return { real: realMap, breakeven: beMap, forecast: fcMap };
+  }, [calcSessions, beSolution, fcSolution]);
 
-  const todayRes = useMemo(() => computeScenarioResult(today, todayCosts), [today, todayCosts]);
-  const beRes = useMemo(() => computeScenarioResult(breakeven, beCosts), [breakeven, beCosts]);
-  const fcRes = useMemo(() => computeScenarioResult(forecast, fcCosts), [forecast, fcCosts]);
+  const abModule = useEventABScenarios(event?.id, abParticipants);
 
-  const todayKpis = useMemo(() => computeScenarioKpis(today, todayCosts, todayRes), [today, todayCosts, todayRes]);
-  const beKpis = useMemo(() => computeScenarioKpis(breakeven, beCosts, beRes), [breakeven, beCosts, beRes]);
-  const fcKpis = useMemo(() => computeScenarioKpis(forecast, fcCosts, fcRes), [forecast, fcCosts, fcRes]);
+  /** Aplica os totais do módulo A&B sobre uma ScenarioRevenue. Quando o módulo
+   *  está configurado, drinkRevenue + foodRevenue passam a refletir o que cabe
+   *  ao evento (Receita A&B). O custo (repasse ao operador) é tratado depois
+   *  via abCostOverride em computeScenarioCosts. */
+  const applyABModule = (rev: typeof today, scen: "real" | "breakeven" | "forecast") => {
+    if (!abModule.hasConfig || !abModule.totals) return rev;
+    const t = abModule.totals[scen];
+    // separar receita por categoria mantendo a soma fiel à Receita Total A&B
+    const drink = t.receitaBebidas;
+    const food = t.receitaAlimentos;
+    return {
+      ...rev,
+      drinkRevenue: drink,
+      foodRevenue: food,
+      totalRevenue:
+        rev.totalRevenue - rev.drinkRevenue - rev.foodRevenue + drink + food,
+    };
+  };
+
+  const todayAB = useMemo(() => applyABModule(today, "real"), [today, abModule]);
+  const beAB = useMemo(() => applyABModule(breakeven, "breakeven"), [breakeven, abModule]);
+  const fcAB = useMemo(() => applyABModule(forecast, "forecast"), [forecast, abModule]);
+
+  const todayCosts = useMemo(() => {
+    const base = computeScenarioCosts(calcCosts, todayAB, calcCfg, "today");
+    if (abModule.hasConfig && abModule.totals) return { ...base, abCost: abModule.totals.real.custoTotal, totalCost: base.eventCosts + abModule.totals.real.custoTotal + base.souvenirCost };
+    return base;
+  }, [calcCosts, todayAB, calcCfg, abModule]);
+  const beCosts = useMemo(() => {
+    const base = computeScenarioCosts(calcCosts, beAB, calcCfg, "breakeven");
+    if (abModule.hasConfig && abModule.totals) return { ...base, abCost: abModule.totals.breakeven.custoTotal, totalCost: base.eventCosts + abModule.totals.breakeven.custoTotal + base.souvenirCost };
+    return base;
+  }, [calcCosts, beAB, calcCfg, abModule]);
+  const fcCosts = useMemo(() => {
+    const base = computeScenarioCosts(calcCosts, fcAB, calcCfg, "forecast");
+    if (abModule.hasConfig && abModule.totals) return { ...base, abCost: abModule.totals.forecast.custoTotal, totalCost: base.eventCosts + abModule.totals.forecast.custoTotal + base.souvenirCost };
+    return base;
+  }, [calcCosts, fcAB, calcCfg, abModule]);
+
+  // Re-bind para que todo o resto da página leia as versões A&B-override
+  const todayRev = todayAB; const beRev = beAB; const fcRev = fcAB;
+
+  const todayRes = useMemo(() => computeScenarioResult(todayRev, todayCosts), [todayRev, todayCosts]);
+  const beRes = useMemo(() => computeScenarioResult(beRev, beCosts), [beRev, beCosts]);
+  const fcRes = useMemo(() => computeScenarioResult(fcRev, fcCosts), [fcRev, fcCosts]);
+
+  const todayKpis = useMemo(() => computeScenarioKpis(todayRev, todayCosts, todayRes), [todayRev, todayCosts, todayRes]);
+  const beKpis = useMemo(() => computeScenarioKpis(beRev, beCosts, beRes), [beRev, beCosts, beRes]);
+  const fcKpis = useMemo(() => computeScenarioKpis(fcRev, fcCosts, fcRes), [fcRev, fcCosts, fcRes]);
 
   const ivaTable = useMemo(() => computeIvaTable(calcSessions), [calcSessions]);
 
