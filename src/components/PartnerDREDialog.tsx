@@ -88,29 +88,61 @@ export default function PartnerDREDialog({ open, onOpenChange, eventId, eventNam
     );
   }, [bundle]);
 
-  const dreData = useMemo(() => {
+  // Constrói uma lista de blocos: um DRE por cidade (sub-evento) + um resumo
+  // consolidado da turnê no final. Para evento simples, devolve um único bloco.
+  const dreBlocks = useMemo(() => {
     if (!bundle) return null;
-    const evtTx = getEffectiveTransactionsForExport(eventId, bundle.transactions, bundle.events);
     const evt = bundle.events.find((e: any) => e.id === eventId);
-    const parentId = evt?.parent_event_id;
-    const parentEvt = parentId ? bundle.events.find((e: any) => e.id === parentId) : null;
-    const calcBasis = parentEvt?.partner_calc_basis || evt?.partner_calc_basis || "net_result";
+    if (!evt) return null;
+    const children = bundle.events.filter((e: any) => e.parent_event_id === eventId);
+    const blocksSource = children.length > 0 ? children : [evt];
 
-    const lines = buildDREForExport(
-      evtTx,
-      bundle.categories,
-      "ticket_sales", // bilheteira líquida sempre que houver gestão
-      bundle.ticketZones,
-      bundle.ticketLots,
-      bundle.ticketSales,
-      eventId,
-      ticketCategoryId,
-      bundle.eventPartners,
-      bundle.events,
-      true, // brasilMode (vista sócio)
-      closingCosts,
-    );
-    return { lines, calcBasis };
+    const blocks = blocksSource.map((child: any) => {
+      const evtTx = getEffectiveTransactionsForExport(child.id, bundle.transactions, bundle.events);
+      const lines = buildDREForExport(
+        evtTx,
+        bundle.categories,
+        "ticket_sales",
+        bundle.ticketZones,
+        bundle.ticketLots,
+        bundle.ticketSales,
+        child.id,
+        ticketCategoryId,
+        bundle.eventPartners,
+        bundle.events,
+        true,
+        closingCosts,
+      );
+      return { title: child.name, lines };
+    });
+
+    // Resumo consolidado (apenas se houver mais do que uma cidade)
+    if (children.length > 1) {
+      const allTx = children.flatMap((c: any) =>
+        getEffectiveTransactionsForExport(c.id, bundle.transactions, bundle.events),
+      );
+      // Para o resumo, usa o eventId Master para que partners/closingCosts batam.
+      const summaryLines = buildDREForExport(
+        allTx,
+        bundle.categories,
+        "ticket_sales",
+        bundle.ticketZones,
+        bundle.ticketLots,
+        bundle.ticketSales,
+        eventId,
+        ticketCategoryId,
+        bundle.eventPartners,
+        bundle.events,
+        true,
+        // Em consolidado, somar overheads de todas as cidades
+        (closingCosts || []).map((cc: any) =>
+          children.some((c: any) => c.id === cc.event_id) ? { ...cc, event_id: eventId } : cc,
+        ),
+      );
+      blocks.push({ title: `Resumo — ${evt.name}`, lines: summaryLines });
+    }
+
+    return blocks;
   }, [bundle, eventId, ticketCategoryId, closingCosts]);
 
   const handlePDF = () => {
