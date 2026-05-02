@@ -733,15 +733,18 @@ export default function PartnerEventDetail() {
         </TabsContent>
       </Tabs>
 
-      {/* DRE Dialog */}
-      {activeEventId && (
-        <PartnerDREDialog
-          open={dreOpen}
-          onOpenChange={setDreOpen}
-          eventId={activeEventId}
-          eventName={event.name}
-        />
-      )}
+      {/* DRE Dialog — para turnê, passa sempre o Master para consolidar todas as cidades + resumo */}
+      {(() => {
+        const dreEventId = eventType === "multi_day" ? id! : (parentEventId || activeEventId);
+        return dreEventId ? (
+          <PartnerDREDialog
+            open={dreOpen}
+            onOpenChange={setDreOpen}
+            eventId={dreEventId}
+            eventName={event.name}
+          />
+        ) : null;
+      })()}
     </div>
   );
 }
