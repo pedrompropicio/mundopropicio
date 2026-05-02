@@ -459,8 +459,11 @@ export default function EventSimulator() {
   }, [lotSalesData, event]);
 
   const fcSolution: ForecastSolution = useMemo(
-    () => solveForecast(calcSessions, calcCfg, beLotInfo, eventDate),
-    [calcSessions, calcCfg, beLotInfo, eventDate],
+    () => solveForecast(calcSessions, calcCfg, beLotInfo, eventDate, {
+      finalAccel: Number(localCfg?.forecast_final_accel) || undefined,
+      finalWindowDays: Number(localCfg?.forecast_final_window_days) || undefined,
+    }),
+    [calcSessions, calcCfg, beLotInfo, eventDate, localCfg?.forecast_final_accel, localCfg?.forecast_final_window_days],
   );
 
   const today = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "today"), [calcSessions, calcCfg]);
