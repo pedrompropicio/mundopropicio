@@ -118,9 +118,9 @@ export type ForecastSolution = {
   hasCapacityPlan: boolean;               // true se ALGUMA zona tem capacidade definida
 };
 
-/** Multiplicador de aceleração na "reta final" (últimos N dias antes do evento). */
-const FORECAST_FINAL_ACCEL = 1.6;
-const FORECAST_FINAL_WINDOW_DAYS = 30;
+/** Multiplicador de aceleração na "reta final" (últimos N dias antes do evento) — DEFAULTS. */
+export const FORECAST_FINAL_ACCEL_DEFAULT = 1.6;
+export const FORECAST_FINAL_WINDOW_DAYS_DEFAULT = 30;
 /** Janela recente para calcular ritmo (preferimos os últimos X dias para captar tendência). */
 const FORECAST_RECENT_WINDOW_DAYS = 14;
 
