@@ -15,6 +15,38 @@ import { Progress } from "@/components/ui/progress";
 import { type CategoryNode } from "@/lib/category-hierarchy";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import PartnerDREDialog from "@/components/PartnerDREDialog";
+import { toast } from "sonner";
+
+/** Resolve um file_url de transaction_documents em URL clicável.
+ *  - ref://http(s)://… → link externo direto
+ *  - ref://… (placeholder interno) → null (não clicável)
+ *  - http(s)://… → devolvido como está
+ *  - resto → Signed URL no bucket transaction-documents (ou camarim-documents)
+ */
+async function resolveDocUrl(fileUrl: string | null | undefined): Promise<string | null> {
+  if (!fileUrl) return null;
+  if (/^ref:\/\/https?:\/\//i.test(fileUrl)) return fileUrl.replace(/^ref:\/\//i, "");
+  if (fileUrl.startsWith("ref://")) return null;
+  if (/^https?:\/\//i.test(fileUrl)) return fileUrl;
+  let bucket: "transaction-documents" | "camarim-documents" = "transaction-documents";
+  let path = fileUrl;
+  if (fileUrl.startsWith("camarim://")) {
+    bucket = "camarim-documents";
+    path = fileUrl.replace(/^camarim:\/\//, "");
+  }
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+  if (error || !data?.signedUrl) return null;
+  return data.signedUrl;
+}
+
+async function openDoc(fileUrl: string) {
+  const url = await resolveDocUrl(fileUrl);
+  if (!url) {
+    toast.error("Anexo indisponível");
+    return;
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+}
 
 const eventTypeLabels: Record<string, string> = {
   simple: "Evento Simples",
@@ -696,9 +728,14 @@ export default function PartnerEventDetail() {
                                         {t.docs.length > 0 && (
                                           <div className="flex flex-wrap gap-1 mt-1">
                                             {t.docs.map((d: any) => (
-                                              <a key={d.id} href={d.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[9px] text-primary hover:underline">
+                                              <button
+                                                key={d.id}
+                                                type="button"
+                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); openDoc(d.file_url); }}
+                                                className="inline-flex items-center gap-0.5 text-[9px] text-primary hover:underline"
+                                              >
                                                 <Paperclip className="h-2.5 w-2.5" />{d.name}
-                                              </a>
+                                              </button>
                                             ))}
                                           </div>
                                         )}
