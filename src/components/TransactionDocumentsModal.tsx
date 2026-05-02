@@ -44,6 +44,25 @@ function resolveStorageRef(fileUrl: string): { bucket: string; path: string } {
   return { bucket: "transaction-documents", path: fileUrl };
 }
 
+const UUID_PREFIX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\//i;
+
+async function createDocumentSignedUrl(bucket: string, path: string, companyId?: string | null) {
+  const cleanPath = path.replace(/^\/+/, "");
+  const attempts = new Set<string>();
+
+  if (UUID_PREFIX_RE.test(cleanPath)) attempts.add(cleanPath);
+  else if (companyId) attempts.add(`${companyId}/${cleanPath}`);
+
+  attempts.add(cleanPath);
+
+  for (const candidate of attempts) {
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(candidate, 3600);
+    if (!error && data?.signedUrl) return { data, error: null };
+  }
+
+  return signedCompanyUrl(bucket as Bucket, cleanPath, 3600);
+}
+
 /** Back-compat helper for delete flow (only deletes from transaction-documents) */
 function extractStoragePath(fileUrl: string): string {
   return resolveStorageRef(fileUrl).path;
