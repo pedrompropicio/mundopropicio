@@ -92,26 +92,61 @@ export default function PartnerEventDetail() {
   // ── Batch 2: all event-specific data in parallel ──
   const shouldFetchEventData = !!activeEventId;
 
+  const parentEventId = (event as any)?.parent_event_id ?? null;
+
   const { data: eventData } = useQuery({
-    queryKey: ["partner_event_data", activeEventId],
+    queryKey: ["partner_event_data", activeEventId, parentEventId],
     queryFn: async () => {
-      const [zonesRes, forecastsRes, txRes, sessionsRes, activeVersionRes] = await Promise.all([
+      // IDs envolvidos: o evento ativo + o seu Master (se for sub-evento) para rateio
+      const txEventIds = [activeEventId, parentEventId].filter(Boolean) as string[];
+      // Para overheads: ativo + Master (Master é expandido ÷N nos splits)
+      const overheadEventIds = txEventIds;
+
+      // Conta de irmãos para ratear transações Master ÷ N quando sub-evento
+      const siblingsRes = parentEventId
+        ? await supabase.from("events").select("id").eq("parent_event_id", parentEventId)
+        : { data: null as any[] | null, error: null };
+      const siblingCount = siblingsRes.data?.length || 1;
+
+      const [zonesRes, txRes, sessionsRes, activeVersionRes, overheadsRes] = await Promise.all([
         supabase.from("event_ticket_zones").select("*, event_ticket_lots(*)").eq("event_id", activeEventId),
-        supabase.from("event_forecasts").select("*, account_categories(id, code, name, parent_id)").eq("event_id", activeEventId).order("created_at"),
-        supabase.from("transactions").select("*, account_categories(id, code, name, parent_id)").eq("event_id", activeEventId).order("date", { ascending: false }),
+        supabase
+          .from("transactions")
+          .select("*, account_categories(id, code, name, parent_id)")
+          .in("event_id", txEventIds)
+          .order("date", { ascending: false }),
         supabase.from("event_sessions").select("id, label, date, start_time, sort_order").eq("event_id", activeEventId).order("sort_order"),
         supabase.from("bp_versions").select("version_number, approved_at, description").eq("event_id", activeEventId).eq("state", "active").maybeSingle(),
+        supabase
+          .from("event_forecasts")
+          .select("id, event_id, amount, iva_rate, description, category_id, account_categories(id, code, name, parent_id)")
+          .in("event_id", overheadEventIds)
+          .eq("is_overhead", true)
+          .is("version_id", null),
       ]);
       if (zonesRes.error) throw zonesRes.error;
-      if (forecastsRes.error) throw forecastsRes.error;
       if (txRes.error) throw txRes.error;
 
       const zones = (zonesRes.data ?? []) as any[];
-      const txs = (txRes.data ?? []) as any[];
+      const allTxs = (txRes.data ?? []) as any[];
+      const txIds = allTxs.map((t: any) => t.id);
 
-      // Fetch dependent data in parallel
+      // Constrói transações efetivas: locais do ativo + transações Master rateadas ÷N
+      const localTx = allTxs.filter((t: any) => t.event_id === activeEventId);
+      const masterTx = parentEventId
+        ? allTxs
+            .filter((t: any) => t.event_id === parentEventId)
+            .map((t: any) => ({
+              ...t,
+              amount: Number(t.amount) / siblingCount,
+              paid_amount: t.paid_amount != null ? Number(t.paid_amount) / siblingCount : t.paid_amount,
+              _viaMaster: true,
+            }))
+        : [];
+      const effectiveTransactions = [...localTx, ...masterTx];
+
+      // Zone IDs
       const zoneIds = zones.map((z: any) => z.id);
-      const txIds = txs.map((t: any) => t.id);
 
       const [salesRes, docsRes] = await Promise.all([
         zoneIds.length > 0
@@ -122,14 +157,24 @@ export default function PartnerEventDetail() {
           : Promise.resolve({ data: [], error: null }),
       ]);
 
+      // Overheads: Master é rateado ÷N para o sub-evento; locais ficam como estão
+      const overheadsRaw = (overheadsRes.data ?? []) as any[];
+      const overheadsForActive = overheadsRaw.flatMap((o: any) => {
+        if (o.event_id === activeEventId) return [o];
+        if (o.event_id === parentEventId) {
+          return [{ ...o, amount: Number(o.amount) / siblingCount, _viaMaster: true }];
+        }
+        return [];
+      });
+
       return {
         ticketZones: zones,
         ticketSales: (salesRes.data ?? []) as any[],
-        forecasts: (forecastsRes.data ?? []) as any[],
-        transactions: txs,
+        transactions: effectiveTransactions,
         transactionDocs: (docsRes.data ?? []) as any[],
         sessions: (sessionsRes.data ?? []) as any[],
         activeBPVersion: (activeVersionRes.data ?? null) as { version_number: number; approved_at: string | null; description: string | null } | null,
+        overheads: overheadsForActive,
       };
     },
     enabled: shouldFetchEventData,
@@ -137,11 +182,11 @@ export default function PartnerEventDetail() {
 
   const ticketZones = eventData?.ticketZones ?? [];
   const ticketSales = eventData?.ticketSales ?? [];
-  const forecasts = eventData?.forecasts ?? [];
   const transactions = eventData?.transactions ?? [];
   const transactionDocs = eventData?.transactionDocs ?? [];
   const sessions = eventData?.sessions ?? [];
   const activeBPVersion = eventData?.activeBPVersion ?? null;
+  const overheads = eventData?.overheads ?? [];
 
   // Filter zones by selected session
   const filteredZones = useMemo(() => {
