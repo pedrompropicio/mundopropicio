@@ -1,5 +1,5 @@
 -- ============================================================
--- CORRECCAO: mover evento historico Coala 2025 para empresa Coala
+-- CORRECCAO: mover evento historico Coala 2025 e dados de bilheteira para empresa Coala
 -- Executar em Cloud View > Run SQL com LIVE seleccionado
 -- ============================================================
 
@@ -30,11 +30,48 @@ BEGIN
   SET company_id = v_coala_company
   WHERE id = v_event;
 
-  RAISE NOTICE 'Evento % movido para empresa Coala (%)', v_event, v_coala_company;
+  UPDATE event_dates
+  SET company_id = v_coala_company
+  WHERE event_id = v_event;
+
+  UPDATE event_ticket_zones
+  SET company_id = v_coala_company
+  WHERE event_id = v_event;
+
+  UPDATE event_ticket_lots
+  SET company_id = v_coala_company
+  WHERE zone_id IN (
+    SELECT id
+    FROM event_ticket_zones
+    WHERE event_id = v_event
+  );
+
+  UPDATE ticket_sales
+  SET company_id = v_coala_company
+  WHERE zone_id IN (
+    SELECT id
+    FROM event_ticket_zones
+    WHERE event_id = v_event
+  )
+     OR lot_id IN (
+       SELECT l.id
+       FROM event_ticket_lots l
+       JOIN event_ticket_zones z ON z.id = l.zone_id
+       WHERE z.event_id = v_event
+     );
+
+  RAISE NOTICE 'Evento e dados de bilheteira % movidos para empresa Coala (%)', v_event, v_coala_company;
 END $$;
 
 -- Validacao
-SELECT e.id, e.name, c.legal_name, c.slug
+SELECT
+  e.id,
+  e.name,
+  c.legal_name,
+  c.slug,
+  (SELECT count(*) FROM event_ticket_zones z WHERE z.event_id = e.id AND z.company_id = e.company_id) AS zonas_na_empresa,
+  (SELECT count(*) FROM event_ticket_lots l JOIN event_ticket_zones z ON z.id = l.zone_id WHERE z.event_id = e.id AND l.company_id = e.company_id) AS lotes_na_empresa,
+  (SELECT count(*) FROM ticket_sales s WHERE s.company_id = e.company_id AND (s.zone_id IN (SELECT id FROM event_ticket_zones WHERE event_id = e.id) OR s.lot_id IN (SELECT l.id FROM event_ticket_lots l JOIN event_ticket_zones z ON z.id = l.zone_id WHERE z.event_id = e.id))) AS vendas_na_empresa
 FROM events e
 JOIN companies c ON c.id = e.company_id
 WHERE e.name = 'Coala Festival Portugal 2025 (Histórico)';
