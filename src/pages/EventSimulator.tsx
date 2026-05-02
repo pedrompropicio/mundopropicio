@@ -34,6 +34,7 @@ import { expandLotSalesToDailyAttendance, type LotSale } from "@/lib/event-simul
 import { loadSponsors, type SponsorRow } from "@/lib/event-simulator-sponsors";
 import { exportSimulatorToXlsx, exportSimulatorToPdf, type SimulatorExportData } from "@/lib/event-simulator-export";
 import { exportNodeToPdf } from "@/lib/event-simulator-view-pdf";
+import { ForecastBoostCalibrator } from "@/components/simulator/ForecastBoostCalibrator";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid } from "recharts";
 import { LayoutDashboard } from "lucide-react";
 
@@ -1257,6 +1258,17 @@ export default function EventSimulator() {
                       value={Number(localCfg.forecast_final_window_days ?? 30)}
                       onChange={(v) => setLocalCfg({ ...localCfg, forecast_final_window_days: Math.round(v) })}
                       step={1}
+                    />
+                    <ForecastBoostCalibrator
+                      currentEventId={eventId}
+                      defaultWindowDays={Number(localCfg.forecast_final_window_days ?? 30)}
+                      onApply={(boost, windowDays) =>
+                        setLocalCfg({
+                          ...localCfg,
+                          forecast_final_accel: Number(boost.toFixed(2)),
+                          forecast_final_window_days: Math.round(windowDays),
+                        })
+                      }
                     />
                   </div>
                   <div className="col-span-full mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
