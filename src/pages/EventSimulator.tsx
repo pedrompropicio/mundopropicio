@@ -693,7 +693,15 @@ export default function EventSimulator() {
           kpis={beKpis}
           extra={<BreakEvenSummary solution={beSolution} />}
         />
-        <ScenarioCard title="Forecast" tone="success" rev={forecast} cost={fcCosts} res={fcRes} kpis={fcKpis} />
+        <ScenarioCard
+          title="Forecast"
+          tone="success"
+          rev={forecast}
+          cost={fcCosts}
+          res={fcRes}
+          kpis={fcKpis}
+          extra={<ForecastSummary solution={fcSolution} />}
+        />
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
