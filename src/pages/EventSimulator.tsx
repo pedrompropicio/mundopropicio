@@ -598,7 +598,9 @@ export default function EventSimulator() {
   }, [dailyAttendance]);
 
   // Helper: agrega qtyByKey (formato "dayIndex-zoneLabel") por dia, herdando datas de dailyTotals.
-  const buildDailyFromQtyByKey = (qtyByKey: Record<string, number>) => {
+  // Fallback: quando qtyByKey está vazio (sem sessões no simulator), prorrateia o totalQty
+  // proporcionalmente aos pesos diários reais (dailyTotals).
+  const buildDailyFromQtyByKey = (qtyByKey: Record<string, number>, totalQtyFallback?: number) => {
     const dateByDay = new Map<number, string | null>(dailyTotals.map(([d, t]) => [d, t.date]));
     const byDay = new Map<number, { paying: number; courtesy: number; total: number; date: string | null }>();
     for (const [key, qty] of Object.entries(qtyByKey)) {
@@ -608,10 +610,30 @@ export default function EventSimulator() {
       cur.paying += qty; cur.total += qty;
       byDay.set(dayIdx, cur);
     }
+    // Fallback: usa pesos diários do real (dailyTotals) para prorratear o total
+    if (byDay.size <= 1 && dailyTotals.length > 1 && totalQtyFallback != null && totalQtyFallback > 0) {
+      const realSum = dailyTotals.reduce((acc, [, t]) => acc + t.total, 0);
+      if (realSum > 0) {
+        byDay.clear();
+        let assigned = 0;
+        dailyTotals.forEach(([d, t], i) => {
+          const isLast = i === dailyTotals.length - 1;
+          const share = isLast ? totalQtyFallback - assigned : Math.round(totalQtyFallback * (t.total / realSum));
+          assigned += share;
+          byDay.set(d, { paying: share, courtesy: 0, total: share, date: t.date });
+        });
+      }
+    }
     return Array.from(byDay.entries()).sort((a, b) => a[0] - b[0]);
   };
-  const beDailyTotals = useMemo(() => buildDailyFromQtyByKey(beSolution.qtyByKey), [beSolution, dailyTotals]);
-  const fcDailyTotals = useMemo(() => buildDailyFromQtyByKey(fcSolution.qtyByKey), [fcSolution, dailyTotals]);
+  const beDailyTotals = useMemo(
+    () => buildDailyFromQtyByKey(beSolution.qtyByKey, beKpis?.totalPublic),
+    [beSolution, dailyTotals, beKpis],
+  );
+  const fcDailyTotals = useMemo(
+    () => buildDailyFromQtyByKey(fcSolution.qtyByKey, fcKpis?.totalPublic),
+    [fcSolution, dailyTotals, fcKpis],
+  );
 
   // ------- Helpers de edição -------
   const updateSession = (idx: number, patch: Partial<DbInput>) =>
