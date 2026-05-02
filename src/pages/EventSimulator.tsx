@@ -25,9 +25,9 @@ import { ArrowLeft, Plus, Trash2, Loader2, Save, Calculator, RefreshCw, FileSpre
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
 import {
-  type CoalaSession, type CoalaCostLine, type CoalaConfig, type BreakEvenSolution,
+  type CoalaSession, type CoalaCostLine, type CoalaConfig, type BreakEvenSolution, type ForecastSolution,
   computeScenarioRevenue, computeScenarioCosts, computeScenarioResult,
-  computeScenarioKpis, solveBreakEven, computeIvaTable,
+  computeScenarioKpis, solveBreakEven, solveForecast, computeIvaTable,
 } from "@/lib/event-simulator-coala";
 import { syncSimulatorFromSources } from "@/lib/event-simulator-sync";
 import { expandLotSalesToDailyAttendance, type LotSale } from "@/lib/event-simulator-combos";
