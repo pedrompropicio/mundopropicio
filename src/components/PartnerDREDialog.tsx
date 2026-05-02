@@ -88,37 +88,74 @@ export default function PartnerDREDialog({ open, onOpenChange, eventId, eventNam
     );
   }, [bundle]);
 
-  const dreData = useMemo(() => {
+  // Constrói uma lista de blocos: um DRE por cidade (sub-evento) + um resumo
+  // consolidado da turnê no final. Para evento simples, devolve um único bloco.
+  const dreBlocks = useMemo(() => {
     if (!bundle) return null;
-    const evtTx = getEffectiveTransactionsForExport(eventId, bundle.transactions, bundle.events);
     const evt = bundle.events.find((e: any) => e.id === eventId);
-    const parentId = evt?.parent_event_id;
-    const parentEvt = parentId ? bundle.events.find((e: any) => e.id === parentId) : null;
-    const calcBasis = parentEvt?.partner_calc_basis || evt?.partner_calc_basis || "net_result";
+    if (!evt) return null;
+    const children = bundle.events.filter((e: any) => e.parent_event_id === eventId);
+    const blocksSource = children.length > 0 ? children : [evt];
 
-    const lines = buildDREForExport(
-      evtTx,
-      bundle.categories,
-      "ticket_sales", // bilheteira líquida sempre que houver gestão
-      bundle.ticketZones,
-      bundle.ticketLots,
-      bundle.ticketSales,
-      eventId,
-      ticketCategoryId,
-      bundle.eventPartners,
-      bundle.events,
-      true, // brasilMode (vista sócio)
-      closingCosts,
-    );
-    return { lines, calcBasis };
+    const blocks = blocksSource.map((child: any) => {
+      const evtTx = getEffectiveTransactionsForExport(child.id, bundle.transactions, bundle.events);
+      const lines = buildDREForExport(
+        evtTx,
+        bundle.categories,
+        "ticket_sales",
+        bundle.ticketZones,
+        bundle.ticketLots,
+        bundle.ticketSales,
+        child.id,
+        ticketCategoryId,
+        bundle.eventPartners,
+        bundle.events,
+        true,
+        closingCosts,
+      );
+      return { title: child.name, lines };
+    });
+
+    // Resumo consolidado (apenas se houver mais do que uma cidade)
+    if (children.length > 1) {
+      const allTx = children.flatMap((c: any) =>
+        getEffectiveTransactionsForExport(c.id, bundle.transactions, bundle.events),
+      );
+      // Para o resumo, usa o eventId Master para que partners/closingCosts batam.
+      const summaryLines = buildDREForExport(
+        allTx,
+        bundle.categories,
+        "ticket_sales",
+        bundle.ticketZones,
+        bundle.ticketLots,
+        bundle.ticketSales,
+        eventId,
+        ticketCategoryId,
+        bundle.eventPartners,
+        bundle.events,
+        true,
+        // Em consolidado, somar overheads de todas as cidades
+        (closingCosts || []).map((cc: any) =>
+          children.some((c: any) => c.id === cc.event_id) ? { ...cc, event_id: eventId } : cc,
+        ),
+      );
+      blocks.push({ title: `Resumo — ${evt.name}`, lines: summaryLines });
+    }
+
+    return blocks;
   }, [bundle, eventId, ticketCategoryId, closingCosts]);
 
   const handlePDF = () => {
     if (!bundle) return;
     const evt = bundle.events.find((e: any) => e.id === eventId);
     if (!evt) return;
+    // Se o evento é Master (turnê), exporta todos os sub-eventos para que o PDF
+    // contenha DRE de cada cidade + página de Resumo da Turnê no final.
+    // Caso contrário (evento simples / sub-evento isolado), exporta só o próprio.
+    const children = bundle.events.filter((e: any) => e.parent_event_id === eventId);
+    const eventsToExport = children.length > 0 ? children : [evt];
     exportDREToPDF(
-      [evt],
+      eventsToExport,
       bundle.transactions,
       bundle.categories,
       "ticket_sales",
@@ -149,67 +186,74 @@ export default function PartnerDREDialog({ open, onOpenChange, eventId, eventNam
           </Button>
         </div>
 
-        {isLoading || !dreData ? (
+        {isLoading || !dreBlocks ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Rubrica</TableHead>
-                <TableHead className="text-right">Valor (€)</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {dreData.lines.map((line: any, i: number) => {
-                const rowClass = line.isRetained
-                  ? "border-t-2 border-accent/40 bg-accent/10"
-                  : line.isGrandTotal
-                  ? "border-t-2 border-primary/30 bg-primary/5"
-                  : line.isTotal
-                  ? "bg-secondary/20"
-                  : line.isGroupHeader
-                  ? "bg-secondary/10 border-t border-border/20"
-                  : line.isDistribution
-                  ? "bg-amber-500/5"
-                  : "";
-                const labelClass = `${line.indent ? "pl-8" : line.isGroupHeader ? "pl-4" : ""} ${
-                  line.isTotal || line.isGrandTotal || line.isRetained
-                    ? "font-bold text-xs uppercase tracking-wider"
-                    : line.isDistribution
-                    ? "text-sm italic text-muted-foreground"
-                    : line.isGroupHeader
-                    ? "font-semibold text-sm"
-                    : "text-sm"
-                }`;
-                const displayVal = line.isExpenseSide
-                  ? line.amountIncIva
-                  : line.amountExIva;
-                const formattedVal =
-                  displayVal < 0
-                    ? `-${formatCurrency(Math.abs(displayVal))}`
-                    : formatCurrency(displayVal);
-                const valClass = `text-right font-mono ${
-                  line.isRetained || line.isGrandTotal
-                    ? `text-base font-bold ${displayVal >= 0 ? "text-success" : "text-destructive"}`
-                    : line.isDistribution
-                    ? "text-sm text-amber-500"
-                    : line.isTotal
-                    ? "font-semibold"
-                    : line.isGroupHeader
-                    ? "font-semibold text-sm"
-                    : "text-muted-foreground"
-                }`;
-                return (
-                  <TableRow key={i} className={rowClass}>
-                    <TableCell className={labelClass}>{line.label}</TableCell>
-                    <TableCell className={valClass}>{formattedVal}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          <div className="space-y-6">
+            {dreBlocks.map((block, bIdx) => (
+              <div key={bIdx} className="space-y-2">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-primary border-b border-primary/30 pb-1">
+                  {block.title}
+                </h3>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Rubrica</TableHead>
+                      <TableHead className="text-right">Valor (€)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {block.lines.map((line: any, i: number) => {
+                      const rowClass = line.isRetained
+                        ? "border-t-2 border-accent/40 bg-accent/10"
+                        : line.isGrandTotal
+                        ? "border-t-2 border-primary/30 bg-primary/5"
+                        : line.isTotal
+                        ? "bg-secondary/20"
+                        : line.isGroupHeader
+                        ? "bg-secondary/10 border-t border-border/20"
+                        : line.isDistribution
+                        ? "bg-amber-500/5"
+                        : "";
+                      const labelClass = `${line.indent ? "pl-8" : line.isGroupHeader ? "pl-4" : ""} ${
+                        line.isTotal || line.isGrandTotal || line.isRetained
+                          ? "font-bold text-xs uppercase tracking-wider"
+                          : line.isDistribution
+                          ? "text-sm italic text-muted-foreground"
+                          : line.isGroupHeader
+                          ? "font-semibold text-sm"
+                          : "text-sm"
+                      }`;
+                      const displayVal = line.isExpenseSide ? line.amountIncIva : line.amountExIva;
+                      const formattedVal =
+                        displayVal < 0
+                          ? `-${formatCurrency(Math.abs(displayVal))}`
+                          : formatCurrency(displayVal);
+                      const valClass = `text-right font-mono ${
+                        line.isRetained || line.isGrandTotal
+                          ? `text-base font-bold ${displayVal >= 0 ? "text-success" : "text-destructive"}`
+                          : line.isDistribution
+                          ? "text-sm text-amber-500"
+                          : line.isTotal
+                          ? "font-semibold"
+                          : line.isGroupHeader
+                          ? "font-semibold text-sm"
+                          : "text-muted-foreground"
+                      }`;
+                      return (
+                        <TableRow key={i} className={rowClass}>
+                          <TableCell className={labelClass}>{line.label}</TableCell>
+                          <TableCell className={valClass}>{formattedVal}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            ))}
+          </div>
         )}
       </DialogContent>
     </Dialog>
