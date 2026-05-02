@@ -83,10 +83,14 @@ export default function PartnerEventDetail() {
   const hasParentAccess = accessList.includes(id!);
   const visibleSubEvents = hasParentAccess ? subEvents : authorizedSubEvents;
 
-  const activeEventId = selectedSubEvent || (eventType === "multi_day" && !hasParentAccess && visibleSubEvents.length > 0 ? visibleSubEvents[0]?.id : id!);
+  // Para turnê: nunca mostra "Visão Geral" (Master). Default = primeira cidade.
+  const defaultMultiDayId = eventType === "multi_day" && visibleSubEvents.length > 0
+    ? visibleSubEvents[0]?.id
+    : id!;
+  const activeEventId = selectedSubEvent || (eventType === "multi_day" ? defaultMultiDayId : id!);
 
   // ── Batch 2: all event-specific data in parallel ──
-  const shouldFetchEventData = !!activeEventId && (activeEventId !== id || eventType !== "multi_day" || hasParentAccess);
+  const shouldFetchEventData = !!activeEventId;
 
   const { data: eventData } = useQuery({
     queryKey: ["partner_event_data", activeEventId],
