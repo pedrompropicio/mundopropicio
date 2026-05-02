@@ -109,10 +109,15 @@ function buildDRE(
     });
   }
 
-  const totalIncEx = incGroups.reduce((s, g) => s + g.totalBase, 0);
+  // A&B — linhas virtuais (sem IVA, sem transações). Receita = receitaTotal,
+  // Custo = custoTotal (repasse ao operador).
+  const abReceita = abTotals ? Number(abTotals.receitaTotal || 0) : 0;
+  const abCusto = abTotals ? Number(abTotals.custoTotal || 0) : 0;
+
+  const totalIncEx = incGroups.reduce((s, g) => s + g.totalBase, 0) + abReceita;
   const totalIncIva = incGroups.reduce((s, g) => s + g.totalIva, 0);
   const totalIncInc = totalIncEx + totalIncIva;
-  const totalExpEx = expGroups.reduce((s, g) => s + g.totalBase, 0);
+  const totalExpEx = expGroups.reduce((s, g) => s + g.totalBase, 0) + abCusto;
   const totalExpIva = expGroups.reduce((s, g) => s + g.totalIva, 0);
   const totalExpInc = totalExpEx + totalExpIva;
 
