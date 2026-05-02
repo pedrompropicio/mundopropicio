@@ -377,28 +377,18 @@ export default function PartnerEventDetail() {
         {event.location && <p className="text-sm text-muted-foreground mt-1">{event.location} · {formatDate(event.date)}</p>}
       </div>
 
-      {/* Sub-event selector for multi-day */}
+      {/* Sub-event selector for multi-day — sem "Visão Geral", só cidades */}
       {eventType === "multi_day" && visibleSubEvents.length > 0 && (
         <Card>
           <CardContent className="p-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Cidades / Datas</p>
             <div className="flex flex-wrap gap-2">
-              {hasParentAccess && (
-                <button
-                  onClick={() => { setSelectedSubEvent(null); setSelectedSession(null); }}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                    !selectedSubEvent ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Visão Geral
-                </button>
-              )}
               {visibleSubEvents.map((sub: any) => (
                 <button
                   key={sub.id}
                   onClick={() => { setSelectedSubEvent(sub.id); setSelectedSession(null); }}
                   className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                    selectedSubEvent === sub.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
+                    (selectedSubEvent || defaultMultiDayId) === sub.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   {sub.name} ({formatDate(sub.date)})
@@ -409,22 +399,27 @@ export default function PartnerEventDetail() {
         </Card>
       )}
 
-      {/* Tabs */}
+      {/* DRE button (top-right) */}
+      <div className="flex justify-end">
+        <Button size="sm" onClick={() => setDreOpen(true)} disabled={!activeEventId}>
+          <FileText className="mr-1.5 h-4 w-4" /> DRE
+        </Button>
+      </div>
+
+      {/* Tabs — só Bilhetes e Transações */}
       <Tabs defaultValue="ticketing" className="space-y-4">
         <TabsList className="w-full">
           <TabsTrigger value="ticketing" className="gap-1.5 flex-1"><Ticket className="h-3.5 w-3.5" /> Bilhetes</TabsTrigger>
-          <TabsTrigger value="forecast" className="gap-1.5 flex-1"><BarChart3 className="h-3.5 w-3.5" /> Business Plan</TabsTrigger>
           <TabsTrigger value="transactions" className="gap-1.5 flex-1"><TrendingDown className="h-3.5 w-3.5" /> Transações</TabsTrigger>
         </TabsList>
 
         {/* ═══════ BILHETES ═══════ */}
         <TabsContent value="ticketing">
-          {eventType === "multi_day" && !selectedSubEvent && hasParentAccess ? (
+          {ticketZones.length === 0 ? (
             <Card className="p-8 text-center">
-              <Ticket className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-              <p className="text-muted-foreground">Selecione uma data acima para ver a bilheteira.</p>
+              <p className="text-muted-foreground">Sem bilheteira configurada para este evento.</p>
             </Card>
-          ) : ticketZones.length === 0 ? (
+          ) : (
             <Card className="p-8 text-center">
               <p className="text-muted-foreground">Sem bilheteira configurada para este evento.</p>
             </Card>
