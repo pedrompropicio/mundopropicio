@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ArrowLeft, Loader2, Ticket, Calendar, Layers, Route, TrendingUp, TrendingDown, FileText, Paperclip } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell, TableFooter } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -89,6 +90,8 @@ export default function PartnerEventDetail() {
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [dreOpen, setDreOpen] = useState(false);
+  const [advancesOpen, setAdvancesOpen] = useState(false);
+  const [paidByPartnerOpen, setPaidByPartnerOpen] = useState(false);
 
   // ── Batch 1: parallel independent queries ──
   const { data: accessList = [], isLoading: isLoadingAccess } = useQuery({
@@ -306,6 +309,59 @@ export default function PartnerEventDetail() {
   void eventData?.activeBPVersion;
   const overheads = eventData?.overheads ?? [];
   const perCityBreakdown = eventData?.perCityBreakdown ?? [];
+
+  // ── Extras / Despesas pagas pelo Sócio (Master view = todos os sub-eventos) ──
+  const partnerEventIds = useMemo(
+    () => (isMasterView ? [id!, ...visibleSubEvents.map((s: any) => s.id)] : [activeEventId!].filter(Boolean)),
+    [isMasterView, id, visibleSubEvents, activeEventId],
+  );
+  const partnerEventIdsKey = partnerEventIds.join(",");
+
+  const { data: partnerAdvances = [] } = useQuery({
+    queryKey: ["partner_event_advances", partnerEventIdsKey],
+    queryFn: async () => {
+      if (partnerEventIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("partner_advance_expenses")
+        .select("id, event_id, notes, created_at, transactions(description, amount, iva_rate, date)")
+        .in("event_id", partnerEventIds)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: partnerEventIds.length > 0,
+  });
+
+  const { data: partnerPaidExpenses = [] } = useQuery({
+    queryKey: ["partner_event_paid", partnerEventIdsKey],
+    queryFn: async () => {
+      if (partnerEventIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("partner_paid_expenses")
+        .select("id, event_id, notes, paid_date, created_at, transactions(description, amount, iva_rate, date)")
+        .in("event_id", partnerEventIds)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: partnerEventIds.length > 0,
+  });
+
+  const eventNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (event) map[id!] = event.name;
+    visibleSubEvents.forEach((s: any) => { map[s.id] = s.name; });
+    return map;
+  }, [event, visibleSubEvents, id]);
+
+  const totalAdvances = useMemo(
+    () => (partnerAdvances as any[]).reduce((s, a) => s + calcTotalWithIva(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0)), 0),
+    [partnerAdvances],
+  );
+  const totalPaidByPartner = useMemo(
+    () => (partnerPaidExpenses as any[]).reduce((s, a) => s + calcTotalWithIva(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0)), 0),
+    [partnerPaidExpenses],
+  );
 
   // Filter zones by selected session
   const filteredZones = useMemo(() => {
@@ -558,8 +614,20 @@ export default function PartnerEventDetail() {
         </Card>
       )}
 
-      {/* DRE button (top-right) */}
-      <div className="flex justify-end">
+      {/* Action buttons (top-right) */}
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button size="sm" variant="outline" onClick={() => setAdvancesOpen(true)} disabled={!activeEventId}>
+          <TrendingDown className="mr-1.5 h-4 w-4" /> Extras Sócios
+          {partnerAdvances.length > 0 && (
+            <Badge variant="secondary" className="ml-2">{partnerAdvances.length}</Badge>
+          )}
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setPaidByPartnerOpen(true)} disabled={!activeEventId}>
+          <TrendingUp className="mr-1.5 h-4 w-4" /> Despesas Pagas pelo Sócio
+          {partnerPaidExpenses.length > 0 && (
+            <Badge variant="secondary" className="ml-2">{partnerPaidExpenses.length}</Badge>
+          )}
+        </Button>
         <Button size="sm" onClick={() => setDreOpen(true)} disabled={!activeEventId}>
           <FileText className="mr-1.5 h-4 w-4" /> DRE
         </Button>
@@ -940,6 +1008,111 @@ export default function PartnerEventDetail() {
           />
         ) : null;
       })()}
+
+      {/* Extras Sócios Dialog */}
+      <Dialog open={advancesOpen} onOpenChange={setAdvancesOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Extras Sócios — Despesas pagas pela empresa</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            Despesas pagas pela empresa em nome do sócio. São abatidas do payout no fecho do evento.
+          </p>
+          {partnerAdvances.length === 0 ? (
+            <Card className="p-6 text-center mt-3">
+              <p className="text-sm text-muted-foreground">Sem registos de Extras Sócios para este evento.</p>
+            </Card>
+          ) : (
+            <div className="mt-3">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    {isMasterView && <TableHead>Cidade</TableHead>}
+                    <TableHead>Descrição</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(partnerAdvances as any[]).map((a) => {
+                    const total = calcTotalWithIva(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0));
+                    return (
+                      <TableRow key={a.id}>
+                        <TableCell className="text-xs">{a.transactions?.date ? formatDate(a.transactions.date) : "—"}</TableCell>
+                        {isMasterView && <TableCell className="text-xs">{eventNameById[a.event_id] || "—"}</TableCell>}
+                        <TableCell className="text-xs">
+                          {a.transactions?.description || "—"}
+                          {a.notes && <span className="block text-muted-foreground">{a.notes}</span>}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-amber-500">{formatCurrency(total)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+                <TableFooter>
+                  <TableRow>
+                    <TableCell colSpan={isMasterView ? 3 : 2} className="font-semibold">Total a abater do payout</TableCell>
+                    <TableCell className="text-right font-mono font-bold text-amber-500">{formatCurrency(totalAdvances)}</TableCell>
+                  </TableRow>
+                </TableFooter>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Despesas Pagas pelo Sócio Dialog */}
+      <Dialog open={paidByPartnerOpen} onOpenChange={setPaidByPartnerOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Despesas Pagas pelo Sócio</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            Despesas do evento pagas diretamente pelo sócio. São somadas ao payout no fecho.
+          </p>
+          {partnerPaidExpenses.length === 0 ? (
+            <Card className="p-6 text-center mt-3">
+              <p className="text-sm text-muted-foreground">Sem despesas pagas pelo sócio para este evento.</p>
+            </Card>
+          ) : (
+            <div className="mt-3">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    {isMasterView && <TableHead>Cidade</TableHead>}
+                    <TableHead>Descrição</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(partnerPaidExpenses as any[]).map((a) => {
+                    const total = calcTotalWithIva(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0));
+                    const dateVal = a.paid_date || a.transactions?.date;
+                    return (
+                      <TableRow key={a.id}>
+                        <TableCell className="text-xs">{dateVal ? formatDate(dateVal) : "—"}</TableCell>
+                        {isMasterView && <TableCell className="text-xs">{eventNameById[a.event_id] || "—"}</TableCell>}
+                        <TableCell className="text-xs">
+                          {a.transactions?.description || "—"}
+                          {a.notes && <span className="block text-muted-foreground">{a.notes}</span>}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-emerald-500">{formatCurrency(total)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+                <TableFooter>
+                  <TableRow>
+                    <TableCell colSpan={isMasterView ? 3 : 2} className="font-semibold">Total a somar ao payout</TableCell>
+                    <TableCell className="text-right font-mono font-bold text-emerald-500">{formatCurrency(totalPaidByPartner)}</TableCell>
+                  </TableRow>
+                </TableFooter>
+              </Table>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
