@@ -183,8 +183,10 @@ export default function PartnerEventDetail() {
       const siblingCount = siblingsRes.data?.length || 1;
       const masterChildCount = subIds.length || 1;
 
+      // Em Master view, buscar zonas de TODOS os sub-eventos (para receita de bilheteira agregada).
+      const zonesEventIds = isMasterView ? [id!, ...subIds] : [activeEventId];
       const [zonesRes, txRes, sessionsRes, activeVersionRes, overheadsRes] = await Promise.all([
-        supabase.from("event_ticket_zones").select("*, event_ticket_lots(*)").eq("event_id", activeEventId),
+        supabase.from("event_ticket_zones").select("*, event_ticket_lots(*)").in("event_id", zonesEventIds),
         supabase
           .from("transactions")
           .select("*, account_categories(id, code, name, parent_id)")
