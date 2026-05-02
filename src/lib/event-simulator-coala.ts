@@ -433,7 +433,7 @@ export function solveBreakEven(
   const eligibleSlots = slots.filter((sl) => sl.eligible);
   if (!eligibleSlots.length) {
     return {
-      qtyByKey: baseMap, reachable: false, deficit,
+      qtyByKey: baseMap, revenueByKey: baseRevByKey, reachable: false, deficit,
       totalExtraTickets: 0, unfilled: deficit,
       breakdown: slots.map((sl) => ({
         key: sl.key, zone_label: sessions[sl.idx].zone_label, day_index: sessions[sl.idx].day_index,
