@@ -125,11 +125,10 @@ export default function PartnerEventDetail() {
   const hasParentAccess = accessList.includes(id!);
   const visibleSubEvents = hasParentAccess ? subEvents : authorizedSubEvents;
 
-  // Para turnê: nunca mostra "Visão Geral" (Master). Default = primeira cidade.
-  const defaultMultiDayId = eventType === "multi_day" && visibleSubEvents.length > 0
-    ? visibleSubEvents[0]?.id
-    : id!;
+  // Para turnê: default = Master (mostra agregado de todas as cidades).
+  const defaultMultiDayId = id!;
   const activeEventId = selectedSubEvent || (eventType === "multi_day" ? defaultMultiDayId : id!);
+  const isMasterView = eventType === "multi_day" && activeEventId === id;
 
   // ── Batch 2: all event-specific data in parallel ──
   const shouldFetchEventData = !!activeEventId;
@@ -142,11 +141,14 @@ export default function PartnerEventDetail() {
     : id ?? null;
 
   const { data: eventData } = useQuery({
-    queryKey: ["partner_event_data", activeEventId, parentEventId],
+    queryKey: ["partner_event_data", activeEventId, parentEventId, isMasterView, subEvents.map((s:any)=>s.id).join(",")],
     queryFn: async () => {
-      // IDs envolvidos: o evento ativo + o seu Master (se for sub-evento) para rateio
-      const txEventIds = [activeEventId, parentEventId].filter(Boolean) as string[];
-      // Para overheads: ativo + Master (Master é expandido ÷N nos splits)
+      // Em modo Master: agrega Master + todos sub-eventos visíveis
+      // Em modo cidade: ativo + Master (rateado ÷N)
+      const subIds = visibleSubEvents.map((s: any) => s.id);
+      const txEventIds = isMasterView
+        ? [id!, ...subIds]
+        : ([activeEventId, parentEventId].filter(Boolean) as string[]);
       const overheadEventIds = txEventIds;
 
       // Conta de irmãos para ratear transações Master ÷ N quando sub-evento
@@ -154,6 +156,7 @@ export default function PartnerEventDetail() {
         ? await supabase.from("events").select("id").eq("parent_event_id", parentEventId)
         : { data: null as any[] | null, error: null };
       const siblingCount = siblingsRes.data?.length || 1;
+      const masterChildCount = subIds.length || 1;
 
       const [zonesRes, txRes, sessionsRes, activeVersionRes, overheadsRes] = await Promise.all([
         supabase.from("event_ticket_zones").select("*, event_ticket_lots(*)").eq("event_id", activeEventId),
@@ -179,28 +182,29 @@ export default function PartnerEventDetail() {
       const allTxs = (txRes.data ?? []) as any[];
       const txIds = allTxs.map((t: any) => t.id);
 
-      // Constrói transações efetivas: locais do ativo + transações Master rateadas ÷N.
-      // Filtros canónicos do Fecho dos Sócios (buildPartnerSettlementReportData):
-      //   • status ∈ {approved, paid}
-      //   • !is_transitory  (cauções/transitórias não entram no DRE)
-      //   • !exclude_from_result
       const isValidTx = (t: any) =>
         (t.status === "approved" || t.status === "paid") &&
         !t.is_transitory &&
         !t.exclude_from_result;
 
-      const localTx = allTxs.filter((t: any) => t.event_id === activeEventId && isValidTx(t));
-      const masterTx = parentEventId
-        ? allTxs
-            .filter((t: any) => t.event_id === parentEventId && isValidTx(t))
-            .map((t: any) => ({
-              ...t,
-              amount: Number(t.amount) / siblingCount,
-              paid_amount: t.paid_amount != null ? Number(t.paid_amount) / siblingCount : t.paid_amount,
-              _viaMaster: true,
-            }))
-        : [];
-      const effectiveTransactions = [...localTx, ...masterTx];
+      let effectiveTransactions: any[];
+      if (isMasterView) {
+        // Master: locais (Master) + todos sub-eventos, sem rateio
+        effectiveTransactions = allTxs.filter(isValidTx);
+      } else {
+        const localTx = allTxs.filter((t: any) => t.event_id === activeEventId && isValidTx(t));
+        const masterTx = parentEventId
+          ? allTxs
+              .filter((t: any) => t.event_id === parentEventId && isValidTx(t))
+              .map((t: any) => ({
+                ...t,
+                amount: Number(t.amount) / siblingCount,
+                paid_amount: t.paid_amount != null ? Number(t.paid_amount) / siblingCount : t.paid_amount,
+                _viaMaster: true,
+              }))
+          : [];
+        effectiveTransactions = [...localTx, ...masterTx];
+      }
 
       // Zone IDs
       const zoneIds = zones.map((z: any) => z.id);
@@ -214,15 +218,44 @@ export default function PartnerEventDetail() {
           : Promise.resolve({ data: [], error: null }),
       ]);
 
-      // Overheads: Master é rateado ÷N para o sub-evento; locais ficam como estão
       const overheadsRaw = (overheadsRes.data ?? []) as any[];
-      const overheadsForActive = overheadsRaw.flatMap((o: any) => {
-        if (o.event_id === activeEventId) return [o];
-        if (o.event_id === parentEventId) {
-          return [{ ...o, amount: Number(o.amount) / siblingCount, _viaMaster: true }];
-        }
-        return [];
-      });
+      let overheadsForActive: any[];
+      if (isMasterView) {
+        // Master: inclui todos (Master + sub-eventos) sem rateio
+        overheadsForActive = overheadsRaw;
+      } else {
+        overheadsForActive = overheadsRaw.flatMap((o: any) => {
+          if (o.event_id === activeEventId) return [o];
+          if (o.event_id === parentEventId) {
+            return [{ ...o, amount: Number(o.amount) / siblingCount, _viaMaster: true }];
+          }
+          return [];
+        });
+      }
+
+      // Para vista Master: calcular per-city (ratear Master ÷N nos sub-eventos)
+      const perCityBreakdown = isMasterView
+        ? visibleSubEvents.map((sub: any) => {
+            const localTx = allTxs.filter((t: any) => t.event_id === sub.id && isValidTx(t));
+            const masterTxRated = allTxs
+              .filter((t: any) => t.event_id === id && isValidTx(t))
+              .map((t: any) => ({ ...t, amount: Number(t.amount) / masterChildCount }));
+            const cityTx = [...localTx, ...masterTxRated];
+            const cityOverheads = overheadsRaw.flatMap((o: any) => {
+              if (o.event_id === sub.id) return [o];
+              if (o.event_id === id) return [{ ...o, amount: Number(o.amount) / masterChildCount }];
+              return [];
+            });
+            const income = cityTx
+              .filter((t: any) => t.type === "income")
+              .reduce((s: number, t: any) => s + Number(t.amount), 0);
+            const expense = cityTx
+              .filter((t: any) => t.type === "expense")
+              .reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0)
+              + cityOverheads.reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount || 0), Number(o.iva_rate || 0)), 0);
+            return { id: sub.id, name: sub.name, income, expense, result: income - expense };
+          })
+        : [];
 
       return {
         ticketZones: zones,
@@ -232,6 +265,7 @@ export default function PartnerEventDetail() {
         sessions: (sessionsRes.data ?? []) as any[],
         activeBPVersion: (activeVersionRes.data ?? null) as { version_number: number; approved_at: string | null; description: string | null } | null,
         overheads: overheadsForActive,
+        perCityBreakdown,
       };
     },
     enabled: shouldFetchEventData,
@@ -244,6 +278,7 @@ export default function PartnerEventDetail() {
   const sessions = eventData?.sessions ?? [];
   void eventData?.activeBPVersion;
   const overheads = eventData?.overheads ?? [];
+  const perCityBreakdown = eventData?.perCityBreakdown ?? [];
 
   // Filter zones by selected session
   const filteredZones = useMemo(() => {
@@ -466,12 +501,20 @@ export default function PartnerEventDetail() {
         {event.location && <p className="text-sm text-muted-foreground mt-1">{event.location} · {formatDate(event.date)}</p>}
       </div>
 
-      {/* Sub-event selector for multi-day — sem "Visão Geral", só cidades */}
+      {/* Sub-event selector for multi-day — Master + cidades */}
       {eventType === "multi_day" && visibleSubEvents.length > 0 && (
         <Card>
           <CardContent className="p-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Cidades / Datas</p>
             <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => { setSelectedSubEvent(id!); setSelectedSession(null); }}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                  (selectedSubEvent || defaultMultiDayId) === id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Master (Total)
+              </button>
               {visibleSubEvents.map((sub: any) => (
                 <button
                   key={sub.id}
@@ -692,34 +735,87 @@ export default function PartnerEventDetail() {
             </Card>
           ) : (
             <div className="space-y-4">
-              <div className="grid gap-2 sm:gap-3 grid-cols-2 sm:grid-cols-4">
-                <Card>
-                  <CardContent className="p-2 sm:p-4 text-center">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receitas</p>
-                    <p className="text-[11px] sm:text-xl font-bold font-mono text-emerald-500 truncate">{formatCurrency(transactionIncome)}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-2 sm:p-4 text-center">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Despesas</p>
-                    <p className="text-[11px] sm:text-xl font-bold font-mono text-amber-500 truncate">{formatCurrency(transactionExpense)}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-2 sm:p-4 text-center">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Pago</p>
-                    <p className="text-[11px] sm:text-xl font-bold font-mono truncate">{formatCurrency(paidExpenses)}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-2 sm:p-4 text-center">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
-                    <p className={`text-[11px] sm:text-xl font-bold font-mono truncate ${transactionResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                      {formatCurrency(transactionResult)}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
+              {/* Vista Master (turnê): card único de TOTAL do evento, depois cards por cidade */}
+              {isMasterView && (
+                <>
+                  <Card className="border-primary/40 bg-primary/5">
+                    <CardContent className="p-3 sm:p-4">
+                      <p className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground mb-2 text-center">Total do Evento</p>
+                      <div className="grid grid-cols-3 gap-3 text-center">
+                        <div>
+                          <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receitas</p>
+                          <p className="text-[11px] sm:text-xl font-bold font-mono text-emerald-500 truncate">{formatCurrency(transactionIncome)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Despesas</p>
+                          <p className="text-[11px] sm:text-xl font-bold font-mono text-amber-500 truncate">{formatCurrency(transactionExpense)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
+                          <p className={`text-[11px] sm:text-xl font-bold font-mono truncate ${transactionResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                            {formatCurrency(transactionResult)}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {perCityBreakdown.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Por Cidade</p>
+                      {perCityBreakdown.map((c: any) => (
+                        <Card key={c.id}>
+                          <CardContent className="p-3 sm:p-4">
+                            <p className="text-xs font-semibold mb-2">{c.name}</p>
+                            <div className="grid grid-cols-3 gap-3 text-center">
+                              <div>
+                                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receitas</p>
+                                <p className="text-[11px] sm:text-base font-bold font-mono text-emerald-500 truncate">{formatCurrency(c.income)}</p>
+                              </div>
+                              <div>
+                                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Despesas</p>
+                                <p className="text-[11px] sm:text-base font-bold font-mono text-amber-500 truncate">{formatCurrency(c.expense)}</p>
+                              </div>
+                              <div>
+                                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
+                                <p className={`text-[11px] sm:text-base font-bold font-mono truncate ${c.result >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                                  {formatCurrency(c.result)}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Vista cidade (ou evento simples): cards Receitas / Despesas / Resultado */}
+              {!isMasterView && (
+                <div className="grid gap-2 sm:gap-3 grid-cols-3">
+                  <Card>
+                    <CardContent className="p-2 sm:p-4 text-center">
+                      <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receitas</p>
+                      <p className="text-[11px] sm:text-xl font-bold font-mono text-emerald-500 truncate">{formatCurrency(transactionIncome)}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-2 sm:p-4 text-center">
+                      <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Despesas</p>
+                      <p className="text-[11px] sm:text-xl font-bold font-mono text-amber-500 truncate">{formatCurrency(transactionExpense)}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-2 sm:p-4 text-center">
+                      <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
+                      <p className={`text-[11px] sm:text-xl font-bold font-mono truncate ${transactionResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                        {formatCurrency(transactionResult)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
 
               {(["income", "expense"] as const).map((kind) => {
                 const groups = txGroupedHier[kind];
@@ -761,11 +857,6 @@ export default function PartnerEventDetail() {
                                       <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-1.5">
                                           <span className="text-xs truncate">{t.description || "—"}</span>
-                                          {!t.isOverhead && (
-                                            <Badge variant={t.status === "paid" ? "default" : "secondary"} className="text-[9px] shrink-0">
-                                              {statusLabels[t.status] || t.status}
-                                            </Badge>
-                                          )}
                                         </div>
                                         {t.date && <span className="text-[10px] text-muted-foreground">{formatDate(t.date)}</span>}
                                         {t.docs.length > 0 && (
