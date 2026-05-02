@@ -44,15 +44,11 @@ function resolveStorageRef(fileUrl: string): { bucket: string; path: string } {
   return { bucket: "transaction-documents", path: fileUrl };
 }
 
-const UUID_PREFIX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\//i;
-
 async function createDocumentSignedUrl(bucket: string, path: string, companyId?: string | null) {
   const cleanPath = path.replace(/^\/+/, "");
   const attempts = new Set<string>();
 
-  if (UUID_PREFIX_RE.test(cleanPath)) attempts.add(cleanPath);
-  else if (companyId) attempts.add(`${companyId}/${cleanPath}`);
-
+  if (companyId && !cleanPath.startsWith(`${companyId}/`)) attempts.add(`${companyId}/${cleanPath}`);
   attempts.add(cleanPath);
 
   for (const candidate of attempts) {
@@ -188,7 +184,9 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     const { bucket, path } = resolveStorageRef(fileUrl);
     const isHtml = /\.html?(\?|$)/i.test(path);
     const doc = documents.find((d: any) => d.file_url === fileUrl) as any;
-    const companyId = doc?.transactions?.company_id ?? null;
+    const txRelation = doc?.transactions;
+    const transactionCompanyId = Array.isArray(txRelation) ? txRelation[0]?.company_id : txRelation?.company_id;
+    const companyId = doc?.company_id ?? transactionCompanyId ?? null;
     let data: { signedUrl: string } | null = null;
     let error: any = null;
 

@@ -42,8 +42,6 @@ export type Bucket =
   | "company-branding"
   | "database-backups";
 
-const UUID_PREFIX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\//i;
-
 let cachedCompanyId: string | null = null;
 
 async function resolveCompanyId(): Promise<string> {
@@ -65,7 +63,9 @@ export function clearCompanyCache() {
 /**
  * Returns a path that respects the company isolation rule. For isolated
  * buckets, prefixes with `${companyId}/` (idempotent — won't double-prefix
- * if the path already starts with the current company id).
+ * if the path already starts with the current company id). Do not treat any
+ * leading UUID as a company prefix: many legacy paths start with a transaction
+ * or session UUID and still need the company prefix.
  */
 export async function withCompanyPath(bucket: Bucket, path: string): Promise<string> {
   if (!ISOLATED_BUCKETS.has(bucket)) return path;
@@ -73,9 +73,6 @@ export async function withCompanyPath(bucket: Bucket, path: string): Promise<str
   // strip leading slash if any
   const clean = path.replace(/^\/+/, "");
   if (clean.startsWith(`${companyId}/`)) return clean;
-  // If a stored legacy record already contains a tenant UUID prefix, preserve it.
-  // Re-prefixing it with the currently active company creates duplicated paths and 404s.
-  if (UUID_PREFIX_RE.test(clean)) return clean;
   return `${companyId}/${clean}`;
 }
 

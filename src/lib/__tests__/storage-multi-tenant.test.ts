@@ -89,10 +89,10 @@ describe("multi-tenant storage helpers", () => {
       expect(out).toBe(already);
     });
 
-    it("preserves an existing tenant UUID prefix even if it differs from the active company", async () => {
-      const otherCompanyPath = "11111111-2222-4333-8444-555555555555/tx/123/file.pdf";
-      const out = await withCompanyPath("transaction-documents", otherCompanyPath);
-      expect(out).toBe(otherCompanyPath);
+    it("still prefixes legacy paths that begin with a transaction UUID", async () => {
+      const legacyTransactionPath = "11111111-2222-4333-8444-555555555555/1776688943871.pdf";
+      const out = await withCompanyPath("transaction-documents", legacyTransactionPath);
+      expect(out).toBe(`${COMPANY}/${legacyTransactionPath}`);
     });
 
     it("strips leading slashes before prefixing", async () => {
