@@ -939,6 +939,7 @@ export default function PartnerEventDetail() {
           )}
         </TabsContent>
       </Tabs>
+      )}
 
       {/* DRE Dialog — para turnê, passa sempre o Master para consolidar todas as cidades + resumo */}
       {(() => {
