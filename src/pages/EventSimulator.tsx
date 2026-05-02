@@ -597,6 +597,22 @@ export default function EventSimulator() {
     return Array.from(byDay.entries()).sort((a, b) => a[0] - b[0]);
   }, [dailyAttendance]);
 
+  // Helper: agrega qtyByKey (formato "dayIndex-zoneLabel") por dia, herdando datas de dailyTotals.
+  const buildDailyFromQtyByKey = (qtyByKey: Record<string, number>) => {
+    const dateByDay = new Map<number, string | null>(dailyTotals.map(([d, t]) => [d, t.date]));
+    const byDay = new Map<number, { paying: number; courtesy: number; total: number; date: string | null }>();
+    for (const [key, qty] of Object.entries(qtyByKey)) {
+      const dayIdx = Number(key.split("-")[0]);
+      if (!Number.isFinite(dayIdx)) continue;
+      const cur = byDay.get(dayIdx) ?? { paying: 0, courtesy: 0, total: 0, date: dateByDay.get(dayIdx) ?? null };
+      cur.paying += qty; cur.total += qty;
+      byDay.set(dayIdx, cur);
+    }
+    return Array.from(byDay.entries()).sort((a, b) => a[0] - b[0]);
+  };
+  const beDailyTotals = useMemo(() => buildDailyFromQtyByKey(beSolution.qtyByKey), [beSolution, dailyTotals]);
+  const fcDailyTotals = useMemo(() => buildDailyFromQtyByKey(fcSolution.qtyByKey), [fcSolution, dailyTotals]);
+
   // ------- Helpers de edição -------
   const updateSession = (idx: number, patch: Partial<DbInput>) =>
     setLocalSessions((arr) => arr.map((s, i) => i === idx ? { ...s, ...patch } : s));
