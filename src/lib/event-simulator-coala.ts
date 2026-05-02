@@ -150,6 +150,9 @@ export function computeScenarioRevenue(
   cfg: CoalaConfig,
   scenario: Scenario,
   breakEvenQtyByKey?: Record<string, number>,
+  /** Receita de bilheteira por sessão (real + extras a preços marginais reais).
+   *  Quando fornecido em modo break-even, substitui o cálculo qty × TM. */
+  breakEvenRevenueByKey?: Record<string, number>,
 ): ScenarioRevenue {
   let ticketsQty = 0, ticketsRevenue = 0, courtesyQty = 0;
 
@@ -165,11 +168,21 @@ export function computeScenarioRevenue(
       ticketsRevenue += sessionForecastRevenue(s);
       courtesyQty += n(s.courtesy_qty);
     } else {
-      // break-even: usa real + delta calculado externamente (breakEvenQtyByKey contém qty TOTAL de pagantes)
+      // break-even: qty TOTAL de pagantes vinda do solver
       const beQty = breakEvenQtyByKey?.[key] ?? sessionTodayQty(s);
-      const tm = sessionAvgTicket(s);
       ticketsQty += beQty;
-      ticketsRevenue += beQty * tm;
+      // Receita: prioridade ao valor exato calculado pelo solver (lote a lote);
+      // fallback: real + (extras × TM real) — mantém compatibilidade.
+      const exact = breakEvenRevenueByKey?.[key];
+      if (exact != null && Number.isFinite(exact)) {
+        ticketsRevenue += exact;
+      } else {
+        const realQty = sessionTodayQty(s);
+        const realRev = sessionTodayRevenue(s);
+        const extra = Math.max(0, beQty - realQty);
+        const tm = sessionAvgTicket(s);
+        ticketsRevenue += realRev + extra * tm;
+      }
       courtesyQty += n(s.courtesy_qty);
     }
   }
