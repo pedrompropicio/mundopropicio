@@ -27,7 +27,7 @@ export function CamarimItemAttachmentButton({ itemId, iconOnly, className }: Pro
     try {
       const { data: docs, error } = await supabase
         .from("camarim_item_documents" as any)
-        .select("file_path,mime_type,file_name")
+        .select("id,file_path,mime_type,file_name")
         .eq("item_id", itemId)
         .order("created_at", { ascending: false })
         .limit(1);
