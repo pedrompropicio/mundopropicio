@@ -198,6 +198,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const kind = body.kind as AttachmentKind;
     const documentId = body.documentId as string | undefined;
+    const mode = body.mode === "download" ? "download" : "signed-url";
     if (!documentId || !["transaction_document", "camarim_item_document"].includes(kind)) {
       return json({ error: "Pedido inválido" }, 400);
     }
@@ -210,6 +211,24 @@ Deno.serve(async (req) => {
     if (resolved.error) return json({ error: resolved.error }, resolved.status ?? 400);
 
     for (const candidate of resolved.candidates ?? []) {
+      const object = await storageObjectExists(adminClient, resolved.bucket, candidate);
+      if (!object) continue;
+
+      if (mode === "download") {
+        const { data, error } = await adminClient.storage.from(resolved.bucket).download(candidate);
+        if (error || !data) throw error ?? new Error("Não foi possível descarregar o ficheiro");
+        const contentType = resolved.contentType ?? data.type ?? object.metadata?.mimetype ?? "application/octet-stream";
+        return new Response(data, {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": contentType,
+            "Content-Disposition": contentDisposition(resolved.filename),
+            "X-Resolved-Attachment-Path": candidate,
+          },
+        });
+      }
+
       const { data, error } = await adminClient.storage.from(resolved.bucket).createSignedUrl(candidate, 60 * 60);
       if (!error && data?.signedUrl) return json({ signedUrl: data.signedUrl, bucket: resolved.bucket, path: candidate });
     }
