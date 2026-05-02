@@ -1169,11 +1169,6 @@ export default function EventDetail() {
           </TabsContent>
         )}
 
-        {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && (
-          <TabsContent value="partner-expenses">
-            <PartnerPaidExpensesPanel eventId={event.id} eventStatus={event.status} />
-          </TabsContent>
-        )}
 
       </Tabs>
       </EventScenarioProvider>
