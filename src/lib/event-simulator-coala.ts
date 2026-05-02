@@ -84,6 +84,8 @@ export type BreakEvenBreakdownItem = {
 
 export type BreakEvenSolution = {
   qtyByKey: Record<string, number>;
+  /** Receita de bilheteira por sessão (real + extras a preços marginais reais lote-a-lote). */
+  revenueByKey: Record<string, number>;
   reachable: boolean;
   deficit: number;            // € que faltam para empatar
   totalExtraTickets: number;  // soma dos bilhetes extras alocados
