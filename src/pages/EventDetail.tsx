@@ -27,6 +27,7 @@ import { formatDatePT } from "@/lib/utils";
 import { EventEditModal } from "@/components/EventEditModal";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { buildSessionCopyMap } from "@/lib/session-copy";
+import EventABTab from "@/components/EventABTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
