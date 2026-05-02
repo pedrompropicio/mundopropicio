@@ -172,11 +172,20 @@ export default function PartnerEventDetail() {
       const allTxs = (txRes.data ?? []) as any[];
       const txIds = allTxs.map((t: any) => t.id);
 
-      // Constrói transações efetivas: locais do ativo + transações Master rateadas ÷N
-      const localTx = allTxs.filter((t: any) => t.event_id === activeEventId);
+      // Constrói transações efetivas: locais do ativo + transações Master rateadas ÷N.
+      // Filtros canónicos do Fecho dos Sócios (buildPartnerSettlementReportData):
+      //   • status ∈ {approved, paid}
+      //   • !is_transitory  (cauções/transitórias não entram no DRE)
+      //   • !exclude_from_result
+      const isValidTx = (t: any) =>
+        (t.status === "approved" || t.status === "paid") &&
+        !t.is_transitory &&
+        !t.exclude_from_result;
+
+      const localTx = allTxs.filter((t: any) => t.event_id === activeEventId && isValidTx(t));
       const masterTx = parentEventId
         ? allTxs
-            .filter((t: any) => t.event_id === parentEventId)
+            .filter((t: any) => t.event_id === parentEventId && isValidTx(t))
             .map((t: any) => ({
               ...t,
               amount: Number(t.amount) / siblingCount,
