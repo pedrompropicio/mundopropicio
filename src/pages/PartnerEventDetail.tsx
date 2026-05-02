@@ -15,13 +15,14 @@ import { Progress } from "@/components/ui/progress";
 import { type CategoryNode } from "@/lib/category-hierarchy";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import PartnerDREDialog from "@/components/PartnerDREDialog";
+import { signedCompanyUrl } from "@/lib/storage";
 import { toast } from "sonner";
 
 /** Resolve um file_url de transaction_documents em URL clicável.
  *  - ref://http(s)://… → link externo direto
  *  - ref://… (placeholder interno) → null (não clicável)
  *  - http(s)://… → devolvido como está
- *  - resto → Signed URL no bucket transaction-documents (ou camarim-documents)
+ *  - resto → Signed URL no bucket multi-tenant (transaction-documents / camarim-documents)
  */
 async function resolveDocUrl(fileUrl: string | null | undefined): Promise<string | null> {
   if (!fileUrl) return null;
@@ -34,8 +35,16 @@ async function resolveDocUrl(fileUrl: string | null | undefined): Promise<string
     bucket = "camarim-documents";
     path = fileUrl.replace(/^camarim:\/\//, "");
   }
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
-  if (error || !data?.signedUrl) return null;
+  // signedCompanyUrl trata o prefixo `${companyId}/` para buckets multi-tenant
+  // (idempotente — não duplica prefixo se já estiver lá).
+  const { data, error } = await signedCompanyUrl(bucket, path, 3600);
+  if (error || !data?.signedUrl) {
+    // Fallback: alguns paths antigos podem já estar guardados sem prefixo legado;
+    // tenta o caminho cru como último recurso.
+    const fallback = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+    if (fallback.error || !fallback.data?.signedUrl) return null;
+    return fallback.data.signedUrl;
+  }
   return data.signedUrl;
 }
 
