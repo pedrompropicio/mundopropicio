@@ -58,6 +58,8 @@ type DbConfig = {
   ticket_iva_pct: number;
   combo_lot_keywords: string;
   sponsor_category_l2_id: string | null;
+  forecast_final_accel: number;
+  forecast_final_window_days: number;
 };
 
 type DbInput = {
