@@ -172,15 +172,32 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     }
     const { bucket, path } = resolveStorageRef(fileUrl);
     const isHtml = /\.html?(\?|$)/i.test(path);
-    let signedUrl: string | null = null;
+    let blobUrl: string | null = null;
 
     try {
-      const { data, error } = await supabase.functions.invoke("resolve-attachment-url", {
-        body: { kind: "transaction_document", documentId: doc.id },
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Sessão expirada. Volta a iniciar sessão.");
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/resolve-attachment-url`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ kind: "transaction_document", documentId: doc.id, mode: "download" }),
       });
-      if (error) throw error;
-      signedUrl = (data as any)?.signedUrl ?? null;
-      if (!signedUrl) throw new Error("URL não disponível");
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? "Ficheiro não disponível");
+      }
+
+      const blob = isHtml
+        ? new Blob([await response.text()], { type: "text/html; charset=utf-8" })
+        : await response.blob();
+      blobUrl = URL.createObjectURL(blob);
     } catch (err: any) {
       toast({ title: "Erro ao abrir documento", description: err?.message ?? "URL não disponível", variant: "destructive" });
       return;
@@ -191,10 +208,6 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     // the OS open it as raw text in an editor (common on macOS Safari).
     if (isHtml) {
       try {
-        const res = await fetch(signedUrl);
-        const text = await res.text();
-        const blob = new Blob([text], { type: "text/html; charset=utf-8" });
-        const blobUrl = URL.createObjectURL(blob);
         const win = window.open(blobUrl, "_blank");
         // Revoke after a delay to allow the new tab to load
         setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
@@ -207,7 +220,8 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
         return;
       }
     }
-    window.open(signedUrl, "_blank", "noopener,noreferrer");
+    window.open(blobUrl, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
   };
 
   // Three groups: external clickable links (ref://http...), pending textual refs, and uploaded files
