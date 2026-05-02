@@ -550,6 +550,118 @@ export function solveBreakEven(
   };
 }
 
+// ---------- Forecast solver ----------
+
+/**
+ * Projecao de vendas ate ao dia do evento, por sessao (dia x zona).
+ * Modelo HIBRIDO: ritmo recente extrapolado + aceleracao na reta final;
+ * capacidade rigida; manual como piso minimo; receita lote-a-lote.
+ * Cada zona/produto projeta o seu PROPRIO ritmo (apetite por produto).
+ */
+export function solveForecast(
+  sessions: CoalaSession[],
+  cfg: CoalaConfig,
+  lotInfoByKey?: Record<string, SessionLotInfo>,
+  eventDate?: string | null,
+): ForecastSolution {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  let daysToEvent = 30;
+  if (eventDate) {
+    const ms = new Date(eventDate).getTime() - new Date(todayStr).getTime();
+    daysToEvent = Math.max(1, Math.round(ms / 86400000));
+  }
+  const finalWindow = Math.min(FORECAST_FINAL_WINDOW_DAYS, daysToEvent);
+  const baseWindow = Math.max(0, daysToEvent - FORECAST_FINAL_WINDOW_DAYS);
+
+  const qtyByKey: Record<string, number> = {};
+  const revenueByKey: Record<string, number> = {};
+  const breakdown: ForecastBreakdownItem[] = [];
+  let hasCapacityPlan = false;
+
+  for (const s of sessions) {
+    const key = `${s.day_index}-${s.zone_label}`;
+    const info = lotInfoByKey?.[key] ?? lotInfoByKey?.[s.zone_label];
+    const realQty = sessionTodayQty(s);
+    const realRev = sessionTodayRevenue(s);
+    const courtesy = n(s.courtesy_qty);
+    const manualFloor = Math.max(0, n(s.forecast_qty) - courtesy);
+
+    const hasCapacity = (info?.capacity ?? 0) > 0;
+    if (hasCapacity) hasCapacityPlan = true;
+    const capLeft = hasCapacity
+      ? Math.max(0, info!.capacity - realQty)
+      : Number.POSITIVE_INFINITY;
+
+    const daysSelling = Math.max(1, info?.days_selling ?? 1);
+    const recentVelocity = daysSelling > 1 ? realQty / daysSelling : realQty;
+
+    const baseProjection = recentVelocity * baseWindow;
+    const finalProjection = recentVelocity * FORECAST_FINAL_ACCEL * finalWindow;
+    let projectedQty = Math.round(baseProjection + finalProjection);
+
+    let cappedByCapacity = false;
+    if (Number.isFinite(capLeft) && projectedQty > capLeft) {
+      projectedQty = Math.floor(capLeft);
+      cappedByCapacity = true;
+    }
+
+    let manualUsed = false;
+    if (manualFloor > realQty) {
+      const manualExtra = manualFloor - realQty;
+      const cappedManual = Number.isFinite(capLeft) ? Math.min(manualExtra, Math.floor(capLeft)) : manualExtra;
+      if (cappedManual > projectedQty) {
+        projectedQty = cappedManual;
+        manualUsed = true;
+      }
+    }
+
+    let extraRevenue = 0;
+    let remaining = projectedQty;
+    const lots = (info?.lots ?? []).slice().sort((a, b) => a.lot_number - b.lot_number);
+    const lotsRemaining = lots.map((l) => ({
+      price: n(l.price),
+      left: Math.max(0, n(l.quantity) - n(l.sold)),
+    }));
+    const lastDefinedPrice = lots.length ? n(lots[lots.length - 1].price) : 0;
+    const fallbackPrice = lastDefinedPrice || sessionAvgTicket(s);
+
+    while (remaining > 0) {
+      const lot = lotsRemaining.find((l) => l.left > 0);
+      const price = lot?.price ?? fallbackPrice;
+      if (price <= 0) break;
+      const take = lot ? Math.min(remaining, lot.left) : remaining;
+      extraRevenue += take * price;
+      if (lot) lot.left -= take;
+      remaining -= take;
+      if (!lot) break;
+    }
+
+    let reason: ForecastBreakdownItem["reason"] = "ok";
+    if (recentVelocity <= 0 && !manualUsed) reason = "no_velocity";
+    else if (cappedByCapacity && capLeft <= 0) reason = "capacity_full";
+
+    qtyByKey[key] = realQty + projectedQty;
+    revenueByKey[key] = realRev + extraRevenue;
+
+    breakdown.push({
+      key,
+      zone_label: s.zone_label,
+      day_index: s.day_index,
+      current_qty: realQty,
+      projected_qty: projectedQty,
+      forecast_qty: realQty + projectedQty,
+      capacity_left: Number.isFinite(capLeft) ? Math.max(0, capLeft - projectedQty) : Number.POSITIVE_INFINITY,
+      recent_velocity: recentVelocity,
+      days_to_event: daysToEvent,
+      capped_by_capacity: cappedByCapacity,
+      manual_floor_used: manualUsed,
+      reason,
+    });
+  }
+
+  return { qtyByKey, revenueByKey, breakdown, daysToEvent, hasCapacityPlan };
+}
+
 // ---------- IVA por sessão ----------
 
 export type IvaRow = {
