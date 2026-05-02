@@ -131,6 +131,13 @@ function buildDRE(
       lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, indent: true });
     }
   });
+  if (abReceita > 0 || (abTotals && abTotals.faturacaoTotal > 0)) {
+    lines.push({ label: "A&B (Alimentos & Bebidas)", amountExIva: abReceita, ivaAmount: 0, amountIncIva: abReceita, isGroupHeader: true });
+    if (abTotals && abTotals.receitaBebidas !== 0)
+      lines.push({ label: "Receita Bebidas", amountExIva: abTotals.receitaBebidas, ivaAmount: 0, amountIncIva: abTotals.receitaBebidas, indent: true });
+    if (abTotals && abTotals.receitaAlimentos !== 0)
+      lines.push({ label: "Receita Alimentos", amountExIva: abTotals.receitaAlimentos, ivaAmount: 0, amountIncIva: abTotals.receitaAlimentos, indent: true });
+  }
 
   lines.push({ label: "DESPESAS", amountExIva: totalExpEx, ivaAmount: totalExpIva, amountIncIva: totalExpInc, isTotal: true, isExpenseSide: true });
   expGroups.forEach((group) => {
@@ -141,6 +148,13 @@ function buildDRE(
       lines.push({ label: group.groupName, amountExIva: group.totalBase, ivaAmount: group.totalIva, amountIncIva: group.totalBase + group.totalIva, indent: true, isExpenseSide: true });
     }
   });
+  if (abCusto > 0) {
+    lines.push({ label: "A&B — Repasse ao Operador", amountExIva: abCusto, ivaAmount: 0, amountIncIva: abCusto, isGroupHeader: true, isExpenseSide: true });
+    if (abTotals && abTotals.custoBebidas !== 0)
+      lines.push({ label: "Custo Bebidas", amountExIva: abTotals.custoBebidas, ivaAmount: 0, amountIncIva: abTotals.custoBebidas, indent: true, isExpenseSide: true });
+    if (abTotals && abTotals.custoAlimentos !== 0)
+      lines.push({ label: "Custo Alimentos", amountExIva: abTotals.custoAlimentos, ivaAmount: 0, amountIncIva: abTotals.custoAlimentos, indent: true, isExpenseSide: true });
+  }
 
   // Overheads (BP) já foram alocados dentro das categorias acima (ver `expensesWithOverhead`).
   // Mantemos um bloco DETALHE só com a lista linha-a-linha para rastreabilidade na vista do sócio,
