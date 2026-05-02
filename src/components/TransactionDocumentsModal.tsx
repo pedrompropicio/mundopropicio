@@ -44,8 +44,6 @@ function resolveStorageRef(fileUrl: string): { bucket: string; path: string } {
   return { bucket: "transaction-documents", path: fileUrl };
 }
 
-const UUID_PREFIX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\//i;
-
 async function createDocumentSignedUrl(bucket: string, path: string, companyId?: string | null) {
   const cleanPath = path.replace(/^\/+/, "");
   const attempts = new Set<string>();
