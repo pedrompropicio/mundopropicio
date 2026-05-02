@@ -501,12 +501,20 @@ export default function PartnerEventDetail() {
         {event.location && <p className="text-sm text-muted-foreground mt-1">{event.location} · {formatDate(event.date)}</p>}
       </div>
 
-      {/* Sub-event selector for multi-day — sem "Visão Geral", só cidades */}
+      {/* Sub-event selector for multi-day — Master + cidades */}
       {eventType === "multi_day" && visibleSubEvents.length > 0 && (
         <Card>
           <CardContent className="p-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Cidades / Datas</p>
             <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => { setSelectedSubEvent(id!); setSelectedSession(null); }}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                  (selectedSubEvent || defaultMultiDayId) === id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Master (Total)
+              </button>
               {visibleSubEvents.map((sub: any) => (
                 <button
                   key={sub.id}
