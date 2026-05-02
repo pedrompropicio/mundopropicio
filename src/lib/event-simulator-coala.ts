@@ -84,6 +84,8 @@ export type BreakEvenBreakdownItem = {
 
 export type BreakEvenSolution = {
   qtyByKey: Record<string, number>;
+  /** Receita de bilheteira por sessão (real + extras a preços marginais reais lote-a-lote). */
+  revenueByKey: Record<string, number>;
   reachable: boolean;
   deficit: number;            // € que faltam para empatar
   totalExtraTickets: number;  // soma dos bilhetes extras alocados
@@ -150,6 +152,9 @@ export function computeScenarioRevenue(
   cfg: CoalaConfig,
   scenario: Scenario,
   breakEvenQtyByKey?: Record<string, number>,
+  /** Receita de bilheteira por sessão (real + extras a preços marginais reais).
+   *  Quando fornecido em modo break-even, substitui o cálculo qty × TM. */
+  breakEvenRevenueByKey?: Record<string, number>,
 ): ScenarioRevenue {
   let ticketsQty = 0, ticketsRevenue = 0, courtesyQty = 0;
 
@@ -165,11 +170,21 @@ export function computeScenarioRevenue(
       ticketsRevenue += sessionForecastRevenue(s);
       courtesyQty += n(s.courtesy_qty);
     } else {
-      // break-even: usa real + delta calculado externamente (breakEvenQtyByKey contém qty TOTAL de pagantes)
+      // break-even: qty TOTAL de pagantes vinda do solver
       const beQty = breakEvenQtyByKey?.[key] ?? sessionTodayQty(s);
-      const tm = sessionAvgTicket(s);
       ticketsQty += beQty;
-      ticketsRevenue += beQty * tm;
+      // Receita: prioridade ao valor exato calculado pelo solver (lote a lote);
+      // fallback: real + (extras × TM real) — mantém compatibilidade.
+      const exact = breakEvenRevenueByKey?.[key];
+      if (exact != null && Number.isFinite(exact)) {
+        ticketsRevenue += exact;
+      } else {
+        const realQty = sessionTodayQty(s);
+        const realRev = sessionTodayRevenue(s);
+        const extra = Math.max(0, beQty - realQty);
+        const tm = sessionAvgTicket(s);
+        ticketsRevenue += realRev + extra * tm;
+      }
       courtesyQty += n(s.courtesy_qty);
     }
   }
@@ -330,9 +345,13 @@ export function solveBreakEven(
     reason: "ok",
   }));
 
+  // Receita base por sessão (real) — preenche também as não-elegíveis.
+  const baseRevByKey: Record<string, number> = {};
+  for (const s of sessions) baseRevByKey[`${s.day_index}-${s.zone_label}`] = sessionTodayRevenue(s);
+
   if (baseRes.general >= 0) {
     return {
-      qtyByKey: baseMap, reachable: true, deficit: 0,
+      qtyByKey: baseMap, revenueByKey: baseRevByKey, reachable: true, deficit: 0,
       totalExtraTickets: 0, unfilled: 0, breakdown: emptyBreakdown,
     };
   }
@@ -357,6 +376,7 @@ export function solveBreakEven(
     reason: BreakEvenBreakdownItem["reason"];
     // estado mutável
     extra: number;
+    extraRevenue: number;       // soma (extras × preço marginal real, lote-a-lote)
     // cópia mutável dos lotes para "consumir"
     lotsRemaining: Array<{ price: number; left: number }>;
     fallbackPrice: number;
@@ -406,7 +426,7 @@ export function solveBreakEven(
 
     return {
       idx, key, capLeft, velocity, margPrice, margin, weight,
-      eligible, reason, extra: 0, lotsRemaining, fallbackPrice,
+      eligible, reason, extra: 0, extraRevenue: 0, lotsRemaining, fallbackPrice,
     };
   });
 
@@ -414,7 +434,7 @@ export function solveBreakEven(
   const eligibleSlots = slots.filter((sl) => sl.eligible);
   if (!eligibleSlots.length) {
     return {
-      qtyByKey: baseMap, reachable: false, deficit,
+      qtyByKey: baseMap, revenueByKey: baseRevByKey, reachable: false, deficit,
       totalExtraTickets: 0, unfilled: deficit,
       breakdown: slots.map((sl) => ({
         key: sl.key, zone_label: sessions[sl.idx].zone_label, day_index: sessions[sl.idx].day_index,
@@ -447,6 +467,7 @@ export function solveBreakEven(
       if (toAlloc <= 0) { sl.eligible = false; sl.reason = "capacity_full"; continue; }
 
       sl.extra += toAlloc;
+      sl.extraRevenue += toAlloc * sl.margPrice; // receita pura de bilheteira (sem A&B)
       sl.capLeft -= toAlloc;
       if (lot) lot.left -= toAlloc;
       remainingDeficit -= toAlloc * sl.margin;
@@ -463,9 +484,11 @@ export function solveBreakEven(
   }
 
   const map: Record<string, number> = { ...baseMap };
+  const revMap: Record<string, number> = { ...baseRevByKey };
   let totalExtra = 0;
   const breakdown: BreakEvenBreakdownItem[] = slots.map((sl) => {
     map[sl.key] = sessionTodayQty(sessions[sl.idx]) + sl.extra;
+    revMap[sl.key] = sessionTodayRevenue(sessions[sl.idx]) + sl.extraRevenue;
     totalExtra += sl.extra;
     return {
       key: sl.key,
@@ -482,6 +505,7 @@ export function solveBreakEven(
 
   return {
     qtyByKey: map,
+    revenueByKey: revMap,
     reachable: remainingDeficit <= 0.5,
     deficit,
     totalExtraTickets: totalExtra,

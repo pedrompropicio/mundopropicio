@@ -450,7 +450,7 @@ export default function EventSimulator() {
   );
 
   const today = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "today"), [calcSessions, calcCfg]);
-  const breakeven = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolution.qtyByKey), [calcSessions, calcCfg, beSolution]);
+  const breakeven = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolution.qtyByKey, beSolution.revenueByKey), [calcSessions, calcCfg, beSolution]);
   const forecast = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "forecast"), [calcSessions, calcCfg]);
 
   const todayCosts = useMemo(() => computeScenarioCosts(calcCosts, today, calcCfg, "today"), [calcCosts, today, calcCfg]);
