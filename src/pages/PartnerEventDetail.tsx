@@ -595,72 +595,9 @@ export default function PartnerEventDetail() {
           )}
         </TabsContent>
 
-        {/* ═══════ BUSINESS PLAN ═══════ */}
-        <TabsContent value="forecast">
-          {forecasts.length === 0 ? (
-            <Card className="p-8 text-center">
-              <p className="text-muted-foreground">Sem previsões registadas.</p>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {activeBPVersion && (
-                <div className="flex items-center justify-end -mb-1">
-                  <span className="text-[10px] sm:text-xs text-muted-foreground italic">
-                    Business Plan — versão v{activeBPVersion.version_number}
-                    {activeBPVersion.approved_at && (
-                      <> ({new Date(activeBPVersion.approved_at).toLocaleDateString("pt-PT", { day: "2-digit", month: "short", year: "numeric" })})</>
-                    )}
-                  </span>
-                </div>
-              )}
-              <div className="grid gap-2 sm:gap-3 grid-cols-3">
-                <Card>
-                  <CardContent className="p-2 sm:p-4 text-center">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><TrendingUp className="h-3 w-3 shrink-0" /> Receitas</p>
-                    <p className="text-[11px] sm:text-xl font-bold font-mono text-emerald-500 truncate">{formatCurrency(forecastIncome)}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-2 sm:p-4 text-center">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><TrendingDown className="h-3 w-3 shrink-0" /> Despesas</p>
-                    <p className="text-[11px] sm:text-xl font-bold font-mono text-amber-500 truncate">{formatCurrency(forecastExpense)}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-2 sm:p-4 text-center">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
-                    <p className={`text-[11px] sm:text-xl font-bold font-mono truncate ${forecastResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                      {formatCurrency(forecastResult)}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {renderBPSection(
-                bpGroups.income, "income",
-                <TrendingUp className="h-4 w-4" />, "Receitas Previstas", "text-emerald-500", forecastIncome
-              )}
-              {renderBPSection(
-                bpGroups.expense, "expense",
-                <TrendingDown className="h-4 w-4" />, "Despesas Previstas", "text-amber-500", forecastExpense
-              )}
-
-              {/* Result card */}
-              <Card className="border-primary/30 bg-primary/5">
-                <CardContent className="p-4 flex items-center justify-between">
-                  <span className="text-sm font-bold">Resultado Previsto</span>
-                  <span className={`text-lg font-bold font-mono ${forecastResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                    {formatCurrency(forecastResult)}
-                  </span>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </TabsContent>
-
-        {/* ═══════ TRANSAÇÕES ═══════ */}
+        {/* ═══════ TRANSAÇÕES (com overheads embutidos) ═══════ */}
         <TabsContent value="transactions">
-          {transactions.length === 0 ? (
+          {transactions.length === 0 && overheads.length === 0 ? (
             <Card className="p-8 text-center">
               <p className="text-muted-foreground">Sem transações registadas.</p>
             </Card>
@@ -695,89 +632,78 @@ export default function PartnerEventDetail() {
                 </Card>
               </div>
 
-              {/* Income transactions */}
-              {txGrouped.income.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-0 px-4 pt-4">
-                    <CardTitle className="text-sm text-emerald-500 flex items-center gap-1.5"><TrendingUp className="h-4 w-4" /> Receitas</CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-0 pb-0">
-                    {txGrouped.income.map((g) => (
-                      <div key={g.name}>
-                        <div className="bg-muted/30 px-4 py-1.5 flex items-center justify-between">
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{g.code} - {g.name}</span>
-                          <span className="text-[10px] font-bold font-mono text-emerald-500">{formatCurrency(g.total)}</span>
-                        </div>
-                        {g.items.map((t) => (
-                          <div key={t.id} className="flex items-center justify-between px-4 py-2 border-b border-border/30 gap-2">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-medium truncate">{t.description}</span>
-                                <Badge variant={t.status === "paid" ? "default" : "secondary"} className="text-[9px] shrink-0">
-                                  {statusLabels[t.status] || t.status}
-                                </Badge>
+              {(["income", "expense"] as const).map((kind) => {
+                const groups = txGroupedHier[kind];
+                if (groups.length === 0) return null;
+                const colorClass = kind === "income" ? "text-emerald-500" : "text-amber-500";
+                const sign = kind === "income" ? "+" : "-";
+                const Icon = kind === "income" ? TrendingUp : TrendingDown;
+                const title = kind === "income" ? "Receitas" : "Despesas";
+                return (
+                  <Card key={kind}>
+                    <CardHeader className="pb-0 px-4 pt-4">
+                      <CardTitle className={`text-sm ${colorClass} flex items-center gap-1.5`}><Icon className="h-4 w-4" /> {title}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-0 pb-0">
+                      {groups.map((l1) => (
+                        <div key={l1.name} className="mb-2">
+                          {/* L1 — Grupo */}
+                          <div className="bg-muted/40 px-4 py-1.5 flex items-center justify-between">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">{l1.code} · {l1.name}</span>
+                            <span className={`text-[11px] font-bold font-mono ${colorClass}`}>{formatCurrency(l1.total)}</span>
+                          </div>
+                          {l1.l2Groups.map((l2) => (
+                            <div key={l2.name}>
+                              {/* L2 — Sub-grupo (indentado) */}
+                              <div className="bg-muted/20 px-4 pl-8 py-1 flex items-center justify-between border-b border-border/40">
+                                <span className="text-[10px] font-semibold text-muted-foreground">{l2.code} · {l2.name}</span>
+                                <span className={`text-[10px] font-semibold font-mono ${colorClass}`}>{formatCurrency(l2.total)}</span>
                               </div>
-                              <span className="text-[10px] text-muted-foreground">{formatDate(t.date)}</span>
-                              {t.docs.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {t.docs.map((d: any) => (
-                                    <a key={d.id} href={d.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[9px] text-primary hover:underline">
-                                      <Paperclip className="h-2.5 w-2.5" />{d.name}
-                                    </a>
+                              {l2.l3Groups.map((l3) => (
+                                <div key={l3.name}>
+                                  {/* L3 — Conta (mais indentada) */}
+                                  <div className="px-4 pl-12 py-1 flex items-center justify-between border-b border-border/20 bg-muted/5">
+                                    <span className="text-[10px] font-medium text-foreground/80">{l3.code} · {l3.name}</span>
+                                    <span className={`text-[10px] font-medium font-mono ${colorClass}`}>{formatCurrency(l3.total)}</span>
+                                  </div>
+                                  {/* Itens — ainda mais indentados */}
+                                  {l3.items.map((t) => (
+                                    <div key={t.id} className="flex items-center justify-between px-4 pl-16 py-1.5 border-b border-border/15 gap-2">
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-xs truncate">{t.description || "—"}</span>
+                                          {!t.isOverhead && (
+                                            <Badge variant={t.status === "paid" ? "default" : "secondary"} className="text-[9px] shrink-0">
+                                              {statusLabels[t.status] || t.status}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        {t.date && <span className="text-[10px] text-muted-foreground">{formatDate(t.date)}</span>}
+                                        {t.docs.length > 0 && (
+                                          <div className="flex flex-wrap gap-1 mt-1">
+                                            {t.docs.map((d: any) => (
+                                              <a key={d.id} href={d.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[9px] text-primary hover:underline">
+                                                <Paperclip className="h-2.5 w-2.5" />{d.name}
+                                              </a>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <span className={`text-xs font-mono font-semibold whitespace-nowrap ${colorClass}`}>
+                                        {sign}{formatCurrency(t.amount)}
+                                      </span>
+                                    </div>
                                   ))}
                                 </div>
-                              )}
+                              ))}
                             </div>
-                            <span className="text-xs font-mono font-semibold text-emerald-500 whitespace-nowrap">+{formatCurrency(t.amount)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Expense transactions */}
-              {txGrouped.expense.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-0 px-4 pt-4">
-                    <CardTitle className="text-sm text-amber-500 flex items-center gap-1.5"><TrendingDown className="h-4 w-4" /> Despesas</CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-0 pb-0">
-                    {txGrouped.expense.map((g) => (
-                      <div key={g.name}>
-                        <div className="bg-muted/30 px-4 py-1.5 flex items-center justify-between">
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{g.code} - {g.name}</span>
-                          <span className="text-[10px] font-bold font-mono text-amber-500">{formatCurrency(g.total)}</span>
+                          ))}
                         </div>
-                        {g.items.map((t) => (
-                          <div key={t.id} className="flex items-center justify-between px-4 py-2 border-b border-border/30 gap-2">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-medium truncate">{t.description}</span>
-                                <Badge variant={t.status === "paid" ? "default" : "secondary"} className="text-[9px] shrink-0">
-                                  {statusLabels[t.status] || t.status}
-                                </Badge>
-                              </div>
-                              <span className="text-[10px] text-muted-foreground">{formatDate(t.date)}</span>
-                              {t.docs.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {t.docs.map((d: any) => (
-                                    <a key={d.id} href={d.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[9px] text-primary hover:underline">
-                                      <Paperclip className="h-2.5 w-2.5" />{d.name}
-                                    </a>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            <span className="text-xs font-mono font-semibold text-amber-500 whitespace-nowrap">-{formatCurrency(t.amount)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
+                      ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
 
               {/* Result */}
               <Card className="border-primary/30 bg-primary/5">
@@ -792,6 +718,17 @@ export default function PartnerEventDetail() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* DRE Dialog */}
+      {activeEventId && (
+        <PartnerDREDialog
+          open={dreOpen}
+          onOpenChange={setDreOpen}
+          eventId={activeEventId}
+          eventName={event.name}
+        />
+      )}
     </div>
   );
 }
+
