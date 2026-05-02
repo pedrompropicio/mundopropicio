@@ -419,7 +419,8 @@ export function solveBreakEven(
       breakdown: slots.map((sl) => ({
         key: sl.key, zone_label: sessions[sl.idx].zone_label, day_index: sessions[sl.idx].day_index,
         current_qty: sessionTodayQty(sessions[sl.idx]), extra_qty: 0,
-        capacity_left: sl.capLeft, marginal_price: sl.margPrice, velocity: sl.velocity, reason: sl.reason,
+        capacity_left: Number.isFinite(sl.capLeft) ? sl.capLeft : 0,
+        marginal_price: sl.margPrice, velocity: sl.velocity, reason: sl.reason,
       })),
     };
   }
