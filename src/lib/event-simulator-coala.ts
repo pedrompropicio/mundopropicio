@@ -364,7 +364,8 @@ export function solveBreakEven(
 
   const slots: Slot[] = sessions.map((s, idx) => {
     const key = `${s.day_index}-${s.zone_label}`;
-    const info = lotInfoByKey?.[key];
+    // Tenta a chave composta E também só pelo nome da zona (UI passa indexado por zona).
+    const info = lotInfoByKey?.[key] ?? lotInfoByKey?.[s.zone_label];
     const realQty = sessionTodayQty(s);
 
     // Capacidade: usa lote/zona se definido (>0), senão fica "ilimitada"
@@ -375,11 +376,12 @@ export function solveBreakEven(
       ? Math.max(0, (info!.capacity) - realQty)
       : Number.POSITIVE_INFINITY;
 
-    // Velocidade: ritmo real (qty/dia). Se não há histórico de vendas reais,
-    // usa projected_qty + forecast_qty como proxy de "potencial" para que o
-    // solver possa distribuir esforço em eventos que ainda não abriram venda.
+    // Peso = potencial real de venda (mix entre zonas).
+    // Usamos qty/dia quando há histórico ≥2 dias; caso contrário (importação
+    // em batch / 1 dia) usamos qty real diretamente para preservar a
+    // proporção observada entre zonas.
     const days = Math.max(1, info?.days_selling ?? 1);
-    const realVelocity = realQty / days;
+    const realVelocity = days > 1 ? realQty / days : realQty;
     const proxyVelocity = n(s.projected_qty) + n(s.forecast_qty);
     const velocity = realVelocity > 0 ? realVelocity : proxyVelocity;
 
@@ -388,11 +390,9 @@ export function solveBreakEven(
     let lotsRemaining = lots.map((l) => ({ price: n(l.price), left: Math.max(0, n(l.quantity) - n(l.sold)) }));
     const nextLot = lotsRemaining.find((l) => l.left > 0);
     const lastDefinedPrice = lots.length ? n(lots[lots.length - 1].price) : 0;
-    // Fallback de preço: último lote definido → TM real → TM projetado (revenue/qty)
-    const projTM = n(s.projected_qty) > 0
-      ? n(s.real_sales_revenue) / Math.max(1, n(s.real_sales_qty)) || 0
-      : 0;
-    const fallbackPrice = lastDefinedPrice || sessionAvgTicket(s) || projTM;
+    // Fallback: preço do PRÓXIMO lote disponível → último preço definido no BP
+    // (= preço do último bilhete vendido quando tudo está esgotado) → TM real.
+    const fallbackPrice = lastDefinedPrice || sessionAvgTicket(s);
     const margPrice = nextLot?.price ?? fallbackPrice;
 
     let eligible = true;
