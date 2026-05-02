@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { signedCompanyUrl, uploadToCompanyBucket, type Bucket } from "@/lib/storage";
+import { uploadToCompanyBucket } from "@/lib/storage";
 import { X, Upload, FileText, Trash2, ExternalLink, BookOpen, Info } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "@/hooks/use-toast";
@@ -43,22 +43,6 @@ function resolveStorageRef(fileUrl: string): { bucket: string; path: string } {
   }
   return { bucket: "transaction-documents", path: fileUrl };
 }
-
-async function createDocumentSignedUrl(bucket: string, path: string, companyId?: string | null) {
-  const cleanPath = path.replace(/^\/+/, "");
-  const attempts = new Set<string>();
-
-  if (companyId && !cleanPath.startsWith(`${companyId}/`)) attempts.add(`${companyId}/${cleanPath}`);
-  attempts.add(cleanPath);
-
-  for (const candidate of attempts) {
-    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(candidate, 3600);
-    if (!error && data?.signedUrl) return { data, error: null };
-  }
-
-  return signedCompanyUrl(bucket as Bucket, cleanPath, 3600);
-}
-
 /** Back-compat helper for delete flow (only deletes from transaction-documents) */
 function extractStoragePath(fileUrl: string): string {
   return resolveStorageRef(fileUrl).path;
@@ -180,34 +164,34 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     }
   };
 
-  const handleOpenDocument = async (fileUrl: string) => {
-    const { bucket, path } = resolveStorageRef(fileUrl);
-    const isHtml = /\.html?(\?|$)/i.test(path);
-    const doc = documents.find((d: any) => d.file_url === fileUrl) as any;
-    const txRelation = doc?.transactions;
-    const transactionCompanyId = Array.isArray(txRelation) ? txRelation[0]?.company_id : txRelation?.company_id;
-    const companyId = doc?.company_id ?? transactionCompanyId ?? null;
-    let data: { signedUrl: string } | null = null;
-    let error: any = null;
-
-    try {
-      const signed = await createDocumentSignedUrl(bucket, path, companyId);
-      data = signed.data;
-      error = signed.error;
-    } catch (err) {
-      error = err;
-    }
-
-    if (error || !data?.signedUrl) {
-      toast({ title: "Erro ao abrir documento", description: error?.message ?? "URL não disponível", variant: "destructive" });
+  const handleOpenDocument = async (doc: any) => {
+    const fileUrl = doc.file_url as string;
+    if (/^https?:\/\//i.test(fileUrl) && !fileUrl.includes("/storage/v1/object/")) {
+      window.open(fileUrl, "_blank", "noopener,noreferrer");
       return;
     }
+    const { bucket, path } = resolveStorageRef(fileUrl);
+    const isHtml = /\.html?(\?|$)/i.test(path);
+    let signedUrl: string | null = null;
+
+    try {
+      const { data, error } = await supabase.functions.invoke("resolve-attachment-url", {
+        body: { kind: "transaction_document", documentId: doc.id },
+      });
+      if (error) throw error;
+      signedUrl = (data as any)?.signedUrl ?? null;
+      if (!signedUrl) throw new Error("URL não disponível");
+    } catch (err: any) {
+      toast({ title: "Erro ao abrir documento", description: err?.message ?? "URL não disponível", variant: "destructive" });
+      return;
+    }
+
     // For HTML dossiers, fetch the bytes and open as a blob URL with the correct
     // MIME type. This forces the browser to RENDER the page instead of letting
     // the OS open it as raw text in an editor (common on macOS Safari).
     if (isHtml) {
       try {
-        const res = await fetch(data.signedUrl);
+        const res = await fetch(signedUrl);
         const text = await res.text();
         const blob = new Blob([text], { type: "text/html; charset=utf-8" });
         const blobUrl = URL.createObjectURL(blob);
@@ -223,7 +207,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
         return;
       }
     }
-    window.open(data.signedUrl, "_blank");
+    window.open(signedUrl, "_blank", "noopener,noreferrer");
   };
 
   // Three groups: external clickable links (ref://http...), pending textual refs, and uploaded files
@@ -367,7 +351,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
                     <BookOpen className="h-3.5 w-3.5" />
                   </button>
                   <button
-                    onClick={() => handleOpenDocument(doc.file_url)}
+                    onClick={() => handleOpenDocument(doc)}
                     className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
                     title="Abrir"
                   >

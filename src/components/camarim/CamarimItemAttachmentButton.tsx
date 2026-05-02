@@ -27,7 +27,7 @@ export function CamarimItemAttachmentButton({ itemId, iconOnly, className }: Pro
     try {
       const { data: docs, error } = await supabase
         .from("camarim_item_documents" as any)
-        .select("file_path,mime_type,file_name")
+        .select("id,file_path,mime_type,file_name")
         .eq("item_id", itemId)
         .order("created_at", { ascending: false })
         .limit(1);
@@ -37,11 +37,11 @@ export function CamarimItemAttachmentButton({ itemId, iconOnly, className }: Pro
         toast({ variant: "destructive", title: "Sem anexo", description: "Este item não tem fatura/talão anexo." });
         return;
       }
-      const { data: signed, error: signErr } = await supabase.storage
-        .from("camarim-documents")
-        .createSignedUrl(doc.file_path, 60 * 60);
-      if (signErr || !signed?.signedUrl) throw signErr ?? new Error("Não foi possível gerar link.");
-      window.open(signed.signedUrl, "_blank", "noopener,noreferrer");
+      const { data: signed, error: signErr } = await supabase.functions.invoke("resolve-attachment-url", {
+        body: { kind: "camarim_item_document", documentId: doc.id },
+      });
+      if (signErr || !(signed as any)?.signedUrl) throw signErr ?? new Error("Não foi possível gerar link.");
+      window.open((signed as any).signedUrl, "_blank", "noopener,noreferrer");
     } catch (err: any) {
       console.error(err);
       toast({ variant: "destructive", title: "Erro a abrir anexo", description: err.message });
