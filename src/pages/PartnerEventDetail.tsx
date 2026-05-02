@@ -185,7 +185,7 @@ export default function PartnerEventDetail() {
   const transactions = eventData?.transactions ?? [];
   const transactionDocs = eventData?.transactionDocs ?? [];
   const sessions = eventData?.sessions ?? [];
-  const activeBPVersion = eventData?.activeBPVersion ?? null;
+  void eventData?.activeBPVersion;
   const overheads = eventData?.overheads ?? [];
 
   // Filter zones by selected session
