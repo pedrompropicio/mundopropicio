@@ -43,7 +43,6 @@ function resolveStorageRef(fileUrl: string): { bucket: string; path: string } {
   }
   return { bucket: "transaction-documents", path: fileUrl };
 }
-
 /** Back-compat helper for delete flow (only deletes from transaction-documents) */
 function extractStoragePath(fileUrl: string): string {
   return resolveStorageRef(fileUrl).path;
