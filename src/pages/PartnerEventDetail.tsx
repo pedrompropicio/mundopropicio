@@ -208,94 +208,110 @@ export default function PartnerEventDetail() {
     return map;
   }, [transactionDocs]);
 
-  // Category lookup
-  const catLookup = useMemo(() => buildCategoryLookup(allCategories), [allCategories]);
-
-  // Build hierarchical BP groups
-  const bpGroups = useMemo(() => {
+  // ─── Transaction hierarchy groups (L1 > L2 > L3) ───
+  // Overheads do BP são embutidos nas despesas pela categoria respetiva,
+  // sem qualquer marca/badge — aparecem como linhas normais.
+  const txGroupedHier = useMemo(() => {
     const byId: Record<string, CategoryNode> = {};
     allCategories.forEach((c) => { byId[c.id] = c; });
 
-    const getParentChain = (catId: string | null): { l1: CategoryNode | null; l2: CategoryNode | null } => {
-      if (!catId || !byId[catId]) return { l1: null, l2: null };
+    const getChain = (catId: string | null): { l1: CategoryNode | null; l2: CategoryNode | null; l3: CategoryNode | null } => {
+      if (!catId || !byId[catId]) return { l1: null, l2: null, l3: null };
       const cat = byId[catId];
       const pid = cat.parent_id ?? null;
-      if (!pid) return { l1: cat, l2: null }; // this IS L1
+      if (!pid) return { l1: cat, l2: null, l3: null };
       const parent = byId[pid];
-      if (!parent) return { l1: null, l2: cat };
+      if (!parent) return { l1: null, l2: null, l3: cat };
       const gpid = parent.parent_id ?? null;
-      if (!gpid) return { l1: parent, l2: cat }; // cat is L2
+      if (!gpid) return { l1: parent, l2: cat, l3: null };
       const gp = byId[gpid];
-      return { l1: gp || null, l2: parent }; // cat is L3
+      return { l1: gp || null, l2: parent, l3: cat };
     };
 
-    type BPItem = { id: string; description: string; amount: number; catCode: string; catName: string };
-    type L2Group = { code: string; name: string; items: BPItem[]; total: number };
+    type TxItem = {
+      id: string; date: string; description: string; amount: number;
+      status: string; type: string; docs: any[]; isOverhead?: boolean;
+    };
+    type L3Group = { code: string; name: string; items: TxItem[]; total: number };
+    type L2Group = { code: string; name: string; l3Groups: L3Group[]; total: number };
     type L1Group = { code: string; name: string; l2Groups: L2Group[]; total: number };
 
+    const pushItem = (l1Map: Record<string, L1Group>, catId: string | null, item: TxItem) => {
+      const chain = getChain(catId);
+      const l1Name = chain.l1?.name ?? "Sem Grupo";
+      const l1Code = chain.l1?.code ?? "Z";
+      const l2Name = chain.l2?.name ?? chain.l1?.name ?? "Geral";
+      const l2Code = chain.l2?.code ?? chain.l1?.code ?? "Z.Z";
+      const l3Name = chain.l3?.name ?? chain.l2?.name ?? chain.l1?.name ?? item.description;
+      const l3Code = chain.l3?.code ?? chain.l2?.code ?? chain.l1?.code ?? "";
+
+      if (!l1Map[l1Name]) l1Map[l1Name] = { code: l1Code, name: l1Name, l2Groups: [], total: 0 };
+      let l2 = l1Map[l1Name].l2Groups.find((g) => g.name === l2Name);
+      if (!l2) {
+        l2 = { code: l2Code, name: l2Name, l3Groups: [], total: 0 };
+        l1Map[l1Name].l2Groups.push(l2);
+      }
+      let l3 = l2.l3Groups.find((g) => g.name === l3Name);
+      if (!l3) {
+        l3 = { code: l3Code, name: l3Name, items: [], total: 0 };
+        l2.l3Groups.push(l3);
+      }
+      l3.items.push(item);
+      l3.total += item.amount;
+      l2.total += item.amount;
+      l1Map[l1Name].total += item.amount;
+    };
+
     const buildForType = (type: "income" | "expense"): L1Group[] => {
-      const items = forecasts.filter((f: any) => f.type === type);
       const l1Map: Record<string, L1Group> = {};
 
-      items.forEach((f: any) => {
-        const catId = f.category_id;
-        const cat = catId ? byId[catId] : null;
-        const chain = getParentChain(catId);
-        const l1Name = chain.l1?.name ?? "Sem Grupo";
-        const l1Code = chain.l1?.code ?? "Z";
-        const l2Name = chain.l2?.name ?? cat?.name ?? "Geral";
-        const l2Code = chain.l2?.code ?? cat?.code ?? "Z.Z";
-        const catCode = cat?.code ?? "";
-        const catName = cat?.name ?? f.description;
+      transactions
+        .filter((t: any) => t.type === type)
+        .forEach((t: any) => {
+          pushItem(l1Map, t.category_id, {
+            id: t.id,
+            date: t.date,
+            description: t.description,
+            amount: Number(t.amount),
+            status: t.status,
+            type: t.type,
+            docs: docsByTx[t.id] || [],
+          });
+        });
 
-        if (!l1Map[l1Name]) l1Map[l1Name] = { code: l1Code, name: l1Name, l2Groups: [], total: 0 };
-        let l2 = l1Map[l1Name].l2Groups.find((g) => g.name === l2Name);
-        if (!l2) {
-          l2 = { code: l2Code, name: l2Name, items: [], total: 0 };
-          l1Map[l1Name].l2Groups.push(l2);
-        }
-        const amt = Number(f.amount);
-        l2.items.push({ id: f.id, description: f.description, amount: amt, catCode, catName });
-        l2.total += amt;
-        l1Map[l1Name].total += amt;
-      });
+      // Overheads embutidos nas despesas (sem marcação)
+      if (type === "expense") {
+        overheads.forEach((o: any, idx: number) => {
+          if (!o.category_id) return;
+          pushItem(l1Map, o.category_id, {
+            id: `overhead-${o.id}-${idx}`,
+            date: "",
+            description: o.description || "",
+            amount: Number(o.amount || 0),
+            status: "approved",
+            type: "expense",
+            docs: [],
+            isOverhead: true,
+          });
+        });
+      }
 
       return Object.values(l1Map)
         .map((g) => ({
           ...g,
-          l2Groups: g.l2Groups.sort((a, b) => compareHierarchicalCodes(a.code, b.code)),
+          l2Groups: g.l2Groups
+            .map((l2) => ({
+              ...l2,
+              l3Groups: l2.l3Groups.sort((a, b) => compareHierarchicalCodes(a.code, b.code)),
+            }))
+            .sort((a, b) => compareHierarchicalCodes(a.code, b.code)),
         }))
         .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
     };
 
     return { income: buildForType("income"), expense: buildForType("expense") };
-  }, [forecasts, allCategories]);
+  }, [transactions, overheads, allCategories, docsByTx]);
 
-  // ─── Transaction hierarchy groups ───
-  const txGrouped = useMemo(() => {
-    type TxItem = { id: string; date: string; description: string; amount: number; status: string; type: string; docs: any[] };
-    type TxGroup = { code: string; name: string; items: TxItem[]; total: number };
-
-    const buildForType = (type: "income" | "expense"): TxGroup[] => {
-      const items = transactions.filter((t: any) => t.type === type);
-      const groupMap: Record<string, TxGroup> = {};
-      items.forEach((t: any) => {
-        const info = catLookup[t.category_id];
-        const groupName = info?.groupName ?? "Sem categoria";
-        const groupCode = info?.groupCode ?? "Z";
-        if (!groupMap[groupName]) groupMap[groupName] = { code: groupCode, name: groupName, items: [], total: 0 };
-        const amt = Number(t.amount);
-        groupMap[groupName].items.push({
-          id: t.id, date: t.date, description: t.description, amount: amt, status: t.status, type: t.type,
-          docs: docsByTx[t.id] || [],
-        });
-        groupMap[groupName].total += amt;
-      });
-      return Object.values(groupMap).sort((a, b) => compareHierarchicalCodes(a.code, b.code));
-    };
-
-    return { income: buildForType("income"), expense: buildForType("expense") };
-  }, [transactions, catLookup, docsByTx]);
 
   if (isLoading || isLoadingAccess) {
     return (
