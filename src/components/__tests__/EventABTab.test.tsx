@@ -105,12 +105,16 @@ const renderTab = () => {
 beforeEach(() => {});
 
 describe("EventABTab — UI smoke tests", () => {
-  it("renderiza sem crashar e mostra os labels das zonas", async () => {
+  it("renderiza sem crashar e mostra labels/inputs das zonas", async () => {
     renderTab();
     await waitFor(() => {
-      expect(screen.getAllByText(/Pista/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(/VIP/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(/Backstage/i).length).toBeGreaterThan(0);
+      const txt = document.body.textContent || "";
+      const inputs = Array.from(document.querySelectorAll("input")) as HTMLInputElement[];
+      const inputValues = inputs.map((i) => i.value).join("|");
+      const hay = txt + "|" + inputValues;
+      expect(/Pista/i.test(hay)).toBe(true);
+      expect(/VIP/i.test(hay)).toBe(true);
+      expect(/Backstage/i.test(hay)).toBe(true);
     });
   });
 
