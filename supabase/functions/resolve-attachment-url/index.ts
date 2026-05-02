@@ -161,17 +161,6 @@ async function resolveCamarimItemDocument(adminClient: any, documentId: string, 
   };
 }
 
-async function storageObjectExists(adminClient: any, bucket: string, path: string) {
-  const { data, error } = await adminClient
-    .from("storage.objects")
-    .select("name,metadata")
-    .eq("bucket_id", bucket)
-    .eq("name", path)
-    .maybeSingle();
-  if (error) throw error;
-  return data;
-}
-
 function contentDisposition(filename?: string | null) {
   const clean = (filename ?? "anexo").replace(/[\r\n"]/g, "_");
   return `inline; filename="${clean}"; filename*=UTF-8''${encodeURIComponent(clean)}`;
@@ -211,14 +200,12 @@ Deno.serve(async (req) => {
     if (resolved.error) return json({ error: resolved.error }, resolved.status ?? 400);
 
     for (const candidate of resolved.candidates ?? []) {
-      const object = await storageObjectExists(adminClient, resolved.bucket, candidate);
-      if (!object) continue;
+      const downloaded = await adminClient.storage.from(resolved.bucket).download(candidate);
+      if (downloaded.error || !downloaded.data) continue;
 
       if (mode === "download") {
-        const { data, error } = await adminClient.storage.from(resolved.bucket).download(candidate);
-        if (error || !data) throw error ?? new Error("Não foi possível descarregar o ficheiro");
-        const contentType = resolved.contentType ?? data.type ?? object.metadata?.mimetype ?? "application/octet-stream";
-        return new Response(data, {
+        const contentType = resolved.contentType ?? downloaded.data.type ?? "application/octet-stream";
+        return new Response(downloaded.data, {
           status: 200,
           headers: {
             ...corsHeaders,
