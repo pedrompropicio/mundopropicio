@@ -16,7 +16,7 @@ import { type CategoryNode } from "@/lib/category-hierarchy";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { calcTotalWithIva } from "@/lib/iva";
 import PartnerDREDialog from "@/components/PartnerDREDialog";
-import { signedCompanyUrl } from "@/lib/storage";
+import { withCompanyPath } from "@/lib/storage";
 import { toast } from "sonner";
 
 /** Resolve um file_url de transaction_documents em URL clicável.
@@ -48,12 +48,9 @@ async function resolveDocUrl(fileUrl: string | null | undefined): Promise<string
 
   // 1) Tenta o path multi-tenant com prefixo da empresa.
   try {
-    const signed = await signedCompanyUrl(bucket, path, 3600);
-    const signedPath = signed.data?.path ?? null;
-    if (signedPath) {
-      const prefixed = await tryDownload(signedPath);
-      if (prefixed) return prefixed;
-    }
+    const prefixedPath = await withCompanyPath(bucket, path);
+    const prefixed = await tryDownload(prefixedPath);
+    if (prefixed) return prefixed;
   } catch { /* fallback abaixo */ }
 
   // 2) Fallback: paths antigos guardados sem prefixo de empresa.
