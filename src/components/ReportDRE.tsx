@@ -51,7 +51,8 @@ function buildDRE(
   calcBasis: string,
   parentEventId?: string | null,
   closingCosts?: any[],
-  partnerExtras?: any[]
+  partnerExtras?: any[],
+  abTotals?: ABTotals | null
 ): DRELine[] {
   const lookup = buildCategoryLookup(categories);
 
