@@ -7,11 +7,16 @@
 -- =====================================================================
 DO $$
 DECLARE
-  v_company uuid := '975254b9-6b92-4cdd-a971-36e4a4f98525'; -- MP
+  v_company uuid;
   v_event_id uuid;
   v_zone_id uuid;
   v_lot_id uuid;
 BEGIN
+  -- Resolve MP company by slug (id difere entre Test e Live)
+  SELECT id INTO v_company FROM companies WHERE slug = 'mundo-propicio' LIMIT 1;
+  IF v_company IS NULL THEN
+    RAISE EXCEPTION 'Empresa Mundo Propicio (slug=mundo-propicio) nao encontrada';
+  END IF;
   SELECT id INTO v_event_id FROM events
    WHERE name = 'Coala Festival Portugal 2025 (Histórico)' AND company_id = v_company LIMIT 1;
   IF v_event_id IS NULL THEN
