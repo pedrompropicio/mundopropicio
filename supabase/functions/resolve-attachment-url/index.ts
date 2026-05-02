@@ -90,7 +90,7 @@ function canAccessCompany(ctx: { activeCompanyId: string | null; isPlatformAdmin
 async function resolveTransactionDocument(adminClient: any, documentId: string, callerCtx: any) {
   const { data: doc, error } = await adminClient
     .from("transaction_documents")
-    .select("id,file_url,company_id,transactions(company_id)")
+    .select("id,file_url,company_id,transaction_id")
     .eq("id", documentId)
     .maybeSingle();
 
@@ -106,8 +106,15 @@ async function resolveTransactionDocument(adminClient: any, documentId: string, 
     return { signedUrl: doc.file_url, bucket: null, path: null };
   }
 
-  const txRelation = doc.transactions;
-  const txCompanyId = Array.isArray(txRelation) ? txRelation[0]?.company_id : txRelation?.company_id;
+  let txCompanyId: string | null = null;
+  if (doc.transaction_id) {
+    const { data: tx } = await adminClient
+      .from("transactions")
+      .select("company_id")
+      .eq("id", doc.transaction_id)
+      .maybeSingle();
+    txCompanyId = tx?.company_id ?? null;
+  }
   const ownerCompanyId = doc.company_id ?? txCompanyId ?? null;
   if (!canAccessCompany(callerCtx, ownerCompanyId)) return { error: "Sem permissão para abrir este documento", status: 403 };
 
@@ -118,7 +125,7 @@ async function resolveTransactionDocument(adminClient: any, documentId: string, 
 async function resolveCamarimItemDocument(adminClient: any, documentId: string, callerCtx: any) {
   const { data: doc, error } = await adminClient
     .from("camarim_item_documents")
-    .select("id,file_path,company_id,camarim_items(camarim_sessions(company_id))")
+    .select("id,file_path,company_id,item_id")
     .eq("id", documentId)
     .maybeSingle();
 
@@ -126,7 +133,22 @@ async function resolveCamarimItemDocument(adminClient: any, documentId: string, 
   if (!doc) return { error: "Documento não encontrado", status: 404 };
   if (!doc.file_path) return { error: "Documento sem caminho de ficheiro", status: 404 };
 
-  const nestedCompanyId = doc.camarim_items?.camarim_sessions?.company_id ?? null;
+  let nestedCompanyId: string | null = null;
+  if (doc.item_id) {
+    const { data: item } = await adminClient
+      .from("camarim_items")
+      .select("session_id")
+      .eq("id", doc.item_id)
+      .maybeSingle();
+    if (item?.session_id) {
+      const { data: session } = await adminClient
+        .from("camarim_sessions")
+        .select("company_id")
+        .eq("id", item.session_id)
+        .maybeSingle();
+      nestedCompanyId = session?.company_id ?? null;
+    }
+  }
   const ownerCompanyId = doc.company_id ?? nestedCompanyId;
   if (!canAccessCompany(callerCtx, ownerCompanyId)) return { error: "Sem permissão para abrir este documento", status: 403 };
 
