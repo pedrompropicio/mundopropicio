@@ -81,18 +81,36 @@ function CompareCard({
   active: ScenarioKey;
   rows: { label: string; values: [React.ReactNode, React.ReactNode, React.ReactNode]; bold?: boolean }[];
 }) {
+  const activeIdx = (["real", "breakeven", "forecast"] as ScenarioKey[]).indexOf(active);
   return (
     <Card>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-sm">{title}</CardTitle>
-          <Badge variant="outline" className="text-[10px]">
+          <Badge variant="outline" className="text-[10px] shrink-0 sm:hidden">
+            {SCEN_LABELS[active]}
+          </Badge>
+          <Badge variant="outline" className="text-[10px] shrink-0 hidden sm:inline-flex">
             destaque: {SCEN_LABELS[active]}
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="grid grid-cols-[1fr_repeat(3,minmax(0,1fr))] gap-x-2 text-xs">
+        {/* Mobile: 2 colunas (label + cenário activo) */}
+        <div className="grid grid-cols-[1fr_auto] gap-x-2 text-xs sm:hidden">
+          {rows.map((r, i) => (
+            <React.Fragment key={i}>
+              <div className={`py-1 ${r.bold ? "font-semibold" : "text-muted-foreground"}`}>
+                {r.label}
+              </div>
+              <div className="py-1 text-right tabular-nums">
+                {r.values[activeIdx]}
+              </div>
+            </React.Fragment>
+          ))}
+        </div>
+        {/* Desktop: 4 colunas comparação */}
+        <div className="hidden sm:grid grid-cols-[1fr_repeat(3,minmax(0,1fr))] gap-x-2 text-xs">
           <div />
           {(["real", "breakeven", "forecast"] as ScenarioKey[]).map((k) => (
             <div
