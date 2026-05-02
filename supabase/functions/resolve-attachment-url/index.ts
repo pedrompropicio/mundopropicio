@@ -200,9 +200,14 @@ Deno.serve(async (req) => {
     if (resolved.signedUrl) return json({ signedUrl: resolved.signedUrl });
     if (resolved.error) return json({ error: resolved.error }, resolved.status ?? 400);
 
+    console.log("[resolve-attachment-url] bucket:", resolved.bucket, "candidates:", resolved.candidates);
     for (const candidate of resolved.candidates ?? []) {
       const downloaded = await adminClient.storage.from(resolved.bucket).download(candidate);
-      if (downloaded.error || !downloaded.data) continue;
+      if (downloaded.error || !downloaded.data) {
+        console.log("[resolve-attachment-url] miss:", candidate, "err:", downloaded.error?.message);
+        continue;
+      }
+      console.log("[resolve-attachment-url] hit:", candidate);
 
       if (mode === "download") {
         const contentType = resolved.contentType ?? downloaded.data.type ?? "application/octet-stream";
