@@ -43,6 +43,20 @@ function resolveStorageRef(fileUrl: string): { bucket: string; path: string } {
   }
   return { bucket: "transaction-documents", path: fileUrl };
 }
+
+async function getFreshAccessToken() {
+  let { data: sessionData } = await supabase.auth.getSession();
+  const expiresAt = sessionData.session?.expires_at ? sessionData.session.expires_at * 1000 : 0;
+
+  if (!sessionData.session?.access_token || expiresAt - Date.now() < 60_000) {
+    const refreshed = await supabase.auth.refreshSession();
+    sessionData = refreshed.data;
+  }
+
+  const token = sessionData.session?.access_token;
+  if (!token) throw new Error("Sessão expirada. Volta a iniciar sessão.");
+  return token;
+}
 /** Back-compat helper for delete flow (only deletes from transaction-documents) */
 function extractStoragePath(fileUrl: string): string {
   return resolveStorageRef(fileUrl).path;
@@ -175,11 +189,9 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     let blobUrl: string | null = null;
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) throw new Error("Sessão expirada. Volta a iniciar sessão.");
+      let token = await getFreshAccessToken();
 
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/resolve-attachment-url`, {
+      let response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/resolve-attachment-url`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -188,6 +200,22 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
         },
         body: JSON.stringify({ kind: "transaction_document", documentId: doc.id, mode: "download" }),
       });
+
+      if (response.status === 401) {
+        const refreshed = await supabase.auth.refreshSession();
+        token = refreshed.data.session?.access_token ?? "";
+        if (token) {
+          response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/resolve-attachment-url`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ kind: "transaction_document", documentId: doc.id, mode: "download" }),
+          });
+        }
+      }
 
       if (!response.ok) {
         const body = await response.json().catch(() => null);
