@@ -90,6 +90,8 @@ export default function PartnerEventDetail() {
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [dreOpen, setDreOpen] = useState(false);
+  const [advancesOpen, setAdvancesOpen] = useState(false);
+  const [paidByPartnerOpen, setPaidByPartnerOpen] = useState(false);
 
   // ── Batch 1: parallel independent queries ──
   const { data: accessList = [], isLoading: isLoadingAccess } = useQuery({
