@@ -320,26 +320,34 @@ export default function PartnerEventDetail() {
       transactions
         .filter((t: any) => t.type === type)
         .forEach((t: any) => {
+          // Vista do sócio (modo Brasil): despesas em BRUTO (com IVA);
+          // receitas em LÍQUIDO. Alinhado com buildPartnerSettlementReportData.
+          const baseAmount = Number(t.amount);
+          const displayAmount = type === "expense"
+            ? calcTotalWithIva(baseAmount, Number(t.iva_rate || 0))
+            : baseAmount;
           pushItem(l1Map, t.category_id, {
             id: t.id,
             date: t.date,
             description: t.description,
-            amount: Number(t.amount),
+            amount: displayAmount,
             status: t.status,
             type: t.type,
             docs: docsByTx[t.id] || [],
           });
         });
 
-      // Overheads embutidos nas despesas (sem marcação)
+      // Overheads embutidos nas despesas (sem marcação) — também em BRUTO
       if (type === "expense") {
         overheads.forEach((o: any, idx: number) => {
           if (!o.category_id) return;
+          const baseAmount = Number(o.amount || 0);
+          const grossAmount = calcTotalWithIva(baseAmount, Number(o.iva_rate || 0));
           pushItem(l1Map, o.category_id, {
             id: `overhead-${o.id}-${idx}`,
             date: "",
             description: o.description || "",
-            amount: Number(o.amount || 0),
+            amount: grossAmount,
             status: "approved",
             type: "expense",
             docs: [],
