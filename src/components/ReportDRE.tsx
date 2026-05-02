@@ -863,6 +863,7 @@ export default function ReportDRE() {
             (c as any).parent_event_id,
             showPartnerView ? closingCosts : [],
             showPartnerView ? partnerExtras : [],
+            abTotalsByEvent[c.id] ?? null,
           );
           dre.filter((l: any) => l.isDistribution).forEach((l: any) => {
             if (l.isHouse) {
