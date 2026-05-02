@@ -37,37 +37,27 @@ async function resolveDocUrl(fileUrl: string | null | undefined): Promise<string
     path = fileUrl.replace(/^camarim:\/\//, "");
   }
 
-  // Helper: gera signed URL e valida com HEAD (createSignedUrl não falha
-  // quando o objeto não existe — só dá 404 no GET).
-  const trySigned = async (p: string): Promise<string | null> => {
-    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(p, 3600);
-    if (error || !data?.signedUrl) return null;
-    try {
-      const head = await fetch(data.signedUrl, { method: "HEAD" });
-      if (head.ok) return data.signedUrl;
-    } catch { /* fallthrough */ }
-    return null;
+  // Download autenticado evita falsos negativos de HEAD/CORS em URLs assinadas.
+  const tryDownload = async (p: string): Promise<string | null> => {
+    const { data, error } = await supabase.storage.from(bucket).download(p);
+    if (error || !data) return null;
+    const blobUrl = URL.createObjectURL(data);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+    return blobUrl;
   };
 
-  // 1) Tenta o path com prefixo multi-tenant (paths novos: `${companyId}/...`).
-  const { data: prefixedPath } = await (async () => {
-    try {
-      // signedCompanyUrl resolve o prefixo idempotentemente.
-      const r = await signedCompanyUrl(bucket, path, 3600);
-      return { data: r.data?.signedUrl ?? null };
-    } catch {
-      return { data: null };
+  // 1) Tenta o path multi-tenant com prefixo da empresa.
+  try {
+    const signed = await signedCompanyUrl(bucket, path, 3600);
+    const signedPath = signed.data?.path ?? null;
+    if (signedPath) {
+      const prefixed = await tryDownload(signedPath);
+      if (prefixed) return prefixed;
     }
-  })();
-  if (prefixedPath) {
-    try {
-      const head = await fetch(prefixedPath, { method: "HEAD" });
-      if (head.ok) return prefixedPath;
-    } catch { /* fallthrough */ }
-  }
+  } catch { /* fallback abaixo */ }
 
   // 2) Fallback: paths antigos guardados sem prefixo de empresa.
-  const raw = await trySigned(path);
+  const raw = await tryDownload(path);
   if (raw) return raw;
 
   return null;
