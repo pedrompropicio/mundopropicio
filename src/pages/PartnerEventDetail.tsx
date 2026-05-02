@@ -14,6 +14,7 @@ import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { Progress } from "@/components/ui/progress";
 import { type CategoryNode } from "@/lib/category-hierarchy";
 import { compareHierarchicalCodes } from "@/lib/utils";
+import { calcTotalWithIva } from "@/lib/iva";
 import PartnerDREDialog from "@/components/PartnerDREDialog";
 import { signedCompanyUrl } from "@/lib/storage";
 import { toast } from "sonner";
