@@ -352,8 +352,22 @@ export default function PartnerEventDetail() {
   const totalSoldRevenue = Object.values(salesByZone).reduce((s, v) => s + v.revenue, 0);
   const occupancyPct = totalCapacity > 0 ? Math.round((totalSoldQty / totalCapacity) * 100) : 0;
 
+  // ─── Receita líquida de bilheteira (unit_price é c/IVA → extrair pela iva_rate do lote) ───
+  const lotIvaById: Record<string, number> = {};
+  ticketZones.forEach((z: any) => {
+    (z.event_ticket_lots || []).forEach((l: any) => {
+      lotIvaById[l.id] = Number(l.iva_rate ?? 6);
+    });
+  });
+  const ticketRevenueNet = ticketSales.reduce((s: number, sale: any) => {
+    const gross = sale.quantity * Number(sale.unit_price);
+    const iva = lotIvaById[sale.lot_id] ?? 6;
+    return s + gross / (1 + iva / 100);
+  }, 0);
+
   // ─── Transaction calculations (overheads embutidos nas despesas) ───
-  const transactionIncome = transactions.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const transactionIncomeOnly = transactions.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const transactionIncome = transactionIncomeOnly + ticketRevenueNet;
   const transactionsExpenseOnly = transactions.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
   const overheadExpenseTotal = overheads.reduce((s: number, o: any) => s + Number(o.amount || 0), 0);
   const transactionExpense = transactionsExpenseOnly + overheadExpenseTotal;
