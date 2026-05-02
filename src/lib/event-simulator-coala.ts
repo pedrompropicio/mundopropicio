@@ -467,6 +467,7 @@ export function solveBreakEven(
       if (toAlloc <= 0) { sl.eligible = false; sl.reason = "capacity_full"; continue; }
 
       sl.extra += toAlloc;
+      sl.extraRevenue += toAlloc * sl.margPrice; // receita pura de bilheteira (sem A&B)
       sl.capLeft -= toAlloc;
       if (lot) lot.left -= toAlloc;
       remainingDeficit -= toAlloc * sl.margin;
