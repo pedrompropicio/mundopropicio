@@ -3,16 +3,18 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArrowLeft, Loader2, Ticket, Calendar, Layers, Route, TrendingUp, TrendingDown, BarChart3, FileText, Paperclip } from "lucide-react";
+import { ArrowLeft, Loader2, Ticket, Calendar, Layers, Route, TrendingUp, TrendingDown, FileText, Paperclip } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell, TableFooter } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { Progress } from "@/components/ui/progress";
-import { buildCategoryLookup, type CategoryNode } from "@/lib/category-hierarchy";
+import { type CategoryNode } from "@/lib/category-hierarchy";
 import { compareHierarchicalCodes } from "@/lib/utils";
+import PartnerDREDialog from "@/components/PartnerDREDialog";
 
 const eventTypeLabels: Record<string, string> = {
   simple: "Evento Simples",
@@ -32,6 +34,7 @@ export default function PartnerEventDetail() {
   const { user } = useAuth();
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
+  const [dreOpen, setDreOpen] = useState(false);
 
   // ── Batch 1: parallel independent queries ──
   const { data: accessList = [], isLoading: isLoadingAccess } = useQuery({
@@ -80,31 +83,70 @@ export default function PartnerEventDetail() {
   const hasParentAccess = accessList.includes(id!);
   const visibleSubEvents = hasParentAccess ? subEvents : authorizedSubEvents;
 
-  const activeEventId = selectedSubEvent || (eventType === "multi_day" && !hasParentAccess && visibleSubEvents.length > 0 ? visibleSubEvents[0]?.id : id!);
+  // Para turnê: nunca mostra "Visão Geral" (Master). Default = primeira cidade.
+  const defaultMultiDayId = eventType === "multi_day" && visibleSubEvents.length > 0
+    ? visibleSubEvents[0]?.id
+    : id!;
+  const activeEventId = selectedSubEvent || (eventType === "multi_day" ? defaultMultiDayId : id!);
 
   // ── Batch 2: all event-specific data in parallel ──
-  const shouldFetchEventData = !!activeEventId && (activeEventId !== id || eventType !== "multi_day" || hasParentAccess);
+  const shouldFetchEventData = !!activeEventId;
+
+  const parentEventId = (event as any)?.parent_event_id ?? null;
 
   const { data: eventData } = useQuery({
-    queryKey: ["partner_event_data", activeEventId],
+    queryKey: ["partner_event_data", activeEventId, parentEventId],
     queryFn: async () => {
-      const [zonesRes, forecastsRes, txRes, sessionsRes, activeVersionRes] = await Promise.all([
+      // IDs envolvidos: o evento ativo + o seu Master (se for sub-evento) para rateio
+      const txEventIds = [activeEventId, parentEventId].filter(Boolean) as string[];
+      // Para overheads: ativo + Master (Master é expandido ÷N nos splits)
+      const overheadEventIds = txEventIds;
+
+      // Conta de irmãos para ratear transações Master ÷ N quando sub-evento
+      const siblingsRes = parentEventId
+        ? await supabase.from("events").select("id").eq("parent_event_id", parentEventId)
+        : { data: null as any[] | null, error: null };
+      const siblingCount = siblingsRes.data?.length || 1;
+
+      const [zonesRes, txRes, sessionsRes, activeVersionRes, overheadsRes] = await Promise.all([
         supabase.from("event_ticket_zones").select("*, event_ticket_lots(*)").eq("event_id", activeEventId),
-        supabase.from("event_forecasts").select("*, account_categories(id, code, name, parent_id)").eq("event_id", activeEventId).order("created_at"),
-        supabase.from("transactions").select("*, account_categories(id, code, name, parent_id)").eq("event_id", activeEventId).order("date", { ascending: false }),
+        supabase
+          .from("transactions")
+          .select("*, account_categories(id, code, name, parent_id)")
+          .in("event_id", txEventIds)
+          .order("date", { ascending: false }),
         supabase.from("event_sessions").select("id, label, date, start_time, sort_order").eq("event_id", activeEventId).order("sort_order"),
         supabase.from("bp_versions").select("version_number, approved_at, description").eq("event_id", activeEventId).eq("state", "active").maybeSingle(),
+        supabase
+          .from("event_forecasts")
+          .select("id, event_id, amount, iva_rate, description, category_id, account_categories(id, code, name, parent_id)")
+          .in("event_id", overheadEventIds)
+          .eq("is_overhead", true)
+          .is("version_id", null),
       ]);
       if (zonesRes.error) throw zonesRes.error;
-      if (forecastsRes.error) throw forecastsRes.error;
       if (txRes.error) throw txRes.error;
 
       const zones = (zonesRes.data ?? []) as any[];
-      const txs = (txRes.data ?? []) as any[];
+      const allTxs = (txRes.data ?? []) as any[];
+      const txIds = allTxs.map((t: any) => t.id);
 
-      // Fetch dependent data in parallel
+      // Constrói transações efetivas: locais do ativo + transações Master rateadas ÷N
+      const localTx = allTxs.filter((t: any) => t.event_id === activeEventId);
+      const masterTx = parentEventId
+        ? allTxs
+            .filter((t: any) => t.event_id === parentEventId)
+            .map((t: any) => ({
+              ...t,
+              amount: Number(t.amount) / siblingCount,
+              paid_amount: t.paid_amount != null ? Number(t.paid_amount) / siblingCount : t.paid_amount,
+              _viaMaster: true,
+            }))
+        : [];
+      const effectiveTransactions = [...localTx, ...masterTx];
+
+      // Zone IDs
       const zoneIds = zones.map((z: any) => z.id);
-      const txIds = txs.map((t: any) => t.id);
 
       const [salesRes, docsRes] = await Promise.all([
         zoneIds.length > 0
@@ -115,14 +157,24 @@ export default function PartnerEventDetail() {
           : Promise.resolve({ data: [], error: null }),
       ]);
 
+      // Overheads: Master é rateado ÷N para o sub-evento; locais ficam como estão
+      const overheadsRaw = (overheadsRes.data ?? []) as any[];
+      const overheadsForActive = overheadsRaw.flatMap((o: any) => {
+        if (o.event_id === activeEventId) return [o];
+        if (o.event_id === parentEventId) {
+          return [{ ...o, amount: Number(o.amount) / siblingCount, _viaMaster: true }];
+        }
+        return [];
+      });
+
       return {
         ticketZones: zones,
         ticketSales: (salesRes.data ?? []) as any[],
-        forecasts: (forecastsRes.data ?? []) as any[],
-        transactions: txs,
+        transactions: effectiveTransactions,
         transactionDocs: (docsRes.data ?? []) as any[],
         sessions: (sessionsRes.data ?? []) as any[],
         activeBPVersion: (activeVersionRes.data ?? null) as { version_number: number; approved_at: string | null; description: string | null } | null,
+        overheads: overheadsForActive,
       };
     },
     enabled: shouldFetchEventData,
@@ -130,11 +182,11 @@ export default function PartnerEventDetail() {
 
   const ticketZones = eventData?.ticketZones ?? [];
   const ticketSales = eventData?.ticketSales ?? [];
-  const forecasts = eventData?.forecasts ?? [];
   const transactions = eventData?.transactions ?? [];
   const transactionDocs = eventData?.transactionDocs ?? [];
   const sessions = eventData?.sessions ?? [];
-  const activeBPVersion = eventData?.activeBPVersion ?? null;
+  void eventData?.activeBPVersion;
+  const overheads = eventData?.overheads ?? [];
 
   // Filter zones by selected session
   const filteredZones = useMemo(() => {
@@ -156,94 +208,110 @@ export default function PartnerEventDetail() {
     return map;
   }, [transactionDocs]);
 
-  // Category lookup
-  const catLookup = useMemo(() => buildCategoryLookup(allCategories), [allCategories]);
-
-  // Build hierarchical BP groups
-  const bpGroups = useMemo(() => {
+  // ─── Transaction hierarchy groups (L1 > L2 > L3) ───
+  // Overheads do BP são embutidos nas despesas pela categoria respetiva,
+  // sem qualquer marca/badge — aparecem como linhas normais.
+  const txGroupedHier = useMemo(() => {
     const byId: Record<string, CategoryNode> = {};
     allCategories.forEach((c) => { byId[c.id] = c; });
 
-    const getParentChain = (catId: string | null): { l1: CategoryNode | null; l2: CategoryNode | null } => {
-      if (!catId || !byId[catId]) return { l1: null, l2: null };
+    const getChain = (catId: string | null): { l1: CategoryNode | null; l2: CategoryNode | null; l3: CategoryNode | null } => {
+      if (!catId || !byId[catId]) return { l1: null, l2: null, l3: null };
       const cat = byId[catId];
       const pid = cat.parent_id ?? null;
-      if (!pid) return { l1: cat, l2: null }; // this IS L1
+      if (!pid) return { l1: cat, l2: null, l3: null };
       const parent = byId[pid];
-      if (!parent) return { l1: null, l2: cat };
+      if (!parent) return { l1: null, l2: null, l3: cat };
       const gpid = parent.parent_id ?? null;
-      if (!gpid) return { l1: parent, l2: cat }; // cat is L2
+      if (!gpid) return { l1: parent, l2: cat, l3: null };
       const gp = byId[gpid];
-      return { l1: gp || null, l2: parent }; // cat is L3
+      return { l1: gp || null, l2: parent, l3: cat };
     };
 
-    type BPItem = { id: string; description: string; amount: number; catCode: string; catName: string };
-    type L2Group = { code: string; name: string; items: BPItem[]; total: number };
+    type TxItem = {
+      id: string; date: string; description: string; amount: number;
+      status: string; type: string; docs: any[]; isOverhead?: boolean;
+    };
+    type L3Group = { code: string; name: string; items: TxItem[]; total: number };
+    type L2Group = { code: string; name: string; l3Groups: L3Group[]; total: number };
     type L1Group = { code: string; name: string; l2Groups: L2Group[]; total: number };
 
+    const pushItem = (l1Map: Record<string, L1Group>, catId: string | null, item: TxItem) => {
+      const chain = getChain(catId);
+      const l1Name = chain.l1?.name ?? "Sem Grupo";
+      const l1Code = chain.l1?.code ?? "Z";
+      const l2Name = chain.l2?.name ?? chain.l1?.name ?? "Geral";
+      const l2Code = chain.l2?.code ?? chain.l1?.code ?? "Z.Z";
+      const l3Name = chain.l3?.name ?? chain.l2?.name ?? chain.l1?.name ?? item.description;
+      const l3Code = chain.l3?.code ?? chain.l2?.code ?? chain.l1?.code ?? "";
+
+      if (!l1Map[l1Name]) l1Map[l1Name] = { code: l1Code, name: l1Name, l2Groups: [], total: 0 };
+      let l2 = l1Map[l1Name].l2Groups.find((g) => g.name === l2Name);
+      if (!l2) {
+        l2 = { code: l2Code, name: l2Name, l3Groups: [], total: 0 };
+        l1Map[l1Name].l2Groups.push(l2);
+      }
+      let l3 = l2.l3Groups.find((g) => g.name === l3Name);
+      if (!l3) {
+        l3 = { code: l3Code, name: l3Name, items: [], total: 0 };
+        l2.l3Groups.push(l3);
+      }
+      l3.items.push(item);
+      l3.total += item.amount;
+      l2.total += item.amount;
+      l1Map[l1Name].total += item.amount;
+    };
+
     const buildForType = (type: "income" | "expense"): L1Group[] => {
-      const items = forecasts.filter((f: any) => f.type === type);
       const l1Map: Record<string, L1Group> = {};
 
-      items.forEach((f: any) => {
-        const catId = f.category_id;
-        const cat = catId ? byId[catId] : null;
-        const chain = getParentChain(catId);
-        const l1Name = chain.l1?.name ?? "Sem Grupo";
-        const l1Code = chain.l1?.code ?? "Z";
-        const l2Name = chain.l2?.name ?? cat?.name ?? "Geral";
-        const l2Code = chain.l2?.code ?? cat?.code ?? "Z.Z";
-        const catCode = cat?.code ?? "";
-        const catName = cat?.name ?? f.description;
+      transactions
+        .filter((t: any) => t.type === type)
+        .forEach((t: any) => {
+          pushItem(l1Map, t.category_id, {
+            id: t.id,
+            date: t.date,
+            description: t.description,
+            amount: Number(t.amount),
+            status: t.status,
+            type: t.type,
+            docs: docsByTx[t.id] || [],
+          });
+        });
 
-        if (!l1Map[l1Name]) l1Map[l1Name] = { code: l1Code, name: l1Name, l2Groups: [], total: 0 };
-        let l2 = l1Map[l1Name].l2Groups.find((g) => g.name === l2Name);
-        if (!l2) {
-          l2 = { code: l2Code, name: l2Name, items: [], total: 0 };
-          l1Map[l1Name].l2Groups.push(l2);
-        }
-        const amt = Number(f.amount);
-        l2.items.push({ id: f.id, description: f.description, amount: amt, catCode, catName });
-        l2.total += amt;
-        l1Map[l1Name].total += amt;
-      });
+      // Overheads embutidos nas despesas (sem marcação)
+      if (type === "expense") {
+        overheads.forEach((o: any, idx: number) => {
+          if (!o.category_id) return;
+          pushItem(l1Map, o.category_id, {
+            id: `overhead-${o.id}-${idx}`,
+            date: "",
+            description: o.description || "",
+            amount: Number(o.amount || 0),
+            status: "approved",
+            type: "expense",
+            docs: [],
+            isOverhead: true,
+          });
+        });
+      }
 
       return Object.values(l1Map)
         .map((g) => ({
           ...g,
-          l2Groups: g.l2Groups.sort((a, b) => compareHierarchicalCodes(a.code, b.code)),
+          l2Groups: g.l2Groups
+            .map((l2) => ({
+              ...l2,
+              l3Groups: l2.l3Groups.sort((a, b) => compareHierarchicalCodes(a.code, b.code)),
+            }))
+            .sort((a, b) => compareHierarchicalCodes(a.code, b.code)),
         }))
         .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
     };
 
     return { income: buildForType("income"), expense: buildForType("expense") };
-  }, [forecasts, allCategories]);
+  }, [transactions, overheads, allCategories, docsByTx]);
 
-  // ─── Transaction hierarchy groups ───
-  const txGrouped = useMemo(() => {
-    type TxItem = { id: string; date: string; description: string; amount: number; status: string; type: string; docs: any[] };
-    type TxGroup = { code: string; name: string; items: TxItem[]; total: number };
-
-    const buildForType = (type: "income" | "expense"): TxGroup[] => {
-      const items = transactions.filter((t: any) => t.type === type);
-      const groupMap: Record<string, TxGroup> = {};
-      items.forEach((t: any) => {
-        const info = catLookup[t.category_id];
-        const groupName = info?.groupName ?? "Sem categoria";
-        const groupCode = info?.groupCode ?? "Z";
-        if (!groupMap[groupName]) groupMap[groupName] = { code: groupCode, name: groupName, items: [], total: 0 };
-        const amt = Number(t.amount);
-        groupMap[groupName].items.push({
-          id: t.id, date: t.date, description: t.description, amount: amt, status: t.status, type: t.type,
-          docs: docsByTx[t.id] || [],
-        });
-        groupMap[groupName].total += amt;
-      });
-      return Object.values(groupMap).sort((a, b) => compareHierarchicalCodes(a.code, b.code));
-    };
-
-    return { income: buildForType("income"), expense: buildForType("expense") };
-  }, [transactions, catLookup, docsByTx]);
 
   if (isLoading || isLoadingAccess) {
     return (
@@ -284,66 +352,13 @@ export default function PartnerEventDetail() {
   const totalSoldRevenue = Object.values(salesByZone).reduce((s, v) => s + v.revenue, 0);
   const occupancyPct = totalCapacity > 0 ? Math.round((totalSoldQty / totalCapacity) * 100) : 0;
 
-  // ─── Forecast calculations ───
-  const forecastIncome = forecasts.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
-  const forecastExpense = forecasts.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
-  const forecastResult = forecastIncome - forecastExpense;
-
-  // ─── Transaction calculations ───
+  // ─── Transaction calculations (overheads embutidos nas despesas) ───
   const transactionIncome = transactions.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
-  const transactionExpense = transactions.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const transactionsExpenseOnly = transactions.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const overheadExpenseTotal = overheads.reduce((s: number, o: any) => s + Number(o.amount || 0), 0);
+  const transactionExpense = transactionsExpenseOnly + overheadExpenseTotal;
   const transactionResult = transactionIncome - transactionExpense;
   const paidExpenses = transactions.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.paid_amount || 0), 0);
-
-  // ─── Hierarchical BP section renderer ───
-  const renderBPSection = (
-    groups: typeof bpGroups.income,
-    type: "income" | "expense",
-    icon: React.ReactNode,
-    title: string,
-    colorClass: string,
-    total: number,
-  ) => {
-    if (groups.length === 0) return null;
-    return (
-      <Card>
-        <CardHeader className="pb-0 px-4 pt-4">
-          <CardTitle className={`text-sm ${colorClass} flex items-center gap-1.5`}>{icon} {title}</CardTitle>
-        </CardHeader>
-        <CardContent className="px-0 pb-0">
-          {groups.map((l1) => (
-            <div key={l1.name} className="mb-2">
-              <div className="bg-muted/40 px-4 py-1.5 flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">{l1.code} - {l1.name}</span>
-                <span className={`text-[11px] font-bold font-mono ${colorClass}`}>{formatCurrency(l1.total)}</span>
-              </div>
-              {l1.l2Groups.map((l2) => (
-                <div key={l2.name}>
-                  <div className="bg-muted/20 px-4 py-1 flex items-center justify-between border-b border-border/50">
-                    <span className="text-[10px] font-semibold text-muted-foreground">{l2.code} - {l2.name}</span>
-                    <span className={`text-[10px] font-semibold font-mono ${colorClass}`}>{formatCurrency(l2.total)}</span>
-                  </div>
-                  {l2.items.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between px-4 py-1.5 border-b border-border/30">
-                      <div className="min-w-0 flex-1 mr-2">
-                        <span className="text-xs text-foreground block truncate">{item.description}</span>
-                        {item.catCode && <span className="text-[10px] text-muted-foreground">{item.catCode} {item.catName}</span>}
-                      </div>
-                      <span className={`text-xs font-mono font-semibold whitespace-nowrap ${colorClass}`}>{formatCurrency(item.amount)}</span>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          ))}
-          <div className="bg-muted/50 px-4 py-2 flex items-center justify-between border-t">
-            <span className="text-xs font-bold">Total {title}</span>
-            <span className={`text-sm font-bold font-mono ${colorClass}`}>{formatCurrency(total)}</span>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
 
   return (
     <div className="space-y-6">
@@ -362,28 +377,18 @@ export default function PartnerEventDetail() {
         {event.location && <p className="text-sm text-muted-foreground mt-1">{event.location} · {formatDate(event.date)}</p>}
       </div>
 
-      {/* Sub-event selector for multi-day */}
+      {/* Sub-event selector for multi-day — sem "Visão Geral", só cidades */}
       {eventType === "multi_day" && visibleSubEvents.length > 0 && (
         <Card>
           <CardContent className="p-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Cidades / Datas</p>
             <div className="flex flex-wrap gap-2">
-              {hasParentAccess && (
-                <button
-                  onClick={() => { setSelectedSubEvent(null); setSelectedSession(null); }}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                    !selectedSubEvent ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Visão Geral
-                </button>
-              )}
               {visibleSubEvents.map((sub: any) => (
                 <button
                   key={sub.id}
                   onClick={() => { setSelectedSubEvent(sub.id); setSelectedSession(null); }}
                   className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                    selectedSubEvent === sub.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
+                    (selectedSubEvent || defaultMultiDayId) === sub.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   {sub.name} ({formatDate(sub.date)})
@@ -394,22 +399,23 @@ export default function PartnerEventDetail() {
         </Card>
       )}
 
-      {/* Tabs */}
+      {/* DRE button (top-right) */}
+      <div className="flex justify-end">
+        <Button size="sm" onClick={() => setDreOpen(true)} disabled={!activeEventId}>
+          <FileText className="mr-1.5 h-4 w-4" /> DRE
+        </Button>
+      </div>
+
+      {/* Tabs — só Bilhetes e Transações */}
       <Tabs defaultValue="ticketing" className="space-y-4">
         <TabsList className="w-full">
           <TabsTrigger value="ticketing" className="gap-1.5 flex-1"><Ticket className="h-3.5 w-3.5" /> Bilhetes</TabsTrigger>
-          <TabsTrigger value="forecast" className="gap-1.5 flex-1"><BarChart3 className="h-3.5 w-3.5" /> Business Plan</TabsTrigger>
           <TabsTrigger value="transactions" className="gap-1.5 flex-1"><TrendingDown className="h-3.5 w-3.5" /> Transações</TabsTrigger>
         </TabsList>
 
         {/* ═══════ BILHETES ═══════ */}
         <TabsContent value="ticketing">
-          {eventType === "multi_day" && !selectedSubEvent && hasParentAccess ? (
-            <Card className="p-8 text-center">
-              <Ticket className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-              <p className="text-muted-foreground">Selecione uma data acima para ver a bilheteira.</p>
-            </Card>
-          ) : ticketZones.length === 0 ? (
+          {ticketZones.length === 0 ? (
             <Card className="p-8 text-center">
               <p className="text-muted-foreground">Sem bilheteira configurada para este evento.</p>
             </Card>
@@ -589,72 +595,9 @@ export default function PartnerEventDetail() {
           )}
         </TabsContent>
 
-        {/* ═══════ BUSINESS PLAN ═══════ */}
-        <TabsContent value="forecast">
-          {forecasts.length === 0 ? (
-            <Card className="p-8 text-center">
-              <p className="text-muted-foreground">Sem previsões registadas.</p>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {activeBPVersion && (
-                <div className="flex items-center justify-end -mb-1">
-                  <span className="text-[10px] sm:text-xs text-muted-foreground italic">
-                    Business Plan — versão v{activeBPVersion.version_number}
-                    {activeBPVersion.approved_at && (
-                      <> ({new Date(activeBPVersion.approved_at).toLocaleDateString("pt-PT", { day: "2-digit", month: "short", year: "numeric" })})</>
-                    )}
-                  </span>
-                </div>
-              )}
-              <div className="grid gap-2 sm:gap-3 grid-cols-3">
-                <Card>
-                  <CardContent className="p-2 sm:p-4 text-center">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><TrendingUp className="h-3 w-3 shrink-0" /> Receitas</p>
-                    <p className="text-[11px] sm:text-xl font-bold font-mono text-emerald-500 truncate">{formatCurrency(forecastIncome)}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-2 sm:p-4 text-center">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><TrendingDown className="h-3 w-3 shrink-0" /> Despesas</p>
-                    <p className="text-[11px] sm:text-xl font-bold font-mono text-amber-500 truncate">{formatCurrency(forecastExpense)}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-2 sm:p-4 text-center">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
-                    <p className={`text-[11px] sm:text-xl font-bold font-mono truncate ${forecastResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                      {formatCurrency(forecastResult)}
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {renderBPSection(
-                bpGroups.income, "income",
-                <TrendingUp className="h-4 w-4" />, "Receitas Previstas", "text-emerald-500", forecastIncome
-              )}
-              {renderBPSection(
-                bpGroups.expense, "expense",
-                <TrendingDown className="h-4 w-4" />, "Despesas Previstas", "text-amber-500", forecastExpense
-              )}
-
-              {/* Result card */}
-              <Card className="border-primary/30 bg-primary/5">
-                <CardContent className="p-4 flex items-center justify-between">
-                  <span className="text-sm font-bold">Resultado Previsto</span>
-                  <span className={`text-lg font-bold font-mono ${forecastResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                    {formatCurrency(forecastResult)}
-                  </span>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </TabsContent>
-
-        {/* ═══════ TRANSAÇÕES ═══════ */}
+        {/* ═══════ TRANSAÇÕES (com overheads embutidos) ═══════ */}
         <TabsContent value="transactions">
-          {transactions.length === 0 ? (
+          {transactions.length === 0 && overheads.length === 0 ? (
             <Card className="p-8 text-center">
               <p className="text-muted-foreground">Sem transações registadas.</p>
             </Card>
@@ -689,89 +632,78 @@ export default function PartnerEventDetail() {
                 </Card>
               </div>
 
-              {/* Income transactions */}
-              {txGrouped.income.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-0 px-4 pt-4">
-                    <CardTitle className="text-sm text-emerald-500 flex items-center gap-1.5"><TrendingUp className="h-4 w-4" /> Receitas</CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-0 pb-0">
-                    {txGrouped.income.map((g) => (
-                      <div key={g.name}>
-                        <div className="bg-muted/30 px-4 py-1.5 flex items-center justify-between">
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{g.code} - {g.name}</span>
-                          <span className="text-[10px] font-bold font-mono text-emerald-500">{formatCurrency(g.total)}</span>
-                        </div>
-                        {g.items.map((t) => (
-                          <div key={t.id} className="flex items-center justify-between px-4 py-2 border-b border-border/30 gap-2">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-medium truncate">{t.description}</span>
-                                <Badge variant={t.status === "paid" ? "default" : "secondary"} className="text-[9px] shrink-0">
-                                  {statusLabels[t.status] || t.status}
-                                </Badge>
+              {(["income", "expense"] as const).map((kind) => {
+                const groups = txGroupedHier[kind];
+                if (groups.length === 0) return null;
+                const colorClass = kind === "income" ? "text-emerald-500" : "text-amber-500";
+                const sign = kind === "income" ? "+" : "-";
+                const Icon = kind === "income" ? TrendingUp : TrendingDown;
+                const title = kind === "income" ? "Receitas" : "Despesas";
+                return (
+                  <Card key={kind}>
+                    <CardHeader className="pb-0 px-4 pt-4">
+                      <CardTitle className={`text-sm ${colorClass} flex items-center gap-1.5`}><Icon className="h-4 w-4" /> {title}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-0 pb-0">
+                      {groups.map((l1) => (
+                        <div key={l1.name} className="mb-2">
+                          {/* L1 — Grupo */}
+                          <div className="bg-muted/40 px-4 py-1.5 flex items-center justify-between">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">{l1.code} · {l1.name}</span>
+                            <span className={`text-[11px] font-bold font-mono ${colorClass}`}>{formatCurrency(l1.total)}</span>
+                          </div>
+                          {l1.l2Groups.map((l2) => (
+                            <div key={l2.name}>
+                              {/* L2 — Sub-grupo (indentado) */}
+                              <div className="bg-muted/20 px-4 pl-8 py-1 flex items-center justify-between border-b border-border/40">
+                                <span className="text-[10px] font-semibold text-muted-foreground">{l2.code} · {l2.name}</span>
+                                <span className={`text-[10px] font-semibold font-mono ${colorClass}`}>{formatCurrency(l2.total)}</span>
                               </div>
-                              <span className="text-[10px] text-muted-foreground">{formatDate(t.date)}</span>
-                              {t.docs.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {t.docs.map((d: any) => (
-                                    <a key={d.id} href={d.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[9px] text-primary hover:underline">
-                                      <Paperclip className="h-2.5 w-2.5" />{d.name}
-                                    </a>
+                              {l2.l3Groups.map((l3) => (
+                                <div key={l3.name}>
+                                  {/* L3 — Conta (mais indentada) */}
+                                  <div className="px-4 pl-12 py-1 flex items-center justify-between border-b border-border/20 bg-muted/5">
+                                    <span className="text-[10px] font-medium text-foreground/80">{l3.code} · {l3.name}</span>
+                                    <span className={`text-[10px] font-medium font-mono ${colorClass}`}>{formatCurrency(l3.total)}</span>
+                                  </div>
+                                  {/* Itens — ainda mais indentados */}
+                                  {l3.items.map((t) => (
+                                    <div key={t.id} className="flex items-center justify-between px-4 pl-16 py-1.5 border-b border-border/15 gap-2">
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="text-xs truncate">{t.description || "—"}</span>
+                                          {!t.isOverhead && (
+                                            <Badge variant={t.status === "paid" ? "default" : "secondary"} className="text-[9px] shrink-0">
+                                              {statusLabels[t.status] || t.status}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        {t.date && <span className="text-[10px] text-muted-foreground">{formatDate(t.date)}</span>}
+                                        {t.docs.length > 0 && (
+                                          <div className="flex flex-wrap gap-1 mt-1">
+                                            {t.docs.map((d: any) => (
+                                              <a key={d.id} href={d.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[9px] text-primary hover:underline">
+                                                <Paperclip className="h-2.5 w-2.5" />{d.name}
+                                              </a>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <span className={`text-xs font-mono font-semibold whitespace-nowrap ${colorClass}`}>
+                                        {sign}{formatCurrency(t.amount)}
+                                      </span>
+                                    </div>
                                   ))}
                                 </div>
-                              )}
+                              ))}
                             </div>
-                            <span className="text-xs font-mono font-semibold text-emerald-500 whitespace-nowrap">+{formatCurrency(t.amount)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Expense transactions */}
-              {txGrouped.expense.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-0 px-4 pt-4">
-                    <CardTitle className="text-sm text-amber-500 flex items-center gap-1.5"><TrendingDown className="h-4 w-4" /> Despesas</CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-0 pb-0">
-                    {txGrouped.expense.map((g) => (
-                      <div key={g.name}>
-                        <div className="bg-muted/30 px-4 py-1.5 flex items-center justify-between">
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{g.code} - {g.name}</span>
-                          <span className="text-[10px] font-bold font-mono text-amber-500">{formatCurrency(g.total)}</span>
+                          ))}
                         </div>
-                        {g.items.map((t) => (
-                          <div key={t.id} className="flex items-center justify-between px-4 py-2 border-b border-border/30 gap-2">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-medium truncate">{t.description}</span>
-                                <Badge variant={t.status === "paid" ? "default" : "secondary"} className="text-[9px] shrink-0">
-                                  {statusLabels[t.status] || t.status}
-                                </Badge>
-                              </div>
-                              <span className="text-[10px] text-muted-foreground">{formatDate(t.date)}</span>
-                              {t.docs.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {t.docs.map((d: any) => (
-                                    <a key={d.id} href={d.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[9px] text-primary hover:underline">
-                                      <Paperclip className="h-2.5 w-2.5" />{d.name}
-                                    </a>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            <span className="text-xs font-mono font-semibold text-amber-500 whitespace-nowrap">-{formatCurrency(t.amount)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
+                      ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
 
               {/* Result */}
               <Card className="border-primary/30 bg-primary/5">
@@ -786,6 +718,17 @@ export default function PartnerEventDetail() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* DRE Dialog */}
+      {activeEventId && (
+        <PartnerDREDialog
+          open={dreOpen}
+          onOpenChange={setDreOpen}
+          eventId={activeEventId}
+          eventName={event.name}
+        />
+      )}
     </div>
   );
 }
+
