@@ -352,66 +352,13 @@ export default function PartnerEventDetail() {
   const totalSoldRevenue = Object.values(salesByZone).reduce((s, v) => s + v.revenue, 0);
   const occupancyPct = totalCapacity > 0 ? Math.round((totalSoldQty / totalCapacity) * 100) : 0;
 
-  // ─── Forecast calculations ───
-  const forecastIncome = forecasts.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
-  const forecastExpense = forecasts.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
-  const forecastResult = forecastIncome - forecastExpense;
-
-  // ─── Transaction calculations ───
+  // ─── Transaction calculations (overheads embutidos nas despesas) ───
   const transactionIncome = transactions.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
-  const transactionExpense = transactions.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const transactionsExpenseOnly = transactions.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
+  const overheadExpenseTotal = overheads.reduce((s: number, o: any) => s + Number(o.amount || 0), 0);
+  const transactionExpense = transactionsExpenseOnly + overheadExpenseTotal;
   const transactionResult = transactionIncome - transactionExpense;
   const paidExpenses = transactions.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.paid_amount || 0), 0);
-
-  // ─── Hierarchical BP section renderer ───
-  const renderBPSection = (
-    groups: typeof bpGroups.income,
-    type: "income" | "expense",
-    icon: React.ReactNode,
-    title: string,
-    colorClass: string,
-    total: number,
-  ) => {
-    if (groups.length === 0) return null;
-    return (
-      <Card>
-        <CardHeader className="pb-0 px-4 pt-4">
-          <CardTitle className={`text-sm ${colorClass} flex items-center gap-1.5`}>{icon} {title}</CardTitle>
-        </CardHeader>
-        <CardContent className="px-0 pb-0">
-          {groups.map((l1) => (
-            <div key={l1.name} className="mb-2">
-              <div className="bg-muted/40 px-4 py-1.5 flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">{l1.code} - {l1.name}</span>
-                <span className={`text-[11px] font-bold font-mono ${colorClass}`}>{formatCurrency(l1.total)}</span>
-              </div>
-              {l1.l2Groups.map((l2) => (
-                <div key={l2.name}>
-                  <div className="bg-muted/20 px-4 py-1 flex items-center justify-between border-b border-border/50">
-                    <span className="text-[10px] font-semibold text-muted-foreground">{l2.code} - {l2.name}</span>
-                    <span className={`text-[10px] font-semibold font-mono ${colorClass}`}>{formatCurrency(l2.total)}</span>
-                  </div>
-                  {l2.items.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between px-4 py-1.5 border-b border-border/30">
-                      <div className="min-w-0 flex-1 mr-2">
-                        <span className="text-xs text-foreground block truncate">{item.description}</span>
-                        {item.catCode && <span className="text-[10px] text-muted-foreground">{item.catCode} {item.catName}</span>}
-                      </div>
-                      <span className={`text-xs font-mono font-semibold whitespace-nowrap ${colorClass}`}>{formatCurrency(item.amount)}</span>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          ))}
-          <div className="bg-muted/50 px-4 py-2 flex items-center justify-between border-t">
-            <span className="text-xs font-bold">Total {title}</span>
-            <span className={`text-sm font-bold font-mono ${colorClass}`}>{formatCurrency(total)}</span>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
 
   return (
     <div className="space-y-6">
