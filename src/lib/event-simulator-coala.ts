@@ -182,10 +182,11 @@ export function computeScenarioRevenue(
   sessions: CoalaSession[],
   cfg: CoalaConfig,
   scenario: Scenario,
-  breakEvenQtyByKey?: Record<string, number>,
+  /** Quantidade total de pagantes por sessão (vindo de solver BE/Forecast). */
+  qtyByKey?: Record<string, number>,
   /** Receita de bilheteira por sessão (real + extras a preços marginais reais).
-   *  Quando fornecido em modo break-even, substitui o cálculo qty × TM. */
-  breakEvenRevenueByKey?: Record<string, number>,
+   *  Quando fornecido, substitui o cálculo qty × TM. */
+  revenueByKey?: Record<string, number>,
 ): ScenarioRevenue {
   let ticketsQty = 0, ticketsRevenue = 0, courtesyQty = 0;
 
@@ -195,24 +196,27 @@ export function computeScenarioRevenue(
       ticketsQty += sessionTodayQty(s);
       ticketsRevenue += sessionTodayRevenue(s);
       courtesyQty += n(s.courtesy_qty);
-    } else if (scenario === "forecast") {
-      const fq = sessionForecastQty(s);
-      ticketsQty += fq - n(s.courtesy_qty); // pagantes
-      ticketsRevenue += sessionForecastRevenue(s);
-      courtesyQty += n(s.courtesy_qty);
     } else {
-      // break-even: qty TOTAL de pagantes vinda do solver
-      const beQty = breakEvenQtyByKey?.[key] ?? sessionTodayQty(s);
-      ticketsQty += beQty;
-      // Receita: prioridade ao valor exato calculado pelo solver (lote a lote);
-      // fallback: real + (extras × TM real) — mantém compatibilidade.
-      const exact = breakEvenRevenueByKey?.[key];
+      // breakeven OU forecast: usa solver se fornecido; senão fallback estático.
+      const realQty = sessionTodayQty(s);
+      const realRev = sessionTodayRevenue(s);
+      let totalQty: number;
+      if (qtyByKey?.[key] != null) {
+        totalQty = qtyByKey[key];
+      } else if (scenario === "forecast") {
+        totalQty = sessionForecastQty(s) - n(s.courtesy_qty); // pagantes
+      } else {
+        totalQty = realQty;
+      }
+      ticketsQty += totalQty;
+
+      const exact = revenueByKey?.[key];
       if (exact != null && Number.isFinite(exact)) {
         ticketsRevenue += exact;
+      } else if (scenario === "forecast" && qtyByKey?.[key] == null) {
+        ticketsRevenue += sessionForecastRevenue(s);
       } else {
-        const realQty = sessionTodayQty(s);
-        const realRev = sessionTodayRevenue(s);
-        const extra = Math.max(0, beQty - realQty);
+        const extra = Math.max(0, totalQty - realQty);
         const tm = sessionAvgTicket(s);
         ticketsRevenue += realRev + extra * tm;
       }
@@ -222,6 +226,7 @@ export function computeScenarioRevenue(
 
   const publicForAB = ticketsQty + courtesyQty;
   const ab = abForPublic(publicForAB, cfg);
+
 
   return {
     ticketsQty,
