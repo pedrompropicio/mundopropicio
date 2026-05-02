@@ -1150,6 +1150,10 @@ export default function EventDetail() {
           <EventClosingCosts eventId={selectedSubEvent || event.id} eventStatus={event.status} />
         </TabsContent>
 
+        <TabsContent value="ab">
+          <EventABTab eventId={selectedSubEvent || event.id} />
+        </TabsContent>
+
         {(isAdmin || isManager) && (
           <TabsContent value="fecho">
             <FechoUnifiedTab
