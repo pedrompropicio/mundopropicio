@@ -897,7 +897,6 @@ export default function EventDetail() {
           <TabsTrigger value="forecast" className="flex items-center gap-1">Business Plan <HelpTooltip text={helpTexts.eventForecast} size={13} /></TabsTrigger>
           {(isAdmin || isManager) && <TabsTrigger value="closing-costs" className="flex items-center gap-1">Overhead <HelpTooltip text={helpTexts.eventClosingTab} size={13} /></TabsTrigger>}
           {(isAdmin || isManager) && <TabsTrigger value="fecho" className="flex items-center gap-1">Fecho</TabsTrigger>}
-          {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partner-expenses" className="flex items-center gap-1">Desp. Sócios <HelpTooltip text={helpTexts.partnerExpenses} size={13} /></TabsTrigger>}
           <TabsTrigger value="simulador" className="flex items-center gap-1">Simulador</TabsTrigger>
         </TabsList>
 
@@ -1135,6 +1134,10 @@ export default function EventDetail() {
           <TabsContent value="partners">
             <div className="space-y-6">
               <EventPartnersTab eventId={event.id} eventStatus={event.status} />
+              <div className="glass rounded-xl p-5">
+                <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Despesas pagas pelos Sócios</h2>
+                <PartnerPaidExpensesPanel eventId={event.id} eventStatus={event.status} />
+              </div>
               {isAdmin && (
                 <PartnerAccessManager
                   eventId={event.id}
@@ -1166,11 +1169,6 @@ export default function EventDetail() {
           </TabsContent>
         )}
 
-        {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && (
-          <TabsContent value="partner-expenses">
-            <PartnerPaidExpensesPanel eventId={event.id} eventStatus={event.status} />
-          </TabsContent>
-        )}
 
       </Tabs>
       </EventScenarioProvider>
