@@ -246,14 +246,18 @@ export default function EventSimulator() {
     enabled: !!eventId,
   });
 
-  // Estrutura detalhada de lotes/capacidades/ritmo p/ solver Break-Even
-  // (key = `${day_index}-${zone_label}`, igual à CoalaSession)
+  // Estrutura detalhada de lotes/capacidades/ritmo p/ solver Break-Even.
+  // Indexamos APENAS por `zone_label` (nome da zona). O solver compõe a chave
+  // por sessão (day_index + zone_label) mas reconcilia pelo nome — assim
+  // funciona mesmo quando o simulador colapsa todas as vendas em day_index=0
+  // (importações em batch) ou quando há mismatch entre a ordem das sessões
+  // do BP e a ordem usada pela matriz Dia × Zona.
   const { data: beLotInfo } = useQuery({
-    queryKey: ["sim-coala-be-lots", eventId],
+    queryKey: ["sim-coala-be-lots-v2", eventId],
     queryFn: async () => {
       const { data: zones } = await supabase
         .from("event_ticket_zones")
-        .select("id, name, session_id, total_capacity").eq("event_id", eventId!);
+        .select("id, name, total_capacity").eq("event_id", eventId!);
       const zoneIds = (zones ?? []).map((z: any) => z.id);
       if (!zoneIds.length) return {} as Record<string, import("@/lib/event-simulator-coala").SessionLotInfo>;
 
@@ -261,13 +265,6 @@ export default function EventSimulator() {
         .from("event_ticket_lots")
         .select("id, zone_id, lot_number, price, quantity")
         .in("zone_id", zoneIds);
-
-      const { data: sessionRows } = await supabase
-        .from("event_sessions")
-        .select("id, date").eq("event_id", eventId!).order("date");
-      const sessionList = (sessionRows ?? []) as { id: string; date: string | null }[];
-      const sessionIdToIdx = new Map<string, number>();
-      sessionList.forEach((s, i) => { if (s.id) sessionIdToIdx.set(s.id, i); });
 
       const lotIds = (lots ?? []).map((l: any) => l.id);
       const { data: sales } = lotIds.length
@@ -285,15 +282,9 @@ export default function EventSimulator() {
       }
 
       const today = new Date().toISOString().slice(0, 10);
+      // chave por NOME da zona; o solver tenta `${day}-${zone}` E também só `${zone}`.
       const out: Record<string, import("@/lib/event-simulator-coala").SessionLotInfo> = {};
-
-      // Para zonas COM session_id → uma sessão por zona
-      // Para zonas SEM session_id (passes 2 dias) → uma sessão por cada dia da zona vai
-      // mas o solver trabalha pela CHAVE da CoalaSession; então criamos 1 entrada para
-      // a primeira ocorrência (a quantidade real já está distribuída em CoalaSession).
       for (const z of (zones ?? []) as any[]) {
-        const zoneSessionId = z.session_id ?? null;
-        const dayIdx = zoneSessionId ? (sessionIdToIdx.get(zoneSessionId) ?? 0) : 0;
         const zoneLots = (lots ?? []).filter((l: any) => l.zone_id === z.id);
         const lotsArr = zoneLots.map((l: any) => ({
           lot_number: Number(l.lot_number || 1),
@@ -307,7 +298,7 @@ export default function EventSimulator() {
           const ms = (new Date(today).getTime() - new Date(firstSale).getTime());
           daysSelling = Math.max(1, Math.round(ms / 86400000));
         }
-        const key = `${dayIdx}-${z.name}`;
+        const key = String(z.name);
         out[key] = {
           key,
           capacity: Number(z.total_capacity || 0),
