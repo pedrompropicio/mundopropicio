@@ -74,12 +74,14 @@ export default function EventABTab({ eventId }: Props) {
   });
 
   const { data: realParticipants = {} } = useQuery({
-    queryKey: ["ab_real_participants", eventId],
+    queryKey: ["ab_real_participants", eventId, ticketZones.map((z) => z.id).join(",")],
     queryFn: async () => {
+      const zoneIds = (ticketZones ?? []).map((z) => z.id);
+      if (zoneIds.length === 0) return {};
       const { data, error } = await supabase
         .from("ticket_sales")
         .select("zone_id, quantity")
-        .eq("event_id", eventId);
+        .in("zone_id", zoneIds);
       if (error) throw error;
       const map: Record<string, number> = {};
       for (const r of data ?? []) {
@@ -88,6 +90,7 @@ export default function EventABTab({ eventId }: Props) {
       }
       return map;
     },
+    enabled: ticketZones.length > 0,
   });
 
   const { data: forecastParticipants = {} } = useQuery({
