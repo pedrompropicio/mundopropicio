@@ -578,7 +578,61 @@ export default function PartnerEventDetail() {
         </Button>
       </div>
 
-      {/* Tabs — só Bilhetes e Transações */}
+      {/* Em vista Master só mostramos os cards (sem tabs nem listas detalhadas) */}
+      {isMasterView ? (
+        <div className="space-y-4">
+          <Card className="border-primary/40 bg-primary/5">
+            <CardContent className="p-3 sm:p-4">
+              <p className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground mb-2 text-center">Total do Evento</p>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receitas</p>
+                  <p className="text-[11px] sm:text-xl font-bold font-mono text-emerald-500 truncate">{formatCurrency(transactionIncome)}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Despesas</p>
+                  <p className="text-[11px] sm:text-xl font-bold font-mono text-amber-500 truncate">{formatCurrency(transactionExpense)}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
+                  <p className={`text-[11px] sm:text-xl font-bold font-mono truncate ${transactionResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                    {formatCurrency(transactionResult)}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {perCityBreakdown.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Por Cidade</p>
+              {perCityBreakdown.map((c: any) => (
+                <Card key={c.id}>
+                  <CardContent className="p-3 sm:p-4">
+                    <p className="text-xs font-semibold mb-2">{c.name}</p>
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      <div>
+                        <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receitas</p>
+                        <p className="text-[11px] sm:text-base font-bold font-mono text-emerald-500 truncate">{formatCurrency(c.income)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Despesas</p>
+                        <p className="text-[11px] sm:text-base font-bold font-mono text-amber-500 truncate">{formatCurrency(c.expense)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
+                        <p className={`text-[11px] sm:text-base font-bold font-mono truncate ${c.result >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                          {formatCurrency(c.result)}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
       <Tabs defaultValue="ticketing" className="space-y-4">
         <TabsList className="w-full">
           <TabsTrigger value="ticketing" className="gap-1.5 flex-1"><Ticket className="h-3.5 w-3.5" /> Bilhetes</TabsTrigger>
