@@ -1,6 +1,6 @@
 ---
 name: Mágicos H&K reconciliation pending
-description: Reconciliação pendente entre sistema e ficheiro Excel do sócio na turnê "Mágicos Henry & Klaus" (Lisboa+Porto). Bugs corrigidos: receita c/IVA (28/Abr/2026) e Distribuição da turnê dessincronizada dos cards (29/Abr/2026).
+description: Reconciliação pendente entre sistema e ficheiro Excel do sócio na turnê "Mágicos Henry & Klaus" (Lisboa+Porto). Bugs corrigidos: receita c/IVA (28/Abr), Distribuição turnê dessincronizada (29/Abr) e cards do Portal do Sócio em NET sem filtro (02/Mai/2026).
 type: feature
 ---
 
@@ -10,7 +10,13 @@ type: feature
 
 **2) Distribuição de Resultados da Turnê (29/Abr/2026)** — Os painéis "Resumo da Turnê" em `ReportDRE.tsx` e `ReportDREBrasil.tsx` recalculavam a distribuição com fórmulas próprias sobre os totais agregados (`tourIncEx − tourExp*`), divergindo dos cards do topo (que somam shares por split via linhas `isDistribution`). Agora **agregam diretamente as shares dos splits** (mesma fonte dos cards), garantindo consistência. Aplicado a sócios externos e à quota residual da Mundo Propício.
 
-**Regra canónica**: Distribuição em painéis de turnê = **soma das shares por split**, nunca recalcular sobre totais agregados.
+**3) Cards do Portal do Sócio (02/Mai/2026)** — `PartnerEventDetail` mostrava despesas em NET e contava transações `pending`/transitórias/`exclude_from_result`, divergindo do Fecho dos Sócios. Agora alinhado com `buildPartnerSettlementReportData`:
+- Filtro: `status ∈ {approved,paid}` AND `!is_transitory` AND `!exclude_from_result` (aplicado tanto a TX locais como a Master rateadas ÷N)
+- Overheads: filtro adicional `status='approved'`
+- Cards e lista hierárquica: receitas em **NET**, despesas em **BRUTO (com IVA)** — vista Brasil
+- "Pago" continua a usar `paid_amount` (já bruto por convenção)
+
+**Regra canónica**: Distribuição em painéis de turnê = **soma das shares por split**, nunca recalcular sobre totais agregados. Cards do Portal do Sócio = mesmas regras de filtro/IVA do `buildPartnerSettlementReportData`.
 
 ## Estado de reconciliação
 

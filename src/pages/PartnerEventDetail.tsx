@@ -14,6 +14,7 @@ import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { Progress } from "@/components/ui/progress";
 import { type CategoryNode } from "@/lib/category-hierarchy";
 import { compareHierarchicalCodes } from "@/lib/utils";
+import { calcTotalWithIva } from "@/lib/iva";
 import PartnerDREDialog from "@/components/PartnerDREDialog";
 import { signedCompanyUrl } from "@/lib/storage";
 import { toast } from "sonner";
@@ -160,9 +161,10 @@ export default function PartnerEventDetail() {
         supabase.from("bp_versions").select("version_number, approved_at, description").eq("event_id", activeEventId).eq("state", "active").maybeSingle(),
         supabase
           .from("event_forecasts")
-          .select("id, event_id, amount, iva_rate, description, category_id, account_categories(id, code, name, parent_id)")
+          .select("id, event_id, amount, iva_rate, description, category_id, status, account_categories(id, code, name, parent_id)")
           .in("event_id", overheadEventIds)
           .eq("is_overhead", true)
+          .eq("status", "approved")
           .is("version_id", null),
       ]);
       if (zonesRes.error) throw zonesRes.error;
@@ -172,11 +174,20 @@ export default function PartnerEventDetail() {
       const allTxs = (txRes.data ?? []) as any[];
       const txIds = allTxs.map((t: any) => t.id);
 
-      // Constrói transações efetivas: locais do ativo + transações Master rateadas ÷N
-      const localTx = allTxs.filter((t: any) => t.event_id === activeEventId);
+      // Constrói transações efetivas: locais do ativo + transações Master rateadas ÷N.
+      // Filtros canónicos do Fecho dos Sócios (buildPartnerSettlementReportData):
+      //   • status ∈ {approved, paid}
+      //   • !is_transitory  (cauções/transitórias não entram no DRE)
+      //   • !exclude_from_result
+      const isValidTx = (t: any) =>
+        (t.status === "approved" || t.status === "paid") &&
+        !t.is_transitory &&
+        !t.exclude_from_result;
+
+      const localTx = allTxs.filter((t: any) => t.event_id === activeEventId && isValidTx(t));
       const masterTx = parentEventId
         ? allTxs
-            .filter((t: any) => t.event_id === parentEventId)
+            .filter((t: any) => t.event_id === parentEventId && isValidTx(t))
             .map((t: any) => ({
               ...t,
               amount: Number(t.amount) / siblingCount,
@@ -309,26 +320,34 @@ export default function PartnerEventDetail() {
       transactions
         .filter((t: any) => t.type === type)
         .forEach((t: any) => {
+          // Vista do sócio (modo Brasil): despesas em BRUTO (com IVA);
+          // receitas em LÍQUIDO. Alinhado com buildPartnerSettlementReportData.
+          const baseAmount = Number(t.amount);
+          const displayAmount = type === "expense"
+            ? calcTotalWithIva(baseAmount, Number(t.iva_rate || 0))
+            : baseAmount;
           pushItem(l1Map, t.category_id, {
             id: t.id,
             date: t.date,
             description: t.description,
-            amount: Number(t.amount),
+            amount: displayAmount,
             status: t.status,
             type: t.type,
             docs: docsByTx[t.id] || [],
           });
         });
 
-      // Overheads embutidos nas despesas (sem marcação)
+      // Overheads embutidos nas despesas (sem marcação) — também em BRUTO
       if (type === "expense") {
         overheads.forEach((o: any, idx: number) => {
           if (!o.category_id) return;
+          const baseAmount = Number(o.amount || 0);
+          const grossAmount = calcTotalWithIva(baseAmount, Number(o.iva_rate || 0));
           pushItem(l1Map, o.category_id, {
             id: `overhead-${o.id}-${idx}`,
             date: "",
             description: o.description || "",
-            amount: Number(o.amount || 0),
+            amount: grossAmount,
             status: "approved",
             type: "expense",
             docs: [],
@@ -406,14 +425,24 @@ export default function PartnerEventDetail() {
     return s + gross / (1 + iva / 100);
   }, 0);
 
-  // ─── Transaction calculations (overheads embutidos nas despesas) ───
-  const transactionIncomeOnly = transactions.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
+  // ─── Cards (vista do sócio / Brasil) ───
+  // Receitas: NET (alinhado com getPartnerRevenueBase). Despesas: BRUTO c/IVA
+  // (alinhado com calcBasis Brasil em buildPartnerSettlementReportData).
+  const transactionIncomeOnly = transactions
+    .filter((t: any) => t.type === "income")
+    .reduce((s: number, t: any) => s + Number(t.amount), 0);
   const transactionIncome = transactionIncomeOnly + ticketRevenueNet;
-  const transactionsExpenseOnly = transactions.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
-  const overheadExpenseTotal = overheads.reduce((s: number, o: any) => s + Number(o.amount || 0), 0);
-  const transactionExpense = transactionsExpenseOnly + overheadExpenseTotal;
+  const transactionsExpenseGross = transactions
+    .filter((t: any) => t.type === "expense")
+    .reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0);
+  const overheadExpenseGross = overheads
+    .reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount || 0), Number(o.iva_rate || 0)), 0);
+  const transactionExpense = transactionsExpenseGross + overheadExpenseGross;
   const transactionResult = transactionIncome - transactionExpense;
-  const paidExpenses = transactions.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.paid_amount || 0), 0);
+  // "Pago" = paid_amount já é bruto (com IVA) por convenção; somar direto.
+  const paidExpenses = transactions
+    .filter((t: any) => t.type === "expense")
+    .reduce((s: number, t: any) => s + Number(t.paid_amount || 0), 0);
 
   return (
     <div className="space-y-6">
