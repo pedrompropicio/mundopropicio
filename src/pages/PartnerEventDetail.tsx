@@ -857,11 +857,6 @@ export default function PartnerEventDetail() {
                                       <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-1.5">
                                           <span className="text-xs truncate">{t.description || "—"}</span>
-                                          {!t.isOverhead && (
-                                            <Badge variant={t.status === "paid" ? "default" : "secondary"} className="text-[9px] shrink-0">
-                                              {statusLabels[t.status] || t.status}
-                                            </Badge>
-                                          )}
                                         </div>
                                         {t.date && <span className="text-[10px] text-muted-foreground">{formatDate(t.date)}</span>}
                                         {t.docs.length > 0 && (
