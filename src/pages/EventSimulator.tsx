@@ -876,8 +876,8 @@ export default function EventSimulator() {
             ivaTable={ivaTable}
             sessions={localSessions as any}
             abModule={abModule as any}
-            beSolution={{ totalQty: beSolution.totalQty, totalRevenue: beSolution.totalRevenue }}
-            fcSolution={{ totalQty: fcSolution.totalQty, totalRevenue: fcSolution.totalRevenue }}
+            beSolution={{ totalQty: Object.values(beSolution.qtyByKey || {}).reduce((a, b) => a + Number(b || 0), 0), totalRevenue: Object.values(beSolution.revenueByKey || {}).reduce((a, b) => a + Number(b || 0), 0) }}
+            fcSolution={{ totalQty: Object.values(fcSolution.qtyByKey || {}).reduce((a, b) => a + Number(b || 0), 0), totalRevenue: Object.values(fcSolution.revenueByKey || {}).reduce((a, b) => a + Number(b || 0), 0) }}
           />
         </TabsContent>
 
