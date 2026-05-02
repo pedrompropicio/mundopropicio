@@ -1248,6 +1248,75 @@ function BreakEvenSummary({ solution }: { solution: BreakEvenSolution }) {
   );
 }
 
+function ForecastSummary({ solution }: { solution: ForecastSolution }) {
+  if (!solution) return null;
+  const totalProjected = solution.breakdown.reduce((a, b) => a + b.projected_qty, 0);
+  const noVelocity = solution.breakdown.filter(b => b.reason === "no_velocity");
+  const allocated = solution.breakdown.filter(b => b.projected_qty > 0);
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="inline-flex items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/5 px-2 py-0.5 text-[11px] hover:bg-emerald-500/10">
+          <span className="font-semibold">+{fmtNum(totalProjected)} bilh.</span>
+          <span className="text-muted-foreground">·</span>
+          <span>{solution.daysToEvent}d até evento</span>
+          {!solution.hasCapacityPlan && <Badge variant="outline" className="ml-1 px-1 py-0 text-[9px] border-amber-500/60 text-amber-500">sem teto</Badge>}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[380px] text-xs">
+        <div className="space-y-2">
+          <div className="font-semibold text-sm">Projeção até ao evento</div>
+          <div className="grid grid-cols-2 gap-2 rounded bg-muted/40 p-2">
+            <div><div className="text-muted-foreground text-[10px]">Dias até evento</div><div className="font-semibold">{solution.daysToEvent}d</div></div>
+            <div><div className="text-muted-foreground text-[10px]">Bilhetes projetados</div><div className="font-semibold">+{fmtNum(totalProjected)}</div></div>
+          </div>
+          {!solution.hasCapacityPlan && (
+            <div className="rounded border border-amber-500/40 bg-amber-500/5 p-2 text-[10px] text-amber-500">
+              ⚠️ Nenhuma zona tem capacidade definida. Forecast sem teto — defina zonas/lotes em <strong>/bilheteiras</strong> para projeção realista.
+            </div>
+          )}
+          {allocated.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Projeção por zona</div>
+              <div className="space-y-0.5 max-h-48 overflow-auto">
+                {allocated.sort((a,b) => b.projected_qty - a.projected_qty).map(b => (
+                  <div key={b.key} className="flex justify-between gap-2">
+                    <span className="truncate">
+                      D{b.day_index+1} · {b.zone_label}
+                      {b.manual_floor_used && <span className="ml-1 text-amber-500">[manual]</span>}
+                      {b.capped_by_capacity && <span className="ml-1 text-rose-500">[max]</span>}
+                    </span>
+                    <span className="tabular-nums whitespace-nowrap">
+                      +{fmtNum(b.projected_qty)} <span className="text-muted-foreground">({b.recent_velocity.toFixed(1)}/d)</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {noVelocity.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Zonas sem projeção</div>
+              <div className="space-y-0.5 max-h-32 overflow-auto">
+                {noVelocity.map(b => (
+                  <div key={b.key} className="flex justify-between gap-2 text-muted-foreground">
+                    <span className="truncate">D{b.day_index+1} · {b.zone_label}</span>
+                    <span className="text-[10px]">sem ritmo de venda</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="text-[10px] text-muted-foreground border-t pt-1">
+            Híbrido: ritmo recente extrapolado + 1.6× nos últimos 30d.
+            Cada zona projeta o seu próprio apetite. Forecast manual é piso mínimo.
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function ScenarioCard({ title, tone, rev, cost, res, kpis, extra, dailyTotals }: any) {
   const toneCls = tone === "warning" ? "border-amber-500/40" : tone === "success" ? "border-emerald-500/40" : "border-border";
   const resColor = res.general >= 0 ? "text-emerald-500" : "text-rose-500";
