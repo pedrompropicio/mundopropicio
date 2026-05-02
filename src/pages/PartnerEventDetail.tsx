@@ -134,7 +134,12 @@ export default function PartnerEventDetail() {
   // ── Batch 2: all event-specific data in parallel ──
   const shouldFetchEventData = !!activeEventId;
 
-  const parentEventId = (event as any)?.parent_event_id ?? null;
+  // parentEventId tem de ser o pai do evento ATIVO (sub-evento selecionado),
+  // não do evento da URL. Em turnês multi_day, a URL é o Master mas o
+  // activeEventId é a primeira cidade — o pai dessa cidade é o Master.
+  const parentEventId = activeEventId === id
+    ? ((event as any)?.parent_event_id ?? null)
+    : id ?? null;
 
   const { data: eventData } = useQuery({
     queryKey: ["partner_event_data", activeEventId, parentEventId],
