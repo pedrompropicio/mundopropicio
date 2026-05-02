@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { uploadToCompanyBucket } from "@/lib/storage";
+import { signedCompanyUrl, uploadToCompanyBucket, type Bucket } from "@/lib/storage";
 import { X, Upload, FileText, Trash2, ExternalLink, BookOpen, Info } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "@/hooks/use-toast";
@@ -168,9 +168,26 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
   const handleOpenDocument = async (fileUrl: string) => {
     const { bucket, path } = resolveStorageRef(fileUrl);
     const isHtml = /\.html?(\?|$)/i.test(path);
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .createSignedUrl(path, 3600); // 1 hour expiry
+    let data: { signedUrl: string } | null = null;
+    let error: any = null;
+
+    try {
+      const signed = await signedCompanyUrl(bucket as Bucket, path, 3600);
+      data = signed.data;
+      error = signed.error;
+    } catch (err) {
+      error = err;
+    }
+
+    // Fallback para anexos históricos que ainda existam fisicamente sem prefixo de empresa.
+    if (error || !data?.signedUrl) {
+      const legacy = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(path, 3600);
+      data = legacy.data;
+      error = legacy.error;
+    }
+
     if (error || !data?.signedUrl) {
       toast({ title: "Erro ao abrir documento", description: error?.message ?? "URL não disponível", variant: "destructive" });
       return;
