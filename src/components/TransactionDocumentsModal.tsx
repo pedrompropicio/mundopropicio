@@ -79,7 +79,7 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transaction_documents")
-        .select("*")
+        .select("*, transactions(company_id)")
         .eq("transaction_id", transactionId)
         .order("uploaded_at", { ascending: false });
       if (error) throw error;
@@ -187,24 +187,17 @@ export function TransactionDocumentsModal({ transactionId, transactionDescriptio
   const handleOpenDocument = async (fileUrl: string) => {
     const { bucket, path } = resolveStorageRef(fileUrl);
     const isHtml = /\.html?(\?|$)/i.test(path);
+    const doc = documents.find((d: any) => d.file_url === fileUrl) as any;
+    const companyId = doc?.transactions?.company_id ?? null;
     let data: { signedUrl: string } | null = null;
     let error: any = null;
 
     try {
-      const signed = await signedCompanyUrl(bucket as Bucket, path, 3600);
+      const signed = await createDocumentSignedUrl(bucket, path, companyId);
       data = signed.data;
       error = signed.error;
     } catch (err) {
       error = err;
-    }
-
-    // Fallback para anexos históricos que ainda existam fisicamente sem prefixo de empresa.
-    if (error || !data?.signedUrl) {
-      const legacy = await supabase.storage
-        .from(bucket)
-        .createSignedUrl(path, 3600);
-      data = legacy.data;
-      error = legacy.error;
     }
 
     if (error || !data?.signedUrl) {
