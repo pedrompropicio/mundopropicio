@@ -597,42 +597,80 @@ export default function EventSimulator() {
     return Array.from(byDay.entries()).sort((a, b) => a[0] - b[0]);
   }, [dailyAttendance]);
 
-  // Helper: agrega qtyByKey (formato "dayIndex-zoneLabel") por dia, herdando datas de dailyTotals.
-  // Fallback: quando qtyByKey está vazio (sem sessões no simulator), prorrateia o totalQty
-  // proporcionalmente aos pesos diários reais (dailyTotals).
-  const buildDailyFromQtyByKey = (qtyByKey: Record<string, number>, totalQtyFallback?: number) => {
-    const dateByDay = new Map<number, string | null>(dailyTotals.map(([d, t]) => [d, t.date]));
-    const byDay = new Map<number, { paying: number; courtesy: number; total: number; date: string | null }>();
-    for (const [key, qty] of Object.entries(qtyByKey)) {
-      const dayIdx = Number(key.split("-")[0]);
-      if (!Number.isFinite(dayIdx)) continue;
-      const cur = byDay.get(dayIdx) ?? { paying: 0, courtesy: 0, total: 0, date: dateByDay.get(dayIdx) ?? null };
-      cur.paying += qty; cur.total += qty;
-      byDay.set(dayIdx, cur);
-    }
-    // Fallback: usa pesos diários do real (dailyTotals) para prorratear o total
-    if (byDay.size <= 1 && dailyTotals.length > 1 && totalQtyFallback != null && totalQtyFallback > 0) {
-      const realSum = dailyTotals.reduce((acc, [, t]) => acc + t.total, 0);
-      if (realSum > 0) {
-        byDay.clear();
-        let assigned = 0;
-        dailyTotals.forEach(([d, t], i) => {
-          const isLast = i === dailyTotals.length - 1;
-          const share = isLast ? totalQtyFallback - assigned : Math.round(totalQtyFallback * (t.total / realSum));
-          assigned += share;
-          byDay.set(d, { paying: share, courtesy: 0, total: share, date: t.date });
+  // Helper: combina público REAL por dia (dailyAttendance) com a projeção
+  // por zona vinda dos solvers (BE/Forecast). Reusa expandLotSalesToDailyAttendance
+  // para que zonas combo (Passe 2 dias) sejam expandidas a todos os dias,
+  // tal como acontece com as vendas reais.
+  const buildDailyFromBreakdown = (
+    breakdown: Array<{ zone_label: string; day_index: number; current_qty?: number; projected_qty?: number; extra_qty?: number }>,
+  ) => {
+    if (!lotSalesData) return dailyTotals;
+    const totalDays = Math.max(1, lotSalesData.dates.length || (Math.max(0, ...localSessions.map(s => s.day_index)) + 1));
+
+    // Indexa lotes reais por zone_name para herdar applies_to_days e session_id (via lotSales)
+    const zoneInfoByName = new Map<string, { applies_to_days: number | null; sale_day_index: number | null }>();
+    for (const ls of lotSalesData.lotSales) {
+      const prev = zoneInfoByName.get(ls.zone_name);
+      if (!prev) {
+        zoneInfoByName.set(ls.zone_name, {
+          applies_to_days: ls.applies_to_days ?? 1,
+          sale_day_index: ls.sale_day_index,
         });
       }
     }
+
+    // Constrói "vendas sintéticas" a partir das projeções extras de cada zona
+    const syntheticSales = breakdown
+      .map((b) => {
+        const extra = Number(b.projected_qty ?? b.extra_qty ?? 0);
+        if (!Number.isFinite(extra) || extra <= 0) return null;
+        const info = zoneInfoByName.get(b.zone_label);
+        return {
+          lot_id: `proj-${b.zone_label}-${b.day_index}`,
+          lot_name: b.zone_label,
+          applies_to_days: info?.applies_to_days ?? 1,
+          zone_id: `proj-${b.zone_label}`,
+          zone_name: b.zone_label,
+          sale_day_index: info?.sale_day_index ?? null,
+          qty: extra,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+
+    // Combina vendas reais + projeção e expande por dia (combos → todos os dias)
+    const zoneSet = new Map<string, { name: string }>();
+    localSessions.forEach((s) => zoneSet.set(s.zone_label, { name: s.zone_label }));
+    lotSalesData.lotSales.forEach((s) => zoneSet.set(s.zone_name, { name: s.zone_name }));
+    syntheticSales.forEach((s) => zoneSet.set(s.zone_name, { name: s.zone_name }));
+
+    const courtesyMap = new Map<string, number>();
+    localSessions.forEach((s) => courtesyMap.set(`${s.day_index}|${s.zone_label}`, Number(s.courtesy_qty || 0)));
+
+    const expanded = expandLotSalesToDailyAttendance(
+      [...lotSalesData.lotSales, ...syntheticSales],
+      Array.from(zoneSet.values()),
+      totalDays,
+      localCfg?.combo_lot_keywords || "COMBO,PASSE,2 DIAS,3 DIAS,FULL PASS",
+      lotSalesData.dates,
+      courtesyMap,
+    );
+
+    const byDay = new Map<number, { paying: number; courtesy: number; total: number; date: string | null }>();
+    for (const r of expanded) {
+      const cur = byDay.get(r.day_index) ?? { paying: 0, courtesy: 0, total: 0, date: r.day_date };
+      cur.paying += r.paying; cur.courtesy += r.courtesy; cur.total += r.total;
+      byDay.set(r.day_index, cur);
+    }
     return Array.from(byDay.entries()).sort((a, b) => a[0] - b[0]);
   };
+
   const beDailyTotals = useMemo(
-    () => buildDailyFromQtyByKey(beSolution.qtyByKey, beKpis?.totalPublic),
-    [beSolution, dailyTotals, beKpis],
+    () => buildDailyFromBreakdown(beSolution.breakdown ?? []),
+    [beSolution, lotSalesData, localSessions, localCfg?.combo_lot_keywords, dailyTotals],
   );
   const fcDailyTotals = useMemo(
-    () => buildDailyFromQtyByKey(fcSolution.qtyByKey, fcKpis?.totalPublic),
-    [fcSolution, dailyTotals, fcKpis],
+    () => buildDailyFromBreakdown(fcSolution.breakdown ?? []),
+    [fcSolution, lotSalesData, localSessions, localCfg?.combo_lot_keywords, dailyTotals],
   );
 
   // ------- Helpers de edição -------
