@@ -425,14 +425,24 @@ export default function PartnerEventDetail() {
     return s + gross / (1 + iva / 100);
   }, 0);
 
-  // ─── Transaction calculations (overheads embutidos nas despesas) ───
-  const transactionIncomeOnly = transactions.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
+  // ─── Cards (vista do sócio / Brasil) ───
+  // Receitas: NET (alinhado com getPartnerRevenueBase). Despesas: BRUTO c/IVA
+  // (alinhado com calcBasis Brasil em buildPartnerSettlementReportData).
+  const transactionIncomeOnly = transactions
+    .filter((t: any) => t.type === "income")
+    .reduce((s: number, t: any) => s + Number(t.amount), 0);
   const transactionIncome = transactionIncomeOnly + ticketRevenueNet;
-  const transactionsExpenseOnly = transactions.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
-  const overheadExpenseTotal = overheads.reduce((s: number, o: any) => s + Number(o.amount || 0), 0);
-  const transactionExpense = transactionsExpenseOnly + overheadExpenseTotal;
+  const transactionsExpenseGross = transactions
+    .filter((t: any) => t.type === "expense")
+    .reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0);
+  const overheadExpenseGross = overheads
+    .reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount || 0), Number(o.iva_rate || 0)), 0);
+  const transactionExpense = transactionsExpenseGross + overheadExpenseGross;
   const transactionResult = transactionIncome - transactionExpense;
-  const paidExpenses = transactions.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.paid_amount || 0), 0);
+  // "Pago" = paid_amount já é bruto (com IVA) por convenção; somar direto.
+  const paidExpenses = transactions
+    .filter((t: any) => t.type === "expense")
+    .reduce((s: number, t: any) => s + Number(t.paid_amount || 0), 0);
 
   return (
     <div className="space-y-6">
