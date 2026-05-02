@@ -125,11 +125,10 @@ export default function PartnerEventDetail() {
   const hasParentAccess = accessList.includes(id!);
   const visibleSubEvents = hasParentAccess ? subEvents : authorizedSubEvents;
 
-  // Para turnê: nunca mostra "Visão Geral" (Master). Default = primeira cidade.
-  const defaultMultiDayId = eventType === "multi_day" && visibleSubEvents.length > 0
-    ? visibleSubEvents[0]?.id
-    : id!;
+  // Para turnê: default = Master (mostra agregado de todas as cidades).
+  const defaultMultiDayId = id!;
   const activeEventId = selectedSubEvent || (eventType === "multi_day" ? defaultMultiDayId : id!);
+  const isMasterView = eventType === "multi_day" && activeEventId === id;
 
   // ── Batch 2: all event-specific data in parallel ──
   const shouldFetchEventData = !!activeEventId;
