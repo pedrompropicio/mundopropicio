@@ -141,11 +141,14 @@ export default function PartnerEventDetail() {
     : id ?? null;
 
   const { data: eventData } = useQuery({
-    queryKey: ["partner_event_data", activeEventId, parentEventId],
+    queryKey: ["partner_event_data", activeEventId, parentEventId, isMasterView, subEvents.map((s:any)=>s.id).join(",")],
     queryFn: async () => {
-      // IDs envolvidos: o evento ativo + o seu Master (se for sub-evento) para rateio
-      const txEventIds = [activeEventId, parentEventId].filter(Boolean) as string[];
-      // Para overheads: ativo + Master (Master é expandido ÷N nos splits)
+      // Em modo Master: agrega Master + todos sub-eventos visíveis
+      // Em modo cidade: ativo + Master (rateado ÷N)
+      const subIds = visibleSubEvents.map((s: any) => s.id);
+      const txEventIds = isMasterView
+        ? [id!, ...subIds]
+        : ([activeEventId, parentEventId].filter(Boolean) as string[]);
       const overheadEventIds = txEventIds;
 
       // Conta de irmãos para ratear transações Master ÷ N quando sub-evento
@@ -153,6 +156,7 @@ export default function PartnerEventDetail() {
         ? await supabase.from("events").select("id").eq("parent_event_id", parentEventId)
         : { data: null as any[] | null, error: null };
       const siblingCount = siblingsRes.data?.length || 1;
+      const masterChildCount = subIds.length || 1;
 
       const [zonesRes, txRes, sessionsRes, activeVersionRes, overheadsRes] = await Promise.all([
         supabase.from("event_ticket_zones").select("*, event_ticket_lots(*)").eq("event_id", activeEventId),
@@ -178,28 +182,29 @@ export default function PartnerEventDetail() {
       const allTxs = (txRes.data ?? []) as any[];
       const txIds = allTxs.map((t: any) => t.id);
 
-      // Constrói transações efetivas: locais do ativo + transações Master rateadas ÷N.
-      // Filtros canónicos do Fecho dos Sócios (buildPartnerSettlementReportData):
-      //   • status ∈ {approved, paid}
-      //   • !is_transitory  (cauções/transitórias não entram no DRE)
-      //   • !exclude_from_result
       const isValidTx = (t: any) =>
         (t.status === "approved" || t.status === "paid") &&
         !t.is_transitory &&
         !t.exclude_from_result;
 
-      const localTx = allTxs.filter((t: any) => t.event_id === activeEventId && isValidTx(t));
-      const masterTx = parentEventId
-        ? allTxs
-            .filter((t: any) => t.event_id === parentEventId && isValidTx(t))
-            .map((t: any) => ({
-              ...t,
-              amount: Number(t.amount) / siblingCount,
-              paid_amount: t.paid_amount != null ? Number(t.paid_amount) / siblingCount : t.paid_amount,
-              _viaMaster: true,
-            }))
-        : [];
-      const effectiveTransactions = [...localTx, ...masterTx];
+      let effectiveTransactions: any[];
+      if (isMasterView) {
+        // Master: locais (Master) + todos sub-eventos, sem rateio
+        effectiveTransactions = allTxs.filter(isValidTx);
+      } else {
+        const localTx = allTxs.filter((t: any) => t.event_id === activeEventId && isValidTx(t));
+        const masterTx = parentEventId
+          ? allTxs
+              .filter((t: any) => t.event_id === parentEventId && isValidTx(t))
+              .map((t: any) => ({
+                ...t,
+                amount: Number(t.amount) / siblingCount,
+                paid_amount: t.paid_amount != null ? Number(t.paid_amount) / siblingCount : t.paid_amount,
+                _viaMaster: true,
+              }))
+          : [];
+        effectiveTransactions = [...localTx, ...masterTx];
+      }
 
       // Zone IDs
       const zoneIds = zones.map((z: any) => z.id);
@@ -213,15 +218,44 @@ export default function PartnerEventDetail() {
           : Promise.resolve({ data: [], error: null }),
       ]);
 
-      // Overheads: Master é rateado ÷N para o sub-evento; locais ficam como estão
       const overheadsRaw = (overheadsRes.data ?? []) as any[];
-      const overheadsForActive = overheadsRaw.flatMap((o: any) => {
-        if (o.event_id === activeEventId) return [o];
-        if (o.event_id === parentEventId) {
-          return [{ ...o, amount: Number(o.amount) / siblingCount, _viaMaster: true }];
-        }
-        return [];
-      });
+      let overheadsForActive: any[];
+      if (isMasterView) {
+        // Master: inclui todos (Master + sub-eventos) sem rateio
+        overheadsForActive = overheadsRaw;
+      } else {
+        overheadsForActive = overheadsRaw.flatMap((o: any) => {
+          if (o.event_id === activeEventId) return [o];
+          if (o.event_id === parentEventId) {
+            return [{ ...o, amount: Number(o.amount) / siblingCount, _viaMaster: true }];
+          }
+          return [];
+        });
+      }
+
+      // Para vista Master: calcular per-city (ratear Master ÷N nos sub-eventos)
+      const perCityBreakdown = isMasterView
+        ? visibleSubEvents.map((sub: any) => {
+            const localTx = allTxs.filter((t: any) => t.event_id === sub.id && isValidTx(t));
+            const masterTxRated = allTxs
+              .filter((t: any) => t.event_id === id && isValidTx(t))
+              .map((t: any) => ({ ...t, amount: Number(t.amount) / masterChildCount }));
+            const cityTx = [...localTx, ...masterTxRated];
+            const cityOverheads = overheadsRaw.flatMap((o: any) => {
+              if (o.event_id === sub.id) return [o];
+              if (o.event_id === id) return [{ ...o, amount: Number(o.amount) / masterChildCount }];
+              return [];
+            });
+            const income = cityTx
+              .filter((t: any) => t.type === "income")
+              .reduce((s: number, t: any) => s + Number(t.amount), 0);
+            const expense = cityTx
+              .filter((t: any) => t.type === "expense")
+              .reduce((s: number, t: any) => s + calcTotalWithIva(Number(t.amount), Number(t.iva_rate || 0)), 0)
+              + cityOverheads.reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount || 0), Number(o.iva_rate || 0)), 0);
+            return { id: sub.id, name: sub.name, income, expense, result: income - expense };
+          })
+        : [];
 
       return {
         ticketZones: zones,
@@ -231,6 +265,7 @@ export default function PartnerEventDetail() {
         sessions: (sessionsRes.data ?? []) as any[],
         activeBPVersion: (activeVersionRes.data ?? null) as { version_number: number; approved_at: string | null; description: string | null } | null,
         overheads: overheadsForActive,
+        perCityBreakdown,
       };
     },
     enabled: shouldFetchEventData,
