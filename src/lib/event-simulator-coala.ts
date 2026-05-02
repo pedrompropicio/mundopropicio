@@ -484,9 +484,11 @@ export function solveBreakEven(
   }
 
   const map: Record<string, number> = { ...baseMap };
+  const revMap: Record<string, number> = { ...baseRevByKey };
   let totalExtra = 0;
   const breakdown: BreakEvenBreakdownItem[] = slots.map((sl) => {
     map[sl.key] = sessionTodayQty(sessions[sl.idx]) + sl.extra;
+    revMap[sl.key] = sessionTodayRevenue(sessions[sl.idx]) + sl.extraRevenue;
     totalExtra += sl.extra;
     return {
       key: sl.key,
@@ -503,6 +505,7 @@ export function solveBreakEven(
 
   return {
     qtyByKey: map,
+    revenueByKey: revMap,
     reachable: remainingDeficit <= 0.5,
     deficit,
     totalExtraTickets: totalExtra,
