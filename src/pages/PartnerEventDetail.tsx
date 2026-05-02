@@ -310,6 +310,59 @@ export default function PartnerEventDetail() {
   const overheads = eventData?.overheads ?? [];
   const perCityBreakdown = eventData?.perCityBreakdown ?? [];
 
+  // ── Extras / Despesas pagas pelo Sócio (Master view = todos os sub-eventos) ──
+  const partnerEventIds = useMemo(
+    () => (isMasterView ? [id!, ...visibleSubEvents.map((s: any) => s.id)] : [activeEventId!].filter(Boolean)),
+    [isMasterView, id, visibleSubEvents, activeEventId],
+  );
+  const partnerEventIdsKey = partnerEventIds.join(",");
+
+  const { data: partnerAdvances = [] } = useQuery({
+    queryKey: ["partner_event_advances", partnerEventIdsKey],
+    queryFn: async () => {
+      if (partnerEventIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("partner_advance_expenses")
+        .select("id, event_id, notes, created_at, transactions(description, amount, iva_rate, date)")
+        .in("event_id", partnerEventIds)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: partnerEventIds.length > 0,
+  });
+
+  const { data: partnerPaidExpenses = [] } = useQuery({
+    queryKey: ["partner_event_paid", partnerEventIdsKey],
+    queryFn: async () => {
+      if (partnerEventIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("partner_paid_expenses")
+        .select("id, event_id, notes, paid_date, created_at, transactions(description, amount, iva_rate, date)")
+        .in("event_id", partnerEventIds)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: partnerEventIds.length > 0,
+  });
+
+  const eventNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (event) map[id!] = event.name;
+    visibleSubEvents.forEach((s: any) => { map[s.id] = s.name; });
+    return map;
+  }, [event, visibleSubEvents, id]);
+
+  const totalAdvances = useMemo(
+    () => (partnerAdvances as any[]).reduce((s, a) => s + calcTotalWithIva(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0)), 0),
+    [partnerAdvances],
+  );
+  const totalPaidByPartner = useMemo(
+    () => (partnerPaidExpenses as any[]).reduce((s, a) => s + calcTotalWithIva(Number(a.transactions?.amount || 0), Number(a.transactions?.iva_rate || 0)), 0),
+    [partnerPaidExpenses],
+  );
+
   // Filter zones by selected session
   const filteredZones = useMemo(() => {
     if (!selectedSession) return ticketZones; // "Todas"
