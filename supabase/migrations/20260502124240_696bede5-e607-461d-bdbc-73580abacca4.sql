@@ -1,0 +1,1 @@
+UPDATE public.events SET company_id = '7d831e59-6e82-427b-95a0-64904aae5dd2' WHERE id = '7622cd11-a1c5-40ad-a457-8e2ebb39f382';
