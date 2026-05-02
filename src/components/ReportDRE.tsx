@@ -358,7 +358,68 @@ export default function ReportDRE() {
     enabled: showPartnerView,
   });
 
-  const ticketCategoryId = categories.find(
+  // A&B — todas as zonas + configs (todos os eventos). Linhas virtuais no DRE
+  // baseadas no cenário Real (participantes vindos de ticket_sales).
+  const { data: abZonesAll = [] } = useQuery({
+    queryKey: ["ab-zones-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_ab_zones").select("*");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const { data: abConfigsAll = [] } = useQuery({
+    queryKey: ["ab-configs-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("event_ab_config").select("*");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const realParticipantsByZoneId = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const s of ticketSales as any[]) {
+      if (!s.zone_id) continue;
+      map[s.zone_id] = (map[s.zone_id] ?? 0) + Number(s.quantity || 0);
+    }
+    return map;
+  }, [ticketSales]);
+
+  const abTotalsByEvent = useMemo(() => {
+    const out: Record<string, ABTotals> = {};
+    const zonesByEvent: Record<string, any[]> = {};
+    for (const z of abZonesAll as any[]) {
+      (zonesByEvent[z.event_id] ||= []).push(z);
+    }
+    for (const evtId of Object.keys(zonesByEvent)) {
+      const zones = zonesByEvent[evtId];
+      const cfg = (abConfigsAll as any[]).find((c) => c.event_id === evtId);
+      const food: ABFoodConfig = {
+        fee_alimentos: Number(cfg?.fee_alimentos || 0),
+        repasse_alimentos_pct: Number(cfg?.repasse_alimentos_pct || 0),
+        per_capita_alimentos: Number(cfg?.per_capita_alimentos || 0),
+      };
+      const inputs: ABZoneInput[] = zones.map((z: any) => ({
+        id: z.id,
+        zone_label: z.zone_label,
+        participants:
+          z.participants_manual != null
+            ? Number(z.participants_manual)
+            : z.source_ticket_zone_id
+              ? realParticipantsByZoneId[z.source_ticket_zone_id] ?? 0
+              : 0,
+        open_bar: !!z.open_bar,
+        open_food: !!z.open_food,
+        per_capita_bebidas: Number(z.per_capita_bebidas || 0),
+        repasse_bebidas_pct: Number(z.repasse_bebidas_pct || 0),
+      }));
+      out[evtId] = computeABTotals(inputs, food);
+    }
+    return out;
+  }, [abZonesAll, abConfigsAll, realParticipantsByZoneId]);
+
+
     (c) => c.name.toLowerCase().includes("venda de bilhete") || c.name.toLowerCase().includes("bilhetes") || c.name.toLowerCase().includes("bilheteira")
   )?.id ?? null;
 
