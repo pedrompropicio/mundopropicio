@@ -2274,6 +2274,8 @@ export type Database = {
           default_merch_cmv_pct: number | null
           default_merch_conversion_pct: number | null
           event_id: string
+          forecast_final_accel: number
+          forecast_final_window_days: number
           notes: string | null
           ponto_vendido: number
           prior_year_drink: number
@@ -2314,6 +2316,8 @@ export type Database = {
           default_merch_cmv_pct?: number | null
           default_merch_conversion_pct?: number | null
           event_id: string
+          forecast_final_accel?: number
+          forecast_final_window_days?: number
           notes?: string | null
           ponto_vendido?: number
           prior_year_drink?: number
@@ -2354,6 +2358,8 @@ export type Database = {
           default_merch_cmv_pct?: number | null
           default_merch_conversion_pct?: number | null
           event_id?: string
+          forecast_final_accel?: number
+          forecast_final_window_days?: number
           notes?: string | null
           ponto_vendido?: number
           prior_year_drink?: number
