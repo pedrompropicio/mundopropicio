@@ -12,6 +12,20 @@ interface Props {
   className?: string;
 }
 
+async function getFreshAccessToken() {
+  let { data: sessionData } = await supabase.auth.getSession();
+  const expiresAt = sessionData.session?.expires_at ? sessionData.session.expires_at * 1000 : 0;
+
+  if (!sessionData.session?.access_token || expiresAt - Date.now() < 60_000) {
+    const refreshed = await supabase.auth.refreshSession();
+    sessionData = refreshed.data;
+  }
+
+  const token = sessionData.session?.access_token;
+  if (!token) throw new Error("Sessão expirada. Volta a iniciar sessão.");
+  return token;
+}
+
 /**
  * Botão que abre numa nova aba a fatura/talão anexo do item de camarim.
  * Vai buscar o primeiro documento associado e gera um signed URL (1h).
@@ -37,11 +51,9 @@ export function CamarimItemAttachmentButton({ itemId, iconOnly, className }: Pro
         toast({ variant: "destructive", title: "Sem anexo", description: "Este item não tem fatura/talão anexo." });
         return;
       }
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) throw new Error("Sessão expirada. Volta a iniciar sessão.");
+      let token = await getFreshAccessToken();
 
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/resolve-attachment-url`, {
+      let response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/resolve-attachment-url`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -50,6 +62,21 @@ export function CamarimItemAttachmentButton({ itemId, iconOnly, className }: Pro
         },
         body: JSON.stringify({ kind: "camarim_item_document", documentId: doc.id, mode: "download" }),
       });
+      if (response.status === 401) {
+        const refreshed = await supabase.auth.refreshSession();
+        token = refreshed.data.session?.access_token ?? "";
+        if (token) {
+          response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/resolve-attachment-url`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ kind: "camarim_item_document", documentId: doc.id, mode: "download" }),
+          });
+        }
+      }
       if (!response.ok) {
         const body = await response.json().catch(() => null);
         throw new Error(body?.error ?? "Não foi possível abrir o anexo.");
