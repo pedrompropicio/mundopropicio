@@ -36,18 +36,43 @@ async function resolveDocUrl(fileUrl: string | null | undefined): Promise<string
     bucket = "camarim-documents";
     path = fileUrl.replace(/^camarim:\/\//, "");
   }
-  // signedCompanyUrl trata o prefixo `${companyId}/` para buckets multi-tenant
-  // (idempotente — não duplica prefixo se já estiver lá).
-  const { data, error } = await signedCompanyUrl(bucket, path, 3600);
-  if (error || !data?.signedUrl) {
-    // Fallback: alguns paths antigos podem já estar guardados sem prefixo legado;
-    // tenta o caminho cru como último recurso.
-    const fallback = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
-    if (fallback.error || !fallback.data?.signedUrl) return null;
-    return fallback.data.signedUrl;
+
+  // Helper: gera signed URL e valida com HEAD (createSignedUrl não falha
+  // quando o objeto não existe — só dá 404 no GET).
+  const trySigned = async (p: string): Promise<string | null> => {
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(p, 3600);
+    if (error || !data?.signedUrl) return null;
+    try {
+      const head = await fetch(data.signedUrl, { method: "HEAD" });
+      if (head.ok) return data.signedUrl;
+    } catch { /* fallthrough */ }
+    return null;
+  };
+
+  // 1) Tenta o path com prefixo multi-tenant (paths novos: `${companyId}/...`).
+  const { data: prefixedPath } = await (async () => {
+    try {
+      // signedCompanyUrl resolve o prefixo idempotentemente.
+      const r = await signedCompanyUrl(bucket, path, 3600);
+      return { data: r.data?.signedUrl ?? null };
+    } catch {
+      return { data: null };
+    }
+  })();
+  if (prefixedPath) {
+    try {
+      const head = await fetch(prefixedPath, { method: "HEAD" });
+      if (head.ok) return prefixedPath;
+    } catch { /* fallthrough */ }
   }
-  return data.signedUrl;
+
+  // 2) Fallback: paths antigos guardados sem prefixo de empresa.
+  const raw = await trySigned(path);
+  if (raw) return raw;
+
+  return null;
 }
+
 
 async function openDoc(fileUrl: string) {
   const url = await resolveDocUrl(fileUrl);
