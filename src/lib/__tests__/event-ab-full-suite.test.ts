@@ -142,7 +142,7 @@ describe("Modal A&B — cálculos exemplares", () => {
     expect(t.faturacaoBebidas).toBe(10000);
     expect(t.receitaBebidas).toBe(3500);
     expect(t.custoBebidas).toBe(6500);
-    expect(t.resultadoBebidas).toBe(3500);
+    expect(t.resultadoBebidas).toBe(-3000); // 3500 receita − 6500 custo (modelo concessão ao operador)
   });
 
   it("Alimentos: fee €2.000 + 1000 elegíveis × €5 × 30% → 5000/3500/3500/3500", () => {
