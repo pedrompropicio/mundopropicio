@@ -345,9 +345,13 @@ export function solveBreakEven(
     reason: "ok",
   }));
 
+  // Receita base por sessão (real) — preenche também as não-elegíveis.
+  const baseRevByKey: Record<string, number> = {};
+  for (const s of sessions) baseRevByKey[`${s.day_index}-${s.zone_label}`] = sessionTodayRevenue(s);
+
   if (baseRes.general >= 0) {
     return {
-      qtyByKey: baseMap, reachable: true, deficit: 0,
+      qtyByKey: baseMap, revenueByKey: baseRevByKey, reachable: true, deficit: 0,
       totalExtraTickets: 0, unfilled: 0, breakdown: emptyBreakdown,
     };
   }
