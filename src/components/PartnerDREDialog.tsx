@@ -1,0 +1,217 @@
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { FileText, Loader2 } from "lucide-react";
+import { formatCurrency } from "@/lib/mock-data";
+import { expandOverheadToSplits } from "@/lib/overhead-proration";
+import {
+  buildDREForExport,
+  exportDREToPDF,
+  getEffectiveTransactionsForExport,
+} from "@/lib/export-dre";
+
+interface PartnerDREDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  eventId: string;
+  eventName: string;
+}
+
+/**
+ * DRE Brasil simplificado para o portal do sócio.
+ * Vista do sócio fixa (com overheads embutidos nas categorias) + botão Gerar PDF.
+ * Sem qualquer controlo de configuração visível.
+ */
+export default function PartnerDREDialog({ open, onOpenChange, eventId, eventName }: PartnerDREDialogProps) {
+  const enabled = open && !!eventId;
+
+  const { data: bundle, isLoading } = useQuery({
+    queryKey: ["partner_dre_bundle", eventId],
+    enabled,
+    queryFn: async () => {
+      const [
+        eventsRes,
+        txRes,
+        catsRes,
+        zonesRes,
+        lotsRes,
+        salesRes,
+        partnersRes,
+        overheadsRes,
+      ] = await Promise.all([
+        supabase.from("events").select("*"),
+        supabase.from("transactions").select("*").in("status", ["approved", "paid"]),
+        supabase.from("account_categories").select("*"),
+        supabase.from("event_ticket_zones").select("*"),
+        supabase.from("event_ticket_lots").select("*"),
+        supabase.from("ticket_sales").select("*"),
+        supabase.from("event_partners").select("*, suppliers(name)"),
+        supabase
+          .from("event_forecasts")
+          .select("id, event_id, amount, description, category_id, iva_rate, account_categories(code, name)")
+          .eq("is_overhead", true)
+          .is("version_id", null),
+      ]);
+      if (eventsRes.error) throw eventsRes.error;
+      if (txRes.error) throw txRes.error;
+      if (catsRes.error) throw catsRes.error;
+      return {
+        events: eventsRes.data ?? [],
+        transactions: txRes.data ?? [],
+        categories: catsRes.data ?? [],
+        ticketZones: zonesRes.data ?? [],
+        ticketLots: lotsRes.data ?? [],
+        ticketSales: salesRes.data ?? [],
+        eventPartners: partnersRes.data ?? [],
+        overheadsRaw: overheadsRes.data ?? [],
+      };
+    },
+  });
+
+  // Overheads expandidos Master→Splits (÷N)
+  const closingCosts = useMemo(
+    () => (bundle ? expandOverheadToSplits(bundle.overheadsRaw as any, bundle.events as any) : []),
+    [bundle],
+  );
+
+  const ticketCategoryId = useMemo(() => {
+    if (!bundle) return null;
+    return (
+      bundle.categories.find((c: any) =>
+        c.name.toLowerCase().includes("venda de bilhete") ||
+        c.name.toLowerCase().includes("bilhetes") ||
+        c.name.toLowerCase().includes("bilheteira"),
+      )?.id ?? null
+    );
+  }, [bundle]);
+
+  const dreData = useMemo(() => {
+    if (!bundle) return null;
+    const evtTx = getEffectiveTransactionsForExport(eventId, bundle.transactions, bundle.events);
+    const evt = bundle.events.find((e: any) => e.id === eventId);
+    const parentId = evt?.parent_event_id;
+    const parentEvt = parentId ? bundle.events.find((e: any) => e.id === parentId) : null;
+    const calcBasis = parentEvt?.partner_calc_basis || evt?.partner_calc_basis || "net_result";
+
+    const lines = buildDREForExport(
+      evtTx,
+      bundle.categories,
+      "ticket_sales", // bilheteira líquida sempre que houver gestão
+      bundle.ticketZones,
+      bundle.ticketLots,
+      bundle.ticketSales,
+      eventId,
+      ticketCategoryId,
+      bundle.eventPartners,
+      bundle.events,
+      true, // brasilMode (vista sócio)
+      closingCosts,
+    );
+    return { lines, calcBasis };
+  }, [bundle, eventId, ticketCategoryId, closingCosts]);
+
+  const handlePDF = () => {
+    if (!bundle) return;
+    const evt = bundle.events.find((e: any) => e.id === eventId);
+    if (!evt) return;
+    exportDREToPDF(
+      [evt],
+      bundle.transactions,
+      bundle.categories,
+      "ticket_sales",
+      bundle.ticketZones,
+      bundle.ticketLots,
+      bundle.ticketSales,
+      ticketCategoryId,
+      bundle.eventPartners,
+      bundle.events,
+      true,
+      closingCosts,
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
+            DRE — {eventName}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="flex justify-end">
+          <Button size="sm" onClick={handlePDF} disabled={!bundle || isLoading}>
+            <FileText className="mr-1.5 h-4 w-4" /> Gerar PDF
+          </Button>
+        </div>
+
+        {isLoading || !dreData ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Rubrica</TableHead>
+                <TableHead className="text-right">Valor (€)</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {dreData.lines.map((line: any, i: number) => {
+                const rowClass = line.isRetained
+                  ? "border-t-2 border-accent/40 bg-accent/10"
+                  : line.isGrandTotal
+                  ? "border-t-2 border-primary/30 bg-primary/5"
+                  : line.isTotal
+                  ? "bg-secondary/20"
+                  : line.isGroupHeader
+                  ? "bg-secondary/10 border-t border-border/20"
+                  : line.isDistribution
+                  ? "bg-amber-500/5"
+                  : "";
+                const labelClass = `${line.indent ? "pl-8" : line.isGroupHeader ? "pl-4" : ""} ${
+                  line.isTotal || line.isGrandTotal || line.isRetained
+                    ? "font-bold text-xs uppercase tracking-wider"
+                    : line.isDistribution
+                    ? "text-sm italic text-muted-foreground"
+                    : line.isGroupHeader
+                    ? "font-semibold text-sm"
+                    : "text-sm"
+                }`;
+                const displayVal = line.isExpenseSide
+                  ? line.amountIncIva
+                  : line.amountExIva;
+                const formattedVal =
+                  displayVal < 0
+                    ? `-${formatCurrency(Math.abs(displayVal))}`
+                    : formatCurrency(displayVal);
+                const valClass = `text-right font-mono ${
+                  line.isRetained || line.isGrandTotal
+                    ? `text-base font-bold ${displayVal >= 0 ? "text-success" : "text-destructive"}`
+                    : line.isDistribution
+                    ? "text-sm text-amber-500"
+                    : line.isTotal
+                    ? "font-semibold"
+                    : line.isGroupHeader
+                    ? "font-semibold text-sm"
+                    : "text-muted-foreground"
+                }`;
+                return (
+                  <TableRow key={i} className={rowClass}>
+                    <TableCell className={labelClass}>{line.label}</TableCell>
+                    <TableCell className={valClass}>{formattedVal}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
