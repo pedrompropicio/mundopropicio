@@ -426,7 +426,7 @@ export function solveBreakEven(
 
     return {
       idx, key, capLeft, velocity, margPrice, margin, weight,
-      eligible, reason, extra: 0, lotsRemaining, fallbackPrice,
+      eligible, reason, extra: 0, extraRevenue: 0, lotsRemaining, fallbackPrice,
     };
   });
 
