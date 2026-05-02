@@ -58,6 +58,8 @@ type DbConfig = {
   ticket_iva_pct: number;
   combo_lot_keywords: string;
   sponsor_category_l2_id: string | null;
+  forecast_final_accel: number;
+  forecast_final_window_days: number;
 };
 
 type DbInput = {
@@ -457,8 +459,11 @@ export default function EventSimulator() {
   }, [lotSalesData, event]);
 
   const fcSolution: ForecastSolution = useMemo(
-    () => solveForecast(calcSessions, calcCfg, beLotInfo, eventDate),
-    [calcSessions, calcCfg, beLotInfo, eventDate],
+    () => solveForecast(calcSessions, calcCfg, beLotInfo, eventDate, {
+      finalAccel: Number(localCfg?.forecast_final_accel) || undefined,
+      finalWindowDays: Number(localCfg?.forecast_final_window_days) || undefined,
+    }),
+    [calcSessions, calcCfg, beLotInfo, eventDate, localCfg?.forecast_final_accel, localCfg?.forecast_final_window_days],
   );
 
   const today = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "today"), [calcSessions, calcCfg]);
@@ -1234,6 +1239,26 @@ export default function EventSimulator() {
                     onChange={(v) => setLocalCfg({ ...localCfg, bonif_bebidas: v })} step={0.01} />
                   <CfgInput label="Ponto Vendido (€)" value={localCfg.ponto_vendido}
                     onChange={(v) => setLocalCfg({ ...localCfg, ponto_vendido: v })} step={0.01} />
+                  <div className="col-span-full mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
+                    <div className="col-span-full">
+                      <p className="text-sm font-semibold">Forecast — Reta final</p>
+                      <p className="text-xs text-muted-foreground">
+                        O Forecast extrapola o ritmo de vendas recente até ao dia do evento e aplica um <strong>boost</strong> nos últimos N dias (efeito "curva em J"). Default: <strong>+60%</strong> nos últimos <strong>30 dias</strong>.
+                      </p>
+                    </div>
+                    <CfgInput
+                      label="Multiplicador reta final (×)"
+                      value={Number(localCfg.forecast_final_accel ?? 1.6)}
+                      onChange={(v) => setLocalCfg({ ...localCfg, forecast_final_accel: v })}
+                      step={0.1}
+                    />
+                    <CfgInput
+                      label="Janela reta final (dias)"
+                      value={Number(localCfg.forecast_final_window_days ?? 30)}
+                      onChange={(v) => setLocalCfg({ ...localCfg, forecast_final_window_days: Math.round(v) })}
+                      step={1}
+                    />
+                  </div>
                   <div className="col-span-full mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
                     <div className="col-span-full">
                       <p className="text-sm font-semibold">Ano anterior (2025) — manual</p>
