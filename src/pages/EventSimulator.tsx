@@ -671,7 +671,7 @@ export default function EventSimulator() {
     breakdown: Array<{ zone_label: string; day_index: number; current_qty?: number; projected_qty?: number; extra_qty?: number }>,
   ) => {
     if (!lotSalesData) return { dailyTotals, expanded: [] as ReturnType<typeof expandLotSalesToDailyAttendance> };
-    const totalDays = Math.max(1, lotSalesData.dates.length || (Math.max(0, ...localSessions.map(s => s.day_index)) + 1));
+    const totalDays = Math.max(1, lotSalesData.dates.length || (Math.max(0, ...simulatorSessions.map(s => s.day_index)) + 1));
 
     // Indexa lotes reais por zone_name para herdar applies_to_days e session_id (via lotSales)
     const zoneInfoByName = new Map<string, { applies_to_days: number | null; sale_day_index: number | null }>();
@@ -705,12 +705,12 @@ export default function EventSimulator() {
 
     // Combina vendas reais + projeção e expande por dia (combos → todos os dias)
     const zoneSet = new Map<string, { name: string }>();
-    localSessions.forEach((s) => zoneSet.set(s.zone_label, { name: s.zone_label }));
+    simulatorSessions.forEach((s) => zoneSet.set(s.zone_label, { name: s.zone_label }));
     lotSalesData.lotSales.forEach((s) => zoneSet.set(s.zone_name, { name: s.zone_name }));
     syntheticSales.forEach((s) => zoneSet.set(s.zone_name, { name: s.zone_name }));
 
     const courtesyMap = new Map<string, number>();
-    localSessions.forEach((s) => courtesyMap.set(`${s.day_index}|${s.zone_label}`, Number(s.courtesy_qty || 0)));
+    simulatorSessions.forEach((s) => courtesyMap.set(`${s.day_index}|${s.zone_label}`, Number(s.courtesy_qty || 0)));
 
     const expanded = expandLotSalesToDailyAttendance(
       [...lotSalesData.lotSales, ...syntheticSales],
@@ -732,11 +732,11 @@ export default function EventSimulator() {
 
   const beDaily = useMemo(
     () => buildDailyFromBreakdown(beSolution.breakdown ?? []),
-    [beSolution, lotSalesData, localSessions, localCfg?.combo_lot_keywords, dailyTotals],
+    [beSolution, lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, dailyTotals],
   );
   const fcDaily = useMemo(
     () => buildDailyFromBreakdown(fcSolution.breakdown ?? []),
-    [fcSolution, lotSalesData, localSessions, localCfg?.combo_lot_keywords, dailyTotals],
+    [fcSolution, lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, dailyTotals],
   );
   const beDailyTotals = beDaily.dailyTotals;
   const fcDailyTotals = fcDaily.dailyTotals;
