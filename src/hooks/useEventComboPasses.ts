@@ -157,6 +157,32 @@ export function useEventComboPasses(eventId: string | undefined, versionId: stri
       const nextLotNumber = input.id
         ? pass?.lots.find((l) => l.id === input.id)?.lot_number ?? 1
         : (pass?.lots.length ?? 0) + 1;
+
+      // Valida capacidade contra TODAS as zonas ligadas ao passe.
+      if (eventId) {
+        const [{ data: zonesAll }, { data: simpleLotsAll }] = await Promise.all([
+          supabase.from("event_ticket_zones").select("id, name, total_capacity").eq("event_id", eventId),
+          (async () => {
+            const { data: zs } = await supabase.from("event_ticket_zones").select("id").eq("event_id", eventId);
+            const ids = (zs ?? []).map((z: any) => z.id);
+            if (!ids.length) return { data: [] as any[] };
+            return await supabase.from("event_ticket_lots").select("id, zone_id, quantity").in("zone_id", ids);
+          })(),
+        ]);
+        const combosForCheck = passes.map((p) => ({ id: p.id, zone_ids: p.zones.map((z) => z.zone_id) }));
+        const comboLotsAll = passes.flatMap((p) => p.lots.map((l) => ({ id: l.id, combo_pass_id: p.id, quantity: l.quantity })));
+        const err = validateComboLotAgainstCapacity(
+          input.combo_pass_id,
+          input.quantity,
+          ((zonesAll ?? []) as any[]).map((z) => ({ id: z.id, name: z.name, total_capacity: z.total_capacity })),
+          ((simpleLotsAll ?? []) as any[]).map((l) => ({ id: l.id, zone_id: l.zone_id, quantity: l.quantity })),
+          combosForCheck,
+          comboLotsAll,
+          input.id ?? null,
+        );
+        if (err) throw new Error(err);
+      }
+
       const payload: any = {
         combo_pass_id: input.combo_pass_id,
         lot_number: nextLotNumber,
