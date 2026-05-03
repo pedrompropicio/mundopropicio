@@ -71,6 +71,47 @@ export type LotSale = {
  * Para cada venda de combo de N dias, gera N entradas — uma por dia consecutivo
  * a partir de `sale_day_index` (ou dia 0 se null), até ao limite `totalEventDays`.
  */
+/**
+ * Tenta encontrar a zona-"irmã" para um dado dia destino quando o combo é
+ * expandido para um dia que não é o seu dia âncora.
+ *
+ * Caso típico (Coala): zona ancorada "Relvado — Sábado" tem um combo
+ * (Passe 2 dias) que deve aparecer no Domingo NA zona "Relvado — Domingo",
+ * e não duplicado como "Relvado — Sábado" no dia 2.
+ *
+ * Heurística: separa por " — " ou " - " → stem + sufixo dia-da-semana.
+ * Substitui o sufixo pelo weekday curto da `targetDate` (pt-PT) e procura
+ * uma zona com esse nome. Se não houver, devolve a label original.
+ */
+function pickSiblingZoneLabel(
+  originalLabel: string,
+  targetDate: string | null,
+  allZoneNames: string[],
+): string {
+  if (!targetDate) return originalLabel;
+  const sepMatch = originalLabel.match(/^(.+?)\s+[—-]\s+(.+)$/);
+  if (!sepMatch) return originalLabel;
+  const stem = sepMatch[1].trim();
+  // weekday curto pt-PT a partir de YYYY-MM-DD (sem TZ shifts)
+  const m = targetDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return originalLabel;
+  const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const weekdayShort = dt
+    .toLocaleDateString("pt-PT", { weekday: "long" })
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase(); // ex: "domingo", "sabado"
+  const stripDay = (s: string) =>
+    s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  // procura zona "Stem — <dia>" cujo sufixo bata com o weekday alvo
+  const candidate = allZoneNames.find((zn) => {
+    const mm = zn.match(/^(.+?)\s+[—-]\s+(.+)$/);
+    if (!mm) return false;
+    if (stripDay(mm[1].trim()) !== stripDay(stem)) return false;
+    return stripDay(mm[2].trim()) === weekdayShort;
+  });
+  return candidate ?? originalLabel;
+}
+
 export function expandLotSalesToDailyAttendance(
   lotSales: LotSale[],
   zones: { name: string }[],
@@ -79,6 +120,7 @@ export function expandLotSalesToDailyAttendance(
   dates: { date: string | null }[],
   courtesyByDayZone: Map<string, number>, // key = `${day_index}|${zone_label}`
 ): DailyAttendanceRow[] {
+  const allZoneNames = zones.map((z) => z.name);
   const grid = new Map<string, DailyAttendanceRow>();
   const ensureCell = (day_index: number, zone_label: string): DailyAttendanceRow => {
     const key = `${day_index}|${zone_label}`;
