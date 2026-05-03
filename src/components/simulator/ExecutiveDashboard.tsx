@@ -437,7 +437,7 @@ export default function ExecutiveDashboard(props: Props) {
             active={active}
             rows={(() => {
               const lines = [
-                { key: "ticketsRevenue", label: "Ingressos" },
+                { key: "ticketsRevenue", label: "Bilhetes" },
                 { key: "abRevenue", label: "A&B" },
                 { key: "sponsorRevenue", label: "Patrocínios" },
                 { key: "souvenirRevenue", label: "Souvenir" },

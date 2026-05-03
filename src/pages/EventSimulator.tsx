@@ -31,6 +31,7 @@ import {
 } from "@/lib/event-simulator-coala";
 import { syncSimulatorFromSources } from "@/lib/event-simulator-sync";
 import { expandLotSalesToDailyAttendance, type LotSale } from "@/lib/event-simulator-combos";
+import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 // combo bridge removido: combos são lotes unificados em event_ticket_lots
 import { loadSponsors, type SponsorRow } from "@/lib/event-simulator-sponsors";
 import { exportSimulatorToXlsx, exportSimulatorToPdf, type SimulatorExportData } from "@/lib/event-simulator-export";
@@ -217,9 +218,9 @@ export default function EventSimulator() {
       // 1) zonas do evento (com session_id → identifica dia do festival)
       const { data: zones } = await supabase
         .from("event_ticket_zones")
-        .select("id, name, session_id").eq("event_id", eventId!);
+        .select("id, name, session_id, total_capacity").eq("event_id", eventId!).is("version_id", null);
       const zoneIds = (zones ?? []).map((z: any) => z.id);
-      if (!zoneIds.length) return { lotSales: [] as LotSale[], dates: [] as { date: string | null }[] };
+      if (!zoneIds.length) return { lotSales: [] as LotSale[], dates: [] as { date: string | null }[], zoneRows: [] as any[], salesByZone: {} as Record<string, { qty: number; revenue: number }> };
 
       // 2) lotes dessas zonas
       const { data: lots } = await supabase
@@ -242,11 +243,27 @@ export default function EventSimulator() {
       const lotIds = (lots ?? []).map((l: any) => l.id);
       const { data: sales } = lotIds.length
         ? await supabase.from("ticket_sales")
-            .select("lot_id, zone_id, sale_date, quantity").in("lot_id", lotIds)
+            .select("lot_id, zone_id, sale_date, quantity, unit_price, total_value").in("lot_id", lotIds)
         : { data: [] as any[] };
 
       const lotById = new Map((lots ?? []).map((l: any) => [l.id, l]));
       const zoneById = new Map((zones ?? []).map((z: any) => [z.id, z]));
+
+      const salesByZone: Record<string, { qty: number; revenue: number }> = {};
+      for (const s of (sales ?? []) as any[]) {
+        const cur = salesByZone[s.zone_id] ?? { qty: 0, revenue: 0 };
+        cur.qty += Number(s.quantity || 0);
+        cur.revenue += ticketSaleRevenue(s);
+        salesByZone[s.zone_id] = cur;
+      }
+
+      const zoneRows = ((zones ?? []) as any[]).map((z) => ({
+        id: z.id,
+        name: z.name,
+        session_id: z.session_id ?? null,
+        total_capacity: Number(z.total_capacity || 0),
+        day_index: z.session_id ? (sessionIdToIdx.get(z.session_id) ?? 0) : 0,
+      }));
 
       const lotSales: LotSale[] = ((sales ?? []) as any[]).map((s) => {
         const lot = lotById.get(s.lot_id);
@@ -269,7 +286,7 @@ export default function EventSimulator() {
       // Combos agora são lotes normais com is_combo=true em event_ticket_lots —
       // já entram em `lotSales` acima. UI dedicada do simulador para mostrar
       // expansão por dia será reintroduzida na próxima iteração.
-      return { lotSales, dates };
+      return { lotSales, dates, zoneRows, salesByZone };
     },
     enabled: !!eventId,
   });
@@ -346,6 +363,31 @@ export default function EventSimulator() {
   useEffect(() => { if (cfg) setLocalCfg(cfg); }, [cfg]);
   useEffect(() => { setLocalSessions(sessions); }, [sessions]);
   useEffect(() => { setLocalCosts(costLines); }, [costLines]);
+
+  const simulatorSessions = useMemo<DbInput[]>(() => {
+    if (!lotSalesData?.zoneRows?.length) return localSessions;
+
+    const rowsByKey = new Map<string, DbInput>();
+    for (const s of localSessions) rowsByKey.set(`${s.day_index}|${s.zone_label}`, s);
+
+    return lotSalesData.zoneRows.map((z: any) => {
+      const dayIndex = Number(z.day_index || 0);
+      const existing = rowsByKey.get(`${dayIndex}|${z.name}`) ?? rowsByKey.get(`0|${z.name}`);
+      const sales = lotSalesData.salesByZone?.[z.id] ?? { qty: 0, revenue: 0 };
+      const capacity = Number(z.total_capacity || 0);
+      return {
+        ...(existing ?? { event_id: eventId!, prior_year_qty: null, prior_year_revenue: null, avg_ticket_override: null, iva_pct: 6 }),
+        event_id: eventId!,
+        day_index: dayIndex,
+        zone_label: z.name,
+        real_sales_qty: sales.qty,
+        real_sales_revenue: sales.revenue,
+        projected_qty: existing ? Number(existing.projected_qty || 0) : Math.max(0, capacity - sales.qty),
+        courtesy_qty: existing ? Number(existing.courtesy_qty || 0) : 0,
+        forecast_qty: existing?.forecast_qty ?? null,
+      } as DbInput;
+    }).sort((a, b) => a.day_index - b.day_index || a.zone_label.localeCompare(b.zone_label));
+  }, [eventId, localSessions, lotSalesData]);
 
   // ------- Default config seed (se não existir) -------
   useEffect(() => {
@@ -448,7 +490,7 @@ export default function EventSimulator() {
   }, [localCfg, sponsors]);
 
   const calcSessions: CoalaSession[] = useMemo(() =>
-    localSessions.map((s) => ({
+    simulatorSessions.map((s) => ({
       day_index: s.day_index,
       zone_label: s.zone_label,
       real_sales_qty: Number(s.real_sales_qty || 0),
@@ -460,7 +502,7 @@ export default function EventSimulator() {
       prior_year_revenue: Number(s.prior_year_revenue || 0),
       iva_pct: Number(s.iva_pct || 6),
       avg_ticket_override: s.avg_ticket_override,
-    })), [localSessions]);
+    })), [simulatorSessions]);
 
   const calcCosts: CoalaCostLine[] = useMemo(() =>
     localCosts.map((c) => ({
@@ -513,7 +555,7 @@ export default function EventSimulator() {
       }
       return `Dia ${idx + 1}`;
     };
-    const sessionsExp = localSessions.map(s => {
+    const sessionsExp = simulatorSessions.map(s => {
       const fcQty = Number(s.forecast_qty ?? s.real_sales_qty) || 0;
       const tm = s.avg_ticket_override != null && Number(s.avg_ticket_override) > 0
         ? Number(s.avg_ticket_override)
@@ -594,12 +636,12 @@ export default function EventSimulator() {
   // Presença diária expandindo combos
   const dailyAttendance = useMemo(() => {
     if (!lotSalesData) return [];
-    const totalDays = Math.max(1, lotSalesData.dates.length || (Math.max(0, ...localSessions.map(s => s.day_index)) + 1));
+      const totalDays = Math.max(1, lotSalesData.dates.length || (Math.max(0, ...simulatorSessions.map(s => s.day_index)) + 1));
     const zoneSet = new Map<string, { name: string }>();
-    localSessions.forEach(s => zoneSet.set(s.zone_label, { name: s.zone_label }));
+      simulatorSessions.forEach(s => zoneSet.set(s.zone_label, { name: s.zone_label }));
     lotSalesData.lotSales.forEach(s => zoneSet.set(s.zone_name, { name: s.zone_name }));
     const courtesyMap = new Map<string, number>();
-    localSessions.forEach(s => courtesyMap.set(`${s.day_index}|${s.zone_label}`, Number(s.courtesy_qty || 0)));
+      simulatorSessions.forEach(s => courtesyMap.set(`${s.day_index}|${s.zone_label}`, Number(s.courtesy_qty || 0)));
     return expandLotSalesToDailyAttendance(
       lotSalesData.lotSales,
       Array.from(zoneSet.values()),
@@ -608,7 +650,7 @@ export default function EventSimulator() {
       lotSalesData.dates,
       courtesyMap,
     );
-  }, [lotSalesData, localSessions, localCfg?.combo_lot_keywords]);
+  }, [lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords]);
 
   const dailyTotals = useMemo(() => {
     const byDay = new Map<number, { paying: number; courtesy: number; total: number; date: string | null }>();
@@ -629,7 +671,7 @@ export default function EventSimulator() {
     breakdown: Array<{ zone_label: string; day_index: number; current_qty?: number; projected_qty?: number; extra_qty?: number }>,
   ) => {
     if (!lotSalesData) return { dailyTotals, expanded: [] as ReturnType<typeof expandLotSalesToDailyAttendance> };
-    const totalDays = Math.max(1, lotSalesData.dates.length || (Math.max(0, ...localSessions.map(s => s.day_index)) + 1));
+    const totalDays = Math.max(1, lotSalesData.dates.length || (Math.max(0, ...simulatorSessions.map(s => s.day_index)) + 1));
 
     // Indexa lotes reais por zone_name para herdar applies_to_days e session_id (via lotSales)
     const zoneInfoByName = new Map<string, { applies_to_days: number | null; sale_day_index: number | null }>();
@@ -663,12 +705,12 @@ export default function EventSimulator() {
 
     // Combina vendas reais + projeção e expande por dia (combos → todos os dias)
     const zoneSet = new Map<string, { name: string }>();
-    localSessions.forEach((s) => zoneSet.set(s.zone_label, { name: s.zone_label }));
+    simulatorSessions.forEach((s) => zoneSet.set(s.zone_label, { name: s.zone_label }));
     lotSalesData.lotSales.forEach((s) => zoneSet.set(s.zone_name, { name: s.zone_name }));
     syntheticSales.forEach((s) => zoneSet.set(s.zone_name, { name: s.zone_name }));
 
     const courtesyMap = new Map<string, number>();
-    localSessions.forEach((s) => courtesyMap.set(`${s.day_index}|${s.zone_label}`, Number(s.courtesy_qty || 0)));
+    simulatorSessions.forEach((s) => courtesyMap.set(`${s.day_index}|${s.zone_label}`, Number(s.courtesy_qty || 0)));
 
     const expanded = expandLotSalesToDailyAttendance(
       [...lotSalesData.lotSales, ...syntheticSales],
@@ -690,11 +732,11 @@ export default function EventSimulator() {
 
   const beDaily = useMemo(
     () => buildDailyFromBreakdown(beSolution.breakdown ?? []),
-    [beSolution, lotSalesData, localSessions, localCfg?.combo_lot_keywords, dailyTotals],
+    [beSolution, lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, dailyTotals],
   );
   const fcDaily = useMemo(
     () => buildDailyFromBreakdown(fcSolution.breakdown ?? []),
-    [fcSolution, lotSalesData, localSessions, localCfg?.combo_lot_keywords, dailyTotals],
+    [fcSolution, lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, dailyTotals],
   );
   const beDailyTotals = beDaily.dailyTotals;
   const fcDailyTotals = fcDaily.dailyTotals;
@@ -906,7 +948,7 @@ export default function EventSimulator() {
             costLines={localCosts}
             dailyTotals={dailyTotals}
             ivaTable={ivaTable}
-            sessions={localSessions as any}
+            sessions={simulatorSessions as any}
             abModule={abModule as any}
             beSolution={{ totalQty: Object.values(beSolution.qtyByKey || {}).reduce((a, b) => a + Number(b || 0), 0), totalRevenue: Object.values(beSolution.revenueByKey || {}).reduce((a, b) => a + Number(b || 0), 0) }}
             fcSolution={{ totalQty: Object.values(fcSolution.qtyByKey || {}).reduce((a, b) => a + Number(b || 0), 0), totalRevenue: Object.values(fcSolution.revenueByKey || {}).reduce((a, b) => a + Number(b || 0), 0) }}
@@ -1621,6 +1663,7 @@ function ScenarioCard({ title, tone, rev, cost, res, kpis, extra, dailyTotals }:
   };
   const days: Array<[number, { paying: number; courtesy: number; total: number; date: string | null }]> = dailyTotals ?? [];
   const showDailyBreakdown = days.length > 1;
+  const dailyGrandTotal = days.reduce((sum, [, t]) => sum + Number(t.total || 0), 0);
   return (
     <Card className={toneCls}>
       <CardHeader className="pb-2">
@@ -1639,7 +1682,7 @@ function ScenarioCard({ title, tone, rev, cost, res, kpis, extra, dailyTotals }:
               </div>
             ))}
             <div className="flex justify-between text-xs text-muted-foreground border-t pt-1">
-              <span>Produtos vendidos</span><span className="tabular-nums">{fmtNum(kpis.totalPublic)}</span>
+              <span>Total presente</span><span className="tabular-nums">{fmtNum(dailyGrandTotal)}</span>
             </div>
           </>
         ) : (

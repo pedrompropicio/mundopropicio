@@ -109,13 +109,21 @@ export function expandLotSalesToDailyAttendance(
       comboKeywordsCsv,
       totalEventDays,
     );
-    if (sale.sale_day_index != null) {
-      // Zona vinculada a um dia específico do festival (via session_id).
-      // A venda conta SÓ nesse dia, mesmo que o lote seja combo
-      // (combos vivem em zonas próprias sem session_id).
+    if (sale.sale_day_index != null && days <= 1) {
+      // Bilhete simples em zona vinculada a um dia específico do festival.
       const cell = ensureCell(sale.sale_day_index, sale.zone_name);
       cell.paying += sale.qty;
       cell.total += sale.qty;
+    } else if (sale.sale_day_index != null) {
+      // Combo/Passe importado dentro da zona do sábado: conta 1 pessoa em
+      // cada dia coberto, não apenas no dia âncora da venda.
+      for (let offset = 0; offset < days; offset++) {
+        const day = sale.sale_day_index + offset;
+        if (day >= totalEventDays) break;
+        const cell = ensureCell(day, sale.zone_name);
+        cell.paying += sale.qty;
+        cell.total += sale.qty;
+      }
     } else {
       // Zona sem dia fixo (ex: "Passe 2 dias") → expande para N dias consecutivos.
       for (let offset = 0; offset < days; offset++) {
