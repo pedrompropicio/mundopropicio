@@ -157,12 +157,17 @@ export function expandLotSalesToDailyAttendance(
       cell.paying += sale.qty;
       cell.total += sale.qty;
     } else if (sale.sale_day_index != null) {
-      // Combo/Passe importado dentro da zona do sábado: conta 1 pessoa em
-      // cada dia coberto, não apenas no dia âncora da venda.
+      // Combo/Passe importado dentro da zona-âncora (ex: "Relvado — Sábado"):
+      // conta 1 pessoa em cada dia coberto. No dia âncora mantém a zona;
+      // nos restantes, tenta atribuir à zona-irmã do dia (ex: "Relvado —
+      // Domingo") para não duplicar público sob a etiqueta do sábado.
       for (let offset = 0; offset < days; offset++) {
         const day = sale.sale_day_index + offset;
         if (day >= totalEventDays) break;
-        const cell = ensureCell(day, sale.zone_name);
+        const targetLabel = offset === 0
+          ? sale.zone_name
+          : pickSiblingZoneLabel(sale.zone_name, dates[day]?.date ?? null, allZoneNames);
+        const cell = ensureCell(day, targetLabel);
         cell.paying += sale.qty;
         cell.total += sale.qty;
       }
