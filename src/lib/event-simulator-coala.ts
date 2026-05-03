@@ -433,11 +433,14 @@ export function solveBreakEven(
       : Number.POSITIVE_INFINITY;
 
     // Peso = potencial real de venda (mix entre zonas).
-    // Usamos qty/dia quando há histórico ≥2 dias; caso contrário (importação
-    // em batch / 1 dia) usamos qty real diretamente para preservar a
-    // proporção observada entre zonas.
+    // Quando há histórico ≥2 dias usamos qty/dia. Para 1 dia (importações
+    // em batch tipo Fever) NÃO usamos qty real como velocidade — isso
+    // sobrestima brutalmente. Usamos qty real só como peso relativo
+    // (dividido por uma janela conservadora) e deixamos o solver alocar.
     const days = Math.max(1, info?.days_selling ?? 1);
-    const realVelocity = days > 1 ? realQty / days : realQty;
+    const realVelocity = days > 1
+      ? realQty / days
+      : realQty / Math.max(1, Math.min(30, days)); // janela mín. de 30d quando só há 1 dia
     const proxyVelocity = n(s.projected_qty) + n(s.forecast_qty);
     const velocity = realVelocity > 0 ? realVelocity : proxyVelocity;
 
