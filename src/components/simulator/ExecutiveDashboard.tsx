@@ -22,6 +22,7 @@ import { FileText, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import { exportNodeToPdf } from "@/lib/event-simulator-view-pdf";
 import { toast } from "@/hooks/use-toast";
+import DailyAttendanceCard from "@/components/simulator/DailyAttendanceCard";
 
 const fmt = (v: number) => formatCurrency(Number.isFinite(v) ? v : 0);
 const fmtNum = (v: number) =>
@@ -49,6 +50,10 @@ interface Props {
   abModule: { hasConfig: boolean; totals: { real: any; breakeven: any; forecast: any } | null };
   beSolution?: { totalQty?: number; totalRevenue?: number };
   fcSolution?: { totalQty?: number; totalRevenue?: number };
+  /** ID do evento — para puxar público/dia canónico (Simples vs Combo expandido). */
+  eventId?: string;
+  /** Capacidade total por dia (soma das zonas) — opcional, para mostrar ocupação. */
+  dailyCapacity?: number;
   /** Comparativo entre cidades (apenas para vista Master/Turnê). */
   tourBreakdowns?: Array<{
     name: string;
@@ -165,6 +170,7 @@ export default function ExecutiveDashboard(props: Props) {
     breakeven, beCosts, beRes, beKpis,
     forecast, fcCosts, fcRes, fcKpis,
     costLines, dailyTotals, sessions, abModule, beSolution, fcSolution, tourBreakdowns,
+    eventId, dailyCapacity,
   } = props;
 
   const [active, setActive] = useState<ScenarioKey>("real");
@@ -639,6 +645,9 @@ export default function ExecutiveDashboard(props: Props) {
             </div>
           </CardContent>
         </Card>
+
+        {/* Linha 3.5 — Público por dia (fonte canónica useEventAttendance) */}
+        {eventId ? <DailyAttendanceCard eventId={eventId} dailyCapacity={dailyCapacity} /> : null}
 
         {/* Linha 4 — Gráficos */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">

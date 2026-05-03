@@ -891,6 +891,7 @@ export default function EventSimulator() {
         <TabsContent value="dashboard">
           <ExecutiveDashboard
             eventName={event?.name ?? ""}
+            eventId={eventId}
             today={today} todayCosts={todayCosts} todayRes={todayRes} todayKpis={todayKpis}
             breakeven={breakeven} beCosts={beCosts} beRes={beRes} beKpis={beKpis}
             forecast={forecast} fcCosts={fcCosts} fcRes={fcRes} fcKpis={fcKpis}
