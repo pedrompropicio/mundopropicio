@@ -1853,8 +1853,8 @@ function SimulatorDashboard({
 
   const scenarioChart = [
     { name: "Hoje", Receita: today.totalRevenue, Custo: todayCosts.totalCost, Resultado: todayRes.general },
-    { name: "Break Even", Receita: breakevenV2.totalRevenue, Custo: beCosts.totalCost, Resultado: beRes.general },
-    { name: "Forecast", Receita: forecastV2.totalRevenue, Custo: fcCosts.totalCost, Resultado: fcRes.general },
+    { name: "Break Even", Receita: breakeven.totalRevenue, Custo: beCosts.totalCost, Resultado: beRes.general },
+    { name: "Forecast", Receita: forecast.totalRevenue, Custo: fcCosts.totalCost, Resultado: fcRes.general },
   ];
 
   const revenueMix = [
