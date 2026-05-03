@@ -1011,7 +1011,6 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
                     <td className="py-2.5 text-right font-mono font-semibold text-success pl-6">{formatCurrency(gross)}</td>
                   </tr>
                 );
-                );
                 });
               })()}
             </tbody>
