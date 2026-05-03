@@ -617,26 +617,42 @@ export function solveForecast(
   const breakdown: ForecastBreakdownItem[] = [];
   let hasCapacityPlan = false;
 
+  // Agrupa por zone_label: a capacidade e o ritmo de venda da zona são
+  // únicos mesmo quando o sync cria 1 linha por dia (caso típico das zonas
+  // combo/passe). Sem este agrupamento o forecast inflaria o dia em que
+  // o sync depositou as vendas reais (ex: sábado).
+  const groupIndexes = new Map<string, number[]>();
+  sessions.forEach((s, i) => {
+    const arr = groupIndexes.get(s.zone_label) ?? [];
+    arr.push(i);
+    groupIndexes.set(s.zone_label, arr);
+  });
+
   for (const s of sessions) {
     const key = `${s.day_index}-${s.zone_label}`;
     const info = lotInfoByKey?.[key] ?? lotInfoByKey?.[s.zone_label];
+    const groupIdxs = groupIndexes.get(s.zone_label) ?? [];
+    const isAnchor = groupIdxs[0] === sessions.indexOf(s);
     const realQty = sessionTodayQty(s);
     const realRev = sessionTodayRevenue(s);
+    const realQtyZone = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
     const courtesy = n(s.courtesy_qty);
     const manualFloor = Math.max(0, n(s.forecast_qty) - courtesy);
 
     const hasCapacity = (info?.capacity ?? 0) > 0;
     if (hasCapacity) hasCapacityPlan = true;
-    const capLeft = hasCapacity
-      ? Math.max(0, info!.capacity - realQty)
-      : Number.POSITIVE_INFINITY;
+    // Capacidade da zona é única — só o anchor "abre" a capacidade.
+    const capLeft = isAnchor
+      ? (hasCapacity ? Math.max(0, info!.capacity - realQtyZone) : Number.POSITIVE_INFINITY)
+      : 0;
 
     const daysSelling = Math.max(1, info?.days_selling ?? 1);
     // Para histórico de 1 dia (importação Fever em batch) usamos uma janela
     // mínima de 30 dias — caso contrário a velocidade fica artificialmente
     // alta (todas as vendas num único dia) e o forecast explode.
     const velocityWindow = daysSelling > 1 ? daysSelling : Math.max(30, FORECAST_RECENT_WINDOW_DAYS);
-    const recentVelocity = realQty / velocityWindow;
+    // Velocidade da ZONA (todas as duplicatas), atribuída ao anchor.
+    const recentVelocity = isAnchor ? realQtyZone / velocityWindow : 0;
 
     const baseProjection = recentVelocity * baseWindow;
     const finalProjection = recentVelocity * finalAccel * finalWindow;
