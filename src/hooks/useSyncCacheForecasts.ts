@@ -250,7 +250,7 @@ async function syncTourCacheForecasts(
   const allTargetIds = [...childEventIds, masterEventId];
   const { data: existingForecasts } = await supabase
     .from("event_forecasts")
-    .select("id, event_id, cache_config_id, amount, type, category_id")
+    .select("id, event_id, cache_config_id, amount, type, category_id, status, transaction_id")
     .in("event_id", allTargetIds)
     .not("cache_config_id", "is", null).is("version_id", null);
 
