@@ -1003,6 +1003,9 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         </div>
       )}
 
+      {/* Cortesias por dia × zona × cenário (Real / Break Even / Projecção) */}
+      {!isScenarioMode && <EventCourtesiesEditor eventId={eventId} />}
+
       <AlertDialog open={!!deletingOfficeId} onOpenChange={() => setDeletingOfficeId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
