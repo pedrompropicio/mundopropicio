@@ -495,9 +495,13 @@ export function solveBreakEven(
     let progressed = false;
 
     for (const sl of active) {
+      if (remainingDeficit <= 0.005) break;
       const share = remainingDeficit * (sl.weight / sumW);
-      // Quantos bilhetes para cobrir essa fatia, respeitando lote atual + capacidade
-      let toAlloc = Math.ceil(share / sl.margin);
+      // Quantos bilhetes para cobrir essa fatia, respeitando lote atual + capacidade.
+      // Usamos Math.ceil mas limitamos ao défice GLOBAL restante (não só ao share)
+      // para evitar overshoot quando muitos slots arredondam para cima em simultâneo.
+      const maxByGlobalDeficit = Math.ceil(remainingDeficit / sl.margin);
+      let toAlloc = Math.min(Math.ceil(share / sl.margin), maxByGlobalDeficit);
       if (toAlloc <= 0) continue;
       toAlloc = Math.min(toAlloc, sl.capLeft);
       // Limita ao stock do próximo lote (depois recalculamos preço marginal)
