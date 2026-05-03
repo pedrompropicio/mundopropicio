@@ -95,7 +95,7 @@ export function useEventAttendance(
       if (zoneIds.length === 0) return [];
       const { data, error } = await supabase
         .from("event_ticket_lots")
-        .select("id, zone_id, quantity, lot_kind, is_combo, consumes_zone_ids")
+        .select("id, zone_id, quantity, lot_kind, is_combo, consumes_zone_ids, applies_to_days")
         .in("zone_id", zoneIds)
         .is("version_id", null);
       if (error) throw error;
@@ -169,13 +169,14 @@ export function useEventAttendance(
     for (const z of zones) zoneName.set(z.id, z.name);
 
     // lot_id → { zone_id, kind, qty, is_combo, consumes_zone_ids }
-    const lotById = new Map<string, { zone_id: string; kind: string; qty: number; is_combo: boolean; consumes: string[] }>();
+    const lotById = new Map<string, { zone_id: string; kind: string; qty: number; is_combo: boolean; applies_to_days: number; consumes: string[] }>();
     for (const l of lots as any[]) {
       lotById.set(l.id, {
         zone_id: l.zone_id,
         kind: l.lot_kind || (l.is_combo ? "combo" : "simple"),
         qty: Number(l.quantity || 0),
         is_combo: !!l.is_combo,
+        applies_to_days: Math.max(1, Number(l.applies_to_days || (l.is_combo ? dates.length : 1))),
         consumes: (l.consumes_zone_ids ?? []) as string[],
       });
     }
@@ -222,16 +223,23 @@ export function useEventAttendance(
       const meta = mv.lot_id ? lotById.get(mv.lot_id) : undefined;
       const isCombo = !!meta?.is_combo;
       if (isCombo) {
-        // 1 venda combo = 1 pessoa em CADA zona consumida (que é tipicamente
-        // uma zona-dia distinta, ou a própria zona âncora se a lista vier vazia).
+        // 1 venda combo = 1 pessoa em CADA dia coberto. Se houver
+        // consumes_zone_ids explícitos, respeitamos essa matriz; caso
+        // contrário expandimos a partir do dia da zona âncora.
         const consumed = meta!.consumes.length ? meta!.consumes : [meta!.zone_id];
         for (const zid of consumed) {
           const dayIdx = zoneDayIdx.get(zid);
           if (dayIdx == null) {
             // Zona sem session_id → assume todos os dias
             for (let d = 0; d < dates.length; d++) ensure(d, zid).paying += mv.qty;
-          } else if (dayIdx >= 0 && dayIdx < dates.length) {
-            ensure(dayIdx, zid).paying += mv.qty;
+          } else if (meta!.consumes.length) {
+            if (dayIdx >= 0 && dayIdx < dates.length) ensure(dayIdx, zid).paying += mv.qty;
+          } else {
+            for (let offset = 0; offset < meta!.applies_to_days; offset++) {
+              const d = dayIdx + offset;
+              if (d >= dates.length) break;
+              ensure(d, zid).paying += mv.qty;
+            }
           }
         }
       } else {
