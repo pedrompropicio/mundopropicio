@@ -49,6 +49,18 @@ interface Props {
   abModule: { hasConfig: boolean; totals: { real: any; breakeven: any; forecast: any } | null };
   beSolution?: { totalQty?: number; totalRevenue?: number };
   fcSolution?: { totalQty?: number; totalRevenue?: number };
+  /** Comparativo entre cidades (apenas para vista Master/Turnê). */
+  tourBreakdowns?: Array<{
+    name: string;
+    publico: number;
+    ticketMedio: number;
+    abPerPerson: number;
+    receita: number;
+    custo: number;
+    resultado: number;
+    margem: number;
+    breakEvenQty: number;
+  }>;
 }
 
 /* Tone-aware number cell */
