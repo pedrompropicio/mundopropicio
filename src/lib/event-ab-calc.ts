@@ -93,18 +93,22 @@ export function computeZone(zone: ABZoneInput): ABZoneResult {
       participants,
       faturacaoBebidas: 0,
       receitaBebidas: 0,
+      parteGeradorBebidas: 0,
       custoBebidas: 0,
     };
   }
   const fat = participants * num(zone.per_capita_bebidas);
   const repasse = num(zone.repasse_bebidas_pct) / 100;
+  const receita = fat * repasse;
+  const parteGerador = fat - receita;
   return {
     id: zone.id,
     zone_label: zone.zone_label,
     participants,
     faturacaoBebidas: fat,
-    receitaBebidas: fat * repasse,
-    custoBebidas: fat * (1 - repasse),
+    receitaBebidas: receita,
+    parteGeradorBebidas: parteGerador,
+    custoBebidas: 0, // modelo concessão: casa não tem custo
   };
 }
 
@@ -113,7 +117,7 @@ export function computeTotals(zones: ABZoneInput[], food: ABFoodConfig): ABTotal
 
   const faturacaoBebidas = zoneResults.reduce((s, z) => s + z.faturacaoBebidas, 0);
   const receitaBebidas = zoneResults.reduce((s, z) => s + z.receitaBebidas, 0);
-  const custoBebidas = zoneResults.reduce((s, z) => s + z.custoBebidas, 0);
+  const parteGeradorBebidas = zoneResults.reduce((s, z) => s + z.parteGeradorBebidas, 0);
 
   const participantesElegiveisAlimentos = zones
     .filter((z) => !z.open_food)
@@ -122,29 +126,33 @@ export function computeTotals(zones: ABZoneInput[], food: ABFoodConfig): ABTotal
   const faturacaoAlimentos = participantesElegiveisAlimentos * num(food.per_capita_alimentos);
   const repAli = num(food.repasse_alimentos_pct) / 100;
   const receitaAlimentos = num(food.fee_alimentos) + faturacaoAlimentos * repAli;
-  const custoAlimentos = faturacaoAlimentos * (1 - repAli);
+  const parteGeradorAlimentos = faturacaoAlimentos - faturacaoAlimentos * repAli;
 
   const faturacaoTotal = faturacaoBebidas + faturacaoAlimentos;
   const receitaTotal = receitaBebidas + receitaAlimentos;
-  const custoTotal = custoBebidas + custoAlimentos;
-  const resultadoTotal = receitaTotal - custoTotal;
-  const margemPct = receitaTotal > 0 ? (resultadoTotal / receitaTotal) * 100 : 0;
+  const parteGeradorTotal = parteGeradorBebidas + parteGeradorAlimentos;
+  const resultadoTotal = receitaTotal; // custo da casa = 0
+  const margemPct = faturacaoTotal > 0 ? (receitaTotal / faturacaoTotal) * 100 : 0;
 
   return {
     zones: zoneResults,
     faturacaoBebidas,
     receitaBebidas,
-    custoBebidas,
-    resultadoBebidas: receitaBebidas - custoBebidas,
+    parteGeradorBebidas,
     participantesElegiveisAlimentos,
     faturacaoAlimentos,
     receitaAlimentos,
-    custoAlimentos,
-    resultadoAlimentos: receitaAlimentos - custoAlimentos,
+    parteGeradorAlimentos,
     faturacaoTotal,
     receitaTotal,
-    custoTotal,
+    parteGeradorTotal,
     resultadoTotal,
     margemPct,
+    // legado
+    custoBebidas: 0,
+    custoAlimentos: 0,
+    custoTotal: 0,
+    resultadoBebidas: receitaBebidas,
+    resultadoAlimentos: receitaAlimentos,
   };
 }
