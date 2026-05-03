@@ -31,6 +31,7 @@ import {
 } from "@/lib/event-simulator-coala";
 import { syncSimulatorFromSources } from "@/lib/event-simulator-sync";
 import { expandLotSalesToDailyAttendance, type LotSale } from "@/lib/event-simulator-combos";
+import { comboPassesToLotSales } from "@/lib/event-simulator-combo-bridge";
 import { loadSponsors, type SponsorRow } from "@/lib/event-simulator-sponsors";
 import { exportSimulatorToXlsx, exportSimulatorToPdf, type SimulatorExportData } from "@/lib/event-simulator-export";
 import { exportNodeToPdf } from "@/lib/event-simulator-view-pdf";
