@@ -385,7 +385,7 @@ export default function EventABTab({ eventId }: Props) {
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{fmtEUR(r?.faturacaoBebidas ?? 0)}</TableCell>
                       <TableCell className="text-right tabular-nums text-primary">{fmtEUR(r?.receitaBebidas ?? 0)}</TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">{fmtEUR(r?.custoBebidas ?? 0)}</TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">{fmtEUR(r?.parteGeradorBebidas ?? 0)}</TableCell>
                       <TableCell>
                         <Button size="icon" variant="ghost" onClick={() => deleteZone.mutate(z.id)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -398,7 +398,7 @@ export default function EventABTab({ eventId }: Props) {
                   <TableCell colSpan={7}>Totais Bebidas</TableCell>
                   <TableCell className="text-right tabular-nums">{fmtEUR(totals.faturacaoBebidas)}</TableCell>
                   <TableCell className="text-right tabular-nums text-primary">{fmtEUR(totals.receitaBebidas)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{fmtEUR(totals.custoBebidas)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fmtEUR(totals.parteGeradorBebidas)}</TableCell>
                   <TableCell />
                 </TableRow>
               </TableBody>
