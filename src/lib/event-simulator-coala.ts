@@ -329,11 +329,14 @@ export function computeScenarioResult(
 // ---------- Indicadores per capita ----------
 
 export type ScenarioKpis = {
+  /** Presenças × dia (combos expandidos) — alinhado com aba "Público diário". */
   totalPublic: number;
-  tmTickets: number;
-  tmAB: number;
-  costPerPerson: number;
-  resultPerPerson: number;
+  /** Bilhetes únicos vendidos (1 combo = 1 bilhete). */
+  uniqueTickets: number;
+  tmTickets: number;       // receita / bilhetes únicos (preço médio do bilhete)
+  tmAB: number;            // A&B / presenças (consumo médio por pessoa-dia)
+  costPerPerson: number;   // custo total / presenças
+  resultPerPerson: number; // resultado / presenças
 };
 
 export function computeScenarioKpis(
@@ -341,14 +344,17 @@ export function computeScenarioKpis(
   cost: ScenarioCosts,
   result: ScenarioResult,
 ): ScenarioKpis {
-  const totalPublic = rev.ticketsQty + rev.courtesyQty;
-  const div = totalPublic > 0 ? totalPublic : 0;
+  const uniqueTickets = rev.ticketsQty + rev.courtesyQty;
+  const totalPublic = rev.attendanceQty + rev.attendanceCourtesyQty;
+  const divTickets = uniqueTickets > 0 ? uniqueTickets : 0;
+  const divAttendance = totalPublic > 0 ? totalPublic : 0;
   return {
     totalPublic,
-    tmTickets: div ? rev.ticketsRevenue / rev.ticketsQty : 0,
-    tmAB: div ? (rev.drinkRevenue + rev.foodRevenue) / div : 0,
-    costPerPerson: div ? cost.totalCost / div : 0,
-    resultPerPerson: div ? result.general / div : 0,
+    uniqueTickets,
+    tmTickets: divTickets ? rev.ticketsRevenue / rev.ticketsQty : 0,
+    tmAB: divAttendance ? (rev.drinkRevenue + rev.foodRevenue) / divAttendance : 0,
+    costPerPerson: divAttendance ? cost.totalCost / divAttendance : 0,
+    resultPerPerson: divAttendance ? result.general / divAttendance : 0,
   };
 }
 
