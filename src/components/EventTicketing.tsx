@@ -25,7 +25,7 @@ import { BPScenarioSelector } from "@/components/bp-versions/BPScenarioSelector"
 import { useBPVersions } from "@/hooks/useBPVersions";
 import { Sparkles } from "lucide-react";
 import { isComboAllowed, coerceLotKind } from "@/lib/combo-gating";
-import { validateLotAgainstCapacity } from "@/lib/combo-capacity";
+import { computeZoneAllocations, validateLotAgainstCapacity } from "@/lib/combo-capacity";
 
 interface Props {
   eventId: string;
@@ -529,6 +529,60 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   const totalIva = filteredZones.reduce((s, z) => s + getZoneIva(z.id), 0);
   const totalTickets = filteredZones.reduce((s, z) => s + getZoneTotalTickets(z.id), 0);
   const totalCapacity = filteredZones.reduce((s, z) => s + z.total_capacity, 0);
+
+  const zonePublicSummary = useMemo(() => {
+    const allocations = computeZoneAllocations(
+      sortedZones.map((z: any) => ({ id: z.id, name: z.name, total_capacity: z.total_capacity })),
+      allLots.map((l: any) => ({
+        id: l.id,
+        zone_id: l.zone_id,
+        quantity: l.quantity,
+        is_combo: !!l.is_combo || l.lot_kind === "combo",
+        consumes_zone_ids: l.consumes_zone_ids ?? [],
+      })),
+    );
+    const allocationByZone = new Map(allocations.map((a) => [a.zone_id, a]));
+    const revenueByAnchorZone = new Map<string, { tickets: number; gross: number; net: number; iva: number }>();
+    for (const z of sortedZones) revenueByAnchorZone.set(z.id, { tickets: 0, gross: 0, net: 0, iva: 0 });
+    for (const l of filteredLots as any[]) {
+      const rate = Number(l.iva_rate ?? 6);
+      const qty = Number(l.quantity) || 0;
+      const price = Number(l.price) || 0;
+      const current = revenueByAnchorZone.get(l.zone_id);
+      if (!current) continue;
+      current.tickets += qty;
+      current.gross += qty * price;
+      current.net += qty * netFromGross(price, rate);
+      current.iva += qty * ivaFromGross(price, rate);
+    }
+    return sortedZones.map((z: any) => ({
+      zone: z,
+      public: allocationByZone.get(z.id) ?? {
+        zone_id: z.id,
+        zone_name: z.name,
+        capacity: Number(z.total_capacity || 0),
+        used_simple: 0,
+        used_combo: 0,
+        used_total: 0,
+        remaining: Number(z.total_capacity || 0),
+        exceeded: false,
+      },
+      revenue: revenueByAnchorZone.get(z.id) ?? { tickets: 0, gross: 0, net: 0, iva: 0 },
+    }));
+  }, [allLots, filteredLots, sortedZones]);
+
+  const zonePublicTotals = useMemo(() => zonePublicSummary.reduce(
+    (acc, row) => ({
+      simple: acc.simple + row.public.used_simple,
+      combo: acc.combo + row.public.used_combo,
+      total: acc.total + row.public.used_total,
+      tickets: acc.tickets + row.revenue.tickets,
+      gross: acc.gross + row.revenue.gross,
+      net: acc.net + row.revenue.net,
+      iva: acc.iva + row.revenue.iva,
+    }),
+    { simple: 0, combo: 0, total: 0, tickets: 0, gross: 0, net: 0, iva: 0 },
+  ), [zonePublicSummary]);
 
   const inputClass = "w-full rounded border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50";
 
