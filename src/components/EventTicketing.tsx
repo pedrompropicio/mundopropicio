@@ -46,10 +46,11 @@ interface LotForm {
   iva_rate: string;
   lot_type: string;
   lot_kind: string; // 'simple' | 'combo'
+  consumes_zone_ids: string[]; // só relevante se lot_kind='combo'
 }
 
 const emptyZone: ZoneForm = { name: "", total_capacity: "" };
-const emptyLot: LotForm = { name: "", quantity: "", price: "", iva_rate: "6", lot_type: "regular", lot_kind: "simple" };
+const emptyLot: LotForm = { name: "", quantity: "", price: "", iva_rate: "6", lot_type: "regular", lot_kind: "simple", consumes_zone_ids: [] };
 
 const lotKindLabels: Record<string, string> = { simple: "Simples", combo: "Combo" };
 const lotKindBadgeClass: Record<string, string> = {
