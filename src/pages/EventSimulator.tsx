@@ -594,7 +594,7 @@ export default function EventSimulator() {
     return {
       eventName: event?.name ?? "Evento",
       subtitle: "3 cenários paralelos · Hoje (vendas reais) · Break Even · Forecast",
-      today, breakeven, forecast,
+      today: todayV2, breakeven: breakevenV2, forecast: forecastV2,
       todayCosts, beCosts, fcCosts,
       todayRes, beRes, fcRes,
       todayKpis, beKpis, fcKpis,
@@ -685,7 +685,10 @@ export default function EventSimulator() {
       }
     }
 
-    // Constrói "vendas sintéticas" a partir das projeções extras de cada zona
+    // Constrói "vendas sintéticas" a partir das projeções extras de cada zona.
+    // REGRA (decisão 2026-05-03): extras BE/Forecast contam SEMPRE como bilhete
+    // simples (applies_to_days=1) — só caem no dia âncora da zona, mesmo que a
+    // zona tenha combos. Conservador: não inflamos dias seguintes com projeções.
     const syntheticSales = breakdown
       .map((b) => {
         const extra = Number(b.projected_qty ?? b.extra_qty ?? 0);
@@ -693,11 +696,11 @@ export default function EventSimulator() {
         const info = zoneInfoByName.get(b.zone_label);
         return {
           lot_id: `proj-${b.zone_label}-${b.day_index}`,
-          lot_name: b.zone_label,
-          applies_to_days: info?.applies_to_days ?? 1,
+          lot_name: `__proj__${b.zone_label}`, // nome sem keywords combo
+          applies_to_days: 1,                  // força bilhete simples
           zone_id: `proj-${b.zone_label}`,
           zone_name: b.zone_label,
-          sale_day_index: info?.sale_day_index ?? null,
+          sale_day_index: info?.sale_day_index ?? b.day_index ?? null,
           qty: extra,
         };
       })
@@ -741,6 +744,42 @@ export default function EventSimulator() {
   const beDailyTotals = beDaily.dailyTotals;
   const fcDailyTotals = fcDaily.dailyTotals;
 
+  // ── Attendance × dia (combos expandidos) por cenário.
+  //    Usado para A&B fallback E como base dos KPIs (totalPublic, custo/pessoa, etc.).
+  //    Regra: 1 combo de N dias = N presenças (decisão 2026-05-03).
+  const sumDaily = (rows: Array<[number, { paying: number; courtesy: number; total: number; date: string | null }]>) =>
+    rows.reduce(
+      (a, [, t]) => ({ paying: a.paying + Number(t.paying || 0), courtesy: a.courtesy + Number(t.courtesy || 0) }),
+      { paying: 0, courtesy: 0 },
+    );
+  const todayAttendance = useMemo(() => {
+    const s = sumDaily(dailyTotals);
+    return { payingAttendance: s.paying, courtesyAttendance: s.courtesy };
+  }, [dailyTotals]);
+  const beAttendance = useMemo(() => {
+    const s = sumDaily(beDailyTotals);
+    return { payingAttendance: s.paying, courtesyAttendance: s.courtesy };
+  }, [beDailyTotals]);
+  const fcAttendance = useMemo(() => {
+    const s = sumDaily(fcDailyTotals);
+    return { payingAttendance: s.paying, courtesyAttendance: s.courtesy };
+  }, [fcDailyTotals]);
+
+  // Recalcular receita com attendance override (presenças × dia) — substitui
+  // os `today/breakeven/forecast` "preliminares" calculados acima.
+  const todayV2 = useMemo(
+    () => computeScenarioRevenue(calcSessions, calcCfg, "today", undefined, undefined, todayAttendance),
+    [calcSessions, calcCfg, todayAttendance],
+  );
+  const breakevenV2 = useMemo(
+    () => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolution.qtyByKey, beSolution.revenueByKey, beAttendance),
+    [calcSessions, calcCfg, beSolution, beAttendance],
+  );
+  const forecastV2 = useMemo(
+    () => computeScenarioRevenue(calcSessions, calcCfg, "forecast", fcSolution.qtyByKey, fcSolution.revenueByKey, fcAttendance),
+    [calcSessions, calcCfg, fcSolution, fcAttendance],
+  );
+
   // ── Participantes (pagantes + cortesia) por zona em cada cenário,
   //    para alimentar o módulo A&B canónico do evento.
   //    IMPORTANTE: usa a presença expandida (dailyAttendance/beDaily/fcDaily),
@@ -764,7 +803,7 @@ export default function EventSimulator() {
 
   const abModule = useEventABScenarios(event?.id, abParticipants);
 
-  const applyABModule = (rev: typeof today, scen: "real" | "breakeven" | "forecast") => {
+  const applyABModule = (rev: typeof todayV2, scen: "real" | "breakeven" | "forecast") => {
     if (!abModule.hasConfig || !abModule.totals) return rev;
     const t = abModule.totals[scen];
     const drink = t.receitaBebidas;
@@ -778,9 +817,9 @@ export default function EventSimulator() {
     };
   };
 
-  const todayAB = useMemo(() => applyABModule(today, "real"), [today, abModule]);
-  const beAB = useMemo(() => applyABModule(breakeven, "breakeven"), [breakeven, abModule]);
-  const fcAB = useMemo(() => applyABModule(forecast, "forecast"), [forecast, abModule]);
+  const todayAB = useMemo(() => applyABModule(todayV2, "real"), [todayV2, abModule]);
+  const beAB = useMemo(() => applyABModule(breakevenV2, "breakeven"), [breakevenV2, abModule]);
+  const fcAB = useMemo(() => applyABModule(forecastV2, "forecast"), [forecastV2, abModule]);
 
   const todayCosts = useMemo(() => {
     const base = computeScenarioCosts(calcCosts, todayAB, calcCfg, "today");
@@ -899,11 +938,11 @@ export default function EventSimulator() {
 
       {/* KPIs scenario summary */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <ScenarioCard title="Hoje (Edição 2026)" tone="muted" rev={today} cost={todayCosts} res={todayRes} kpis={todayKpis} dailyTotals={dailyTotals} />
+        <ScenarioCard title="Hoje (Edição 2026)" tone="muted" rev={todayV2} cost={todayCosts} res={todayRes} kpis={todayKpis} dailyTotals={dailyTotals} />
         <ScenarioCard
           title="Break Even"
           tone="warning"
-          rev={breakeven}
+          rev={breakevenV2}
           cost={beCosts}
           res={beRes}
           kpis={beKpis}
@@ -913,7 +952,7 @@ export default function EventSimulator() {
         <ScenarioCard
           title="Forecast"
           tone="success"
-          rev={forecast}
+          rev={forecastV2}
           cost={fcCosts}
           res={fcRes}
           kpis={fcKpis}
@@ -942,9 +981,9 @@ export default function EventSimulator() {
           <ExecutiveDashboard
             eventName={event?.name ?? ""}
             eventId={eventId}
-            today={today} todayCosts={todayCosts} todayRes={todayRes} todayKpis={todayKpis}
-            breakeven={breakeven} beCosts={beCosts} beRes={beRes} beKpis={beKpis}
-            forecast={forecast} fcCosts={fcCosts} fcRes={fcRes} fcKpis={fcKpis}
+            today={todayV2} todayCosts={todayCosts} todayRes={todayRes} todayKpis={todayKpis}
+            breakeven={breakevenV2} beCosts={beCosts} beRes={beRes} beKpis={beKpis}
+            forecast={forecastV2} fcCosts={fcCosts} fcRes={fcRes} fcKpis={fcKpis}
             costLines={localCosts}
             dailyTotals={dailyTotals}
             ivaTable={ivaTable}
@@ -1188,18 +1227,18 @@ export default function EventSimulator() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  <RevRow label="Bilhetes" prior={calcCfg.prior_year_tickets} a={today.ticketsRevenue} b={breakeven.ticketsRevenue} c={forecast.ticketsRevenue} />
-                  <RevRow label="A&B Bebida" prior={calcCfg.prior_year_drink} a={today.drinkRevenue} b={breakeven.drinkRevenue} c={forecast.drinkRevenue} />
-                  <RevRow label="A&B Alimento" prior={calcCfg.prior_year_food} a={today.foodRevenue} b={breakeven.foodRevenue} c={forecast.foodRevenue} />
-                  <RevRow label="Patrocínio" prior={calcCfg.prior_year_sponsor} a={today.sponsorRevenue} b={breakeven.sponsorRevenue} c={forecast.sponsorRevenue} />
-                  <RevRow label="Souvenir" prior={calcCfg.prior_year_souvenir} a={today.souvenirRevenue} b={breakeven.souvenirRevenue} c={forecast.souvenirRevenue} />
-                  <RevRow label="Outros Créditos" prior={calcCfg.prior_year_other} a={today.otherCredits} b={breakeven.otherCredits} c={forecast.otherCredits} />
+                  <RevRow label="Bilhetes" prior={calcCfg.prior_year_tickets} a={todayV2.ticketsRevenue} b={breakevenV2.ticketsRevenue} c={forecastV2.ticketsRevenue} />
+                  <RevRow label="A&B Bebida" prior={calcCfg.prior_year_drink} a={todayV2.drinkRevenue} b={breakevenV2.drinkRevenue} c={forecastV2.drinkRevenue} />
+                  <RevRow label="A&B Alimento" prior={calcCfg.prior_year_food} a={todayV2.foodRevenue} b={breakevenV2.foodRevenue} c={forecastV2.foodRevenue} />
+                  <RevRow label="Patrocínio" prior={calcCfg.prior_year_sponsor} a={todayV2.sponsorRevenue} b={breakevenV2.sponsorRevenue} c={forecastV2.sponsorRevenue} />
+                  <RevRow label="Souvenir" prior={calcCfg.prior_year_souvenir} a={todayV2.souvenirRevenue} b={breakevenV2.souvenirRevenue} c={forecastV2.souvenirRevenue} />
+                  <RevRow label="Outros Créditos" prior={calcCfg.prior_year_other} a={todayV2.otherCredits} b={breakevenV2.otherCredits} c={forecastV2.otherCredits} />
                   <TableRow className="font-bold border-t-2">
                     <TableCell>FATURAMENTO TOTAL</TableCell>
                     <TableCell className="text-right">{fmt(calcCfg.prior_year_tickets + calcCfg.prior_year_drink + calcCfg.prior_year_food + calcCfg.prior_year_sponsor + calcCfg.prior_year_souvenir + calcCfg.prior_year_other)}</TableCell>
                     <TableCell className="text-right">{fmt(today.totalRevenue)}</TableCell>
-                    <TableCell className="text-right">{fmt(breakeven.totalRevenue)}</TableCell>
-                    <TableCell className="text-right">{fmt(forecast.totalRevenue)}</TableCell>
+                    <TableCell className="text-right">{fmt(breakevenV2.totalRevenue)}</TableCell>
+                    <TableCell className="text-right">{fmt(forecastV2.totalRevenue)}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>

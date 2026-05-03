@@ -159,7 +159,7 @@ export function sessionForecastRevenue(s: CoalaSession): number {
 export type Scenario = "today" | "breakeven" | "forecast";
 
 export type ScenarioRevenue = {
-  ticketsQty: number;       // quantidade pagantes (sem cortesias)
+  ticketsQty: number;       // quantidade pagantes (sem cortesias) — bilhetes únicos
   ticketsRevenue: number;
   drinkRevenue: number;
   foodRevenue: number;
@@ -169,6 +169,18 @@ export type ScenarioRevenue = {
   totalRevenue: number;
   // cortesias (informativo)
   courtesyQty: number;
+  /** Presenças × dia (combos expandidos). Igual a ticketsQty quando não há combos. */
+  attendanceQty: number;
+  /** Presenças cortesias × dia. Igual a courtesyQty quando não há combos. */
+  attendanceCourtesyQty: number;
+};
+
+/** Override opcional vindo do helper de combos (presenças × dia já expandidas).
+ *  Quando fornecido, A&B usa estes valores e os campos `attendance*` reportam
+ *  presenças × dia. Sem override, presenças = bilhetes únicos. */
+export type AttendanceOverride = {
+  payingAttendance: number;   // presenças pagantes × dia
+  courtesyAttendance: number; // presenças cortesias × dia
 };
 
 function abForPublic(publicQty: number, cfg: CoalaConfig) {
@@ -187,6 +199,9 @@ export function computeScenarioRevenue(
   /** Receita de bilheteira por sessão (real + extras a preços marginais reais).
    *  Quando fornecido, substitui o cálculo qty × TM. */
   revenueByKey?: Record<string, number>,
+  /** Presenças × dia (combos expandidos) — alimenta A&B fallback e KPIs.
+   *  Quando ausente, usa pagantes únicos (legado). */
+  attendance?: AttendanceOverride,
 ): ScenarioRevenue {
   let ticketsQty = 0, ticketsRevenue = 0, courtesyQty = 0;
 
@@ -224,7 +239,11 @@ export function computeScenarioRevenue(
     }
   }
 
-  const publicForAB = ticketsQty + courtesyQty;
+  // Presenças × dia: usa override (combos expandidos) se fornecido,
+  // senão cai para pagantes únicos (compatibilidade).
+  const attendanceQty = attendance ? attendance.payingAttendance : ticketsQty;
+  const attendanceCourtesyQty = attendance ? attendance.courtesyAttendance : courtesyQty;
+  const publicForAB = attendanceQty + attendanceCourtesyQty;
   const ab = abForPublic(publicForAB, cfg);
 
 
@@ -241,6 +260,8 @@ export function computeScenarioRevenue(
       n(cfg.sponsorship_revenue) + n(cfg.souvenir_revenue) +
       n(cfg.bonif_bebidas) + n(cfg.ponto_vendido),
     courtesyQty,
+    attendanceQty,
+    attendanceCourtesyQty,
   };
 }
 
@@ -308,11 +329,14 @@ export function computeScenarioResult(
 // ---------- Indicadores per capita ----------
 
 export type ScenarioKpis = {
+  /** Presenças × dia (combos expandidos) — alinhado com aba "Público diário". */
   totalPublic: number;
-  tmTickets: number;
-  tmAB: number;
-  costPerPerson: number;
-  resultPerPerson: number;
+  /** Bilhetes únicos vendidos (1 combo = 1 bilhete). */
+  uniqueTickets: number;
+  tmTickets: number;       // receita / bilhetes únicos (preço médio do bilhete)
+  tmAB: number;            // A&B / presenças (consumo médio por pessoa-dia)
+  costPerPerson: number;   // custo total / presenças
+  resultPerPerson: number; // resultado / presenças
 };
 
 export function computeScenarioKpis(
@@ -320,14 +344,17 @@ export function computeScenarioKpis(
   cost: ScenarioCosts,
   result: ScenarioResult,
 ): ScenarioKpis {
-  const totalPublic = rev.ticketsQty + rev.courtesyQty;
-  const div = totalPublic > 0 ? totalPublic : 0;
+  const uniqueTickets = rev.ticketsQty + rev.courtesyQty;
+  const totalPublic = rev.attendanceQty + rev.attendanceCourtesyQty;
+  const divTickets = uniqueTickets > 0 ? uniqueTickets : 0;
+  const divAttendance = totalPublic > 0 ? totalPublic : 0;
   return {
     totalPublic,
-    tmTickets: div ? rev.ticketsRevenue / rev.ticketsQty : 0,
-    tmAB: div ? (rev.drinkRevenue + rev.foodRevenue) / div : 0,
-    costPerPerson: div ? cost.totalCost / div : 0,
-    resultPerPerson: div ? result.general / div : 0,
+    uniqueTickets,
+    tmTickets: divTickets ? rev.ticketsRevenue / rev.ticketsQty : 0,
+    tmAB: divAttendance ? (rev.drinkRevenue + rev.foodRevenue) / divAttendance : 0,
+    costPerPerson: divAttendance ? cost.totalCost / divAttendance : 0,
+    resultPerPerson: divAttendance ? result.general / divAttendance : 0,
   };
 }
 
