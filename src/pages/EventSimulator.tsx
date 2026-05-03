@@ -525,61 +525,9 @@ export default function EventSimulator() {
   const breakeven = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolution.qtyByKey, beSolution.revenueByKey), [calcSessions, calcCfg, beSolution]);
   const forecast = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "forecast", fcSolution.qtyByKey, fcSolution.revenueByKey), [calcSessions, calcCfg, fcSolution]);
 
-  // abParticipants é definido depois de dailyAttendance/beDaily/fcDaily —
-  // ver bloco abaixo de buildDailyFromBreakdown.
+  // abParticipants + bloco A&B movidos para depois de buildDailyFromBreakdown
+  // (usam dailyAttendance/beDaily/fcDaily expandidos com combos).
 
-
-  const abModule = useEventABScenarios(event?.id, abParticipants);
-
-  /** Aplica os totais do módulo A&B sobre uma ScenarioRevenue. Quando o módulo
-   *  está configurado, drinkRevenue + foodRevenue passam a refletir o que cabe
-   *  ao evento (Receita A&B). O custo (repasse ao operador) é tratado depois
-   *  via abCostOverride em computeScenarioCosts. */
-  const applyABModule = (rev: typeof today, scen: "real" | "breakeven" | "forecast") => {
-    if (!abModule.hasConfig || !abModule.totals) return rev;
-    const t = abModule.totals[scen];
-    // separar receita por categoria mantendo a soma fiel à Receita Total A&B
-    const drink = t.receitaBebidas;
-    const food = t.receitaAlimentos;
-    return {
-      ...rev,
-      drinkRevenue: drink,
-      foodRevenue: food,
-      totalRevenue:
-        rev.totalRevenue - rev.drinkRevenue - rev.foodRevenue + drink + food,
-    };
-  };
-
-  const todayAB = useMemo(() => applyABModule(today, "real"), [today, abModule]);
-  const beAB = useMemo(() => applyABModule(breakeven, "breakeven"), [breakeven, abModule]);
-  const fcAB = useMemo(() => applyABModule(forecast, "forecast"), [forecast, abModule]);
-
-  const todayCosts = useMemo(() => {
-    const base = computeScenarioCosts(calcCosts, todayAB, calcCfg, "today");
-    if (abModule.hasConfig && abModule.totals) return { ...base, abCost: abModule.totals.real.custoTotal, totalCost: base.eventCosts + abModule.totals.real.custoTotal + base.souvenirCost };
-    return base;
-  }, [calcCosts, todayAB, calcCfg, abModule]);
-  const beCosts = useMemo(() => {
-    const base = computeScenarioCosts(calcCosts, beAB, calcCfg, "breakeven");
-    if (abModule.hasConfig && abModule.totals) return { ...base, abCost: abModule.totals.breakeven.custoTotal, totalCost: base.eventCosts + abModule.totals.breakeven.custoTotal + base.souvenirCost };
-    return base;
-  }, [calcCosts, beAB, calcCfg, abModule]);
-  const fcCosts = useMemo(() => {
-    const base = computeScenarioCosts(calcCosts, fcAB, calcCfg, "forecast");
-    if (abModule.hasConfig && abModule.totals) return { ...base, abCost: abModule.totals.forecast.custoTotal, totalCost: base.eventCosts + abModule.totals.forecast.custoTotal + base.souvenirCost };
-    return base;
-  }, [calcCosts, fcAB, calcCfg, abModule]);
-
-  // Re-bind para que todo o resto da página leia as versões A&B-override
-  const todayRev = todayAB; const beRev = beAB; const fcRev = fcAB;
-
-  const todayRes = useMemo(() => computeScenarioResult(todayRev, todayCosts), [todayRev, todayCosts]);
-  const beRes = useMemo(() => computeScenarioResult(beRev, beCosts), [beRev, beCosts]);
-  const fcRes = useMemo(() => computeScenarioResult(fcRev, fcCosts), [fcRev, fcCosts]);
-
-  const todayKpis = useMemo(() => computeScenarioKpis(todayRev, todayCosts, todayRes), [todayRev, todayCosts, todayRes]);
-  const beKpis = useMemo(() => computeScenarioKpis(beRev, beCosts, beRes), [beRev, beCosts, beRes]);
-  const fcKpis = useMemo(() => computeScenarioKpis(fcRev, fcCosts, fcRes), [fcRev, fcCosts, fcRes]);
 
   const ivaTable = useMemo(() => computeIvaTable(calcSessions), [calcSessions]);
 
