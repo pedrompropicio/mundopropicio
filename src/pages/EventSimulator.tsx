@@ -803,6 +803,11 @@ export default function EventSimulator() {
     return <div className="flex h-96 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
+  // Despacho: se for Master de turnê e modo turnê activo, renderiza TourSimulator
+  if (isTourMaster && tourMode) {
+    return <TourSimulator masterEvent={event} splits={subEvents as any} />;
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
