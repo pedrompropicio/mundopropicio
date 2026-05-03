@@ -608,7 +608,11 @@ export function solveForecast(
       : Number.POSITIVE_INFINITY;
 
     const daysSelling = Math.max(1, info?.days_selling ?? 1);
-    const recentVelocity = daysSelling > 1 ? realQty / daysSelling : realQty;
+    // Para histórico de 1 dia (importação Fever em batch) usamos uma janela
+    // mínima de 30 dias — caso contrário a velocidade fica artificialmente
+    // alta (todas as vendas num único dia) e o forecast explode.
+    const velocityWindow = daysSelling > 1 ? daysSelling : Math.max(30, FORECAST_RECENT_WINDOW_DAYS);
+    const recentVelocity = realQty / velocityWindow;
 
     const baseProjection = recentVelocity * baseWindow;
     const finalProjection = recentVelocity * finalAccel * finalWindow;
