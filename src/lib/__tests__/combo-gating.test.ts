@@ -57,7 +57,7 @@ describe("combo-gating: coerceLotKind", () => {
     expect(coerceLotKind("combo", okGating)).toBe("combo");
   });
 
-  it("força simple quando o utilizador escolhe combo num evento simples 1 dia", () => {
+  it("força simple quando o utilizador escolhe combo num evento simples", () => {
     expect(
       coerceLotKind("combo", { event_type: "simple", parent_event_id: null, event_dates_count: 1 }),
     ).toBe("simple");
