@@ -289,9 +289,9 @@ async function syncTourCacheForecasts(
   }
 
   // Map existing cache forecasts: key = `${event_id}:${cache_config_id}`
-  const existingMap = new Map<string, { id: string; amount: number }>();
+  const existingMap = new Map<string, { id: string; amount: number; status?: string; transaction_id?: string | null }>();
   for (const f of (existingForecasts ?? [])) {
-    existingMap.set(`${f.event_id}:${f.cache_config_id}`, { id: f.id, amount: Number(f.amount) });
+    existingMap.set(`${f.event_id}:${f.cache_config_id}`, { id: f.id, amount: Number(f.amount), status: (f as any).status, transaction_id: (f as any).transaction_id });
   }
 
   let changed = false;
