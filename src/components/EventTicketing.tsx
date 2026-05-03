@@ -362,16 +362,11 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       // capacidade considerando ALOCAÇÃO via combo passes (1 combo lot = 1 unidade em CADA zona ligada).
       const [
         { data: allZones, error: zonesError },
-        { data: simpleLots },
         { data: combos },
-        { data: comboZones },
         { data: comboLots },
       ] = await Promise.all([
         supabase.from("event_ticket_zones").select("id, name, total_capacity").eq("event_id", eventId),
-        supabase.from("event_ticket_lots").select("id, zone_id, quantity, lot_number")
-          .in("zone_id", []).limit(0), // placeholder; refeito abaixo
-        supabase.from("event_combo_passes" as any).select("id").eq("event_id", eventId).is("version_id", null),
-        supabase.from("event_combo_pass_zones" as any).select("combo_pass_id, zone_id"),
+        supabase.from("event_combo_passes" as any).select("id, zone_id").eq("event_id", eventId).is("version_id", null),
         supabase.from("event_combo_pass_lots" as any).select("id, combo_pass_id, quantity").is("version_id", null),
       ]);
       if (zonesError) throw zonesError;
@@ -385,7 +380,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
 
       const comboList = ((combos ?? []) as any[]).map((c) => ({
         id: c.id,
-        zone_ids: ((comboZones ?? []) as any[]).filter((z) => z.combo_pass_id === c.id).map((z) => z.zone_id),
+        zone_id: c.zone_id,
       }));
       const err = validateSimpleLotAgainstCapacity(
         zoneId,

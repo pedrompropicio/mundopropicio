@@ -140,7 +140,7 @@ export function useEventAttendance(
       if (!eventId) return [];
       const { data, error } = await supabase
         .from("event_combo_passes" as any)
-        .select("id, applies_to_days")
+        .select("id, zone_id, applies_to_days")
         .eq("event_id", eventId)
         .is("version_id", null);
       if (error) throw error;
@@ -150,20 +150,6 @@ export function useEventAttendance(
   });
 
   const comboPassIds = comboPasses.map((p: any) => p.id);
-
-  const { data: comboPassZones = [] } = useQuery({
-    queryKey: ["event_combo_pass_zones_attendance", eventId, comboPassIds.join(",")],
-    queryFn: async () => {
-      if (comboPassIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("event_combo_pass_zones" as any)
-        .select("combo_pass_id, zone_id")
-        .in("combo_pass_id", comboPassIds);
-      if (error) throw error;
-      return (data ?? []) as any[];
-    },
-    enabled: comboPassIds.length > 0,
-  });
 
   const { data: comboPassLots = [] } = useQuery({
     queryKey: ["event_combo_pass_lots_attendance", eventId, comboPassIds.join(",")],
