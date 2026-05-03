@@ -158,15 +158,41 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
     enabled: zones.length > 0,
   });
 
-  // Fetch event data for last_sales_date
+  // Fetch event data for last_sales_date + event_type + parent (gating do Combo)
   const { data: eventData } = useQuery({
     queryKey: ["event-ticketing-meta", eventId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("events").select("last_sales_date").eq("id", eventId).single();
+      const { data, error } = await supabase
+        .from("events")
+        .select("last_sales_date, event_type, parent_event_id")
+        .eq("id", eventId)
+        .single();
       if (error) throw error;
       return data;
     },
   });
+
+  // Datas do evento — necessárias para saber se é multi-dia
+  const { data: eventDates = [] } = useQuery({
+    queryKey: ["event-ticketing-dates", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_dates")
+        .select("id")
+        .eq("event_id", eventId);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  // Combo só faz sentido em FESTIVAL multi-dia (>1 data) e não em sub-eventos de turnê.
+  const comboAllowed = useMemo(() => {
+    if (!eventData) return false;
+    const isFestival = (eventData as any).event_type === "festival";
+    const isMultiDay = eventDates.length > 1;
+    const isTourSplit = !!(eventData as any).parent_event_id;
+    return isFestival && isMultiDay && !isTourSplit;
+  }, [eventData, eventDates]);
 
   // === Ticket Offices queries & mutations ===
   const { data: officeAssignments = [] } = useQuery({
@@ -357,7 +383,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         iva_rate: parseInt(form.iva_rate) || 6,
         lot_number: nextLotNumber,
         lot_type: form.lot_type || "regular",
-        lot_kind: form.lot_kind === "combo" ? "combo" : "simple",
+        lot_kind: comboAllowed && form.lot_kind === "combo" ? "combo" : "simple",
         version_id: selectedVersionId, // null=Active, uuid=scenario sandbox
       };
       if (id) {
@@ -409,7 +435,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   };
 
   const startEditLot = (l: any) => {
-    setLotForm({ name: l.name, quantity: String(l.quantity), price: String(l.price), iva_rate: String(l.iva_rate ?? 6), lot_type: l.lot_type || "regular", lot_kind: l.lot_kind === "combo" ? "combo" : "simple" });
+    setLotForm({ name: l.name, quantity: String(l.quantity), price: String(l.price), iva_rate: String(l.iva_rate ?? 6), lot_type: l.lot_type || "regular", lot_kind: comboAllowed && l.lot_kind === "combo" ? "combo" : "simple" });
     setEditingLotId(l.id);
     setAddingLotForZone(null);
   };
@@ -499,10 +525,12 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
           <td className="py-1.5 pr-2">
             <div className="flex items-center gap-1.5">
               <input ref={lotNameRef} value={lotForm.name} onChange={(e) => setLotForm({ ...lotForm, name: e.target.value })} className={inputClass} placeholder="Nome do lote…" autoFocus />
-              <select value={lotForm.lot_kind} onChange={(e) => setLotForm({ ...lotForm, lot_kind: e.target.value })} className={`${inputClass} w-24`} title="Tipo: Simples (1 dia) ou Combo (todos os dias)">
-                <option value="simple">Simples</option>
-                <option value="combo">Combo</option>
-              </select>
+              {comboAllowed && (
+                <select value={lotForm.lot_kind} onChange={(e) => setLotForm({ ...lotForm, lot_kind: e.target.value })} className={`${inputClass} w-24`} title="Tipo: Simples (1 dia) ou Combo/Passe (todos os dias do festival)">
+                  <option value="simple">Simples</option>
+                  <option value="combo">Combo</option>
+                </select>
+              )}
               <select value={lotForm.lot_type} onChange={(e) => setLotForm({ ...lotForm, lot_type: e.target.value })} className={`${inputClass} w-24`}>
                 <option value="regular">Regular</option>
                 <option value="promo">Promo</option>
@@ -594,6 +622,22 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
             <p className="text-muted-foreground text-xs mt-0.5">
               As alterações em zonas e lotes ficam isoladas neste cenário e não afetam a Versão Ativa em produção.
               As vendas reais (Log de Vendas) continuam vinculadas à Versão Ativa.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Banner Combo/Passe — só em festivais multi-dia */}
+      {comboAllowed && (
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 flex items-start gap-3">
+          <div className="rounded-full bg-primary/15 p-2 shrink-0">
+            <Layers className="h-4 w-4 text-primary" />
+          </div>
+          <div className="text-sm">
+            <p className="font-semibold text-primary">Festival multi-dia — bilhetes Combo/Passe disponíveis</p>
+            <p className="text-muted-foreground text-xs mt-0.5">
+              Em cada lote podes escolher <strong>Simples</strong> (válido apenas para o dia da zona) ou <strong>Combo</strong> (dá acesso a todos os {eventDates.length} dias do evento).
+              Um Combo vendido conta como 1 pessoa em cada dia, mas a receita é registada uma única vez.
             </p>
           </div>
         </div>
