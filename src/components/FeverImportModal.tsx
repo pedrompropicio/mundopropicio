@@ -1,15 +1,15 @@
 /**
- * FeverImportModal — Importação de vendas de bilheteira Fever (2 ficheiros XLSX).
+ * FeverImportModal — Importação de vendas Fever (2 ficheiros XLSX).
  *
- * Wizard em 4 passos:
- *  1) Upload   — escolher evento, conta Fever (auto), 2 ficheiros XLSX.
- *  2) Setup    — preview de zonas/lotes que vão ser criados (1ª importação) ou
- *                relação com zonas/lotes existentes (re-importação). Sem capacidade
- *                — pode ser configurada depois na página do evento.
- *  3) Preview  — totais, divergências vs estado atual da BD (qty / preço / lotes
- *                novos), warnings.
- *  4) Importar — apaga TODOS os ticket_sales Fever do evento e re-cria a partir
- *                do ficheiro. Gera relatório PDF.
+ * MODELO UNIFICADO (decisão 2026-05-03):
+ *  - Cada zona-dia (Relvado-Sáb, Relvado-Dom, Tenda-Sáb, Tenda-Dom) é uma
+ *    `event_ticket_zones` com session_id próprio.
+ *  - Lotes "Entrada Diária" são lotes simples na zona-dia correspondente.
+ *  - Passes 2 dias viram lotes com `is_combo=true`, ancorados na zona-Sábado
+ *    da mesma família física, com `consumes_zone_ids = [satZoneId, sunZoneId]`.
+ *    Isto faz com que cada passe vendido abata 1 lugar na zona-Sáb e 1 na
+ *    zona-Dom da família.
+ *  - Reimport apaga TODOS os ticket_sales Fever do evento e re-cria.
  */
 import { useState, useRef, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -32,14 +32,13 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
   Upload, FileSpreadsheet, Loader2, AlertTriangle, CheckCircle2,
-  ArrowRight, ArrowLeft, RefreshCw, Sparkles, Download,
+  ArrowRight, ArrowLeft, RefreshCw, Sparkles, Layers,
 } from "lucide-react";
 import {
   parseFeverXlsx,
-  groupFeverLotsByZone,
+  groupFeverLots,
   type FeverParseResult,
-  type FeverParsedLot,
-  type FeverZoneGroup,
+  type FeverGroupedLots,
   FEVER_IVA_RATE,
 } from "@/lib/parse-fever-xlsx";
 import { formatCurrency } from "@/lib/mock-data";
@@ -47,45 +46,10 @@ import { formatCurrency } from "@/lib/mock-data";
 interface Props {
   open: boolean;
   onClose: () => void;
-  /** evento pré-selecionado opcional */
   defaultEventId?: string;
 }
 
 type Step = "upload" | "setup" | "preview" | "importing" | "done";
-
-interface ExistingZoneInfo {
-  id: string;
-  name: string;
-  session_id: string | null;
-  total_capacity: number;
-}
-interface ExistingLotInfo {
-  id: string;
-  zone_id: string;
-  name: string;
-  price: number;
-  quantity: number;
-}
-interface ExistingDateInfo { id: string; date: string; label: string | null; }
-interface ExistingSessionInfo { id: string; date: string; label: string | null; }
-
-interface ZoneMappingRow {
-  group: FeverZoneGroup;
-  /** existingZoneId quando match com zona existente, null = criar nova */
-  existingZoneId: string | null;
-  /** mapping ticketKey → existingLotId (null = criar lote novo) */
-  lotMapping: Record<string, string | null>;
-}
-
-interface DivergenceRow {
-  lotKey: string;
-  ticketType: string;
-  zoneName: string;
-  before: { qty: number; revenue: number };
-  after: { qty: number; revenue: number };
-  diffQty: number;
-  diffRevenue: number;
-}
 
 const norm = (s: string) =>
   (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -102,10 +66,9 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
   const [pricesFile, setPricesFile] = useState<File | null>(null);
   const [parsing, setParsing] = useState(false);
   const [parseResult, setParseResult] = useState<FeverParseResult | null>(null);
-  const [zoneMappings, setZoneMappings] = useState<ZoneMappingRow[]>([]);
+  const [grouped, setGrouped] = useState<FeverGroupedLots | null>(null);
   const [importLogId, setImportLogId] = useState<string | null>(null);
 
-  // ---- Eventos elegíveis (planning/confirmed/active/completed) ----
   const { data: events = [] } = useQuery({
     queryKey: ["fever_import_events"],
     enabled: open,
@@ -120,7 +83,6 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
     },
   });
 
-  // ---- Conta Fever (pré-selecionada) ----
   const { data: feverAccounts = [] } = useQuery({
     queryKey: ["fever_accounts"],
     enabled: open,
@@ -136,16 +98,14 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
     },
   });
 
-  // Auto-select se só houver 1 Fever
   useMemo(() => {
     if (!feverAccountId && feverAccounts.length === 1) {
       setFeverAccountId(feverAccounts[0].id);
     }
   }, [feverAccounts, feverAccountId]);
 
-  // ---- Estado atual do evento (para detectar 1ª vs re-importação) ----
   const { data: existing } = useQuery({
-    queryKey: ["fever_event_existing", eventId],
+    queryKey: ["fever_event_existing", eventId, feverAccountId],
     enabled: !!eventId,
     queryFn: async () => {
       const [datesRes, sessionsRes, zonesRes] = await Promise.all([
@@ -153,32 +113,22 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
         supabase.from("event_sessions").select("id, date, label").eq("event_id", eventId).order("date"),
         supabase.from("event_ticket_zones").select("id, name, session_id, total_capacity").eq("event_id", eventId),
       ]);
-      const dates: ExistingDateInfo[] = datesRes.data || [];
-      const sessions: ExistingSessionInfo[] = sessionsRes.data || [];
-      const zones: ExistingZoneInfo[] = zonesRes.data || [];
-      let lots: ExistingLotInfo[] = [];
-      if (zones.length > 0) {
-        const { data: lotData } = await supabase
-          .from("event_ticket_lots")
-          .select("id, zone_id, name, price, quantity")
-          .in("zone_id", zones.map((z) => z.id));
-        lots = lotData || [];
-      }
-      // sales atuais Fever (para divergências)
+      const dates = datesRes.data || [];
+      const sessions = sessionsRes.data || [];
+      const zones = zonesRes.data || [];
       let currentSales: any[] = [];
       if (zones.length > 0 && feverAccountId) {
         const { data: salesData } = await supabase
           .from("ticket_sales")
-          .select("lot_id, quantity, unit_price, total_value")
-          .in("zone_id", zones.map((z) => z.id))
+          .select("id")
+          .in("zone_id", zones.map((z: any) => z.id))
           .eq("financial_account_id", feverAccountId);
         currentSales = salesData || [];
       }
-      return { dates, sessions, zones, lots, currentSales };
+      return { dates, sessions, zones, currentSales };
     },
   });
 
-  // ---- Upload + parse ----
   const handleParse = async () => {
     if (!salesFile || !pricesFile) {
       toast.error("Selecione os 2 ficheiros (vendas e preços).");
@@ -188,28 +138,7 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
     try {
       const result = await parseFeverXlsx(salesFile, pricesFile);
       setParseResult(result);
-      // construir mapeamento inicial de zonas
-      const groups = groupFeverLotsByZone(result.lots);
-      const initialMappings: ZoneMappingRow[] = groups.map((g) => {
-        // tentar match com zona existente por nome normalizado
-        const match = existing?.zones.find((z) => norm(z.name) === norm(g.zoneName));
-        const lotMapping: Record<string, string | null> = {};
-        for (const lot of g.lots) {
-          const existingLot = existing?.lots.find(
-            (l) =>
-              l.zone_id === match?.id &&
-              norm(l.name) === norm(lot.lotName) &&
-              (Math.abs(l.price - lot.unitPrice) < 0.01 || Math.abs(l.price - lot.ticketPrice) < 0.01),
-          );
-          lotMapping[lot.key] = existingLot?.id || null;
-        }
-        return {
-          group: g,
-          existingZoneId: match?.id || null,
-          lotMapping,
-        };
-      });
-      setZoneMappings(initialMappings);
+      setGrouped(groupFeverLots(result.lots));
       setStep("setup");
     } catch (e: any) {
       toast.error(e?.message || "Erro ao ler ficheiros Fever");
@@ -218,192 +147,170 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
     }
   };
 
-  // ---- Cálculo de divergências para a página de Preview ----
-  const divergences = useMemo<DivergenceRow[]>(() => {
-    if (!parseResult || !existing) return [];
-    const rows: DivergenceRow[] = [];
-    // por lote: comparar (qty, receita) atual vs novo
-    for (const map of zoneMappings) {
-      for (const lot of map.group.lots) {
-        const existingLotId = map.lotMapping[lot.key];
-        const before = existing.currentSales
-          .filter((s) => s.lot_id === existingLotId)
-          .reduce(
-            (acc, s) => ({
-              qty: acc.qty + (s.quantity || 0),
-              revenue: acc.revenue + (s.total_value != null ? Number(s.total_value) : (s.quantity || 0) * (s.unit_price || 0)),
-            }),
-            { qty: 0, revenue: 0 },
-          );
-        const after = { qty: lot.totalQty, revenue: lot.totalGross };
-        const diffQty = after.qty - before.qty;
-        const diffRevenue = after.revenue - before.revenue;
-        if (Math.abs(diffQty) > 0 || Math.abs(diffRevenue) > 0.5) {
-          rows.push({
-            lotKey: lot.key,
-            ticketType: lot.ticketType,
-            zoneName: map.group.zoneName,
-            before, after, diffQty, diffRevenue,
-          });
-        }
-      }
-    }
-    return rows;
-  }, [parseResult, existing, zoneMappings]);
-
   const isFirstImport = !existing || existing.zones.length === 0;
-  const newZonesCount = zoneMappings.filter((m) => !m.existingZoneId).length;
-  const newLotsCount = zoneMappings.reduce(
-    (s, m) => s + m.group.lots.filter((l) => !m.lotMapping[l.key]).length,
-    0,
-  );
   const willDeletePriorSales = (existing?.currentSales.length || 0) > 0;
 
-  // ---- IMPORT mutation ----
   const importMutation = useMutation({
     mutationFn: async () => {
-      if (!parseResult || !eventId || !feverAccountId) throw new Error("Estado inválido");
+      if (!parseResult || !grouped || !eventId || !feverAccountId) throw new Error("Estado inválido");
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData?.user?.id;
       const { data: ev } = await supabase.from("events").select("company_id, date").eq("id", eventId).single();
       if (!ev) throw new Error("Evento não encontrado");
       const companyId = ev.company_id;
 
-      // === 1. CRIAR datas + sessões em falta (1ª importação) ===
-      // Coala ⇒ datas inferidas dos lotes diários (saturday, sunday)
-      // Estratégia genérica: se não existem datas, criamos a partir dos
-      // dias presentes nos rótulos "Sábado/Domingo X Mes" do Fever.
-      // Para a Coala 2026: 30 e 31 Maio.
-      // Como não temos parser robusto da data dentro do ticket_type, vamos
-      // assumir as 2 datas a partir do `events.date` (sábado) e dia seguinte.
+      // === 1. DATAS Sábado/Domingo ===
       let saturdayDate: string;
       let sundayDate: string;
       if (existing && existing.dates.length >= 2) {
-        const sorted = [...existing.dates].sort((a, b) => a.date.localeCompare(b.date));
+        const sorted = [...existing.dates].sort((a: any, b: any) => a.date.localeCompare(b.date));
         saturdayDate = sorted[0].date;
         sundayDate = sorted[1].date;
       } else {
-        // ev.date — assumir sáb e sáb+1
         const base = new Date(ev.date + "T00:00:00");
         const next = new Date(base.getTime() + 86400000);
         saturdayDate = ev.date;
         sundayDate = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
       }
 
-      // event_dates
-      let satDate = existing?.dates.find((d) => d.date === saturdayDate);
-      let sunDate = existing?.dates.find((d) => d.date === sundayDate);
-      if (!satDate) {
+      const upsertDate = async (date: string, label: string) => {
+        const found = existing?.dates.find((d: any) => d.date === date);
+        if (found) return found;
         const { data, error } = await supabase
           .from("event_dates")
-          .insert({ event_id: eventId, date: saturdayDate, label: "Sábado", company_id: companyId })
+          .insert({ event_id: eventId, date, label, company_id: companyId })
           .select("id, date, label").single();
         if (error) throw error;
-        satDate = data!;
-      }
-      if (!sunDate) {
-        const { data, error } = await supabase
-          .from("event_dates")
-          .insert({ event_id: eventId, date: sundayDate, label: "Domingo", company_id: companyId })
-          .select("id, date, label").single();
-        if (error) throw error;
-        sunDate = data!;
-      }
-
-      // event_sessions (uma por dia)
-      let satSession = existing?.sessions.find((s) => s.date === saturdayDate);
-      let sunSession = existing?.sessions.find((s) => s.date === sundayDate);
-      if (!satSession) {
+        return data!;
+      };
+      const upsertSession = async (date: string, label: string, sortOrder: number) => {
+        const found = existing?.sessions.find((s: any) => s.date === date);
+        if (found) return found;
         const { data, error } = await supabase
           .from("event_sessions")
-          .insert({ event_id: eventId, date: saturdayDate, label: "Sábado", sort_order: 1, company_id: companyId })
+          .insert({ event_id: eventId, date, label, sort_order: sortOrder, company_id: companyId })
           .select("id, date, label").single();
         if (error) throw error;
-        satSession = data!;
-      }
-      if (!sunSession) {
-        const { data, error } = await supabase
-          .from("event_sessions")
-          .insert({ event_id: eventId, date: sundayDate, label: "Domingo", sort_order: 2, company_id: companyId })
-          .select("id, date, label").single();
-        if (error) throw error;
-        sunSession = data!;
-      }
-
-      // === 2. CRIAR / RESOLVER zonas ===
-      // mapeamento zoneKind → session_id (null para passes)
-      const sessionForKind: Record<string, string | null> = {
-        relvado_diario_saturday: satSession.id,
-        relvado_diario_sunday: sunSession.id,
-        tenda_diario_saturday: satSession.id,
-        tenda_diario_sunday: sunSession.id,
-        relvado_passe_null: null,
-        tenda_passe_null: null,
+        return data!;
       };
 
-      const resolvedZoneIds: Record<number, string> = {};
-      for (let i = 0; i < zoneMappings.length; i++) {
-        const m = zoneMappings[i];
-        if (m.existingZoneId) {
-          resolvedZoneIds[i] = m.existingZoneId;
+      await upsertDate(saturdayDate, "Sábado");
+      await upsertDate(sundayDate, "Domingo");
+      const satSession = await upsertSession(saturdayDate, "Sábado", 1);
+      const sunSession = await upsertSession(sundayDate, "Domingo", 2);
+
+      // === 2. ZONAS-DIA (uma por daily group) ===
+      // Reaproveita zonas existentes por nome normalizado, senão cria.
+      const zoneIdByKindDay = new Map<string, string>(); // `${kind}|${slot}` -> zone_id
+      for (const g of grouped.dailyGroups) {
+        const sessionId = g.daySlot === "saturday" ? satSession.id : sunSession.id;
+        const match = existing?.zones.find(
+          (z: any) => norm(z.name) === norm(g.zoneName) && z.session_id === sessionId,
+        );
+        let zoneId: string;
+        if (match) {
+          zoneId = match.id;
         } else {
-          const sessKey = `${m.group.zoneKind}_${m.group.daySlot || "null"}`;
-          const session_id = sessionForKind[sessKey] ?? null;
           const { data, error } = await supabase
             .from("event_ticket_zones")
             .insert({
               event_id: eventId,
-              name: m.group.zoneName,
-              session_id,
-              total_capacity: 0, // configurar depois
+              name: g.zoneName,
+              session_id: sessionId,
+              total_capacity: 0,
               company_id: companyId,
             })
             .select("id").single();
           if (error) throw error;
-          resolvedZoneIds[i] = data!.id;
+          zoneId = data!.id;
+        }
+        zoneIdByKindDay.set(`${g.physicalZone}|${g.daySlot}`, zoneId);
+      }
+
+      // === 3. LOTES diários ===
+      const resolvedLotIds: Record<string, string> = {}; // ticketKey -> lot_id
+      const lotZoneByKey = new Map<string, string>();
+      const ensureLot = async (
+        zoneId: string,
+        lot: { key: string; lotName: string; unitPrice: number; totalQty: number; ticketPrice: number },
+        opts: { isCombo: boolean; consumesZoneIds: string[]; lotNumber: number },
+      ) => {
+        // tenta achar lote existente nesta zona com mesmo nome/preço
+        const { data: existingLots } = await supabase
+          .from("event_ticket_lots")
+          .select("id, name, price")
+          .eq("zone_id", zoneId);
+        const found = (existingLots || []).find(
+          (l: any) =>
+            norm(l.name) === norm(lot.lotName) &&
+            (Math.abs(Number(l.price) - lot.unitPrice) < 0.01 ||
+              Math.abs(Number(l.price) - lot.ticketPrice) < 0.01),
+        );
+        if (found) {
+          await supabase
+            .from("event_ticket_lots")
+            .update({
+              price: lot.unitPrice,
+              quantity: lot.totalQty,
+              iva_rate: FEVER_IVA_RATE,
+              is_combo: opts.isCombo,
+              lot_kind: opts.isCombo ? "combo" : "simple",
+              consumes_zone_ids: opts.isCombo ? opts.consumesZoneIds : [],
+            })
+            .eq("id", found.id);
+          resolvedLotIds[lot.key] = found.id;
+        } else {
+          const { data, error } = await supabase
+            .from("event_ticket_lots")
+            .insert({
+              zone_id: zoneId,
+              name: lot.lotName,
+              lot_number: opts.lotNumber,
+              lot_type: "regular",
+              lot_kind: opts.isCombo ? "combo" : "simple",
+              is_combo: opts.isCombo,
+              consumes_zone_ids: opts.isCombo ? opts.consumesZoneIds : [],
+              price: lot.unitPrice,
+              quantity: lot.totalQty,
+              iva_rate: FEVER_IVA_RATE,
+              company_id: companyId,
+            })
+            .select("id").single();
+          if (error) throw error;
+          resolvedLotIds[lot.key] = data!.id;
+        }
+        lotZoneByKey.set(lot.key, zoneId);
+      };
+
+      for (const g of grouped.dailyGroups) {
+        const zoneId = zoneIdByKindDay.get(`${g.physicalZone}|${g.daySlot}`)!;
+        let n = 1;
+        for (const lot of g.lots) {
+          await ensureLot(zoneId, lot, { isCombo: false, consumesZoneIds: [], lotNumber: n++ });
         }
       }
 
-      // === 3. CRIAR / RESOLVER lotes ===
-      const resolvedLotIds: Record<string, string> = {}; // ticketKey → lot_id
-      for (let i = 0; i < zoneMappings.length; i++) {
-        const m = zoneMappings[i];
-        const zoneId = resolvedZoneIds[i];
-        for (let j = 0; j < m.group.lots.length; j++) {
-          const lot = m.group.lots[j];
-          const existingLotId = m.lotMapping[lot.key];
-          if (existingLotId) {
-            const { error } = await supabase
-              .from("event_ticket_lots")
-              .update({
-                price: lot.unitPrice,
-                quantity: lot.totalQty,
-                iva_rate: FEVER_IVA_RATE,
-              })
-              .eq("id", existingLotId);
-            if (error) throw error;
-            resolvedLotIds[lot.key] = existingLotId;
-          } else {
-            const { data, error } = await supabase
-              .from("event_ticket_lots")
-              .insert({
-                zone_id: zoneId,
-                name: lot.lotName,
-                lot_number: j + 1,
-                lot_type: lot.lotKind === "pass" ? "regular" : "regular",
-                price: lot.unitPrice,
-                quantity: lot.totalQty, // estimativa = qty já vendida (sem capacidade definida)
-                iva_rate: FEVER_IVA_RATE,
-                company_id: companyId,
-              })
-              .select("id").single();
-            if (error) throw error;
-            resolvedLotIds[lot.key] = data!.id;
-          }
+      // === 4. LOTES combo (passes 2 dias) — ancorados em zona-Sábado da família ===
+      for (const g of grouped.comboGroups) {
+        const satZoneId = zoneIdByKindDay.get(`${g.physicalZone}|saturday`);
+        const sunZoneId = zoneIdByKindDay.get(`${g.physicalZone}|sunday`);
+        if (!satZoneId || !sunZoneId) {
+          throw new Error(
+            `Combo "${g.groupLabel}" requer zonas Sáb+Dom da família ${g.physicalZone}. ` +
+            `Verifique se o ficheiro tem entradas diárias dessa família nos 2 dias.`,
+          );
+        }
+        let n = 1;
+        for (const lot of g.lots) {
+          await ensureLot(satZoneId, lot, {
+            isCombo: true,
+            consumesZoneIds: [satZoneId, sunZoneId],
+            lotNumber: n++,
+          });
         }
       }
 
-      // === 4. ASSIGNMENT Fever → evento (se não existir) ===
+      // === 5. Assignment Fever → evento ===
       const { data: existingAssign } = await supabase
         .from("event_ticket_office_assignments")
         .select("id")
@@ -423,8 +330,8 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
         if (error) throw error;
       }
 
-      // === 5. APAGAR ticket_sales Fever existentes (re-import: fonte de verdade) ===
-      const allZoneIds = Object.values(resolvedZoneIds);
+      // === 6. APAGAR ticket_sales Fever existentes ===
+      const allZoneIds = Array.from(zoneIdByKindDay.values());
       if (allZoneIds.length > 0) {
         const { error } = await supabase
           .from("ticket_sales")
@@ -434,19 +341,10 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
         if (error) throw error;
       }
 
-      // === 6. INSERIR ticket_sales (1 linha por purchase_date × lote) ===
-      // Resolver zone_id para cada venda usando o lote
-      const lotToZone = new Map<string, string>();
-      for (let i = 0; i < zoneMappings.length; i++) {
-        const m = zoneMappings[i];
-        for (const lot of m.group.lots) {
-          lotToZone.set(lot.key, resolvedZoneIds[i]);
-        }
-      }
-
+      // === 7. INSERIR ticket_sales ===
       const importBatchId = crypto.randomUUID();
       const salesPayload = parseResult.sales.map((s) => ({
-        zone_id: lotToZone.get(s.lotKey)!,
+        zone_id: lotZoneByKey.get(s.lotKey)!,
         lot_id: resolvedLotIds[s.lotKey],
         sale_date: s.purchaseDate,
         quantity: s.quantity,
@@ -460,14 +358,13 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
         company_id: companyId,
       }));
 
-      // batch insert (chunks de 500)
       for (let i = 0; i < salesPayload.length; i += 500) {
         const chunk = salesPayload.slice(i, i + 500);
         const { error } = await supabase.from("ticket_sales").insert(chunk);
         if (error) throw error;
       }
 
-      // === 7. Log de importação ===
+      // === 8. Log ===
       const { data: log, error: logErr } = await supabase
         .from("ticket_import_logs")
         .insert({
@@ -479,11 +376,8 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
           period_to: parseResult.totals.periodTo,
           rows_imported: salesPayload.length,
           rows_skipped: 0,
-          zones_created: zoneMappings.filter((m) => !m.existingZoneId).length,
-          lots_created: zoneMappings.reduce(
-            (s, m) => s + m.group.lots.filter((l) => !m.lotMapping[l.key]).length,
-            0,
-          ),
+          zones_created: 0,
+          lots_created: 0,
           imported_by: userId,
           company_id: companyId,
         })
@@ -497,6 +391,8 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
       queryClient.invalidateQueries({ queryKey: ["ticket_office_sales_all"] });
       queryClient.invalidateQueries({ queryKey: ["ticket_offices"] });
       queryClient.invalidateQueries({ queryKey: ["fever_event_existing"] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_zones", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId] });
       toast.success(`${res.rowsImported} vendas Fever importadas com sucesso.`);
       setStep("done");
     },
@@ -506,18 +402,16 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
     },
   });
 
-  // ---- handlers ----
   const reset = () => {
     setStep("upload");
     setSalesFile(null);
     setPricesFile(null);
     setParseResult(null);
-    setZoneMappings([]);
+    setGrouped(null);
     setImportLogId(null);
   };
   const handleClose = () => { reset(); onClose(); };
 
-  // ---- RENDER ----
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -537,7 +431,6 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
         </DialogHeader>
 
         <ScrollArea className="flex-1 pr-3">
-          {/* ============= STEP 1: UPLOAD ============= */}
           {step === "upload" && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -576,7 +469,6 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
                 </p>
 
                 <div className="grid grid-cols-2 gap-3">
-                  {/* SALES */}
                   <button
                     type="button"
                     onClick={() => salesRef.current?.click()}
@@ -585,16 +477,11 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
                     <FileSpreadsheet className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
                     <div className="text-sm font-medium">1️⃣ Vendas por dia</div>
                     <div className="text-xs text-muted-foreground mt-1">tickets_per_ticket_type_and_purchase_date_*.xlsx</div>
-                    {salesFile && (
-                      <div className="mt-2 text-xs text-primary truncate">✓ {salesFile.name}</div>
-                    )}
+                    {salesFile && <div className="mt-2 text-xs text-primary truncate">✓ {salesFile.name}</div>}
                   </button>
-                  <input
-                    ref={salesRef} type="file" accept=".xlsx" hidden
-                    onChange={(e) => setSalesFile(e.target.files?.[0] || null)}
-                  />
+                  <input ref={salesRef} type="file" accept=".xlsx" hidden
+                    onChange={(e) => setSalesFile(e.target.files?.[0] || null)} />
 
-                  {/* PRICES */}
                   <button
                     type="button"
                     onClick={() => pricesRef.current?.click()}
@@ -603,14 +490,10 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
                     <FileSpreadsheet className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
                     <div className="text-sm font-medium">2️⃣ Preços e totais</div>
                     <div className="text-xs text-muted-foreground mt-1">sales_per_ticket_type_and_ticket_price_*.xlsx</div>
-                    {pricesFile && (
-                      <div className="mt-2 text-xs text-primary truncate">✓ {pricesFile.name}</div>
-                    )}
+                    {pricesFile && <div className="mt-2 text-xs text-primary truncate">✓ {pricesFile.name}</div>}
                   </button>
-                  <input
-                    ref={pricesRef} type="file" accept=".xlsx" hidden
-                    onChange={(e) => setPricesFile(e.target.files?.[0] || null)}
-                  />
+                  <input ref={pricesRef} type="file" accept=".xlsx" hidden
+                    onChange={(e) => setPricesFile(e.target.files?.[0] || null)} />
                 </div>
               </div>
 
@@ -627,48 +510,34 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
             </div>
           )}
 
-          {/* ============= STEP 2: SETUP ============= */}
-          {step === "setup" && parseResult && (
+          {step === "setup" && parseResult && grouped && (
             <div className="space-y-4">
               {isFirstImport && (
                 <Alert>
                   <Sparkles className="h-4 w-4" />
-                  <AlertTitle>1ª importação — setup automático</AlertTitle>
+                  <AlertTitle>1ª importação — modelo unificado</AlertTitle>
                   <AlertDescription className="text-xs">
-                    Vão ser criadas: <strong>2 datas</strong> (Sáb/Dom), <strong>2 sessões</strong>,{" "}
-                    <strong>{zoneMappings.length} zonas</strong> (4 diárias por sessão + 2 para Passes 2 dias),{" "}
-                    <strong>{parseResult.lots.length} lotes</strong> (1 por variante de preço).
-                    Capacidade fica a 0 — configure depois na página do evento.
+                    Vão ser criadas <strong>{grouped.dailyGroups.length} zonas-dia</strong> e{" "}
+                    <strong>{grouped.dailyGroups.reduce((s, g) => s + g.lots.length, 0)} lotes simples</strong>.
+                    {grouped.comboGroups.length > 0 && (
+                      <>
+                        {" "}Os passes de 2 dias viram <strong>{grouped.comboGroups.reduce((s, g) => s + g.lots.length, 0)} lotes Combo</strong>{" "}
+                        ancorados na zona-Sábado da família, consumindo capacidade de Sáb e Dom.
+                      </>
+                    )}
+                    {" "}Capacidade fica a 0 — configure depois na página do evento.
                   </AlertDescription>
                 </Alert>
               )}
 
-              {!isFirstImport && newZonesCount > 0 && (
-                <Alert>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Novas zonas/lotes detectados</AlertTitle>
-                  <AlertDescription className="text-xs">
-                    Este ficheiro Fever introduz <strong>{newZonesCount} zonas novas</strong> e{" "}
-                    <strong>{newLotsCount} lotes novos</strong> que serão criados na importação.
-                  </AlertDescription>
-                </Alert>
-              )}
-
+              {/* Zonas-dia */}
               <div className="space-y-3">
-                {zoneMappings.map((m, idx) => (
+                {grouped.dailyGroups.map((g, idx) => (
                   <div key={idx} className="border rounded-lg p-3">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="font-medium text-sm flex items-center gap-2">
-                        {m.group.zoneName}
-                        <Badge variant={m.existingZoneId ? "secondary" : "default"} className="text-xs">
-                          {m.existingZoneId ? "existente" : "será criada"}
-                        </Badge>
-                        {m.group.daySlot === null && (
-                          <Badge variant="outline" className="text-xs">sem sessão (passe 2 dias)</Badge>
-                        )}
-                      </div>
+                      <div className="font-medium text-sm">{g.zoneName}</div>
                       <div className="text-xs text-muted-foreground">
-                        {m.group.lots.length} lotes · {m.group.lots.reduce((s, l) => s + l.totalQty, 0)} bilhetes
+                        {g.lots.length} lotes · {g.lots.reduce((s, l) => s + l.totalQty, 0)} bilhetes
                       </div>
                     </div>
                     <Table>
@@ -678,23 +547,15 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
                           <TableHead className="text-xs text-right">Preço</TableHead>
                           <TableHead className="text-xs text-right">Qty</TableHead>
                           <TableHead className="text-xs text-right">Receita bruta</TableHead>
-                          <TableHead className="text-xs">Estado</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {m.group.lots.map((lot) => (
+                        {g.lots.map((lot) => (
                           <TableRow key={lot.key}>
                             <TableCell className="text-xs">{lot.lotName}</TableCell>
                             <TableCell className="text-xs text-right">{formatCurrency(lot.unitPrice)}</TableCell>
                             <TableCell className="text-xs text-right">{lot.totalQty}</TableCell>
                             <TableCell className="text-xs text-right">{formatCurrency(lot.totalGross)}</TableCell>
-                            <TableCell className="text-xs">
-                              {m.lotMapping[lot.key] ? (
-                                <Badge variant="secondary" className="text-xs">existente</Badge>
-                              ) : (
-                                <Badge variant="default" className="text-xs">novo</Badge>
-                              )}
-                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -702,10 +563,51 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
                   </div>
                 ))}
               </div>
+
+              {/* Combos */}
+              {grouped.comboGroups.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-primary" /> Combos (Passes 2 dias)
+                  </h4>
+                  {grouped.comboGroups.map((g, idx) => (
+                    <div key={idx} className="border rounded-lg p-3 border-primary/30 bg-primary/5">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="font-medium text-sm flex items-center gap-2">
+                          {g.groupLabel}
+                          <Badge variant="default" className="text-xs">combo · consome Sáb + Dom</Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {g.lots.length} lotes · {g.lots.reduce((s, l) => s + l.totalQty, 0)} passes
+                        </div>
+                      </div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs">Lote</TableHead>
+                            <TableHead className="text-xs text-right">Preço</TableHead>
+                            <TableHead className="text-xs text-right">Qty</TableHead>
+                            <TableHead className="text-xs text-right">Receita bruta</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {g.lots.map((lot) => (
+                            <TableRow key={lot.key}>
+                              <TableCell className="text-xs">{lot.lotName}</TableCell>
+                              <TableCell className="text-xs text-right">{formatCurrency(lot.unitPrice)}</TableCell>
+                              <TableCell className="text-xs text-right">{lot.totalQty}</TableCell>
+                              <TableCell className="text-xs text-right">{formatCurrency(lot.totalGross)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          {/* ============= STEP 3: PREVIEW ============= */}
           {step === "preview" && parseResult && (
             <div className="space-y-4">
               <div className="grid grid-cols-4 gap-3">
@@ -716,7 +618,7 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
                 <KPI label="Período" value={`${parseResult.totals.periodFrom} → ${parseResult.totals.periodTo}`} small />
                 <KPI label="Tipos de bilhete" value={parseResult.totals.distinctTypes.toString()} />
                 <KPI label="Linhas de venda" value={parseResult.sales.length.toString()} />
-                <KPI label="Zonas (criar/usar)" value={`${newZonesCount}+${zoneMappings.length - newZonesCount}`} />
+                <KPI label="Combos" value={(grouped?.comboGroups.reduce((s, g) => s + g.lots.length, 0) ?? 0).toString()} />
               </div>
 
               {willDeletePriorSales && (
@@ -728,55 +630,6 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
                     existentes neste evento e re-criadas a partir deste ficheiro (Fever é a fonte de verdade).
                   </AlertDescription>
                 </Alert>
-              )}
-
-              {divergences.length > 0 && (
-                <div>
-                  <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                    Divergências vs estado atual ({divergences.length} lotes)
-                  </h4>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs">Lote</TableHead>
-                        <TableHead className="text-xs text-right">Antes (qty / €)</TableHead>
-                        <TableHead className="text-xs text-right">Depois (qty / €)</TableHead>
-                        <TableHead className="text-xs text-right">Δ</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {divergences.slice(0, 50).map((d) => (
-                        <TableRow key={d.lotKey}>
-                          <TableCell className="text-xs">
-                            <div className="font-medium">{d.ticketType}</div>
-                            <div className="text-muted-foreground">{d.zoneName}</div>
-                          </TableCell>
-                          <TableCell className="text-xs text-right">
-                            {d.before.qty} / {formatCurrency(d.before.revenue)}
-                          </TableCell>
-                          <TableCell className="text-xs text-right">
-                            {d.after.qty} / {formatCurrency(d.after.revenue)}
-                          </TableCell>
-                          <TableCell className="text-xs text-right">
-                            <span className={d.diffQty > 0 ? "text-green-500" : "text-red-500"}>
-                              {d.diffQty > 0 ? "+" : ""}{d.diffQty}
-                            </span>
-                            <span className="text-muted-foreground"> / </span>
-                            <span className={d.diffRevenue > 0 ? "text-green-500" : "text-red-500"}>
-                              {d.diffRevenue > 0 ? "+" : ""}{formatCurrency(d.diffRevenue)}
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {divergences.length > 50 && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      ... e mais {divergences.length - 50} linhas (ver no relatório PDF após importar).
-                    </p>
-                  )}
-                </div>
               )}
 
               {parseResult.warnings.length > 0 && (
@@ -793,7 +646,6 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
             </div>
           )}
 
-          {/* ============= STEP DONE ============= */}
           {step === "done" && (
             <div className="text-center py-10 space-y-4">
               <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
@@ -844,9 +696,7 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
               </Button>
             </>
           )}
-          {step === "done" && (
-            <Button onClick={handleClose}>Fechar</Button>
-          )}
+          {step === "done" && <Button onClick={handleClose}>Fechar</Button>}
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -46,10 +46,11 @@ interface LotForm {
   iva_rate: string;
   lot_type: string;
   lot_kind: string; // 'simple' | 'combo'
+  consumes_zone_ids: string[]; // só relevante se lot_kind='combo'
 }
 
 const emptyZone: ZoneForm = { name: "", total_capacity: "" };
-const emptyLot: LotForm = { name: "", quantity: "", price: "", iva_rate: "6", lot_type: "regular", lot_kind: "simple" };
+const emptyLot: LotForm = { name: "", quantity: "", price: "", iva_rate: "6", lot_type: "regular", lot_kind: "simple", consumes_zone_ids: [] };
 
 const lotKindLabels: Record<string, string> = { simple: "Simples", combo: "Combo" };
 const lotKindBadgeClass: Record<string, string> = {
@@ -369,9 +370,14 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       const currentLots = (lotsAll ?? []).filter((l: any) => l.zone_id === zoneId);
       const newQty = parseInt(form.quantity) || 0;
       const kind = coerceLotKind(form.lot_kind, comboGating);
+      const isCombo = kind === "combo";
+      // Combo: garante que a zona âncora também é consumida (UX defensiva)
+      const consumesZoneIds = isCombo
+        ? Array.from(new Set([zoneId, ...(form.consumes_zone_ids || [])]))
+        : [];
 
       const err = validateLotAgainstCapacity(
-        { zone_id: zoneId, quantity: newQty, is_combo: kind === "combo", consumes_zone_ids: [] },
+        { zone_id: zoneId, quantity: newQty, is_combo: isCombo, consumes_zone_ids: consumesZoneIds },
         ((allZones ?? []) as any[]).map((z) => ({ id: z.id, name: z.name, total_capacity: z.total_capacity })),
         ((lotsAll ?? []) as any[]).map((l: any) => ({
           id: l.id, zone_id: l.zone_id, quantity: l.quantity,
@@ -391,7 +397,8 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         lot_number: nextLotNumber,
         lot_type: form.lot_type || "regular",
         lot_kind: kind,
-        is_combo: kind === "combo",
+        is_combo: isCombo,
+        consumes_zone_ids: consumesZoneIds,
         version_id: selectedVersionId,
       };
       if (id) {
@@ -443,7 +450,15 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   };
 
   const startEditLot = (l: any) => {
-    setLotForm({ name: l.name, quantity: String(l.quantity), price: String(l.price), iva_rate: String(l.iva_rate ?? 6), lot_type: l.lot_type || "regular", lot_kind: coerceLotKind(l.lot_kind, comboGating) });
+    setLotForm({
+      name: l.name,
+      quantity: String(l.quantity),
+      price: String(l.price),
+      iva_rate: String(l.iva_rate ?? 6),
+      lot_type: l.lot_type || "regular",
+      lot_kind: coerceLotKind(l.lot_kind, comboGating),
+      consumes_zone_ids: Array.isArray(l.consumes_zone_ids) ? l.consumes_zone_ids : [],
+    });
     setEditingLotId(l.id);
     setAddingLotForZone(null);
   };
@@ -528,12 +543,25 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
     const subtotalIva = qty * iva;
 
     if (isEditing) {
+      const otherZonesForCombo = filteredZones.filter((z: any) => z.id !== zoneId);
+      const isComboEditing = lotForm.lot_kind === "combo";
       return (
+        <>
         <tr key={lot?.id || "new"} className="bg-primary/5" onKeyDown={(e) => handleLotKeyDown(e, zoneId)}>
           <td className="py-1.5 pr-2">
             <div className="flex items-center gap-1.5">
               <input ref={lotNameRef} value={lotForm.name} onChange={(e) => setLotForm({ ...lotForm, name: e.target.value })} className={inputClass} placeholder="Nome do lote…" autoFocus />
-              {/* Fase 2: combo agora vive na secção dedicada Passes/Combos. Lotes em zonas são sempre simples. */}
+              {comboAllowed && (
+                <select
+                  value={lotForm.lot_kind}
+                  onChange={(e) => setLotForm({ ...lotForm, lot_kind: e.target.value, consumes_zone_ids: e.target.value === "combo" ? lotForm.consumes_zone_ids : [] })}
+                  className={`${inputClass} w-24`}
+                  title="Tipo: Simples (1 zona) ou Combo (multi-zona)"
+                >
+                  <option value="simple">Simples</option>
+                  <option value="combo">Combo</option>
+                </select>
+              )}
               <select value={lotForm.lot_type} onChange={(e) => setLotForm({ ...lotForm, lot_type: e.target.value })} className={`${inputClass} w-24`}>
                 <option value="regular">Regular</option>
                 <option value="promo">Promo</option>
@@ -562,8 +590,48 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
             </div>
           </td>
         </tr>
+        {isComboEditing && (
+          <tr className="bg-primary/5">
+            <td colSpan={8} className="px-2 pb-3">
+              <div className="rounded border border-primary/30 bg-background/40 p-2.5">
+                <div className="text-xs font-medium text-primary mb-1.5 flex items-center gap-1.5">
+                  <Layers className="h-3.5 w-3.5" /> Combo — zonas adicionais consumidas (cada bilhete vendido abate 1 lugar em cada uma)
+                </div>
+                <div className="text-[11px] text-muted-foreground mb-2">
+                  A zona âncora <strong>já é consumida automaticamente</strong>. Selecione as outras zonas-dia para as quais o combo dá direito a entrar.
+                </div>
+                {otherZonesForCombo.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Não há outras zonas neste evento. Crie as zonas-dia antes de configurar o combo.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {otherZonesForCombo.map((z: any) => {
+                      const checked = (lotForm.consumes_zone_ids || []).includes(z.id);
+                      return (
+                        <label key={z.id} className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs cursor-pointer transition-colors ${checked ? "border-primary bg-primary/15 text-primary" : "border-border bg-background hover:bg-secondary/40"}`}>
+                          <input
+                            type="checkbox"
+                            className="h-3 w-3"
+                            checked={checked}
+                            onChange={(e) => {
+                              const cur = new Set(lotForm.consumes_zone_ids || []);
+                              if (e.target.checked) cur.add(z.id); else cur.delete(z.id);
+                              setLotForm({ ...lotForm, consumes_zone_ids: Array.from(cur) });
+                            }}
+                          />
+                          {z.name}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </td>
+          </tr>
+        )}
+        </>
       );
     }
+
 
     return (
       <tr key={lot.id} className="group hover:bg-muted/20 transition-colors">
