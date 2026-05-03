@@ -199,6 +199,26 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
       const satSession = await upsertSession(saturdayDate, "Sábado", 1);
       const sunSession = await upsertSession(sundayDate, "Domingo", 2);
 
+      // === 1.5. Limpar zonas órfãs do modelo antigo "(Passe 2 dias)" ===
+      // No modelo unificado (Opção B) os passes vivem como is_combo=true na zona-Sábado.
+      // Zonas com sufixo "(Passe 2 dias)" são resíduo da importação antiga e duplicam receita.
+      const orphanZones = (existing?.zones || []).filter((z: any) =>
+        /\(passe 2 dias\)/i.test(z.name || ""),
+      );
+      if (orphanZones.length > 0) {
+        const orphanIds = orphanZones.map((z: any) => z.id);
+        const { data: orphanLots } = await supabase
+          .from("event_ticket_lots")
+          .select("id")
+          .in("zone_id", orphanIds);
+        const orphanLotIds = (orphanLots || []).map((l: any) => l.id);
+        if (orphanLotIds.length > 0) {
+          await supabase.from("ticket_sales").delete().in("lot_id", orphanLotIds);
+          await supabase.from("event_ticket_lots").delete().in("id", orphanLotIds);
+        }
+        await supabase.from("event_ticket_zones").delete().in("id", orphanIds);
+      }
+
       // === 2. ZONAS-DIA (uma por daily group) ===
       // Reaproveita zonas existentes por nome normalizado, senão cria.
       const zoneIdByKindDay = new Map<string, string>(); // `${kind}|${slot}` -> zone_id

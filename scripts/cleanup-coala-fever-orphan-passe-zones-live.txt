@@ -1,0 +1,57 @@
+-- Limpeza de zonas órfãs "(Passe 2 dias)" do Coala Festival Portugal 2026 (Live)
+-- Estas zonas são resíduo do modelo antigo (pré-Opção B). Os passes corretos
+-- já existem como lotes is_combo=true ancorados na zona-Sábado da família,
+-- consumindo capacidade Sáb+Dom via consumes_zone_ids. As zonas "(Passe 2 dias)"
+-- duplicam ~€546k de receita de bilheteira.
+-- Executar em Cloud View > SQL > LIVE
+
+BEGIN;
+
+-- Snapshot de auditoria antes do delete
+SELECT z.id, z.name,
+       (SELECT COUNT(*) FROM public.event_ticket_lots l WHERE l.zone_id=z.id) as lots,
+       (SELECT COALESCE(SUM(ts.quantity),0) FROM public.ticket_sales ts
+          JOIN public.event_ticket_lots l ON l.id=ts.lot_id WHERE l.zone_id=z.id) as qty,
+       (SELECT COALESCE(SUM(ts.total_value),0) FROM public.ticket_sales ts
+          JOIN public.event_ticket_lots l ON l.id=ts.lot_id WHERE l.zone_id=z.id) as gross
+FROM public.event_ticket_zones z
+WHERE z.event_id = '5a1da5fb-3115-4ae3-af50-15ce1f869a5c'
+  AND z.name ILIKE '%(Passe 2 dias)%';
+
+-- 1. Apagar ticket_sales associadas aos lotes destas zonas
+DELETE FROM public.ticket_sales ts
+USING public.event_ticket_lots l, public.event_ticket_zones z
+WHERE ts.lot_id = l.id
+  AND l.zone_id = z.id
+  AND z.event_id = '5a1da5fb-3115-4ae3-af50-15ce1f869a5c'
+  AND z.name ILIKE '%(Passe 2 dias)%';
+
+-- 2. Apagar lotes destas zonas
+DELETE FROM public.event_ticket_lots l
+USING public.event_ticket_zones z
+WHERE l.zone_id = z.id
+  AND z.event_id = '5a1da5fb-3115-4ae3-af50-15ce1f869a5c'
+  AND z.name ILIKE '%(Passe 2 dias)%';
+
+-- 3. Apagar as zonas órfãs
+DELETE FROM public.event_ticket_zones
+WHERE event_id = '5a1da5fb-3115-4ae3-af50-15ce1f869a5c'
+  AND name ILIKE '%(Passe 2 dias)%';
+
+-- Verificação final: deve devolver 0 linhas
+SELECT z.name, COUNT(l.id) as lots
+FROM public.event_ticket_zones z
+LEFT JOIN public.event_ticket_lots l ON l.zone_id=z.id
+WHERE z.event_id='5a1da5fb-3115-4ae3-af50-15ce1f869a5c'
+  AND z.name ILIKE '%(Passe 2 dias)%'
+GROUP BY z.name;
+
+-- Totais finais esperados (~€1,09M):
+SELECT z.name, COUNT(ts.id) as rows, SUM(ts.quantity) as qty, SUM(ts.total_value) as gross
+FROM public.event_ticket_zones z
+LEFT JOIN public.event_ticket_lots l ON l.zone_id=z.id
+LEFT JOIN public.ticket_sales ts ON ts.lot_id=l.id
+WHERE z.event_id='5a1da5fb-3115-4ae3-af50-15ce1f869a5c'
+GROUP BY z.name ORDER BY z.name;
+
+COMMIT;
