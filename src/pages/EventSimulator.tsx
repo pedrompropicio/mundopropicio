@@ -534,9 +534,8 @@ export default function EventSimulator() {
     [calcSessions, calcCfg, beLotInfo, eventDate, localCfg?.forecast_final_accel, localCfg?.forecast_final_window_days],
   );
 
-  const today = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "today"), [calcSessions, calcCfg]);
-  const breakeven = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolution.qtyByKey, beSolution.revenueByKey), [calcSessions, calcCfg, beSolution]);
-  const forecast = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "forecast", fcSolution.qtyByKey, fcSolution.revenueByKey), [calcSessions, calcCfg, fcSolution]);
+  // today/breakeven/forecast (com attendance override para combos) são
+  // recalculados mais abaixo, depois de termos dailyAttendance/beDaily/fcDaily.
 
   // abParticipants + bloco A&B movidos para depois de buildDailyFromBreakdown
   // (usam dailyAttendance/beDaily/fcDaily expandidos com combos).
