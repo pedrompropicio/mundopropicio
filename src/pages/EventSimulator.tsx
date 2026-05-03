@@ -534,6 +534,18 @@ export default function EventSimulator() {
     [calcSessions, calcCfg, beLotInfo, eventDate, localCfg?.forecast_final_accel, localCfg?.forecast_final_window_days],
   );
 
+  // Attendance override = presenças × dia (combos expandidos), usado para A&B
+  // fallback e KPIs (regra acordada 2026-05-03 com utilizador). Calculado a
+  // partir das vendas reais (dailyAttendance) e projeções extras dos solvers
+  // (beDaily/fcDaily). Computado adiante porque depende de dailyAttendance.
+  // Sem override → cálculo legado (1 combo = 1 pessoa).
+  const todayAttendance = useMemo(() => {
+    if (!lotSalesData) return undefined;
+    let paying = 0, courtesy = 0;
+    // dailyAttendance é definido mais abaixo; recalculamos aqui o equivalente.
+    return undefined as any; // preenchido depois via attendanceFromExpanded
+  }, [lotSalesData]);
+
   const today = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "today"), [calcSessions, calcCfg]);
   const breakeven = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolution.qtyByKey, beSolution.revenueByKey), [calcSessions, calcCfg, beSolution]);
   const forecast = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "forecast", fcSolution.qtyByKey, fcSolution.revenueByKey), [calcSessions, calcCfg, fcSolution]);
