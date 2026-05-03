@@ -1146,7 +1146,7 @@ export default function EventSimulator() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  <RevRow label="Ingressos" prior={calcCfg.prior_year_tickets} a={today.ticketsRevenue} b={breakeven.ticketsRevenue} c={forecast.ticketsRevenue} />
+                  <RevRow label="Bilhetes" prior={calcCfg.prior_year_tickets} a={today.ticketsRevenue} b={breakeven.ticketsRevenue} c={forecast.ticketsRevenue} />
                   <RevRow label="A&B Bebida" prior={calcCfg.prior_year_drink} a={today.drinkRevenue} b={breakeven.drinkRevenue} c={forecast.drinkRevenue} />
                   <RevRow label="A&B Alimento" prior={calcCfg.prior_year_food} a={today.foodRevenue} b={breakeven.foodRevenue} c={forecast.foodRevenue} />
                   <RevRow label="Patrocínio" prior={calcCfg.prior_year_sponsor} a={today.sponsorRevenue} b={breakeven.sponsorRevenue} c={forecast.sponsorRevenue} />
@@ -1444,7 +1444,7 @@ boost       = ritmo final / ritmo base`}
                       <p className="text-sm font-semibold">Ano anterior (2025) — manual</p>
                       <p className="text-xs text-muted-foreground">Estes valores são introduzidos manualmente e servem só de referência. <strong>Não</strong> são alimentados pela plataforma — a Edição 2026 vem de Vendas + BP + Transações.</p>
                     </div>
-                    <CfgInput label="Ingressos 2025 (€)" value={localCfg.prior_year_tickets}
+                    <CfgInput label="Bilhetes 2025 (€)" value={localCfg.prior_year_tickets}
                       onChange={(v) => setLocalCfg({ ...localCfg, prior_year_tickets: v })} step={0.01} />
                     <CfgInput label="Bebida 2025 (€)" value={localCfg.prior_year_drink}
                       onChange={(v) => setLocalCfg({ ...localCfg, prior_year_drink: v })} step={0.01} />
