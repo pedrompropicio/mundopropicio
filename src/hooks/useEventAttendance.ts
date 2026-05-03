@@ -224,6 +224,8 @@ export function useEventAttendance(
     for (const mv of movements) {
       const meta = mv.lot_id ? lotById.get(mv.lot_id) : undefined;
       const isCombo = !!meta?.is_combo;
+      const personMult = meta?.person_mult ?? 1;
+      const people = mv.qty * personMult;
       if (isCombo) {
         // 1 venda combo = 1 pessoa em CADA dia coberto. Se houver
         // consumes_zone_ids explícitos, respeitamos essa matriz; caso
@@ -233,21 +235,21 @@ export function useEventAttendance(
           const dayIdx = zoneDayIdx.get(zid);
           if (dayIdx == null) {
             // Zona sem session_id → assume todos os dias
-            for (let d = 0; d < dates.length; d++) ensure(d, zid).paying += mv.qty;
+            for (let d = 0; d < dates.length; d++) ensure(d, zid).paying += people;
           } else if (meta!.consumes.length) {
-            if (dayIdx >= 0 && dayIdx < dates.length) ensure(dayIdx, zid).paying += mv.qty;
+            if (dayIdx >= 0 && dayIdx < dates.length) ensure(dayIdx, zid).paying += people;
           } else {
             for (let offset = 0; offset < meta!.applies_to_days; offset++) {
               const d = dayIdx + offset;
               if (d >= dates.length) break;
-              ensure(d, zid).paying += mv.qty;
+              ensure(d, zid).paying += people;
             }
           }
         }
       } else {
         const dayIdx = zoneDayIdx.get(mv.zone_id) ?? 0;
         if (dayIdx >= 0 && dayIdx < dates.length) {
-          ensure(dayIdx, mv.zone_id).paying += mv.qty;
+          ensure(dayIdx, mv.zone_id).paying += people;
         }
       }
     }
