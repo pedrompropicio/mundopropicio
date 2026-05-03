@@ -36,6 +36,7 @@ import { exportSimulatorToXlsx, exportSimulatorToPdf, type SimulatorExportData }
 import { exportNodeToPdf } from "@/lib/event-simulator-view-pdf";
 import { ForecastBoostCalibrator } from "@/components/simulator/ForecastBoostCalibrator";
 import ExecutiveDashboard from "@/components/simulator/ExecutiveDashboard";
+import TourSimulator from "@/components/simulator/TourSimulator";
 import { useEventABScenarios, type ABScenarioParticipants } from "@/hooks/useEventABScenarios";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid } from "recharts";
 import { LayoutDashboard } from "lucide-react";
@@ -118,6 +119,23 @@ export default function EventSimulator() {
     },
     enabled: !!eventId,
   });
+
+  // Sub-eventos (cidades) caso este evento seja um Master de turnê
+  const { data: subEvents = [] } = useQuery({
+    queryKey: ["sim-sub-events", eventId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("events")
+        .select("id, name, date")
+        .eq("parent_event_id", eventId!)
+        .order("date");
+      return data ?? [];
+    },
+    enabled: !!eventId,
+  });
+
+  const isTourMaster = !event?.parent_event_id && subEvents.length > 0;
+  const [tourMode, setTourMode] = useState<boolean>(true);
 
   const { data: cfg, isLoading: loadingCfg } = useQuery<DbConfig | null>({
     queryKey: ["sim-coala-cfg", eventId],
@@ -783,6 +801,11 @@ export default function EventSimulator() {
 
   if (loadingCfg) {
     return <div className="flex h-96 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
+
+  // Despacho: se for Master de turnê e modo turnê activo, renderiza TourSimulator
+  if (isTourMaster && tourMode) {
+    return <TourSimulator masterEvent={event} splits={subEvents as any} />;
   }
 
   return (
