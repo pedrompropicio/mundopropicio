@@ -627,6 +627,22 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         </div>
       )}
 
+      {/* Banner Combo/Passe — só em festivais multi-dia */}
+      {comboAllowed && (
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 flex items-start gap-3">
+          <div className="rounded-full bg-primary/15 p-2 shrink-0">
+            <Layers className="h-4 w-4 text-primary" />
+          </div>
+          <div className="text-sm">
+            <p className="font-semibold text-primary">Festival multi-dia — bilhetes Combo/Passe disponíveis</p>
+            <p className="text-muted-foreground text-xs mt-0.5">
+              Em cada lote podes escolher <strong>Simples</strong> (válido apenas para o dia da zona) ou <strong>Combo</strong> (dá acesso a todos os {eventDates.length} dias do evento).
+              Um Combo vendido conta como 1 pessoa em cada dia, mas a receita é registada uma única vez.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="glass rounded-xl p-4 space-y-1">
