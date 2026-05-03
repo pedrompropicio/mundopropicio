@@ -21,7 +21,8 @@ describe("event-ab-calc", () => {
     });
     expect(r.faturacaoBebidas).toBe(10000);
     expect(r.receitaBebidas).toBe(2000);
-    expect(r.custoBebidas).toBe(8000);
+    expect(r.parteGeradorBebidas).toBe(8000);
+    expect(r.custoBebidas).toBe(0); // modelo concessão: custo casa = 0
   });
 
   it("totais somam zonas e alimentos com fee fixo", () => {
@@ -39,10 +40,11 @@ describe("event-ab-calc", () => {
     expect(t.participantesElegiveisAlimentos).toBe(1100);
     expect(t.faturacaoAlimentos).toBe(8800);
     expect(t.receitaAlimentos).toBe(500 + 8800 * 0.25); // 2700
-    expect(t.custoAlimentos).toBe(8800 * 0.75); // 6600
+    expect(t.parteGeradorAlimentos).toBe(8800 * 0.75); // 6600
+    expect(t.custoAlimentos).toBe(0);
     expect(t.faturacaoTotal).toBe(10000 + 8800);
     expect(t.receitaTotal).toBeCloseTo(2000 + 2700, 5);
-    expect(t.resultadoTotal).toBeCloseTo(t.receitaTotal - t.custoTotal, 5);
+    expect(t.resultadoTotal).toBeCloseTo(t.receitaTotal, 5); // custo casa = 0
   });
 
   it("zona open_food OFF é excluída de alimentos", () => {

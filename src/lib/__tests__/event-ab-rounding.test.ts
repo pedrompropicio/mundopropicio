@@ -19,9 +19,9 @@ describe("A&B — arredondamentos e drift", () => {
     const fat = 9999 * 7.77;
     expect(closeTo(t.faturacaoBebidas, fat)).toBe(true);
     expect(closeTo(t.receitaBebidas, fat * 0.3333)).toBe(true);
-    expect(closeTo(t.custoBebidas, fat * (1 - 0.3333))).toBe(true);
-    // Receita + Custo devem reconstituir a faturação dentro da tolerância
-    expect(closeTo(t.receitaBebidas + t.custoBebidas, fat)).toBe(true);
+    expect(closeTo(t.parteGeradorBebidas, fat * (1 - 0.3333))).toBe(true);
+    // Receita casa + Parte gerador devem reconstituir a faturação
+    expect(closeTo(t.receitaBebidas + t.parteGeradorBebidas, fat)).toBe(true);
   });
 
   it("soma de zonas com floats não acumula erro > 0.01€", () => {
@@ -33,7 +33,7 @@ describe("A&B — arredondamentos e drift", () => {
     const fatManual =
       7777 * 11.11 + 333 * 9.99;
     expect(closeTo(t.faturacaoBebidas, fatManual)).toBe(true);
-    expect(closeTo(t.receitaBebidas + t.custoBebidas, t.faturacaoBebidas)).toBe(true);
+    expect(closeTo(t.receitaBebidas + t.parteGeradorBebidas, t.faturacaoBebidas)).toBe(true);
   });
 
   it("alimentos: receita = fee + faturacao*repasse com decimais", () => {
@@ -43,13 +43,13 @@ describe("A&B — arredondamentos e drift", () => {
     const fatAli = 10000 * 5.55;
     const expected = 1234.56 + fatAli * 0.275;
     expect(closeTo(t.receitaAlimentos, expected)).toBe(true);
-    expect(closeTo(t.custoAlimentos, fatAli * (1 - 0.275))).toBe(true);
+    expect(closeTo(t.parteGeradorAlimentos, fatAli * (1 - 0.275))).toBe(true);
   });
 
-  it("totais consolidados são consistentes (receita - custo = resultado)", () => {
+  it("totais consolidados são consistentes (resultado = receita; custo casa = 0)", () => {
     const t = computeTotals([ZONE_PISTA, ZONE_VIP, ZONE_BACKSTAGE], FOOD_DEFAULT);
-    expect(closeTo(t.resultadoTotal, t.receitaTotal - t.custoTotal)).toBe(true);
+    expect(closeTo(t.resultadoTotal, t.receitaTotal)).toBe(true);
     expect(closeTo(t.receitaTotal, t.receitaBebidas + t.receitaAlimentos)).toBe(true);
-    expect(closeTo(t.custoTotal, t.custoBebidas + t.custoAlimentos)).toBe(true);
+    expect(t.custoTotal).toBe(0);
   });
 });
