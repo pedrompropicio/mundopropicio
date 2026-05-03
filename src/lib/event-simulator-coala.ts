@@ -418,31 +418,43 @@ export function solveBreakEven(
     fallbackPrice: number;
   };
 
+  // Agrupa sessões por zone_label. Para zonas que aparecem em vários dias
+  // (típico de zonas combo/passe sem session_id, onde o sync cria 1 linha
+  // por dia mas a capacidade e as vendas são partilhadas), tratamos como
+  // UMA única zona lógica para o solver — caso contrário a zona inflaria
+  // o peso do dia em que as vendas reais ficaram concentradas.
+  const groupIndexes = new Map<string, number[]>();
+  sessions.forEach((s, i) => {
+    const arr = groupIndexes.get(s.zone_label) ?? [];
+    arr.push(i);
+    groupIndexes.set(s.zone_label, arr);
+  });
+
   const slots: Slot[] = sessions.map((s, idx) => {
     const key = `${s.day_index}-${s.zone_label}`;
     // Tenta a chave composta E também só pelo nome da zona (UI passa indexado por zona).
     const info = lotInfoByKey?.[key] ?? lotInfoByKey?.[s.zone_label];
+    const groupIdxs = groupIndexes.get(s.zone_label) ?? [idx];
+    const isAnchor = groupIdxs[0] === idx;
+    // realQty agregado por zona (todas as duplicatas) para evitar viés
+    // no dia em que o sync concentrou as vendas reais.
+    const realQtyZone = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
     const realQty = sessionTodayQty(s);
 
-    // Capacidade: usa lote/zona se definido (>0), senão fica "ilimitada"
-    // (Number.POSITIVE_INFINITY) para não bloquear solver quando não há
-    // planeamento de zonas/lotes registado.
+    // Capacidade da zona: única, mesmo aparecendo em vários dias.
     const hasCapacity = (info?.capacity ?? 0) > 0;
-    const capLeft = hasCapacity
-      ? Math.max(0, (info!.capacity) - realQty)
-      : Number.POSITIVE_INFINITY;
+    const capLeft = isAnchor
+      ? (hasCapacity ? Math.max(0, (info!.capacity) - realQtyZone) : Number.POSITIVE_INFINITY)
+      : 0; // não-anchors não recebem alocação — o anchor representa a zona inteira
 
-    // Peso = potencial real de venda (mix entre zonas).
-    // Quando há histórico ≥2 dias usamos qty/dia. Para 1 dia (importações
-    // em batch tipo Fever) NÃO usamos qty real como velocidade — isso
-    // sobrestima brutalmente. Usamos qty real só como peso relativo
-    // (dividido por uma janela conservadora) e deixamos o solver alocar.
+    // Peso = potencial real de venda. Usa realQtyZone para refletir a venda
+    // total da zona (não só a do dia em que o sync depositou as vendas).
     const days = Math.max(1, info?.days_selling ?? 1);
     const realVelocity = days > 1
-      ? realQty / days
-      : realQty / Math.max(1, Math.min(30, days)); // janela mín. de 30d quando só há 1 dia
+      ? realQtyZone / days
+      : realQtyZone / Math.max(1, Math.min(30, days)); // janela mín. de 30d quando só há 1 dia
     const proxyVelocity = n(s.projected_qty) + n(s.forecast_qty);
-    const velocity = realVelocity > 0 ? realVelocity : proxyVelocity;
+    const velocity = isAnchor ? (realVelocity > 0 ? realVelocity : proxyVelocity) : 0;
 
     // Lotes ordenados; "left" = quantity − vendido
     const lots = (info?.lots ?? []).slice().sort((a, b) => a.lot_number - b.lot_number);
@@ -489,7 +501,9 @@ export function solveBreakEven(
   let remainingDeficit = deficit;
   const MAX_WAVES = 50;
   for (let wave = 0; wave < MAX_WAVES && remainingDeficit > 0.005; wave++) {
-    const active = slots.filter((sl) => sl.eligible && sl.capLeft > 0 && sl.weight > 0);
+    const active = slots
+      .filter((sl) => sl.eligible && sl.capLeft > 0 && sl.weight > 0)
+      .sort((a, b) => b.weight - a.weight);
     if (!active.length) break;
     const sumW = active.reduce((a, sl) => a + sl.weight, 0);
     let progressed = false;
@@ -497,11 +511,21 @@ export function solveBreakEven(
     for (const sl of active) {
       if (remainingDeficit <= 0.005) break;
       const share = remainingDeficit * (sl.weight / sumW);
-      // Quantos bilhetes para cobrir essa fatia, respeitando lote atual + capacidade.
-      // Usamos Math.ceil mas limitamos ao défice GLOBAL restante (não só ao share)
-      // para evitar overshoot quando muitos slots arredondam para cima em simultâneo.
-      const maxByGlobalDeficit = Math.ceil(remainingDeficit / sl.margin);
-      let toAlloc = Math.min(Math.ceil(share / sl.margin), maxByGlobalDeficit);
+      // Alocação por slot. Usamos round (não ceil) para evitar overshoot
+      // cumulativo quando muitos slots arredondam em paralelo. Limitamos
+      // adicionalmente ao défice GLOBAL restante para não saltar muito
+      // acima de zero. Quando o ideal é < 0.5, alocamos 0 — o anchor com
+      // maior peso fica responsável por fechar o último bilhete (1) numa
+      // próxima onda guiada pelo limite global.
+      const idealByShare = share / sl.margin;
+      const idealByGlobal = remainingDeficit / sl.margin;
+      let toAlloc = Math.min(Math.round(idealByShare), Math.round(idealByGlobal));
+      // Garantir progresso da última iteração: se o défice ainda excede
+      // metade da margem da zona com maior peso, força 1 bilhete nesse
+      // slot (é o que mais aproxima de zero).
+      if (toAlloc <= 0 && sl === active[0] && remainingDeficit > sl.margin / 2) {
+        toAlloc = 1;
+      }
       if (toAlloc <= 0) continue;
       toAlloc = Math.min(toAlloc, sl.capLeft);
       // Limita ao stock do próximo lote (depois recalculamos preço marginal)
@@ -593,26 +617,42 @@ export function solveForecast(
   const breakdown: ForecastBreakdownItem[] = [];
   let hasCapacityPlan = false;
 
+  // Agrupa por zone_label: a capacidade e o ritmo de venda da zona são
+  // únicos mesmo quando o sync cria 1 linha por dia (caso típico das zonas
+  // combo/passe). Sem este agrupamento o forecast inflaria o dia em que
+  // o sync depositou as vendas reais (ex: sábado).
+  const groupIndexes = new Map<string, number[]>();
+  sessions.forEach((s, i) => {
+    const arr = groupIndexes.get(s.zone_label) ?? [];
+    arr.push(i);
+    groupIndexes.set(s.zone_label, arr);
+  });
+
   for (const s of sessions) {
     const key = `${s.day_index}-${s.zone_label}`;
     const info = lotInfoByKey?.[key] ?? lotInfoByKey?.[s.zone_label];
+    const groupIdxs = groupIndexes.get(s.zone_label) ?? [];
+    const isAnchor = groupIdxs[0] === sessions.indexOf(s);
     const realQty = sessionTodayQty(s);
     const realRev = sessionTodayRevenue(s);
+    const realQtyZone = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
     const courtesy = n(s.courtesy_qty);
     const manualFloor = Math.max(0, n(s.forecast_qty) - courtesy);
 
     const hasCapacity = (info?.capacity ?? 0) > 0;
     if (hasCapacity) hasCapacityPlan = true;
-    const capLeft = hasCapacity
-      ? Math.max(0, info!.capacity - realQty)
-      : Number.POSITIVE_INFINITY;
+    // Capacidade da zona é única — só o anchor "abre" a capacidade.
+    const capLeft = isAnchor
+      ? (hasCapacity ? Math.max(0, info!.capacity - realQtyZone) : Number.POSITIVE_INFINITY)
+      : 0;
 
     const daysSelling = Math.max(1, info?.days_selling ?? 1);
     // Para histórico de 1 dia (importação Fever em batch) usamos uma janela
     // mínima de 30 dias — caso contrário a velocidade fica artificialmente
     // alta (todas as vendas num único dia) e o forecast explode.
     const velocityWindow = daysSelling > 1 ? daysSelling : Math.max(30, FORECAST_RECENT_WINDOW_DAYS);
-    const recentVelocity = realQty / velocityWindow;
+    // Velocidade da ZONA (todas as duplicatas), atribuída ao anchor.
+    const recentVelocity = isAnchor ? realQtyZone / velocityWindow : 0;
 
     const baseProjection = recentVelocity * baseWindow;
     const finalProjection = recentVelocity * finalAccel * finalWindow;
