@@ -465,6 +465,22 @@ export default function EventDetail() {
     },
   });
 
+  // Cachê calculado (efetivo) — soma ao card de Despesas quando há vendas reais e
+  // o pagamento ainda não foi lançado em transações. Configs vivem no Master em turnês.
+  const cacheRootEventId = event?.parent_event_id ?? id!;
+  const cacheChildIds = isMultiEvent
+    ? subEvents.map((s: any) => s.id)
+    : event?.parent_event_id
+      ? [id!]
+      : [];
+  const cacheSelectedSubId = selectedSubEvent ?? (event?.parent_event_id ? id! : null);
+  const { cacheImpact: calculatedCacheImpact } = useEventCacheImpact({
+    eventId: cacheRootEventId,
+    childEventIds: cacheChildIds,
+    selectedSubEventId: cacheSelectedSubId,
+    eventStatus: event?.status,
+  });
+
   if (loadingEvent) {
     return <p className="py-20 text-center text-muted-foreground">A carregar evento…</p>;
   }
