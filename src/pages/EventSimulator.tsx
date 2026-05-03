@@ -1224,12 +1224,12 @@ export default function EventSimulator() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  <RevRow label="Bilhetes" prior={calcCfg.prior_year_tickets} a={today.ticketsRevenue} b={breakeven.ticketsRevenue} c={forecast.ticketsRevenue} />
-                  <RevRow label="A&B Bebida" prior={calcCfg.prior_year_drink} a={today.drinkRevenue} b={breakeven.drinkRevenue} c={forecast.drinkRevenue} />
-                  <RevRow label="A&B Alimento" prior={calcCfg.prior_year_food} a={today.foodRevenue} b={breakeven.foodRevenue} c={forecast.foodRevenue} />
-                  <RevRow label="Patrocínio" prior={calcCfg.prior_year_sponsor} a={today.sponsorRevenue} b={breakeven.sponsorRevenue} c={forecast.sponsorRevenue} />
-                  <RevRow label="Souvenir" prior={calcCfg.prior_year_souvenir} a={today.souvenirRevenue} b={breakeven.souvenirRevenue} c={forecast.souvenirRevenue} />
-                  <RevRow label="Outros Créditos" prior={calcCfg.prior_year_other} a={today.otherCredits} b={breakeven.otherCredits} c={forecast.otherCredits} />
+                  <RevRow label="Bilhetes" prior={calcCfg.prior_year_tickets} a={todayV2.ticketsRevenue} b={breakevenV2.ticketsRevenue} c={forecastV2.ticketsRevenue} />
+                  <RevRow label="A&B Bebida" prior={calcCfg.prior_year_drink} a={todayV2.drinkRevenue} b={breakevenV2.drinkRevenue} c={forecastV2.drinkRevenue} />
+                  <RevRow label="A&B Alimento" prior={calcCfg.prior_year_food} a={todayV2.foodRevenue} b={breakevenV2.foodRevenue} c={forecastV2.foodRevenue} />
+                  <RevRow label="Patrocínio" prior={calcCfg.prior_year_sponsor} a={todayV2.sponsorRevenue} b={breakevenV2.sponsorRevenue} c={forecastV2.sponsorRevenue} />
+                  <RevRow label="Souvenir" prior={calcCfg.prior_year_souvenir} a={todayV2.souvenirRevenue} b={breakevenV2.souvenirRevenue} c={forecastV2.souvenirRevenue} />
+                  <RevRow label="Outros Créditos" prior={calcCfg.prior_year_other} a={todayV2.otherCredits} b={breakevenV2.otherCredits} c={forecastV2.otherCredits} />
                   <TableRow className="font-bold border-t-2">
                     <TableCell>FATURAMENTO TOTAL</TableCell>
                     <TableCell className="text-right">{fmt(calcCfg.prior_year_tickets + calcCfg.prior_year_drink + calcCfg.prior_year_food + calcCfg.prior_year_sponsor + calcCfg.prior_year_souvenir + calcCfg.prior_year_other)}</TableCell>
