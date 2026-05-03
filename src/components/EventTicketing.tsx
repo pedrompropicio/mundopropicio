@@ -967,8 +967,10 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
             </thead>
             <tbody className="divide-y divide-border/30">
               {(() => {
-                // Distribuir combos igualmente pelas zonas que consomem,
-                // para evitar sobrecarga visual na zona-âncora.
+                // Atribuir cada lote à sua zona-âncora (l.zone_id), alinhando
+                // o resumo com a contagem mostrada no cabeçalho de cada zona.
+                // Combos não são divididos entre zonas que consomem — ficam
+                // contabilizados na zona onde foram cadastrados.
                 const acc = new Map<string, { tix: number; gross: number; net: number; iva: number }>();
                 for (const z of sortedZones) acc.set(z.id, { tix: 0, gross: 0, net: 0, iva: 0 });
                 for (const l of filteredLots) {
@@ -978,21 +980,12 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
                   const gross = qty * price;
                   const net = qty * netFromGross(price, rate);
                   const iva = qty * ivaFromGross(price, rate);
-                  const isCombo = !!(l as any).is_combo;
-                  const consumes: string[] = Array.isArray((l as any).consumes_zone_ids) ? (l as any).consumes_zone_ids : [];
-                  const targets = isCombo
-                    ? (consumes.length > 0 ? consumes : [l.zone_id])
-                    : [l.zone_id];
-                  const visible = targets.filter((id) => acc.has(id));
-                  if (visible.length === 0) continue;
-                  const share = 1 / visible.length;
-                  for (const id of visible) {
-                    const a = acc.get(id)!;
-                    a.tix += qty * share;
-                    a.gross += gross * share;
-                    a.net += net * share;
-                    a.iva += iva * share;
-                  }
+                  const a = acc.get(l.zone_id);
+                  if (!a) continue;
+                  a.tix += qty;
+                  a.gross += gross;
+                  a.net += net;
+                  a.iva += iva;
                 }
                 return sortedZones.map((z) => {
                 const a = acc.get(z.id)!;
