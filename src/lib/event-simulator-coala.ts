@@ -199,6 +199,9 @@ export function computeScenarioRevenue(
   /** Receita de bilheteira por sessão (real + extras a preços marginais reais).
    *  Quando fornecido, substitui o cálculo qty × TM. */
   revenueByKey?: Record<string, number>,
+  /** Presenças × dia (combos expandidos) — alimenta A&B fallback e KPIs.
+   *  Quando ausente, usa pagantes únicos (legado). */
+  attendance?: AttendanceOverride,
 ): ScenarioRevenue {
   let ticketsQty = 0, ticketsRevenue = 0, courtesyQty = 0;
 
@@ -236,7 +239,11 @@ export function computeScenarioRevenue(
     }
   }
 
-  const publicForAB = ticketsQty + courtesyQty;
+  // Presenças × dia: usa override (combos expandidos) se fornecido,
+  // senão cai para pagantes únicos (compatibilidade).
+  const attendanceQty = attendance ? attendance.payingAttendance : ticketsQty;
+  const attendanceCourtesyQty = attendance ? attendance.courtesyAttendance : courtesyQty;
+  const publicForAB = attendanceQty + attendanceCourtesyQty;
   const ab = abForPublic(publicForAB, cfg);
 
 
@@ -253,6 +260,8 @@ export function computeScenarioRevenue(
       n(cfg.sponsorship_revenue) + n(cfg.souvenir_revenue) +
       n(cfg.bonif_bebidas) + n(cfg.ponto_vendido),
     courtesyQty,
+    attendanceQty,
+    attendanceCourtesyQty,
   };
 }
 
