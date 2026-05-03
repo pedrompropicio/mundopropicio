@@ -282,6 +282,7 @@ export async function parseFeverXlsx(
       unitPriceNet: +(effectiveUnitPrice / (1 + FEVER_IVA_RATE / 100)).toFixed(4),
       lotName: meta.lotName,
       zoneName: meta.zoneName,
+      physicalZone: meta.physicalZone,
       zoneKind: meta.zoneKind,
       lotKind: meta.lotKind,
       daySlot: meta.daySlot,
@@ -463,42 +464,77 @@ export async function parseFeverXlsx(
 }
 
 /**
- * Agrupa os lotes por zona (para criar event_ticket_zones e os lotes filhos).
+ * Agrupa lotes Fever para alimentar o setup de importação no modelo unificado:
+ *
+ *  - `dailyGroups`: 1 grupo por (kind diário × dia) — vão tornar-se as
+ *    zonas-Sáb e zonas-Dom (Relvado-Sáb, Relvado-Dom, Tenda-Sáb, Tenda-Dom).
+ *
+ *  - `comboGroups`: 1 grupo por família física (Relvado/Tenda) que tem passes
+ *    de 2 dias. Esses lotes vão ser criados na zona-Sábado da família com
+ *    `is_combo=true` e `consumes_zone_ids = [satZoneId, sunZoneId]`.
  */
-export interface FeverZoneGroup {
+export interface FeverDailyZoneGroup {
   zoneName: string;
   zoneKind: FeverZoneKind;
-  /** "saturday"/"sunday" para zonas diárias, null para zonas de passe (sem sessão) */
-  daySlot: "saturday" | "sunday" | null;
+  physicalZone: FeverPhysicalZoneKind;
+  daySlot: "saturday" | "sunday";
   lots: FeverParsedLot[];
 }
 
-export function groupFeverLotsByZone(lots: FeverParsedLot[]): FeverZoneGroup[] {
-  const groups = new Map<string, FeverZoneGroup>();
-  for (const lot of lots) {
-    const k = `${lot.zoneKind}|${lot.daySlot || "nosession"}`;
-    if (!groups.has(k)) {
-      groups.set(k, {
-        zoneName: lot.zoneName,
-        zoneKind: lot.zoneKind,
-        daySlot: lot.daySlot,
-        lots: [],
-      });
-    }
-    groups.get(k)!.lots.push(lot);
-  }
-  // ordem lógica: Relvado-Sáb, Relvado-Dom, Tenda-Sáb, Tenda-Dom, Passes-Relvado, Passes-Tenda
-  const order: FeverZoneKind[] = [
-    "relvado_diario",
-    "tenda_diario",
-    "relvado_passe",
-    "tenda_passe",
-  ];
-  return Array.from(groups.values()).sort((a, b) => {
-    const da = order.indexOf(a.zoneKind);
-    const db = order.indexOf(b.zoneKind);
-    if (da !== db) return da - db;
-    // dentro do mesmo kind: Sábado antes de Domingo
-    return (a.daySlot || "z").localeCompare(b.daySlot || "z");
-  });
+export interface FeverComboGroup {
+  /** rótulo p/ apresentação no setup, ex.: "Relvado — Combo Passe 2 dias" */
+  groupLabel: string;
+  physicalZone: FeverPhysicalZoneKind;
+  lots: FeverParsedLot[];
 }
+
+export interface FeverGroupedLots {
+  dailyGroups: FeverDailyZoneGroup[];
+  comboGroups: FeverComboGroup[];
+}
+
+export function groupFeverLots(lots: FeverParsedLot[]): FeverGroupedLots {
+  const dailyMap = new Map<string, FeverDailyZoneGroup>();
+  const comboMap = new Map<FeverPhysicalZoneKind, FeverComboGroup>();
+
+  for (const lot of lots) {
+    if (lot.lotKind === "daily" && lot.zoneKind && lot.daySlot) {
+      const k = `${lot.zoneKind}|${lot.daySlot}`;
+      if (!dailyMap.has(k)) {
+        dailyMap.set(k, {
+          zoneName: lot.zoneName,
+          zoneKind: lot.zoneKind,
+          physicalZone: lot.physicalZone,
+          daySlot: lot.daySlot,
+          lots: [],
+        });
+      }
+      dailyMap.get(k)!.lots.push(lot);
+    } else if (lot.lotKind === "pass") {
+      if (!comboMap.has(lot.physicalZone)) {
+        comboMap.set(lot.physicalZone, {
+          groupLabel: `${lot.physicalZone === "tenda" ? "Tenda VIP" : "Relvado"} — Combo Passe 2 dias`,
+          physicalZone: lot.physicalZone,
+          lots: [],
+        });
+      }
+      comboMap.get(lot.physicalZone)!.lots.push(lot);
+    }
+  }
+
+  const dailyOrder: FeverZoneKind[] = ["relvado_diario", "tenda_diario"];
+  const dailyGroups = Array.from(dailyMap.values()).sort((a, b) => {
+    const da = dailyOrder.indexOf(a.zoneKind);
+    const db = dailyOrder.indexOf(b.zoneKind);
+    if (da !== db) return da - db;
+    return a.daySlot.localeCompare(b.daySlot);
+  });
+
+  const comboOrder: FeverPhysicalZoneKind[] = ["relvado", "tenda"];
+  const comboGroups = Array.from(comboMap.values()).sort(
+    (a, b) => comboOrder.indexOf(a.physicalZone) - comboOrder.indexOf(b.physicalZone),
+  );
+
+  return { dailyGroups, comboGroups };
+}
+
