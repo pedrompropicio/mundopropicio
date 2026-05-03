@@ -8,13 +8,13 @@ describe("combo-gating: isComboAllowed", () => {
     ).toBe(true);
   });
 
-  it("bloqueia Combo em festival de 1 dia", () => {
+  it("permite Combo em festival de 1 dia (passe = total dos dias)", () => {
     expect(
       isComboAllowed({ event_type: "festival", parent_event_id: null, event_dates_count: 1 }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it("bloqueia Combo em festival sem datas", () => {
+  it("bloqueia Combo em festival sem datas configuradas", () => {
     expect(
       isComboAllowed({ event_type: "festival", parent_event_id: null, event_dates_count: 0 }),
     ).toBe(false);
