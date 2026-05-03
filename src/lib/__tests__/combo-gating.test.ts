@@ -8,13 +8,13 @@ describe("combo-gating: isComboAllowed", () => {
     ).toBe(true);
   });
 
-  it("bloqueia Combo em festival de 1 dia", () => {
+  it("permite Combo em festival de 1 dia (passe = total dos dias)", () => {
     expect(
       isComboAllowed({ event_type: "festival", parent_event_id: null, event_dates_count: 1 }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it("bloqueia Combo em festival sem datas", () => {
+  it("bloqueia Combo em festival sem datas configuradas", () => {
     expect(
       isComboAllowed({ event_type: "festival", parent_event_id: null, event_dates_count: 0 }),
     ).toBe(false);
@@ -57,7 +57,7 @@ describe("combo-gating: coerceLotKind", () => {
     expect(coerceLotKind("combo", okGating)).toBe("combo");
   });
 
-  it("força simple quando o utilizador escolhe combo num evento simples 1 dia", () => {
+  it("força simple quando o utilizador escolhe combo num evento simples", () => {
     expect(
       coerceLotKind("combo", { event_type: "simple", parent_event_id: null, event_dates_count: 1 }),
     ).toBe("simple");
@@ -73,8 +73,8 @@ describe("combo-gating: coerceLotKind", () => {
     ).toBe("simple");
   });
 
-  it("força simple num festival de 1 dia mesmo se desired=combo", () => {
-    expect(coerceLotKind("combo", { ...okGating, event_dates_count: 1 })).toBe("simple");
+  it("permite combo num festival de 1 dia (passe cobre o único dia)", () => {
+    expect(coerceLotKind("combo", { ...okGating, event_dates_count: 1 })).toBe("combo");
   });
 
   it("default seguro: valores inválidos viram simple", () => {
@@ -112,8 +112,15 @@ describe("combo-gating: matriz E2E de cenários do produto", () => {
       desired: "combo",
     },
     {
-      name: "Festival 1 dia → selector escondido, força simple",
+      name: "Festival 1 dia → selector visível, combo gravado (passe = 1 dia)",
       gating: { event_type: "festival", parent_event_id: null, event_dates_count: 1 },
+      selectorVisible: true,
+      savedAs: "combo",
+      desired: "combo",
+    },
+    {
+      name: "Festival sem datas → selector escondido, força simple",
+      gating: { event_type: "festival", parent_event_id: null, event_dates_count: 0 },
       selectorVisible: false,
       savedAs: "simple",
       desired: "combo",
