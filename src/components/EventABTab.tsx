@@ -278,13 +278,13 @@ export default function EventABTab({ eventId }: Props) {
         </Tabs>
       </div>
 
-      {/* KPIs consolidados */}
+      {/* KPIs consolidados — perspectiva da casa (modelo concessão) */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Kpi label="Faturação A&B" value={fmtEUR(totals.faturacaoTotal)} />
-        <Kpi label="Receita A&B" value={fmtEUR(totals.receitaTotal)} highlight />
-        <Kpi label="Custo A&B" value={fmtEUR(totals.custoTotal)} />
-        <Kpi label="Resultado A&B" value={fmtEUR(totals.resultadoTotal)} highlight={totals.resultadoTotal >= 0} negative={totals.resultadoTotal < 0} />
-        <Kpi label="Margem" value={fmtPct(totals.margemPct)} />
+        <Kpi label="Faturação A&B (gerador)" value={fmtEUR(totals.faturacaoTotal)} />
+        <Kpi label="Receita A&B (casa)" value={fmtEUR(totals.receitaTotal)} highlight />
+        <Kpi label="Parte do gerador" value={fmtEUR(totals.parteGeradorTotal)} />
+        <Kpi label="Resultado A&B (casa)" value={fmtEUR(totals.resultadoTotal)} highlight />
+        <Kpi label="Quota da casa" value={fmtPct(totals.margemPct)} />
       </div>
 
       {/* Bebidas — por zona */}
