@@ -1,113 +1,126 @@
 import { describe, it, expect } from "vitest";
 import {
   computeZoneAllocations,
-  validateSimpleLotAgainstCapacity,
-  validateComboLotAgainstCapacity,
+  validateLotAgainstCapacity,
+  type CapLot,
+  type CapZone,
 } from "../combo-capacity";
 
-const zones = [
-  { id: "zA", name: "VIP", total_capacity: 100 },
-  { id: "zB", name: "Geral", total_capacity: 500 },
-  { id: "zC", name: "Sem limite", total_capacity: 0 },
+const zones: CapZone[] = [
+  { id: "zRelSab", name: "Relvado — Sábado", total_capacity: 1000 },
+  { id: "zRelDom", name: "Relvado — Domingo", total_capacity: 1000 },
+  { id: "zVip", name: "VIP", total_capacity: 100 },
+  { id: "zSemLim", name: "Sem limite", total_capacity: 0 },
 ];
 
-describe("combo-capacity: computeZoneAllocations", () => {
-  it("soma simples + combos por zona (combo é mono-zona)", () => {
-    const simple = [
-      { id: "s1", zone_id: "zA", quantity: 30 },
-      { id: "s2", zone_id: "zB", quantity: 200 },
+describe("combo-capacity: computeZoneAllocations (modelo unificado)", () => {
+  it("lote simples só conta na sua zona", () => {
+    const lots: CapLot[] = [
+      { id: "l1", zone_id: "zRelSab", quantity: 300 },
+      { id: "l2", zone_id: "zRelDom", quantity: 200 },
     ];
-    const combos = [{ id: "c1", zone_id: "zA" }];
-    const comboLots = [{ id: "cl1", combo_pass_id: "c1", quantity: 50 }];
+    const a = computeZoneAllocations(zones, lots);
+    expect(a.find((x) => x.zone_id === "zRelSab")!.used_simple).toBe(300);
+    expect(a.find((x) => x.zone_id === "zRelDom")!.used_simple).toBe(200);
+    expect(a.find((x) => x.zone_id === "zVip")!.used_total).toBe(0);
+  });
 
-    const a = computeZoneAllocations(zones, simple, combos, comboLots);
-    const vip = a.find((x) => x.zone_id === "zA")!;
-    const geral = a.find((x) => x.zone_id === "zB")!;
-    expect(vip.used_simple).toBe(30);
-    expect(vip.used_combo).toBe(50);
-    expect(vip.used_total).toBe(80);
-    expect(vip.exceeded).toBe(false);
-    // combo só conta na sua zona
-    expect(geral.used_combo).toBe(0);
-    expect(geral.used_total).toBe(200);
+  it("lote combo abate em CADA zona em consumes_zone_ids", () => {
+    const lots: CapLot[] = [
+      { id: "lc", zone_id: "zRelSab", quantity: 50, is_combo: true,
+        consumes_zone_ids: ["zRelSab", "zRelDom"] },
+    ];
+    const a = computeZoneAllocations(zones, lots);
+    expect(a.find((x) => x.zone_id === "zRelSab")!.used_combo).toBe(50);
+    expect(a.find((x) => x.zone_id === "zRelDom")!.used_combo).toBe(50);
+    expect(a.find((x) => x.zone_id === "zVip")!.used_combo).toBe(0);
+  });
+
+  it("simples + combo somam na mesma zona-dia", () => {
+    const lots: CapLot[] = [
+      { id: "l1", zone_id: "zRelSab", quantity: 700 },
+      { id: "lc", zone_id: "zRelSab", quantity: 200, is_combo: true,
+        consumes_zone_ids: ["zRelSab", "zRelDom"] },
+    ];
+    const a = computeZoneAllocations(zones, lots);
+    const sab = a.find((x) => x.zone_id === "zRelSab")!;
+    expect(sab.used_simple).toBe(700);
+    expect(sab.used_combo).toBe(200);
+    expect(sab.used_total).toBe(900);
+    expect(sab.exceeded).toBe(false);
   });
 
   it("capacity=0 nunca está excedida", () => {
-    const a = computeZoneAllocations(
+    const a = computeZoneAllocations(zones, [
+      { id: "l", zone_id: "zSemLim", quantity: 99999 },
+    ]);
+    expect(a.find((x) => x.zone_id === "zSemLim")!.exceeded).toBe(false);
+  });
+
+  it("combo sem consumes_zone_ids cai na zona âncora", () => {
+    const lots: CapLot[] = [
+      { id: "lc", zone_id: "zVip", quantity: 10, is_combo: true, consumes_zone_ids: [] },
+    ];
+    const a = computeZoneAllocations(zones, lots);
+    expect(a.find((x) => x.zone_id === "zVip")!.used_combo).toBe(10);
+  });
+});
+
+describe("combo-capacity: validateLotAgainstCapacity", () => {
+  it("aceita lote simples dentro da capacidade", () => {
+    expect(
+      validateLotAgainstCapacity(
+        { zone_id: "zRelSab", quantity: 500 },
+        zones,
+        [{ id: "l", zone_id: "zRelSab", quantity: 400 }],
+      ),
+    ).toBeNull();
+  });
+
+  it("rejeita combo que estoura capacidade na 2ª zona consumida", () => {
+    const others: CapLot[] = [
+      { id: "l", zone_id: "zRelDom", quantity: 950 },
+    ];
+    const err = validateLotAgainstCapacity(
+      { zone_id: "zRelSab", quantity: 100, is_combo: true,
+        consumes_zone_ids: ["zRelSab", "zRelDom"] },
       zones,
-      [{ id: "s", zone_id: "zC", quantity: 99999 }],
-      [],
-      [],
+      others,
     );
-    expect(a.find((x) => x.zone_id === "zC")!.exceeded).toBe(false);
+    expect(err).toContain("Domingo");
   });
-});
 
-describe("combo-capacity: validateSimpleLotAgainstCapacity", () => {
-  const combos = [{ id: "c1", zone_id: "zA" }];
-  const comboLots = [{ id: "cl1", combo_pass_id: "c1", quantity: 60 }];
-
-  it("aceita lote dentro da capacidade", () => {
+  it("excludeLotId permite editar lote sem contar a versão antiga", () => {
+    const others: CapLot[] = [
+      { id: "lc", zone_id: "zRelSab", quantity: 950, is_combo: true,
+        consumes_zone_ids: ["zRelSab", "zRelDom"] },
+    ];
     expect(
-      validateSimpleLotAgainstCapacity("zA", 30, zones, [], combos, comboLots),
-    ).toBeNull();
-  });
-
-  it("rejeita quando simples + combos > capacidade", () => {
-    const err = validateSimpleLotAgainstCapacity("zA", 50, zones, [], combos, comboLots);
-    expect(err).toContain("Capacidade excedida");
-    expect(err).toContain("VIP");
-  });
-
-  it("excludeSimpleLotId permite editar lote sem contar a versão antiga", () => {
-    const simple = [{ id: "s1", zone_id: "zA", quantity: 30 }];
-    expect(
-      validateSimpleLotAgainstCapacity("zA", 30, zones, simple, combos, comboLots),
+      validateLotAgainstCapacity(
+        { zone_id: "zRelSab", quantity: 200, is_combo: true,
+          consumes_zone_ids: ["zRelSab", "zRelDom"] },
+        zones,
+        others,
+      ),
     ).toContain("excedida");
     expect(
-      validateSimpleLotAgainstCapacity("zA", 30, zones, simple, combos, comboLots, "s1"),
+      validateLotAgainstCapacity(
+        { zone_id: "zRelSab", quantity: 200, is_combo: true,
+          consumes_zone_ids: ["zRelSab", "zRelDom"] },
+        zones,
+        others,
+        "lc",
+      ),
     ).toBeNull();
   });
 
-  it("capacity=0 → sem validação", () => {
+  it("zona com capacity=0 nunca rejeita", () => {
     expect(
-      validateSimpleLotAgainstCapacity("zC", 99999, zones, [], [], []),
-    ).toBeNull();
-  });
-});
-
-describe("combo-capacity: validateComboLotAgainstCapacity", () => {
-  const combos = [
-    { id: "c1", zone_id: "zA" },
-    { id: "c2", zone_id: "zB" },
-  ];
-
-  it("rejeita se a zona do passe excede", () => {
-    const simple = [{ id: "s", zone_id: "zA", quantity: 90 }];
-    const err = validateComboLotAgainstCapacity("c1", 20, zones, simple, combos, []);
-    expect(err).toContain("VIP");
-  });
-
-  it("aceita combo que cabe na zona", () => {
-    expect(
-      validateComboLotAgainstCapacity("c1", 5, zones, [], combos, []),
-    ).toBeNull();
-  });
-
-  it("excludeComboLotId não conta a versão antiga", () => {
-    const comboLots = [{ id: "cl1", combo_pass_id: "c1", quantity: 95 }];
-    expect(
-      validateComboLotAgainstCapacity("c1", 10, zones, [], combos, comboLots),
-    ).toContain("excedida");
-    expect(
-      validateComboLotAgainstCapacity("c1", 10, zones, [], combos, comboLots, "cl1"),
-    ).toBeNull();
-  });
-
-  it("passe sem zona ligada → sem validação", () => {
-    const empty = [{ id: "cX", zone_id: null }];
-    expect(
-      validateComboLotAgainstCapacity("cX", 999, zones, [], empty, []),
+      validateLotAgainstCapacity(
+        { zone_id: "zSemLim", quantity: 999999 },
+        zones,
+        [],
+      ),
     ).toBeNull();
   });
 });

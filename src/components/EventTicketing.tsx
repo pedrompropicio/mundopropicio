@@ -25,8 +25,7 @@ import { BPScenarioSelector } from "@/components/bp-versions/BPScenarioSelector"
 import { useBPVersions } from "@/hooks/useBPVersions";
 import { Sparkles } from "lucide-react";
 import { isComboAllowed, coerceLotKind } from "@/lib/combo-gating";
-import { validateSimpleLotAgainstCapacity } from "@/lib/combo-capacity";
-import { EventComboPassesSection } from "@/components/EventComboPassesSection";
+import { validateLotAgainstCapacity } from "@/lib/combo-capacity";
 
 interface Props {
   eventId: string;
@@ -358,42 +357,31 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   // Lot CRUD
   const saveLotMutation = useMutation({
     mutationFn: async ({ form, zoneId, id }: { form: LotForm; zoneId: string; id: string | null }) => {
-      // Fetch fresh zones (todas do evento), lotes simples, combos e combo-lots para validar
-      // capacidade considerando ALOCAÇÃO via combo passes (1 combo lot = 1 unidade em CADA zona ligada).
-      const [
-        { data: allZones, error: zonesError },
-        { data: combos },
-        { data: comboLots },
-      ] = await Promise.all([
-        supabase.from("event_ticket_zones").select("id, name, total_capacity").eq("event_id", eventId),
-        supabase.from("event_combo_passes" as any).select("id, zone_id").eq("event_id", eventId).is("version_id", null),
-        supabase.from("event_combo_pass_lots" as any).select("id, combo_pass_id, quantity").is("version_id", null),
-      ]);
+      const { data: allZones, error: zonesError } = await supabase
+        .from("event_ticket_zones").select("id, name, total_capacity").eq("event_id", eventId);
       if (zonesError) throw zonesError;
       const zoneIds = (allZones ?? []).map((z: any) => z.id);
-      const { data: simpleLotsAll } = zoneIds.length
-        ? await supabase.from("event_ticket_lots").select("id, zone_id, quantity, lot_number").in("zone_id", zoneIds)
+      const { data: lotsAll } = zoneIds.length
+        ? await supabase.from("event_ticket_lots")
+            .select("id, zone_id, quantity, lot_number, is_combo, consumes_zone_ids")
+            .in("zone_id", zoneIds)
         : { data: [] as any[] };
-      const currentLots = (simpleLotsAll ?? []).filter((l: any) => l.zone_id === zoneId);
-
+      const currentLots = (lotsAll ?? []).filter((l: any) => l.zone_id === zoneId);
       const newQty = parseInt(form.quantity) || 0;
+      const kind = coerceLotKind(form.lot_kind, comboGating);
 
-      const comboList = ((combos ?? []) as any[]).map((c) => ({
-        id: c.id,
-        zone_id: c.zone_id,
-      }));
-      const err = validateSimpleLotAgainstCapacity(
-        zoneId,
-        newQty,
+      const err = validateLotAgainstCapacity(
+        { zone_id: zoneId, quantity: newQty, is_combo: kind === "combo", consumes_zone_ids: [] },
         ((allZones ?? []) as any[]).map((z) => ({ id: z.id, name: z.name, total_capacity: z.total_capacity })),
-        ((simpleLotsAll ?? []) as any[]).map((l) => ({ id: l.id, zone_id: l.zone_id, quantity: l.quantity })),
-        comboList,
-        ((comboLots ?? []) as any[]).map((l) => ({ id: l.id, combo_pass_id: l.combo_pass_id, quantity: l.quantity })),
+        ((lotsAll ?? []) as any[]).map((l: any) => ({
+          id: l.id, zone_id: l.zone_id, quantity: l.quantity,
+          is_combo: !!l.is_combo, consumes_zone_ids: l.consumes_zone_ids ?? [],
+        })),
         id,
       );
       if (err) throw new Error(err);
 
-      const nextLotNumber = id ? currentLots.find((l) => l.id === id)?.lot_number ?? 1 : currentLots.length + 1;
+      const nextLotNumber = id ? currentLots.find((l: any) => l.id === id)?.lot_number ?? 1 : currentLots.length + 1;
       const payload: any = {
         zone_id: zoneId,
         name: form.name,
@@ -402,8 +390,9 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         iva_rate: parseInt(form.iva_rate) || 6,
         lot_number: nextLotNumber,
         lot_type: form.lot_type || "regular",
-        lot_kind: coerceLotKind(form.lot_kind, comboGating),
-        version_id: selectedVersionId, // null=Active, uuid=scenario sandbox
+        lot_kind: kind,
+        is_combo: kind === "combo",
+        version_id: selectedVersionId,
       };
       if (id) {
         const { error } = await supabase.from("event_ticket_lots").update(payload).eq("id", id);
@@ -692,16 +681,8 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         </div>
       </div>
 
-      {/* Secção Passes/Combos — só em festival multi-dia */}
-      {comboAllowed && (
-        <EventComboPassesSection
-          eventId={eventId}
-          versionId={selectedVersionId}
-          zones={zones.map((z: any) => ({ id: z.id, name: z.name }))}
-          eventDaysCount={eventDates.length}
-          canEdit={canEditTickets}
-        />
-      )}
+      {/* Secção dedicada de Combos foi removida — combos agora são lotes
+          com is_combo=true dentro das próprias zonas (UI rica vem na próxima iteração). */}
 
       {/* Zones list */}
       <div className="glass rounded-xl p-5">
