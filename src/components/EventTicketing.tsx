@@ -186,13 +186,15 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   });
 
   // Combo só faz sentido em FESTIVAL multi-dia (>1 data) e não em sub-eventos de turnê.
-  const comboAllowed = useMemo(() => {
-    if (!eventData) return false;
-    const isFestival = (eventData as any).event_type === "festival";
-    const isMultiDay = eventDates.length > 1;
-    const isTourSplit = !!(eventData as any).parent_event_id;
-    return isFestival && isMultiDay && !isTourSplit;
-  }, [eventData, eventDates]);
+  const comboGating = useMemo(
+    () => ({
+      event_type: (eventData as any)?.event_type ?? null,
+      parent_event_id: (eventData as any)?.parent_event_id ?? null,
+      event_dates_count: eventDates.length,
+    }),
+    [eventData, eventDates],
+  );
+  const comboAllowed = useMemo(() => isComboAllowed(comboGating), [comboGating]);
 
   // === Ticket Offices queries & mutations ===
   const { data: officeAssignments = [] } = useQuery({
