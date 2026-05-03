@@ -531,20 +531,15 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   const totalCapacity = filteredZones.reduce((s, z) => s + z.total_capacity, 0);
 
   const zonePublicSummary = useMemo(() => {
-    // Detecta lotes "Promo - 2x" que valem 2 pessoas por bilhete vendido.
-    const personMult = (name?: string | null) =>
-      !name ? 1 : (/(^|[^a-z0-9])2\s*x(\b|[^a-z0-9])/i.test(name) ? 2 : 1);
-    // Para o público real expandimos a quantity pelo multiplicador (2x = 2 pessoas).
-    const peopleLots = allLots.map((l: any) => ({
-      id: l.id,
-      zone_id: l.zone_id,
-      quantity: Number(l.quantity || 0) * personMult(l.name),
-      is_combo: !!l.is_combo || l.lot_kind === "combo",
-      consumes_zone_ids: l.consumes_zone_ids ?? [],
-    }));
     const allocations = computeZoneAllocations(
       sortedZones.map((z: any) => ({ id: z.id, name: z.name, total_capacity: z.total_capacity })),
-      peopleLots,
+      allLots.map((l: any) => ({
+        id: l.id,
+        zone_id: l.zone_id,
+        quantity: l.quantity,
+        is_combo: !!l.is_combo || l.lot_kind === "combo",
+        consumes_zone_ids: l.consumes_zone_ids ?? [],
+      })),
     );
     const allocationByZone = new Map(allocations.map((a) => [a.zone_id, a]));
     const revenueByAnchorZone = new Map<string, { tickets: number; gross: number; net: number; iva: number }>();
