@@ -1,0 +1,16 @@
+-- ============================================================================
+-- Promove a linha BP de cachê do sub-evento "Maiara e Maraisa Lisboa" a
+-- 'approved' (settlement de cidade já finalizado/ajustado e transação criada).
+-- O Porto já estava approved; só Lisboa ficou em draft, motivo de não somar
+-- nos cards do BP (Despesas).
+-- ============================================================================
+
+UPDATE event_forecasts
+SET status = 'approved'
+WHERE event_id = 'f2b628bf-1c1f-4507-8efa-d5aa9328cd2a'
+  AND cache_config_id = '8865e0df-e148-4035-bf5b-2cf709a6af70'
+  AND status = 'draft';
+
+-- Verificação
+SELECT event_id, status, amount FROM event_forecasts
+WHERE cache_config_id = '8865e0df-e148-4035-bf5b-2cf709a6af70';
