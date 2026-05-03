@@ -646,6 +646,9 @@ export default function ExecutiveDashboard(props: Props) {
           </CardContent>
         </Card>
 
+        {/* Linha 3.5 — Público por dia (fonte canónica useEventAttendance) */}
+        {eventId ? <DailyAttendanceCard eventId={eventId} dailyCapacity={dailyCapacity} /> : null}
+
         {/* Linha 4 — Gráficos */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
           <Card>
