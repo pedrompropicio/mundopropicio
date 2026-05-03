@@ -212,14 +212,18 @@ export default function EventABTab({ eventId }: Props) {
   };
 
   // ── participantes por cenário ──
+  // Real → ticket_sales (já carregado em realParticipants por zone_id da bilheteira)
+  // BE   → solver Break Even do Simulador (por zone_label)
+  // Fc   → solver Forecast do Simulador (por zone_label)
+  // Fallback (sem Simulador): capacidade total dos lotes.
   const participantsForZone = (z: any): number => {
     if (z.participants_manual != null) return Number(z.participants_manual);
     const srcId = z.source_ticket_zone_id;
-    if (!srcId) return 0;
-    if (scenario === "real") return realParticipants[srcId] ?? 0;
-    if (scenario === "forecast") return forecastParticipants[srcId] ?? 0;
-    // breakeven: por defeito = forecast (até existir ligação ao Simulador de break-even)
-    return forecastParticipants[srcId] ?? 0;
+    const labelKey = (z.zone_label || "").toLowerCase();
+    if (scenario === "real") return srcId ? (realParticipants[srcId] ?? 0) : 0;
+    const fromSim = simParticipantsByLabel[scenario]?.[labelKey];
+    if (fromSim != null && fromSim > 0) return fromSim;
+    return srcId ? (lotsCapacity[srcId] ?? 0) : 0;
   };
 
   const calcInputs: ABZoneInput[] = useMemo(
@@ -233,7 +237,7 @@ export default function EventABTab({ eventId }: Props) {
         per_capita_bebidas: Number(z.per_capita_bebidas || 0),
         repasse_bebidas_pct: Number(z.repasse_bebidas_pct || 0),
       })),
-    [zones, scenario, realParticipants, forecastParticipants],
+    [zones, scenario, realParticipants, simParticipantsByLabel, lotsCapacity],
   );
 
   const food: ABFoodConfig = {
