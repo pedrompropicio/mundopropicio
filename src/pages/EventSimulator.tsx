@@ -526,23 +526,25 @@ export default function EventSimulator() {
   const forecast = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "forecast", fcSolution.qtyByKey, fcSolution.revenueByKey), [calcSessions, calcCfg, fcSolution]);
 
   // ── Participantes (pagantes + cortesia) por zona em cada cenário,
-  //    para alimentar o módulo A&B canónico do evento. ──
+  //    para alimentar o módulo A&B canónico do evento.
+  //    IMPORTANTE: usa a presença expandida (dailyAttendance/beDaily/fcDaily),
+  //    em que cada combo conta como 1 pessoa por dia coberto na sua zona.
+  //    Assim, um combo de 2 dias = 2 participantes elegíveis em A&B.
   const abParticipants = useMemo<ABScenarioParticipants>(() => {
-    const realMap: Record<string, number> = {};
-    const beMap: Record<string, number> = {};
-    const fcMap: Record<string, number> = {};
-    for (const s of calcSessions) {
-      const key = `${s.day_index}-${s.zone_label}`;
-      const zoneKey = (s.zone_label || "").toLowerCase();
-      const realQty = (Number(s.real_sales_qty) || 0) + (Number(s.courtesy_qty) || 0);
-      realMap[zoneKey] = (realMap[zoneKey] ?? 0) + realQty;
-      const beQty = (beSolution.qtyByKey?.[key] ?? realQty) + (Number(s.courtesy_qty) || 0);
-      beMap[zoneKey] = (beMap[zoneKey] ?? 0) + beQty;
-      const fcQty = (fcSolution.qtyByKey?.[key] ?? realQty) + (Number(s.courtesy_qty) || 0);
-      fcMap[zoneKey] = (fcMap[zoneKey] ?? 0) + fcQty;
-    }
-    return { real: realMap, breakeven: beMap, forecast: fcMap };
-  }, [calcSessions, beSolution, fcSolution]);
+    const sumByZone = (rows: Array<{ zone_name: string; paying: number; courtesy: number }>) => {
+      const m: Record<string, number> = {};
+      for (const r of rows) {
+        const k = (r.zone_name || "").toLowerCase();
+        m[k] = (m[k] ?? 0) + Number(r.paying || 0) + Number(r.courtesy || 0);
+      }
+      return m;
+    };
+    return {
+      real: sumByZone(dailyAttendance),
+      breakeven: sumByZone(beDaily.expanded.length ? beDaily.expanded : dailyAttendance),
+      forecast: sumByZone(fcDaily.expanded.length ? fcDaily.expanded : dailyAttendance),
+    };
+  }, [dailyAttendance, beDaily, fcDaily]);
 
   const abModule = useEventABScenarios(event?.id, abParticipants);
 
