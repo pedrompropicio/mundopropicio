@@ -112,8 +112,15 @@ describe("combo-gating: matriz E2E de cenários do produto", () => {
       desired: "combo",
     },
     {
-      name: "Festival 1 dia → selector escondido, força simple",
+      name: "Festival 1 dia → selector visível, combo gravado (passe = 1 dia)",
       gating: { event_type: "festival", parent_event_id: null, event_dates_count: 1 },
+      selectorVisible: true,
+      savedAs: "combo",
+      desired: "combo",
+    },
+    {
+      name: "Festival sem datas → selector escondido, força simple",
+      gating: { event_type: "festival", parent_event_id: null, event_dates_count: 0 },
       selectorVisible: false,
       savedAs: "simple",
       desired: "combo",
