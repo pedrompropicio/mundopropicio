@@ -529,12 +529,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
           <td className="py-1.5 pr-2">
             <div className="flex items-center gap-1.5">
               <input ref={lotNameRef} value={lotForm.name} onChange={(e) => setLotForm({ ...lotForm, name: e.target.value })} className={inputClass} placeholder="Nome do lote…" autoFocus />
-              {comboAllowed && (
-                <select value={lotForm.lot_kind} onChange={(e) => setLotForm({ ...lotForm, lot_kind: e.target.value })} className={`${inputClass} w-24`} title="Tipo: Simples (1 dia) ou Combo/Passe (todos os dias do festival)">
-                  <option value="simple">Simples</option>
-                  <option value="combo">Combo</option>
-                </select>
-              )}
+              {/* Fase 2: combo agora vive na secção dedicada Passes/Combos. Lotes em zonas são sempre simples. */}
               <select value={lotForm.lot_type} onChange={(e) => setLotForm({ ...lotForm, lot_type: e.target.value })} className={`${inputClass} w-24`}>
                 <option value="regular">Regular</option>
                 <option value="promo">Promo</option>
