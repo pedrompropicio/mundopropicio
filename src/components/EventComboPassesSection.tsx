@@ -25,7 +25,7 @@ interface PassFormState {
   name: string;
   applies_to_days: number;
   benefits: string;
-  zoneIds: string[];
+  zoneId: string;
 }
 
 interface LotFormState {
@@ -43,14 +43,14 @@ export function EventComboPassesSection({ eventId, versionId, zones, eventDaysCo
 
   const [creatingPass, setCreatingPass] = useState(false);
   const [editingPassId, setEditingPassId] = useState<string | null>(null);
-  const [passForm, setPassForm] = useState<PassFormState>({ name: "", applies_to_days: 0, benefits: "", zoneIds: [] });
+  const [passForm, setPassForm] = useState<PassFormState>({ name: "", applies_to_days: 0, benefits: "", zoneId: "" });
 
   const [lotPanelPassId, setLotPanelPassId] = useState<string | null>(null);
   const [editingLotId, setEditingLotId] = useState<string | null>(null);
   const [lotForm, setLotForm] = useState<LotFormState>(emptyLot);
 
   const startCreate = () => {
-    setPassForm({ name: "", applies_to_days: 0, benefits: "", zoneIds: zones.map((z) => z.id) });
+    setPassForm({ name: "", applies_to_days: 0, benefits: "", zoneId: zones[0]?.id ?? "" });
     setEditingPassId(null);
     setCreatingPass(true);
   };
@@ -62,7 +62,7 @@ export function EventComboPassesSection({ eventId, versionId, zones, eventDaysCo
       name: p.name,
       applies_to_days: p.applies_to_days || 0,
       benefits: p.benefits || "",
-      zoneIds: p.zones.map((z) => z.zone_id),
+      zoneId: p.zone_id ?? "",
     });
     setEditingPassId(passId);
     setCreatingPass(true);
@@ -75,30 +75,23 @@ export function EventComboPassesSection({ eventId, versionId, zones, eventDaysCo
 
   const submitPass = () => {
     if (!passForm.name.trim()) return;
-    if (passForm.zoneIds.length === 0) return;
+    if (!passForm.zoneId) return;
     if (editingPassId) {
       updatePass.mutate({
         id: editingPassId,
         name: passForm.name.trim(),
         applies_to_days: passForm.applies_to_days,
         benefits: passForm.benefits || null,
-        zoneIds: passForm.zoneIds,
+        zoneId: passForm.zoneId,
       }, { onSuccess: cancelPass });
     } else {
       createPass.mutate({
         name: passForm.name.trim(),
         applies_to_days: passForm.applies_to_days,
         benefits: passForm.benefits || undefined,
-        zoneIds: passForm.zoneIds,
+        zoneId: passForm.zoneId,
       }, { onSuccess: cancelPass });
     }
-  };
-
-  const toggleZone = (zoneId: string) => {
-    setPassForm((f) => ({
-      ...f,
-      zoneIds: f.zoneIds.includes(zoneId) ? f.zoneIds.filter((z) => z !== zoneId) : [...f.zoneIds, zoneId],
-    }));
   };
 
   const startEditLot = (passId: string, lot: any) => {
