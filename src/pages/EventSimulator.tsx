@@ -525,26 +525,9 @@ export default function EventSimulator() {
   const breakeven = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolution.qtyByKey, beSolution.revenueByKey), [calcSessions, calcCfg, beSolution]);
   const forecast = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "forecast", fcSolution.qtyByKey, fcSolution.revenueByKey), [calcSessions, calcCfg, fcSolution]);
 
-  // ── Participantes (pagantes + cortesia) por zona em cada cenário,
-  //    para alimentar o módulo A&B canónico do evento.
-  //    IMPORTANTE: usa a presença expandida (dailyAttendance/beDaily/fcDaily),
-  //    em que cada combo conta como 1 pessoa por dia coberto na sua zona.
-  //    Assim, um combo de 2 dias = 2 participantes elegíveis em A&B.
-  const abParticipants = useMemo<ABScenarioParticipants>(() => {
-    const sumByZone = (rows: Array<{ zone_name: string; paying: number; courtesy: number }>) => {
-      const m: Record<string, number> = {};
-      for (const r of rows) {
-        const k = (r.zone_name || "").toLowerCase();
-        m[k] = (m[k] ?? 0) + Number(r.paying || 0) + Number(r.courtesy || 0);
-      }
-      return m;
-    };
-    return {
-      real: sumByZone(dailyAttendance),
-      breakeven: sumByZone(beDaily.expanded.length ? beDaily.expanded : dailyAttendance),
-      forecast: sumByZone(fcDaily.expanded.length ? fcDaily.expanded : dailyAttendance),
-    };
-  }, [dailyAttendance, beDaily, fcDaily]);
+  // abParticipants é definido depois de dailyAttendance/beDaily/fcDaily —
+  // ver bloco abaixo de buildDailyFromBreakdown.
+
 
   const abModule = useEventABScenarios(event?.id, abParticipants);
 
