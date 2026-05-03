@@ -36,6 +36,7 @@ import { exportSimulatorToXlsx, exportSimulatorToPdf, type SimulatorExportData }
 import { exportNodeToPdf } from "@/lib/event-simulator-view-pdf";
 import { ForecastBoostCalibrator } from "@/components/simulator/ForecastBoostCalibrator";
 import ExecutiveDashboard from "@/components/simulator/ExecutiveDashboard";
+import TourSimulator from "@/components/simulator/TourSimulator";
 import { useEventABScenarios, type ABScenarioParticipants } from "@/hooks/useEventABScenarios";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid } from "recharts";
 import { LayoutDashboard } from "lucide-react";
