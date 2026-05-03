@@ -94,8 +94,12 @@ export default function EventABTab({ eventId }: Props) {
     enabled: ticketZones.length > 0,
   });
 
-  const { data: forecastParticipants = {} } = useQuery({
-    queryKey: ["ab_forecast_participants", eventId],
+  // Forecast/Break Even vêm do Simulador (mesma lógica do Master Tour). O public
+  // "real" continua a sair de ticket_sales (acima). Se o Simulador não estiver
+  // configurado, BE/Forecast caem para a capacidade total dos lotes (fallback).
+  const sim = useCitySimulator(eventId);
+  const { data: lotsCapacity = {} } = useQuery({
+    queryKey: ["ab_lots_capacity", eventId],
     queryFn: async () => {
       const zoneIds = (ticketZones ?? []).map((z) => z.id);
       if (zoneIds.length === 0) return {};
@@ -112,6 +116,33 @@ export default function EventABTab({ eventId }: Props) {
     },
     enabled: ticketZones.length > 0,
   });
+
+  /** Mapa zone_label.toLowerCase() → participantes do Simulador (cenário). */
+  const simParticipantsByLabel = useMemo(() => {
+    const out: Record<"breakeven" | "forecast", Record<string, number>> = {
+      breakeven: {},
+      forecast: {},
+    };
+    for (const s of sim.sessions ?? []) {
+      const label = (s.zone_label || "").toLowerCase();
+      const courtesy = Number((s as any).courtesy_qty) || 0;
+      const realQty = Number((s as any).real_sales_qty) || 0;
+      // o solver guarda em sim.kpis indirectamente; mais simples: re-derivar via abModule
+      // mas aqui já basta usar real+courtesy como mínimo; substituiremos abaixo.
+      out.breakeven[label] = (out.breakeven[label] ?? 0) + realQty + courtesy;
+      out.forecast[label] = (out.forecast[label] ?? 0) + realQty + courtesy;
+    }
+    // Sobrepor com qty calculadas pelo solver (BE/Forecast) que já estão no abModule.totals
+    if (sim.abModule?.totals) {
+      for (const t of sim.abModule.totals.breakeven.zones) {
+        out.breakeven[t.zone_label.toLowerCase()] = t.participants;
+      }
+      for (const t of sim.abModule.totals.forecast.zones) {
+        out.forecast[t.zone_label.toLowerCase()] = t.participants;
+      }
+    }
+    return out;
+  }, [sim.sessions, sim.abModule?.totals]);
 
   // ── mutations ──
   const upsertConfig = useMutation({
