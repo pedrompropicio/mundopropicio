@@ -490,7 +490,7 @@ export default function EventSimulator() {
   }, [localCfg, sponsors]);
 
   const calcSessions: CoalaSession[] = useMemo(() =>
-    localSessions.map((s) => ({
+    simulatorSessions.map((s) => ({
       day_index: s.day_index,
       zone_label: s.zone_label,
       real_sales_qty: Number(s.real_sales_qty || 0),
@@ -502,7 +502,7 @@ export default function EventSimulator() {
       prior_year_revenue: Number(s.prior_year_revenue || 0),
       iva_pct: Number(s.iva_pct || 6),
       avg_ticket_override: s.avg_ticket_override,
-    })), [localSessions]);
+    })), [simulatorSessions]);
 
   const calcCosts: CoalaCostLine[] = useMemo(() =>
     localCosts.map((c) => ({
@@ -555,7 +555,7 @@ export default function EventSimulator() {
       }
       return `Dia ${idx + 1}`;
     };
-    const sessionsExp = localSessions.map(s => {
+    const sessionsExp = simulatorSessions.map(s => {
       const fcQty = Number(s.forecast_qty ?? s.real_sales_qty) || 0;
       const tm = s.avg_ticket_override != null && Number(s.avg_ticket_override) > 0
         ? Number(s.avg_ticket_override)
@@ -636,12 +636,12 @@ export default function EventSimulator() {
   // Presença diária expandindo combos
   const dailyAttendance = useMemo(() => {
     if (!lotSalesData) return [];
-    const totalDays = Math.max(1, lotSalesData.dates.length || (Math.max(0, ...localSessions.map(s => s.day_index)) + 1));
+      const totalDays = Math.max(1, lotSalesData.dates.length || (Math.max(0, ...simulatorSessions.map(s => s.day_index)) + 1));
     const zoneSet = new Map<string, { name: string }>();
-    localSessions.forEach(s => zoneSet.set(s.zone_label, { name: s.zone_label }));
+      simulatorSessions.forEach(s => zoneSet.set(s.zone_label, { name: s.zone_label }));
     lotSalesData.lotSales.forEach(s => zoneSet.set(s.zone_name, { name: s.zone_name }));
     const courtesyMap = new Map<string, number>();
-    localSessions.forEach(s => courtesyMap.set(`${s.day_index}|${s.zone_label}`, Number(s.courtesy_qty || 0)));
+      simulatorSessions.forEach(s => courtesyMap.set(`${s.day_index}|${s.zone_label}`, Number(s.courtesy_qty || 0)));
     return expandLotSalesToDailyAttendance(
       lotSalesData.lotSales,
       Array.from(zoneSet.values()),
@@ -650,7 +650,7 @@ export default function EventSimulator() {
       lotSalesData.dates,
       courtesyMap,
     );
-  }, [lotSalesData, localSessions, localCfg?.combo_lot_keywords]);
+  }, [lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords]);
 
   const dailyTotals = useMemo(() => {
     const byDay = new Map<number, { paying: number; courtesy: number; total: number; date: string | null }>();
