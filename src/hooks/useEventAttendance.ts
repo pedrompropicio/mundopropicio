@@ -168,13 +168,15 @@ export function useEventAttendance(
     const zoneName = new Map<string, string>();
     for (const z of zones) zoneName.set(z.id, z.name);
 
-    // lot_id → { zone_id, kind, qty }
-    const lotById = new Map<string, { zone_id: string; kind: string; qty: number }>();
-    for (const l of lots) {
+    // lot_id → { zone_id, kind, qty, is_combo, consumes_zone_ids }
+    const lotById = new Map<string, { zone_id: string; kind: string; qty: number; is_combo: boolean; consumes: string[] }>();
+    for (const l of lots as any[]) {
       lotById.set(l.id, {
         zone_id: l.zone_id,
-        kind: (l as any).lot_kind || "simple",
+        kind: l.lot_kind || (l.is_combo ? "combo" : "simple"),
         qty: Number(l.quantity || 0),
+        is_combo: !!l.is_combo,
+        consumes: (l.consumes_zone_ids ?? []) as string[],
       });
     }
 
@@ -202,91 +204,41 @@ export function useEventAttendance(
       for (const z of zones) ensure(d, z.id);
     }
 
-    // ── PAGANTES ──────────────────────────────────────────────
-    // Fonte: real → ticket_sales agregado por (zone, lot)
-    //        breakeven/forecast → event_ticket_lots.quantity
+    // ── PAGANTES (modelo unificado: lote simples OU combo via consumes_zone_ids) ─
     type Movement = { zone_id: string; lot_id: string | null; qty: number };
     const movements: Movement[] = [];
-
     if (scenario === "real") {
-      for (const s of realSales) {
+      for (const s of realSales as any[]) {
         if (!s.zone_id) continue;
-        movements.push({
-          zone_id: s.zone_id,
-          lot_id: s.lot_id ?? null,
-          qty: Number(s.quantity || 0),
-        });
+        movements.push({ zone_id: s.zone_id, lot_id: s.lot_id ?? null, qty: Number(s.quantity || 0) });
       }
     } else {
-      for (const l of lots) {
-        movements.push({
-          zone_id: l.zone_id,
-          lot_id: l.id,
-          qty: Number(l.quantity || 0),
-        });
+      for (const l of lots as any[]) {
+        movements.push({ zone_id: l.zone_id, lot_id: l.id, qty: Number(l.quantity || 0) });
       }
     }
 
     for (const mv of movements) {
-      // determinar kind (combo vs simple)
-      let kind: "simple" | "combo" = "simple";
-      if (mv.lot_id && lotById.has(mv.lot_id)) {
-        kind = (lotById.get(mv.lot_id)!.kind as any) === "combo" ? "combo" : "simple";
-      }
-
-      if (kind === "combo") {
-        // 1 venda combo = 1 pessoa em CADA dia do evento
-        for (let d = 0; d < dates.length; d++) {
-          const cell = ensure(d, mv.zone_id);
-          cell.paying += mv.qty;
+      const meta = mv.lot_id ? lotById.get(mv.lot_id) : undefined;
+      const isCombo = !!meta?.is_combo;
+      if (isCombo) {
+        // 1 venda combo = 1 pessoa em CADA zona consumida (que é tipicamente
+        // uma zona-dia distinta, ou a própria zona âncora se a lista vier vazia).
+        const consumed = meta!.consumes.length ? meta!.consumes : [meta!.zone_id];
+        for (const zid of consumed) {
+          const dayIdx = zoneDayIdx.get(zid);
+          if (dayIdx == null) {
+            // Zona sem session_id → assume todos os dias
+            for (let d = 0; d < dates.length; d++) ensure(d, zid).paying += mv.qty;
+          } else if (dayIdx >= 0 && dayIdx < dates.length) {
+            ensure(dayIdx, zid).paying += mv.qty;
+          }
         }
       } else {
-        // simple: dia da zona; se zona não tem session, dia 0
         const dayIdx = zoneDayIdx.get(mv.zone_id) ?? 0;
         if (dayIdx >= 0 && dayIdx < dates.length) {
-          const cell = ensure(dayIdx, mv.zone_id);
-          cell.paying += mv.qty;
+          ensure(dayIdx, mv.zone_id).paying += mv.qty;
         }
-      }
-    }
-
-    // ── COMBO PASSES (Fase 2, mono-zona) ─────────────────────
-    // Cada combo lot vendido (real) ou planeado (BE/Forecast) =
-    //   qty × 1 pessoa em CADA dia coberto, NA zona do passe.
-    const passById = new Map<string, { applies_to_days: number; zone_id: string | null }>();
-    for (const p of comboPasses as any[]) {
-      passById.set(p.id, { applies_to_days: Number(p.applies_to_days || 0), zone_id: p.zone_id ?? null });
-    }
-    const lotToPass = new Map<string, string>();
-    const lotPlannedQty = new Map<string, number>();
-    for (const l of comboPassLots as any[]) {
-      lotToPass.set(l.id, l.combo_pass_id);
-      lotPlannedQty.set(l.id, Number(l.quantity || 0));
-    }
-
-    // qty efetiva por lote_combo (real → soma vendas; BE/Forecast → quantidade planeada)
-    const effectiveByComboLot = new Map<string, number>();
-    if (scenario === "real") {
-      for (const s of comboPassRealSales as any[]) {
-        const id = s.combo_pass_lot_id;
-        if (!id) continue;
-        effectiveByComboLot.set(id, (effectiveByComboLot.get(id) || 0) + Number(s.quantity || 0));
-      }
-    } else {
-      for (const [id, q] of lotPlannedQty) effectiveByComboLot.set(id, q);
-    }
-
-    for (const [lotId, qty] of effectiveByComboLot) {
-      if (qty <= 0) continue;
-      const passId = lotToPass.get(lotId);
-      if (!passId) continue;
-      const meta = passById.get(passId);
-      if (!meta?.zone_id) continue;
-      const requested = Number(meta?.applies_to_days || 0);
-      const days = requested <= 0 ? dates.length : Math.min(requested, dates.length);
-      for (let d = 0; d < days; d++) {
-        const cell = ensure(d, meta.zone_id);
-        cell.paying += qty;
       }
     }
 
@@ -300,7 +252,6 @@ export function useEventAttendance(
       cell.courtesy += Number(c.quantity || 0);
     }
 
-    // Finaliza totals
     const cells = Array.from(grid.values());
     for (const c of cells) c.total = c.paying + c.courtesy;
 
@@ -315,13 +266,11 @@ export function useEventAttendance(
 
     return {
       isLoading: false,
-      cells: cells.sort(
-        (a, b) => a.day_index - b.day_index || a.zone_name.localeCompare(b.zone_name),
-      ),
+      cells: cells.sort((a, b) => a.day_index - b.day_index || a.zone_name.localeCompare(b.zone_name)),
       totalsByDay,
       totalsByZone,
       grandTotal: grand,
       dates,
     };
-  }, [eventId, scenario, dates, sessions, zones, lots, realSales, courtesies, comboPasses, comboPassLots, comboPassRealSales, loadingDates]);
+  }, [eventId, scenario, dates, sessions, zones, lots, realSales, courtesies, loadingDates]);
 }

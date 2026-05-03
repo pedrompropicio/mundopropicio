@@ -31,7 +31,7 @@ import {
 } from "@/lib/event-simulator-coala";
 import { syncSimulatorFromSources } from "@/lib/event-simulator-sync";
 import { expandLotSalesToDailyAttendance, type LotSale } from "@/lib/event-simulator-combos";
-import { comboPassesToLotSales } from "@/lib/event-simulator-combo-bridge";
+// combo bridge removido: combos são lotes unificados em event_ticket_lots
 import { loadSponsors, type SponsorRow } from "@/lib/event-simulator-sponsors";
 import { exportSimulatorToXlsx, exportSimulatorToPdf, type SimulatorExportData } from "@/lib/event-simulator-export";
 import { exportNodeToPdf } from "@/lib/event-simulator-view-pdf";
@@ -266,39 +266,10 @@ export default function EventSimulator() {
         };
       });
 
-      // 5) Combo Passes (Fase 2): convertidos em LotSale sintéticos.
-      const totalDays = sessions.length || dates.length || 1;
-      const [passesRes, passLotsRes] = await Promise.all([
-        supabase.from("event_combo_passes" as any)
-          .select("id, name, zone_id, applies_to_days").eq("event_id", eventId!).is("version_id", null),
-        supabase.from("event_combo_pass_lots" as any)
-          .select("id, combo_pass_id, quantity, price").is("version_id", null),
-      ]);
-      const passes = (passesRes.data ?? []) as any[];
-      const passLots = (passLotsRes.data ?? []) as any[];
-      const passIds = new Set(passes.map((p) => p.id));
-      const filteredPassLots = passLots.filter((l) => passIds.has(l.combo_pass_id));
-
-      let comboSales: any[] = [];
-      const passLotIds = filteredPassLots.map((l) => l.id);
-      if (passLotIds.length) {
-        const { data } = await supabase
-          .from("ticket_sales")
-          .select("combo_pass_lot_id, quantity, unit_price, total_value")
-          .in("combo_pass_lot_id", passLotIds);
-        comboSales = (data ?? []) as any[];
-      }
-
-      const comboLotSales = comboPassesToLotSales(
-        passes.map((p) => ({ id: p.id, name: p.name, zone_id: p.zone_id, applies_to_days: p.applies_to_days })),
-        filteredPassLots.map((l) => ({ id: l.id, combo_pass_id: l.combo_pass_id, quantity: l.quantity, price: l.price })),
-        comboSales,
-        zones?.map((z: any) => ({ id: z.id, name: z.name })) ?? [],
-        totalDays,
-        "real",
-      );
-
-      return { lotSales: [...lotSales, ...comboLotSales], dates };
+      // Combos agora são lotes normais com is_combo=true em event_ticket_lots —
+      // já entram em `lotSales` acima. UI dedicada do simulador para mostrar
+      // expansão por dia será reintroduzida na próxima iteração.
+      return { lotSales, dates };
     },
     enabled: !!eventId,
   });

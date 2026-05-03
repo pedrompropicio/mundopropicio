@@ -64,76 +64,28 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
   if (zoneIds.length) {
     const { data } = await supabase
       .from("ticket_sales")
-      .select("zone_id, sale_date, quantity, unit_price, total_value, combo_pass_lot_id")
+      .select("zone_id, sale_date, quantity, unit_price, total_value")
       .in("zone_id", zoneIds);
     sales = (data ?? []) as Row[];
   }
 
-  // 2) Agrega vendas SIMPLES por (zone_id, sale_date). Combos (combo_pass_lot_id != null)
-  //    são somados separadamente — 1 combo = 1 receita única, sem rateio por dia.
+  // Agrega vendas por (zone_id, sale_date). Modelo unificado: combos são lotes
+  // normais com is_combo=true que vivem na sua zona âncora — para receita,
+  // basta agregar pelo zone_id da venda (mesmo comportamento que simples).
   const salesByZoneDate = new Map<string, { qty: number; revenue: number }>();
   for (const s of sales) {
-    if (s.combo_pass_lot_id) continue;
     const key = `${s.zone_id}|${s.sale_date}`;
     const prev = salesByZoneDate.get(key) ?? { qty: 0, revenue: 0 };
     prev.qty += Number(s.quantity || 0);
     prev.revenue += ticketSaleRevenue(s as any);
     salesByZoneDate.set(key, prev);
   }
-  // Total agregado por zona (independente da data) — usado quando não há match de data
   const salesByZone = new Map<string, { qty: number; revenue: number }>();
   for (const s of sales) {
-    if (s.combo_pass_lot_id) continue;
     const prev = salesByZone.get(s.zone_id) ?? { qty: 0, revenue: 0 };
     prev.qty += Number(s.quantity || 0);
     prev.revenue += ticketSaleRevenue(s as any);
     salesByZone.set(s.zone_id, prev);
-  }
-
-  // 2b) Combos: receita 1× por venda; alocada à 1ª zona ligada do passe (âncora),
-  //     sem multiplicar por dia. Pessoa-presença é tratada à parte pelo motor de
-  //     A&B (useEventAttendance) e pelo bloco de público diário do Simulador.
-  const [passesRes, passLotsRes] = await Promise.all([
-    supabase.from("event_combo_passes" as any)
-      .select("id, zone_id").eq("event_id", eventId).is("version_id", null),
-    supabase.from("event_combo_pass_lots" as any)
-      .select("id, combo_pass_id, price").is("version_id", null),
-  ]);
-  const passRows = ((passesRes.data ?? []) as any[]);
-  const passIds = new Set(passRows.map((p) => p.id));
-  const passLots = ((passLotsRes.data ?? []) as any[]).filter((l) => passIds.has(l.combo_pass_id));
-  const passLotsById = new Map(passLots.map((l) => [l.id, l]));
-  const passLotIds = passLots.map((l) => l.id);
-  const anchorZoneByPass = new Map<string, string>();
-  for (const p of passRows) {
-    if (p.zone_id) anchorZoneByPass.set(p.id, p.zone_id);
-  }
-  let comboSales: Row[] = [];
-  if (passLotIds.length) {
-    const { data } = await supabase
-      .from("ticket_sales")
-      .select("combo_pass_lot_id, sale_date, quantity, unit_price, total_value")
-      .in("combo_pass_lot_id", passLotIds);
-    comboSales = (data ?? []) as Row[];
-  }
-  for (const s of comboSales) {
-    const lot = s.combo_pass_lot_id ? passLotsById.get(s.combo_pass_lot_id) : null;
-    if (!lot) continue;
-    const anchorZone = anchorZoneByPass.get(lot.combo_pass_id);
-    if (!anchorZone) continue;
-    const qty = Number(s.quantity || 0);
-    const revenue = ticketSaleRevenue({
-      quantity: qty, unit_price: s.unit_price ?? lot.price, total_value: s.total_value,
-    } as any);
-    const prevZ = salesByZone.get(anchorZone) ?? { qty: 0, revenue: 0 };
-    prevZ.qty += qty; prevZ.revenue += revenue;
-    salesByZone.set(anchorZone, prevZ);
-    if (s.sale_date) {
-      const k = `${anchorZone}|${s.sale_date}`;
-      const prevD = salesByZoneDate.get(k) ?? { qty: 0, revenue: 0 };
-      prevD.qty += qty; prevD.revenue += revenue;
-      salesByZoneDate.set(k, prevD);
-    }
   }
 
   // 3) Indexa sessões existentes
