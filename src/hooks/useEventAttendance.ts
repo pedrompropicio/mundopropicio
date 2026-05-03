@@ -169,8 +169,8 @@ export function useEventAttendance(
     const zoneName = new Map<string, string>();
     for (const z of zones) zoneName.set(z.id, z.name);
 
-    // lot_id → { zone_id, kind, qty, is_combo, consumes_zone_ids }
-    const lotById = new Map<string, { zone_id: string; kind: string; qty: number; is_combo: boolean; applies_to_days: number; consumes: string[] }>();
+    // lot_id → { zone_id, kind, qty, is_combo, consumes_zone_ids, person_mult }
+    const lotById = new Map<string, { zone_id: string; kind: string; qty: number; is_combo: boolean; applies_to_days: number; consumes: string[]; person_mult: number }>();
     for (const l of lots as any[]) {
       lotById.set(l.id, {
         zone_id: l.zone_id,
@@ -179,6 +179,7 @@ export function useEventAttendance(
         is_combo: !!l.is_combo,
         applies_to_days: Math.max(1, Number(l.applies_to_days || (l.is_combo ? dates.length : 1))),
         consumes: (l.consumes_zone_ids ?? []) as string[],
+        person_mult: getPersonMultiplier(l.name),
       });
     }
 
