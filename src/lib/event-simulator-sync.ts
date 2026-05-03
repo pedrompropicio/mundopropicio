@@ -96,20 +96,33 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
   // Se não há dates, cria 1 dia "virtual"
   const effectiveDates = dates.length ? dates : [{ id: null, date: null }];
 
+  // Para cada zona, descobrimos qual o `day_index` "anchor" — o dia onde
+  // a totalidade das vendas reais da zona é depositada. Sem isto, vendas
+  // cuja `sale_date` não coincide com nenhuma `event_date` (típico de
+  // imports antecipados — Fever/Coala) ficam órfãs e o cartão Bilhetes
+  // mostra menos do que a receita real.
+  //  - Zonas COM session_id → anchor = índice do dia dessa session_id.
+  //  - Zonas SEM session_id (passes/combos multi-dia) → anchor = dia 0.
+  const sessionIdToDayIdx = new Map<string, number>();
+  effectiveDates.forEach((d, i) => { if ((d as any).id) sessionIdToDayIdx.set((d as any).id, i); });
+  const anchorByZone = new Map<string, number>();
+  for (const z of zones) {
+    const sid = (z as any).session_id;
+    const idx = sid ? (sessionIdToDayIdx.get(sid) ?? 0) : 0;
+    anchorByZone.set(z.id, idx);
+  }
+
   for (let dIdx = 0; dIdx < effectiveDates.length; dIdx++) {
     const d = effectiveDates[dIdx];
     for (const z of zones) {
       const key = `${dIdx}|${z.name}`;
       const existingRow = existingByKey.get(key);
 
-      // sales: tenta match por sale_date == event_date.date, senão usa total da zona dividido pelos dias
+      // Vendas reais: só são depositadas na linha "anchor" da zona — o
+      // total da zona vai inteiro para lá. Os outros dias da zona ficam
+      // a zero (os solvers tratam o agregado por zone_label).
       let realQty = 0, realRev = 0;
-      if (d.date) {
-        const m = salesByZoneDate.get(`${z.id}|${d.date}`);
-        if (m) { realQty = m.qty; realRev = m.revenue; }
-      }
-      // Se nada encontrado pela data e só temos 1 sessão para esta zona, usa total da zona
-      if (realQty === 0 && realRev === 0 && effectiveDates.length === 1) {
+      if (anchorByZone.get(z.id) === dIdx) {
         const z2 = salesByZone.get(z.id);
         if (z2) { realQty = z2.qty; realRev = z2.revenue; }
       }
