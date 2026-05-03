@@ -159,7 +159,7 @@ export function sessionForecastRevenue(s: CoalaSession): number {
 export type Scenario = "today" | "breakeven" | "forecast";
 
 export type ScenarioRevenue = {
-  ticketsQty: number;       // quantidade pagantes (sem cortesias)
+  ticketsQty: number;       // quantidade pagantes (sem cortesias) — bilhetes únicos
   ticketsRevenue: number;
   drinkRevenue: number;
   foodRevenue: number;
@@ -169,6 +169,18 @@ export type ScenarioRevenue = {
   totalRevenue: number;
   // cortesias (informativo)
   courtesyQty: number;
+  /** Presenças × dia (combos expandidos). Igual a ticketsQty quando não há combos. */
+  attendanceQty: number;
+  /** Presenças cortesias × dia. Igual a courtesyQty quando não há combos. */
+  attendanceCourtesyQty: number;
+};
+
+/** Override opcional vindo do helper de combos (presenças × dia já expandidas).
+ *  Quando fornecido, A&B usa estes valores e os campos `attendance*` reportam
+ *  presenças × dia. Sem override, presenças = bilhetes únicos. */
+export type AttendanceOverride = {
+  payingAttendance: number;   // presenças pagantes × dia
+  courtesyAttendance: number; // presenças cortesias × dia
 };
 
 function abForPublic(publicQty: number, cfg: CoalaConfig) {
