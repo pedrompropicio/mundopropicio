@@ -935,11 +935,11 @@ export default function EventSimulator() {
 
       {/* KPIs scenario summary */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <ScenarioCard title="Hoje (Edição 2026)" tone="muted" rev={today} cost={todayCosts} res={todayRes} kpis={todayKpis} dailyTotals={dailyTotals} />
+        <ScenarioCard title="Hoje (Edição 2026)" tone="muted" rev={todayV2} cost={todayCosts} res={todayRes} kpis={todayKpis} dailyTotals={dailyTotals} />
         <ScenarioCard
           title="Break Even"
           tone="warning"
-          rev={breakeven}
+          rev={breakevenV2}
           cost={beCosts}
           res={beRes}
           kpis={beKpis}
@@ -949,7 +949,7 @@ export default function EventSimulator() {
         <ScenarioCard
           title="Forecast"
           tone="success"
-          rev={forecast}
+          rev={forecastV2}
           cost={fcCosts}
           res={fcRes}
           kpis={fcKpis}
@@ -978,9 +978,9 @@ export default function EventSimulator() {
           <ExecutiveDashboard
             eventName={event?.name ?? ""}
             eventId={eventId}
-            today={today} todayCosts={todayCosts} todayRes={todayRes} todayKpis={todayKpis}
-            breakeven={breakeven} beCosts={beCosts} beRes={beRes} beKpis={beKpis}
-            forecast={forecast} fcCosts={fcCosts} fcRes={fcRes} fcKpis={fcKpis}
+            today={todayV2} todayCosts={todayCosts} todayRes={todayRes} todayKpis={todayKpis}
+            breakeven={breakevenV2} beCosts={beCosts} beRes={beRes} beKpis={beKpis}
+            forecast={forecastV2} fcCosts={fcCosts} fcRes={fcRes} fcKpis={fcKpis}
             costLines={localCosts}
             dailyTotals={dailyTotals}
             ivaTable={ivaTable}
@@ -1234,8 +1234,8 @@ export default function EventSimulator() {
                     <TableCell>FATURAMENTO TOTAL</TableCell>
                     <TableCell className="text-right">{fmt(calcCfg.prior_year_tickets + calcCfg.prior_year_drink + calcCfg.prior_year_food + calcCfg.prior_year_sponsor + calcCfg.prior_year_souvenir + calcCfg.prior_year_other)}</TableCell>
                     <TableCell className="text-right">{fmt(today.totalRevenue)}</TableCell>
-                    <TableCell className="text-right">{fmt(breakeven.totalRevenue)}</TableCell>
-                    <TableCell className="text-right">{fmt(forecast.totalRevenue)}</TableCell>
+                    <TableCell className="text-right">{fmt(breakevenV2.totalRevenue)}</TableCell>
+                    <TableCell className="text-right">{fmt(forecastV2.totalRevenue)}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
@@ -1853,8 +1853,8 @@ function SimulatorDashboard({
 
   const scenarioChart = [
     { name: "Hoje", Receita: today.totalRevenue, Custo: todayCosts.totalCost, Resultado: todayRes.general },
-    { name: "Break Even", Receita: breakeven.totalRevenue, Custo: beCosts.totalCost, Resultado: beRes.general },
-    { name: "Forecast", Receita: forecast.totalRevenue, Custo: fcCosts.totalCost, Resultado: fcRes.general },
+    { name: "Break Even", Receita: breakevenV2.totalRevenue, Custo: beCosts.totalCost, Resultado: beRes.general },
+    { name: "Forecast", Receita: forecastV2.totalRevenue, Custo: fcCosts.totalCost, Resultado: fcRes.general },
   ];
 
   const revenueMix = [
