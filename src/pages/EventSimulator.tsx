@@ -1663,6 +1663,7 @@ function ScenarioCard({ title, tone, rev, cost, res, kpis, extra, dailyTotals }:
   };
   const days: Array<[number, { paying: number; courtesy: number; total: number; date: string | null }]> = dailyTotals ?? [];
   const showDailyBreakdown = days.length > 1;
+  const dailyGrandTotal = days.reduce((sum, [, t]) => sum + Number(t.total || 0), 0);
   return (
     <Card className={toneCls}>
       <CardHeader className="pb-2">
@@ -1681,7 +1682,7 @@ function ScenarioCard({ title, tone, rev, cost, res, kpis, extra, dailyTotals }:
               </div>
             ))}
             <div className="flex justify-between text-xs text-muted-foreground border-t pt-1">
-              <span>Produtos vendidos</span><span className="tabular-nums">{fmtNum(kpis.totalPublic)}</span>
+              <span>Total presente</span><span className="tabular-nums">{fmtNum(dailyGrandTotal)}</span>
             </div>
           </>
         ) : (
