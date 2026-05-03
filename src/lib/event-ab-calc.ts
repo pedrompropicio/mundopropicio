@@ -47,6 +47,8 @@ export interface ABZoneResult {
   receitaBebidas: number;
   /** Parte que fica para o gerador (informativo). */
   parteGeradorBebidas: number;
+  /** @deprecated alias de parteGeradorBebidas para código legado */
+  custoBebidas: number;
 }
 
 export interface ABTotals {
