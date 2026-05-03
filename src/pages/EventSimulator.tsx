@@ -120,6 +120,23 @@ export default function EventSimulator() {
     enabled: !!eventId,
   });
 
+  // Sub-eventos (cidades) caso este evento seja um Master de turnê
+  const { data: subEvents = [] } = useQuery({
+    queryKey: ["sim-sub-events", eventId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("events")
+        .select("id, name, date")
+        .eq("parent_event_id", eventId!)
+        .order("date");
+      return data ?? [];
+    },
+    enabled: !!eventId,
+  });
+
+  const isTourMaster = !event?.parent_event_id && subEvents.length > 0;
+  const [tourMode, setTourMode] = useState<boolean>(true);
+
   const { data: cfg, isLoading: loadingCfg } = useQuery<DbConfig | null>({
     queryKey: ["sim-coala-cfg", eventId],
     queryFn: async () => {
