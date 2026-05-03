@@ -158,15 +158,41 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
     enabled: zones.length > 0,
   });
 
-  // Fetch event data for last_sales_date
+  // Fetch event data for last_sales_date + event_type + parent (gating do Combo)
   const { data: eventData } = useQuery({
     queryKey: ["event-ticketing-meta", eventId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("events").select("last_sales_date").eq("id", eventId).single();
+      const { data, error } = await supabase
+        .from("events")
+        .select("last_sales_date, event_type, parent_event_id")
+        .eq("id", eventId)
+        .single();
       if (error) throw error;
       return data;
     },
   });
+
+  // Datas do evento — necessárias para saber se é multi-dia
+  const { data: eventDates = [] } = useQuery({
+    queryKey: ["event-ticketing-dates", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_dates")
+        .select("id")
+        .eq("event_id", eventId);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  // Combo só faz sentido em FESTIVAL multi-dia (>1 data) e não em sub-eventos de turnê.
+  const comboAllowed = useMemo(() => {
+    if (!eventData) return false;
+    const isFestival = (eventData as any).event_type === "festival";
+    const isMultiDay = eventDates.length > 1;
+    const isTourSplit = !!(eventData as any).parent_event_id;
+    return isFestival && isMultiDay && !isTourSplit;
+  }, [eventData, eventDates]);
 
   // === Ticket Offices queries & mutations ===
   const { data: officeAssignments = [] } = useQuery({
