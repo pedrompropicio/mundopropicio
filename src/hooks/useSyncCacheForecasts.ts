@@ -309,13 +309,29 @@ async function syncTourCacheForecasts(
       const key = `${childId}:${config.id}`;
       const existing = existingMap.get(key);
 
+      // Promove a linha do BP a 'approved' quando o cachê está fixado:
+      //  - settlement de cidade finalizado / com adjusted_amount, OU
+      //  - config Master finalizado / ajustado, OU
+      //  - já existe transação vinculada (transaction_id)
+      const cityFixed = !!citySettlement && (
+        citySettlement.adjusted_amount != null ||
+        (citySettlement.is_finalized && citySettlement.real_amount != null)
+      );
+      const masterFixed = config.adjusted_amount != null || (config.is_finalized && config.real_amount != null);
+      const shouldApprove = cityFixed || masterFixed || !!existing?.transaction_id;
+
       if (existing) {
         const currentAmount = Math.round(existing.amount * 100);
         const newAmount = Math.round(amount * 100);
-        if (currentAmount !== newAmount) {
+        const needsAmountUpdate = currentAmount !== newAmount;
+        const needsStatusUpdate = shouldApprove && existing.status !== "approved";
+        if (needsAmountUpdate || needsStatusUpdate) {
+          const patch: any = { description: `Cachê — ${config.artist_name}` };
+          if (needsAmountUpdate) patch.amount = amount;
+          if (needsStatusUpdate) patch.status = "approved";
           await supabase
             .from("event_forecasts")
-            .update({ amount, description: `Cachê — ${config.artist_name}` })
+            .update(patch)
             .eq("id", existing.id);
           changed = true;
         }
@@ -330,7 +346,7 @@ async function syncTourCacheForecasts(
           category_id: cacheCategoryId,
           formula_type: "cache_module",
           cache_config_id: config.id,
-          status: "draft",
+          status: shouldApprove ? "approved" : "draft",
         });
         changed = true;
       }
