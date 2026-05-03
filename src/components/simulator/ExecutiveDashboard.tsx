@@ -729,6 +729,62 @@ export default function ExecutiveDashboard(props: Props) {
             </CardContent>
           </Card>
         </div>
+
+        {/* Comparativo entre cidades (apenas turnê) */}
+        {tourBreakdowns && tourBreakdowns.length > 0 && (
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Comparativo entre cidades — Forecast</CardTitle>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b text-muted-foreground">
+                      <th className="text-left py-1">Cidade</th>
+                      <th className="text-right">Público</th>
+                      <th className="text-right">TM</th>
+                      <th className="text-right">A&B/pp</th>
+                      <th className="text-right">Margem</th>
+                      <th className="text-right">BE (qty)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tourBreakdowns.map((c) => (
+                      <tr key={c.name} className="border-b">
+                        <td className="py-1 font-medium">{c.name}</td>
+                        <td className="text-right tabular-nums">{fmtNum(c.publico)}</td>
+                        <td className="text-right tabular-nums">{fmt(c.ticketMedio)}</td>
+                        <td className="text-right tabular-nums">{fmt(c.abPerPerson)}</td>
+                        <td className={`text-right tabular-nums ${c.resultado >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{fmtPct(c.margem)}</td>
+                        <td className="text-right tabular-nums">{fmtNum(c.breakEvenQty)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Resultado por cidade — Forecast</CardTitle>
+              </CardHeader>
+              <CardContent style={{ height: 280 }}>
+                <ResponsiveContainer>
+                  <BarChart data={tourBreakdowns}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                    <Tooltip formatter={(v: any) => fmt(Number(v))} />
+                    <Legend wrapperStyle={{ fontSize: 10 }} />
+                    <Bar dataKey="receita" name="Receita" fill="#3b82f6" />
+                    <Bar dataKey="custo" name="Custo" fill="#f59e0b" />
+                    <Bar dataKey="resultado" name="Resultado" fill="#84cc16" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );
