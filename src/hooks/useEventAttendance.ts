@@ -314,6 +314,53 @@ export function useEventAttendance(
       }
     }
 
+    // ── COMBO PASSES (Fase 2) ────────────────────────────────
+    // Cada combo lot vendido (real) ou planeado (BE/Forecast) =
+    //   qty × 1 pessoa em CADA dia coberto, em CADA zona ligada ao passe.
+    const passById = new Map<string, { applies_to_days: number }>();
+    for (const p of comboPasses as any[]) {
+      passById.set(p.id, { applies_to_days: Number(p.applies_to_days || 0) });
+    }
+    const lotToPass = new Map<string, string>();
+    const lotPlannedQty = new Map<string, number>();
+    for (const l of comboPassLots as any[]) {
+      lotToPass.set(l.id, l.combo_pass_id);
+      lotPlannedQty.set(l.id, Number(l.quantity || 0));
+    }
+    const passZonesByPass = new Map<string, string[]>();
+    for (const link of comboPassZones as any[]) {
+      if (!passZonesByPass.has(link.combo_pass_id)) passZonesByPass.set(link.combo_pass_id, []);
+      passZonesByPass.get(link.combo_pass_id)!.push(link.zone_id);
+    }
+
+    // qty efetiva por lote_combo (real → soma vendas; BE/Forecast → quantidade planeada)
+    const effectiveByComboLot = new Map<string, number>();
+    if (scenario === "real") {
+      for (const s of comboPassRealSales as any[]) {
+        const id = s.combo_pass_lot_id;
+        if (!id) continue;
+        effectiveByComboLot.set(id, (effectiveByComboLot.get(id) || 0) + Number(s.quantity || 0));
+      }
+    } else {
+      for (const [id, q] of lotPlannedQty) effectiveByComboLot.set(id, q);
+    }
+
+    for (const [lotId, qty] of effectiveByComboLot) {
+      if (qty <= 0) continue;
+      const passId = lotToPass.get(lotId);
+      if (!passId) continue;
+      const meta = passById.get(passId);
+      const requested = Number(meta?.applies_to_days || 0);
+      const days = requested <= 0 ? dates.length : Math.min(requested, dates.length);
+      const zoneList = passZonesByPass.get(passId) || [];
+      for (let d = 0; d < days; d++) {
+        for (const zid of zoneList) {
+          const cell = ensure(d, zid);
+          cell.paying += qty;
+        }
+      }
+    }
+
     // ── CORTESIAS ─────────────────────────────────────────────
     const dateIdById = new Map<string, number>();
     dates.forEach((d) => dateIdById.set(d.id, d.day_index));
@@ -347,5 +394,5 @@ export function useEventAttendance(
       grandTotal: grand,
       dates,
     };
-  }, [eventId, scenario, dates, sessions, zones, lots, realSales, courtesies, loadingDates]);
+  }, [eventId, scenario, dates, sessions, zones, lots, realSales, courtesies, comboPasses, comboPassZones, comboPassLots, comboPassRealSales, loadingDates]);
 }
