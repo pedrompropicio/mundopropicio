@@ -6,13 +6,13 @@ import { validateComboLotAgainstCapacity } from "@/lib/combo-capacity";
 export interface ComboPass {
   id: string;
   event_id: string;
+  zone_id: string | null;
   name: string;
   description: string | null;
   benefits: string | null;
   applies_to_days: number;
   display_order: number;
   version_id: string | null;
-  zones: { id: string; zone_id: string }[];
   lots: ComboPassLot[];
 }
 
@@ -39,7 +39,7 @@ export function useEventComboPasses(eventId: string | undefined, versionId: stri
       if (!eventId) return [];
       let q = supabase
         .from("event_combo_passes" as any)
-        .select("id, event_id, name, description, benefits, applies_to_days, display_order, version_id")
+        .select("id, event_id, zone_id, name, description, benefits, applies_to_days, display_order, version_id")
         .eq("event_id", eventId)
         .order("display_order");
       if (versionId) q = q.eq("version_id", versionId);
@@ -50,18 +50,14 @@ export function useEventComboPasses(eventId: string | undefined, versionId: stri
       if (passList.length === 0) return [];
       const ids = passList.map((p) => p.id);
 
-      const [{ data: zones }, { data: lots }] = await Promise.all([
-        supabase.from("event_combo_pass_zones" as any).select("id, combo_pass_id, zone_id").in("combo_pass_id", ids),
-        supabase
-          .from("event_combo_pass_lots" as any)
-          .select("id, combo_pass_id, lot_number, name, quantity, price, iva_rate, lot_type, version_id")
-          .in("combo_pass_id", ids)
-          .order("lot_number"),
-      ]);
+      const { data: lots } = await supabase
+        .from("event_combo_pass_lots" as any)
+        .select("id, combo_pass_id, lot_number, name, quantity, price, iva_rate, lot_type, version_id")
+        .in("combo_pass_id", ids)
+        .order("lot_number");
 
       return passList.map((p) => ({
         ...p,
-        zones: ((zones ?? []) as any[]).filter((z) => z.combo_pass_id === p.id),
         lots: ((lots ?? []) as any[]).filter((l) => l.combo_pass_id === p.id && (versionId ? l.version_id === versionId : l.version_id == null)),
       })) as ComboPass[];
     },
@@ -71,12 +67,13 @@ export function useEventComboPasses(eventId: string | undefined, versionId: stri
   const invalidate = () => queryClient.invalidateQueries({ queryKey });
 
   const createPass = useMutation({
-    mutationFn: async (input: { name: string; applies_to_days: number; benefits?: string; description?: string; zoneIds: string[] }) => {
+    mutationFn: async (input: { name: string; applies_to_days: number; benefits?: string; description?: string; zoneId: string }) => {
       if (!eventId) throw new Error("event missing");
       const { data: pass, error } = await supabase
         .from("event_combo_passes" as any)
         .insert({
           event_id: eventId,
+          zone_id: input.zoneId,
           name: input.name,
           description: input.description ?? null,
           benefits: input.benefits ?? null,
@@ -87,14 +84,7 @@ export function useEventComboPasses(eventId: string | undefined, versionId: stri
         .select("id")
         .single();
       if (error) throw error;
-      const passId = (pass as any).id;
-      if (input.zoneIds.length > 0) {
-        const { error: zErr } = await supabase
-          .from("event_combo_pass_zones" as any)
-          .insert(input.zoneIds.map((z) => ({ combo_pass_id: passId, zone_id: z })) as any);
-        if (zErr) throw zErr;
-      }
-      return passId;
+      return (pass as any).id;
     },
     onSuccess: () => {
       invalidate();
@@ -104,24 +94,16 @@ export function useEventComboPasses(eventId: string | undefined, versionId: stri
   });
 
   const updatePass = useMutation({
-    mutationFn: async (input: { id: string; name?: string; applies_to_days?: number; benefits?: string | null; description?: string | null; zoneIds?: string[] }) => {
+    mutationFn: async (input: { id: string; name?: string; applies_to_days?: number; benefits?: string | null; description?: string | null; zoneId?: string }) => {
       const patch: any = {};
       if (input.name !== undefined) patch.name = input.name;
       if (input.applies_to_days !== undefined) patch.applies_to_days = input.applies_to_days;
       if (input.benefits !== undefined) patch.benefits = input.benefits;
       if (input.description !== undefined) patch.description = input.description;
+      if (input.zoneId !== undefined) patch.zone_id = input.zoneId;
       if (Object.keys(patch).length > 0) {
         const { error } = await supabase.from("event_combo_passes" as any).update(patch).eq("id", input.id);
         if (error) throw error;
-      }
-      if (input.zoneIds) {
-        await supabase.from("event_combo_pass_zones" as any).delete().eq("combo_pass_id", input.id);
-        if (input.zoneIds.length > 0) {
-          const { error: zErr } = await supabase
-            .from("event_combo_pass_zones" as any)
-            .insert(input.zoneIds.map((z) => ({ combo_pass_id: input.id, zone_id: z })) as any);
-          if (zErr) throw zErr;
-        }
       }
     },
     onSuccess: () => {
@@ -158,7 +140,7 @@ export function useEventComboPasses(eventId: string | undefined, versionId: stri
         ? pass?.lots.find((l) => l.id === input.id)?.lot_number ?? 1
         : (pass?.lots.length ?? 0) + 1;
 
-      // Valida capacidade contra TODAS as zonas ligadas ao passe.
+      // Valida capacidade contra a zona ligada ao passe.
       if (eventId) {
         const [{ data: zonesAll }, { data: simpleLotsAll }] = await Promise.all([
           supabase.from("event_ticket_zones").select("id, name, total_capacity").eq("event_id", eventId),
@@ -169,7 +151,7 @@ export function useEventComboPasses(eventId: string | undefined, versionId: stri
             return await supabase.from("event_ticket_lots").select("id, zone_id, quantity").in("zone_id", ids);
           })(),
         ]);
-        const combosForCheck = passes.map((p) => ({ id: p.id, zone_ids: p.zones.map((z) => z.zone_id) }));
+        const combosForCheck = passes.map((p) => ({ id: p.id, zone_id: p.zone_id }));
         const comboLotsAll = passes.flatMap((p) => p.lots.map((l) => ({ id: l.id, combo_pass_id: p.id, quantity: l.quantity })));
         const err = validateComboLotAgainstCapacity(
           input.combo_pass_id,

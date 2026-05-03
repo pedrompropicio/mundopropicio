@@ -93,21 +93,20 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
   // 2b) Combos: receita 1× por venda; alocada à 1ª zona ligada do passe (âncora),
   //     sem multiplicar por dia. Pessoa-presença é tratada à parte pelo motor de
   //     A&B (useEventAttendance) e pelo bloco de público diário do Simulador.
-  const [passesRes, passLotsRes, passZonesRes] = await Promise.all([
+  const [passesRes, passLotsRes] = await Promise.all([
     supabase.from("event_combo_passes" as any)
-      .select("id").eq("event_id", eventId).is("version_id", null),
+      .select("id, zone_id").eq("event_id", eventId).is("version_id", null),
     supabase.from("event_combo_pass_lots" as any)
       .select("id, combo_pass_id, price").is("version_id", null),
-    supabase.from("event_combo_pass_zones" as any).select("combo_pass_id, zone_id"),
   ]);
-  const passIds = new Set(((passesRes.data ?? []) as any[]).map((p) => p.id));
+  const passRows = ((passesRes.data ?? []) as any[]);
+  const passIds = new Set(passRows.map((p) => p.id));
   const passLots = ((passLotsRes.data ?? []) as any[]).filter((l) => passIds.has(l.combo_pass_id));
   const passLotsById = new Map(passLots.map((l) => [l.id, l]));
   const passLotIds = passLots.map((l) => l.id);
   const anchorZoneByPass = new Map<string, string>();
-  for (const link of (passZonesRes.data ?? []) as any[]) {
-    if (!passIds.has(link.combo_pass_id)) continue;
-    if (!anchorZoneByPass.has(link.combo_pass_id)) anchorZoneByPass.set(link.combo_pass_id, link.zone_id);
+  for (const p of passRows) {
+    if (p.zone_id) anchorZoneByPass.set(p.id, p.zone_id);
   }
   let comboSales: Row[] = [];
   if (passLotIds.length) {

@@ -25,7 +25,7 @@ interface PassFormState {
   name: string;
   applies_to_days: number;
   benefits: string;
-  zoneIds: string[];
+  zoneId: string;
 }
 
 interface LotFormState {
@@ -43,14 +43,14 @@ export function EventComboPassesSection({ eventId, versionId, zones, eventDaysCo
 
   const [creatingPass, setCreatingPass] = useState(false);
   const [editingPassId, setEditingPassId] = useState<string | null>(null);
-  const [passForm, setPassForm] = useState<PassFormState>({ name: "", applies_to_days: 0, benefits: "", zoneIds: [] });
+  const [passForm, setPassForm] = useState<PassFormState>({ name: "", applies_to_days: 0, benefits: "", zoneId: "" });
 
   const [lotPanelPassId, setLotPanelPassId] = useState<string | null>(null);
   const [editingLotId, setEditingLotId] = useState<string | null>(null);
   const [lotForm, setLotForm] = useState<LotFormState>(emptyLot);
 
   const startCreate = () => {
-    setPassForm({ name: "", applies_to_days: 0, benefits: "", zoneIds: zones.map((z) => z.id) });
+    setPassForm({ name: "", applies_to_days: 0, benefits: "", zoneId: zones[0]?.id ?? "" });
     setEditingPassId(null);
     setCreatingPass(true);
   };
@@ -62,7 +62,7 @@ export function EventComboPassesSection({ eventId, versionId, zones, eventDaysCo
       name: p.name,
       applies_to_days: p.applies_to_days || 0,
       benefits: p.benefits || "",
-      zoneIds: p.zones.map((z) => z.zone_id),
+      zoneId: p.zone_id ?? "",
     });
     setEditingPassId(passId);
     setCreatingPass(true);
@@ -75,30 +75,23 @@ export function EventComboPassesSection({ eventId, versionId, zones, eventDaysCo
 
   const submitPass = () => {
     if (!passForm.name.trim()) return;
-    if (passForm.zoneIds.length === 0) return;
+    if (!passForm.zoneId) return;
     if (editingPassId) {
       updatePass.mutate({
         id: editingPassId,
         name: passForm.name.trim(),
         applies_to_days: passForm.applies_to_days,
         benefits: passForm.benefits || null,
-        zoneIds: passForm.zoneIds,
+        zoneId: passForm.zoneId,
       }, { onSuccess: cancelPass });
     } else {
       createPass.mutate({
         name: passForm.name.trim(),
         applies_to_days: passForm.applies_to_days,
         benefits: passForm.benefits || undefined,
-        zoneIds: passForm.zoneIds,
+        zoneId: passForm.zoneId,
       }, { onSuccess: cancelPass });
     }
-  };
-
-  const toggleZone = (zoneId: string) => {
-    setPassForm((f) => ({
-      ...f,
-      zoneIds: f.zoneIds.includes(zoneId) ? f.zoneIds.filter((z) => z !== zoneId) : [...f.zoneIds, zoneId],
-    }));
   };
 
   const startEditLot = (passId: string, lot: any) => {
@@ -198,24 +191,19 @@ export function EventComboPassesSection({ eventId, versionId, zones, eventDaysCo
           </div>
 
           <div>
-            <Label className="text-xs">Zonas a que dá acesso</Label>
-            <div className="flex flex-wrap gap-2 mt-1">
-              {zones.map((z) => {
-                const active = passForm.zoneIds.includes(z.id);
-                return (
-                  <button
-                    key={z.id}
-                    type="button"
-                    onClick={() => toggleZone(z.id)}
-                    className={`text-xs px-2 py-1 rounded border ${active ? "bg-primary/15 border-primary text-primary" : "border-border text-muted-foreground hover:bg-secondary"}`}
-                  >
-                    {active ? "✓ " : ""}{z.name}
-                  </button>
-                );
-              })}
-            </div>
-            {passForm.zoneIds.length === 0 && (
-              <p className="text-xs text-destructive mt-1">Seleciona pelo menos 1 zona.</p>
+            <Label className="text-xs">Zona a que dá acesso</Label>
+            <select
+              className={inputClass + " mt-1"}
+              value={passForm.zoneId}
+              onChange={(e) => setPassForm({ ...passForm, zoneId: e.target.value })}
+            >
+              <option value="">— escolher zona —</option>
+              {zones.map((z) => (
+                <option key={z.id} value={z.id}>{z.name}</option>
+              ))}
+            </select>
+            {!passForm.zoneId && (
+              <p className="text-xs text-destructive mt-1">Seleciona a zona do passe.</p>
             )}
           </div>
 
@@ -231,7 +219,7 @@ export function EventComboPassesSection({ eventId, versionId, zones, eventDaysCo
 
           <div className="flex justify-end gap-2">
             <Button size="sm" variant="ghost" onClick={cancelPass}>Cancelar</Button>
-            <Button size="sm" onClick={submitPass} disabled={createPass.isPending || updatePass.isPending || !passForm.name.trim() || passForm.zoneIds.length === 0}>
+            <Button size="sm" onClick={submitPass} disabled={createPass.isPending || updatePass.isPending || !passForm.name.trim() || !passForm.zoneId}>
               {editingPassId ? "Atualizar" : "Criar Passe"}
             </Button>
           </div>
@@ -246,7 +234,7 @@ export function EventComboPassesSection({ eventId, versionId, zones, eventDaysCo
 
       <div className="space-y-3">
         {passes.map((pass) => {
-          const passZones = pass.zones.map((pz) => zones.find((z) => z.id === pz.zone_id)?.name).filter(Boolean) as string[];
+          const passZoneName = pass.zone_id ? zones.find((z) => z.id === pass.zone_id)?.name ?? "—" : "—";
           const passQty = pass.lots.reduce((s, l) => s + Number(l.quantity || 0), 0);
           const passGross = pass.lots.reduce((s, l) => s + comboPassLotGrossRevenue(l), 0);
           const isLotPanelOpen = lotPanelPassId === pass.id;
@@ -261,7 +249,7 @@ export function EventComboPassesSection({ eventId, versionId, zones, eventDaysCo
                       {pass.applies_to_days === 0 ? `${eventDaysCount} dias` : `${pass.applies_to_days} dia${pass.applies_to_days === 1 ? "" : "s"}`}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {passZones.length} zona{passZones.length === 1 ? "" : "s"}: {passZones.join(", ")}
+                      Zona: {passZoneName}
                     </span>
                   </div>
                   {pass.benefits && (

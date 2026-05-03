@@ -140,7 +140,7 @@ export function useEventAttendance(
       if (!eventId) return [];
       const { data, error } = await supabase
         .from("event_combo_passes" as any)
-        .select("id, applies_to_days")
+        .select("id, zone_id, applies_to_days")
         .eq("event_id", eventId)
         .is("version_id", null);
       if (error) throw error;
@@ -150,20 +150,6 @@ export function useEventAttendance(
   });
 
   const comboPassIds = comboPasses.map((p: any) => p.id);
-
-  const { data: comboPassZones = [] } = useQuery({
-    queryKey: ["event_combo_pass_zones_attendance", eventId, comboPassIds.join(",")],
-    queryFn: async () => {
-      if (comboPassIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("event_combo_pass_zones" as any)
-        .select("combo_pass_id, zone_id")
-        .in("combo_pass_id", comboPassIds);
-      if (error) throw error;
-      return (data ?? []) as any[];
-    },
-    enabled: comboPassIds.length > 0,
-  });
 
   const { data: comboPassLots = [] } = useQuery({
     queryKey: ["event_combo_pass_lots_attendance", eventId, comboPassIds.join(",")],
@@ -314,23 +300,18 @@ export function useEventAttendance(
       }
     }
 
-    // ── COMBO PASSES (Fase 2) ────────────────────────────────
+    // ── COMBO PASSES (Fase 2, mono-zona) ─────────────────────
     // Cada combo lot vendido (real) ou planeado (BE/Forecast) =
-    //   qty × 1 pessoa em CADA dia coberto, em CADA zona ligada ao passe.
-    const passById = new Map<string, { applies_to_days: number }>();
+    //   qty × 1 pessoa em CADA dia coberto, NA zona do passe.
+    const passById = new Map<string, { applies_to_days: number; zone_id: string | null }>();
     for (const p of comboPasses as any[]) {
-      passById.set(p.id, { applies_to_days: Number(p.applies_to_days || 0) });
+      passById.set(p.id, { applies_to_days: Number(p.applies_to_days || 0), zone_id: p.zone_id ?? null });
     }
     const lotToPass = new Map<string, string>();
     const lotPlannedQty = new Map<string, number>();
     for (const l of comboPassLots as any[]) {
       lotToPass.set(l.id, l.combo_pass_id);
       lotPlannedQty.set(l.id, Number(l.quantity || 0));
-    }
-    const passZonesByPass = new Map<string, string[]>();
-    for (const link of comboPassZones as any[]) {
-      if (!passZonesByPass.has(link.combo_pass_id)) passZonesByPass.set(link.combo_pass_id, []);
-      passZonesByPass.get(link.combo_pass_id)!.push(link.zone_id);
     }
 
     // qty efetiva por lote_combo (real → soma vendas; BE/Forecast → quantidade planeada)
@@ -350,14 +331,12 @@ export function useEventAttendance(
       const passId = lotToPass.get(lotId);
       if (!passId) continue;
       const meta = passById.get(passId);
+      if (!meta?.zone_id) continue;
       const requested = Number(meta?.applies_to_days || 0);
       const days = requested <= 0 ? dates.length : Math.min(requested, dates.length);
-      const zoneList = passZonesByPass.get(passId) || [];
       for (let d = 0; d < days; d++) {
-        for (const zid of zoneList) {
-          const cell = ensure(d, zid);
-          cell.paying += qty;
-        }
+        const cell = ensure(d, meta.zone_id);
+        cell.paying += qty;
       }
     }
 
@@ -394,5 +373,5 @@ export function useEventAttendance(
       grandTotal: grand,
       dates,
     };
-  }, [eventId, scenario, dates, sessions, zones, lots, realSales, courtesies, comboPasses, comboPassZones, comboPassLots, comboPassRealSales, loadingDates]);
+  }, [eventId, scenario, dates, sessions, zones, lots, realSales, courtesies, comboPasses, comboPassLots, comboPassRealSales, loadingDates]);
 }

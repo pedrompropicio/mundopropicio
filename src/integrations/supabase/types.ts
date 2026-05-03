@@ -1876,45 +1876,6 @@ export type Database = {
           },
         ]
       }
-      event_combo_pass_zones: {
-        Row: {
-          combo_pass_id: string
-          company_id: string
-          created_at: string
-          id: string
-          zone_id: string
-        }
-        Insert: {
-          combo_pass_id: string
-          company_id: string
-          created_at?: string
-          id?: string
-          zone_id: string
-        }
-        Update: {
-          combo_pass_id?: string
-          company_id?: string
-          created_at?: string
-          id?: string
-          zone_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "event_combo_pass_zones_combo_pass_id_fkey"
-            columns: ["combo_pass_id"]
-            isOneToOne: false
-            referencedRelation: "event_combo_passes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_combo_pass_zones_zone_id_fkey"
-            columns: ["zone_id"]
-            isOneToOne: false
-            referencedRelation: "event_ticket_zones"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       event_combo_passes: {
         Row: {
           applies_to_days: number
@@ -1928,6 +1889,7 @@ export type Database = {
           name: string
           updated_at: string
           version_id: string | null
+          zone_id: string | null
         }
         Insert: {
           applies_to_days?: number
@@ -1941,6 +1903,7 @@ export type Database = {
           name: string
           updated_at?: string
           version_id?: string | null
+          zone_id?: string | null
         }
         Update: {
           applies_to_days?: number
@@ -1954,6 +1917,7 @@ export type Database = {
           name?: string
           updated_at?: string
           version_id?: string | null
+          zone_id?: string | null
         }
         Relationships: [
           {
@@ -1961,6 +1925,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_combo_passes_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "event_ticket_zones"
             referencedColumns: ["id"]
           },
         ]
