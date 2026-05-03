@@ -435,7 +435,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   };
 
   const startEditLot = (l: any) => {
-    setLotForm({ name: l.name, quantity: String(l.quantity), price: String(l.price), iva_rate: String(l.iva_rate ?? 6), lot_type: l.lot_type || "regular", lot_kind: l.lot_kind === "combo" ? "combo" : "simple" });
+    setLotForm({ name: l.name, quantity: String(l.quantity), price: String(l.price), iva_rate: String(l.iva_rate ?? 6), lot_type: l.lot_type || "regular", lot_kind: comboAllowed && l.lot_kind === "combo" ? "combo" : "simple" });
     setEditingLotId(l.id);
     setAddingLotForZone(null);
   };
