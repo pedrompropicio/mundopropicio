@@ -418,31 +418,43 @@ export function solveBreakEven(
     fallbackPrice: number;
   };
 
+  // Agrupa sessões por zone_label. Para zonas que aparecem em vários dias
+  // (típico de zonas combo/passe sem session_id, onde o sync cria 1 linha
+  // por dia mas a capacidade e as vendas são partilhadas), tratamos como
+  // UMA única zona lógica para o solver — caso contrário a zona inflaria
+  // o peso do dia em que as vendas reais ficaram concentradas.
+  const groupIndexes = new Map<string, number[]>();
+  sessions.forEach((s, i) => {
+    const arr = groupIndexes.get(s.zone_label) ?? [];
+    arr.push(i);
+    groupIndexes.set(s.zone_label, arr);
+  });
+
   const slots: Slot[] = sessions.map((s, idx) => {
     const key = `${s.day_index}-${s.zone_label}`;
     // Tenta a chave composta E também só pelo nome da zona (UI passa indexado por zona).
     const info = lotInfoByKey?.[key] ?? lotInfoByKey?.[s.zone_label];
+    const groupIdxs = groupIndexes.get(s.zone_label) ?? [idx];
+    const isAnchor = groupIdxs[0] === idx;
+    // realQty agregado por zona (todas as duplicatas) para evitar viés
+    // no dia em que o sync concentrou as vendas reais.
+    const realQtyZone = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
     const realQty = sessionTodayQty(s);
 
-    // Capacidade: usa lote/zona se definido (>0), senão fica "ilimitada"
-    // (Number.POSITIVE_INFINITY) para não bloquear solver quando não há
-    // planeamento de zonas/lotes registado.
+    // Capacidade da zona: única, mesmo aparecendo em vários dias.
     const hasCapacity = (info?.capacity ?? 0) > 0;
-    const capLeft = hasCapacity
-      ? Math.max(0, (info!.capacity) - realQty)
-      : Number.POSITIVE_INFINITY;
+    const capLeft = isAnchor
+      ? (hasCapacity ? Math.max(0, (info!.capacity) - realQtyZone) : Number.POSITIVE_INFINITY)
+      : 0; // não-anchors não recebem alocação — o anchor representa a zona inteira
 
-    // Peso = potencial real de venda (mix entre zonas).
-    // Quando há histórico ≥2 dias usamos qty/dia. Para 1 dia (importações
-    // em batch tipo Fever) NÃO usamos qty real como velocidade — isso
-    // sobrestima brutalmente. Usamos qty real só como peso relativo
-    // (dividido por uma janela conservadora) e deixamos o solver alocar.
+    // Peso = potencial real de venda. Usa realQtyZone para refletir a venda
+    // total da zona (não só a do dia em que o sync depositou as vendas).
     const days = Math.max(1, info?.days_selling ?? 1);
     const realVelocity = days > 1
-      ? realQty / days
-      : realQty / Math.max(1, Math.min(30, days)); // janela mín. de 30d quando só há 1 dia
+      ? realQtyZone / days
+      : realQtyZone / Math.max(1, Math.min(30, days)); // janela mín. de 30d quando só há 1 dia
     const proxyVelocity = n(s.projected_qty) + n(s.forecast_qty);
-    const velocity = realVelocity > 0 ? realVelocity : proxyVelocity;
+    const velocity = isAnchor ? (realVelocity > 0 ? realVelocity : proxyVelocity) : 0;
 
     // Lotes ordenados; "left" = quantity − vendido
     const lots = (info?.lots ?? []).slice().sort((a, b) => a.lot_number - b.lot_number);
