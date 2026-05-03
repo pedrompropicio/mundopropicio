@@ -95,7 +95,7 @@ export function useEventAttendance(
       if (zoneIds.length === 0) return [];
       const { data, error } = await supabase
         .from("event_ticket_lots")
-        .select("id, zone_id, quantity, lot_kind")
+        .select("id, zone_id, quantity, lot_kind, is_combo, consumes_zone_ids")
         .in("zone_id", zoneIds)
         .is("version_id", null);
       if (error) throw error;
@@ -110,7 +110,7 @@ export function useEventAttendance(
       if (zoneIds.length === 0) return [];
       const { data, error } = await supabase
         .from("ticket_sales")
-        .select("zone_id, lot_id, combo_pass_lot_id, quantity")
+        .select("zone_id, lot_id, quantity")
         .in("zone_id", zoneIds);
       if (error) throw error;
       return data ?? [];
@@ -130,56 +130,6 @@ export function useEventAttendance(
       return data ?? [];
     },
     enabled: !!eventId,
-  });
-
-  // ── COMBO PASSES (Fase 2) ─────────────────────────────────
-  // Cada combo lot vendido conta como 1 pessoa em CADA dia coberto, em CADA zona ligada ao passe.
-  const { data: comboPasses = [] } = useQuery({
-    queryKey: ["event_combo_passes_attendance", eventId],
-    queryFn: async () => {
-      if (!eventId) return [];
-      const { data, error } = await supabase
-        .from("event_combo_passes" as any)
-        .select("id, zone_id, applies_to_days")
-        .eq("event_id", eventId)
-        .is("version_id", null);
-      if (error) throw error;
-      return (data ?? []) as any[];
-    },
-    enabled: !!eventId,
-  });
-
-  const comboPassIds = comboPasses.map((p: any) => p.id);
-
-  const { data: comboPassLots = [] } = useQuery({
-    queryKey: ["event_combo_pass_lots_attendance", eventId, comboPassIds.join(",")],
-    queryFn: async () => {
-      if (comboPassIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("event_combo_pass_lots" as any)
-        .select("id, combo_pass_id, quantity")
-        .in("combo_pass_id", comboPassIds)
-        .is("version_id", null);
-      if (error) throw error;
-      return (data ?? []) as any[];
-    },
-    enabled: comboPassIds.length > 0,
-  });
-
-  const { data: comboPassRealSales = [] } = useQuery({
-    queryKey: ["event_combo_pass_real_sales_attendance", eventId, comboPassIds.join(",")],
-    queryFn: async () => {
-      if (comboPassIds.length === 0) return [];
-      const lotIds = comboPassLots.map((l: any) => l.id);
-      if (lotIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("combo_pass_lot_id, quantity")
-        .in("combo_pass_lot_id", lotIds);
-      if (error) throw error;
-      return (data ?? []) as any[];
-    },
-    enabled: scenario === "real" && comboPassIds.length > 0 && comboPassLots.length > 0,
   });
 
 
