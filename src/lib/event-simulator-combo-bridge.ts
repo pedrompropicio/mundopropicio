@@ -1,25 +1,21 @@
 /**
  * Bridge: Bilhetes Combo/Passe (Fase 2) → Simulador.
  *
- * Funções PURAS — sem dependências de Supabase ou React. Usadas tanto pelo
- * Simulador (matriz Dia×Zona) como pelo `syncSimulatorFromSources` (DRE).
+ * Funções PURAS — sem dependências de Supabase ou React.
  *
- * Regras (decisão 2026-05-01, reforçadas 2026-05-03):
+ * Regras (decisão 2026-05-03 — revista, mono-zona):
+ *  - Combo está sempre ligado a UMA única zona (event_combo_passes.zone_id).
  *  - 1 venda de combo = 1 receita única no DRE (NÃO multiplicar por dia).
- *  - 1 venda de combo = 1 pessoa em CADA dia coberto, em CADA zona ligada
- *    (multi-zona: o mesmo bilhete dá acesso a N zonas → conta N×nDias presenças).
+ *  - 1 venda de combo = 1 pessoa em CADA dia coberto, NA zona do passe.
  *  - applies_to_days = 0 (default) → cobre TODOS os dias do evento.
  *  - applies_to_days = N → cobre min(N, totalEventDays) dias consecutivos.
- *
- * Convertemos os combos em "LotSale sintéticos" (sale_day_index=null,
- * applies_to_days resolvido), de forma a que `expandLotSalesToDailyAttendance`
- * os trate exatamente como antigos lotes-combo por nome de zona.
  */
 import type { LotSale } from "./event-simulator-combos";
 
 export interface ComboPassInput {
   id: string;
   name: string;
+  zone_id: string | null;
   applies_to_days?: number | null;
   iva_rate?: number | null;
 }
@@ -28,10 +24,6 @@ export interface ComboPassLot {
   combo_pass_id: string;
   quantity: number | string | null | undefined;
   price: number | string | null | undefined;
-}
-export interface ComboPassZoneLink {
-  combo_pass_id: string;
-  zone_id: string;
 }
 export interface ComboPassSale {
   combo_pass_lot_id: string | null;
@@ -46,11 +38,6 @@ export interface ZoneRef {
 
 export type SimulatorScenario = "real" | "breakeven" | "forecast";
 
-/**
- * Quantidade efetiva por passe consoante o cenário.
- *  - real:    soma de ticket_sales.combo_pass_lot_id
- *  - BE/Fcst: soma planeada em event_combo_pass_lots.quantity
- */
 export function effectiveQtyByPass(
   passes: ComboPassInput[],
   lots: ComboPassLot[],
@@ -65,7 +52,6 @@ export function effectiveQtyByPass(
       if (!pid) continue;
       out.set(pid, (out.get(pid) ?? 0) + Number(s.quantity || 0));
     }
-    // garante key=0 mesmo para passes sem vendas (não polui — só usar para iterar)
     for (const p of passes) if (!out.has(p.id)) out.set(p.id, 0);
     return out;
   }
@@ -79,60 +65,44 @@ export function effectiveQtyByPass(
 
 /**
  * Converte combos em LotSale sintéticos para `expandLotSalesToDailyAttendance`.
- *  - Um LotSale por (combo, zona ligada).
+ *  - Um LotSale por combo (mono-zona).
  *  - applies_to_days resolvido para totalDays quando =0 ou maior que total.
- *  - sale_day_index = null → o helper de expansão distribui por todos os dias cobertos.
- *  - lot_name traz "(N DIAS)" para que a heurística por keyword também o detete
- *    em fluxos legados.
+ *  - sale_day_index = null → o helper distribui por todos os dias cobertos.
  */
 export function comboPassesToLotSales(
   passes: ComboPassInput[],
   lots: ComboPassLot[],
   sales: ComboPassSale[],
-  zoneLinks: ComboPassZoneLink[],
   zones: ZoneRef[],
   totalDays: number,
   scenario: SimulatorScenario,
 ): LotSale[] {
   if (totalDays <= 0 || passes.length === 0) return [];
   const zoneById = new Map(zones.map((z) => [z.id, z]));
-  const linksByPass = new Map<string, string[]>();
-  for (const link of zoneLinks) {
-    if (!linksByPass.has(link.combo_pass_id)) linksByPass.set(link.combo_pass_id, []);
-    linksByPass.get(link.combo_pass_id)!.push(link.zone_id);
-  }
   const qtyByPass = effectiveQtyByPass(passes, lots, sales, scenario);
 
   const out: LotSale[] = [];
   for (const p of passes) {
     const qty = qtyByPass.get(p.id) ?? 0;
     if (qty <= 0) continue;
+    if (!p.zone_id) continue;
+    const z = zoneById.get(p.zone_id);
+    if (!z) continue;
     const requested = Number(p.applies_to_days ?? 0);
     const days = requested <= 0 ? totalDays : Math.min(requested, totalDays);
-    const linkedZones = linksByPass.get(p.id) ?? [];
-    if (linkedZones.length === 0) continue;
-    for (const zid of linkedZones) {
-      const z = zoneById.get(zid);
-      if (!z) continue;
-      out.push({
-        lot_id: `combo-${p.id}-${zid}`,
-        lot_name: `${p.name} (${days} DIAS)`,
-        applies_to_days: days,
-        zone_id: zid,
-        zone_name: z.name,
-        sale_day_index: null,
-        qty,
-      });
-    }
+    out.push({
+      lot_id: `combo-${p.id}`,
+      lot_name: `${p.name} (${days} DIAS)`,
+      applies_to_days: days,
+      zone_id: p.zone_id,
+      zone_name: z.name,
+      sale_day_index: null,
+      qty,
+    });
   }
   return out;
 }
 
-/**
- * Receita TOTAL dos combos, sem multiplicar por dia (1 venda = 1 receita).
- *  - real:    usa total_value quando presente; fallback qty × unit_price ou price do lote.
- *  - BE/Fcst: qty planeada × price do lote.
- */
 export function comboPassesRevenue(
   lots: ComboPassLot[],
   sales: ComboPassSale[],
