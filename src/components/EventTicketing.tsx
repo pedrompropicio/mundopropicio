@@ -1,4 +1,5 @@
 import { SalesLogPanel } from "@/components/SalesLogPanel";
+import { EventCourtesiesEditor } from "@/components/EventCourtesiesEditor";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useState, useRef, useEffect, useMemo } from "react";
