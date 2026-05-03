@@ -24,7 +24,13 @@ import * as XLSX from "xlsx";
 export const FEVER_IVA_RATE = 6; // bilhetes PT
 export const FEVER_DEFAULT_QUANTITY = 0; // capacidade definida depois pelo utilizador
 
-export type FeverZoneKind = "relvado_diario" | "tenda_diario" | "relvado_passe" | "tenda_passe";
+/**
+ * Família de zona física Fever. Combos/passes não criam zona própria; ficam
+ * ancorados na zona-Sábado da família e consomem capacidade em ambos os dias
+ * (Sáb + Dom) através de `event_ticket_lots.consumes_zone_ids`.
+ */
+export type FeverPhysicalZoneKind = "relvado" | "tenda";
+export type FeverZoneKind = "relvado_diario" | "tenda_diario";
 export type FeverLotKind = "daily" | "pass";
 
 export interface FeverParsedLot {
@@ -40,10 +46,18 @@ export interface FeverParsedLot {
   unitPriceNet: number;
   /** nome legível do lote no app */
   lotName: string;
-  /** zona derivada: Relvado / Tenda VIP / Relvado (Passe 2 dias) / Tenda VIP (Passe 2 dias) */
+  /**
+   * Para lotes "daily": nome da zona-dia (ex.: "Relvado — Sábado").
+   * Para lotes "pass": nome humano do combo (ex.: "Passe 2 dias — Relvado")
+   * — usado só para apresentação no setup; o lote será criado na zona-Sábado
+   * com is_combo=true e consumes_zone_ids = [sat, dom].
+   */
   zoneName: string;
-  zoneKind: FeverZoneKind;
-  /** "daily" → 1 sessão; "pass" → ambas as sessões (zona sem session_id) */
+  /** Família física (igual em sat+dom e nos passes correspondentes) */
+  physicalZone: FeverPhysicalZoneKind;
+  /** Zona-dia derivada — só preenchido para lotes "daily" */
+  zoneKind: FeverZoneKind | null;
+  /** "daily" → 1 sessão; "pass" → combo multi-dia (is_combo=true) */
   lotKind: FeverLotKind;
   /** apenas se lotKind="daily": "saturday" ou "sunday" */
   daySlot: "saturday" | "sunday" | null;
@@ -132,7 +146,8 @@ function toLocalDate(value: any): string | null {
  */
 function deriveLotMeta(ticketType: string): {
   zoneName: string;
-  zoneKind: FeverZoneKind;
+  physicalZone: FeverPhysicalZoneKind;
+  zoneKind: FeverZoneKind | null;
   lotKind: FeverLotKind;
   daySlot: "saturday" | "sunday" | null;
   lotName: string;
@@ -148,25 +163,25 @@ function deriveLotMeta(ticketType: string): {
     else if (t.includes("domingo")) daySlot = "sunday";
   }
 
+  const physicalZone: FeverPhysicalZoneKind = isVIP ? "tenda" : "relvado";
+  const baseZoneLabel = isVIP ? "Tenda VIP" : "Relvado";
+
   let zoneName: string;
-  let zoneKind: FeverZoneKind;
+  let zoneKind: FeverZoneKind | null;
   let lotKind: FeverLotKind;
 
   if (isPass && !isDaily) {
     lotKind = "pass";
-    zoneName = isVIP ? "Tenda VIP (Passe 2 dias)" : "Relvado (Passe 2 dias)";
-    zoneKind = isVIP ? "tenda_passe" : "relvado_passe";
+    zoneName = `${baseZoneLabel} — Passe 2 dias`; // só para apresentação
+    zoneKind = null;
   } else {
     lotKind = "daily";
     const dayLabel = daySlot === "saturday" ? "Sábado" : daySlot === "sunday" ? "Domingo" : "";
-    zoneName = isVIP ? `Tenda VIP — ${dayLabel}` : `Relvado — ${dayLabel}`;
+    zoneName = `${baseZoneLabel} — ${dayLabel}`;
     zoneKind = isVIP ? "tenda_diario" : "relvado_diario";
   }
 
-  // Nome do lote: usa o próprio Ticket Type, removendo "| Passe ..." quando redundante
-  const lotName = ticketType.trim();
-
-  return { zoneName, zoneKind, lotKind, daySlot, lotName };
+  return { zoneName, physicalZone, zoneKind, lotKind, daySlot, lotName: ticketType.trim() };
 }
 
 // ---------------- detecção de formato ----------------
