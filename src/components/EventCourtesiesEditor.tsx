@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -10,27 +9,18 @@ import { toast } from "sonner";
 import { formatDatePT } from "@/lib/utils";
 import { Save } from "lucide-react";
 
-type Scenario = "real" | "breakeven" | "forecast";
-
 interface Props {
   eventId: string;
 }
 
-const scenarioLabel: Record<Scenario, string> = {
-  real: "Real",
-  breakeven: "Break Even",
-  forecast: "Projecção",
-};
-
 /**
- * Editor de cortesias por dia × zona × cenário.
- * Fonte: tabela event_courtesies (UNIQUE por event_date_id, zone_id, scenario).
- * As cortesias contam para o público por dia (denominador do per capita A&B)
- * mas não geram receita de bilheteira.
+ * Editor de cortesias por dia × zona (sem cenário).
+ * As cortesias são as mesmas em Real, Break Even e Projecção:
+ * representam quantos lugares por zona/dia são oferecidos e por isso
+ * NÃO entram à venda mas SOMAM ao público (denominador per capita A&B).
  */
 export function EventCourtesiesEditor({ eventId }: Props) {
   const qc = useQueryClient();
-  const [scenario, setScenario] = useState<Scenario>("real");
   const [draft, setDraft] = useState<Record<string, number>>({});
 
   const { data: dates = [] } = useQuery({
@@ -61,13 +51,12 @@ export function EventCourtesiesEditor({ eventId }: Props) {
   });
 
   const { data: rows = [] } = useQuery({
-    queryKey: ["event_courtesies", eventId, scenario],
+    queryKey: ["event_courtesies", eventId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_courtesies")
         .select("id, event_date_id, zone_id, quantity")
-        .eq("event_id", eventId)
-        .eq("scenario", scenario);
+        .eq("event_id", eventId);
       if (error) throw error;
       return data ?? [];
     },
@@ -106,7 +95,7 @@ export function EventCourtesiesEditor({ eventId }: Props) {
             event_id: eventId,
             event_date_id: dateId,
             zone_id: zoneId,
-            scenario,
+            scenario: "real",
             quantity: qty,
           });
           if (error) throw error;
@@ -116,8 +105,8 @@ export function EventCourtesiesEditor({ eventId }: Props) {
     onSuccess: () => {
       toast.success("Cortesias guardadas");
       setDraft({});
-      qc.invalidateQueries({ queryKey: ["event_courtesies", eventId, scenario] });
-      qc.invalidateQueries({ queryKey: ["event_courtesies_attendance", eventId, scenario] });
+      qc.invalidateQueries({ queryKey: ["event_courtesies", eventId] });
+      qc.invalidateQueries({ queryKey: ["event_courtesies_attendance", eventId] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -143,7 +132,8 @@ export function EventCourtesiesEditor({ eventId }: Props) {
         <div>
           <CardTitle className="text-base">Cortesias por dia</CardTitle>
           <p className="text-xs text-muted-foreground mt-0.5">
-            As cortesias somam ao público do dia (per capita A&B) mas não geram receita.
+            Iguais para Real, Break Even e Projecção. Somam ao público (per capita A&amp;B) e
+            <strong> não consomem capacidade à venda</strong> — acrescem.
           </p>
         </div>
         <Button size="sm" disabled={!dirty || saveMutation.isPending} onClick={() => saveMutation.mutate()}>
@@ -151,61 +141,52 @@ export function EventCourtesiesEditor({ eventId }: Props) {
         </Button>
       </CardHeader>
       <CardContent>
-        <Tabs value={scenario} onValueChange={(v) => { setScenario(v as Scenario); setDraft({}); }}>
-          <TabsList>
-            <TabsTrigger value="real">Real</TabsTrigger>
-            <TabsTrigger value="breakeven">Break Even</TabsTrigger>
-            <TabsTrigger value="forecast">Projecção</TabsTrigger>
-          </TabsList>
-          <TabsContent value={scenario} className="mt-4">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="min-w-32">Zona</TableHead>
-                    {dates.map((d) => (
-                      <TableHead key={d.id} className="text-right text-xs">
-                        {formatDatePT(d.date)}
-                        {d.label ? <div className="text-[10px] text-muted-foreground">{d.label}</div> : null}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {zones.map((z) => (
-                    <TableRow key={z.id}>
-                      <TableCell className="font-medium text-sm">{z.name}</TableCell>
-                      {dates.map((d) => (
-                        <TableCell key={d.id} className="text-right">
-                          <Input
-                            type="number"
-                            min={0}
-                            className="h-8 w-20 text-right text-xs ml-auto"
-                            value={valueAt(d.id, z.id)}
-                            onChange={(e) =>
-                              setDraft((prev) => ({
-                                ...prev,
-                                [cellKey(d.id, z.id)]: Math.max(0, parseInt(e.target.value) || 0),
-                              }))
-                            }
-                          />
-                        </TableCell>
-                      ))}
-                    </TableRow>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="min-w-32">Zona</TableHead>
+                {dates.map((d) => (
+                  <TableHead key={d.id} className="text-right text-xs">
+                    {formatDatePT(d.date)}
+                    {d.label ? <div className="text-[10px] text-muted-foreground">{d.label}</div> : null}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {zones.map((z) => (
+                <TableRow key={z.id}>
+                  <TableCell className="font-medium text-sm">{z.name}</TableCell>
+                  {dates.map((d) => (
+                    <TableCell key={d.id} className="text-right">
+                      <Input
+                        type="number"
+                        min={0}
+                        className="h-8 w-20 text-right text-xs ml-auto"
+                        value={valueAt(d.id, z.id)}
+                        onChange={(e) =>
+                          setDraft((prev) => ({
+                            ...prev,
+                            [cellKey(d.id, z.id)]: Math.max(0, parseInt(e.target.value) || 0),
+                          }))
+                        }
+                      />
+                    </TableCell>
                   ))}
-                  <TableRow className="bg-muted/30">
-                    <TableCell className="font-semibold text-sm">Total — {scenarioLabel[scenario]}</TableCell>
-                    {dates.map((d) => (
-                      <TableCell key={d.id} className="text-right font-mono font-semibold">
-                        {totalForDay(d.id).toLocaleString("pt-PT")}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          </TabsContent>
-        </Tabs>
+                </TableRow>
+              ))}
+              <TableRow className="bg-muted/30">
+                <TableCell className="font-semibold text-sm">Total por dia</TableCell>
+                {dates.map((d) => (
+                  <TableCell key={d.id} className="text-right font-mono font-semibold">
+                    {totalForDay(d.id).toLocaleString("pt-PT")}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   );

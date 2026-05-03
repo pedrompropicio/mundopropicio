@@ -118,14 +118,14 @@ export function useEventAttendance(
     enabled: scenario === "real" && zoneIds.length > 0,
   });
 
+  // Cortesias são iguais para Real/BE/Forecast — não filtramos por cenário.
   const { data: courtesies = [] } = useQuery({
-    queryKey: ["event_courtesies_attendance", eventId, scenario],
+    queryKey: ["event_courtesies_attendance", eventId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_courtesies")
-        .select("event_date_id, zone_id, quantity, scenario")
-        .eq("event_id", eventId!)
-        .eq("scenario", scenario);
+        .select("event_date_id, zone_id, quantity")
+        .eq("event_id", eventId!);
       if (error) throw error;
       return data ?? [];
     },
