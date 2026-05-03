@@ -1005,14 +1005,17 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       {/* Revenue breakdown */}
       {filteredZones.length > 0 && filteredLots.length > 0 && (
         <div className="glass rounded-xl p-5">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Resumo de Receita por Zona</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Resumo de Público e Receita por Zona/Dia</h3>
           <div className="overflow-x-auto">
           <table className="w-full text-sm" style={{ borderSpacing: 0 }}>
             <thead>
               <tr className="border-b border-border/50 text-xs uppercase tracking-wider text-muted-foreground">
                 <th className="pb-2 text-left font-medium">Zona</th>
-                <th className="pb-2 text-right font-medium pl-4">Bilhetes</th>
+                <th className="pb-2 text-right font-medium pl-4">Público</th>
+                <th className="pb-2 text-right font-medium pl-4">Simples</th>
+                <th className="pb-2 text-right font-medium pl-4">Combos</th>
                 <th className="pb-2 text-right font-medium pl-4">Capacidade</th>
+                <th className="pb-2 text-right font-medium pl-4">Bilhetes vendidos</th>
                 <th className="pb-2 text-right font-medium pl-6">Preço Médio</th>
                 <th className="pb-2 text-right font-medium pl-6">Valor s/IVA</th>
                 <th className="pb-2 text-right font-medium pl-6">IVA</th>
@@ -1020,56 +1023,40 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
               </tr>
             </thead>
             <tbody className="divide-y divide-border/30">
-              {(() => {
-                // Atribuir cada lote à sua zona-âncora (l.zone_id), alinhando
-                // o resumo com a contagem mostrada no cabeçalho de cada zona.
-                // Combos não são divididos entre zonas que consomem — ficam
-                // contabilizados na zona onde foram cadastrados.
-                const acc = new Map<string, { tix: number; gross: number; net: number; iva: number }>();
-                for (const z of sortedZones) acc.set(z.id, { tix: 0, gross: 0, net: 0, iva: 0 });
-                for (const l of filteredLots) {
-                  const rate = Number((l as any).iva_rate ?? 6);
-                  const qty = Number(l.quantity) || 0;
-                  const price = Number(l.price) || 0;
-                  const gross = qty * price;
-                  const net = qty * netFromGross(price, rate);
-                  const iva = qty * ivaFromGross(price, rate);
-                  const a = acc.get(l.zone_id);
-                  if (!a) continue;
-                  a.tix += qty;
-                  a.gross += gross;
-                  a.net += net;
-                  a.iva += iva;
-                }
-                return sortedZones.map((z) => {
-                const a = acc.get(z.id)!;
-                const tix = Math.round(a.tix);
-                const gross = a.gross;
-                const net = a.net;
-                const iva = a.iva;
+              {zonePublicSummary.map(({ zone: z, public: attendance, revenue }) => {
+                const tix = Math.round(revenue.tickets);
+                const publicTotal = Math.round(attendance.used_total);
+                const gross = revenue.gross;
+                const net = revenue.net;
+                const iva = revenue.iva;
                 return (
                   <tr key={z.id}>
                     <td className="py-2.5 font-medium">{z.name}</td>
-                    <td className="py-2.5 text-right font-mono pl-4">{tix.toLocaleString()}</td>
+                    <td className="py-2.5 text-right font-mono font-semibold pl-4">{publicTotal.toLocaleString()}</td>
+                    <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">{Math.round(attendance.used_simple).toLocaleString()}</td>
+                    <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">{Math.round(attendance.used_combo).toLocaleString()}</td>
                     <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">{(z.total_capacity ?? 0).toLocaleString()}</td>
+                    <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">{tix.toLocaleString()}</td>
                     <td className="py-2.5 text-right font-mono text-muted-foreground pl-6">{tix > 0 ? formatCurrency(gross / tix) : "—"}</td>
                     <td className="py-2.5 text-right font-mono pl-6">{formatCurrency(net)}</td>
                     <td className="py-2.5 text-right font-mono text-xs text-muted-foreground pl-6">{formatCurrency(iva)}</td>
                     <td className="py-2.5 text-right font-mono font-semibold text-success pl-6">{formatCurrency(gross)}</td>
                   </tr>
                 );
-                });
-              })()}
+              })}
             </tbody>
             <tfoot>
               <tr className="border-t border-border/50 font-bold">
                 <td className="py-2.5">Total</td>
-                <td className="py-2.5 text-right font-mono pl-4">{totalTickets.toLocaleString()}</td>
+                <td className="py-2.5 text-right font-mono pl-4">{Math.round(zonePublicTotals.total).toLocaleString()}</td>
+                <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">{Math.round(zonePublicTotals.simple).toLocaleString()}</td>
+                <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">{Math.round(zonePublicTotals.combo).toLocaleString()}</td>
                 <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">{totalCapacity.toLocaleString()}</td>
-                <td className="py-2.5 text-right font-mono text-muted-foreground pl-6">{totalTickets > 0 ? formatCurrency(totalGrossRevenue / totalTickets) : "—"}</td>
-                <td className="py-2.5 text-right font-mono pl-6">{formatCurrency(totalNetRevenue)}</td>
-                <td className="py-2.5 text-right font-mono text-xs text-muted-foreground pl-6">{formatCurrency(totalIva)}</td>
-                <td className="py-2.5 text-right font-mono text-success pl-6">{formatCurrency(totalGrossRevenue)}</td>
+                <td className="py-2.5 text-right font-mono text-muted-foreground pl-4">{Math.round(zonePublicTotals.tickets).toLocaleString()}</td>
+                <td className="py-2.5 text-right font-mono text-muted-foreground pl-6">{zonePublicTotals.tickets > 0 ? formatCurrency(zonePublicTotals.gross / zonePublicTotals.tickets) : "—"}</td>
+                <td className="py-2.5 text-right font-mono pl-6">{formatCurrency(zonePublicTotals.net)}</td>
+                <td className="py-2.5 text-right font-mono text-xs text-muted-foreground pl-6">{formatCurrency(zonePublicTotals.iva)}</td>
+                <td className="py-2.5 text-right font-mono text-success pl-6">{formatCurrency(zonePublicTotals.gross)}</td>
               </tr>
             </tfoot>
           </table>
