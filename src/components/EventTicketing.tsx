@@ -42,10 +42,17 @@ interface LotForm {
   price: string;
   iva_rate: string;
   lot_type: string;
+  lot_kind: string; // 'simple' | 'combo'
 }
 
 const emptyZone: ZoneForm = { name: "", total_capacity: "" };
-const emptyLot: LotForm = { name: "", quantity: "", price: "", iva_rate: "6", lot_type: "regular" };
+const emptyLot: LotForm = { name: "", quantity: "", price: "", iva_rate: "6", lot_type: "regular", lot_kind: "simple" };
+
+const lotKindLabels: Record<string, string> = { simple: "Simples", combo: "Combo" };
+const lotKindBadgeClass: Record<string, string> = {
+  simple: "",
+  combo: "bg-primary/15 text-primary border-primary/30",
+};
 
 const lotTypeLabels: Record<string, string> = { regular: "Regular", promo: "Promo", special: "Especial" };
 const lotTypeBadgeClass: Record<string, string> = {
@@ -349,6 +356,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         iva_rate: parseInt(form.iva_rate) || 6,
         lot_number: nextLotNumber,
         lot_type: form.lot_type || "regular",
+        lot_kind: form.lot_kind === "combo" ? "combo" : "simple",
         version_id: selectedVersionId, // null=Active, uuid=scenario sandbox
       };
       if (id) {
@@ -400,7 +408,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   };
 
   const startEditLot = (l: any) => {
-    setLotForm({ name: l.name, quantity: String(l.quantity), price: String(l.price), iva_rate: String(l.iva_rate ?? 6), lot_type: l.lot_type || "regular" });
+    setLotForm({ name: l.name, quantity: String(l.quantity), price: String(l.price), iva_rate: String(l.iva_rate ?? 6), lot_type: l.lot_type || "regular", lot_kind: l.lot_kind === "combo" ? "combo" : "simple" });
     setEditingLotId(l.id);
     setAddingLotForZone(null);
   };
