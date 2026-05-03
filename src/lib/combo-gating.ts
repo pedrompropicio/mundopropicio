@@ -14,9 +14,9 @@ export interface ComboGatingInput {
 
 export function isComboAllowed(input: ComboGatingInput): boolean {
   const isFestival = input.event_type === "festival";
-  const isMultiDay = (input.event_dates_count ?? 0) > 1;
+  const hasDates = (input.event_dates_count ?? 0) >= 1;
   const isTourSplit = !!input.parent_event_id;
-  return isFestival && isMultiDay && !isTourSplit;
+  return isFestival && hasDates && !isTourSplit;
 }
 
 /**
