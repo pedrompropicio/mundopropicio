@@ -26,6 +26,8 @@ export interface CapLot {
   quantity: number | null | undefined;
   is_combo?: boolean | null;
   consumes_zone_ids?: string[] | null;
+  /** Nome usado para detectar promos "2x" que valem 2 pessoas por bilhete. */
+  name?: string | null;
 }
 
 export interface ZoneAllocation {
@@ -48,6 +50,11 @@ function lotConsumesZone(lot: CapLot, zoneId: string): boolean {
   return lot.zone_id === zoneId;
 }
 
+function personMult(name?: string | null): number {
+  if (!name) return 1;
+  return /(^|[^a-z0-9])2\s*x(\b|[^a-z0-9])/i.test(name) ? 2 : 1;
+}
+
 export function computeZoneAllocations(
   zones: CapZone[],
   lots: CapLot[],
@@ -60,7 +67,7 @@ export function computeZoneAllocations(
     for (const l of lots) {
       if (l.id === opts.excludeLotId) continue;
       if (!lotConsumesZone(l, z.id)) continue;
-      const q = Number(l.quantity || 0);
+      const q = Number(l.quantity || 0) * personMult(l.name);
       if (l.is_combo) usedCombo += q;
       else usedSimple += q;
     }
