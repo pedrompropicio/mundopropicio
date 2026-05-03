@@ -222,8 +222,7 @@ export function useEventAttendance(
     for (const mv of movements) {
       const meta = mv.lot_id ? lotById.get(mv.lot_id) : undefined;
       const isCombo = !!meta?.is_combo;
-      const personMult = meta?.person_mult ?? 1;
-      const people = mv.qty * personMult;
+      const people = mv.qty;
       if (isCombo) {
         // 1 venda combo = 1 pessoa em CADA dia coberto. Se houver
         // consumes_zone_ids explícitos, respeitamos essa matriz; caso
