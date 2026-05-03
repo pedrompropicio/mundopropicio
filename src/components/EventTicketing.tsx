@@ -383,7 +383,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         iva_rate: parseInt(form.iva_rate) || 6,
         lot_number: nextLotNumber,
         lot_type: form.lot_type || "regular",
-        lot_kind: form.lot_kind === "combo" ? "combo" : "simple",
+        lot_kind: comboAllowed && form.lot_kind === "combo" ? "combo" : "simple",
         version_id: selectedVersionId, // null=Active, uuid=scenario sandbox
       };
       if (id) {
@@ -525,10 +525,12 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
           <td className="py-1.5 pr-2">
             <div className="flex items-center gap-1.5">
               <input ref={lotNameRef} value={lotForm.name} onChange={(e) => setLotForm({ ...lotForm, name: e.target.value })} className={inputClass} placeholder="Nome do lote…" autoFocus />
-              <select value={lotForm.lot_kind} onChange={(e) => setLotForm({ ...lotForm, lot_kind: e.target.value })} className={`${inputClass} w-24`} title="Tipo: Simples (1 dia) ou Combo (todos os dias)">
-                <option value="simple">Simples</option>
-                <option value="combo">Combo</option>
-              </select>
+              {comboAllowed && (
+                <select value={lotForm.lot_kind} onChange={(e) => setLotForm({ ...lotForm, lot_kind: e.target.value })} className={`${inputClass} w-24`} title="Tipo: Simples (1 dia) ou Combo/Passe (todos os dias do festival)">
+                  <option value="simple">Simples</option>
+                  <option value="combo">Combo</option>
+                </select>
+              )}
               <select value={lotForm.lot_type} onChange={(e) => setLotForm({ ...lotForm, lot_type: e.target.value })} className={`${inputClass} w-24`}>
                 <option value="regular">Regular</option>
                 <option value="promo">Promo</option>
