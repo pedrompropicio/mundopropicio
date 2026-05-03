@@ -17,6 +17,7 @@ import {
   type ABZoneInput,
   type ABFoodConfig,
 } from "@/lib/event-ab-calc";
+import { useCitySimulator } from "@/hooks/useCitySimulator";
 
 interface Props {
   eventId: string;
@@ -93,8 +94,12 @@ export default function EventABTab({ eventId }: Props) {
     enabled: ticketZones.length > 0,
   });
 
-  const { data: forecastParticipants = {} } = useQuery({
-    queryKey: ["ab_forecast_participants", eventId],
+  // Forecast/Break Even vêm do Simulador (mesma lógica do Master Tour). O public
+  // "real" continua a sair de ticket_sales (acima). Se o Simulador não estiver
+  // configurado, BE/Forecast caem para a capacidade total dos lotes (fallback).
+  const sim = useCitySimulator(eventId);
+  const { data: lotsCapacity = {} } = useQuery({
+    queryKey: ["ab_lots_capacity", eventId],
     queryFn: async () => {
       const zoneIds = (ticketZones ?? []).map((z) => z.id);
       if (zoneIds.length === 0) return {};
@@ -111,6 +116,33 @@ export default function EventABTab({ eventId }: Props) {
     },
     enabled: ticketZones.length > 0,
   });
+
+  /** Mapa zone_label.toLowerCase() → participantes do Simulador (cenário). */
+  const simParticipantsByLabel = useMemo(() => {
+    const out: Record<"breakeven" | "forecast", Record<string, number>> = {
+      breakeven: {},
+      forecast: {},
+    };
+    for (const s of sim.sessions ?? []) {
+      const label = (s.zone_label || "").toLowerCase();
+      const courtesy = Number((s as any).courtesy_qty) || 0;
+      const realQty = Number((s as any).real_sales_qty) || 0;
+      // o solver guarda em sim.kpis indirectamente; mais simples: re-derivar via abModule
+      // mas aqui já basta usar real+courtesy como mínimo; substituiremos abaixo.
+      out.breakeven[label] = (out.breakeven[label] ?? 0) + realQty + courtesy;
+      out.forecast[label] = (out.forecast[label] ?? 0) + realQty + courtesy;
+    }
+    // Sobrepor com qty calculadas pelo solver (BE/Forecast) que já estão no abModule.totals
+    if (sim.abModule?.totals) {
+      for (const t of sim.abModule.totals.breakeven.zones) {
+        out.breakeven[t.zone_label.toLowerCase()] = t.participants;
+      }
+      for (const t of sim.abModule.totals.forecast.zones) {
+        out.forecast[t.zone_label.toLowerCase()] = t.participants;
+      }
+    }
+    return out;
+  }, [sim.sessions, sim.abModule?.totals]);
 
   // ── mutations ──
   const upsertConfig = useMutation({
@@ -180,14 +212,18 @@ export default function EventABTab({ eventId }: Props) {
   };
 
   // ── participantes por cenário ──
+  // Real → ticket_sales (já carregado em realParticipants por zone_id da bilheteira)
+  // BE   → solver Break Even do Simulador (por zone_label)
+  // Fc   → solver Forecast do Simulador (por zone_label)
+  // Fallback (sem Simulador): capacidade total dos lotes.
   const participantsForZone = (z: any): number => {
     if (z.participants_manual != null) return Number(z.participants_manual);
     const srcId = z.source_ticket_zone_id;
-    if (!srcId) return 0;
-    if (scenario === "real") return realParticipants[srcId] ?? 0;
-    if (scenario === "forecast") return forecastParticipants[srcId] ?? 0;
-    // breakeven: por defeito = forecast (até existir ligação ao Simulador de break-even)
-    return forecastParticipants[srcId] ?? 0;
+    const labelKey = (z.zone_label || "").toLowerCase();
+    if (scenario === "real") return srcId ? (realParticipants[srcId] ?? 0) : 0;
+    const fromSim = simParticipantsByLabel[scenario]?.[labelKey];
+    if (fromSim != null && fromSim > 0) return fromSim;
+    return srcId ? (lotsCapacity[srcId] ?? 0) : 0;
   };
 
   const calcInputs: ABZoneInput[] = useMemo(
@@ -201,7 +237,7 @@ export default function EventABTab({ eventId }: Props) {
         per_capita_bebidas: Number(z.per_capita_bebidas || 0),
         repasse_bebidas_pct: Number(z.repasse_bebidas_pct || 0),
       })),
-    [zones, scenario, realParticipants, forecastParticipants],
+    [zones, scenario, realParticipants, simParticipantsByLabel, lotsCapacity],
   );
 
   const food: ABFoodConfig = {
@@ -242,13 +278,13 @@ export default function EventABTab({ eventId }: Props) {
         </Tabs>
       </div>
 
-      {/* KPIs consolidados */}
+      {/* KPIs consolidados — perspectiva da casa (modelo concessão) */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Kpi label="Faturação A&B" value={fmtEUR(totals.faturacaoTotal)} />
-        <Kpi label="Receita A&B" value={fmtEUR(totals.receitaTotal)} highlight />
-        <Kpi label="Custo A&B" value={fmtEUR(totals.custoTotal)} />
-        <Kpi label="Resultado A&B" value={fmtEUR(totals.resultadoTotal)} highlight={totals.resultadoTotal >= 0} negative={totals.resultadoTotal < 0} />
-        <Kpi label="Margem" value={fmtPct(totals.margemPct)} />
+        <Kpi label="Faturação A&B (gerador)" value={fmtEUR(totals.faturacaoTotal)} />
+        <Kpi label="Receita A&B (casa)" value={fmtEUR(totals.receitaTotal)} highlight />
+        <Kpi label="Parte do gerador" value={fmtEUR(totals.parteGeradorTotal)} />
+        <Kpi label="Resultado A&B (casa)" value={fmtEUR(totals.resultadoTotal)} highlight />
+        <Kpi label="Quota da casa" value={fmtPct(totals.margemPct)} />
       </div>
 
       {/* Bebidas — por zona */}
@@ -349,7 +385,7 @@ export default function EventABTab({ eventId }: Props) {
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{fmtEUR(r?.faturacaoBebidas ?? 0)}</TableCell>
                       <TableCell className="text-right tabular-nums text-primary">{fmtEUR(r?.receitaBebidas ?? 0)}</TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">{fmtEUR(r?.custoBebidas ?? 0)}</TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">{fmtEUR(r?.parteGeradorBebidas ?? 0)}</TableCell>
                       <TableCell>
                         <Button size="icon" variant="ghost" onClick={() => deleteZone.mutate(z.id)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -362,7 +398,7 @@ export default function EventABTab({ eventId }: Props) {
                   <TableCell colSpan={7}>Totais Bebidas</TableCell>
                   <TableCell className="text-right tabular-nums">{fmtEUR(totals.faturacaoBebidas)}</TableCell>
                   <TableCell className="text-right tabular-nums text-primary">{fmtEUR(totals.receitaBebidas)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{fmtEUR(totals.custoBebidas)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fmtEUR(totals.parteGeradorBebidas)}</TableCell>
                   <TableCell />
                 </TableRow>
               </TableBody>
@@ -405,7 +441,7 @@ export default function EventABTab({ eventId }: Props) {
             <Kpi label="Participantes elegíveis" value={String(totals.participantesElegiveisAlimentos)} />
             <Kpi label="Faturação Alimentos" value={fmtEUR(totals.faturacaoAlimentos)} />
             <Kpi label="Receita Alimentos" value={fmtEUR(totals.receitaAlimentos)} highlight />
-            <Kpi label="Custo Alimentos" value={fmtEUR(totals.custoAlimentos)} />
+            <Kpi label="Parte gerador (Alimentos)" value={fmtEUR(totals.parteGeradorAlimentos)} />
           </div>
 
           <div className="md:col-span-3 flex items-center justify-between pt-2 border-t">
