@@ -31,6 +31,7 @@ import {
 } from "@/lib/event-simulator-coala";
 import { syncSimulatorFromSources } from "@/lib/event-simulator-sync";
 import { expandLotSalesToDailyAttendance, type LotSale } from "@/lib/event-simulator-combos";
+import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
 // combo bridge removido: combos são lotes unificados em event_ticket_lots
 import { loadSponsors, type SponsorRow } from "@/lib/event-simulator-sponsors";
 import { exportSimulatorToXlsx, exportSimulatorToPdf, type SimulatorExportData } from "@/lib/event-simulator-export";
@@ -217,9 +218,9 @@ export default function EventSimulator() {
       // 1) zonas do evento (com session_id → identifica dia do festival)
       const { data: zones } = await supabase
         .from("event_ticket_zones")
-        .select("id, name, session_id").eq("event_id", eventId!);
+        .select("id, name, session_id, total_capacity").eq("event_id", eventId!).is("version_id", null);
       const zoneIds = (zones ?? []).map((z: any) => z.id);
-      if (!zoneIds.length) return { lotSales: [] as LotSale[], dates: [] as { date: string | null }[] };
+      if (!zoneIds.length) return { lotSales: [] as LotSale[], dates: [] as { date: string | null }[], zoneRows: [] as any[], salesByZone: {} as Record<string, { qty: number; revenue: number }> };
 
       // 2) lotes dessas zonas
       const { data: lots } = await supabase
@@ -242,11 +243,27 @@ export default function EventSimulator() {
       const lotIds = (lots ?? []).map((l: any) => l.id);
       const { data: sales } = lotIds.length
         ? await supabase.from("ticket_sales")
-            .select("lot_id, zone_id, sale_date, quantity").in("lot_id", lotIds)
+            .select("lot_id, zone_id, sale_date, quantity, unit_price, total_value").in("lot_id", lotIds)
         : { data: [] as any[] };
 
       const lotById = new Map((lots ?? []).map((l: any) => [l.id, l]));
       const zoneById = new Map((zones ?? []).map((z: any) => [z.id, z]));
+
+      const salesByZone: Record<string, { qty: number; revenue: number }> = {};
+      for (const s of (sales ?? []) as any[]) {
+        const cur = salesByZone[s.zone_id] ?? { qty: 0, revenue: 0 };
+        cur.qty += Number(s.quantity || 0);
+        cur.revenue += ticketSaleRevenue(s);
+        salesByZone[s.zone_id] = cur;
+      }
+
+      const zoneRows = ((zones ?? []) as any[]).map((z) => ({
+        id: z.id,
+        name: z.name,
+        session_id: z.session_id ?? null,
+        total_capacity: Number(z.total_capacity || 0),
+        day_index: z.session_id ? (sessionIdToIdx.get(z.session_id) ?? 0) : 0,
+      }));
 
       const lotSales: LotSale[] = ((sales ?? []) as any[]).map((s) => {
         const lot = lotById.get(s.lot_id);
@@ -269,7 +286,7 @@ export default function EventSimulator() {
       // Combos agora são lotes normais com is_combo=true em event_ticket_lots —
       // já entram em `lotSales` acima. UI dedicada do simulador para mostrar
       // expansão por dia será reintroduzida na próxima iteração.
-      return { lotSales, dates };
+      return { lotSales, dates, zoneRows, salesByZone };
     },
     enabled: !!eventId,
   });
