@@ -1823,6 +1823,74 @@ export type Database = {
           },
         ]
       }
+      event_courtesies: {
+        Row: {
+          company_id: string
+          created_at: string
+          event_date_id: string
+          event_id: string
+          id: string
+          notes: string | null
+          quantity: number
+          scenario: string
+          updated_at: string
+          zone_id: string
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          event_date_id: string
+          event_id: string
+          id?: string
+          notes?: string | null
+          quantity?: number
+          scenario?: string
+          updated_at?: string
+          zone_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          event_date_id?: string
+          event_id?: string
+          id?: string
+          notes?: string | null
+          quantity?: number
+          scenario?: string
+          updated_at?: string
+          zone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_courtesies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_courtesies_event_date_id_fkey"
+            columns: ["event_date_id"]
+            isOneToOne: false
+            referencedRelation: "event_dates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_courtesies_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_courtesies_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "event_ticket_zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_dates: {
         Row: {
           company_id: string
@@ -2834,6 +2902,7 @@ export type Database = {
           created_at: string
           id: string
           iva_rate: number
+          lot_kind: string
           lot_number: number
           lot_type: string
           name: string
@@ -2848,6 +2917,7 @@ export type Database = {
           created_at?: string
           id?: string
           iva_rate?: number
+          lot_kind?: string
           lot_number?: number
           lot_type?: string
           name?: string
@@ -2862,6 +2932,7 @@ export type Database = {
           created_at?: string
           id?: string
           iva_rate?: number
+          lot_kind?: string
           lot_number?: number
           lot_type?: string
           name?: string
