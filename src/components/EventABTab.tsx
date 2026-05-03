@@ -79,15 +79,26 @@ export default function EventABTab({ eventId }: Props) {
     queryFn: async () => {
       const zoneIds = (ticketZones ?? []).map((z) => z.id);
       if (zoneIds.length === 0) return {};
+      // Carrega lotes p/ saber applies_to_days (combo = N presenças por venda).
+      const { data: lots } = await supabase
+        .from("event_ticket_lots")
+        .select("id, applies_to_days")
+        .in("zone_id", zoneIds);
+      const daysByLot = new Map<string, number>();
+      for (const l of (lots ?? []) as any[]) {
+        daysByLot.set(l.id, Math.max(1, Number(l.applies_to_days || 1)));
+      }
       const { data, error } = await supabase
         .from("ticket_sales")
-        .select("zone_id, quantity")
+        .select("zone_id, lot_id, quantity")
         .in("zone_id", zoneIds);
       if (error) throw error;
       const map: Record<string, number> = {};
       for (const r of data ?? []) {
         if (!r.zone_id) continue;
-        map[r.zone_id] = (map[r.zone_id] ?? 0) + Number(r.quantity || 0);
+        const days = (r as any).lot_id ? (daysByLot.get((r as any).lot_id) ?? 1) : 1;
+        // 1 venda combo de N dias = N presenças (alinhado com aba "Público diário")
+        map[r.zone_id] = (map[r.zone_id] ?? 0) + Number(r.quantity || 0) * days;
       }
       return map;
     },
