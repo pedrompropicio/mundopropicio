@@ -291,23 +291,24 @@ describe("Casos limite", () => {
     expect(t.receitaTotal).toBe(100);
   });
 
-  it("repasse 0% → toda a faturação é custo", () => {
+  it("repasse 0% → receita casa = 0; toda a faturação fica para o gerador", () => {
     const t = computeTotals(
       [zone({ id: "1", zone_label: "P", participants: 100, per_capita_bebidas: 10, repasse_bebidas_pct: 0 })],
       food(),
     );
     expect(t.receitaBebidas).toBe(0);
-    expect(t.custoBebidas).toBe(1000);
+    expect(t.parteGeradorBebidas).toBe(1000);
+    expect(t.custoBebidas).toBe(0); // concessão
   });
 
-  it("repasse 100% → toda a faturação é receita", () => {
+  it("repasse 100% → toda a faturação é receita da casa", () => {
     const t = computeTotals(
       [zone({ id: "1", zone_label: "P", participants: 100, per_capita_bebidas: 10, repasse_bebidas_pct: 100 })],
       food({ per_capita_alimentos: 5, repasse_alimentos_pct: 100 }),
     );
     expect(t.receitaBebidas).toBe(1000);
-    expect(t.custoBebidas).toBe(0);
-    expect(t.custoAlimentos).toBe(0);
+    expect(t.parteGeradorBebidas).toBe(0);
+    expect(t.parteGeradorAlimentos).toBe(0);
     expect(t.receitaAlimentos).toBe(500);
   });
 
