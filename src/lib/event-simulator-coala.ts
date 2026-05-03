@@ -501,7 +501,9 @@ export function solveBreakEven(
   let remainingDeficit = deficit;
   const MAX_WAVES = 50;
   for (let wave = 0; wave < MAX_WAVES && remainingDeficit > 0.005; wave++) {
-    const active = slots.filter((sl) => sl.eligible && sl.capLeft > 0 && sl.weight > 0);
+    const active = slots
+      .filter((sl) => sl.eligible && sl.capLeft > 0 && sl.weight > 0)
+      .sort((a, b) => b.weight - a.weight);
     if (!active.length) break;
     const sumW = active.reduce((a, sl) => a + sl.weight, 0);
     let progressed = false;
