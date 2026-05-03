@@ -84,7 +84,7 @@ describe("Modal A&B — toggle open_bar", () => {
     }));
     expect(r.faturacaoBebidas).toBe(2000);
     expect(r.receitaBebidas).toBe(600);
-    expect(r.custoBebidas).toBe(1400);
+    expect(r.parteGeradorBebidas).toBe(1400);
   });
 });
 
