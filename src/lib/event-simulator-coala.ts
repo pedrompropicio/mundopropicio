@@ -433,11 +433,14 @@ export function solveBreakEven(
       : Number.POSITIVE_INFINITY;
 
     // Peso = potencial real de venda (mix entre zonas).
-    // Usamos qty/dia quando há histórico ≥2 dias; caso contrário (importação
-    // em batch / 1 dia) usamos qty real diretamente para preservar a
-    // proporção observada entre zonas.
+    // Quando há histórico ≥2 dias usamos qty/dia. Para 1 dia (importações
+    // em batch tipo Fever) NÃO usamos qty real como velocidade — isso
+    // sobrestima brutalmente. Usamos qty real só como peso relativo
+    // (dividido por uma janela conservadora) e deixamos o solver alocar.
     const days = Math.max(1, info?.days_selling ?? 1);
-    const realVelocity = days > 1 ? realQty / days : realQty;
+    const realVelocity = days > 1
+      ? realQty / days
+      : realQty / Math.max(1, Math.min(30, days)); // janela mín. de 30d quando só há 1 dia
     const proxyVelocity = n(s.projected_qty) + n(s.forecast_qty);
     const velocity = realVelocity > 0 ? realVelocity : proxyVelocity;
 
@@ -492,9 +495,13 @@ export function solveBreakEven(
     let progressed = false;
 
     for (const sl of active) {
+      if (remainingDeficit <= 0.005) break;
       const share = remainingDeficit * (sl.weight / sumW);
-      // Quantos bilhetes para cobrir essa fatia, respeitando lote atual + capacidade
-      let toAlloc = Math.ceil(share / sl.margin);
+      // Quantos bilhetes para cobrir essa fatia, respeitando lote atual + capacidade.
+      // Usamos Math.ceil mas limitamos ao défice GLOBAL restante (não só ao share)
+      // para evitar overshoot quando muitos slots arredondam para cima em simultâneo.
+      const maxByGlobalDeficit = Math.ceil(remainingDeficit / sl.margin);
+      let toAlloc = Math.min(Math.ceil(share / sl.margin), maxByGlobalDeficit);
       if (toAlloc <= 0) continue;
       toAlloc = Math.min(toAlloc, sl.capLeft);
       // Limita ao stock do próximo lote (depois recalculamos preço marginal)
@@ -601,7 +608,11 @@ export function solveForecast(
       : Number.POSITIVE_INFINITY;
 
     const daysSelling = Math.max(1, info?.days_selling ?? 1);
-    const recentVelocity = daysSelling > 1 ? realQty / daysSelling : realQty;
+    // Para histórico de 1 dia (importação Fever em batch) usamos uma janela
+    // mínima de 30 dias — caso contrário a velocidade fica artificialmente
+    // alta (todas as vendas num único dia) e o forecast explode.
+    const velocityWindow = daysSelling > 1 ? daysSelling : Math.max(30, FORECAST_RECENT_WINDOW_DAYS);
+    const recentVelocity = realQty / velocityWindow;
 
     const baseProjection = recentVelocity * baseWindow;
     const finalProjection = recentVelocity * finalAccel * finalWindow;
