@@ -694,19 +694,21 @@ export default function EventDetail() {
         </div>
         <p className="text-sm text-muted-foreground">{event.location} · {formatDate(event.date)}</p>
 
-        {/* Festival dates display */}
-        {eventType === "festival" && festivalDates.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className="inline-flex items-center rounded-full bg-purple-500/15 text-purple-400 px-2.5 py-0.5 text-xs font-medium">
-              {formatDate(event.date)}
-            </span>
-            {festivalDates.map((fd: any) => (
-              <span key={fd.id} className="inline-flex items-center rounded-full bg-purple-500/15 text-purple-400 px-2.5 py-0.5 text-xs font-medium">
-                {formatDate(fd.date)}
-              </span>
-            ))}
-          </div>
-        )}
+        {/* Festival dates display — dedup contra event.date para não duplicar o 1º dia */}
+        {eventType === "festival" && (festivalDates.length > 0 || event.date) && (() => {
+          const allDates = Array.from(
+            new Set<string>([event.date, ...festivalDates.map((fd: any) => fd.date)].filter(Boolean)),
+          ).sort();
+          return (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {allDates.map((d) => (
+                <span key={d} className="inline-flex items-center rounded-full bg-purple-500/15 text-purple-400 px-2.5 py-0.5 text-xs font-medium">
+                  {formatDate(d)}
+                </span>
+              ))}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Post-event completion alert */}
