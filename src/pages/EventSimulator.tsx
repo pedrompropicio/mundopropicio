@@ -741,6 +741,42 @@ export default function EventSimulator() {
   const beDailyTotals = beDaily.dailyTotals;
   const fcDailyTotals = fcDaily.dailyTotals;
 
+  // ── Attendance × dia (combos expandidos) por cenário.
+  //    Usado para A&B fallback E como base dos KPIs (totalPublic, custo/pessoa, etc.).
+  //    Regra: 1 combo de N dias = N presenças (decisão 2026-05-03).
+  const sumDaily = (rows: Array<[number, { paying: number; courtesy: number; total: number; date: string | null }]>) =>
+    rows.reduce(
+      (a, [, t]) => ({ paying: a.paying + Number(t.paying || 0), courtesy: a.courtesy + Number(t.courtesy || 0) }),
+      { paying: 0, courtesy: 0 },
+    );
+  const todayAttendance = useMemo(() => {
+    const s = sumDaily(dailyTotals);
+    return { payingAttendance: s.paying, courtesyAttendance: s.courtesy };
+  }, [dailyTotals]);
+  const beAttendance = useMemo(() => {
+    const s = sumDaily(beDailyTotals);
+    return { payingAttendance: s.paying, courtesyAttendance: s.courtesy };
+  }, [beDailyTotals]);
+  const fcAttendance = useMemo(() => {
+    const s = sumDaily(fcDailyTotals);
+    return { payingAttendance: s.paying, courtesyAttendance: s.courtesy };
+  }, [fcDailyTotals]);
+
+  // Recalcular receita com attendance override (presenças × dia) — substitui
+  // os `today/breakeven/forecast` "preliminares" calculados acima.
+  const todayV2 = useMemo(
+    () => computeScenarioRevenue(calcSessions, calcCfg, "today", undefined, undefined, todayAttendance),
+    [calcSessions, calcCfg, todayAttendance],
+  );
+  const breakevenV2 = useMemo(
+    () => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolution.qtyByKey, beSolution.revenueByKey, beAttendance),
+    [calcSessions, calcCfg, beSolution, beAttendance],
+  );
+  const forecastV2 = useMemo(
+    () => computeScenarioRevenue(calcSessions, calcCfg, "forecast", fcSolution.qtyByKey, fcSolution.revenueByKey, fcAttendance),
+    [calcSessions, calcCfg, fcSolution, fcAttendance],
+  );
+
   // ── Participantes (pagantes + cortesia) por zona em cada cenário,
   //    para alimentar o módulo A&B canónico do evento.
   //    IMPORTANTE: usa a presença expandida (dailyAttendance/beDaily/fcDaily),
@@ -764,7 +800,7 @@ export default function EventSimulator() {
 
   const abModule = useEventABScenarios(event?.id, abParticipants);
 
-  const applyABModule = (rev: typeof today, scen: "real" | "breakeven" | "forecast") => {
+  const applyABModule = (rev: typeof todayV2, scen: "real" | "breakeven" | "forecast") => {
     if (!abModule.hasConfig || !abModule.totals) return rev;
     const t = abModule.totals[scen];
     const drink = t.receitaBebidas;
@@ -778,9 +814,9 @@ export default function EventSimulator() {
     };
   };
 
-  const todayAB = useMemo(() => applyABModule(today, "real"), [today, abModule]);
-  const beAB = useMemo(() => applyABModule(breakeven, "breakeven"), [breakeven, abModule]);
-  const fcAB = useMemo(() => applyABModule(forecast, "forecast"), [forecast, abModule]);
+  const todayAB = useMemo(() => applyABModule(todayV2, "real"), [todayV2, abModule]);
+  const beAB = useMemo(() => applyABModule(breakevenV2, "breakeven"), [breakevenV2, abModule]);
+  const fcAB = useMemo(() => applyABModule(forecastV2, "forecast"), [forecastV2, abModule]);
 
   const todayCosts = useMemo(() => {
     const base = computeScenarioCosts(calcCosts, todayAB, calcCfg, "today");
