@@ -82,7 +82,7 @@ describe("combo bridge: comboPassesToLotSales", () => {
       3,
       "breakeven",
     );
-    expect(out.every((x) => x.combo_pass_id !== "p1")).toBe(true);
+    expect(out.every((x) => !x.lot_id.startsWith("combo-p1-"))).toBe(true);
     expect(out.find((x) => x.zone_id === "zC")?.qty).toBe(80);
   });
 });
