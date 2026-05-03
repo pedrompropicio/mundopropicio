@@ -17,6 +17,7 @@ import {
   type ABZoneInput,
   type ABFoodConfig,
 } from "@/lib/event-ab-calc";
+import { useCitySimulator } from "@/hooks/useCitySimulator";
 
 interface Props {
   eventId: string;
