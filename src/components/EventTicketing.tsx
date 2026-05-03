@@ -25,6 +25,7 @@ import { BPScenarioSelector } from "@/components/bp-versions/BPScenarioSelector"
 import { useBPVersions } from "@/hooks/useBPVersions";
 import { Sparkles } from "lucide-react";
 import { isComboAllowed, coerceLotKind } from "@/lib/combo-gating";
+import { EventComboPassesSection } from "@/components/EventComboPassesSection";
 
 interface Props {
   eventId: string;
@@ -637,10 +638,10 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
             <Layers className="h-4 w-4 text-primary" />
           </div>
           <div className="text-sm">
-            <p className="font-semibold text-primary">Festival multi-dia — bilhetes Combo/Passe disponíveis</p>
+            <p className="font-semibold text-primary">Festival multi-dia — secção Passes/Combos disponível</p>
             <p className="text-muted-foreground text-xs mt-0.5">
-              Em cada lote podes escolher <strong>Simples</strong> (válido apenas para o dia da zona) ou <strong>Combo</strong> (dá acesso a todos os {eventDates.length} dias do evento).
-              Um Combo vendido conta como 1 pessoa em cada dia, mas a receita é registada uma única vez.
+              Cria <strong>Passes/Combos</strong> abaixo (1 produto multi-zona, com vantagens próprias) para vender bilhetes válidos para vários dos {eventDates.length} dias do festival.
+              Cada combo vendido conta como 1 pessoa em cada dia coberto, mas a receita é registada uma única vez no DRE.
             </p>
           </div>
         </div>
@@ -680,6 +681,17 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
           <p className="text-xs text-muted-foreground">{filteredZones.length} zonas · {filteredLots.length} lotes</p>
         </div>
       </div>
+
+      {/* Secção Passes/Combos — só em festival multi-dia */}
+      {comboAllowed && (
+        <EventComboPassesSection
+          eventId={eventId}
+          versionId={selectedVersionId}
+          zones={zones.map((z: any) => ({ id: z.id, name: z.name }))}
+          eventDaysCount={eventDates.length}
+          canEdit={canEditTickets}
+        />
+      )}
 
       {/* Zones list */}
       <div className="glass rounded-xl p-5">
