@@ -13,6 +13,7 @@ import { EventForecast } from "@/components/EventForecast";
 import { SponsorshipPipelineBoard } from "@/components/sponsorship/SponsorshipPipelineBoard";
 import { EventTicketing } from "@/components/EventTicketing";
 import { EventCacheConfig } from "@/components/EventCacheConfig";
+import { useEventCacheImpact } from "@/hooks/useEventCacheImpact";
 import { EventPartnersTab } from "@/components/EventPartnersTab";
 import { EventClosingCosts } from "@/components/EventClosingCosts";
 import { EventFecho } from "@/components/EventFecho";
@@ -464,6 +465,22 @@ export default function EventDetail() {
     },
   });
 
+  // Cachê calculado (efetivo) — soma ao card de Despesas quando há vendas reais e
+  // o pagamento ainda não foi lançado em transações. Configs vivem no Master em turnês.
+  const cacheRootEventId = event?.parent_event_id ?? id!;
+  const cacheChildIds = isMultiEvent
+    ? subEvents.map((s: any) => s.id)
+    : event?.parent_event_id
+      ? [id!]
+      : [];
+  const cacheSelectedSubId = selectedSubEvent ?? (event?.parent_event_id ? id! : null);
+  const { cacheImpact: calculatedCacheImpact } = useEventCacheImpact({
+    eventId: cacheRootEventId,
+    childEventIds: cacheChildIds,
+    selectedSubEventId: cacheSelectedSubId,
+    eventStatus: event?.status,
+  });
+
   if (loadingEvent) {
     return <p className="py-20 text-center text-muted-foreground">A carregar evento…</p>;
   }
@@ -494,7 +511,8 @@ export default function EventDetail() {
   const totalIncome = hasTicketSales ? ticketSalesRevenue + nonTicketTransactionIncome : transactionIncome;
   // Despesas reais do próprio evento + quota-parte do Master (apenas para vista de sub-evento isolado).
   const ownExpenses = operationalExpenseTransactions.reduce((s, t) => s + Number(t.amount), 0);
-  const totalExpenses = ownExpenses + Number(masterExpenseShare || 0);
+  const totalExpenses =
+    ownExpenses + Number(masterExpenseShare || 0) + Number(calculatedCacheImpact || 0);
   const profit = totalIncome - totalExpenses;
 
   const copyTicketingFromSubEvent = async (sourceId: string) => {
