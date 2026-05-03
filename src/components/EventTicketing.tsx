@@ -370,9 +370,14 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
       const currentLots = (lotsAll ?? []).filter((l: any) => l.zone_id === zoneId);
       const newQty = parseInt(form.quantity) || 0;
       const kind = coerceLotKind(form.lot_kind, comboGating);
+      const isCombo = kind === "combo";
+      // Combo: garante que a zona âncora também é consumida (UX defensiva)
+      const consumesZoneIds = isCombo
+        ? Array.from(new Set([zoneId, ...(form.consumes_zone_ids || [])]))
+        : [];
 
       const err = validateLotAgainstCapacity(
-        { zone_id: zoneId, quantity: newQty, is_combo: kind === "combo", consumes_zone_ids: [] },
+        { zone_id: zoneId, quantity: newQty, is_combo: isCombo, consumes_zone_ids: consumesZoneIds },
         ((allZones ?? []) as any[]).map((z) => ({ id: z.id, name: z.name, total_capacity: z.total_capacity })),
         ((lotsAll ?? []) as any[]).map((l: any) => ({
           id: l.id, zone_id: l.zone_id, quantity: l.quantity,
@@ -392,7 +397,8 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         lot_number: nextLotNumber,
         lot_type: form.lot_type || "regular",
         lot_kind: kind,
-        is_combo: kind === "combo",
+        is_combo: isCombo,
+        consumes_zone_ids: consumesZoneIds,
         version_id: selectedVersionId,
       };
       if (id) {
