@@ -96,7 +96,7 @@ export function useEventAttendance(
       if (zoneIds.length === 0) return [];
       const { data, error } = await supabase
         .from("event_ticket_lots")
-        .select("id, zone_id, quantity, lot_kind, is_combo, consumes_zone_ids, applies_to_days")
+        .select("id, name, zone_id, quantity, lot_kind, is_combo, consumes_zone_ids, applies_to_days")
         .in("zone_id", zoneIds)
         .is("version_id", null);
       if (error) throw error;
