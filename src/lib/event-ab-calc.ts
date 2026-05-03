@@ -43,30 +43,38 @@ export interface ABZoneResult {
   zone_label: string;
   participants: number;
   faturacaoBebidas: number;
+  /** Quota da casa = faturação × repasse. */
   receitaBebidas: number;
-  custoBebidas: number;
+  /** Parte que fica para o gerador (informativo). */
+  parteGeradorBebidas: number;
 }
 
 export interface ABTotals {
   zones: ABZoneResult[];
-  // Bebidas
+  // Bebidas (perspectiva da casa)
   faturacaoBebidas: number;
   receitaBebidas: number;
-  custoBebidas: number;
-  resultadoBebidas: number;
-  // Alimentos
+  parteGeradorBebidas: number;
+  // Alimentos (perspectiva da casa)
   participantesElegiveisAlimentos: number;
   faturacaoAlimentos: number;
   receitaAlimentos: number;
-  custoAlimentos: number;
-  resultadoAlimentos: number;
-  // Consolidado A&B
+  parteGeradorAlimentos: number;
+  // Consolidado A&B (perspectiva da casa — sempre ≥ 0)
   faturacaoTotal: number;
   receitaTotal: number;
-  custoTotal: number;
+  parteGeradorTotal: number;
+  /** Resultado da casa = Receita (custo da casa = 0). */
   resultadoTotal: number;
-  /** % — 0 quando receitaTotal === 0 */
+  /** % — Receita / Faturação. 0 quando faturação = 0. */
   margemPct: number;
+
+  // Compat legado (deprecated, mantidos para não quebrar consumidores)
+  custoBebidas: number;
+  custoAlimentos: number;
+  custoTotal: number;
+  resultadoBebidas: number;
+  resultadoAlimentos: number;
 }
 
 const num = (v: any, fb = 0): number => {
