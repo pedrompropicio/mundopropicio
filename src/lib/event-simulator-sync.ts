@@ -103,14 +103,22 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
   const passIds = new Set(((passesRes.data ?? []) as any[]).map((p) => p.id));
   const passLots = ((passLotsRes.data ?? []) as any[]).filter((l) => passIds.has(l.combo_pass_id));
   const passLotsById = new Map(passLots.map((l) => [l.id, l]));
+  const passLotIds = passLots.map((l) => l.id);
   const anchorZoneByPass = new Map<string, string>();
   for (const link of (passZonesRes.data ?? []) as any[]) {
     if (!passIds.has(link.combo_pass_id)) continue;
     if (!anchorZoneByPass.has(link.combo_pass_id)) anchorZoneByPass.set(link.combo_pass_id, link.zone_id);
   }
-  for (const s of sales) {
-    if (!s.combo_pass_lot_id) continue;
-    const lot = passLotsById.get(s.combo_pass_lot_id);
+  let comboSales: Row[] = [];
+  if (passLotIds.length) {
+    const { data } = await supabase
+      .from("ticket_sales")
+      .select("combo_pass_lot_id, sale_date, quantity, unit_price, total_value")
+      .in("combo_pass_lot_id", passLotIds);
+    comboSales = (data ?? []) as Row[];
+  }
+  for (const s of comboSales) {
+    const lot = s.combo_pass_lot_id ? passLotsById.get(s.combo_pass_lot_id) : null;
     if (!lot) continue;
     const anchorZone = anchorZoneByPass.get(lot.combo_pass_id);
     if (!anchorZone) continue;
@@ -118,20 +126,16 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
     const revenue = ticketSaleRevenue({
       quantity: qty, unit_price: s.unit_price ?? lot.price, total_value: s.total_value,
     } as any);
-    const prev = salesByZone.get(anchorZone) ?? { qty: 0, revenue: 0 };
-    prev.qty += qty;
-    prev.revenue += revenue;
-    salesByZone.set(anchorZone, prev);
-    // distribuir também ao day_index=0 da zona-âncora para que apareça no input de Vendas Reais
-    if (effectiveDatesPlaceholder()) { /* unreachable; just to avoid hoist error */ }
+    const prevZ = salesByZone.get(anchorZone) ?? { qty: 0, revenue: 0 };
+    prevZ.qty += qty; prevZ.revenue += revenue;
+    salesByZone.set(anchorZone, prevZ);
     if (s.sale_date) {
       const k = `${anchorZone}|${s.sale_date}`;
-      const p = salesByZoneDate.get(k) ?? { qty: 0, revenue: 0 };
-      p.qty += qty; p.revenue += revenue;
-      salesByZoneDate.set(k, p);
+      const prevD = salesByZoneDate.get(k) ?? { qty: 0, revenue: 0 };
+      prevD.qty += qty; prevD.revenue += revenue;
+      salesByZoneDate.set(k, prevD);
     }
   }
-  function effectiveDatesPlaceholder() { return false; }
 
   // 3) Indexa sessões existentes
   const existingByKey = new Map<string, Row>();
