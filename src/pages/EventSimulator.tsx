@@ -364,6 +364,31 @@ export default function EventSimulator() {
   useEffect(() => { setLocalSessions(sessions); }, [sessions]);
   useEffect(() => { setLocalCosts(costLines); }, [costLines]);
 
+  const simulatorSessions = useMemo<DbInput[]>(() => {
+    if (!lotSalesData?.zoneRows?.length) return localSessions;
+
+    const rowsByKey = new Map<string, DbInput>();
+    for (const s of localSessions) rowsByKey.set(`${s.day_index}|${s.zone_label}`, s);
+
+    return lotSalesData.zoneRows.map((z: any) => {
+      const dayIndex = Number(z.day_index || 0);
+      const existing = rowsByKey.get(`${dayIndex}|${z.name}`) ?? rowsByKey.get(`0|${z.name}`);
+      const sales = lotSalesData.salesByZone?.[z.id] ?? { qty: 0, revenue: 0 };
+      const capacity = Number(z.total_capacity || 0);
+      return {
+        ...(existing ?? { event_id: eventId!, prior_year_qty: null, prior_year_revenue: null, avg_ticket_override: null, iva_pct: 6 }),
+        event_id: eventId!,
+        day_index: dayIndex,
+        zone_label: z.name,
+        real_sales_qty: sales.qty,
+        real_sales_revenue: sales.revenue,
+        projected_qty: existing ? Number(existing.projected_qty || 0) : Math.max(0, capacity - sales.qty),
+        courtesy_qty: existing ? Number(existing.courtesy_qty || 0) : 0,
+        forecast_qty: existing?.forecast_qty ?? null,
+      } as DbInput;
+    }).sort((a, b) => a.day_index - b.day_index || a.zone_label.localeCompare(b.zone_label));
+  }, [eventId, localSessions, lotSalesData]);
+
   // ------- Default config seed (se não existir) -------
   useEffect(() => {
     if (!loadingCfg && !cfg && eventId) {
