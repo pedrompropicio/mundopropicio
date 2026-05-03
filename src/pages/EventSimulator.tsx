@@ -780,6 +780,27 @@ export default function EventSimulator() {
   const beDailyTotals = beDaily.dailyTotals;
   const fcDailyTotals = fcDaily.dailyTotals;
 
+  // ── Participantes (pagantes + cortesia) por zona em cada cenário,
+  //    para alimentar o módulo A&B canónico do evento.
+  //    IMPORTANTE: usa a presença expandida (dailyAttendance/beDaily/fcDaily),
+  //    em que cada combo conta como 1 pessoa por dia coberto na sua zona.
+  //    Assim, um combo de 2 dias = 2 participantes elegíveis em A&B.
+  const abParticipants = useMemo<ABScenarioParticipants>(() => {
+    const sumByZone = (rows: Array<{ zone_label: string; paying: number; courtesy: number }>) => {
+      const m: Record<string, number> = {};
+      for (const r of rows) {
+        const k = (r.zone_label || "").toLowerCase();
+        m[k] = (m[k] ?? 0) + Number(r.paying || 0) + Number(r.courtesy || 0);
+      }
+      return m;
+    };
+    return {
+      real: sumByZone(dailyAttendance),
+      breakeven: sumByZone(beDaily.expanded.length ? beDaily.expanded : dailyAttendance),
+      forecast: sumByZone(fcDaily.expanded.length ? fcDaily.expanded : dailyAttendance),
+    };
+  }, [dailyAttendance, beDaily, fcDaily]);
+
   // ------- Helpers de edição -------
   const updateSession = (idx: number, patch: Partial<DbInput>) =>
     setLocalSessions((arr) => arr.map((s, i) => i === idx ? { ...s, ...patch } : s));
