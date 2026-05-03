@@ -358,26 +358,45 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   // Lot CRUD
   const saveLotMutation = useMutation({
     mutationFn: async ({ form, zoneId, id }: { form: LotForm; zoneId: string; id: string | null }) => {
-      // Fetch fresh zone AND lots from DB to validate capacity
-      const [{ data: freshZone, error: zoneError }, { data: freshLots }] = await Promise.all([
-        supabase.from("event_ticket_zones").select("id, name, total_capacity").eq("id", zoneId).single(),
-        supabase.from("event_ticket_lots").select("id, quantity, lot_number").eq("zone_id", zoneId),
+      // Fetch fresh zones (todas do evento), lotes simples, combos e combo-lots para validar
+      // capacidade considerando ALOCAÇÃO via combo passes (1 combo lot = 1 unidade em CADA zona ligada).
+      const [
+        { data: allZones, error: zonesError },
+        { data: simpleLots },
+        { data: combos },
+        { data: comboZones },
+        { data: comboLots },
+      ] = await Promise.all([
+        supabase.from("event_ticket_zones").select("id, name, total_capacity").eq("event_id", eventId),
+        supabase.from("event_ticket_lots").select("id, zone_id, quantity, lot_number")
+          .in("zone_id", []).limit(0), // placeholder; refeito abaixo
+        supabase.from("event_combo_passes" as any).select("id").eq("event_id", eventId).is("version_id", null),
+        supabase.from("event_combo_pass_zones" as any).select("combo_pass_id, zone_id"),
+        supabase.from("event_combo_pass_lots" as any).select("id, combo_pass_id, quantity").is("version_id", null),
       ]);
-      if (zoneError) throw zoneError;
-      const currentLots = freshLots ?? [];
+      if (zonesError) throw zonesError;
+      const zoneIds = (allZones ?? []).map((z: any) => z.id);
+      const { data: simpleLotsAll } = zoneIds.length
+        ? await supabase.from("event_ticket_lots").select("id, zone_id, quantity, lot_number").in("zone_id", zoneIds)
+        : { data: [] as any[] };
+      const currentLots = (simpleLotsAll ?? []).filter((l: any) => l.zone_id === zoneId);
 
       const newQty = parseInt(form.quantity) || 0;
 
-      // Validate capacity with fresh data
-      if (freshZone && freshZone.total_capacity > 0) {
-        const existingTotal = currentLots
-          .filter((l) => l.id !== id)
-          .reduce((s, l) => s + l.quantity, 0);
-        if (existingTotal + newQty > freshZone.total_capacity) {
-          const remaining = Math.max(freshZone.total_capacity - existingTotal, 0);
-          throw new Error(`Capacidade excedida! A zona "${freshZone.name}" tem capacidade para ${freshZone.total_capacity.toLocaleString()} bilhetes. Restam ${remaining.toLocaleString()} disponíveis.`);
-        }
-      }
+      const comboList = ((combos ?? []) as any[]).map((c) => ({
+        id: c.id,
+        zone_ids: ((comboZones ?? []) as any[]).filter((z) => z.combo_pass_id === c.id).map((z) => z.zone_id),
+      }));
+      const err = validateSimpleLotAgainstCapacity(
+        zoneId,
+        newQty,
+        ((allZones ?? []) as any[]).map((z) => ({ id: z.id, name: z.name, total_capacity: z.total_capacity })),
+        ((simpleLotsAll ?? []) as any[]).map((l) => ({ id: l.id, zone_id: l.zone_id, quantity: l.quantity })),
+        comboList,
+        ((comboLots ?? []) as any[]).map((l) => ({ id: l.id, combo_pass_id: l.combo_pass_id, quantity: l.quantity })),
+        id,
+      );
+      if (err) throw new Error(err);
 
       const nextLotNumber = id ? currentLots.find((l) => l.id === id)?.lot_number ?? 1 : currentLots.length + 1;
       const payload: any = {
