@@ -381,13 +381,21 @@ export default function ExecutiveDashboard(props: Props) {
             active={active}
             rows={[
               {
-                label: "Total Participantes",
+                label: "Presenças × dia",
                 values: kpis3.map((k) => (
                   <span key="" className="tabular-nums font-semibold">
                     {fmtNum(k.totalPublic)}
                   </span>
                 )) as any,
                 bold: true,
+              },
+              {
+                label: "Bilhetes únicos",
+                values: kpis3.map((k) => (
+                  <span key="" className="tabular-nums text-muted-foreground">
+                    {fmtNum(k.uniqueTickets ?? k.totalPublic)}
+                  </span>
+                )) as any,
               },
               {
                 label: `TM ${zoneTm.pista.name}`,
