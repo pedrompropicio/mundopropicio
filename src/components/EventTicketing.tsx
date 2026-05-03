@@ -966,11 +966,40 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
               </tr>
             </thead>
             <tbody className="divide-y divide-border/30">
-              {sortedZones.map((z) => {
-                const gross = getZoneGrossRevenue(z.id);
-                const net = getZoneNetRevenue(z.id);
-                const iva = getZoneIva(z.id);
-                const tix = getZoneTotalTickets(z.id);
+              {(() => {
+                // Distribuir combos igualmente pelas zonas que consomem,
+                // para evitar sobrecarga visual na zona-âncora.
+                const acc = new Map<string, { tix: number; gross: number; net: number; iva: number }>();
+                for (const z of sortedZones) acc.set(z.id, { tix: 0, gross: 0, net: 0, iva: 0 });
+                for (const l of filteredLots) {
+                  const rate = Number((l as any).iva_rate ?? 6);
+                  const qty = Number(l.quantity) || 0;
+                  const price = Number(l.price) || 0;
+                  const gross = qty * price;
+                  const net = qty * netFromGross(price, rate);
+                  const iva = qty * ivaFromGross(price, rate);
+                  const isCombo = !!(l as any).is_combo;
+                  const consumes: string[] = Array.isArray((l as any).consumes_zone_ids) ? (l as any).consumes_zone_ids : [];
+                  const targets = isCombo
+                    ? (consumes.length > 0 ? consumes : [l.zone_id])
+                    : [l.zone_id];
+                  const visible = targets.filter((id) => acc.has(id));
+                  if (visible.length === 0) continue;
+                  const share = 1 / visible.length;
+                  for (const id of visible) {
+                    const a = acc.get(id)!;
+                    a.tix += qty * share;
+                    a.gross += gross * share;
+                    a.net += net * share;
+                    a.iva += iva * share;
+                  }
+                }
+                return sortedZones.map((z) => {
+                const a = acc.get(z.id)!;
+                const tix = Math.round(a.tix);
+                const gross = a.gross;
+                const net = a.net;
+                const iva = a.iva;
                 return (
                   <tr key={z.id}>
                     <td className="py-2.5 font-medium">{z.name}</td>
@@ -982,7 +1011,8 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
                     <td className="py-2.5 text-right font-mono font-semibold text-success pl-6">{formatCurrency(gross)}</td>
                   </tr>
                 );
-              })}
+                });
+              })()}
             </tbody>
             <tfoot>
               <tr className="border-t border-border/50 font-bold">
