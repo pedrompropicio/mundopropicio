@@ -73,8 +73,8 @@ describe("combo-gating: coerceLotKind", () => {
     ).toBe("simple");
   });
 
-  it("força simple num festival de 1 dia mesmo se desired=combo", () => {
-    expect(coerceLotKind("combo", { ...okGating, event_dates_count: 1 })).toBe("simple");
+  it("permite combo num festival de 1 dia (passe cobre o único dia)", () => {
+    expect(coerceLotKind("combo", { ...okGating, event_dates_count: 1 })).toBe("combo");
   });
 
   it("default seguro: valores inválidos viram simple", () => {
