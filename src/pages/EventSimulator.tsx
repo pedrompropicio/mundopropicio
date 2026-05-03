@@ -720,10 +720,11 @@ export default function EventSimulator() {
   // por zona vinda dos solvers (BE/Forecast). Reusa expandLotSalesToDailyAttendance
   // para que zonas combo (Passe 2 dias) sejam expandidas a todos os dias,
   // tal como acontece com as vendas reais.
+  // Devolve { dailyTotals, expanded } — expanded permite agregar por zona (A&B).
   const buildDailyFromBreakdown = (
     breakdown: Array<{ zone_label: string; day_index: number; current_qty?: number; projected_qty?: number; extra_qty?: number }>,
   ) => {
-    if (!lotSalesData) return dailyTotals;
+    if (!lotSalesData) return { dailyTotals, expanded: [] as ReturnType<typeof expandLotSalesToDailyAttendance> };
     const totalDays = Math.max(1, lotSalesData.dates.length || (Math.max(0, ...localSessions.map(s => s.day_index)) + 1));
 
     // Indexa lotes reais por zone_name para herdar applies_to_days e session_id (via lotSales)
@@ -780,17 +781,19 @@ export default function EventSimulator() {
       cur.paying += r.paying; cur.courtesy += r.courtesy; cur.total += r.total;
       byDay.set(r.day_index, cur);
     }
-    return Array.from(byDay.entries()).sort((a, b) => a[0] - b[0]);
+    return { dailyTotals: Array.from(byDay.entries()).sort((a, b) => a[0] - b[0]), expanded };
   };
 
-  const beDailyTotals = useMemo(
+  const beDaily = useMemo(
     () => buildDailyFromBreakdown(beSolution.breakdown ?? []),
     [beSolution, lotSalesData, localSessions, localCfg?.combo_lot_keywords, dailyTotals],
   );
-  const fcDailyTotals = useMemo(
+  const fcDaily = useMemo(
     () => buildDailyFromBreakdown(fcSolution.breakdown ?? []),
     [fcSolution, lotSalesData, localSessions, localCfg?.combo_lot_keywords, dailyTotals],
   );
+  const beDailyTotals = beDaily.dailyTotals;
+  const fcDailyTotals = fcDaily.dailyTotals;
 
   // ------- Helpers de edição -------
   const updateSession = (idx: number, patch: Partial<DbInput>) =>
