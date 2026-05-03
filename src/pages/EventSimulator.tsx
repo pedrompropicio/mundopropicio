@@ -685,7 +685,10 @@ export default function EventSimulator() {
       }
     }
 
-    // Constrói "vendas sintéticas" a partir das projeções extras de cada zona
+    // Constrói "vendas sintéticas" a partir das projeções extras de cada zona.
+    // REGRA (decisão 2026-05-03): extras BE/Forecast contam SEMPRE como bilhete
+    // simples (applies_to_days=1) — só caem no dia âncora da zona, mesmo que a
+    // zona tenha combos. Conservador: não inflamos dias seguintes com projeções.
     const syntheticSales = breakdown
       .map((b) => {
         const extra = Number(b.projected_qty ?? b.extra_qty ?? 0);
@@ -693,11 +696,11 @@ export default function EventSimulator() {
         const info = zoneInfoByName.get(b.zone_label);
         return {
           lot_id: `proj-${b.zone_label}-${b.day_index}`,
-          lot_name: b.zone_label,
-          applies_to_days: info?.applies_to_days ?? 1,
+          lot_name: `__proj__${b.zone_label}`, // nome sem keywords combo
+          applies_to_days: 1,                  // força bilhete simples
           zone_id: `proj-${b.zone_label}`,
           zone_name: b.zone_label,
-          sale_day_index: info?.sale_day_index ?? null,
+          sale_day_index: info?.sale_day_index ?? b.day_index ?? null,
           qty: extra,
         };
       })
