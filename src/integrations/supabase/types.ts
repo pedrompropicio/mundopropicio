@@ -1823,6 +1823,148 @@ export type Database = {
           },
         ]
       }
+      event_combo_pass_lots: {
+        Row: {
+          combo_pass_id: string
+          company_id: string
+          created_at: string
+          id: string
+          iva_rate: number
+          lot_number: number
+          lot_type: string
+          name: string
+          price: number
+          quantity: number
+          updated_at: string
+          version_id: string | null
+        }
+        Insert: {
+          combo_pass_id: string
+          company_id: string
+          created_at?: string
+          id?: string
+          iva_rate?: number
+          lot_number: number
+          lot_type?: string
+          name: string
+          price?: number
+          quantity?: number
+          updated_at?: string
+          version_id?: string | null
+        }
+        Update: {
+          combo_pass_id?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          iva_rate?: number
+          lot_number?: number
+          lot_type?: string
+          name?: string
+          price?: number
+          quantity?: number
+          updated_at?: string
+          version_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_combo_pass_lots_combo_pass_id_fkey"
+            columns: ["combo_pass_id"]
+            isOneToOne: false
+            referencedRelation: "event_combo_passes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_combo_pass_zones: {
+        Row: {
+          combo_pass_id: string
+          company_id: string
+          created_at: string
+          id: string
+          zone_id: string
+        }
+        Insert: {
+          combo_pass_id: string
+          company_id: string
+          created_at?: string
+          id?: string
+          zone_id: string
+        }
+        Update: {
+          combo_pass_id?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          zone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_combo_pass_zones_combo_pass_id_fkey"
+            columns: ["combo_pass_id"]
+            isOneToOne: false
+            referencedRelation: "event_combo_passes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_combo_pass_zones_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "event_ticket_zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_combo_passes: {
+        Row: {
+          applies_to_days: number
+          benefits: string | null
+          company_id: string
+          created_at: string
+          description: string | null
+          display_order: number
+          event_id: string
+          id: string
+          name: string
+          updated_at: string
+          version_id: string | null
+        }
+        Insert: {
+          applies_to_days?: number
+          benefits?: string | null
+          company_id: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          event_id: string
+          id?: string
+          name: string
+          updated_at?: string
+          version_id?: string | null
+        }
+        Update: {
+          applies_to_days?: number
+          benefits?: string | null
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          event_id?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          version_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_combo_passes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_courtesies: {
         Row: {
           company_id: string
@@ -5059,6 +5201,7 @@ export type Database = {
       }
       ticket_sales: {
         Row: {
+          combo_pass_lot_id: string | null
           company_id: string
           created_at: string
           created_by: string
@@ -5076,6 +5219,7 @@ export type Database = {
           zone_id: string | null
         }
         Insert: {
+          combo_pass_lot_id?: string | null
           company_id?: string
           created_at?: string
           created_by?: string
@@ -5093,6 +5237,7 @@ export type Database = {
           zone_id?: string | null
         }
         Update: {
+          combo_pass_lot_id?: string | null
           company_id?: string
           created_at?: string
           created_by?: string
@@ -5110,6 +5255,13 @@ export type Database = {
           zone_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ticket_sales_combo_pass_lot_id_fkey"
+            columns: ["combo_pass_lot_id"]
+            isOneToOne: false
+            referencedRelation: "event_combo_pass_lots"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ticket_sales_company_id_fkey"
             columns: ["company_id"]
