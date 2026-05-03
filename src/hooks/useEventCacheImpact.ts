@@ -89,12 +89,18 @@ export function useEventCacheImpact(params: {
   });
 
   const { data: citySettlements = [] } = useQuery({
-    queryKey: ["event_cache_city_settlements_impact", configsEventId],
+    queryKey: [
+      "event_cache_city_settlements_impact",
+      configIds.join(","),
+      childEventIds.join(","),
+    ],
     queryFn: async () => {
+      if (configIds.length === 0 || childEventIds.length === 0) return [];
       const { data, error } = await supabase
         .from("event_cache_city_settlements" as any)
         .select("*")
-        .eq("master_event_id", configsEventId);
+        .in("cache_config_id", configIds)
+        .in("event_id", childEventIds);
       if (error) throw error;
       return (data ?? []) as any[];
     },
