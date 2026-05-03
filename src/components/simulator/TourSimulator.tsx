@@ -433,6 +433,7 @@ export default function TourSimulator({ masterEvent, splits }: Props) {
         <TabsContent value="dashboard">
           <ExecutiveDashboard
             eventName={`${masterEvent.name} (Turnê)`}
+            eventId={masterEvent.id}
             today={real.rev} todayCosts={real.cost} todayRes={real.res} todayKpis={real.kpis}
             breakeven={be.rev} beCosts={be.cost} beRes={be.res} beKpis={be.kpis}
             forecast={fc.rev} fcCosts={fc.cost} fcRes={fc.res} fcKpis={fc.kpis}
