@@ -7,6 +7,7 @@ import {
   type ABZoneInput,
   type ABTotals,
 } from "@/lib/event-ab-calc";
+import { useEventAttendance } from "@/hooks/useEventAttendance";
 
 export interface ABScenarioParticipants {
   /** map zone_label (lowercase) → participantes */
@@ -22,12 +23,16 @@ export interface UseEventABResult {
 
 /**
  * Calcula os totais A&B nos 3 cenários a partir do módulo A&B do evento.
- * Pode ser usado em qualquer view (Simulador, DRE, etc.) sem expor os parâmetros
- * de negociação ao utilizador final.
  *
- * Os participantes por zona são fornecidos pelo caller (idealmente a partir
- * da fonte canónica do contexto — ticket_sales para Real, solver BE/forecast
- * do Simulador para os outros).
+ * Fonte canónica de "participantes" por zona (denominador do per capita):
+ *  → useEventAttendance: público por dia × zona, somado por zona, incluindo:
+ *     - Bilhetes Simples no seu dia
+ *     - Bilhetes Combo em CADA dia do evento (não duplica dentro do mesmo evento mas conta em cada dia)
+ *     - Cortesias (event_courtesies) por dia/zona/cenário
+ *
+ * O caller pode ainda passar um override (`participants`) por zone_label para os
+ * cenários BE/Forecast quando o solver do Simulador já calculou um valor próprio.
+ * O override manual em event_ab_zones.participants_manual continua a vencer.
  */
 export function useEventABScenarios(
   eventId: string | undefined,
@@ -60,39 +65,10 @@ export function useEventABScenarios(
     enabled: !!eventId,
   });
 
-  const { data: ticketZones = [] } = useQuery({
-    queryKey: ["ab_ticket_zones_sim", eventId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("event_ticket_zones")
-        .select("id, name")
-        .eq("event_id", eventId!)
-        .is("version_id", null);
-      if (error) throw error;
-      return data ?? [];
-    },
-    enabled: !!eventId,
-  });
-
-  const { data: realParticipantsDb = {} } = useQuery({
-    queryKey: ["ab_real_simulator", eventId, ticketZones.map((z) => z.id).join(",")],
-    queryFn: async () => {
-      const ids = ticketZones.map((z) => z.id);
-      if (ids.length === 0) return {};
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("zone_id, quantity")
-        .in("zone_id", ids);
-      if (error) throw error;
-      const map: Record<string, number> = {};
-      for (const r of data ?? []) {
-        if (!r.zone_id) continue;
-        map[r.zone_id] = (map[r.zone_id] ?? 0) + Number(r.quantity || 0);
-      }
-      return map;
-    },
-    enabled: !!eventId && ticketZones.length > 0,
-  });
+  // Público por dia/zona — fonte canónica para o per capita (real, BE, forecast)
+  const real = useEventAttendance(eventId, "real");
+  const breakeven = useEventAttendance(eventId, "breakeven");
+  const forecast = useEventAttendance(eventId, "forecast");
 
   return useMemo<UseEventABResult>(() => {
     if (!eventId || zones.length === 0) {
@@ -104,23 +80,28 @@ export function useEventABScenarios(
       per_capita_alimentos: Number(config?.per_capita_alimentos || 0),
     };
 
-    const ticketZoneById = new Map(ticketZones.map((z) => [z.id, z.name.toLowerCase()]));
+    const attendanceByScen = { real, breakeven, forecast } as const;
 
-    const buildInputs = (scen: "real" | "breakeven" | "forecast"): ABZoneInput[] =>
-      zones.map((z: any) => {
+    const buildInputs = (scen: "real" | "breakeven" | "forecast"): ABZoneInput[] => {
+      const att = attendanceByScen[scen];
+      // map: zone_id → público total (Σ dias) já com cortesias
+      const totalsByZoneId = att.totalsByZone;
+
+      return zones.map((z: any) => {
         let participantsCount = 0;
-        // 1) override manual sempre vence
+        // 1) override manual sempre vence (configurado em event_ab_zones)
         if (z.participants_manual != null) {
           participantsCount = Number(z.participants_manual);
+        } else if (z.source_ticket_zone_id && totalsByZoneId[z.source_ticket_zone_id] != null) {
+          // 2) Fonte canónica: público por dia da zona vinculada (Σ dias, com combos e cortesias)
+          participantsCount = totalsByZoneId[z.source_ticket_zone_id];
         } else {
+          // 3) override pelo caller via zone_label (Simulador BE/forecast)
           const labelKey = z.zone_label?.toLowerCase?.() ?? "";
           const externalMap = participants[scen] || {};
           if (labelKey && externalMap[labelKey] != null) {
             participantsCount = externalMap[labelKey];
-          } else if (scen === "real" && z.source_ticket_zone_id) {
-            participantsCount = realParticipantsDb[z.source_ticket_zone_id] ?? 0;
           }
-          // BE/forecast sem dados externos → 0
         }
         return {
           id: z.id,
@@ -132,6 +113,7 @@ export function useEventABScenarios(
           repasse_bebidas_pct: Number(z.repasse_bebidas_pct || 0),
         };
       });
+    };
 
     return {
       hasConfig: true,
@@ -141,5 +123,5 @@ export function useEventABScenarios(
         forecast: computeTotals(buildInputs("forecast"), food),
       },
     };
-  }, [eventId, zones, config, ticketZones, realParticipantsDb, participants]);
+  }, [eventId, zones, config, real, breakeven, forecast, participants]);
 }
