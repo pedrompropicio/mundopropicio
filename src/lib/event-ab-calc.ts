@@ -1,15 +1,19 @@
 /**
- * Cálculos puros do módulo A&B (Alimentos & Bebidas) por evento.
+ * Cálculos puros do módulo A&B (Alimentos & Bebidas) — modelo de CONCESSÃO.
  *
- * Modelo:
- *  - BEBIDAS configuradas por zona: per_capita_bebidas + repasse_bebidas_pct + open_bar
- *  - ALIMENTOS configurados a nível global: fee_alimentos + repasse_alimentos_pct
- *    + per_capita_alimentos. Cada zona contribui (ou não) via flag open_food.
+ * O gerador opera A&B por sua conta (compra, vende, paga IVA). A casa não tem
+ * custo: recebe apenas a sua quota-parte sobre a faturação (% de repasse) +
+ * eventual fee fixo nos alimentos.
  *
- * Todos os valores são SEM IVA (responsabilidade do operador).
+ *   Faturação      = participantes × per_capita    (volume operado pelo gerador)
+ *   Receita casa   = Faturação × % repasse + fee   (o que entra para a casa)
+ *   Parte gerador  = Faturação − Receita casa      (informativo; não é custo da casa)
+ *   Custo casa     = 0                             (operação por conta do gerador)
+ *   Resultado casa = Receita casa                  (sempre ≥ 0)
+ *   Margem         = Receita casa / Faturação      (% que a casa fica)
  *
- * Cenários (Real / Break Even / Forecast) variam APENAS no nº de participantes
- * por zona — os parâmetros (per capita, %, fee) são partilhados.
+ * Cenários (Real / BE / Forecast) variam APENAS no nº de participantes — os
+ * parâmetros (per capita, %, fee) são partilhados.
  */
 
 export type ABScenario = "real" | "breakeven" | "forecast";
