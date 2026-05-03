@@ -248,7 +248,11 @@ describe("A&B · per capita usa público por dia (não bilhetes vendidos)", () =
     );
     // Pista zone day 0 = 1050, day 1 = 1040 → total acumulado Pista = 2090
     // VIP = 200 × 2 = 400 (excluído por open_bar)
-    const pistaZoneTotal = att.totalsByZone[PISTA_D1];
+    // Pista é modelada em 2 zonas físicas (D1 e D2) para suportar Simples por dia.
+    // Pista total acumulada = combos (entram em PISTA_D1 nos 2 dias) + simples + cortesias D1/D2.
+    // = (1000+1000) na PISTA_D1 + 50 cortesias + 40 cortesias na PISTA_D2 = 2090
+    const pistaZoneTotal =
+      (att.totalsByZone[PISTA_D1] ?? 0) + (att.totalsByZone[PISTA_D2] ?? 0);
     const vipZoneTotal = att.totalsByZone[VIP];
     expect(pistaZoneTotal).toBe(2090);
     expect(vipZoneTotal).toBe(400);
@@ -526,15 +530,12 @@ describe("E2E — fluxo completo (público + receita + A&B)", () => {
     expect(att.ticketRevenue).toBe(85_500);
 
     // ── A&B Bebidas: VIP open_bar=true → excluído
-    // Pista total acumulada = (1000+600+60) + (800+600+40) = 1660 + 1440 = 3100
+    // Pista é 2 zonas físicas (D1 e D2). Total Pista acumulado:
+    //   PISTA_D1 cells: D1 = 1000 (S) + 600 (combo) + 60 (cortesia) = 1660; D2 = 600 (combo) = 600
+    //   PISTA_D2 cells: D1 = 0; D2 = 800 (S) + 40 (cortesia) = 840
+    //   Σ Pista = 1660 + 600 + 840 = 3100
     const pistaTotal =
-      (att.cells.find((c) => c.day_index === 0 && c.zone_id === PISTA_D1)?.total ?? 0) +
-      (att.cells.find((c) => c.day_index === 1 && c.zone_id === PISTA_D2)?.total ?? 0) +
-      // combo entrou em PISTA_D1 nos dois dias; já está na soma acima através das duas zonas
-      0;
-    // Nota: nesta modelagem usamos 2 zonas físicas (D1, D2) para a Pista; o
-    // total Pista (D1) inclui combos do dia 1 + Simples D1 + cortesias D1, e
-    // Pista (D2) inclui combos do dia 2 + Simples D2 + cortesias D2.
+      (att.totalsByZone[PISTA_D1] ?? 0) + (att.totalsByZone[PISTA_D2] ?? 0);
     expect(pistaTotal).toBe(3100);
 
     const totals = computeTotals(
