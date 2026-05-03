@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getPersonMultiplier } from "@/lib/ticket-person-multiplier";
 
 /**
  * Fonte canónica de "público por dia" para um evento.
