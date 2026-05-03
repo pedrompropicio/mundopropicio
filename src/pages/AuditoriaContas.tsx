@@ -110,15 +110,15 @@ function buildFlatCategoryList(cats: Category[], leafSet: Set<string>): FlatCatI
 }
 
 export default function AuditoriaContas() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isManager } = useAuth();
   const qc = useQueryClient();
   const [tab, setTab] = useState<"ia" | "renumber">("ia");
 
-  if (!isAdmin) {
+  if (!isAdmin && !isManager) {
     return (
       <div className="space-y-4">
         <h1 className="text-2xl font-bold">Auditoria Contas</h1>
-        <p className="text-sm text-muted-foreground">Acesso restrito a administradores.</p>
+        <p className="text-sm text-muted-foreground">Acesso restrito a administradores e gerentes.</p>
       </div>
     );
   }
