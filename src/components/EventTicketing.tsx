@@ -24,6 +24,7 @@ import { useEventScenario } from "@/contexts/EventScenarioContext";
 import { BPScenarioSelector } from "@/components/bp-versions/BPScenarioSelector";
 import { useBPVersions } from "@/hooks/useBPVersions";
 import { Sparkles } from "lucide-react";
+import { isComboAllowed, coerceLotKind } from "@/lib/combo-gating";
 
 interface Props {
   eventId: string;
@@ -186,13 +187,15 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   });
 
   // Combo só faz sentido em FESTIVAL multi-dia (>1 data) e não em sub-eventos de turnê.
-  const comboAllowed = useMemo(() => {
-    if (!eventData) return false;
-    const isFestival = (eventData as any).event_type === "festival";
-    const isMultiDay = eventDates.length > 1;
-    const isTourSplit = !!(eventData as any).parent_event_id;
-    return isFestival && isMultiDay && !isTourSplit;
-  }, [eventData, eventDates]);
+  const comboGating = useMemo(
+    () => ({
+      event_type: (eventData as any)?.event_type ?? null,
+      parent_event_id: (eventData as any)?.parent_event_id ?? null,
+      event_dates_count: eventDates.length,
+    }),
+    [eventData, eventDates],
+  );
+  const comboAllowed = useMemo(() => isComboAllowed(comboGating), [comboGating]);
 
   // === Ticket Offices queries & mutations ===
   const { data: officeAssignments = [] } = useQuery({
@@ -383,7 +386,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         iva_rate: parseInt(form.iva_rate) || 6,
         lot_number: nextLotNumber,
         lot_type: form.lot_type || "regular",
-        lot_kind: comboAllowed && form.lot_kind === "combo" ? "combo" : "simple",
+        lot_kind: coerceLotKind(form.lot_kind, comboGating),
         version_id: selectedVersionId, // null=Active, uuid=scenario sandbox
       };
       if (id) {
@@ -435,7 +438,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   };
 
   const startEditLot = (l: any) => {
-    setLotForm({ name: l.name, quantity: String(l.quantity), price: String(l.price), iva_rate: String(l.iva_rate ?? 6), lot_type: l.lot_type || "regular", lot_kind: comboAllowed && l.lot_kind === "combo" ? "combo" : "simple" });
+    setLotForm({ name: l.name, quantity: String(l.quantity), price: String(l.price), iva_rate: String(l.iva_rate ?? 6), lot_type: l.lot_type || "regular", lot_kind: coerceLotKind(l.lot_kind, comboGating) });
     setEditingLotId(l.id);
     setAddingLotForZone(null);
   };
