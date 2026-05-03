@@ -1,4 +1,5 @@
 import { SalesLogPanel } from "@/components/SalesLogPanel";
+import { EventCourtesiesEditor } from "@/components/EventCourtesiesEditor";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useState, useRef, useEffect, useMemo } from "react";
@@ -42,10 +43,17 @@ interface LotForm {
   price: string;
   iva_rate: string;
   lot_type: string;
+  lot_kind: string; // 'simple' | 'combo'
 }
 
 const emptyZone: ZoneForm = { name: "", total_capacity: "" };
-const emptyLot: LotForm = { name: "", quantity: "", price: "", iva_rate: "6", lot_type: "regular" };
+const emptyLot: LotForm = { name: "", quantity: "", price: "", iva_rate: "6", lot_type: "regular", lot_kind: "simple" };
+
+const lotKindLabels: Record<string, string> = { simple: "Simples", combo: "Combo" };
+const lotKindBadgeClass: Record<string, string> = {
+  simple: "",
+  combo: "bg-primary/15 text-primary border-primary/30",
+};
 
 const lotTypeLabels: Record<string, string> = { regular: "Regular", promo: "Promo", special: "Especial" };
 const lotTypeBadgeClass: Record<string, string> = {
@@ -349,6 +357,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         iva_rate: parseInt(form.iva_rate) || 6,
         lot_number: nextLotNumber,
         lot_type: form.lot_type || "regular",
+        lot_kind: form.lot_kind === "combo" ? "combo" : "simple",
         version_id: selectedVersionId, // null=Active, uuid=scenario sandbox
       };
       if (id) {
@@ -400,7 +409,7 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
   };
 
   const startEditLot = (l: any) => {
-    setLotForm({ name: l.name, quantity: String(l.quantity), price: String(l.price), iva_rate: String(l.iva_rate ?? 6), lot_type: l.lot_type || "regular" });
+    setLotForm({ name: l.name, quantity: String(l.quantity), price: String(l.price), iva_rate: String(l.iva_rate ?? 6), lot_type: l.lot_type || "regular", lot_kind: l.lot_kind === "combo" ? "combo" : "simple" });
     setEditingLotId(l.id);
     setAddingLotForZone(null);
   };
@@ -490,6 +499,10 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
           <td className="py-1.5 pr-2">
             <div className="flex items-center gap-1.5">
               <input ref={lotNameRef} value={lotForm.name} onChange={(e) => setLotForm({ ...lotForm, name: e.target.value })} className={inputClass} placeholder="Nome do lote…" autoFocus />
+              <select value={lotForm.lot_kind} onChange={(e) => setLotForm({ ...lotForm, lot_kind: e.target.value })} className={`${inputClass} w-24`} title="Tipo: Simples (1 dia) ou Combo (todos os dias)">
+                <option value="simple">Simples</option>
+                <option value="combo">Combo</option>
+              </select>
               <select value={lotForm.lot_type} onChange={(e) => setLotForm({ ...lotForm, lot_type: e.target.value })} className={`${inputClass} w-24`}>
                 <option value="regular">Regular</option>
                 <option value="promo">Promo</option>
@@ -526,6 +539,11 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
         <td className="py-2 pr-3">
           <span className="text-xs text-muted-foreground mr-1.5">{lot.lot_number}º</span>
           {lot.name}
+          {lot.lot_kind === "combo" && (
+            <span className={`ml-2 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${lotKindBadgeClass.combo}`}>
+              Combo
+            </span>
+          )}
           {lot.lot_type && lot.lot_type !== "regular" && (
             <span className={`ml-2 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${lotTypeBadgeClass[lot.lot_type] || ""}`}>
               {lotTypeLabels[lot.lot_type] || lot.lot_type}
@@ -985,6 +1003,9 @@ export function EventTicketing({ eventId, eventDateId, eventStatus, sessionId }:
           Log de vendas reais não está disponível em modo cenário — volta à Versão Ativa para registar/visualizar vendas.
         </div>
       )}
+
+      {/* Cortesias por dia × zona × cenário (Real / Break Even / Projecção) */}
+      {!isScenarioMode && <EventCourtesiesEditor eventId={eventId} />}
 
       <AlertDialog open={!!deletingOfficeId} onOpenChange={() => setDeletingOfficeId(null)}>
         <AlertDialogContent>
