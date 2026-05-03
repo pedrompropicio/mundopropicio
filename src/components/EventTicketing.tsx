@@ -25,8 +25,7 @@ import { BPScenarioSelector } from "@/components/bp-versions/BPScenarioSelector"
 import { useBPVersions } from "@/hooks/useBPVersions";
 import { Sparkles } from "lucide-react";
 import { isComboAllowed, coerceLotKind } from "@/lib/combo-gating";
-import { validateSimpleLotAgainstCapacity } from "@/lib/combo-capacity";
-import { EventComboPassesSection } from "@/components/EventComboPassesSection";
+import { validateLotAgainstCapacity } from "@/lib/combo-capacity";
 
 interface Props {
   eventId: string;
