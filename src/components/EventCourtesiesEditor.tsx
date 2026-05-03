@@ -89,31 +89,29 @@ export function EventCourtesiesEditor({ eventId }: Props) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const ops: Promise<any>[] = [];
       for (const [k, qty] of Object.entries(draft)) {
         const [dateId, zoneId] = k.split("|");
         const existing = existingMap.get(k);
         if (qty <= 0 && existing) {
-          ops.push(supabase.from("event_courtesies").delete().eq("id", existing.id));
+          const { error } = await supabase.from("event_courtesies").delete().eq("id", existing.id);
+          if (error) throw error;
         } else if (existing) {
-          ops.push(
-            supabase.from("event_courtesies").update({ quantity: qty }).eq("id", existing.id),
-          );
+          const { error } = await supabase
+            .from("event_courtesies")
+            .update({ quantity: qty })
+            .eq("id", existing.id);
+          if (error) throw error;
         } else if (qty > 0) {
-          ops.push(
-            supabase.from("event_courtesies").insert({
-              event_id: eventId,
-              event_date_id: dateId,
-              zone_id: zoneId,
-              scenario,
-              quantity: qty,
-            }),
-          );
+          const { error } = await supabase.from("event_courtesies").insert({
+            event_id: eventId,
+            event_date_id: dateId,
+            zone_id: zoneId,
+            scenario,
+            quantity: qty,
+          });
+          if (error) throw error;
         }
       }
-      const results = await Promise.all(ops);
-      const errs = results.map((r: any) => r.error).filter(Boolean);
-      if (errs.length) throw new Error(errs[0].message);
     },
     onSuccess: () => {
       toast.success("Cortesias guardadas");
