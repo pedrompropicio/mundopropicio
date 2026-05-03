@@ -441,7 +441,7 @@ export default function EventABTab({ eventId }: Props) {
             <Kpi label="Participantes elegíveis" value={String(totals.participantesElegiveisAlimentos)} />
             <Kpi label="Faturação Alimentos" value={fmtEUR(totals.faturacaoAlimentos)} />
             <Kpi label="Receita Alimentos" value={fmtEUR(totals.receitaAlimentos)} highlight />
-            <Kpi label="Custo Alimentos" value={fmtEUR(totals.custoAlimentos)} />
+            <Kpi label="Parte gerador (Alimentos)" value={fmtEUR(totals.parteGeradorAlimentos)} />
           </div>
 
           <div className="md:col-span-3 flex items-center justify-between pt-2 border-t">
