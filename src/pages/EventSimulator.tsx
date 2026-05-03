@@ -525,76 +525,9 @@ export default function EventSimulator() {
   const breakeven = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolution.qtyByKey, beSolution.revenueByKey), [calcSessions, calcCfg, beSolution]);
   const forecast = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "forecast", fcSolution.qtyByKey, fcSolution.revenueByKey), [calcSessions, calcCfg, fcSolution]);
 
-  // ── Participantes (pagantes + cortesia) por zona em cada cenário,
-  //    para alimentar o módulo A&B canónico do evento. ──
-  const abParticipants = useMemo<ABScenarioParticipants>(() => {
-    const realMap: Record<string, number> = {};
-    const beMap: Record<string, number> = {};
-    const fcMap: Record<string, number> = {};
-    for (const s of calcSessions) {
-      const key = `${s.day_index}-${s.zone_label}`;
-      const zoneKey = (s.zone_label || "").toLowerCase();
-      const realQty = (Number(s.real_sales_qty) || 0) + (Number(s.courtesy_qty) || 0);
-      realMap[zoneKey] = (realMap[zoneKey] ?? 0) + realQty;
-      const beQty = (beSolution.qtyByKey?.[key] ?? realQty) + (Number(s.courtesy_qty) || 0);
-      beMap[zoneKey] = (beMap[zoneKey] ?? 0) + beQty;
-      const fcQty = (fcSolution.qtyByKey?.[key] ?? realQty) + (Number(s.courtesy_qty) || 0);
-      fcMap[zoneKey] = (fcMap[zoneKey] ?? 0) + fcQty;
-    }
-    return { real: realMap, breakeven: beMap, forecast: fcMap };
-  }, [calcSessions, beSolution, fcSolution]);
+  // abParticipants + bloco A&B movidos para depois de buildDailyFromBreakdown
+  // (usam dailyAttendance/beDaily/fcDaily expandidos com combos).
 
-  const abModule = useEventABScenarios(event?.id, abParticipants);
-
-  /** Aplica os totais do módulo A&B sobre uma ScenarioRevenue. Quando o módulo
-   *  está configurado, drinkRevenue + foodRevenue passam a refletir o que cabe
-   *  ao evento (Receita A&B). O custo (repasse ao operador) é tratado depois
-   *  via abCostOverride em computeScenarioCosts. */
-  const applyABModule = (rev: typeof today, scen: "real" | "breakeven" | "forecast") => {
-    if (!abModule.hasConfig || !abModule.totals) return rev;
-    const t = abModule.totals[scen];
-    // separar receita por categoria mantendo a soma fiel à Receita Total A&B
-    const drink = t.receitaBebidas;
-    const food = t.receitaAlimentos;
-    return {
-      ...rev,
-      drinkRevenue: drink,
-      foodRevenue: food,
-      totalRevenue:
-        rev.totalRevenue - rev.drinkRevenue - rev.foodRevenue + drink + food,
-    };
-  };
-
-  const todayAB = useMemo(() => applyABModule(today, "real"), [today, abModule]);
-  const beAB = useMemo(() => applyABModule(breakeven, "breakeven"), [breakeven, abModule]);
-  const fcAB = useMemo(() => applyABModule(forecast, "forecast"), [forecast, abModule]);
-
-  const todayCosts = useMemo(() => {
-    const base = computeScenarioCosts(calcCosts, todayAB, calcCfg, "today");
-    if (abModule.hasConfig && abModule.totals) return { ...base, abCost: abModule.totals.real.custoTotal, totalCost: base.eventCosts + abModule.totals.real.custoTotal + base.souvenirCost };
-    return base;
-  }, [calcCosts, todayAB, calcCfg, abModule]);
-  const beCosts = useMemo(() => {
-    const base = computeScenarioCosts(calcCosts, beAB, calcCfg, "breakeven");
-    if (abModule.hasConfig && abModule.totals) return { ...base, abCost: abModule.totals.breakeven.custoTotal, totalCost: base.eventCosts + abModule.totals.breakeven.custoTotal + base.souvenirCost };
-    return base;
-  }, [calcCosts, beAB, calcCfg, abModule]);
-  const fcCosts = useMemo(() => {
-    const base = computeScenarioCosts(calcCosts, fcAB, calcCfg, "forecast");
-    if (abModule.hasConfig && abModule.totals) return { ...base, abCost: abModule.totals.forecast.custoTotal, totalCost: base.eventCosts + abModule.totals.forecast.custoTotal + base.souvenirCost };
-    return base;
-  }, [calcCosts, fcAB, calcCfg, abModule]);
-
-  // Re-bind para que todo o resto da página leia as versões A&B-override
-  const todayRev = todayAB; const beRev = beAB; const fcRev = fcAB;
-
-  const todayRes = useMemo(() => computeScenarioResult(todayRev, todayCosts), [todayRev, todayCosts]);
-  const beRes = useMemo(() => computeScenarioResult(beRev, beCosts), [beRev, beCosts]);
-  const fcRes = useMemo(() => computeScenarioResult(fcRev, fcCosts), [fcRev, fcCosts]);
-
-  const todayKpis = useMemo(() => computeScenarioKpis(todayRev, todayCosts, todayRes), [todayRev, todayCosts, todayRes]);
-  const beKpis = useMemo(() => computeScenarioKpis(beRev, beCosts, beRes), [beRev, beCosts, beRes]);
-  const fcKpis = useMemo(() => computeScenarioKpis(fcRev, fcCosts, fcRes), [fcRev, fcCosts, fcRes]);
 
   const ivaTable = useMemo(() => computeIvaTable(calcSessions), [calcSessions]);
 
@@ -720,10 +653,11 @@ export default function EventSimulator() {
   // por zona vinda dos solvers (BE/Forecast). Reusa expandLotSalesToDailyAttendance
   // para que zonas combo (Passe 2 dias) sejam expandidas a todos os dias,
   // tal como acontece com as vendas reais.
+  // Devolve { dailyTotals, expanded } — expanded permite agregar por zona (A&B).
   const buildDailyFromBreakdown = (
     breakdown: Array<{ zone_label: string; day_index: number; current_qty?: number; projected_qty?: number; extra_qty?: number }>,
   ) => {
-    if (!lotSalesData) return dailyTotals;
+    if (!lotSalesData) return { dailyTotals, expanded: [] as ReturnType<typeof expandLotSalesToDailyAttendance> };
     const totalDays = Math.max(1, lotSalesData.dates.length || (Math.max(0, ...localSessions.map(s => s.day_index)) + 1));
 
     // Indexa lotes reais por zone_name para herdar applies_to_days e session_id (via lotSales)
@@ -780,17 +714,86 @@ export default function EventSimulator() {
       cur.paying += r.paying; cur.courtesy += r.courtesy; cur.total += r.total;
       byDay.set(r.day_index, cur);
     }
-    return Array.from(byDay.entries()).sort((a, b) => a[0] - b[0]);
+    return { dailyTotals: Array.from(byDay.entries()).sort((a, b) => a[0] - b[0]), expanded };
   };
 
-  const beDailyTotals = useMemo(
+  const beDaily = useMemo(
     () => buildDailyFromBreakdown(beSolution.breakdown ?? []),
     [beSolution, lotSalesData, localSessions, localCfg?.combo_lot_keywords, dailyTotals],
   );
-  const fcDailyTotals = useMemo(
+  const fcDaily = useMemo(
     () => buildDailyFromBreakdown(fcSolution.breakdown ?? []),
     [fcSolution, lotSalesData, localSessions, localCfg?.combo_lot_keywords, dailyTotals],
   );
+  const beDailyTotals = beDaily.dailyTotals;
+  const fcDailyTotals = fcDaily.dailyTotals;
+
+  // ── Participantes (pagantes + cortesia) por zona em cada cenário,
+  //    para alimentar o módulo A&B canónico do evento.
+  //    IMPORTANTE: usa a presença expandida (dailyAttendance/beDaily/fcDaily),
+  //    em que cada combo conta como 1 pessoa por dia coberto na sua zona.
+  //    Assim, um combo de 2 dias = 2 participantes elegíveis em A&B.
+  const abParticipants = useMemo<ABScenarioParticipants>(() => {
+    const sumByZone = (rows: Array<{ zone_label: string; paying: number; courtesy: number }>) => {
+      const m: Record<string, number> = {};
+      for (const r of rows) {
+        const k = (r.zone_label || "").toLowerCase();
+        m[k] = (m[k] ?? 0) + Number(r.paying || 0) + Number(r.courtesy || 0);
+      }
+      return m;
+    };
+    return {
+      real: sumByZone(dailyAttendance),
+      breakeven: sumByZone(beDaily.expanded.length ? beDaily.expanded : dailyAttendance),
+      forecast: sumByZone(fcDaily.expanded.length ? fcDaily.expanded : dailyAttendance),
+    };
+  }, [dailyAttendance, beDaily, fcDaily]);
+
+  const abModule = useEventABScenarios(event?.id, abParticipants);
+
+  const applyABModule = (rev: typeof today, scen: "real" | "breakeven" | "forecast") => {
+    if (!abModule.hasConfig || !abModule.totals) return rev;
+    const t = abModule.totals[scen];
+    const drink = t.receitaBebidas;
+    const food = t.receitaAlimentos;
+    return {
+      ...rev,
+      drinkRevenue: drink,
+      foodRevenue: food,
+      totalRevenue:
+        rev.totalRevenue - rev.drinkRevenue - rev.foodRevenue + drink + food,
+    };
+  };
+
+  const todayAB = useMemo(() => applyABModule(today, "real"), [today, abModule]);
+  const beAB = useMemo(() => applyABModule(breakeven, "breakeven"), [breakeven, abModule]);
+  const fcAB = useMemo(() => applyABModule(forecast, "forecast"), [forecast, abModule]);
+
+  const todayCosts = useMemo(() => {
+    const base = computeScenarioCosts(calcCosts, todayAB, calcCfg, "today");
+    if (abModule.hasConfig && abModule.totals) return { ...base, abCost: abModule.totals.real.custoTotal, totalCost: base.eventCosts + abModule.totals.real.custoTotal + base.souvenirCost };
+    return base;
+  }, [calcCosts, todayAB, calcCfg, abModule]);
+  const beCosts = useMemo(() => {
+    const base = computeScenarioCosts(calcCosts, beAB, calcCfg, "breakeven");
+    if (abModule.hasConfig && abModule.totals) return { ...base, abCost: abModule.totals.breakeven.custoTotal, totalCost: base.eventCosts + abModule.totals.breakeven.custoTotal + base.souvenirCost };
+    return base;
+  }, [calcCosts, beAB, calcCfg, abModule]);
+  const fcCosts = useMemo(() => {
+    const base = computeScenarioCosts(calcCosts, fcAB, calcCfg, "forecast");
+    if (abModule.hasConfig && abModule.totals) return { ...base, abCost: abModule.totals.forecast.custoTotal, totalCost: base.eventCosts + abModule.totals.forecast.custoTotal + base.souvenirCost };
+    return base;
+  }, [calcCosts, fcAB, calcCfg, abModule]);
+
+  const todayRev = todayAB; const beRev = beAB; const fcRev = fcAB;
+
+  const todayRes = useMemo(() => computeScenarioResult(todayRev, todayCosts), [todayRev, todayCosts]);
+  const beRes = useMemo(() => computeScenarioResult(beRev, beCosts), [beRev, beCosts]);
+  const fcRes = useMemo(() => computeScenarioResult(fcRev, fcCosts), [fcRev, fcCosts]);
+
+  const todayKpis = useMemo(() => computeScenarioKpis(todayRev, todayCosts, todayRes), [todayRev, todayCosts, todayRes]);
+  const beKpis = useMemo(() => computeScenarioKpis(beRev, beCosts, beRes), [beRev, beCosts, beRes]);
+  const fcKpis = useMemo(() => computeScenarioKpis(fcRev, fcCosts, fcRes), [fcRev, fcCosts, fcRes]);
 
   // ------- Helpers de edição -------
   const updateSession = (idx: number, patch: Partial<DbInput>) =>
