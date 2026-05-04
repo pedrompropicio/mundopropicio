@@ -1,0 +1,17 @@
+-- Permitir que TODOS os utilizadores (incl. editor) vejam o saldo/extrato
+-- dos cartões Santander Pré-Pago no relatório Extrato Bancário.
+-- Executar no Supabase Dashboard (Live) > SQL Editor.
+
+UPDATE public.financial_accounts
+SET balance_visible_to_all = true
+WHERE id IN (
+  'd686f43a-4dbc-459f-9509-5bf8976b0dfe', -- Cartão Santander Pre-Pago - 0663
+  '4d0c6e63-181d-4e48-b548-4afbeb362827'  -- Cartão Santander Pre-pago - 8363
+);
+
+SELECT id, name, balance_visible_to_all
+FROM public.financial_accounts
+WHERE id IN (
+  'd686f43a-4dbc-459f-9509-5bf8976b0dfe',
+  '4d0c6e63-181d-4e48-b548-4afbeb362827'
+);
