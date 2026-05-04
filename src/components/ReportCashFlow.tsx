@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
+import { roundCents } from "@/lib/iva";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Download, Filter, CalendarIcon } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
