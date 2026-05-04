@@ -20,6 +20,7 @@ import {
   HelpCircle,
   ReceiptText,
   ShoppingBag,
+  ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,7 +29,7 @@ import { PushNotificationToggle } from "@/components/PushNotificationToggle";
 
 export function AppSidebar() {
   const location = useLocation();
-  const { isAdmin, user, signOut, hasPermission } = useAuth();
+  const { isAdmin, isManager, user, signOut, hasPermission } = useAuth();
   const [showChangePassword, setShowChangePassword] = useState(false);
 
   const navItems = [
@@ -46,6 +47,7 @@ export function AppSidebar() {
     { to: "/reembolsos", icon: ReceiptText, label: "Reembolsos", show: hasPermission("manage_transactions") || isAdmin },
     { to: "/camarim", icon: ShoppingBag, label: "Camarim", show: hasPermission("manage_transactions") || hasPermission("camarim_team") || isAdmin },
     { to: "/relatorios", icon: BarChart3, label: "Relatórios", show: hasPermission("view_reports") || isAdmin },
+    { to: "/admin/auditoria-contas", icon: ClipboardCheck, label: "Auditoria Contas", show: !isAdmin && isManager },
     { to: "/admin", icon: Settings, label: "Admin", show: isAdmin },
     { to: "/ajuda", icon: HelpCircle, label: "Manual", show: true },
   ];
