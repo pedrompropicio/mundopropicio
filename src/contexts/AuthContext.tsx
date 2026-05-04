@@ -97,10 +97,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const userIdRef = useRef<string | null>(null);
 
   const fetchRoleAndPermissions = useCallback(async (userId: string) => {
-    const { data: roleRows } = await supabase
+    const { data: roleRows, error: rolesError } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", userId);
+
+    console.log("[AuthContext] fetchRoleAndPermissions", { userId, roleRows, rolesError });
 
     // Priority: platform_admin > admin > manager > accountant > editor > partner > viewer > user
     const priority: Record<string, number> = {
