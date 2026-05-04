@@ -1,0 +1,5 @@
+-- Editores passam a ver o relatório de Extrato Bancário (inclui extratos de contas cartão pré-pago).
+-- Visibilidade por conta continua a depender de financial_account_access (admin/manager veem todas, restantes só as autorizadas).
+INSERT INTO public.role_permissions (role, permission)
+VALUES ('editor', 'view_report_bank_statement')
+ON CONFLICT (role, permission) DO NOTHING;
