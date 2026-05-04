@@ -109,7 +109,14 @@ export default function ReportCashFlow() {
     transactions.forEach((t: any) => {
       const key = getPeriodKey(t.date);
       if (!periodMap[key]) periodMap[key] = { income: 0, expense: 0 };
-      const amount = Number(t.amount);
+      // Fluxo de caixa = valor BRUTO (com IVA): movimento real de dinheiro.
+      // Se já foi pago, usa paid_amount; caso contrário, base + IVA calculado.
+      const base = Number(t.amount) || 0;
+      const rate = Number(t.iva_rate) || 0;
+      const gross = t.status === "paid" && Number(t.paid_amount)
+        ? Number(t.paid_amount)
+        : roundCents(base + base * (rate / 100));
+      const amount = gross;
       if (t.type === "income") periodMap[key].income += amount;
       else periodMap[key].expense += amount;
 
