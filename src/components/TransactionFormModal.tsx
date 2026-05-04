@@ -2408,14 +2408,37 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             </div>
             {/* IVA breakdown */}
             {(() => {
-              const base = parseFloat(form.amount) || 0;
-              const ivaValue = base * (form.iva_rate / 100);
-              const total = base + ivaValue;
-              if (base <= 0) return null;
+              const baseForm = parseFloat(form.amount) || 0;
+              // Quando há split de IVA pendente, mostrar agregados reais das linhas (não aplicar form.iva_rate sobre toda a base)
+              if (pendingIvaSplit && pendingIvaSplit.length > 0) {
+                const baseSum = pendingIvaSplit.reduce((s, l) => s + (Number(l.base) || 0), 0);
+                const ivaSum = pendingIvaSplit.reduce((s, l) => s + (Number(l.base) || 0) * ((Number(l.iva_rate) || 0) / 100), 0);
+                const totalSum = baseSum + ivaSum;
+                if (baseSum <= 0) return null;
+                return (
+                  <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 flex items-center justify-between text-xs font-mono">
+                    <span className="text-muted-foreground">
+                      Σ Bases (EUR): {baseSum.toFixed(2)}€
+                      {currency !== "EUR" && (
+                        <CurrencyBadge currency={currency} originalAmount={parseFloat(originalAmount) || 0} fxRate={parseFloat(fxRate) || 0} className="ml-2" />
+                      )}
+                    </span>
+                    <span className="text-muted-foreground">
+                      + Σ IVA ({pendingIvaSplit.length} taxas): {ivaSum.toFixed(2)}€
+                    </span>
+                    <span className="font-semibold text-foreground">
+                      Total: {totalSum.toFixed(2)}€
+                    </span>
+                  </div>
+                );
+              }
+              const ivaValue = baseForm * (form.iva_rate / 100);
+              const total = baseForm + ivaValue;
+              if (baseForm <= 0) return null;
               return (
                 <div className="rounded-lg border border-border/50 bg-secondary/30 px-3 py-2 flex items-center justify-between text-xs font-mono">
                   <span className="text-muted-foreground">
-                    Base (EUR): {base.toFixed(2)}€
+                    Base (EUR): {baseForm.toFixed(2)}€
                     {currency !== "EUR" && (
                       <CurrencyBadge currency={currency} originalAmount={parseFloat(originalAmount) || 0} fxRate={parseFloat(fxRate) || 0} className="ml-2" />
                     )}
