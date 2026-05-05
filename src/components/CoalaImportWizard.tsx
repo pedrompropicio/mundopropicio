@@ -437,6 +437,10 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
               </div>
             )}
 
+            {applyResp.reconciliation && !applyResp.reconciliation.ok && (
+              <DiffBreakdownPanel rec={applyResp.reconciliation} />
+            )}
+
             {applyResp.summary.categoryMapping && (
               <div className="rounded border border-success/40 bg-success/5 p-3 text-xs space-y-1">
                 <p className="font-semibold flex items-center gap-1"><Sparkles className="h-3.5 w-3.5" /> Reaproveitamento de categorias</p>
