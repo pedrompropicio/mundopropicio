@@ -792,7 +792,7 @@ export default function ReportDREBrasil() {
                 <TableRow>
                   <TableHead>Split</TableHead>
                   <TableHead className="text-right">Receitas S/IVA</TableHead>
-                  <TableHead className="text-right">Despesas C/IVA</TableHead>
+                  <TableHead className="text-right">Despesas</TableHead>
                   <TableHead className="text-right">Resultado</TableHead>
                 </TableRow>
               </TableHeader>
