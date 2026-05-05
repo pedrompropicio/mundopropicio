@@ -45,7 +45,12 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json();
-    const { fileBase64, fileName, fileVersion, eventId, syncMode = "replace", ackTotals = false } = body ?? {};
+    const {
+      fileBase64, fileName, fileVersion, eventId,
+      syncMode = "replace", ackTotals = false,
+      phase = "apply", // "preview" | "apply"
+      decisions = {} as Record<string, "skip" | "create">, // rowNumber -> decisão da IA/utilizador
+    } = body ?? {};
     if (!fileBase64 || !fileVersion || !eventId) {
       return json({ error: "fileBase64, fileVersion e eventId obrigatórios" }, 400);
     }
