@@ -489,6 +489,205 @@ Deno.serve(async (req) => {
     }
 
     // ===========================================================================
+    // PHASE = "reset_reimport": apaga BP + TX do evento Coala (preserva mapa
+    // descrição-base → category_id) e re-importa do zero, reaplicando as
+    // categorias que o utilizador tinha ajustado linha-a-linha.
+    // Patrocínios: NÃO toca (apenas faz check via phase=compare separadamente).
+    // ===========================================================================
+    if (phase === "reset_reimport") {
+      // Helper: descrição base — remove sufixos de parcela / saldo / Nx
+      const baseDesc = (s: string): string => {
+        let x = normTxt(s);
+        x = x.replace(/\s*\(\s*saldo\s*\)\s*$/i, "");
+        x = x.replace(/\s*[-–]\s*parcela\s*\d+.*$/i, "");
+        x = x.replace(/\s+parcela\s*\d+.*$/i, "");
+        x = x.replace(/\s*[-–]\s*\d{1,2}\s*(de|\/)\s*\d{1,2}.*$/i, "");
+        x = x.replace(/\s*\(\s*\d+\s*\/\s*\d+\s*\).*$/i, "");
+        x = x.replace(/\s*[-–]\s*\d{1,2}\s*$/i, "");
+        return x.trim();
+      };
+
+      // Snapshot do BP atual ANTES de apagar (recuperável)
+      let bpVersionId: string | null = null;
+      try {
+        const { data: snapId } = await admin.rpc("create_bp_snapshot", {
+          p_event_id: eventId,
+          p_label: `Pré-RESET Coala ${fileVersion} (${new Date().toISOString().slice(0, 10)})`,
+        });
+        if (snapId) bpVersionId = snapId as string;
+      } catch (e) {
+        console.warn("create_bp_snapshot indisponível:", (e as Error).message);
+      }
+
+      // Construir mapa descricao-base → category_id a partir do BP atual
+      const descBaseToCat = new Map<string, string>();
+      const descBaseSupToCat = new Map<string, string>(); // (base|supplier_norm) → cat
+      // Carregar suppliers para resolver supplier_id → name normalizado
+      const supById = new Map<string, string>();
+      for (const s of (existingSups || [])) supById.set(s.id, normTxt(String(s.name)));
+      for (const f of (existingFcs || []) as any[]) {
+        if (!f.category_id || !f.description) continue;
+        const bk = baseDesc(f.description);
+        if (bk && !descBaseToCat.has(bk)) descBaseToCat.set(bk, f.category_id);
+      }
+      // Também complementar via TX (que podem ter sido editadas independentemente)
+      for (const t of (existingTxs || []) as any[]) {
+        if (!t.category_id || !t.description) continue;
+        const bk = baseDesc(t.description);
+        if (bk && !descBaseToCat.has(bk)) descBaseToCat.set(bk, t.category_id);
+        if (bk && t.supplier_id) {
+          const supN = supById.get(t.supplier_id) ?? "";
+          if (supN) descBaseSupToCat.set(`${bk}|${supN}`, t.category_id);
+        }
+      }
+
+      // Apagar transações (cascade trata transaction_payments, documents, etc)
+      const txIds = (existingTxs || []).map((t: any) => t.id);
+      if (txIds.length > 0) {
+        // payment_list_items: SET NULL via FK; mas transactions pode estar referenciada por outras tabelas com RESTRICT — usar cascade da BD onde existe
+        const { error: delTxErr } = await admin.from("transactions").delete().in("id", txIds);
+        if (delTxErr) {
+          return json({ error: `Falha a apagar transações: ${delTxErr.message}` }, 500);
+        }
+      }
+
+      // Apagar event_forecasts (todos do evento)
+      const { error: delFcErr } = await admin.from("event_forecasts").delete().eq("event_id", eventId);
+      if (delFcErr) {
+        return json({ error: `Falha a apagar BP: ${delFcErr.message}` }, 500);
+      }
+
+      // Re-importar com mapa preservado
+      const importBatchId = crypto.randomUUID();
+      const newSupplierIds: string[] = [];
+      const distinctSuppliers = new Set<string>();
+      for (const r of parsed.rows) {
+        if (r.excluded) continue;
+        if (r.supplier) distinctSuppliers.add(r.supplier);
+      }
+      for (const name of distinctSuppliers) {
+        if (supByName.has(name)) continue;
+        const { data: ins } = await admin
+          .from("suppliers")
+          .insert({ name, company_id: ev.company_id, is_active: true })
+          .select("id").single();
+        if (ins) { supByName.set(name, ins.id); newSupplierIds.push(ins.id); }
+      }
+
+      const formalidadeMap: Record<string, string> = {
+        "Fechado": "fechado", "Negociado": "negociacao", "Estimado": "estimado", "Cotação": "estimado",
+      };
+
+      const createdForecastIds: string[] = [];
+      const createdTransactionIds: string[] = [];
+      let preservedFromMap = 0;
+      let fellbackToCC = 0;
+      let fellbackToFallback = 0;
+
+      const resolveCat = (r: ParsedRow): string => {
+        const bk = baseDesc(r.description);
+        const supN = r.supplier ? normTxt(r.supplier) : "";
+        // 1) (base + supplier) → maior precisão
+        if (bk && supN) {
+          const hit = descBaseSupToCat.get(`${bk}|${supN}`);
+          if (hit) { preservedFromMap++; return hit; }
+        }
+        // 2) só base
+        if (bk) {
+          const hit = descBaseToCat.get(bk);
+          if (hit) { preservedFromMap++; return hit; }
+        }
+        // 3) Centro de custo do ficheiro → categoria
+        if (r.rawCenterCusto) {
+          const m = allCats.find((c: any) => c.parent_id != null && norm(c.name) === norm(r.rawCenterCusto || ""));
+          if (m) { fellbackToCC++; return m.id; }
+        }
+        // 4) Fallback "0.0.99 A Classificar"
+        fellbackToFallback++;
+        return fallback.id;
+      };
+
+      for (const r of parsed.rows) {
+        if (r.excluded) continue;
+        const categoryId = resolveCat(r);
+        const supplierId = r.supplier ? supByName.get(r.supplier) ?? null : null;
+
+        const { data: fc } = await admin.from("event_forecasts").insert({
+          company_id: ev.company_id, event_id: eventId, category_id: categoryId, type: "expense",
+          description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
+          status: "approved", approved_at: new Date().toISOString(), approved_by: user.email ?? user.id,
+          formalidade: formalidadeMap[r.formalidade] ?? "estimado",
+          notes: [`Coala ${fileVersion} (RESET)`, r.invoiceRef ? `Fatura ${r.invoiceRef}` : null].filter(Boolean).join(" • "),
+        }).select("id").single();
+        if (fc) createdForecastIds.push(fc.id);
+
+        if (r.status === "pending") continue;
+        if (r.status === "partial" && r.paidNet <= 0) continue;
+
+        if (r.status === "partial" && r.paidNet > 0 && r.paidNet < r.netAmount) {
+          const remainder = +(r.netAmount - r.paidNet).toFixed(2);
+          const remainderIva = +(r.ivaAmount - r.paidIva).toFixed(2);
+          const { data: t1 } = await admin.from("transactions").insert({
+            company_id: ev.company_id, event_id: eventId, type: "expense", category_id: categoryId,
+            description: r.description, amount: r.paidNet,
+            iva_rate: r.paidNet > 0 ? Math.round((r.paidIva / r.paidNet) * 100) : r.ivaRate,
+            date: r.paymentDate ?? r.dueDate ?? new Date().toISOString().slice(0, 10),
+            status: "paid", supplier_id: supplierId,
+            paid_amount: +(r.paidNet + r.paidIva).toFixed(2),
+            payment_date: r.paymentDate, due_date: r.dueDate, invoice_ref: r.invoiceRef,
+          }).select("id").single();
+          if (t1) createdTransactionIds.push(t1.id);
+          const { data: t2 } = await admin.from("transactions").insert({
+            company_id: ev.company_id, event_id: eventId, type: "expense", category_id: categoryId,
+            description: r.description + " (saldo)", amount: remainder,
+            iva_rate: remainder > 0 ? Math.round((remainderIva / remainder) * 100) : r.ivaRate,
+            date: r.dueDate ?? new Date().toISOString().slice(0, 10),
+            status: "pending", supplier_id: supplierId,
+            due_date: r.dueDate, invoice_ref: r.invoiceRef,
+          }).select("id").single();
+          if (t2) createdTransactionIds.push(t2.id);
+        } else if (r.status === "paid") {
+          const { data: t } = await admin.from("transactions").insert({
+            company_id: ev.company_id, event_id: eventId, type: "expense", category_id: categoryId,
+            description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
+            date: r.paymentDate ?? r.dueDate ?? new Date().toISOString().slice(0, 10),
+            status: "paid", supplier_id: supplierId,
+            paid_amount: r.grossAmount, payment_date: r.paymentDate,
+            due_date: r.dueDate, invoice_ref: r.invoiceRef,
+          }).select("id").single();
+          if (t) createdTransactionIds.push(t.id);
+        }
+      }
+
+      const { data: run } = await admin.from("coala_import_runs").insert({
+        company_id: ev.company_id, event_id: eventId, file_version: fileVersion, file_name: fileName ?? null,
+        bp_version_id: bpVersionId, import_batch_id: importBatchId, status: "applied",
+        totals: parsed.totals, validation_report: validation,
+        pendencies_report: { reset_mode: true, preservedFromMap, fellbackToCC, fellbackToFallback,
+          deletedForecasts: (existingFcs || []).length, deletedTransactions: txIds.length },
+        created_transaction_ids: createdTransactionIds, created_forecast_ids: createdForecastIds,
+        created_supplier_ids: newSupplierIds, applied_at: new Date().toISOString(), created_by: user.id,
+      }).select("id").single();
+
+      return json({
+        ok: true, runId: run?.id ?? null, bpVersionId, phase: "reset_reimport",
+        summary: {
+          forecastsCreated: createdForecastIds.length,
+          transactionsCreated: createdTransactionIds.length,
+          suppliersCreated: newSupplierIds.length,
+          deletedForecasts: (existingFcs || []).length,
+          deletedTransactions: txIds.length,
+          categoryMapping: {
+            preservedFromAdjustedMap: preservedFromMap,
+            fellbackToCenterOfCost: fellbackToCC,
+            fellbackToAClassificar: fellbackToFallback,
+          },
+          totals: parsed.totals,
+        },
+      });
+    }
+
+    // ===========================================================================
     // PHASE = "apply": efeitos colaterais (suppliers, snapshot, replace, inserts)
     // ===========================================================================
 
