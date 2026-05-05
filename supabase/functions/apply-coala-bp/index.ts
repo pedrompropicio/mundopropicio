@@ -315,6 +315,8 @@ Deno.serve(async (req) => {
       formalidadeAmbiguous: parsed.rows.filter((r: ParsedRow) => !r.excluded && r.needsFormalidadeReview).length,
       ivaSnapped: parsed.rows.filter((r: ParsedRow) => !r.excluded && r.warnings.some((w) => w.includes("IVA"))).length,
       newSuppliers: newSupplierIds.length,
+      skippedForecasts: skippedForecasts.length,
+      skippedTransactions: skippedTransactions.length,
     };
 
     const { data: run } = await admin
