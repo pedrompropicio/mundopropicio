@@ -669,7 +669,7 @@ Deno.serve(async (req) => {
             status: "paid", supplier_id: supplierId,
             paid_amount: +(r.paidNet + r.paidIva).toFixed(2),
             payment_date: payDate, due_date: r.dueDate, invoice_ref: r.invoiceRef,
-            financial_account_id: defaultAccountId,
+            account_id: defaultAccountId,
           }).select("id").single();
           if (t1) createdTransactionIds.push(t1.id);
           else failedPaidTx.push({ row: r.rowNumber, description: r.description, supplier: r.supplier, expectedPaidGross: +(r.paidNet + r.paidIva).toFixed(2), reason: t1Err?.message ?? "insert TX paga falhou" });
@@ -691,7 +691,7 @@ Deno.serve(async (req) => {
             status: "paid", supplier_id: supplierId,
             paid_amount: r.grossAmount, payment_date: payDate,
             due_date: r.dueDate, invoice_ref: r.invoiceRef,
-            financial_account_id: defaultAccountId,
+            account_id: defaultAccountId,
           }).select("id").single();
           if (t) createdTransactionIds.push(t.id);
           else failedPaidTx.push({ row: r.rowNumber, description: r.description, supplier: r.supplier, expectedPaidGross: r.grossAmount, reason: tErr?.message ?? "insert TX paga falhou" });
@@ -968,7 +968,7 @@ Deno.serve(async (req) => {
           status: "paid", supplier_id: supplierId,
           paid_amount: +(r.paidNet + r.paidIva).toFixed(2),
           payment_date: payDate, due_date: r.dueDate, invoice_ref: r.invoiceRef,
-          financial_account_id: defaultAccountId,
+          account_id: defaultAccountId,
         });
         const t2Id = await insertTxIfNew(r, {
           event_id: eventId, type: "expense", category_id: categoryId,
@@ -992,7 +992,7 @@ Deno.serve(async (req) => {
           status: "paid", supplier_id: supplierId,
           paid_amount: r.grossAmount, payment_date: payDate,
           due_date: r.dueDate, invoice_ref: r.invoiceRef,
-          financial_account_id: defaultAccountId,
+          account_id: defaultAccountId,
         });
         if (tId) createdTransactionIds.push(tId);
       }
