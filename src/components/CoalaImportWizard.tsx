@@ -89,6 +89,22 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
     } finally { setParsing(false); }
   }
 
+  async function handleCompare() {
+    if (!file || !fileVersion.trim()) return;
+    setComparing(true);
+    try {
+      const fileBase64 = await toBase64(file);
+      const { data, error } = await supabase.functions.invoke("apply-coala-bp", {
+        body: { fileBase64, fileName: file.name, fileVersion: fileVersion.trim(), eventId, syncMode, ackTotals: true, phase: "compare" },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setCompareResp(data);
+    } catch (e: any) {
+      toast({ title: "Erro a comparar", description: e.message, variant: "destructive" });
+    } finally { setComparing(false); }
+  }
+
   async function handlePreview() {
     if (!file || !fileVersion.trim() || !ackTotals) return;
     setPreviewing(true);
