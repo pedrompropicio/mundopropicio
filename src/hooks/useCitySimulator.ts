@@ -234,21 +234,39 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
   );
 
   // A&B canónico
+  // NOTA: para zonas com várias entradas no mesmo zone_label (ex.: passes
+  // multi-dia onde a mesma quantidade aparece em vários day_index), tomamos
+  // o MÁXIMO por dia em vez da soma — caso contrário o forecast/BE infla
+  // por contagem dupla da mesma pessoa.
   const abParticipants = useMemo<ABScenarioParticipants>(() => {
-    const realMap: Record<string, number> = {};
-    const beMap: Record<string, number> = {};
-    const fcMap: Record<string, number> = {};
+    const realByZoneDay: Record<string, Record<number, number>> = {};
+    const beByZoneDay: Record<string, Record<number, number>> = {};
+    const fcByZoneDay: Record<string, Record<number, number>> = {};
     for (const s of calcSessions) {
       const key = `${s.day_index}-${s.zone_label}`;
       const zoneKey = (s.zone_label || "").toLowerCase();
-      const realQty = (Number(s.real_sales_qty) || 0) + (Number(s.courtesy_qty) || 0);
-      realMap[zoneKey] = (realMap[zoneKey] ?? 0) + realQty;
-      const beQty = (beSolution.qtyByKey?.[key] ?? realQty) + (Number(s.courtesy_qty) || 0);
-      beMap[zoneKey] = (beMap[zoneKey] ?? 0) + beQty;
-      const fcQty = (fcSolution.qtyByKey?.[key] ?? realQty) + (Number(s.courtesy_qty) || 0);
-      fcMap[zoneKey] = (fcMap[zoneKey] ?? 0) + fcQty;
+      const courtesy = Number(s.courtesy_qty) || 0;
+      const realQty = (Number(s.real_sales_qty) || 0) + courtesy;
+      const beQty = (beSolution.qtyByKey?.[key] ?? (Number(s.real_sales_qty) || 0)) + courtesy;
+      const fcQty = (fcSolution.qtyByKey?.[key] ?? (Number(s.real_sales_qty) || 0)) + courtesy;
+      (realByZoneDay[zoneKey] ??= {})[s.day_index] = (realByZoneDay[zoneKey][s.day_index] ?? 0) + realQty;
+      (beByZoneDay[zoneKey]   ??= {})[s.day_index] = (beByZoneDay[zoneKey][s.day_index]   ?? 0) + beQty;
+      (fcByZoneDay[zoneKey]   ??= {})[s.day_index] = (fcByZoneDay[zoneKey][s.day_index]   ?? 0) + fcQty;
     }
-    return { real: realMap, breakeven: beMap, forecast: fcMap };
+    // Heurística: se a mesma zone_label aparece em >1 dia com valores idênticos,
+    // é um passe multi-dia → usar máximo. Caso contrário, somar.
+    const collapse = (byDay: Record<number, number>): number => {
+      const vals = Object.values(byDay);
+      if (vals.length <= 1) return vals.reduce((a, b) => a + b, 0);
+      const allEqual = vals.every((v) => v === vals[0]);
+      return allEqual ? vals[0] : vals.reduce((a, b) => a + b, 0);
+    };
+    const toMap = (src: Record<string, Record<number, number>>) => {
+      const out: Record<string, number> = {};
+      for (const [k, v] of Object.entries(src)) out[k] = collapse(v);
+      return out;
+    };
+    return { real: toMap(realByZoneDay), breakeven: toMap(beByZoneDay), forecast: toMap(fcByZoneDay) };
   }, [calcSessions, beSolution, fcSolution]);
 
   const abModule = useEventABScenarios(eventId, abParticipants);

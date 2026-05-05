@@ -264,12 +264,23 @@ export function useEventAttendance(
     const cells = Array.from(grid.values());
     for (const c of cells) c.total = c.paying + c.courtesy;
 
+    // Para zonas SEM session_id (ex.: "Passe 2 dias", "Relvado (Passe)") a
+    // mesma pessoa é contabilizada em todos os dias do evento — correto para
+    // totalsByDay, mas em totalsByZone (denominador do per capita A&B) isto
+    // duplicaria/triplicaria o público. Usamos o MÁXIMO por dia nessas zonas.
+    const zoneAllDays = new Set<string>();
+    for (const z of zones) if (!z.session_id) zoneAllDays.add(z.id);
+
     const totalsByDay: Record<number, number> = {};
     const totalsByZone: Record<string, number> = {};
     let grand = 0;
     for (const c of cells) {
       totalsByDay[c.day_index] = (totalsByDay[c.day_index] ?? 0) + c.total;
-      totalsByZone[c.zone_id] = (totalsByZone[c.zone_id] ?? 0) + c.total;
+      if (zoneAllDays.has(c.zone_id)) {
+        totalsByZone[c.zone_id] = Math.max(totalsByZone[c.zone_id] ?? 0, c.total);
+      } else {
+        totalsByZone[c.zone_id] = (totalsByZone[c.zone_id] ?? 0) + c.total;
+      }
       grand += c.total;
     }
 
