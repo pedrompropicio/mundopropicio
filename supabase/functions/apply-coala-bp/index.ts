@@ -660,14 +660,16 @@ Deno.serve(async (req) => {
         if (r.status === "partial" && r.paidNet > 0 && r.paidNet < r.netAmount) {
           const remainder = +(r.netAmount - r.paidNet).toFixed(2);
           const remainderIva = +(r.ivaAmount - r.paidIva).toFixed(2);
+          const payDate = r.paymentDate ?? today();
           const { data: t1, error: t1Err } = await admin.from("transactions").insert({
             company_id: ev.company_id, event_id: eventId, type: "expense", category_id: categoryId,
             description: r.description, amount: r.paidNet,
             iva_rate: r.paidNet > 0 ? Math.round((r.paidIva / r.paidNet) * 100) : r.ivaRate,
-            date: r.paymentDate ?? r.dueDate ?? new Date().toISOString().slice(0, 10),
+            date: payDate,
             status: "paid", supplier_id: supplierId,
             paid_amount: +(r.paidNet + r.paidIva).toFixed(2),
-            payment_date: r.paymentDate, due_date: r.dueDate, invoice_ref: r.invoiceRef,
+            payment_date: payDate, due_date: r.dueDate, invoice_ref: r.invoiceRef,
+            financial_account_id: defaultAccountId,
           }).select("id").single();
           if (t1) createdTransactionIds.push(t1.id);
           else failedPaidTx.push({ row: r.rowNumber, description: r.description, supplier: r.supplier, expectedPaidGross: +(r.paidNet + r.paidIva).toFixed(2), reason: t1Err?.message ?? "insert TX paga falhou" });
@@ -675,19 +677,21 @@ Deno.serve(async (req) => {
             company_id: ev.company_id, event_id: eventId, type: "expense", category_id: categoryId,
             description: r.description + " (saldo)", amount: remainder,
             iva_rate: remainder > 0 ? Math.round((remainderIva / remainder) * 100) : r.ivaRate,
-            date: r.dueDate ?? new Date().toISOString().slice(0, 10),
+            date: r.dueDate ?? today(),
             status: "pending", supplier_id: supplierId,
             due_date: r.dueDate, invoice_ref: r.invoiceRef,
           }).select("id").single();
           if (t2) createdTransactionIds.push(t2.id);
         } else if (r.status === "paid") {
+          const payDate = r.paymentDate ?? today();
           const { data: t, error: tErr } = await admin.from("transactions").insert({
             company_id: ev.company_id, event_id: eventId, type: "expense", category_id: categoryId,
             description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
-            date: r.paymentDate ?? r.dueDate ?? new Date().toISOString().slice(0, 10),
+            date: payDate,
             status: "paid", supplier_id: supplierId,
-            paid_amount: r.grossAmount, payment_date: r.paymentDate,
+            paid_amount: r.grossAmount, payment_date: payDate,
             due_date: r.dueDate, invoice_ref: r.invoiceRef,
+            financial_account_id: defaultAccountId,
           }).select("id").single();
           if (t) createdTransactionIds.push(t.id);
           else failedPaidTx.push({ row: r.rowNumber, description: r.description, supplier: r.supplier, expectedPaidGross: r.grossAmount, reason: tErr?.message ?? "insert TX paga falhou" });
