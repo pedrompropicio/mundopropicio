@@ -837,7 +837,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       head: [["", "Valor"]],
       body: [
         ["Receita (s/IVA)", formatCurrency(totalRevenueNet)],
-        ["Despesas (c/IVA)", formatCurrency(totalExpensesGross)],
+        ["Despesas", formatCurrency(totalExpensesGross)],
         ["Resultado", formatCurrency(resultGross)],
       ],
       margin: { left: margin, right: margin },
@@ -864,7 +864,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
       const cityValW = (tableWidth - cityCol1) / 3;
       autoTable(doc, {
         startY: y,
-        head: [["Cidade", "Receita s/IVA", "Despesa c/IVA", "Resultado"]],
+        head: [["Cidade", "Receita s/IVA", "Despesas", "Resultado"]],
         body: cityBreakdown.map((c) => [
           c.cityName,
           formatCurrency(c.revenueNet),
@@ -1483,7 +1483,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
 
       autoTable(doc, {
         startY: y,
-        head: [["Categoria", "Lançamentos", "c/IVA"]],
+        head: [["Categoria", "Lançamentos", "Despesas"]],
         body: body.map((b) => b.row),
         foot: [["TOTAL",
           grandCount.toString(),
@@ -1711,7 +1711,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
             <p className="text-xl font-bold font-mono text-success">{formatCurrency(totalRevenueNet)}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">Despesas (c/IVA)</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Despesas</p>
             <p className="text-xl font-bold font-mono text-destructive">{formatCurrency(totalExpensesGross)}</p>
           </div>
           <div>
@@ -1732,7 +1732,7 @@ export function PartnerSettlementTab({ eventId, eventName, childEventIds }: Prop
               <TableRow>
                 <TableHead>Cidade</TableHead>
                 <TableHead className="text-right">Receita s/IVA</TableHead>
-                <TableHead className="text-right">Despesa c/IVA</TableHead>
+                <TableHead className="text-right">Despesas</TableHead>
                 <TableHead className="text-right">Resultado</TableHead>
               </TableRow>
             </TableHeader>
