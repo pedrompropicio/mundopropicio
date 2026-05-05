@@ -1227,18 +1227,18 @@ export default function EventSimulator() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  <RevRow label="Bilhetes" prior={calcCfg.prior_year_tickets} a={todayV2.ticketsRevenue} b={breakevenV2.ticketsRevenue} c={forecastV2.ticketsRevenue} />
-                  <RevRow label="A&B Bebida" prior={calcCfg.prior_year_drink} a={todayV2.drinkRevenue} b={breakevenV2.drinkRevenue} c={forecastV2.drinkRevenue} />
-                  <RevRow label="A&B Alimento" prior={calcCfg.prior_year_food} a={todayV2.foodRevenue} b={breakevenV2.foodRevenue} c={forecastV2.foodRevenue} />
-                  <RevRow label="Patrocínio" prior={calcCfg.prior_year_sponsor} a={todayV2.sponsorRevenue} b={breakevenV2.sponsorRevenue} c={forecastV2.sponsorRevenue} />
-                  <RevRow label="Souvenir" prior={calcCfg.prior_year_souvenir} a={todayV2.souvenirRevenue} b={breakevenV2.souvenirRevenue} c={forecastV2.souvenirRevenue} />
-                  <RevRow label="Outros Créditos" prior={calcCfg.prior_year_other} a={todayV2.otherCredits} b={breakevenV2.otherCredits} c={forecastV2.otherCredits} />
+                  <RevRow label="Bilhetes" prior={calcCfg.prior_year_tickets} a={todayAB.ticketsRevenue} b={beAB.ticketsRevenue} c={fcAB.ticketsRevenue} />
+                  <RevRow label="A&B Bebida" prior={calcCfg.prior_year_drink} a={todayAB.drinkRevenue} b={beAB.drinkRevenue} c={fcAB.drinkRevenue} />
+                  <RevRow label="A&B Alimento" prior={calcCfg.prior_year_food} a={todayAB.foodRevenue} b={beAB.foodRevenue} c={fcAB.foodRevenue} />
+                  <RevRow label="Patrocínio" prior={calcCfg.prior_year_sponsor} a={todayAB.sponsorRevenue} b={beAB.sponsorRevenue} c={fcAB.sponsorRevenue} />
+                  <RevRow label="Souvenir" prior={calcCfg.prior_year_souvenir} a={todayAB.souvenirRevenue} b={beAB.souvenirRevenue} c={fcAB.souvenirRevenue} />
+                  <RevRow label="Outros Créditos" prior={calcCfg.prior_year_other} a={todayAB.otherCredits} b={beAB.otherCredits} c={fcAB.otherCredits} />
                   <TableRow className="font-bold border-t-2">
                     <TableCell>FATURAMENTO TOTAL</TableCell>
                     <TableCell className="text-right">{fmt(calcCfg.prior_year_tickets + calcCfg.prior_year_drink + calcCfg.prior_year_food + calcCfg.prior_year_sponsor + calcCfg.prior_year_souvenir + calcCfg.prior_year_other)}</TableCell>
-                    <TableCell className="text-right">{fmt(today.totalRevenue)}</TableCell>
-                    <TableCell className="text-right">{fmt(breakevenV2.totalRevenue)}</TableCell>
-                    <TableCell className="text-right">{fmt(forecastV2.totalRevenue)}</TableCell>
+                    <TableCell className="text-right">{fmt(todayAB.totalRevenue)}</TableCell>
+                    <TableCell className="text-right">{fmt(beAB.totalRevenue)}</TableCell>
+                    <TableCell className="text-right">{fmt(fcAB.totalRevenue)}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
