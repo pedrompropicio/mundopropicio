@@ -436,7 +436,7 @@ function CompareView({ data }: { data: any }) {
   );
 }
 
-function CompareSection({ title, hint, rows, render }: { title: string; hint: string; rows: any[]; render: (r: any) => React.ReactNode }) {
+function CompareSection({ title, hint, rows, render }: { title: string; hint: string; rows: any[]; render: (r: any) => ReactNode }) {
   const [open, setOpen] = useState(false);
   const count = rows?.length ?? 0;
   return (
