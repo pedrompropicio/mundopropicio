@@ -1340,11 +1340,11 @@ export default function EventSimulator() {
                         )}
                       </TableCell>
                     </TableRow>
-                  ))}
+                  );})}
                   <TableRow className="font-bold border-t-2">
-                    <TableCell colSpan={2}>CUSTO TOTAL</TableCell>
-                    <TableCell className="text-right">{fmt(localCosts.reduce((a, c) => a + Number(c.prior_year_amount || 0), 0))}</TableCell>
-                    <TableCell className="text-right">{fmt(localCosts.reduce((a, c) => a + Number(c.actual_amount || 0), 0))}</TableCell>
+                    <TableCell colSpan={2}>CUSTO TOTAL{includeOverheads ? "" : " (s/ Grupo 10)"}</TableCell>
+                    <TableCell className="text-right">{fmt(visibleCosts.reduce((a, c) => a + Number(c.prior_year_amount || 0), 0))}</TableCell>
+                    <TableCell className="text-right">{fmt(visibleCosts.reduce((a, c) => a + Number(c.actual_amount || 0), 0))}</TableCell>
                     <TableCell className="text-right">{fmt(beCosts.totalCost)}</TableCell>
                     <TableCell className="text-right">{fmt(fcCosts.totalCost)}</TableCell>
                     <TableCell colSpan={2}></TableCell>
