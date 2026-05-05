@@ -233,6 +233,23 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     enabled: !!eventId,
   });
 
+  // Detect Coala-template events to surface the dedicated importer wizard.
+  const { data: eventMeta } = useQuery({
+    queryKey: ["event_import_template", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("import_template")
+        .eq("id", eventId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!eventId,
+  });
+  const isCoalaEvent = eventMeta?.import_template === "coala";
+  const [showCoalaWizard, setShowCoalaWizard] = useState(false);
+
   const cacheCategoryId = useMemo(() => {
     // Procura a conta "Cachês" (despesa) por nome — robusto a renumerações do plano de contas.
     // Fallback: código histórico "2.1.01" para retro-compatibilidade.
