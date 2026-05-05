@@ -106,6 +106,16 @@ Deno.serve(async (req) => {
       .select("id, name")
       .eq("company_id", ev.company_id)
       .eq("is_active", true);
+
+    // Pre-load conta de liquidação default = "Banco Santander Totta"
+    const { data: santanderAcc } = await admin
+      .from("financial_accounts")
+      .select("id")
+      .eq("company_id", ev.company_id)
+      .ilike("name", "%santander%totta%")
+      .maybeSingle();
+    const defaultAccountId: string | null = santanderAcc?.id ?? null;
+    const today = () => new Date().toISOString().slice(0, 10);
     const supByName = new Map<string, string>();
     for (const s of (existingSups || [])) {
       supByName.set(String(s.name).toUpperCase().trim(), s.id);
