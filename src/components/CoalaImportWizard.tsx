@@ -572,6 +572,94 @@ function Card({ label, value, tone }: { label: string; value: string; tone?: "mu
 }
 
 interface PendencyRow { row: number; description: string; supplier?: string | null; amount?: number; detail?: string }
+
+function DiffBreakdownPanel({ rec }: { rec: any }) {
+  const fmt = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(2)} €`;
+  const cats: any[] = rec.topCategoryDiffs ?? [];
+  const failedFcs: any[] = rec.failedForecasts ?? [];
+  const failedTxs: any[] = rec.failedPaidTx ?? [];
+  const fc = rec.failedCounts ?? { forecasts: 0, paidTx: 0 };
+  return (
+    <div className="rounded border border-warning/40 bg-warning/5 p-3 text-xs space-y-3">
+      <p className="font-semibold flex items-center gap-1">
+        <AlertTriangle className="h-3.5 w-3.5 text-warning" /> Onde está a diferença
+      </p>
+
+      {(fc.forecasts > 0 || fc.paidTx > 0) && (
+        <div className="rounded border border-destructive/40 bg-destructive/5 p-2 space-y-1">
+          <p className="font-semibold text-destructive">Inserts que falharam (provável causa principal)</p>
+          <p>• Linhas BP que não foram criadas: <span className="font-mono font-semibold">{fc.forecasts}</span></p>
+          <p>• Transações pagas que não foram criadas: <span className="font-mono font-semibold">{fc.paidTx}</span></p>
+          {failedFcs.length > 0 && (
+            <details className="mt-1">
+              <summary className="cursor-pointer hover:text-primary">Ver linhas BP falhadas (top {failedFcs.length})</summary>
+              <ul className="mt-1 ml-3 space-y-0.5 max-h-48 overflow-y-auto border-l border-destructive/30 pl-2">
+                {failedFcs.map((r, i) => (
+                  <li key={i} className="font-mono text-[11px]">
+                    L{r.row} · {r.description}{r.supplier ? ` · ${r.supplier}` : ""} · {r.netAmount.toFixed(2)} €
+                    <span className="text-destructive"> · {r.reason}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {failedTxs.length > 0 && (
+            <details className="mt-1">
+              <summary className="cursor-pointer hover:text-primary">Ver TX pagas falhadas (top {failedTxs.length})</summary>
+              <ul className="mt-1 ml-3 space-y-0.5 max-h-48 overflow-y-auto border-l border-destructive/30 pl-2">
+                {failedTxs.map((r, i) => (
+                  <li key={i} className="font-mono text-[11px]">
+                    L{r.row} · {r.description}{r.supplier ? ` · ${r.supplier}` : ""} · esperado {r.expectedPaidGross.toFixed(2)} €
+                    <span className="text-destructive"> · {r.reason}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
+
+      <div>
+        <p className="font-semibold mb-1">Top contas com maior contributo para o diff (ordenado por |Δ BP| + |Δ Pago|)</p>
+        {cats.length === 0 ? (
+          <p className="text-muted-foreground">Sem diferenças por categoria — o diff vem dos inserts falhados acima.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px] font-mono">
+              <thead className="text-muted-foreground border-b border-border/40">
+                <tr>
+                  <th className="text-left py-1 pr-2">Conta</th>
+                  <th className="text-right py-1 px-1">BP fich.</th>
+                  <th className="text-right py-1 px-1">BP sist.</th>
+                  <th className="text-right py-1 px-1">Δ BP</th>
+                  <th className="text-right py-1 px-1">Pago fich.</th>
+                  <th className="text-right py-1 px-1">Pago sist.</th>
+                  <th className="text-right py-1 pl-1">Δ Pago</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cats.map((c, i) => (
+                  <tr key={i} className="border-b border-border/20">
+                    <td className="py-1 pr-2 truncate max-w-[200px]" title={`${c.code} ${c.name}`}>
+                      <span className="text-muted-foreground">{c.code}</span> {c.name}
+                    </td>
+                    <td className="text-right px-1">{c.bpExpected.toFixed(2)}</td>
+                    <td className="text-right px-1">{c.bpActual.toFixed(2)}</td>
+                    <td className={`text-right px-1 font-semibold ${Math.abs(c.bpDiff) > 0.05 ? "text-destructive" : ""}`}>{fmt(c.bpDiff)}</td>
+                    <td className="text-right px-1">{c.paidExpected.toFixed(2)}</td>
+                    <td className="text-right px-1">{c.paidActual.toFixed(2)}</td>
+                    <td className={`text-right pl-1 font-semibold ${Math.abs(c.paidDiff) > 0.05 ? "text-destructive" : ""}`}>{fmt(c.paidDiff)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PendencyGroup({ label, count, rows }: { label: string; count: number; rows?: PendencyRow[] }) {
   const [open, setOpen] = useState(false);
   if (!count) return <p className="text-muted-foreground">• {label}: 0</p>;
