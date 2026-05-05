@@ -267,20 +267,9 @@ export function useEventAttendance(
     const totalsByDay: Record<number, number> = {};
     const totalsByZone: Record<string, number> = {};
     let grand = 0;
-    // Zonas sem session_id (ex.: "Passe 2 dias") representam o MESMO conjunto
-    // de pessoas em todos os dias do evento — para o totalsByZone (usado como
-    // denominador de A&B per capita) tomamos o MÁXIMO entre os dias em vez da
-    // soma, para não contar a mesma pessoa N vezes.
-    const zoneAllDays = new Set<string>();
-    for (const z of zones) if (!z.session_id) zoneAllDays.add(z.id);
     for (const c of cells) {
       totalsByDay[c.day_index] = (totalsByDay[c.day_index] ?? 0) + c.total;
-      if (zoneAllDays.has(c.zone_id)) {
-        const prev = totalsByZone[c.zone_id] ?? 0;
-        totalsByZone[c.zone_id] = Math.max(prev, c.total);
-      } else {
-        totalsByZone[c.zone_id] = (totalsByZone[c.zone_id] ?? 0) + c.total;
-      }
+      totalsByZone[c.zone_id] = (totalsByZone[c.zone_id] ?? 0) + c.total;
       grand += c.total;
     }
 
