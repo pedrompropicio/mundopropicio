@@ -624,7 +624,17 @@ Deno.serve(async (req) => {
         const categoryId = resolveCat(r);
         const supplierId = r.supplier ? supByName.get(r.supplier) ?? null : null;
 
-        const { data: fc } = await admin.from("event_forecasts").insert({
+        // Esperado por categoria (BP líquido)
+        expectedNetByCat.set(categoryId, +(((expectedNetByCat.get(categoryId) ?? 0) + r.netAmount).toFixed(2)));
+        // Esperado pago por categoria (bruto, só rows pagas/parciais)
+        const expectedPaidGrossThis =
+          r.status === "paid" ? r.grossAmount :
+          r.status === "partial" && r.paidNet > 0 ? +(r.paidNet + r.paidIva).toFixed(2) : 0;
+        if (expectedPaidGrossThis > 0) {
+          expectedPaidByCat.set(categoryId, +(((expectedPaidByCat.get(categoryId) ?? 0) + expectedPaidGrossThis).toFixed(2)));
+        }
+
+        const { data: fc, error: fcErr } = await admin.from("event_forecasts").insert({
           company_id: ev.company_id, event_id: eventId, category_id: categoryId, type: "expense",
           description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
           status: "approved", approved_at: new Date().toISOString(), approved_by: user.email ?? user.id,
@@ -632,6 +642,7 @@ Deno.serve(async (req) => {
           notes: [`Coala ${fileVersion} (RESET)`, r.invoiceRef ? `Fatura ${r.invoiceRef}` : null].filter(Boolean).join(" • "),
         }).select("id").single();
         if (fc) createdForecastIds.push(fc.id);
+        else failedForecasts.push({ row: r.rowNumber, description: r.description, supplier: r.supplier, netAmount: r.netAmount, reason: fcErr?.message ?? "insert falhou (sem erro)" });
 
         if (r.status === "pending") continue;
         if (r.status === "partial" && r.paidNet <= 0) continue;
@@ -639,7 +650,7 @@ Deno.serve(async (req) => {
         if (r.status === "partial" && r.paidNet > 0 && r.paidNet < r.netAmount) {
           const remainder = +(r.netAmount - r.paidNet).toFixed(2);
           const remainderIva = +(r.ivaAmount - r.paidIva).toFixed(2);
-          const { data: t1 } = await admin.from("transactions").insert({
+          const { data: t1, error: t1Err } = await admin.from("transactions").insert({
             company_id: ev.company_id, event_id: eventId, type: "expense", category_id: categoryId,
             description: r.description, amount: r.paidNet,
             iva_rate: r.paidNet > 0 ? Math.round((r.paidIva / r.paidNet) * 100) : r.ivaRate,
@@ -649,6 +660,7 @@ Deno.serve(async (req) => {
             payment_date: r.paymentDate, due_date: r.dueDate, invoice_ref: r.invoiceRef,
           }).select("id").single();
           if (t1) createdTransactionIds.push(t1.id);
+          else failedPaidTx.push({ row: r.rowNumber, description: r.description, supplier: r.supplier, expectedPaidGross: +(r.paidNet + r.paidIva).toFixed(2), reason: t1Err?.message ?? "insert TX paga falhou" });
           const { data: t2 } = await admin.from("transactions").insert({
             company_id: ev.company_id, event_id: eventId, type: "expense", category_id: categoryId,
             description: r.description + " (saldo)", amount: remainder,
@@ -659,7 +671,7 @@ Deno.serve(async (req) => {
           }).select("id").single();
           if (t2) createdTransactionIds.push(t2.id);
         } else if (r.status === "paid") {
-          const { data: t } = await admin.from("transactions").insert({
+          const { data: t, error: tErr } = await admin.from("transactions").insert({
             company_id: ev.company_id, event_id: eventId, type: "expense", category_id: categoryId,
             description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
             date: r.paymentDate ?? r.dueDate ?? new Date().toISOString().slice(0, 10),
@@ -668,6 +680,7 @@ Deno.serve(async (req) => {
             due_date: r.dueDate, invoice_ref: r.invoiceRef,
           }).select("id").single();
           if (t) createdTransactionIds.push(t.id);
+          else failedPaidTx.push({ row: r.rowNumber, description: r.description, supplier: r.supplier, expectedPaidGross: r.grossAmount, reason: tErr?.message ?? "insert TX paga falhou" });
         }
       }
 
