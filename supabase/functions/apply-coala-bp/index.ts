@@ -45,7 +45,12 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json();
-    const { fileBase64, fileName, fileVersion, eventId, syncMode = "replace", ackTotals = false } = body ?? {};
+    const {
+      fileBase64, fileName, fileVersion, eventId,
+      syncMode = "replace", ackTotals = false,
+      phase = "apply", // "preview" | "apply"
+      decisions = {} as Record<string, "skip" | "create">, // rowNumber -> decisão da IA/utilizador
+    } = body ?? {};
     if (!fileBase64 || !fileVersion || !eventId) {
       return json({ error: "fileBase64, fileVersion e eventId obrigatórios" }, 400);
     }
@@ -106,6 +111,169 @@ Deno.serve(async (req) => {
       supByName.set(String(s.name).toUpperCase().trim(), s.id);
     }
 
+    const normTxt = (s: string | null) =>
+      String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+    const moneyKey = (n: number) => Math.round(n * 100); // tolerância 0.005€
+
+    // ── Dedupe pre-load (também precisamos para preview)
+    const { data: existingFcs } = await admin
+      .from("event_forecasts")
+      .select("id, category_id, description, amount, transaction_id")
+      .eq("event_id", eventId);
+    const { data: existingTxs } = await admin
+      .from("transactions")
+      .select("id, category_id, supplier_id, description, amount, payment_date, invoice_ref")
+      .eq("event_id", eventId);
+
+    const fcKeySet = new Set<string>();
+    for (const f of (existingFcs || [])) {
+      fcKeySet.add(`${normTxt(f.description)}|${moneyKey(Number(f.amount) || 0)}`);
+    }
+    const txKeySet = new Set<string>();
+    for (const t of (existingTxs || [])) {
+      const amt = moneyKey(Number(t.amount) || 0);
+      if (t.invoice_ref) txKeySet.add(`INV|${t.supplier_id ?? "_"}|${normTxt(t.invoice_ref)}|${amt}`);
+      txKeySet.add(`DSC|${t.supplier_id ?? "_"}|${normTxt(t.description)}|${amt}|${t.payment_date ?? ""}`);
+    }
+
+    // ===========================================================================
+    // PHASE = "preview": calcula dedupe exato + fuzzy candidates + IA → ambíguos
+    // ===========================================================================
+    if (phase === "preview") {
+      // Dice coefficient (bigrams) — robusto a abreviaturas
+      const dice = (a: string, b: string): number => {
+        a = normTxt(a); b = normTxt(b);
+        if (!a || !b) return 0;
+        if (a === b) return 1;
+        const grams = (s: string) => {
+          const out = new Set<string>();
+          for (let i = 0; i < s.length - 1; i++) out.add(s.slice(i, i + 2));
+          return out;
+        };
+        const A = grams(a), B = grams(b);
+        let inter = 0;
+        for (const g of A) if (B.has(g)) inter++;
+        return (2 * inter) / (A.size + B.size || 1);
+      };
+
+      const fuzzyCandidates: any[] = [];
+      const exactDuplicates: any[] = [];
+      const cleanIncoming: any[] = []; // sem qualquer match
+
+      for (const r of parsed.rows) {
+        if (r.excluded) continue;
+        const fcKey = `${normTxt(r.description)}|${moneyKey(r.netAmount)}`;
+        if (fcKeySet.has(fcKey)) {
+          exactDuplicates.push({ rowNumber: r.rowNumber, description: r.description, netAmount: r.netAmount });
+          continue;
+        }
+        // procurar candidatos fuzzy: mesmo valor (±0.01€) e Dice ≥ 0.55
+        const incomingAmt = moneyKey(r.netAmount);
+        const cands = (existingFcs || [])
+          .filter((f: any) => Math.abs(moneyKey(Number(f.amount) || 0) - incomingAmt) <= 1)
+          .map((f: any) => ({ id: f.id, description: f.description, amount: Number(f.amount), score: dice(r.description, f.description) }))
+          .filter((c: any) => c.score >= 0.55)
+          .sort((a: any, b: any) => b.score - a.score)
+          .slice(0, 3);
+        if (cands.length === 0) {
+          cleanIncoming.push({ rowNumber: r.rowNumber, description: r.description, netAmount: r.netAmount });
+        } else {
+          fuzzyCandidates.push({ rowNumber: r.rowNumber, description: r.description, netAmount: r.netAmount, candidates: cands });
+        }
+      }
+
+      // IA: classifica cada fuzzyCandidate em same/different/unsure (em batches)
+      const aiDecisions: Record<string, { verdict: "same" | "different" | "unsure"; confidence: number; reason: string; bestCandidateId?: string }> = {};
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      if (LOVABLE_API_KEY && fuzzyCandidates.length > 0) {
+        const batchSize = 25;
+        for (let i = 0; i < fuzzyCandidates.length; i += batchSize) {
+          const batch = fuzzyCandidates.slice(i, i + batchSize);
+          const userMsg = batch.map((c: any) => ({
+            id: c.rowNumber,
+            nova: { desc: c.description, valor: c.netAmount },
+            existentes: c.candidates.map((x: any) => ({ id: x.id, desc: x.description, valor: x.amount })),
+          }));
+          try {
+            const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                model: "google/gemini-2.5-flash",
+                messages: [
+                  { role: "system", content: "És um auditor financeiro. Para cada despesa NOVA do XLSX Coala, decide se ela representa a MESMA despesa que alguma já existente no BP do evento (que pode ter sido recategorizada/reescrita manualmente) ou se é uma despesa DIFERENTE que por acaso tem valor parecido. Responde só via tool call." },
+                  { role: "user", content: JSON.stringify(userMsg) },
+                ],
+                tools: [{
+                  type: "function",
+                  function: {
+                    name: "classify_duplicates",
+                    description: "Classifica cada candidato como duplicado ou não.",
+                    parameters: {
+                      type: "object",
+                      properties: {
+                        results: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: {
+                              id: { type: "number" },
+                              verdict: { type: "string", enum: ["same", "different", "unsure"] },
+                              confidence: { type: "number" },
+                              reason: { type: "string" },
+                              bestCandidateId: { type: "string" },
+                            },
+                            required: ["id", "verdict", "confidence", "reason"],
+                          },
+                        },
+                      },
+                      required: ["results"],
+                    },
+                  },
+                }],
+                tool_choice: { type: "function", function: { name: "classify_duplicates" } },
+              }),
+            });
+            if (resp.ok) {
+              const j = await resp.json();
+              const args = j?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+              if (args) {
+                const parsed = JSON.parse(args);
+                for (const r of (parsed.results || [])) {
+                  aiDecisions[String(r.id)] = r;
+                }
+              }
+            } else {
+              console.warn("AI classification failed", resp.status, await resp.text());
+            }
+          } catch (e) {
+            console.warn("AI batch error", e);
+          }
+        }
+      }
+
+      return json({
+        ok: true,
+        phase: "preview",
+        summary: {
+          totalImportable: parsed.rows.filter((r) => !r.excluded).length,
+          exactDuplicates: exactDuplicates.length,
+          fuzzyCandidates: fuzzyCandidates.length,
+          clean: cleanIncoming.length,
+        },
+        exactDuplicates,
+        clean: cleanIncoming,
+        review: fuzzyCandidates.map((c: any) => ({
+          ...c,
+          ai: aiDecisions[String(c.rowNumber)] ?? { verdict: "unsure", confidence: 0, reason: "IA indisponível" },
+        })),
+      });
+    }
+
+    // ===========================================================================
+    // PHASE = "apply": efeitos colaterais (suppliers, snapshot, replace, inserts)
+    // ===========================================================================
+
     // Create new suppliers
     const newSupplierIds: string[] = [];
     const distinctSuppliers = new Set<string>();
@@ -127,7 +295,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // BP snapshot (auto): trigger via RPC if available; otherwise skip silently
+    // BP snapshot (auto)
     let bpVersionId: string | null = null;
     try {
       const { data: snapId } = await admin.rpc("create_bp_snapshot", {
@@ -140,34 +308,6 @@ Deno.serve(async (req) => {
     }
 
     const importBatchId = crypto.randomUUID();
-
-    // ── Dedupe pre-load: existing forecasts + transactions for this event
-    const { data: existingFcs } = await admin
-      .from("event_forecasts")
-      .select("id, category_id, description, amount, transaction_id")
-      .eq("event_id", eventId);
-    const { data: existingTxs } = await admin
-      .from("transactions")
-      .select("id, category_id, supplier_id, description, amount, payment_date, invoice_ref")
-      .eq("event_id", eventId);
-
-    const normTxt = (s: string | null) =>
-      String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
-    const moneyKey = (n: number) => Math.round(n * 100); // tolerância 0.005€
-
-    // Forecast key: descNorm + amount(cents) — IGNORA categoria de propósito,
-    // para que reclassificações manuais não levem a duplicação no próximo import.
-    const fcKeySet = new Set<string>();
-    for (const f of (existingFcs || [])) {
-      fcKeySet.add(`${normTxt(f.description)}|${moneyKey(Number(f.amount) || 0)}`);
-    }
-    // TX key (priority): supplier + invoice_ref + amount(cents) ; fallback: supplier + descNorm + amount + payment_date
-    const txKeySet = new Set<string>();
-    for (const t of (existingTxs || [])) {
-      const amt = moneyKey(Number(t.amount) || 0);
-      if (t.invoice_ref) txKeySet.add(`INV|${t.supplier_id ?? "_"}|${normTxt(t.invoice_ref)}|${amt}`);
-      txKeySet.add(`DSC|${t.supplier_id ?? "_"}|${normTxt(t.description)}|${amt}|${t.payment_date ?? ""}`);
-    }
 
     // Replace mode: only purge forecasts NOT linked to TX AND that won't be re-created
     const incomingFcKeys = new Set<string>();
@@ -230,9 +370,10 @@ Deno.serve(async (req) => {
       const categoryId = categoryFor(r.rawCenterCusto);
       const supplierId = r.supplier ? supByName.get(r.supplier) ?? null : null;
 
-      // ── Forecast dedupe (descrição + valor; ignora categoria para preservar reclassificações)
+      // ── Forecast dedupe (descrição+valor) + decisão manual/IA da fase preview
+      const userDecision = decisions[String(r.rowNumber)];
       const fcKey = `${normTxt(r.description)}|${moneyKey(r.netAmount)}`;
-      if (fcKeySet.has(fcKey)) {
+      if (userDecision === "skip" || (userDecision !== "create" && fcKeySet.has(fcKey))) {
         skippedForecasts.push(r.rowNumber);
       } else {
         const { data: fc, error: fErr } = await admin
