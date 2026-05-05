@@ -405,7 +405,7 @@ function CompareView({ data }: { data: any }) {
     <div className="space-y-4 text-xs">
       <div className="grid grid-cols-3 gap-2">
         <Card label="Ficheiro" value={`${s.file.lines} linhas · ${fmt(s.file.net)}`} />
-        <Card label="BP atual" value={`${s.bp.lines} linhas · ${fmt(s.bp.net)}`} />
+        <Card label="BP atual (despesas)" value={`${s.bp.lines} linhas · ${fmt(s.bp.net)}`} />
         <Card label="Δ (BP − Ficheiro)" value={`${s.delta.lines >= 0 ? "+" : ""}${s.delta.lines} · ${fmt(s.delta.net)}`} tone="muted" />
       </div>
 
