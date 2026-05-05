@@ -1,0 +1,39 @@
+-- Cria hierarquia "0 / 0.0 / 0.0.99 A Classificar" na empresa Coala
+-- Necessária como fallback do importador Coala BP (apply-coala-bp).
+-- Executar em Cloud View > SQL > LIVE
+BEGIN;
+
+-- L1
+INSERT INTO public.account_categories (id, code, name, type, parent_id, company_id, is_active, event_required)
+SELECT gen_random_uuid(), '0', 'A Classificar', 'expense', NULL, '7d831e59-6e82-427b-95a0-64904aae5dd2', true, false
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.account_categories
+  WHERE company_id='7d831e59-6e82-427b-95a0-64904aae5dd2' AND code='0'
+);
+
+-- L2 (filho do L1 '0')
+INSERT INTO public.account_categories (id, code, name, type, parent_id, company_id, is_active, event_required)
+SELECT gen_random_uuid(), '0.0', 'A Classificar', 'expense',
+       (SELECT id FROM public.account_categories WHERE company_id='7d831e59-6e82-427b-95a0-64904aae5dd2' AND code='0'),
+       '7d831e59-6e82-427b-95a0-64904aae5dd2', true, false
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.account_categories
+  WHERE company_id='7d831e59-6e82-427b-95a0-64904aae5dd2' AND code='0.0'
+);
+
+-- L3 (selecionável)
+INSERT INTO public.account_categories (id, code, name, type, parent_id, company_id, is_active, event_required)
+SELECT gen_random_uuid(), '0.0.99', 'A Classificar', 'expense',
+       (SELECT id FROM public.account_categories WHERE company_id='7d831e59-6e82-427b-95a0-64904aae5dd2' AND code='0.0'),
+       '7d831e59-6e82-427b-95a0-64904aae5dd2', true, false
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.account_categories
+  WHERE company_id='7d831e59-6e82-427b-95a0-64904aae5dd2' AND code='0.0.99'
+);
+
+-- Validação (esperado: 3 linhas)
+SELECT code, name, type FROM public.account_categories
+WHERE company_id='7d831e59-6e82-427b-95a0-64904aae5dd2' AND code IN ('0','0.0','0.0.99')
+ORDER BY code;
+
+COMMIT;
