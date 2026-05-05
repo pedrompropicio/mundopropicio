@@ -230,8 +230,8 @@ Deno.serve(async (req) => {
       const categoryId = categoryFor(r.rawCenterCusto);
       const supplierId = r.supplier ? supByName.get(r.supplier) ?? null : null;
 
-      // ── Forecast dedupe
-      const fcKey = `${categoryId}|${normTxt(r.description)}|${moneyKey(r.netAmount)}`;
+      // ── Forecast dedupe (descrição + valor; ignora categoria para preservar reclassificações)
+      const fcKey = `${normTxt(r.description)}|${moneyKey(r.netAmount)}`;
       if (fcKeySet.has(fcKey)) {
         skippedForecasts.push(r.rowNumber);
       } else {
