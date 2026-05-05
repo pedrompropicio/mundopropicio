@@ -46,9 +46,9 @@ export interface ABZoneInput {
   /** 0–100 — apenas em modo terceirizacao */
   repasse_bebidas_pct: number;
   /** Custo por pessoa — apenas em modo exploracao_propria */
-  per_capita_custo_bebidas: number;
+  per_capita_custo_bebidas?: number;
   /** Custo fixo da zona (staff, aluguer) — apenas em modo exploracao_propria */
-  custo_fixo_bebidas: number;
+  custo_fixo_bebidas?: number;
   /** Label livre para identificar o operador — opcional, sem FK em v1 */
   operador_nome?: string;
 }
