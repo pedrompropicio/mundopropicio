@@ -274,6 +274,15 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
     }
   }
 
+  // 5e) Remove linhas de custo órfãs (já não têm BP nem TX) — evita resíduos
+  //      de BPs antigos apagados que ficavam a inflar o "Hoje".
+  const orphanIds = existingCosts
+    .filter((c) => c.category_id && !allCatIds.has(c.category_id))
+    .map((c) => c.id);
+  if (orphanIds.length) {
+    await supabase.from("event_simulator_cost_lines").delete().in("id", orphanIds);
+  }
+
   // 6) Patrocinadores: totaliza receitas de qualquer L3 abaixo de 1.2 e atualiza
   //    event_simulator_config.sponsorship_revenue (mantém compatibilidade com os cálculos atuais).
   const { data: allFcRevenue } = await supabase
