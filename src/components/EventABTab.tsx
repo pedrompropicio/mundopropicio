@@ -79,8 +79,8 @@ function KpisConsolidados({ totals, modeBebidas, modeAlimentos }: {
     const resultColor = totals.resultadoTotal >= 0 ? "text-emerald-600" : "text-rose-600";
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Kpi label="Receita A&B (casa)" value={fmtEUR(totals.receitaTotal)} highlight />
-        <Kpi label="Custo A&B (casa)" value={fmtEUR(totals.custoCasaTotal)} negative />
+        <Kpi label="Receita A&B (evento)" value={fmtEUR(totals.receitaTotal)} highlight />
+        <Kpi label="Custo A&B (evento)" value={fmtEUR(totals.custoCasaTotal)} negative />
         <Kpi label="Resultado A&B" value={fmtEUR(totals.resultadoTotal)} className={resultColor} />
         <Kpi label="Faturação total" value={fmtEUR(totals.faturacaoTotal)} />
       </div>
@@ -90,10 +90,10 @@ function KpisConsolidados({ totals, modeBebidas, modeAlimentos }: {
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
       <Kpi label="Faturação A&B (gerador)" value={fmtEUR(totals.faturacaoTotal)} />
-      <Kpi label="Receita A&B (casa)" value={fmtEUR(totals.receitaTotal)} highlight />
+      <Kpi label="Receita A&B (evento)" value={fmtEUR(totals.receitaTotal)} highlight />
       <Kpi label="Parte do gerador" value={fmtEUR(totals.parteGeradorTotal)} />
-      <Kpi label="Resultado A&B (casa)" value={fmtEUR(totals.resultadoTotal)} highlight />
-      <Kpi label="Quota da casa" value={fmtPct(totals.margemPct)} />
+      <Kpi label="Resultado A&B (evento)" value={fmtEUR(totals.resultadoTotal)} highlight />
+      <Kpi label="Quota do evento" value={fmtPct(totals.margemPct)} />
     </div>
   );
 }
@@ -343,7 +343,7 @@ export default function EventABTab({ eventId }: Props) {
 
   // Label contextual do per_capita_bebidas conforme o modo (decisão 3.2)
   const labelPerCapitaBebidas = modeBebidas === "exploracao_propria"
-    ? "Per capita receita (casa)"
+    ? "Per capita receita (evento)"
     : "Per capita faturação (operador)";
 
   return (
@@ -574,7 +574,7 @@ export default function EventABTab({ eventId }: Props) {
           <div className="space-y-2">
             <Label>
               {modeAlimentos === "exploracao_propria"
-                ? "Per capita receita (casa) (€/pessoa)"
+                ? "Per capita receita (evento) (€/pessoa)"
                 : "Per capita faturação (operador) (€/pessoa)"}
             </Label>
             <MoneyInput
@@ -632,9 +632,9 @@ export default function EventABTab({ eventId }: Props) {
             <Kpi label="Participantes elegíveis" value={String(totals.participantesElegiveisAlimentos)} />
             <Kpi label={modeAlimentos === "exploracao_propria" ? "Receita Alimentos" : "Faturação Alimentos"}
                  value={fmtEUR(totals.faturacaoAlimentos)} />
-            <Kpi label="Receita Alimentos (casa)" value={fmtEUR(totals.receitaAlimentos)} highlight />
+            <Kpi label="Receita Alimentos (evento)" value={fmtEUR(totals.receitaAlimentos)} highlight />
             {modeAlimentos === "exploracao_propria" ? (
-              <Kpi label="Custo Alimentos (casa)" value={fmtEUR(totals.custoCasaAlimentos)} negative />
+              <Kpi label="Custo Alimentos (evento)" value={fmtEUR(totals.custoCasaAlimentos)} negative />
             ) : (
               <Kpi label="Parte gerador (Alimentos)" value={fmtEUR(totals.parteGeradorAlimentos)} />
             )}
