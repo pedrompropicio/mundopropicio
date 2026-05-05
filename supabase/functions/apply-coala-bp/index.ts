@@ -659,18 +659,63 @@ Deno.serve(async (req) => {
         }
       }
 
+      // ===========================================================================
+      // RECONCILIAÇÃO OBRIGATÓRIA: somar BP/TX inseridos vs ficheiro (líquido)
+      // Tolerância: 0,05 € (arredondamentos de cêntimo). Acima disso → erro.
+      // ===========================================================================
+      const TOL = 0.05;
+      const expectedNet = Number(parsed.totals.netSum) || 0;
+      const expectedGrossPaid = Number(parsed.totals.paidGrossSum) || 0;
+      const expectedImportableLines = Number(parsed.totals.importableLines) || 0;
+
+      // Soma real do BP inserido
+      const { data: insertedFcs, error: sumFcErr } = await admin
+        .from("event_forecasts")
+        .select("amount")
+        .eq("event_id", eventId);
+      if (sumFcErr) {
+        return json({ error: `Reconciliação BP falhou: ${sumFcErr.message}` }, 500);
+      }
+      const actualBpNet = +((insertedFcs || []).reduce((a, f: any) => a + (Number(f.amount) || 0), 0)).toFixed(2);
+      const bpDiff = +(actualBpNet - expectedNet).toFixed(2);
+
+      // Soma real das TX (paid_amount = bruto efetivamente pago)
+      const { data: insertedTxs, error: sumTxErr } = await admin
+        .from("transactions")
+        .select("paid_amount,status")
+        .eq("event_id", eventId);
+      if (sumTxErr) {
+        return json({ error: `Reconciliação TX falhou: ${sumTxErr.message}` }, 500);
+      }
+      const actualPaidGross = +((insertedTxs || [])
+        .filter((t: any) => t.status === "paid")
+        .reduce((a, t: any) => a + (Number(t.paid_amount) || 0), 0)).toFixed(2);
+      const paidDiff = +(actualPaidGross - expectedGrossPaid).toFixed(2);
+
+      const linesDiff = (insertedFcs || []).length - expectedImportableLines;
+
+      const reconciliation = {
+        ok: Math.abs(bpDiff) <= TOL && Math.abs(paidDiff) <= TOL && linesDiff === 0,
+        bp: { expectedNet, actualBpNet, diff: bpDiff, tolerance: TOL },
+        paid: { expectedGrossPaid, actualPaidGross, diff: paidDiff, tolerance: TOL },
+        lines: { expected: expectedImportableLines, actual: (insertedFcs || []).length, diff: linesDiff },
+      };
+
       const { data: run } = await admin.from("coala_import_runs").insert({
         company_id: ev.company_id, event_id: eventId, file_version: fileVersion, file_name: fileName ?? null,
-        bp_version_id: bpVersionId, import_batch_id: importBatchId, status: "applied",
+        bp_version_id: bpVersionId, import_batch_id: importBatchId,
+        status: reconciliation.ok ? "applied" : "applied_with_diff",
         totals: parsed.totals, validation_report: validation,
         pendencies_report: { reset_mode: true, preservedFromMap, fellbackToCC, fellbackToFallback,
-          deletedForecasts: (existingFcs || []).length, deletedTransactions: txIds.length },
+          deletedForecasts: (existingFcs || []).length, deletedTransactions: txIds.length,
+          reconciliation },
         created_transaction_ids: createdTransactionIds, created_forecast_ids: createdForecastIds,
         created_supplier_ids: newSupplierIds, applied_at: new Date().toISOString(), created_by: user.id,
       }).select("id").single();
 
       return json({
         ok: true, runId: run?.id ?? null, bpVersionId, phase: "reset_reimport",
+        reconciliation,
         summary: {
           forecastsCreated: createdForecastIds.length,
           transactionsCreated: createdTransactionIds.length,
