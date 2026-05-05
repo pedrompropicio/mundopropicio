@@ -45,6 +45,7 @@ import { MarkAsFechadoDialog } from "@/components/bp-versions/MarkAsFechadoDialo
 import { FormalidadeHistoryPopover } from "@/components/bp-versions/FormalidadeHistoryPopover";
 import { FormalidadeBadge } from "@/components/bp-versions/FormalidadeBadge";
 import { BulkFormalidadePopover } from "@/components/bp-versions/BulkFormalidadePopover";
+import { CoalaImportWizard } from "@/components/CoalaImportWizard";
 
 /**
  * Returns the subset of forecast IDs that are eligible to be auto-promoted to
@@ -232,6 +233,23 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     },
     enabled: !!eventId,
   });
+
+  // Detect Coala-template events to surface the dedicated importer wizard.
+  const { data: eventMeta } = useQuery({
+    queryKey: ["event_import_template", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("events")
+        .select("import_template")
+        .eq("id", eventId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!eventId,
+  });
+  const isCoalaEvent = eventMeta?.import_template === "coala";
+  const [showCoalaWizard, setShowCoalaWizard] = useState(false);
 
   const cacheCategoryId = useMemo(() => {
     // Procura a conta "Cachês" (despesa) por nome — robusto a renumerações do plano de contas.
@@ -2051,6 +2069,16 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   <Upload className="h-3.5 w-3.5" />
                   {importingXlsx ? "A importar…" : attachingLinks ? "A anexar…" : "Importar XLSX"}
                 </button>
+                {isCoalaEvent && (
+                  <button
+                    onClick={() => setShowCoalaWizard(true)}
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary/15 text-primary hover:bg-primary/25 transition-colors"
+                    title="Importador genérico Coala — qualquer versão (V13, V14…)"
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    Importar Coala
+                  </button>
+                )}
                 {/* Bulk attachments are now handled inside the Implantação modal,
                     after the BP has been imported (motor unificado de matching). */}
                 {pendingOrphansCount > 0 && (
@@ -2655,6 +2683,13 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         eventId={eventId}
         childEventIds={childEventIds}
         parentEventId={parentEventId}
+      />
+
+      <CoalaImportWizard
+        open={showCoalaWizard}
+        onOpenChange={setShowCoalaWizard}
+        eventId={eventId}
+        eventName={eventName}
       />
 
       <GenerateHistoricalModal
