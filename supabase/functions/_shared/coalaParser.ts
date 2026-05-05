@@ -196,9 +196,12 @@ export function parseCoalaXlsx(buffer: ArrayBuffer, fileVersion: string): ParseR
   const ws = wb.Sheets[sheetName];
   const matrix = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, defval: null, raw: true, blankrows: false });
 
-  // Headers at row 3 (index 2)
-  if (matrix.length < 4) throw new Error('Aba "Base Custos" sem dados.');
-  const headers = matrix[2] || [];
+  // Layout do XLSX Coala (V13+):
+  //   matrix[0] = linha de totais consolidados (Σ Net, Σ IVA, Σ Pago Net, Σ Pago IVA, Σ Pago Bruto)
+  //   matrix[1] = headers
+  //   matrix[2..] = dados
+  if (matrix.length < 3) throw new Error('Aba "Base Custos" sem dados.');
+  const headers = matrix[1] || [];
   const colIdx = (label: string): number =>
     headers.findIndex((h: any) => norm(h) === norm(label));
 
@@ -220,21 +223,21 @@ export function parseCoalaXlsx(buffer: ArrayBuffer, fileVersion: string): ParseR
     pagoVia: colIdx("Pago Via BR/PT"),
   };
 
-  // Row 2 totals (R2 in user's terms)
-  const r2 = matrix[1] || [];
+  // Linha 0 = totais consolidados (R1 no XLSX)
+  const r1 = matrix[0] || [];
   const fileTotalsRow = {
-    net: C.valorNet >= 0 ? num(r2[C.valorNet]) || null : null,
-    iva: C.iva >= 0 ? num(r2[C.iva]) || null : null,
-    paidNet: C.valorPagoNet >= 0 ? num(r2[C.valorPagoNet]) || null : null,
-    paidIva: C.valorIvaPago >= 0 ? num(r2[C.valorIvaPago]) || null : null,
-    paidGross: C.total >= 0 ? num(r2[C.total]) || null : null,
+    net: C.valorNet >= 0 ? num(r1[C.valorNet]) || null : null,
+    iva: C.iva >= 0 ? num(r1[C.iva]) || null : null,
+    paidNet: C.valorPagoNet >= 0 ? num(r1[C.valorPagoNet]) || null : null,
+    paidIva: C.valorIvaPago >= 0 ? num(r1[C.valorIvaPago]) || null : null,
+    paidGross: C.total >= 0 ? num(r1[C.total]) || null : null,
   };
 
   const rows: ParsedRow[] = [];
   let netSum = 0, ivaSum = 0, grossSum = 0, paidGrossSum = 0, excludedCount = 0;
   const suppliers = new Set<string>();
 
-  for (let r = 3; r < matrix.length; r++) {
+  for (let r = 2; r < matrix.length; r++) {
     const row = matrix[r];
     if (!row || row.every((c: any) => c === null || c === "")) continue;
 
@@ -332,9 +335,9 @@ export function parseCoalaXlsx(buffer: ArrayBuffer, fileVersion: string): ParseR
   if (pipeName) {
     const pws = wb.Sheets[pipeName];
     const pmx = XLSX.utils.sheet_to_json<any[]>(pws, { header: 1, defval: null, raw: true, blankrows: false });
-    // Layout: row 2 = header strip (col B status free, col C/D/E year buckets)
-    // Sponsor names start at row 4, col B (index 1)
-    for (let r = 3; r < pmx.length; r++) {
+    // Layout V13: row 0 = header (cols B status, C/D/E = Confirmados/Pipe/Propostas 2026)
+    // Sponsor names start at row 1, col B (index 1)
+    for (let r = 1; r < pmx.length; r++) {
       const row = pmx[r];
       if (!row) continue;
       const name = cleanString(row[1]);
