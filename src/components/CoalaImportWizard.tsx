@@ -51,11 +51,13 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
   const [previewing, setPreviewing] = useState(false);
   const [previewResp, setPreviewResp] = useState<PreviewResp | null>(null);
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
+  const [comparing, setComparing] = useState(false);
+  const [compareResp, setCompareResp] = useState<any | null>(null);
 
   const reset = () => {
     setStep("upload"); setFile(null); setFileVersion(""); setParseResp(null);
     setApplyResp(null); setAckTotals(false); setSyncMode("replace");
-    setPreviewResp(null); setDecisions({});
+    setPreviewResp(null); setDecisions({}); setCompareResp(null);
   };
   const close = () => { onOpenChange(false); setTimeout(reset, 250); };
 
