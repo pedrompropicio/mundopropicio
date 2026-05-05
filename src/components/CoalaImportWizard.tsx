@@ -11,7 +11,7 @@ import { toast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatCurrency } from "@/lib/mock-data";
 
-type Step = "upload" | "review" | "review-duplicates" | "applying" | "done";
+type Step = "upload" | "review" | "review-duplicates" | "applying" | "resetting" | "done";
 type SyncMode = "replace" | "append";
 type Decision = "skip" | "create";
 
