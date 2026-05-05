@@ -239,6 +239,7 @@ Deno.serve(async (req) => {
         const { data: fc, error: fErr } = await admin
           .from("event_forecasts")
           .insert({
+            company_id: ev.company_id,
             event_id: eventId,
             category_id: categoryId,
             type: "expense",
