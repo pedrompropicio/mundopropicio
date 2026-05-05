@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   computeTotals,
+  type ABMode,
   type ABFoodConfig,
   type ABZoneInput,
   type ABTotals,
@@ -24,15 +25,21 @@ export interface UseEventABResult {
 /**
  * Calcula os totais A&B nos 3 cenários a partir do módulo A&B do evento.
  *
+ * v2: suporta ab_mode_bebidas e ab_mode_alimentos independentes
+ * (terceirizacao | exploracao_propria). Os novos campos de custo
+ * são lidos de event_ab_config e event_ab_zones e passados para computeTotals().
+ *
  * Fonte canónica de "participantes" por zona (denominador do per capita):
  *  → useEventAttendance: público por dia × zona, somado por zona, incluindo:
  *     - Bilhetes Simples no seu dia
- *     - Bilhetes Combo em CADA dia do evento (não duplica dentro do mesmo evento mas conta em cada dia)
+ *     - Bilhetes Combo em CADA dia do evento
  *     - Cortesias (event_courtesies) por dia/zona/cenário
  *
- * O caller pode ainda passar um override (`participants`) por zone_label para os
+ * O caller pode ainda passar um override (participants) por zone_label para os
  * cenários BE/Forecast quando o solver do Simulador já calculou um valor próprio.
  * O override manual em event_ab_zones.participants_manual continua a vencer.
+ * Edge case: em exploracao_propria, participants_manual é o mesmo denominador
+ * para receita e custo (comportamento confirmado na decisão 4.4).
  */
 export function useEventABScenarios(
   eventId: string | undefined,
@@ -66,34 +73,41 @@ export function useEventABScenarios(
   });
 
   // Público por dia/zona — fonte canónica para o per capita (real, BE, forecast)
-  const real = useEventAttendance(eventId, "real");
+  const real      = useEventAttendance(eventId, "real");
   const breakeven = useEventAttendance(eventId, "breakeven");
-  const forecast = useEventAttendance(eventId, "forecast");
+  const forecast  = useEventAttendance(eventId, "forecast");
 
   return useMemo<UseEventABResult>(() => {
     if (!eventId || zones.length === 0) {
       return { hasConfig: false, totals: null };
     }
+
+    // Modos de operação (default terceirizacao para backward compat)
+    const modeBebidas: ABMode   = (config?.ab_mode_bebidas   as ABMode) ?? "terceirizacao";
+    const modeAlimentos: ABMode = (config?.ab_mode_alimentos as ABMode) ?? "terceirizacao";
+
     const food: ABFoodConfig = {
-      fee_alimentos: Number(config?.fee_alimentos || 0),
-      repasse_alimentos_pct: Number(config?.repasse_alimentos_pct || 0),
-      per_capita_alimentos: Number(config?.per_capita_alimentos || 0),
+      fee_alimentos:               Number(config?.fee_alimentos               || 0),
+      repasse_alimentos_pct:       Number(config?.repasse_alimentos_pct       || 0),
+      per_capita_alimentos:        Number(config?.per_capita_alimentos        || 0),
+      per_capita_custo_alimentos:  Number(config?.per_capita_custo_alimentos  || 0),
+      custo_fixo_alimentos:        Number(config?.custo_fixo_alimentos        || 0),
+      operador_nome:               config?.operador_nome_alimentos ?? undefined,
     };
 
     const attendanceByScen = { real, breakeven, forecast } as const;
 
     const buildInputs = (scen: "real" | "breakeven" | "forecast"): ABZoneInput[] => {
       const att = attendanceByScen[scen];
-      // map: zone_id → público total (Σ dias) já com cortesias
       const totalsByZoneId = att.totalsByZone;
 
       return zones.map((z: any) => {
         let participantsCount = 0;
-        // 1) override manual sempre vence (configurado em event_ab_zones)
+        // 1) override manual sempre vence
         if (z.participants_manual != null) {
           participantsCount = Number(z.participants_manual);
         } else if (z.source_ticket_zone_id && totalsByZoneId[z.source_ticket_zone_id] != null) {
-          // 2) Fonte canónica: público por dia da zona vinculada (Σ dias, com combos e cortesias)
+          // 2) fonte canónica: público por dia da zona vinculada
           participantsCount = totalsByZoneId[z.source_ticket_zone_id];
         } else {
           // 3) override pelo caller via zone_label (Simulador BE/forecast)
@@ -109,8 +123,11 @@ export function useEventABScenarios(
           participants: participantsCount,
           open_bar: !!z.open_bar,
           open_food: !!z.open_food,
-          per_capita_bebidas: Number(z.per_capita_bebidas || 0),
-          repasse_bebidas_pct: Number(z.repasse_bebidas_pct || 0),
+          per_capita_bebidas:       Number(z.per_capita_bebidas      || 0),
+          repasse_bebidas_pct:      Number(z.repasse_bebidas_pct     || 0),
+          per_capita_custo_bebidas: Number(z.per_capita_custo_bebidas || 0),
+          custo_fixo_bebidas:       Number(z.custo_fixo_bebidas      || 0),
+          operador_nome:            z.operador_nome ?? undefined,
         };
       });
     };
@@ -118,9 +135,9 @@ export function useEventABScenarios(
     return {
       hasConfig: true,
       totals: {
-        real: computeTotals(buildInputs("real"), food),
-        breakeven: computeTotals(buildInputs("breakeven"), food),
-        forecast: computeTotals(buildInputs("forecast"), food),
+        real:      computeTotals(buildInputs("real"),      food, modeBebidas, modeAlimentos),
+        breakeven: computeTotals(buildInputs("breakeven"), food, modeBebidas, modeAlimentos),
+        forecast:  computeTotals(buildInputs("forecast"),  food, modeBebidas, modeAlimentos),
       },
     };
   }, [eventId, zones, config, real, breakeven, forecast, participants]);
