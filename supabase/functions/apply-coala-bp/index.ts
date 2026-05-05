@@ -551,20 +551,48 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Apagar transações (cascade trata transaction_payments, documents, etc)
-      const txIds = (existingTxs || []).map((t: any) => t.id);
+      // PROTEGER patrocínios: TX e forecasts ligados a sponsorship_pipeline
+      // (linked_transaction_id / linked_forecast_id) NÃO devem ser apagados.
+      // Caso contrário os cards do Pipeline ficam órfãos e o histórico de
+      // patrocínios desaparece do BP/Tx, obrigando a recovery manual.
+      const { data: pipelineLinks } = await admin
+        .from("sponsorship_pipeline")
+        .select("linked_transaction_id, linked_forecast_id")
+        .eq("event_id", eventId);
+      const protectedTxIds = new Set<string>(
+        (pipelineLinks || [])
+          .map((r: any) => r.linked_transaction_id)
+          .filter((x: unknown): x is string => typeof x === "string"),
+      );
+      const protectedFcIds = new Set<string>(
+        (pipelineLinks || [])
+          .map((r: any) => r.linked_forecast_id)
+          .filter((x: unknown): x is string => typeof x === "string"),
+      );
+
+      // Apagar transações (excepto as ligadas a patrocínios)
+      const txIds = (existingTxs || [])
+        .map((t: any) => t.id)
+        .filter((id: string) => !protectedTxIds.has(id));
       if (txIds.length > 0) {
-        // payment_list_items: SET NULL via FK; mas transactions pode estar referenciada por outras tabelas com RESTRICT — usar cascade da BD onde existe
         const { error: delTxErr } = await admin.from("transactions").delete().in("id", txIds);
         if (delTxErr) {
           return json({ error: `Falha a apagar transações: ${delTxErr.message}` }, 500);
         }
       }
 
-      // Apagar event_forecasts (todos do evento)
-      const { error: delFcErr } = await admin.from("event_forecasts").delete().eq("event_id", eventId);
-      if (delFcErr) {
-        return json({ error: `Falha a apagar BP: ${delFcErr.message}` }, 500);
+      // Apagar event_forecasts (excepto os ligados a patrocínios)
+      const fcIdsToDelete = (existingFcs || [])
+        .map((f: any) => f.id)
+        .filter((id: string) => !protectedFcIds.has(id));
+      if (fcIdsToDelete.length > 0) {
+        const { error: delFcErr } = await admin
+          .from("event_forecasts")
+          .delete()
+          .in("id", fcIdsToDelete);
+        if (delFcErr) {
+          return json({ error: `Falha a apagar BP: ${delFcErr.message}` }, 500);
+        }
       }
 
       // Re-importar com mapa preservado
