@@ -1000,6 +1000,94 @@ export type Database = {
         }
         Relationships: []
       }
+      coala_import_runs: {
+        Row: {
+          applied_at: string | null
+          bp_version_id: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          created_forecast_ids: string[]
+          created_supplier_ids: string[]
+          created_transaction_ids: string[]
+          event_id: string
+          file_name: string | null
+          file_version: string
+          id: string
+          import_batch_id: string
+          pendencies_report: Json
+          rolled_back_at: string | null
+          status: string
+          totals: Json
+          updated_at: string
+          validation_report: Json
+        }
+        Insert: {
+          applied_at?: string | null
+          bp_version_id?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          created_forecast_ids?: string[]
+          created_supplier_ids?: string[]
+          created_transaction_ids?: string[]
+          event_id: string
+          file_name?: string | null
+          file_version: string
+          id?: string
+          import_batch_id?: string
+          pendencies_report?: Json
+          rolled_back_at?: string | null
+          status?: string
+          totals?: Json
+          updated_at?: string
+          validation_report?: Json
+        }
+        Update: {
+          applied_at?: string | null
+          bp_version_id?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          created_forecast_ids?: string[]
+          created_supplier_ids?: string[]
+          created_transaction_ids?: string[]
+          event_id?: string
+          file_name?: string | null
+          file_version?: string
+          id?: string
+          import_batch_id?: string
+          pendencies_report?: Json
+          rolled_back_at?: string | null
+          status?: string
+          totals?: Json
+          updated_at?: string
+          validation_report?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coala_import_runs_bp_version_id_fkey"
+            columns: ["bp_version_id"]
+            isOneToOne: false
+            referencedRelation: "bp_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coala_import_runs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coala_import_runs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           address: Json | null
@@ -3184,6 +3272,7 @@ export type Database = {
           date: string
           event_type: string
           id: string
+          import_template: string | null
           last_sales_date: string | null
           location: string | null
           name: string
@@ -3207,6 +3296,7 @@ export type Database = {
           date: string
           event_type?: string
           id?: string
+          import_template?: string | null
           last_sales_date?: string | null
           location?: string | null
           name: string
@@ -3230,6 +3320,7 @@ export type Database = {
           date?: string
           event_type?: string
           id?: string
+          import_template?: string | null
           last_sales_date?: string | null
           location?: string | null
           name?: string
