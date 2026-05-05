@@ -382,7 +382,76 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
           </div>
         )}
       </DialogContent>
+
+      <Dialog open={!!compareResp} onOpenChange={(o) => { if (!o) setCompareResp(null); }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Comparação Ficheiro vs BP atual</DialogTitle>
+            <DialogDescription>
+              Diff read-only entre o XLSX e o estado atual do BP, transações ligadas e Pipe (patrocínios).
+            </DialogDescription>
+          </DialogHeader>
+          {compareResp && <CompareView data={compareResp} />}
+        </DialogContent>
+      </Dialog>
     </Dialog>
+  );
+}
+
+function CompareView({ data }: { data: any }) {
+  const s = data.summary;
+  const fmt = (n: number) => n.toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
+  return (
+    <div className="space-y-4 text-xs">
+      <div className="grid grid-cols-3 gap-2">
+        <Card label="Ficheiro" value={`${s.file.lines} linhas · ${fmt(s.file.net)}`} />
+        <Card label="BP atual" value={`${s.bp.lines} linhas · ${fmt(s.bp.net)}`} />
+        <Card label="Δ (BP − Ficheiro)" value={`${s.delta.lines >= 0 ? "+" : ""}${s.delta.lines} · ${fmt(s.delta.net)}`} tone="muted" />
+      </div>
+
+      <CompareSection title={`Faltam no BP (${s.missingInBp})`} hint="Linhas no XLSX que não existem no BP atual." rows={data.missingInBp}
+        render={(r: any) => <>L{r.rowNumber} · {r.description}{r.supplier ? ` · ${r.supplier}` : ""} · {fmt(r.netAmount)}</>} />
+
+      <CompareSection title={`A mais no BP (${s.extraInBp})`} hint="Linhas no BP que não estão no ficheiro (potencialmente órfãs)." rows={data.extraInBp}
+        render={(r: any) => <>{r.description} · {fmt(r.amount)}{r.hasTransaction ? " · com TX ligada" : ""}</>} />
+
+      <CompareSection title={`Valores diferentes (${s.valueMismatches})`} hint="Mesma descrição (ou similar), valor diferente." rows={data.valueMismatches}
+        render={(r: any) => <>L{r.rowNumber} · {r.description}{r.bpDescription && r.bpDescription !== r.description ? ` ↔ "${r.bpDescription}"` : ""} · ficheiro {fmt(r.fileAmount)} vs BP {fmt(r.bpAmount)} · Δ {fmt(r.delta)}{r.fuzzyScore ? ` · ${Math.round(r.fuzzyScore * 100)}%` : ""}</>} />
+
+      <div className="border-t border-border/40 pt-3">
+        <p className="font-semibold text-sm mb-2">Patrocínios (Pipe)</p>
+        <div className="grid grid-cols-3 gap-2 mb-2">
+          <Card label="Faltam no Pipe" value={String(s.sponsors.missing)} />
+          <Card label="A mais no Pipe" value={String(s.sponsors.extra)} tone="muted" />
+          <Card label="Valores diferentes" value={String(s.sponsors.mismatch)} />
+        </div>
+        <CompareSection title="Faltam" hint="" rows={data.sponsorMissing}
+          render={(r: any) => <>{r.name} · conf {fmt(r.confirmed)} · pipe {fmt(r.pipe)} · prop {fmt(r.proposal)}</>} />
+        <CompareSection title="A mais (no sistema)" hint="" rows={data.sponsorExtra}
+          render={(r: any) => <>{r.name} · {r.stage} · conf {fmt(r.confirmed)} · prop {fmt(r.proposed)}</>} />
+        <CompareSection title="Valores diferentes" hint="" rows={data.sponsorMismatch}
+          render={(r: any) => <>{r.name} · ficheiro conf {fmt(r.file.confirmed)} / pipe {fmt(r.file.pipe)} / prop {fmt(r.file.proposal)} · BP conf {fmt(r.db.confirmed)} / prop {fmt(r.db.proposed)}</>} />
+      </div>
+    </div>
+  );
+}
+
+function CompareSection({ title, hint, rows, render }: { title: string; hint: string; rows: any[]; render: (r: any) => React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const count = rows?.length ?? 0;
+  return (
+    <div className="rounded border border-border/40 p-2 mb-2">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="text-left w-full flex justify-between items-center hover:text-primary">
+        <span className="font-semibold">{title}</span>
+        {count > 0 ? <span className="text-[10px] text-muted-foreground">{open ? "ocultar" : "ver"}</span> : null}
+      </button>
+      {hint ? <p className="text-[10px] text-muted-foreground">{hint}</p> : null}
+      {open && count > 0 ? (
+        <ul className="mt-2 space-y-0.5 max-h-64 overflow-y-auto pl-2 border-l border-border/30">
+          {rows.map((r, i) => <li key={i} className="font-mono text-[11px]">{render(r)}</li>)}
+        </ul>
+      ) : null}
+    </div>
   );
 }
 
