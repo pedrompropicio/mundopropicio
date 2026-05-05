@@ -359,6 +359,33 @@ export default function EventSimulator() {
   const [localCfg, setLocalCfg] = useState<DbConfig | null>(null);
   const [localSessions, setLocalSessions] = useState<DbInput[]>([]);
   const [localCosts, setLocalCosts] = useState<DbCostLine[]>([]);
+  const overheadsKey = `sim-include-overheads:${eventId ?? ""}`;
+  const [includeOverheads, setIncludeOverheads] = useState<boolean>(() => {
+    if (typeof window === "undefined" || !eventId) return true;
+    const v = window.localStorage.getItem(overheadsKey);
+    return v === null ? true : v === "1";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined" && eventId) {
+      window.localStorage.setItem(overheadsKey, includeOverheads ? "1" : "0");
+    }
+  }, [includeOverheads, eventId, overheadsKey]);
+
+  // Códigos das categorias indexados por id (para filtro de Grupo 10)
+  const codeById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of l3Categories) m.set(c.id, c.code);
+    return m;
+  }, [l3Categories]);
+  const isOverhead = (catId: string | null) => {
+    if (!catId) return false;
+    const code = codeById.get(catId) ?? "";
+    return code.startsWith("10.");
+  };
+  const visibleCosts = useMemo(
+    () => localCosts.filter((c) => includeOverheads || !isOverhead(c.category_id)),
+    [localCosts, includeOverheads, codeById],
+  );
 
   useEffect(() => { if (cfg) setLocalCfg(cfg); }, [cfg]);
   useEffect(() => { setLocalSessions(sessions); }, [sessions]);
