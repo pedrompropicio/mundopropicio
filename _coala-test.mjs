@@ -18,8 +18,11 @@ const headers = [
   "Nome Empresa","Nº Fatura","Pago Via BR/PT"
 ];
 
-// Row 0 = totals (we leave nulls so validation passes; parser only checks if present)
+// Row 0 = totals — preencher para não ser descartada como blank
 const totalsRow = new Array(headers.length).fill(null);
+totalsRow[0] = "TOTAIS"; // marca não-null
+// Indexes: Valor Total s/ IVA=4, IVA=5, Valor Pago s/ IVA=7, Valor IVA=8, Total=9
+totalsRow[4] = 8300; totalsRow[5] = 1728; totalsRow[7] = 4400; totalsRow[8] = 894; totalsRow[9] = 5294;
 
 // Test rows — cobrir todos os casos
 const rows = [
