@@ -770,9 +770,9 @@ export type IvaRow = {
 
 export function computeIvaTable(sessions: CoalaSession[]): IvaRow[] {
   const rows = sessions.map((s) => {
-    const gross = sessionTodayRevenue(s); // base: real
+    const gross = n(s.real_sales_revenue); // bruto original da bilheteira
     const ivaPct = n(s.iva_pct, 6);
-    const iva = gross - gross / (1 + ivaPct / 100);
+    const iva = ivaPct > 0 ? gross - gross / (1 + ivaPct / 100) : 0;
     const net = gross - iva;
     return { label: `Dia ${String(s.day_index + 1).padStart(2, "0")} — ${s.zone_label}`, gross, iva, net, share: 0 };
   });
