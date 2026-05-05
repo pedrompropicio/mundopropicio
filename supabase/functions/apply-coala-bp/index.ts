@@ -213,15 +213,46 @@ Deno.serve(async (req) => {
       const matchedFileKeys = new Set<string>();
       const matchedBpIds = new Set<string>();
 
+      // PASSO 1: match agregado por baseDesc — junta "X parcela 01"+"X parcela 02"
+      // numa só comparação contra "X" (€40k) do BP. Cobre o caso "Lulu Santos".
+      const aggregatedFileKeys = new Set<string>();
+      for (const [bk, agg] of fileByBase.entries()) {
+        const bpCandidates = bpByBase.get(bk) ?? [];
+        if (bpCandidates.length === 0) continue;
+        // só vale a pena tratar como "agregado" quando há múltiplas linhas em algum lado
+        if (agg.rows.length < 2 && bpCandidates.length < 2) continue;
+        const bpTotal = bpCandidates.reduce((a, f) => a + (Number(f.amount) || 0), 0);
+        const delta = +(agg.total - bpTotal).toFixed(2);
+        aggregatedFileKeys.add(bk);
+        for (const r of agg.rows) matchedFileKeys.add(`${normTxt(r.description)}|${moneyKey(r.netAmount)}`);
+        for (const f of bpCandidates) matchedBpIds.add(f.id);
+        if (Math.abs(delta) > 0.01) {
+          valueMismatches.push({
+            description: agg.desc,
+            bpDescription: bpCandidates.map((f) => f.description).join(" + "),
+            fileAmount: +agg.total.toFixed(2),
+            bpAmount: +bpTotal.toFixed(2),
+            delta,
+            rowNumber: agg.rows[0].rowNumber,
+            bpId: bpCandidates[0].id,
+            aggregated: true,
+            fileLines: agg.rows.length,
+            bpLines: bpCandidates.length,
+          });
+        }
+      }
+
+      // PASSO 2: linhas que sobraram (sem match agregado)
       for (const r of fileRows) {
         const k = `${normTxt(r.description)}|${moneyKey(r.netAmount)}`;
+        if (matchedFileKeys.has(k)) continue;
+        if (aggregatedFileKeys.has(baseDesc(r.description))) continue;
         if (bpByKey.has(k)) {
           matchedFileKeys.add(k);
           matchedBpIds.add(bpByKey.get(k).id);
           continue;
         }
-        // try same description, different value
-        const sameDesc = bpByDesc.get(normTxt(r.description)) ?? [];
+        const sameDesc = (bpByDesc.get(normTxt(r.description)) ?? []).filter((f) => !matchedBpIds.has(f.id));
         if (sameDesc.length > 0) {
           const best = sameDesc[0];
           valueMismatches.push({
@@ -235,7 +266,6 @@ Deno.serve(async (req) => {
           matchedBpIds.add(best.id);
           continue;
         }
-        // try fuzzy by Dice ≥ 0.7 (any amount)
         let bestF: { f: any; score: number } | null = null;
         for (const f of bpRows) {
           if (matchedBpIds.has(f.id)) continue;
