@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="pt" class="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Simulador — Dashboard Financeiro v2 (Mockup)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; background: #0a0f1a; color: #e2e8f0; }
+  .mono { font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace; }
+  .glass { background: rgba(15,23,42,0.7); backdrop-filter: blur(12px); border: 1px solid rgba(148,163,184,0.08); }
+  .glass-blue { background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.18); }
+  .glass-amber { background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.18); }
+  .glass-emerald { background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.18); }
+  .glass-rose { background: rgba(244,63,94,0.06); border: 1px solid rgba(244,63,94,0.18); }
+  .pill-active-blue { background: rgba(59,130,246,0.18); color: #60a5fa; border: 1px solid rgba(59,130,246,0.4); }
+  .pill-amber { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
+  .pill-emerald { background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.25); }
+  .row-highlight { background: rgba(59,130,246,0.07); }
+  .sparkline { overflow: hidden; }
+  .bar-blue { background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%); border-radius: 3px 3px 0 0; }
+  .bar-emerald { background: linear-gradient(180deg, #10b981 0%, #059669 100%); border-radius: 3px 3px 0 0; }
+  .bar-rose { background: linear-gradient(180deg, #f43f5e 0%, #e11d48 100%); border-radius: 3px 3px 0 0; }
+  .bar-amber { background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%); border-radius: 3px 3px 0 0; }
+  .progress-track { background: rgba(148,163,184,0.1); border-radius: 99px; overflow: hidden; }
+  .progress-fill-blue { background: linear-gradient(90deg, #2563eb, #60a5fa); border-radius: 99px; }
+  .progress-fill-emerald { background: linear-gradient(90deg, #059669, #34d399); border-radius: 99px; }
+  .progress-fill-amber { background: linear-gradient(90deg, #d97706, #fbbf24); border-radius: 99px; }
+  .divider { border-color: rgba(148,163,184,0.1); }
+  .label-muted { color: #64748b; }
+  .label-sm { color: #94a3b8; }
+  .donut-ring { transform-origin: center; }
+  @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .live-dot { width:7px;height:7px;border-radius:50%;background:#10b981;animation:pulse-dot 2s infinite; display:inline-block; }
+  .section-label { color: #475569; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600; }
+  .tab-inactive { color: #64748b; cursor: pointer; transition: color 0.15s; }
+  .tab-inactive:hover { color: #94a3b8; }
+  td, th { padding: 8px 12px; }
+  .city-green { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); }
+  .city-blue { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); }
+  .city-amber { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); }
+  .city-rose { background: rgba(244,63,94,0.08); border: 1px solid rgba(244,63,94,0.2); }
+  .annotation { position: absolute; background: #1e293b; border: 1px solid rgba(99,102,241,0.5); color: #a5b4fc; font-size: 11px; padding: 4px 10px; border-radius: 6px; pointer-events: none; white-space: nowrap; }
+  .annotation::before { content:''; position:absolute; width:1px; background:rgba(99,102,241,0.5); }
+</style>
+</head>
+<body class="min-h-screen p-0">
+
+<!-- TOP BAR -->
+<div style="background:rgba(10,15,26,0.95); border-bottom:1px solid rgba(148,163,184,0.08); position:sticky; top:0; z-index:50; backdrop-filter:blur(16px);">
+  <div class="max-w-screen-2xl mx-auto px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="live-dot"></span>
+          <span class="text-white font-bold text-base tracking-tight">NOS Alive 2026</span>
+          <span style="background:rgba(99,102,241,0.18);color:#a5b4fc;border:1px solid rgba(99,102,241,0.3);font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;">TURNÊ</span>
+        </div>
+        <div class="label-muted" style="font-size:11px;">Simulador Financeiro · Actualizado hoje às 16:42</div>
+      </div>
+    </div>
+    <!-- Scenario Pills -->
+    <div class="flex items-center gap-2">
+      <div class="flex items-center gap-1 rounded-lg p-1" style="background:rgba(15,23,42,0.8);border:1px solid rgba(148,163,184,0.1);">
+        <button class="pill-active-blue text-xs font-semibold px-4 py-1.5 rounded-md">Real (hoje)</button>
+        <button class="tab-inactive text-xs px-4 py-1.5 rounded-md pill-amber">Break Even</button>
+        <button class="tab-inactive text-xs px-4 py-1.5 rounded-md pill-emerald">Forecast</button>
+      </div>
+      <button style="background:rgba(148,163,184,0.08);border:1px solid rgba(148,163,184,0.12);color:#64748b;padding:6px 10px;border-radius:8px;font-size:12px;display:flex;align-items:center;gap:6px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        PDF
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="max-w-screen-2xl mx-auto px-6 py-5 space-y-5">
+
+<!-- ═══════════════════════════════════════════════════════════
+     ZONA 1 — HERO STRIP
+════════════════════════════════════════════════════════════ -->
+<div>
+  <div class="section-label mb-3">Visão geral · cenário Real (hoje)</div>
+  <div class="grid grid-cols-5 gap-3">
+
+    <!-- Hero 1: Resultado -->
+    <div class="glass rounded-xl p-4 col-span-1 relative" style="background:rgba(244,63,94,0.05);border:1px solid rgba(244,63,94,0.15);">
+      <div class="label-muted" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;font-weight:600;">Resultado Geral</div>
+      <div class="mono font-bold mt-1" style="font-size:28px;color:#f87171;letter-spacing:-0.02em;">−€ 84.200</div>
+      <div class="flex items-center gap-1 mt-1">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+        <span style="font-size:11px;color:#f87171;font-weight:600;">−12.4% vs Forecast</span>
+      </div>
+      <div style="font-size:10px;color:#64748b;margin-top:2px;">Faltam € 84.200 para BE</div>
+    </div>
+
+    <!-- Hero 2: Receita -->
+    <div class="glass rounded-xl p-4 col-span-1">
+      <div class="label-muted" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;font-weight:600;">Receita Total</div>
+      <div class="mono font-bold mt-1" style="font-size:28px;color:#e2e8f0;letter-spacing:-0.02em;">€ 1.24M</div>
+      <div class="flex items-center gap-1 mt-1">
+        <span style="font-size:11px;color:#64748b;">78% do Forecast (</span>
+        <span style="font-size:11px;color:#60a5fa;font-weight:600;">€ 1.59M</span>
+        <span style="font-size:11px;color:#64748b;">)</span>
+      </div>
+      <div class="progress-track mt-2" style="height:3px;">
+        <div class="progress-fill-blue" style="height:3px;width:78%;"></div>
+      </div>
+    </div>
+
+    <!-- Hero 3: Custo -->
+    <div class="glass rounded-xl p-4 col-span-1">
+      <div class="label-muted" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;font-weight:600;">Custo Total</div>
+      <div class="mono font-bold mt-1" style="font-size:28px;color:#e2e8f0;letter-spacing:-0.02em;">€ 1.32M</div>
+      <div class="flex items-center gap-1 mt-1">
+        <span style="font-size:11px;color:#64748b;">Custo/pessoa:</span>
+        <span style="font-size:11px;color:#fbbf24;font-weight:600;">€ 87,40</span>
+      </div>
+      <div class="progress-track mt-2" style="height:3px;">
+        <div style="background:linear-gradient(90deg,#dc2626,#f87171);border-radius:99px;height:3px;width:83%;"></div>
+      </div>
+    </div>
+
+    <!-- Hero 4: Público -->
+    <div class="glass rounded-xl p-4 col-span-1">
+      <div class="label-muted" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;font-weight:600;">Público Total</div>
+      <div class="mono font-bold mt-1" style="font-size:28px;color:#e2e8f0;letter-spacing:-0.02em;">15.120</div>
+      <div class="flex items-center gap-1 mt-1">
+        <span style="font-size:11px;color:#64748b;">82% do alvo (</span>
+        <span style="font-size:11px;color:#34d399;font-weight:600;">18.400</span>
+        <span style="font-size:11px;color:#64748b;">)</span>
+      </div>
+      <div class="progress-track mt-2" style="height:3px;">
+        <div class="progress-fill-emerald" style="height:3px;width:82%;"></div>
+      </div>
+    </div>
+
+    <!-- Hero 5: Margem + TM -->
+    <div class="glass rounded-xl p-4 col-span-1">
+      <div class="label-muted" style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;font-weight:600;">Margem · TM Ingresso</div>
+      <div class="mono font-bold mt-1" style="font-size:28px;color:#f87171;letter-spacing:-0.02em;">−6.8%</div>
+      <div class="flex items-center gap-2 mt-1">
+        <span style="font-size:11px;color:#64748b;">TM:</span>
+        <span style="font-size:11px;color:#60a5fa;font-weight:600;">€ 52,30</span>
+        <span style="font-size:11px;color:#64748b;">A&B/pp:</span>
+        <span style="font-size:11px;color:#60a5fa;font-weight:600;">€ 14,80</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ZONA 2 — STATUS BAR
+════════════════════════════════════════════════════════════ -->
+<div class="glass rounded-xl px-5 py-3 flex items-center gap-8" style="border:1px solid rgba(148,163,184,0.07);">
+  <div class="section-label" style="flex-shrink:0;">Estado actual</div>
+  <div class="flex items-center gap-2">
+    <div style="width:8px;height:8px;border-radius:50%;background:#f43f5e;"></div>
+    <span style="font-size:12px;font-weight:600;color:#f87171;">Break Even não atingido</span>
+    <span style="font-size:11px;color:#64748b;">· Faltam 3.280 bilhetes ou € 171.600 de receita</span>
+  </div>
+  <div style="width:1px;height:20px;background:rgba(148,163,184,0.1);"></div>
+  <div class="flex items-center gap-2">
+    <div style="width:8px;height:8px;border-radius:50%;background:#f43f5e;"></div>
+    <span style="font-size:12px;font-weight:600;color:#f87171;">Margem negativa</span>
+    <span style="font-size:11px;color:#64748b;">· Resultado geral: −€ 84.200</span>
+  </div>
+  <div style="width:1px;height:20px;background:rgba(148,163,184,0.1);"></div>
+  <div class="flex items-center gap-2">
+    <div style="width:8px;height:8px;border-radius:50%;background:#fbbf24;"></div>
+    <span style="font-size:12px;font-weight:600;color:#fbbf24;">Forecast: 82% atingido</span>
+    <span style="font-size:11px;color:#64748b;">· Faltam 3.280 pessoas para o alvo</span>
+  </div>
+  <div style="width:1px;height:20px;background:rgba(148,163,184,0.1);"></div>
+  <div class="flex items-center gap-2">
+    <div style="width:8px;height:8px;border-radius:50%;background:#10b981;"></div>
+    <span style="font-size:12px;font-weight:600;color:#34d399;">A&B activo</span>
+    <span style="font-size:11px;color:#64748b;">· Margem A&B: +€ 28.400</span>
+  </div>
+</div>
+<!-- ═══════════════════════════════════════════════════════════
+     ZONA 3 — FINANCIAL TABLE + KPI STACK
+════════════════════════════════════════════════════════════ -->
+<div class="grid gap-4" style="grid-template-columns:2fr 1fr;">
+
+  <!-- Financial Table -->
+  <div class="glass rounded-xl overflow-hidden" style="border:1px solid rgba(148,163,184,0.08);">
+    <div class="px-5 py-3 flex items-center justify-between" style="border-bottom:1px solid rgba(148,163,184,0.08);">
+      <div class="section-label">Demonstração financeira comparativa</div>
+      <div class="flex items-center gap-3" style="font-size:11px;color:#475569;">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(59,130,246,0.25);margin-right:3px;"></span>Real
+        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(245,158,11,0.25);margin-right:3px;"></span>Break Even
+        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(16,185,129,0.25);margin-right:3px;"></span>Forecast
+      </div>
+    </div>
+    <table class="w-full text-sm" style="border-collapse:collapse;">
+      <thead>
+        <tr style="border-bottom:1px solid rgba(148,163,184,0.08);">
+          <th class="text-left label-muted" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;padding:8px 14px;font-weight:500;width:34%;">Linha</th>
+          <th class="text-right row-highlight" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;padding:8px 14px;font-weight:700;color:#60a5fa;">Real</th>
+          <th class="text-right" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;padding:8px 14px;font-weight:500;color:#64748b;">Break Even</th>
+          <th class="text-right" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;padding:8px 14px;font-weight:500;color:#64748b;">Forecast</th>
+          <th class="text-right" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;padding:8px 14px;font-weight:500;color:#64748b;">Δ Real→FC</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- RECEITAS header -->
+        <tr style="border-bottom:1px solid rgba(148,163,184,0.05);">
+          <td colspan="5" style="padding:6px 14px 3px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#3b82f6;font-weight:700;">Receitas</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(148,163,184,0.04);">
+          <td style="color:#94a3b8;padding:7px 14px 7px 24px;font-size:13px;">Bilheteira</td>
+          <td class="text-right mono row-highlight" style="color:#e2e8f0;font-size:13px;font-weight:500;padding:7px 14px;">€ 789.600</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 962.400</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 1.156.000</td>
+          <td class="text-right mono" style="color:#34d399;font-size:12px;padding:7px 14px;">+€ 366k</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(148,163,184,0.04);">
+          <td style="color:#94a3b8;padding:7px 14px 7px 24px;font-size:13px;">Patrocínios</td>
+          <td class="text-right mono row-highlight" style="color:#e2e8f0;font-size:13px;font-weight:500;padding:7px 14px;">€ 285.000</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 285.000</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 295.000</td>
+          <td class="text-right mono" style="color:#34d399;font-size:12px;padding:7px 14px;">+€ 10k</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(148,163,184,0.04);">
+          <td style="color:#94a3b8;padding:7px 14px 7px 24px;font-size:13px;">A&amp;B (repasse)</td>
+          <td class="text-right mono row-highlight" style="color:#e2e8f0;font-size:13px;font-weight:500;padding:7px 14px;">€ 108.400</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 132.100</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 158.700</td>
+          <td class="text-right mono" style="color:#34d399;font-size:12px;padding:7px 14px;">+€ 50k</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(148,163,184,0.04);">
+          <td style="color:#94a3b8;padding:7px 14px 7px 24px;font-size:13px;">Souvenir / Outros</td>
+          <td class="text-right mono row-highlight" style="color:#e2e8f0;font-size:13px;font-weight:500;padding:7px 14px;">€ 57.200</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 69.700</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 83.700</td>
+          <td class="text-right mono" style="color:#34d399;font-size:12px;padding:7px 14px;">+€ 26k</td>
+        </tr>
+        <!-- RECEITA TOTAL -->
+        <tr style="border-bottom:1px solid rgba(148,163,184,0.1);border-top:1px solid rgba(148,163,184,0.08);">
+          <td style="color:#e2e8f0;font-weight:700;padding:9px 14px;font-size:13px;">RECEITA TOTAL</td>
+          <td class="text-right mono row-highlight" style="color:#60a5fa;font-size:13px;font-weight:700;padding:9px 14px;">€ 1.240.200</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;font-weight:600;padding:9px 14px;">€ 1.449.200</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;font-weight:600;padding:9px 14px;">€ 1.693.400</td>
+          <td class="text-right mono" style="color:#34d399;font-size:12px;font-weight:600;padding:9px 14px;">+36.5%</td>
+        </tr>
+        <!-- CUSTOS header -->
+        <tr style="border-bottom:1px solid rgba(148,163,184,0.05);">
+          <td colspan="5" style="padding:10px 14px 3px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#f87171;font-weight:700;">Custos</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(148,163,184,0.04);">
+          <td style="color:#94a3b8;padding:7px 14px 7px 24px;font-size:13px;">Cachê artístico</td>
+          <td class="text-right mono row-highlight" style="color:#e2e8f0;font-size:13px;font-weight:500;padding:7px 14px;">€ 640.000</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 640.000</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 640.000</td>
+          <td class="text-right mono" style="color:#64748b;font-size:12px;padding:7px 14px;">—</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(148,163,184,0.04);">
+          <td style="color:#94a3b8;padding:7px 14px 7px 24px;font-size:13px;">Produção / Infra</td>
+          <td class="text-right mono row-highlight" style="color:#e2e8f0;font-size:13px;font-weight:500;padding:7px 14px;">€ 380.000</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 380.000</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 380.000</td>
+          <td class="text-right mono" style="color:#64748b;font-size:12px;padding:7px 14px;">—</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(148,163,184,0.04);">
+          <td style="color:#94a3b8;padding:7px 14px 7px 24px;font-size:13px;">Staff / Segurança</td>
+          <td class="text-right mono row-highlight" style="color:#e2e8f0;font-size:13px;font-weight:500;padding:7px 14px;">€ 164.000</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 164.000</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 164.000</td>
+          <td class="text-right mono" style="color:#64748b;font-size:12px;padding:7px 14px;">—</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(148,163,184,0.04);">
+          <td style="color:#94a3b8;padding:7px 14px 7px 24px;font-size:13px;">Marketing</td>
+          <td class="text-right mono row-highlight" style="color:#e2e8f0;font-size:13px;font-weight:500;padding:7px 14px;">€ 82.400</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 82.400</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 82.400</td>
+          <td class="text-right mono" style="color:#64748b;font-size:12px;padding:7px 14px;">—</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(148,163,184,0.04);">
+          <td style="color:#94a3b8;padding:7px 14px 7px 24px;font-size:13px;">Outros / Admin</td>
+          <td class="text-right mono row-highlight" style="color:#e2e8f0;font-size:13px;font-weight:500;padding:7px 14px;">€ 58.000</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 58.000</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 58.000</td>
+          <td class="text-right mono" style="color:#64748b;font-size:12px;padding:7px 14px;">—</td>
+        </tr>
+        <!-- CUSTO TOTAL -->
+        <tr style="border-bottom:1px solid rgba(148,163,184,0.1);border-top:1px solid rgba(148,163,184,0.08);">
+          <td style="color:#e2e8f0;font-weight:700;padding:9px 14px;font-size:13px;">CUSTO TOTAL</td>
+          <td class="text-right mono row-highlight" style="color:#f87171;font-size:13px;font-weight:700;padding:9px 14px;">€ 1.324.400</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;font-weight:600;padding:9px 14px;">€ 1.324.400</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;font-weight:600;padding:9px 14px;">€ 1.324.400</td>
+          <td class="text-right mono" style="color:#64748b;font-size:12px;font-weight:600;padding:9px 14px;">—</td>
+        </tr>
+        <!-- RESULTADO -->
+        <tr style="background:rgba(244,63,94,0.04);border-top:2px solid rgba(244,63,94,0.2);">
+          <td style="color:#e2e8f0;font-weight:800;padding:11px 14px;font-size:14px;letter-spacing:-0.01em;">RESULTADO</td>
+          <td class="text-right mono row-highlight" style="color:#f43f5e;font-size:16px;font-weight:800;padding:11px 14px;">−€ 84.200</td>
+          <td class="text-right mono" style="color:#fbbf24;font-size:14px;font-weight:700;padding:11px 14px;">+€ 124.800</td>
+          <td class="text-right mono" style="color:#34d399;font-size:14px;font-weight:700;padding:11px 14px;">+€ 369.000</td>
+          <td class="text-right mono" style="color:#34d399;font-size:13px;font-weight:700;padding:11px 14px;">+€ 453k</td>
+        </tr>
+        <!-- KPIs por pessoa -->
+        <tr style="border-bottom:1px solid rgba(148,163,184,0.05);">
+          <td colspan="5" style="padding:10px 14px 3px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#8b5cf6;font-weight:700;">Indicadores por pessoa</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(148,163,184,0.04);">
+          <td style="color:#94a3b8;padding:7px 14px 7px 24px;font-size:13px;">TM Ingresso</td>
+          <td class="text-right mono row-highlight" style="color:#e2e8f0;font-size:13px;font-weight:500;padding:7px 14px;">€ 52,30</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 52,30</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 52,30</td>
+          <td class="text-right mono" style="color:#64748b;font-size:12px;padding:7px 14px;">—</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(148,163,184,0.04);">
+          <td style="color:#94a3b8;padding:7px 14px 7px 24px;font-size:13px;">TM A&amp;B</td>
+          <td class="text-right mono row-highlight" style="color:#e2e8f0;font-size:13px;font-weight:500;padding:7px 14px;">€ 14,80</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 15,10</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 15,40</td>
+          <td class="text-right mono" style="color:#34d399;font-size:12px;padding:7px 14px;">+4.1%</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(148,163,184,0.04);">
+          <td style="color:#94a3b8;padding:7px 14px 7px 24px;font-size:13px;">Custo / pessoa</td>
+          <td class="text-right mono row-highlight" style="color:#e2e8f0;font-size:13px;font-weight:500;padding:7px 14px;">€ 87,40</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 72,00</td>
+          <td class="text-right mono" style="color:#64748b;font-size:13px;padding:7px 14px;">€ 72,00</td>
+          <td class="text-right mono" style="color:#34d399;font-size:12px;padding:7px 14px;">−17.6%</td>
+        </tr>
+        <tr>
+          <td style="color:#94a3b8;padding:7px 14px 7px 24px;font-size:13px;">Resultado / pessoa</td>
+          <td class="text-right mono row-highlight" style="color:#f87171;font-size:13px;font-weight:600;padding:7px 14px;">−€ 5,60</td>
+          <td class="text-right mono" style="color:#fbbf24;font-size:13px;font-weight:600;padding:7px 14px;">+€ 6,80</td>
+          <td class="text-right mono" style="color:#34d399;font-size:13px;font-weight:600;padding:7px 14px;">+€ 20,05</td>
+          <td class="text-right mono" style="color:#34d399;font-size:12px;padding:7px 14px;">+€ 25,65</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- KPI Stack direita -->
+  <div class="flex flex-col gap-3">
+
+    <!-- Público Progress -->
+    <div class="glass rounded-xl p-4" style="border:1px solid rgba(148,163,184,0.08);">
+      <div class="section-label mb-3">Público</div>
+      <div class="mono font-bold" style="font-size:26px;color:#e2e8f0;">15.120</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:8px;">presenças hoje (Real)</div>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;display:flex;justify-content:space-between;">
+        <span>Real</span><span class="mono" style="color:#60a5fa;">15.120</span>
+      </div>
+      <div class="progress-track mb-2" style="height:6px;">
+        <div class="progress-fill-blue" style="height:6px;width:82%;"></div>
+      </div>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;display:flex;justify-content:space-between;">
+        <span>Break Even</span><span class="mono" style="color:#fbbf24;">18.400</span>
+      </div>
+      <div class="progress-track mb-2" style="height:6px;">
+        <div class="progress-fill-amber" style="height:6px;width:100%;"></div>
+      </div>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;display:flex;justify-content:space-between;">
+        <span>Forecast</span><span class="mono" style="color:#34d399;">18.400</span>
+      </div>
+      <div class="progress-track" style="height:6px;">
+        <div class="progress-fill-emerald" style="height:6px;width:100%;"></div>
+      </div>
+      <div class="mt-3 pt-3" style="border-top:1px solid rgba(148,163,184,0.08);font-size:11px;color:#64748b;">
+        Faltam <span style="color:#fbbf24;font-weight:600;">3.280</span> pessoas para BE
+      </div>
+    </div>
+
+    <!-- Break Even Card -->
+    <div class="rounded-xl p-4 glass-rose">
+      <div class="section-label mb-2" style="color:#f87171;">Break Even</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:10px;height:10px;border-radius:50%;background:#f43f5e;flex-shrink:0;"></div>
+        <span style="font-size:12px;font-weight:700;color:#f87171;">Não atingido</span>
+      </div>
+      <div class="mono font-bold mt-2" style="font-size:22px;color:#f87171;">3.280</div>
+      <div style="font-size:11px;color:#64748b;">bilhetes em falta (com A&amp;B)</div>
+      <div class="mono font-bold mt-1" style="font-size:18px;color:#fbbf24;">3.740</div>
+      <div style="font-size:11px;color:#64748b;">bilhetes sem A&amp;B (pior caso)</div>
+      <div class="progress-track mt-3" style="height:5px;">
+        <div style="background:linear-gradient(90deg,#be123c,#f43f5e);border-radius:99px;height:5px;width:82%;"></div>
+      </div>
+      <div style="font-size:10px;color:#64748b;margin-top:4px;">82% do caminho para BE</div>
+    </div>
+
+    <!-- A&B Card -->
+    <div class="glass rounded-xl p-4 glass-emerald">
+      <div class="section-label mb-2" style="color:#34d399;">Módulo A&amp;B</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div>
+          <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;">Faturação</div>
+          <div class="mono font-bold" style="font-size:16px;color:#e2e8f0;">€ 722k</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;">Receita Casa</div>
+          <div class="mono font-bold" style="font-size:16px;color:#34d399;">€ 108k</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;">Resultado</div>
+          <div class="mono font-bold" style="font-size:16px;color:#34d399;">+€ 28.4k</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;">Margem A&amp;B</div>
+          <div class="mono font-bold" style="font-size:16px;color:#34d399;">15.0%</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<!-- ═══════════════════════════════════════════════════════════
+     ZONA 4 — GRÁFICOS
+════════════════════════════════════════════════════════════ -->
+<div class="grid grid-cols-3 gap-4">
+
+  <!-- Donut Mix Receitas -->
+  <div class="glass rounded-xl p-5" style="border:1px solid rgba(148,163,184,0.08);">
+    <div class="section-label mb-4">Mix de Receitas · Real</div>
+    <div style="display:flex;align-items:center;gap:20px;">
+      <!-- SVG Donut -->
+      <svg width="120" height="120" viewBox="0 0 120 120" style="flex-shrink:0;">
+        <!-- Bilheteira 64% -->
+        <circle cx="60" cy="60" r="46" fill="none" stroke="#3b82f6" stroke-width="18"
+          stroke-dasharray="184.8 288" stroke-dashoffset="72" opacity="0.9"/>
+        <!-- Patrocínios 23% -->
+        <circle cx="60" cy="60" r="46" fill="none" stroke="#10b981" stroke-width="18"
+          stroke-dasharray="66.2 288" stroke-dashoffset="-112.8" opacity="0.9"/>
+        <!-- A&B 9% -->
+        <circle cx="60" cy="60" r="46" fill="none" stroke="#f59e0b" stroke-width="18"
+          stroke-dasharray="25.9 288" stroke-dashoffset="-179" opacity="0.9"/>
+        <!-- Outros 4% -->
+        <circle cx="60" cy="60" r="46" fill="none" stroke="#a855f7" stroke-width="18"
+          stroke-dasharray="11.5 288" stroke-dashoffset="-204.9" opacity="0.9"/>
+        <text x="60" y="56" text-anchor="middle" fill="#e2e8f0" font-size="14" font-weight="800" font-family="monospace">€1.24M</text>
+        <text x="60" y="72" text-anchor="middle" fill="#64748b" font-size="9">total</text>
+      </svg>
+      <!-- Legenda -->
+      <div style="flex:1;font-size:12px;display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:6px;"><div style="width:10px;height:10px;border-radius:2px;background:#3b82f6;flex-shrink:0;"></div><span style="color:#94a3b8;">Bilheteira</span></div>
+          <span class="mono" style="color:#e2e8f0;font-weight:600;">64%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:6px;"><div style="width:10px;height:10px;border-radius:2px;background:#10b981;flex-shrink:0;"></div><span style="color:#94a3b8;">Patrocínios</span></div>
+          <span class="mono" style="color:#e2e8f0;font-weight:600;">23%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:6px;"><div style="width:10px;height:10px;border-radius:2px;background:#f59e0b;flex-shrink:0;"></div><span style="color:#94a3b8;">A&amp;B</span></div>
+          <span class="mono" style="color:#e2e8f0;font-weight:600;">9%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:6px;"><div style="width:10px;height:10px;border-radius:2px;background:#a855f7;flex-shrink:0;"></div><span style="color:#94a3b8;">Outros</span></div>
+          <span class="mono" style="color:#e2e8f0;font-weight:600;">4%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custos por categoria (horizontal bars) -->
+  <div class="glass rounded-xl p-5" style="border:1px solid rgba(148,163,184,0.08);">
+    <div class="section-label mb-4">Custos — Top categorias</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <!-- Cachê -->
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-bottom:3px;">
+          <span>Cachê artístico</span>
+          <span class="mono" style="color:#e2e8f0;">€ 640k</span>
+        </div>
+        <div style="display:flex;gap:2px;height:6px;border-radius:3px;overflow:hidden;">
+          <div style="flex:640;background:#3b82f6;opacity:0.9;border-radius:3px 0 0 3px;"></div>
+          <div style="flex:640;background:#f59e0b;opacity:0.7;"></div>
+          <div style="flex:640;background:#10b981;opacity:0.7;border-radius:0 3px 3px 0;"></div>
+        </div>
+      </div>
+      <!-- Produção -->
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-bottom:3px;">
+          <span>Produção / Infra</span>
+          <span class="mono" style="color:#e2e8f0;">€ 380k</span>
+        </div>
+        <div style="display:flex;gap:2px;height:6px;border-radius:3px;overflow:hidden;">
+          <div style="flex:380;background:#3b82f6;opacity:0.9;border-radius:3px 0 0 3px;"></div>
+          <div style="flex:380;background:#f59e0b;opacity:0.7;"></div>
+          <div style="flex:380;background:#10b981;opacity:0.7;border-radius:0 3px 3px 0;"></div>
+        </div>
+      </div>
+      <!-- Staff -->
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-bottom:3px;">
+          <span>Staff / Segurança</span>
+          <span class="mono" style="color:#e2e8f0;">€ 164k</span>
+        </div>
+        <div style="display:flex;gap:2px;height:6px;border-radius:3px;overflow:hidden;">
+          <div style="flex:164;background:#3b82f6;opacity:0.9;border-radius:3px 0 0 3px;"></div>
+          <div style="flex:164;background:#f59e0b;opacity:0.7;"></div>
+          <div style="flex:164;background:#10b981;opacity:0.7;border-radius:0 3px 3px 0;"></div>
+        </div>
+      </div>
+      <!-- Marketing -->
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-bottom:3px;">
+          <span>Marketing</span>
+          <span class="mono" style="color:#e2e8f0;">€ 82k</span>
+        </div>
+        <div style="display:flex;gap:2px;height:6px;border-radius:3px;overflow:hidden;">
+          <div style="flex:82;background:#3b82f6;opacity:0.9;border-radius:3px 0 0 3px;"></div>
+          <div style="flex:82;background:#f59e0b;opacity:0.7;"></div>
+          <div style="flex:82;background:#10b981;opacity:0.7;border-radius:0 3px 3px 0;"></div>
+        </div>
+      </div>
+      <!-- Outros -->
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-bottom:3px;">
+          <span>Outros / Admin</span>
+          <span class="mono" style="color:#e2e8f0;">€ 58k</span>
+        </div>
+        <div style="display:flex;gap:2px;height:6px;border-radius:3px;overflow:hidden;">
+          <div style="flex:58;background:#3b82f6;opacity:0.9;border-radius:3px 0 0 3px;"></div>
+          <div style="flex:58;background:#f59e0b;opacity:0.7;"></div>
+          <div style="flex:58;background:#10b981;opacity:0.7;border-radius:0 3px 3px 0;"></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;font-size:10px;color:#64748b;margin-top:4px;">
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#3b82f6;margin-right:3px;"></span>Real</span>
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#f59e0b;margin-right:3px;"></span>BE</span>
+        <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#10b981;margin-right:3px;"></span>FC</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Público por dia -->
+  <div class="glass rounded-xl p-5" style="border:1px solid rgba(148,163,184,0.08);">
+    <div class="section-label mb-1">Público por dia</div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:12px;">Pagantes (azul) + Cortesias (roxo) · Capacidade: linha pontilhada</div>
+    <!-- Mini bar chart SVG -->
+    <svg width="100%" height="130" viewBox="0 0 300 130" style="overflow:visible;">
+      <!-- grid lines -->
+      <line x1="0" y1="104" x2="300" y2="104" stroke="rgba(148,163,184,0.08)" stroke-width="1"/>
+      <line x1="0" y1="78" x2="300" y2="78" stroke="rgba(148,163,184,0.06)" stroke-width="1"/>
+      <line x1="0" y1="52" x2="300" y2="52" stroke="rgba(148,163,184,0.06)" stroke-width="1"/>
+      <line x1="0" y1="26" x2="300" y2="26" stroke="rgba(148,163,184,0.06)" stroke-width="1"/>
+      <!-- capacity line -->
+      <line x1="0" y1="10" x2="300" y2="10" stroke="rgba(251,191,36,0.4)" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <text x="302" y="14" fill="#fbbf24" font-size="9" opacity="0.7">Cap.</text>
+      <!-- bars -->
+      <!-- Dia 1 -->
+      <rect x="5" y="50" width="28" height="54" fill="#3b82f6" opacity="0.8" rx="2"/>
+      <rect x="5" y="44" width="28" height="6" fill="#a855f7" opacity="0.8" rx="1"/>
+      <!-- Dia 2 -->
+      <rect x="42" y="38" width="28" height="66" fill="#3b82f6" opacity="0.8" rx="2"/>
+      <rect x="42" y="32" width="28" height="6" fill="#a855f7" opacity="0.8" rx="1"/>
+      <!-- Dia 3 -->
+      <rect x="79" y="20" width="28" height="84" fill="#3b82f6" opacity="0.8" rx="2"/>
+      <rect x="79" y="14" width="28" height="6" fill="#a855f7" opacity="0.8" rx="1"/>
+      <!-- Dia 4 -->
+      <rect x="116" y="60" width="28" height="44" fill="#3b82f6" opacity="0.8" rx="2"/>
+      <rect x="116" y="54" width="28" height="6" fill="#a855f7" opacity="0.8" rx="1"/>
+      <!-- Dia 5 (futuro - fade) -->
+      <rect x="153" y="35" width="28" height="69" fill="#3b82f6" opacity="0.3" rx="2"/>
+      <!-- Dia 6 (futuro) -->
+      <rect x="190" y="28" width="28" height="76" fill="#3b82f6" opacity="0.3" rx="2"/>
+      <!-- Dia 7 (futuro) -->
+      <rect x="227" y="20" width="28" height="84" fill="#3b82f6" opacity="0.3" rx="2"/>
+      <!-- Rótulos -->
+      <text x="19" y="120" text-anchor="middle" fill="#64748b" font-size="9">D1</text>
+      <text x="56" y="120" text-anchor="middle" fill="#64748b" font-size="9">D2</text>
+      <text x="93" y="120" text-anchor="middle" fill="#64748b" font-size="9">D3</text>
+      <text x="130" y="120" text-anchor="middle" fill="#64748b" font-size="9">D4</text>
+      <text x="167" y="120" text-anchor="middle" fill="#475569" font-size="9">D5</text>
+      <text x="204" y="120" text-anchor="middle" fill="#475569" font-size="9">D6</text>
+      <text x="241" y="120" text-anchor="middle" fill="#475569" font-size="9">D7</text>
+      <!-- ocupação -->
+      <text x="19" y="42" text-anchor="middle" fill="#64748b" font-size="8">73%</text>
+      <text x="56" y="30" text-anchor="middle" fill="#64748b" font-size="8">89%</text>
+      <text x="93" y="12" text-anchor="middle" fill="#fbbf24" font-size="8">97%</text>
+      <text x="130" y="52" text-anchor="middle" fill="#64748b" font-size="8">61%</text>
+    </svg>
+    <div style="display:flex;gap:12px;font-size:10px;color:#64748b;margin-top:4px;">
+      <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#3b82f6;margin-right:3px;"></span>Pagantes</span>
+      <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#a855f7;margin-right:3px;"></span>Cortesias</span>
+      <span><span style="display:inline-block;width:8px;height:3px;background:#fbbf24;margin-right:3px;border-radius:1px;"></span>Capacidade</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ZONA 5 — HEATMAP DE CIDADES (turnê)
+════════════════════════════════════════════════════════════ -->
+<div>
+  <div class="section-label mb-3">Comparativo entre cidades · Forecast</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+
+    <!-- Lisboa — boa margem -->
+    <div class="city-green rounded-xl p-4">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div style="font-size:13px;font-weight:700;color:#e2e8f0;">Lisboa</div>
+        <span style="background:rgba(16,185,129,0.2);color:#34d399;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;">+32.1%</span>
+      </div>
+      <div class="mono font-bold" style="font-size:22px;color:#34d399;">7.800</div>
+      <div style="font-size:10px;color:#64748b;margin-bottom:8px;">pessoas · forecast</div>
+      <div style="font-size:11px;display:flex;flex-direction:column;gap:3px;">
+        <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">Receita</span><span class="mono" style="color:#e2e8f0;">€ 681k</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">Custo</span><span class="mono" style="color:#e2e8f0;">€ 462k</span></div>
+        <div style="display:flex;justify-content:space-between;border-top:1px solid rgba(16,185,129,0.15);margin-top:2px;padding-top:3px;">
+          <span style="color:#94a3b8;font-weight:600;">Resultado</span><span class="mono" style="color:#34d399;font-weight:700;">+€ 219k</span>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#64748b;margin-top:8px;padding-top:6px;border-top:1px solid rgba(16,185,129,0.12);">BE: 5.420 pessoas</div>
+    </div>
+
+    <!-- Porto — margem média -->
+    <div class="city-blue rounded-xl p-4">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div style="font-size:13px;font-weight:700;color:#e2e8f0;">Porto</div>
+        <span style="background:rgba(59,130,246,0.2);color:#60a5fa;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;">+18.4%</span>
+      </div>
+      <div class="mono font-bold" style="font-size:22px;color:#60a5fa;">5.200</div>
+      <div style="font-size:10px;color:#64748b;margin-bottom:8px;">pessoas · forecast</div>
+      <div style="font-size:11px;display:flex;flex-direction:column;gap:3px;">
+        <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">Receita</span><span class="mono" style="color:#e2e8f0;">€ 454k</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">Custo</span><span class="mono" style="color:#e2e8f0;">€ 370k</span></div>
+        <div style="display:flex;justify-content:space-between;border-top:1px solid rgba(59,130,246,0.15);margin-top:2px;padding-top:3px;">
+          <span style="color:#94a3b8;font-weight:600;">Resultado</span><span class="mono" style="color:#60a5fa;font-weight:700;">+€ 84k</span>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#64748b;margin-top:8px;padding-top:6px;border-top:1px solid rgba(59,130,246,0.12);">BE: 4.100 pessoas</div>
+    </div>
+
+    <!-- Braga — margem baixa -->
+    <div class="city-amber rounded-xl p-4">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div style="font-size:13px;font-weight:700;color:#e2e8f0;">Braga</div>
+        <span style="background:rgba(245,158,11,0.2);color:#fbbf24;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;">+4.2%</span>
+      </div>
+      <div class="mono font-bold" style="font-size:22px;color:#fbbf24;">3.800</div>
+      <div style="font-size:10px;color:#64748b;margin-bottom:8px;">pessoas · forecast</div>
+      <div style="font-size:11px;display:flex;flex-direction:column;gap:3px;">
+        <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">Receita</span><span class="mono" style="color:#e2e8f0;">€ 332k</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">Custo</span><span class="mono" style="color:#e2e8f0;">€ 318k</span></div>
+        <div style="display:flex;justify-content:space-between;border-top:1px solid rgba(245,158,11,0.15);margin-top:2px;padding-top:3px;">
+          <span style="color:#94a3b8;font-weight:600;">Resultado</span><span class="mono" style="color:#fbbf24;font-weight:700;">+€ 14k</span>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#64748b;margin-top:8px;padding-top:6px;border-top:1px solid rgba(245,158,11,0.12);">BE: 3.650 pessoas</div>
+    </div>
+
+    <!-- Faro — resultado negativo -->
+    <div class="city-rose rounded-xl p-4">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div style="font-size:13px;font-weight:700;color:#e2e8f0;">Faro</div>
+        <span style="background:rgba(244,63,94,0.2);color:#f87171;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;">−8.7%</span>
+      </div>
+      <div class="mono font-bold" style="font-size:22px;color:#f87171;">1.600</div>
+      <div style="font-size:10px;color:#64748b;margin-bottom:8px;">pessoas · forecast</div>
+      <div style="font-size:11px;display:flex;flex-direction:column;gap:3px;">
+        <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">Receita</span><span class="mono" style="color:#e2e8f0;">€ 140k</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:#64748b;">Custo</span><span class="mono" style="color:#e2e8f0;">€ 152k</span></div>
+        <div style="display:flex;justify-content:space-between;border-top:1px solid rgba(244,63,94,0.15);margin-top:2px;padding-top:3px;">
+          <span style="color:#94a3b8;font-weight:600;">Resultado</span><span class="mono" style="color:#f87171;font-weight:700;">−€ 12k</span>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#64748b;margin-top:8px;padding-top:6px;border-top:1px solid rgba(244,63,94,0.12);">BE: 1.950 pessoas ← acima do forecast</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Legenda das anotações de design -->
+<div class="glass rounded-xl px-5 py-4" style="border:1px solid rgba(99,102,241,0.2);background:rgba(99,102,241,0.04);">
+  <div style="font-size:10px;color:#6366f1;text-transform:uppercase;letter-spacing:0.1em;font-weight:700;margin-bottom:8px;">Notas de design (apenas no mockup)</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:11px;color:#94a3b8;line-height:1.5;">
+    <div>🎨 <strong style="color:#a5b4fc;">Dark-glass theme</strong> — fundo #0a0f1a, cards com rgba(15,23,42,0.7) + backdrop-blur. Compatível com dark mode do sistema.</div>
+    <div>📊 <strong style="color:#a5b4fc;">FinancialTable</strong> — substitui 6 CompareCards por 1 tabela densa. Coluna activa com highlight bg-primary/10.</div>
+    <div>🏙️ <strong style="color:#a5b4fc;">CityHeatCard</strong> — fundo semântico por margem: verde ≥30%, azul 10-30%, âmbar 0-10%, vermelho &lt;0%.</div>
+    <div>🔢 <strong style="color:#a5b4fc;">KpiHero</strong> — valores em font-mono 28px, delta com seta colorida, barra de progresso 3px em baixo.</div>
+    <div>🍩 <strong style="color:#a5b4fc;">Donut Chart</strong> — Recharts innerRadius, legenda inline à direita (sem Legend externo), % dentro das fatias.</div>
+    <div>⬛ <strong style="color:#a5b4fc;">Props inalteradas</strong> — ExecutiveDashboard.tsx recebe os mesmos props. Zero impacto em EventSimulator e TourSimulator.</div>
+  </div>
+</div>
+
+</div><!-- end max-w container -->
+</body>
+</html>
