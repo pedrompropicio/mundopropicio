@@ -195,9 +195,11 @@ Deno.serve(async (req) => {
       createdForecastIds.push(fc.id);
 
       // Generate transactions for paid/partial. Pending lines → no TX (lives in BP).
+      // Edge case: status="partial" mas paidNet=0 → tratar como pending puro (sem TX).
       if (r.status === "pending") continue;
+      if (r.status === "partial" && r.paidNet <= 0) continue;
 
-      // Partial: 2 transactions
+      // Partial: 2 transactions (paid leg + pending balance leg)
       if (r.status === "partial" && r.paidNet > 0 && r.paidNet < r.netAmount) {
         const remainder = +(r.netAmount - r.paidNet).toFixed(2);
         const remainderIva = +(r.ivaAmount - r.paidIva).toFixed(2);
