@@ -335,9 +335,9 @@ export function parseCoalaXlsx(buffer: ArrayBuffer, fileVersion: string): ParseR
   if (pipeName) {
     const pws = wb.Sheets[pipeName];
     const pmx = XLSX.utils.sheet_to_json<any[]>(pws, { header: 1, defval: null, raw: true, blankrows: false });
-    // Layout: row 2 = header strip (col B status free, col C/D/E year buckets)
-    // Sponsor names start at row 4, col B (index 1)
-    for (let r = 3; r < pmx.length; r++) {
+    // Layout V13: row 0 = header (cols B status, C/D/E = Confirmados/Pipe/Propostas 2026)
+    // Sponsor names start at row 1, col B (index 1)
+    for (let r = 1; r < pmx.length; r++) {
       const row = pmx[r];
       if (!row) continue;
       const name = cleanString(row[1]);
