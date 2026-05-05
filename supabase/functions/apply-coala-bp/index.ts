@@ -100,6 +100,17 @@ Deno.serve(async (req) => {
       return m?.id ?? fallback.id;
     };
 
+    // Pre-load suppliers
+    const { data: existingSups } = await admin
+      .from("suppliers")
+      .select("id, name")
+      .eq("company_id", ev.company_id)
+      .eq("is_active", true);
+    const supByName = new Map<string, string>();
+    for (const s of (existingSups || [])) {
+      supByName.set(String(s.name).toUpperCase().trim(), s.id);
+    }
+
     const normTxt = (s: string | null) =>
       String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
     const moneyKey = (n: number) => Math.round(n * 100); // tolerância 0.005€
