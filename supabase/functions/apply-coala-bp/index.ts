@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
     // ── Dedupe pre-load (também precisamos para preview)
     const { data: existingFcs } = await admin
       .from("event_forecasts")
-      .select("id, category_id, description, amount, transaction_id")
+      .select("id, category_id, description, amount, transaction_id, type")
       .eq("event_id", eventId);
     const { data: existingTxs } = await admin
       .from("transactions")
