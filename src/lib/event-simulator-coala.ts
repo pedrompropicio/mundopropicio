@@ -43,6 +43,7 @@ export type CoalaConfig = {
   souvenir_cost: number;
   bonif_bebidas: number;
   ponto_vendido: number;
+  other_revenue: number;
   prior_year_tickets: number;
   prior_year_drink: number;
   prior_year_food: number;
