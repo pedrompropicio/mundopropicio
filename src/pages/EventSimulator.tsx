@@ -981,9 +981,9 @@ export default function EventSimulator() {
           <ExecutiveDashboard
             eventName={event?.name ?? ""}
             eventId={eventId}
-            today={todayV2} todayCosts={todayCosts} todayRes={todayRes} todayKpis={todayKpis}
-            breakeven={breakevenV2} beCosts={beCosts} beRes={beRes} beKpis={beKpis}
-            forecast={forecastV2} fcCosts={fcCosts} fcRes={fcRes} fcKpis={fcKpis}
+            today={todayAB} todayCosts={todayCosts} todayRes={todayRes} todayKpis={todayKpis}
+            breakeven={beAB} beCosts={beCosts} beRes={beRes} beKpis={beKpis}
+            forecast={fcAB} fcCosts={fcCosts} fcRes={fcRes} fcKpis={fcKpis}
             costLines={localCosts}
             dailyTotals={dailyTotals}
             ivaTable={ivaTable}
