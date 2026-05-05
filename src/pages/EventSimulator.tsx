@@ -453,6 +453,9 @@ export default function EventSimulator() {
   const syncFromSources = useMutation({
     mutationFn: async () => {
       if (!eventId) throw new Error("Sem evento");
+      if (isTourMaster) {
+        throw new Error("Sincronização ainda não suportada em eventos com Splits (turnê). Use o simulador apenas em eventos simples ou festivais.");
+      }
       return syncSimulatorFromSources(eventId);
     },
     onSuccess: (r) => {
