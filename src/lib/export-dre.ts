@@ -295,7 +295,7 @@ export function exportDREToExcel(
   ];
 
   if (brasilMode) {
-    summaryRows.push(["Evento", "Transações", "Receitas (€)", "Despesas C/IVA (€)", "Resultado (€)", "Resultado MP (€)"]);
+    summaryRows.push(["Evento", "Transações", "Receitas (€)", "Despesas (€)", "Resultado (€)", "Resultado MP (€)"]);
     eventRows.forEach((r) => summaryRows.push(r));
     summaryRows.push([]);
     summaryRows.push(["TOTAL", "", gIncEx, gExpInc, gIncEx - gExpInc]);
@@ -575,7 +575,7 @@ export function exportDREToPDF(
     doc.setFont("helvetica", "bold");
     doc.text("Split", sumColX[0] + 2, y + 5.5);
     doc.text("Receitas S/IVA", sumColX[1] + sumColWidths[1] - 2, y + 5.5, { align: "right" });
-    doc.text(brasilMode ? "Despesas C/IVA" : "Despesas S/IVA", sumColX[2] + sumColWidths[2] - 2, y + 5.5, { align: "right" });
+    doc.text(brasilMode ? "Despesas" : "Despesas S/IVA", sumColX[2] + sumColWidths[2] - 2, y + 5.5, { align: "right" });
     doc.text("Resultado", sumColX[3] + sumColWidths[3] - 2, y + 5.5, { align: "right" });
     doc.setTextColor(0, 0, 0);
     y += 10;
