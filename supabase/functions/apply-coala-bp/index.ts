@@ -358,8 +358,8 @@ Deno.serve(async (req) => {
       },
     });
   } catch (err) {
-    console.error("apply-coala-bp error:", err);
-    return json({ error: (err as Error).message }, 500);
+    console.error("apply-coala-bp error:", err, (err as Error)?.stack);
+    return json({ error: (err as Error).message, stack: (err as Error)?.stack }, 500);
   }
 });
 
