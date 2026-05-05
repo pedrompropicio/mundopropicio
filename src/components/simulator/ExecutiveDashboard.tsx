@@ -1,28 +1,30 @@
 /**
- * Executive Dashboard do Simulador — vista executiva em painel de controlo.
+ * Executive Dashboard do Simulador — v2 (dashboard financeiro denso).
  *
- * Layout: grid responsivo de cards independentes. Cada card mostra os 3
- * cenários (Real / Break Even / Forecast) lado-a-lado para comparação directa.
+ * Layout: Hero strip → Status bar → FinancialTable + KPI stack → Daily attendance
+ * → Gráficos (donut/bars com referência) → Heatmap de cidades (turnê).
  *
- * Não duplica inputs: consome os mesmos dados já calculados em EventSimulator
- * (rev/cost/res/kpis × 3 cenários) + o módulo A&B canónico.
- *
- * Export PDF: captura o nó DOM via exportNodeToPdf (html2canvas + jsPDF) em
- * formato A4 landscape.
+ * Não duplica inputs: consome os mesmos dados já calculados em EventSimulator.
+ * Props mantidas idênticas à v1 — callers não mudam.
  */
 import React, { useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, CartesianGrid, LineChart, Line,
+  PieChart, Pie, Cell, CartesianGrid, ReferenceLine,
 } from "recharts";
-import { FileText, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/mock-data";
 import { exportNodeToPdf } from "@/lib/event-simulator-view-pdf";
 import { toast } from "@/hooks/use-toast";
 import DailyAttendanceCard from "@/components/simulator/DailyAttendanceCard";
+import KpiHero from "@/components/simulator/KpiHero";
+import ScenarioPill from "@/components/simulator/ScenarioPill";
+import StatusBadge from "@/components/simulator/StatusBadge";
+import ProgressKpi from "@/components/simulator/ProgressKpi";
+import FinancialTable, { type FinancialRow } from "@/components/simulator/FinancialTable";
+import CityHeatCard from "@/components/simulator/CityHeatCard";
 
 const fmt = (v: number) => formatCurrency(Number.isFinite(v) ? v : 0);
 const fmtNum = (v: number) =>
@@ -38,11 +40,9 @@ const SCEN_LABELS: Record<ScenarioKey, string> = {
 
 interface Props {
   eventName: string;
-  // 3 cenários
   today: any; todayCosts: any; todayRes: any; todayKpis: any;
   breakeven: any; beCosts: any; beRes: any; beKpis: any;
   forecast: any; fcCosts: any; fcRes: any; fcKpis: any;
-  // raw data
   costLines: any[];
   dailyTotals: any[];
   ivaTable: any[];
@@ -50,11 +50,8 @@ interface Props {
   abModule: { hasConfig: boolean; totals: { real: any; breakeven: any; forecast: any } | null };
   beSolution?: { totalQty?: number; totalRevenue?: number };
   fcSolution?: { totalQty?: number; totalRevenue?: number };
-  /** ID do evento — para puxar público/dia canónico (Simples vs Combo expandido). */
   eventId?: string;
-  /** Capacidade total por dia (soma das zonas) — opcional, para mostrar ocupação. */
   dailyCapacity?: number;
-  /** Comparativo entre cidades (apenas para vista Master/Turnê). */
   tourBreakdowns?: Array<{
     name: string;
     publico: number;
@@ -66,102 +63,6 @@ interface Props {
     margem: number;
     breakEvenQty: number;
   }>;
-}
-
-/* Tone-aware number cell */
-function Money({ v, signed = false }: { v: number; signed?: boolean }) {
-  const ok = v >= 0;
-  return (
-    <span
-      className={`tabular-nums font-semibold ${signed ? (ok ? "text-emerald-500" : "text-rose-500") : ""}`}
-    >
-      {fmt(v)}
-    </span>
-  );
-}
-function Pct({ v }: { v: number }) {
-  const ok = v >= 0;
-  return (
-    <span className={`tabular-nums font-semibold ${ok ? "text-emerald-500" : "text-rose-500"}`}>
-      {fmtPct(v)}
-    </span>
-  );
-}
-
-/** Card de 3 colunas (Real / BE / Forecast) com linhas KPI. */
-function CompareCard({
-  title,
-  rows,
-  active,
-}: {
-  title: string;
-  active: ScenarioKey;
-  rows: { label: string; values: [React.ReactNode, React.ReactNode, React.ReactNode]; bold?: boolean }[];
-}) {
-  const activeIdx = (["real", "breakeven", "forecast"] as ScenarioKey[]).indexOf(active);
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-sm">{title}</CardTitle>
-          <Badge variant="outline" className="text-[10px] shrink-0 sm:hidden">
-            {SCEN_LABELS[active]}
-          </Badge>
-          <Badge variant="outline" className="text-[10px] shrink-0 hidden sm:inline-flex">
-            destaque: {SCEN_LABELS[active]}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        {/* Mobile: 2 colunas (label + cenário activo) */}
-        <div className="grid grid-cols-[1fr_auto] gap-x-2 text-xs sm:hidden">
-          {rows.map((r, i) => (
-            <React.Fragment key={i}>
-              <div className={`py-1 ${r.bold ? "font-semibold" : "text-muted-foreground"}`}>
-                {r.label}
-              </div>
-              <div className="py-1 text-right tabular-nums">
-                {r.values[activeIdx]}
-              </div>
-            </React.Fragment>
-          ))}
-        </div>
-        {/* Desktop: 4 colunas comparação */}
-        <div className="hidden sm:grid grid-cols-[1fr_repeat(3,minmax(0,1fr))] gap-x-2 text-xs">
-          <div />
-          {(["real", "breakeven", "forecast"] as ScenarioKey[]).map((k) => (
-            <div
-              key={k}
-              className={`text-right text-[10px] uppercase tracking-wide pb-1 ${
-                k === active ? "text-primary font-semibold" : "text-muted-foreground"
-              }`}
-            >
-              {SCEN_LABELS[k]}
-            </div>
-          ))}
-          {rows.map((r, i) => (
-            <React.Fragment key={i}>
-              <div className={`py-1 ${r.bold ? "font-semibold" : "text-muted-foreground"}`}>
-                {r.label}
-              </div>
-              {r.values.map((v, j) => (
-                <div
-                  key={j}
-                  className={`py-1 text-right ${
-                    (["real", "breakeven", "forecast"] as ScenarioKey[])[j] === active
-                      ? "bg-muted/40 rounded-sm px-1"
-                      : ""
-                  }`}
-                >
-                  {v}
-                </div>
-              ))}
-            </React.Fragment>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
 }
 
 export default function ExecutiveDashboard(props: Props) {
@@ -177,7 +78,7 @@ export default function ExecutiveDashboard(props: Props) {
   const [exporting, setExporting] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // -------- Selecção do trio activo (para tons / destaques) --------
+  // -------- Selecção do trio activo --------
   const sel = useMemo(() => {
     const map = {
       real: { rev: today, cost: todayCosts, res: todayRes, kpis: todayKpis },
@@ -187,48 +88,12 @@ export default function ExecutiveDashboard(props: Props) {
     return map[active];
   }, [active, today, todayCosts, todayRes, todayKpis, breakeven, beCosts, beRes, beKpis, forecast, fcCosts, fcRes, fcKpis]);
 
-  // -------- TM por zona (Pista/VIP com fallback às 2 primeiras) --------
-  const zoneTm = useMemo(() => {
-    const acc = new Map<string, { qty: number; rev: number }>();
-    for (const s of sessions ?? []) {
-      const k = (s.zone_label || "").trim();
-      if (!k) continue;
-      const cur = acc.get(k) ?? { qty: 0, rev: 0 };
-      cur.qty += Number(s.real_sales_qty || 0);
-      cur.rev += Number(s.real_sales_revenue || 0);
-      acc.set(k, cur);
-    }
-    const all = Array.from(acc.entries()).map(([name, v]) => ({
-      name,
-      tm: v.qty > 0 ? v.rev / v.qty : 0,
-      qty: v.qty,
-    }));
-    const findCi = (needle: string) =>
-      all.find((z) => z.name.toLowerCase().includes(needle));
-    const pista = findCi("pista") ?? all[0] ?? { name: "—", tm: 0, qty: 0 };
-    const vip =
-      findCi("vip") ?? all.find((z) => z.name !== pista.name) ?? { name: "—", tm: 0, qty: 0 };
-    return { pista, vip };
-  }, [sessions]);
-
-  const courtesyTotal = useMemo(
-    () => (sessions ?? []).reduce((a, s) => a + Number(s.courtesy_qty || 0), 0),
-    [sessions],
-  );
-  const realSalesTotal = useMemo(
-    () => (sessions ?? []).reduce((a, s) => a + Number(s.real_sales_qty || 0), 0),
-    [sessions],
-  );
-
-  // -------- Break-even faltam --------
+  // -------- Break-even / forecast targets --------
   const beTargetQty = Number(beSolution?.totalQty ?? beKpis?.totalPublic ?? 0);
   const fcTargetQty = Number(fcSolution?.totalQty ?? fcKpis?.totalPublic ?? 0);
   const needForBE = Math.max(0, Math.round(beTargetQty - todayKpis.totalPublic));
-  // BE "sem A&B": ignora a margem A&B → mais ingressos necessários (proxy: usa beRes − margemAB / TM)
   const abMarginReal =
     abModule.hasConfig && abModule.totals ? abModule.totals.real.resultadoTotal : 0;
-  const tmBilheteira = todayKpis.tmTickets || 0;
-  const needForBeNoAB = needForBE + (tmBilheteira > 0 ? Math.ceil(abMarginReal / tmBilheteira) : 0);
   const reachedBE = todayRes.general >= 0;
 
   // -------- Charts --------
@@ -244,9 +109,10 @@ export default function ExecutiveDashboard(props: Props) {
       ].filter((r) => r.value > 0),
     [sel.rev],
   );
+  const totalMix = revenueMixActive.reduce((a, r) => a + r.value, 0);
 
   const costsCompareChart = useMemo(() => {
-    const top = [...(costLines ?? [])]
+    return [...(costLines ?? [])]
       .filter((c: any) => !c.is_ab_passthrough)
       .map((c: any) => ({
         name: c.label || "—",
@@ -257,19 +123,92 @@ export default function ExecutiveDashboard(props: Props) {
       .filter((c) => c.Real + c.BE + c.Forecast > 0)
       .sort((a, b) => b.Real - a.Real)
       .slice(0, 8);
-    return top;
   }, [costLines]);
 
   const dailyChart = (dailyTotals ?? []).map(([d, t]: any) => ({
     name: t.date ?? `Dia ${d + 1}`,
     Pagantes: t.paying,
     Cortesias: t.courtesy,
+    Total: (t.paying || 0) + (t.courtesy || 0),
   }));
+
+  // -------- Helpers para FinancialTable --------
+  const financialRows = useMemo((): FinancialRow[] => {
+    const topCosts = [...(costLines ?? [])]
+      .filter((c: any) => !c.is_ab_passthrough)
+      .map((c: any) => ({
+        label: c.label || "—",
+        indent: true as const,
+        values: [
+          Number(c.actual_amount || 0),
+          Number(c.break_even_amount || 0),
+          Number(c.forecast_amount || 0),
+        ] as [number, number, number],
+      }))
+      .filter((c) => c.values.some((v) => v > 0))
+      .sort((a, b) => b.values[0] - a.values[0])
+      .slice(0, 7);
+
+    return [
+      { label: "Receitas", sectionHeader: "revenue" },
+      { label: "Bilheteira", indent: true, values: [today.ticketsRevenue, breakeven.ticketsRevenue, forecast.ticketsRevenue] },
+      { label: "A&B", indent: true, values: [
+        (today.drinkRevenue || 0) + (today.foodRevenue || 0),
+        (breakeven.drinkRevenue || 0) + (breakeven.foodRevenue || 0),
+        (forecast.drinkRevenue || 0) + (forecast.foodRevenue || 0),
+      ] },
+      { label: "Patrocínios", indent: true, values: [today.sponsorRevenue, breakeven.sponsorRevenue, forecast.sponsorRevenue] },
+      { label: "Souvenir", indent: true, values: [today.souvenirRevenue, breakeven.souvenirRevenue, forecast.souvenirRevenue] },
+      { label: "Outros", indent: true, values: [today.otherCredits, breakeven.otherCredits, forecast.otherCredits] },
+      {
+        label: "RECEITA TOTAL", bold: true, separator: true,
+        values: [today.totalRevenue, breakeven.totalRevenue, forecast.totalRevenue],
+        delta: today.totalRevenue > 0 ? ((forecast.totalRevenue - today.totalRevenue) / today.totalRevenue) * 100 : 0,
+        deltaType: "pct",
+      },
+      { label: "Custos", sectionHeader: "cost" },
+      ...topCosts,
+      {
+        label: "CUSTO TOTAL", bold: true, separator: true,
+        values: [todayCosts.totalCost, beCosts.totalCost, fcCosts.totalCost],
+      },
+      {
+        label: "RESULTADO", bold: true, separator: true,
+        values: [todayRes.general, beRes.general, fcRes.general],
+        tone: todayRes.general >= 0 ? "positive" : "negative",
+        delta: fcRes.general - todayRes.general,
+        deltaType: "value",
+      },
+      { label: "Indicadores por pessoa", sectionHeader: "kpis" },
+      { label: "TM Ingresso", indent: true, values: [todayKpis.tmTickets, beKpis.tmTickets, fcKpis.tmTickets] },
+      { label: "TM A&B", indent: true, values: [todayKpis.tmAB, beKpis.tmAB, fcKpis.tmAB] },
+      { label: "Custo / pessoa", indent: true, values: [todayKpis.costPerPerson, beKpis.costPerPerson, fcKpis.costPerPerson] },
+      {
+        label: "Resultado / pessoa", indent: true,
+        tone: todayKpis.resultPerPerson >= 0 ? "positive" : "negative",
+        values: [todayKpis.resultPerPerson, beKpis.resultPerPerson, fcKpis.resultPerPerson],
+      },
+    ];
+  }, [today, breakeven, forecast, todayCosts, beCosts, fcCosts, todayRes, beRes, fcRes, todayKpis, beKpis, fcKpis, costLines]);
+
+  // -------- Hero metrics --------
+  const pctForecast = forecast.totalRevenue > 0
+    ? Math.round((today.totalRevenue / forecast.totalRevenue) * 100)
+    : 0;
+  const pctPubForecast = fcTargetQty > 0
+    ? Math.round((todayKpis.totalPublic / fcTargetQty) * 100)
+    : 0;
+  const margemPct = sel.rev.totalRevenue > 0
+    ? (sel.res.general / sel.rev.totalRevenue) * 100
+    : 0;
+  const resultDelta = fcRes.general - todayRes.general;
 
   // -------- Export PDF --------
   const handleExport = async () => {
     if (!rootRef.current) return;
+    const wrapper = rootRef.current.closest('[data-theme="financial"]') as HTMLElement | null;
     setExporting(true);
+    wrapper?.classList.add("pdf-rendering");
     try {
       await exportNodeToPdf(
         rootRef.current,
@@ -283,406 +222,240 @@ export default function ExecutiveDashboard(props: Props) {
     } catch (e: any) {
       toast({ title: "Erro a exportar", description: e.message, variant: "destructive" });
     } finally {
+      wrapper?.classList.remove("pdf-rendering");
       setExporting(false);
     }
   };
 
-  // -------- Helpers row builders --------
-  const rev3 = [today, breakeven, forecast];
-  const cost3 = [todayCosts, beCosts, fcCosts];
-  const res3 = [todayRes, beRes, fcRes];
-  const kpis3 = [todayKpis, beKpis, fcKpis];
-  const ab3 =
-    abModule.hasConfig && abModule.totals
-      ? [abModule.totals.real, abModule.totals.breakeven, abModule.totals.forecast]
-      : null;
-
   return (
-    <div className="space-y-4">
-      {/* Toolbar (não vai para o PDF) */}
+    <div data-theme="financial" className="space-y-4">
+      {/* CSS scoped — apenas dentro do wrapper */}
+      <style>{`
+        [data-theme="financial"] .section-label {
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          color: hsl(var(--muted-foreground));
+        }
+        [data-theme="financial"].pdf-rendering [class*="backdrop"] {
+          backdrop-filter: none !important;
+        }
+        [data-theme="financial"].pdf-rendering .recharts-wrapper {
+          background: transparent !important;
+        }
+      `}</style>
+
+      {/* TOOLBAR — fora do rootRef */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between print:hidden">
-        <div className="flex w-full gap-1 rounded-md border p-1 sm:w-auto">
-          {(["real", "breakeven", "forecast"] as ScenarioKey[]).map((k) => (
-            <Button
-              key={k}
-              size="sm"
-              variant={active === k ? "default" : "ghost"}
-              onClick={() => setActive(k)}
-              className="h-8 flex-1 sm:flex-none text-xs px-2"
-            >
-              {SCEN_LABELS[k]}
-            </Button>
-          ))}
+        <ScenarioPill active={active} onChange={setActive} />
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-muted-foreground hidden sm:inline">
+            Actualizado em {new Date().toLocaleDateString("pt-PT")}
+          </span>
+          <Button onClick={handleExport} disabled={exporting} variant="outline" size="sm">
+            {exporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="h-4 w-4" />
+            )}
+            <span className="ml-1">PDF</span>
+          </Button>
         </div>
-        <Button onClick={handleExport} disabled={exporting} variant="outline" size="sm" className="w-full sm:w-auto">
-          {exporting ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <FileText className="mr-2 h-4 w-4" />
-          )}
-          <span className="sm:hidden">PDF</span>
-          <span className="hidden sm:inline">Exportar PDF (landscape)</span>
-        </Button>
       </div>
 
-      {/* Conteúdo capturado para PDF */}
-      <div ref={rootRef} className="space-y-3 bg-background p-2">
+      {/* CONTEÚDO CAPTURADO PARA PDF */}
+      <div ref={rootRef} className="space-y-4 bg-background p-2">
         {/* Cabeçalho do PDF */}
-        <div className="flex flex-col gap-1 border-b pb-2 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex items-end justify-between border-b pb-2">
           <div>
-            <h2 className="text-base sm:text-lg font-bold">{eventName || "Evento"}</h2>
-            <p className="text-[11px] sm:text-xs text-muted-foreground">
-              Dashboard Executivo · Cenário:{" "}
+            <h2 className="text-lg font-bold">{eventName || "Evento"}</h2>
+            <p className="text-xs text-muted-foreground">
+              Dashboard Executivo ·{" "}
               <span className="font-semibold text-foreground">{SCEN_LABELS[active]}</span>
             </p>
           </div>
-          <div className="text-left sm:text-right text-[10px] text-muted-foreground">
-            <div>Exportado em {new Date().toLocaleDateString("pt-PT")}</div>
-            <div className="hidden sm:block">Comparação: Real · Break Even · Forecast</div>
+          <div className="text-right text-[10px] text-muted-foreground">
+            {new Date().toLocaleDateString("pt-PT")} · Real · Break Even · Forecast
           </div>
         </div>
 
-        {/* Linha 1 — Resumo Financeiro · Bilhética · Receitas */}
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-          <CompareCard
-            title="Resumo Financeiro"
-            active={active}
-            rows={[
-              {
-                label: "Faturamento Total",
-                values: rev3.map((r) => <Money key="" v={r.totalRevenue} />) as any,
-                bold: true,
-              },
-              {
-                label: "Custo Total",
-                values: cost3.map((c) => <Money key="" v={c.totalCost} />) as any,
-              },
-              {
-                label: "Resultado Geral",
-                values: res3.map((r) => <Money key="" v={r.general} signed />) as any,
-                bold: true,
-              },
-              {
-                label: "Resultado / pessoa",
-                values: kpis3.map((k) => <Money key="" v={k.resultPerPerson} signed />) as any,
-              },
-              {
-                label: "Margem",
-                values: rev3.map((r, i) => (
-                  <Pct key="" v={r.totalRevenue > 0 ? (res3[i].general / r.totalRevenue) * 100 : 0} />
-                )) as any,
-                bold: true,
-              },
-            ]}
-          />
-
-          <CompareCard
-            title="Bilhética"
-            active={active}
-            rows={[
-              {
-                label: "Presenças × dia",
-                values: kpis3.map((k) => (
-                  <span key="" className="tabular-nums font-semibold">
-                    {fmtNum(k.totalPublic)}
-                  </span>
-                )) as any,
-                bold: true,
-              },
-              {
-                label: "Bilhetes únicos",
-                values: kpis3.map((k) => (
-                  <span key="" className="tabular-nums text-muted-foreground">
-                    {fmtNum(k.uniqueTickets ?? k.totalPublic)}
-                  </span>
-                )) as any,
-              },
-              {
-                label: `TM ${zoneTm.pista.name}`,
-                values: [
-                  <Money key="" v={zoneTm.pista.tm} />,
-                  <span key="" className="text-muted-foreground">—</span>,
-                  <span key="" className="text-muted-foreground">—</span>,
-                ],
-              },
-              {
-                label: `TM ${zoneTm.vip.name}`,
-                values: [
-                  <Money key="" v={zoneTm.vip.tm} />,
-                  <span key="" className="text-muted-foreground">—</span>,
-                  <span key="" className="text-muted-foreground">—</span>,
-                ],
-              },
-              {
-                label: "Vendas Reais (qty)",
-                values: [
-                  <span key="" className="tabular-nums font-semibold">{fmtNum(realSalesTotal)}</span>,
-                  <span key="" className="text-muted-foreground">—</span>,
-                  <span key="" className="text-muted-foreground">—</span>,
-                ],
-              },
-              {
-                label: "Cortesias",
-                values: [
-                  <span key="" className="tabular-nums">{fmtNum(courtesyTotal)}</span>,
-                  <span key="" className="text-muted-foreground">—</span>,
-                  <span key="" className="text-muted-foreground">—</span>,
-                ],
-              },
-              {
-                label: "Projeção (qty alvo)",
-                values: [
-                  <span key="" className="tabular-nums">{fmtNum(todayKpis.totalPublic)}</span>,
-                  <span key="" className="tabular-nums font-semibold">{fmtNum(beTargetQty)}</span>,
-                  <span key="" className="tabular-nums font-semibold">{fmtNum(fcTargetQty)}</span>,
-                ],
-              },
-            ]}
-          />
-
-          <CompareCard
-            title="Receitas"
-            active={active}
-            rows={(() => {
-              const lines = [
-                { key: "ticketsRevenue", label: "Bilhetes" },
-                { key: "abRevenue", label: "A&B" },
-                { key: "sponsorRevenue", label: "Patrocínios" },
-                { key: "souvenirRevenue", label: "Souvenir" },
-                { key: "otherCredits", label: "Outros Créditos" },
-              ];
-              const v = (r: any, k: string) =>
-                k === "abRevenue" ? (r.drinkRevenue || 0) + (r.foodRevenue || 0) : r[k] || 0;
-              return [
-                ...lines.map((l) => ({
-                  label: l.label,
-                  values: rev3.map((r) => {
-                    const val = v(r, l.key);
-                    const pct = r.totalRevenue > 0 ? (val / r.totalRevenue) * 100 : 0;
-                    return (
-                      <span key="">
-                        <Money v={val} />
-                        <span className="ml-1 text-[10px] text-muted-foreground">
-                          ({pct.toFixed(0)}%)
-                        </span>
-                      </span>
-                    );
-                  }) as any,
-                })),
-                {
-                  label: "Total",
-                  bold: true,
-                  values: rev3.map((r) => <Money key="" v={r.totalRevenue} />) as any,
-                },
-              ];
-            })()}
-          />
-        </div>
-
-        {/* Linha 2 — Custos · A&B · Indicadores por pessoa */}
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-          <CompareCard
-            title="Custos"
-            active={active}
-            rows={(() => {
-              const top = [...(costLines ?? [])]
-                .filter((c: any) => !c.is_ab_passthrough)
-                .map((c: any) => ({
-                  label: c.label || "—",
-                  real: Number(c.actual_amount || 0),
-                  be: Number(c.break_even_amount || 0),
-                  fc: Number(c.forecast_amount || 0),
-                }))
-                .filter((c) => c.real + c.be + c.fc > 0)
-                .sort((a, b) => b.real - a.real)
-                .slice(0, 7);
-              return [
-                ...top.map((c) => ({
-                  label: c.label,
-                  values: [c.real, c.be, c.fc].map((val, i) => {
-                    const tot = [todayCosts.totalCost, beCosts.totalCost, fcCosts.totalCost][i];
-                    const pct = tot > 0 ? (val / tot) * 100 : 0;
-                    return (
-                      <span key="">
-                        <Money v={val} />
-                        <span className="ml-1 text-[10px] text-muted-foreground">
-                          ({pct.toFixed(0)}%)
-                        </span>
-                      </span>
-                    );
-                  }) as any,
-                })),
-                {
-                  label: "Total Custos",
-                  bold: true,
-                  values: cost3.map((c) => <Money key="" v={c.totalCost} />) as any,
-                },
-              ];
-            })()}
-          />
-
-          {ab3 ? (
-            <CompareCard
-              title="A&B (módulo dedicado)"
-              active={active}
-              rows={[
-                {
-                  label: "Faturação Total A&B",
-                  values: ab3.map((a) => <Money key="" v={a.faturacaoTotal} />) as any,
-                  bold: true,
-                },
-                {
-                  label: "Receita do Evento",
-                  values: ab3.map((a) => <Money key="" v={a.receitaTotal} />) as any,
-                },
-                {
-                  label: "Custo Repasse",
-                  values: ab3.map((a) => <Money key="" v={a.custoTotal} />) as any,
-                },
-                {
-                  label: "Resultado A&B",
-                  values: ab3.map((a) => <Money key="" v={a.resultadoTotal} signed />) as any,
-                  bold: true,
-                },
-                {
-                  label: "Margem A&B",
-                  values: ab3.map((a) => <Pct key="" v={a.margemPct} />) as any,
-                  bold: true,
-                },
-              ]}
+        {/* ZONA 1 — HERO STRIP */}
+        <section>
+          <p className="section-label mb-2">Visão geral · cenário {SCEN_LABELS[active]}</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <KpiHero
+              label="Resultado Geral"
+              value={fmt(sel.res.general)}
+              tone={sel.res.general >= 0 ? "positive" : "negative"}
+              delta={resultDelta !== 0 ? `${resultDelta >= 0 ? "+" : ""}${fmt(resultDelta)} vs FC` : undefined}
+              deltaPositive={resultDelta >= 0}
+              subtext={
+                reachedBE
+                  ? "Break Even atingido"
+                  : `Faltam ${fmt(Math.abs(sel.res.general))} para BE`
+              }
             />
-          ) : (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">A&B</CardTitle>
-              </CardHeader>
-              <CardContent className="text-xs text-muted-foreground">
-                Módulo A&B não configurado para este evento. Abre a aba <strong>A&B</strong> para
-                definir zonas, per capita e repasses.
-              </CardContent>
-            </Card>
-          )}
+            <KpiHero
+              label="Receita Total"
+              value={fmt(sel.rev.totalRevenue)}
+              tone="neutral"
+              subtext={`${pctForecast}% do Forecast (${fmt(forecast.totalRevenue)})`}
+              progress={pctForecast}
+              progressColor="blue"
+            />
+            <KpiHero
+              label="Custo Total"
+              value={fmt(sel.cost.totalCost)}
+              tone="muted"
+              subtext={`Custo/pessoa: ${fmt(sel.kpis.costPerPerson)}`}
+            />
+            <KpiHero
+              label="Público Total"
+              value={fmtNum(sel.kpis.totalPublic)}
+              tone="neutral"
+              subtext={`${pctPubForecast}% do alvo (${fmtNum(fcTargetQty)})`}
+              progress={pctPubForecast}
+              progressColor="emerald"
+            />
+            <KpiHero
+              label="Margem"
+              value={fmtPct(margemPct)}
+              tone={margemPct >= 0 ? "positive" : "negative"}
+              subtext={`TM: ${fmt(sel.kpis.tmTickets)} · A&B/pp: ${fmt(sel.kpis.tmAB)}`}
+            />
+          </div>
+        </section>
 
-          <CompareCard
-            title="Indicadores por pessoa"
-            active={active}
-            rows={[
-              {
-                label: "TM Ingresso",
-                values: kpis3.map((k) => <Money key="" v={k.tmTickets} />) as any,
-              },
-              {
-                label: "TM A&B",
-                values: kpis3.map((k) => <Money key="" v={k.tmAB} />) as any,
-              },
-              {
-                label: "Custo / pessoa",
-                values: kpis3.map((k) => <Money key="" v={k.costPerPerson} />) as any,
-              },
-              {
-                label: "Resultado / pessoa",
-                values: kpis3.map((k) => <Money key="" v={k.resultPerPerson} signed />) as any,
-                bold: true,
-              },
-            ]}
+        {/* ZONA 2 — STATUS BAR */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border px-4 py-2.5 text-sm">
+          <StatusBadge
+            ok={reachedBE}
+            label="Break Even"
+            subtext={reachedBE ? undefined : `Faltam ${fmtNum(needForBE)} bilhetes`}
           />
+          <StatusBadge
+            ok={todayRes.general >= 0}
+            label="Margem"
+            subtext={`Resultado: ${fmt(todayRes.general)}`}
+          />
+          <StatusBadge
+            ok={pctPubForecast >= 100 ? true : pctPubForecast >= 60 ? "warn" : false}
+            label={`Forecast: ${pctPubForecast}% atingido`}
+          />
+          {abModule.hasConfig && (
+            <StatusBadge
+              ok={abMarginReal >= 0}
+              label="A&B"
+              subtext={`Margem A&B: ${fmt(abMarginReal)}`}
+            />
+          )}
         </div>
 
-        {/* Linha 3 — Break-even (largura cheia, com KPIs grandes) */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              Break Even
-              {reachedBE ? (
-                <Badge className="bg-emerald-600 hover:bg-emerald-700 gap-1">
-                  <CheckCircle2 className="h-3 w-3" /> Atingido
-                </Badge>
-              ) : (
-                <Badge variant="destructive" className="gap-1">
-                  <XCircle className="h-3 w-3" /> Por atingir
-                </Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <div className="rounded-md border p-3">
-                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Bilhetes em falta (com A&B)
-                </div>
-                <div
-                  className={`mt-1 text-2xl font-bold tabular-nums ${
-                    needForBE === 0 ? "text-emerald-500" : "text-rose-500"
-                  }`}
-                >
-                  {fmtNum(needForBE)}
-                </div>
-              </div>
-              <div className="rounded-md border p-3">
-                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Bilhetes em falta (sem A&B)
-                </div>
-                <div
-                  className={`mt-1 text-2xl font-bold tabular-nums ${
-                    needForBeNoAB === 0 ? "text-emerald-500" : "text-rose-500"
-                  }`}
-                >
-                  {fmtNum(needForBeNoAB)}
-                </div>
-              </div>
-              <div className="rounded-md border p-3">
-                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Resultado actual
-                </div>
-                <div
-                  className={`mt-1 text-2xl font-bold tabular-nums ${
-                    todayRes.general >= 0 ? "text-emerald-500" : "text-rose-500"
-                  }`}
-                >
-                  {fmt(todayRes.general)}
-                </div>
-              </div>
-              <div className="rounded-md border p-3">
-                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Margem A&B (Real)
-                </div>
-                <div className="mt-1 text-2xl font-bold tabular-nums">
-                  {fmt(abMarginReal)}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* ZONA 3 — FINANCIAL TABLE + KPI STACK */}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <FinancialTable rows={financialRows} active={active} formatFn={fmt} />
+          <div className="flex flex-col gap-3">
+            <ProgressKpi
+              label="Público"
+              current={todayKpis.totalPublic}
+              currentLabel="Real"
+              beTarget={beTargetQty}
+              beLabel="Break Even"
+              fcTarget={fcTargetQty}
+              fcLabel="Forecast"
+              formatFn={fmtNum}
+              footer={
+                needForBE > 0
+                  ? `Faltam ${fmtNum(needForBE)} pessoas para BE`
+                  : "Break Even atingido"
+              }
+            />
+            {abModule.hasConfig && abModule.totals && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">A&B — Margem ({SCEN_LABELS[active]})</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Faturação</span>
+                    <span className="tabular-nums font-semibold">
+                      {fmt((abModule.totals as any)[active].faturacaoTotal)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Repasse</span>
+                    <span className="tabular-nums">
+                      {fmt((abModule.totals as any)[active].custoTotal)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-t pt-1 mt-1">
+                    <span className="font-semibold">Resultado A&B</span>
+                    <span
+                      className={`tabular-nums font-semibold ${
+                        (abModule.totals as any)[active].resultadoTotal >= 0
+                          ? "text-emerald-500"
+                          : "text-rose-500"
+                      }`}
+                    >
+                      {fmt((abModule.totals as any)[active].resultadoTotal)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
 
-        {/* Linha 3.5 — Público por dia (fonte canónica useEventAttendance) */}
+        {/* ZONA 3.5 — Público por dia */}
         {eventId ? <DailyAttendanceCard eventId={eventId} dailyCapacity={dailyCapacity} /> : null}
 
-        {/* Linha 4 — Gráficos */}
+        {/* ZONA 4 — GRÁFICOS */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+          {/* Donut Mix Receitas */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">
-                Receitas — Mix ({SCEN_LABELS[active]})
-              </CardTitle>
+              <CardTitle className="text-sm">Mix Receitas ({SCEN_LABELS[active]})</CardTitle>
             </CardHeader>
             <CardContent style={{ height: 240 }}>
               {revenueMixActive.length ? (
-                <ResponsiveContainer>
-                  <PieChart>
-                    <Pie
-                      data={revenueMixActive}
-                      dataKey="value"
-                      nameKey="name"
-                      outerRadius={75}
-                      label={(e: any) => `${e.name}`}
-                    >
-                      {revenueMixActive.map((_, i) => (
-                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(v: any) => fmt(Number(v))} />
-                  </PieChart>
-                </ResponsiveContainer>
+                <div className="grid grid-cols-[1fr_auto] gap-3 h-full items-center">
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie
+                        data={revenueMixActive}
+                        dataKey="value"
+                        nameKey="name"
+                        outerRadius={80}
+                        innerRadius={50}
+                        paddingAngle={2}
+                        label={false}
+                      >
+                        {revenueMixActive.map((_, i) => (
+                          <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(v: any) => fmt(Number(v))} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <ul className="flex flex-col gap-1 text-[11px] pr-2">
+                    {revenueMixActive.map((r, i) => {
+                      const pct = totalMix > 0 ? (r.value / totalMix) * 100 : 0;
+                      return (
+                        <li key={r.name} className="flex items-center gap-2">
+                          <span
+                            className="inline-block h-2 w-2 rounded-sm"
+                            style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}
+                          />
+                          <span className="text-muted-foreground">{r.name}</span>
+                          <span className="ml-auto tabular-nums font-semibold">
+                            {pct.toFixed(0)}%
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               ) : (
                 <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
                   Sem dados
@@ -691,15 +464,16 @@ export default function ExecutiveDashboard(props: Props) {
             </CardContent>
           </Card>
 
+          {/* BarChart custos */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Custos — Top categorias (3 cenários)</CardTitle>
+              <CardTitle className="text-sm">Custos — Top categorias</CardTitle>
             </CardHeader>
             <CardContent style={{ height: 240 }}>
               {costsCompareChart.length ? (
                 <ResponsiveContainer>
                   <BarChart data={costsCompareChart} layout="vertical" margin={{ left: 60 }}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.04} />
                     <XAxis
                       type="number"
                       tick={{ fontSize: 10 }}
@@ -707,10 +481,9 @@ export default function ExecutiveDashboard(props: Props) {
                     />
                     <YAxis type="category" dataKey="name" tick={{ fontSize: 9 }} width={110} />
                     <Tooltip formatter={(v: any) => fmt(Number(v))} />
-                    <Legend wrapperStyle={{ fontSize: 10 }} />
-                    <Bar dataKey="Real" fill="#3b82f6" />
-                    <Bar dataKey="BE" fill="#f59e0b" />
-                    <Bar dataKey="Forecast" fill="#84cc16" />
+                    <Bar dataKey="Real" fill="#3b82f6" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="BE" fill="#f59e0b" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="Forecast" fill="#10b981" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -721,21 +494,30 @@ export default function ExecutiveDashboard(props: Props) {
             </CardContent>
           </Card>
 
+          {/* BarChart público */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Público diário (Real)</CardTitle>
+              <CardTitle className="text-sm">Público diário</CardTitle>
             </CardHeader>
             <CardContent style={{ height: 240 }}>
               {dailyChart.length ? (
                 <ResponsiveContainer>
                   <BarChart data={dailyChart}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.04} />
                     <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                     <YAxis tick={{ fontSize: 10 }} />
                     <Tooltip />
-                    <Legend wrapperStyle={{ fontSize: 10 }} />
-                    <Bar dataKey="Pagantes" stackId="a" fill="#3b82f6" />
-                    <Bar dataKey="Cortesias" stackId="a" fill="#a855f7" />
+                    <Bar dataKey="Pagantes" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
+                    <Bar dataKey="Cortesias" stackId="a" fill="#a855f7" radius={[3, 3, 0, 0]} />
+                    {dailyCapacity ? (
+                      <ReferenceLine
+                        y={dailyCapacity}
+                        stroke="#f59e0b"
+                        strokeDasharray="4 3"
+                        strokeOpacity={0.6}
+                        label={{ value: "Cap.", fill: "#f59e0b", fontSize: 9 }}
+                      />
+                    ) : null}
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -747,60 +529,16 @@ export default function ExecutiveDashboard(props: Props) {
           </Card>
         </div>
 
-        {/* Comparativo entre cidades (apenas turnê) */}
+        {/* ZONA 5 — HEATMAP CIDADES (turnê) */}
         {tourBreakdowns && tourBreakdowns.length > 0 && (
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Comparativo entre cidades — Forecast</CardTitle>
-              </CardHeader>
-              <CardContent className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b text-muted-foreground">
-                      <th className="text-left py-1">Cidade</th>
-                      <th className="text-right">Público</th>
-                      <th className="text-right">TM</th>
-                      <th className="text-right">A&B/pp</th>
-                      <th className="text-right">Margem</th>
-                      <th className="text-right">BE (qty)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tourBreakdowns.map((c) => (
-                      <tr key={c.name} className="border-b">
-                        <td className="py-1 font-medium">{c.name}</td>
-                        <td className="text-right tabular-nums">{fmtNum(c.publico)}</td>
-                        <td className="text-right tabular-nums">{fmt(c.ticketMedio)}</td>
-                        <td className="text-right tabular-nums">{fmt(c.abPerPerson)}</td>
-                        <td className={`text-right tabular-nums ${c.resultado >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{fmtPct(c.margem)}</td>
-                        <td className="text-right tabular-nums">{fmtNum(c.breakEvenQty)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Resultado por cidade — Forecast</CardTitle>
-              </CardHeader>
-              <CardContent style={{ height: 280 }}>
-                <ResponsiveContainer>
-                  <BarChart data={tourBreakdowns}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                    <Tooltip formatter={(v: any) => fmt(Number(v))} />
-                    <Legend wrapperStyle={{ fontSize: 10 }} />
-                    <Bar dataKey="receita" name="Receita" fill="#3b82f6" />
-                    <Bar dataKey="custo" name="Custo" fill="#f59e0b" />
-                    <Bar dataKey="resultado" name="Resultado" fill="#84cc16" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
+          <section>
+            <p className="section-label mb-3">Comparativo entre cidades · {SCEN_LABELS[active]}</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {tourBreakdowns.map((c) => (
+                <CityHeatCard key={c.name} {...c} formatFn={fmt} fmtNum={fmtNum} />
+              ))}
+            </div>
+          </section>
         )}
       </div>
     </div>
