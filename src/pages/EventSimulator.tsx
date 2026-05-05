@@ -938,11 +938,11 @@ export default function EventSimulator() {
 
       {/* KPIs scenario summary */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <ScenarioCard title="Hoje (Edição 2026)" tone="muted" rev={todayV2} cost={todayCosts} res={todayRes} kpis={todayKpis} dailyTotals={dailyTotals} />
+        <ScenarioCard title="Hoje (Edição 2026)" tone="muted" rev={todayAB} cost={todayCosts} res={todayRes} kpis={todayKpis} dailyTotals={dailyTotals} />
         <ScenarioCard
           title="Break Even"
           tone="warning"
-          rev={breakevenV2}
+          rev={beAB}
           cost={beCosts}
           res={beRes}
           kpis={beKpis}
@@ -952,7 +952,7 @@ export default function EventSimulator() {
         <ScenarioCard
           title="Forecast"
           tone="success"
-          rev={forecastV2}
+          rev={fcAB}
           cost={fcCosts}
           res={fcRes}
           kpis={fcKpis}
