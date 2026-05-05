@@ -5,14 +5,31 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Upload, AlertTriangle, CheckCircle2, FileText } from "lucide-react";
+import { Loader2, Upload, AlertTriangle, CheckCircle2, FileText, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatCurrency } from "@/lib/mock-data";
 
-type Step = "upload" | "review" | "applying" | "done";
+type Step = "upload" | "review" | "review-duplicates" | "applying" | "done";
 type SyncMode = "replace" | "append";
+type Decision = "skip" | "create";
+
+interface FuzzyItem {
+  rowNumber: number;
+  description: string;
+  netAmount: number;
+  candidates: { id: string; description: string; amount: number; score: number }[];
+  ai: { verdict: "same" | "different" | "unsure"; confidence: number; reason: string; bestCandidateId?: string };
+}
+
+interface PreviewResp {
+  ok: boolean;
+  summary: { totalImportable: number; exactDuplicates: number; fuzzyCandidates: number; clean: number };
+  exactDuplicates: { rowNumber: number; description: string; netAmount: number }[];
+  clean: { rowNumber: number; description: string; netAmount: number }[];
+  review: FuzzyItem[];
+}
 
 interface Props {
   open: boolean;
@@ -21,16 +38,6 @@ interface Props {
   eventName?: string;
 }
 
-/**
- * 4-step Coala BP importer wizard:
- *  1. Upload XLSX + version label
- *  2. Review parsed totals + validation issues + pendencies
- *  3. Confirm sync mode and totals → apply
- *  4. Done summary with link to pendency report
- *
- * Generic: works for ANY future Coala version (V13, V14, …). The version label
- * the user types is what gets stamped on the import run + BP snapshot.
- */
 export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Props) {
   const qc = useQueryClient();
   const [step, setStep] = useState<Step>("upload");
@@ -41,15 +48,14 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
   const [syncMode, setSyncMode] = useState<SyncMode>("replace");
   const [ackTotals, setAckTotals] = useState(false);
   const [applyResp, setApplyResp] = useState<any | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewResp, setPreviewResp] = useState<PreviewResp | null>(null);
+  const [decisions, setDecisions] = useState<Record<string, Decision>>({});
 
   const reset = () => {
-    setStep("upload");
-    setFile(null);
-    setFileVersion("");
-    setParseResp(null);
-    setApplyResp(null);
-    setAckTotals(false);
-    setSyncMode("replace");
+    setStep("upload"); setFile(null); setFileVersion(""); setParseResp(null);
+    setApplyResp(null); setAckTotals(false); setSyncMode("replace");
+    setPreviewResp(null); setDecisions({});
   };
   const close = () => { onOpenChange(false); setTimeout(reset, 250); };
 
@@ -63,7 +69,7 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
 
   async function handleParse() {
     if (!file || !fileVersion.trim()) {
-      toast({ title: "Faltam dados", description: "Seleciona o ficheiro e indica a versão (ex: V13).", variant: "destructive" });
+      toast({ title: "Faltam dados", description: "Seleciona o ficheiro e indica a versão.", variant: "destructive" });
       return;
     }
     setParsing(true);
@@ -81,13 +87,52 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
     } finally { setParsing(false); }
   }
 
-  async function handleApply() {
+  async function handlePreview() {
     if (!file || !fileVersion.trim() || !ackTotals) return;
+    setPreviewing(true);
+    try {
+      const fileBase64 = await toBase64(file);
+      const { data, error } = await supabase.functions.invoke("apply-coala-bp", {
+        body: { fileBase64, fileName: file.name, fileVersion: fileVersion.trim(), eventId, syncMode, ackTotals: true, phase: "preview" },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const pv = data as PreviewResp;
+      setPreviewResp(pv);
+      // pré-preencher decisões com sugestões da IA: same → skip, different → create, unsure → vazio
+      const initial: Record<string, Decision> = {};
+      for (const r of pv.review) {
+        if (r.ai.verdict === "same" && r.ai.confidence >= 0.75) initial[String(r.rowNumber)] = "skip";
+        else if (r.ai.verdict === "different" && r.ai.confidence >= 0.75) initial[String(r.rowNumber)] = "create";
+      }
+      setDecisions(initial);
+      if (pv.review.length === 0) {
+        // Sem ambíguos → aplicar logo
+        await handleApply(initial);
+      } else {
+        setStep("review-duplicates");
+      }
+    } catch (e: any) {
+      toast({ title: "Erro na pré-análise", description: e.message, variant: "destructive" });
+    } finally { setPreviewing(false); }
+  }
+
+  async function handleApply(decisionsToUse?: Record<string, Decision>) {
+    if (!file || !fileVersion.trim()) return;
+    // exigir decisão para todos os ambíguos
+    const useD = decisionsToUse ?? decisions;
+    if (previewResp) {
+      const undecided = previewResp.review.filter((r) => !useD[String(r.rowNumber)]);
+      if (undecided.length > 0) {
+        toast({ title: "Faltam decisões", description: `${undecided.length} linha(s) ainda sem decisão.`, variant: "destructive" });
+        return;
+      }
+    }
     setStep("applying");
     try {
       const fileBase64 = await toBase64(file);
       const { data, error } = await supabase.functions.invoke("apply-coala-bp", {
-        body: { fileBase64, fileName: file.name, fileVersion: fileVersion.trim(), eventId, syncMode, ackTotals: true },
+        body: { fileBase64, fileName: file.name, fileVersion: fileVersion.trim(), eventId, syncMode, ackTotals: true, phase: "apply", decisions: useD },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
@@ -97,7 +142,7 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
       setStep("done");
     } catch (e: any) {
       toast({ title: "Erro a aplicar import", description: e.message, variant: "destructive" });
-      setStep("review");
+      setStep(previewResp ? "review-duplicates" : "review");
     }
   }
 
@@ -115,8 +160,7 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
             Importar Coala — {eventName ?? "BP"}
           </DialogTitle>
           <DialogDescription>
-            Importador genérico para qualquer versão do ficheiro Coala (V13, V14, …).
-            A versão indicada vai ser registada no histórico e na BP Version criada.
+            Importador genérico (V13, V14, …). A versão indicada é registada no histórico e na BP Version criada.
           </DialogDescription>
         </DialogHeader>
 
@@ -124,19 +168,11 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Versão do ficheiro</Label>
-              <Input
-                placeholder="Ex: V13, V14, V15…"
-                value={fileVersion}
-                onChange={(e) => setFileVersion(e.target.value)}
-              />
+              <Input placeholder="Ex: V13, V14, V15…" value={fileVersion} onChange={(e) => setFileVersion(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Ficheiro XLSX (Coala BP)</Label>
-              <Input
-                type="file"
-                accept=".xlsx"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              />
+              <Input type="file" accept=".xlsx" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
               {file && <p className="text-xs text-muted-foreground">{file.name} • {(file.size / 1024).toFixed(0)} KB</p>}
             </div>
             <div className="flex justify-end gap-2 pt-2">
@@ -176,10 +212,7 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
               {issues.length === 0 && <p className="text-xs text-muted-foreground">Sem alertas.</p>}
               <ul className="space-y-1 text-xs">
                 {issues.map((i: any, idx: number) => (
-                  <li key={idx} className={
-                    i.level === "error" ? "text-destructive" :
-                    i.level === "warning" ? "text-warning" : "text-muted-foreground"
-                  }>
+                  <li key={idx} className={i.level === "error" ? "text-destructive" : i.level === "warning" ? "text-warning" : "text-muted-foreground"}>
                     [{i.level.toUpperCase()}] {i.message}
                   </li>
                 ))}
@@ -192,13 +225,13 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
                 <div className="flex items-start gap-2">
                   <RadioGroupItem value="replace" id="r1" />
                   <Label htmlFor="r1" className="font-normal text-sm">
-                    <span className="font-medium">Substituir</span> — apaga linhas BP atuais sem transação ligada e reimporta tudo (recomendado para nova versão).
+                    <span className="font-medium">Substituir</span> — apaga linhas BP atuais sem transação ligada e reimporta tudo.
                   </Label>
                 </div>
                 <div className="flex items-start gap-2">
                   <RadioGroupItem value="append" id="r2" />
                   <Label htmlFor="r2" className="font-normal text-sm">
-                    <span className="font-medium">Acrescentar</span> — mantém o BP existente e adiciona linhas novas (cuidado com duplicação).
+                    <span className="font-medium">Acrescentar</span> — mantém o BP existente e adiciona linhas novas.
                   </Label>
                 </div>
               </RadioGroup>
@@ -207,14 +240,85 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
             <div className="flex items-start gap-2 rounded border border-warning/40 bg-warning/5 p-3">
               <Checkbox id="ack" checked={ackTotals} onCheckedChange={(v) => setAckTotals(!!v)} />
               <Label htmlFor="ack" className="text-xs font-normal leading-relaxed">
-                Confirmo que revi os totais acima (Net, IVA, Bruto, Pago) e os {t.importableLines} linhas a importar.
-                Será criada automaticamente uma versão do BP antes de aplicar.
+                Confirmo que revi os totais acima. Será criada uma versão do BP antes de aplicar.
               </Label>
             </div>
 
             <div className="flex justify-between gap-2 pt-2">
               <Button variant="outline" onClick={() => setStep("upload")}>Voltar</Button>
-              <Button onClick={handleApply} disabled={!ackTotals}>Aplicar Import</Button>
+              <Button onClick={handlePreview} disabled={!ackTotals || previewing}>
+                {previewing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                Pré-analisar duplicados (IA)
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === "review-duplicates" && previewResp && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <Card label="Total" value={String(previewResp.summary.totalImportable)} />
+              <Card label="Já existem (exato)" value={String(previewResp.summary.exactDuplicates)} tone="muted" />
+              <Card label="Sem match" value={String(previewResp.summary.clean)} />
+              <Card label="A decidir" value={String(previewResp.summary.fuzzyCandidates)} />
+            </div>
+            <div className="rounded border border-primary/30 bg-primary/5 p-3 text-xs">
+              <p className="flex items-center gap-1.5 font-semibold mb-1"><Sparkles className="h-3.5 w-3.5" /> A IA já sugeriu decisões com confiança alta. Revê e decide os restantes.</p>
+              <p className="text-muted-foreground">Quando consideras "Já existe" a categoria atual no BP é mantida.</p>
+            </div>
+
+            <div className="space-y-2 max-h-[45vh] overflow-y-auto">
+              {previewResp.review.map((r) => {
+                const dec = decisions[String(r.rowNumber)];
+                const aiClass =
+                  r.ai.verdict === "same" ? "border-success/40 bg-success/5" :
+                  r.ai.verdict === "different" ? "border-info/40 bg-info/5" :
+                  "border-warning/40 bg-warning/5";
+                return (
+                  <div key={r.rowNumber} className={`rounded border p-3 space-y-2 ${aiClass}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-xs flex-1 min-w-0">
+                        <p className="font-mono text-[10px] text-muted-foreground">Linha #{r.rowNumber}</p>
+                        <p className="font-medium truncate">{r.description}</p>
+                        <p className="font-mono text-[11px] text-muted-foreground">{formatCurrency(r.netAmount)}</p>
+                      </div>
+                      <div className="text-[10px] uppercase font-semibold whitespace-nowrap">
+                        IA: {r.ai.verdict} ({Math.round((r.ai.confidence ?? 0) * 100)}%)
+                      </div>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground italic">{r.ai.reason}</div>
+                    <div className="space-y-1">
+                      {r.candidates.map((c) => (
+                        <div key={c.id} className={`text-[11px] rounded bg-background/60 px-2 py-1 ${c.id === r.ai.bestCandidateId ? "ring-1 ring-primary/40" : ""}`}>
+                          <span className="font-mono text-muted-foreground">{Math.round(c.score * 100)}%</span> · {c.description} · <span className="font-mono">{formatCurrency(c.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button size="sm" variant={dec === "skip" ? "default" : "outline"}
+                        onClick={() => setDecisions({ ...decisions, [String(r.rowNumber)]: "skip" })}>
+                        É a mesma · saltar
+                      </Button>
+                      <Button size="sm" variant={dec === "create" ? "default" : "outline"}
+                        onClick={() => setDecisions({ ...decisions, [String(r.rowNumber)]: "create" })}>
+                        É diferente · criar
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-between items-center gap-2 pt-2">
+              <p className="text-xs text-muted-foreground">
+                {Object.keys(decisions).length}/{previewResp.review.length} decididos
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setStep("review")}>Voltar</Button>
+                <Button onClick={() => handleApply()} disabled={Object.keys(decisions).length < previewResp.review.length}>
+                  Aplicar Import
+                </Button>
+              </div>
             </div>
           </div>
         )}
