@@ -2581,6 +2581,7 @@ export type Database = {
           forecast_final_accel: number
           forecast_final_window_days: number
           notes: string | null
+          other_revenue: number
           ponto_vendido: number
           prior_year_drink: number
           prior_year_food: number
@@ -2623,6 +2624,7 @@ export type Database = {
           forecast_final_accel?: number
           forecast_final_window_days?: number
           notes?: string | null
+          other_revenue?: number
           ponto_vendido?: number
           prior_year_drink?: number
           prior_year_food?: number
@@ -2665,6 +2667,7 @@ export type Database = {
           forecast_final_accel?: number
           forecast_final_window_days?: number
           notes?: string | null
+          other_revenue?: number
           ponto_vendido?: number
           prior_year_drink?: number
           prior_year_food?: number
