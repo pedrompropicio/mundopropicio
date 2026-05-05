@@ -1,6 +1,6 @@
 ---
 name: Sponsorship Pipeline ↔ BP/Simulador
-description: Pipeline de patrocínios alimenta BP só via botão manual; Simulador lê só BP
+description: Pipeline de patrocínios alimenta BP só via botão manual; Simulador lê só BP; reset_reimport preserva vínculos
 type: feature
 ---
 
@@ -23,6 +23,12 @@ type: feature
 
 - Se há vínculo e o valor muda, drawer abre `AlertDialog` de confirmação e propaga ao BP + TX após "Confirmar".
 - Se TX vinculada está liquidada (`status='paid'` ou `paid_amount > 0.005`), `MoneyInput` do valor confirmado fica disabled com cadeado + mensagem para desfazer a liquidação primeiro. Detecção via `isLinkedTransactionPaid(transactionId)`.
+
+## CRÍTICO: reset_reimport NÃO apaga patrocínios
+
+`apply-coala-bp` na fase `reset_reimport` (e qualquer reimportador equivalente) carrega `sponsorship_pipeline.linked_transaction_id` + `linked_forecast_id` do evento ANTES de apagar BP/TX e exclui esses IDs do delete. Caso contrário os cards do Pipeline ficam órfãos (linked_* a apontar para IDs apagados) e perde-se a receita de patrocínios em BP+DRE — só se recupera com SQL manual (ver `scripts/recover-coala-2026-sponsors-bp-tx-live.txt`).
+
+Regra de ouro: qualquer importador/reset que apague em massa `transactions`/`event_forecasts` por `event_id` tem de **excluir explicitamente** os IDs referenciados em `sponsorship_pipeline.linked_*`.
 
 ## Deprecated
 
