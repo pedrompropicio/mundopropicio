@@ -1283,7 +1283,7 @@ export default function EventSimulator() {
                       <TableCell><Input className="h-8 w-48" value={c.label} onChange={(e) => updateCost(i, { label: e.target.value })} /></TableCell>
                       <TableCell><Input className="h-8 w-28 text-right" type="number" step="0.01" value={c.prior_year_amount}
                         onChange={(e) => updateCost(i, { prior_year_amount: Number(e.target.value) })} /></TableCell>
-                      <TableCell className="text-right text-muted-foreground" title={`Pago: ${fmt(c.actual_paid)} · BP s/TX: ${fmt(c.actual_committed_bp)}`}>
+                      <TableCell className="text-right text-muted-foreground" title={`BP aprovado: ${fmt(c.forecast_amount)} · TX (approved+paid): ${fmt(Math.max(0, c.actual_amount - c.actual_committed_bp))} · Pago: ${fmt(c.actual_paid)} · BP por executar: ${fmt(c.actual_committed_bp)}`}>
                         {fmt(Number(c.actual_amount || 0))}
                       </TableCell>
                       <TableCell><Input className="h-8 w-28 text-right" type="number" step="0.01" value={c.break_even_amount}
