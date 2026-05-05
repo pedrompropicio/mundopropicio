@@ -172,10 +172,12 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
     }
   }
 
-  // 5) Custos por categoria L3
-  // L3 = code com x.y.z; filtra por company_id do evento (multi-tenant safe).
+  // 5) Custos por categoria
+  // Idealmente só L3, mas há BPs legados com linhas em L2 (ex: "2.5 Cenografia").
+  // Para o simulador bater com o BP, aceitamos qualquer categoria da empresa
+  // que tenha movimento (BP ou TX). Mantemos L3 como preferida para novas linhas.
   const l3 = categories.filter(
-    (c) => /^\d+\.\d+\.\d+$/.test(c.code) && c.company_id === companyId,
+    (c) => c.company_id === companyId,
   );
   const l3ById = new Map<string, Row>();
   for (const c of l3) l3ById.set(c.id, c);
