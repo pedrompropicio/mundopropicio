@@ -264,10 +264,16 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
 
             <div className="flex justify-between gap-2 pt-2">
               <Button variant="outline" onClick={() => setStep("upload")}>Voltar</Button>
-              <Button onClick={handlePreview} disabled={!ackTotals || previewing}>
-                {previewing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                Pré-analisar duplicados (IA)
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleCompare} disabled={comparing}>
+                  {comparing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />}
+                  Comparar com BP atual
+                </Button>
+                <Button onClick={handlePreview} disabled={!ackTotals || previewing}>
+                  {previewing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                  Pré-analisar duplicados (IA)
+                </Button>
+              </div>
             </div>
           </div>
         )}
