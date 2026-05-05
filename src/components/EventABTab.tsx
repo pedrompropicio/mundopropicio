@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   computeTotals,
   type ABScenario,
+  type ABMode,
   type ABZoneInput,
   type ABFoodConfig,
 } from "@/lib/event-ab-calc";
@@ -27,6 +28,77 @@ const fmtEUR = (n: number) =>
   new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n || 0);
 const fmtPct = (n: number) =>
   new Intl.NumberFormat("pt-PT", { maximumFractionDigits: 1 }).format(n || 0) + " %";
+
+// ── Selector de modo ──────────────────────────────────────────────────────────
+
+function ModeSelector({
+  value,
+  onChange,
+}: {
+  value: ABMode;
+  onChange: (m: ABMode) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1 rounded-md border p-1 bg-muted/40 text-sm">
+      <button
+        type="button"
+        onClick={() => onChange("terceirizacao")}
+        className={`px-3 py-1 rounded transition-colors ${
+          value === "terceirizacao"
+            ? "bg-background shadow text-foreground font-medium"
+            : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        Terceirização
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("exploracao_propria")}
+        className={`px-3 py-1 rounded transition-colors ${
+          value === "exploracao_propria"
+            ? "bg-background shadow text-foreground font-medium"
+            : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        Exploração Própria
+      </button>
+    </div>
+  );
+}
+
+// ── KPIs adaptativos ──────────────────────────────────────────────────────────
+
+function KpisConsolidados({ totals, modeBebidas, modeAlimentos }: {
+  totals: ReturnType<typeof computeTotals>;
+  modeBebidas: ABMode;
+  modeAlimentos: ABMode;
+}) {
+  const isExploration = modeBebidas === "exploracao_propria" || modeAlimentos === "exploracao_propria";
+
+  if (isExploration) {
+    const resultColor = totals.resultadoTotal >= 0 ? "text-emerald-600" : "text-rose-600";
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Kpi label="Receita A&B (casa)" value={fmtEUR(totals.receitaTotal)} highlight />
+        <Kpi label="Custo A&B (casa)" value={fmtEUR(totals.custoCasaTotal)} negative />
+        <Kpi label="Resultado A&B" value={fmtEUR(totals.resultadoTotal)} className={resultColor} />
+        <Kpi label="Faturação total" value={fmtEUR(totals.faturacaoTotal)} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <Kpi label="Faturação A&B (gerador)" value={fmtEUR(totals.faturacaoTotal)} />
+      <Kpi label="Receita A&B (casa)" value={fmtEUR(totals.receitaTotal)} highlight />
+      <Kpi label="Parte do gerador" value={fmtEUR(totals.parteGeradorTotal)} />
+      <Kpi label="Resultado A&B (casa)" value={fmtEUR(totals.resultadoTotal)} highlight />
+      <Kpi label="Quota da casa" value={fmtPct(totals.margemPct)} />
+    </div>
+  );
+}
+
+// ── Componente principal ──────────────────────────────────────────────────────
 
 export default function EventABTab({ eventId }: Props) {
   const qc = useQueryClient();
@@ -79,7 +151,6 @@ export default function EventABTab({ eventId }: Props) {
     queryFn: async () => {
       const zoneIds = (ticketZones ?? []).map((z) => z.id);
       if (zoneIds.length === 0) return {};
-      // Carrega lotes p/ saber applies_to_days (combo = N presenças por venda).
       const { data: lots } = await supabase
         .from("event_ticket_lots")
         .select("id, applies_to_days")
@@ -97,7 +168,6 @@ export default function EventABTab({ eventId }: Props) {
       for (const r of data ?? []) {
         if (!r.zone_id) continue;
         const days = (r as any).lot_id ? (daysByLot.get((r as any).lot_id) ?? 1) : 1;
-        // 1 venda combo de N dias = N presenças (alinhado com aba "Público diário")
         map[r.zone_id] = (map[r.zone_id] ?? 0) + Number(r.quantity || 0) * days;
       }
       return map;
@@ -105,9 +175,6 @@ export default function EventABTab({ eventId }: Props) {
     enabled: ticketZones.length > 0,
   });
 
-  // Forecast/Break Even vêm do Simulador (mesma lógica do Master Tour). O public
-  // "real" continua a sair de ticket_sales (acima). Se o Simulador não estiver
-  // configurado, BE/Forecast caem para a capacidade total dos lotes (fallback).
   const sim = useCitySimulator(eventId);
   const { data: lotsCapacity = {} } = useQuery({
     queryKey: ["ab_lots_capacity", eventId],
@@ -128,22 +195,17 @@ export default function EventABTab({ eventId }: Props) {
     enabled: ticketZones.length > 0,
   });
 
-  /** Mapa zone_label.toLowerCase() → participantes do Simulador (cenário). */
   const simParticipantsByLabel = useMemo(() => {
     const out: Record<"breakeven" | "forecast", Record<string, number>> = {
-      breakeven: {},
-      forecast: {},
+      breakeven: {}, forecast: {},
     };
     for (const s of sim.sessions ?? []) {
       const label = (s.zone_label || "").toLowerCase();
       const courtesy = Number((s as any).courtesy_qty) || 0;
       const realQty = Number((s as any).real_sales_qty) || 0;
-      // o solver guarda em sim.kpis indirectamente; mais simples: re-derivar via abModule
-      // mas aqui já basta usar real+courtesy como mínimo; substituiremos abaixo.
       out.breakeven[label] = (out.breakeven[label] ?? 0) + realQty + courtesy;
       out.forecast[label] = (out.forecast[label] ?? 0) + realQty + courtesy;
     }
-    // Sobrepor com qty calculadas pelo solver (BE/Forecast) que já estão no abModule.totals
     if (sim.abModule?.totals) {
       for (const t of sim.abModule.totals.breakeven.zones) {
         out.breakeven[t.zone_label.toLowerCase()] = t.participants;
@@ -155,9 +217,13 @@ export default function EventABTab({ eventId }: Props) {
     return out;
   }, [sim.sessions, sim.abModule?.totals]);
 
+  // ── modos de operação ──
+  const modeBebidas: ABMode   = (config?.ab_mode_bebidas   as ABMode)   ?? "terceirizacao";
+  const modeAlimentos: ABMode = (config?.ab_mode_alimentos as ABMode) ?? "terceirizacao";
+
   // ── mutations ──
   const upsertConfig = useMutation({
-    mutationFn: async (patch: Partial<ABFoodConfig> & { auto_sync_bp?: boolean }) => {
+    mutationFn: async (patch: Record<string, any>) => {
       const payload = { event_id: eventId, ...config, ...patch };
       delete (payload as any).id;
       delete (payload as any).created_at;
@@ -199,7 +265,6 @@ export default function EventABTab({ eventId }: Props) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ab_zones", eventId] }),
   });
 
-  // ── importar zonas da bilhética que ainda não existem ──
   const importTicketZones = async () => {
     const existing = new Set(zones.map((z) => z.source_ticket_zone_id).filter(Boolean));
     const toAdd = ticketZones.filter((tz) => !existing.has(tz.id));
@@ -217,16 +282,13 @@ export default function EventABTab({ eventId }: Props) {
         open_food: false,
         per_capita_bebidas: 0,
         repasse_bebidas_pct: 0,
+        per_capita_custo_bebidas: 0,
+        custo_fixo_bebidas: 0,
       });
     }
     toast({ title: "Zonas importadas", description: `${toAdd.length} zona(s) adicionadas.` });
   };
 
-  // ── participantes por cenário ──
-  // Real → ticket_sales (já carregado em realParticipants por zone_id da bilheteira)
-  // BE   → solver Break Even do Simulador (por zone_label)
-  // Fc   → solver Forecast do Simulador (por zone_label)
-  // Fallback (sem Simulador): capacidade total dos lotes.
   const participantsForZone = (z: any): number => {
     if (z.participants_manual != null) return Number(z.participants_manual);
     const srcId = z.source_ticket_zone_id;
@@ -245,21 +307,28 @@ export default function EventABTab({ eventId }: Props) {
         participants: participantsForZone(z),
         open_bar: !!z.open_bar,
         open_food: !!z.open_food,
-        per_capita_bebidas: Number(z.per_capita_bebidas || 0),
-        repasse_bebidas_pct: Number(z.repasse_bebidas_pct || 0),
+        per_capita_bebidas:       Number(z.per_capita_bebidas      || 0),
+        repasse_bebidas_pct:      Number(z.repasse_bebidas_pct     || 0),
+        per_capita_custo_bebidas: Number(z.per_capita_custo_bebidas || 0),
+        custo_fixo_bebidas:       Number(z.custo_fixo_bebidas      || 0),
+        operador_nome:            z.operador_nome ?? undefined,
       })),
     [zones, scenario, realParticipants, simParticipantsByLabel, lotsCapacity],
   );
 
   const food: ABFoodConfig = {
-    fee_alimentos: Number(config?.fee_alimentos || 0),
-    repasse_alimentos_pct: Number(config?.repasse_alimentos_pct || 0),
-    per_capita_alimentos: Number(config?.per_capita_alimentos || 0),
+    fee_alimentos:              Number(config?.fee_alimentos              || 0),
+    repasse_alimentos_pct:      Number(config?.repasse_alimentos_pct      || 0),
+    per_capita_alimentos:       Number(config?.per_capita_alimentos       || 0),
+    per_capita_custo_alimentos: Number(config?.per_capita_custo_alimentos || 0),
+    custo_fixo_alimentos:       Number(config?.custo_fixo_alimentos       || 0),
   };
 
-  const totals = useMemo(() => computeTotals(calcInputs, food), [calcInputs, food]);
+  const totals = useMemo(
+    () => computeTotals(calcInputs, food, modeBebidas, modeAlimentos),
+    [calcInputs, food, modeBebidas, modeAlimentos],
+  );
 
-  // ── add zona vazia ──
   const addEmptyZone = () =>
     upsertZone.mutate({
       zone_label: `Nova zona ${zones.length + 1}`,
@@ -268,7 +337,14 @@ export default function EventABTab({ eventId }: Props) {
       open_food: false,
       per_capita_bebidas: 0,
       repasse_bebidas_pct: 0,
+      per_capita_custo_bebidas: 0,
+      custo_fixo_bebidas: 0,
     });
+
+  // Label contextual do per_capita_bebidas conforme o modo (decisão 3.2)
+  const labelPerCapitaBebidas = modeBebidas === "exploracao_propria"
+    ? "Per capita receita (casa)"
+    : "Per capita faturação (operador)";
 
   return (
     <div className="space-y-6">
@@ -289,19 +365,19 @@ export default function EventABTab({ eventId }: Props) {
         </Tabs>
       </div>
 
-      {/* KPIs consolidados — perspectiva da casa (modelo concessão) */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Kpi label="Faturação A&B (gerador)" value={fmtEUR(totals.faturacaoTotal)} />
-        <Kpi label="Receita A&B (casa)" value={fmtEUR(totals.receitaTotal)} highlight />
-        <Kpi label="Parte do gerador" value={fmtEUR(totals.parteGeradorTotal)} />
-        <Kpi label="Resultado A&B (casa)" value={fmtEUR(totals.resultadoTotal)} highlight />
-        <Kpi label="Quota da casa" value={fmtPct(totals.margemPct)} />
-      </div>
+      {/* KPIs consolidados — adaptativos conforme os modos */}
+      <KpisConsolidados totals={totals} modeBebidas={modeBebidas} modeAlimentos={modeAlimentos} />
 
       {/* Bebidas — por zona */}
       <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <CardTitle>Bebidas — por zona</CardTitle>
+        <CardHeader className="flex-row items-center justify-between flex-wrap gap-2">
+          <div className="space-y-1">
+            <CardTitle>Bebidas — por zona</CardTitle>
+            <ModeSelector
+              value={modeBebidas}
+              onChange={(m) => upsertConfig.mutate({ ab_mode_bebidas: m })}
+            />
+          </div>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={importTicketZones}>
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -322,28 +398,48 @@ export default function EventABTab({ eventId }: Props) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Zona</TableHead>
+                  <TableHead>Operador</TableHead>
                   <TableHead className="text-right">Participantes ({scenario})</TableHead>
                   <TableHead className="text-right">Override manual</TableHead>
                   <TableHead className="text-center">Open Bar</TableHead>
-                  <TableHead className="text-right">Per capita Bebidas</TableHead>
-                  <TableHead className="text-right">% Repasse</TableHead>
+                  <TableHead className="text-right">{labelPerCapitaBebidas}</TableHead>
+                  {modeBebidas === "terceirizacao" && (
+                    <TableHead className="text-right">% Repasse</TableHead>
+                  )}
+                  {modeBebidas === "exploracao_propria" && (
+                    <>
+                      <TableHead className="text-right">Per capita custo</TableHead>
+                      <TableHead className="text-right">Custo fixo (€)</TableHead>
+                    </>
+                  )}
                   <TableHead className="text-center">Open Food</TableHead>
-                  <TableHead className="text-right">Faturação</TableHead>
                   <TableHead className="text-right">Receita</TableHead>
-                  <TableHead className="text-right">Custo</TableHead>
+                  {modeBebidas === "exploracao_propria" && (
+                    <TableHead className="text-right">Custo</TableHead>
+                  )}
+                  <TableHead className="text-right">Resultado</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {zones.map((z: any) => {
                   const r = totals.zones.find((x) => x.id === z.id)!;
+                  const resultColor = (r?.resultadoBebidas ?? 0) >= 0 ? "text-primary" : "text-rose-600";
                   return (
                     <TableRow key={z.id}>
                       <TableCell>
                         <Input
                           value={z.zone_label}
                           onChange={(e) => upsertZone.mutate({ ...z, zone_label: e.target.value })}
-                          className="min-w-[140px]"
+                          className="min-w-[120px]"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={z.operador_nome ?? ""}
+                          placeholder="Operador (opcional)"
+                          onChange={(e) => upsertZone.mutate({ ...z, operador_nome: e.target.value || null })}
+                          className="min-w-[140px] text-xs"
                         />
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
@@ -351,8 +447,7 @@ export default function EventABTab({ eventId }: Props) {
                       </TableCell>
                       <TableCell className="text-right">
                         <Input
-                          type="number"
-                          min={0}
+                          type="number" min={0}
                           value={z.participants_manual ?? ""}
                           placeholder="auto"
                           onBlur={(e) => {
@@ -379,24 +474,53 @@ export default function EventABTab({ eventId }: Props) {
                           disabled={!!z.open_bar}
                         />
                       </TableCell>
-                      <TableCell className="text-right">
-                        <MoneyInput
-                          value={Number(z.repasse_bebidas_pct || 0)}
-                          onChange={(v) => upsertZone.mutate({ ...z, repasse_bebidas_pct: v })}
-                          className="w-24 ml-auto"
-                          percent
-                          disabled={!!z.open_bar}
-                        />
-                      </TableCell>
+                      {modeBebidas === "terceirizacao" && (
+                        <TableCell className="text-right">
+                          <MoneyInput
+                            value={Number(z.repasse_bebidas_pct || 0)}
+                            onChange={(v) => upsertZone.mutate({ ...z, repasse_bebidas_pct: v })}
+                            className="w-24 ml-auto"
+                            percent
+                            disabled={!!z.open_bar}
+                          />
+                        </TableCell>
+                      )}
+                      {modeBebidas === "exploracao_propria" && (
+                        <>
+                          <TableCell className="text-right">
+                            <MoneyInput
+                              value={Number(z.per_capita_custo_bebidas || 0)}
+                              onChange={(v) => upsertZone.mutate({ ...z, per_capita_custo_bebidas: v })}
+                              className="w-28 ml-auto"
+                              disabled={!!z.open_bar}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <MoneyInput
+                              value={Number(z.custo_fixo_bebidas || 0)}
+                              onChange={(v) => upsertZone.mutate({ ...z, custo_fixo_bebidas: v })}
+                              className="w-28 ml-auto"
+                            />
+                          </TableCell>
+                        </>
+                      )}
                       <TableCell className="text-center">
                         <Switch
                           checked={!!z.open_food}
                           onCheckedChange={(v) => upsertZone.mutate({ ...z, open_food: v })}
                         />
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">{fmtEUR(r?.faturacaoBebidas ?? 0)}</TableCell>
-                      <TableCell className="text-right tabular-nums text-primary">{fmtEUR(r?.receitaBebidas ?? 0)}</TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">{fmtEUR(r?.parteGeradorBebidas ?? 0)}</TableCell>
+                      <TableCell className="text-right tabular-nums text-primary">
+                        {fmtEUR(r?.receitaBebidas ?? 0)}
+                      </TableCell>
+                      {modeBebidas === "exploracao_propria" && (
+                        <TableCell className="text-right tabular-nums text-rose-600">
+                          {fmtEUR(r?.custoCasaBebidas ?? 0)}
+                        </TableCell>
+                      )}
+                      <TableCell className={`text-right tabular-nums ${resultColor}`}>
+                        {fmtEUR(r?.resultadoBebidas ?? 0)}
+                      </TableCell>
                       <TableCell>
                         <Button size="icon" variant="ghost" onClick={() => deleteZone.mutate(z.id)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -406,10 +530,14 @@ export default function EventABTab({ eventId }: Props) {
                   );
                 })}
                 <TableRow className="font-semibold">
-                  <TableCell colSpan={7}>Totais Bebidas</TableCell>
-                  <TableCell className="text-right tabular-nums">{fmtEUR(totals.faturacaoBebidas)}</TableCell>
+                  <TableCell colSpan={modeBebidas === "terceirizacao" ? 8 : 9}>Totais Bebidas</TableCell>
                   <TableCell className="text-right tabular-nums text-primary">{fmtEUR(totals.receitaBebidas)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{fmtEUR(totals.parteGeradorBebidas)}</TableCell>
+                  {modeBebidas === "exploracao_propria" && (
+                    <TableCell className="text-right tabular-nums text-rose-600">{fmtEUR(totals.custoCasaBebidas)}</TableCell>
+                  )}
+                  <TableCell className={`text-right tabular-nums ${(totals.receitaBebidas - totals.custoCasaBebidas) >= 0 ? "text-primary" : "text-rose-600"}`}>
+                    {fmtEUR(totals.receitaBebidas - totals.custoCasaBebidas)}
+                  </TableCell>
                   <TableCell />
                 </TableRow>
               </TableBody>
@@ -418,49 +546,107 @@ export default function EventABTab({ eventId }: Props) {
         </CardContent>
       </Card>
 
-      {/* Alimentos — global */}
+      {/* Alimentos */}
       <Card>
-        <CardHeader>
+        <CardHeader className="space-y-2">
           <CardTitle>Alimentos — configuração global</CardTitle>
+          <ModeSelector
+            value={modeAlimentos}
+            onChange={(m) => upsertConfig.mutate({ ab_mode_alimentos: m })}
+          />
         </CardHeader>
         <CardContent className="grid md:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label>Fee fixo (€)</Label>
-            <MoneyInput
-              value={food.fee_alimentos}
-              onChange={(v) => upsertConfig.mutate({ fee_alimentos: v })}
-            />
-            <p className="text-xs text-muted-foreground">Receita garantida do operador.</p>
-          </div>
-          <div className="space-y-2">
-            <Label>% Repasse</Label>
-            <MoneyInput
-              value={food.repasse_alimentos_pct}
-              onChange={(v) => upsertConfig.mutate({ repasse_alimentos_pct: v })}
-              percent
+          {/* Campo operador */}
+          <div className="md:col-span-3 space-y-2">
+            <Label>Operador (opcional)</Label>
+            <Input
+              value={config?.operador_nome_alimentos ?? ""}
+              placeholder="Ex: NOS Alive Catering"
+              onBlur={(e) => upsertConfig.mutate({ operador_nome_alimentos: e.target.value || null })}
+              className="max-w-sm"
+              onChange={() => {}}
+              defaultValue={config?.operador_nome_alimentos ?? ""}
+              key={`op-ali-${config?.operador_nome_alimentos ?? ""}`}
             />
           </div>
+
+          {/* Per capita — label contextual */}
           <div className="space-y-2">
-            <Label>Per capita Alimentos (€/pessoa)</Label>
+            <Label>
+              {modeAlimentos === "exploracao_propria"
+                ? "Per capita receita (casa) (€/pessoa)"
+                : "Per capita faturação (operador) (€/pessoa)"}
+            </Label>
             <MoneyInput
               value={food.per_capita_alimentos}
               onChange={(v) => upsertConfig.mutate({ per_capita_alimentos: v })}
             />
           </div>
 
+          {/* Campos Terceirização */}
+          {modeAlimentos === "terceirizacao" && (
+            <>
+              <div className="space-y-2">
+                <Label>Fee fixo (€)</Label>
+                <MoneyInput
+                  value={food.fee_alimentos}
+                  onChange={(v) => upsertConfig.mutate({ fee_alimentos: v })}
+                />
+                <p className="text-xs text-muted-foreground">Receita garantida independente das vendas.</p>
+              </div>
+              <div className="space-y-2">
+                <Label>% Repasse</Label>
+                <MoneyInput
+                  value={food.repasse_alimentos_pct}
+                  onChange={(v) => upsertConfig.mutate({ repasse_alimentos_pct: v })}
+                  percent
+                />
+              </div>
+            </>
+          )}
+
+          {/* Campos Exploração Própria */}
+          {modeAlimentos === "exploracao_propria" && (
+            <>
+              <div className="space-y-2">
+                <Label>Per capita custo (€/pessoa)</Label>
+                <MoneyInput
+                  value={food.per_capita_custo_alimentos}
+                  onChange={(v) => upsertConfig.mutate({ per_capita_custo_alimentos: v })}
+                />
+                <p className="text-xs text-muted-foreground">Custo estimado por pessoa (CMV + operação).</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Custo fixo (€)</Label>
+                <MoneyInput
+                  value={food.custo_fixo_alimentos}
+                  onChange={(v) => upsertConfig.mutate({ custo_fixo_alimentos: v })}
+                />
+                <p className="text-xs text-muted-foreground">Staff fixo, aluguer de equipamento, etc.</p>
+              </div>
+            </>
+          )}
+
+          {/* KPIs Alimentos */}
           <div className="md:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t">
             <Kpi label="Participantes elegíveis" value={String(totals.participantesElegiveisAlimentos)} />
-            <Kpi label="Faturação Alimentos" value={fmtEUR(totals.faturacaoAlimentos)} />
-            <Kpi label="Receita Alimentos" value={fmtEUR(totals.receitaAlimentos)} highlight />
-            <Kpi label="Parte gerador (Alimentos)" value={fmtEUR(totals.parteGeradorAlimentos)} />
+            <Kpi label={modeAlimentos === "exploracao_propria" ? "Receita Alimentos" : "Faturação Alimentos"}
+                 value={fmtEUR(totals.faturacaoAlimentos)} />
+            <Kpi label="Receita Alimentos (casa)" value={fmtEUR(totals.receitaAlimentos)} highlight />
+            {modeAlimentos === "exploracao_propria" ? (
+              <Kpi label="Custo Alimentos (casa)" value={fmtEUR(totals.custoCasaAlimentos)} negative />
+            ) : (
+              <Kpi label="Parte gerador (Alimentos)" value={fmtEUR(totals.parteGeradorAlimentos)} />
+            )}
           </div>
 
+          {/* auto_sync_bp — TODO v2 */}
           <div className="md:col-span-3 flex items-center justify-between pt-2 border-t">
             <div>
               <Label>Sincronizar com Business Plan</Label>
               <p className="text-xs text-muted-foreground">
-                Quando ativo, os totais A&B (cenário Forecast) são propagados como linhas BP de receita e custo.
-                <span className="ml-1 italic">Em breve — flag persistida.</span>
+                Quando ativo, os totais A&B (cenário Forecast) são propagados como linhas BP.
+                <span className="ml-1 italic">Em breve — flag persistida. Em modo exploração própria: v2.</span>
               </p>
             </div>
             <Switch
@@ -474,16 +660,16 @@ export default function EventABTab({ eventId }: Props) {
   );
 }
 
+// ── Componente KPI ────────────────────────────────────────────────────────────
+
 function Kpi({
-  label,
-  value,
-  highlight,
-  negative,
+  label, value, highlight, negative, className,
 }: {
   label: string;
   value: string;
   highlight?: boolean;
   negative?: boolean;
+  className?: string;
 }) {
   return (
     <div className="rounded-lg border bg-card p-3">
@@ -491,7 +677,7 @@ function Kpi({
       <div
         className={
           "text-lg font-semibold tabular-nums " +
-          (negative ? "text-destructive" : highlight ? "text-primary" : "")
+          (className ?? (negative ? "text-destructive" : highlight ? "text-primary" : ""))
         }
       >
         {value}
