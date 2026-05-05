@@ -186,6 +186,8 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
       setStep("review");
     }
   }
+
+  const t = parseResp?.parsed?.totals;
   const ft = parseResp?.parsed?.fileTotalsRow;
   const issues = parseResp?.validation?.issues ?? [];
   const hasErrors = parseResp?.validation?.hasErrors;
