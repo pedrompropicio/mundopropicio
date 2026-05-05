@@ -344,12 +344,13 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
               <Card label="Fornecedores novos" value={String(applyResp.summary.suppliersCreated)} />
               <Card label="A&B excluídos" value={String(applyResp.summary.excludedAB)} tone="muted" />
             </div>
-            <div className="rounded border border-border/60 p-3 text-xs space-y-1">
+            <div className="rounded border border-border/60 p-3 text-xs space-y-2">
               <p className="font-semibold flex items-center gap-1"><FileText className="h-3.5 w-3.5" /> Pendências para revisão</p>
-              <p>• Sem CC (→ "0.0.99"): {applyResp.summary.pendencies.noCC}</p>
-              <p>• Data em intervalo: {applyResp.summary.pendencies.dateInterval}</p>
-              <p>• Formalidade ambígua: {applyResp.summary.pendencies.formalidadeAmbiguous}</p>
-              <p>• IVA ajustado por snap: {applyResp.summary.pendencies.ivaSnapped}</p>
+              <PendencyGroup label={`Sem CC (→ "0.0.99")`} count={applyResp.summary.pendencies.noCC} rows={applyResp.summary.pendencies.details?.noCC} />
+              <PendencyGroup label="Data em intervalo" count={applyResp.summary.pendencies.dateInterval} rows={applyResp.summary.pendencies.details?.dateInterval} />
+              <PendencyGroup label="Formalidade ambígua" count={applyResp.summary.pendencies.formalidadeAmbiguous} rows={applyResp.summary.pendencies.details?.formalidadeAmbiguous} />
+              <PendencyGroup label="IVA ajustado por snap" count={applyResp.summary.pendencies.ivaSnapped} rows={applyResp.summary.pendencies.details?.ivaSnapped} />
+              <PendencyGroup label="A&B excluídos" count={applyResp.summary.pendencies.excludedAB} rows={applyResp.summary.pendencies.details?.excludedAB} />
             </div>
             <div className="flex justify-end">
               <Button onClick={close}>Fechar</Button>
