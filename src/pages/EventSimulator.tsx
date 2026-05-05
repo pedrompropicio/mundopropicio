@@ -359,6 +359,33 @@ export default function EventSimulator() {
   const [localCfg, setLocalCfg] = useState<DbConfig | null>(null);
   const [localSessions, setLocalSessions] = useState<DbInput[]>([]);
   const [localCosts, setLocalCosts] = useState<DbCostLine[]>([]);
+  const overheadsKey = `sim-include-overheads:${eventId ?? ""}`;
+  const [includeOverheads, setIncludeOverheads] = useState<boolean>(() => {
+    if (typeof window === "undefined" || !eventId) return true;
+    const v = window.localStorage.getItem(overheadsKey);
+    return v === null ? true : v === "1";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined" && eventId) {
+      window.localStorage.setItem(overheadsKey, includeOverheads ? "1" : "0");
+    }
+  }, [includeOverheads, eventId, overheadsKey]);
+
+  // Códigos das categorias indexados por id (para filtro de Grupo 10)
+  const codeById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of l3Categories) m.set(c.id, c.code);
+    return m;
+  }, [l3Categories]);
+  const isOverhead = (catId: string | null) => {
+    if (!catId) return false;
+    const code = codeById.get(catId) ?? "";
+    return code.startsWith("10.");
+  };
+  const visibleCosts = useMemo(
+    () => localCosts.filter((c) => includeOverheads || !isOverhead(c.category_id)),
+    [localCosts, includeOverheads, codeById],
+  );
 
   useEffect(() => { if (cfg) setLocalCfg(cfg); }, [cfg]);
   useEffect(() => { setLocalSessions(sessions); }, [sessions]);
@@ -453,6 +480,9 @@ export default function EventSimulator() {
   const syncFromSources = useMutation({
     mutationFn: async () => {
       if (!eventId) throw new Error("Sem evento");
+      if (isTourMaster) {
+        throw new Error("Sincronização ainda não suportada em eventos com Splits (turnê). Use o simulador apenas em eventos simples ou festivais.");
+      }
       return syncSimulatorFromSources(eventId);
     },
     onSuccess: (r) => {
@@ -1251,7 +1281,13 @@ export default function EventSimulator() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Custos por categoria L3</CardTitle>
-              <Button size="sm" variant="outline" onClick={addCost}><Plus className="mr-1 h-4 w-4" /> Adicionar linha</Button>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer" title="Inclui categorias do Grupo 10 (Custos Corporativos / overheads). Útil em empresas mono-evento.">
+                  <input type="checkbox" checked={includeOverheads} onChange={(e) => setIncludeOverheads(e.target.checked)} />
+                  Incluir Grupo 10 (overheads)
+                </label>
+                <Button size="sm" variant="outline" onClick={addCost}><Plus className="mr-1 h-4 w-4" /> Adicionar linha</Button>
+              </div>
             </CardHeader>
             <CardContent className="overflow-x-auto">
               <Table>
@@ -1268,7 +1304,9 @@ export default function EventSimulator() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {localCosts.map((c, i) => (
+                  {visibleCosts.map((c) => {
+                    const i = localCosts.indexOf(c);
+                    return (
                     <TableRow key={c.id ?? `new-c-${i}`}>
                       <TableCell>
                         <Select value={c.category_id ?? ""} onValueChange={(v) => updateCost(i, { category_id: v || null })}>
@@ -1283,7 +1321,7 @@ export default function EventSimulator() {
                       <TableCell><Input className="h-8 w-48" value={c.label} onChange={(e) => updateCost(i, { label: e.target.value })} /></TableCell>
                       <TableCell><Input className="h-8 w-28 text-right" type="number" step="0.01" value={c.prior_year_amount}
                         onChange={(e) => updateCost(i, { prior_year_amount: Number(e.target.value) })} /></TableCell>
-                      <TableCell className="text-right text-muted-foreground" title={`Pago: ${fmt(c.actual_paid)} · BP s/TX: ${fmt(c.actual_committed_bp)}`}>
+                      <TableCell className="text-right text-muted-foreground" title={`BP aprovado: ${fmt(c.forecast_amount)} · TX (approved+paid): ${fmt(Math.max(0, c.actual_amount - c.actual_committed_bp))} · Pago: ${fmt(c.actual_paid)} · BP por executar: ${fmt(c.actual_committed_bp)}`}>
                         {fmt(Number(c.actual_amount || 0))}
                       </TableCell>
                       <TableCell><Input className="h-8 w-28 text-right" type="number" step="0.01" value={c.break_even_amount}
@@ -1302,11 +1340,11 @@ export default function EventSimulator() {
                         )}
                       </TableCell>
                     </TableRow>
-                  ))}
+                  );})}
                   <TableRow className="font-bold border-t-2">
-                    <TableCell colSpan={2}>CUSTO TOTAL</TableCell>
-                    <TableCell className="text-right">{fmt(localCosts.reduce((a, c) => a + Number(c.prior_year_amount || 0), 0))}</TableCell>
-                    <TableCell className="text-right">{fmt(localCosts.reduce((a, c) => a + Number(c.actual_amount || 0), 0))}</TableCell>
+                    <TableCell colSpan={2}>CUSTO TOTAL{includeOverheads ? "" : " (s/ Grupo 10)"}</TableCell>
+                    <TableCell className="text-right">{fmt(visibleCosts.reduce((a, c) => a + Number(c.prior_year_amount || 0), 0))}</TableCell>
+                    <TableCell className="text-right">{fmt(visibleCosts.reduce((a, c) => a + Number(c.actual_amount || 0), 0))}</TableCell>
                     <TableCell className="text-right">{fmt(beCosts.totalCost)}</TableCell>
                     <TableCell className="text-right">{fmt(fcCosts.totalCost)}</TableCell>
                     <TableCell colSpan={2}></TableCell>
@@ -1315,7 +1353,8 @@ export default function EventSimulator() {
               </Table>
               <p className="mt-3 text-xs text-muted-foreground">
                 <strong>2025 (manual)</strong>: introduzido manualmente para referência (não é puxado da DB).
-                <strong> Hoje (Edição 2026)</strong>: soma <em>Transações (qualquer status)</em> + <em>BP aprovado sem TX vinculada</em>.
+                <strong> Hoje (Edição 2026)</strong>: <em>max(BP aprovado, TX approved+paid)</em> por categoria L3 — alinhado aos Cards do BP e à Análise de Resultados.
+                Passa o rato sobre o valor para ver decomposição (BP / TX / Pago).
                 Marque "A&B?" nas linhas <em>A&B Bebida/Alimento</em> — recalculadas pelo % de repasse.
               </p>
             </CardContent>

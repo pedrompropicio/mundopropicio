@@ -42,7 +42,7 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
     supabase.from("event_simulator_inputs").select("*").eq("event_id", eventId),
     supabase.from("event_forecasts").select("id, category_id, amount, type, status, transaction_id")
       .eq("event_id", eventId).eq("status", "approved").eq("type", "expense"),
-    supabase.from("account_categories").select("id, code, name").eq("is_active", true),
+    supabase.from("account_categories").select("id, code, name, company_id").eq("is_active", true),
     supabase.from("event_simulator_cost_lines").select("*").eq("event_id", eventId),
   ]);
 
@@ -173,35 +173,31 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
   }
 
   // 5) Custos por categoria L3
-  // L3 = code com x.y.z; só categorias de DESPESA (não 1.x receitas, não 10.x corporate por agora — incluímos todas L3 que tenham forecast/TX)
-  const l3 = categories.filter((c) => /^\d+\.\d+\.\d+$/.test(c.code));
+  // L3 = code com x.y.z; filtra por company_id do evento (multi-tenant safe).
+  const l3 = categories.filter(
+    (c) => /^\d+\.\d+\.\d+$/.test(c.code) && c.company_id === companyId,
+  );
   const l3ById = new Map<string, Row>();
   for (const c of l3) l3ById.set(c.id, c);
 
   // 5a) Forecast aprovado (despesa) por categoria
   const fcByCat = new Map<string, number>();
-  // map forecast_id → category_id (para descobrir BP sem TX)
-  const fcCategoryByForecast = new Map<string, string>();
-  // forecasts já vinculados a TX (não somar duas vezes em "Atual")
-  const forecastsWithTx = new Set<string>();
   for (const f of forecasts) {
     if (!f.category_id || !l3ById.has(f.category_id)) continue;
     fcByCat.set(f.category_id, (fcByCat.get(f.category_id) ?? 0) + Number(f.amount || 0));
-    fcCategoryByForecast.set(f.id, f.category_id);
-    if (f.transaction_id) forecastsWithTx.add(f.id);
   }
 
-  // 5b) Transações reais (qualquer status) por categoria L3
-  // Carregar tudo do evento de uma vez
+  // 5b) Transações reais por categoria L3 — só approved+paid (alinhado a Cards do BP / Análise de Resultados)
   const { data: txRaw } = await supabase
     .from("transactions")
     .select("id, amount, status, category_id, type")
-    .eq("event_id", eventId);
+    .eq("event_id", eventId)
+    .in("status", ["approved", "paid"]);
   const txs = (txRaw ?? []) as Array<{
     id: string; amount: number; status: string; category_id: string | null; type: string;
   }>;
 
-  const actualTxByCat = new Map<string, number>();        // todas as TX de despesa
+  const actualTxByCat = new Map<string, number>();        // TX approved+paid
   const actualPaidByCat = new Map<string, number>();      // só TX paid
   for (const t of txs) {
     if (t.type !== "expense") continue;
@@ -213,22 +209,14 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
     }
   }
 
-  // 5c) BP aprovado AINDA SEM TX (por categoria): forecasts sem transaction_id
-  const committedBpByCat = new Map<string, number>();
-  for (const f of forecasts) {
-    if (!f.category_id || !l3ById.has(f.category_id)) continue;
-    if (f.transaction_id) continue; // já gerou TX, vai contar pelo lado das transações
-    committedBpByCat.set(
-      f.category_id,
-      (committedBpByCat.get(f.category_id) ?? 0) + Number(f.amount || 0),
-    );
-  }
+  // 5c) BP aprovado por categoria — total (não filtrar por transaction_id; vínculo BP↔TX é por
+  //      category_id+event_id, não por transaction_id — ver memory bp-installments / accounting-linkage-logic).
+  const bpApprovedByCat = fcByCat;
 
   // 5d) União de categorias afetadas
   const allCatIds = new Set<string>([
     ...fcByCat.keys(),
     ...actualTxByCat.keys(),
-    ...committedBpByCat.keys(),
   ]);
 
   const existingCostByCat = new Map<string, Row>();
@@ -240,12 +228,14 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
   for (const catId of allCatIds) {
     const cat = l3ById.get(catId);
     if (!cat) continue;
-    const fcAmount = fcByCat.get(catId) ?? 0;
+    const fcAmount = bpApprovedByCat.get(catId) ?? 0;
     const actualPaid = actualPaidByCat.get(catId) ?? 0;
-    const actualTxAll = actualTxByCat.get(catId) ?? 0;
-    const committedBp = committedBpByCat.get(catId) ?? 0;
-    // "Atual" = TX (qualquer status, evita duplicar BP que já virou TX) + BP-sem-TX
-    const actualAmount = actualTxAll + committedBp;
+    const actualTxAppPaid = actualTxByCat.get(catId) ?? 0;
+    // "Hoje" = max(BP aprovado, TX approved+paid) — evita dupla contagem porque
+    // o vínculo BP↔TX é por category_id+event_id (não por transaction_id).
+    // Se TX > BP → real comprometido excede o orçado; senão prevalece o BP aprovado.
+    const actualAmount = Math.max(fcAmount, actualTxAppPaid);
+    const committedBp = Math.max(0, fcAmount - actualTxAppPaid);
 
     const exists = existingCostByCat.get(catId);
     if (exists) {
