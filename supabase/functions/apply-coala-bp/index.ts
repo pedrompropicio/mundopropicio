@@ -448,16 +448,36 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Pendency report
+    // Pendency report — counts + detailed line lists for the final report
+    const briefRow = (r: ParsedRow, extra?: string) => ({
+      row: r.rowNumber,
+      description: r.description,
+      supplier: r.supplier,
+      amount: r.netAmount,
+      ...(extra ? { detail: extra } : {}),
+    });
+    const noCCRows = parsed.rows.filter((r: ParsedRow) => !r.excluded && !r.rawCenterCusto).map((r) => briefRow(r));
+    const dateIntervalRows = parsed.rows.filter((r: ParsedRow) => !r.excluded && r.needsDateReview).map((r) => briefRow(r, r.dueDateRaw ?? ""));
+    const formalidadeAmbiguousRows = parsed.rows.filter((r: ParsedRow) => !r.excluded && r.needsFormalidadeReview).map((r) => briefRow(r, r.formalidadeRaw ?? ""));
+    const ivaSnappedRows = parsed.rows.filter((r: ParsedRow) => !r.excluded && r.warnings.some((w) => w.includes("IVA"))).map((r) => briefRow(r, `${r.ivaRateRaw}% → ${r.ivaRate}%`));
+    const excludedABRows = parsed.rows.filter((r) => r.excluded).map((r) => briefRow(r, r.excludeReason ?? ""));
+
     const pendencies = {
-      excludedAB: parsed.rows.filter((r) => r.excluded).length,
-      noCC: parsed.rows.filter((r: ParsedRow) => !r.excluded && !r.rawCenterCusto).length,
-      dateInterval: parsed.rows.filter((r: ParsedRow) => !r.excluded && r.needsDateReview).length,
-      formalidadeAmbiguous: parsed.rows.filter((r: ParsedRow) => !r.excluded && r.needsFormalidadeReview).length,
-      ivaSnapped: parsed.rows.filter((r: ParsedRow) => !r.excluded && r.warnings.some((w) => w.includes("IVA"))).length,
+      excludedAB: excludedABRows.length,
+      noCC: noCCRows.length,
+      dateInterval: dateIntervalRows.length,
+      formalidadeAmbiguous: formalidadeAmbiguousRows.length,
+      ivaSnapped: ivaSnappedRows.length,
       newSuppliers: newSupplierIds.length,
       skippedForecasts: skippedForecasts.length,
       skippedTransactions: skippedTransactions.length,
+      details: {
+        noCC: noCCRows,
+        dateInterval: dateIntervalRows,
+        formalidadeAmbiguous: formalidadeAmbiguousRows,
+        ivaSnapped: ivaSnappedRows,
+        excludedAB: excludedABRows,
+      },
     };
 
     const { data: run } = await admin

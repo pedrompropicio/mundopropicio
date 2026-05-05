@@ -344,12 +344,13 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
               <Card label="Fornecedores novos" value={String(applyResp.summary.suppliersCreated)} />
               <Card label="A&B excluídos" value={String(applyResp.summary.excludedAB)} tone="muted" />
             </div>
-            <div className="rounded border border-border/60 p-3 text-xs space-y-1">
+            <div className="rounded border border-border/60 p-3 text-xs space-y-2">
               <p className="font-semibold flex items-center gap-1"><FileText className="h-3.5 w-3.5" /> Pendências para revisão</p>
-              <p>• Sem CC (→ "0.0.99"): {applyResp.summary.pendencies.noCC}</p>
-              <p>• Data em intervalo: {applyResp.summary.pendencies.dateInterval}</p>
-              <p>• Formalidade ambígua: {applyResp.summary.pendencies.formalidadeAmbiguous}</p>
-              <p>• IVA ajustado por snap: {applyResp.summary.pendencies.ivaSnapped}</p>
+              <PendencyGroup label={`Sem CC (→ "0.0.99")`} count={applyResp.summary.pendencies.noCC} rows={applyResp.summary.pendencies.details?.noCC} />
+              <PendencyGroup label="Data em intervalo" count={applyResp.summary.pendencies.dateInterval} rows={applyResp.summary.pendencies.details?.dateInterval} />
+              <PendencyGroup label="Formalidade ambígua" count={applyResp.summary.pendencies.formalidadeAmbiguous} rows={applyResp.summary.pendencies.details?.formalidadeAmbiguous} />
+              <PendencyGroup label="IVA ajustado por snap" count={applyResp.summary.pendencies.ivaSnapped} rows={applyResp.summary.pendencies.details?.ivaSnapped} />
+              <PendencyGroup label="A&B excluídos" count={applyResp.summary.pendencies.excludedAB} rows={applyResp.summary.pendencies.details?.excludedAB} />
             </div>
             <div className="flex justify-end">
               <Button onClick={close}>Fechar</Button>
@@ -369,3 +370,28 @@ function Card({ label, value, tone }: { label: string; value: string; tone?: "mu
     </div>
   );
 }
+
+interface PendencyRow { row: number; description: string; supplier?: string | null; amount?: number; detail?: string }
+function PendencyGroup({ label, count, rows }: { label: string; count: number; rows?: PendencyRow[] }) {
+  const [open, setOpen] = useState(false);
+  if (!count) return <p className="text-muted-foreground">• {label}: 0</p>;
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(o => !o)} className="text-left w-full hover:text-primary transition">
+        • {label}: <span className="font-semibold">{count}</span> {rows?.length ? <span className="text-[10px] text-muted-foreground">({open ? "ocultar" : "ver linhas"})</span> : null}
+      </button>
+      {open && rows?.length ? (
+        <ul className="mt-1 ml-3 space-y-0.5 max-h-48 overflow-y-auto border-l border-border/40 pl-2">
+          {rows.map((r, i) => (
+            <li key={i} className="text-[11px] font-mono">
+              <span className="text-muted-foreground">L{r.row}</span> · {r.description}
+              {typeof r.amount === "number" ? <span className="text-muted-foreground"> · {r.amount.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</span> : null}
+              {r.detail ? <span className="text-amber-400"> · {r.detail}</span> : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
