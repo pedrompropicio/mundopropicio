@@ -2685,6 +2685,13 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
         parentEventId={parentEventId}
       />
 
+      <CoalaImportWizard
+        open={showCoalaWizard}
+        onOpenChange={setShowCoalaWizard}
+        eventId={eventId}
+        eventName={eventName}
+      />
+
       <GenerateHistoricalModal
         open={historicalModalOpen}
         onOpenChange={setHistoricalModalOpen}
