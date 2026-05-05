@@ -370,9 +370,10 @@ Deno.serve(async (req) => {
       const categoryId = categoryFor(r.rawCenterCusto);
       const supplierId = r.supplier ? supByName.get(r.supplier) ?? null : null;
 
-      // ── Forecast dedupe (descrição + valor; ignora categoria para preservar reclassificações)
+      // ── Forecast dedupe (descrição+valor) + decisão manual/IA da fase preview
+      const userDecision = decisions[String(r.rowNumber)];
       const fcKey = `${normTxt(r.description)}|${moneyKey(r.netAmount)}`;
-      if (fcKeySet.has(fcKey)) {
+      if (userDecision === "skip" || (userDecision !== "create" && fcKeySet.has(fcKey))) {
         skippedForecasts.push(r.rowNumber);
       } else {
         const { data: fc, error: fErr } = await admin
