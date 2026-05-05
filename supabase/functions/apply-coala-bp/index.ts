@@ -348,6 +348,8 @@ Deno.serve(async (req) => {
       summary: {
         forecastsCreated: createdForecastIds.length,
         transactionsCreated: createdTransactionIds.length,
+        forecastsSkipped: skippedForecasts.length,
+        transactionsSkipped: skippedTransactions.length,
         suppliersCreated: newSupplierIds.length,
         excludedAB: pendencies.excludedAB,
         pendencies,
