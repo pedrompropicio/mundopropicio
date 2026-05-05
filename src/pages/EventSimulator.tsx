@@ -1315,7 +1315,8 @@ export default function EventSimulator() {
               </Table>
               <p className="mt-3 text-xs text-muted-foreground">
                 <strong>2025 (manual)</strong>: introduzido manualmente para referência (não é puxado da DB).
-                <strong> Hoje (Edição 2026)</strong>: soma <em>Transações (qualquer status)</em> + <em>BP aprovado sem TX vinculada</em>.
+                <strong> Hoje (Edição 2026)</strong>: <em>max(BP aprovado, TX approved+paid)</em> por categoria L3 — alinhado aos Cards do BP e à Análise de Resultados.
+                Passa o rato sobre o valor para ver decomposição (BP / TX / Pago).
                 Marque "A&B?" nas linhas <em>A&B Bebida/Alimento</em> — recalculadas pelo % de repasse.
               </p>
             </CardContent>
