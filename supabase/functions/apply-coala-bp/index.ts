@@ -85,8 +85,9 @@ Deno.serve(async (req) => {
       .eq("is_active", true);
     const allCats = cats || [];
     const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
-    const fallback = allCats.find((c: any) => c.code === "0.0.99");
-    if (!fallback) return json({ error: "Categoria fallback 0.0.99 não existe" }, 500);
+    const fallback = allCats.find((c: any) => c.code === "0.0.99")
+      ?? allCats.find((c: any) => c.code === "2.6.08");
+    if (!fallback) return json({ error: "Categoria fallback 0.0.99/2.6.08 não existe" }, 500);
 
     const categoryFor = (cc: string | null): string => {
       if (!cc) return fallback.id;
