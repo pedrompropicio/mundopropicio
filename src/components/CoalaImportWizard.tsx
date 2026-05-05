@@ -424,6 +424,19 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
               <Card label="A&B excluídos" value={String(applyResp.summary.excludedAB ?? 0)} tone="muted" />
             </div>
 
+            {applyResp.reconciliation && (
+              <div className={`rounded border p-3 text-xs space-y-1 ${applyResp.reconciliation.ok ? "border-success/50 bg-success/5" : "border-destructive/60 bg-destructive/10"}`}>
+                <p className="font-semibold flex items-center gap-1">
+                  {applyResp.reconciliation.ok
+                    ? <><CheckCircle2 className="h-3.5 w-3.5 text-success" /> Reconciliação OK — totais batem com o ficheiro</>
+                    : <><AlertTriangle className="h-3.5 w-3.5 text-destructive" /> Reconciliação com diferenças</>}
+                </p>
+                <p>• BP líquido: ficheiro <span className="font-mono">{applyResp.reconciliation.bp.expectedNet.toFixed(2)} €</span> · sistema <span className="font-mono">{applyResp.reconciliation.bp.actualBpNet.toFixed(2)} €</span> · diff <span className={`font-mono font-semibold ${Math.abs(applyResp.reconciliation.bp.diff) > applyResp.reconciliation.bp.tolerance ? "text-destructive" : ""}`}>{applyResp.reconciliation.bp.diff.toFixed(2)} €</span></p>
+                <p>• Pago bruto: ficheiro <span className="font-mono">{applyResp.reconciliation.paid.expectedGrossPaid.toFixed(2)} €</span> · sistema <span className="font-mono">{applyResp.reconciliation.paid.actualPaidGross.toFixed(2)} €</span> · diff <span className={`font-mono font-semibold ${Math.abs(applyResp.reconciliation.paid.diff) > applyResp.reconciliation.paid.tolerance ? "text-destructive" : ""}`}>{applyResp.reconciliation.paid.diff.toFixed(2)} €</span></p>
+                <p>• Linhas: ficheiro <span className="font-mono">{applyResp.reconciliation.lines.expected}</span> · sistema <span className="font-mono">{applyResp.reconciliation.lines.actual}</span> · diff <span className={`font-mono font-semibold ${applyResp.reconciliation.lines.diff !== 0 ? "text-destructive" : ""}`}>{applyResp.reconciliation.lines.diff}</span></p>
+              </div>
+            )}
+
             {applyResp.summary.categoryMapping && (
               <div className="rounded border border-success/40 bg-success/5 p-3 text-xs space-y-1">
                 <p className="font-semibold flex items-center gap-1"><Sparkles className="h-3.5 w-3.5" /> Reaproveitamento de categorias</p>
