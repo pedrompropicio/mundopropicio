@@ -45,6 +45,7 @@ import { MarkAsFechadoDialog } from "@/components/bp-versions/MarkAsFechadoDialo
 import { FormalidadeHistoryPopover } from "@/components/bp-versions/FormalidadeHistoryPopover";
 import { FormalidadeBadge } from "@/components/bp-versions/FormalidadeBadge";
 import { BulkFormalidadePopover } from "@/components/bp-versions/BulkFormalidadePopover";
+import { CoalaImportWizard } from "@/components/CoalaImportWizard";
 
 /**
  * Returns the subset of forecast IDs that are eligible to be auto-promoted to
