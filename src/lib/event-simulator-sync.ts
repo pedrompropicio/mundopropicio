@@ -173,22 +173,18 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
   }
 
   // 5) Custos por categoria L3
-  // L3 = code com x.y.z; só categorias de DESPESA (não 1.x receitas, não 10.x corporate por agora — incluímos todas L3 que tenham forecast/TX)
-  const l3 = categories.filter((c) => /^\d+\.\d+\.\d+$/.test(c.code));
+  // L3 = code com x.y.z; filtra por company_id do evento (multi-tenant safe).
+  const l3 = categories.filter(
+    (c) => /^\d+\.\d+\.\d+$/.test(c.code) && c.company_id === companyId,
+  );
   const l3ById = new Map<string, Row>();
   for (const c of l3) l3ById.set(c.id, c);
 
   // 5a) Forecast aprovado (despesa) por categoria
   const fcByCat = new Map<string, number>();
-  // map forecast_id → category_id (para descobrir BP sem TX)
-  const fcCategoryByForecast = new Map<string, string>();
-  // forecasts já vinculados a TX (não somar duas vezes em "Atual")
-  const forecastsWithTx = new Set<string>();
   for (const f of forecasts) {
     if (!f.category_id || !l3ById.has(f.category_id)) continue;
     fcByCat.set(f.category_id, (fcByCat.get(f.category_id) ?? 0) + Number(f.amount || 0));
-    fcCategoryByForecast.set(f.id, f.category_id);
-    if (f.transaction_id) forecastsWithTx.add(f.id);
   }
 
   // 5b) Transações reais por categoria L3 — só approved+paid (alinhado a Cards do BP / Análise de Resultados)
