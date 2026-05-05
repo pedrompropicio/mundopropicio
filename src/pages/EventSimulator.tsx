@@ -834,9 +834,15 @@ export default function EventSimulator() {
 
   const abModule = useEventABScenarios(event?.id, abParticipants);
 
-  const applyABModule = (rev: typeof todayV2, scen: "real" | "breakeven" | "forecast") => {
+  // Em BE/Forecast queremos sempre que A&B escale com o público projectado
+  // do simulador, mesmo que o módulo A&B do evento devolva o mesmo valor
+  // (ex.: zonas com participants_manual). Por isso usamos sempre o cálculo
+  // TM × público do simulador (já feito em todayV2/breakevenV2/forecastV2 via
+  // attendanceQty + courtesyQty). Só sobrepomos com o módulo A&B no cenário
+  // "Real" (hoje), onde existem dados reais por zona.
+  const applyABModuleReal = (rev: typeof todayV2) => {
     if (!abModule.hasConfig || !abModule.totals) return rev;
-    const t = abModule.totals[scen];
+    const t = abModule.totals.real;
     const drink = t.receitaBebidas;
     const food = t.receitaAlimentos;
     return {
@@ -848,25 +854,23 @@ export default function EventSimulator() {
     };
   };
 
-  const todayAB = useMemo(() => applyABModule(todayV2, "real"), [todayV2, abModule]);
-  const beAB = useMemo(() => applyABModule(breakevenV2, "breakeven"), [breakevenV2, abModule]);
-  const fcAB = useMemo(() => applyABModule(forecastV2, "forecast"), [forecastV2, abModule]);
+  const todayAB = useMemo(() => applyABModuleReal(todayV2), [todayV2, abModule]);
+  const beAB = breakevenV2;
+  const fcAB = forecastV2;
 
   const todayCosts = useMemo(() => {
     const base = computeScenarioCosts(calcCosts, todayAB, calcCfg, "today");
     if (abModule.hasConfig && abModule.totals) return { ...base, abCost: abModule.totals.real.custoTotal, totalCost: base.eventCosts + abModule.totals.real.custoTotal + base.souvenirCost };
     return base;
   }, [calcCosts, todayAB, calcCfg, abModule]);
-  const beCosts = useMemo(() => {
-    const base = computeScenarioCosts(calcCosts, beAB, calcCfg, "breakeven");
-    if (abModule.hasConfig && abModule.totals) return { ...base, abCost: abModule.totals.breakeven.custoTotal, totalCost: base.eventCosts + abModule.totals.breakeven.custoTotal + base.souvenirCost };
-    return base;
-  }, [calcCosts, beAB, calcCfg, abModule]);
-  const fcCosts = useMemo(() => {
-    const base = computeScenarioCosts(calcCosts, fcAB, calcCfg, "forecast");
-    if (abModule.hasConfig && abModule.totals) return { ...base, abCost: abModule.totals.forecast.custoTotal, totalCost: base.eventCosts + abModule.totals.forecast.custoTotal + base.souvenirCost };
-    return base;
-  }, [calcCosts, fcAB, calcCfg, abModule]);
+  const beCosts = useMemo(
+    () => computeScenarioCosts(calcCosts, beAB, calcCfg, "breakeven"),
+    [calcCosts, beAB, calcCfg],
+  );
+  const fcCosts = useMemo(
+    () => computeScenarioCosts(calcCosts, fcAB, calcCfg, "forecast"),
+    [calcCosts, fcAB, calcCfg],
+  );
 
   const todayRev = todayAB; const beRev = beAB; const fcRev = fcAB;
 
