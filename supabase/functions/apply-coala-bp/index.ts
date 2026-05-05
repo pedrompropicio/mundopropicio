@@ -167,15 +167,43 @@ Deno.serve(async (req) => {
         fileByDesc.set(k, arr);
       }
 
-      const bpRows = (existingFcs || []) as any[];
+      // Helper para "descrição base" — remove sufixos de parcela / Nx
+      const baseDesc = (s: string): string => {
+        let x = normTxt(s);
+        // remove " - parcela NN", " parcela NN", " - NN", " (NN)", " NN/MM"
+        x = x.replace(/\s*[-–]\s*parcela\s*\d+.*$/i, "");
+        x = x.replace(/\s+parcela\s*\d+.*$/i, "");
+        x = x.replace(/\s*[-–]\s*\d{1,2}\s*(de|\/)\s*\d{1,2}.*$/i, "");
+        x = x.replace(/\s*\(\s*\d+\s*\/\s*\d+\s*\).*$/i, "");
+        x = x.replace(/\s*[-–]\s*\d{1,2}\s*$/i, "");
+        return x.trim();
+      };
+
+      // SÓ comparamos despesas — o XLSX V13 lista apenas despesas (P&L > P_L Despesas)
+      const bpRows = ((existingFcs || []) as any[]).filter((f) => f.type === "expense");
       const bpByKey = new Map<string, any>();
       const bpByDesc = new Map<string, any[]>();
+      const bpByBase = new Map<string, any[]>();
       for (const f of bpRows) {
         bpByKey.set(`${normTxt(f.description)}|${moneyKey(Number(f.amount) || 0)}`, f);
         const k = normTxt(f.description);
         const arr = bpByDesc.get(k) ?? [];
         arr.push(f);
         bpByDesc.set(k, arr);
+        const bk = baseDesc(f.description);
+        const barr = bpByBase.get(bk) ?? [];
+        barr.push(f);
+        bpByBase.set(bk, barr);
+      }
+
+      // Agregar XLSX por base description (junta "X parcela 01" + "X parcela 02" → X)
+      const fileByBase = new Map<string, { desc: string; total: number; rows: ParsedRow[] }>();
+      for (const r of fileRows) {
+        const bk = baseDesc(r.description);
+        const ent = fileByBase.get(bk) ?? { desc: r.description, total: 0, rows: [] };
+        ent.total += r.netAmount;
+        ent.rows.push(r);
+        fileByBase.set(bk, ent);
       }
 
       // Missing in BP: file rows whose key not in BP
