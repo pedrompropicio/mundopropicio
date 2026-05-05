@@ -235,6 +235,8 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
             <div className="grid grid-cols-2 gap-3">
               <Card label="Linhas BP criadas" value={String(applyResp.summary.forecastsCreated)} />
               <Card label="Transações criadas" value={String(applyResp.summary.transactionsCreated)} />
+              <Card label="BP duplicados (skip)" value={String(applyResp.summary.forecastsSkipped ?? 0)} tone="muted" />
+              <Card label="TX duplicadas (skip)" value={String(applyResp.summary.transactionsSkipped ?? 0)} tone="muted" />
               <Card label="Fornecedores novos" value={String(applyResp.summary.suppliersCreated)} />
               <Card label="A&B excluídos" value={String(applyResp.summary.excludedAB)} tone="muted" />
             </div>
