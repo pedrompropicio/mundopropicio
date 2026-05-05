@@ -191,17 +191,17 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
     if (f.transaction_id) forecastsWithTx.add(f.id);
   }
 
-  // 5b) Transações reais (qualquer status) por categoria L3
-  // Carregar tudo do evento de uma vez
+  // 5b) Transações reais por categoria L3 — só approved+paid (alinhado a Cards do BP / Análise de Resultados)
   const { data: txRaw } = await supabase
     .from("transactions")
     .select("id, amount, status, category_id, type")
-    .eq("event_id", eventId);
+    .eq("event_id", eventId)
+    .in("status", ["approved", "paid"]);
   const txs = (txRaw ?? []) as Array<{
     id: string; amount: number; status: string; category_id: string | null; type: string;
   }>;
 
-  const actualTxByCat = new Map<string, number>();        // todas as TX de despesa
+  const actualTxByCat = new Map<string, number>();        // TX approved+paid
   const actualPaidByCat = new Map<string, number>();      // só TX paid
   for (const t of txs) {
     if (t.type !== "expense") continue;
@@ -213,22 +213,14 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
     }
   }
 
-  // 5c) BP aprovado AINDA SEM TX (por categoria): forecasts sem transaction_id
-  const committedBpByCat = new Map<string, number>();
-  for (const f of forecasts) {
-    if (!f.category_id || !l3ById.has(f.category_id)) continue;
-    if (f.transaction_id) continue; // já gerou TX, vai contar pelo lado das transações
-    committedBpByCat.set(
-      f.category_id,
-      (committedBpByCat.get(f.category_id) ?? 0) + Number(f.amount || 0),
-    );
-  }
+  // 5c) BP aprovado por categoria — total (não filtrar por transaction_id; vínculo BP↔TX é por
+  //      category_id+event_id, não por transaction_id — ver memory bp-installments / accounting-linkage-logic).
+  const bpApprovedByCat = fcByCat;
 
   // 5d) União de categorias afetadas
   const allCatIds = new Set<string>([
     ...fcByCat.keys(),
     ...actualTxByCat.keys(),
-    ...committedBpByCat.keys(),
   ]);
 
   const existingCostByCat = new Map<string, Row>();
