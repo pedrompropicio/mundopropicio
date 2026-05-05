@@ -232,12 +232,14 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
   for (const catId of allCatIds) {
     const cat = l3ById.get(catId);
     if (!cat) continue;
-    const fcAmount = fcByCat.get(catId) ?? 0;
+    const fcAmount = bpApprovedByCat.get(catId) ?? 0;
     const actualPaid = actualPaidByCat.get(catId) ?? 0;
-    const actualTxAll = actualTxByCat.get(catId) ?? 0;
-    const committedBp = committedBpByCat.get(catId) ?? 0;
-    // "Atual" = TX (qualquer status, evita duplicar BP que já virou TX) + BP-sem-TX
-    const actualAmount = actualTxAll + committedBp;
+    const actualTxAppPaid = actualTxByCat.get(catId) ?? 0;
+    // "Hoje" = max(BP aprovado, TX approved+paid) — evita dupla contagem porque
+    // o vínculo BP↔TX é por category_id+event_id (não por transaction_id).
+    // Se TX > BP → real comprometido excede o orçado; senão prevalece o BP aprovado.
+    const actualAmount = Math.max(fcAmount, actualTxAppPaid);
+    const committedBp = Math.max(0, fcAmount - actualTxAppPaid);
 
     const exists = existingCostByCat.get(catId);
     if (exists) {
