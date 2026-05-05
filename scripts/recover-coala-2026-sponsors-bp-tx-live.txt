@@ -1,0 +1,84 @@
+-- ========================================================================
+-- RECOVERY: Recriar BP + Transações dos 14 patrocínios "Fechado" do
+-- evento Coala Festival Portugal 2026 (5a1da5fb-3115-4ae3-af50-15ce1f869a5c).
+--
+-- Contexto: Os cards continuam no Pipeline mas as TX e linhas BP foram
+-- apagadas. Cards em "Em negociação" e "Permuta" não são tocados.
+--
+-- Idempotente: só processa cards com linked_transaction_id IS NULL.
+-- Religa cards via linked_forecast_id / linked_transaction_id.
+--
+-- Total esperado: 14 TX + 14 forecasts, ~281.375,00 €
+-- Executar no Supabase Dashboard > SQL Editor com Live selecionada.
+-- ========================================================================
+
+BEGIN;
+
+WITH src AS (
+  SELECT id AS card_id, supplier_name, supplier_id, confirmed_amount, iva_rate, company_id, event_id
+  FROM public.sponsorship_pipeline
+  WHERE event_id = '5a1da5fb-3115-4ae3-af50-15ce1f869a5c'
+    AND stage = 'closed'
+    AND is_barter = false
+    AND linked_transaction_id IS NULL
+    AND linked_forecast_id IS NULL
+),
+ins_tx AS (
+  INSERT INTO public.transactions
+    (type, status, event_id, category_id, supplier_id, description,
+     amount, iva_rate, date, company_id, paid_amount)
+  SELECT 'income', 'approved', s.event_id,
+         '3312f0f0-b5ae-4a74-94b5-32fda4c8b920'::uuid,
+         s.supplier_id, s.supplier_name,
+         s.confirmed_amount, s.iva_rate,
+         CURRENT_DATE, s.company_id, 0
+  FROM src s
+  RETURNING id AS transaction_id, description, amount, event_id, company_id, iva_rate
+),
+ins_fc AS (
+  INSERT INTO public.event_forecasts
+    (event_id, category_id, type, description, amount, iva_rate, status,
+     formula_type, formula_value, is_transitory, transaction_id, company_id, notes)
+  SELECT t.event_id,
+         '3312f0f0-b5ae-4a74-94b5-32fda4c8b920'::uuid,
+         'income', t.description, t.amount, t.iva_rate, 'approved',
+         'fixed', t.amount, false, t.transaction_id, t.company_id,
+         'Linha BP recriada a partir do Pipeline (recovery 2026-05-05)'
+  FROM ins_tx t
+  RETURNING id AS forecast_id, transaction_id, description, amount
+)
+UPDATE public.sponsorship_pipeline sp
+SET linked_forecast_id    = f.forecast_id,
+    linked_transaction_id = f.transaction_id
+FROM ins_fc f
+WHERE sp.event_id = '5a1da5fb-3115-4ae3-af50-15ce1f869a5c'
+  AND sp.stage = 'closed'
+  AND sp.is_barter = false
+  AND sp.linked_transaction_id IS NULL
+  AND sp.supplier_name    = f.description
+  AND sp.confirmed_amount = f.amount;
+
+-- Validações (devem dar: 14 TX, 14 forecasts, 281375.00 €, 0 órfãos)
+SELECT 'tx'           AS k, COUNT(*)::text || ' / ' || COALESCE(SUM(amount),0)::text AS v
+  FROM public.transactions
+ WHERE event_id = '5a1da5fb-3115-4ae3-af50-15ce1f869a5c'
+   AND category_id = '3312f0f0-b5ae-4a74-94b5-32fda4c8b920'
+UNION ALL
+SELECT 'bp', COUNT(*)::text || ' / ' || COALESCE(SUM(amount),0)::text
+  FROM public.event_forecasts
+ WHERE event_id = '5a1da5fb-3115-4ae3-af50-15ce1f869a5c'
+   AND category_id = '3312f0f0-b5ae-4a74-94b5-32fda4c8b920'
+UNION ALL
+SELECT 'cards_linked', COUNT(*)::text
+  FROM public.sponsorship_pipeline
+ WHERE event_id = '5a1da5fb-3115-4ae3-af50-15ce1f869a5c'
+   AND stage = 'closed' AND is_barter = false
+   AND linked_transaction_id IS NOT NULL
+UNION ALL
+SELECT 'cards_orphan', COUNT(*)::text
+  FROM public.sponsorship_pipeline
+ WHERE event_id = '5a1da5fb-3115-4ae3-af50-15ce1f869a5c'
+   AND stage = 'closed' AND is_barter = false
+   AND linked_transaction_id IS NULL;
+
+COMMIT;
