@@ -393,34 +393,85 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
           </div>
         )}
 
+        {step === "resetting" && (
+          <div className="py-12 flex flex-col items-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-destructive" />
+            <p className="text-sm text-muted-foreground">A apagar BP e transações… A re-importar do ficheiro preservando categorias…</p>
+          </div>
+        )}
+
         {step === "done" && applyResp && (
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-success">
               <CheckCircle2 className="h-5 w-5" />
-              <span className="font-semibold">Import concluído</span>
+              <span className="font-semibold">{applyResp.phase === "reset_reimport" ? "Reset & Reimport concluído" : "Import concluído"}</span>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Card label="Linhas BP criadas" value={String(applyResp.summary.forecastsCreated)} />
               <Card label="Transações criadas" value={String(applyResp.summary.transactionsCreated)} />
-              <Card label="BP duplicados (skip)" value={String(applyResp.summary.forecastsSkipped ?? 0)} tone="muted" />
-              <Card label="TX duplicadas (skip)" value={String(applyResp.summary.transactionsSkipped ?? 0)} tone="muted" />
+              {applyResp.phase === "reset_reimport" ? (
+                <>
+                  <Card label="BP apagados" value={String(applyResp.summary.deletedForecasts ?? 0)} tone="muted" />
+                  <Card label="TX apagadas" value={String(applyResp.summary.deletedTransactions ?? 0)} tone="muted" />
+                </>
+              ) : (
+                <>
+                  <Card label="BP duplicados (skip)" value={String(applyResp.summary.forecastsSkipped ?? 0)} tone="muted" />
+                  <Card label="TX duplicadas (skip)" value={String(applyResp.summary.transactionsSkipped ?? 0)} tone="muted" />
+                </>
+              )}
               <Card label="Fornecedores novos" value={String(applyResp.summary.suppliersCreated)} />
-              <Card label="A&B excluídos" value={String(applyResp.summary.excludedAB)} tone="muted" />
+              <Card label="A&B excluídos" value={String(applyResp.summary.excludedAB ?? 0)} tone="muted" />
             </div>
-            <div className="rounded border border-border/60 p-3 text-xs space-y-2">
-              <p className="font-semibold flex items-center gap-1"><FileText className="h-3.5 w-3.5" /> Pendências para revisão</p>
-              <PendencyGroup label={`Sem CC (→ "0.0.99")`} count={applyResp.summary.pendencies.noCC} rows={applyResp.summary.pendencies.details?.noCC} />
-              <PendencyGroup label="Data em intervalo" count={applyResp.summary.pendencies.dateInterval} rows={applyResp.summary.pendencies.details?.dateInterval} />
-              <PendencyGroup label="Formalidade ambígua" count={applyResp.summary.pendencies.formalidadeAmbiguous} rows={applyResp.summary.pendencies.details?.formalidadeAmbiguous} />
-              <PendencyGroup label="IVA ajustado por snap" count={applyResp.summary.pendencies.ivaSnapped} rows={applyResp.summary.pendencies.details?.ivaSnapped} />
-              <PendencyGroup label="A&B excluídos" count={applyResp.summary.pendencies.excludedAB} rows={applyResp.summary.pendencies.details?.excludedAB} />
-            </div>
+
+            {applyResp.summary.categoryMapping && (
+              <div className="rounded border border-success/40 bg-success/5 p-3 text-xs space-y-1">
+                <p className="font-semibold flex items-center gap-1"><Sparkles className="h-3.5 w-3.5" /> Reaproveitamento de categorias</p>
+                <p>• Categoria ajustada preservada (mapa descrição+fornecedor): <span className="font-mono font-semibold">{applyResp.summary.categoryMapping.preservedFromAdjustedMap}</span></p>
+                <p>• Caiu no Centro de Custo do ficheiro: <span className="font-mono font-semibold">{applyResp.summary.categoryMapping.fellbackToCenterOfCost}</span></p>
+                <p>• Foi para "0.0.99 A Classificar": <span className="font-mono font-semibold">{applyResp.summary.categoryMapping.fellbackToAClassificar}</span></p>
+              </div>
+            )}
+
+            {applyResp.summary.pendencies?.details && (
+              <div className="rounded border border-border/60 p-3 text-xs space-y-2">
+                <p className="font-semibold flex items-center gap-1"><FileText className="h-3.5 w-3.5" /> Pendências para revisão</p>
+                <PendencyGroup label={`Sem CC (→ "0.0.99")`} count={applyResp.summary.pendencies.noCC ?? 0} rows={applyResp.summary.pendencies.details?.noCC} />
+                <PendencyGroup label="Data em intervalo" count={applyResp.summary.pendencies.dateInterval ?? 0} rows={applyResp.summary.pendencies.details?.dateInterval} />
+                <PendencyGroup label="Formalidade ambígua" count={applyResp.summary.pendencies.formalidadeAmbiguous ?? 0} rows={applyResp.summary.pendencies.details?.formalidadeAmbiguous} />
+                <PendencyGroup label="IVA ajustado por snap" count={applyResp.summary.pendencies.ivaSnapped ?? 0} rows={applyResp.summary.pendencies.details?.ivaSnapped} />
+                <PendencyGroup label="A&B excluídos" count={applyResp.summary.pendencies.excludedAB ?? 0} rows={applyResp.summary.pendencies.details?.excludedAB} />
+              </div>
+            )}
             <div className="flex justify-end">
               <Button onClick={close}>Fechar</Button>
             </div>
           </div>
         )}
       </DialogContent>
+
+      {/* Confirmação Reset & Reimport */}
+      <Dialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" /> Confirmar Reset & Reimport
+            </DialogTitle>
+            <DialogDescription className="space-y-2 pt-2">
+              <span className="block">Vais apagar permanentemente o BP e as transações deste evento e re-importar tudo do ficheiro.</span>
+              <span className="block font-semibold">É criada uma versão do BP antes (recuperável em Trash/BP Versions).</span>
+              <span className="block">Para confirmar, escreve <span className="font-mono font-bold">RESET</span> em baixo:</span>
+            </DialogDescription>
+          </DialogHeader>
+          <Input value={resetConfirmText} onChange={(e) => setResetConfirmText(e.target.value)} placeholder="RESET" autoFocus />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setResetConfirmOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" disabled={resetConfirmText !== "RESET"} onClick={handleResetReimport}>
+              Apagar e re-importar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!compareResp} onOpenChange={(o) => { if (!o) setCompareResp(null); }}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
