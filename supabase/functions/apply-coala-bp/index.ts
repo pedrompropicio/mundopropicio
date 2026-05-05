@@ -338,7 +338,7 @@ Deno.serve(async (req) => {
         phase: "compare",
         summary: {
           file: { lines: fileRows.length, net: +fileNetTotal.toFixed(2) },
-          bp: { lines: bpRows.length, net: +bpNetTotal.toFixed(2) },
+          bp: { lines: bpRows.length, net: +bpNetTotal.toFixed(2), scope: "expense_only" },
           delta: { lines: bpRows.length - fileRows.length, net: +(bpNetTotal - fileNetTotal).toFixed(2) },
           missingInBp: missingInBp.length,
           extraInBp: extraInBp.length,
