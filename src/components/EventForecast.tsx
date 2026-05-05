@@ -2069,6 +2069,16 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                   <Upload className="h-3.5 w-3.5" />
                   {importingXlsx ? "A importar…" : attachingLinks ? "A anexar…" : "Importar XLSX"}
                 </button>
+                {isCoalaEvent && (
+                  <button
+                    onClick={() => setShowCoalaWizard(true)}
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary/15 text-primary hover:bg-primary/25 transition-colors"
+                    title="Importador genérico Coala — qualquer versão (V13, V14…)"
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    Importar Coala
+                  </button>
+                )}
                 {/* Bulk attachments are now handled inside the Implantação modal,
                     after the BP has been imported (motor unificado de matching). */}
                 {pendingOrphansCount > 0 && (
