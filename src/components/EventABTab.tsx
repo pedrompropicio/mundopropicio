@@ -146,29 +146,47 @@ export default function EventABTab({ eventId }: Props) {
     },
   });
 
+  // Participantes "real" por zona, alinhado a useEventAttendance:
+  //  - bilhete simples (1 dia) → soma na sua zona
+  //  - bilhete combo/passe → expande para cada zona consumida (consumes_zone_ids)
+  //    ou, em fallback, para cada dia do evento a partir da zona âncora.
+  // Assim, um passe de 2 dias conta 1× em Sáb e 1× em Dom (não 2× no Passe).
   const { data: realParticipants = {} } = useQuery({
-    queryKey: ["ab_real_participants", eventId, ticketZones.map((z) => z.id).join(",")],
+    queryKey: ["ab_real_participants_v2", eventId, ticketZones.map((z) => z.id).join(",")],
     queryFn: async () => {
       const zoneIds = (ticketZones ?? []).map((z) => z.id);
       if (zoneIds.length === 0) return {};
       const { data: lots } = await supabase
         .from("event_ticket_lots")
-        .select("id, applies_to_days")
+        .select("id, zone_id, is_combo, lot_kind, applies_to_days, consumes_zone_ids")
         .in("zone_id", zoneIds);
-      const daysByLot = new Map<string, number>();
-      for (const l of (lots ?? []) as any[]) {
-        daysByLot.set(l.id, Math.max(1, Number(l.applies_to_days || 1)));
-      }
+      const lotById = new Map<string, any>();
+      for (const l of (lots ?? []) as any[]) lotById.set(l.id, l);
+
       const { data, error } = await supabase
         .from("ticket_sales")
         .select("zone_id, lot_id, quantity")
         .in("zone_id", zoneIds);
       if (error) throw error;
+
       const map: Record<string, number> = {};
-      for (const r of data ?? []) {
+      for (const r of (data ?? []) as any[]) {
         if (!r.zone_id) continue;
-        const days = (r as any).lot_id ? (daysByLot.get((r as any).lot_id) ?? 1) : 1;
-        map[r.zone_id] = (map[r.zone_id] ?? 0) + Number(r.quantity || 0) * days;
+        const qty = Number(r.quantity || 0);
+        if (!qty) continue;
+        const lot = r.lot_id ? lotById.get(r.lot_id) : null;
+        const isCombo = !!lot && (lot.is_combo || lot.lot_kind === "combo");
+        if (isCombo) {
+          const consumed: string[] = (lot.consumes_zone_ids ?? []) as string[];
+          if (consumed.length > 0) {
+            for (const zid of consumed) map[zid] = (map[zid] ?? 0) + qty;
+          } else {
+            // fallback: sem consumes_zone_ids → soma na própria zona do passe (sem ×dias)
+            map[r.zone_id] = (map[r.zone_id] ?? 0) + qty;
+          }
+        } else {
+          map[r.zone_id] = (map[r.zone_id] ?? 0) + qty;
+        }
       }
       return map;
     },
