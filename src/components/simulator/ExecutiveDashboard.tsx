@@ -136,18 +136,36 @@ export default function ExecutiveDashboard(props: Props) {
   const financialRows = useMemo((): FinancialRow[] => {
     const topCosts = [...(costLines ?? [])]
       .filter((c: any) => !c.is_ab_passthrough)
-      .map((c: any) => ({
-        label: c.label || "—",
-        indent: true as const,
-        values: [
-          Number(c.actual_amount || 0),
-          Number(c.break_even_amount || 0),
-          Number(c.forecast_amount || 0),
-        ] as [number, number, number],
-      }))
+      .map((c: any) => {
+        const real = Number(c.actual_amount || 0);
+        const beRaw = Number(c.break_even_amount || 0);
+        // Mesmo fallback usado em computeScenarioCosts para o cenário BE:
+        // se a coluna BE estiver a 0 assume custos = reais (a alavanca é só a receita).
+        const be = beRaw > 0 ? beRaw : (real || Number(c.prior_year_amount || 0) || Number(c.forecast_amount || 0));
+        const fc = Number(c.forecast_amount || 0);
+        return {
+          label: c.label || "—",
+          indent: true as const,
+          values: [real, be, fc] as [number, number, number],
+        };
+      })
       .filter((c) => c.values.some((v) => v > 0))
       .sort((a, b) => b.values[0] - a.values[0])
       .slice(0, 7);
+
+    // TM A&B aberto em Bebidas + Alimentos (denominador = público presença + cortesia)
+    const denom = (rev: any, kpis: any) => {
+      const d = (rev?.attendanceQty ?? 0) + (rev?.attendanceCourtesyQty ?? 0);
+      return d > 0 ? d : (kpis?.totalPublic ?? 0);
+    };
+    const tmDrink = (rev: any, kpis: any) => {
+      const d = denom(rev, kpis);
+      return d > 0 ? Number(rev?.drinkRevenue || 0) / d : 0;
+    };
+    const tmFood = (rev: any, kpis: any) => {
+      const d = denom(rev, kpis);
+      return d > 0 ? Number(rev?.foodRevenue || 0) / d : 0;
+    };
 
     return [
       { label: "Receitas", sectionHeader: "revenue" },
@@ -181,7 +199,8 @@ export default function ExecutiveDashboard(props: Props) {
       },
       { label: "Indicadores por pessoa", sectionHeader: "kpis" },
       { label: "TM Ingresso", indent: true, values: [todayKpis.tmTickets, beKpis.tmTickets, fcKpis.tmTickets] },
-      { label: "TM A&B", indent: true, values: [todayKpis.tmAB, beKpis.tmAB, fcKpis.tmAB] },
+      { label: "TM A&B Bebidas", indent: true, values: [tmDrink(today, todayKpis), tmDrink(breakeven, beKpis), tmDrink(forecast, fcKpis)] },
+      { label: "TM A&B Alimentos", indent: true, values: [tmFood(today, todayKpis), tmFood(breakeven, beKpis), tmFood(forecast, fcKpis)] },
       { label: "Custo / pessoa", indent: true, values: [todayKpis.costPerPerson, beKpis.costPerPerson, fcKpis.costPerPerson] },
       {
         label: "Resultado / pessoa", indent: true,

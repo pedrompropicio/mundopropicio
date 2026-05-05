@@ -43,6 +43,7 @@ export type CoalaConfig = {
   souvenir_cost: number;
   bonif_bebidas: number;
   ponto_vendido: number;
+  other_revenue: number;
   prior_year_tickets: number;
   prior_year_drink: number;
   prior_year_food: number;
@@ -264,11 +265,11 @@ export function computeScenarioRevenue(
     foodRevenue: ab.food,
     sponsorRevenue: n(cfg.sponsorship_revenue),
     souvenirRevenue: n(cfg.souvenir_revenue),
-    otherCredits: n(cfg.bonif_bebidas) + n(cfg.ponto_vendido),
+    otherCredits: n(cfg.bonif_bebidas) + n(cfg.ponto_vendido) + n(cfg.other_revenue),
     totalRevenue:
       ticketsRevenue + ab.drink + ab.food +
       n(cfg.sponsorship_revenue) + n(cfg.souvenir_revenue) +
-      n(cfg.bonif_bebidas) + n(cfg.ponto_vendido),
+      n(cfg.bonif_bebidas) + n(cfg.ponto_vendido) + n(cfg.other_revenue),
     courtesyQty,
     attendanceQty,
     attendanceCourtesyQty,
