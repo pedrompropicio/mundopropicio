@@ -1458,6 +1458,8 @@ export default function EventSimulator() {
                     onChange={(v) => setLocalCfg({ ...localCfg, bonif_bebidas: v })} step={0.01} />
                   <CfgInput label="Ponto Vendido (€)" value={localCfg.ponto_vendido}
                     onChange={(v) => setLocalCfg({ ...localCfg, ponto_vendido: v })} step={0.01} />
+                  <CfgInput label="Outras Receitas (€)" value={Number((localCfg as any).other_revenue ?? 0)}
+                    onChange={(v) => setLocalCfg({ ...(localCfg as any), other_revenue: v } as any)} step={0.01} />
                    <div className="col-span-full mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
                     <div className="col-span-full space-y-2">
                       <p className="text-sm font-semibold">Forecast — Reta final</p>
