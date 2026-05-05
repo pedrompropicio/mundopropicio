@@ -959,20 +959,22 @@ Deno.serve(async (req) => {
       if (r.status === "partial" && r.paidNet > 0 && r.paidNet < r.netAmount) {
         const remainder = +(r.netAmount - r.paidNet).toFixed(2);
         const remainderIva = +(r.ivaAmount - r.paidIva).toFixed(2);
+        const payDate = r.paymentDate ?? today();
         const t1Id = await insertTxIfNew(r, {
           event_id: eventId, type: "expense", category_id: categoryId,
           description: r.description, amount: r.paidNet,
           iva_rate: r.paidNet > 0 ? Math.round((r.paidIva / r.paidNet) * 100) : r.ivaRate,
-          date: r.paymentDate ?? r.dueDate ?? new Date().toISOString().slice(0, 10),
+          date: payDate,
           status: "paid", supplier_id: supplierId,
           paid_amount: +(r.paidNet + r.paidIva).toFixed(2),
-          payment_date: r.paymentDate, due_date: r.dueDate, invoice_ref: r.invoiceRef,
+          payment_date: payDate, due_date: r.dueDate, invoice_ref: r.invoiceRef,
+          financial_account_id: defaultAccountId,
         });
         const t2Id = await insertTxIfNew(r, {
           event_id: eventId, type: "expense", category_id: categoryId,
           description: r.description + " (saldo)", amount: remainder,
           iva_rate: remainder > 0 ? Math.round((remainderIva / remainder) * 100) : r.ivaRate,
-          date: r.dueDate ?? new Date().toISOString().slice(0, 10),
+          date: r.dueDate ?? today(),
           status: "pending", supplier_id: supplierId,
           due_date: r.dueDate, invoice_ref: r.invoiceRef,
         }, r.description + " (saldo)");
@@ -982,13 +984,15 @@ Deno.serve(async (req) => {
       }
 
       if (r.status === "paid") {
+        const payDate = r.paymentDate ?? today();
         const tId = await insertTxIfNew(r, {
           event_id: eventId, type: "expense", category_id: categoryId,
           description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
-          date: r.paymentDate ?? r.dueDate ?? new Date().toISOString().slice(0, 10),
+          date: payDate,
           status: "paid", supplier_id: supplierId,
-          paid_amount: r.grossAmount, payment_date: r.paymentDate,
+          paid_amount: r.grossAmount, payment_date: payDate,
           due_date: r.dueDate, invoice_ref: r.invoiceRef,
+          financial_account_id: defaultAccountId,
         });
         if (tId) createdTransactionIds.push(tId);
       }
