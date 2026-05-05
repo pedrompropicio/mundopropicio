@@ -693,21 +693,26 @@ Deno.serve(async (req) => {
       const expectedGrossPaid = Number(parsed.totals.paidGrossSum) || 0;
       const expectedImportableLines = Number(parsed.totals.importableLines) || 0;
 
-      // Soma real do BP inserido
+      // Soma real do BP inserido (com category_id para breakdown)
       const { data: insertedFcs, error: sumFcErr } = await admin
         .from("event_forecasts")
-        .select("amount")
+        .select("amount, category_id")
         .eq("event_id", eventId);
       if (sumFcErr) {
         return json({ error: `Reconciliação BP falhou: ${sumFcErr.message}` }, 500);
       }
       const actualBpNet = +((insertedFcs || []).reduce((a, f: any) => a + (Number(f.amount) || 0), 0)).toFixed(2);
       const bpDiff = +(actualBpNet - expectedNet).toFixed(2);
+      const actualNetByCat = new Map<string, number>();
+      for (const f of (insertedFcs || []) as any[]) {
+        const k = f.category_id ?? "(null)";
+        actualNetByCat.set(k, +(((actualNetByCat.get(k) ?? 0) + (Number(f.amount) || 0)).toFixed(2)));
+      }
 
       // Soma real das TX (paid_amount = bruto efetivamente pago)
       const { data: insertedTxs, error: sumTxErr } = await admin
         .from("transactions")
-        .select("paid_amount,status")
+        .select("paid_amount,status,category_id")
         .eq("event_id", eventId);
       if (sumTxErr) {
         return json({ error: `Reconciliação TX falhou: ${sumTxErr.message}` }, 500);
@@ -716,14 +721,54 @@ Deno.serve(async (req) => {
         .filter((t: any) => t.status === "paid")
         .reduce((a, t: any) => a + (Number(t.paid_amount) || 0), 0)).toFixed(2);
       const paidDiff = +(actualPaidGross - expectedGrossPaid).toFixed(2);
+      const actualPaidByCat = new Map<string, number>();
+      for (const t of (insertedTxs || []) as any[]) {
+        if (t.status !== "paid") continue;
+        const k = t.category_id ?? "(null)";
+        actualPaidByCat.set(k, +(((actualPaidByCat.get(k) ?? 0) + (Number(t.paid_amount) || 0)).toFixed(2)));
+      }
 
       const linesDiff = (insertedFcs || []).length - expectedImportableLines;
+
+      // Breakdown por categoria (só onde há diff > tolerância)
+      const allCatKeys = new Set<string>([
+        ...expectedNetByCat.keys(), ...actualNetByCat.keys(),
+        ...expectedPaidByCat.keys(), ...actualPaidByCat.keys(),
+      ]);
+      const categoryBreakdown: Array<{
+        categoryId: string; code: string; name: string;
+        bpExpected: number; bpActual: number; bpDiff: number;
+        paidExpected: number; paidActual: number; paidDiff: number;
+      }> = [];
+      for (const k of allCatKeys) {
+        const bpE = +(expectedNetByCat.get(k) ?? 0).toFixed(2);
+        const bpA = +(actualNetByCat.get(k) ?? 0).toFixed(2);
+        const pdE = +(expectedPaidByCat.get(k) ?? 0).toFixed(2);
+        const pdA = +(actualPaidByCat.get(k) ?? 0).toFixed(2);
+        const bpD = +(bpA - bpE).toFixed(2);
+        const pdD = +(pdA - pdE).toFixed(2);
+        if (Math.abs(bpD) <= 0.005 && Math.abs(pdD) <= 0.005) continue;
+        categoryBreakdown.push({
+          categoryId: k,
+          code: catIdToCode.get(k) ?? "",
+          name: catIdToName.get(k) ?? "(sem categoria)",
+          bpExpected: bpE, bpActual: bpA, bpDiff: bpD,
+          paidExpected: pdE, paidActual: pdA, paidDiff: pdD,
+        });
+      }
+      // Ordena por |bpDiff| + |paidDiff| desc, top 50
+      categoryBreakdown.sort((a, b) => (Math.abs(b.bpDiff) + Math.abs(b.paidDiff)) - (Math.abs(a.bpDiff) + Math.abs(a.paidDiff)));
+      const topCategoryDiffs = categoryBreakdown.slice(0, 50);
 
       const reconciliation = {
         ok: Math.abs(bpDiff) <= TOL && Math.abs(paidDiff) <= TOL && linesDiff === 0,
         bp: { expectedNet, actualBpNet, diff: bpDiff, tolerance: TOL },
         paid: { expectedGrossPaid, actualPaidGross, diff: paidDiff, tolerance: TOL },
         lines: { expected: expectedImportableLines, actual: (insertedFcs || []).length, diff: linesDiff },
+        topCategoryDiffs,
+        failedForecasts: failedForecasts.slice(0, 50),
+        failedPaidTx: failedPaidTx.slice(0, 50),
+        failedCounts: { forecasts: failedForecasts.length, paidTx: failedPaidTx.length },
       };
 
       const { data: run } = await admin.from("coala_import_runs").insert({
