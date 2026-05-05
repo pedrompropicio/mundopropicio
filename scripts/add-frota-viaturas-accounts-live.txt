@@ -1,0 +1,65 @@
+-- ============================================================================
+-- NOVO L2: 10.10 FROTA / VIATURAS + 6 contas L3
+-- Aplicar nas DUAS empresas (Mundo Propicio + Coala) em LIVE.
+-- Executar no Cloud View > SQL > LIVE.
+--
+-- Nota: 10.6 já está ocupado por "Encargos Financeiros", por isso usamos 10.10.
+-- Mantém Core rule "Only L3 nodes are selectable" (L1 '10' > L2 '10.10' > L3 leaves).
+-- ============================================================================
+
+BEGIN;
+
+-- ---------- 1. CRIAR L2 '10.10 Frota / Viaturas' (filho de '10') ----------
+WITH g10 AS (
+  SELECT ac.id AS parent_id, ac.company_id, c.slug
+  FROM public.account_categories ac
+  JOIN public.companies c ON c.id = ac.company_id
+  WHERE ac.code = '10'
+)
+INSERT INTO public.account_categories
+  (id, code, name, type, parent_id, company_id, is_active, event_required, allocate_to_active_event)
+SELECT
+  gen_random_uuid(), '10.10', 'Frota / Viaturas', 'expense',
+  g10.parent_id, g10.company_id, true, false, false
+FROM g10
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.account_categories x
+  WHERE x.code = '10.10' AND x.company_id = g10.company_id
+);
+
+-- ---------- 2. CRIAR L3 (folhas selecionáveis) ----------
+WITH parents AS (
+  SELECT ac.id AS parent_id, ac.company_id, c.slug
+  FROM public.account_categories ac
+  JOIN public.companies c ON c.id = ac.company_id
+  WHERE ac.code = '10.10'
+), new_rows AS (
+  SELECT * FROM (VALUES
+    ('10.10.01', 'Leasing / Renting de Viaturas'),
+    ('10.10.02', 'Seguros de Viaturas'),
+    ('10.10.03', 'Portagens e Via Verde'),
+    ('10.10.04', 'Combustíveis'),
+    ('10.10.05', 'Manutenção e Reparação'),
+    ('10.10.06', 'IUC')
+  ) AS v(code, name)
+)
+INSERT INTO public.account_categories
+  (id, code, name, type, parent_id, company_id, is_active, event_required, allocate_to_active_event)
+SELECT
+  gen_random_uuid(), n.code, n.name, 'expense',
+  p.parent_id, p.company_id, true, false, false
+FROM new_rows n
+CROSS JOIN parents p
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.account_categories x
+  WHERE x.code = n.code AND x.company_id = p.company_id
+);
+
+-- ---------- 3. VALIDAÇÃO (esperado: 7 linhas × 2 empresas = 14) ----------
+SELECT c.slug, ac.code, ac.name, ac.type, ac.event_required, ac.allocate_to_active_event
+FROM public.account_categories ac
+JOIN public.companies c ON c.id = ac.company_id
+WHERE ac.code LIKE '10.10%'
+ORDER BY c.slug, ac.code;
+
+COMMIT;
