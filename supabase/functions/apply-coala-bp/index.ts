@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
     // ── Dedupe pre-load (também precisamos para preview)
     const { data: existingFcs } = await admin
       .from("event_forecasts")
-      .select("id, category_id, description, amount, transaction_id")
+      .select("id, category_id, description, amount, transaction_id, type")
       .eq("event_id", eventId);
     const { data: existingTxs } = await admin
       .from("transactions")
@@ -167,15 +167,43 @@ Deno.serve(async (req) => {
         fileByDesc.set(k, arr);
       }
 
-      const bpRows = (existingFcs || []) as any[];
+      // Helper para "descrição base" — remove sufixos de parcela / Nx
+      const baseDesc = (s: string): string => {
+        let x = normTxt(s);
+        // remove " - parcela NN", " parcela NN", " - NN", " (NN)", " NN/MM"
+        x = x.replace(/\s*[-–]\s*parcela\s*\d+.*$/i, "");
+        x = x.replace(/\s+parcela\s*\d+.*$/i, "");
+        x = x.replace(/\s*[-–]\s*\d{1,2}\s*(de|\/)\s*\d{1,2}.*$/i, "");
+        x = x.replace(/\s*\(\s*\d+\s*\/\s*\d+\s*\).*$/i, "");
+        x = x.replace(/\s*[-–]\s*\d{1,2}\s*$/i, "");
+        return x.trim();
+      };
+
+      // SÓ comparamos despesas — o XLSX V13 lista apenas despesas (P&L > P_L Despesas)
+      const bpRows = ((existingFcs || []) as any[]).filter((f) => f.type === "expense");
       const bpByKey = new Map<string, any>();
       const bpByDesc = new Map<string, any[]>();
+      const bpByBase = new Map<string, any[]>();
       for (const f of bpRows) {
         bpByKey.set(`${normTxt(f.description)}|${moneyKey(Number(f.amount) || 0)}`, f);
         const k = normTxt(f.description);
         const arr = bpByDesc.get(k) ?? [];
         arr.push(f);
         bpByDesc.set(k, arr);
+        const bk = baseDesc(f.description);
+        const barr = bpByBase.get(bk) ?? [];
+        barr.push(f);
+        bpByBase.set(bk, barr);
+      }
+
+      // Agregar XLSX por base description (junta "X parcela 01" + "X parcela 02" → X)
+      const fileByBase = new Map<string, { desc: string; total: number; rows: ParsedRow[] }>();
+      for (const r of fileRows) {
+        const bk = baseDesc(r.description);
+        const ent = fileByBase.get(bk) ?? { desc: r.description, total: 0, rows: [] };
+        ent.total += r.netAmount;
+        ent.rows.push(r);
+        fileByBase.set(bk, ent);
       }
 
       // Missing in BP: file rows whose key not in BP
@@ -185,15 +213,46 @@ Deno.serve(async (req) => {
       const matchedFileKeys = new Set<string>();
       const matchedBpIds = new Set<string>();
 
+      // PASSO 1: match agregado por baseDesc — junta "X parcela 01"+"X parcela 02"
+      // numa só comparação contra "X" (€40k) do BP. Cobre o caso "Lulu Santos".
+      const aggregatedFileKeys = new Set<string>();
+      for (const [bk, agg] of fileByBase.entries()) {
+        const bpCandidates = bpByBase.get(bk) ?? [];
+        if (bpCandidates.length === 0) continue;
+        // só vale a pena tratar como "agregado" quando há múltiplas linhas em algum lado
+        if (agg.rows.length < 2 && bpCandidates.length < 2) continue;
+        const bpTotal = bpCandidates.reduce((a, f) => a + (Number(f.amount) || 0), 0);
+        const delta = +(agg.total - bpTotal).toFixed(2);
+        aggregatedFileKeys.add(bk);
+        for (const r of agg.rows) matchedFileKeys.add(`${normTxt(r.description)}|${moneyKey(r.netAmount)}`);
+        for (const f of bpCandidates) matchedBpIds.add(f.id);
+        if (Math.abs(delta) > 0.01) {
+          valueMismatches.push({
+            description: agg.desc,
+            bpDescription: bpCandidates.map((f) => f.description).join(" + "),
+            fileAmount: +agg.total.toFixed(2),
+            bpAmount: +bpTotal.toFixed(2),
+            delta,
+            rowNumber: agg.rows[0].rowNumber,
+            bpId: bpCandidates[0].id,
+            aggregated: true,
+            fileLines: agg.rows.length,
+            bpLines: bpCandidates.length,
+          });
+        }
+      }
+
+      // PASSO 2: linhas que sobraram (sem match agregado)
       for (const r of fileRows) {
         const k = `${normTxt(r.description)}|${moneyKey(r.netAmount)}`;
+        if (matchedFileKeys.has(k)) continue;
+        if (aggregatedFileKeys.has(baseDesc(r.description))) continue;
         if (bpByKey.has(k)) {
           matchedFileKeys.add(k);
           matchedBpIds.add(bpByKey.get(k).id);
           continue;
         }
-        // try same description, different value
-        const sameDesc = bpByDesc.get(normTxt(r.description)) ?? [];
+        const sameDesc = (bpByDesc.get(normTxt(r.description)) ?? []).filter((f) => !matchedBpIds.has(f.id));
         if (sameDesc.length > 0) {
           const best = sameDesc[0];
           valueMismatches.push({
@@ -207,7 +266,6 @@ Deno.serve(async (req) => {
           matchedBpIds.add(best.id);
           continue;
         }
-        // try fuzzy by Dice ≥ 0.7 (any amount)
         let bestF: { f: any; score: number } | null = null;
         for (const f of bpRows) {
           if (matchedBpIds.has(f.id)) continue;
@@ -280,7 +338,7 @@ Deno.serve(async (req) => {
         phase: "compare",
         summary: {
           file: { lines: fileRows.length, net: +fileNetTotal.toFixed(2) },
-          bp: { lines: bpRows.length, net: +bpNetTotal.toFixed(2) },
+          bp: { lines: bpRows.length, net: +bpNetTotal.toFixed(2), scope: "expense_only" },
           delta: { lines: bpRows.length - fileRows.length, net: +(bpNetTotal - fileNetTotal).toFixed(2) },
           missingInBp: missingInBp.length,
           extraInBp: extraInBp.length,
