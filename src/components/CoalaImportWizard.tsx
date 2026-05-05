@@ -166,7 +166,26 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
     }
   }
 
-  const t = parseResp?.parsed?.totals;
+  async function handleResetReimport() {
+    if (!file || !fileVersion.trim()) return;
+    setResetConfirmOpen(false);
+    setStep("resetting");
+    try {
+      const fileBase64 = await toBase64(file);
+      const { data, error } = await supabase.functions.invoke("apply-coala-bp", {
+        body: { fileBase64, fileName: file.name, fileVersion: fileVersion.trim(), eventId, ackTotals: true, phase: "reset_reimport" },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setApplyResp(data);
+      qc.invalidateQueries({ queryKey: ["event_forecasts", eventId] });
+      qc.invalidateQueries({ queryKey: ["event_transactions_actual", eventId] });
+      setStep("done");
+    } catch (e: any) {
+      toast({ title: "Erro no Reset & Reimport", description: e.message, variant: "destructive" });
+      setStep("review");
+    }
+  }
   const ft = parseResp?.parsed?.fileTotalsRow;
   const issues = parseResp?.validation?.issues ?? [];
   const hasErrors = parseResp?.validation?.hasErrors;
