@@ -509,6 +509,7 @@ export default function EventSimulator() {
     souvenir_cost: Number(localCfg?.souvenir_cost || 0),
     bonif_bebidas: Number(localCfg?.bonif_bebidas || 0),
     ponto_vendido: Number(localCfg?.ponto_vendido || 0),
+    other_revenue: Number((localCfg as any)?.other_revenue || 0),
     prior_year_tickets: Number(localCfg?.prior_year_tickets || 0),
     prior_year_drink: Number(localCfg?.prior_year_drink || 0),
     prior_year_food: Number(localCfg?.prior_year_food || 0),
