@@ -583,6 +583,18 @@ Deno.serve(async (req) => {
       let preservedFromMap = 0;
       let fellbackToCC = 0;
       let fellbackToFallback = 0;
+      // Tracking detalhado para painel de diff
+      const failedForecasts: Array<{ row: number; description: string; supplier: string | null; netAmount: number; reason: string }> = [];
+      const failedPaidTx: Array<{ row: number; description: string; supplier: string | null; expectedPaidGross: number; reason: string }> = [];
+      // Soma esperada por categoria (BP líquido) — comparada com inserido depois
+      const expectedNetByCat = new Map<string, number>();
+      const expectedPaidByCat = new Map<string, number>();
+      const catIdToCode = new Map<string, string>();
+      const catIdToName = new Map<string, string>();
+      for (const c of (allCats || []) as any[]) {
+        catIdToCode.set(c.id, c.code ?? "");
+        catIdToName.set(c.id, c.name ?? "");
+      }
 
       const resolveCat = (r: ParsedRow): string => {
         const bk = baseDesc(r.description);
