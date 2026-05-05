@@ -251,11 +251,11 @@ Deno.serve(async (req) => {
       // Sponsors compare (Pipe sheet vs current sponsorship_pipeline)
       const { data: existingSponsors } = await admin
         .from("sponsorship_pipeline")
-        .select("id, sponsor_name, confirmed_amount, pipeline_amount, proposal_amount")
+        .select("id, supplier_name, stage, confirmed_amount, proposed_amount")
         .eq("event_id", eventId);
       const fileSponsors = (parsed.sponsors || []) as any[];
       const sponsorByName = new Map<string, any>();
-      for (const s of (existingSponsors || [])) sponsorByName.set(normTxt(s.sponsor_name), s);
+      for (const s of (existingSponsors || [])) sponsorByName.set(normTxt(s.supplier_name), s);
       const sponsorMissing: any[] = [];
       const sponsorMismatch: any[] = [];
       const sponsorMatchedIds = new Set<string>();
@@ -264,14 +264,13 @@ Deno.serve(async (req) => {
         if (!m) { sponsorMissing.push(s); continue; }
         sponsorMatchedIds.add(m.id);
         const dC = +(s.confirmed - (Number(m.confirmed_amount) || 0)).toFixed(2);
-        const dP = +(s.pipe - (Number(m.pipeline_amount) || 0)).toFixed(2);
-        const dPr = +(s.proposal - (Number(m.proposal_amount) || 0)).toFixed(2);
-        if (Math.abs(dC) > 0.01 || Math.abs(dP) > 0.01 || Math.abs(dPr) > 0.01) {
-          sponsorMismatch.push({ name: s.name, file: { confirmed: s.confirmed, pipe: s.pipe, proposal: s.proposal }, db: { confirmed: Number(m.confirmed_amount) || 0, pipe: Number(m.pipeline_amount) || 0, proposal: Number(m.proposal_amount) || 0 }, delta: { confirmed: dC, pipe: dP, proposal: dPr } });
+        const dProp = +((s.pipe + s.proposal) - (Number(m.proposed_amount) || 0)).toFixed(2);
+        if (Math.abs(dC) > 0.01 || Math.abs(dProp) > 0.01) {
+          sponsorMismatch.push({ name: s.name, file: { confirmed: s.confirmed, pipe: s.pipe, proposal: s.proposal }, db: { confirmed: Number(m.confirmed_amount) || 0, proposed: Number(m.proposed_amount) || 0, stage: m.stage }, delta: { confirmed: dC, proposed: dProp } });
         }
       }
       const sponsorExtra = (existingSponsors || []).filter((s: any) => !sponsorMatchedIds.has(s.id))
-        .map((s: any) => ({ id: s.id, name: s.sponsor_name, confirmed: Number(s.confirmed_amount) || 0, pipe: Number(s.pipeline_amount) || 0, proposal: Number(s.proposal_amount) || 0 }));
+        .map((s: any) => ({ id: s.id, name: s.supplier_name, stage: s.stage, confirmed: Number(s.confirmed_amount) || 0, proposed: Number(s.proposed_amount) || 0 }));
 
       const fileNetTotal = fileRows.reduce((a, r) => a + r.netAmount, 0);
       const bpNetTotal = bpRows.reduce((a: number, f: any) => a + (Number(f.amount) || 0), 0);
