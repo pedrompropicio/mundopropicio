@@ -1281,7 +1281,13 @@ export default function EventSimulator() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Custos por categoria L3</CardTitle>
-              <Button size="sm" variant="outline" onClick={addCost}><Plus className="mr-1 h-4 w-4" /> Adicionar linha</Button>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer" title="Inclui categorias do Grupo 10 (Custos Corporativos / overheads). Útil em empresas mono-evento.">
+                  <input type="checkbox" checked={includeOverheads} onChange={(e) => setIncludeOverheads(e.target.checked)} />
+                  Incluir Grupo 10 (overheads)
+                </label>
+                <Button size="sm" variant="outline" onClick={addCost}><Plus className="mr-1 h-4 w-4" /> Adicionar linha</Button>
+              </div>
             </CardHeader>
             <CardContent className="overflow-x-auto">
               <Table>
