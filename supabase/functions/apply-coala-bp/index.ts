@@ -137,6 +137,166 @@ Deno.serve(async (req) => {
     }
 
     // ===========================================================================
+    // PHASE = "compare": diff puro entre XLSX e BP/TX/Sponsors atuais (read-only)
+    // ===========================================================================
+    if (phase === "compare") {
+      const dice = (a: string, b: string): number => {
+        a = normTxt(a); b = normTxt(b);
+        if (!a || !b) return 0;
+        if (a === b) return 1;
+        const grams = (s: string) => {
+          const out = new Set<string>();
+          for (let i = 0; i < s.length - 1; i++) out.add(s.slice(i, i + 2));
+          return out;
+        };
+        const A = grams(a), B = grams(b);
+        let inter = 0;
+        for (const g of A) if (B.has(g)) inter++;
+        return (2 * inter) / (A.size + B.size || 1);
+      };
+
+      // Index XLSX rows by exact key (descNorm|cents)
+      const fileRows = parsed.rows.filter((r) => !r.excluded);
+      const fileByKey = new Map<string, ParsedRow>();
+      const fileByDesc = new Map<string, ParsedRow[]>();
+      for (const r of fileRows) {
+        fileByKey.set(`${normTxt(r.description)}|${moneyKey(r.netAmount)}`, r);
+        const k = normTxt(r.description);
+        const arr = fileByDesc.get(k) ?? [];
+        arr.push(r);
+        fileByDesc.set(k, arr);
+      }
+
+      const bpRows = (existingFcs || []) as any[];
+      const bpByKey = new Map<string, any>();
+      const bpByDesc = new Map<string, any[]>();
+      for (const f of bpRows) {
+        bpByKey.set(`${normTxt(f.description)}|${moneyKey(Number(f.amount) || 0)}`, f);
+        const k = normTxt(f.description);
+        const arr = bpByDesc.get(k) ?? [];
+        arr.push(f);
+        bpByDesc.set(k, arr);
+      }
+
+      // Missing in BP: file rows whose key not in BP
+      const missingInBp: any[] = [];
+      // Mismatched: same description (or fuzzy match) but different amount
+      const valueMismatches: any[] = [];
+      const matchedFileKeys = new Set<string>();
+      const matchedBpIds = new Set<string>();
+
+      for (const r of fileRows) {
+        const k = `${normTxt(r.description)}|${moneyKey(r.netAmount)}`;
+        if (bpByKey.has(k)) {
+          matchedFileKeys.add(k);
+          matchedBpIds.add(bpByKey.get(k).id);
+          continue;
+        }
+        // try same description, different value
+        const sameDesc = bpByDesc.get(normTxt(r.description)) ?? [];
+        if (sameDesc.length > 0) {
+          const best = sameDesc[0];
+          valueMismatches.push({
+            description: r.description,
+            fileAmount: r.netAmount,
+            bpAmount: Number(best.amount) || 0,
+            delta: +(r.netAmount - (Number(best.amount) || 0)).toFixed(2),
+            rowNumber: r.rowNumber,
+            bpId: best.id,
+          });
+          matchedBpIds.add(best.id);
+          continue;
+        }
+        // try fuzzy by Dice ≥ 0.7 (any amount)
+        let bestF: { f: any; score: number } | null = null;
+        for (const f of bpRows) {
+          if (matchedBpIds.has(f.id)) continue;
+          const s = dice(r.description, f.description);
+          if (s >= 0.7 && (!bestF || s > bestF.score)) bestF = { f, score: s };
+        }
+        if (bestF) {
+          valueMismatches.push({
+            description: r.description,
+            bpDescription: bestF.f.description,
+            fileAmount: r.netAmount,
+            bpAmount: Number(bestF.f.amount) || 0,
+            delta: +(r.netAmount - (Number(bestF.f.amount) || 0)).toFixed(2),
+            rowNumber: r.rowNumber,
+            bpId: bestF.f.id,
+            fuzzyScore: +bestF.score.toFixed(2),
+          });
+          matchedBpIds.add(bestF.f.id);
+        } else {
+          missingInBp.push({
+            rowNumber: r.rowNumber,
+            description: r.description,
+            supplier: r.supplier,
+            netAmount: r.netAmount,
+          });
+        }
+      }
+
+      // Extra in BP: BP rows not matched against any file row
+      const extraInBp: any[] = [];
+      for (const f of bpRows) {
+        if (matchedBpIds.has(f.id)) continue;
+        extraInBp.push({
+          id: f.id,
+          description: f.description,
+          amount: Number(f.amount) || 0,
+          hasTransaction: !!f.transaction_id,
+        });
+      }
+
+      // Sponsors compare (Pipe sheet vs current sponsorship_pipeline)
+      const { data: existingSponsors } = await admin
+        .from("sponsorship_pipeline")
+        .select("id, supplier_name, stage, confirmed_amount, proposed_amount")
+        .eq("event_id", eventId);
+      const fileSponsors = (parsed.sponsors || []) as any[];
+      const sponsorByName = new Map<string, any>();
+      for (const s of (existingSponsors || [])) sponsorByName.set(normTxt(s.supplier_name), s);
+      const sponsorMissing: any[] = [];
+      const sponsorMismatch: any[] = [];
+      const sponsorMatchedIds = new Set<string>();
+      for (const s of fileSponsors) {
+        const m = sponsorByName.get(normTxt(s.name));
+        if (!m) { sponsorMissing.push(s); continue; }
+        sponsorMatchedIds.add(m.id);
+        const dC = +(s.confirmed - (Number(m.confirmed_amount) || 0)).toFixed(2);
+        const dProp = +((s.pipe + s.proposal) - (Number(m.proposed_amount) || 0)).toFixed(2);
+        if (Math.abs(dC) > 0.01 || Math.abs(dProp) > 0.01) {
+          sponsorMismatch.push({ name: s.name, file: { confirmed: s.confirmed, pipe: s.pipe, proposal: s.proposal }, db: { confirmed: Number(m.confirmed_amount) || 0, proposed: Number(m.proposed_amount) || 0, stage: m.stage }, delta: { confirmed: dC, proposed: dProp } });
+        }
+      }
+      const sponsorExtra = (existingSponsors || []).filter((s: any) => !sponsorMatchedIds.has(s.id))
+        .map((s: any) => ({ id: s.id, name: s.supplier_name, stage: s.stage, confirmed: Number(s.confirmed_amount) || 0, proposed: Number(s.proposed_amount) || 0 }));
+
+      const fileNetTotal = fileRows.reduce((a, r) => a + r.netAmount, 0);
+      const bpNetTotal = bpRows.reduce((a: number, f: any) => a + (Number(f.amount) || 0), 0);
+
+      return json({
+        ok: true,
+        phase: "compare",
+        summary: {
+          file: { lines: fileRows.length, net: +fileNetTotal.toFixed(2) },
+          bp: { lines: bpRows.length, net: +bpNetTotal.toFixed(2) },
+          delta: { lines: bpRows.length - fileRows.length, net: +(bpNetTotal - fileNetTotal).toFixed(2) },
+          missingInBp: missingInBp.length,
+          extraInBp: extraInBp.length,
+          valueMismatches: valueMismatches.length,
+          sponsors: { missing: sponsorMissing.length, extra: sponsorExtra.length, mismatch: sponsorMismatch.length },
+        },
+        missingInBp,
+        extraInBp,
+        valueMismatches,
+        sponsorMissing,
+        sponsorExtra,
+        sponsorMismatch,
+      });
+    }
+
+    // ===========================================================================
     // PHASE = "preview": calcula dedupe exato + fuzzy candidates + IA → ambíguos
     // ===========================================================================
     if (phase === "preview") {

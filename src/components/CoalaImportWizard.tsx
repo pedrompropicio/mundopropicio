@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,11 +51,13 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
   const [previewing, setPreviewing] = useState(false);
   const [previewResp, setPreviewResp] = useState<PreviewResp | null>(null);
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
+  const [comparing, setComparing] = useState(false);
+  const [compareResp, setCompareResp] = useState<any | null>(null);
 
   const reset = () => {
     setStep("upload"); setFile(null); setFileVersion(""); setParseResp(null);
     setApplyResp(null); setAckTotals(false); setSyncMode("replace");
-    setPreviewResp(null); setDecisions({});
+    setPreviewResp(null); setDecisions({}); setCompareResp(null);
   };
   const close = () => { onOpenChange(false); setTimeout(reset, 250); };
 
@@ -85,6 +87,22 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
     } catch (e: any) {
       toast({ title: "Erro a analisar XLSX", description: e.message, variant: "destructive" });
     } finally { setParsing(false); }
+  }
+
+  async function handleCompare() {
+    if (!file || !fileVersion.trim()) return;
+    setComparing(true);
+    try {
+      const fileBase64 = await toBase64(file);
+      const { data, error } = await supabase.functions.invoke("apply-coala-bp", {
+        body: { fileBase64, fileName: file.name, fileVersion: fileVersion.trim(), eventId, syncMode, ackTotals: true, phase: "compare" },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setCompareResp(data);
+    } catch (e: any) {
+      toast({ title: "Erro a comparar", description: e.message, variant: "destructive" });
+    } finally { setComparing(false); }
   }
 
   async function handlePreview() {
@@ -246,10 +264,16 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
 
             <div className="flex justify-between gap-2 pt-2">
               <Button variant="outline" onClick={() => setStep("upload")}>Voltar</Button>
-              <Button onClick={handlePreview} disabled={!ackTotals || previewing}>
-                {previewing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                Pré-analisar duplicados (IA)
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleCompare} disabled={comparing}>
+                  {comparing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />}
+                  Comparar com BP atual
+                </Button>
+                <Button onClick={handlePreview} disabled={!ackTotals || previewing}>
+                  {previewing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                  Pré-analisar duplicados (IA)
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -358,7 +382,76 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
           </div>
         )}
       </DialogContent>
+
+      <Dialog open={!!compareResp} onOpenChange={(o) => { if (!o) setCompareResp(null); }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Comparação Ficheiro vs BP atual</DialogTitle>
+            <DialogDescription>
+              Diff read-only entre o XLSX e o estado atual do BP, transações ligadas e Pipe (patrocínios).
+            </DialogDescription>
+          </DialogHeader>
+          {compareResp && <CompareView data={compareResp} />}
+        </DialogContent>
+      </Dialog>
     </Dialog>
+  );
+}
+
+function CompareView({ data }: { data: any }) {
+  const s = data.summary;
+  const fmt = (n: number) => n.toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
+  return (
+    <div className="space-y-4 text-xs">
+      <div className="grid grid-cols-3 gap-2">
+        <Card label="Ficheiro" value={`${s.file.lines} linhas · ${fmt(s.file.net)}`} />
+        <Card label="BP atual" value={`${s.bp.lines} linhas · ${fmt(s.bp.net)}`} />
+        <Card label="Δ (BP − Ficheiro)" value={`${s.delta.lines >= 0 ? "+" : ""}${s.delta.lines} · ${fmt(s.delta.net)}`} tone="muted" />
+      </div>
+
+      <CompareSection title={`Faltam no BP (${s.missingInBp})`} hint="Linhas no XLSX que não existem no BP atual." rows={data.missingInBp}
+        render={(r: any) => <>L{r.rowNumber} · {r.description}{r.supplier ? ` · ${r.supplier}` : ""} · {fmt(r.netAmount)}</>} />
+
+      <CompareSection title={`A mais no BP (${s.extraInBp})`} hint="Linhas no BP que não estão no ficheiro (potencialmente órfãs)." rows={data.extraInBp}
+        render={(r: any) => <>{r.description} · {fmt(r.amount)}{r.hasTransaction ? " · com TX ligada" : ""}</>} />
+
+      <CompareSection title={`Valores diferentes (${s.valueMismatches})`} hint="Mesma descrição (ou similar), valor diferente." rows={data.valueMismatches}
+        render={(r: any) => <>L{r.rowNumber} · {r.description}{r.bpDescription && r.bpDescription !== r.description ? ` ↔ "${r.bpDescription}"` : ""} · ficheiro {fmt(r.fileAmount)} vs BP {fmt(r.bpAmount)} · Δ {fmt(r.delta)}{r.fuzzyScore ? ` · ${Math.round(r.fuzzyScore * 100)}%` : ""}</>} />
+
+      <div className="border-t border-border/40 pt-3">
+        <p className="font-semibold text-sm mb-2">Patrocínios (Pipe)</p>
+        <div className="grid grid-cols-3 gap-2 mb-2">
+          <Card label="Faltam no Pipe" value={String(s.sponsors.missing)} />
+          <Card label="A mais no Pipe" value={String(s.sponsors.extra)} tone="muted" />
+          <Card label="Valores diferentes" value={String(s.sponsors.mismatch)} />
+        </div>
+        <CompareSection title="Faltam" hint="" rows={data.sponsorMissing}
+          render={(r: any) => <>{r.name} · conf {fmt(r.confirmed)} · pipe {fmt(r.pipe)} · prop {fmt(r.proposal)}</>} />
+        <CompareSection title="A mais (no sistema)" hint="" rows={data.sponsorExtra}
+          render={(r: any) => <>{r.name} · {r.stage} · conf {fmt(r.confirmed)} · prop {fmt(r.proposed)}</>} />
+        <CompareSection title="Valores diferentes" hint="" rows={data.sponsorMismatch}
+          render={(r: any) => <>{r.name} · ficheiro conf {fmt(r.file.confirmed)} / pipe {fmt(r.file.pipe)} / prop {fmt(r.file.proposal)} · BP conf {fmt(r.db.confirmed)} / prop {fmt(r.db.proposed)}</>} />
+      </div>
+    </div>
+  );
+}
+
+function CompareSection({ title, hint, rows, render }: { title: string; hint: string; rows: any[]; render: (r: any) => ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const count = rows?.length ?? 0;
+  return (
+    <div className="rounded border border-border/40 p-2 mb-2">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="text-left w-full flex justify-between items-center hover:text-primary">
+        <span className="font-semibold">{title}</span>
+        {count > 0 ? <span className="text-[10px] text-muted-foreground">{open ? "ocultar" : "ver"}</span> : null}
+      </button>
+      {hint ? <p className="text-[10px] text-muted-foreground">{hint}</p> : null}
+      {open && count > 0 ? (
+        <ul className="mt-2 space-y-0.5 max-h-64 overflow-y-auto pl-2 border-l border-border/30">
+          {rows.map((r, i) => <li key={i} className="font-mono text-[11px]">{render(r)}</li>)}
+        </ul>
+      ) : null}
+    </div>
   );
 }
 
