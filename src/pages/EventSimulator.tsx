@@ -1304,7 +1304,9 @@ export default function EventSimulator() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {localCosts.map((c, i) => (
+                  {visibleCosts.map((c) => {
+                    const i = localCosts.indexOf(c);
+                    return (
                     <TableRow key={c.id ?? `new-c-${i}`}>
                       <TableCell>
                         <Select value={c.category_id ?? ""} onValueChange={(v) => updateCost(i, { category_id: v || null })}>
