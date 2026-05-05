@@ -138,20 +138,59 @@ Deno.serve(async (req) => {
       console.warn("create_bp_snapshot indisponível:", (e as Error).message);
     }
 
-    // Replace mode: soft-delete existing forecasts (move to trash via flag — we just delete here for simplicity within the run)
     const importBatchId = crypto.randomUUID();
+
+    // ── Dedupe pre-load: existing forecasts + transactions for this event
+    const { data: existingFcs } = await admin
+      .from("event_forecasts")
+      .select("id, category_id, description, amount, transaction_id")
+      .eq("event_id", eventId);
+    const { data: existingTxs } = await admin
+      .from("transactions")
+      .select("id, category_id, supplier_id, description, amount, payment_date, invoice_ref")
+      .eq("event_id", eventId);
+
+    const normTxt = (s: string | null) =>
+      String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+    const moneyKey = (n: number) => Math.round(n * 100); // tolerância 0.005€
+
+    // Forecast key: event + category + descNorm + amount(cents)
+    const fcKeySet = new Set<string>();
+    for (const f of (existingFcs || [])) {
+      fcKeySet.add(`${f.category_id}|${normTxt(f.description)}|${moneyKey(Number(f.amount) || 0)}`);
+    }
+    // TX key (priority): supplier + invoice_ref + amount(cents) ; fallback: supplier + descNorm + amount + payment_date
+    const txKeySet = new Set<string>();
+    for (const t of (existingTxs || [])) {
+      const amt = moneyKey(Number(t.amount) || 0);
+      if (t.invoice_ref) txKeySet.add(`INV|${t.supplier_id ?? "_"}|${normTxt(t.invoice_ref)}|${amt}`);
+      txKeySet.add(`DSC|${t.supplier_id ?? "_"}|${normTxt(t.description)}|${amt}|${t.payment_date ?? ""}`);
+    }
+
+    // Replace mode: only purge forecasts NOT linked to TX AND that won't be re-created (i.e. not in incoming key set)
+    // Build incoming forecast keys first
+    const incomingFcKeys = new Set<string>();
+    for (const r of parsed.rows) {
+      if (r.excluded) continue;
+      const cid = categoryFor(r.rawCenterCusto);
+      incomingFcKeys.add(`${cid}|${normTxt(r.description)}|${moneyKey(r.netAmount)}`);
+    }
     if (syncMode === "replace") {
-      // Only delete forecasts not yet linked to a transaction
-      await admin
-        .from("event_forecasts")
-        .delete()
-        .eq("event_id", eventId)
-        .is("transaction_id", null)
-        .is("master_forecast_id", null);
+      // delete only orphan forecasts that won't be re-imported (avoids touching TX-linked ones)
+      const toDelete = (existingFcs || []).filter((f: any) => {
+        if (f.transaction_id) return false;
+        const k = `${f.category_id}|${normTxt(f.description)}|${moneyKey(Number(f.amount) || 0)}`;
+        return !incomingFcKeys.has(k);
+      }).map((f: any) => f.id);
+      if (toDelete.length > 0) {
+        await admin.from("event_forecasts").delete().in("id", toDelete);
+      }
     }
 
     const createdForecastIds: string[] = [];
     const createdTransactionIds: string[] = [];
+    const skippedForecasts: number[] = [];
+    const skippedTransactions: number[] = [];
 
     const formalidadeMap: Record<string, string> = {
       "Fechado": "fechado",
@@ -160,102 +199,111 @@ Deno.serve(async (req) => {
       "Cotação": "estimado",
     };
 
+    const insertTxIfNew = async (
+      r: ParsedRow,
+      payload: Record<string, any>,
+      keyOverrideDesc?: string,
+    ): Promise<string | null> => {
+      const supId = payload.supplier_id ?? "_";
+      const amt = moneyKey(Number(payload.amount) || 0);
+      const descKey = normTxt(keyOverrideDesc ?? payload.description);
+      const invKey = payload.invoice_ref
+        ? `INV|${supId}|${normTxt(payload.invoice_ref)}|${amt}`
+        : null;
+      const dscKey = `DSC|${supId}|${descKey}|${amt}|${payload.payment_date ?? ""}`;
+      if ((invKey && txKeySet.has(invKey)) || txKeySet.has(dscKey)) {
+        skippedTransactions.push(r.rowNumber);
+        return null;
+      }
+      const { data, error } = await admin.from("transactions").insert(payload).select("id").single();
+      if (error || !data) {
+        console.error("tx insert failed row", r.rowNumber, error);
+        return null;
+      }
+      if (invKey) txKeySet.add(invKey);
+      txKeySet.add(dscKey);
+      return data.id;
+    };
+
     for (const r of parsed.rows) {
       if (r.excluded) continue;
 
       const categoryId = categoryFor(r.rawCenterCusto);
       const supplierId = r.supplier ? supByName.get(r.supplier) ?? null : null;
 
-      // BP forecast row
-      const { data: fc, error: fErr } = await admin
-        .from("event_forecasts")
-        .insert({
-          event_id: eventId,
-          category_id: categoryId,
-          type: "expense",
-          description: r.description,
-          amount: r.netAmount,
-          iva_rate: r.ivaRate,
-          status: "approved",
-          approved_at: new Date().toISOString(),
-          approved_by: user.email ?? user.id,
-          formalidade: formalidadeMap[r.formalidade] ?? "estimado",
-          notes: [
-            `Coala ${fileVersion}`,
-            r.invoiceRef ? `Fatura ${r.invoiceRef}` : null,
-            r.warnings.length ? `⚠ ${r.warnings.join("; ")}` : null,
-          ].filter(Boolean).join(" • "),
-        })
-        .select("id")
-        .single();
-      if (fErr || !fc) {
-        console.error("forecast insert failed row", r.rowNumber, fErr);
-        continue;
+      // ── Forecast dedupe
+      const fcKey = `${categoryId}|${normTxt(r.description)}|${moneyKey(r.netAmount)}`;
+      if (fcKeySet.has(fcKey)) {
+        skippedForecasts.push(r.rowNumber);
+      } else {
+        const { data: fc, error: fErr } = await admin
+          .from("event_forecasts")
+          .insert({
+            event_id: eventId,
+            category_id: categoryId,
+            type: "expense",
+            description: r.description,
+            amount: r.netAmount,
+            iva_rate: r.ivaRate,
+            status: "approved",
+            approved_at: new Date().toISOString(),
+            approved_by: user.email ?? user.id,
+            formalidade: formalidadeMap[r.formalidade] ?? "estimado",
+            notes: [
+              `Coala ${fileVersion}`,
+              r.invoiceRef ? `Fatura ${r.invoiceRef}` : null,
+              r.warnings.length ? `⚠ ${r.warnings.join("; ")}` : null,
+            ].filter(Boolean).join(" • "),
+          })
+          .select("id")
+          .single();
+        if (fErr || !fc) {
+          console.error("forecast insert failed row", r.rowNumber, fErr);
+        } else {
+          createdForecastIds.push(fc.id);
+          fcKeySet.add(fcKey);
+        }
       }
-      createdForecastIds.push(fc.id);
 
-      // Generate transactions for paid/partial. Pending lines → no TX (lives in BP).
-      // Edge case: status="partial" mas paidNet=0 → tratar como pending puro (sem TX).
+      // ── Transactions
       if (r.status === "pending") continue;
       if (r.status === "partial" && r.paidNet <= 0) continue;
 
-      // Partial: 2 transactions (paid leg + pending balance leg)
       if (r.status === "partial" && r.paidNet > 0 && r.paidNet < r.netAmount) {
         const remainder = +(r.netAmount - r.paidNet).toFixed(2);
         const remainderIva = +(r.ivaAmount - r.paidIva).toFixed(2);
-        // Paid leg
-        const t1 = await admin.from("transactions").insert({
-          event_id: eventId,
-          type: "expense",
-          category_id: categoryId,
-          description: r.description,
-          amount: r.paidNet,
+        const t1Id = await insertTxIfNew(r, {
+          event_id: eventId, type: "expense", category_id: categoryId,
+          description: r.description, amount: r.paidNet,
           iva_rate: r.paidNet > 0 ? Math.round((r.paidIva / r.paidNet) * 100) : r.ivaRate,
           date: r.paymentDate ?? r.dueDate ?? new Date().toISOString().slice(0, 10),
-          status: "paid",
-          supplier_id: supplierId,
+          status: "paid", supplier_id: supplierId,
           paid_amount: +(r.paidNet + r.paidIva).toFixed(2),
-          payment_date: r.paymentDate,
-          due_date: r.dueDate,
-          invoice_ref: r.invoiceRef,
-        }).select("id").single();
-        // Pending leg
-        const t2 = await admin.from("transactions").insert({
-          event_id: eventId,
-          type: "expense",
-          category_id: categoryId,
-          description: r.description + " (saldo)",
-          amount: remainder,
+          payment_date: r.paymentDate, due_date: r.dueDate, invoice_ref: r.invoiceRef,
+        });
+        const t2Id = await insertTxIfNew(r, {
+          event_id: eventId, type: "expense", category_id: categoryId,
+          description: r.description + " (saldo)", amount: remainder,
           iva_rate: remainder > 0 ? Math.round((remainderIva / remainder) * 100) : r.ivaRate,
           date: r.dueDate ?? new Date().toISOString().slice(0, 10),
-          status: "pending",
-          supplier_id: supplierId,
-          due_date: r.dueDate,
-          invoice_ref: r.invoiceRef,
-        }).select("id").single();
-        if (t1.data) createdTransactionIds.push(t1.data.id);
-        if (t2.data) createdTransactionIds.push(t2.data.id);
+          status: "pending", supplier_id: supplierId,
+          due_date: r.dueDate, invoice_ref: r.invoiceRef,
+        }, r.description + " (saldo)");
+        if (t1Id) createdTransactionIds.push(t1Id);
+        if (t2Id) createdTransactionIds.push(t2Id);
         continue;
       }
 
-      // Fully paid
       if (r.status === "paid") {
-        const t = await admin.from("transactions").insert({
-          event_id: eventId,
-          type: "expense",
-          category_id: categoryId,
-          description: r.description,
-          amount: r.netAmount,
-          iva_rate: r.ivaRate,
+        const tId = await insertTxIfNew(r, {
+          event_id: eventId, type: "expense", category_id: categoryId,
+          description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
           date: r.paymentDate ?? r.dueDate ?? new Date().toISOString().slice(0, 10),
-          status: "paid",
-          supplier_id: supplierId,
-          paid_amount: r.grossAmount,
-          payment_date: r.paymentDate,
-          due_date: r.dueDate,
-          invoice_ref: r.invoiceRef,
-        }).select("id").single();
-        if (t.data) createdTransactionIds.push(t.data.id);
+          status: "paid", supplier_id: supplierId,
+          paid_amount: r.grossAmount, payment_date: r.paymentDate,
+          due_date: r.dueDate, invoice_ref: r.invoiceRef,
+        });
+        if (tId) createdTransactionIds.push(tId);
       }
     }
 
