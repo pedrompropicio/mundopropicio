@@ -583,6 +583,18 @@ Deno.serve(async (req) => {
       let preservedFromMap = 0;
       let fellbackToCC = 0;
       let fellbackToFallback = 0;
+      // Tracking detalhado para painel de diff
+      const failedForecasts: Array<{ row: number; description: string; supplier: string | null; netAmount: number; reason: string }> = [];
+      const failedPaidTx: Array<{ row: number; description: string; supplier: string | null; expectedPaidGross: number; reason: string }> = [];
+      // Soma esperada por categoria (BP líquido) — comparada com inserido depois
+      const expectedNetByCat = new Map<string, number>();
+      const expectedPaidByCat = new Map<string, number>();
+      const catIdToCode = new Map<string, string>();
+      const catIdToName = new Map<string, string>();
+      for (const c of (allCats || []) as any[]) {
+        catIdToCode.set(c.id, c.code ?? "");
+        catIdToName.set(c.id, c.name ?? "");
+      }
 
       const resolveCat = (r: ParsedRow): string => {
         const bk = baseDesc(r.description);
@@ -612,7 +624,17 @@ Deno.serve(async (req) => {
         const categoryId = resolveCat(r);
         const supplierId = r.supplier ? supByName.get(r.supplier) ?? null : null;
 
-        const { data: fc } = await admin.from("event_forecasts").insert({
+        // Esperado por categoria (BP líquido)
+        expectedNetByCat.set(categoryId, +(((expectedNetByCat.get(categoryId) ?? 0) + r.netAmount).toFixed(2)));
+        // Esperado pago por categoria (bruto, só rows pagas/parciais)
+        const expectedPaidGrossThis =
+          r.status === "paid" ? r.grossAmount :
+          r.status === "partial" && r.paidNet > 0 ? +(r.paidNet + r.paidIva).toFixed(2) : 0;
+        if (expectedPaidGrossThis > 0) {
+          expectedPaidByCat.set(categoryId, +(((expectedPaidByCat.get(categoryId) ?? 0) + expectedPaidGrossThis).toFixed(2)));
+        }
+
+        const { data: fc, error: fcErr } = await admin.from("event_forecasts").insert({
           company_id: ev.company_id, event_id: eventId, category_id: categoryId, type: "expense",
           description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
           status: "approved", approved_at: new Date().toISOString(), approved_by: user.email ?? user.id,
@@ -620,6 +642,7 @@ Deno.serve(async (req) => {
           notes: [`Coala ${fileVersion} (RESET)`, r.invoiceRef ? `Fatura ${r.invoiceRef}` : null].filter(Boolean).join(" • "),
         }).select("id").single();
         if (fc) createdForecastIds.push(fc.id);
+        else failedForecasts.push({ row: r.rowNumber, description: r.description, supplier: r.supplier, netAmount: r.netAmount, reason: fcErr?.message ?? "insert falhou (sem erro)" });
 
         if (r.status === "pending") continue;
         if (r.status === "partial" && r.paidNet <= 0) continue;
@@ -627,7 +650,7 @@ Deno.serve(async (req) => {
         if (r.status === "partial" && r.paidNet > 0 && r.paidNet < r.netAmount) {
           const remainder = +(r.netAmount - r.paidNet).toFixed(2);
           const remainderIva = +(r.ivaAmount - r.paidIva).toFixed(2);
-          const { data: t1 } = await admin.from("transactions").insert({
+          const { data: t1, error: t1Err } = await admin.from("transactions").insert({
             company_id: ev.company_id, event_id: eventId, type: "expense", category_id: categoryId,
             description: r.description, amount: r.paidNet,
             iva_rate: r.paidNet > 0 ? Math.round((r.paidIva / r.paidNet) * 100) : r.ivaRate,
@@ -637,6 +660,7 @@ Deno.serve(async (req) => {
             payment_date: r.paymentDate, due_date: r.dueDate, invoice_ref: r.invoiceRef,
           }).select("id").single();
           if (t1) createdTransactionIds.push(t1.id);
+          else failedPaidTx.push({ row: r.rowNumber, description: r.description, supplier: r.supplier, expectedPaidGross: +(r.paidNet + r.paidIva).toFixed(2), reason: t1Err?.message ?? "insert TX paga falhou" });
           const { data: t2 } = await admin.from("transactions").insert({
             company_id: ev.company_id, event_id: eventId, type: "expense", category_id: categoryId,
             description: r.description + " (saldo)", amount: remainder,
@@ -647,7 +671,7 @@ Deno.serve(async (req) => {
           }).select("id").single();
           if (t2) createdTransactionIds.push(t2.id);
         } else if (r.status === "paid") {
-          const { data: t } = await admin.from("transactions").insert({
+          const { data: t, error: tErr } = await admin.from("transactions").insert({
             company_id: ev.company_id, event_id: eventId, type: "expense", category_id: categoryId,
             description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
             date: r.paymentDate ?? r.dueDate ?? new Date().toISOString().slice(0, 10),
@@ -656,6 +680,7 @@ Deno.serve(async (req) => {
             due_date: r.dueDate, invoice_ref: r.invoiceRef,
           }).select("id").single();
           if (t) createdTransactionIds.push(t.id);
+          else failedPaidTx.push({ row: r.rowNumber, description: r.description, supplier: r.supplier, expectedPaidGross: r.grossAmount, reason: tErr?.message ?? "insert TX paga falhou" });
         }
       }
 
@@ -668,21 +693,26 @@ Deno.serve(async (req) => {
       const expectedGrossPaid = Number(parsed.totals.paidGrossSum) || 0;
       const expectedImportableLines = Number(parsed.totals.importableLines) || 0;
 
-      // Soma real do BP inserido
+      // Soma real do BP inserido (com category_id para breakdown)
       const { data: insertedFcs, error: sumFcErr } = await admin
         .from("event_forecasts")
-        .select("amount")
+        .select("amount, category_id")
         .eq("event_id", eventId);
       if (sumFcErr) {
         return json({ error: `Reconciliação BP falhou: ${sumFcErr.message}` }, 500);
       }
       const actualBpNet = +((insertedFcs || []).reduce((a, f: any) => a + (Number(f.amount) || 0), 0)).toFixed(2);
       const bpDiff = +(actualBpNet - expectedNet).toFixed(2);
+      const actualNetByCat = new Map<string, number>();
+      for (const f of (insertedFcs || []) as any[]) {
+        const k = f.category_id ?? "(null)";
+        actualNetByCat.set(k, +(((actualNetByCat.get(k) ?? 0) + (Number(f.amount) || 0)).toFixed(2)));
+      }
 
       // Soma real das TX (paid_amount = bruto efetivamente pago)
       const { data: insertedTxs, error: sumTxErr } = await admin
         .from("transactions")
-        .select("paid_amount,status")
+        .select("paid_amount,status,category_id")
         .eq("event_id", eventId);
       if (sumTxErr) {
         return json({ error: `Reconciliação TX falhou: ${sumTxErr.message}` }, 500);
@@ -691,14 +721,54 @@ Deno.serve(async (req) => {
         .filter((t: any) => t.status === "paid")
         .reduce((a, t: any) => a + (Number(t.paid_amount) || 0), 0)).toFixed(2);
       const paidDiff = +(actualPaidGross - expectedGrossPaid).toFixed(2);
+      const actualPaidByCat = new Map<string, number>();
+      for (const t of (insertedTxs || []) as any[]) {
+        if (t.status !== "paid") continue;
+        const k = t.category_id ?? "(null)";
+        actualPaidByCat.set(k, +(((actualPaidByCat.get(k) ?? 0) + (Number(t.paid_amount) || 0)).toFixed(2)));
+      }
 
       const linesDiff = (insertedFcs || []).length - expectedImportableLines;
+
+      // Breakdown por categoria (só onde há diff > tolerância)
+      const allCatKeys = new Set<string>([
+        ...expectedNetByCat.keys(), ...actualNetByCat.keys(),
+        ...expectedPaidByCat.keys(), ...actualPaidByCat.keys(),
+      ]);
+      const categoryBreakdown: Array<{
+        categoryId: string; code: string; name: string;
+        bpExpected: number; bpActual: number; bpDiff: number;
+        paidExpected: number; paidActual: number; paidDiff: number;
+      }> = [];
+      for (const k of allCatKeys) {
+        const bpE = +(expectedNetByCat.get(k) ?? 0).toFixed(2);
+        const bpA = +(actualNetByCat.get(k) ?? 0).toFixed(2);
+        const pdE = +(expectedPaidByCat.get(k) ?? 0).toFixed(2);
+        const pdA = +(actualPaidByCat.get(k) ?? 0).toFixed(2);
+        const bpD = +(bpA - bpE).toFixed(2);
+        const pdD = +(pdA - pdE).toFixed(2);
+        if (Math.abs(bpD) <= 0.005 && Math.abs(pdD) <= 0.005) continue;
+        categoryBreakdown.push({
+          categoryId: k,
+          code: catIdToCode.get(k) ?? "",
+          name: catIdToName.get(k) ?? "(sem categoria)",
+          bpExpected: bpE, bpActual: bpA, bpDiff: bpD,
+          paidExpected: pdE, paidActual: pdA, paidDiff: pdD,
+        });
+      }
+      // Ordena por |bpDiff| + |paidDiff| desc, top 50
+      categoryBreakdown.sort((a, b) => (Math.abs(b.bpDiff) + Math.abs(b.paidDiff)) - (Math.abs(a.bpDiff) + Math.abs(a.paidDiff)));
+      const topCategoryDiffs = categoryBreakdown.slice(0, 50);
 
       const reconciliation = {
         ok: Math.abs(bpDiff) <= TOL && Math.abs(paidDiff) <= TOL && linesDiff === 0,
         bp: { expectedNet, actualBpNet, diff: bpDiff, tolerance: TOL },
         paid: { expectedGrossPaid, actualPaidGross, diff: paidDiff, tolerance: TOL },
         lines: { expected: expectedImportableLines, actual: (insertedFcs || []).length, diff: linesDiff },
+        topCategoryDiffs,
+        failedForecasts: failedForecasts.slice(0, 50),
+        failedPaidTx: failedPaidTx.slice(0, 50),
+        failedCounts: { forecasts: failedForecasts.length, paidTx: failedPaidTx.length },
       };
 
       const { data: run } = await admin.from("coala_import_runs").insert({
