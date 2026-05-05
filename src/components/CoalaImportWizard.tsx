@@ -285,12 +285,28 @@ export function CoalaImportWizard({ open, onOpenChange, eventId, eventName }: Pr
               </Label>
             </div>
 
+            <div className="rounded border border-destructive/40 bg-destructive/5 p-3 text-xs space-y-1">
+              <p className="font-semibold text-destructive flex items-center gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5" /> Reset & Reimport (retrato 100% fiel ao ficheiro)
+              </p>
+              <p className="text-muted-foreground">
+                Apaga TODO o BP e TODAS as transações deste evento e re-importa do XLSX.
+                As <span className="font-semibold">categorias que ajustaste linha-a-linha</span> são preservadas
+                via mapa descrição-base+fornecedor. É criada uma versão do BP antes de apagar (recuperável).
+                Patrocínios não são tocados — usa "Comparar com BP atual" para verificar diffs.
+              </p>
+            </div>
+
             <div className="flex justify-between gap-2 pt-2">
               <Button variant="outline" onClick={() => setStep("upload")}>Voltar</Button>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 justify-end">
                 <Button variant="outline" onClick={handleCompare} disabled={comparing}>
                   {comparing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />}
                   Comparar com BP atual
+                </Button>
+                <Button variant="destructive" onClick={() => { setResetConfirmText(""); setResetConfirmOpen(true); }} disabled={!ackTotals}>
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  Reset & Reimport
                 </Button>
                 <Button onClick={handlePreview} disabled={!ackTotals || previewing}>
                   {previewing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
