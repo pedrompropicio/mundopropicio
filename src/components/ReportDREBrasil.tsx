@@ -603,7 +603,7 @@ export default function ReportDREBrasil() {
           <p className="mt-1 text-lg font-bold text-success">{formatCurrency(globalIncEx)}</p>
         </div>
         <div className="glass rounded-xl p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Despesas C/IVA</p>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Despesas</p>
           <p className="mt-1 text-lg font-bold text-warning">{formatCurrency(globalExpInc)}</p>
         </div>
         <div className="glass rounded-xl p-4">
@@ -792,7 +792,7 @@ export default function ReportDREBrasil() {
                 <TableRow>
                   <TableHead>Split</TableHead>
                   <TableHead className="text-right">Receitas S/IVA</TableHead>
-                  <TableHead className="text-right">Despesas C/IVA</TableHead>
+                  <TableHead className="text-right">Despesas</TableHead>
                   <TableHead className="text-right">Resultado</TableHead>
                 </TableRow>
               </TableHeader>
