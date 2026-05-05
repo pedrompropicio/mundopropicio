@@ -155,10 +155,11 @@ Deno.serve(async (req) => {
       String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
     const moneyKey = (n: number) => Math.round(n * 100); // tolerância 0.005€
 
-    // Forecast key: event + category + descNorm + amount(cents)
+    // Forecast key: descNorm + amount(cents) — IGNORA categoria de propósito,
+    // para que reclassificações manuais não levem a duplicação no próximo import.
     const fcKeySet = new Set<string>();
     for (const f of (existingFcs || [])) {
-      fcKeySet.add(`${f.category_id}|${normTxt(f.description)}|${moneyKey(Number(f.amount) || 0)}`);
+      fcKeySet.add(`${normTxt(f.description)}|${moneyKey(Number(f.amount) || 0)}`);
     }
     // TX key (priority): supplier + invoice_ref + amount(cents) ; fallback: supplier + descNorm + amount + payment_date
     const txKeySet = new Set<string>();
@@ -168,19 +169,16 @@ Deno.serve(async (req) => {
       txKeySet.add(`DSC|${t.supplier_id ?? "_"}|${normTxt(t.description)}|${amt}|${t.payment_date ?? ""}`);
     }
 
-    // Replace mode: only purge forecasts NOT linked to TX AND that won't be re-created (i.e. not in incoming key set)
-    // Build incoming forecast keys first
+    // Replace mode: only purge forecasts NOT linked to TX AND that won't be re-created
     const incomingFcKeys = new Set<string>();
     for (const r of parsed.rows) {
       if (r.excluded) continue;
-      const cid = categoryFor(r.rawCenterCusto);
-      incomingFcKeys.add(`${cid}|${normTxt(r.description)}|${moneyKey(r.netAmount)}`);
+      incomingFcKeys.add(`${normTxt(r.description)}|${moneyKey(r.netAmount)}`);
     }
     if (syncMode === "replace") {
-      // delete only orphan forecasts that won't be re-imported (avoids touching TX-linked ones)
       const toDelete = (existingFcs || []).filter((f: any) => {
         if (f.transaction_id) return false;
-        const k = `${f.category_id}|${normTxt(f.description)}|${moneyKey(Number(f.amount) || 0)}`;
+        const k = `${normTxt(f.description)}|${moneyKey(Number(f.amount) || 0)}`;
         return !incomingFcKeys.has(k);
       }).map((f: any) => f.id);
       if (toDelete.length > 0) {
@@ -232,8 +230,8 @@ Deno.serve(async (req) => {
       const categoryId = categoryFor(r.rawCenterCusto);
       const supplierId = r.supplier ? supByName.get(r.supplier) ?? null : null;
 
-      // ── Forecast dedupe
-      const fcKey = `${categoryId}|${normTxt(r.description)}|${moneyKey(r.netAmount)}`;
+      // ── Forecast dedupe (descrição + valor; ignora categoria para preservar reclassificações)
+      const fcKey = `${normTxt(r.description)}|${moneyKey(r.netAmount)}`;
       if (fcKeySet.has(fcKey)) {
         skippedForecasts.push(r.rowNumber);
       } else {
