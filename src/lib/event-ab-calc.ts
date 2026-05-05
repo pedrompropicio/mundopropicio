@@ -46,9 +46,9 @@ export interface ABZoneInput {
   /** 0–100 — apenas em modo terceirizacao */
   repasse_bebidas_pct: number;
   /** Custo por pessoa — apenas em modo exploracao_propria */
-  per_capita_custo_bebidas: number;
+  per_capita_custo_bebidas?: number;
   /** Custo fixo da zona (staff, aluguer) — apenas em modo exploracao_propria */
-  custo_fixo_bebidas: number;
+  custo_fixo_bebidas?: number;
   /** Label livre para identificar o operador — opcional, sem FK em v1 */
   operador_nome?: string;
 }
@@ -59,9 +59,9 @@ export interface ABFoodConfig {
   repasse_alimentos_pct: number;
   per_capita_alimentos: number;
   /** Custo por pessoa — apenas em modo exploracao_propria */
-  per_capita_custo_alimentos: number;
+  per_capita_custo_alimentos?: number;
   /** Custo fixo de alimentos — apenas em modo exploracao_propria */
-  custo_fixo_alimentos: number;
+  custo_fixo_alimentos?: number;
   /** Label livre para o operador de alimentos */
   operador_nome?: string;
 }

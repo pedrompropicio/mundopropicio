@@ -1317,38 +1317,53 @@ export type Database = {
       }
       event_ab_config: {
         Row: {
+          ab_mode_alimentos: string
+          ab_mode_bebidas: string
           auto_sync_bp: boolean
           company_id: string | null
           created_at: string
+          custo_fixo_alimentos: number
           event_id: string
           fee_alimentos: number
           id: string
           notes: string | null
+          operador_nome_alimentos: string | null
           per_capita_alimentos: number
+          per_capita_custo_alimentos: number
           repasse_alimentos_pct: number
           updated_at: string
         }
         Insert: {
+          ab_mode_alimentos?: string
+          ab_mode_bebidas?: string
           auto_sync_bp?: boolean
           company_id?: string | null
           created_at?: string
+          custo_fixo_alimentos?: number
           event_id: string
           fee_alimentos?: number
           id?: string
           notes?: string | null
+          operador_nome_alimentos?: string | null
           per_capita_alimentos?: number
+          per_capita_custo_alimentos?: number
           repasse_alimentos_pct?: number
           updated_at?: string
         }
         Update: {
+          ab_mode_alimentos?: string
+          ab_mode_bebidas?: string
           auto_sync_bp?: boolean
           company_id?: string | null
           created_at?: string
+          custo_fixo_alimentos?: number
           event_id?: string
           fee_alimentos?: number
           id?: string
           notes?: string | null
+          operador_nome_alimentos?: string | null
           per_capita_alimentos?: number
+          per_capita_custo_alimentos?: number
           repasse_alimentos_pct?: number
           updated_at?: string
         }
@@ -1373,12 +1388,15 @@ export type Database = {
         Row: {
           company_id: string | null
           created_at: string
+          custo_fixo_bebidas: number
           event_id: string
           id: string
           open_bar: boolean
           open_food: boolean
+          operador_nome: string | null
           participants_manual: number | null
           per_capita_bebidas: number
+          per_capita_custo_bebidas: number
           repasse_bebidas_pct: number
           sort_order: number
           source_ticket_zone_id: string | null
@@ -1388,12 +1406,15 @@ export type Database = {
         Insert: {
           company_id?: string | null
           created_at?: string
+          custo_fixo_bebidas?: number
           event_id: string
           id?: string
           open_bar?: boolean
           open_food?: boolean
+          operador_nome?: string | null
           participants_manual?: number | null
           per_capita_bebidas?: number
+          per_capita_custo_bebidas?: number
           repasse_bebidas_pct?: number
           sort_order?: number
           source_ticket_zone_id?: string | null
@@ -1403,12 +1424,15 @@ export type Database = {
         Update: {
           company_id?: string | null
           created_at?: string
+          custo_fixo_bebidas?: number
           event_id?: string
           id?: string
           open_bar?: boolean
           open_food?: boolean
+          operador_nome?: string | null
           participants_manual?: number | null
           per_capita_bebidas?: number
+          per_capita_custo_bebidas?: number
           repasse_bebidas_pct?: number
           sort_order?: number
           source_ticket_zone_id?: string | null
