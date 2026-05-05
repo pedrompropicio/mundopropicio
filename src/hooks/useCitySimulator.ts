@@ -168,6 +168,7 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
       souvenir_cost: Number(cfg?.souvenir_cost || 0),
       bonif_bebidas: Number(cfg?.bonif_bebidas || 0),
       ponto_vendido: Number(cfg?.ponto_vendido || 0),
+      other_revenue: Number((cfg as any)?.other_revenue || 0),
       prior_year_tickets: Number(cfg?.prior_year_tickets || 0),
       prior_year_drink: Number(cfg?.prior_year_drink || 0),
       prior_year_food: Number(cfg?.prior_year_food || 0),
