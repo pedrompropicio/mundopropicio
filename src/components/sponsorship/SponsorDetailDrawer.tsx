@@ -438,15 +438,32 @@ export function SponsorDetailDrawer({ row, eventId, companyId, canEdit, onClose 
               {activities.length === 0 && (
                 <p className="text-xs text-muted-foreground">Sem atividade registada.</p>
               )}
-              {activities.map((a) => (
-                <div key={a.id} className="rounded border p-2 text-xs">
-                  <div className="flex justify-between text-muted-foreground mb-1">
-                    <span className="uppercase tracking-wide">{a.kind.replace("_", " ")}</span>
-                    <span>{format(new Date(a.occurred_at), "dd MMM HH:mm", { locale: pt })}</span>
+              {activities.map((a) => {
+                const kindLabel =
+                  ({
+                    note: "Nota",
+                    stage_change: "Mudança de estado",
+                    doc_status_change: "Estado documental",
+                    sync: "Sincronização",
+                    system: "Sistema",
+                  } as Record<string, string>)[a.kind] ?? a.kind.replace("_", " ");
+                let body = a.body ?? "";
+                if (a.kind === "stage_change") {
+                  body = body.replace(
+                    /\b(lead|contacted|proposal_sent|negotiating|closed|barter|lost)\b/g,
+                    (m) => STAGE_LABELS[m as SponsorshipStage] ?? m,
+                  );
+                }
+                return (
+                  <div key={a.id} className="rounded border p-2 text-xs">
+                    <div className="flex justify-between text-muted-foreground mb-1">
+                      <span className="uppercase tracking-wide">{kindLabel}</span>
+                      <span>{format(new Date(a.occurred_at), "dd MMM HH:mm", { locale: pt })}</span>
+                    </div>
+                    <p className="whitespace-pre-wrap">{body}</p>
                   </div>
-                  <p className="whitespace-pre-wrap">{a.body}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
