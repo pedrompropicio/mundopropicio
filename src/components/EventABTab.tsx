@@ -217,12 +217,26 @@ export default function EventABTab({ eventId }: Props) {
     const out: Record<"breakeven" | "forecast", Record<string, number>> = {
       breakeven: {}, forecast: {},
     };
+    // Fallback: agrega sim.sessions por (zone_label × day_index).
+    // Para zonas-passe com a mesma quantidade em todos os dias, colapsa via máximo
+    // (evita contagem dupla da mesma pessoa em múltiplos dias).
+    const byZoneDay: Record<string, Record<number, number>> = {};
     for (const s of sim.sessions ?? []) {
       const label = (s.zone_label || "").toLowerCase();
       const courtesy = Number((s as any).courtesy_qty) || 0;
       const realQty = Number((s as any).real_sales_qty) || 0;
-      out.breakeven[label] = (out.breakeven[label] ?? 0) + realQty + courtesy;
-      out.forecast[label] = (out.forecast[label] ?? 0) + realQty + courtesy;
+      const di = Number((s as any).day_index ?? 0);
+      (byZoneDay[label] ??= {})[di] = (byZoneDay[label][di] ?? 0) + realQty + courtesy;
+    }
+    const collapse = (byDay: Record<number, number>): number => {
+      const vals = Object.values(byDay);
+      if (vals.length <= 1) return vals.reduce((a, b) => a + b, 0);
+      return vals.every((v) => v === vals[0]) ? vals[0] : vals.reduce((a, b) => a + b, 0);
+    };
+    for (const [label, byDay] of Object.entries(byZoneDay)) {
+      const v = collapse(byDay);
+      out.breakeven[label] = v;
+      out.forecast[label] = v;
     }
     if (sim.abModule?.totals) {
       for (const t of sim.abModule.totals.breakeven.zones) {
