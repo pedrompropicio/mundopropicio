@@ -126,18 +126,28 @@ const FORECAST_RECENT_WINDOW_DAYS = 14;
 
 // ---------- Por sessão (dia × zona) ----------
 
+/** Receita líquida de IVA da sessão (real_sales_revenue vem bruto da bilheteira). */
+function sessionNetRevenue(s: CoalaSession): number {
+  const gross = n(s.real_sales_revenue);
+  const ivaPct = n(s.iva_pct, 6);
+  return ivaPct > 0 ? gross / (1 + ivaPct / 100) : gross;
+}
+
 export function sessionAvgTicket(s: CoalaSession): number {
   if (s.avg_ticket_override != null) return n(s.avg_ticket_override);
   const qty = n(s.real_sales_qty);
   if (qty <= 0) return 0;
-  return n(s.real_sales_revenue) / qty;
+  // TM líquido — simulador trabalha sempre s/IVA.
+  return sessionNetRevenue(s) / qty;
 }
 
 export function sessionTodayQty(s: CoalaSession): number {
   return n(s.real_sales_qty);
 }
 export function sessionTodayRevenue(s: CoalaSession): number {
-  return n(s.real_sales_revenue);
+  // Simulador trabalha em valores líquidos (s/IVA). real_sales_revenue
+  // vem bruto da bilheteira, por isso netamos pelo iva_pct configurado.
+  return sessionNetRevenue(s);
 }
 
 /** Break-Even por sessão: distribuição proporcional do break-even global é tratada externamente.
@@ -149,9 +159,9 @@ export function sessionForecastQty(s: CoalaSession): number {
 }
 
 export function sessionForecastRevenue(s: CoalaSession): number {
-  const tm = sessionAvgTicket(s);
-  // Receita forecast = real_revenue + (projeção × tm)  — cortesias não geram receita
-  return n(s.real_sales_revenue) + n(s.projected_qty) * tm;
+  const tm = sessionAvgTicket(s); // já líquido
+  // Receita forecast (líquida) = real líquido + (projeção × TM líquido)
+  return sessionNetRevenue(s) + n(s.projected_qty) * tm;
 }
 
 // ---------- Totais por cenário ----------
@@ -760,9 +770,9 @@ export type IvaRow = {
 
 export function computeIvaTable(sessions: CoalaSession[]): IvaRow[] {
   const rows = sessions.map((s) => {
-    const gross = sessionTodayRevenue(s); // base: real
+    const gross = n(s.real_sales_revenue); // bruto original da bilheteira
     const ivaPct = n(s.iva_pct, 6);
-    const iva = gross - gross / (1 + ivaPct / 100);
+    const iva = ivaPct > 0 ? gross - gross / (1 + ivaPct / 100) : 0;
     const net = gross - iva;
     return { label: `Dia ${String(s.day_index + 1).padStart(2, "0")} — ${s.zone_label}`, gross, iva, net, share: 0 };
   });
