@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
         skippedTransactions.push(r.rowNumber);
         return null;
       }
-      const { data, error } = await admin.from("transactions").insert(payload).select("id").single();
+      const { data, error } = await admin.from("transactions").insert({ company_id: ev.company_id, ...payload }).select("id").single();
       if (error || !data) {
         console.error("tx insert failed row", r.rowNumber, error);
         return null;
