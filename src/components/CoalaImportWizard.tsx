@@ -370,3 +370,28 @@ function Card({ label, value, tone }: { label: string; value: string; tone?: "mu
     </div>
   );
 }
+
+interface PendencyRow { row: number; description: string; supplier?: string | null; amount?: number; detail?: string }
+function PendencyGroup({ label, count, rows }: { label: string; count: number; rows?: PendencyRow[] }) {
+  const [open, setOpen] = useState(false);
+  if (!count) return <p className="text-muted-foreground">• {label}: 0</p>;
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(o => !o)} className="text-left w-full hover:text-primary transition">
+        • {label}: <span className="font-semibold">{count}</span> {rows?.length ? <span className="text-[10px] text-muted-foreground">({open ? "ocultar" : "ver linhas"})</span> : null}
+      </button>
+      {open && rows?.length ? (
+        <ul className="mt-1 ml-3 space-y-0.5 max-h-48 overflow-y-auto border-l border-border/40 pl-2">
+          {rows.map((r, i) => (
+            <li key={i} className="text-[11px] font-mono">
+              <span className="text-muted-foreground">L{r.row}</span> · {r.description}
+              {typeof r.amount === "number" ? <span className="text-muted-foreground"> · {r.amount.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}</span> : null}
+              {r.detail ? <span className="text-amber-400"> · {r.detail}</span> : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
