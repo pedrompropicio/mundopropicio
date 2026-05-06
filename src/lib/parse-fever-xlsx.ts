@@ -255,7 +255,10 @@ export async function parseFeverXlsx(
     const ticketType = cellByHeader(row, pricesHeaderIndexes, "Ticket Type");
     const ticketPrice = cellByHeader(row, pricesHeaderIndexes, "Ticket Price");
     const sold = cellByHeader(row, pricesHeaderIndexes, "Tickets sold");
-    const totalGross = cellByHeader(row, pricesHeaderIndexes, "Total Gross Revenue");
+    // Coluna F "Total Gross Revenue" inclui a taxa de conveniência Fever (Surcharge).
+    // Coluna G "Ticket Gross Revenue" = qty × preço de face = receita do PROMOTOR.
+    // Importamos sempre a parte do promotor (sem a Surcharge da Fever).
+    const promoterGross = cellByHeader(row, pricesHeaderIndexes, "Ticket Gross Revenue");
     const discount = cellByHeader(row, pricesHeaderIndexes, "Discount");
     const userPayment = cellByHeader(row, pricesHeaderIndexes, "User Payment");
     if (!ticketType) continue;
@@ -271,7 +274,9 @@ export async function parseFeverXlsx(
     }
 
     const soldQty = Number(sold) || 0;
-    const grossTotal = Number(totalGross) || 0;
+    const grossTotal = Number(promoterGross) || 0;
+    // Preço unitário efetivo = receita do promotor ÷ qty (≈ preço de face);
+    // se faltar dado, cai para o preço de face (Ticket Price).
     const effectiveUnitPrice = soldQty > 0 && grossTotal > 0 ? grossTotal / soldQty : price;
 
     lotMap.set(key, {
