@@ -824,11 +824,15 @@ export default function EventSimulator() {
   //    em que cada combo conta como 1 pessoa por dia coberto na sua zona.
   //    Assim, um combo de 2 dias = 2 participantes elegíveis em A&B.
   const abParticipants = useMemo<ABScenarioParticipants>(() => {
-    const sumByZone = (rows: Array<{ zone_label: string; paying: number; courtesy: number }>) => {
+    // expandLotSalesToDailyAttendance devolve linhas com `zone_name`; alguns
+    // breakdowns do solver podem usar `zone_label`. Aceitamos ambos para
+    // garantir que o override do Simulador chega sempre ao hook A&B.
+    const sumByZone = (rows: Array<{ zone_label?: string; zone_name?: string; paying: number; courtesy: number }>) => {
       const m: Record<string, number> = {};
       for (const r of rows) {
-        const k = (r.zone_label || "").toLowerCase();
-        m[k] = (m[k] ?? 0) + Number(r.paying || 0) + Number(r.courtesy || 0);
+        const label = (r.zone_name || r.zone_label || "").toLowerCase();
+        if (!label) continue;
+        m[label] = (m[label] ?? 0) + Number(r.paying || 0) + Number(r.courtesy || 0);
       }
       return m;
     };

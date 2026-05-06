@@ -1,42 +1,46 @@
 ## Problema
 
-No card "A&B Bebida/Alimento" do Simulador, as colunas **Break Even** e **Forecast** não escalam com o público projectado — ficam coladas a valores constantes (≈ Real ou ≈ planeado dos lotes), mesmo quando o solver do Simulador projecta lotação maior/menor.
+A&B nas colunas **BE** e **Forecast** continua igual à coluna **Real** mesmo quando o público projectado difere muito (ex.: Forecast 21.881 vs Real 17.215). O fix anterior em `useEventABScenarios` (override do caller a vencer o canónico) está correcto — mas o override **chega vazio** ao hook.
 
 ## Causa
 
-`useEventABScenarios` (em `src/hooks/useEventABScenarios.ts`) tem esta prioridade ao escolher o nº de participantes por zona:
+Em `src/pages/EventSimulator.tsx`, o helper `sumByZone` (dentro de `abParticipants`, ~linha 826) lê `r.zone_label`:
 
-1. `participants_manual` na zona A&B (explícito do utilizador)
-2. **`source_ticket_zone_id` → `useEventAttendance(scen).totalsByZone`** ← canónico
-3. Override passado pelo caller via `zone_label`
+```ts
+const k = (r.zone_label || "").toLowerCase();
+```
 
-Para o Simulador, em BE/Forecast `useEventAttendance` devolve a **quantidade planeada do lote** (`event_ticket_lots.quantity`) — um valor fixo. Como quase todas as zonas têm `source_ticket_zone_id` preenchido, o passo 2 vence sempre e o override calculado pelo Simulador (passo 3) é ignorado. Resultado: A&B BE = A&B Forecast = valor planeado, sem escalar com o público que o Simulador projecta.
+Mas as linhas em `dailyAttendance`, `beDaily.expanded` e `fcDaily.expanded` vêm de `expandLotSalesToDailyAttendance` (`src/lib/event-attendance-calc.ts:46,85`), que produz linhas com a chave **`zone_name`** — nunca `zone_label`.
+
+Resultado: `abParticipants.real`, `.breakeven` e `.forecast` ficam sempre `{}`. Em `useEventABScenarios`:
+- Real: cai no canónico (vendas reais) — coincidência funcional, sem bug visível.
+- BE/Forecast: como o override é vazio, cai no canónico (planeado dos lotes), que não escala com o solver. Daí a A&B colada ao Real.
 
 ## Solução
 
-Inverter a prioridade **apenas para BE e Forecast**: o override do caller (Simulador) vence o lookup canónico baseado em lotes. `participants_manual` continua a vencer sempre (é decisão explícita do utilizador) e o cenário **Real** mantém o comportamento actual (vendas reais > override).
+Em `EventSimulator.tsx`, ajustar `sumByZone` para aceitar `zone_name` **ou** `zone_label` (defensivo, caso algum solver futuro use a outra chave):
 
-Nova ordem por cenário em `useEventABScenarios`:
+```ts
+const sumByZone = (rows: Array<{ zone_label?: string; zone_name?: string; paying: number; courtesy: number }>) => {
+  const m: Record<string, number> = {};
+  for (const r of rows) {
+    const label = (r.zone_name || r.zone_label || "").toLowerCase();
+    if (!label) continue;
+    m[label] = (m[label] ?? 0) + Number(r.paying || 0) + Number(r.courtesy || 0);
+  }
+  return m;
+};
+```
 
-| Prioridade | Real (mantém)             | BE / Forecast (novo)              |
-|------------|---------------------------|------------------------------------|
-| 1          | `participants_manual`     | `participants_manual`              |
-| 2          | canónico (vendas reais)   | **override do caller (simulador)** |
-| 3          | override do caller        | canónico (planeado dos lotes)      |
-
-## Alterações
-
-**`src/hooks/useEventABScenarios.ts`** — refactor de `buildInputs(scen)`:
-- Extrair `externalMap = participants[scen]` por zona via `zone_label.toLowerCase()`.
-- Para `scen === "real"`: manter ordem actual (manual → canónico → caller).
-- Para `scen === "breakeven" | "forecast"`: nova ordem (manual → caller → canónico).
-- Atualizar JSDoc do ficheiro a explicar a nova prioridade por cenário.
-
-Sem alterações em `EventSimulator.tsx`, `event-ab-calc.ts` ou esquema de DB. Testes existentes em `event-ab-*.test.ts` continuam válidos (todos passam `participants` directos a `computeTotals`, não tocam na hook).
+Sem alterações em `useEventABScenarios`, `event-ab-calc.ts`, `event-simulator-coala.ts`, `event-simulator-sync.ts` ou `ExecutiveDashboard.tsx`. O `ExecutiveDashboard` consome `abModule.totals` indirectamente via os mesmos hooks, mas o problema é puramente de chave no Simulador.
 
 ## Validação
 
-1. Abrir Simulador num evento com módulo A&B configurado e zonas vinculadas a `source_ticket_zone_id` (sem `participants_manual`).
-2. Mover sliders de lotação BE/Forecast e confirmar que **A&B Bebida**, **A&B Alimento**, **Resultado A&B** e **TM A&B** acompanham a variação.
-3. Confirmar que coluna **Hoje** continua a usar vendas reais (não muda com sliders).
-4. Numa zona com `participants_manual` definido, confirmar que A&B BE/Forecast continua fixo no valor manual.
+1. Abrir Simulador num evento com módulo A&B configurado (ex.: Coala — zonas "Relvado — Sábado", "Tenda VIP — Domingo", etc., todas com `source_ticket_zone_id` preenchido e `participants_manual` nulo, conforme auditoria à BD).
+2. Confirmar que o nome das zonas A&B bate com o `zone_name` que `expandLotSalesToDailyAttendance` produz (vem de `event_ticket_zones.name` — já confirmado igual em todas as 6 zonas auditadas).
+3. Mexer no slider Forecast e ver A&B Bebida / A&B Alimento / Resultado A&B / TM A&B variarem na coluna Forecast.
+4. Confirmar que a coluna Real continua estável (não muda com sliders).
+
+## Edge case conhecido
+
+As zonas "Passe 2 dias" (`Relvado (Passe 2 dias)`, `Tenda VIP (Passe 2 dias)`) têm `source_ticket_zone_id = NULL` no módulo A&B. Para essas, o override por `zone_label` (agora `zone_name` lowercased) é o **único** caminho — daí ser crítico que o lookup funcione. Confirmar visualmente que essas zonas também escalam.
