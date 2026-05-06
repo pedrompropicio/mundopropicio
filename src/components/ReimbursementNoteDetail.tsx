@@ -42,6 +42,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
   const [paymentAccountId, setPaymentAccountId] = useState("");
   const [showPayConfirm, setShowPayConfirm] = useState(false);
   const [docsModalTx, setDocsModalTx] = useState<{ id: string; description: string } | null>(null);
+  const [editTx, setEditTx] = useState<any | null>(null);
 
   const { data: note, isLoading: noteLoading } = useQuery({
     queryKey: ["reimbursement-note", noteId],
