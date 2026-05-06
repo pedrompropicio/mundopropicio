@@ -386,7 +386,7 @@ export default function ExecutiveDashboard(props: Props) {
           <FinancialTable rows={financialRows} active={active} formatFn={fmt} />
           <div className="flex flex-col gap-3">
             <ProgressKpi
-              label="Público"
+              label="Bilhetes únicos"
               current={todayUnique}
               currentLabel="Real"
               beTarget={beTargetQty}
@@ -395,9 +395,10 @@ export default function ExecutiveDashboard(props: Props) {
               fcLabel="Forecast"
               formatFn={fmtNum}
               footer={
-                needForBE > 0
-                  ? `Faltam ${fmtNum(needForBE)} pessoas para BE`
-                  : "Break Even atingido"
+                (needForBE > 0
+                  ? `Faltam ${fmtNum(needForBE)} bilhetes para BE`
+                  : "Break Even atingido") +
+                ` · Presenças×dia: ${fmtNum((today.attendanceQty || 0) + (today.attendanceCourtesyQty || 0))} / ${fmtNum((breakeven.attendanceQty || 0) + (breakeven.attendanceCourtesyQty || 0))} / ${fmtNum((forecast.attendanceQty || 0) + (forecast.attendanceCourtesyQty || 0))}`
               }
             />
             {abModule.hasConfig && abModule.totals && (

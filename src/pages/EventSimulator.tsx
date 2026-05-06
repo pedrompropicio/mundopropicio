@@ -869,16 +869,18 @@ export default function EventSimulator() {
   // como `beTargetQty`/`fcTargetQty` — fcSolution.totalQty + cortesias).
   // Usado como override no scaleABFromReal para evitar que o A&B fique
   // colapsado quando `breakevenV2/forecastV2.attendanceQty` cai para o real.
-  const bePubProjected = useMemo(() => {
-    const tickets = Object.values(beSolution?.qtyByKey || {}).reduce((a: number, b: any) => a + Number(b || 0), 0);
-    const courtesy = Number(beAttendance?.courtesyAttendance || 0);
-    return tickets + courtesy;
-  }, [beSolution, beAttendance]);
-  const fcPubProjected = useMemo(() => {
-    const tickets = Object.values(fcSolution?.qtyByKey || {}).reduce((a: number, b: any) => a + Number(b || 0), 0);
-    const courtesy = Number(fcAttendance?.courtesyAttendance || 0);
-    return tickets + courtesy;
-  }, [fcSolution, fcAttendance]);
+  // Público projectado em PRESENÇAS×DIA (mesma unidade que `realRev.attendanceQty`
+  // do módulo A&B). Antes somávamos `solution.qtyByKey` (bilhetes únicos), o que
+  // misturava unidades com o numerador (`realDrink/realPresenças`) e fazia o A&B
+  // BE/Forecast ficar subdimensionado em eventos com combos multi-dia.
+  const bePubProjected = useMemo(
+    () => Number(beAttendance?.payingAttendance || 0) + Number(beAttendance?.courtesyAttendance || 0),
+    [beAttendance],
+  );
+  const fcPubProjected = useMemo(
+    () => Number(fcAttendance?.payingAttendance || 0) + Number(fcAttendance?.courtesyAttendance || 0),
+    [fcAttendance],
+  );
 
   const beAB = useMemo(() => {
     if (!abModule.hasConfig || !abModule.totals) return breakevenV2;
