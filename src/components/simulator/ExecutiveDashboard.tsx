@@ -50,6 +50,8 @@ interface Props {
   abModule: { hasConfig: boolean; totals: { real: any; breakeven: any; forecast: any } | null };
   beSolution?: { totalQty?: number; totalRevenue?: number };
   fcSolution?: { totalQty?: number; totalRevenue?: number };
+  beDailyTotals?: Array<[number, { paying: number; courtesy: number; total: number; date: string | null }]>;
+  fcDailyTotals?: Array<[number, { paying: number; courtesy: number; total: number; date: string | null }]>;
   eventId?: string;
   dailyCapacity?: number;
   tourBreakdowns?: Array<{
