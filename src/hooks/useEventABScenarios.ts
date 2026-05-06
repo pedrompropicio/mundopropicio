@@ -103,19 +103,26 @@ export function useEventABScenarios(
 
       return zones.map((z: any) => {
         let participantsCount = 0;
+        const labelKey = z.zone_label?.toLowerCase?.() ?? "";
+        const externalMap = participants[scen] || {};
+        const externalVal = labelKey ? externalMap[labelKey] : undefined;
+        const canonicalVal =
+          z.source_ticket_zone_id && totalsByZoneId[z.source_ticket_zone_id] != null
+            ? totalsByZoneId[z.source_ticket_zone_id]
+            : undefined;
+
         // 1) override manual sempre vence
         if (z.participants_manual != null) {
           participantsCount = Number(z.participants_manual);
-        } else if (z.source_ticket_zone_id && totalsByZoneId[z.source_ticket_zone_id] != null) {
-          // 2) fonte canónica: público por dia da zona vinculada
-          participantsCount = totalsByZoneId[z.source_ticket_zone_id];
+        } else if (scen === "real") {
+          // Real: canónico (vendas reais) > override do caller
+          if (canonicalVal != null) participantsCount = canonicalVal;
+          else if (externalVal != null) participantsCount = externalVal;
         } else {
-          // 3) override pelo caller via zone_label (Simulador BE/forecast)
-          const labelKey = z.zone_label?.toLowerCase?.() ?? "";
-          const externalMap = participants[scen] || {};
-          if (labelKey && externalMap[labelKey] != null) {
-            participantsCount = externalMap[labelKey];
-          }
+          // BE/Forecast: override do Simulador > canónico (planeado dos lotes)
+          // — assim A&B escala com o público projectado pelos sliders.
+          if (externalVal != null) participantsCount = externalVal;
+          else if (canonicalVal != null) participantsCount = canonicalVal;
         }
         return {
           id: z.id,
