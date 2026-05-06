@@ -358,7 +358,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
       startY: y,
       head: [["Descrição", "Especificação", "Data", "Estado", "Fatura", "Valor"]],
       body: tableData,
-      foot: [["TOTAL", "", "", "", "", formatCurrency(Number(note.total_amount))]],
+      foot: [["TOTAL", "", "", "", "", formatCurrency(grossTotal)]],
       margin: { left: margin, right: margin },
       styles: { fontSize: 9 },
       headStyles: { fillColor: [41, 41, 41] },
