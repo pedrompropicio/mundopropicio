@@ -1,46 +1,67 @@
-## Problema
+## Objetivo
+Corrigir o Simulador para que a receita A&B de Break-Even e Forecast seja sempre calculada como:
 
-A&B nas colunas **BE** e **Forecast** continua igual à coluna **Real** mesmo quando o público projectado difere muito (ex.: Forecast 21.881 vs Real 17.215). O fix anterior em `useEventABScenarios` (override do caller a vencer o canónico) está correcto — mas o override **chega vazio** ao hook.
-
-## Causa
-
-Em `src/pages/EventSimulator.tsx`, o helper `sumByZone` (dentro de `abParticipants`, ~linha 826) lê `r.zone_label`:
-
-```ts
-const k = (r.zone_label || "").toLowerCase();
+```text
+A&B do cenário = público do cenário × per-capita A&B
 ```
 
-Mas as linhas em `dailyAttendance`, `beDaily.expanded` e `fcDaily.expanded` vêm de `expandLotSalesToDailyAttendance` (`src/lib/event-attendance-calc.ts:46,85`), que produz linhas com a chave **`zone_name`** — nunca `zone_label`.
+No caso reportado, Forecast deve sair de `86.563 €` para cerca de `110.065 €` quando o público Forecast é `21.881` e o per-capita total A&B é `5,03 €/pp`.
 
-Resultado: `abParticipants.real`, `.breakeven` e `.forecast` ficam sempre `{}`. Em `useEventABScenarios`:
-- Real: cai no canónico (vendas reais) — coincidência funcional, sem bug visível.
-- BE/Forecast: como o override é vazio, cai no canónico (planeado dos lotes), que não escala com o solver. Daí a A&B colada ao Real.
-
-## Solução
-
-Em `EventSimulator.tsx`, ajustar `sumByZone` para aceitar `zone_name` **ou** `zone_label` (defensivo, caso algum solver futuro use a outra chave):
+## Diagnóstico
+A correção anterior só garantiu que o mapa de participantes chegava ao hook A&B. Porém, em `EventSimulator.tsx`, a função `applyABModule` continua a substituir também BE/Forecast pelos totais retornados pelo módulo A&B:
 
 ```ts
-const sumByZone = (rows: Array<{ zone_label?: string; zone_name?: string; paying: number; courtesy: number }>) => {
-  const m: Record<string, number> = {};
-  for (const r of rows) {
-    const label = (r.zone_name || r.zone_label || "").toLowerCase();
-    if (!label) continue;
-    m[label] = (m[label] ?? 0) + Number(r.paying || 0) + Number(r.courtesy || 0);
-  }
-  return m;
-};
+const t = abModule.totals[scen]
+drinkRevenue = t.receitaBebidas
+foodRevenue = t.receitaAlimentos
 ```
 
-Sem alterações em `useEventABScenarios`, `event-ab-calc.ts`, `event-simulator-coala.ts`, `event-simulator-sync.ts` ou `ExecutiveDashboard.tsx`. O `ExecutiveDashboard` consome `abModule.totals` indirectamente via os mesmos hooks, mas o problema é puramente de chave no Simulador.
+Quando o módulo A&B devolve o mesmo valor do Real (por exemplo por `participants_manual`, mapeamento por zona, ou fallback canónico), esse valor volta a congelar BE/Forecast em `86.563 €`, apesar de `forecastV2` já ter calculado o público correto do cenário.
 
-## Validação
+## Alterações propostas
 
-1. Abrir Simulador num evento com módulo A&B configurado (ex.: Coala — zonas "Relvado — Sábado", "Tenda VIP — Domingo", etc., todas com `source_ticket_zone_id` preenchido e `participants_manual` nulo, conforme auditoria à BD).
-2. Confirmar que o nome das zonas A&B bate com o `zone_name` que `expandLotSalesToDailyAttendance` produz (vem de `event_ticket_zones.name` — já confirmado igual em todas as 6 zonas auditadas).
-3. Mexer no slider Forecast e ver A&B Bebida / A&B Alimento / Resultado A&B / TM A&B variarem na coluna Forecast.
-4. Confirmar que a coluna Real continua estável (não muda com sliders).
+1. **`src/pages/EventSimulator.tsx`**
+   - Alterar `applyABModule` para:
+     - manter o módulo A&B como fonte para o cenário **Real**, porque é aí que estão os per-capita/configuração reais do evento;
+     - para **Break-Even** e **Forecast**, recalcular a receita A&B a partir do público do próprio cenário, sem reutilizar o valor absoluto Real.
+   - A fórmula será baseada no per-capita efetivo do Real:
+     ```text
+     perCapitaBebidas = receitaBebidasReal / públicoReal
+     perCapitaAlimentos = receitaAlimentosReal / públicoReal
 
-## Edge case conhecido
+     bebidasCenário = públicoCenário × perCapitaBebidas
+     alimentosCenário = públicoCenário × perCapitaAlimentos
+     ```
+   - Usar fallback para `rev.drinkRevenue` / `rev.foodRevenue` quando não houver configuração A&B ou quando o público Real for zero.
+   - Garantir que `totalRevenue` é recalculado após substituir Bebidas/Alimentos.
 
-As zonas "Passe 2 dias" (`Relvado (Passe 2 dias)`, `Tenda VIP (Passe 2 dias)`) têm `source_ticket_zone_id = NULL` no módulo A&B. Para essas, o override por `zone_label` (agora `zone_name` lowercased) é o **único** caminho — daí ser crítico que o lookup funcione. Confirmar visualmente que essas zonas também escalam.
+2. **Custos A&B em BE/Forecast**
+   - Ajustar `beCosts` e `fcCosts` para que o custo A&B também acompanhe a receita escalada do cenário, em vez de usar diretamente `abModule.totals.breakeven/forecast.custoTotal` quando estes estiverem congelados.
+   - Quando houver custo real configurado no módulo A&B, escalar pelo mesmo rácio de público:
+     ```text
+     custoA&B_cenário = custoA&B_real × (públicoCenário / públicoReal)
+     ```
+   - Se não houver custo real/configuração, manter o cálculo existente de `computeScenarioCosts`.
+
+3. **`src/hooks/useEventABScenarios.ts`**
+   - Rever o comentário/precedência de `participants_manual` para evitar que a leitura futura induza regressão: manual pode continuar válido na aba A&B, mas o Simulador não deve deixar esse valor congelar BE/Forecast.
+   - Não alterar o comportamento da aba A&B sem necessidade.
+
+4. **`src/hooks/useCitySimulator.ts`**
+   - Aplicar a mesma regra no simulador por cidade, porque ele usa o mesmo hook e a mesma substituição A&B.
+   - Assim, Master/Tour agregados via cidades não voltam a herdar A&B congelado.
+
+5. **Testes de regressão**
+   - Adicionar/atualizar testes puros para validar a regra:
+     - Real: `17.215 × 5,03 ≈ 86.563 €`.
+     - Forecast: `21.881 × 5,03 ≈ 110.065 €`.
+     - BE/Forecast não podem ficar iguais ao Real quando o público do cenário muda.
+   - Preferir extrair uma pequena função pura para cálculo/escalamento A&B, para testar sem depender de React hooks.
+
+## Validação esperada
+Depois da implementação:
+
+- Dashboard Executivo, aba Faturamento e exportações que usam `todayAB/beAB/fcAB` passam a mostrar A&B Forecast ≈ `110.065 €` no cenário indicado.
+- TM A&B permanece ≈ `5,03 €/pp` nos três cenários.
+- Público Forecast continua `21.881`.
+- A&B Real mantém `86.563 €` para `17.215` pessoas.
