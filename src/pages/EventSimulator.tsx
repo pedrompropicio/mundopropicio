@@ -40,6 +40,7 @@ import { ForecastBoostCalibrator } from "@/components/simulator/ForecastBoostCal
 import ExecutiveDashboard from "@/components/simulator/ExecutiveDashboard";
 import TourSimulator from "@/components/simulator/TourSimulator";
 import { useEventABScenarios, type ABScenarioParticipants } from "@/hooks/useEventABScenarios";
+import { scaleABFromReal, scaleABCostFromReal } from "@/lib/event-simulator-ab-scale";
 import { useCompany } from "@/hooks/useCompany";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid } from "recharts";
 import { LayoutDashboard } from "lucide-react";
