@@ -906,19 +906,19 @@ export default function EventSimulator() {
     const base = computeScenarioCosts(calcCosts, beAB, calcCfg, "breakeven");
     if (abModule.hasConfig && abModule.totals) {
       // Escala custo A&B pelo público do cenário (terceirização → custo 0 mantém-se 0)
-      const ab = scaleABCostFromReal(abModule.totals.real.custoTotal, todayAB, beAB);
+      const ab = scaleABCostFromReal(abModule.totals.real.custoTotal, todayAB, beAB, bePubProjected);
       return { ...base, abCost: ab, totalCost: base.eventCosts + ab + base.souvenirCost };
     }
     return base;
-  }, [calcCosts, beAB, todayAB, calcCfg, abModule]);
+  }, [calcCosts, beAB, todayAB, calcCfg, abModule, bePubProjected]);
   const fcCosts = useMemo(() => {
     const base = computeScenarioCosts(calcCosts, fcAB, calcCfg, "forecast");
     if (abModule.hasConfig && abModule.totals) {
-      const ab = scaleABCostFromReal(abModule.totals.real.custoTotal, todayAB, fcAB);
+      const ab = scaleABCostFromReal(abModule.totals.real.custoTotal, todayAB, fcAB, fcPubProjected);
       return { ...base, abCost: ab, totalCost: base.eventCosts + ab + base.souvenirCost };
     }
     return base;
-  }, [calcCosts, fcAB, todayAB, calcCfg, abModule]);
+  }, [calcCosts, fcAB, todayAB, calcCfg, abModule, fcPubProjected]);
 
   const todayRev = todayAB; const beRev = beAB; const fcRev = fcAB;
 
