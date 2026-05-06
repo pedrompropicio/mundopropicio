@@ -12,6 +12,7 @@ DECLARE
   v_event uuid;
   v_fever uuid;
   v_deleted int;
+  v_lots_deleted int;
 BEGIN
   SELECT id INTO v_event
   FROM events
@@ -32,6 +33,31 @@ BEGIN
     RAISE EXCEPTION 'Conta Fever nao encontrada';
   END IF;
 
+  WITH latest_lot_window AS (
+    SELECT max(date_trunc('minute', l.created_at)) AS keep_minute
+    FROM event_ticket_lots l
+    JOIN event_ticket_zones z ON z.id = l.zone_id
+    WHERE z.event_id = v_event
+  ), old_lots AS (
+    SELECT l.id
+    FROM event_ticket_lots l
+    JOIN event_ticket_zones z ON z.id = l.zone_id
+    CROSS JOIN latest_lot_window w
+    WHERE z.event_id = v_event
+      AND date_trunc('minute', l.created_at) < w.keep_minute
+  ), del_lot_sales AS (
+    DELETE FROM ticket_sales s
+    USING old_lots ol
+    WHERE s.lot_id = ol.id
+    RETURNING s.id
+  ), del_lots AS (
+    DELETE FROM event_ticket_lots l
+    USING old_lots ol
+    WHERE l.id = ol.id
+    RETURNING l.id
+  )
+  SELECT count(*) INTO v_lots_deleted FROM del_lots;
+
   WITH del AS (
     DELETE FROM ticket_sales s
     USING event_ticket_zones z
@@ -42,7 +68,7 @@ BEGIN
   )
   SELECT count(*) INTO v_deleted FROM del;
 
-  RAISE NOTICE 'Vendas Fever apagadas: % (evento %, conta %)', v_deleted, v_event, v_fever;
+  RAISE NOTICE 'Lotes antigos apagados: %. Vendas Fever apagadas: % (evento %, conta %)', v_lots_deleted, v_deleted, v_event, v_fever;
 END $$;
 
 -- Validacao: deve devolver 0 linhas
