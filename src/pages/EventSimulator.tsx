@@ -181,12 +181,14 @@ export default function EventSimulator() {
   });
 
   const { data: l3Categories = [] } = useQuery<AccountCategory[]>({
-    queryKey: ["account-categories-l3"],
+    queryKey: ["account-categories-l3", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
       const { data } = await supabase
         .from("account_categories")
-        .select("id, code, name")
+        .select("id, code, name, company_id")
         .eq("is_active", true)
+        .eq("company_id", companyId!)
         .order("code");
       // L3 = code com 3 níveis (x.y.z)
       return ((data as any) ?? []).filter((c: any) => /^\d+\.\d+\.\d+$/.test(c.code));
@@ -195,12 +197,14 @@ export default function EventSimulator() {
 
   // L2 categories — para o seletor de "categoria de patrocínios"
   const { data: l2Categories = [] } = useQuery<AccountCategory[]>({
-    queryKey: ["account-categories-l2"],
+    queryKey: ["account-categories-l2", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
       const { data } = await supabase
         .from("account_categories")
-        .select("id, code, name")
+        .select("id, code, name, company_id")
         .eq("is_active", true)
+        .eq("company_id", companyId!)
         .order("code");
       return ((data as any) ?? []).filter((c: any) => /^\d+\.\d+$/.test(c.code));
     },
