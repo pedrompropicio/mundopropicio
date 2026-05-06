@@ -12,9 +12,11 @@ type TicketSaleBatchRow = {
  */
 export function keepLatestImportBatchRows<T extends TicketSaleBatchRow>(rows: T[], source: string): T[] {
   const latestByAccount = new Map<string, { batchId: string; createdAt: string }>();
+  let hasAnyBatchForSource = false;
 
   for (const row of rows) {
     if (row.source !== source || !row.import_batch_id) continue;
+    hasAnyBatchForSource = true;
     const accountKey = row.financial_account_id ?? "__no_account__";
     const createdAt = String(row.created_at || "");
     const current = latestByAccount.get(accountKey);
@@ -24,7 +26,8 @@ export function keepLatestImportBatchRows<T extends TicketSaleBatchRow>(rows: T[
   }
 
   return rows.filter((row) => {
-    if (row.source !== source || !row.import_batch_id) return true;
+    if (row.source !== source) return true;
+    if (!row.import_batch_id) return !hasAnyBatchForSource;
     const latest = latestByAccount.get(row.financial_account_id ?? "__no_account__");
     return !latest || row.import_batch_id === latest.batchId;
   });
