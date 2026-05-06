@@ -228,7 +228,7 @@ export default function ExecutiveDashboard(props: Props) {
     ? Math.round((today.totalRevenue / forecast.totalRevenue) * 100)
     : 0;
   const pctPubForecast = fcTargetQty > 0
-    ? Math.min(100, Math.round((todayUnique / fcTargetQty) * 100))
+    ? Math.min(100, Math.round((todayPres / fcTargetQty) * 100))
     : 0;
   const margemPct = sel.rev.totalRevenue > 0
     ? (sel.res.general / sel.rev.totalRevenue) * 100
@@ -390,7 +390,7 @@ export default function ExecutiveDashboard(props: Props) {
           <div className="flex flex-col gap-3">
             <ProgressKpi
               label="Bilhetes únicos"
-              current={todayUnique}
+              current={todayPres}
               currentLabel="Real"
               beTarget={beTargetQty}
               beLabel="Break Even"
