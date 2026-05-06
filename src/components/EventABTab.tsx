@@ -104,6 +104,7 @@ function KpisConsolidados({ totals, modeBebidas, modeAlimentos }: {
 export default function EventABTab({ eventId }: Props) {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { companyId } = useCompany();
   const [scenario, setScenario] = useState<ABScenario>("forecast");
 
   // ── data ──
