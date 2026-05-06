@@ -117,12 +117,19 @@ export default function ExecutiveDashboard(props: Props) {
   const costsCompareChart = useMemo(() => {
     return [...(costLines ?? [])]
       .filter((c: any) => !c.is_ab_passthrough)
-      .map((c: any) => ({
-        name: c.label || "—",
-        Real: Number(c.actual_amount || 0),
-        BE: Number(c.break_even_amount || 0),
-        Forecast: Number(c.forecast_amount || 0),
-      }))
+      .map((c: any) => {
+        const real = Number(c.actual_amount || 0);
+        const beRaw = Number(c.break_even_amount || 0);
+        // Mesmo fallback usado em computeScenarioCosts/financialRows:
+        // BE 0 → actual → prior_year → forecast.
+        const be = beRaw > 0 ? beRaw : (real || Number(c.prior_year_amount || 0) || Number(c.forecast_amount || 0));
+        return {
+          name: c.label || "—",
+          Real: real,
+          BE: be,
+          Forecast: Number(c.forecast_amount || 0),
+        };
+      })
       .filter((c) => c.Real + c.BE + c.Forecast > 0)
       .sort((a, b) => b.Real - a.Real)
       .slice(0, 8);
