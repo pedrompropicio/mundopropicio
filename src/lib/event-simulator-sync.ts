@@ -90,7 +90,10 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
 
   // 3) Indexa sessões existentes
   const existingByKey = new Map<string, Row>();
-  for (const e of existing) existingByKey.set(`${e.day_index}|${e.zone_label}`, e);
+  for (const e of existing) {
+    const lk = (e.zone_label || "").toLowerCase();
+    existingByKey.set(`${e.day_index}|${lk}`, e);
+  }
 
   // 4) Para cada (date × zone) calcula payload e upsert
   // Se não há dates, cria 1 dia "virtual"
