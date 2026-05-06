@@ -29,7 +29,8 @@ const statusColors: Record<string, string> = {
 };
 
 export default function Reimbursements() {
-  const { isAdmin, isManager, user } = useAuth();
+  const { isAdmin, isManager, role, user } = useAuth();
+  const isEditor = role === "editor";
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
