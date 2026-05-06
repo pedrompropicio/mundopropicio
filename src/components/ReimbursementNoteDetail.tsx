@@ -397,7 +397,8 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
           </div>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold font-mono">{formatCurrency(Number(note.total_amount))}</p>
+          <p className="text-2xl font-bold font-mono">{formatCurrency(grossTotal)}</p>
+          <p className="text-[10px] text-muted-foreground">c/ IVA</p>
         </div>
       </div>
 
