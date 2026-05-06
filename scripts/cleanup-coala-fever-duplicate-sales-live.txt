@@ -1,0 +1,55 @@
+-- ============================================================
+-- LIMPEZA: apagar TODAS as vendas Fever do evento Coala Festival
+-- Portugal 2026 antes de re-importar (a importacao anterior ficou
+-- por cima da anterior, duplicando receita).
+--
+-- Executar em Cloud View > Run SQL com LIVE seleccionado.
+-- Depois disto, voltar a fazer a importacao Fever na app.
+-- ============================================================
+
+DO $$
+DECLARE
+  v_event uuid;
+  v_fever uuid;
+  v_deleted int;
+BEGIN
+  SELECT id INTO v_event
+  FROM events
+  WHERE name ILIKE 'Coala Festival Portugal 2026%'
+  ORDER BY date DESC
+  LIMIT 1;
+
+  IF v_event IS NULL THEN
+    RAISE EXCEPTION 'Evento Coala 2026 nao encontrado';
+  END IF;
+
+  SELECT id INTO v_fever
+  FROM financial_accounts
+  WHERE name ILIKE '%fever%'
+  LIMIT 1;
+
+  IF v_fever IS NULL THEN
+    RAISE EXCEPTION 'Conta Fever nao encontrada';
+  END IF;
+
+  WITH del AS (
+    DELETE FROM ticket_sales s
+    USING event_ticket_zones z
+    WHERE s.zone_id = z.id
+      AND z.event_id = v_event
+      AND s.financial_account_id = v_fever
+    RETURNING s.id
+  )
+  SELECT count(*) INTO v_deleted FROM del;
+
+  RAISE NOTICE 'Vendas Fever apagadas: % (evento %, conta %)', v_deleted, v_event, v_fever;
+END $$;
+
+-- Validacao: deve devolver 0 linhas
+SELECT count(*) AS vendas_fever_restantes
+FROM ticket_sales s
+JOIN event_ticket_zones z ON z.id = s.zone_id
+JOIN events e ON e.id = z.event_id
+JOIN financial_accounts fa ON fa.id = s.financial_account_id
+WHERE e.name ILIKE 'Coala Festival Portugal 2026%'
+  AND fa.name ILIKE '%fever%';
