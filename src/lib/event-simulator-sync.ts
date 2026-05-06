@@ -118,7 +118,7 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
   for (let dIdx = 0; dIdx < effectiveDates.length; dIdx++) {
     const d = effectiveDates[dIdx];
     for (const z of zones) {
-      const key = `${dIdx}|${z.name}`;
+      const key = `${dIdx}|${(z.name || "").toLowerCase()}`;
       const existingRow = existingByKey.get(key);
 
       // Vendas reais: só são depositadas na linha "anchor" da zona — o
