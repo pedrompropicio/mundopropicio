@@ -26,6 +26,7 @@ import {
 } from "@/lib/event-simulator-coala";
 import { loadSponsors, type SponsorRow } from "@/lib/event-simulator-sponsors";
 import { useEventABScenarios, type ABScenarioParticipants } from "@/hooks/useEventABScenarios";
+import { scaleABFromReal, scaleABCostFromReal } from "@/lib/event-simulator-ab-scale";
 
 export interface CitySimulatorData {
   loading: boolean;
@@ -272,22 +273,36 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
 
   const abModule = useEventABScenarios(eventId, abParticipants);
 
-  const applyAB = (rev: any, scen: "real" | "breakeven" | "forecast") => {
-    if (!abModule.hasConfig || !abModule.totals) return rev;
-    const t = abModule.totals[scen];
+  // Real: usa receita/custo do módulo A&B (per-capita × participantes por zona).
+  // BE/Forecast: escala SEMPRE pelo per-capita efectivo do Real
+  // (receitaReal / públicoReal). Evita que `participants_manual` ou outros
+  // casos em que o módulo devolve o mesmo valor congelem A&B no Real.
+  const realRev = useMemo(() => {
+    if (!abModule.hasConfig || !abModule.totals) return todayRev;
+    const t = abModule.totals.real;
     const drink = t.receitaBebidas;
     const food = t.receitaAlimentos;
     return {
-      ...rev,
+      ...todayRev,
       drinkRevenue: drink,
       foodRevenue: food,
-      totalRevenue: rev.totalRevenue - rev.drinkRevenue - rev.foodRevenue + drink + food,
+      totalRevenue: todayRev.totalRevenue - todayRev.drinkRevenue - todayRev.foodRevenue + drink + food,
     };
-  };
+  }, [todayRev, abModule]);
 
-  const realRev = useMemo(() => applyAB(todayRev, "real"), [todayRev, abModule]);
-  const beRevAB = useMemo(() => applyAB(beRev, "breakeven"), [beRev, abModule]);
-  const fcRevAB = useMemo(() => applyAB(fcRev, "forecast"), [fcRev, abModule]);
+  const beRevAB = useMemo(() => {
+    if (!abModule.hasConfig || !abModule.totals) return beRev;
+    const real = abModule.totals.real;
+    const scaled = scaleABFromReal(beRev, realRev, real.receitaBebidas, real.receitaAlimentos);
+    return { ...beRev, ...scaled };
+  }, [beRev, realRev, abModule]);
+
+  const fcRevAB = useMemo(() => {
+    if (!abModule.hasConfig || !abModule.totals) return fcRev;
+    const real = abModule.totals.real;
+    const scaled = scaleABFromReal(fcRev, realRev, real.receitaBebidas, real.receitaAlimentos);
+    return { ...fcRev, ...scaled };
+  }, [fcRev, realRev, abModule]);
 
   const realCosts = useMemo(() => {
     const base = computeScenarioCosts(calcCosts, realRev, calcCfg, "today");
@@ -297,16 +312,20 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
   }, [calcCosts, realRev, calcCfg, abModule]);
   const beCosts = useMemo(() => {
     const base = computeScenarioCosts(calcCosts, beRevAB, calcCfg, "breakeven");
-    if (abModule.hasConfig && abModule.totals)
-      return { ...base, abCost: abModule.totals.breakeven.custoTotal, totalCost: base.eventCosts + abModule.totals.breakeven.custoTotal + base.souvenirCost };
+    if (abModule.hasConfig && abModule.totals) {
+      const ab = scaleABCostFromReal(abModule.totals.real.custoTotal, realRev, beRevAB);
+      return { ...base, abCost: ab, totalCost: base.eventCosts + ab + base.souvenirCost };
+    }
     return base;
-  }, [calcCosts, beRevAB, calcCfg, abModule]);
+  }, [calcCosts, beRevAB, realRev, calcCfg, abModule]);
   const fcCosts = useMemo(() => {
     const base = computeScenarioCosts(calcCosts, fcRevAB, calcCfg, "forecast");
-    if (abModule.hasConfig && abModule.totals)
-      return { ...base, abCost: abModule.totals.forecast.custoTotal, totalCost: base.eventCosts + abModule.totals.forecast.custoTotal + base.souvenirCost };
+    if (abModule.hasConfig && abModule.totals) {
+      const ab = scaleABCostFromReal(abModule.totals.real.custoTotal, realRev, fcRevAB);
+      return { ...base, abCost: ab, totalCost: base.eventCosts + ab + base.souvenirCost };
+    }
     return base;
-  }, [calcCosts, fcRevAB, calcCfg, abModule]);
+  }, [calcCosts, fcRevAB, realRev, calcCfg, abModule]);
 
   const realRes = useMemo(() => computeScenarioResult(realRev, realCosts), [realRev, realCosts]);
   const beRes = useMemo(() => computeScenarioResult(beRevAB, beCosts), [beRevAB, beCosts]);
