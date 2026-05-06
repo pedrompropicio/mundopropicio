@@ -162,7 +162,7 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
           .insert({
             event_id: eventId,
             company_id: companyId,
-            day_index: dIdx,
+            day_index: nextDayIndex++,
             day_date: d.date ?? null,
             zone_label: z.name,
             capacity_target: capacity,
