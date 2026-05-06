@@ -579,6 +579,8 @@ export default function EventSimulator() {
 
 
   const ivaTable = useMemo(() => computeIvaTable(calcSessions), [calcSessions]);
+  const ivaTableBe = useMemo(() => computeIvaTable(calcSessions, beSolution.revenueByKey), [calcSessions, beSolution]);
+  const ivaTableFc = useMemo(() => computeIvaTable(calcSessions, fcSolution.revenueByKey), [calcSessions, fcSolution]);
 
   // ----- Exportações XLSX/PDF (layout idêntico ao Excel de referência) -----
   const buildExportData = (): SimulatorExportData => {
