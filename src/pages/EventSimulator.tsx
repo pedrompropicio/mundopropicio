@@ -40,6 +40,7 @@ import { ForecastBoostCalibrator } from "@/components/simulator/ForecastBoostCal
 import ExecutiveDashboard from "@/components/simulator/ExecutiveDashboard";
 import TourSimulator from "@/components/simulator/TourSimulator";
 import { useEventABScenarios, type ABScenarioParticipants } from "@/hooks/useEventABScenarios";
+import { useCompany } from "@/hooks/useCompany";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, CartesianGrid } from "recharts";
 import { LayoutDashboard } from "lucide-react";
 
@@ -109,6 +110,7 @@ export default function EventSimulator() {
   const { id: eventId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { companyId } = useCompany();
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const tabContentRef = React.useRef<HTMLDivElement>(null);
 
@@ -179,12 +181,14 @@ export default function EventSimulator() {
   });
 
   const { data: l3Categories = [] } = useQuery<AccountCategory[]>({
-    queryKey: ["account-categories-l3"],
+    queryKey: ["account-categories-l3", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
       const { data } = await supabase
         .from("account_categories")
-        .select("id, code, name")
+        .select("id, code, name, company_id")
         .eq("is_active", true)
+        .eq("company_id", companyId!)
         .order("code");
       // L3 = code com 3 níveis (x.y.z)
       return ((data as any) ?? []).filter((c: any) => /^\d+\.\d+\.\d+$/.test(c.code));
@@ -193,12 +197,14 @@ export default function EventSimulator() {
 
   // L2 categories — para o seletor de "categoria de patrocínios"
   const { data: l2Categories = [] } = useQuery<AccountCategory[]>({
-    queryKey: ["account-categories-l2"],
+    queryKey: ["account-categories-l2", companyId],
+    enabled: !!companyId,
     queryFn: async () => {
       const { data } = await supabase
         .from("account_categories")
-        .select("id, code, name")
+        .select("id, code, name, company_id")
         .eq("is_active", true)
+        .eq("company_id", companyId!)
         .order("code");
       return ((data as any) ?? []).filter((c: any) => /^\d+\.\d+$/.test(c.code));
     },
@@ -418,10 +424,11 @@ export default function EventSimulator() {
 
   // ------- Default config seed (se não existir) -------
   useEffect(() => {
-    if (!loadingCfg && !cfg && eventId) {
+    if (!loadingCfg && !cfg && eventId && companyId) {
       // cria default
       supabase.from("event_simulator_config").insert({
         event_id: eventId,
+        company_id: companyId,
         default_drink_avg_ticket: 10.51,
         default_food_avg_ticket: 5.40,
         ab_drink_passthrough_pct: 65,
@@ -429,27 +436,25 @@ export default function EventSimulator() {
         ticket_iva_pct: 6,
       } as any).then(() => qc.invalidateQueries({ queryKey: ["sim-coala-cfg", eventId] }));
     }
-  }, [loadingCfg, cfg, eventId, qc]);
+  }, [loadingCfg, cfg, eventId, companyId, qc]);
 
   // ------- Mutations -------
   const saveAll = useMutation({
     mutationFn: async () => {
       if (!localCfg || !eventId) return;
-      const cfgPayload: any = { ...localCfg, event_id: eventId };
-      delete cfgPayload.company_id;
+      if (!companyId) throw new Error("Empresa ativa não resolvida — recarrega a página.");
+      const cfgPayload: any = { ...localCfg, event_id: eventId, company_id: companyId };
       await supabase.from("event_simulator_config").upsert(cfgPayload).throwOnError();
 
       // sessions: upsert one by one
       for (const s of localSessions) {
-        const payload: any = { ...s, event_id: eventId };
-        delete payload.company_id;
+        const payload: any = { ...s, event_id: eventId, company_id: companyId };
         if (!s.id) delete payload.id;
         await supabase.from("event_simulator_inputs").upsert(payload).throwOnError();
       }
       // costs
       for (const c of localCosts) {
-        const payload: any = { ...c, event_id: eventId };
-        delete payload.company_id;
+        const payload: any = { ...c, event_id: eventId, company_id: companyId };
         if (!c.id) delete payload.id;
         await supabase.from("event_simulator_cost_lines").upsert(payload).throwOnError();
       }
@@ -536,14 +541,14 @@ export default function EventSimulator() {
     })), [simulatorSessions]);
 
   const calcCosts: CoalaCostLine[] = useMemo(() =>
-    localCosts.map((c) => ({
+    visibleCosts.map((c) => ({
       label: c.label,
       prior_year_amount: Number(c.prior_year_amount || 0),
       actual_amount: Number(c.actual_amount || 0),
       break_even_amount: Number(c.break_even_amount || 0),
       forecast_amount: Number(c.forecast_amount || 0),
       is_ab_passthrough: !!c.is_ab_passthrough,
-    })), [localCosts]);
+    })), [visibleCosts]);
 
   const beSolution = useMemo(
     () => solveBreakEven(calcSessions, calcCosts, calcCfg, beLotInfo),
@@ -625,7 +630,7 @@ export default function EventSimulator() {
     return {
       eventName: event?.name ?? "Evento",
       subtitle: "3 cenários paralelos · Hoje (vendas reais) · Break Even · Forecast",
-      today: todayV2, breakeven: breakevenV2, forecast: forecastV2,
+      today: todayAB, breakeven: beAB, forecast: fcAB,
       todayCosts, beCosts, fcCosts,
       todayRes, beRes, fcRes,
       todayKpis, beKpis, fcKpis,
@@ -887,10 +892,10 @@ export default function EventSimulator() {
     setLocalSessions((arr) => arr.map((s, i) => i === idx ? { ...s, ...patch } : s));
 
   const addSession = () => {
-    const maxDay = Math.max(0, ...localSessions.map((s) => s.day_index)) + (localSessions.length ? 0 : 0);
+    const nextDay = localSessions.length ? Math.max(0, ...localSessions.map((s) => s.day_index)) + 1 : 0;
     setLocalSessions((arr) => [...arr, {
       event_id: eventId!,
-      day_index: maxDay,
+      day_index: nextDay,
       zone_label: "Pista",
       real_sales_qty: 0,
       real_sales_revenue: 0,
