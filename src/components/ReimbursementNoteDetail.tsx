@@ -558,25 +558,34 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
                         </button>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(Number(tx?.amount || 0))}</TableCell>
-                    {isDraft && (
+                    <TableCell className="text-right font-mono">{formatCurrency(grossOf(tx))}</TableCell>
+                    {canEditDraft && (
                       <TableCell>
-                        <button
-                          onClick={() => removeItemMutation.mutate(item.id)}
-                          className="p-1 rounded hover:bg-destructive/10 transition-colors"
-                          title="Desvincular"
-                        >
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </button>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => setEditTx(tx)}
+                            className="p-1 rounded hover:bg-secondary transition-colors"
+                            title="Editar transação"
+                          >
+                            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                          </button>
+                          <button
+                            onClick={() => removeItemMutation.mutate(item.id)}
+                            className="p-1 rounded hover:bg-destructive/10 transition-colors"
+                            title="Desvincular"
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </button>
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>
                 );
               })}
               <TableRow className="border-t-2 border-border bg-muted/30">
-                <TableCell colSpan={4} className="font-bold text-sm">TOTAL</TableCell>
-                <TableCell className="text-right font-mono font-bold">{formatCurrency(Number(note.total_amount))}</TableCell>
-                {isDraft && <TableCell />}
+                <TableCell colSpan={4} className="font-bold text-sm">TOTAL (c/ IVA)</TableCell>
+                <TableCell className="text-right font-mono font-bold">{formatCurrency(grossTotal)}</TableCell>
+                {canEditDraft && <TableCell />}
               </TableRow>
             </TableBody>
           </Table>
