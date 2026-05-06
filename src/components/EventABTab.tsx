@@ -19,6 +19,7 @@ import {
   type ABFoodConfig,
 } from "@/lib/event-ab-calc";
 import { useCitySimulator } from "@/hooks/useCitySimulator";
+import { useCompany } from "@/hooks/useCompany";
 
 interface Props {
   eventId: string;
