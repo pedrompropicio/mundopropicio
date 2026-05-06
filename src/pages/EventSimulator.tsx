@@ -865,19 +865,34 @@ export default function EventSimulator() {
     };
   }, [todayV2, abModule]);
 
+  // Público projectado de cada cenário (mesma fonte usada pelo Dashboard
+  // como `beTargetQty`/`fcTargetQty` — fcSolution.totalQty + cortesias).
+  // Usado como override no scaleABFromReal para evitar que o A&B fique
+  // colapsado quando `breakevenV2/forecastV2.attendanceQty` cai para o real.
+  const bePubProjected = useMemo(() => {
+    const tickets = Object.values(beSolution?.qtyByKey || {}).reduce((a: number, b: any) => a + Number(b || 0), 0);
+    const courtesy = Number(beAttendance?.courtesyAttendance || 0);
+    return tickets + courtesy;
+  }, [beSolution, beAttendance]);
+  const fcPubProjected = useMemo(() => {
+    const tickets = Object.values(fcSolution?.qtyByKey || {}).reduce((a: number, b: any) => a + Number(b || 0), 0);
+    const courtesy = Number(fcAttendance?.courtesyAttendance || 0);
+    return tickets + courtesy;
+  }, [fcSolution, fcAttendance]);
+
   const beAB = useMemo(() => {
     if (!abModule.hasConfig || !abModule.totals) return breakevenV2;
     const real = abModule.totals.real;
-    const scaled = scaleABFromReal(breakevenV2, todayAB, real.receitaBebidas, real.receitaAlimentos);
+    const scaled = scaleABFromReal(breakevenV2, todayAB, real.receitaBebidas, real.receitaAlimentos, bePubProjected);
     return { ...breakevenV2, ...scaled };
-  }, [breakevenV2, todayAB, abModule]);
+  }, [breakevenV2, todayAB, abModule, bePubProjected]);
 
   const fcAB = useMemo(() => {
     if (!abModule.hasConfig || !abModule.totals) return forecastV2;
     const real = abModule.totals.real;
-    const scaled = scaleABFromReal(forecastV2, todayAB, real.receitaBebidas, real.receitaAlimentos);
+    const scaled = scaleABFromReal(forecastV2, todayAB, real.receitaBebidas, real.receitaAlimentos, fcPubProjected);
     return { ...forecastV2, ...scaled };
-  }, [forecastV2, todayAB, abModule]);
+  }, [forecastV2, todayAB, abModule, fcPubProjected]);
 
   const todayCosts = useMemo(() => {
     const base = computeScenarioCosts(calcCosts, todayAB, calcCfg, "today");
