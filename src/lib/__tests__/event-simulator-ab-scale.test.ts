@@ -82,6 +82,18 @@ describe("scaleABFromReal — escalamento por per-capita", () => {
     expect(out.attendanceQty).toBe(21881);
     expect(totalAB / 21881).toBeCloseTo(5.03, 2);
   });
+  it("BE com presenças=Real → A&B(BE) ≈ A&B(Real)", () => {
+    // Caso Coala: BE não muda público (já no break-even). Override = público real.
+    const out = scaleABFromReal(
+      { ...realRev },
+      realRev,
+      realRev.drinkRevenue,
+      realRev.foodRevenue,
+      17215,
+    );
+    expect(out.drinkRevenue).toBeCloseTo(realRev.drinkRevenue, 1);
+    expect(out.foodRevenue).toBeCloseTo(realRev.foodRevenue, 1);
+  });
 });
 
 describe("scaleABCostFromReal — escalamento de custo A&B", () => {
