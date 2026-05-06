@@ -541,14 +541,14 @@ export default function EventSimulator() {
     })), [simulatorSessions]);
 
   const calcCosts: CoalaCostLine[] = useMemo(() =>
-    localCosts.map((c) => ({
+    visibleCosts.map((c) => ({
       label: c.label,
       prior_year_amount: Number(c.prior_year_amount || 0),
       actual_amount: Number(c.actual_amount || 0),
       break_even_amount: Number(c.break_even_amount || 0),
       forecast_amount: Number(c.forecast_amount || 0),
       is_ab_passthrough: !!c.is_ab_passthrough,
-    })), [localCosts]);
+    })), [visibleCosts]);
 
   const beSolution = useMemo(
     () => solveBreakEven(calcSessions, calcCosts, calcCfg, beLotInfo),
