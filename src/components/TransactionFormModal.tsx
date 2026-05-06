@@ -3107,10 +3107,42 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           </div>
 
           {!showProrationConfirm && !showDuplicateConfirm && (
-            <button type="submit" disabled={createMutation.isPending || !!(isSplit && !isTransitory && splitCategoryBlockReason)}
-              className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50">
-              {createMutation.isPending ? "A guardar…" : "Criar Transação"}
-            </button>
+            <div className="flex gap-2">
+              <label
+                className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm font-medium text-foreground transition-all hover:bg-secondary/80 cursor-pointer"
+                title={attachAfterCreateFile ? `Anexo selecionado: ${attachAfterCreateFile.name}` : "Anexar documento — será associado após criar a transação"}
+              >
+                <Paperclip className="h-4 w-4" />
+                {attachAfterCreateFile ? "Anexado" : "Anexar"}
+                <input
+                  type="file"
+                  accept="image/*,application/pdf,.dng,.tif,.tiff,image/x-adobe-dng"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      setAttachAfterCreateFile(f);
+                      toast({ title: "Anexo selecionado", description: `${f.name} será anexado ao criar.` });
+                    }
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              {attachAfterCreateFile && (
+                <button
+                  type="button"
+                  onClick={() => setAttachAfterCreateFile(null)}
+                  className="rounded-lg border border-border bg-secondary px-2 py-2.5 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  title={`Remover anexo (${attachAfterCreateFile.name})`}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+              <button type="submit" disabled={createMutation.isPending || !!(isSplit && !isTransitory && splitCategoryBlockReason)}
+                className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50">
+                {createMutation.isPending ? "A guardar…" : "Criar Transação"}
+              </button>
+            </div>
           )}
         </form>
 
