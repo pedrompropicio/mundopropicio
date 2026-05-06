@@ -963,11 +963,15 @@ export default function EventSimulator() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => {
+            if (isTourMaster) {
+              toast({ title: "Sincronização indisponível", description: "Eventos com Splits (turnê) não suportam sincronização. Os dados de Patrocínios, Custos e Configuração podem não estar atualizados.", variant: "destructive" });
+              return;
+            }
             const ok = window.confirm(
               "Sincronizar irá sobrescrever os valores de 'Forecast (BP)' e 'Real (Hoje)' das linhas de custo com os dados atuais do BP aprovado e das transações.\n\nQuaisquer edições manuais feitas nessas colunas serão perdidas.\n\nAs colunas '2025' e 'Break Even' não são afetadas.\n\nContinuar?"
             );
             if (ok) syncFromSources.mutate();
-          }} disabled={syncFromSources.isPending}>
+          }} disabled={syncFromSources.isPending || isTourMaster} title={isTourMaster ? "Sincronização não suportada em turnês" : undefined}>
             {syncFromSources.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Sincronizar BP + Bilheteira
           </Button>
@@ -986,6 +990,15 @@ export default function EventSimulator() {
           </Button>
         </div>
       </div>
+
+      {(isTourMaster || syncFromSources.isError) && (
+        <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          <strong>Aviso:</strong>{" "}
+          {isTourMaster
+            ? "Este evento é Master de turnê — a sincronização automática não está suportada. Os dados das abas Patrocínios, Custos e Configuração podem não refletir o BP/transações atuais. Edite manualmente ou utilize o simulador num sub-evento."
+            : `Falha na última sincronização${syncFromSources.error instanceof Error ? `: ${syncFromSources.error.message}` : ""}. Os dados de Patrocínios, Custos e Configuração podem estar desatualizados.`}
+        </div>
+      )}
 
       {/* KPIs scenario summary */}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
