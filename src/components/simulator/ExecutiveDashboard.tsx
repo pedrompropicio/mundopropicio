@@ -443,7 +443,7 @@ export default function ExecutiveDashboard(props: Props) {
         </div>
 
         {/* ZONA 3.5 — Público por dia */}
-        {eventId ? <DailyAttendanceCard eventId={eventId} dailyCapacity={dailyCapacity} /> : null}
+        {eventId ? <DailyAttendanceCard eventId={eventId} dailyCapacity={dailyCapacity} beDailyTotals={beDailyTotals} fcDailyTotals={fcDailyTotals} /> : null}
 
         {/* ZONA 4 — GRÁFICOS */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
