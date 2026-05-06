@@ -895,7 +895,7 @@ export default function EventSimulator() {
     const nextDay = localSessions.length ? Math.max(0, ...localSessions.map((s) => s.day_index)) + 1 : 0;
     setLocalSessions((arr) => [...arr, {
       event_id: eventId!,
-      day_index: maxDay,
+      day_index: nextDay,
       zone_label: "Pista",
       real_sales_qty: 0,
       real_sales_revenue: 0,
