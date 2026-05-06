@@ -89,9 +89,12 @@ export default function ExecutiveDashboard(props: Props) {
   }, [active, today, todayCosts, todayRes, todayKpis, breakeven, beCosts, beRes, beKpis, forecast, fcCosts, fcRes, fcKpis]);
 
   // -------- Break-even / forecast targets --------
-  const beTargetQty = Number(beSolution?.totalQty ?? beKpis?.totalPublic ?? 0);
-  const fcTargetQty = Number(fcSolution?.totalQty ?? fcKpis?.totalPublic ?? 0);
-  const needForBE = Math.max(0, Math.round(beTargetQty - todayKpis.totalPublic));
+  // Targets vêm de solution.totalQty (bilhetes únicos). Comparamos sempre contra
+  // uniqueTickets para evitar inflação por presenças×dia em eventos multi-dia.
+  const beTargetQty = Number(beSolution?.totalQty ?? beKpis?.uniqueTickets ?? beKpis?.totalPublic ?? 0);
+  const fcTargetQty = Number(fcSolution?.totalQty ?? fcKpis?.uniqueTickets ?? fcKpis?.totalPublic ?? 0);
+  const todayUnique = Number(todayKpis.uniqueTickets ?? todayKpis.totalPublic ?? 0);
+  const needForBE = Math.max(0, Math.round(beTargetQty - todayUnique));
   const abMarginReal =
     abModule.hasConfig && abModule.totals ? abModule.totals.real.resultadoTotal : 0;
   const reachedBE = todayRes.general >= 0;
@@ -215,7 +218,7 @@ export default function ExecutiveDashboard(props: Props) {
     ? Math.round((today.totalRevenue / forecast.totalRevenue) * 100)
     : 0;
   const pctPubForecast = fcTargetQty > 0
-    ? Math.min(100, Math.round(((todayKpis.uniqueTickets ?? todayKpis.totalPublic) / fcTargetQty) * 100))
+    ? Math.min(100, Math.round((todayUnique / fcTargetQty) * 100))
     : 0;
   const margemPct = sel.rev.totalRevenue > 0
     ? (sel.res.general / sel.rev.totalRevenue) * 100
@@ -377,7 +380,7 @@ export default function ExecutiveDashboard(props: Props) {
           <div className="flex flex-col gap-3">
             <ProgressKpi
               label="Público"
-              current={todayKpis.totalPublic}
+              current={todayUnique}
               currentLabel="Real"
               beTarget={beTargetQty}
               beLabel="Break Even"
