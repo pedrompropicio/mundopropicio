@@ -7,8 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, Trash2, CheckCircle, CreditCard, AlertTriangle, FileText, ExternalLink, Download, Paperclip } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, CheckCircle, CreditCard, AlertTriangle, FileText, ExternalLink, Download, Paperclip, Pencil } from "lucide-react";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
+import { TransactionEditModal } from "@/components/TransactionEditModal";
 import { SupplierBankDetails } from "@/components/SupplierBankDetails";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -41,6 +42,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
   const [paymentAccountId, setPaymentAccountId] = useState("");
   const [showPayConfirm, setShowPayConfirm] = useState(false);
   const [docsModalTx, setDocsModalTx] = useState<{ id: string; description: string } | null>(null);
+  const [editTx, setEditTx] = useState<any | null>(null);
 
   const { data: note, isLoading: noteLoading } = useQuery({
     queryKey: ["reimbursement-note", noteId],
@@ -221,33 +223,40 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
       if (!paymentAccountId) throw new Error("Selecione a conta bancária");
 
       const today = new Date().toISOString().split("T")[0];
+      const grossTotal = items.reduce(
+        (s: number, i: any) =>
+          s + Number(i.transactions?.amount || 0) * (1 + Number(i.transactions?.iva_rate || 0) / 100),
+        0,
+      );
 
-      // Create payment transaction
+      // Create payment transaction (gross outflow, iva 0)
       const { data: paymentTx, error: payError } = await supabase
         .from("transactions")
         .insert({
           description: `Reembolso ${note.code} — ${note.employee_name}`,
           type: "expense",
-          amount: Number(note.total_amount),
+          amount: grossTotal,
           iva_rate: 0,
           account_id: paymentAccountId,
           date: today,
           status: "paid",
-          paid_amount: Number(note.total_amount),
+          paid_amount: grossTotal,
           payment_date: today,
         } as any)
         .select("id")
         .single();
       if (payError) throw payError;
 
-      // Mark each item transaction as paid with correct paid_amount
+      // Mark each item transaction as paid with paid_amount=gross
       for (const item of items) {
         const txAmount = Number(item.transactions?.amount || 0);
+        const txIva = Number(item.transactions?.iva_rate || 0);
+        const grossAmount = txAmount * (1 + txIva / 100);
         await supabase
           .from("transactions")
           .update({
             status: "paid",
-            paid_amount: txAmount,
+            paid_amount: grossAmount,
             payment_date: today,
           })
           .eq("id", item.transaction_id);
@@ -260,6 +269,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
           status: "paid",
           paid_at: new Date().toISOString(),
           payment_transaction_id: paymentTx.id,
+          total_amount: grossTotal,
         })
         .eq("id", noteId);
       if (error) throw error;
@@ -275,9 +285,13 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
   async function recalcTotal() {
     const { data: currentItems } = await supabase
       .from("reimbursement_note_items")
-      .select("transactions(amount)")
+      .select("transactions(amount, iva_rate)")
       .eq("reimbursement_note_id", noteId);
-    const total = (currentItems || []).reduce((s: number, i: any) => s + Number(i.transactions?.amount || 0), 0);
+    const total = (currentItems || []).reduce(
+      (s: number, i: any) =>
+        s + Number(i.transactions?.amount || 0) * (1 + Number(i.transactions?.iva_rate || 0) / 100),
+      0,
+    );
     await supabase.from("reimbursement_notes").update({ total_amount: total }).eq("id", noteId);
   }
 
@@ -288,8 +302,12 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
   const isDraft = note.status === "draft";
   const isApproved = note.status === "approved";
   const allHaveDocs = items.length > 0 && items.every((i: any) => docsMap[i.transaction_id]);
+  const canEditDraft = isDraft && (isAdmin || isManager || isEditor);
   const canApprove = isDraft && items.length > 0 && allHaveDocs && (isAdmin || isManager);
   const canPay = isApproved && (isAdmin || isManager || isEditor);
+  const grossOf = (tx: any) =>
+    Number(tx?.amount || 0) * (1 + Number(tx?.iva_rate || 0) / 100);
+  const grossTotal = items.reduce((s: number, i: any) => s + grossOf(i.transactions), 0);
 
   function exportPdf() {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
@@ -332,7 +350,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
         tx?.date ? format(new Date(tx.date), "dd/MM/yyyy") : "",
         tx?.status === "paid" ? "Pago" : tx?.status === "approved" ? "Aprovado" : "Pendente",
         docsMap[item.transaction_id] ? "Sim" : "Não",
-        formatCurrency(Number(tx?.amount || 0)),
+        formatCurrency(grossOf(tx)),
       ];
     });
 
@@ -340,7 +358,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
       startY: y,
       head: [["Descrição", "Especificação", "Data", "Estado", "Fatura", "Valor"]],
       body: tableData,
-      foot: [["TOTAL", "", "", "", "", formatCurrency(Number(note.total_amount))]],
+      foot: [["TOTAL", "", "", "", "", formatCurrency(grossTotal)]],
       margin: { left: margin, right: margin },
       styles: { fontSize: 9 },
       headStyles: { fillColor: [41, 41, 41] },
@@ -379,7 +397,8 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
           </div>
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold font-mono">{formatCurrency(Number(note.total_amount))}</p>
+          <p className="text-2xl font-bold font-mono">{formatCurrency(grossTotal)}</p>
+          <p className="text-[10px] text-muted-foreground">c/ IVA</p>
         </div>
       </div>
 
@@ -401,7 +420,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
         <Button size="sm" variant="outline" onClick={exportPdf}>
           <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
         </Button>
-        {isDraft && (
+        {canEditDraft && (
           <Button size="sm" variant="outline" onClick={() => setShowAddItem(!showAddItem)}>
             <Plus className="mr-1.5 h-3.5 w-3.5" /> Adicionar Despesa
           </Button>
@@ -463,7 +482,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
         <div className="glass rounded-xl p-4 space-y-3 border border-primary/30">
           <h3 className="text-sm font-semibold">Confirmar Pagamento</h3>
           <p className="text-xs text-muted-foreground">
-            Será criada uma transação de pagamento de {formatCurrency(Number(note.total_amount))} e todas as despesas serão marcadas como pagas.
+            Será criada uma transação de pagamento de {formatCurrency(grossTotal)} (c/ IVA) e todas as despesas serão marcadas como pagas.
           </p>
           {supplierData && (
             <SupplierBankDetails supplier={supplierData} defaultExpanded />
@@ -501,7 +520,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
                 <TableHead>Estado</TableHead>
                 <TableHead>Fatura</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
-                {isDraft && <TableHead className="w-[50px]" />}
+                {canEditDraft && <TableHead className="w-[80px]" />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -539,29 +558,51 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
                         </button>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(Number(tx?.amount || 0))}</TableCell>
-                    {isDraft && (
+                    <TableCell className="text-right font-mono">{formatCurrency(grossOf(tx))}</TableCell>
+                    {canEditDraft && (
                       <TableCell>
-                        <button
-                          onClick={() => removeItemMutation.mutate(item.id)}
-                          className="p-1 rounded hover:bg-destructive/10 transition-colors"
-                          title="Desvincular"
-                        >
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </button>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => setEditTx(tx)}
+                            className="p-1 rounded hover:bg-secondary transition-colors"
+                            title="Editar transação"
+                          >
+                            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                          </button>
+                          <button
+                            onClick={() => removeItemMutation.mutate(item.id)}
+                            className="p-1 rounded hover:bg-destructive/10 transition-colors"
+                            title="Desvincular"
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </button>
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>
                 );
               })}
               <TableRow className="border-t-2 border-border bg-muted/30">
-                <TableCell colSpan={4} className="font-bold text-sm">TOTAL</TableCell>
-                <TableCell className="text-right font-mono font-bold">{formatCurrency(Number(note.total_amount))}</TableCell>
-                {isDraft && <TableCell />}
+                <TableCell colSpan={4} className="font-bold text-sm">TOTAL (c/ IVA)</TableCell>
+                <TableCell className="text-right font-mono font-bold">{formatCurrency(grossTotal)}</TableCell>
+                {canEditDraft && <TableCell />}
               </TableRow>
             </TableBody>
           </Table>
         </div>
+      )}
+
+      {editTx && (
+        <TransactionEditModal
+          transaction={editTx}
+          isAdmin={isAdmin}
+          onClose={async () => {
+            setEditTx(null);
+            await recalcTotal();
+            invalidateAll();
+            queryClient.invalidateQueries({ queryKey: ["reimbursement-item-docs", transactionIds] });
+          }}
+        />
       )}
 
       {docsModalTx && (

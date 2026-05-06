@@ -29,7 +29,8 @@ const statusColors: Record<string, string> = {
 };
 
 export default function Reimbursements() {
-  const { isAdmin, isManager, user } = useAuth();
+  const { isAdmin, isManager, role, user } = useAuth();
+  const isEditor = role === "editor";
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
@@ -189,7 +190,7 @@ export default function Reimbursements() {
                       <button onClick={() => setSelectedNoteId(note.id)} className="p-1 rounded hover:bg-secondary transition-colors">
                         <Eye className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
-                      {note.status === "draft" && (isAdmin || isManager) && (
+                      {note.status === "draft" && (isAdmin || isManager || isEditor) && (
                         <button
                           onClick={() => { if (window.confirm("Eliminar esta nota?")) deleteMutation.mutate(note.id); }}
                           className="p-1 rounded hover:bg-destructive/10 transition-colors"
