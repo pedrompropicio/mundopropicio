@@ -89,12 +89,15 @@ export default function ExecutiveDashboard(props: Props) {
   }, [active, today, todayCosts, todayRes, todayKpis, breakeven, beCosts, beRes, beKpis, forecast, fcCosts, fcRes, fcKpis]);
 
   // -------- Break-even / forecast targets --------
-  // Targets vêm de solution.totalQty (bilhetes únicos). Comparamos sempre contra
-  // uniqueTickets para evitar inflação por presenças×dia em eventos multi-dia.
-  const beTargetQty = Number(beSolution?.totalQty ?? beKpis?.uniqueTickets ?? beKpis?.totalPublic ?? 0);
-  const fcTargetQty = Number(fcSolution?.totalQty ?? fcKpis?.uniqueTickets ?? fcKpis?.totalPublic ?? 0);
-  const todayUnique = Number(todayKpis.uniqueTickets ?? todayKpis.totalPublic ?? 0);
-  const needForBE = Math.max(0, Math.round(beTargetQty - todayUnique));
+  // Unidade única: PRESENÇAS×DIA (1 Passe 2 dias = 2). Alinha o KPI grande, as
+  // barras BE/Forecast e a tabela "Público por dia". Fonte: attendanceQty +
+  // attendanceCourtesyQty já calculados em cada cenário.
+  const presOf = (rev: any) =>
+    Number(rev?.attendanceQty || 0) + Number(rev?.attendanceCourtesyQty || 0);
+  const todayPres = presOf(today);
+  const beTargetQty = presOf(breakeven);
+  const fcTargetQty = presOf(forecast);
+  const needForBE = Math.max(0, Math.round(beTargetQty - todayPres));
   const abMarginReal =
     abModule.hasConfig && abModule.totals ? abModule.totals.real.resultadoTotal : 0;
   const reachedBE = todayRes.general >= 0;
