@@ -73,7 +73,7 @@ export default function ExecutiveDashboard(props: Props) {
     breakeven, beCosts, beRes, beKpis,
     forecast, fcCosts, fcRes, fcKpis,
     costLines, dailyTotals, sessions, abModule, beSolution, fcSolution, tourBreakdowns,
-    eventId, dailyCapacity,
+    eventId, dailyCapacity, beDailyTotals, fcDailyTotals,
   } = props;
 
   const [active, setActive] = useState<ScenarioKey>("real");
