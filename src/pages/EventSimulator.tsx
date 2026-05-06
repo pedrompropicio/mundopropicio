@@ -892,7 +892,7 @@ export default function EventSimulator() {
     setLocalSessions((arr) => arr.map((s, i) => i === idx ? { ...s, ...patch } : s));
 
   const addSession = () => {
-    const maxDay = Math.max(0, ...localSessions.map((s) => s.day_index)) + (localSessions.length ? 0 : 0);
+    const nextDay = localSessions.length ? Math.max(0, ...localSessions.map((s) => s.day_index)) + 1 : 0;
     setLocalSessions((arr) => [...arr, {
       event_id: eventId!,
       day_index: maxDay,
