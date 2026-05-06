@@ -182,7 +182,7 @@ export default function EventSimulator() {
 
   const { data: l3Categories = [] } = useQuery<AccountCategory[]>({
     queryKey: ["account-categories-l3", companyId],
-    enabled: !!companyId,
+    enabled: !!eventId && !!companyId,
     queryFn: async () => {
       const { data } = await supabase
         .from("account_categories")
@@ -198,7 +198,7 @@ export default function EventSimulator() {
   // L2 categories — para o seletor de "categoria de patrocínios"
   const { data: l2Categories = [] } = useQuery<AccountCategory[]>({
     queryKey: ["account-categories-l2", companyId],
-    enabled: !!companyId,
+    enabled: !!eventId && !!companyId,
     queryFn: async () => {
       const { data } = await supabase
         .from("account_categories")
