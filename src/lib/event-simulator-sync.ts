@@ -90,10 +90,15 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
 
   // 3) Indexa sessões existentes
   const existingByKey = new Map<string, Row>();
+  const existingIndexes: number[] = [];
   for (const e of existing) {
     const lk = (e.zone_label || "").toLowerCase();
     existingByKey.set(`${e.day_index}|${lk}`, e);
+    existingIndexes.push(Number(e.day_index ?? 0));
   }
+  // Próximo day_index disponível para novas sessões — evita colisões com
+  // linhas já existentes (ex.: imports anteriores criaram day_index 0..N).
+  let nextDayIndex = existingIndexes.length ? Math.max(...existingIndexes) + 1 : 0;
 
   // 4) Para cada (date × zone) calcula payload e upsert
   // Se não há dates, cria 1 dia "virtual"
@@ -157,7 +162,7 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
           .insert({
             event_id: eventId,
             company_id: companyId,
-            day_index: dIdx,
+            day_index: nextDayIndex++,
             day_date: d.date ?? null,
             zone_label: z.name,
             capacity_target: capacity,
