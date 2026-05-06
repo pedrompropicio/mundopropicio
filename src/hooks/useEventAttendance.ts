@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { keepLatestFeverImportRows } from "@/lib/ticket-sales-batch-filter";
 
 /**
  * Fonte canónica de "público por dia" para um evento.
@@ -110,10 +111,10 @@ export function useEventAttendance(
       if (zoneIds.length === 0) return [];
       const { data, error } = await supabase
         .from("ticket_sales")
-        .select("zone_id, lot_id, quantity")
+        .select("zone_id, lot_id, quantity, financial_account_id, source, import_batch_id, created_at")
         .in("zone_id", zoneIds);
       if (error) throw error;
-      return data ?? [];
+      return keepLatestFeverImportRows((data ?? []) as any[]);
     },
     enabled: scenario === "real" && zoneIds.length > 0,
   });
