@@ -380,7 +380,7 @@ export default function ExecutiveDashboard(props: Props) {
           <div className="flex flex-col gap-3">
             <ProgressKpi
               label="Público"
-              current={todayKpis.totalPublic}
+              current={todayUnique}
               currentLabel="Real"
               beTarget={beTargetQty}
               beLabel="Break Even"
