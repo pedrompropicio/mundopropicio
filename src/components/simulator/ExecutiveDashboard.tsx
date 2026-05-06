@@ -215,7 +215,7 @@ export default function ExecutiveDashboard(props: Props) {
     ? Math.round((today.totalRevenue / forecast.totalRevenue) * 100)
     : 0;
   const pctPubForecast = fcTargetQty > 0
-    ? Math.round((todayKpis.totalPublic / fcTargetQty) * 100)
+    ? Math.min(100, Math.round(((todayKpis.uniqueTickets ?? todayKpis.totalPublic) / fcTargetQty) * 100))
     : 0;
   const margemPct = sel.rev.totalRevenue > 0
     ? (sel.res.general / sel.rev.totalRevenue) * 100
