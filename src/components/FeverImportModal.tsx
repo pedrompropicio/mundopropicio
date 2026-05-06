@@ -443,6 +443,9 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
       queryClient.invalidateQueries({ queryKey: ["event_ticket_lots", eventId] });
       queryClient.invalidateQueries({ queryKey: ["sim-coala-lot-sales", eventId] });
       queryClient.invalidateQueries({ queryKey: ["sim-coala-be-lots-v2", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["city-sim-lots", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_zones_attendance", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["event_lots_attendance", eventId] });
       queryClient.invalidateQueries({ queryKey: ["event_real_sales_attendance", eventId] });
       toast.success(`${res.rowsImported} vendas Fever importadas com sucesso.`);
       setStep("done");
