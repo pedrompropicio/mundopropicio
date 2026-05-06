@@ -482,7 +482,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
         <div className="glass rounded-xl p-4 space-y-3 border border-primary/30">
           <h3 className="text-sm font-semibold">Confirmar Pagamento</h3>
           <p className="text-xs text-muted-foreground">
-            Será criada uma transação de pagamento de {formatCurrency(Number(note.total_amount))} e todas as despesas serão marcadas como pagas.
+            Será criada uma transação de pagamento de {formatCurrency(grossTotal)} (c/ IVA) e todas as despesas serão marcadas como pagas.
           </p>
           {supplierData && (
             <SupplierBankDetails supplier={supplierData} defaultExpanded />
