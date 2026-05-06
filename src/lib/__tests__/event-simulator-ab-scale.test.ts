@@ -62,6 +62,26 @@ describe("scaleABFromReal — escalamento por per-capita", () => {
       realRev.drinkRevenue + realRev.foodRevenue,
     );
   });
+
+  it("scenPubOverride é usado quando rev.attendanceQty está colapsado para o real (bug TM A&B Forecast)", () => {
+    // Caso reportado: forecastV2.attendanceQty cai para o público real (17.215)
+    // mas o solver Forecast projecta 21.881 bilhetes. Sem override, escalaria
+    // por 17.215 → receita ≈ realDrink → TM A&B(Forecast) = realDrink/21.881
+    // (≈ 2,89 €/pp em vez de 3,68 €/pp). Com override deve dar ≈ 21.881 × 5,03
+    // e TM ≈ 5,03 €/pp (igual ao Real).
+    const colapsed = { ...fcRevSeed, attendanceQty: 17215 };
+    const out = scaleABFromReal(
+      colapsed,
+      realRev,
+      realRev.drinkRevenue,
+      realRev.foodRevenue,
+      21881,
+    );
+    const totalAB = out.drinkRevenue + out.foodRevenue;
+    expect(Math.round(totalAB)).toBeCloseTo(Math.round(21881 * 5.03), -1);
+    expect(out.attendanceQty).toBe(21881);
+    expect(totalAB / 21881).toBeCloseTo(5.03, 2);
+  });
 });
 
 describe("scaleABCostFromReal — escalamento de custo A&B", () => {
