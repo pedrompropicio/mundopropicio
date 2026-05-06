@@ -9,6 +9,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { ticketSaleRevenue } from "./ticket-sales-revenue";
+import { keepLatestFeverImportRows } from "./ticket-sales-batch-filter";
 
 export type SyncReport = {
   sessionsCreated: number;
@@ -64,9 +65,9 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
   if (zoneIds.length) {
     const { data } = await supabase
       .from("ticket_sales")
-      .select("zone_id, sale_date, quantity, unit_price, total_value")
+      .select("zone_id, sale_date, quantity, unit_price, total_value, financial_account_id, source, import_batch_id, created_at")
       .in("zone_id", zoneIds);
-    sales = (data ?? []) as Row[];
+    sales = keepLatestFeverImportRows((data ?? []) as Row[]);
   }
 
   // Agrega vendas por (zone_id, sale_date). Modelo unificado: combos são lotes

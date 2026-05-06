@@ -27,6 +27,7 @@ import {
 import { loadSponsors, type SponsorRow } from "@/lib/event-simulator-sponsors";
 import { useEventABScenarios, type ABScenarioParticipants } from "@/hooks/useEventABScenarios";
 import { scaleABFromReal, scaleABCostFromReal } from "@/lib/event-simulator-ab-scale";
+import { keepLatestFeverImportRows } from "@/lib/ticket-sales-batch-filter";
 
 export interface CitySimulatorData {
   loading: boolean;
@@ -120,11 +121,11 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
       const lotIds = (lots ?? []).map((l: any) => l.id);
       const { data: sales } = lotIds.length
         ? await supabase.from("ticket_sales")
-            .select("lot_id, zone_id, sale_date, quantity").in("lot_id", lotIds)
+            .select("lot_id, zone_id, sale_date, quantity, financial_account_id, source, import_batch_id, created_at").in("lot_id", lotIds)
         : { data: [] as any[] };
       const soldByLot = new Map<string, number>();
       const firstSaleByZone = new Map<string, string>();
-      for (const s of (sales ?? []) as any[]) {
+      for (const s of keepLatestFeverImportRows(((sales ?? []) as any[]))) {
         soldByLot.set(s.lot_id, (soldByLot.get(s.lot_id) ?? 0) + Number(s.quantity || 0));
         const cur = firstSaleByZone.get(s.zone_id);
         if (s.sale_date && (!cur || s.sale_date < cur)) firstSaleByZone.set(s.zone_id, s.sale_date);
