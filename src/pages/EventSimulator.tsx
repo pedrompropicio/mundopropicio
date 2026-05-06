@@ -960,7 +960,12 @@ export default function EventSimulator() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => syncFromSources.mutate()} disabled={syncFromSources.isPending}>
+          <Button variant="outline" onClick={() => {
+            const ok = window.confirm(
+              "Sincronizar irá sobrescrever os valores de 'Forecast (BP)' e 'Real (Hoje)' das linhas de custo com os dados atuais do BP aprovado e das transações.\n\nQuaisquer edições manuais feitas nessas colunas serão perdidas.\n\nAs colunas '2025' e 'Break Even' não são afetadas.\n\nContinuar?"
+            );
+            if (ok) syncFromSources.mutate();
+          }} disabled={syncFromSources.isPending}>
             {syncFromSources.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Sincronizar BP + Bilheteira
           </Button>
