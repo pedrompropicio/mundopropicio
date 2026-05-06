@@ -32,6 +32,7 @@ import {
 import { syncSimulatorFromSources } from "@/lib/event-simulator-sync";
 import { expandLotSalesToDailyAttendance, type LotSale } from "@/lib/event-simulator-combos";
 import { ticketSaleRevenue } from "@/lib/ticket-sales-revenue";
+import { keepLatestFeverImportRows } from "@/lib/ticket-sales-batch-filter";
 // combo bridge removido: combos são lotes unificados em event_ticket_lots
 import { loadSponsors, type SponsorRow } from "@/lib/event-simulator-sponsors";
 import { exportSimulatorToXlsx, exportSimulatorToPdf, type SimulatorExportData } from "@/lib/event-simulator-export";
@@ -256,22 +257,7 @@ export default function EventSimulator() {
 
       const lotById = new Map((lots ?? []).map((l: any) => [l.id, l]));
       const zoneById = new Map((zones ?? []).map((z: any) => [z.id, z]));
-      const rawSales = ((sales ?? []) as any[]);
-      const latestFeverBatchByAccount = new Map<string, { batchId: string; createdAt: string }>();
-      for (const s of rawSales) {
-        if (s.source !== "fever_import" || !s.import_batch_id) continue;
-        const accountKey = s.financial_account_id ?? "__no_account__";
-        const createdAt = String(s.created_at || "");
-        const cur = latestFeverBatchByAccount.get(accountKey);
-        if (!cur || createdAt > cur.createdAt) {
-          latestFeverBatchByAccount.set(accountKey, { batchId: s.import_batch_id, createdAt });
-        }
-      }
-      const salesRows = rawSales.filter((s) => {
-        if (s.source !== "fever_import") return true;
-        const latest = latestFeverBatchByAccount.get(s.financial_account_id ?? "__no_account__");
-        return !latest || s.import_batch_id === latest.batchId;
-      });
+      const salesRows = keepLatestFeverImportRows(((sales ?? []) as any[]));
 
       const salesByZone: Record<string, { qty: number; revenue: number }> = {};
       for (const s of salesRows) {
