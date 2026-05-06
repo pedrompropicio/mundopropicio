@@ -50,6 +50,8 @@ interface Props {
   abModule: { hasConfig: boolean; totals: { real: any; breakeven: any; forecast: any } | null };
   beSolution?: { totalQty?: number; totalRevenue?: number };
   fcSolution?: { totalQty?: number; totalRevenue?: number };
+  beDailyTotals?: Array<[number, { paying: number; courtesy: number; total: number; date: string | null }]>;
+  fcDailyTotals?: Array<[number, { paying: number; courtesy: number; total: number; date: string | null }]>;
   eventId?: string;
   dailyCapacity?: number;
   tourBreakdowns?: Array<{
@@ -71,7 +73,7 @@ export default function ExecutiveDashboard(props: Props) {
     breakeven, beCosts, beRes, beKpis,
     forecast, fcCosts, fcRes, fcKpis,
     costLines, dailyTotals, sessions, abModule, beSolution, fcSolution, tourBreakdowns,
-    eventId, dailyCapacity,
+    eventId, dailyCapacity, beDailyTotals, fcDailyTotals,
   } = props;
 
   const [active, setActive] = useState<ScenarioKey>("real");
@@ -441,7 +443,7 @@ export default function ExecutiveDashboard(props: Props) {
         </div>
 
         {/* ZONA 3.5 — Público por dia */}
-        {eventId ? <DailyAttendanceCard eventId={eventId} dailyCapacity={dailyCapacity} /> : null}
+        {eventId ? <DailyAttendanceCard eventId={eventId} dailyCapacity={dailyCapacity} beDailyTotals={beDailyTotals} fcDailyTotals={fcDailyTotals} /> : null}
 
         {/* ZONA 4 — GRÁFICOS */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">

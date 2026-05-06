@@ -1094,6 +1094,8 @@ export default function EventSimulator() {
             abModule={abModule as any}
             beSolution={{ totalQty: Object.values(beSolution.qtyByKey || {}).reduce((a, b) => a + Number(b || 0), 0), totalRevenue: Object.values(beSolution.revenueByKey || {}).reduce((a, b) => a + Number(b || 0), 0) }}
             fcSolution={{ totalQty: Object.values(fcSolution.qtyByKey || {}).reduce((a, b) => a + Number(b || 0), 0), totalRevenue: Object.values(fcSolution.revenueByKey || {}).reduce((a, b) => a + Number(b || 0), 0) }}
+            beDailyTotals={beDailyTotals}
+            fcDailyTotals={fcDailyTotals}
           />
         </TabsContent>
 
