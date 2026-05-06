@@ -845,47 +845,64 @@ export default function EventSimulator() {
 
   const abModule = useEventABScenarios(event?.id, abParticipants);
 
-  // Em BE/Forecast queremos sempre que A&B escale com o público projectado
-  // do simulador, mesmo que o módulo A&B do evento devolva o mesmo valor
-  // (ex.: zonas com participants_manual). Por isso usamos sempre o cálculo
-  // TM × público do simulador (já feito em todayV2/breakevenV2/forecastV2 via
-  // attendanceQty + courtesyQty). Só sobrepomos com o módulo A&B no cenário
-  // "Real" (hoje), onde existem dados reais por zona.
-  const applyABModule = (rev: typeof todayV2, scen: "real" | "breakeven" | "forecast") => {
-    if (!abModule.hasConfig || !abModule.totals) return rev;
-    const t = abModule.totals[scen];
+  // Real: usa receita/custo do módulo A&B (per-capita × participantes por zona).
+  // BE/Forecast: escala SEMPRE pelo per-capita efectivo do Real
+  // (receitaReal / públicoReal), aplicado ao público do cenário.
+  // Isto evita que `participants_manual` ou outros casos em que o módulo A&B
+  // devolve o mesmo valor nos 3 cenários congelem o A&B no nível do Real.
+  const todayAB = useMemo(() => {
+    if (!abModule.hasConfig || !abModule.totals) return todayV2;
+    const t = abModule.totals.real;
     const drink = t.receitaBebidas;
     const food = t.receitaAlimentos;
     return {
-      ...rev,
+      ...todayV2,
       drinkRevenue: drink,
       foodRevenue: food,
       totalRevenue:
-        rev.totalRevenue - rev.drinkRevenue - rev.foodRevenue + drink + food,
+        todayV2.totalRevenue - todayV2.drinkRevenue - todayV2.foodRevenue + drink + food,
     };
-  };
+  }, [todayV2, abModule]);
 
-  const todayAB = useMemo(() => applyABModule(todayV2, "real"), [todayV2, abModule]);
-  const beAB = useMemo(() => applyABModule(breakevenV2, "breakeven"), [breakevenV2, abModule]);
-  const fcAB = useMemo(() => applyABModule(forecastV2, "forecast"), [forecastV2, abModule]);
+  const beAB = useMemo(() => {
+    if (!abModule.hasConfig || !abModule.totals) return breakevenV2;
+    const real = abModule.totals.real;
+    const scaled = scaleABFromReal(breakevenV2, todayAB, real.receitaBebidas, real.receitaAlimentos);
+    return { ...breakevenV2, ...scaled };
+  }, [breakevenV2, todayAB, abModule]);
+
+  const fcAB = useMemo(() => {
+    if (!abModule.hasConfig || !abModule.totals) return forecastV2;
+    const real = abModule.totals.real;
+    const scaled = scaleABFromReal(forecastV2, todayAB, real.receitaBebidas, real.receitaAlimentos);
+    return { ...forecastV2, ...scaled };
+  }, [forecastV2, todayAB, abModule]);
 
   const todayCosts = useMemo(() => {
     const base = computeScenarioCosts(calcCosts, todayAB, calcCfg, "today");
-    if (abModule.hasConfig && abModule.totals) return { ...base, abCost: abModule.totals.real.custoTotal, totalCost: base.eventCosts + abModule.totals.real.custoTotal + base.souvenirCost };
+    if (abModule.hasConfig && abModule.totals) {
+      const ab = abModule.totals.real.custoTotal;
+      return { ...base, abCost: ab, totalCost: base.eventCosts + ab + base.souvenirCost };
+    }
     return base;
   }, [calcCosts, todayAB, calcCfg, abModule]);
   const beCosts = useMemo(() => {
     const base = computeScenarioCosts(calcCosts, beAB, calcCfg, "breakeven");
-    if (abModule.hasConfig && abModule.totals)
-      return { ...base, abCost: abModule.totals.breakeven.custoTotal, totalCost: base.eventCosts + abModule.totals.breakeven.custoTotal + base.souvenirCost };
+    if (abModule.hasConfig && abModule.totals) {
+      // Escala custo A&B pelo público do cenário (terceirização → custo 0 mantém-se 0)
+      const ab = scaleABCostFromReal(abModule.totals.real.custoTotal, todayAB, beAB);
+      return { ...base, abCost: ab, totalCost: base.eventCosts + ab + base.souvenirCost };
+    }
     return base;
-  }, [calcCosts, beAB, calcCfg, abModule]);
+  }, [calcCosts, beAB, todayAB, calcCfg, abModule]);
   const fcCosts = useMemo(() => {
     const base = computeScenarioCosts(calcCosts, fcAB, calcCfg, "forecast");
-    if (abModule.hasConfig && abModule.totals)
-      return { ...base, abCost: abModule.totals.forecast.custoTotal, totalCost: base.eventCosts + abModule.totals.forecast.custoTotal + base.souvenirCost };
+    if (abModule.hasConfig && abModule.totals) {
+      const ab = scaleABCostFromReal(abModule.totals.real.custoTotal, todayAB, fcAB);
+      return { ...base, abCost: ab, totalCost: base.eventCosts + ab + base.souvenirCost };
+    }
     return base;
-  }, [calcCosts, fcAB, calcCfg, abModule]);
+  }, [calcCosts, fcAB, todayAB, calcCfg, abModule]);
 
   const todayRev = todayAB; const beRev = beAB; const fcRev = fcAB;
 
