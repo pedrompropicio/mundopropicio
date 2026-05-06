@@ -630,7 +630,7 @@ export default function EventSimulator() {
     return {
       eventName: event?.name ?? "Evento",
       subtitle: "3 cenários paralelos · Hoje (vendas reais) · Break Even · Forecast",
-      today: todayV2, breakeven: breakevenV2, forecast: forecastV2,
+      today: todayAB, breakeven: beAB, forecast: fcAB,
       todayCosts, beCosts, fcCosts,
       todayRes, beRes, fcRes,
       todayKpis, beKpis, fcKpis,
