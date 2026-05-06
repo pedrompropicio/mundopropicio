@@ -1794,7 +1794,7 @@ function ScenarioCard({ title, tone, rev, cost, res, kpis, extra, dailyTotals }:
       <CardContent className="space-y-1 text-sm">
         {showDailyBreakdown ? (
           <>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Público presente</div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground" title="Soma das presenças por dia (passes multi-dia contam em cada dia)">Público presente / dia (presenças×dia)</div>
             {days.map(([d, t]) => (
               <div key={d} className="flex justify-between">
                 <span className="text-muted-foreground">{fmtDayShort(t.date, d)}</span>
@@ -1802,11 +1802,11 @@ function ScenarioCard({ title, tone, rev, cost, res, kpis, extra, dailyTotals }:
               </div>
             ))}
             <div className="flex justify-between text-xs text-muted-foreground border-t pt-1">
-              <span>Total presente</span><span className="tabular-nums">{fmtNum(dailyGrandTotal)}</span>
+              <span title="Soma das presenças de todos os dias">Total presenças×dia</span><span className="tabular-nums">{fmtNum(dailyGrandTotal)}</span>
             </div>
           </>
         ) : (
-          <div className="flex justify-between"><span className="text-muted-foreground">Público</span><span>{fmtNum(kpis.totalPublic)}</span></div>
+          <div className="flex justify-between" title="Bilhetes pagantes únicos (cada bilhete conta uma vez, mesmo que dê acesso a vários dias)"><span className="text-muted-foreground">Público (bilhetes únicos)</span><span>{fmtNum(kpis.totalPublic)}</span></div>
         )}
         <div className="flex justify-between"><span className="text-muted-foreground">Receita</span><span>{fmt(rev.totalRevenue)}</span></div>
         <div className="flex justify-between"><span className="text-muted-foreground">Custo</span><span>{fmt(cost.totalCost)}</span></div>
