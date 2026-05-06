@@ -91,9 +91,13 @@ export function scaleABCostFromReal(
   realCost: number,
   realRev: ABRevenueLike,
   scenRev: ABRevenueLike,
+  scenPubOverride?: number,
 ): number {
   const realPub = publicOf(realRev);
-  const scenPub = publicOf(scenRev);
+  const fallbackPub = publicOf(scenRev);
+  const scenPub = scenPubOverride !== undefined && Number.isFinite(scenPubOverride) && scenPubOverride > 0
+    ? safeNum(scenPubOverride)
+    : fallbackPub;
   if (realPub <= 0) return safeNum(realCost);
   return safeNum(realCost) * (scenPub / realPub);
 }
