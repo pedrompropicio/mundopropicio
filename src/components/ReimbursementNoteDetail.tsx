@@ -420,7 +420,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
         <Button size="sm" variant="outline" onClick={exportPdf}>
           <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar PDF
         </Button>
-        {isDraft && (
+        {canEditDraft && (
           <Button size="sm" variant="outline" onClick={() => setShowAddItem(!showAddItem)}>
             <Plus className="mr-1.5 h-3.5 w-3.5" /> Adicionar Despesa
           </Button>
