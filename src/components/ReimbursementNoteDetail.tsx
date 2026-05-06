@@ -223,33 +223,40 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
       if (!paymentAccountId) throw new Error("Selecione a conta bancária");
 
       const today = new Date().toISOString().split("T")[0];
+      const grossTotal = items.reduce(
+        (s: number, i: any) =>
+          s + Number(i.transactions?.amount || 0) * (1 + Number(i.transactions?.iva_rate || 0) / 100),
+        0,
+      );
 
-      // Create payment transaction
+      // Create payment transaction (gross outflow, iva 0)
       const { data: paymentTx, error: payError } = await supabase
         .from("transactions")
         .insert({
           description: `Reembolso ${note.code} — ${note.employee_name}`,
           type: "expense",
-          amount: Number(note.total_amount),
+          amount: grossTotal,
           iva_rate: 0,
           account_id: paymentAccountId,
           date: today,
           status: "paid",
-          paid_amount: Number(note.total_amount),
+          paid_amount: grossTotal,
           payment_date: today,
         } as any)
         .select("id")
         .single();
       if (payError) throw payError;
 
-      // Mark each item transaction as paid with correct paid_amount
+      // Mark each item transaction as paid with paid_amount=gross
       for (const item of items) {
         const txAmount = Number(item.transactions?.amount || 0);
+        const txIva = Number(item.transactions?.iva_rate || 0);
+        const grossAmount = txAmount * (1 + txIva / 100);
         await supabase
           .from("transactions")
           .update({
             status: "paid",
-            paid_amount: txAmount,
+            paid_amount: grossAmount,
             payment_date: today,
           })
           .eq("id", item.transaction_id);
@@ -262,6 +269,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
           status: "paid",
           paid_at: new Date().toISOString(),
           payment_transaction_id: paymentTx.id,
+          total_amount: grossTotal,
         })
         .eq("id", noteId);
       if (error) throw error;
@@ -277,9 +285,13 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
   async function recalcTotal() {
     const { data: currentItems } = await supabase
       .from("reimbursement_note_items")
-      .select("transactions(amount)")
+      .select("transactions(amount, iva_rate)")
       .eq("reimbursement_note_id", noteId);
-    const total = (currentItems || []).reduce((s: number, i: any) => s + Number(i.transactions?.amount || 0), 0);
+    const total = (currentItems || []).reduce(
+      (s: number, i: any) =>
+        s + Number(i.transactions?.amount || 0) * (1 + Number(i.transactions?.iva_rate || 0) / 100),
+      0,
+    );
     await supabase.from("reimbursement_notes").update({ total_amount: total }).eq("id", noteId);
   }
 
