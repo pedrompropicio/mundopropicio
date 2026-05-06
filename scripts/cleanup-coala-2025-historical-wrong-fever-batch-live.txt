@@ -1,0 +1,76 @@
+-- =====================================================================
+-- LIMPEZA: remover importacao Fever atribuida POR ENGANO ao evento
+-- "Coala Festival Portugal 2025 (Historico)" no dia 2026-05-06 22:38.
+--
+-- Mantem intactas as 182 vendas manuais historicas (zona "Geral (Historico)",
+-- 7.352 bilhetes / 512.213,00 EUR).
+-- Apaga as 4 zonas Fever (Relvado/Tenda VIP Sab+Dom) e respectivos lotes
+-- e ticket_sales — esses dados continuam correctos no evento 2026.
+--
+-- Ambiente: LIVE  (Cloud View > Run SQL)
+-- Idempotente.
+-- =====================================================================
+
+DO $$
+DECLARE
+  v_event uuid;
+  v_batch uuid := '1f34bcda-54a0-4d7c-b492-885986e578ba';
+  v_sales int;
+  v_lots int;
+  v_zones int;
+BEGIN
+  SELECT id INTO v_event
+  FROM events
+  WHERE name = 'Coala Festival Portugal 2025 (Histórico)'
+  LIMIT 1;
+
+  IF v_event IS NULL THEN
+    RAISE EXCEPTION 'Evento 2025 (Historico) nao encontrado';
+  END IF;
+
+  -- 1) Apagar ticket_sales do batch errado neste evento
+  WITH del AS (
+    DELETE FROM ticket_sales s
+    USING event_ticket_zones z
+    WHERE s.zone_id = z.id
+      AND z.event_id = v_event
+      AND s.import_batch_id = v_batch
+    RETURNING s.id
+  )
+  SELECT count(*) INTO v_sales FROM del;
+
+  -- 2) Apagar lotes orfaos (lotes sem qualquer venda) das zonas fever_import
+  --    deste evento (criadas pelo mesmo import errado)
+  WITH zonas_fever AS (
+    SELECT id FROM event_ticket_zones
+    WHERE event_id = v_event
+      AND name IN ('Relvado — Sábado','Relvado — Domingo','Tenda VIP — Sábado','Tenda VIP — Domingo')
+  ), del AS (
+    DELETE FROM event_ticket_lots l
+    USING zonas_fever zf
+    WHERE l.zone_id = zf.id
+    RETURNING l.id
+  )
+  SELECT count(*) INTO v_lots FROM del;
+
+  -- 3) Apagar as zonas Fever criadas por engano
+  WITH del AS (
+    DELETE FROM event_ticket_zones z
+    WHERE z.event_id = v_event
+      AND z.name IN ('Relvado — Sábado','Relvado — Domingo','Tenda VIP — Sábado','Tenda VIP — Domingo')
+    RETURNING z.id
+  )
+  SELECT count(*) INTO v_zones FROM del;
+
+  RAISE NOTICE 'Coala 2025 (Historico) limpo: % vendas, % lotes, % zonas removidos', v_sales, v_lots, v_zones;
+END $$;
+
+-- Validacao final: deve devolver apenas a zona "Geral (Historico)"
+-- com 182 vendas / 7.352 bilhetes / 512.213,00 EUR
+SELECT z.name, COUNT(ts.id) vendas, SUM(ts.quantity) qty, SUM(ts.total_value)::numeric(12,2) receita
+FROM event_ticket_zones z
+LEFT JOIN event_ticket_lots l ON l.zone_id = z.id
+LEFT JOIN ticket_sales ts ON ts.lot_id = l.id
+WHERE z.event_id = (SELECT id FROM events WHERE name = 'Coala Festival Portugal 2025 (Histórico)' LIMIT 1)
+GROUP BY z.name
+ORDER BY z.name;
