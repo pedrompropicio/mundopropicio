@@ -89,9 +89,12 @@ export default function ExecutiveDashboard(props: Props) {
   }, [active, today, todayCosts, todayRes, todayKpis, breakeven, beCosts, beRes, beKpis, forecast, fcCosts, fcRes, fcKpis]);
 
   // -------- Break-even / forecast targets --------
-  const beTargetQty = Number(beSolution?.totalQty ?? beKpis?.totalPublic ?? 0);
-  const fcTargetQty = Number(fcSolution?.totalQty ?? fcKpis?.totalPublic ?? 0);
-  const needForBE = Math.max(0, Math.round(beTargetQty - todayKpis.totalPublic));
+  // Targets vêm de solution.totalQty (bilhetes únicos). Comparamos sempre contra
+  // uniqueTickets para evitar inflação por presenças×dia em eventos multi-dia.
+  const beTargetQty = Number(beSolution?.totalQty ?? beKpis?.uniqueTickets ?? beKpis?.totalPublic ?? 0);
+  const fcTargetQty = Number(fcSolution?.totalQty ?? fcKpis?.uniqueTickets ?? fcKpis?.totalPublic ?? 0);
+  const todayUnique = Number(todayKpis.uniqueTickets ?? todayKpis.totalPublic ?? 0);
+  const needForBE = Math.max(0, Math.round(beTargetQty - todayUnique));
   const abMarginReal =
     abModule.hasConfig && abModule.totals ? abModule.totals.real.resultadoTotal : 0;
   const reachedBE = todayRes.general >= 0;
