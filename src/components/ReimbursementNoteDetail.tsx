@@ -520,7 +520,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
                 <TableHead>Estado</TableHead>
                 <TableHead>Fatura</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
-                {isDraft && <TableHead className="w-[50px]" />}
+                {canEditDraft && <TableHead className="w-[80px]" />}
               </TableRow>
             </TableHeader>
             <TableBody>
