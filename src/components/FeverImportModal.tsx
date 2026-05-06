@@ -351,12 +351,20 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
       }
 
       // === 6. APAGAR ticket_sales Fever existentes ===
-      const allZoneIds = Array.from(zoneIdByKindDay.values());
-      if (allZoneIds.length > 0) {
+      // Importante: apagar TODAS as vendas Fever deste evento (não só nas zonas
+      // novas). Se a importação anterior criou zonas com nome ligeiramente
+      // diferente, as vendas antigas ficariam órfãs e somariam por cima
+      // (re-import duplicaria a receita).
+      const { data: allEventZones } = await supabase
+        .from("event_ticket_zones")
+        .select("id")
+        .eq("event_id", eventId);
+      const allEventZoneIds = (allEventZones || []).map((z: any) => z.id);
+      if (allEventZoneIds.length > 0) {
         const { error } = await supabase
           .from("ticket_sales")
           .delete()
-          .in("zone_id", allZoneIds)
+          .in("zone_id", allEventZoneIds)
           .eq("financial_account_id", feverAccountId);
         if (error) throw error;
       }
