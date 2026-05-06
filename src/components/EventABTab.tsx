@@ -19,6 +19,7 @@ import {
   type ABFoodConfig,
 } from "@/lib/event-ab-calc";
 import { useCitySimulator } from "@/hooks/useCitySimulator";
+import { useCompany } from "@/hooks/useCompany";
 
 interface Props {
   eventId: string;
@@ -103,6 +104,7 @@ function KpisConsolidados({ totals, modeBebidas, modeAlimentos }: {
 export default function EventABTab({ eventId }: Props) {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { companyId } = useCompany();
   const [scenario, setScenario] = useState<ABScenario>("forecast");
 
   // ── data ──
@@ -256,11 +258,11 @@ export default function EventABTab({ eventId }: Props) {
   // ── mutations ──
   const upsertConfig = useMutation({
     mutationFn: async (patch: Record<string, any>) => {
-      const payload = { event_id: eventId, ...config, ...patch };
-      delete (payload as any).id;
-      delete (payload as any).created_at;
-      delete (payload as any).updated_at;
-      delete (payload as any).company_id;
+      if (!companyId) throw new Error("Empresa ativa não resolvida — recarrega a página.");
+      const payload: any = { event_id: eventId, ...config, ...patch, company_id: companyId };
+      delete payload.id;
+      delete payload.created_at;
+      delete payload.updated_at;
       const { error } = await supabase
         .from("event_ab_config")
         .upsert(payload, { onConflict: "event_id" });
@@ -272,10 +274,10 @@ export default function EventABTab({ eventId }: Props) {
 
   const upsertZone = useMutation({
     mutationFn: async (z: any) => {
-      const payload = { ...z, event_id: eventId };
+      if (!companyId) throw new Error("Empresa ativa não resolvida — recarrega a página.");
+      const payload: any = { ...z, event_id: eventId, company_id: companyId };
       delete payload.created_at;
       delete payload.updated_at;
-      delete payload.company_id;
       if (z.id) {
         const { error } = await supabase.from("event_ab_zones").update(payload).eq("id", z.id);
         if (error) throw error;
