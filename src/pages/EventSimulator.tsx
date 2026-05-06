@@ -1028,7 +1028,7 @@ export default function EventSimulator() {
             today={todayAB} todayCosts={todayCosts} todayRes={todayRes} todayKpis={todayKpis}
             breakeven={beAB} beCosts={beCosts} beRes={beRes} beKpis={beKpis}
             forecast={fcAB} fcCosts={fcCosts} fcRes={fcRes} fcKpis={fcKpis}
-            costLines={localCosts}
+            costLines={visibleCosts}
             dailyTotals={dailyTotals}
             ivaTable={ivaTable}
             sessions={simulatorSessions as any}
