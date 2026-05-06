@@ -302,8 +302,12 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
   const isDraft = note.status === "draft";
   const isApproved = note.status === "approved";
   const allHaveDocs = items.length > 0 && items.every((i: any) => docsMap[i.transaction_id]);
+  const canEditDraft = isDraft && (isAdmin || isManager || isEditor);
   const canApprove = isDraft && items.length > 0 && allHaveDocs && (isAdmin || isManager);
   const canPay = isApproved && (isAdmin || isManager || isEditor);
+  const grossOf = (tx: any) =>
+    Number(tx?.amount || 0) * (1 + Number(tx?.iva_rate || 0) / 100);
+  const grossTotal = items.reduce((s: number, i: any) => s + grossOf(i.transactions), 0);
 
   function exportPdf() {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
