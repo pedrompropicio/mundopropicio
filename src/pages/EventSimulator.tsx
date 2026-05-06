@@ -868,14 +868,18 @@ export default function EventSimulator() {
     if (abModule.hasConfig && abModule.totals) return { ...base, abCost: abModule.totals.real.custoTotal, totalCost: base.eventCosts + abModule.totals.real.custoTotal + base.souvenirCost };
     return base;
   }, [calcCosts, todayAB, calcCfg, abModule]);
-  const beCosts = useMemo(
-    () => computeScenarioCosts(calcCosts, beAB, calcCfg, "breakeven"),
-    [calcCosts, beAB, calcCfg],
-  );
-  const fcCosts = useMemo(
-    () => computeScenarioCosts(calcCosts, fcAB, calcCfg, "forecast"),
-    [calcCosts, fcAB, calcCfg],
-  );
+  const beCosts = useMemo(() => {
+    const base = computeScenarioCosts(calcCosts, beAB, calcCfg, "breakeven");
+    if (abModule.hasConfig && abModule.totals)
+      return { ...base, abCost: abModule.totals.breakeven.custoTotal, totalCost: base.eventCosts + abModule.totals.breakeven.custoTotal + base.souvenirCost };
+    return base;
+  }, [calcCosts, beAB, calcCfg, abModule]);
+  const fcCosts = useMemo(() => {
+    const base = computeScenarioCosts(calcCosts, fcAB, calcCfg, "forecast");
+    if (abModule.hasConfig && abModule.totals)
+      return { ...base, abCost: abModule.totals.forecast.custoTotal, totalCost: base.eventCosts + abModule.totals.forecast.custoTotal + base.souvenirCost };
+    return base;
+  }, [calcCosts, fcAB, calcCfg, abModule]);
 
   const todayRev = todayAB; const beRev = beAB; const fcRev = fcAB;
 
