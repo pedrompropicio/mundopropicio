@@ -1513,7 +1513,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     try {
       let query = supabase
         .from("transactions")
-        .select("id, description, amount, status, due_date, supplier_id, event_id")
+        .select("id, description, amount, status, due_date, supplier_id, event_id, specification, invoice_ref")
         .ilike("description", form.description.trim());
 
       if (form.event_id) {
@@ -1524,9 +1524,22 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
 
       if (matches && matches.length > 0) {
         const amount = parseFloat(form.amount) || 0;
+        const norm = (s: any) => (s ?? "").toString().trim().toLowerCase();
+        const newSpec = norm(form.specification);
+        const newInv = norm(form.invoice_ref);
         const relevant = matches.filter((m: any) => {
           const diff = Math.abs(Number(m.amount) - amount);
-          return diff < 0.01 || form.supplier_id === m.supplier_id;
+          const amountOrSupplierMatch = diff < 0.01 || form.supplier_id === m.supplier_id;
+          if (!amountOrSupplierMatch) return false;
+          // Se ambos têm fatura preenchida, têm de coincidir; se só um tem, não é duplicado
+          const mInv = norm(m.invoice_ref);
+          if (newInv || mInv) {
+            if (newInv !== mInv) return false;
+          }
+          // Idem para especificação (quando ambos preenchidos)
+          const mSpec = norm(m.specification);
+          if (newSpec && mSpec && newSpec !== mSpec) return false;
+          return true;
         });
         if (relevant.length > 0) {
           setDuplicateMatches(relevant);
