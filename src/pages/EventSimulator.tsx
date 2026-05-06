@@ -250,14 +250,31 @@ export default function EventSimulator() {
       const lotIds = (lots ?? []).map((l: any) => l.id);
       const { data: sales } = lotIds.length
         ? await supabase.from("ticket_sales")
-            .select("lot_id, zone_id, sale_date, quantity, unit_price, total_value").in("lot_id", lotIds)
+            .select("lot_id, zone_id, sale_date, quantity, unit_price, total_value, financial_account_id, source, import_batch_id, created_at")
+            .in("lot_id", lotIds)
         : { data: [] as any[] };
 
       const lotById = new Map((lots ?? []).map((l: any) => [l.id, l]));
       const zoneById = new Map((zones ?? []).map((z: any) => [z.id, z]));
+      const rawSales = ((sales ?? []) as any[]);
+      const latestFeverBatchByAccount = new Map<string, { batchId: string; createdAt: string }>();
+      for (const s of rawSales) {
+        if (s.source !== "fever_import" || !s.import_batch_id) continue;
+        const accountKey = s.financial_account_id ?? "__no_account__";
+        const createdAt = String(s.created_at || "");
+        const cur = latestFeverBatchByAccount.get(accountKey);
+        if (!cur || createdAt > cur.createdAt) {
+          latestFeverBatchByAccount.set(accountKey, { batchId: s.import_batch_id, createdAt });
+        }
+      }
+      const salesRows = rawSales.filter((s) => {
+        if (s.source !== "fever_import") return true;
+        const latest = latestFeverBatchByAccount.get(s.financial_account_id ?? "__no_account__");
+        return !latest || s.import_batch_id === latest.batchId;
+      });
 
       const salesByZone: Record<string, { qty: number; revenue: number }> = {};
-      for (const s of (sales ?? []) as any[]) {
+      for (const s of salesRows) {
         const cur = salesByZone[s.zone_id] ?? { qty: 0, revenue: 0 };
         cur.qty += Number(s.quantity || 0);
         cur.revenue += ticketSaleRevenue(s);
@@ -272,7 +289,7 @@ export default function EventSimulator() {
         day_index: z.session_id ? (sessionIdToIdx.get(z.session_id) ?? 0) : 0,
       }));
 
-      const lotSales: LotSale[] = ((sales ?? []) as any[]).map((s) => {
+      const lotSales: LotSale[] = salesRows.map((s) => {
         const lot = lotById.get(s.lot_id);
         const zone = zoneById.get(s.zone_id);
         // Dia do festival vem da sessão da ZONA (não da data da venda).
