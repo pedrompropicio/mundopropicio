@@ -89,12 +89,15 @@ export default function ExecutiveDashboard(props: Props) {
   }, [active, today, todayCosts, todayRes, todayKpis, breakeven, beCosts, beRes, beKpis, forecast, fcCosts, fcRes, fcKpis]);
 
   // -------- Break-even / forecast targets --------
-  // Targets vêm de solution.totalQty (bilhetes únicos). Comparamos sempre contra
-  // uniqueTickets para evitar inflação por presenças×dia em eventos multi-dia.
-  const beTargetQty = Number(beSolution?.totalQty ?? beKpis?.uniqueTickets ?? beKpis?.totalPublic ?? 0);
-  const fcTargetQty = Number(fcSolution?.totalQty ?? fcKpis?.uniqueTickets ?? fcKpis?.totalPublic ?? 0);
-  const todayUnique = Number(todayKpis.uniqueTickets ?? todayKpis.totalPublic ?? 0);
-  const needForBE = Math.max(0, Math.round(beTargetQty - todayUnique));
+  // Unidade única: PRESENÇAS×DIA (1 Passe 2 dias = 2). Alinha o KPI grande, as
+  // barras BE/Forecast e a tabela "Público por dia". Fonte: attendanceQty +
+  // attendanceCourtesyQty já calculados em cada cenário.
+  const presOf = (rev: any) =>
+    Number(rev?.attendanceQty || 0) + Number(rev?.attendanceCourtesyQty || 0);
+  const todayPres = presOf(today);
+  const beTargetQty = presOf(breakeven);
+  const fcTargetQty = presOf(forecast);
+  const needForBE = Math.max(0, Math.round(beTargetQty - todayPres));
   const abMarginReal =
     abModule.hasConfig && abModule.totals ? abModule.totals.real.resultadoTotal : 0;
   const reachedBE = todayRes.general >= 0;
@@ -225,7 +228,7 @@ export default function ExecutiveDashboard(props: Props) {
     ? Math.round((today.totalRevenue / forecast.totalRevenue) * 100)
     : 0;
   const pctPubForecast = fcTargetQty > 0
-    ? Math.min(100, Math.round((todayUnique / fcTargetQty) * 100))
+    ? Math.min(100, Math.round((todayPres / fcTargetQty) * 100))
     : 0;
   const margemPct = sel.rev.totalRevenue > 0
     ? (sel.res.general / sel.rev.totalRevenue) * 100
@@ -386,8 +389,8 @@ export default function ExecutiveDashboard(props: Props) {
           <FinancialTable rows={financialRows} active={active} formatFn={fmt} />
           <div className="flex flex-col gap-3">
             <ProgressKpi
-              label="Bilhetes únicos"
-              current={todayUnique}
+              label="Presenças × dia"
+              current={todayPres}
               currentLabel="Real"
               beTarget={beTargetQty}
               beLabel="Break Even"
@@ -396,9 +399,9 @@ export default function ExecutiveDashboard(props: Props) {
               formatFn={fmtNum}
               footer={
                 (needForBE > 0
-                  ? `Faltam ${fmtNum(needForBE)} bilhetes para BE`
+                  ? `Faltam ${fmtNum(needForBE)} presenças para BE`
                   : "Break Even atingido") +
-                ` · Presenças×dia: ${fmtNum((today.attendanceQty || 0) + (today.attendanceCourtesyQty || 0))} / ${fmtNum((breakeven.attendanceQty || 0) + (breakeven.attendanceCourtesyQty || 0))} / ${fmtNum((forecast.attendanceQty || 0) + (forecast.attendanceCourtesyQty || 0))}`
+                ` · 1 Passe N dias = N presenças (sem dupla contagem)`
               }
             />
             {abModule.hasConfig && abModule.totals && (
