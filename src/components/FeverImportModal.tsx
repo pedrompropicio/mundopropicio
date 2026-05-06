@@ -220,6 +220,26 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
       }
 
       // === 2. ZONAS-DIA (uma por daily group) ===
+      // Reimport Fever é substitutivo: antes de criar os lotes novos, remove
+      // todos os lotes das zonas Fever do evento para não somar quantidades
+      // planeadas antigas ao novo ficheiro.
+      const expectedZoneNames = new Set(grouped.dailyGroups.map((g) => norm(g.zoneName)));
+      const feverZonesBeforeImport = (existing?.zones || []).filter((z: any) => expectedZoneNames.has(norm(z.name)));
+      const feverZoneIdsBeforeImport = feverZonesBeforeImport.map((z: any) => z.id);
+      if (feverZoneIdsBeforeImport.length > 0) {
+        const { data: feverLotsBeforeImport } = await supabase
+          .from("event_ticket_lots")
+          .select("id")
+          .in("zone_id", feverZoneIdsBeforeImport);
+        const feverLotIdsBeforeImport = (feverLotsBeforeImport || []).map((l: any) => l.id);
+        if (feverLotIdsBeforeImport.length > 0) {
+          const { error: salesByLotErr } = await supabase.from("ticket_sales").delete().in("lot_id", feverLotIdsBeforeImport);
+          if (salesByLotErr) throw salesByLotErr;
+          const { error: lotsErr } = await supabase.from("event_ticket_lots").delete().in("id", feverLotIdsBeforeImport);
+          if (lotsErr) throw lotsErr;
+        }
+      }
+
       // Reaproveita zonas existentes por nome normalizado, senão cria.
       const zoneIdByKindDay = new Map<string, string>(); // `${kind}|${slot}` -> zone_id
       for (const g of grouped.dailyGroups) {
