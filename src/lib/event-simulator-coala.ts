@@ -769,12 +769,30 @@ export type IvaRow = {
   share: number;     // representatividade no total líquido
 };
 
-export function computeIvaTable(sessions: CoalaSession[]): IvaRow[] {
+/**
+ * Tabela de IVA por sessão.
+ * - Cenário "today": usa `real_sales_revenue` (bruto, com IVA) por sessão.
+ * - Cenários "breakeven"/"forecast": recebe `netRevenueByKey` (sem IVA, vindo
+ *   do solver — o simulador trabalha sempre em líquido) e re-bruta por
+ *   sessão usando `iva_pct` para apresentar Bruto / IVA / Líquido projetados.
+ */
+export function computeIvaTable(
+  sessions: CoalaSession[],
+  netRevenueByKey?: Record<string, number>,
+): IvaRow[] {
   const rows = sessions.map((s) => {
-    const gross = n(s.real_sales_revenue); // bruto original da bilheteira
+    const key = `${s.day_index}-${s.zone_label}`;
     const ivaPct = n(s.iva_pct, 6);
-    const iva = ivaPct > 0 ? gross - gross / (1 + ivaPct / 100) : 0;
-    const net = gross - iva;
+    let gross: number;
+    let net: number;
+    if (netRevenueByKey && netRevenueByKey[key] != null && Number.isFinite(netRevenueByKey[key])) {
+      net = netRevenueByKey[key];
+      gross = ivaPct > 0 ? net * (1 + ivaPct / 100) : net;
+    } else {
+      gross = n(s.real_sales_revenue); // bruto original da bilheteira
+      net = ivaPct > 0 ? gross / (1 + ivaPct / 100) : gross;
+    }
+    const iva = gross - net;
     return { label: `Dia ${String(s.day_index + 1).padStart(2, "0")} — ${s.zone_label}`, gross, iva, net, share: 0 };
   });
   const totalNet = rows.reduce((a, r) => a + r.net, 0) || 1;

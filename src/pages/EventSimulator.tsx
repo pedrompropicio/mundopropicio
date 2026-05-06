@@ -579,6 +579,8 @@ export default function EventSimulator() {
 
 
   const ivaTable = useMemo(() => computeIvaTable(calcSessions), [calcSessions]);
+  const ivaTableBe = useMemo(() => computeIvaTable(calcSessions, beSolution.revenueByKey), [calcSessions, beSolution]);
+  const ivaTableFc = useMemo(() => computeIvaTable(calcSessions, fcSolution.revenueByKey), [calcSessions, fcSolution]);
 
   // ----- Exportações XLSX/PDF (layout idêntico ao Excel de referência) -----
   const buildExportData = (): SimulatorExportData => {
@@ -1381,41 +1383,47 @@ export default function EventSimulator() {
         </TabsContent>
 
         {/* ---------------- IVA ---------------- */}
-        <TabsContent value="iva">
-          <Card>
-            <CardHeader><CardTitle>IVA Bilheteira por sessão (cenário Hoje)</CardTitle></CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Sessão</TableHead>
-                    <TableHead className="text-right">Bruto</TableHead>
-                    <TableHead className="text-right">IVA</TableHead>
-                    <TableHead className="text-right">Líquido</TableHead>
-                    <TableHead className="text-right">Repres.</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {ivaTable.map((r) => (
-                    <TableRow key={r.label}>
-                      <TableCell>{r.label}</TableCell>
-                      <TableCell className="text-right">{fmt(r.gross)}</TableCell>
-                      <TableCell className="text-right">{fmt(r.iva)}</TableCell>
-                      <TableCell className="text-right">{fmt(r.net)}</TableCell>
-                      <TableCell className="text-right">{fmtPct(r.share)}</TableCell>
+        <TabsContent value="iva" className="space-y-4">
+          {([
+            { title: "IVA Bilheteira por sessão (cenário Hoje)", data: ivaTable },
+            { title: "IVA Bilheteira por sessão (cenário Break Even)", data: ivaTableBe },
+            { title: "IVA Bilheteira por sessão (cenário Forecast)", data: ivaTableFc },
+          ] as const).map((blk) => (
+            <Card key={blk.title}>
+              <CardHeader><CardTitle>{blk.title}</CardTitle></CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Sessão</TableHead>
+                      <TableHead className="text-right">Bruto</TableHead>
+                      <TableHead className="text-right">IVA</TableHead>
+                      <TableHead className="text-right">Líquido</TableHead>
+                      <TableHead className="text-right">Repres.</TableHead>
                     </TableRow>
-                  ))}
-                  <TableRow className="font-bold border-t-2">
-                    <TableCell>TOTAL</TableCell>
-                    <TableCell className="text-right">{fmt(ivaTable.reduce((a, r) => a + r.gross, 0))}</TableCell>
-                    <TableCell className="text-right">{fmt(ivaTable.reduce((a, r) => a + r.iva, 0))}</TableCell>
-                    <TableCell className="text-right">{fmt(ivaTable.reduce((a, r) => a + r.net, 0))}</TableCell>
-                    <TableCell className="text-right">100%</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {blk.data.map((r) => (
+                      <TableRow key={r.label}>
+                        <TableCell>{r.label}</TableCell>
+                        <TableCell className="text-right">{fmt(r.gross)}</TableCell>
+                        <TableCell className="text-right">{fmt(r.iva)}</TableCell>
+                        <TableCell className="text-right">{fmt(r.net)}</TableCell>
+                        <TableCell className="text-right">{fmtPct(r.share)}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="font-bold border-t-2">
+                      <TableCell>TOTAL</TableCell>
+                      <TableCell className="text-right">{fmt(blk.data.reduce((a, r) => a + r.gross, 0))}</TableCell>
+                      <TableCell className="text-right">{fmt(blk.data.reduce((a, r) => a + r.iva, 0))}</TableCell>
+                      <TableCell className="text-right">{fmt(blk.data.reduce((a, r) => a + r.net, 0))}</TableCell>
+                      <TableCell className="text-right">100%</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          ))}
         </TabsContent>
 
         {/* ---------------- Resultados ---------------- */}
