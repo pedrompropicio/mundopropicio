@@ -31,9 +31,10 @@ interface Props {
 export default function DailyAttendanceCard({ eventId, dailyCapacity, beDailyTotals, fcDailyTotals }: Props) {
   const real = useEventAttendance(eventId, "real");
 
-  // Fallback: se o pai não passar overrides, mantém o comportamento antigo.
-  const beFallback = useEventAttendance(eventId, beDailyTotals ? undefined : "breakeven");
-  const fcFallback = useEventAttendance(eventId, fcDailyTotals ? undefined : "forecast");
+  // Fallback: se o pai não passar overrides, mantém o comportamento antigo
+  // (lê BE/Forecast como capacidade dos lotes).
+  const beFallback = useEventAttendance(beDailyTotals ? undefined : eventId, "breakeven");
+  const fcFallback = useEventAttendance(fcDailyTotals ? undefined : eventId, "forecast");
 
   if (!eventId || real.dates.length === 0) {
     return (
