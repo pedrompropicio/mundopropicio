@@ -350,7 +350,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
         tx?.date ? format(new Date(tx.date), "dd/MM/yyyy") : "",
         tx?.status === "paid" ? "Pago" : tx?.status === "approved" ? "Aprovado" : "Pendente",
         docsMap[item.transaction_id] ? "Sim" : "Não",
-        formatCurrency(Number(tx?.amount || 0)),
+        formatCurrency(grossOf(tx)),
       ];
     });
 
