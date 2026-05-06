@@ -424,10 +424,11 @@ export default function EventSimulator() {
 
   // ------- Default config seed (se não existir) -------
   useEffect(() => {
-    if (!loadingCfg && !cfg && eventId) {
+    if (!loadingCfg && !cfg && eventId && companyId) {
       // cria default
       supabase.from("event_simulator_config").insert({
         event_id: eventId,
+        company_id: companyId,
         default_drink_avg_ticket: 10.51,
         default_food_avg_ticket: 5.40,
         ab_drink_passthrough_pct: 65,
@@ -435,27 +436,25 @@ export default function EventSimulator() {
         ticket_iva_pct: 6,
       } as any).then(() => qc.invalidateQueries({ queryKey: ["sim-coala-cfg", eventId] }));
     }
-  }, [loadingCfg, cfg, eventId, qc]);
+  }, [loadingCfg, cfg, eventId, companyId, qc]);
 
   // ------- Mutations -------
   const saveAll = useMutation({
     mutationFn: async () => {
       if (!localCfg || !eventId) return;
-      const cfgPayload: any = { ...localCfg, event_id: eventId };
-      delete cfgPayload.company_id;
+      if (!companyId) throw new Error("Empresa ativa não resolvida — recarrega a página.");
+      const cfgPayload: any = { ...localCfg, event_id: eventId, company_id: companyId };
       await supabase.from("event_simulator_config").upsert(cfgPayload).throwOnError();
 
       // sessions: upsert one by one
       for (const s of localSessions) {
-        const payload: any = { ...s, event_id: eventId };
-        delete payload.company_id;
+        const payload: any = { ...s, event_id: eventId, company_id: companyId };
         if (!s.id) delete payload.id;
         await supabase.from("event_simulator_inputs").upsert(payload).throwOnError();
       }
       // costs
       for (const c of localCosts) {
-        const payload: any = { ...c, event_id: eventId };
-        delete payload.company_id;
+        const payload: any = { ...c, event_id: eventId, company_id: companyId };
         if (!c.id) delete payload.id;
         await supabase.from("event_simulator_cost_lines").upsert(payload).throwOnError();
       }
