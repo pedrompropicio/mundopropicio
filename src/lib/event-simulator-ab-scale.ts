@@ -40,14 +40,30 @@ export function scaleABFromReal<T extends ABRevenueLike>(
   realRev: ABRevenueLike,
   realDrink: number,
   realFood: number,
-): { drinkRevenue: number; foodRevenue: number; totalRevenue: number } {
+  scenPubOverride?: number,
+): {
+  drinkRevenue: number;
+  foodRevenue: number;
+  totalRevenue: number;
+  attendanceQty: number;
+  attendanceCourtesyQty: number;
+} {
   const realPub = publicOf(realRev);
-  const scenPub = publicOf(rev);
+  // Público do cenário: se o caller passou override (ex.: fcSolution.totalQty),
+  // usa-o; caso contrário cai no attendance do `rev`. Isto evita que o TM A&B
+  // fique colapsado quando `forecastV2.attendanceQty` é igual ao público real.
+  const fallbackPub = publicOf(rev);
+  const scenPub = scenPubOverride !== undefined && Number.isFinite(scenPubOverride) && scenPubOverride > 0
+    ? safeNum(scenPubOverride)
+    : fallbackPub;
+
   if (realPub <= 0) {
     return {
       drinkRevenue: safeNum(rev.drinkRevenue),
       foodRevenue: safeNum(rev.foodRevenue),
       totalRevenue: safeNum(rev.totalRevenue),
+      attendanceQty: scenPub,
+      attendanceCourtesyQty: 0,
     };
   }
   const drinkPerPax = safeNum(realDrink) / realPub;
@@ -59,6 +75,11 @@ export function scaleABFromReal<T extends ABRevenueLike>(
     foodRevenue: food,
     totalRevenue:
       safeNum(rev.totalRevenue) - safeNum(rev.drinkRevenue) - safeNum(rev.foodRevenue) + drink + food,
+    // Devolve o público efectivo usado no escalamento para que o consumer
+    // possa alinhar `attendanceQty/Courtesy` no objecto do cenário e o
+    // Dashboard divida por este denominador.
+    attendanceQty: scenPub,
+    attendanceCourtesyQty: 0,
   };
 }
 
