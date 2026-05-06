@@ -592,6 +592,19 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
         </div>
       )}
 
+      {editTx && (
+        <TransactionEditModal
+          transaction={editTx}
+          isAdmin={isAdmin}
+          onClose={async () => {
+            setEditTx(null);
+            await recalcTotal();
+            invalidateAll();
+            queryClient.invalidateQueries({ queryKey: ["reimbursement-item-docs", transactionIds] });
+          }}
+        />
+      )}
+
       {docsModalTx && (
         <TransactionDocumentsModal
           transactionId={docsModalTx.id}
