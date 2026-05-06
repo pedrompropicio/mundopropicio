@@ -233,11 +233,11 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
     const fcAmount = bpApprovedByCat.get(catId) ?? 0;
     const actualPaid = actualPaidByCat.get(catId) ?? 0;
     const actualTxAppPaid = actualTxByCat.get(catId) ?? 0;
-    // "Hoje" = max(BP aprovado, TX approved+paid) — evita dupla contagem porque
-    // o vínculo BP↔TX é por category_id+event_id (não por transaction_id).
-    // Se TX > BP → real comprometido excede o orçado; senão prevalece o BP aprovado.
-    const actualAmount = Math.max(fcAmount, actualTxAppPaid);
+    // "Hoje" = TX (approved+paid) + BP aprovado SEM TX correspondente.
+    // committedBp = parcela do BP ainda não materializada em transação.
+    // Vínculo BP↔TX é por category_id+event_id, por isso somamos sem dupla contagem.
     const committedBp = Math.max(0, fcAmount - actualTxAppPaid);
+    const actualAmount = actualTxAppPaid + committedBp;
 
     const exists = existingCostByCat.get(catId);
     if (exists) {
