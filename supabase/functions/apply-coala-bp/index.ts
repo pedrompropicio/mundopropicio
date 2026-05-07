@@ -425,6 +425,146 @@ Deno.serve(async (req) => {
         }));
       }
 
+      // ── TX DIFF — espelho do BP, agora aplicado às transações
+      // Filtra TX ligadas a sponsorship_pipeline (tratadas separadamente)
+      const { data: spLinks } = await admin
+        .from("sponsorship_pipeline")
+        .select("linked_transaction_id")
+        .eq("event_id", eventId);
+      const protectedTxIds = new Set<string>(
+        (spLinks || []).map((r: any) => r.linked_transaction_id).filter((x: any) => typeof x === "string"),
+      );
+
+      // Pool TX consideradas no diff (despesa, não-sponsor)
+      const txPool = ((existingTxs || []) as any[]).filter((t) => !protectedTxIds.has(t.id));
+      // Linhas do ficheiro que devem materializar TX (paid + partial>0)
+      const fileTxRows = fileRows.filter((r) =>
+        r.status === "paid" || (r.status === "partial" && r.paidNet > 0),
+      );
+
+      // Index TX por (descNorm|cents) e por desc
+      const txByKey = new Map<string, any>();
+      const txByDesc = new Map<string, any[]>();
+      for (const t of txPool) {
+        txByKey.set(`${normTxt(t.description)}|${moneyKey(Number(t.amount) || 0)}`, t);
+        const k = normTxt(t.description);
+        const arr = txByDesc.get(k) ?? [];
+        arr.push(t);
+        txByDesc.set(k, arr);
+      }
+
+      const txMatchedIds = new Set<string>();
+      const txMissing: any[] = [];           // ficheiro diz pago, sem TX
+      const txValueMismatches: any[] = [];   // TX existe, valor difere
+      const pendingTxFile: ParsedRow[] = [];
+
+      for (const r of fileTxRows) {
+        const k = `${normTxt(r.description)}|${moneyKey(r.netAmount)}`;
+        if (txByKey.has(k)) {
+          const t = txByKey.get(k);
+          if (!txMatchedIds.has(t.id)) { txMatchedIds.add(t.id); continue; }
+        }
+        // mesma descrição, valor diferente
+        const sameDesc = (txByDesc.get(normTxt(r.description)) ?? []).filter((t) => !txMatchedIds.has(t.id));
+        if (sameDesc.length > 0) {
+          const best = sameDesc[0];
+          const isPaid = best.status === "paid" || Number(best.paid_amount || 0) > 0.005;
+          txValueMismatches.push({
+            rowNumber: r.rowNumber,
+            description: r.description,
+            txDescription: best.description,
+            fileAmount: r.netAmount,
+            txAmount: Number(best.amount) || 0,
+            delta: +(r.netAmount - (Number(best.amount) || 0)).toFixed(2),
+            txId: best.id,
+            txStatus: best.status,
+            txIsPaid: isPaid,
+          });
+          txMatchedIds.add(best.id);
+          continue;
+        }
+        pendingTxFile.push(r);
+      }
+
+      // Match por valor exato entre pendentes e TX restantes (rename)
+      for (const r of pendingTxFile) {
+        const target = moneyKey(r.netAmount);
+        const cands = txPool.filter((t) => !txMatchedIds.has(t.id) && moneyKey(Number(t.amount) || 0) === target);
+        if (cands.length >= 1) {
+          // pega o primeiro com melhor Dice
+          let pick = cands[0]; let pickScore = -1;
+          for (const t of cands) {
+            const s = dice(r.description, t.description);
+            if (s > pickScore) { pick = t; pickScore = s; }
+          }
+          const isPaid = pick.status === "paid" || Number(pick.paid_amount || 0) > 0.005;
+          txValueMismatches.push({
+            rowNumber: r.rowNumber,
+            description: r.description,
+            txDescription: pick.description,
+            fileAmount: r.netAmount,
+            txAmount: Number(pick.amount) || 0,
+            delta: 0,
+            txId: pick.id,
+            txStatus: pick.status,
+            txIsPaid: isPaid,
+            renameOnly: true,
+            fuzzyScore: +Math.max(0, pickScore).toFixed(2),
+            ambiguous: cands.length > 1 ? cands.length : undefined,
+          });
+          txMatchedIds.add(pick.id);
+        } else {
+          // fuzzy ≥ 0.7 sem match de valor
+          let bestF: { t: any; score: number } | null = null;
+          for (const t of txPool) {
+            if (txMatchedIds.has(t.id)) continue;
+            const s = dice(r.description, t.description);
+            if (s >= 0.7 && (!bestF || s > bestF.score)) bestF = { t, score: s };
+          }
+          if (bestF) {
+            const isPaid = bestF.t.status === "paid" || Number(bestF.t.paid_amount || 0) > 0.005;
+            txValueMismatches.push({
+              rowNumber: r.rowNumber,
+              description: r.description,
+              txDescription: bestF.t.description,
+              fileAmount: r.netAmount,
+              txAmount: Number(bestF.t.amount) || 0,
+              delta: +(r.netAmount - (Number(bestF.t.amount) || 0)).toFixed(2),
+              txId: bestF.t.id,
+              txStatus: bestF.t.status,
+              txIsPaid: isPaid,
+              fuzzyScore: +bestF.score.toFixed(2),
+            });
+            txMatchedIds.add(bestF.t.id);
+          } else {
+            txMissing.push({
+              rowNumber: r.rowNumber,
+              description: r.description,
+              supplier: r.supplier,
+              netAmount: r.netAmount,
+              grossAmount: r.grossAmount,
+              status: r.status,
+              paymentDate: r.paymentDate,
+            });
+          }
+        }
+      }
+
+      // TX extra (no sistema, sem linha equivalente no XLSX)
+      const txExtra: any[] = [];
+      for (const t of txPool) {
+        if (txMatchedIds.has(t.id)) continue;
+        const isPaid = t.status === "paid" || Number(t.paid_amount || 0) > 0.005;
+        txExtra.push({
+          id: t.id,
+          description: t.description,
+          amount: Number(t.amount) || 0,
+          status: t.status,
+          isPaid,
+          paymentDate: t.payment_date,
+        });
+      }
+
       // Sponsors compare (Pipe sheet vs current sponsorship_pipeline)
       const { data: existingSponsors } = await admin
         .from("sponsorship_pipeline")
@@ -462,11 +602,21 @@ Deno.serve(async (req) => {
           missingInBp: missingInBp.length,
           extraInBp: extraInBp.length,
           valueMismatches: valueMismatches.length,
+          tx: {
+            fileLinesPaid: fileTxRows.length,
+            poolSize: txPool.length,
+            missing: txMissing.length,
+            mismatches: txValueMismatches.length,
+            extra: txExtra.length,
+          },
           sponsors: { missing: sponsorMissing.length, extra: sponsorExtra.length, mismatch: sponsorMismatch.length },
         },
         missingInBp,
         extraInBp,
         valueMismatches,
+        txMissing,
+        txValueMismatches,
+        txExtra,
         sponsorMissing,
         sponsorExtra,
         sponsorMismatch,

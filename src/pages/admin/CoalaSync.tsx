@@ -346,7 +346,16 @@ export default function CoalaSync() {
 // ─────────────────────────────────────────────────────────────────
 type DiffItem = {
   rowKey: string;
-  diffKind: "value_mismatch" | "new_row" | "removed_row" | "conflict" | "sponsor_mismatch" | "extra_in_bp";
+  diffKind:
+    | "value_mismatch"
+    | "new_row"
+    | "removed_row"
+    | "conflict"
+    | "sponsor_mismatch"
+    | "extra_in_bp"
+    | "tx_missing"
+    | "tx_value_mismatch"
+    | "tx_extra";
   description: string;
   fileAmount?: number | null;
   bpAmount?: number | null;
@@ -355,6 +364,7 @@ type DiffItem = {
   supplier?: string | null;
   bpDescription?: string | null;
   fuzzyScore?: number | null;
+  txIsPaid?: boolean;
   raw?: any;
 };
 
@@ -363,7 +373,7 @@ function buildDiffItems(run: Run | null): DiffItem[] {
   const items: DiffItem[] = [];
   const d = run.diff as any;
 
-  // 1. Diferenças de VALOR (XLSX vs BP) — vindo de apply-coala-bp phase=compare
+  // 1. BP — Diferenças de VALOR
   for (const m of d.valueMismatches ?? []) {
     items.push({
       rowKey: m.rowKey ?? `vm:${m.description}:${m.fileAmount}`,
@@ -379,8 +389,7 @@ function buildDiffItems(run: Run | null): DiffItem[] {
     });
   }
 
-  // 2. Linhas do XLSX que NÃO existem no BP (verdadeiras "linhas novas")
-  // Substitui xlsxVsState.new (que compara apenas ao snapshot vazio).
+  // 2. BP — Falta no BP
   for (const r of d.missingInBp ?? []) {
     items.push({
       rowKey: `miss:${r.description}:${r.netAmount}`,
@@ -393,7 +402,7 @@ function buildDiffItems(run: Run | null): DiffItem[] {
     });
   }
 
-  // 3. Linhas no BP que NÃO estão no ficheiro (extra no sistema)
+  // 3. BP — Extra no BP
   for (const r of d.extraInBp ?? []) {
     items.push({
       rowKey: `extra:${r.id}`,
@@ -404,7 +413,49 @@ function buildDiffItems(run: Run | null): DiffItem[] {
     });
   }
 
-  // 4. Conflitos do snapshot (overrides manuais que desapareceram do XLSX)
+  // 4. TX — Falta TX (XLSX marca pago/parcial mas não há TX)
+  for (const r of d.txMissing ?? []) {
+    items.push({
+      rowKey: `txmiss:${r.description}:${r.netAmount}`,
+      diffKind: "tx_missing",
+      description: r.description,
+      fileAmount: r.netAmount,
+      rowNumber: r.rowNumber ?? null,
+      supplier: r.supplier ?? null,
+      raw: r,
+    });
+  }
+
+  // 5. TX — Diferença de valor
+  for (const m of d.txValueMismatches ?? []) {
+    items.push({
+      rowKey: `txvm:${m.txId ?? m.description}:${m.fileAmount}`,
+      diffKind: "tx_value_mismatch",
+      description: m.description ?? "(sem descrição)",
+      fileAmount: m.fileAmount ?? null,
+      bpAmount: m.txAmount ?? null,
+      delta: m.delta ?? null,
+      bpDescription: m.txDescription ?? null,
+      fuzzyScore: m.fuzzyScore ?? null,
+      rowNumber: m.rowNumber ?? null,
+      txIsPaid: !!m.txIsPaid,
+      raw: m,
+    });
+  }
+
+  // 6. TX — Extra (TX no sistema sem linha equivalente no XLSX)
+  for (const r of d.txExtra ?? []) {
+    items.push({
+      rowKey: `txextra:${r.id}`,
+      diffKind: "tx_extra",
+      description: r.description,
+      bpAmount: r.amount,
+      txIsPaid: !!r.isPaid,
+      raw: r,
+    });
+  }
+
+  // 7. Conflitos manuais
   for (const r of d.xlsxVsState?.conflicts ?? []) {
     items.push({
       rowKey: r.rowKey,
@@ -414,7 +465,7 @@ function buildDiffItems(run: Run | null): DiffItem[] {
     });
   }
 
-  // 5. Patrocinadores
+  // 8. Patrocinadores
   for (const s of d.sponsors?.mismatch ?? []) {
     items.push({
       rowKey: `sp:${s.name ?? s.description}`,
@@ -430,12 +481,15 @@ function buildDiffItems(run: Run | null): DiffItem[] {
 }
 
 const kindLabel: Record<DiffItem["diffKind"], string> = {
-  value_mismatch: "Diferença de valor",
-  new_row: "Falta no BP",
+  value_mismatch: "BP — Δ valor",
+  new_row: "BP — Falta",
   removed_row: "Linha removida",
-  extra_in_bp: "Extra no BP",
+  extra_in_bp: "BP — Extra",
   conflict: "Conflito manual",
   sponsor_mismatch: "Patrocinador",
+  tx_missing: "TX — Falta",
+  tx_value_mismatch: "TX — Δ valor",
+  tx_extra: "TX — Extra",
 };
 
 const fmtMoney = (n: number | null | undefined) =>
@@ -666,7 +720,17 @@ function DecisionRow({
   return (
     <TableRow className={decision ? "opacity-90" : ""}>
       <TableCell>
-        <Badge variant="outline" className="text-[10px]">{kindLabel[item.diffKind]}</Badge>
+        <Badge
+          variant={
+            item.diffKind.startsWith("tx_") ? "secondary" : "outline"
+          }
+          className="text-[10px]"
+        >
+          {kindLabel[item.diffKind]}
+        </Badge>
+        {item.txIsPaid && (
+          <Badge variant="destructive" className="text-[9px] ml-1">liquidada</Badge>
+        )}
       </TableCell>
       <TableCell className="text-xs">
         <div className="font-medium">{item.description}</div>
@@ -674,7 +738,7 @@ function DecisionRow({
           {item.rowNumber != null && <span>XLSX linha {item.rowNumber}</span>}
           {item.supplier && <span>· {item.supplier}</span>}
           {item.bpDescription && item.bpDescription !== item.description && (
-            <span>· BP: <i>{item.bpDescription}</i></span>
+            <span>· {item.diffKind.startsWith("tx_") ? "TX" : "BP"}: <i>{item.bpDescription}</i></span>
           )}
           {item.fuzzyScore != null && <span>· match {(item.fuzzyScore * 100).toFixed(0)}%</span>}
         </div>
@@ -702,6 +766,10 @@ function DecisionRow({
           })()
         ) : item.diffKind === "extra_in_bp" ? (
           <span>{fmtMoney(item.bpAmount)} <span className="text-[10px] text-muted-foreground">(só no BP)</span></span>
+        ) : item.diffKind === "tx_extra" ? (
+          <span>{fmtMoney(item.bpAmount)} <span className="text-[10px] text-muted-foreground">(TX só no sistema)</span></span>
+        ) : item.diffKind === "tx_missing" ? (
+          <span className="text-[10px] text-muted-foreground italic">sem TX criada</span>
         ) : (
           fmtMoney(item.bpAmount)
         )}
