@@ -1,0 +1,53 @@
+-- ============================================================
+-- REVERTER NOTA DE REEMBOLSO R-006/2026 (Live)
+-- Volta ao estado "Aprovada" — pronto para "Gerar Transação para Pagamento"
+-- ============================================================
+-- Nota:        8f2e4926-fc7e-4bed-8295-531bb2062e34
+-- TX-mãe:      2d3cdef6-f7fc-4b18-86b9-18ae98a2ff0c (€124,89)
+-- 7 itens-filhos: ver IDs abaixo
+-- ============================================================
+
+BEGIN;
+
+-- 1) Reverter as 7 transações-filhas para 'approved'
+UPDATE public.transactions
+SET status='approved',
+    paid_amount=NULL,
+    payment_date=NULL,
+    updated_at=now()
+WHERE id IN (
+  '0c05c4c1-453d-406f-8da7-97b007dc6e70', -- Almoço Armazém MP
+  '4537d8d1-9b9d-4d02-86c5-aa0096e9fc70', -- Portagem volta
+  '9fe3be33-243b-475e-83ef-a9abd3df8779', -- Portagem ida
+  '97121cde-5d43-4038-a523-f5caea5451ae', -- Bolt
+  'fed3b437-51f5-441f-9175-3049e4a6f066', -- Pass Transporte
+  '213619ad-940a-4cc4-9b3f-d5d2bd36022b', -- Bolo aniversariante
+  '844c3bf5-a96b-46a9-ae17-05ad6c16ff8c'  -- Impressão mapas
+);
+
+-- 2) Voltar a nota a 'approved' e desvincular TX-mãe
+UPDATE public.reimbursement_notes
+SET status='approved',
+    payment_transaction_id=NULL,
+    paid_at=NULL,
+    updated_at=now()
+WHERE id='8f2e4926-fc7e-4bed-8295-531bb2062e34';
+
+-- 3) Eliminar a transação-mãe gerada (€124,89)
+DELETE FROM public.transactions
+WHERE id='2d3cdef6-f7fc-4b18-86b9-18ae98a2ff0c';
+
+-- 4) Verificação
+SELECT 'NOTA' AS tipo, code, status, payment_transaction_id::text AS payment_tx
+FROM public.reimbursement_notes WHERE code='R-006/2026'
+UNION ALL
+SELECT 'ITEM', t.id::text, t.status, t.paid_amount::text
+FROM public.transactions t
+JOIN public.reimbursement_note_items i ON i.transaction_id=t.id
+WHERE i.reimbursement_note_id='8f2e4926-fc7e-4bed-8295-531bb2062e34'
+UNION ALL
+SELECT 'TX-MAE', '2d3cdef6-f7fc-4b18-86b9-18ae98a2ff0c',
+       CASE WHEN EXISTS(SELECT 1 FROM public.transactions WHERE id='2d3cdef6-f7fc-4b18-86b9-18ae98a2ff0c')
+            THEN 'AINDA EXISTE' ELSE 'APAGADA' END, NULL;
+
+COMMIT;
