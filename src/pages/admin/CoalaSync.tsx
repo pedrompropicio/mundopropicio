@@ -682,7 +682,24 @@ function DecisionRow({
       <TableCell className="text-right text-xs">{fmtMoney(item.fileAmount)}</TableCell>
       <TableCell className="text-right text-xs">
         {item.diffKind === "new_row" ? (
-          <span className="text-muted-foreground italic">sem match no BP</span>
+          (() => {
+            const cands = (item.raw?.bpCandidates ?? []) as Array<{ id: string; description: string; amount: number; delta: number; fuzzyScore: number; hasTransaction: boolean }>;
+            if (!cands.length) return <span className="text-muted-foreground italic">sem candidatos</span>;
+            return (
+              <div className="space-y-1 text-left">
+                <div className="text-[10px] text-muted-foreground">Top {cands.length} no BP:</div>
+                {cands.map((c) => (
+                  <div key={c.id} className="text-[10px] leading-tight">
+                    <div className="truncate max-w-[260px]" title={c.description}>{c.description}</div>
+                    <div className="text-muted-foreground">
+                      {fmtMoney(c.amount)} · Δ {c.delta >= 0 ? "+" : ""}{c.delta.toFixed(2)} · {(c.fuzzyScore * 100).toFixed(0)}%
+                      {c.hasTransaction && <span className="ml-1 text-amber-500">· tem TX</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()
         ) : item.diffKind === "extra_in_bp" ? (
           <span>{fmtMoney(item.bpAmount)} <span className="text-[10px] text-muted-foreground">(só no BP)</span></span>
         ) : (
