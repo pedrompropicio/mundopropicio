@@ -31,17 +31,25 @@ Deno.serve(async (req) => {
     const auth = req.headers.get("Authorization");
     if (!auth) return json({ error: "Não autenticado" }, 401);
 
-    const userClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: auth } } },
-    );
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) return json({ error: "Sessão inválida" }, 401);
+    const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // Permite chamadas internas (ex.: sync-coala-from-drive) com service_role
+    const isServiceRole = auth === `Bearer ${SERVICE_ROLE}`;
+
+    let user: { id: string } | null = null;
+    if (!isServiceRole) {
+      const userClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: auth } } },
+      );
+      const { data: { user: u } } = await userClient.auth.getUser();
+      if (!u) return json({ error: "Sessão inválida" }, 401);
+      user = { id: u.id };
+    }
 
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      SERVICE_ROLE,
     );
 
     const body = await req.json();
@@ -55,13 +63,15 @@ Deno.serve(async (req) => {
       return json({ error: "fileBase64, fileVersion e eventId obrigatórios" }, 400);
     }
 
-    // Permissions: must be admin/manager/editor
-    const { data: roles } = await admin
-      .from("user_roles").select("role").eq("user_id", user.id);
-    const allowedRoles = new Set(["admin", "manager", "editor", "platform_admin"]);
-    const roleSet = new Set((roles ?? []).map((r: any) => r.role));
-    if (![...roleSet].some((r) => allowedRoles.has(r as string))) {
-      return json({ error: "Sem permissão para importar BP." }, 403);
+    // Permissions: must be admin/manager/editor (skip se service_role interno)
+    if (!isServiceRole) {
+      const { data: roles } = await admin
+        .from("user_roles").select("role").eq("user_id", user!.id);
+      const allowedRoles = new Set(["admin", "manager", "editor", "platform_admin"]);
+      const roleSet = new Set((roles ?? []).map((r: any) => r.role));
+      if (![...roleSet].some((r) => allowedRoles.has(r as string))) {
+        return json({ error: "Sem permissão para importar BP." }, 403);
+      }
     }
 
     const { data: ev, error: evErr } = await admin
@@ -675,7 +685,7 @@ Deno.serve(async (req) => {
         const { data: fc, error: fcErr } = await admin.from("event_forecasts").insert({
           company_id: ev.company_id, event_id: eventId, category_id: categoryId, type: "expense",
           description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
-          status: "approved", approved_at: new Date().toISOString(), approved_by: user.email ?? user.id,
+          status: "approved", approved_at: new Date().toISOString(), approved_by: user?.email ?? user?.id ?? "system:sync-coala",
           formalidade: formalidadeMap[r.formalidade] ?? "estimado",
           notes: [`Coala ${fileVersion} (RESET)`, r.invoiceRef ? `Fatura ${r.invoiceRef}` : null].filter(Boolean).join(" • "),
         }).select("id").single();
@@ -822,7 +832,7 @@ Deno.serve(async (req) => {
           deletedForecasts: (existingFcs || []).length, deletedTransactions: txIds.length,
           reconciliation },
         created_transaction_ids: createdTransactionIds, created_forecast_ids: createdForecastIds,
-        created_supplier_ids: newSupplierIds, applied_at: new Date().toISOString(), created_by: user.id,
+        created_supplier_ids: newSupplierIds, applied_at: new Date().toISOString(), created_by: user?.id ?? null,
       }).select("id").single();
 
       return json({
@@ -962,7 +972,7 @@ Deno.serve(async (req) => {
             iva_rate: r.ivaRate,
             status: "approved",
             approved_at: new Date().toISOString(),
-            approved_by: user.email ?? user.id,
+            approved_by: user?.email ?? user?.id ?? "system:sync-coala",
             formalidade: formalidadeMap[r.formalidade] ?? "estimado",
             notes: [
               `Coala ${fileVersion}`,
@@ -1075,7 +1085,7 @@ Deno.serve(async (req) => {
         created_forecast_ids: createdForecastIds,
         created_supplier_ids: newSupplierIds,
         applied_at: new Date().toISOString(),
-        created_by: user.id,
+        created_by: user?.id ?? null,
       })
       .select("id")
       .single();
