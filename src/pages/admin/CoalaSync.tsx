@@ -720,7 +720,17 @@ function DecisionRow({
   return (
     <TableRow className={decision ? "opacity-90" : ""}>
       <TableCell>
-        <Badge variant="outline" className="text-[10px]">{kindLabel[item.diffKind]}</Badge>
+        <Badge
+          variant={
+            item.diffKind.startsWith("tx_") ? "secondary" : "outline"
+          }
+          className="text-[10px]"
+        >
+          {kindLabel[item.diffKind]}
+        </Badge>
+        {item.txIsPaid && (
+          <Badge variant="destructive" className="text-[9px] ml-1">liquidada</Badge>
+        )}
       </TableCell>
       <TableCell className="text-xs">
         <div className="font-medium">{item.description}</div>
@@ -728,7 +738,7 @@ function DecisionRow({
           {item.rowNumber != null && <span>XLSX linha {item.rowNumber}</span>}
           {item.supplier && <span>· {item.supplier}</span>}
           {item.bpDescription && item.bpDescription !== item.description && (
-            <span>· BP: <i>{item.bpDescription}</i></span>
+            <span>· {item.diffKind.startsWith("tx_") ? "TX" : "BP"}: <i>{item.bpDescription}</i></span>
           )}
           {item.fuzzyScore != null && <span>· match {(item.fuzzyScore * 100).toFixed(0)}%</span>}
         </div>
@@ -756,6 +766,10 @@ function DecisionRow({
           })()
         ) : item.diffKind === "extra_in_bp" ? (
           <span>{fmtMoney(item.bpAmount)} <span className="text-[10px] text-muted-foreground">(só no BP)</span></span>
+        ) : item.diffKind === "tx_extra" ? (
+          <span>{fmtMoney(item.bpAmount)} <span className="text-[10px] text-muted-foreground">(TX só no sistema)</span></span>
+        ) : item.diffKind === "tx_missing" ? (
+          <span className="text-[10px] text-muted-foreground italic">sem TX criada</span>
         ) : (
           fmtMoney(item.bpAmount)
         )}
