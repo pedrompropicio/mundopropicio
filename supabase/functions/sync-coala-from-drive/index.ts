@@ -32,25 +32,38 @@ const json = (body: unknown, status = 200) =>
 // Google Drive: refresh token → access token → download bytes
 // ─────────────────────────────────────────────────────────────────
 async function getDriveAccessToken(): Promise<string> {
-  const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
-  const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
-  const refreshToken = Deno.env.get("GOOGLE_REFRESH_TOKEN");
-  if (!clientId || !clientSecret || !refreshToken) {
+  const credentialSets = [
+    ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN"],
+    ["GOOGLE_DRIVE_CLIENT_ID", "GOOGLE_DRIVE_CLIENT_SECRET", "GOOGLE_DRIVE_REFRESH_TOKEN"],
+    ["GOOGLE_CALENDAR_CLIENT_ID", "GOOGLE_CALENDAR_CLIENT_SECRET", "GOOGLE_CALENDAR_REFRESH_TOKEN"],
+  ] as const;
+
+  const attempts: string[] = [];
+  for (const [idName, secretName, refreshName] of credentialSets) {
+    const clientId = Deno.env.get(idName);
+    const clientSecret = Deno.env.get(secretName);
+    const refreshToken = Deno.env.get(refreshName);
+    if (!clientId || !clientSecret || !refreshToken) continue;
+
+    const r = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+        grant_type: "refresh_token",
+      }),
+    });
+    const payload = await r.json().catch(async () => ({ raw: await r.text() }));
+    if (r.ok && payload?.access_token) return payload.access_token as string;
+    attempts.push(`${idName}/${secretName}/${refreshName}: ${r.status} ${payload?.error ?? "erro"}`);
+  }
+
+  if (attempts.length === 0) {
     throw new Error("Secrets do Google Drive em falta (GOOGLE_CLIENT_ID/SECRET/REFRESH_TOKEN).");
   }
-  const r = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-      grant_type: "refresh_token",
-    }),
-  });
-  if (!r.ok) throw new Error(`Falha a obter access_token Google (${r.status}): ${await r.text()}`);
-  const j = await r.json();
-  return j.access_token as string;
+  throw new Error(`Falha a obter access_token Google. Tentativas: ${attempts.join("; ")}`);
 }
 
 function extractDriveFileId(input: string): string {
@@ -134,6 +147,8 @@ Deno.serve(async (req) => {
   const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 
   try {
+    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+
     const cronSecretHdr = req.headers.get("x-cron-secret");
     const expectedCronSecret = Deno.env.get("COALA_SYNC_CRON_SECRET");
     const isCron = !!expectedCronSecret && cronSecretHdr === expectedCronSecret;
@@ -159,7 +174,6 @@ Deno.serve(async (req) => {
     }
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const { configId, mode = "dry_run", basedOnRunId } = body ?? {};
     const triggeredBy = isCron ? "cron" : (body?.triggeredBy ?? "manual");
     if (!["dry_run", "apply"].includes(mode)) return json({ error: "mode inválido" }, 400);
