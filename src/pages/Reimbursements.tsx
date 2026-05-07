@@ -194,7 +194,7 @@ export default function Reimbursements() {
                       {statusLabels[note.status] || note.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right font-mono">{formatCurrency(Number(note.total_amount))}</TableCell>
+                  <TableCell className="text-right font-mono">{formatCurrency(Number(note.gross_total ?? note.total_amount))}</TableCell>
                   <TableCell>
                     <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                       <button onClick={() => setSelectedNoteId(note.id)} className="p-1 rounded hover:bg-secondary transition-colors">
