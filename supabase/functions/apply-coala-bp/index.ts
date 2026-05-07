@@ -274,6 +274,7 @@ Deno.serve(async (req) => {
       }
 
       // PASSO 2: linhas que sobraram (sem match agregado)
+      const pendingFile: ParsedRow[] = [];
       for (const r of fileRows) {
         const k = `${normTxt(r.description)}|${moneyKey(r.netAmount)}`;
         if (matchedFileKeys.has(k)) continue;
@@ -315,6 +316,66 @@ Deno.serve(async (req) => {
             fuzzyScore: +bestF.score.toFixed(2),
           });
           matchedBpIds.add(bestF.f.id);
+        } else {
+          pendingFile.push(r);
+        }
+      }
+
+      // PASSO 2.5: match por VALOR EXATO entre file rows pendentes e BP rows
+      // ainda não matched. Se o valor bate (±0,01€) e o candidato é único,
+      // é a mesma rubrica apenas com nome alterado (rename) → valueMismatch
+      // com delta=0 e fuzzy baixo, em vez de "Falta no BP".
+      // Cobre casos como "Mídia atualizada em 5/5" 8 192,36 € que no BP
+      // existe como "Mídia / Facebook Ads" 8 192,36 €.
+      for (const r of pendingFile) {
+        const target = moneyKey(r.netAmount);
+        const candidates = bpRows.filter(
+          (f) => !matchedBpIds.has(f.id) && moneyKey(Number(f.amount) || 0) === target,
+        );
+        if (candidates.length === 1) {
+          const best = candidates[0];
+          valueMismatches.push({
+            description: r.description,
+            bpDescription: best.description,
+            fileAmount: r.netAmount,
+            bpAmount: Number(best.amount) || 0,
+            delta: 0,
+            rowNumber: r.rowNumber,
+            bpId: best.id,
+            fuzzyScore: +dice(r.description, best.description).toFixed(2),
+            renameOnly: true,
+          });
+          matchedBpIds.add(best.id);
+        } else if (candidates.length > 1) {
+          // ambíguo (vários BP com mesmo valor): emparelha pelo melhor Dice
+          let pick: any = null;
+          let pickScore = -1;
+          for (const f of candidates) {
+            const s = dice(r.description, f.description);
+            if (s > pickScore) { pick = f; pickScore = s; }
+          }
+          if (pick) {
+            valueMismatches.push({
+              description: r.description,
+              bpDescription: pick.description,
+              fileAmount: r.netAmount,
+              bpAmount: Number(pick.amount) || 0,
+              delta: 0,
+              rowNumber: r.rowNumber,
+              bpId: pick.id,
+              fuzzyScore: +pickScore.toFixed(2),
+              renameOnly: true,
+              ambiguous: candidates.length,
+            });
+            matchedBpIds.add(pick.id);
+          } else {
+            missingInBp.push({
+              rowNumber: r.rowNumber,
+              description: r.description,
+              supplier: r.supplier,
+              netAmount: r.netAmount,
+            });
+          }
         } else {
           missingInBp.push({
             rowNumber: r.rowNumber,
