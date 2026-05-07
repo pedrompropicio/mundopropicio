@@ -120,6 +120,17 @@ const norm = (s: string): string =>
   String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .toLowerCase().replace(/\s+/g, " ").trim();
 
+const jwtRole = (authHeader: string | null): string | null => {
+  const token = authHeader?.replace(/^Bearer\s+/i, "") ?? "";
+  const payload = token.split(".")[1];
+  if (!payload) return null;
+  try {
+    return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")))?.role ?? null;
+  } catch {
+    return null;
+  }
+};
+
 const moneyKey = (n: number) => Math.round((Number(n) || 0) * 100);
 
 // row_key estável: descrição+valor+data+fornecedor+invoice
@@ -152,7 +163,7 @@ Deno.serve(async (req) => {
     const cronSecretHdr = req.headers.get("x-cron-secret");
     const expectedCronSecret = Deno.env.get("COALA_SYNC_CRON_SECRET");
     const auth = req.headers.get("Authorization");
-    const isServiceRole = auth === `Bearer ${SERVICE_ROLE}`;
+    const isServiceRole = auth === `Bearer ${SERVICE_ROLE}` || jwtRole(auth) === "service_role";
     const isCron = !!expectedCronSecret && cronSecretHdr === expectedCronSecret;
 
     // Auth: cron OU JWT de utilizador privilegiado
