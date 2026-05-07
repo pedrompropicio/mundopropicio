@@ -184,6 +184,10 @@ export function TransactionPaymentModal({ transaction, onClose }: Props) {
 
   const paymentMutation = useMutation({
     mutationFn: async () => {
+      // Guarda: reembolsos só podem ser liquidados via Nota de Reembolso
+      if (transaction.is_reimbursement) {
+        throw new Error("Esta transação é um reembolso. Liquide-a através da respetiva Nota de Reembolso.");
+      }
       // Snapshot before payment for undo
       const undoSnapshot = {
         previousStatus: transaction.status ?? "approved",
