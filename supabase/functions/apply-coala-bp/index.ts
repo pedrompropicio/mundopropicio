@@ -337,6 +337,33 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Enriquecer "missingInBp" com Top-3 candidatos do BP por proximidade
+      // (valor ±20% OU dice ≥ 0.45) — ajuda a decidir se é nova rubrica ou só
+      // mudança de nome / descrição. Usa apenas BP rows ainda não matched.
+      const unmatchedBp = bpRows.filter((f) => !matchedBpIds.has(f.id));
+      for (const m of missingInBp) {
+        const target = Number(m.netAmount) || 0;
+        const scored = unmatchedBp.map((f) => {
+          const amt = Number(f.amount) || 0;
+          const valueDelta = Math.abs(amt - target);
+          const valueRatio = target > 0 ? valueDelta / target : 1;
+          const descScore = dice(m.description, f.description);
+          // score combinado: peso 60% descrição + 40% proximidade de valor
+          const valueScore = valueRatio <= 0.20 ? 1 - valueRatio / 0.20 : 0;
+          const combined = descScore * 0.6 + valueScore * 0.4;
+          return { f, descScore, valueDelta, valueRatio, combined };
+        }).filter((x) => x.descScore >= 0.30 || x.valueRatio <= 0.20);
+        scored.sort((a, b) => b.combined - a.combined);
+        m.bpCandidates = scored.slice(0, 3).map((x) => ({
+          id: x.f.id,
+          description: x.f.description,
+          amount: Number(x.f.amount) || 0,
+          delta: +(target - (Number(x.f.amount) || 0)).toFixed(2),
+          fuzzyScore: +x.descScore.toFixed(2),
+          hasTransaction: !!x.f.transaction_id,
+        }));
+      }
+
       // Sponsors compare (Pipe sheet vs current sponsorship_pipeline)
       const { data: existingSponsors } = await admin
         .from("sponsorship_pipeline")
