@@ -142,6 +142,7 @@ export default function Reimbursements() {
             { value: "all", label: "Todas" },
             { value: "draft", label: "Rascunho" },
             { value: "approved", label: "Aprovadas" },
+            { value: "pending_payment", label: "Aguarda Pagamento" },
             { value: "paid", label: "Pagas" },
           ].map((opt) => (
             <button
