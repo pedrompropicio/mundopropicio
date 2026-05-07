@@ -11,12 +11,35 @@ export async function exportNodeToPdf(
   opts: { orientation?: "p" | "l"; title?: string } = {},
 ) {
   const orientation = opts.orientation ?? "l";
+  // Capture the node honoring its real background colour (so dark theme stays dark)
+  // and walk up the DOM to find a non-transparent ancestor as fallback.
+  const resolveBg = (el: HTMLElement | null): string => {
+    let cur: HTMLElement | null = el;
+    while (cur) {
+      const bg = getComputedStyle(cur).backgroundColor;
+      if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") return bg;
+      cur = cur.parentElement;
+    }
+    return "#ffffff";
+  };
+  const bg = resolveBg(node);
   const canvas = await html2canvas(node, {
-    scale: 2,
-    backgroundColor: "#ffffff",
+    scale: 3,
+    backgroundColor: bg,
     useCORS: true,
     logging: false,
     windowWidth: node.scrollWidth,
+    onclone: (doc) => {
+      // Force-disable backdrop filters which html2canvas doesn't render and
+      // which produce washed-out captures of glass cards.
+      doc.querySelectorAll<HTMLElement>("*").forEach((el) => {
+        const cs = doc.defaultView?.getComputedStyle(el);
+        if (cs && (cs.backdropFilter !== "none" || (cs as any).webkitBackdropFilter !== "none")) {
+          el.style.backdropFilter = "none";
+          (el.style as any).webkitBackdropFilter = "none";
+        }
+      });
+    },
   });
 
   const pdf = new jsPDF(orientation, "mm", "a4");
