@@ -1151,6 +1151,63 @@ export type Database = {
           },
         ]
       }
+      coala_sync_decisions: {
+        Row: {
+          company_id: string | null
+          config_id: string
+          custom_amount: number | null
+          decided_at: string
+          decided_by: string | null
+          decision: string
+          diff_kind: string
+          id: string
+          notes: string | null
+          row_key: string
+          run_id: string
+        }
+        Insert: {
+          company_id?: string | null
+          config_id: string
+          custom_amount?: number | null
+          decided_at?: string
+          decided_by?: string | null
+          decision: string
+          diff_kind: string
+          id?: string
+          notes?: string | null
+          row_key: string
+          run_id: string
+        }
+        Update: {
+          company_id?: string | null
+          config_id?: string
+          custom_amount?: number | null
+          decided_at?: string
+          decided_by?: string | null
+          decision?: string
+          diff_kind?: string
+          id?: string
+          notes?: string | null
+          row_key?: string
+          run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coala_sync_decisions_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "coala_sync_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coala_sync_decisions_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "coala_sync_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coala_sync_row_state: {
         Row: {
           config_id: string
