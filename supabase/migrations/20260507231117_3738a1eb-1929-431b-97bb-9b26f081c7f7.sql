@@ -1,0 +1,2 @@
+UPDATE public.event_ticket_zones SET total_capacity = 519, updated_at = now() WHERE id = '1d38002b-4412-4553-967b-c0779ec26aad';
+UPDATE public.event_ticket_zones SET total_capacity = 83, updated_at = now() WHERE id = 'fed72d2b-34ad-441b-a116-660c23c2ea11';
