@@ -474,19 +474,15 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
           {supplierData && (
             <SupplierBankDetails supplier={supplierData} defaultExpanded />
           )}
-          <SearchableSelect
-            options={accounts.map((a: any) => ({ value: a.id, label: a.name }))}
-            value={paymentAccountId}
-            onValueChange={setPaymentAccountId}
-            placeholder="Conta bancária de saída…"
-            searchPlaceholder="Pesquisar conta…"
-          />
+          <p className="text-[11px] text-muted-foreground">
+            A conta bancária de saída será escolhida no momento da liquidação da transação.
+          </p>
           <div className="flex gap-2">
             <Button size="sm" variant="ghost" onClick={() => setShowPayConfirm(false)}>Cancelar</Button>
             <Button
               size="sm"
               onClick={() => payMutation.mutate()}
-              disabled={!paymentAccountId || payMutation.isPending}
+              disabled={payMutation.isPending}
             >
               {payMutation.isPending ? "A gerar…" : "Gerar Transação"}
             </Button>
