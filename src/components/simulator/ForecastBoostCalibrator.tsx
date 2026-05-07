@@ -7,9 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,11 +30,8 @@ type CalibrationRow = {
 };
 
 type Props = {
-  /** Evento atual — excluído da lista de candidatos. */
   currentEventId?: string | null;
-  /** Janela atualmente configurada (default 30). */
   defaultWindowDays?: number;
-  /** Callback quando o utilizador aplica um valor calibrado. */
   onApply: (boost: number, windowDays: number) => void;
 };
 
@@ -46,13 +41,12 @@ export function ForecastBoostCalibrator({
   onApply,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [refEventId, setRefEventId] = useState<string>("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [windowDays, setWindowDays] = useState<number>(defaultWindowDays);
-  const [result, setResult] = useState<CalibrationRow | null>(null);
+  const [results, setResults] = useState<CalibrationRow[]>([]);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Lista de eventos com vendas datadas (>= 14 dias distintos)
   const { data: candidates, isLoading } = useQuery({
     queryKey: ["forecast-calibrator-candidates"],
     enabled: open,
@@ -80,24 +74,31 @@ export function ForecastBoostCalibrator({
 
   useEffect(() => {
     if (!open) {
-      setResult(null);
+      setResults([]);
       setError(null);
+      setSelectedIds([]);
     }
   }, [open]);
 
+  function toggleId(id: string) {
+    setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  }
+
   async function runCalibration() {
-    if (!refEventId) return;
+    if (selectedIds.length === 0) return;
     setRunning(true);
     setError(null);
-    setResult(null);
+    setResults([]);
     try {
-      const { data, error } = await supabase.rpc("calibrate_forecast_boost", {
-        p_event_id: refEventId,
-        p_window_days: windowDays,
-      });
-      if (error) throw error;
-      const row = Array.isArray(data) ? data[0] : data;
-      setResult(row as CalibrationRow);
+      const rows = await Promise.all(selectedIds.map(async (id) => {
+        const { data, error } = await supabase.rpc("calibrate_forecast_boost", {
+          p_event_id: id,
+          p_window_days: windowDays,
+        });
+        if (error) throw error;
+        return (Array.isArray(data) ? data[0] : data) as CalibrationRow;
+      }));
+      setResults(rows.filter(Boolean));
     } catch (e: any) {
       setError(e?.message ?? "Erro ao calibrar");
     } finally {
@@ -105,10 +106,24 @@ export function ForecastBoostCalibrator({
     }
   }
 
-  const canApply = useMemo(
-    () => !!result && typeof result.observed_boost === "number" && result.observed_boost > 0,
-    [result],
+  const validResults = useMemo(
+    () => results.filter((r) => typeof r.observed_boost === "number" && (r.observed_boost ?? 0) > 0),
+    [results],
   );
+
+  // Média ponderada por total_qty
+  const aggregate = useMemo(() => {
+    if (validResults.length === 0) return null;
+    const totalWeight = validResults.reduce((s, r) => s + (r.total_qty || 0), 0);
+    if (totalWeight <= 0) {
+      const avg = validResults.reduce((s, r) => s + (r.observed_boost ?? 0), 0) / validResults.length;
+      return { boost: avg, mode: "média simples" as const };
+    }
+    const weighted = validResults.reduce((s, r) => s + ((r.observed_boost ?? 0) * (r.total_qty || 0)), 0) / totalWeight;
+    return { boost: weighted, mode: "ponderada por volume" as const };
+  }, [validResults]);
+
+  const canApply = !!aggregate && aggregate.boost > 0;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -118,38 +133,41 @@ export function ForecastBoostCalibrator({
           Calibrar a partir de evento…
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Calibrar boost da reta final</DialogTitle>
           <DialogDescription>
-            Calcula o multiplicador real a partir das vendas datadas de um evento de referência.
+            Seleciona um ou mais eventos de referência. Com vários, é calculada a <strong>média ponderada por volume de vendas</strong>.
             <br />
             <span className="text-xs">
-              Fórmula: <code>boost = velocidade média nos últimos N dias ÷ velocidade média nos dias anteriores</code>
+              Fórmula por evento: <code>boost = vel. últimos N dias ÷ vel. dias anteriores</code>
             </span>
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Evento de referência</Label>
-            <Select value={refEventId} onValueChange={setRefEventId}>
-              <SelectTrigger>
-                <SelectValue placeholder={isLoading ? "A carregar…" : "Escolhe um evento com vendas datadas"} />
-              </SelectTrigger>
-              <SelectContent className="max-h-72">
-                {(candidates ?? []).length === 0 && !isLoading && (
-                  <div className="p-3 text-xs text-muted-foreground">
-                    Nenhum evento com pelo menos 14 dias de vendas datadas.
-                  </div>
-                )}
-                {(candidates ?? []).map((e) => (
-                  <SelectItem key={e.id} value={e.id}>
-                    {e.name} {e.date ? `· ${e.date}` : ""} · {e.distinctDays} dias com venda
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Eventos de referência ({selectedIds.length} selecionado{selectedIds.length === 1 ? "" : "s"})</Label>
+            <div className="rounded-md border max-h-60 overflow-y-auto divide-y">
+              {isLoading && <div className="p-3 text-xs text-muted-foreground">A carregar…</div>}
+              {!isLoading && (candidates ?? []).length === 0 && (
+                <div className="p-3 text-xs text-muted-foreground">
+                  Nenhum evento com pelo menos 14 dias de vendas datadas.
+                </div>
+              )}
+              {(candidates ?? []).map((e) => {
+                const checked = selectedIds.includes(e.id);
+                return (
+                  <label key={e.id} className="flex items-center gap-2 p-2 hover:bg-muted/50 cursor-pointer text-sm">
+                    <Checkbox checked={checked} onCheckedChange={() => toggleId(e.id)} />
+                    <span className="flex-1 truncate">
+                      {e.name} {e.date ? <span className="text-muted-foreground">· {e.date}</span> : ""}
+                    </span>
+                    <Badge variant="outline" className="text-[10px]">{e.distinctDays}d</Badge>
+                  </label>
+                );
+              })}
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -165,11 +183,11 @@ export function ForecastBoostCalibrator({
 
           <Button
             onClick={runCalibration}
-            disabled={!refEventId || running}
+            disabled={selectedIds.length === 0 || running}
             className="w-full gap-2"
           >
             {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            Calcular boost observado
+            Calcular boost {selectedIds.length > 1 ? `(${selectedIds.length} eventos)` : "observado"}
           </Button>
 
           {error && (
@@ -179,39 +197,41 @@ export function ForecastBoostCalibrator({
             </Alert>
           )}
 
-          {result && (
-            <div className="rounded-md border bg-card p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold">{result.event_name}</div>
-                <Badge variant="outline">{result.event_date ?? "sem data"}</Badge>
-              </div>
+          {results.length > 0 && (
+            <div className="space-y-3">
+              {results.map((r) => {
+                const ok = typeof r.observed_boost === "number" && (r.observed_boost ?? 0) > 0;
+                return (
+                  <div key={r.event_id} className="rounded-md border bg-card p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-semibold truncate">{r.event_name}</div>
+                      <Badge variant={ok ? "default" : "outline"}>
+                        {ok ? `${fmtNum(r.observed_boost ?? 0)}×` : "n/a"}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5 text-[11px]">
+                      <Cell label="Vendido" value={fmtInt(r.total_qty)} />
+                      <Cell label="Vel. base" value={fmtNum(r.base_velocity)} />
+                      <Cell label="Vel. final" value={fmtNum(r.final_velocity)} />
+                    </div>
+                    {!ok && r.warning && (
+                      <p className="text-[11px] text-muted-foreground">{r.warning}</p>
+                    )}
+                  </div>
+                );
+              })}
 
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <Cell label="Total vendido" value={fmtInt(result.total_qty)} />
-                <Cell label="1ª venda" value={result.first_sale_date ?? "—"} />
-                <Cell label="Última venda" value={result.last_sale_date ?? "—"} />
-                <Cell label="Dias de venda base" value={String(result.base_window_days)} />
-                <Cell label="Vel. base (qty/dia)" value={fmtNum(result.base_velocity)} />
-                <Cell label="Vel. reta final (qty/dia)" value={fmtNum(result.final_velocity)} />
-              </div>
-
-              {canApply ? (
+              {aggregate && (
                 <div className="flex items-center justify-between rounded-md bg-primary/10 px-3 py-2">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-primary" />
                     <span className="text-sm">
-                      Boost observado: <strong>{fmtNum(result.observed_boost ?? 0)}×</strong>
-                      {" "}({fmtPct((result.observed_boost ?? 1) - 1)})
+                      Boost {validResults.length > 1 ? `(${aggregate.mode})` : "observado"}:{" "}
+                      <strong>{fmtNum(aggregate.boost)}×</strong>{" "}
+                      ({fmtPct(aggregate.boost - 1)})
                     </span>
                   </div>
                 </div>
-              ) : (
-                <Alert>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription className="text-xs">
-                    {result.warning || "Sem dados suficientes para calcular boost. Tenta um evento com vendas antes e dentro da janela."}
-                  </AlertDescription>
-                </Alert>
               )}
             </div>
           )}
@@ -222,8 +242,8 @@ export function ForecastBoostCalibrator({
           <Button
             disabled={!canApply}
             onClick={() => {
-              if (result?.observed_boost) {
-                onApply(Number(result.observed_boost), result.window_days);
+              if (aggregate) {
+                onApply(Number(aggregate.boost), windowDays);
                 setOpen(false);
               }
             }}
@@ -238,9 +258,9 @@ export function ForecastBoostCalibrator({
 
 function Cell({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded bg-muted/40 px-2 py-1.5">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="font-mono text-sm">{value}</div>
+    <div className="rounded bg-muted/40 px-2 py-1">
+      <div className="text-[9px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="font-mono text-xs">{value}</div>
     </div>
   );
 }
