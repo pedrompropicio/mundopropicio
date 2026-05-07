@@ -428,7 +428,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
         )}
         {canPay && !showPayConfirm && (
           <Button size="sm" variant="default" onClick={() => setShowPayConfirm(true)}>
-            <CreditCard className="mr-1.5 h-3.5 w-3.5" /> Pagar Reembolso
+            <CreditCard className="mr-1.5 h-3.5 w-3.5" /> Gerar Transação para Pagamento
           </Button>
         )}
       </div>
