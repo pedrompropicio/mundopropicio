@@ -5,6 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const DRIVE_GATEWAY_URL = "https://connector-gateway.lovable.dev/google_drive/drive/v3";
+
 function json(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -85,6 +87,26 @@ async function getGoogleAccessToken() {
   return tokenBody.access_token as string;
 }
 
+async function probeDriveViaConnectorGateway() {
+  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+  const driveApiKey = Deno.env.get("GOOGLE_DRIVE_API_KEY");
+  if (!lovableApiKey || !driveApiKey) return null;
+
+  const driveRes = await fetch(`${DRIVE_GATEWAY_URL}/files?pageSize=1&fields=files(id,name,mimeType),nextPageToken`, {
+    headers: {
+      Authorization: `Bearer ${lovableApiKey}`,
+      "X-Connection-Api-Key": driveApiKey,
+    },
+  });
+
+  const driveBody = await driveRes.json().catch(() => ({}));
+  if (!driveRes.ok) {
+    throw new Error(`Google Drive gateway failed [${driveRes.status}]: ${JSON.stringify(driveBody)}`);
+  }
+
+  return driveBody;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -97,19 +119,26 @@ Deno.serve(async (req) => {
 
     await assertPrivilegedCaller(req);
 
-    const accessToken = await getGoogleAccessToken();
-    const driveRes = await fetch("https://www.googleapis.com/drive/v3/files?pageSize=1&fields=files(id,name,mimeType),nextPageToken", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const gatewayBody = await probeDriveViaConnectorGateway();
+    let auth = "connector_gateway";
+    let driveBody = gatewayBody;
 
-    const driveBody = await driveRes.json().catch(() => ({}));
-    if (!driveRes.ok) {
-      throw new Error(`Google Drive API failed [${driveRes.status}]: ${JSON.stringify(driveBody)}`);
+    if (!driveBody) {
+      auth = "manual_google_oauth";
+      const accessToken = await getGoogleAccessToken();
+      const driveRes = await fetch("https://www.googleapis.com/drive/v3/files?pageSize=1&fields=files(id,name,mimeType),nextPageToken", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      driveBody = await driveRes.json().catch(() => ({}));
+      if (!driveRes.ok) {
+        throw new Error(`Google Drive API failed [${driveRes.status}]: ${JSON.stringify(driveBody)}`);
+      }
     }
 
     return json({
       ok: true,
-      auth: "manual_google_oauth",
+      auth,
       env: envStatus(),
       fileCountSample: Array.isArray(driveBody.files) ? driveBody.files.length : 0,
       firstFile: Array.isArray(driveBody.files) && driveBody.files[0]
