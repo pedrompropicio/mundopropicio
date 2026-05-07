@@ -149,15 +149,6 @@ Deno.serve(async (req) => {
   try {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
 
-    if (body?.diagnostic === "google_auth") {
-      try {
-        await getDriveAccessToken();
-        return json({ ok: true, googleAuth: "valid" });
-      } catch (err) {
-        return json({ ok: false, googleAuth: "invalid", error: err instanceof Error ? err.message : "Erro inesperado" }, 500);
-      }
-    }
-
     const cronSecretHdr = req.headers.get("x-cron-secret");
     const expectedCronSecret = Deno.env.get("COALA_SYNC_CRON_SECRET");
     const isCron = !!expectedCronSecret && cronSecretHdr === expectedCronSecret;
