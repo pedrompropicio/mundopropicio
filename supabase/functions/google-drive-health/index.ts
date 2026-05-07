@@ -85,7 +85,8 @@ Deno.serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    if (url.searchParams.get("diagnostic") === "env") {
+    const diagnosticBody = await req.clone().json().catch(() => ({}));
+    if (url.searchParams.get("diagnostic") === "env" || diagnosticBody?.diagnostic === "env") {
       return json({ ok: true, env: envStatus() });
     }
 
