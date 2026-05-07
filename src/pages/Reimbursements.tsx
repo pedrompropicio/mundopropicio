@@ -60,10 +60,17 @@ export default function Reimbursements() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("reimbursement_notes")
-        .select("*")
+        .select("*, reimbursement_note_items(transactions(amount, iva_rate))")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      return (data || []).map((n: any) => {
+        const gross = (n.reimbursement_note_items || []).reduce(
+          (s: number, it: any) =>
+            s + Number(it.transactions?.amount || 0) * (1 + Number(it.transactions?.iva_rate || 0) / 100),
+          0,
+        );
+        return { ...n, gross_total: gross };
+      });
     },
   });
 
@@ -173,7 +180,7 @@ export default function Reimbursements() {
                 <TableHead>Código</TableHead>
                 <TableHead>Funcionário</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-right">Total <span className="text-[10px] font-normal text-muted-foreground">(c/ IVA)</span></TableHead>
                 <TableHead className="w-[100px]" />
               </TableRow>
             </TableHeader>
@@ -187,7 +194,7 @@ export default function Reimbursements() {
                       {statusLabels[note.status] || note.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right font-mono">{formatCurrency(Number(note.total_amount))}</TableCell>
+                  <TableCell className="text-right font-mono">{formatCurrency(Number(note.gross_total ?? note.total_amount))}</TableCell>
                   <TableCell>
                     <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                       <button onClick={() => setSelectedNoteId(note.id)} className="p-1 rounded hover:bg-secondary transition-colors">
