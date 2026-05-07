@@ -522,9 +522,48 @@ function DiffReviewDialog({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
               <div><b>Início:</b> {new Date(run.started_at).toLocaleString("pt-PT")}</div>
               <div><b>Estado:</b> <Badge variant={statusColor(run.status) as any}>{run.status}</Badge></div>
-              <div><b>Linhas:</b> {run.total_rows ?? "—"}</div>
+              <div><b>Linhas (XLSX):</b> {run.total_rows ?? "—"}</div>
               <div><b>Pendentes:</b> {pending.length} / {items.length}</div>
             </div>
+
+            {/* Totais comparativos Ficheiro vs BP (vindos de apply-coala-bp phase=compare) */}
+            {(() => {
+              const s = (run.diff as any)?.xlsxVsBp;
+              if (!s?.file || !s?.bp) return null;
+              return (
+                <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                  <div className="font-medium mb-2">Comparativo Ficheiro (Base Custos col. L) vs BP do evento</div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                      <div className="text-xs text-muted-foreground">Ficheiro XLSX</div>
+                      <div>{s.file.lines} linhas · <b>{fmtMoney(s.file.net)}</b></div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">BP do sistema (despesa)</div>
+                      <div>{s.bp.lines} linhas · <b>{fmtMoney(s.bp.net)}</b></div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Δ (BP − Ficheiro)</div>
+                      <div className={s.delta?.net > 0 ? "text-emerald-500" : s.delta?.net < 0 ? "text-destructive" : ""}>
+                        {s.delta?.lines} linhas · <b>{fmtMoney(s.delta?.net)}</b>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground">Diferenças</div>
+                      <div className="text-xs">
+                        Falta no BP: <b>{s.missingInBp ?? 0}</b> · Extra no BP: <b>{s.extraInBp ?? 0}</b> · Valor: <b>{s.valueMismatches ?? 0}</b>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Coluna L do XLSX = "Valor Total s/ IVA" (chave de match contra <i>event_forecasts.amount</i>).
+                    Coluna N = "Status PGT" (informativo — usado no apply para liquidar transações).
+                  </p>
+                </div>
+              );
+            })()}
+
+
 
             {run.error_message && (
               <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
