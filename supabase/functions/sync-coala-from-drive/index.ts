@@ -147,6 +147,17 @@ Deno.serve(async (req) => {
   const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 
   try {
+    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+
+    if (body?.diagnostic === "google_auth") {
+      try {
+        await getDriveAccessToken();
+        return json({ ok: true, googleAuth: "valid" });
+      } catch (err) {
+        return json({ ok: false, googleAuth: "invalid", error: err instanceof Error ? err.message : "Erro inesperado" }, 500);
+      }
+    }
+
     const cronSecretHdr = req.headers.get("x-cron-secret");
     const expectedCronSecret = Deno.env.get("COALA_SYNC_CRON_SECRET");
     const isCron = !!expectedCronSecret && cronSecretHdr === expectedCronSecret;
@@ -172,7 +183,6 @@ Deno.serve(async (req) => {
     }
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     const { configId, mode = "dry_run", basedOnRunId } = body ?? {};
     const triggeredBy = isCron ? "cron" : (body?.triggeredBy ?? "manual");
     if (!["dry_run", "apply"].includes(mode)) return json({ error: "mode inválido" }, 400);
