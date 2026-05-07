@@ -774,8 +774,18 @@ export default function Transactions() {
       toast({ title: "Selecione transações aprovadas para liquidar", variant: "destructive" });
       return;
     }
-    // Validate that all selected transactions share the same invoice_ref (or all empty)
     const selectedTxs = transactions.filter((t: any) => ids.includes(t.id));
+    // Bloquear reembolsos: só podem ser liquidados via Nota de Reembolso
+    const reimbInSel = selectedTxs.filter((t: any) => t.is_reimbursement);
+    if (reimbInSel.length > 0) {
+      toast({
+        title: "Reembolsos não podem ser liquidados aqui",
+        description: `${reimbInSel.length} transação(ões) marcada(s) como reembolso. Liquide-as através da respetiva Nota de Reembolso.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    // Validate that all selected transactions share the same invoice_ref (or all empty)
     const refs = new Set(selectedTxs.map((t: any) => (t.invoice_ref ?? "").trim()));
     if (refs.size > 1) {
       const list = [...refs].map((r) => r || "(sem fatura)").join(", ");
