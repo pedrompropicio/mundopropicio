@@ -14,21 +14,29 @@ d2 AS (
   INSERT INTO event_dates (event_id, date, label, company_id)
   SELECT event_id, '2024-06-02', 'Dia 2', company_id FROM d1 RETURNING id, event_id, company_id
 ),
+s1 AS (
+  INSERT INTO event_sessions (event_id, date, label, sort_order, company_id)
+  SELECT event_id, '2024-06-01', 'Dia 1', 1, company_id FROM d1 RETURNING id, event_id, company_id
+),
+s2 AS (
+  INSERT INTO event_sessions (event_id, date, label, sort_order, company_id)
+  SELECT event_id, '2024-06-02', 'Dia 2', 2, company_id FROM d2 RETURNING id, event_id, company_id
+),
 z_gd1 AS (
   INSERT INTO event_ticket_zones (event_id, name, total_capacity, session_id, company_id)
-  SELECT event_id, 'Relvado — Dia 1', 6139, id, company_id FROM d1 RETURNING id
+  SELECT event_id, 'Relvado — Dia 1', 6139, id, company_id FROM s1 RETURNING id
 ),
 z_gd2 AS (
   INSERT INTO event_ticket_zones (event_id, name, total_capacity, session_id, company_id)
-  SELECT event_id, 'Relvado — Dia 2', 5979, id, company_id FROM d2 RETURNING id
+  SELECT event_id, 'Relvado — Dia 2', 5979, id, company_id FROM s2 RETURNING id
 ),
 z_vd1 AS (
   INSERT INTO event_ticket_zones (event_id, name, total_capacity, session_id, company_id)
-  SELECT event_id, 'VIP — Dia 1', 412, id, company_id FROM d1 RETURNING id
+  SELECT event_id, 'VIP — Dia 1', 412, id, company_id FROM s1 RETURNING id
 ),
 z_vd2 AS (
   INSERT INTO event_ticket_zones (event_id, name, total_capacity, session_id, company_id)
-  SELECT event_id, 'VIP — Dia 2', 477, id, company_id FROM d2 RETURNING id
+  SELECT event_id, 'VIP — Dia 2', 477, id, company_id FROM s2 RETURNING id
 ),
 l_gd1 AS (INSERT INTO event_ticket_lots (zone_id, lot_number, name, quantity, price, iva_rate, lot_kind, company_id)
   SELECT id, 1, 'Geral', 6139, 45.36, 6, 'simple', '7d831e59-6e82-427b-95a0-64904aae5dd2' FROM z_gd1 RETURNING id, zone_id),
