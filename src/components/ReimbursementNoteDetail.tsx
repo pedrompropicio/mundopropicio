@@ -64,7 +64,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("reimbursement_note_items")
-        .select("*, transactions(*)")
+        .select("*, transactions(*, events(name))")
         .eq("reimbursement_note_id", noteId)
         .order("created_at");
       if (error) throw error;
@@ -518,7 +518,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
                       <p className="text-xs text-muted-foreground font-mono">{tx?.date ? format(new Date(tx.date), "dd/MM/yyyy") : ""}</p>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {tx?.event_id ? "Vinculado" : "Sem evento"}
+                      {tx?.events?.name || (tx?.event_id ? "Vinculado" : "Sem evento")}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={tx?.status === "paid" ? "bg-primary/15 text-primary" : tx?.status === "approved" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}>
