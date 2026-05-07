@@ -10,9 +10,10 @@
 BEGIN;
 
 -- 1) Reverter as 7 transações-filhas para 'approved'
+--    paid_amount é NOT NULL → repor a 0
 UPDATE public.transactions
 SET status='approved',
-    paid_amount=NULL,
+    paid_amount=0,
     payment_date=NULL,
     updated_at=now()
 WHERE id IN (
