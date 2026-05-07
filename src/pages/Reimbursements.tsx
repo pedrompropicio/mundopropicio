@@ -60,10 +60,17 @@ export default function Reimbursements() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("reimbursement_notes")
-        .select("*")
+        .select("*, reimbursement_note_items(transactions(amount, iva_rate))")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      return (data || []).map((n: any) => {
+        const gross = (n.reimbursement_note_items || []).reduce(
+          (s: number, it: any) =>
+            s + Number(it.transactions?.amount || 0) * (1 + Number(it.transactions?.iva_rate || 0) / 100),
+          0,
+        );
+        return { ...n, gross_total: gross };
+      });
     },
   });
 
