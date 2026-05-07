@@ -239,7 +239,6 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
           type: "expense",
           amount: grossTotal,
           iva_rate: 0,
-          account_id: paymentAccountId,
           date: today,
           status: "approved",
         } as any)
