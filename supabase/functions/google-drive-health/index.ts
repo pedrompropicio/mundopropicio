@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 function json(body: Record<string, unknown>, status = 200) {
@@ -37,12 +37,17 @@ async function assertPrivilegedCaller(req: Request) {
 }
 
 function envStatus() {
+  const googleLikeNames = Object.keys(Deno.env.toObject())
+    .filter((name) => name.toUpperCase().includes("GOOGLE") || name.toUpperCase().includes("DRIVE"))
+    .sort();
+
   return {
     GOOGLE_CLIENT_ID: Boolean(Deno.env.get("GOOGLE_CLIENT_ID")),
     GOOGLE_CLIENT_SECRET: Boolean(Deno.env.get("GOOGLE_CLIENT_SECRET")),
     GOOGLE_REFRESH_TOKEN: Boolean(Deno.env.get("GOOGLE_REFRESH_TOKEN")),
     GOOGLE_DRIVE_API_KEY: Boolean(Deno.env.get("GOOGLE_DRIVE_API_KEY")),
     LOVABLE_API_KEY: Boolean(Deno.env.get("LOVABLE_API_KEY")),
+    googleLikeNames,
   };
 }
 
