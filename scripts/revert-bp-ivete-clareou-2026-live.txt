@@ -1,0 +1,14 @@
+-- Reverte BP Ivete Clareou 2026 (LIVE): approved -> draft
+-- Event: 4fca2381-1db9-4ff5-9dc0-91068de88a02
+BEGIN;
+
+UPDATE event_forecasts
+SET status='draft', updated_at=now()
+WHERE event_id='4fca2381-1db9-4ff5-9dc0-91068de88a02'
+  AND status='approved';
+
+SELECT status, COUNT(*) FROM event_forecasts
+WHERE event_id='4fca2381-1db9-4ff5-9dc0-91068de88a02'
+GROUP BY status;
+
+COMMIT;
