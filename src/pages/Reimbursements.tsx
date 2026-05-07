@@ -180,7 +180,7 @@ export default function Reimbursements() {
                 <TableHead>Código</TableHead>
                 <TableHead>Funcionário</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-right">Total <span className="text-[10px] font-normal text-muted-foreground">(c/ IVA)</span></TableHead>
                 <TableHead className="w-[100px]" />
               </TableRow>
             </TableHeader>
