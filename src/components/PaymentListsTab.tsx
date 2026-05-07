@@ -497,6 +497,8 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
         .eq("status", "approved")
         .eq("type", "expense")
         .is("parent_transaction_id", null)
+        // Reembolsos só podem ser liquidados via Nota de Reembolso — nunca em Lista de Pagamento
+        .or("is_reimbursement.is.null,is_reimbursement.eq.false")
         .order("date", { ascending: false });
       if (error) throw error;
       return data;
