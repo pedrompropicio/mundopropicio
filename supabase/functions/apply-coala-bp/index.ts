@@ -24,6 +24,17 @@ const corsHeaders = {
 
 type SyncMode = "replace" | "append";
 
+const jwtRole = (authHeader: string | null): string | null => {
+  const token = authHeader?.replace(/^Bearer\s+/i, "") ?? "";
+  const payload = token.split(".")[1];
+  if (!payload) return null;
+  try {
+    return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")))?.role ?? null;
+  } catch {
+    return null;
+  }
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -33,7 +44,7 @@ Deno.serve(async (req) => {
 
     const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     // Permite chamadas internas (ex.: sync-coala-from-drive) com service_role
-    const isServiceRole = auth === `Bearer ${SERVICE_ROLE}`;
+    const isServiceRole = auth === `Bearer ${SERVICE_ROLE}` || jwtRole(auth) === "service_role";
 
     let user: { id: string } | null = null;
     if (!isServiceRole) {
