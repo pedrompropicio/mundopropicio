@@ -21,7 +21,9 @@ Lê `ticket_sales` ↔ `event_ticket_lots` ↔ `event_ticket_zones` ↔ `events`
 ## UI
 `src/components/simulator/ForecastBoostCalibrator.tsx`:
 - Lista candidatos com ≥14 dias distintos de venda (exclui evento atual).
-- Mostra base/final/qty/datas e badge com boost observado.
+- **Multi-seleção** (checkboxes): corre a RPC para cada evento em paralelo.
+- Com vários eventos calcula **média ponderada por `total_qty`** (fallback média simples se peso=0).
+- Mostra cards individuais por evento + card agregado com boost final.
 - "Aplicar valor" preenche `forecast_final_accel` e `forecast_final_window_days` em `event_simulator_config`.
 
 ## Quando funciona
