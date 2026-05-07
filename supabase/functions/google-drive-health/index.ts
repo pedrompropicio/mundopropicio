@@ -36,6 +36,16 @@ async function assertPrivilegedCaller(req: Request) {
   if (!isPrivileged) throw new Response(JSON.stringify({ error: "Sem permissão" }), { status: 403, headers: corsHeaders });
 }
 
+function envStatus() {
+  return {
+    GOOGLE_CLIENT_ID: Boolean(Deno.env.get("GOOGLE_CLIENT_ID")),
+    GOOGLE_CLIENT_SECRET: Boolean(Deno.env.get("GOOGLE_CLIENT_SECRET")),
+    GOOGLE_REFRESH_TOKEN: Boolean(Deno.env.get("GOOGLE_REFRESH_TOKEN")),
+    GOOGLE_DRIVE_API_KEY: Boolean(Deno.env.get("GOOGLE_DRIVE_API_KEY")),
+    LOVABLE_API_KEY: Boolean(Deno.env.get("LOVABLE_API_KEY")),
+  };
+}
+
 async function getGoogleAccessToken() {
   const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
   const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
@@ -74,6 +84,11 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    const url = new URL(req.url);
+    if (url.searchParams.get("diagnostic") === "env") {
+      return json({ ok: true, env: envStatus() });
+    }
+
     await assertPrivilegedCaller(req);
 
     const accessToken = await getGoogleAccessToken();
@@ -89,6 +104,7 @@ Deno.serve(async (req) => {
     return json({
       ok: true,
       auth: "manual_google_oauth",
+      env: envStatus(),
       fileCountSample: Array.isArray(driveBody.files) ? driveBody.files.length : 0,
       firstFile: Array.isArray(driveBody.files) && driveBody.files[0]
         ? { id: driveBody.files[0].id, name: driveBody.files[0].name, mimeType: driveBody.files[0].mimeType }
