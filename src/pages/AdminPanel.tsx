@@ -67,6 +67,12 @@ const adminCards = [
     title: "Auditoria RLS Legacy",
     description: "Verificação diária automática de policies RLS antigas (auth.uid() IS NOT NULL); histórico e execução manual",
   },
+  {
+    to: "/admin/sync-coala",
+    icon: Cloud,
+    title: "Sync Coala (Drive)",
+    description: "Sincronização automática diária da planilha Coala no Google Drive com o BP do evento",
+  },
 ];
 
 export default function AdminPanel() {
