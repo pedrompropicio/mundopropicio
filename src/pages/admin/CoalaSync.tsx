@@ -91,14 +91,24 @@ export default function CoalaSync() {
       if (error) throw error;
       return data;
     },
-    onSuccess: (data: any) => {
+    onSuccess: async (data: any) => {
       const r = data?.runs?.[0];
       if (r?.status === "blocked") toast.error(`Sync bloqueada: ${r.conflicts} conflito(s)`);
       else if (r?.status === "failed") toast.error(`Sync falhou: ${r.error}`);
       else if (r?.status === "skipped_unchanged") toast.info("Ficheiro inalterado desde a última run");
       else toast.success(`Sync ${r?.status} — novos:${r?.new ?? 0} · removidos:${r?.removed ?? 0} · mismatches:${r?.mismatches ?? 0}`);
-      qc.invalidateQueries({ queryKey: ["coala-sync-runs"] });
-      qc.invalidateQueries({ queryKey: ["coala-sync-config"] });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["coala-sync-runs"] }),
+        qc.invalidateQueries({ queryKey: ["coala-sync-config"] }),
+      ]);
+      if (r?.runId) {
+        const { data: fullRun } = await supabase
+          .from("coala_sync_runs" as any)
+          .select("*")
+          .eq("id", r.runId)
+          .maybeSingle();
+        if (fullRun) setSelectedRun(fullRun as unknown as Run);
+      }
     },
     onError: (e: any) => toast.error(`Falha: ${e.message}`),
   });
