@@ -41,7 +41,7 @@ export function EventCourtesiesEditor({ eventId }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_ticket_zones")
-        .select("id, name")
+        .select("id, name, session_id")
         .eq("event_id", eventId)
         .is("version_id", null)
         .order("name");
@@ -49,6 +49,32 @@ export function EventCourtesiesEditor({ eventId }: Props) {
       return data ?? [];
     },
   });
+
+  const { data: sessions = [] } = useQuery({
+    queryKey: ["courtesies_sessions", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_sessions")
+        .select("id, date")
+        .eq("event_id", eventId)
+        .is("version_id", null);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const sessionDateById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of sessions) m.set(s.id, s.date);
+    return m;
+  }, [sessions]);
+
+  /** Zona com session_id só se aplica à data dessa sessão; sem session_id aplica-se a todas. */
+  const zoneAppliesToDate = (zone: any, dateRow: any) => {
+    if (!zone.session_id) return true;
+    const sd = sessionDateById.get(zone.session_id);
+    return !sd || sd === dateRow.date;
+  };
 
   const { data: rows = [] } = useQuery({
     queryKey: ["event_courtesies", eventId],
