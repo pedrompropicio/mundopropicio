@@ -685,7 +685,7 @@ Deno.serve(async (req) => {
         const { data: fc, error: fcErr } = await admin.from("event_forecasts").insert({
           company_id: ev.company_id, event_id: eventId, category_id: categoryId, type: "expense",
           description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
-          status: "approved", approved_at: new Date().toISOString(), approved_by: user.email ?? user.id,
+          status: "approved", approved_at: new Date().toISOString(), approved_by: user?.email ?? user?.id ?? "system:sync-coala",
           formalidade: formalidadeMap[r.formalidade] ?? "estimado",
           notes: [`Coala ${fileVersion} (RESET)`, r.invoiceRef ? `Fatura ${r.invoiceRef}` : null].filter(Boolean).join(" • "),
         }).select("id").single();
@@ -832,7 +832,7 @@ Deno.serve(async (req) => {
           deletedForecasts: (existingFcs || []).length, deletedTransactions: txIds.length,
           reconciliation },
         created_transaction_ids: createdTransactionIds, created_forecast_ids: createdForecastIds,
-        created_supplier_ids: newSupplierIds, applied_at: new Date().toISOString(), created_by: user.id,
+        created_supplier_ids: newSupplierIds, applied_at: new Date().toISOString(), created_by: user?.id ?? null,
       }).select("id").single();
 
       return json({
@@ -972,7 +972,7 @@ Deno.serve(async (req) => {
             iva_rate: r.ivaRate,
             status: "approved",
             approved_at: new Date().toISOString(),
-            approved_by: user.email ?? user.id,
+            approved_by: user?.email ?? user?.id ?? "system:sync-coala",
             formalidade: formalidadeMap[r.formalidade] ?? "estimado",
             notes: [
               `Coala ${fileVersion}`,
@@ -1085,7 +1085,7 @@ Deno.serve(async (req) => {
         created_forecast_ids: createdForecastIds,
         created_supplier_ids: newSupplierIds,
         applied_at: new Date().toISOString(),
-        created_by: user.id,
+        created_by: user?.id ?? null,
       })
       .select("id")
       .single();
