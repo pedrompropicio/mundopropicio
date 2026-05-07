@@ -137,8 +137,8 @@ export function EventCourtesiesEditor({ eventId }: Props) {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const totalForDay = (dateId: string) =>
-    zones.reduce((s, z) => s + valueAt(dateId, z.id), 0);
+  const totalForDay = (dateRow: any) =>
+    zones.reduce((s, z) => s + (zoneAppliesToDate(z, dateRow) ? valueAt(dateRow.id, z.id) : 0), 0);
 
   if (dates.length === 0) {
     return (
