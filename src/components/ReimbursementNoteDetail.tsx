@@ -469,9 +469,10 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
       {/* Pay confirmation */}
       {showPayConfirm && canPay && (
         <div className="glass rounded-xl p-4 space-y-3 border border-primary/30">
-          <h3 className="text-sm font-semibold">Confirmar Pagamento</h3>
+          <h3 className="text-sm font-semibold">Gerar Transação para Pagamento</h3>
           <p className="text-xs text-muted-foreground">
-            Será criada uma transação de pagamento de {formatCurrency(grossTotal)} (c/ IVA) e todas as despesas serão marcadas como pagas.
+            Será criada uma transação de saída de {formatCurrency(grossTotal)} (c/ IVA) no estado <strong>Aprovada</strong>, vinculada a esta nota.
+            A nota passa a <strong>Aguarda Pagamento</strong>. Quando liquidares essa transação no fluxo normal de pagamentos, a nota e todas as despesas-filhas ficam automaticamente marcadas como Pagas.
           </p>
           {supplierData && (
             <SupplierBankDetails supplier={supplierData} defaultExpanded />
@@ -490,7 +491,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
               onClick={() => payMutation.mutate()}
               disabled={!paymentAccountId || payMutation.isPending}
             >
-              {payMutation.isPending ? "A processar…" : "Confirmar Pagamento"}
+              {payMutation.isPending ? "A gerar…" : "Gerar Transação"}
             </Button>
           </div>
         </div>
