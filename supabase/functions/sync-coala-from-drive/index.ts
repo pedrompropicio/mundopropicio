@@ -192,8 +192,10 @@ Deno.serve(async (req) => {
       const expected: string[] = [];
       for (const m of d.valueMismatches ?? [])
         expected.push(`${m.rowKey ?? `vm:${m.description}:${m.fileAmount}`}::value_mismatch`);
-      for (const r of d.xlsxVsState?.new ?? [])
-        expected.push(`new:${r.description}:${r.netAmount}::new_row`);
+      for (const r of d.missingInBp ?? [])
+        expected.push(`miss:${r.description}:${r.netAmount}::new_row`);
+      for (const r of d.extraInBp ?? [])
+        expected.push(`extra:${r.id}::extra_in_bp`);
       for (const r of d.xlsxVsState?.removed ?? [])
         expected.push(`${r.rowKey ?? `rm:${r.payload?.description}`}::removed_row`);
       for (const r of d.xlsxVsState?.conflicts ?? [])
@@ -334,6 +336,11 @@ Deno.serve(async (req) => {
           }),
         });
         const compareJson = await compareResp.json().catch(() => ({}));
+        if (!compareResp.ok || !compareJson?.ok || !compareJson?.summary) {
+          throw new Error(
+            `Comparação BP/TX falhou (${compareResp.status}): ${JSON.stringify(compareJson).slice(0, 500)}`,
+          );
+        }
 
         const hasConflicts = conflictRows.length > 0;
         const hasMismatches = (compareJson?.summary?.valueMismatches ?? 0) > 0;
