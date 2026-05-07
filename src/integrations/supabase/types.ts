@@ -1088,6 +1088,214 @@ export type Database = {
           },
         ]
       }
+      coala_sync_config: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          drive_file_id: string
+          enabled: boolean
+          event_id: string
+          file_label: string | null
+          id: string
+          last_run_at: string | null
+          last_run_status: string | null
+          notify_whatsapp: boolean
+          schedule_cron: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          drive_file_id: string
+          enabled?: boolean
+          event_id: string
+          file_label?: string | null
+          id?: string
+          last_run_at?: string | null
+          last_run_status?: string | null
+          notify_whatsapp?: boolean
+          schedule_cron?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          drive_file_id?: string
+          enabled?: boolean
+          event_id?: string
+          file_label?: string | null
+          id?: string
+          last_run_at?: string | null
+          last_run_status?: string | null
+          notify_whatsapp?: boolean
+          schedule_cron?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coala_sync_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coala_sync_config_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coala_sync_row_state: {
+        Row: {
+          config_id: string
+          created_at: string
+          forecast_id: string | null
+          id: string
+          last_seen_run_id: string | null
+          last_xlsx_payload: Json
+          manual_override: boolean
+          manual_override_reason: string | null
+          row_key: string
+          updated_at: string
+        }
+        Insert: {
+          config_id: string
+          created_at?: string
+          forecast_id?: string | null
+          id?: string
+          last_seen_run_id?: string | null
+          last_xlsx_payload: Json
+          manual_override?: boolean
+          manual_override_reason?: string | null
+          row_key: string
+          updated_at?: string
+        }
+        Update: {
+          config_id?: string
+          created_at?: string
+          forecast_id?: string | null
+          id?: string
+          last_seen_run_id?: string | null
+          last_xlsx_payload?: Json
+          manual_override?: boolean
+          manual_override_reason?: string | null
+          row_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coala_sync_row_state_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "coala_sync_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coala_sync_row_state_last_seen_run_id_fkey"
+            columns: ["last_seen_run_id"]
+            isOneToOne: false
+            referencedRelation: "coala_sync_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coala_sync_runs: {
+        Row: {
+          company_id: string
+          config_id: string | null
+          conflict_count: number | null
+          diff: Json | null
+          error_message: string | null
+          event_id: string
+          file_version: string | null
+          finished_at: string | null
+          id: string
+          mode: string
+          new_count: number | null
+          removed_count: number | null
+          started_at: string
+          status: string
+          total_rows: number | null
+          triggered_by: string
+          triggered_user_id: string | null
+          updated_count: number | null
+          xlsx_sha256: string | null
+          xlsx_size_bytes: number | null
+        }
+        Insert: {
+          company_id: string
+          config_id?: string | null
+          conflict_count?: number | null
+          diff?: Json | null
+          error_message?: string | null
+          event_id: string
+          file_version?: string | null
+          finished_at?: string | null
+          id?: string
+          mode: string
+          new_count?: number | null
+          removed_count?: number | null
+          started_at?: string
+          status: string
+          total_rows?: number | null
+          triggered_by: string
+          triggered_user_id?: string | null
+          updated_count?: number | null
+          xlsx_sha256?: string | null
+          xlsx_size_bytes?: number | null
+        }
+        Update: {
+          company_id?: string
+          config_id?: string | null
+          conflict_count?: number | null
+          diff?: Json | null
+          error_message?: string | null
+          event_id?: string
+          file_version?: string | null
+          finished_at?: string | null
+          id?: string
+          mode?: string
+          new_count?: number | null
+          removed_count?: number | null
+          started_at?: string
+          status?: string
+          total_rows?: number | null
+          triggered_by?: string
+          triggered_user_id?: string | null
+          updated_count?: number | null
+          xlsx_sha256?: string | null
+          xlsx_size_bytes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coala_sync_runs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coala_sync_runs_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "coala_sync_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coala_sync_runs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           address: Json | null
