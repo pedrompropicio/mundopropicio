@@ -41,7 +41,7 @@ export function EventCourtesiesEditor({ eventId }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_ticket_zones")
-        .select("id, name")
+        .select("id, name, session_id")
         .eq("event_id", eventId)
         .is("version_id", null)
         .order("name");
@@ -49,6 +49,32 @@ export function EventCourtesiesEditor({ eventId }: Props) {
       return data ?? [];
     },
   });
+
+  const { data: sessions = [] } = useQuery({
+    queryKey: ["courtesies_sessions", eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_sessions")
+        .select("id, date")
+        .eq("event_id", eventId)
+        .is("version_id", null);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const sessionDateById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of sessions) m.set(s.id, s.date);
+    return m;
+  }, [sessions]);
+
+  /** Zona com session_id só se aplica à data dessa sessão; sem session_id aplica-se a todas. */
+  const zoneAppliesToDate = (zone: any, dateRow: any) => {
+    if (!zone.session_id) return true;
+    const sd = sessionDateById.get(zone.session_id);
+    return !sd || sd === dateRow.date;
+  };
 
   const { data: rows = [] } = useQuery({
     queryKey: ["event_courtesies", eventId],
@@ -111,8 +137,8 @@ export function EventCourtesiesEditor({ eventId }: Props) {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const totalForDay = (dateId: string) =>
-    zones.reduce((s, z) => s + valueAt(dateId, z.id), 0);
+  const totalForDay = (dateRow: any) =>
+    zones.reduce((s, z) => s + (zoneAppliesToDate(z, dateRow) ? valueAt(dateRow.id, z.id) : 0), 0);
 
   if (dates.length === 0) {
     return (
@@ -158,29 +184,42 @@ export function EventCourtesiesEditor({ eventId }: Props) {
               {zones.map((z) => (
                 <TableRow key={z.id}>
                   <TableCell className="font-medium text-sm">{z.name}</TableCell>
-                  {dates.map((d) => (
-                    <TableCell key={d.id} className="text-right">
-                      <Input
-                        type="number"
-                        min={0}
-                        className="h-8 w-20 text-right text-xs ml-auto"
-                        value={valueAt(d.id, z.id)}
-                        onChange={(e) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            [cellKey(d.id, z.id)]: Math.max(0, parseInt(e.target.value) || 0),
-                          }))
-                        }
-                      />
-                    </TableCell>
-                  ))}
+                  {dates.map((d) => {
+                    const applies = zoneAppliesToDate(z, d);
+                    if (!applies) {
+                      return (
+                        <TableCell key={d.id} className="text-right text-muted-foreground/40">
+                          —
+                        </TableCell>
+                      );
+                    }
+                    const v = valueAt(d.id, z.id);
+                    return (
+                      <TableCell key={d.id} className="text-right">
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          step={1}
+                          className="h-8 w-20 text-right text-xs ml-auto"
+                          value={v === 0 ? "" : v}
+                          placeholder="0"
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/^0+(?=\d)/, "");
+                            const n = raw === "" ? 0 : Math.max(0, parseInt(raw, 10) || 0);
+                            setDraft((prev) => ({ ...prev, [cellKey(d.id, z.id)]: n }));
+                          }}
+                        />
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
               ))}
               <TableRow className="bg-muted/30">
                 <TableCell className="font-semibold text-sm">Total por dia</TableCell>
                 {dates.map((d) => (
                   <TableCell key={d.id} className="text-right font-mono font-semibold">
-                    {totalForDay(d.id).toLocaleString("pt-PT")}
+                    {totalForDay(d).toLocaleString("pt-PT")}
                   </TableCell>
                 ))}
               </TableRow>
