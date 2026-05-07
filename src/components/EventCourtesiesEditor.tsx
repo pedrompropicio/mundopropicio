@@ -184,29 +184,42 @@ export function EventCourtesiesEditor({ eventId }: Props) {
               {zones.map((z) => (
                 <TableRow key={z.id}>
                   <TableCell className="font-medium text-sm">{z.name}</TableCell>
-                  {dates.map((d) => (
-                    <TableCell key={d.id} className="text-right">
-                      <Input
-                        type="number"
-                        min={0}
-                        className="h-8 w-20 text-right text-xs ml-auto"
-                        value={valueAt(d.id, z.id)}
-                        onChange={(e) =>
-                          setDraft((prev) => ({
-                            ...prev,
-                            [cellKey(d.id, z.id)]: Math.max(0, parseInt(e.target.value) || 0),
-                          }))
-                        }
-                      />
-                    </TableCell>
-                  ))}
+                  {dates.map((d) => {
+                    const applies = zoneAppliesToDate(z, d);
+                    if (!applies) {
+                      return (
+                        <TableCell key={d.id} className="text-right text-muted-foreground/40">
+                          —
+                        </TableCell>
+                      );
+                    }
+                    const v = valueAt(d.id, z.id);
+                    return (
+                      <TableCell key={d.id} className="text-right">
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          step={1}
+                          className="h-8 w-20 text-right text-xs ml-auto"
+                          value={v === 0 ? "" : v}
+                          placeholder="0"
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/^0+(?=\d)/, "");
+                            const n = raw === "" ? 0 : Math.max(0, parseInt(raw, 10) || 0);
+                            setDraft((prev) => ({ ...prev, [cellKey(d.id, z.id)]: n }));
+                          }}
+                        />
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
               ))}
               <TableRow className="bg-muted/30">
                 <TableCell className="font-semibold text-sm">Total por dia</TableCell>
                 {dates.map((d) => (
                   <TableCell key={d.id} className="text-right font-mono font-semibold">
-                    {totalForDay(d.id).toLocaleString("pt-PT")}
+                    {totalForDay(d).toLocaleString("pt-PT")}
                   </TableCell>
                 ))}
               </TableRow>
