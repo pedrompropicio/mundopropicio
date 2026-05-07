@@ -1,0 +1,28 @@
+-- Coala Festival Portugal 2026 (LIVE)
+-- Fixar capacidade das zonas VIP ao já vendido para o simulador parar de projetar.
+-- Tenda VIP — Sábado: 519 / Tenda VIP — Domingo: 83
+BEGIN;
+
+WITH ev AS (
+  SELECT id FROM events
+  WHERE name ILIKE 'Coala Festival Portugal 2026'
+  LIMIT 1
+)
+UPDATE event_ticket_zones z
+SET total_capacity = CASE
+    WHEN z.name ILIKE 'Tenda VIP%Sábado%' OR z.name ILIKE 'Tenda VIP%Sabado%' THEN 519
+    WHEN z.name ILIKE 'Tenda VIP%Domingo%' THEN 83
+  END,
+  updated_at = now()
+FROM ev
+WHERE z.event_id = ev.id
+  AND (z.name ILIKE 'Tenda VIP%Sábado%' OR z.name ILIKE 'Tenda VIP%Sabado%' OR z.name ILIKE 'Tenda VIP%Domingo%');
+
+-- Verificação
+SELECT z.name, z.total_capacity
+FROM event_ticket_zones z
+JOIN events e ON e.id = z.event_id
+WHERE e.name ILIKE 'Coala Festival Portugal 2026'
+  AND z.name ILIKE 'Tenda VIP%';
+
+COMMIT;
