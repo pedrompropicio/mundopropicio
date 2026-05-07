@@ -64,7 +64,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("reimbursement_note_items")
-        .select("*, transactions(*)")
+        .select("*, transactions(*, events(name))")
         .eq("reimbursement_note_id", noteId)
         .order("created_at");
       if (error) throw error;
