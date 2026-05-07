@@ -222,8 +222,6 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
 
   const payMutation = useMutation({
     mutationFn: async () => {
-      if (!paymentAccountId) throw new Error("Selecione a conta bancária");
-
       const today = new Date().toISOString().split("T")[0];
       const grossTotal = items.reduce(
         (s: number, i: any) =>
