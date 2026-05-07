@@ -745,6 +745,28 @@ function DecisionRow({
                 <DialogTitle>Ajustar valor</DialogTitle>
               </DialogHeader>
               <div className="space-y-3">
+                {item.diffKind === "new_row" && Array.isArray(item.raw?.bpCandidates) && item.raw.bpCandidates.length > 0 && (
+                  <div className="rounded border bg-muted/40 p-2 space-y-1">
+                    <div className="text-[11px] text-muted-foreground">Candidatos do BP (clica para usar)</div>
+                    {item.raw.bpCandidates.map((c: any) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className="w-full text-left text-xs rounded px-2 py-1 hover:bg-accent"
+                        onClick={() => {
+                          setCustomAmount(String(c.amount));
+                          setNotes((prev) => prev || `Vincular a BP "${c.description}" (id ${c.id.slice(0, 8)}…)`);
+                        }}
+                      >
+                        <div className="font-medium truncate">{c.description}</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {fmtMoney(c.amount)} · Δ {c.delta >= 0 ? "+" : ""}{Number(c.delta).toFixed(2)} · match {(Number(c.fuzzyScore) * 100).toFixed(0)}%
+                          {c.hasTransaction && <span className="ml-1 text-amber-500">· tem TX</span>}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div>
                   <Label>Valor a usar (€)</Label>
                   <Input
