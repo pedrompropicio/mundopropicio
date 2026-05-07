@@ -151,13 +151,14 @@ Deno.serve(async (req) => {
 
     const cronSecretHdr = req.headers.get("x-cron-secret");
     const expectedCronSecret = Deno.env.get("COALA_SYNC_CRON_SECRET");
+    const auth = req.headers.get("Authorization");
+    const isServiceRole = auth === `Bearer ${SERVICE_ROLE}`;
     const isCron = !!expectedCronSecret && cronSecretHdr === expectedCronSecret;
 
     // Auth: cron OU JWT de utilizador privilegiado
     let authedUserId: string | null = null;
     let authedEmail: string | null = null;
-    if (!isCron) {
-      const auth = req.headers.get("Authorization");
+    if (!isCron && !isServiceRole) {
       if (!auth) return json({ error: "Não autenticado" }, 401);
       const userClient = createClient(SUPABASE_URL, ANON, {
         global: { headers: { Authorization: auth } },
