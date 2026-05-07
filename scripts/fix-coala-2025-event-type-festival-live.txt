@@ -1,0 +1,12 @@
+-- Corrige tipo do Coala Festival Portugal 2025 (Histórico) em LIVE
+-- de 'event' para 'festival' (2 dias: Sábado 01/06 + Domingo 02/06)
+BEGIN;
+
+UPDATE events
+SET event_type='festival', updated_at=now()
+WHERE id='7622cd11-a1c5-40ad-a457-8e2ebb39f382';
+
+SELECT id, name, event_type, status FROM events
+WHERE id='7622cd11-a1c5-40ad-a457-8e2ebb39f382';
+
+COMMIT;
