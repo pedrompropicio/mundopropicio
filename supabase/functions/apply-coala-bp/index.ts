@@ -31,17 +31,25 @@ Deno.serve(async (req) => {
     const auth = req.headers.get("Authorization");
     if (!auth) return json({ error: "Não autenticado" }, 401);
 
-    const userClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: auth } } },
-    );
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) return json({ error: "Sessão inválida" }, 401);
+    const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // Permite chamadas internas (ex.: sync-coala-from-drive) com service_role
+    const isServiceRole = auth === `Bearer ${SERVICE_ROLE}`;
+
+    let user: { id: string } | null = null;
+    if (!isServiceRole) {
+      const userClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: auth } } },
+      );
+      const { data: { user: u } } = await userClient.auth.getUser();
+      if (!u) return json({ error: "Sessão inválida" }, 401);
+      user = { id: u.id };
+    }
 
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      SERVICE_ROLE,
     );
 
     const body = await req.json();
@@ -55,13 +63,15 @@ Deno.serve(async (req) => {
       return json({ error: "fileBase64, fileVersion e eventId obrigatórios" }, 400);
     }
 
-    // Permissions: must be admin/manager/editor
-    const { data: roles } = await admin
-      .from("user_roles").select("role").eq("user_id", user.id);
-    const allowedRoles = new Set(["admin", "manager", "editor", "platform_admin"]);
-    const roleSet = new Set((roles ?? []).map((r: any) => r.role));
-    if (![...roleSet].some((r) => allowedRoles.has(r as string))) {
-      return json({ error: "Sem permissão para importar BP." }, 403);
+    // Permissions: must be admin/manager/editor (skip se service_role interno)
+    if (!isServiceRole) {
+      const { data: roles } = await admin
+        .from("user_roles").select("role").eq("user_id", user!.id);
+      const allowedRoles = new Set(["admin", "manager", "editor", "platform_admin"]);
+      const roleSet = new Set((roles ?? []).map((r: any) => r.role));
+      if (![...roleSet].some((r) => allowedRoles.has(r as string))) {
+        return json({ error: "Sem permissão para importar BP." }, 403);
+      }
     }
 
     const { data: ev, error: evErr } = await admin
