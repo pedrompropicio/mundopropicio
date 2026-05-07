@@ -231,7 +231,9 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
         0,
       );
 
-      // Create payment transaction (gross outflow, iva 0)
+      // Cria transação de pagamento APENAS aprovada (pendente de liquidação).
+      // A liquidação efetiva acontece pelo fluxo normal de pagamentos da TX,
+      // e o trigger reimbursement_propagate_payment marca a nota + itens como pagos.
       const { data: paymentTx, error: payError } = await supabase
         .from("transactions")
         .insert({
@@ -241,35 +243,17 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
           iva_rate: 0,
           account_id: paymentAccountId,
           date: today,
-          status: "paid",
-          paid_amount: grossTotal,
-          payment_date: today,
+          status: "approved",
         } as any)
         .select("id")
         .single();
       if (payError) throw payError;
 
-      // Mark each item transaction as paid with paid_amount=gross
-      for (const item of items) {
-        const txAmount = Number(item.transactions?.amount || 0);
-        const txIva = Number(item.transactions?.iva_rate || 0);
-        const grossAmount = txAmount * (1 + txIva / 100);
-        await supabase
-          .from("transactions")
-          .update({
-            status: "paid",
-            paid_amount: grossAmount,
-            payment_date: today,
-          })
-          .eq("id", item.transaction_id);
-      }
-
-      // Update note
+      // Vincula TX à nota e move para 'pending_payment'
       const { error } = await supabase
         .from("reimbursement_notes")
         .update({
-          status: "paid",
-          paid_at: new Date().toISOString(),
+          status: "pending_payment",
           payment_transaction_id: paymentTx.id,
           total_amount: grossTotal,
         })
@@ -279,9 +263,12 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
     onSuccess: () => {
       invalidateAll();
       setShowPayConfirm(false);
-      toast({ title: "Reembolso pago com sucesso!" });
+      toast({
+        title: "Transação de pagamento gerada",
+        description: "Liquide a transação no fluxo normal para concluir o reembolso.",
+      });
     },
-    onError: (err: any) => toast({ title: "Erro ao pagar", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Erro ao gerar transação", description: err.message, variant: "destructive" }),
   });
 
   async function recalcTotal() {
