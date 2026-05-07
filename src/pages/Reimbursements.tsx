@@ -19,12 +19,14 @@ import { useLocation, useNavigate } from "react-router-dom";
 const statusLabels: Record<string, string> = {
   draft: "Rascunho",
   approved: "Aprovada",
+  pending_payment: "Aguarda Pagamento",
   paid: "Paga",
 };
 
 const statusColors: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
   approved: "bg-success/15 text-success",
+  pending_payment: "bg-warning/15 text-warning",
   paid: "bg-primary/15 text-primary",
 };
 
@@ -140,6 +142,7 @@ export default function Reimbursements() {
             { value: "all", label: "Todas" },
             { value: "draft", label: "Rascunho" },
             { value: "approved", label: "Aprovadas" },
+            { value: "pending_payment", label: "Aguarda Pagamento" },
             { value: "paid", label: "Pagas" },
           ].map((opt) => (
             <button

@@ -24,12 +24,14 @@ interface Props {
 const statusLabels: Record<string, string> = {
   draft: "Rascunho",
   approved: "Aprovada",
+  pending_payment: "Aguarda Pagamento",
   paid: "Paga",
 };
 
 const statusColors: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
   approved: "bg-success/15 text-success",
+  pending_payment: "bg-warning/15 text-warning",
   paid: "bg-primary/15 text-primary",
 };
 
@@ -229,7 +231,9 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
         0,
       );
 
-      // Create payment transaction (gross outflow, iva 0)
+      // Cria transação de pagamento APENAS aprovada (pendente de liquidação).
+      // A liquidação efetiva acontece pelo fluxo normal de pagamentos da TX,
+      // e o trigger reimbursement_propagate_payment marca a nota + itens como pagos.
       const { data: paymentTx, error: payError } = await supabase
         .from("transactions")
         .insert({
@@ -239,35 +243,17 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
           iva_rate: 0,
           account_id: paymentAccountId,
           date: today,
-          status: "paid",
-          paid_amount: grossTotal,
-          payment_date: today,
+          status: "approved",
         } as any)
         .select("id")
         .single();
       if (payError) throw payError;
 
-      // Mark each item transaction as paid with paid_amount=gross
-      for (const item of items) {
-        const txAmount = Number(item.transactions?.amount || 0);
-        const txIva = Number(item.transactions?.iva_rate || 0);
-        const grossAmount = txAmount * (1 + txIva / 100);
-        await supabase
-          .from("transactions")
-          .update({
-            status: "paid",
-            paid_amount: grossAmount,
-            payment_date: today,
-          })
-          .eq("id", item.transaction_id);
-      }
-
-      // Update note
+      // Vincula TX à nota e move para 'pending_payment'
       const { error } = await supabase
         .from("reimbursement_notes")
         .update({
-          status: "paid",
-          paid_at: new Date().toISOString(),
+          status: "pending_payment",
           payment_transaction_id: paymentTx.id,
           total_amount: grossTotal,
         })
@@ -277,9 +263,12 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
     onSuccess: () => {
       invalidateAll();
       setShowPayConfirm(false);
-      toast({ title: "Reembolso pago com sucesso!" });
+      toast({
+        title: "Transação de pagamento gerada",
+        description: "Liquide a transação no fluxo normal para concluir o reembolso.",
+      });
     },
-    onError: (err: any) => toast({ title: "Erro ao pagar", description: err.message, variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Erro ao gerar transação", description: err.message, variant: "destructive" }),
   });
 
   async function recalcTotal() {
@@ -439,7 +428,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
         )}
         {canPay && !showPayConfirm && (
           <Button size="sm" variant="default" onClick={() => setShowPayConfirm(true)}>
-            <CreditCard className="mr-1.5 h-3.5 w-3.5" /> Pagar Reembolso
+            <CreditCard className="mr-1.5 h-3.5 w-3.5" /> Gerar Transação para Pagamento
           </Button>
         )}
       </div>
@@ -480,9 +469,10 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
       {/* Pay confirmation */}
       {showPayConfirm && canPay && (
         <div className="glass rounded-xl p-4 space-y-3 border border-primary/30">
-          <h3 className="text-sm font-semibold">Confirmar Pagamento</h3>
+          <h3 className="text-sm font-semibold">Gerar Transação para Pagamento</h3>
           <p className="text-xs text-muted-foreground">
-            Será criada uma transação de pagamento de {formatCurrency(grossTotal)} (c/ IVA) e todas as despesas serão marcadas como pagas.
+            Será criada uma transação de saída de {formatCurrency(grossTotal)} (c/ IVA) no estado <strong>Aprovada</strong>, vinculada a esta nota.
+            A nota passa a <strong>Aguarda Pagamento</strong>. Quando liquidares essa transação no fluxo normal de pagamentos, a nota e todas as despesas-filhas ficam automaticamente marcadas como Pagas.
           </p>
           {supplierData && (
             <SupplierBankDetails supplier={supplierData} defaultExpanded />
@@ -501,7 +491,7 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
               onClick={() => payMutation.mutate()}
               disabled={!paymentAccountId || payMutation.isPending}
             >
-              {payMutation.isPending ? "A processar…" : "Confirmar Pagamento"}
+              {payMutation.isPending ? "A gerar…" : "Gerar Transação"}
             </Button>
           </div>
         </div>
