@@ -24,12 +24,14 @@ interface Props {
 const statusLabels: Record<string, string> = {
   draft: "Rascunho",
   approved: "Aprovada",
+  pending_payment: "Aguarda Pagamento",
   paid: "Paga",
 };
 
 const statusColors: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
   approved: "bg-success/15 text-success",
+  pending_payment: "bg-warning/15 text-warning",
   paid: "bg-primary/15 text-primary",
 };
 
