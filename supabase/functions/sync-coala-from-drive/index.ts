@@ -146,9 +146,37 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-    const { configId, mode = "dry_run" } = body ?? {};
+    const { configId, mode = "dry_run", basedOnRunId } = body ?? {};
     const triggeredBy = isCron ? "cron" : (body?.triggeredBy ?? "manual");
     if (!["dry_run", "apply"].includes(mode)) return json({ error: "mode inválido" }, 400);
+
+    // Se for apply baseado numa dry-run revista, exige decisão para TODAS as
+    // diferenças (validate/ignore/edit). Caso contrário, bloqueia.
+    let decisionsByKey: Map<string, any> = new Map();
+    if (mode === "apply" && basedOnRunId) {
+      const { data: baseRun } = await admin.from("coala_sync_runs")
+        .select("id, diff").eq("id", basedOnRunId).maybeSingle();
+      const { data: decs } = await admin.from("coala_sync_decisions")
+        .select("row_key, diff_kind, decision, custom_amount, notes")
+        .eq("run_id", basedOnRunId);
+      decisionsByKey = new Map((decs ?? []).map((d: any) => [`${d.row_key}::${d.diff_kind}`, d]));
+      const d: any = baseRun?.diff ?? {};
+      const expected: string[] = [];
+      for (const m of d.valueMismatches ?? [])
+        expected.push(`${m.rowKey ?? `vm:${m.description}:${m.fileAmount}`}::value_mismatch`);
+      for (const r of d.xlsxVsState?.new ?? [])
+        expected.push(`new:${r.description}:${r.netAmount}::new_row`);
+      for (const r of d.xlsxVsState?.removed ?? [])
+        expected.push(`${r.rowKey ?? `rm:${r.payload?.description}`}::removed_row`);
+      for (const r of d.xlsxVsState?.conflicts ?? [])
+        expected.push(`${r.rowKey}::conflict`);
+      for (const s of d.sponsors?.mismatch ?? [])
+        expected.push(`sp:${s.description ?? s.name}::sponsor_mismatch`);
+      const missing = expected.filter((k) => !decisionsByKey.has(k));
+      if (missing.length > 0) {
+        return json({ error: `Faltam ${missing.length} decisão(ões) na run base ${basedOnRunId}` }, 400);
+      }
+    }
 
     // Carregar configs
     let configs: any[] = [];

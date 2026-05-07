@@ -319,75 +319,361 @@ export default function CoalaSync() {
       </Card>
 
       {/* Diff modal */}
-      <Dialog open={!!selectedRun} onOpenChange={(o) => !o && setSelectedRun(null)}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Detalhes da execução</DialogTitle>
-          </DialogHeader>
-          {selectedRun && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div><b>Início:</b> {new Date(selectedRun.started_at).toLocaleString("pt-PT")}</div>
-                <div><b>Fim:</b> {selectedRun.finished_at ? new Date(selectedRun.finished_at).toLocaleString("pt-PT") : "—"}</div>
-                <div><b>SHA256:</b> <span className="font-mono text-xs">{selectedRun.xlsx_sha256?.slice(0, 16)}…</span></div>
-                <div><b>Estado:</b> <Badge variant={statusColor(selectedRun.status) as any}>{selectedRun.status}</Badge></div>
-              </div>
-              {selectedRun.error_message && (
-                <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
-                  <b>Erro:</b> {selectedRun.error_message}
-                </div>
-              )}
-              {selectedRun.diff && (
-                <div className="space-y-3">
-                  {selectedRun.diff.xlsxVsBp && (
-                    <Card>
-                      <CardHeader className="py-3"><CardTitle className="text-sm">XLSX vs BP atual</CardTitle></CardHeader>
-                      <CardContent className="text-xs">
-                        <pre className="whitespace-pre-wrap">{JSON.stringify(selectedRun.diff.xlsxVsBp, null, 2)}</pre>
-                      </CardContent>
-                    </Card>
-                  )}
-                  {(selectedRun.diff.valueMismatches?.length ?? 0) > 0 && (
-                    <Card>
-                      <CardHeader className="py-3"><CardTitle className="text-sm">Diferenças de valor ({selectedRun.diff.valueMismatches.length})</CardTitle></CardHeader>
-                      <CardContent>
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Descrição</TableHead>
-                              <TableHead className="text-right">Ficheiro</TableHead>
-                              <TableHead className="text-right">BP</TableHead>
-                              <TableHead className="text-right">Δ</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {selectedRun.diff.valueMismatches.slice(0, 20).map((m: any, i: number) => (
-                              <TableRow key={i}>
-                                <TableCell className="text-xs">{m.description}</TableCell>
-                                <TableCell className="text-right text-xs">{m.fileAmount?.toFixed(2)} €</TableCell>
-                                <TableCell className="text-right text-xs">{m.bpAmount?.toFixed(2)} €</TableCell>
-                                <TableCell className={`text-right text-xs ${m.delta > 0 ? "text-emerald-500" : "text-destructive"}`}>{m.delta?.toFixed(2)}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </CardContent>
-                    </Card>
-                  )}
-                  {(selectedRun.diff.xlsxVsState?.conflicts?.length ?? 0) > 0 && (
-                    <Card>
-                      <CardHeader className="py-3"><CardTitle className="text-sm text-destructive">Conflitos com edição manual ({selectedRun.diff.xlsxVsState.conflicts.length})</CardTitle></CardHeader>
-                      <CardContent>
-                        <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(selectedRun.diff.xlsxVsState.conflicts, null, 2)}</pre>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <DiffReviewDialog
+        run={selectedRun}
+        onClose={() => setSelectedRun(null)}
+        onApplied={() => {
+          qc.invalidateQueries({ queryKey: ["coala-sync-runs"] });
+          qc.invalidateQueries({ queryKey: ["coala-sync-config"] });
+        }}
+      />
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Modal de revisão de diferenças (Validar / Ignorar / Editar)
+// ─────────────────────────────────────────────────────────────────
+type DiffItem = {
+  rowKey: string;
+  diffKind: "value_mismatch" | "new_row" | "removed_row" | "conflict" | "sponsor_mismatch";
+  description: string;
+  fileAmount?: number | null;
+  bpAmount?: number | null;
+  delta?: number | null;
+  raw?: any;
+};
+
+function buildDiffItems(run: Run | null): DiffItem[] {
+  if (!run?.diff) return [];
+  const items: DiffItem[] = [];
+  const d = run.diff as any;
+  for (const m of d.valueMismatches ?? []) {
+    items.push({
+      rowKey: m.rowKey ?? `vm:${m.description}:${m.fileAmount}`,
+      diffKind: "value_mismatch",
+      description: m.description ?? "(sem descrição)",
+      fileAmount: m.fileAmount ?? null,
+      bpAmount: m.bpAmount ?? null,
+      delta: m.delta ?? null,
+      raw: m,
+    });
+  }
+  for (const r of d.xlsxVsState?.new ?? []) {
+    items.push({
+      rowKey: `new:${r.description}:${r.netAmount}`,
+      diffKind: "new_row",
+      description: r.description,
+      fileAmount: r.netAmount,
+      raw: r,
+    });
+  }
+  for (const r of d.xlsxVsState?.removed ?? []) {
+    items.push({
+      rowKey: r.rowKey ?? `rm:${r.payload?.description}`,
+      diffKind: "removed_row",
+      description: r.payload?.description ?? "(removido)",
+      bpAmount: r.payload?.netAmount,
+      raw: r,
+    });
+  }
+  for (const r of d.xlsxVsState?.conflicts ?? []) {
+    items.push({
+      rowKey: r.rowKey,
+      diffKind: "conflict",
+      description: r.payload?.description ?? "(conflito)",
+      raw: r,
+    });
+  }
+  for (const s of d.sponsors?.mismatch ?? []) {
+    items.push({
+      rowKey: `sp:${s.description ?? s.name}`,
+      diffKind: "sponsor_mismatch",
+      description: s.description ?? s.name ?? "(patrocinador)",
+      fileAmount: s.fileAmount ?? null,
+      bpAmount: s.bpAmount ?? null,
+      raw: s,
+    });
+  }
+  return items;
+}
+
+const kindLabel: Record<DiffItem["diffKind"], string> = {
+  value_mismatch: "Diferença de valor",
+  new_row: "Linha nova",
+  removed_row: "Linha removida",
+  conflict: "Conflito manual",
+  sponsor_mismatch: "Patrocinador",
+};
+
+function DiffReviewDialog({
+  run,
+  onClose,
+  onApplied,
+}: {
+  run: Run | null;
+  onClose: () => void;
+  onApplied: () => void;
+}) {
+  const qc = useQueryClient();
+  const items = buildDiffItems(run);
+
+  const decisionsQ = useQuery({
+    enabled: !!run,
+    queryKey: ["coala-sync-decisions", run?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("coala_sync_decisions" as any)
+        .select("*")
+        .eq("run_id", run!.id);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+
+  const decByKey = new Map<string, any>(
+    (decisionsQ.data ?? []).map((d: any) => [`${d.row_key}::${d.diff_kind}`, d]),
+  );
+
+  const decideMut = useMutation({
+    mutationFn: async (payload: {
+      item: DiffItem;
+      decision: "validate" | "ignore" | "edit";
+      customAmount?: number | null;
+      notes?: string | null;
+    }) => {
+      if (!run) return;
+      const { data: u } = await supabase.auth.getUser();
+      const row = {
+        run_id: run.id,
+        config_id: run.config_id!,
+        row_key: payload.item.rowKey,
+        diff_kind: payload.item.diffKind,
+        decision: payload.decision,
+        custom_amount: payload.customAmount ?? null,
+        notes: payload.notes ?? null,
+        decided_by: u.user?.id ?? null,
+        decided_at: new Date().toISOString(),
+      };
+      const { error } = await supabase
+        .from("coala_sync_decisions" as any)
+        .upsert(row, { onConflict: "run_id,row_key,diff_kind" });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["coala-sync-decisions", run?.id] }),
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const applyMut = useMutation({
+    mutationFn: async () => {
+      if (!run?.config_id) throw new Error("Run sem config");
+      const { data, error } = await supabase.functions.invoke("sync-coala-from-drive", {
+        body: { configId: run.config_id, mode: "apply", triggeredBy: "manual_with_decisions", basedOnRunId: run.id },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data: any) => {
+      const r = data?.runs?.[0];
+      if (r?.status === "blocked") toast.error(`Sync bloqueada: ${r.conflicts} conflito(s) pendentes`);
+      else toast.success(`Sync aplicada (${r?.status ?? "ok"})`);
+      onApplied();
+      onClose();
+    },
+    onError: (e: any) => toast.error(`Falha ao aplicar: ${e.message}`),
+  });
+
+  const pending = items.filter((i) => !decByKey.has(`${i.rowKey}::${i.diffKind}`));
+  const allDecided = items.length > 0 && pending.length === 0;
+
+  return (
+    <Dialog open={!!run} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Revisão de diferenças do sync</DialogTitle>
+        </DialogHeader>
+        {run && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+              <div><b>Início:</b> {new Date(run.started_at).toLocaleString("pt-PT")}</div>
+              <div><b>Estado:</b> <Badge variant={statusColor(run.status) as any}>{run.status}</Badge></div>
+              <div><b>Linhas:</b> {run.total_rows ?? "—"}</div>
+              <div><b>Pendentes:</b> {pending.length} / {items.length}</div>
+            </div>
+
+            {run.error_message && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+                <b>Erro:</b> {run.error_message}
+              </div>
+            )}
+
+            {items.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sem diferenças nesta execução. Tudo alinhado ✅</p>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[140px]">Tipo</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead className="text-right">Ficheiro</TableHead>
+                      <TableHead className="text-right">Sistema</TableHead>
+                      <TableHead className="text-right">Δ</TableHead>
+                      <TableHead className="w-[280px]">Decisão</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((it) => {
+                      const key = `${it.rowKey}::${it.diffKind}`;
+                      const dec = decByKey.get(key);
+                      return (
+                        <DecisionRow
+                          key={key}
+                          item={it}
+                          existing={dec}
+                          onDecide={(decision, customAmount, notes) =>
+                            decideMut.mutate({ item: it, decision, customAmount, notes })
+                          }
+                          pending={decideMut.isPending}
+                        />
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            <DialogFooter className="flex items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground">
+                {allDecided
+                  ? "Todas as diferenças têm decisão. Podes aplicar."
+                  : "Decide cada linha (validar / ignorar / editar) para libertar o Apply."}
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={onClose}>Fechar</Button>
+                <Button
+                  disabled={!allDecided || applyMut.isPending || run.mode !== "dry_run"}
+                  onClick={() => {
+                    if (!confirm("Aplicar sync com as decisões registadas? Snapshot do BP é criado automaticamente.")) return;
+                    applyMut.mutate();
+                  }}
+                >
+                  {applyMut.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Aplicar com decisões
+                </Button>
+              </div>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DecisionRow({
+  item,
+  existing,
+  onDecide,
+  pending,
+}: {
+  item: DiffItem;
+  existing?: any;
+  onDecide: (decision: "validate" | "ignore" | "edit", customAmount?: number | null, notes?: string | null) => void;
+  pending: boolean;
+}) {
+  const [editOpen, setEditOpen] = useState(false);
+  const [customAmount, setCustomAmount] = useState<string>(
+    existing?.custom_amount?.toString() ?? item.fileAmount?.toString() ?? "",
+  );
+  const [notes, setNotes] = useState<string>(existing?.notes ?? "");
+
+  const decision = existing?.decision as "validate" | "ignore" | "edit" | undefined;
+
+  return (
+    <TableRow className={decision ? "opacity-90" : ""}>
+      <TableCell>
+        <Badge variant="outline" className="text-[10px]">{kindLabel[item.diffKind]}</Badge>
+      </TableCell>
+      <TableCell className="text-xs">{item.description}</TableCell>
+      <TableCell className="text-right text-xs">{item.fileAmount != null ? `${item.fileAmount.toFixed(2)} €` : "—"}</TableCell>
+      <TableCell className="text-right text-xs">{item.bpAmount != null ? `${item.bpAmount.toFixed(2)} €` : "—"}</TableCell>
+      <TableCell className={`text-right text-xs ${(item.delta ?? 0) > 0 ? "text-emerald-500" : (item.delta ?? 0) < 0 ? "text-destructive" : ""}`}>
+        {item.delta != null ? item.delta.toFixed(2) : "—"}
+      </TableCell>
+      <TableCell>
+        <div className="flex flex-wrap gap-1 items-center">
+          <Button
+            size="sm"
+            variant={decision === "validate" ? "default" : "outline"}
+            className="h-7 px-2 text-xs"
+            onClick={() => onDecide("validate")}
+            disabled={pending}
+          >
+            ✓ Validar
+          </Button>
+          <Button
+            size="sm"
+            variant={decision === "ignore" ? "secondary" : "outline"}
+            className="h-7 px-2 text-xs"
+            onClick={() => onDecide("ignore")}
+            disabled={pending}
+          >
+            ⊘ Ignorar
+          </Button>
+          <Dialog open={editOpen} onOpenChange={setEditOpen}>
+            <DialogTrigger asChild>
+              <Button
+                size="sm"
+                variant={decision === "edit" ? "default" : "outline"}
+                className="h-7 px-2 text-xs"
+                disabled={pending}
+              >
+                ✎ Editar
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Ajustar valor</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div>
+                  <Label>Valor a usar (€)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={customAmount}
+                    onChange={(e) => setCustomAmount(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>Nota (opcional)</Label>
+                  <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Justificação" />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={() => {
+                    const n = parseFloat(customAmount);
+                    if (Number.isNaN(n)) {
+                      toast.error("Valor inválido");
+                      return;
+                    }
+                    onDecide("edit", n, notes || null);
+                    setEditOpen(false);
+                  }}
+                >
+                  Guardar decisão
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          {decision && (
+            <Badge variant="secondary" className="text-[10px] ml-1">
+              {decision === "validate" ? "Validado" : decision === "ignore" ? "Ignorado" : `Editado → ${existing?.custom_amount?.toFixed?.(2) ?? "?"} €`}
+            </Badge>
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
