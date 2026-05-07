@@ -208,6 +208,12 @@ Deno.serve(async (req) => {
         expected.push(`miss:${r.description}:${r.netAmount}::new_row`);
       for (const r of d.extraInBp ?? [])
         expected.push(`extra:${r.id}::extra_in_bp`);
+      for (const r of d.txMissing ?? [])
+        expected.push(`txmiss:${r.description}:${r.netAmount}::tx_missing`);
+      for (const m of d.txValueMismatches ?? [])
+        expected.push(`txvm:${m.txId ?? m.description}:${m.fileAmount}::tx_value_mismatch`);
+      for (const r of d.txExtra ?? [])
+        expected.push(`txextra:${r.id}::tx_extra`);
       for (const r of d.xlsxVsState?.removed ?? [])
         expected.push(`${r.rowKey ?? `rm:${r.payload?.description}`}::removed_row`);
       for (const r of d.xlsxVsState?.conflicts ?? [])
