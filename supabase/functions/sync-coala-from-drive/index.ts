@@ -369,6 +369,9 @@ Deno.serve(async (req) => {
           missingInBp: compareJson?.missingInBp ?? [],
           extraInBp: compareJson?.extraInBp ?? [],
           valueMismatches: compareJson?.valueMismatches ?? [],
+          txMissing: compareJson?.txMissing ?? [],
+          txValueMismatches: compareJson?.txValueMismatches ?? [],
+          txExtra: compareJson?.txExtra ?? [],
           sponsors: {
             missing: compareJson?.sponsorMissing ?? [],
             extra: compareJson?.sponsorExtra ?? [],
