@@ -167,6 +167,11 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
 
   const paymentMutation = useMutation({
     mutationFn: async () => {
+      // Guarda: reembolsos só podem ser liquidados via Nota de Reembolso
+      const reimb = transactions.filter((t: any) => t.is_reimbursement);
+      if (reimb.length > 0) {
+        throw new Error(`${reimb.length} transação(ões) marcada(s) como reembolso. Liquide-as via Nota de Reembolso.`);
+      }
       if (!accountId) throw new Error("Selecione a conta");
       if (!paymentDate) throw new Error("Selecione a data de pagamento");
 
