@@ -53,7 +53,21 @@ async function getDriveAccessToken(): Promise<string> {
   return j.access_token as string;
 }
 
-async function downloadDriveXlsx(fileId: string, accessToken: string): Promise<ArrayBuffer> {
+function extractDriveFileId(input: string): string {
+  const s = String(input ?? "").trim();
+  if (!s) throw new Error("drive_file_id vazio");
+  // Já é um ID puro (sem '/' nem 'http')
+  if (!s.includes("/") && !s.startsWith("http")) return s;
+  // Padrões comuns: /d/{id}/, /spreadsheets/d/{id}/, ?id={id}, /file/d/{id}
+  const m1 = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/);
+  if (m1) return m1[1];
+  const m2 = s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
+  if (m2) return m2[1];
+  throw new Error(`Não consegui extrair o file ID de: ${s}`);
+}
+
+async function downloadDriveXlsx(fileIdOrUrl: string, accessToken: string): Promise<ArrayBuffer> {
+  const fileId = extractDriveFileId(fileIdOrUrl);
   // Tenta primeiro como ficheiro binário (XLSX nativo)
   const r = await fetch(
     `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
