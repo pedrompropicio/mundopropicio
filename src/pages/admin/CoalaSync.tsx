@@ -336,11 +336,15 @@ export default function CoalaSync() {
 // ─────────────────────────────────────────────────────────────────
 type DiffItem = {
   rowKey: string;
-  diffKind: "value_mismatch" | "new_row" | "removed_row" | "conflict" | "sponsor_mismatch";
+  diffKind: "value_mismatch" | "new_row" | "removed_row" | "conflict" | "sponsor_mismatch" | "extra_in_bp";
   description: string;
   fileAmount?: number | null;
   bpAmount?: number | null;
   delta?: number | null;
+  rowNumber?: number | null;
+  supplier?: string | null;
+  bpDescription?: string | null;
+  fuzzyScore?: number | null;
   raw?: any;
 };
 
@@ -348,6 +352,8 @@ function buildDiffItems(run: Run | null): DiffItem[] {
   if (!run?.diff) return [];
   const items: DiffItem[] = [];
   const d = run.diff as any;
+
+  // 1. Diferenças de VALOR (XLSX vs BP) — vindo de apply-coala-bp phase=compare
   for (const m of d.valueMismatches ?? []) {
     items.push({
       rowKey: m.rowKey ?? `vm:${m.description}:${m.fileAmount}`,
@@ -356,27 +362,39 @@ function buildDiffItems(run: Run | null): DiffItem[] {
       fileAmount: m.fileAmount ?? null,
       bpAmount: m.bpAmount ?? null,
       delta: m.delta ?? null,
+      bpDescription: m.bpDescription ?? null,
+      fuzzyScore: m.fuzzyScore ?? null,
+      rowNumber: m.rowNumber ?? null,
       raw: m,
     });
   }
-  for (const r of d.xlsxVsState?.new ?? []) {
+
+  // 2. Linhas do XLSX que NÃO existem no BP (verdadeiras "linhas novas")
+  // Substitui xlsxVsState.new (que compara apenas ao snapshot vazio).
+  for (const r of d.missingInBp ?? []) {
     items.push({
-      rowKey: `new:${r.description}:${r.netAmount}`,
+      rowKey: `miss:${r.description}:${r.netAmount}`,
       diffKind: "new_row",
       description: r.description,
       fileAmount: r.netAmount,
+      rowNumber: r.rowNumber ?? null,
+      supplier: r.supplier ?? null,
       raw: r,
     });
   }
-  for (const r of d.xlsxVsState?.removed ?? []) {
+
+  // 3. Linhas no BP que NÃO estão no ficheiro (extra no sistema)
+  for (const r of d.extraInBp ?? []) {
     items.push({
-      rowKey: r.rowKey ?? `rm:${r.payload?.description}`,
-      diffKind: "removed_row",
-      description: r.payload?.description ?? "(removido)",
-      bpAmount: r.payload?.netAmount,
+      rowKey: `extra:${r.id}`,
+      diffKind: "extra_in_bp",
+      description: r.description,
+      bpAmount: r.amount,
       raw: r,
     });
   }
+
+  // 4. Conflitos do snapshot (overrides manuais que desapareceram do XLSX)
   for (const r of d.xlsxVsState?.conflicts ?? []) {
     items.push({
       rowKey: r.rowKey,
@@ -385,13 +403,16 @@ function buildDiffItems(run: Run | null): DiffItem[] {
       raw: r,
     });
   }
+
+  // 5. Patrocinadores
   for (const s of d.sponsors?.mismatch ?? []) {
     items.push({
-      rowKey: `sp:${s.description ?? s.name}`,
+      rowKey: `sp:${s.name ?? s.description}`,
       diffKind: "sponsor_mismatch",
-      description: s.description ?? s.name ?? "(patrocinador)",
-      fileAmount: s.fileAmount ?? null,
-      bpAmount: s.bpAmount ?? null,
+      description: s.name ?? s.description ?? "(patrocinador)",
+      fileAmount: s.file?.confirmed ?? null,
+      bpAmount: s.db?.confirmed ?? null,
+      delta: s.delta?.confirmed ?? null,
       raw: s,
     });
   }
@@ -400,11 +421,15 @@ function buildDiffItems(run: Run | null): DiffItem[] {
 
 const kindLabel: Record<DiffItem["diffKind"], string> = {
   value_mismatch: "Diferença de valor",
-  new_row: "Linha nova",
+  new_row: "Falta no BP",
   removed_row: "Linha removida",
+  extra_in_bp: "Extra no BP",
   conflict: "Conflito manual",
   sponsor_mismatch: "Patrocinador",
 };
+
+const fmtMoney = (n: number | null | undefined) =>
+  n == null ? "—" : `${Number(n).toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 
 function DiffReviewDialog({
   run,
