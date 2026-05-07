@@ -658,9 +658,27 @@ function DecisionRow({
       <TableCell>
         <Badge variant="outline" className="text-[10px]">{kindLabel[item.diffKind]}</Badge>
       </TableCell>
-      <TableCell className="text-xs">{item.description}</TableCell>
-      <TableCell className="text-right text-xs">{item.fileAmount != null ? `${item.fileAmount.toFixed(2)} €` : "—"}</TableCell>
-      <TableCell className="text-right text-xs">{item.bpAmount != null ? `${item.bpAmount.toFixed(2)} €` : "—"}</TableCell>
+      <TableCell className="text-xs">
+        <div className="font-medium">{item.description}</div>
+        <div className="text-[10px] text-muted-foreground space-x-2">
+          {item.rowNumber != null && <span>XLSX linha {item.rowNumber}</span>}
+          {item.supplier && <span>· {item.supplier}</span>}
+          {item.bpDescription && item.bpDescription !== item.description && (
+            <span>· BP: <i>{item.bpDescription}</i></span>
+          )}
+          {item.fuzzyScore != null && <span>· match {(item.fuzzyScore * 100).toFixed(0)}%</span>}
+        </div>
+      </TableCell>
+      <TableCell className="text-right text-xs">{fmtMoney(item.fileAmount)}</TableCell>
+      <TableCell className="text-right text-xs">
+        {item.diffKind === "new_row" ? (
+          <span className="text-muted-foreground italic">sem match no BP</span>
+        ) : item.diffKind === "extra_in_bp" ? (
+          <span>{fmtMoney(item.bpAmount)} <span className="text-[10px] text-muted-foreground">(só no BP)</span></span>
+        ) : (
+          fmtMoney(item.bpAmount)
+        )}
+      </TableCell>
       <TableCell className={`text-right text-xs ${(item.delta ?? 0) > 0 ? "text-emerald-500" : (item.delta ?? 0) < 0 ? "text-destructive" : ""}`}>
         {item.delta != null ? item.delta.toFixed(2) : "—"}
       </TableCell>
