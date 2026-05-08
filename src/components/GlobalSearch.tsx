@@ -35,7 +35,7 @@ const PAGES = [
   { label: "Transações", path: "/transacoes", icon: ArrowUpDown },
   { label: "Plano de Contas", path: "/plano-contas", icon: BookOpen },
   { label: "Contas Financeiras", path: "/contas", icon: Landmark },
-  { label: "Fornecedores / Parceiros", path: "/fornecedores", icon: Users },
+  { label: "Entidades / Beneficiários", path: "/fornecedores", icon: Users },
   { label: "Cotações", path: "/cotacoes", icon: FileCheck },
   { label: "Gestão IVA", path: "/iva", icon: Receipt },
   { label: "Bilheteiras", path: "/bilheteiras", icon: Store },
@@ -200,7 +200,7 @@ export function GlobalSearch() {
           {suppliers.length > 0 && (
             <>
               <CommandSeparator />
-              <CommandGroup heading="Fornecedores">
+              <CommandGroup heading="Entidades">
                 {suppliers.map((sup) => (
                   <CommandItem
                     key={sup.id}
