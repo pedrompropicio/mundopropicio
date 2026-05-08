@@ -240,7 +240,7 @@ const helpManual: HelpSection[] = [
   },
   {
     id: "suppliers",
-    title: "Fornecedores e Parceiros",
+    title: "Entidades / Beneficiários",
     icon: "Users",
     topics: [
       {

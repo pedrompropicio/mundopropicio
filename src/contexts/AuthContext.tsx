@@ -59,7 +59,7 @@ export const ALL_PERMISSIONS = [
   { key: "manage_events", label: "Gerir Eventos", group: "Operacional" },
   { key: "manage_transactions", label: "Gerir Transações", group: "Operacional" },
   { key: "manage_recurring", label: "Gerir Recorrentes", group: "Operacional" },
-  { key: "manage_suppliers", label: "Gerir Fornecedores", group: "Operacional" },
+  { key: "manage_suppliers", label: "Gerir Entidades / Beneficiários", group: "Operacional" },
   { key: "manage_quotations", label: "Gerir Cotações", group: "Operacional" },
   { key: "manage_accounts", label: "Gerir Contas", group: "Operacional" },
   { key: "manage_tickets", label: "Gerir Bilhetes", group: "Operacional" },

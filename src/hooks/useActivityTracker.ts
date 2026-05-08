@@ -11,7 +11,7 @@ const PAGE_LABELS: Record<string, string> = {
   "/bilheteiras": "Bilheteiras",
   "/plano-contas": "Plano de Contas",
   "/contas": "Contas",
-  "/fornecedores": "Fornecedores",
+  "/fornecedores": "Entidades",
   "/cotacoes": "Cotações",
   "/iva": "Gestão IVA",
   "/recorrentes": "Recorrentes",
