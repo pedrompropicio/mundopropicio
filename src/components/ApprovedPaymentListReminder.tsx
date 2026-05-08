@@ -16,20 +16,19 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const STORAGE_KEY = "approved-payment-list-reminder-dismissed";
+const STORAGE_KEY = "approved-payment-list-reminder-shown-session";
 
 export function ApprovedPaymentListReminder() {
   const { isAdmin, loading } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [dismissedSignature, setDismissedSignature] = useState<string | null>(null);
 
   const { data: approvedLists = [], refetch } = useQuery({
     queryKey: ["approved-payment-list-reminder"],
     enabled: isAdmin && !loading,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: true,
-    staleTime: 30_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    staleTime: Infinity,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payment_lists")
@@ -93,60 +92,26 @@ export function ApprovedPaymentListReminder() {
       setOpen(false);
       return;
     }
-
-    const stored = window.sessionStorage.getItem(STORAGE_KEY);
-    setDismissedSignature(stored);
   }, [isAdmin, loading]);
 
   useEffect(() => {
     if (!isAdmin || loading) return;
 
-    const channel = supabase
-      .channel("approved-payment-list-reminder")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "payment_lists" },
-        () => void refetch(),
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "payment_list_items" },
-        () => void refetch(),
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "transactions" },
-        () => void refetch(),
-      )
-      .subscribe();
+    // Only show the reminder once per browser session (i.e. when the app is opened).
+    // Realtime updates and refetches must NOT re-open it during normal usage.
+    if (window.sessionStorage.getItem(STORAGE_KEY) === "1") return;
 
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [isAdmin, loading, refetch]);
-
-  useEffect(() => {
-    if (!isAdmin || loading) return;
-
-    const { signature, listsWithUnpaid } = reminderData;
-    if (!signature || listsWithUnpaid.length === 0) {
-      setOpen(false);
-      return;
-    }
-
-    if (dismissedSignature === signature) {
-      setOpen(false);
-      return;
-    }
+    const { listsWithUnpaid } = reminderData;
+    if (listsWithUnpaid.length === 0) return;
 
     setOpen(true);
-  }, [dismissedSignature, isAdmin, loading, reminderData]);
+    window.sessionStorage.setItem(STORAGE_KEY, "1");
+  }, [isAdmin, loading, reminderData]);
 
   if (!isAdmin || loading || reminderData.listsWithUnpaid.length === 0) return null;
 
   const handleDismiss = () => {
-    window.sessionStorage.setItem(STORAGE_KEY, reminderData.signature);
-    setDismissedSignature(reminderData.signature);
+    window.sessionStorage.setItem(STORAGE_KEY, "1");
     setOpen(false);
   };
 
