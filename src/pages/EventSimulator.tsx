@@ -301,6 +301,30 @@ export default function EventSimulator() {
     enabled: !!eventId,
   });
 
+  // Cortesias geridas em event_courtesies (EventCourtesiesEditor) — devem
+  // aparecer na coluna "Cortesias" da tabela "Público diário por zona".
+  // Mapeamos por (day_index baseado na data, zone_name) para casar com a chave
+  // usada por expandLotSalesToDailyAttendance.
+  const { data: eventCourtesies = [] } = useQuery({
+    queryKey: ["sim-event-courtesies", eventId],
+    queryFn: async () => {
+      if (!eventId) return [] as Array<{ date: string | null; zone_name: string; quantity: number }>;
+      const [{ data: cs }, { data: ds }, { data: zs }] = await Promise.all([
+        supabase.from("event_courtesies").select("event_date_id, zone_id, quantity").eq("event_id", eventId),
+        supabase.from("event_dates").select("id, date").eq("event_id", eventId),
+        supabase.from("event_ticket_zones").select("id, name").eq("event_id", eventId).is("version_id", null),
+      ]);
+      const dateById = new Map((ds ?? []).map((d: any) => [d.id, d.date as string]));
+      const nameById = new Map((zs ?? []).map((z: any) => [z.id, z.name as string]));
+      return (cs ?? []).map((c: any) => ({
+        date: dateById.get(c.event_date_id) ?? null,
+        zone_name: nameById.get(c.zone_id) ?? "",
+        quantity: Number(c.quantity || 0),
+      })).filter((c) => c.zone_name);
+    },
+    enabled: !!eventId,
+  });
+
   // Estrutura detalhada de lotes/capacidades/ritmo p/ solver Break-Even.
   // Indexamos APENAS por `zone_label` (nome da zona). O solver compõe a chave
   // por sessão (day_index + zone_label) mas reconcilia pelo nome — assim
