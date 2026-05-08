@@ -621,11 +621,23 @@ export default function EventSimulator() {
       }
       return `Dia ${idx + 1}`;
     };
+    // Mapa data → day_index para casar event_courtesies com sessões do simulador.
+    const dateToIdx = new Map<string, number>();
+    dailyAttendance.forEach((d) => { if (d.day_date) dateToIdx.set(d.day_date, d.day_index); });
+    const extraCourtesyByKey = new Map<string, number>();
+    for (const c of eventCourtesies) {
+      if (!c.date) continue;
+      const idx = dateToIdx.get(c.date);
+      if (idx == null) continue;
+      const k = `${idx}|${c.zone_name}`;
+      extraCourtesyByKey.set(k, (extraCourtesyByKey.get(k) ?? 0) + Number(c.quantity || 0));
+    }
     const sessionsExp = simulatorSessions.map(s => {
       const fcQty = Number(s.forecast_qty ?? s.real_sales_qty) || 0;
       const tm = s.avg_ticket_override != null && Number(s.avg_ticket_override) > 0
         ? Number(s.avg_ticket_override)
         : (s.real_sales_qty ? Number(s.real_sales_revenue) / Number(s.real_sales_qty) : 0);
+      const extra = extraCourtesyByKey.get(`${s.day_index}|${s.zone_label}`) ?? 0;
       return {
         day_label: dayLabel(s.day_index),
         zone_label: s.zone_label,
@@ -634,7 +646,7 @@ export default function EventSimulator() {
         real_qty: Number(s.real_sales_qty || 0),
         real_eur: Number(s.real_sales_revenue || 0),
         projected_qty: Number(s.projected_qty || 0),
-        courtesy_qty: Number(s.courtesy_qty || 0),
+        courtesy_qty: Number(s.courtesy_qty || 0) + extra,
         forecast_qty: fcQty,
         forecast_eur: fcQty * tm,
       };
