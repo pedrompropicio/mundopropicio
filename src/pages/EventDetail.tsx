@@ -710,7 +710,9 @@ export default function EventDetail() {
             )}
           </div>
         </div>
-        <p className="text-sm text-muted-foreground">{event.location} · {formatDate(event.date)}</p>
+        {!isMultiEvent && (
+          <p className="text-sm text-muted-foreground">{event.location} · {formatDate(event.date)}</p>
+        )}
 
         {/* Festival dates display — dedup contra event.date para não duplicar o 1º dia */}
         {eventType === "festival" && (festivalDates.length > 0 || event.date) && (() => {
