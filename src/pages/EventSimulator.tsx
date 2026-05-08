@@ -1636,13 +1636,22 @@ boost       = ritmo final / ritmo base`}
                     <ForecastBoostCalibrator
                       currentEventId={eventId}
                       defaultWindowDays={Number(localCfg.forecast_final_window_days ?? 30)}
-                      onApply={(boost, windowDays) =>
-                        setLocalCfg({
+                      onApply={async (boost, windowDays) => {
+                        const next = {
                           ...localCfg,
                           forecast_final_accel: Number(boost.toFixed(2)),
                           forecast_final_window_days: Math.round(windowDays),
-                        })
-                      }
+                        };
+                        setLocalCfg(next);
+                        if (eventId && companyId) {
+                          await supabase
+                            .from("event_simulator_config")
+                            .upsert({ ...next, event_id: eventId, company_id: companyId } as any)
+                            .throwOnError();
+                          qc.invalidateQueries({ queryKey: ["sim-coala-cfg", eventId] });
+                          toast({ title: "Calibração aplicada", description: `Multiplicador ${boost.toFixed(2)}× guardado.` });
+                        }
+                      }}
                     />
                   </div>
                   <div className="col-span-full mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
