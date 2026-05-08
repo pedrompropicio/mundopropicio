@@ -708,6 +708,18 @@ export default function EventSimulator() {
     lotSalesData.lotSales.forEach(s => zoneSet.set(s.zone_name, { name: s.zone_name }));
     const courtesyMap = new Map<string, number>();
       simulatorSessions.forEach(s => courtesyMap.set(`${s.day_index}|${s.zone_label}`, Number(s.courtesy_qty || 0)));
+    // Merge cortesias geridas em event_courtesies (somando às do simulador).
+    // Mapeia por data → day_index na matriz de dias do festival (lotSalesData.dates).
+    const dateToIdx = new Map<string, number>();
+    (lotSalesData.dates ?? []).forEach((d: any, i: number) => { if (d?.date) dateToIdx.set(d.date, i); });
+    for (const c of eventCourtesies) {
+      if (!c.date || !c.zone_name) continue;
+      const idx = dateToIdx.get(c.date);
+      if (idx == null) continue;
+      const k = `${idx}|${c.zone_name}`;
+      courtesyMap.set(k, (courtesyMap.get(k) ?? 0) + Number(c.quantity || 0));
+      zoneSet.set(c.zone_name, { name: c.zone_name });
+    }
     return expandLotSalesToDailyAttendance(
       lotSalesData.lotSales,
       Array.from(zoneSet.values()),
@@ -716,7 +728,7 @@ export default function EventSimulator() {
       lotSalesData.dates,
       courtesyMap,
     );
-  }, [lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords]);
+  }, [lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, eventCourtesies]);
 
   const dailyTotals = useMemo(() => {
     const byDay = new Map<number, { paying: number; courtesy: number; total: number; date: string | null }>();
