@@ -22,7 +22,6 @@ export function ApprovedPaymentListReminder() {
   const { isAdmin, loading } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [dismissedSignature, setDismissedSignature] = useState<string | null>(null);
 
   const { data: approvedLists = [], refetch } = useQuery({
     queryKey: ["approved-payment-list-reminder"],
