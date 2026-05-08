@@ -92,9 +92,6 @@ export function ApprovedPaymentListReminder() {
       setOpen(false);
       return;
     }
-
-    const stored = window.sessionStorage.getItem(STORAGE_KEY);
-    setDismissedSignature(stored);
   }, [isAdmin, loading]);
 
   useEffect(() => {
@@ -114,8 +111,7 @@ export function ApprovedPaymentListReminder() {
   if (!isAdmin || loading || reminderData.listsWithUnpaid.length === 0) return null;
 
   const handleDismiss = () => {
-    window.sessionStorage.setItem(STORAGE_KEY, reminderData.signature);
-    setDismissedSignature(reminderData.signature);
+    window.sessionStorage.setItem(STORAGE_KEY, "1");
     setOpen(false);
   };
 
