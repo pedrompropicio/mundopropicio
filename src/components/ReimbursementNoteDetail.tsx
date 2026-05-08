@@ -241,6 +241,8 @@ export function ReimbursementNoteDetail({ noteId, onBack }: Props) {
           iva_rate: 0,
           date: today,
           status: "approved",
+          supplier_id: (note as any).supplier_id ?? null,
+          iban_override: (note as any).payment_iban ?? null,
         } as any)
         .select("id")
         .single();

@@ -968,7 +968,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           supplier_name: item.transactions?.suppliers?.name ?? "-",
           supplier_trade_name: item.transactions?.suppliers?.trade_name ?? null,
           supplier_id: item.transactions?.supplier_id ?? null,
-          iban: item.transactions?.suppliers?.iban ?? "-",
+          iban: item.transactions?.iban_override ?? item.transactions?.suppliers?.iban ?? "-",
           amount: Number(item.transactions?.amount ?? 0),
           iva_rate: Number(item.transactions?.iva_rate ?? 23),
           paid_amount: Number(item.transactions?.paid_amount ?? 0),
@@ -1001,7 +1001,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         supplier_name: tx?.suppliers?.name ?? "-",
         supplier_trade_name: tx?.suppliers?.trade_name ?? null,
         supplier_id: tx?.supplier_id ?? null,
-        iban: tx?.suppliers?.iban ?? "-",
+        iban: tx?.iban_override ?? tx?.suppliers?.iban ?? "-",
         amount: Number(tx?.amount ?? 0),
         iva_rate: Number(tx?.iva_rate ?? 23),
         paid_amount: Number(tx?.paid_amount ?? 0),
@@ -1180,7 +1180,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               supplier_name: tx?.suppliers?.name ?? "-",
               supplier_trade_name: tx?.suppliers?.trade_name ?? null,
               supplier_id: tx?.supplier_id ?? null,
-              iban: tx?.suppliers?.iban ?? "-",
+              iban: tx?.iban_override ?? tx?.suppliers?.iban ?? "-",
               amount: Number(tx?.amount ?? 0),
               iva_rate: Number(tx?.iva_rate ?? 23),
               paid_amount: Number(tx?.paid_amount ?? 0),
@@ -1240,7 +1240,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                         <CopyLine label="Referência" value={tx?.payment_reference ?? "-"} mono />
                       </>
                     ) : (
-                      <CopyLine label="IBAN" value={tx?.suppliers?.iban ?? "-"} mono />
+                      <CopyLine label="IBAN" value={tx?.iban_override ?? tx?.suppliers?.iban ?? "-"} mono />
                     )}
                     <CopyLine label="Fornecedor" value={formatSupplierFullName(tx?.suppliers?.name, tx?.suppliers?.trade_name)} />
                     <CopyLine label="Email Fornecedor" value={tx?.suppliers?.email} />

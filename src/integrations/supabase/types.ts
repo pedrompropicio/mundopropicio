@@ -4497,6 +4497,7 @@ export type Database = {
           id: string
           notes: string | null
           paid_at: string | null
+          payment_iban: string | null
           payment_transaction_id: string | null
           status: string
           supplier_id: string | null
@@ -4514,6 +4515,7 @@ export type Database = {
           id?: string
           notes?: string | null
           paid_at?: string | null
+          payment_iban?: string | null
           payment_transaction_id?: string | null
           status?: string
           supplier_id?: string | null
@@ -4531,6 +4533,7 @@ export type Database = {
           id?: string
           notes?: string | null
           paid_at?: string | null
+          payment_iban?: string | null
           payment_transaction_id?: string | null
           status?: string
           supplier_id?: string | null
@@ -5730,6 +5733,7 @@ export type Database = {
           exclude_from_result: boolean
           fx_rate: number | null
           fx_rate_source: string | null
+          iban_override: string | null
           id: string
           invoice_group_id: string | null
           invoice_ref: string | null
@@ -5772,6 +5776,7 @@ export type Database = {
           exclude_from_result?: boolean
           fx_rate?: number | null
           fx_rate_source?: string | null
+          iban_override?: string | null
           id?: string
           invoice_group_id?: string | null
           invoice_ref?: string | null
@@ -5814,6 +5819,7 @@ export type Database = {
           exclude_from_result?: boolean
           fx_rate?: number | null
           fx_rate_source?: string | null
+          iban_override?: string | null
           id?: string
           invoice_group_id?: string | null
           invoice_ref?: string | null
