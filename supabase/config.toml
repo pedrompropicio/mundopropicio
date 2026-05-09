@@ -9,6 +9,8 @@ project_id = "ukpuhoynrqobqtzdbysp"
     verify_jwt = true
   [functions.send-transactional-email]
     verify_jwt = true
+  # preview-transactional-email: gated por LOVABLE_API_KEY (não é JWT Supabase).
+  # NÃO mudar para true — quebra o caller (backend Go da Lovable).
   [functions.preview-transactional-email]
     verify_jwt = false
   [functions.handle-email-unsubscribe]
@@ -18,12 +20,12 @@ project_id = "ukpuhoynrqobqtzdbysp"
   [functions.request-password-reset]
     verify_jwt = false
   [functions.send-push-notification]
-    verify_jwt = false
+    verify_jwt = true
   [functions.database-backup]
-    verify_jwt = false
+    verify_jwt = true
   [functions.database-restore]
-    verify_jwt = false
+    verify_jwt = true
   [functions.selective-restore]
-    verify_jwt = false
+    verify_jwt = true
   [functions.surgical-restore]
-    verify_jwt = false
+    verify_jwt = true
