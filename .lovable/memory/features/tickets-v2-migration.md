@@ -3,6 +3,44 @@
 **Status**: em coexistência (Fase 2 parcial concluída).
 **Última actualização**: 2026-05-09.
 
+## ⚠️ Constraint crítico: Test ↔ Live
+
+**Lição de 2026-05-09:** o publish falhou (`Publishing failed`) porque o schema
+da base de **Test** ficou em drift com a de **Live**. O agente Lovable replicou
+o que faltava em Test e o publish desbloqueou.
+
+### Causa
+
+Durante as Fases 1, 2.1 e 2.5, o SQL foi corrido via `query_database` directo
+(Claude exterior, não o agente Lovable). Essa via bate apenas em **Live**.
+A base de **Test** não recebeu as tabelas, funções, views nem triggers novos.
+O pipeline de publish detecta drift Test↔Live e recusa o deploy.
+
+### Regra para os batches restantes
+
+**NÃO usar `query_database` para DDL ou DML que altere schema/dados** desta
+migração (incluindo `03-triggers-active.sql`, `04-activate-coala.sql`,
+`05-activate-mp.sql`). Em vez disso:
+
+1. Pedir ao **agente Lovable** para criar migration em `supabase/migrations/`
+   com o SQL do batch.
+2. O agente aplica em **Test** automaticamente e regista a migration.
+3. Republicar (Publish). O pipeline aplica a migration em **Live**.
+
+Pre-flight a pedir ao agente antes de cada batch:
+
+> «Verifica drift Test↔Live para os objectos tickets v2 (tabelas
+> `event_ticket_types`, `event_ticket_type_zones`, `tickets_v2_sync_log`;
+> funções `compute_ticket_type_for_lot`, `tickets_v2_sync_lot`,
+> `event_ticket_types_validate_depth`, `tickets_v2_run_all_tests`,
+> `_test_tickets_v2_*`; views `vw_tickets_v2_*`; trigger `trg_tickets_v2_sync`).
+> Reporta diferenças sem corrigir.»
+
+### Estado actual (após reconciliação 2026-05-09)
+
+Test e Live estão sincronizados para todos os objectos das Fases 1, 2.1 e 2.5.
+A partir daqui, qualquer alteração de schema/dados deve seguir a regra acima.
+
 ## Decisão central: opção C (variantes auto-referenciais + cap agregado)
 
 3 níveis de hierarquia:
