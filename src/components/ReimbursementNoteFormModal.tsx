@@ -9,6 +9,7 @@ import { X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { IbanWarning } from "@/components/IbanWarning";
 
 interface Props {
   onClose: () => void;
