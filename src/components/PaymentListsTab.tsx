@@ -1034,6 +1034,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         payment_entity: tx?.payment_entity,
         payment_reference: tx?.payment_reference,
         invoice_ref: tx?.invoice_ref ?? null,
+        is_reimbursement: !!tx?.is_reimbursement,
       };
     });
 
