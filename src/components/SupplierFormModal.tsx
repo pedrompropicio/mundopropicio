@@ -51,6 +51,9 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const isEditing = !!editingSupplier;
+  const [iban1, setIban1] = useState<string>(editingSupplier?.iban ?? "");
+  const [iban2, setIban2] = useState<string>(editingSupplier?.iban_2 ?? "");
+  const [iban3, setIban3] = useState<string>(editingSupplier?.iban_3 ?? "");
 
   const createMutation = useMutation({
     mutationFn: async (supplier: Record<string, any>) => {
