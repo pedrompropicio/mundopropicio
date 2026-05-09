@@ -114,6 +114,8 @@ Têm guard `has_role`/`is_platform_admin` no body; aceitam ser callable por `aut
 
 ## Categoria C — Migrar para `SECURITY INVOKER`
 
+> **UPDATE 2026-05-09 — Cat. C concluída.** Auditoria via `pg_get_functiondef` em Test **e** Live confirmou que as 5 funções abaixo já estão `SECURITY INVOKER` (`prosecdef=false`). Migration aplicada em Test (`02-cat-C-security-invoker.APPLIED.txt`); Live ou já estava migrada de uma corrida anterior, ou nunca foi DEFINER (mesma classe de erro de inventário detectada na Cat. D). Plano completo de validação role-a-role em `.lovable/plan.md`. Smoke role-matrix (admin/manager/editor/viewer/partner próprio/partner alheio + tentativa cross-tenant) deve correr pós-publicação como defesa em profundidade.
+
 Read-only que só lê tabelas com RLS já bem definida. Tornar `SECURITY INVOKER` faz com que respeitem o RLS do caller (defesa em profundidade).
 
 | Função | Risco RLS | Tabelas | Decisão |
