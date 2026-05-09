@@ -11,6 +11,7 @@ import { supplierSchema, validateForm } from "@/lib/validations";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit, getAuditUser } from "@/lib/audit";
 import { cn } from "@/lib/utils";
+import { IbanWarning } from "@/components/IbanWarning";
 
 const supplierCategories = [
   "Som e Iluminação",
