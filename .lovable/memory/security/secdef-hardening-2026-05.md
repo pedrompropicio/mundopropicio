@@ -25,16 +25,31 @@ Inventário inicial dizia que 11 funções faltavam guards. Auditoria fresca via
 
 **Não há patches Cat. D para escrever.** Os 2 wrappers DB-internal (`_revert_event_to_version`, `reconcile_bp_overrides_for_event`) continuam sem guards no body mas já estão protegidos pelo `REVOKE … FROM anon, authenticated` da B.2.
 
-## Cat. C — próxima frente
+## Cat. C — concluída (2026-05-09)
 
-5 funções read-only candidatas a `SECURITY INVOKER`:
-- `bp_version_linked_tx_count`
-- `list_bp_versions` (validar Portal do Sócio)
-- `list_orphan_transactions_for_event`
-- `find_admin_absorbing_events`
-- `suggest_formalidade`
+5 funções read-only confirmadas `SECURITY INVOKER` em Test e Live (`prosecdef=false` via `pg_get_functiondef`):
 
-Script preparado em `scripts/secdef-hardening/02-cat-C-security-invoker.txt`.
+| Função | Caller | Mudança visível |
+|---|---|---|
+| `bp_version_linked_tx_count(uuid)` | `useBPVersions.ts` | nenhuma (RLS event_forecasts cobre) |
+| `list_bp_versions(uuid)` | UI BP + Portal Sócio | partner agora respeita policy "Staff sees all, partners only active" — alinhado com `bp-versions-partner-portal` |
+| `list_orphan_transactions_for_event(uuid)` | UI admin/manager | nenhuma |
+| `find_admin_absorbing_events(date,uuid)` | só `service_role` (cron) | no-op (service_role bypassa RLS) |
+| `suggest_formalidade(uuid)` | UI staff | nenhuma |
+
+Script renomeado para `scripts/secdef-hardening/02-cat-C-security-invoker.APPLIED.txt`. Plano com análise role-a-role + smoke matrix em `.lovable/plan.md`.
+
+Smoke matrix mínima pós-publish (4 cenários):
+1. admin em `/eventos/<X>/bp` → vê todas versões (idêntico a antes).
+2. partner no Portal → vê só versão `active` do seu evento.
+3. partner tenta evento alheio → 0 linhas.
+4. admin abre "Reconciliar transações órfãs" → lista igual a antes.
+
+## Fase 2 — fechada
+
+A: 9 intactas · B.1+B.2+B.3: 38 endurecidas · C: 5 INVOKER · D: 11 com guards no body · Total 63/63 auditadas, 0 pendentes.
+
+
 
 ## Como verificar Cat. D em Live
 
