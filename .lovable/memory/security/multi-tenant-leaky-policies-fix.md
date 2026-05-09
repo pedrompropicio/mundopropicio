@@ -33,3 +33,7 @@ WHERE n.nspname='public'
 ```
 
 Deve devolver 0 linhas em Test e em Live.
+
+## 2026-05-09 update
+
+4 policies adicionais (`bp_versions`, `bp_version_audit_log`, `supplier_credits` x2 incluindo um DELETE) foram dropadas via hotfix SQL direto em volta anterior, mas regrediram durante a migration do rate-limit (schema sync recriou-as a partir de migrations versionadas antigas). Agora committadas formalmente em `supabase/migrations/20260509152542_*_drop_leaky_auth_uid_policies.sql` (idempotente, `IF EXISTS`). Audit RLS legacy: 57 → 54 (estável). Lição: hotfix em Live tem de virar migration na mesma volta, senão regride.
