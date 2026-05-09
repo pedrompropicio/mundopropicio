@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Building2, Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +35,7 @@ export function CompanySwitcher() {
   const { data: companies, isLoading } = useCompaniesList(isPlatformAdmin);
   const setActive = useSetActiveCompany();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
   if (!isPlatformAdmin) return null;
@@ -53,6 +55,7 @@ export function CompanySwitcher() {
           : "Empresa ativa atualizada.",
       });
       setOpen(false);
+      navigate("/", { replace: true });
     } catch (err: any) {
       toast({
         title: "Não foi possível trocar de empresa",
