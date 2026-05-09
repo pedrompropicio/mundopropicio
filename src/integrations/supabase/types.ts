@@ -6469,6 +6469,16 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_tickets_v2_test_health: {
+        Row: {
+          failed: number | null
+          passed: number | null
+          status: string | null
+          suite: string | null
+          total: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       _revert_event_to_version: {
@@ -6480,6 +6490,30 @@ export type Database = {
           _target_version_id: string
         }
         Returns: undefined
+      }
+      _test_tickets_v2_compute_function: {
+        Args: never
+        Returns: {
+          detail: string
+          passed: boolean
+          test_name: string
+        }[]
+      }
+      _test_tickets_v2_invariants: {
+        Args: never
+        Returns: {
+          detail: string
+          passed: boolean
+          test_name: string
+        }[]
+      }
+      _test_tickets_v2_trigger_log_only: {
+        Args: never
+        Returns: {
+          detail: string
+          passed: boolean
+          test_name: string
+        }[]
       }
       analyze_formalidade_bulk: {
         Args: { _event_ids?: string[] }
@@ -6826,6 +6860,15 @@ export type Database = {
         Returns: Database["public"]["Enums"]["bp_formalidade"]
       }
       test_latest_backup: { Args: never; Returns: Json }
+      tickets_v2_run_all_tests: {
+        Args: never
+        Returns: {
+          detail: string
+          passed: boolean
+          suite: string
+          test_name: string
+        }[]
+      }
       unarchive_bp_version: {
         Args: {
           _performed_by?: string
