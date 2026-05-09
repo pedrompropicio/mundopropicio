@@ -1,0 +1,27 @@
+-- ============================================================
+-- SECDEF Hardening — Cat. C (Live, 2026-05-09)
+-- 5 read-only functions: convert SECURITY DEFINER → SECURITY INVOKER
+-- so they respect the caller's RLS (defesa em profundidade).
+-- ALTER FUNCTION preserva grants e body.
+-- ============================================================
+
+BEGIN;
+
+ALTER FUNCTION public.bp_version_linked_tx_count(_event_id uuid)                        SECURITY INVOKER;
+ALTER FUNCTION public.list_bp_versions(_event_id uuid)                                  SECURITY INVOKER;
+ALTER FUNCTION public.list_orphan_transactions_for_event(_event_id uuid)                SECURITY INVOKER;
+ALTER FUNCTION public.find_admin_absorbing_events(p_date date, p_company_id uuid)       SECURITY INVOKER;
+ALTER FUNCTION public.suggest_formalidade(_forecast_id uuid)                            SECURITY INVOKER;
+
+COMMIT;
+
+-- ============================================================
+-- Validação pós-aplicação:
+-- SELECT proname, prosecdef
+--   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+--  WHERE n.nspname='public'
+--    AND proname IN ('bp_version_linked_tx_count','list_bp_versions',
+--                    'list_orphan_transactions_for_event',
+--                    'find_admin_absorbing_events','suggest_formalidade');
+-- Esperado: prosecdef = false (5 linhas)
+-- ============================================================
