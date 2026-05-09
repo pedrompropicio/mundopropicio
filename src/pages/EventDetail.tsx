@@ -105,7 +105,24 @@ export default function EventDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAdmin, isManager, user } = useAuth();
+  const { companyId } = useCompany();
   const queryClient = useQueryClient();
+
+  // Se o platform_admin trocar de empresa enquanto está dentro de um evento,
+  // o evento deixa de existir nesse tenant — voltar à lista em vez de mostrar
+  // "Evento não encontrado".
+  const initialCompanyIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!companyId) return;
+    if (initialCompanyIdRef.current === null) {
+      initialCompanyIdRef.current = companyId;
+      return;
+    }
+    if (initialCompanyIdRef.current !== companyId) {
+      navigate("/eventos", { replace: true });
+    }
+  }, [companyId, navigate]);
+
   // URL-driven state so deep-links (e.g. returning from a report) restore the
   // exact sub-event + active tab the user was on.
   const [searchParams, setSearchParams] = useSearchParams();
