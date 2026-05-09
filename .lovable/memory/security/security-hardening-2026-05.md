@@ -33,7 +33,7 @@ Antes: qualquer auth user podia chamar e flipar `status` para `paid` bypassando 
 
 ## Pendências conhecidas (NÃO corrigidas nesta volta)
 
-- `check-login-rate / record_failure` sem throttle → DoS de account lockout. Mitigação futura: validar IP-match, mover para auth hook ou adicionar CAPTCHA.
+- ~~`check-login-rate / record_failure` sem throttle~~ → **FECHADO 2026-05-09**: token HMAC bound to (email,ip) + lockout decisivo por IP + alertas dedupe por IP/hora. Ver `mem://security/auth-rate-limit-hardening`.
 - 110+ funções `SECURITY DEFINER` callable por anon/auth (linter SUPA_0028/0029). Auditoria função-a-função fica para uma volta dedicada.
 - HIBP password protection: a memória diz ON; reconfirmar no painel Cloud (linter ainda flagga warn).
 - Realtime per-tenant granularity (Realtime Authorization).
