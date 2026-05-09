@@ -15,7 +15,7 @@ const IBAN_COUNTRY_LENGTHS: Record<string, number> = {
 
 export function normalizeIban(input: string | null | undefined): string {
   if (!input) return "";
-  return input.replace(/[\s-]/g, "").toUpperCase();
+  return input.replace(/[\s.\-_/]/g, "").toUpperCase();
 }
 
 export type IbanCheck = {
