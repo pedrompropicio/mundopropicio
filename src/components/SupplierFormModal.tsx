@@ -222,7 +222,8 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="sup-iban">IBAN 1</Label>
-                <Input id="sup-iban" name="iban" defaultValue={s?.iban ?? ""} />
+                <Input id="sup-iban" name="iban" value={iban1} onChange={(e) => setIban1(e.target.value)} />
+                <IbanWarning value={iban1} />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="sup-swift">SWIFT/BIC 1</Label>
@@ -232,7 +233,8 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="sup-iban-2">IBAN 2</Label>
-                <Input id="sup-iban-2" name="iban_2" defaultValue={s?.iban_2 ?? ""} />
+                <Input id="sup-iban-2" name="iban_2" value={iban2} onChange={(e) => setIban2(e.target.value)} />
+                <IbanWarning value={iban2} />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="sup-swift-2">SWIFT/BIC 2</Label>
@@ -242,7 +244,8 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="sup-iban-3">IBAN 3</Label>
-                <Input id="sup-iban-3" name="iban_3" defaultValue={s?.iban_3 ?? ""} />
+                <Input id="sup-iban-3" name="iban_3" value={iban3} onChange={(e) => setIban3(e.target.value)} />
+                <IbanWarning value={iban3} />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="sup-swift-3">SWIFT/BIC 3</Label>
