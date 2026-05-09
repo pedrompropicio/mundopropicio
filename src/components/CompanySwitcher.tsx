@@ -55,6 +55,7 @@ export function CompanySwitcher() {
           : "Empresa ativa atualizada.",
       });
       setOpen(false);
+      navigate("/", { replace: true });
     } catch (err: any) {
       toast({
         title: "Não foi possível trocar de empresa",
