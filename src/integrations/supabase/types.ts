@@ -1362,6 +1362,7 @@ export type Database = {
           currency: string
           display_name: string
           favicon_url: string | null
+          feature_tickets_v2: boolean
           id: string
           legal_name: string
           logo_url: string | null
@@ -1369,6 +1370,7 @@ export type Database = {
           status: string
           tax_id: string | null
           theme_config: Json | null
+          tickets_config: Json
           timezone: string
           updated_at: string
         }
@@ -1380,6 +1382,7 @@ export type Database = {
           currency?: string
           display_name: string
           favicon_url?: string | null
+          feature_tickets_v2?: boolean
           id?: string
           legal_name: string
           logo_url?: string | null
@@ -1387,6 +1390,7 @@ export type Database = {
           status?: string
           tax_id?: string | null
           theme_config?: Json | null
+          tickets_config?: Json
           timezone?: string
           updated_at?: string
         }
@@ -1398,6 +1402,7 @@ export type Database = {
           currency?: string
           display_name?: string
           favicon_url?: string | null
+          feature_tickets_v2?: boolean
           id?: string
           legal_name?: string
           logo_url?: string | null
@@ -1405,6 +1410,7 @@ export type Database = {
           status?: string
           tax_id?: string | null
           theme_config?: Json | null
+          tickets_config?: Json
           timezone?: string
           updated_at?: string
         }
@@ -3278,6 +3284,7 @@ export type Database = {
       event_ticket_lots: {
         Row: {
           applies_to_days: number
+          campaign_label: string | null
           combo_benefits: string | null
           combo_description: string | null
           company_id: string
@@ -3292,11 +3299,15 @@ export type Database = {
           name: string
           price: number
           quantity: number
+          sales_window_end: string | null
+          sales_window_start: string | null
+          ticket_type_id: string | null
           version_id: string | null
           zone_id: string
         }
         Insert: {
           applies_to_days?: number
+          campaign_label?: string | null
           combo_benefits?: string | null
           combo_description?: string | null
           company_id?: string
@@ -3311,11 +3322,15 @@ export type Database = {
           name?: string
           price?: number
           quantity?: number
+          sales_window_end?: string | null
+          sales_window_start?: string | null
+          ticket_type_id?: string | null
           version_id?: string | null
           zone_id: string
         }
         Update: {
           applies_to_days?: number
+          campaign_label?: string | null
           combo_benefits?: string | null
           combo_description?: string | null
           company_id?: string
@@ -3330,6 +3345,9 @@ export type Database = {
           name?: string
           price?: number
           quantity?: number
+          sales_window_end?: string | null
+          sales_window_start?: string | null
+          ticket_type_id?: string | null
           version_id?: string | null
           zone_id?: string
         }
@@ -3339,6 +3357,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_ticket_lots_ticket_type_id_fkey"
+            columns: ["ticket_type_id"]
+            isOneToOne: false
+            referencedRelation: "event_ticket_types"
             referencedColumns: ["id"]
           },
           {
@@ -3487,6 +3512,149 @@ export type Database = {
           },
         ]
       }
+      event_ticket_type_zones: {
+        Row: {
+          company_id: string
+          created_at: string
+          display_order: number
+          id: string
+          price_share: number | null
+          ticket_type_id: string
+          zone_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          price_share?: number | null
+          ticket_type_id: string
+          zone_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          price_share?: number | null
+          ticket_type_id?: string
+          zone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_ticket_type_zones_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_ticket_type_zones_ticket_type_id_fkey"
+            columns: ["ticket_type_id"]
+            isOneToOne: false
+            referencedRelation: "event_ticket_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_ticket_type_zones_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "event_ticket_zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_ticket_types: {
+        Row: {
+          benefits: string | null
+          companion_courtesy_qty: number
+          company_id: string
+          created_at: string
+          description: string | null
+          display_order: number
+          entries_per_unit: number
+          event_id: string
+          id: string
+          kind: string
+          max_total_quantity: number | null
+          name: string
+          parent_ticket_type_id: string | null
+          sales_channel: string | null
+          sales_channel_label: string | null
+          updated_at: string
+          variant_kind: string | null
+          variant_label: string | null
+          version_id: string | null
+          visibility: string
+        }
+        Insert: {
+          benefits?: string | null
+          companion_courtesy_qty?: number
+          company_id: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          entries_per_unit?: number
+          event_id: string
+          id?: string
+          kind?: string
+          max_total_quantity?: number | null
+          name: string
+          parent_ticket_type_id?: string | null
+          sales_channel?: string | null
+          sales_channel_label?: string | null
+          updated_at?: string
+          variant_kind?: string | null
+          variant_label?: string | null
+          version_id?: string | null
+          visibility?: string
+        }
+        Update: {
+          benefits?: string | null
+          companion_courtesy_qty?: number
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          entries_per_unit?: number
+          event_id?: string
+          id?: string
+          kind?: string
+          max_total_quantity?: number | null
+          name?: string
+          parent_ticket_type_id?: string | null
+          sales_channel?: string | null
+          sales_channel_label?: string | null
+          updated_at?: string
+          variant_kind?: string | null
+          variant_label?: string | null
+          version_id?: string | null
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_ticket_types_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_ticket_types_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_ticket_types_parent_ticket_type_id_fkey"
+            columns: ["parent_ticket_type_id"]
+            isOneToOne: false
+            referencedRelation: "event_ticket_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_ticket_zones: {
         Row: {
           company_id: string
@@ -3495,7 +3663,7 @@ export type Database = {
           id: string
           name: string
           session_id: string | null
-          total_capacity: number
+          total_capacity: number | null
           updated_at: string
           version_id: string | null
         }
@@ -3506,7 +3674,7 @@ export type Database = {
           id?: string
           name: string
           session_id?: string | null
-          total_capacity?: number
+          total_capacity?: number | null
           updated_at?: string
           version_id?: string | null
         }
@@ -3517,7 +3685,7 @@ export type Database = {
           id?: string
           name?: string
           session_id?: string | null
-          total_capacity?: number
+          total_capacity?: number | null
           updated_at?: string
           version_id?: string | null
         }
@@ -5541,6 +5709,65 @@ export type Database = {
           },
         ]
       }
+      tickets_v2_sync_log: {
+        Row: {
+          company_id: string | null
+          context: Json | null
+          created_at: string
+          event_id: string | null
+          id: string
+          lot_id: string | null
+          matched_via: string | null
+          operation: string
+          proposed_type_id: string | null
+          proposed_type_name: string | null
+          proposed_zone_signature: string[] | null
+          sync_mode: string
+          trigger_action: string
+          warnings: string[] | null
+        }
+        Insert: {
+          company_id?: string | null
+          context?: Json | null
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          lot_id?: string | null
+          matched_via?: string | null
+          operation: string
+          proposed_type_id?: string | null
+          proposed_type_name?: string | null
+          proposed_zone_signature?: string[] | null
+          sync_mode: string
+          trigger_action: string
+          warnings?: string[] | null
+        }
+        Update: {
+          company_id?: string | null
+          context?: Json | null
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          lot_id?: string | null
+          matched_via?: string | null
+          operation?: string
+          proposed_type_id?: string | null
+          proposed_type_name?: string | null
+          proposed_zone_signature?: string[] | null
+          sync_mode?: string
+          trigger_action?: string
+          warnings?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_v2_sync_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transaction_audit_log: {
         Row: {
           changed_at: string
@@ -6205,7 +6432,43 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      vw_tickets_v2_sync_summary_7d: {
+        Row: {
+          empresa: string | null
+          eventos_afetados: number | null
+          operation: string | null
+          primeiro: string | null
+          qtd: number | null
+          trigger_action: string | null
+          ultimo: string | null
+        }
+        Relationships: []
+      }
+      vw_tickets_v2_sync_warnings: {
+        Row: {
+          context: Json | null
+          created_at: string | null
+          empresa: string | null
+          evento: string | null
+          operation: string | null
+          trigger_action: string | null
+          warnings: string[] | null
+        }
+        Relationships: []
+      }
+      vw_tickets_v2_sync_would_create: {
+        Row: {
+          base_name: Json | null
+          created_at: string | null
+          empresa: string | null
+          evento: string | null
+          is_combo: Json | null
+          lot_id: string | null
+          lot_name_original: Json | null
+          proposed_type_name: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       _revert_event_to_version: {
@@ -6291,6 +6554,25 @@ export type Database = {
         Returns: {
           deleted_count: number
           oldest_kept: string
+        }[]
+      }
+      compute_ticket_type_for_lot: {
+        Args: {
+          p_applies_to_days: number
+          p_consumes_zones: string[]
+          p_is_combo: boolean
+          p_lot_name: string
+          p_version_id: string
+          p_zone_id: string
+        }
+        Returns: {
+          base_name: string
+          found_type_id: string
+          is_real_combo: boolean
+          proposed_kind: string
+          proposed_type_name: string
+          warnings: string[]
+          zone_signature: string[]
         }[]
       }
       consume_recovery_code: { Args: { _code_hash: string }; Returns: boolean }
