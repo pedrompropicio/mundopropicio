@@ -35,6 +35,7 @@ export function CompanySwitcher() {
   const { data: companies, isLoading } = useCompaniesList(isPlatformAdmin);
   const setActive = useSetActiveCompany();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
   if (!isPlatformAdmin) return null;
