@@ -668,7 +668,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                   <th className="p-2 text-left font-medium">Descrição</th>
                   <th className="p-2 text-left font-medium hidden sm:table-cell">Categoria</th>
                   <th className="p-2 text-left font-medium hidden sm:table-cell">Evento</th>
-                  <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor</th>
+                  <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor / Beneficiário</th>
                   <th className="p-2 text-right font-medium">Valor c/IVA</th>
                   <th className="p-2 text-right font-medium hidden sm:table-cell">Já Pago</th>
                   <th className="p-2 text-right font-medium">Saldo</th>
@@ -1034,6 +1034,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         payment_entity: tx?.payment_entity,
         payment_reference: tx?.payment_reference,
         invoice_ref: tx?.invoice_ref ?? null,
+        is_reimbursement: !!tx?.is_reimbursement,
       };
     });
 
@@ -1083,7 +1084,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       } else {
         lines.push(`IBAN: ${item.iban}`);
       }
-      lines.push(`Fornecedor: ${formatSupplierFullName(item.supplier_name, (item as any).supplier_trade_name)}`);
+      lines.push(`${(item as any).is_reimbursement ? "Beneficiário" : "Fornecedor"}: ${formatSupplierFullName(item.supplier_name, (item as any).supplier_trade_name)}`);
       lines.push(`Descrição: ${item.description}`);
       if (item.specification) lines.push(`Especificação: ${item.specification}`);
       lines.push(`Valor: ${formatCurrency(withIva)}`);
@@ -1265,8 +1266,8 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                     ) : (
                       <CopyLine label="IBAN" value={tx?.iban_override ?? tx?.suppliers?.iban ?? "-"} mono />
                     )}
-                    <CopyLine label="Fornecedor" value={formatSupplierFullName(tx?.suppliers?.name, tx?.suppliers?.trade_name)} />
-                    <CopyLine label="Email Fornecedor" value={tx?.suppliers?.email} />
+                    <CopyLine label={tx?.is_reimbursement ? "Beneficiário" : "Fornecedor"} value={formatSupplierFullName(tx?.suppliers?.name, tx?.suppliers?.trade_name)} />
+                    <CopyLine label={tx?.is_reimbursement ? "Email Beneficiário" : "Email Fornecedor"} value={tx?.suppliers?.email} />
                     {tx?.account_categories && (
                       <CopyLine label="Categoria" value={`${tx.account_categories.code} ${tx.account_categories.name}`} />
                     )}
@@ -1597,7 +1598,7 @@ function ApproveModal({
                    <th className="p-2 text-left font-medium">Descrição</th>
                    <th className="p-2 text-left font-medium hidden sm:table-cell">Categoria</th>
                    <th className="p-2 text-left font-medium hidden sm:table-cell">Evento</th>
-                   <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor</th>
+                   <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor / Beneficiário</th>
                    <th className="p-2 text-right font-medium">Valor c/IVA</th>
                    <th className="p-2 text-right font-medium">Saldo</th>
                 </tr>
