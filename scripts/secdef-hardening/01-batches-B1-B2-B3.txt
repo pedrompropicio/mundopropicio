@@ -1,0 +1,80 @@
+-- ============================================================
+-- SECDEF Hardening — Lotes B.1 + B.2 + B.3 (Live, 2026-05-09)
+-- Fonte: scripts/audit-secdef-inventory.md
+-- Total: 17 (B.1) + 14 (B.2) + 7 (B.3) = 38 funções
+-- ============================================================
+
+BEGIN;
+
+-- ───────────────────── B.1 — Triggers (REVOKE total) ─────────────────────
+REVOKE EXECUTE ON FUNCTION public.auto_create_initial_bp_version()                                                                                                                  FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.auto_create_retroactive_split_snapshots()                                                                                                         FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.handle_new_user()                                                                                                                                 FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.log_formalidade_change()                                                                                                                          FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.log_table_change()                                                                                                                                FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.prevent_split_absorbs_admin()                                                                                                                     FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.reimbursement_propagate_payment()                                                                                                                 FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.reimbursement_revert_on_tx_delete()                                                                                                               FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.set_company_id_on_insert()                                                                                                                        FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.set_event_ab_company_id()                                                                                                                         FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.snapshot_bp_versions_to_trash()                                                                                                                   FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.tg_sponsorship_pipeline_autolog()                                                                                                                 FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.validate_category_allocate_flag()                                                                                                                 FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.validate_event_admin_absorption()                                                                                                                 FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.audit_generic_changes()                                                                                                                           FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.set_combo_pass_company_id()                                                                                                                       FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.set_combo_pass_child_company_id()                                                                                                                 FROM PUBLIC, anon, authenticated;
+
+-- ───────────────────── B.2 — Cron / edge-only (REVOKE + GRANT service_role) ─────────────────────
+REVOKE EXECUTE ON FUNCTION public.cleanup_old_backups()                                                                                                                             FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.cleanup_old_backups()                                                                                                                             TO   service_role;
+
+REVOKE EXECUTE ON FUNCTION public.test_latest_backup()                                                                                                                              FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.test_latest_backup()                                                                                                                              TO   service_role;
+
+REVOKE EXECUTE ON FUNCTION public.run_rls_legacy_audit_cron()                                                                                                                       FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.run_rls_legacy_audit_cron()                                                                                                                       TO   service_role;
+
+REVOKE EXECUTE ON FUNCTION public.audit_multi_tenant_isolation()                                                                                                                    FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.audit_multi_tenant_isolation()                                                                                                                    TO   service_role;
+
+REVOKE EXECUTE ON FUNCTION public._revert_event_to_version(_event_id uuid, _target_version_id uuid, _performed_by uuid, _performed_by_label text, _force boolean)                   FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public._revert_event_to_version(_event_id uuid, _target_version_id uuid, _performed_by uuid, _performed_by_label text, _force boolean)                   TO   service_role;
+
+REVOKE EXECUTE ON FUNCTION public.apply_formalidade_suggestions(_forecast_ids uuid[], _new_state bp_formalidade)                                                                    FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.apply_formalidade_suggestions(_forecast_ids uuid[], _new_state bp_formalidade)                                                                    TO   service_role;
+
+REVOKE EXECUTE ON FUNCTION public.set_formalidade_auto_suggested(_value boolean)                                                                                                    FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.set_formalidade_auto_suggested(_value boolean)                                                                                                    TO   service_role;
+
+REVOKE EXECUTE ON FUNCTION public.reconcile_bp_overrides_for_event(_event_id uuid, _trigger_version_id uuid, _trigger_version_number integer, _performed_by uuid, _performed_by_label text) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.reconcile_bp_overrides_for_event(_event_id uuid, _trigger_version_id uuid, _trigger_version_number integer, _performed_by uuid, _performed_by_label text) TO   service_role;
+
+REVOKE EXECUTE ON FUNCTION public.relink_orphan_transactions(_event_id uuid, _pairs jsonb, _performed_by uuid, _performed_by_label text)                                            FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.relink_orphan_transactions(_event_id uuid, _pairs jsonb, _performed_by uuid, _performed_by_label text)                                            TO   service_role;
+
+REVOKE EXECUTE ON FUNCTION public.enqueue_email(queue_name text, payload jsonb)                                                                                                     FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.enqueue_email(queue_name text, payload jsonb)                                                                                                     TO   service_role;
+
+REVOKE EXECUTE ON FUNCTION public.read_email_batch(queue_name text, batch_size integer, vt integer)                                                                                 FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.read_email_batch(queue_name text, batch_size integer, vt integer)                                                                                 TO   service_role;
+
+REVOKE EXECUTE ON FUNCTION public.delete_email(queue_name text, message_id bigint)                                                                                                  FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.delete_email(queue_name text, message_id bigint)                                                                                                  TO   service_role;
+
+REVOKE EXECUTE ON FUNCTION public.move_to_dlq(source_queue text, dlq_name text, message_id bigint, payload jsonb)                                                                   FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.move_to_dlq(source_queue text, dlq_name text, message_id bigint, payload jsonb)                                                                   TO   service_role;
+
+REVOKE EXECUTE ON FUNCTION public.find_admin_absorbing_events(p_date date, p_company_id uuid)                                                                                       FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.find_admin_absorbing_events(p_date date, p_company_id uuid)                                                                                       TO   service_role;
+
+-- ───────────────────── B.3 — Admin RPC (REVOKE só anon) ─────────────────────
+REVOKE EXECUTE ON FUNCTION public.run_rls_legacy_audit(_triggered_by text, _triggered_by_user uuid)                                                                                 FROM anon;
+REVOKE EXECUTE ON FUNCTION public.set_active_company(target_company_id uuid)                                                                                                        FROM anon;
+REVOKE EXECUTE ON FUNCTION public.analyze_formalidade_bulk(_event_ids uuid[])                                                                                                       FROM anon;
+REVOKE EXECUTE ON FUNCTION public.apply_formalidade_suggestions_map(_payload jsonb)                                                                                                 FROM anon;
+REVOKE EXECUTE ON FUNCTION public.formalidade_audit_stats(_event_ids uuid[])                                                                                                        FROM anon;
+REVOKE EXECUTE ON FUNCTION public.consume_recovery_code(_code_hash text)                                                                                                            FROM anon;
+REVOKE EXECUTE ON FUNCTION public.validate_trusted_device(_token_hash text)                                                                                                         FROM anon;
+
+COMMIT;
