@@ -1,0 +1,260 @@
+# Inventário SECURITY DEFINER — schema `public` (Live)
+
+Data: 2026-05-09  
+Total: **63** funções (15 trigger fns + 48 callables)  
+Estado actual: **TODAS** com `EXECUTE` default para `PUBLIC` (logo callable por `anon` e `authenticated`).  
+Todas têm `SET search_path = public` ✅.
+
+Heurísticas usadas para classificar:
+- `auth.uid()` — filtra pelo utilizador
+- `has_role()` / `is_platform_admin()` — guard de role
+- `current_company_id()` — guard multi-tenant
+- mutates — DML em tabelas `public`
+- caller — onde é chamada (frontend grep / edge fn / cron / trigger / RLS / interno)
+
+---
+
+## Categoria A — Necessária e segura (manter `EXECUTE TO authenticated`)
+
+Wrappers de RLS e helpers read-only que filtram por `auth.uid()` ou `event_id`. **Nenhuma altera GRANTs.**
+
+| Função | Guard interno | Caller | Notas |
+|---|---|---|---|
+| `current_company_id()` | `auth.uid()` + `profiles` | RLS de ~80 tabelas | crítica para multi-tenant |
+| `is_platform_admin(_user_id)` | lê `user_roles` | RLS + RPCs | |
+| `has_role(_user_id, _role)` | lê `user_roles` | RLS + RPCs | |
+| `has_permission(_user_id, _permission)` | lê `user_permissions` | RLS | |
+| `get_user_role(_user_id)` | lê `user_roles` | helpers | |
+| `has_partner_access(_user_id, _event_id)` | lê `event_partners` | RLS de `events`/`event_forecasts` | |
+| `row_belongs_to_current_company(_row_company_id)` | `current_company_id()` + `is_platform_admin()` | RLS RESTRICTIVE | |
+| `storage_path_belongs_to_current_company(_name)` | idem | RLS de `storage.objects` | |
+| `bp_version_linked_tx_count(_event_id)` | nenhum | RPC client (BPVersionsTab) | só `SELECT count(*) FROM transactions WHERE event_id=_event_id`. RLS de `transactions` já filtra por tenant via JOIN com `events`. ✅ seguro mas **candidato a SECURITY INVOKER** (Cat. C). |
+
+---
+
+## Categoria B — Restringir GRANT
+
+### B.1 — Funções de TRIGGER (17): só engine de triggers as deve invocar
+
+Todas têm `RETURNS trigger` e não fazem sentido como RPC. Revogar `EXECUTE` de `PUBLIC, anon, authenticated` é seguro — triggers continuam a disparar (correm como owner da tabela).
+
+| Função | Trigger anexa | Tabela |
+|---|---|---|
+| `auto_create_initial_bp_version()` | ✅ | `events` (status transitions) |
+| `auto_create_retroactive_split_snapshots()` | ✅ | `bp_versions` |
+| `handle_new_user()` | ✅ | `auth.users` |
+| `log_formalidade_change()` | ✅ | `event_forecasts` |
+| `log_table_change()` | ✅ | múltiplas (system_audit_log) |
+| `prevent_split_absorbs_admin()` | ✅ | `event_forecasts` |
+| `reimbursement_propagate_payment()` | ✅ | `transactions` |
+| `reimbursement_revert_on_tx_delete()` | ✅ | `transactions` |
+| `set_company_id_on_insert()` | ✅ | ~80 tabelas (multi-tenant default) |
+| `set_event_ab_company_id()` | ✅ | `event_ab_scenarios` |
+| `snapshot_bp_versions_to_trash()` | ✅ | `events` (delete cascade) |
+| `tg_sponsorship_pipeline_autolog()` | ✅ | `sponsorship_pipeline` |
+| `validate_category_allocate_flag()` | ✅ | `account_categories` |
+| `validate_event_admin_absorption()` | ✅ | `event_forecasts` |
+| `audit_generic_changes()` | ⚠️ via `audit_*_changes` wrappers (memória 2026-04) | suppliers, companies, user_roles, user_permissions, financial_accounts |
+| `set_combo_pass_company_id()` | ⚠️ confirmar attach | `combo_passes` |
+| `set_combo_pass_child_company_id()` | ⚠️ confirmar attach | `combo_pass_children` |
+
+**Patch B.1:**
+```sql
+REVOKE EXECUTE ON FUNCTION public.<fn>() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.<fn>() FROM anon, authenticated;
+```
+
+### B.2 — Cron / edge-only (callers usam service-role)
+
+| Função | Caller | Risco actual |
+|---|---|---|
+| `cleanup_old_backups()` | cron `cleanup-old-backups` (mensal) | apaga rows de `database_backups` |
+| `test_latest_backup()` | cron `monthly-backup-test` | só lê |
+| `run_rls_legacy_audit_cron()` | cron diário (chama `run_rls_legacy_audit`) | só lê pg_catalog |
+| `audit_multi_tenant_isolation()` | edge fn debug + admin manual | só lê metrics |
+| `recalculate_pax_benchmarks(_company_id)` | admin batch | UPDATE em massa em `events`. Tem guard `has_role(admin)` + `is_platform_admin` ✅ — ainda assim revogar de `anon` |
+| `_revert_event_to_version(...)` | chamada SÓ por `revert_to_bp_version`/`promote_scenario_to_active` | DELETE+INSERT em `event_forecasts`. **NÃO chamada por client** (prefixo `_`). |
+| `apply_formalidade_suggestions(_ids, _state)` | versão antiga; cliente usa `_map` | mutativa, sem guard de tenant |
+| `mark_forecasts_fechado_auto(_ids)` | edge fn `close-camarim-session` | UPDATE em `event_forecasts` |
+| `set_formalidade_auto_suggested(_value)` | helper de session local (`SET LOCAL`) | aplica flag de session |
+| `reconcile_bp_overrides_for_event(...)` | chamada por `_revert_event_to_version` | DML em `event_forecasts` |
+| `relink_orphan_transactions(...)` | RPC admin (não usada no frontend) | UPDATE `transactions.category_id` — ⚠️ pode reatribuir pertença |
+| `enqueue_email(queue_name, payload)` | triggers + edge fns (service role) | wrapper pgmq |
+| `read_email_batch(queue_name, batch_size, vt)` | edge `process-email-queue` | wrapper pgmq |
+| `delete_email(queue_name, message_id)` | edge `process-email-queue` | wrapper pgmq |
+| `move_to_dlq(...)` | edge `process-email-queue` | wrapper pgmq |
+| `find_admin_absorbing_events(p_date, p_company_id)` | só usada internamente (?) — verificar grep | só lê |
+
+**Patch B.2:**
+```sql
+REVOKE EXECUTE ON FUNCTION public.<fn>(...) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.<fn>(...) FROM anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.<fn>(...) TO service_role;
+```
+
+> ⚠️ Antes de revogar `enqueue_email` confirmar com `pg_trigger` que nenhum trigger BEFORE INSERT em `email_send_log` (ou similar) corre no contexto do utilizador. Se sim, o GRANT deve ficar para `authenticated` mas o body deve continuar a ignorar input não-confiável.
+
+### B.3 — RPCs admin (UI Admin) — manter `authenticated` mas revogar `anon`
+
+Têm guard interno via `has_role`/`is_platform_admin`. Aceitam ser chamadas por `authenticated` — a função rejeita se falta role.
+
+| Função | Guard | Caller |
+|---|---|---|
+| `run_rls_legacy_audit(_triggered_by, _user)` | role check no body | edge `run-rls-legacy-audit` + page `/admin/auditoria-rls` |
+| `set_active_company(target_company_id)` | `is_platform_admin()` | header switcher |
+| `restore_bp_versions_from_trash(_trash_id)` | `has_role(admin\|manager)` | `/admin/lixo` |
+| `analyze_formalidade_bulk(_event_ids)` | `has_role(admin\|manager)` | `/admin/formalidade` |
+| `apply_formalidade_suggestions_map(_payload)` | `has_role(admin\|manager)` | idem |
+| `formalidade_audit_stats(_event_ids)` | `has_role` | idem (read-only) |
+
+**Patch B.3:**
+```sql
+REVOKE EXECUTE ON FUNCTION public.<fn>(...) FROM anon;
+-- mantém em authenticated
+```
+
+---
+
+## Categoria C — Pode virar `SECURITY INVOKER`
+
+Funções stable read-only que SÓ leem tabelas com RLS já bem definida. Tornar SECURITY INVOKER faz com que respeitem o RLS do caller (defesa em profundidade).
+
+| Função | Tabelas lidas | Risco |
+|---|---|---|
+| `bp_version_linked_tx_count(_event_id)` | `transactions` | nenhum |
+| `list_bp_versions(_event_id)` | `bp_versions` | partner pode passar a ver só a versão active (já é o pretendido) |
+| `formalidade_audit_stats(_event_ids)` | `event_forecasts`, `transactions` | partner pode passar a ver menos — manter em B.3 se tiver guard |
+| `list_orphan_transactions_for_event(_event_id)` | `transactions`, `event_forecasts` | só admin acede via UI |
+| `find_admin_absorbing_events(p_date, p_company_id)` | `events` | já filtra por `p_company_id` |
+| `suggest_formalidade(_forecast_id)` | `event_forecasts`, `transactions` | só lê |
+
+**Patch C:** `CREATE OR REPLACE ... SECURITY INVOKER`. Validar antes/depois com query de contagem por user-role.
+
+---
+
+## Categoria D — Suspeitas / a investigar caso-a-caso (HIGH RISK)
+
+Mutativas, **sem guard de role nem `auth.uid()` no body**. Confiam apenas em RLS, mas sendo `SECURITY DEFINER` o RLS é ignorado dentro do corpo. ⇒ qualquer `authenticated` pode invocar e modificar dados de outro tenant se conhecer um UUID.
+
+Prioridade decrescente:
+
+| # | Função | Operação | O que falta | Patch sugerido |
+|---|---|---|---|---|
+| 1 | `_revert_event_to_version(_event_id, _target_version_id, ...)` | DELETE+INSERT em `event_forecasts`, INSERT em `bp_versions` | nenhuma verificação de tenant nem role | manter SECURITY DEFINER, **adicionar** `IF NOT has_role(auth.uid(),'admin') AND NOT has_role(auth.uid(),'manager') THEN RAISE` + `IF NOT (SELECT company_id FROM events WHERE id=_event_id) = current_company_id() THEN RAISE`. Já está em B.2 (revoke de authenticated) — confirmar. |
+| 2 | `revert_to_bp_version(_version_id, _force, ...)` | wrapper para #1 | mesma falha; usado por client | **adicionar guards** + manter em B.3 |
+| 3 | `promote_scenario_to_active(_scenario_version_id, ...)` (6 args, 18k chars) | cascade Master→Splits, mexe em forecasts e versions | sem guard role/tenant | **adicionar guards**; alto teste de regressão (memória `bp-versions-scenarios`) |
+| 4 | `promote_scenario_draft_to_active(_v, _label, _desc)` (3 args) | variante antiga | tem `has_role` ✅ | confirmar ainda usada; senão DROP |
+| 5 | `archive_bp_version(_version_id, ...)` | UPDATE state | sem guard | **adicionar `has_role` + tenant check** |
+| 6 | `unarchive_bp_version(_version_id, ...)` | UPDATE state | sem guard | idem |
+| 7 | `discard_bp_version_draft(_version_id, ...)` | DELETE | sem guard | idem |
+| 8 | `discard_scenario_draft(_version_id)` | DELETE | tem `has_role` ✅ | manter B.3 |
+| 9 | `create_bp_snapshot(_event_id, ...)` (8 args, 11k chars) | INSERT em `bp_versions` | sem guard explícito | **adicionar tenant check** (`event.company_id = current_company_id()`) |
+| 10 | `create_scenario_draft(_event_id, ...)` | INSERT | tem `has_role` ✅ | manter B.3 |
+| 11 | `merge_forecasts_into_active_snapshot(_event_id, _forecast_ids)` | UPDATE bp_versions.snapshot_payload | usa `auth.uid()` mas sem `has_role` | **adicionar role + tenant** |
+| 12 | `relink_orphan_transactions(_event_id, _pairs, ...)` | UPDATE `transactions.category_id` | sem guard | **adicionar guards** + B.2 |
+| 13 | `reconcile_bp_overrides_for_event(...)` | DML em `event_forecasts` | sem guard | só chamada interna — restringir a service_role (B.2) |
+| 14 | `recalculate_pax_benchmarks(_company_id)` | UPDATE em `events` | tem `has_role+is_platform_admin` ✅ mas **deve forçar `_company_id = current_company_id()`** ou ser só `platform_admin` | adicionar verificação |
+| 15 | `consume_recovery_code(_code_hash)` | DELETE em `mfa_recovery_codes` | filtra por `auth.uid()` ✅ | OK manter Cat. A; só revogar `anon` |
+| 16 | `validate_trusted_device(_token_hash)` | UPDATE last_used_at | filtra por `auth.uid()` ✅ | OK; revogar `anon` |
+| 17 | `apply_formalidade_suggestions(_ids, _state)` | UPDATE | tem `has_role` ✅ — versão *antiga*; o cliente usa `_map` | revogar de authenticated (B.2) e ponderar DROP |
+
+**Patch D (template para cada função):**
+```sql
+CREATE OR REPLACE FUNCTION public.<fn>(...)
+RETURNS ...
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_event_company uuid;
+BEGIN
+  -- Guard 1: role
+  IF NOT (public.has_role(auth.uid(),'admin'::app_role)
+       OR public.has_role(auth.uid(),'manager'::app_role)
+       OR public.is_platform_admin(auth.uid())) THEN
+    RAISE EXCEPTION 'Forbidden' USING ERRCODE='42501';
+  END IF;
+  -- Guard 2: tenant (quando aplicável)
+  SELECT company_id INTO v_event_company FROM public.events WHERE id = _event_id;
+  IF v_event_company IS NULL OR v_event_company <> public.current_company_id() THEN
+    RAISE EXCEPTION 'Cross-tenant operation denied' USING ERRCODE='42501';
+  END IF;
+  -- ... corpo original ...
+END;
+$$;
+```
+
+---
+
+## Resumo por categoria
+
+| Cat. | Nº | Acção |
+|---|---|---|
+| A — manter | 9 | nada |
+| B.1 — triggers revoke | 17 | `REVOKE FROM anon, authenticated` |
+| B.2 — cron/edge revoke | 16 | `REVOKE FROM anon, authenticated; GRANT TO service_role` |
+| B.3 — admin RPC `anon` revoke | 6 | `REVOKE FROM anon` |
+| C — security invoker | 6 (sobreposto com A/B.3) | recriar `SECURITY INVOKER` |
+| D — adicionar guards no body | 11 | `CREATE OR REPLACE` com role + tenant check |
+
+Total alterações distintas previstas: **~50 funções** (algumas em mais que uma categoria).
+
+---
+
+## Próximas queries de cruzamento (a correr antes da Fase 2)
+
+### Q1 — Confirmar callers reais (frontend + edge)
+```bash
+grep -rohE "\.rpc\(['\"][a-z_]+" src/ supabase/functions/ | sed -E "s/.*['\"]//" | sort -u
+```
+Resultado actual (25 RPCs): `analyze_formalidade_bulk, apply_formalidade_suggestions_map, archive_bp_version, bp_version_linked_tx_count, calibrate_forecast_boost, consume_recovery_code, create_bp_snapshot, create_scenario_draft, current_company_id, delete_email, discard_bp_version_draft, discard_scenario_draft, enqueue_email, formalidade_audit_stats, is_platform_admin, list_bp_versions, merge_forecasts_into_active_snapshot, move_to_dlq, promote_scenario_to_active, read_email_batch, revert_to_bp_version, run_rls_legacy_audit, set_active_company, unarchive_bp_version, validate_trusted_device`.
+
+### Q2 — Triggers attachados a `audit_generic_changes` / `set_combo_pass_*`
+```sql
+SELECT t.tgname, c.relname
+FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
+WHERE t.tgfoid IN (
+  'public.audit_generic_changes'::regproc,
+  'public.set_combo_pass_company_id'::regproc,
+  'public.set_combo_pass_child_company_id'::regproc
+);
+```
+
+### Q3 — Snapshot de grants (baseline para rollback)
+```sql
+SELECT r.routine_name,
+       string_agg(DISTINCT g.grantee, ',' ORDER BY g.grantee) AS grantees
+FROM information_schema.routines r
+LEFT JOIN information_schema.role_routine_grants g
+  ON g.specific_name = r.specific_name AND g.privilege_type='EXECUTE'
+WHERE r.specific_schema='public' AND r.security_type='DEFINER'
+GROUP BY r.routine_name ORDER BY 1;
+```
+Guardar em `/mnt/documents/secdef-grants-pre-batch.tsv`.
+
+### Q4 — Funções `SECURITY DEFINER` SEM caller conhecido (candidatas a DROP)
+Cruzar lista das 49 callables com Q1. Não-presentes:
+- `_revert_event_to_version` (interno)
+- `apply_formalidade_suggestions` (substituída por `_map`)
+- `audit_multi_tenant_isolation` (debug)
+- `cleanup_old_backups`, `test_latest_backup`, `run_rls_legacy_audit_cron` (cron)
+- `find_admin_absorbing_events` (verificar uso interno em outras fns)
+- `mark_forecasts_fechado_auto`, `set_formalidade_auto_suggested` (helpers)
+- `promote_scenario_draft_to_active` (substituída por `promote_scenario_to_active`?)
+- `reconcile_bp_overrides_for_event` (chamada interna)
+- `recalculate_pax_benchmarks` (admin batch — confirmar UI)
+- `relink_orphan_transactions` (admin)
+- `restore_bp_versions_from_trash` (UI Lixo)
+- `audit_generic_changes`, `set_combo_pass_*` (trigger fns)
+- helpers de RLS (manter)
+
+⇒ **3 candidatas plausíveis a DROP** após confirmação: `apply_formalidade_suggestions` (versão antiga), `promote_scenario_draft_to_active` (versão antiga), `audit_multi_tenant_isolation` (se já não usada). Não dropar nesta volta — só listar.
+
+---
+
+## Conclusão Fase 1
+
+- 63 funções inventariadas e classificadas.
+- Risco maior concentra-se na **Categoria D (11 funções)** que são mutativas e correm como SECURITY DEFINER sem nenhum guard de role ou tenant — qualquer `authenticated` com um UUID válido pode invocá-las e contornar RLS.
+- Fase 2 propõe-se em **5 lotes** (`scripts/secdef-hardening/01..05`), do menor para maior risco. Aguarda aprovação antes de gerar os ficheiros `.txt` de migração.
