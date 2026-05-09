@@ -2,6 +2,9 @@
 
 **Gerado em:** 2026-05-09 contra **Live**.
 **Escopo:** funções com `prosecdef = true` em `public`.
+
+> **UPDATE 2026-05-09 (pós B.1+B.2+B.3):** auditoria fresca via `pg_get_functiondef` mostrou que **todas as 11 funções listadas como Cat. D já têm role + tenant + platform_admin guards no body** (endurecidas em migrations anteriores: `bp-versions-rls-and-trash`, `bp-versions-scenarios`, `formalidade-bulk-audit`, `multi-tenant-leaky-policies-fix`). O regex usado neste inventário (`has_role\(auth\.uid`) deu falso negativo em `merge_forecasts_into_active_snapshot` (usa `EXISTS user_roles` inline — funcionalmente equivalente). **Cat. D fechada — sem patches a aplicar.** Os 2 wrappers internos (`_revert_event_to_version`, `reconcile_bp_overrides_for_event`) continuam sem guards mas estão protegidos por `REVOKE … FROM anon, authenticated` (lote B.2). Próxima frente: Cat. C (`SECURITY INVOKER`).
+
 **Estado actual de GRANTs:** todas com `EXECUTE` por defeito a `PUBLIC` (a menos que uma migration tenha emitido `REVOKE`); `information_schema.role_routine_grants` não distingue "default `PUBLIC`" vs "post-`REVOKE` sem grants explícitos", por isso a Fase 2 deve emitir `REVOKE … FROM PUBLIC, anon, authenticated` explícito mesmo onde uma migration anterior já o tenha feito (idempotente).
 
 ---
