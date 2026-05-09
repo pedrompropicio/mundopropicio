@@ -1,0 +1,1048 @@
+-- ============================================================================
+-- Cat. D — Patches individuais (role + tenant guards) — RUN IN LIVE
+-- Fase 2 / lote D do plano SECDEF Hardening.
+-- Estratégia: CREATE OR REPLACE FUNCTION com corpo idêntico ao actual + bloco
+-- guard injectado logo após o BEGIN. Nada do corpo de negócio foi alterado.
+-- Para os 2 wrappers DB-internos (_revert_event_to_version, reconcile_bp_overrides_for_event)
+-- aplicamos apenas REVOKE total + GRANT TO service_role.
+-- ============================================================================
+
+BEGIN;
+
+-- ---------------------------------------------------------------------------
+-- 0) DB-internal wrappers — revoke total (não devem ser callable do frontend)
+-- ---------------------------------------------------------------------------
+
+REVOKE EXECUTE ON FUNCTION public._revert_event_to_version(uuid, uuid, uuid, text, boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._revert_event_to_version(uuid, uuid, uuid, text, boolean) TO service_role;
+
+REVOKE EXECUTE ON FUNCTION public.reconcile_bp_overrides_for_event(uuid, uuid, integer, uuid, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.reconcile_bp_overrides_for_event(uuid, uuid, integer, uuid, text) TO service_role;
+
+-- ---------------------------------------------------------------------------
+-- 1) revert_to_bp_version — adicionar role + tenant check
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.revert_to_bp_version(_version_id uuid, _force boolean DEFAULT false, _performed_by uuid DEFAULT NULL::uuid, _performed_by_label text DEFAULT NULL::text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_target RECORD;
+  v_event RECORD;
+  v_split RECORD;
+  v_split_target_id uuid;
+  v_event_company uuid;
+BEGIN
+  -- [SECDEF guard] role + tenant
+  IF NOT (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'manager'::app_role) OR public.is_platform_admin(auth.uid())) THEN
+    RAISE EXCEPTION 'Permissão negada: apenas admin/manager podem reverter versões do BP.';
+  END IF;
+  SELECT e.company_id INTO v_event_company
+    FROM public.bp_versions v JOIN public.events e ON e.id = v.event_id
+   WHERE v.id = _version_id;
+  IF v_event_company IS NULL THEN
+    RAISE EXCEPTION 'Versão % não encontrada', _version_id;
+  END IF;
+  IF NOT public.is_platform_admin(auth.uid()) AND v_event_company <> public.current_company_id() THEN
+    RAISE EXCEPTION 'Permissão negada: versão pertence a outra empresa.';
+  END IF;
+
+  SELECT * INTO v_target FROM public.bp_versions WHERE id = _version_id;
+  IF v_target IS NULL THEN
+    RAISE EXCEPTION 'Version % not found', _version_id;
+  END IF;
+  IF v_target.state = 'archived' THEN
+    RAISE EXCEPTION 'Não é possível reverter para uma versão arquivada. Desarquive-a primeiro.';
+  END IF;
+  IF v_target.scenario_label IS NOT NULL THEN
+    RAISE EXCEPTION 'Cenários de trabalho não podem ser usados para reversão. Promova-o a versão oficial primeiro.';
+  END IF;
+  IF v_target.state = 'active' THEN
+    RAISE EXCEPTION 'A versão alvo já é a versão ativa.';
+  END IF;
+  SELECT id, parent_event_id INTO v_event FROM public.events WHERE id = v_target.event_id;
+  IF v_event.parent_event_id IS NOT NULL THEN
+    RAISE EXCEPTION 'Reverta no Master para sincronizar todos os Splits.';
+  END IF;
+  PERFORM public._revert_event_to_version(v_target.event_id, _version_id, _performed_by, _performed_by_label, _force);
+  FOR v_split IN SELECT id FROM public.events WHERE parent_event_id = v_event.id LOOP
+    SELECT id INTO v_split_target_id FROM public.bp_versions
+     WHERE event_id = v_split.id AND cascaded_from_version_id = _version_id LIMIT 1;
+    IF v_split_target_id IS NOT NULL THEN
+      PERFORM public._revert_event_to_version(v_split.id, v_split_target_id, _performed_by, _performed_by_label, _force);
+    END IF;
+  END LOOP;
+  RETURN _version_id;
+END;
+$function$;
+
+-- ---------------------------------------------------------------------------
+-- 2) archive_bp_version — role + tenant
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.archive_bp_version(_version_id uuid, _performed_by uuid DEFAULT NULL::uuid, _performed_by_label text DEFAULT NULL::text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_version RECORD;
+  v_split_version RECORD;
+  v_now timestamptz := now();
+  v_event_company uuid;
+BEGIN
+  IF NOT (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'manager'::app_role) OR public.is_platform_admin(auth.uid())) THEN
+    RAISE EXCEPTION 'Permissão negada: apenas admin/manager podem arquivar versões do BP.';
+  END IF;
+  SELECT e.company_id INTO v_event_company
+    FROM public.bp_versions v JOIN public.events e ON e.id = v.event_id WHERE v.id = _version_id;
+  IF v_event_company IS NULL THEN
+    RAISE EXCEPTION 'Version % not found', _version_id;
+  END IF;
+  IF NOT public.is_platform_admin(auth.uid()) AND v_event_company <> public.current_company_id() THEN
+    RAISE EXCEPTION 'Permissão negada: versão pertence a outra empresa.';
+  END IF;
+
+  SELECT * INTO v_version FROM public.bp_versions WHERE id = _version_id;
+  IF v_version IS NULL THEN RAISE EXCEPTION 'Version % not found', _version_id; END IF;
+  IF v_version.state = 'active' THEN
+    RAISE EXCEPTION 'Não é possível arquivar a versão ativa. Crie uma nova versão ativa primeiro.';
+  END IF;
+  IF v_version.state = 'archived' THEN RETURN; END IF;
+  UPDATE public.bp_versions SET state = 'archived', archived_at = v_now WHERE id = _version_id;
+  INSERT INTO public.bp_version_audit_log (version_id, event_id, action, performed_by, performed_by_label, metadata)
+  VALUES (_version_id, v_version.event_id, 'archived', _performed_by, _performed_by_label,
+    jsonb_build_object('previous_state', v_version.state));
+  FOR v_split_version IN SELECT * FROM public.bp_versions WHERE cascaded_from_version_id = _version_id LOOP
+    IF v_split_version.state <> 'active' AND v_split_version.state <> 'archived' THEN
+      UPDATE public.bp_versions SET state = 'archived', archived_at = v_now WHERE id = v_split_version.id;
+      INSERT INTO public.bp_version_audit_log (version_id, event_id, action, performed_by, performed_by_label, metadata)
+      VALUES (v_split_version.id, v_split_version.event_id, 'archived', _performed_by, _performed_by_label,
+        jsonb_build_object('previous_state', v_split_version.state, 'cascaded_from', _version_id));
+    END IF;
+  END LOOP;
+END;
+$function$;
+
+-- ---------------------------------------------------------------------------
+-- 3) unarchive_bp_version — role + tenant
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.unarchive_bp_version(_version_id uuid, _performed_by uuid DEFAULT NULL::uuid, _performed_by_label text DEFAULT NULL::text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_version RECORD; v_split_version RECORD; v_new_state text;
+  v_event_company uuid;
+BEGIN
+  IF NOT (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'manager'::app_role) OR public.is_platform_admin(auth.uid())) THEN
+    RAISE EXCEPTION 'Permissão negada: apenas admin/manager podem desarquivar versões do BP.';
+  END IF;
+  SELECT e.company_id INTO v_event_company
+    FROM public.bp_versions v JOIN public.events e ON e.id = v.event_id WHERE v.id = _version_id;
+  IF v_event_company IS NULL THEN
+    RAISE EXCEPTION 'Version % not found', _version_id;
+  END IF;
+  IF NOT public.is_platform_admin(auth.uid()) AND v_event_company <> public.current_company_id() THEN
+    RAISE EXCEPTION 'Permissão negada: versão pertence a outra empresa.';
+  END IF;
+
+  SELECT * INTO v_version FROM public.bp_versions WHERE id = _version_id;
+  IF v_version IS NULL THEN RAISE EXCEPTION 'Version % not found', _version_id; END IF;
+  IF v_version.state <> 'archived' THEN RETURN; END IF;
+  IF v_version.approved_at IS NOT NULL THEN v_new_state := 'superseded'; ELSE v_new_state := 'draft'; END IF;
+  UPDATE public.bp_versions SET state = v_new_state, archived_at = NULL WHERE id = _version_id;
+  INSERT INTO public.bp_version_audit_log (version_id, event_id, action, performed_by, performed_by_label, metadata)
+  VALUES (_version_id, v_version.event_id, 'unarchived', _performed_by, _performed_by_label,
+    jsonb_build_object('restored_state', v_new_state));
+  FOR v_split_version IN SELECT * FROM public.bp_versions WHERE cascaded_from_version_id = _version_id LOOP
+    IF v_split_version.state = 'archived' THEN
+      UPDATE public.bp_versions SET state = v_new_state, archived_at = NULL WHERE id = v_split_version.id;
+      INSERT INTO public.bp_version_audit_log (version_id, event_id, action, performed_by, performed_by_label, metadata)
+      VALUES (v_split_version.id, v_split_version.event_id, 'unarchived', _performed_by, _performed_by_label,
+        jsonb_build_object('restored_state', v_new_state, 'cascaded_from', _version_id));
+    END IF;
+  END LOOP;
+END;
+$function$;
+
+-- ---------------------------------------------------------------------------
+-- 4) discard_bp_version_draft — role + tenant
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.discard_bp_version_draft(_version_id uuid, _performed_by uuid DEFAULT NULL::uuid, _performed_by_label text DEFAULT NULL::text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_version RECORD; v_non_scenario_cascades int;
+  v_event_company uuid;
+BEGIN
+  IF NOT (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'manager'::app_role) OR public.is_platform_admin(auth.uid())) THEN
+    RAISE EXCEPTION 'Permissão negada: apenas admin/manager podem descartar rascunhos do BP.';
+  END IF;
+  SELECT e.company_id INTO v_event_company
+    FROM public.bp_versions v JOIN public.events e ON e.id = v.event_id WHERE v.id = _version_id;
+  IF v_event_company IS NULL THEN
+    RAISE EXCEPTION 'Version % not found', _version_id;
+  END IF;
+  IF NOT public.is_platform_admin(auth.uid()) AND v_event_company <> public.current_company_id() THEN
+    RAISE EXCEPTION 'Permissão negada: versão pertence a outra empresa.';
+  END IF;
+
+  SELECT * INTO v_version FROM public.bp_versions WHERE id = _version_id;
+  IF v_version IS NULL THEN RAISE EXCEPTION 'Version % not found', _version_id; END IF;
+  IF v_version.state <> 'draft' THEN RAISE EXCEPTION 'Apenas rascunhos podem ser descartados (estado atual: %)', v_version.state; END IF;
+  SELECT COUNT(*) INTO v_non_scenario_cascades FROM public.bp_versions
+   WHERE cascaded_from_version_id = _version_id AND state <> 'draft';
+  IF v_non_scenario_cascades > 0 THEN
+    RAISE EXCEPTION 'Não é possível descartar: existem % versão(ões) ativas/superseded em Splits que descendem deste rascunho.', v_non_scenario_cascades USING ERRCODE = 'P0001';
+  END IF;
+  INSERT INTO public.bp_version_audit_log (version_id, event_id, action, performed_by, performed_by_label, metadata)
+  VALUES (_version_id, v_version.event_id, 'discarded', _performed_by, _performed_by_label,
+    jsonb_build_object('version_number', v_version.version_number, 'scenario_label', v_version.scenario_label,
+      'is_scenario', v_version.scenario_label IS NOT NULL));
+  DELETE FROM public.bp_versions WHERE cascaded_from_version_id = _version_id AND state = 'draft';
+  DELETE FROM public.bp_versions WHERE id = _version_id;
+END;
+$function$;
+
+-- ---------------------------------------------------------------------------
+-- 5) create_bp_snapshot — role + tenant (event lookup)
+-- ---------------------------------------------------------------------------
+-- Patch mínimo: prepend guard. Resto do corpo verbatim.
+
+CREATE OR REPLACE FUNCTION public.create_bp_snapshot(_event_id uuid, _description text DEFAULT NULL::text, _approve_immediately boolean DEFAULT false, _scenario_label text DEFAULT NULL::text, _scenario_assumptions jsonb DEFAULT NULL::jsonb, _is_pinned_scenario boolean DEFAULT false, _created_by uuid DEFAULT NULL::uuid, _created_by_label text DEFAULT NULL::text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_event RECORD; v_is_master boolean := false;
+  v_next_version int; v_state text;
+  v_master_version_id uuid; v_now timestamptz := now();
+  v_payload jsonb; v_split RECORD; v_split_payload jsonb;
+  v_split_version_id uuid; v_split_next_version int;
+  v_previous_active_id uuid; v_split_previous_active_id uuid;
+  v_session_map jsonb;
+  v_zone_map jsonb;
+  v_old_id uuid; v_new_id uuid;
+  v_session_row RECORD; v_zone_row RECORD; v_lot_row RECORD;
+  v_event_company uuid;
+BEGIN
+  IF NOT (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'manager'::app_role) OR public.has_role(auth.uid(), 'editor'::app_role) OR public.is_platform_admin(auth.uid())) THEN
+    RAISE EXCEPTION 'Permissão negada: apenas admin/manager/editor podem criar snapshots do BP.';
+  END IF;
+  SELECT company_id INTO v_event_company FROM public.events WHERE id = _event_id;
+  IF v_event_company IS NULL THEN
+    RAISE EXCEPTION 'Event % not found', _event_id;
+  END IF;
+  IF NOT public.is_platform_admin(auth.uid()) AND v_event_company <> public.current_company_id() THEN
+    RAISE EXCEPTION 'Permissão negada: evento pertence a outra empresa.';
+  END IF;
+
+  SELECT id, name, parent_event_id, status INTO v_event FROM public.events WHERE id = _event_id;
+  IF v_event IS NULL THEN RAISE EXCEPTION 'Event % not found', _event_id; END IF;
+  IF v_event.parent_event_id IS NOT NULL THEN
+    RAISE EXCEPTION 'Cannot create snapshot directly on a Split event (%). Snapshot the Master instead.', _event_id;
+  END IF;
+  SELECT EXISTS (SELECT 1 FROM public.events WHERE parent_event_id = _event_id) INTO v_is_master;
+  SELECT COALESCE(MAX(version_number), 0) + 1 INTO v_next_version FROM public.bp_versions WHERE event_id = _event_id;
+  IF _scenario_label IS NOT NULL THEN v_state := 'draft';
+  ELSIF _approve_immediately THEN v_state := 'active';
+  ELSE v_state := 'draft'; END IF;
+
+  v_payload := jsonb_build_object(
+    'event', jsonb_build_object('id', v_event.id, 'name', v_event.name, 'status', v_event.status),
+    'snapshot_taken_at', v_now,
+    'forecasts', COALESCE((SELECT jsonb_agg(to_jsonb(f.*) ORDER BY f.created_at)
+      FROM public.event_forecasts f WHERE f.event_id = _event_id AND f.version_id IS NULL), '[]'::jsonb)
+  );
+
+  IF v_state = 'active' THEN
+    SELECT id INTO v_previous_active_id FROM public.bp_versions WHERE event_id = _event_id AND state = 'active' LIMIT 1;
+    IF v_previous_active_id IS NOT NULL THEN
+      UPDATE public.bp_versions SET state = 'superseded', superseded_at = v_now WHERE id = v_previous_active_id;
+    END IF;
+  END IF;
+
+  INSERT INTO public.bp_versions (
+    event_id, version_number, state, created_by, created_by_label, description,
+    snapshot_payload, approved_at, approved_by, scenario_label, scenario_assumptions, is_pinned_scenario)
+  VALUES (_event_id, v_next_version, v_state, _created_by, _created_by_label, _description, v_payload,
+    CASE WHEN v_state = 'active' THEN v_now ELSE NULL END,
+    CASE WHEN v_state = 'active' THEN _created_by ELSE NULL END,
+    _scenario_label, _scenario_assumptions, COALESCE(_is_pinned_scenario, false))
+  RETURNING id INTO v_master_version_id;
+
+  INSERT INTO public.bp_version_audit_log (version_id, event_id, action, performed_by, performed_by_label, metadata)
+  VALUES (v_master_version_id, _event_id,
+    CASE WHEN _scenario_label IS NOT NULL THEN 'scenario_created' ELSE 'created' END,
+    _created_by, _created_by_label,
+    jsonb_build_object('version_number', v_next_version, 'state', v_state, 'is_master', v_is_master, 'scenario_label', _scenario_label));
+
+  IF v_state = 'active' AND v_previous_active_id IS NOT NULL THEN
+    UPDATE public.bp_versions SET superseded_by_version_id = v_master_version_id WHERE id = v_previous_active_id;
+    INSERT INTO public.bp_version_audit_log (version_id, event_id, action, performed_by, performed_by_label, metadata)
+    VALUES (v_previous_active_id, _event_id, 'superseded', _created_by, _created_by_label,
+      jsonb_build_object('superseded_by_version_id', v_master_version_id));
+  END IF;
+
+  IF _scenario_label IS NOT NULL THEN
+    v_session_map := '{}'::jsonb; v_zone_map := '{}'::jsonb;
+    FOR v_session_row IN SELECT * FROM public.event_sessions WHERE event_id = _event_id AND version_id IS NULL LOOP
+      v_old_id := v_session_row.id; v_new_id := gen_random_uuid();
+      INSERT INTO public.event_sessions (id, event_id, date, label, start_time, sort_order, version_id)
+      VALUES (v_new_id, _event_id, v_session_row.date, v_session_row.label, v_session_row.start_time, v_session_row.sort_order, v_master_version_id);
+      v_session_map := v_session_map || jsonb_build_object(v_old_id::text, v_new_id::text);
+    END LOOP;
+    FOR v_zone_row IN SELECT * FROM public.event_ticket_zones WHERE event_id = _event_id AND version_id IS NULL LOOP
+      v_old_id := v_zone_row.id; v_new_id := gen_random_uuid();
+      INSERT INTO public.event_ticket_zones (id, event_id, name, total_capacity, session_id, version_id)
+      VALUES (v_new_id, _event_id, v_zone_row.name, v_zone_row.total_capacity,
+              CASE WHEN v_zone_row.session_id IS NULL THEN NULL ELSE NULLIF(v_session_map->>(v_zone_row.session_id::text), '')::uuid END,
+              v_master_version_id);
+      v_zone_map := v_zone_map || jsonb_build_object(v_old_id::text, v_new_id::text);
+    END LOOP;
+    FOR v_lot_row IN SELECT l.* FROM public.event_ticket_lots l JOIN public.event_ticket_zones z ON z.id = l.zone_id
+      WHERE z.event_id = _event_id AND z.version_id IS NULL AND l.version_id IS NULL LOOP
+      INSERT INTO public.event_ticket_lots (id, zone_id, lot_number, name, quantity, price, iva_rate, lot_type, version_id)
+      VALUES (gen_random_uuid(), NULLIF(v_zone_map->>(v_lot_row.zone_id::text), '')::uuid,
+              v_lot_row.lot_number, v_lot_row.name, v_lot_row.quantity, v_lot_row.price,
+              v_lot_row.iva_rate, v_lot_row.lot_type, v_master_version_id);
+    END LOOP;
+  END IF;
+
+  IF v_is_master THEN
+    FOR v_split IN SELECT id, name, status FROM public.events WHERE parent_event_id = _event_id LOOP
+      v_split_payload := jsonb_build_object(
+        'event', jsonb_build_object('id', v_split.id, 'name', v_split.name, 'status', v_split.status, 'parent_event_id', _event_id),
+        'snapshot_taken_at', v_now, 'cascaded_from_event_id', _event_id,
+        'forecasts', COALESCE((SELECT jsonb_agg(to_jsonb(f.*) ORDER BY f.created_at)
+          FROM public.event_forecasts f WHERE f.event_id = v_split.id AND f.version_id IS NULL), '[]'::jsonb));
+      SELECT COALESCE(MAX(version_number), 0) + 1 INTO v_split_next_version FROM public.bp_versions WHERE event_id = v_split.id;
+      v_split_previous_active_id := NULL;
+      IF v_state = 'active' THEN
+        SELECT id INTO v_split_previous_active_id FROM public.bp_versions WHERE event_id = v_split.id AND state = 'active' LIMIT 1;
+        IF v_split_previous_active_id IS NOT NULL THEN
+          UPDATE public.bp_versions SET state = 'superseded', superseded_at = v_now WHERE id = v_split_previous_active_id;
+        END IF;
+      END IF;
+      INSERT INTO public.bp_versions (event_id, version_number, state, created_by, created_by_label, description,
+        snapshot_payload, approved_at, approved_by, cascaded_from_version_id,
+        scenario_label, scenario_assumptions, is_pinned_scenario)
+      VALUES (v_split.id, v_split_next_version, v_state, _created_by, _created_by_label, _description, v_split_payload,
+        CASE WHEN v_state = 'active' THEN v_now ELSE NULL END,
+        CASE WHEN v_state = 'active' THEN _created_by ELSE NULL END,
+        v_master_version_id, _scenario_label, _scenario_assumptions, COALESCE(_is_pinned_scenario, false))
+      RETURNING id INTO v_split_version_id;
+      INSERT INTO public.bp_version_audit_log (version_id, event_id, action, performed_by, performed_by_label, metadata)
+      VALUES (v_split_version_id, v_split.id, 'cascaded_from_master', _created_by, _created_by_label,
+        jsonb_build_object('master_version_id', v_master_version_id, 'master_event_id', _event_id, 'state', v_state));
+      IF v_state = 'active' AND v_split_previous_active_id IS NOT NULL THEN
+        UPDATE public.bp_versions SET superseded_by_version_id = v_split_version_id WHERE id = v_split_previous_active_id;
+        INSERT INTO public.bp_version_audit_log (version_id, event_id, action, performed_by, performed_by_label, metadata)
+        VALUES (v_split_previous_active_id, v_split.id, 'superseded', _created_by, _created_by_label,
+          jsonb_build_object('superseded_by_version_id', v_split_version_id));
+      END IF;
+      IF _scenario_label IS NOT NULL THEN
+        v_session_map := '{}'::jsonb; v_zone_map := '{}'::jsonb;
+        FOR v_session_row IN SELECT * FROM public.event_sessions WHERE event_id = v_split.id AND version_id IS NULL LOOP
+          v_old_id := v_session_row.id; v_new_id := gen_random_uuid();
+          INSERT INTO public.event_sessions (id, event_id, date, label, start_time, sort_order, version_id)
+          VALUES (v_new_id, v_split.id, v_session_row.date, v_session_row.label, v_session_row.start_time, v_session_row.sort_order, v_split_version_id);
+          v_session_map := v_session_map || jsonb_build_object(v_old_id::text, v_new_id::text);
+        END LOOP;
+        FOR v_zone_row IN SELECT * FROM public.event_ticket_zones WHERE event_id = v_split.id AND version_id IS NULL LOOP
+          v_old_id := v_zone_row.id; v_new_id := gen_random_uuid();
+          INSERT INTO public.event_ticket_zones (id, event_id, name, total_capacity, session_id, version_id)
+          VALUES (v_new_id, v_split.id, v_zone_row.name, v_zone_row.total_capacity,
+                  CASE WHEN v_zone_row.session_id IS NULL THEN NULL ELSE NULLIF(v_session_map->>(v_zone_row.session_id::text), '')::uuid END,
+                  v_split_version_id);
+          v_zone_map := v_zone_map || jsonb_build_object(v_old_id::text, v_new_id::text);
+        END LOOP;
+        FOR v_lot_row IN SELECT l.* FROM public.event_ticket_lots l JOIN public.event_ticket_zones z ON z.id = l.zone_id
+          WHERE z.event_id = v_split.id AND z.version_id IS NULL AND l.version_id IS NULL LOOP
+          INSERT INTO public.event_ticket_lots (id, zone_id, lot_number, name, quantity, price, iva_rate, lot_type, version_id)
+          VALUES (gen_random_uuid(), NULLIF(v_zone_map->>(v_lot_row.zone_id::text), '')::uuid,
+                  v_lot_row.lot_number, v_lot_row.name, v_lot_row.quantity, v_lot_row.price,
+                  v_lot_row.iva_rate, v_lot_row.lot_type, v_split_version_id);
+        END LOOP;
+      END IF;
+      IF v_state = 'active' THEN
+        BEGIN
+          PERFORM public.reconcile_bp_overrides_for_event(v_split.id, v_split_version_id, v_split_next_version, _created_by, _created_by_label);
+        EXCEPTION WHEN OTHERS THEN
+          RAISE WARNING 'Reconciliation failed for split %: %', v_split.id, SQLERRM;
+        END;
+      END IF;
+    END LOOP;
+  END IF;
+
+  IF v_state = 'active' THEN
+    BEGIN
+      PERFORM public.reconcile_bp_overrides_for_event(_event_id, v_master_version_id, v_next_version, _created_by, _created_by_label);
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'Reconciliation failed for event %: %', _event_id, SQLERRM;
+    END;
+  END IF;
+
+  RETURN v_master_version_id;
+END;
+$function$;
+
+-- ---------------------------------------------------------------------------
+-- 6) merge_forecasts_into_active_snapshot — adicionar tenant check (role já existe)
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.merge_forecasts_into_active_snapshot(_event_id uuid, _forecast_ids uuid[])
+ RETURNS TABLE(merged_into_master integer, merged_into_splits integer)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  _role_ok boolean;
+  _master_version_id uuid;
+  _master_payload jsonb;
+  _master_forecasts jsonb;
+  _new_rows jsonb;
+  _existing_ids uuid[];
+  _master_count integer := 0;
+  _split_count integer := 0;
+  _split_event record;
+  _split_version_id uuid;
+  _split_payload jsonb;
+  _split_forecasts jsonb;
+  _split_new_rows jsonb;
+  _split_existing_ids uuid[];
+  v_event_company uuid;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_roles
+    WHERE user_id = auth.uid() AND role IN ('admin','manager','editor')
+  ) INTO _role_ok;
+  IF NOT _role_ok THEN
+    RAISE EXCEPTION 'Permissão negada: só admin/manager/editor podem incorporar linhas no snapshot.';
+  END IF;
+
+  SELECT company_id INTO v_event_company FROM public.events WHERE id = _event_id;
+  IF v_event_company IS NULL THEN
+    RAISE EXCEPTION 'Event % not found', _event_id;
+  END IF;
+  IF NOT public.is_platform_admin(auth.uid()) AND v_event_company <> public.current_company_id() THEN
+    RAISE EXCEPTION 'Permissão negada: evento pertence a outra empresa.';
+  END IF;
+
+  IF _forecast_ids IS NULL OR array_length(_forecast_ids, 1) IS NULL THEN
+    RETURN QUERY SELECT 0, 0; RETURN;
+  END IF;
+
+  SELECT id, snapshot_payload INTO _master_version_id, _master_payload
+  FROM public.bp_versions WHERE event_id = _event_id AND state = 'active' LIMIT 1;
+  IF _master_version_id IS NULL THEN
+    RAISE EXCEPTION 'Evento sem versão ativa de BP — congele uma versão antes de incorporar.';
+  END IF;
+
+  _master_forecasts := COALESCE(_master_payload->'forecasts', '[]'::jsonb);
+  SELECT COALESCE(array_agg((elem->>'id')::uuid), ARRAY[]::uuid[]) INTO _existing_ids
+  FROM jsonb_array_elements(_master_forecasts) elem;
+  SELECT COALESCE(jsonb_agg(to_jsonb(f) - 'formalidade'), '[]'::jsonb) INTO _new_rows
+  FROM public.event_forecasts f
+  WHERE f.event_id = _event_id AND f.id = ANY(_forecast_ids) AND NOT (f.id = ANY(_existing_ids));
+  IF jsonb_array_length(_new_rows) > 0 THEN
+    _master_payload := jsonb_set(COALESCE(_master_payload, '{}'::jsonb), '{forecasts}', _master_forecasts || _new_rows, true);
+    UPDATE public.bp_versions SET snapshot_payload = _master_payload WHERE id = _master_version_id;
+    _master_count := jsonb_array_length(_new_rows);
+  END IF;
+
+  FOR _split_event IN
+    SELECT DISTINCT ef.event_id AS split_event_id FROM public.event_forecasts ef
+    WHERE ef.master_forecast_id = ANY(_forecast_ids) AND ef.event_id <> _event_id
+  LOOP
+    SELECT id, snapshot_payload INTO _split_version_id, _split_payload
+    FROM public.bp_versions WHERE event_id = _split_event.split_event_id AND state = 'active' LIMIT 1;
+    IF _split_version_id IS NULL THEN CONTINUE; END IF;
+    _split_forecasts := COALESCE(_split_payload->'forecasts', '[]'::jsonb);
+    SELECT COALESCE(array_agg((elem->>'id')::uuid), ARRAY[]::uuid[]) INTO _split_existing_ids
+    FROM jsonb_array_elements(_split_forecasts) elem;
+    SELECT COALESCE(jsonb_agg(to_jsonb(f) - 'formalidade'), '[]'::jsonb) INTO _split_new_rows
+    FROM public.event_forecasts f
+    WHERE f.event_id = _split_event.split_event_id AND f.master_forecast_id = ANY(_forecast_ids)
+      AND NOT (f.id = ANY(_split_existing_ids));
+    IF jsonb_array_length(_split_new_rows) > 0 THEN
+      _split_payload := jsonb_set(COALESCE(_split_payload, '{}'::jsonb), '{forecasts}', _split_forecasts || _split_new_rows, true);
+      UPDATE public.bp_versions SET snapshot_payload = _split_payload WHERE id = _split_version_id;
+      _split_count := _split_count + jsonb_array_length(_split_new_rows);
+    END IF;
+  END LOOP;
+
+  RETURN QUERY SELECT _master_count, _split_count;
+END;
+$function$;
+
+-- ---------------------------------------------------------------------------
+-- 7) promote_scenario_to_active — role + tenant (resto do corpo verbatim)
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.promote_scenario_to_active(_scenario_version_id uuid, _description text DEFAULT NULL::text, _performed_by uuid DEFAULT NULL::uuid, _performed_by_label text DEFAULT NULL::text, _force boolean DEFAULT false, _other_scenarios_actions jsonb DEFAULT '[]'::jsonb)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_scenario RECORD;
+  v_event RECORD;
+  v_now timestamptz := now();
+  v_next_version int;
+  v_new_version_id uuid;
+  v_previous_active_id uuid;
+  v_split RECORD;
+  v_split_scenario RECORD;
+  v_split_next_version int;
+  v_split_new_version_id uuid;
+  v_split_previous_active_id uuid;
+  v_action_record RECORD;
+  v_target_scenario RECORD;
+  v_session_map jsonb;
+  v_zone_map jsonb;
+  v_old_id uuid; v_new_id uuid;
+  v_session_row RECORD; v_zone_row RECORD; v_lot_row RECORD;
+  v_event_company uuid;
+BEGIN
+  IF NOT (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'manager'::app_role) OR public.is_platform_admin(auth.uid())) THEN
+    RAISE EXCEPTION 'Permissão negada: apenas admin/manager podem promover cenários.';
+  END IF;
+  SELECT e.company_id INTO v_event_company
+    FROM public.bp_versions v JOIN public.events e ON e.id = v.event_id WHERE v.id = _scenario_version_id;
+  IF v_event_company IS NULL THEN
+    RAISE EXCEPTION 'Scenario % not found', _scenario_version_id;
+  END IF;
+  IF NOT public.is_platform_admin(auth.uid()) AND v_event_company <> public.current_company_id() THEN
+    RAISE EXCEPTION 'Permissão negada: cenário pertence a outra empresa.';
+  END IF;
+
+  SELECT * INTO v_scenario FROM public.bp_versions WHERE id = _scenario_version_id;
+  IF v_scenario IS NULL THEN RAISE EXCEPTION 'Scenario % not found', _scenario_version_id; END IF;
+  IF v_scenario.scenario_label IS NULL THEN
+    RAISE EXCEPTION 'A versão alvo não é um cenário (sem scenario_label).';
+  END IF;
+  IF v_scenario.state = 'archived' THEN
+    RAISE EXCEPTION 'Cenário arquivado — desarquive antes de promover.';
+  END IF;
+
+  SELECT id, name, parent_event_id INTO v_event FROM public.events WHERE id = v_scenario.event_id;
+  IF v_event.parent_event_id IS NOT NULL THEN
+    RAISE EXCEPTION 'Promova o cenário do Master — os Splits são propagados automaticamente.';
+  END IF;
+
+  SELECT id INTO v_previous_active_id FROM public.bp_versions
+   WHERE event_id = v_scenario.event_id AND state = 'active' LIMIT 1;
+  IF v_previous_active_id IS NOT NULL THEN
+    UPDATE public.bp_versions SET state = 'superseded', superseded_at = v_now WHERE id = v_previous_active_id;
+  END IF;
+
+  SELECT COALESCE(MAX(version_number), 0) + 1 INTO v_next_version FROM public.bp_versions WHERE event_id = v_scenario.event_id;
+
+  INSERT INTO public.bp_versions (event_id, version_number, state, created_by, created_by_label,
+    description, snapshot_payload, approved_at, approved_by)
+  VALUES (v_scenario.event_id, v_next_version, 'active', _performed_by, _performed_by_label,
+    COALESCE(_description, format('Promovido do cenário "%s" (v%s)', v_scenario.scenario_label, v_scenario.version_number)),
+    v_scenario.snapshot_payload, v_now, _performed_by)
+  RETURNING id INTO v_new_version_id;
+
+  IF v_previous_active_id IS NOT NULL THEN
+    UPDATE public.bp_versions SET superseded_by_version_id = v_new_version_id WHERE id = v_previous_active_id;
+    INSERT INTO public.bp_version_audit_log (version_id, event_id, action, performed_by, performed_by_label, metadata)
+    VALUES (v_previous_active_id, v_scenario.event_id, 'superseded', _performed_by, _performed_by_label,
+      jsonb_build_object('superseded_by_version_id', v_new_version_id, 'cause', 'scenario_promoted'));
+  END IF;
+
+  UPDATE public.bp_versions SET is_pinned_scenario = false WHERE id = _scenario_version_id;
+
+  INSERT INTO public.bp_version_audit_log (version_id, event_id, action, performed_by, performed_by_label, metadata)
+  VALUES (v_new_version_id, v_scenario.event_id, 'scenario_promoted', _performed_by, _performed_by_label,
+    jsonb_build_object('source_scenario_id', _scenario_version_id, 'source_scenario_label', v_scenario.scenario_label,
+      'source_version_number', v_scenario.version_number, 'new_version_number', v_next_version,
+      'force', _force, 'other_scenarios_actions', _other_scenarios_actions));
+
+  CREATE TEMP TABLE _formalidade_carry ON COMMIT DROP AS
+  SELECT category_id, description, formalidade, formalidade_changed_at, formalidade_changed_by, id AS old_forecast_id
+  FROM public.event_forecasts WHERE event_id = v_scenario.event_id AND version_id IS NULL;
+
+  DELETE FROM public.event_forecasts WHERE event_id = v_scenario.event_id AND version_id IS NULL;
+
+  INSERT INTO public.event_forecasts (
+    id, event_id, category_id, type, description, amount, currency,
+    original_amount, fx_rate, fx_rate_source, formula_type, formula_value, iva_rate, status,
+    approved_at, approved_by, transaction_id, cache_config_id,
+    master_forecast_id, invoice_group_id, attachment_refs,
+    historic_overrides, is_overhead, is_retroactive_override,
+    is_transitory, exclude_from_result, notes, specification,
+    created_at, updated_at, version_id,
+    formalidade, formalidade_changed_at, formalidade_changed_by)
+  SELECT
+    COALESCE(carry.old_forecast_id, (r->>'id')::uuid, gen_random_uuid()),
+    v_scenario.event_id, NULLIF(r->>'category_id', '')::uuid,
+    r->>'type', r->>'description',
+    COALESCE((r->>'amount')::numeric, 0), COALESCE(r->>'currency', 'EUR'),
+    NULLIF(r->>'original_amount', '')::numeric, NULLIF(r->>'fx_rate', '')::numeric,
+    r->>'fx_rate_source', COALESCE(r->>'formula_type', 'fixed'),
+    COALESCE((r->>'formula_value')::numeric, 0), COALESCE((r->>'iva_rate')::numeric, 0),
+    COALESCE(r->>'status', 'draft'),
+    NULLIF(r->>'approved_at', '')::timestamptz, NULLIF(r->>'approved_by', '')::uuid,
+    NULLIF(r->>'transaction_id', '')::uuid, NULLIF(r->>'cache_config_id', '')::uuid,
+    NULLIF(r->>'master_forecast_id', '')::uuid, NULLIF(r->>'invoice_group_id', '')::uuid,
+    COALESCE(r->'attachment_refs', '[]'::jsonb), COALESCE(r->'historic_overrides', '[]'::jsonb),
+    COALESCE((r->>'is_overhead')::boolean, false), COALESCE((r->>'is_retroactive_override')::boolean, false),
+    COALESCE((r->>'is_transitory')::boolean, false), COALESCE((r->>'exclude_from_result')::boolean, false),
+    r->>'notes', r->>'specification',
+    v_now, v_now, NULL,
+    COALESCE(carry.formalidade, 'estimado'::bp_formalidade),
+    carry.formalidade_changed_at, carry.formalidade_changed_by
+  FROM jsonb_array_elements(COALESCE(v_scenario.snapshot_payload->'forecasts', '[]'::jsonb)) AS r
+  LEFT JOIN _formalidade_carry carry
+    ON carry.category_id IS NOT DISTINCT FROM NULLIF(r->>'category_id', '')::uuid
+   AND carry.description IS NOT DISTINCT FROM (r->>'description');
+
+  DROP TABLE IF EXISTS _formalidade_carry;
+
+  DELETE FROM public.event_ticket_lots l USING public.event_ticket_zones z
+   WHERE l.zone_id = z.id AND z.event_id = v_scenario.event_id AND z.version_id IS NULL AND l.version_id IS NULL;
+  DELETE FROM public.event_ticket_zones WHERE event_id = v_scenario.event_id AND version_id IS NULL;
+  DELETE FROM public.event_sessions WHERE event_id = v_scenario.event_id AND version_id IS NULL;
+
+  v_session_map := '{}'::jsonb; v_zone_map := '{}'::jsonb;
+  FOR v_session_row IN SELECT * FROM public.event_sessions
+     WHERE event_id = v_scenario.event_id AND version_id = _scenario_version_id LOOP
+    v_old_id := v_session_row.id; v_new_id := gen_random_uuid();
+    INSERT INTO public.event_sessions (id, event_id, date, label, start_time, sort_order, version_id)
+    VALUES (v_new_id, v_scenario.event_id, v_session_row.date, v_session_row.label, v_session_row.start_time, v_session_row.sort_order, NULL);
+    v_session_map := v_session_map || jsonb_build_object(v_old_id::text, v_new_id::text);
+  END LOOP;
+  FOR v_zone_row IN SELECT * FROM public.event_ticket_zones
+     WHERE event_id = v_scenario.event_id AND version_id = _scenario_version_id LOOP
+    v_old_id := v_zone_row.id; v_new_id := gen_random_uuid();
+    INSERT INTO public.event_ticket_zones (id, event_id, name, total_capacity, session_id, version_id)
+    VALUES (v_new_id, v_scenario.event_id, v_zone_row.name, v_zone_row.total_capacity,
+            CASE WHEN v_zone_row.session_id IS NULL THEN NULL ELSE NULLIF(v_session_map->>(v_zone_row.session_id::text), '')::uuid END, NULL);
+    v_zone_map := v_zone_map || jsonb_build_object(v_old_id::text, v_new_id::text);
+  END LOOP;
+  FOR v_lot_row IN SELECT l.* FROM public.event_ticket_lots l JOIN public.event_ticket_zones z ON z.id = l.zone_id
+    WHERE z.event_id = v_scenario.event_id AND z.version_id = _scenario_version_id AND l.version_id = _scenario_version_id LOOP
+    INSERT INTO public.event_ticket_lots (id, zone_id, lot_number, name, quantity, price, iva_rate, lot_type, version_id)
+    VALUES (gen_random_uuid(), NULLIF(v_zone_map->>(v_lot_row.zone_id::text), '')::uuid,
+            v_lot_row.lot_number, v_lot_row.name, v_lot_row.quantity, v_lot_row.price,
+            v_lot_row.iva_rate, v_lot_row.lot_type, NULL);
+  END LOOP;
+
+  IF NOT _force THEN
+    BEGIN
+      PERFORM public.reconcile_bypasses_after_version_change(
+        v_scenario.event_id, v_new_version_id, _performed_by, _performed_by_label);
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'Reconciliation failed for event %: %', v_scenario.event_id, SQLERRM;
+    END;
+  END IF;
+
+  IF jsonb_typeof(_other_scenarios_actions) = 'array' THEN
+    FOR v_action_record IN
+      SELECT (e->>'version_id')::uuid AS version_id, e->>'action' AS action
+      FROM jsonb_array_elements(_other_scenarios_actions) AS e
+    LOOP
+      SELECT * INTO v_target_scenario FROM public.bp_versions
+       WHERE id = v_action_record.version_id AND event_id = v_scenario.event_id
+         AND scenario_label IS NOT NULL AND id <> _scenario_version_id;
+      IF v_target_scenario IS NULL THEN CONTINUE; END IF;
+      IF v_action_record.action = 'archive' THEN
+        UPDATE public.bp_versions SET state = 'archived', archived_at = v_now, is_pinned_scenario = false
+         WHERE id = v_target_scenario.id;
+        INSERT INTO public.bp_version_audit_log (version_id, event_id, action, performed_by, performed_by_label, metadata)
+        VALUES (v_target_scenario.id, v_scenario.event_id, 'archived', _performed_by, _performed_by_label,
+          jsonb_build_object('cause', 'sibling_scenario_promoted', 'promoted_version_id', v_new_version_id));
+      ELSIF v_action_record.action = 'discard' THEN
+        IF v_target_scenario.state = 'draft' THEN
+          PERFORM public.discard_bp_version_draft(v_target_scenario.id, _performed_by, _performed_by_label);
+        END IF;
+      ELSIF v_action_record.action = 'keep' THEN
+        INSERT INTO public.bp_version_audit_log (version_id, event_id, action, performed_by, performed_by_label, metadata)
+        VALUES (v_target_scenario.id, v_scenario.event_id, 'kept_after_sibling_promotion', _performed_by, _performed_by_label,
+          jsonb_build_object('promoted_version_id', v_new_version_id));
+      END IF;
+    END LOOP;
+  END IF;
+
+  FOR v_split IN SELECT id FROM public.events WHERE parent_event_id = v_scenario.event_id LOOP
+    SELECT * INTO v_split_scenario FROM public.bp_versions
+     WHERE event_id = v_split.id AND cascaded_from_version_id = _scenario_version_id LIMIT 1;
+    IF v_split_scenario.id IS NULL THEN CONTINUE; END IF;
+    SELECT id INTO v_split_previous_active_id FROM public.bp_versions
+     WHERE event_id = v_split.id AND state = 'active' LIMIT 1;
+    IF v_split_previous_active_id IS NOT NULL THEN
+      UPDATE public.bp_versions SET state = 'superseded', superseded_at = v_now WHERE id = v_split_previous_active_id;
+    END IF;
+    SELECT COALESCE(MAX(version_number), 0) + 1 INTO v_split_next_version
+      FROM public.bp_versions WHERE event_id = v_split.id;
+    INSERT INTO public.bp_versions (event_id, version_number, state, created_by, created_by_label,
+      description, snapshot_payload, approved_at, approved_by, cascaded_from_version_id)
+    VALUES (v_split.id, v_split_next_version, 'active', _performed_by, _performed_by_label,
+      COALESCE(_description, 'Promovido via cascade do Master'),
+      v_split_scenario.snapshot_payload, v_now, _performed_by, v_new_version_id)
+    RETURNING id INTO v_split_new_version_id;
+    IF v_split_previous_active_id IS NOT NULL THEN
+      UPDATE public.bp_versions SET superseded_by_version_id = v_split_new_version_id WHERE id = v_split_previous_active_id;
+    END IF;
+
+    CREATE TEMP TABLE _formalidade_carry_split ON COMMIT DROP AS
+    SELECT category_id, description, formalidade, formalidade_changed_at, formalidade_changed_by, id AS old_forecast_id
+    FROM public.event_forecasts WHERE event_id = v_split.id AND version_id IS NULL;
+
+    DELETE FROM public.event_forecasts WHERE event_id = v_split.id AND version_id IS NULL;
+
+    INSERT INTO public.event_forecasts (
+      id, event_id, category_id, type, description, amount, currency,
+      original_amount, fx_rate, fx_rate_source, formula_type, formula_value, iva_rate, status,
+      approved_at, approved_by, transaction_id, cache_config_id,
+      master_forecast_id, invoice_group_id, attachment_refs,
+      historic_overrides, is_overhead, is_retroactive_override,
+      is_transitory, exclude_from_result, notes, specification,
+      created_at, updated_at, version_id,
+      formalidade, formalidade_changed_at, formalidade_changed_by)
+    SELECT
+      COALESCE(carry.old_forecast_id, (r->>'id')::uuid, gen_random_uuid()),
+      v_split.id, NULLIF(r->>'category_id', '')::uuid,
+      r->>'type', r->>'description',
+      COALESCE((r->>'amount')::numeric, 0), COALESCE(r->>'currency', 'EUR'),
+      NULLIF(r->>'original_amount', '')::numeric, NULLIF(r->>'fx_rate', '')::numeric,
+      r->>'fx_rate_source', COALESCE(r->>'formula_type', 'fixed'),
+      COALESCE((r->>'formula_value')::numeric, 0), COALESCE((r->>'iva_rate')::numeric, 0),
+      COALESCE(r->>'status', 'draft'),
+      NULLIF(r->>'approved_at', '')::timestamptz, NULLIF(r->>'approved_by', '')::uuid,
+      NULLIF(r->>'transaction_id', '')::uuid, NULLIF(r->>'cache_config_id', '')::uuid,
+      NULLIF(r->>'master_forecast_id', '')::uuid, NULLIF(r->>'invoice_group_id', '')::uuid,
+      COALESCE(r->'attachment_refs', '[]'::jsonb), COALESCE(r->'historic_overrides', '[]'::jsonb),
+      COALESCE((r->>'is_overhead')::boolean, false), COALESCE((r->>'is_retroactive_override')::boolean, false),
+      COALESCE((r->>'is_transitory')::boolean, false), COALESCE((r->>'exclude_from_result')::boolean, false),
+      r->>'notes', r->>'specification',
+      v_now, v_now, NULL,
+      COALESCE(carry.formalidade, 'estimado'::bp_formalidade),
+      carry.formalidade_changed_at, carry.formalidade_changed_by
+    FROM jsonb_array_elements(COALESCE(v_split_scenario.snapshot_payload->'forecasts', '[]'::jsonb)) AS r
+    LEFT JOIN _formalidade_carry_split carry
+      ON carry.category_id IS NOT DISTINCT FROM NULLIF(r->>'category_id', '')::uuid
+     AND carry.description IS NOT DISTINCT FROM (r->>'description');
+
+    DROP TABLE IF EXISTS _formalidade_carry_split;
+
+    DELETE FROM public.event_ticket_lots l USING public.event_ticket_zones z
+     WHERE l.zone_id = z.id AND z.event_id = v_split.id AND z.version_id IS NULL AND l.version_id IS NULL;
+    DELETE FROM public.event_ticket_zones WHERE event_id = v_split.id AND version_id IS NULL;
+    DELETE FROM public.event_sessions WHERE event_id = v_split.id AND version_id IS NULL;
+
+    v_session_map := '{}'::jsonb; v_zone_map := '{}'::jsonb;
+    FOR v_session_row IN SELECT * FROM public.event_sessions
+       WHERE event_id = v_split.id AND version_id = v_split_scenario.id LOOP
+      v_old_id := v_session_row.id; v_new_id := gen_random_uuid();
+      INSERT INTO public.event_sessions (id, event_id, date, label, start_time, sort_order, version_id)
+      VALUES (v_new_id, v_split.id, v_session_row.date, v_session_row.label, v_session_row.start_time, v_session_row.sort_order, NULL);
+      v_session_map := v_session_map || jsonb_build_object(v_old_id::text, v_new_id::text);
+    END LOOP;
+    FOR v_zone_row IN SELECT * FROM public.event_ticket_zones
+       WHERE event_id = v_split.id AND version_id = v_split_scenario.id LOOP
+      v_old_id := v_zone_row.id; v_new_id := gen_random_uuid();
+      INSERT INTO public.event_ticket_zones (id, event_id, name, total_capacity, session_id, version_id)
+      VALUES (v_new_id, v_split.id, v_zone_row.name, v_zone_row.total_capacity,
+              CASE WHEN v_zone_row.session_id IS NULL THEN NULL ELSE NULLIF(v_session_map->>(v_zone_row.session_id::text), '')::uuid END, NULL);
+      v_zone_map := v_zone_map || jsonb_build_object(v_old_id::text, v_new_id::text);
+    END LOOP;
+    FOR v_lot_row IN SELECT l.* FROM public.event_ticket_lots l JOIN public.event_ticket_zones z ON z.id = l.zone_id
+      WHERE z.event_id = v_split.id AND z.version_id = v_split_scenario.id AND l.version_id = v_split_scenario.id LOOP
+      INSERT INTO public.event_ticket_lots (id, zone_id, lot_number, name, quantity, price, iva_rate, lot_type, version_id)
+      VALUES (gen_random_uuid(), NULLIF(v_zone_map->>(v_lot_row.zone_id::text), '')::uuid,
+              v_lot_row.lot_number, v_lot_row.name, v_lot_row.quantity, v_lot_row.price,
+              v_lot_row.iva_rate, v_lot_row.lot_type, NULL);
+    END LOOP;
+
+    IF NOT _force THEN
+      BEGIN
+        PERFORM public.reconcile_bypasses_after_version_change(
+          v_split.id, v_split_new_version_id, _performed_by, _performed_by_label);
+      EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING 'Reconciliation failed for split %: %', v_split.id, SQLERRM;
+      END;
+    END IF;
+  END LOOP;
+
+  RETURN v_new_version_id;
+END;
+$function$;
+
+-- ---------------------------------------------------------------------------
+-- 8) relink_orphan_transactions — role + tenant
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.relink_orphan_transactions(_event_id uuid, _pairs jsonb, _performed_by uuid DEFAULT NULL::uuid, _performed_by_label text DEFAULT NULL::text)
+ RETURNS TABLE(relinked_count integer, skipped_count integer, details jsonb)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_pair jsonb;
+  v_tx_id uuid;
+  v_fc_id uuid;
+  v_relinked int := 0;
+  v_skipped int := 0;
+  v_details jsonb := '[]'::jsonb;
+  v_forecast RECORD;
+  v_tx RECORD;
+  v_event_company uuid;
+BEGIN
+  IF NOT (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'manager'::app_role) OR public.is_platform_admin(auth.uid())) THEN
+    RAISE EXCEPTION 'Permissão negada: apenas admin/manager podem religar transações órfãs.';
+  END IF;
+  SELECT company_id INTO v_event_company FROM public.events WHERE id = _event_id;
+  IF v_event_company IS NULL THEN
+    RAISE EXCEPTION 'Event % not found', _event_id;
+  END IF;
+  IF NOT public.is_platform_admin(auth.uid()) AND v_event_company <> public.current_company_id() THEN
+    RAISE EXCEPTION 'Permissão negada: evento pertence a outra empresa.';
+  END IF;
+
+  IF _pairs IS NULL OR jsonb_typeof(_pairs) <> 'array' THEN
+    RAISE EXCEPTION 'Parameter _pairs must be a JSON array';
+  END IF;
+
+  FOR v_pair IN SELECT * FROM jsonb_array_elements(_pairs) LOOP
+    v_tx_id := NULLIF(v_pair->>'transaction_id', '')::uuid;
+    v_fc_id := NULLIF(v_pair->>'forecast_id', '')::uuid;
+    IF v_tx_id IS NULL OR v_fc_id IS NULL THEN
+      v_skipped := v_skipped + 1;
+      v_details := v_details || jsonb_build_object('transaction_id', v_tx_id, 'forecast_id', v_fc_id, 'reason', 'invalid_pair');
+      CONTINUE;
+    END IF;
+    SELECT id, event_id, transaction_id, category_id, amount INTO v_forecast
+      FROM public.event_forecasts WHERE id = v_fc_id;
+    IF v_forecast IS NULL OR v_forecast.event_id IS DISTINCT FROM _event_id THEN
+      v_skipped := v_skipped + 1;
+      v_details := v_details || jsonb_build_object('transaction_id', v_tx_id, 'forecast_id', v_fc_id, 'reason', 'forecast_not_in_event');
+      CONTINUE;
+    END IF;
+    IF v_forecast.transaction_id IS NOT NULL AND v_forecast.transaction_id <> v_tx_id THEN
+      v_skipped := v_skipped + 1;
+      v_details := v_details || jsonb_build_object('transaction_id', v_tx_id, 'forecast_id', v_fc_id, 'reason', 'forecast_already_linked');
+      CONTINUE;
+    END IF;
+    SELECT id, event_id INTO v_tx FROM public.transactions WHERE id = v_tx_id;
+    IF v_tx IS NULL OR v_tx.event_id IS DISTINCT FROM _event_id THEN
+      v_skipped := v_skipped + 1;
+      v_details := v_details || jsonb_build_object('transaction_id', v_tx_id, 'forecast_id', v_fc_id, 'reason', 'transaction_not_in_event');
+      CONTINUE;
+    END IF;
+    UPDATE public.event_forecasts SET transaction_id = v_tx_id, updated_at = now() WHERE id = v_fc_id;
+    UPDATE public.transactions    SET forecast_id    = v_fc_id, updated_at = now() WHERE id = v_tx_id;
+    v_relinked := v_relinked + 1;
+    v_details := v_details || jsonb_build_object('transaction_id', v_tx_id, 'forecast_id', v_fc_id, 'reason', 'relinked');
+  END LOOP;
+
+  INSERT INTO public.bp_version_audit_log (version_id, event_id, action, performed_by, performed_by_label, metadata)
+  SELECT bv.id, _event_id, 'orphans_relinked', _performed_by, _performed_by_label,
+    jsonb_build_object('relinked_count', v_relinked, 'skipped_count', v_skipped, 'details', v_details)
+  FROM public.bp_versions bv
+  WHERE bv.event_id = _event_id AND bv.state = 'active' LIMIT 1;
+
+  RETURN QUERY SELECT v_relinked, v_skipped, v_details;
+END;
+$function$;
+
+-- ---------------------------------------------------------------------------
+-- 9) recalculate_pax_benchmarks — adicionar tenant check (role já existe)
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.recalculate_pax_benchmarks(_company_id uuid DEFAULT NULL::uuid)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  _rows integer := 0;
+BEGIN
+  IF NOT (public.has_role(auth.uid(),'admin') OR public.has_role(auth.uid(),'manager') OR public.is_platform_admin(auth.uid())) THEN
+    RAISE EXCEPTION 'Insufficient privileges';
+  END IF;
+  -- Tenant scope: não-platform_admins só podem mexer na própria empresa
+  IF NOT public.is_platform_admin(auth.uid()) THEN
+    IF _company_id IS NULL THEN
+      _company_id := public.current_company_id();
+    ELSIF _company_id <> public.current_company_id() THEN
+      RAISE EXCEPTION 'Permissão negada: empresa diferente da sessão activa.';
+    END IF;
+  END IF;
+
+  WITH agg AS (
+    SELECT e.company_id, ac.code AS category_code, COUNT(DISTINCT e.id) AS sample_size,
+      CASE WHEN SUM(e.tickets_sold) > 0 THEN SUM(t.amount) / SUM(e.tickets_sold) ELSE 0 END AS avg_ticket
+    FROM public.transactions t
+    JOIN public.account_categories ac ON ac.id = t.category_id
+    JOIN public.events e ON e.id = t.event_id
+    WHERE t.type = 'income' AND t.status IN ('approved','paid')
+      AND ac.code IN ('1.1.02','1.1.03') AND e.tickets_sold > 0
+      AND (_company_id IS NULL OR e.company_id = _company_id)
+    GROUP BY e.company_id, ac.code HAVING COUNT(DISTINCT e.id) >= 1
+  )
+  INSERT INTO public.event_simulator_pax_benchmarks
+    (company_id, scope, scope_value, category_code, sample_size, avg_ticket_per_pax, last_calculated_at)
+  SELECT company_id, 'global', NULL, category_code, sample_size, ROUND(avg_ticket::numeric, 2), now() FROM agg
+  ON CONFLICT (company_id, scope, scope_value, category_code) DO UPDATE
+    SET sample_size = EXCLUDED.sample_size,
+        avg_ticket_per_pax = EXCLUDED.avg_ticket_per_pax,
+        last_calculated_at = now();
+
+  GET DIAGNOSTICS _rows = ROW_COUNT;
+  RETURN _rows;
+END;
+$function$;
+
+-- ---------------------------------------------------------------------------
+-- 10) restore_bp_versions_from_trash — adicionar tenant check (role já existe)
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.restore_bp_versions_from_trash(_trash_id uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_trash record;
+  v_versions jsonb;
+  v_audit jsonb;
+  v_inserted_versions int := 0;
+  v_inserted_audit int := 0;
+  v_row jsonb;
+  v_trash_company uuid;
+BEGIN
+  IF NOT (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'manager'::app_role)) THEN
+    RAISE EXCEPTION 'Apenas admin ou manager podem restaurar versões do BP';
+  END IF;
+
+  SELECT * INTO v_trash FROM public.trash WHERE id = _trash_id AND entity_type = 'bp_versions';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Snapshot de versões não encontrado na trash (id=%)', _trash_id;
+  END IF;
+
+  -- Tenant: trash row tem company_id; bloqueia cross-tenant
+  v_trash_company := (to_jsonb(v_trash)->>'company_id')::uuid;
+  IF NOT public.is_platform_admin(auth.uid()) AND v_trash_company IS NOT NULL
+     AND v_trash_company <> public.current_company_id() THEN
+    RAISE EXCEPTION 'Permissão negada: snapshot pertence a outra empresa.';
+  END IF;
+
+  v_versions := COALESCE(v_trash.related_data->'versions', '[]'::jsonb);
+  v_audit := COALESCE(v_trash.related_data->'audit_log', '[]'::jsonb);
+
+  FOR v_row IN SELECT * FROM jsonb_array_elements(v_versions) LOOP
+    BEGIN
+      INSERT INTO public.bp_versions
+      SELECT * FROM jsonb_populate_record(NULL::public.bp_versions, v_row)
+      ON CONFLICT (id) DO NOTHING;
+      v_inserted_versions := v_inserted_versions + 1;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'restore_bp_versions: skip version %: %', v_row->>'id', SQLERRM;
+    END;
+  END LOOP;
+
+  FOR v_row IN SELECT * FROM jsonb_array_elements(v_audit) LOOP
+    BEGIN
+      INSERT INTO public.bp_version_audit_log
+      SELECT * FROM jsonb_populate_record(NULL::public.bp_version_audit_log, v_row)
+      ON CONFLICT (id) DO NOTHING;
+      v_inserted_audit := v_inserted_audit + 1;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'restore_bp_versions: skip audit %: %', v_row->>'id', SQLERRM;
+    END;
+  END LOOP;
+
+  UPDATE public.trash SET restored_at = now() WHERE id = _trash_id;
+
+  RETURN jsonb_build_object('restored_versions', v_inserted_versions, 'restored_audit_entries', v_inserted_audit);
+END;
+$function$;
+
+-- ---------------------------------------------------------------------------
+-- 11) mark_forecasts_fechado_auto — role + tenant (varre ids para inferir empresa)
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.mark_forecasts_fechado_auto(_ids uuid[])
+ RETURNS TABLE(id uuid, previous_formalidade bp_formalidade)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_foreign int;
+BEGIN
+  IF NOT (public.has_role(auth.uid(), 'admin'::app_role) OR public.has_role(auth.uid(), 'manager'::app_role) OR public.has_role(auth.uid(), 'editor'::app_role) OR public.is_platform_admin(auth.uid())) THEN
+    RAISE EXCEPTION 'Permissão negada: apenas admin/manager/editor podem alterar formalidade.';
+  END IF;
+  IF NOT public.is_platform_admin(auth.uid()) THEN
+    SELECT COUNT(*) INTO v_foreign
+      FROM public.event_forecasts ef JOIN public.events e ON e.id = ef.event_id
+     WHERE ef.id = ANY(_ids) AND e.company_id <> public.current_company_id();
+    IF v_foreign > 0 THEN
+      RAISE EXCEPTION 'Permissão negada: % linha(s) pertencem a outra empresa.', v_foreign;
+    END IF;
+  END IF;
+
+  PERFORM set_config('app.formalidade_auto_suggested', 'true', true);
+
+  RETURN QUERY
+  WITH snapshot AS (
+    SELECT ef.id, ef.formalidade AS previous_formalidade
+    FROM public.event_forecasts ef WHERE ef.id = ANY(_ids)
+  ),
+  upd AS (
+    UPDATE public.event_forecasts ef SET formalidade = 'fechado'
+     WHERE ef.id = ANY(_ids) RETURNING ef.id
+  )
+  SELECT s.id, s.previous_formalidade FROM snapshot s WHERE s.id IN (SELECT id FROM upd);
+END;
+$function$;
+
+COMMIT;
+
+-- ============================================================================
+-- POST-CHECK (run separately)
+-- ============================================================================
+-- Verifica que ainda têm SECURITY DEFINER e que o body contém has_role/current_company_id ou similar
+SELECT p.proname,
+       p.prosecdef AS sec_def,
+       (pg_get_functiondef(p.oid) ILIKE '%has_role(%' OR pg_get_functiondef(p.oid) ILIKE '%is_platform_admin(%') AS has_role_check,
+       (pg_get_functiondef(p.oid) ILIKE '%current_company_id()%' OR p.proname IN ('mark_forecasts_fechado_auto')) AS has_tenant_check
+FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+WHERE n.nspname='public'
+  AND p.proname IN ('revert_to_bp_version','archive_bp_version','unarchive_bp_version',
+                    'discard_bp_version_draft','create_bp_snapshot','merge_forecasts_into_active_snapshot',
+                    'promote_scenario_to_active','relink_orphan_transactions','recalculate_pax_benchmarks',
+                    'restore_bp_versions_from_trash','mark_forecasts_fechado_auto')
+ORDER BY p.proname;
+
+-- Confirma revoke dos 2 wrappers DB-internos
+SELECT p.proname, array_agg(acl.grantee::text ORDER BY acl.grantee::text) AS grantees
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+LEFT JOIN LATERAL aclexplode(p.proacl) AS acl ON acl.privilege_type = 'EXECUTE'
+WHERE n.nspname='public' AND p.proname IN ('_revert_event_to_version','reconcile_bp_overrides_for_event')
+GROUP BY p.proname;
