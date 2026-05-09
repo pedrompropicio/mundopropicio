@@ -879,6 +879,8 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           const note = noteMap[tx.id];
           if (!note) continue;
           const sup: any = note.suppliers;
+          // Mark as reimbursement so UI shows "Beneficiário" labels
+          tx.is_reimbursement = true;
           // IBAN priority: explicit override on the note → supplier's registered IBAN
           if (!tx.iban_override) {
             tx.iban_override = note.payment_iban ?? sup?.iban ?? tx.iban_override;
