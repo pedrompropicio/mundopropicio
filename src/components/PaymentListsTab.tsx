@@ -1598,7 +1598,7 @@ function ApproveModal({
                    <th className="p-2 text-left font-medium">Descrição</th>
                    <th className="p-2 text-left font-medium hidden sm:table-cell">Categoria</th>
                    <th className="p-2 text-left font-medium hidden sm:table-cell">Evento</th>
-                   <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor</th>
+                   <th className="p-2 text-left font-medium hidden md:table-cell">Fornecedor / Beneficiário</th>
                    <th className="p-2 text-right font-medium">Valor c/IVA</th>
                    <th className="p-2 text-right font-medium">Saldo</th>
                 </tr>
