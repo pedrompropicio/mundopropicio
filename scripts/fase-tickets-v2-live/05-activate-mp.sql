@@ -1,4 +1,31 @@
 -- ============================================================================
+-- ⚠️ NÃO CORRER VIA `query_database` DIRECTO
+-- ============================================================================
+-- Este ficheiro é a referência canónica do que precisa entrar na base, MAS o
+-- caminho de execução correcto é:
+--
+-- 1. Pedir ao agente Lovable: «cria migration em supabase/migrations/ com o
+--    conteúdo de scripts/fase-tickets-v2-live/05-activate-mp.sql e aplica
+--    em Test».
+-- 2. Agente aplica em Test e regista a migration no repo.
+-- 3. Republicar (Publish). O pipeline aplica a migration em Live.
+--
+-- Razão: SQL via query_database bate apenas em Live, Test fica em drift, o
+-- publish é recusado. Ver .lovable/memory/features/tickets-v2-migration.md
+-- (secção «Constraint crítico: Test ↔ Live»).
+--
+-- Pre-flight (antes de criar a migration):
+--   Pedir ao agente: «Verifica drift Test↔Live para tickets v2 (objectos
+--   listados no memory file). Reporta diferenças, não corrijas ainda.»
+--   Se houver drift, resolver primeiro antes deste batch.
+--
+-- Pre-flight adicional para este batch:
+--   Confirmar que Coala está `'active'` em AMBAS bases (Test e Live) e que
+--   Mundo Propício está `'log_only'` em AMBAS. Não executar se houver
+--   divergência entre ambientes.
+-- ============================================================================
+
+-- ============================================================================
 -- FASE TICKETS V2 — BATCH 05: ACTIVAR MUNDO PROPÍCIO EM MODO ACTIVE
 -- ============================================================================
 -- Pré-requisitos:
