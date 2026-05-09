@@ -867,7 +867,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       if (txIds.length > 0) {
         const { data: notes } = await supabase
           .from("reimbursement_notes")
-          .select("payment_transaction_id, payment_iban, employee_name, code")
+          .select("payment_transaction_id, payment_iban, employee_name, code, supplier_id, suppliers:supplier_id(name, trade_name, iban, email)")
           .in("payment_transaction_id", txIds);
         const noteMap: Record<string, any> = {};
         for (const n of notes ?? []) {
@@ -878,9 +878,18 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           if (!tx) continue;
           const note = noteMap[tx.id];
           if (!note) continue;
-          if (!tx.iban_override && note.payment_iban) tx.iban_override = note.payment_iban;
+          const sup: any = note.suppliers;
+          // IBAN priority: explicit override on the note → supplier's registered IBAN
+          if (!tx.iban_override) {
+            tx.iban_override = note.payment_iban ?? sup?.iban ?? tx.iban_override;
+          }
           if (!tx.suppliers) {
-            (tx as any).suppliers = { name: note.employee_name, trade_name: null, iban: note.payment_iban ?? null, email: null };
+            (tx as any).suppliers = {
+              name: sup?.name ?? note.employee_name,
+              trade_name: sup?.trade_name ?? null,
+              iban: note.payment_iban ?? sup?.iban ?? null,
+              email: sup?.email ?? null,
+            };
           }
         }
       }
