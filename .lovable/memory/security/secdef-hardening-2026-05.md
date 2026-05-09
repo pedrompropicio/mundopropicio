@@ -1,6 +1,6 @@
 ---
 name: SECDEF hardening 2026-05
-description: Auditoria + endurecimento das ~63 funções SECURITY DEFINER em public — Cat. B.1+B.2+B.3 aplicadas em Live; Cat. D já estava endurecida; Cat. C pendente
+description: Auditoria + endurecimento das ~63 funções SECURITY DEFINER em public — Cat. A intacta; B.1+B.2+B.3+C aplicadas; D já estava endurecida (Fase 2 concluída)
 type: feature
 ---
 
@@ -14,7 +14,7 @@ Auditoria completa em 2026-05-09 das 63 funções `SECURITY DEFINER` no schema `
 | B.1 | 17 | `REVOKE` total (triggers) | ✅ aplicada Live |
 | B.2 | 15 | `REVOKE` total + `GRANT TO service_role` (cron/edge) | ✅ aplicada Live |
 | B.3 | 6 | `REVOKE FROM anon` (admin RPC) | ✅ aplicada Live |
-| C | 5 | passar a `SECURITY INVOKER` (read-only) | ⏳ pendente (`scripts/secdef-hardening/02-cat-C-security-invoker.txt`) |
+| C | 5 | passar a `SECURITY INVOKER` (read-only) | ✅ aplicada 2026-05-09 (`02-cat-C-security-invoker.APPLIED.txt`) |
 | D | 11 | adicionar role+tenant guards no body | ✅ **já estavam endurecidas** (descoberta pós-B.3) |
 
 ## Cat. D — descoberta importante
