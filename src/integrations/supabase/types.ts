@@ -3824,6 +3824,7 @@ export type Database = {
           id: string
           ip_address: string | null
           success: boolean
+          verified: boolean
         }
         Insert: {
           attempted_at?: string
@@ -3831,6 +3832,7 @@ export type Database = {
           id?: string
           ip_address?: string | null
           success?: boolean
+          verified?: boolean
         }
         Update: {
           attempted_at?: string
@@ -3838,6 +3840,7 @@ export type Database = {
           id?: string
           ip_address?: string | null
           success?: boolean
+          verified?: boolean
         }
         Relationships: []
       }
