@@ -59,7 +59,9 @@ export default function Auth() {
     }
     setLoading(true);
 
-    // Server-side rate limit check
+    // Server-side rate limit check.
+    // Capture HMAC token to prove the failure (if any) actually happened from this IP+session.
+    let rateToken: string | null = null;
     try {
       const { data: rateCheck } = await supabase.functions.invoke("check-login-rate", {
         body: { email, action: "check" },
@@ -67,12 +69,19 @@ export default function Auth() {
       if (rateCheck?.blocked) {
         toast({
           title: "Acesso bloqueado",
-          description: "Demasiadas tentativas. Aguarde 15 minutos antes de tentar novamente.",
+          description: "Demasiadas tentativas a partir desta rede. Aguarde 15 minutos antes de tentar novamente.",
           variant: "destructive",
         });
         startLockout();
         setLoading(false);
         return;
+      }
+      if (rateCheck?.token) rateToken = rateCheck.token as string;
+      if (rateCheck?.softWarn) {
+        toast({
+          title: "Muitas tentativas para este email",
+          description: "Verifique a sua senha ou use 'Esqueceu a senha?' para recuperar.",
+        });
       }
     } catch {
       // If rate-limit check fails, continue with client-side protection
@@ -83,10 +92,10 @@ export default function Auth() {
       const newAttempts = failedAttempts + 1;
       setFailedAttempts(newAttempts);
 
-      // Record failure server-side (also triggers alerts if threshold reached)
+      // Record failure server-side. Token is required for the server to actually count it.
       try {
         await supabase.functions.invoke("check-login-rate", {
-          body: { email, action: "record_failure" },
+          body: { email, action: "record_failure", token: rateToken },
         });
       } catch {
         // Silently fail - client-side protection still active
