@@ -24,6 +24,7 @@ import { PartnerAccessManager } from "@/components/PartnerAccessManager";
 import { PartnerPaidExpensesPanel } from "@/components/PartnerPaidExpensesPanel";
 import { PartnerSettlementTab } from "@/components/PartnerSettlementTab";
 import { formatDatePT } from "@/lib/utils";
+import { useCompany } from "@/hooks/useCompany";
 
 import { EventEditModal } from "@/components/EventEditModal";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
