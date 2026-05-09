@@ -1,279 +1,117 @@
 
-# Hardening das funções `SECURITY DEFINER` (schema `public`)
+# Fase 2 — Categoria D: relatório e plano (NÃO executar)
 
-## Resumo do inventário (já corrido em Live, read-only)
+## ⚠️ Descoberta crítica vs. inventário
 
-- Total de funções `SECURITY DEFINER` em `public`: **63**
-  - **14** são funções de **trigger** (assinatura `() RETURNS trigger`) — não são chamáveis por RPC, mas têm `EXECUTE` para `PUBLIC` por defeito, o que é desnecessário.
-  - **49** são **funções chamáveis** (RPC ou helpers internos).
-- Nenhuma tem `REVOKE` explícito — todas herdam o GRANT default `EXECUTE TO PUBLIC`, ou seja, callable por `anon` e `authenticated` via PostgREST/SQL.
-- Cruzando com `grep` no código (`src/` + `supabase/functions/`), identifiquei **25 RPCs efetivamente chamados pelo cliente ou edge functions**. Os restantes ~24 callables são helpers internos / cron / edge-only ⇒ candidatos óbvios a revoke.
+Antes de planear os 11 patches, fiz `pg_get_functiondef` direto em **Live** das 11 funções + os 2 wrappers internos. Resultado vs. o que o inventário (`scripts/audit-secdef-inventory.md`) afirmava:
 
-> Nota: o linter Supabase reporta ~110 ocorrências porque conta o cartesiano função × grantee em todos os schemas. O nosso âmbito real são estas 63 em `public`.
+| Função | Inventário dizia | Live realmente tem |
+|---|---|---|
+| `promote_scenario_to_active` | sem guards | ✅ role + tenant + platform_admin |
+| `relink_orphan_transactions` | sem guards | ✅ role + tenant + platform_admin |
+| `merge_forecasts_into_active_snapshot` | só `auth.uid()` | ✅ role (via EXISTS user_roles) + tenant + platform_admin |
+| `revert_to_bp_version` | sem guards | ✅ role + tenant + platform_admin |
+| `create_bp_snapshot` | sem guards | ✅ role + tenant + platform_admin |
+| `archive_bp_version` | sem guards | ✅ role + tenant + platform_admin |
+| `unarchive_bp_version` | sem guards | ✅ role + tenant + platform_admin |
+| `discard_bp_version_draft` | sem guards | ✅ role + tenant + platform_admin |
+| `recalculate_pax_benchmarks` | só role | ✅ role + tenant (param `_company_id` validado) + platform_admin |
+| `restore_bp_versions_from_trash` | só role | ✅ role + tenant + platform_admin |
+| `mark_forecasts_fechado_auto` | sem guards | ✅ role + tenant + platform_admin |
 
----
+**Conclusão:** o inventário reflectia o estado *anterior* à corrida B.1+B.2+B.3 — ou foi escrito antes das migrations recentes do projecto que já tinham endurecido o body destas funções (memórias `bp-versions-rls-and-trash`, `bp-versions-scenarios`, `formalidade-bulk-audit`, `multi-tenant-leaky-policies-fix` apontam todas para isso). O smoke-test SQL read-only da volta anterior já tinha confirmado isto (11/11 com guards) — esta é a mesma evidência, agora com inspeção directa do `pg_get_functiondef`.
 
-## Fase 1 — Inventário detalhado e classificação
+> **Não há patches Cat. D para aplicar.** O risco residual é zero ou cosmético.
 
-Output a produzir: ficheiro `scripts/audit-secdef-inventory.txt` com 4 tabelas (uma por categoria). Cada linha tem `function(args) → return | callers | guard interno | recomendação`.
+## Padrão observado (igual nas 11)
 
-### Categoria A — Necessária e segura (manter `EXECUTE` para `authenticated`)
-
-Wrappers usados em policies RLS ou auto-protegidos por filtragem por `auth.uid()`:
-
-```
-current_company_id()
-is_platform_admin(_user_id)
-has_role(_user_id, _role)
-has_permission(_user_id, _permission)
-get_user_role(_user_id)
-has_partner_access(_user_id, _event_id)
-row_belongs_to_current_company(_row_company_id)
-storage_path_belongs_to_current_company(_name)
-bp_version_linked_tx_count(_event_id)        -- só lê, filtra por event_id
-list_bp_versions(_event_id)                  -- só lê
-formalidade_audit_stats(_event_ids)          -- agregados read-only
-suggest_formalidade(_forecast_id)            -- read-only
-list_orphan_transactions_for_event(_event_id)-- read-only
-find_admin_absorbing_events(p_date, p_company_id) -- read-only
-```
-
-Acção: **manter GRANT para `authenticated`**, apenas confirmar que cada uma tem `SET search_path = public, pg_temp` (já tem) e que filtra por `current_company_id()` quando devolve dados de tabelas multi-tenant. Para `list_orphan_transactions_for_event`, `find_admin_absorbing_events`, `formalidade_audit_stats`, `bp_version_linked_tx_count`, `list_bp_versions`, `suggest_formalidade`: validar manualmente que aplicam o filtro de tenant (parecem fazê-lo via `event_id` mas é preciso confirmar caso a caso).
-
-### Categoria B — Restringir GRANT (revoke de `anon`/`authenticated`)
-
-#### B.1 — Funções de trigger (14): só o engine de triggers as deve invocar
-
-```
-auto_create_initial_bp_version
-auto_create_retroactive_split_snapshots
-handle_new_user
-log_formalidade_change
-log_table_change
-prevent_split_absorbs_admin
-reimbursement_propagate_payment
-reimbursement_revert_on_tx_delete
-set_company_id_on_insert
-set_event_ab_company_id
-snapshot_bp_versions_to_trash
-tg_sponsorship_pipeline_autolog
-validate_category_allocate_flag
-validate_event_admin_absorption
-audit_generic_changes        -- listada como não-trigger, mas é trigger fn (RETURNS trigger)
-set_combo_pass_company_id
-set_combo_pass_child_company_id
-```
-
-Patch:
 ```sql
-REVOKE EXECUTE ON FUNCTION public.<fn>() FROM PUBLIC, anon, authenticated;
+-- 1. Role guard (variantes: admin|manager, ou admin|manager|editor)
+IF NOT (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'manager')
+        OR is_platform_admin(auth.uid())) THEN
+  RAISE EXCEPTION 'Permissão negada: ...';
+END IF;
+
+-- 2. Tenant lookup (varia por função: events, bp_versions→events, ou param directo)
+SELECT company_id INTO v_company FROM <tabela> WHERE id = <param>;
+IF v_company IS NULL THEN RAISE EXCEPTION '... not found'; END IF;
+
+-- 3. Tenant guard com bypass platform_admin
+IF NOT is_platform_admin(auth.uid()) AND v_company <> current_company_id() THEN
+  RAISE EXCEPTION 'Permissão negada: ... outra empresa.';
+END IF;
 ```
 
-(Triggers continuam a disparar; o GRANT só limita chamadas diretas via RPC, que não fazem sentido.)
+Mapa de fontes da `company_id`:
+- `events.company_id`: `create_bp_snapshot`, `merge_forecasts_into_active_snapshot`
+- `bp_versions → events.company_id`: `archive`, `unarchive`, `discard_bp_version_draft`, `revert_to_bp_version`, `promote_scenario_to_active`
+- `event_forecasts → events.company_id`: `mark_forecasts_fechado_auto`, `relink_orphan_transactions`
+- `param `_company_id` validado: `recalculate_pax_benchmarks`
+- `bp_versions_trash → events.company_id`: `restore_bp_versions_from_trash`
 
-#### B.2 — Cron/edge-function-only (chamadas com service-role key)
+## Item residual (1) — só normalização cosmética
 
-```
-cleanup_old_backups()                        -- cron monthly
-test_latest_backup()                         -- cron monthly
-run_rls_legacy_audit_cron()                  -- cron diário
-audit_multi_tenant_isolation()               -- ferramenta admin (chamada por edge fn)
-recalculate_pax_benchmarks(_company_id)      -- batch admin
-restore_bp_versions_from_trash(_trash_id)    -- admin
-relink_orphan_transactions(_event_id, ...)   -- admin
-reconcile_bp_overrides_for_event(...)        -- chamada por outras fns DB
-_revert_event_to_version(...)                -- interno (prefixo "_")
-apply_formalidade_suggestions(_ids, _state)  -- versão antiga, _map é a usada pelo cliente
-mark_forecasts_fechado_auto(_ids)            -- chamada por edge close-camarim-session
-set_formalidade_auto_suggested(_value)       -- helper interno (session local)
-move_to_dlq(...)                             -- pgmq plumbing
-read_email_batch(...)                        -- worker process-email-queue (service role)
-delete_email(...)                            -- worker
-enqueue_email(...)                           -- triggers + edge (service role)
-```
+`merge_forecasts_into_active_snapshot` usa `SELECT EXISTS (... FROM user_roles WHERE role IN ('admin','manager','editor'))` em vez de `has_role()`. Funcionalmente idêntico (e até evita 3 chamadas separadas), mas:
+- Foge do padrão do resto do projecto.
+- Faz a regex de auditoria (`has_role\(auth\.uid`) devolver falso negativo — foi exactamente o que enganou o inventário desta volta.
 
-Patch:
-```sql
-REVOKE EXECUTE ON FUNCTION public.<fn>(...) FROM PUBLIC, anon, authenticated;
-GRANT  EXECUTE ON FUNCTION public.<fn>(...) TO service_role;
-```
+**Proposta:** trocar para `has_role(...) OR has_role(...) OR has_role(...) OR is_platform_admin(...)` para uniformidade. Sem alteração funcional. **Opcional**, baixa prioridade. Pode ficar para uma "volta de limpeza" futura.
 
-> ⚠️ Antes de revogar `enqueue_email`/`read_email_batch`/`delete_email`/`move_to_dlq` confirmar com `pg_trigger` e `cron.job` que nenhuma é chamada como `authenticated`. Se o trigger BEFORE INSERT em `email_send_log` correr no contexto do utilizador, a função tem de continuar callable por authenticated (ou ser elevada para SECURITY DEFINER pura sem GRANT, basta que a trigger a invoque).
+## Itens reais ainda pendentes — wrappers internos
 
-#### B.3 — RPCs de admin/platform_admin (UI de Admin Panel)
+Os 2 wrappers DB-internal **continuam sem guards no body** (esperado — são chamados via `PERFORM` pelas funções já protegidas):
 
-Têm guard interno via `has_role`/`is_platform_admin`. Estão OK serem callable por `authenticated` (o guard rejeita), mas o ideal é revogar de `anon`:
+| Função | Guards no body | Estratégia Fase 2 já aplicada |
+|---|---|---|
+| `_revert_event_to_version` | ❌ nenhum | `REVOKE FROM PUBLIC, anon, authenticated` + `GRANT TO service_role` (lote B.2) ✅ |
+| `reconcile_bp_overrides_for_event` | ❌ nenhum | idem ✅ |
 
-```
-run_rls_legacy_audit(_triggered_by, _triggered_by_user)
-set_active_company(target_company_id)
-restore_bp_versions_from_trash(_trash_id)        -- já em B.2
-analyze_formalidade_bulk(_event_ids)
-apply_formalidade_suggestions_map(_payload)
-```
+A volta anterior já confirmou via `pg_roles` que não estão acessíveis a `anon`/`authenticated`. **Nada a fazer.**
 
-Patch:
-```sql
-REVOKE EXECUTE ON FUNCTION public.<fn>(...) FROM anon;   -- mantém em authenticated
-```
+## Plano final desta volta
 
-### Categoria C — Pode virar `SECURITY INVOKER`
+### A — recomendado: encerrar Fase 2 / Cat. D sem patches
 
-Funções que só leem dados que o caller já vê via RLS (não precisam de elevação):
+1. Marcar Cat. D como **concluído** (já foi, na verdade, em volta anterior — confirmado por evidência fresca).
+2. Atualizar `scripts/audit-secdef-inventory.md` com nota no topo: *"Cat. D já endurecida em migrations anteriores (data: pré-2026-05-09); auditoria 2026-05-09 confirmou 11/11 com role+tenant+platform_admin guards."*
+3. Atualizar memória (provavelmente `mem://security/security-hardening-2026-05`) acrescentando linha sobre o fecho de Cat. D.
+4. Próxima frente: olhar Cat. C (5 funções para `SECURITY INVOKER`) que ainda está pendente segundo `scripts/secdef-hardening/02-cat-C-security-invoker.txt`.
 
-```
-bp_version_linked_tx_count(_event_id)
-list_bp_versions(_event_id)
-formalidade_audit_stats(_event_ids)
-list_orphan_transactions_for_event(_event_id)
-find_admin_absorbing_events(p_date, p_company_id)
-suggest_formalidade(_forecast_id)
-```
+### B — opcional: 1 normalização cosmética
 
-Patch (CREATE OR REPLACE com `SECURITY INVOKER`). Risco: se alguma dessas funções faz JOIN em tabelas com RLS mais restrita (ex. `event_forecasts` filtrado por partner), pode passar a devolver menos linhas. Deve ser validado caso-a-caso antes de migrar.
+Se quiseres uniformidade de estilo, escrever **1** ficheiro `scripts/secdef-hardening/05-cat-d-fixes/01-merge-forecasts-normalize-guard.txt` com:
 
-### Categoria D — Suspeitas / a investigar manualmente
-
-```
-1. promote_scenario_to_active(...)            -- 6 args, cascade Master→Splits, sensível
-2. promote_scenario_draft_to_active(...)      -- variante mais antiga, ainda usada?
-3. revert_to_bp_version(_version_id, _force, ...) -- destrutivo
-4. _revert_event_to_version(...)              -- interno mas DELETE em event_forecasts
-5. merge_forecasts_into_active_snapshot(...)
-6. relink_orphan_transactions(...)            -- modifica chaves
-7. consume_recovery_code(_code_hash)          -- segurança MFA, validar one-shot
-8. validate_trusted_device(_token_hash)       -- segurança MFA
-9. recalculate_pax_benchmarks(_company_id)    -- valida que filtra _company_id == current
-10. apply_formalidade_suggestions_map(_payload)-- valida ownership de cada forecast_id
-11. archive_bp_version / unarchive_bp_version / discard_bp_version_draft / discard_scenario_draft / create_bp_snapshot / create_scenario_draft -- todas mutativas: confirmar guard de tenant + role
-```
-
-Acção Fase 1: para cada uma, ler `pg_get_functiondef`, anotar:
-- (a) tem `SET search_path` ✅?
-- (b) verifica `current_company_id() = X.company_id`?
-- (c) verifica `has_role(auth.uid(), ...)`?
-- (d) é idempotente / tem proteção contra replay?
-
-Output: tabela em markdown no inventário, uma linha por função.
-
----
-
-## Fase 2 — Plano de patches por lotes
-
-Cada lote = 1 ficheiro `.txt` em `scripts/secdef-hardening/` para correr em **Test → Live**, na ordem:
-
-```text
-secdef-hardening/
-  01-triggers-revoke.txt          (Cat. B.1, ~17 fns, baixo risco)
-  02-cron-edge-revoke.txt         (Cat. B.2, ~16 fns, médio risco)
-  03-admin-rpc-tighten.txt        (Cat. B.3, ~5 fns, baixo risco)
-  04-secinv-readonly.txt          (Cat. C, ~6 fns, médio — testar UI)
-  05-cat-d-fixes/                 (uma migration por função, alto risco)
-    01-promote-scenario-to-active.txt
-    02-revert-to-bp-version.txt
-    03-_revert-event-to-version.txt
-    ...
-```
-
-Template de lote (B.1 exemplo):
 ```sql
 BEGIN;
-
-REVOKE EXECUTE ON FUNCTION public.handle_new_user()                    FROM PUBLIC, anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.log_table_change()                   FROM PUBLIC, anon, authenticated;
--- ... (uma por linha)
-
--- Verificação: nenhuma das fns abaixo deve ter EXECUTE para anon/authenticated
-SELECT r.routine_name, g.grantee
-FROM information_schema.role_routine_grants g
-JOIN information_schema.routines r USING (specific_name)
-WHERE r.specific_schema='public'
-  AND r.routine_name IN ('handle_new_user','log_table_change', /* ... */)
-  AND g.grantee IN ('anon','authenticated');
--- Esperado: 0 linhas
-
+-- Pre-snapshot: guard usa SELECT EXISTS user_roles inline (funcional mas fora do padrão)
+CREATE OR REPLACE FUNCTION public.merge_forecasts_into_active_snapshot(_event_id uuid, _forecast_ids uuid[])
+RETURNS TABLE(merged_into_master integer, merged_into_splits integer)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
+AS $$
+DECLARE
+  -- ... (mesmas vars, sem _role_ok)
+BEGIN
+  IF NOT (public.has_role(auth.uid(),'admin'::app_role)
+          OR public.has_role(auth.uid(),'manager'::app_role)
+          OR public.has_role(auth.uid(),'editor'::app_role)
+          OR public.is_platform_admin(auth.uid())) THEN
+    RAISE EXCEPTION 'Permissão negada: só admin/manager/editor podem incorporar linhas no snapshot.';
+  END IF;
+  -- resto do body idêntico ao actual
+END;
+$$;
+-- Verificação
+SELECT (pg_get_functiondef('public.merge_forecasts_into_active_snapshot(uuid,uuid[])'::regprocedure) ~ 'has_role\(auth\.uid')
+  AS guard_normalised;
 COMMIT;
 ```
 
-Para Cat. C (SECURITY INVOKER), template:
-```sql
-CREATE OR REPLACE FUNCTION public.list_bp_versions(_event_id uuid)
-RETURNS TABLE (...)
-LANGUAGE plpgsql
-SECURITY INVOKER         -- ← era DEFINER
-STABLE
-SET search_path = public, pg_temp
-AS $$ ... corpo idêntico ... $$;
-```
+Smoke test: `SponsorsImportModal.tsx` → "Incorporar linhas no snapshot" num evento Master+Split, com user `editor`. Cenário canónico: `mem://features/bp-versions-test-checklist` (secção *Promoção com TX vinculadas*).
 
----
+**Risco:** 0 (refactor puro de expressão booleana equivalente).
 
-## Fase 3 — Verificação e regressão
+## Recomendação
 
-### 3.1 — Snapshot pré-mudança (correr antes de cada lote, em Test e Live)
+Ir pela **opção A**. Cat. D já está fechada de facto; criar 11 ficheiros vazios ou idempotentes só adiciona ruído. Aplicar a normalização cosmética (B) só se quiseres alinhamento estilístico — não é segurança.
 
-```sql
--- Snapshot de grants atuais
-SELECT r.routine_name,
-       string_agg(DISTINCT g.grantee, ',' ORDER BY g.grantee) AS grantees
-FROM information_schema.routines r
-LEFT JOIN information_schema.role_routine_grants g
-  ON g.specific_name = r.specific_name AND g.privilege_type='EXECUTE'
-WHERE r.specific_schema='public'
-  AND r.security_type='DEFINER'
-GROUP BY r.routine_name
-ORDER BY r.routine_name;
-```
-Guardar em `/mnt/documents/secdef-grants-pre-<batch>.tsv`.
-
-### 3.2 — Testes funcionais por lote
-
-| Lote | Como verificar |
-|---|---|
-| B.1 (triggers) | INSERT/UPDATE/DELETE em cada tabela alvo continua a disparar trigger (criar 1 linha de teste em cada uma). |
-| B.2 (cron/edge) | Disparar manualmente cada cron (`select cron.schedule_in_database` ou edge fn `--invoke`) e ver logs. |
-| B.3 (admin RPC) | Logar como user **viewer** → cada RPC deve devolver 403/permission denied. Logar como **admin** → 200. |
-| C (SECURITY INVOKER) | Comparar contagem de linhas antes/depois para o mesmo user (admin e viewer). Diferenças = RLS está a esconder; reverter se inesperado. |
-| D (caso a caso) | Rodar cenários canónicos do `mem://features/canonical-test-scenarios` — promoção de cenário, reversão de BP, MFA. |
-
-### 3.3 — Re-correr o linter
-
-```bash
-# Após cada lote
-supabase--linter --environment production
-# Esperado: contagem de SUPA_0028/SUPA_0029 desce monotonicamente
-```
-
-### 3.4 — Smoke test do app em Test
-
-Checklist mínimo (manual, ~10 min):
-1. Login como user normal → carrega Dashboard sem erros.
-2. Abrir Eventos → clicar num evento → BP carrega.
-3. Criar transação → aparece em "Pendente".
-4. Pagamento → liquidar → status passa a "Pago".
-5. Admin Panel → Backups → lista carrega.
-6. /admin/auditoria-rls → run manual funciona.
-7. MFA flow (recovery code + trusted device) ainda funciona.
-
-### 3.5 — Critério de rollback
-
-Se qualquer query SQL ou ação de UI falhar com `permission denied for function ...` num role esperado:
-```sql
-GRANT EXECUTE ON FUNCTION public.<fn>(...) TO authenticated;
-```
-e voltar a classificar a função.
-
----
-
-## Restrições respeitadas
-
-- ✅ Wrappers de RLS (`current_company_id`, `has_role`, etc.) ficam callable por `authenticated`.
-- ✅ Triggers internas continuam a disparar (revogar EXECUTE não afeta triggers).
-- ✅ Funções de Auth (`handle_new_user` é trigger; não há outras tocadas pelo Supabase Auth nas listadas).
-- ✅ Sem nenhuma alteração feita nesta volta — só inventário read-only.
-
----
-
-## Próximo passo após aprovação
-
-Implementar **Fase 1 completa** primeiro (gerar `scripts/audit-secdef-inventory.txt` com a tabela final A/B/C/D revista função-a-função, lendo cada `pg_get_functiondef`). Só depois desse output é que se decidem os patches concretos da Fase 2 — algumas reclassificações são esperadas (especialmente entre C e D).
+Confirmas que avanço com (A) — atualizar o inventário/memória e depois passar à Cat. C — ou queres também (B) na mesma entrega?
