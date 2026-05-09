@@ -862,6 +862,29 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         }
       }
 
+      // For reimbursement payment transactions, enrich with IBAN + employee name from the note
+      const txIds = filtered.map((i: any) => i.transactions?.id).filter(Boolean);
+      if (txIds.length > 0) {
+        const { data: notes } = await supabase
+          .from("reimbursement_notes")
+          .select("payment_transaction_id, payment_iban, employee_name, code")
+          .in("payment_transaction_id", txIds);
+        const noteMap: Record<string, any> = {};
+        for (const n of notes ?? []) {
+          if (n.payment_transaction_id) noteMap[n.payment_transaction_id] = n;
+        }
+        for (const item of filtered) {
+          const tx = item.transactions;
+          if (!tx) continue;
+          const note = noteMap[tx.id];
+          if (!note) continue;
+          if (!tx.iban_override && note.payment_iban) tx.iban_override = note.payment_iban;
+          if (!tx.suppliers) {
+            (tx as any).suppliers = { name: note.employee_name, trade_name: null, iban: note.payment_iban ?? null, email: null };
+          }
+        }
+      }
+
       return filtered;
     },
   });
