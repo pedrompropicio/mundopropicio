@@ -9,6 +9,7 @@ import { X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { IbanWarning } from "@/components/IbanWarning";
 
 interface Props {
   onClose: () => void;
@@ -188,12 +189,15 @@ export function ReimbursementNoteFormModal({ onClose, onCreated }: Props) {
               )}
 
               {(ibanChoice === "custom" || !hasAnyIban) && (
-                <Input
-                  value={customIban}
-                  onChange={(e) => setCustomIban(e.target.value.toUpperCase())}
-                  placeholder="PT50 0000 0000 0000 0000 0000 0"
-                  className="h-8 font-mono text-xs"
-                />
+                <>
+                  <Input
+                    value={customIban}
+                    onChange={(e) => setCustomIban(e.target.value.toUpperCase())}
+                    placeholder="PT50 0000 0000 0000 0000 0000 0"
+                    className="h-8 font-mono text-xs"
+                  />
+                  <IbanWarning value={customIban} />
+                </>
               )}
 
               {hasAnyIban && (
