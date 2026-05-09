@@ -1,0 +1,31 @@
+-- ============================================================
+-- SECDEF Hardening — FIX B.3 (Live, 2026-05-09)
+-- Motivo: REVOKE FROM anon não basta porque PUBLIC ainda tinha EXECUTE
+--         (anon herda via PUBLIC). Revogamos PUBLIC e regrant explícito
+--         a authenticated.
+-- ============================================================
+
+BEGIN;
+
+REVOKE EXECUTE ON FUNCTION public.run_rls_legacy_audit(_triggered_by text, _triggered_by_user uuid)         FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION public.run_rls_legacy_audit(_triggered_by text, _triggered_by_user uuid)         TO   authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.set_active_company(target_company_id uuid)                                FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION public.set_active_company(target_company_id uuid)                                TO   authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.analyze_formalidade_bulk(_event_ids uuid[])                               FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION public.analyze_formalidade_bulk(_event_ids uuid[])                               TO   authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.apply_formalidade_suggestions_map(_payload jsonb)                         FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION public.apply_formalidade_suggestions_map(_payload jsonb)                         TO   authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.formalidade_audit_stats(_event_ids uuid[])                                FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION public.formalidade_audit_stats(_event_ids uuid[])                                TO   authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.consume_recovery_code(_code_hash text)                                    FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION public.consume_recovery_code(_code_hash text)                                    TO   authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.validate_trusted_device(_token_hash text)                                 FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION public.validate_trusted_device(_token_hash text)                                 TO   authenticated;
+
+COMMIT;
