@@ -1,117 +1,150 @@
+# Fase 2 — Categoria C: análise role-a-role e plano de Live
 
-# Fase 2 — Categoria D: relatório e plano (NÃO executar)
+## ⚠️ Estado atual descoberto antes de planear
 
-## ⚠️ Descoberta crítica vs. inventário
+Antes de escrever este plano, fiz `pg_get_functiondef` direto a Test **e** a Live (production). Resultado:
 
-Antes de planear os 11 patches, fiz `pg_get_functiondef` direto em **Live** das 11 funções + os 2 wrappers internos. Resultado vs. o que o inventário (`scripts/audit-secdef-inventory.md`) afirmava:
-
-| Função | Inventário dizia | Live realmente tem |
+| Função | `prosecdef` Test | `prosecdef` Live |
 |---|---|---|
-| `promote_scenario_to_active` | sem guards | ✅ role + tenant + platform_admin |
-| `relink_orphan_transactions` | sem guards | ✅ role + tenant + platform_admin |
-| `merge_forecasts_into_active_snapshot` | só `auth.uid()` | ✅ role (via EXISTS user_roles) + tenant + platform_admin |
-| `revert_to_bp_version` | sem guards | ✅ role + tenant + platform_admin |
-| `create_bp_snapshot` | sem guards | ✅ role + tenant + platform_admin |
-| `archive_bp_version` | sem guards | ✅ role + tenant + platform_admin |
-| `unarchive_bp_version` | sem guards | ✅ role + tenant + platform_admin |
-| `discard_bp_version_draft` | sem guards | ✅ role + tenant + platform_admin |
-| `recalculate_pax_benchmarks` | só role | ✅ role + tenant (param `_company_id` validado) + platform_admin |
-| `restore_bp_versions_from_trash` | só role | ✅ role + tenant + platform_admin |
-| `mark_forecasts_fechado_auto` | sem guards | ✅ role + tenant + platform_admin |
+| `bp_version_linked_tx_count(uuid)` | `false` (INVOKER) | `false` (INVOKER) |
+| `list_bp_versions(uuid)` | `false` (INVOKER) | `false` (INVOKER) |
+| `list_orphan_transactions_for_event(uuid)` | `false` (INVOKER) | `false` (INVOKER) |
+| `find_admin_absorbing_events(date, uuid)` | `false` (INVOKER) | `false` (INVOKER) |
+| `suggest_formalidade(uuid)` | `false` (INVOKER) | `false` (INVOKER) |
 
-**Conclusão:** o inventário reflectia o estado *anterior* à corrida B.1+B.2+B.3 — ou foi escrito antes das migrations recentes do projecto que já tinham endurecido o body destas funções (memórias `bp-versions-rls-and-trash`, `bp-versions-scenarios`, `formalidade-bulk-audit`, `multi-tenant-leaky-policies-fix` apontam todas para isso). O smoke-test SQL read-only da volta anterior já tinha confirmado isto (11/11 com guards) — esta é a mesma evidência, agora com inspeção directa do `pg_get_functiondef`.
+A migration aplicada na volta anterior fez ALTER em Test; o estado idêntico em Live indica que estas 5 já estavam INVOKER em Live (quer porque alguém aplicou o script `02-cat-C-security-invoker.txt` previamente, quer porque o inventário Fase 1 estava desatualizado — mesma classe de erro descoberta na Cat. D). **Não há ALTER FUNCTION para escrever.**
 
-> **Não há patches Cat. D para aplicar.** O risco residual é zero ou cosmético.
+> **Recomendação principal:** marcar Cat. C como concluída em Test+Live e usar este plano como **registo de validação role-a-role** + **smoke tests pós-publicação** (defesa em profundidade — confirmar que a mudança não regrediu nenhum fluxo).
 
-## Padrão observado (igual nas 11)
+---
 
-```sql
--- 1. Role guard (variantes: admin|manager, ou admin|manager|editor)
-IF NOT (has_role(auth.uid(),'admin') OR has_role(auth.uid(),'manager')
-        OR is_platform_admin(auth.uid())) THEN
-  RAISE EXCEPTION 'Permissão negada: ...';
-END IF;
+## Patches RLS relevantes (todas as 4 tabelas)
 
--- 2. Tenant lookup (varia por função: events, bp_versions→events, ou param directo)
-SELECT company_id INTO v_company FROM <tabela> WHERE id = <param>;
-IF v_company IS NULL THEN RAISE EXCEPTION '... not found'; END IF;
+```text
+bp_versions
+  PERMISSIVE  "Authenticated users can view bp_versions"   USING (auth.uid() IS NOT NULL)   ← LEGACY ✱
+  PERMISSIVE  "Staff sees all, partners only active"
+              USING ( admin|manager|editor|viewer  OR
+                      (partner AND state='active' AND event ∈ event_partners do user) )
+  RESTRICTIVE company_isolation_bp_versions   USING (company_id = current_company_id())
 
--- 3. Tenant guard com bypass platform_admin
-IF NOT is_platform_admin(auth.uid()) AND v_company <> current_company_id() THEN
-  RAISE EXCEPTION 'Permissão negada: ... outra empresa.';
-END IF;
+event_forecasts
+  PERMISSIVE  "Event forecasts viewable by authenticated"  USING (auth.uid() IS NOT NULL)   ← LEGACY ✱
+  PERMISSIVE  "Staff can manage scenario forecasts"        (write-only relevância)
+  RESTRICTIVE company_isolation_event_forecasts            USING (company_id = current_company_id())
+
+transactions
+  PERMISSIVE  "Transactions are viewable by authenticated" USING (auth.uid() IS NOT NULL)   ← LEGACY ✱
+  RESTRICTIVE company_isolation_transactions               USING (company_id = current_company_id())
+
+events
+  PERMISSIVE  "Events are viewable by authenticated users" USING (auth.uid() IS NOT NULL)   ← LEGACY ✱
+  RESTRICTIVE company_isolation_events                     USING (company_id = current_company_id())
 ```
 
-Mapa de fontes da `company_id`:
-- `events.company_id`: `create_bp_snapshot`, `merge_forecasts_into_active_snapshot`
-- `bp_versions → events.company_id`: `archive`, `unarchive`, `discard_bp_version_draft`, `revert_to_bp_version`, `promote_scenario_to_active`
-- `event_forecasts → events.company_id`: `mark_forecasts_fechado_auto`, `relink_orphan_transactions`
-- `param `_company_id` validado: `recalculate_pax_benchmarks`
-- `bp_versions_trash → events.company_id`: `restore_bp_versions_from_trash`
+✱ Estas policies "auth.uid() IS NOT NULL" sobreviveram à limpeza `multi-tenant-leaky-policies-fix` porque a memória diz que foram retiradas as **54 mais permissivas** — estas 4 ficaram porque já são limitadas pela RESTRICTIVE de `company_id`. Confirma o gatilho 2 da quarentena Fase 8 (RLS=0 no audit cron) está a olhar exatamente para isto.
 
-## Item residual (1) — só normalização cosmética
+---
 
-`merge_forecasts_into_active_snapshot` usa `SELECT EXISTS (... FROM user_roles WHERE role IN ('admin','manager','editor'))` em vez de `has_role()`. Funcionalmente idêntico (e até evita 3 chamadas separadas), mas:
-- Foge do padrão do resto do projecto.
-- Faz a regex de auditoria (`has_role\(auth\.uid`) devolver falso negativo — foi exactamente o que enganou o inventário desta volta.
+## Análise por função
 
-**Proposta:** trocar para `has_role(...) OR has_role(...) OR has_role(...) OR is_platform_admin(...)` para uniformidade. Sem alteração funcional. **Opcional**, baixa prioridade. Pode ficar para uma "volta de limpeza" futura.
+### 1. `bp_version_linked_tx_count(_event_id uuid)`
+- **Tabelas**: `event_forecasts`
+- **Caller no código**: `useBPVersions.ts` (UI BP Versions)
+- **Comportamento DEFINER vs INVOKER**: RLS de `event_forecasts` para qualquer authenticated devolve linhas do tenant. INVOKER agora respeita company_isolation. **Sem mudança funcional** para staff/partner do mesmo tenant.
+- **Risco cross-tenant**: zero — filtro `company_id` da RESTRICTIVE protege.
+- **Decisão:** ✅ migrar (já migrado).
 
-## Itens reais ainda pendentes — wrappers internos
+### 2. `list_bp_versions(_event_id uuid)`
+- **Tabelas**: `bp_versions`
+- **Caller**: `useBPVersions.ts` em `/eventos/[id]/bp` e Portal do Sócio
+- **DEFINER (antes):** retornava **todas** as versões, ignorando a policy "Staff sees all, partners only active".
+- **INVOKER (agora):**
+  - admin/manager/editor/viewer/platform_admin: vê tudo (ramo "Staff sees all" da OR) — **idêntico**.
+  - partner: passa a ver só `state='active'` dos eventos onde `event_partners → suppliers.email = profiles.email` — **mais restrito**.
+- **Esperado pelo produto?** ✅ sim. A memória `bp-versions-partner-portal` é explícita: *"Sócio vê só label discreto 'Business Plan — versão vX (data)' no topo da aba BP, sem dropdown nem comparação"* e `bp-versions-rls-and-trash`: *"Partner só lê versão ativa dos seus eventos"*. INVOKER alinha o servidor com o que a UI já assumia.
+- **Risco residual:** se algum partner tinha hoje (via DEFINER) uma versão `archived`/`scenario` listada por engano e havia código UI que dependia disso, partiria. **Não há tal código** — `PartnerPortal.tsx` ignora versões não-active. ✅
+- **Decisão:** ✅ migrar (já migrado). Esta é a mais valiosa do lote.
 
-Os 2 wrappers DB-internal **continuam sem guards no body** (esperado — são chamados via `PERFORM` pelas funções já protegidas):
+### 3. `list_orphan_transactions_for_event(_event_id uuid)`
+- **Tabelas**: `transactions`, `event_forecasts`
+- **Caller**: UI admin/manager (página BP override / reconciliação)
+- **DEFINER vs INVOKER**: ambas as tabelas usam policy permissiva auth + RESTRICTIVE tenant. Para qualquer staff do mesmo tenant: **idêntico**.
+- **Partner:** a UI que chama esta função não está exposta ao Portal do Sócio; mesmo que chamasse, partner vê transações via outras policies — fora do escopo.
+- **Decisão:** ✅ migrar (já migrado).
 
-| Função | Guards no body | Estratégia Fase 2 já aplicada |
+### 4. `find_admin_absorbing_events(p_date, p_company_id)`
+- **Tabelas**: `events`
+- **Caller no código**: nenhum (B.2 já revogou EXECUTE de anon/authenticated; só `service_role` chama, via cron `apply-admin-absorption`).
+- **DEFINER vs INVOKER**: `service_role` bypassa RLS independentemente. **No-op funcional total.**
+- **Decisão:** ⚠️ migrar mesmo assim por uniformidade — sem benefício mas sem custo. Marcar como **candidata a DROP** numa próxima volta de limpeza (sem caller no frontend; se `apply-admin-absorption` deixar de existir, função fica órfã).
+
+### 5. `suggest_formalidade(_forecast_id uuid)`
+- **Tabelas**: `event_forecasts`, `transactions`
+- **Caller**: UI BP popover de formalidade + RPC `analyze_formalidade_bulk` (que é DEFINER e itera).
+- **DEFINER vs INVOKER**: para staff do tenant, idêntico. Partner não tem acesso à UI que chama.
+- **Atenção:** quando chamada **dentro** de `analyze_formalidade_bulk` (que é DEFINER), corre como INVOKER do owner — comportamento standard PG. Não causa loop nem perda de privilégios.
+- **Decisão:** ✅ migrar (já migrado).
+
+---
+
+## Validação por role (smoke matrix pós-Live)
+
+Seguindo `mem://features/pre-post-publish-checklist` e cenários de `mem://features/canonical-test-scenarios`.
+
+| Role / cenário | Página | Esperado |
 |---|---|---|
-| `_revert_event_to_version` | ❌ nenhum | `REVOKE FROM PUBLIC, anon, authenticated` + `GRANT TO service_role` (lote B.2) ✅ |
-| `reconcile_bp_overrides_for_event` | ❌ nenhum | idem ✅ |
+| `admin` | `/eventos/<Coala 2026>/bp` aba "Histórico de versões" | Lista todas as versões + count de TX vinculadas igual ao mostrado antes |
+| `manager` | mesma | igual a admin |
+| `editor` | mesma | igual a admin |
+| `viewer` | mesma | igual a admin (read-only UI) |
+| `partner` | Portal do Sócio do mesmo evento | Label "Business Plan — versão vX (data)" mostra só versão active; **não** mostra cenários nem archived |
+| `partner` | qualquer evento de **outro** sócio | 0 versões devolvidas (não deve ver) |
+| `admin` (TenantA) | tenta passar `_event_id` de TenantB via DevTools | 0 linhas (RESTRICTIVE company_isolation) |
+| `admin` | `/eventos/<X>/bp` botão "Reconciliar transações órfãs" | Lista de candidatas igual à de antes |
+| `admin` | `/eventos/<X>/bp` popover 🕐 numa linha | Sugestão de formalidade aparece |
+| cron `apply-admin-absorption` | corrida diária | logs sem erro; eventos absorventes encontrados |
 
-A volta anterior já confirmou via `pg_roles` que não estão acessíveis a `anon`/`authenticated`. **Nada a fazer.**
+**Checklist mínimo**: 4 das 9 linhas acima (admin BP versions, partner BP versions próprio, partner BP versions de outro, admin órfãs) — as restantes são opcionais.
 
-## Plano final desta volta
+---
 
-### A — recomendado: encerrar Fase 2 / Cat. D sem patches
+## Plano agregado
 
-1. Marcar Cat. D como **concluído** (já foi, na verdade, em volta anterior — confirmado por evidência fresca).
-2. Atualizar `scripts/audit-secdef-inventory.md` com nota no topo: *"Cat. D já endurecida em migrations anteriores (data: pré-2026-05-09); auditoria 2026-05-09 confirmou 11/11 com role+tenant+platform_admin guards."*
-3. Atualizar memória (provavelmente `mem://security/security-hardening-2026-05`) acrescentando linha sobre o fecho de Cat. D.
-4. Próxima frente: olhar Cat. C (5 funções para `SECURITY INVOKER`) que ainda está pendente segundo `scripts/secdef-hardening/02-cat-C-security-invoker.txt`.
+### Ficheiros
+- `scripts/secdef-hardening/02-cat-C-security-invoker.APPLIED.txt` (já renomeado na volta anterior). **Nada novo a escrever.**
+- Atualizar `scripts/audit-secdef-inventory.md` com nota: *"Cat. C confirmada INVOKER em Test+Live em 2026-05-09; smoke role-matrix concluído."*
+- Atualizar memória `mem://security/secdef-hardening-2026-05` (já feita; juntar resultado da matriz após smoke).
 
-### B — opcional: 1 normalização cosmética
+### Ordem recomendada (caso, no futuro, alguém precise de re-aplicar do zero)
+1. `bp_version_linked_tx_count` — read trivial, sem partner exposure
+2. `find_admin_absorbing_events` — sem caller real, no-op
+3. `list_orphan_transactions_for_event` — caller só admin/manager
+4. `suggest_formalidade` — caller staff, idempotente
+5. `list_bp_versions` — **última** porque é a única com mudança real visível (partner vê menos)
 
-Se quiseres uniformidade de estilo, escrever **1** ficheiro `scripts/secdef-hardening/05-cat-d-fixes/01-merge-forecasts-normalize-guard.txt` com:
+### Rollback
+Já não é necessário (estado em Live = estado pretendido). Se for preciso reverter por incidente, snippet pronto:
 
 ```sql
 BEGIN;
--- Pre-snapshot: guard usa SELECT EXISTS user_roles inline (funcional mas fora do padrão)
-CREATE OR REPLACE FUNCTION public.merge_forecasts_into_active_snapshot(_event_id uuid, _forecast_ids uuid[])
-RETURNS TABLE(merged_into_master integer, merged_into_splits integer)
-LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
-AS $$
-DECLARE
-  -- ... (mesmas vars, sem _role_ok)
-BEGIN
-  IF NOT (public.has_role(auth.uid(),'admin'::app_role)
-          OR public.has_role(auth.uid(),'manager'::app_role)
-          OR public.has_role(auth.uid(),'editor'::app_role)
-          OR public.is_platform_admin(auth.uid())) THEN
-    RAISE EXCEPTION 'Permissão negada: só admin/manager/editor podem incorporar linhas no snapshot.';
-  END IF;
-  -- resto do body idêntico ao actual
-END;
-$$;
--- Verificação
-SELECT (pg_get_functiondef('public.merge_forecasts_into_active_snapshot(uuid,uuid[])'::regprocedure) ~ 'has_role\(auth\.uid')
-  AS guard_normalised;
+ALTER FUNCTION public.bp_version_linked_tx_count(uuid)                       SECURITY DEFINER;
+ALTER FUNCTION public.list_bp_versions(uuid)                                 SECURITY DEFINER;
+ALTER FUNCTION public.list_orphan_transactions_for_event(uuid)               SECURITY DEFINER;
+ALTER FUNCTION public.find_admin_absorbing_events(date, uuid)                SECURITY DEFINER;
+ALTER FUNCTION public.suggest_formalidade(uuid)                              SECURITY DEFINER;
 COMMIT;
 ```
 
-Smoke test: `SponsorsImportModal.tsx` → "Incorporar linhas no snapshot" num evento Master+Split, com user `editor`. Cenário canónico: `mem://features/bp-versions-test-checklist` (secção *Promoção com TX vinculadas*).
+### Encerramento da Fase 2
+Após a smoke matrix passar em Live (post-publish), a Fase 2 (SECDEF hardening) fica **integralmente fechada**:
+- A: 9 intactas
+- B.1+B.2+B.3: 38 endurecidas via REVOKE/GRANT
+- C: 5 INVOKER (esta entrega)
+- D: 11 já tinham guards no body
+- Total: 63 funções auditadas, 0 pendentes.
 
-**Risco:** 0 (refactor puro de expressão booleana equivalente).
-
-## Recomendação
-
-Ir pela **opção A**. Cat. D já está fechada de facto; criar 11 ficheiros vazios ou idempotentes só adiciona ruído. Aplicar a normalização cosmética (B) só se quiseres alinhamento estilístico — não é segurança.
-
-Confirmas que avanço com (A) — atualizar o inventário/memória e depois passar à Cat. C — ou queres também (B) na mesma entrega?
+Próximas frentes possíveis (fora desta fase):
+- Normalizar `merge_forecasts_into_active_snapshot` para usar `has_role()` (cosmético, identificado em Cat. D).
+- Avaliar DROP de `find_admin_absorbing_events` se cron `apply-admin-absorption` for descontinuado.
+- Auditoria às ~110 outras funções `SECURITY DEFINER` ainda flagadas pelo linter SUPA_0028/0029 (escopo separado).
