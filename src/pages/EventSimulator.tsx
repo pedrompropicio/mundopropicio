@@ -595,6 +595,11 @@ export default function EventSimulator() {
     [calcSessions, calcCfg, beLotInfo, eventDate, localCfg?.forecast_final_accel, localCfg?.forecast_final_window_days],
   );
 
+  const beSolution = useMemo(
+    () => solveBreakEven(calcSessions, calcCosts, calcCfg, beLotInfo),
+    [calcSessions, calcCosts, calcCfg, beLotInfo],
+  );
+
   const today = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "today"), [calcSessions, calcCfg]);
   const forecast = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "forecast", fcSolution.qtyByKey, fcSolution.revenueByKey), [calcSessions, calcCfg, fcSolution]);
 
