@@ -107,6 +107,8 @@ type AccountCategory = { id: string; code: string; name: string };
 const fmt = (v: number) => formatCurrency(Number.isFinite(v) ? v : 0);
 const fmtNum = (v: number) => (Number.isFinite(v) ? v : 0).toLocaleString("pt-PT", { maximumFractionDigits: 0 });
 const fmtPct = (v: number) => `${(v * 100).toFixed(1)}%`;
+const totalAttendance = (rev: { attendanceQty?: number; attendanceCourtesyQty?: number }) =>
+  Number(rev.attendanceQty || 0) + Number(rev.attendanceCourtesyQty || 0);
 
 export default function EventSimulator() {
   const { id: eventId } = useParams<{ id: string }>();
