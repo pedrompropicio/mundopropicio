@@ -38,6 +38,90 @@ export default function DailyAttendanceCard({ eventId, dailyCapacity, beDailyTot
   const beFallback = useEventAttendance(beDailyTotals ? undefined : eventId, "breakeven");
   const fcFallback = useEventAttendance(fcDailyTotals ? undefined : eventId, "forecast");
 
+  // ── Modo "por zona" — replica a tabela do separador "Público diário" do Simulador ──
+  if (byZone && eventId && real.dates.length > 0) {
+    const fmtDate = (d: string | null) => {
+      if (!d) return "—";
+      const m = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (!m) return d;
+      const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+      const s = dt.toLocaleDateString("pt-PT", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    };
+    const totalsByDay = new Map<number, { paying: number; courtesy: number; total: number; date: string | null }>();
+    for (const c of real.cells) {
+      const t = totalsByDay.get(c.day_index) ?? { paying: 0, courtesy: 0, total: 0, date: c.date };
+      t.paying += c.paying; t.courtesy += c.courtesy; t.total += c.total;
+      totalsByDay.set(c.day_index, t);
+    }
+    const grand = { paying: 0, courtesy: 0, total: 0 };
+    for (const t of totalsByDay.values()) { grand.paying += t.paying; grand.courtesy += t.courtesy; grand.total += t.total; }
+    const rows = real.cells.filter((c) => c.total > 0);
+
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Público diário por zona</CardTitle>
+          <p className="text-[11px] text-muted-foreground">
+            Pagantes + cortesias por zona × dia. Combos (1 ingresso = N dias) são expandidos em cada dia coberto.
+          </p>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Dia</TableHead>
+                <TableHead>Data</TableHead>
+                <TableHead>Zona</TableHead>
+                <TableHead className="text-right">Pagantes</TableHead>
+                <TableHead className="text-right">Cortesias</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {real.dates.flatMap((d) => {
+                const dayRows = rows.filter((r) => r.day_index === d.day_index);
+                const sub = totalsByDay.get(d.day_index) ?? { paying: 0, courtesy: 0, total: 0, date: d.date };
+                const out: React.ReactNode[] = dayRows.map((r) => (
+                  <TableRow key={`r-${d.day_index}-${r.zone_id}`}>
+                    <TableCell>{d.day_index + 1}</TableCell>
+                    <TableCell>{fmtDate(d.date)}</TableCell>
+                    <TableCell>{r.zone_name}</TableCell>
+                    <TableCell className="text-right tabular-nums">{fmtNum(r.paying)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{fmtNum(r.courtesy)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-semibold">{fmtNum(r.total)}</TableCell>
+                  </TableRow>
+                ));
+                out.push(
+                  <TableRow key={`t-${d.day_index}`} className="bg-muted/40 font-semibold border-b-2">
+                    <TableCell>{d.day_index + 1}</TableCell>
+                    <TableCell>{fmtDate(d.date)}</TableCell>
+                    <TableCell>Subtotal Dia {d.day_index + 1}</TableCell>
+                    <TableCell className="text-right tabular-nums">{fmtNum(sub.paying)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{fmtNum(sub.courtesy)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{fmtNum(sub.total)}</TableCell>
+                  </TableRow>,
+                );
+                return out;
+              })}
+              {real.dates.length > 1 && (
+                <TableRow className="bg-primary/10 font-bold border-t-2">
+                  <TableCell colSpan={3}>PRESENÇAS TOTAIS ({real.dates.length} dias · soma)</TableCell>
+                  <TableCell className="text-right tabular-nums">{fmtNum(grand.paying)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fmtNum(grand.courtesy)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fmtNum(grand.total)}</TableCell>
+                </TableRow>
+              )}
+              {!rows.length && (
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Sem vendas registadas.</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (!eventId || real.dates.length === 0) {
     return (
       <Card>
