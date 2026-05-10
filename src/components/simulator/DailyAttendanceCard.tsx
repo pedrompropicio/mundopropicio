@@ -26,9 +26,11 @@ interface Props {
   beDailyTotals?: DailyTotalsRow[];
   /** Override Forecast: totais por dia vindos do solver (opcional). */
   fcDailyTotals?: DailyTotalsRow[];
+  /** Se true, mostra detalhamento por zona (Pagantes / Cortesias / Total) com subtotais por dia. */
+  byZone?: boolean;
 }
 
-export default function DailyAttendanceCard({ eventId, dailyCapacity, beDailyTotals, fcDailyTotals }: Props) {
+export default function DailyAttendanceCard({ eventId, dailyCapacity, beDailyTotals, fcDailyTotals, byZone }: Props) {
   const real = useEventAttendance(eventId, "real");
 
   // Fallback: se o pai não passar overrides, mantém o comportamento antigo
