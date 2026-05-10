@@ -29,3 +29,5 @@ project_id = "ukpuhoynrqobqtzdbysp"
     verify_jwt = true
   [functions.surgical-restore]
     verify_jwt = true
+  [functions.crm-meta-oauth-callback]
+    verify_jwt = false

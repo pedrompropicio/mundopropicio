@@ -308,7 +308,11 @@ serve(async (req: Request): Promise<Response> => {
       p_token_type: "long_lived_user",
       p_expires_at: expiresAt.toISOString(),
       p_master_key: ENCRYPTION_MASTER_KEY,
-      p_available_ad_accounts: null,
+      // available_ad_accounts: full list of Business Managers from /me/businesses.
+      // Used later by the frontend's "select primary BM" UI without re-fetching from Meta.
+      // Ad accounts within each BM are fetched lazily by a separate function when the user
+      // picks the BM (see future crm-meta-fetch-ad-accounts function).
+      p_available_ad_accounts: businesses,
     });
 
   if (upsertErr || !connectionId) {
@@ -332,7 +336,7 @@ serve(async (req: Request): Promise<Response> => {
       .rpc("write_audit_log", {
         p_company_id: company_id,
         p_user_id: user_id,
-        p_action: "crm.connection.created",
+        p_action: "crm.ad_platform_connection.created",
         p_entity_type: "ad_platform_connection",
         p_entity_id: connectionId,
         p_payload_before: null,
