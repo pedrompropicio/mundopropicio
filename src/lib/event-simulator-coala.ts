@@ -687,6 +687,7 @@ export function solveBreakEven(
         capacity_left: Number.isFinite(sl.capLeft) ? sl.capLeft : 0,
         marginal_price: sl.margPrice, velocity: sl.velocity, reason: sl.reason,
       })),
+      mode: "deficit", surplus: 0, totalRemovedTickets: 0,
     };
   }
 
