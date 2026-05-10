@@ -326,7 +326,7 @@ export default function ExecutiveDashboard(props: Props) {
         {/* ZONA 1 — HERO STRIP */}
         <section data-pdf-section>
           <p className="section-label mb-2">Visão geral · cenário {SCEN_LABELS[active]}</p>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <div data-pdf-grid style={{ "--pdf-cols": 5 } as React.CSSProperties} className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <KpiHero
               label="Resultado Geral"
               value={fmt(sel.res.general)}
@@ -463,7 +463,7 @@ export default function ExecutiveDashboard(props: Props) {
         ) : null}
 
         {/* ZONA 4 — GRÁFICOS */}
-        <div data-pdf-section className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <div data-pdf-section data-pdf-grid style={{ "--pdf-cols": 3 } as React.CSSProperties} className="grid grid-cols-1 gap-3 lg:grid-cols-3">
           {/* Donut Mix Receitas */}
           <Card>
             <CardHeader className="pb-2">
@@ -585,7 +585,7 @@ export default function ExecutiveDashboard(props: Props) {
         {tourBreakdowns && tourBreakdowns.length > 0 && (
           <section data-pdf-section>
             <p className="section-label mb-3">Comparativo entre cidades · {SCEN_LABELS[active]}</p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div data-pdf-grid style={{ "--pdf-cols": 4 } as React.CSSProperties} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {tourBreakdowns.map((c) => (
                 <CityHeatCard key={c.name} {...c} formatFn={fmt} fmtNum={fmtNum} />
               ))}
