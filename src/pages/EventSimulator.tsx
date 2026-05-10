@@ -1884,7 +1884,8 @@ function ScenarioCard({ title, tone, rev, cost, res, kpis, extra, dailyTotals }:
   };
   const days: Array<[number, { paying: number; courtesy: number; total: number; date: string | null }]> = dailyTotals ?? [];
   const showDailyBreakdown = days.length > 1;
-  const dailyGrandTotal = days.reduce((sum, [, t]) => sum + Number(t.total || 0), 0);
+  const dailyGrandPaying = days.reduce((sum, [, t]) => sum + Number(t.paying || 0), 0);
+  const dailyGrandCourtesy = days.reduce((sum, [, t]) => sum + Number(t.courtesy || 0), 0);
   return (
     <Card className={toneCls}>
       <CardHeader className="pb-2">
@@ -1895,16 +1896,21 @@ function ScenarioCard({ title, tone, rev, cost, res, kpis, extra, dailyTotals }:
       <CardContent className="space-y-1 text-sm">
         {showDailyBreakdown ? (
           <>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground" title="Soma das presenças por dia (passes multi-dia contam em cada dia)">Público presente / dia (presenças×dia)</div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground" title="Soma dos pagantes por dia (passes multi-dia contam em cada dia). Cortesias são mostradas em separado e não entram neste total para alinhar com o cálculo de bilheteira de Break Even e Forecast.">Público pagante / dia (pagantes×dia)</div>
             {days.map(([d, t]) => (
               <div key={d} className="flex justify-between">
                 <span className="text-muted-foreground">{fmtDayShort(t.date, d)}</span>
-                <span className="tabular-nums">{fmtNum(t.total)}</span>
+                <span className="tabular-nums">{fmtNum(t.paying)}</span>
               </div>
             ))}
             <div className="flex justify-between text-xs text-muted-foreground border-t pt-1">
-              <span title="Soma das presenças de todos os dias">Total presenças×dia</span><span className="tabular-nums">{fmtNum(dailyGrandTotal)}</span>
+              <span title="Soma dos pagantes de todos os dias">Total pagantes×dia</span><span className="tabular-nums">{fmtNum(dailyGrandPaying)}</span>
             </div>
+            {dailyGrandCourtesy > 0 && (
+              <div className="flex justify-between text-[11px] text-muted-foreground/80" title="Cortesias atribuídas (não entram no total acima; impactam apenas A&B em consumo).">
+                <span>Cortesias (informativo)</span><span className="tabular-nums">+{fmtNum(dailyGrandCourtesy)}</span>
+              </div>
+            )}
           </>
         ) : (
           <div className="flex justify-between" title="Bilhetes pagantes únicos (cada bilhete conta uma vez, mesmo que dê acesso a vários dias)"><span className="text-muted-foreground">Público (bilhetes únicos)</span><span>{fmtNum(kpis.totalPublic)}</span></div>
@@ -2059,12 +2065,12 @@ function SimulatorDashboard({
         {(dailyTotals?.length ?? 0) > 1 ? (
           <Card>
             <CardContent className="pt-4">
-              <div className="text-xs text-muted-foreground">Público presente / dia (Hoje)</div>
+              <div className="text-xs text-muted-foreground">Público pagante / dia (Hoje)</div>
               <div className="mt-1 space-y-0.5">
                 {dailyTotals.map(([d, t]: any) => (
                   <div key={d} className="flex justify-between text-sm">
                     <span className="text-muted-foreground">{fmtDate(t.date) || `Dia ${d + 1}`}</span>
-                    <span className="font-semibold tabular-nums">{fmtNum(t.total)}</span>
+                    <span className="font-semibold tabular-nums">{fmtNum(t.paying)}</span>
                   </div>
                 ))}
               </div>
