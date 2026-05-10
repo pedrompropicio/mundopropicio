@@ -2065,12 +2065,12 @@ function SimulatorDashboard({
         {(dailyTotals?.length ?? 0) > 1 ? (
           <Card>
             <CardContent className="pt-4">
-              <div className="text-xs text-muted-foreground">Público presente / dia (Hoje)</div>
+              <div className="text-xs text-muted-foreground">Público pagante / dia (Hoje)</div>
               <div className="mt-1 space-y-0.5">
                 {dailyTotals.map(([d, t]: any) => (
                   <div key={d} className="flex justify-between text-sm">
                     <span className="text-muted-foreground">{fmtDate(t.date) || `Dia ${d + 1}`}</span>
-                    <span className="font-semibold tabular-nums">{fmtNum(t.total)}</span>
+                    <span className="font-semibold tabular-nums">{fmtNum(t.paying)}</span>
                   </div>
                 ))}
               </div>
