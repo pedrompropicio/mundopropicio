@@ -159,20 +159,23 @@ export async function exportNodeToPdf(
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   await new Promise((r) => setTimeout(r, 250));
 
-  const bg = resolveBg(node);
+  const bg = "#ffffff";
 
-  // ----- Capa -----
-  pdf.setFillColor(15, 23, 42);
+  // ----- Capa (fundo branco, texto escuro) -----
+  pdf.setFillColor(255, 255, 255);
   pdf.rect(0, 0, pageW, pageH, "F");
-  pdf.setTextColor(255);
+  pdf.setDrawColor(15, 23, 42);
+  pdf.setLineWidth(0.6);
+  pdf.line(MARGIN_MM, pageH / 2 - 22, MARGIN_MM + 40, pageH / 2 - 22);
+  pdf.setTextColor(15, 23, 42);
   pdf.setFont("helvetica", "bold").setFontSize(28);
   pdf.text(opts.title ?? "Simulador", MARGIN_MM, pageH / 2 - 4);
   if (opts.subtitle) {
-    pdf.setFont("helvetica", "normal").setFontSize(13).setTextColor(180);
+    pdf.setFont("helvetica", "normal").setFontSize(13).setTextColor(90);
     const lines = pdf.splitTextToSize(opts.subtitle, usableW);
     pdf.text(lines, MARGIN_MM, pageH / 2 + 8);
   }
-  pdf.setFont("helvetica", "normal").setFontSize(9).setTextColor(150);
+  pdf.setFont("helvetica", "normal").setFontSize(9).setTextColor(140);
   pdf.text(
     `MP Gestão Eventos · ${new Date().toLocaleDateString("pt-PT", {
       day: "2-digit",
