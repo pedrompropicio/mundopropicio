@@ -85,13 +85,19 @@ export type BreakEvenBreakdownItem = {
 
 export type BreakEvenSolution = {
   qtyByKey: Record<string, number>;
-  /** Receita de bilheteira por sessão (real + extras a preços marginais reais lote-a-lote). */
+  /** Receita de bilheteira por sessão (real +/− alocações a preços marginais lote-a-lote). */
   revenueByKey: Record<string, number>;
   reachable: boolean;
-  deficit: number;            // € que faltam para empatar
-  totalExtraTickets: number;  // soma dos bilhetes extras alocados
+  deficit: number;            // € que faltam para empatar (mode='deficit')
+  totalExtraTickets: number;  // soma dos bilhetes extras alocados (mode='deficit')
   unfilled: number;           // € que NÃO foi possível alocar (capacidade esgotada)
   breakdown: BreakEvenBreakdownItem[];
+  /** 'deficit' = falta vender; 'surplus' = já passou BE (mostra margem); 'exact' = já no ponto. */
+  mode: "deficit" | "surplus" | "exact";
+  /** € de margem acima do ponto BE quando mode='surplus'. */
+  surplus: number;
+  /** Bilhetes que poderiam ter sido removidos para zerar o resultado (mode='surplus'). */
+  totalRemovedTickets: number;
 };
 
 // ---------- Forecast solver ----------
