@@ -301,7 +301,7 @@ export default function ExecutiveDashboard(props: Props) {
       {/* CONTEÚDO CAPTURADO PARA PDF */}
       <div ref={rootRef} className="space-y-4 bg-background p-2">
         {/* Cabeçalho do PDF */}
-        <div className="flex items-end justify-between border-b pb-2">
+        <div data-pdf-section className="flex items-end justify-between border-b pb-2">
           <div>
             <h2 className="text-lg font-bold">{eventName || "Evento"}</h2>
             <p className="text-xs text-muted-foreground">
