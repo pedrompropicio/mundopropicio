@@ -249,7 +249,8 @@ export default function ExecutiveDashboard(props: Props) {
         `Dashboard_${eventName || "evento"}_${SCEN_LABELS[active]}.pdf`,
         {
           orientation: "l",
-          title: `${eventName} — Dashboard Executivo · ${SCEN_LABELS[active]} · ${new Date().toLocaleDateString("pt-PT")}`,
+          title: `${eventName} — Dashboard Executivo`,
+          subtitle: `Cenário ${SCEN_LABELS[active]} · ${new Date().toLocaleDateString("pt-PT")} · Real · Break Even · Forecast`,
         },
       );
       toast({ title: "PDF exportado", description: `Dashboard executivo (${SCEN_LABELS[active]})` });
@@ -301,7 +302,7 @@ export default function ExecutiveDashboard(props: Props) {
       {/* CONTEÚDO CAPTURADO PARA PDF */}
       <div ref={rootRef} className="space-y-4 bg-background p-2">
         {/* Cabeçalho do PDF */}
-        <div className="flex items-end justify-between border-b pb-2">
+        <div data-pdf-section className="flex items-end justify-between border-b pb-2">
           <div>
             <h2 className="text-lg font-bold">{eventName || "Evento"}</h2>
             <p className="text-xs text-muted-foreground">
@@ -315,7 +316,7 @@ export default function ExecutiveDashboard(props: Props) {
         </div>
 
         {/* ZONA 1 — HERO STRIP */}
-        <section>
+        <section data-pdf-section>
           <p className="section-label mb-2">Visão geral · cenário {SCEN_LABELS[active]}</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <KpiHero
@@ -362,7 +363,7 @@ export default function ExecutiveDashboard(props: Props) {
         </section>
 
         {/* ZONA 2 — STATUS BAR */}
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border px-4 py-2.5 text-sm">
+        <div data-pdf-section className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border px-4 py-2.5 text-sm">
           <StatusBadge
             ok={reachedBE}
             label="Break Even"
@@ -387,7 +388,7 @@ export default function ExecutiveDashboard(props: Props) {
         </div>
 
         {/* ZONA 3 — FINANCIAL TABLE + KPI STACK */}
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div data-pdf-section className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <FinancialTable rows={financialRows} active={active} formatFn={fmt} />
           <div className="flex flex-col gap-3">
             <ProgressKpi
@@ -443,10 +444,14 @@ export default function ExecutiveDashboard(props: Props) {
         </div>
 
         {/* ZONA 3.5 — Público por dia */}
-        {eventId ? <DailyAttendanceCard eventId={eventId} dailyCapacity={dailyCapacity} beDailyTotals={beDailyTotals} fcDailyTotals={fcDailyTotals} /> : null}
+        {eventId ? (
+          <div data-pdf-section>
+            <DailyAttendanceCard eventId={eventId} dailyCapacity={dailyCapacity} beDailyTotals={beDailyTotals} fcDailyTotals={fcDailyTotals} />
+          </div>
+        ) : null}
 
         {/* ZONA 4 — GRÁFICOS */}
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <div data-pdf-section className="grid grid-cols-1 gap-3 lg:grid-cols-3">
           {/* Donut Mix Receitas */}
           <Card>
             <CardHeader className="pb-2">
@@ -566,7 +571,7 @@ export default function ExecutiveDashboard(props: Props) {
 
         {/* ZONA 5 — HEATMAP CIDADES (turnê) */}
         {tourBreakdowns && tourBreakdowns.length > 0 && (
-          <section>
+          <section data-pdf-section>
             <p className="section-label mb-3">Comparativo entre cidades · {SCEN_LABELS[active]}</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {tourBreakdowns.map((c) => (

@@ -701,7 +701,11 @@ export default function EventSimulator() {
       await exportNodeToPdf(
         tabContentRef.current,
         `Simulador_${event?.name ?? "evento"}_${tabLabel[activeTab] ?? activeTab}.pdf`,
-        { orientation: "l", title: `Simulador — ${event?.name ?? ""} · ${tabLabel[activeTab] ?? activeTab}` },
+        {
+          orientation: "l",
+          title: `Simulador — ${event?.name ?? ""}`,
+          subtitle: `${tabLabel[activeTab] ?? activeTab} · ${new Date().toLocaleDateString("pt-PT")} · 3 cenários: Real · Break Even · Forecast`,
+        },
       );
       toast({ title: "PDF da vista exportado", description: tabLabel[activeTab] ?? activeTab });
     } catch (e: any) {
