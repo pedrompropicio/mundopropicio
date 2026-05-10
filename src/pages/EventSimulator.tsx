@@ -595,7 +595,7 @@ export default function EventSimulator() {
     [calcSessions, calcCfg, beLotInfo, eventDate, localCfg?.forecast_final_accel, localCfg?.forecast_final_window_days],
   );
 
-  const seedBeSolution = useMemo(
+  const beSolution = useMemo(
     () => solveBreakEven(calcSessions, calcCosts, calcCfg, beLotInfo),
     [calcSessions, calcCosts, calcCfg, beLotInfo],
   );
@@ -608,6 +608,7 @@ export default function EventSimulator() {
 
 
   const ivaTable = useMemo(() => computeIvaTable(calcSessions), [calcSessions]);
+  const ivaTableBe = useMemo(() => computeIvaTable(calcSessions, beSolution.revenueByKey), [calcSessions, beSolution]);
   const ivaTableFc = useMemo(() => computeIvaTable(calcSessions, fcSolution.revenueByKey), [calcSessions, fcSolution]);
 
   // ----- Exportações XLSX/PDF (layout idêntico ao Excel de referência) -----
