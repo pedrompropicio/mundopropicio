@@ -1733,8 +1733,58 @@ boost       = ritmo final / ritmo base`}
 
 // ---------- Subcomponentes ----------
 function BreakEvenSummary({ solution }: { solution: BreakEvenSolution }) {
-  // Popover importado no topo via dynamic-friendly import abaixo
-  if (!solution || solution.deficit <= 0.5) {
+  if (!solution) return null;
+
+  // ===== MODO SURPLUS: já passou o break-even — mostra margem de segurança =====
+  if (solution.mode === "surplus" && solution.surplus > 0.5) {
+    const removedItems = solution.breakdown.filter(b => b.extra_qty < 0);
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <button className="inline-flex items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/5 px-2 py-0.5 text-[11px] hover:bg-emerald-500/10">
+            <span className="font-semibold text-emerald-500">+{fmt(solution.surplus)}</span>
+            <span className="text-muted-foreground">·</span>
+            <span>−{fmtNum(solution.totalRemovedTickets)} bilh.</span>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-[360px] text-xs">
+          <div className="space-y-2">
+            <div className="font-semibold text-sm">Margem de segurança</div>
+            <div className="text-[11px] text-muted-foreground">
+              O evento já <strong>ultrapassou</strong> o ponto de equilíbrio. Os números abaixo
+              mostram a configuração mínima que ainda zerava o resultado.
+            </div>
+            <div className="grid grid-cols-2 gap-2 rounded bg-muted/40 p-2">
+              <div><div className="text-muted-foreground text-[10px]">Margem</div><div className="font-semibold text-emerald-500">+{fmt(solution.surplus)}</div></div>
+              <div><div className="text-muted-foreground text-[10px]">Bilhetes a menos</div><div className="font-semibold">−{fmtNum(solution.totalRemovedTickets)}</div></div>
+            </div>
+            {removedItems.length > 0 && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Distribuição (último lote vendido)</div>
+                <div className="space-y-0.5 max-h-48 overflow-auto">
+                  {removedItems.sort((a,b) => a.extra_qty - b.extra_qty).map(b => (
+                    <div key={b.key} className="flex justify-between gap-2">
+                      <span className="truncate">D{b.day_index+1} · {b.zone_label}</span>
+                      <span className="tabular-nums whitespace-nowrap">
+                        −{fmtNum(-b.extra_qty)} <span className="text-muted-foreground">@ {fmt(b.marginal_price)}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="text-[10px] text-muted-foreground border-t pt-1">
+              Cálculo simétrico ao défice: distribui pela <strong>velocidade × margem</strong>,
+              consumindo do último lote vendido para trás.
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  }
+
+  // ===== MODO EXACT: exatamente no ponto =====
+  if (solution.mode === "exact" || solution.deficit <= 0.5) {
     return <Badge variant="outline" className="text-emerald-500 border-emerald-500/40">Já no break-even</Badge>;
   }
   const reachable = solution.reachable;
