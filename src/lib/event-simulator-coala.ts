@@ -443,10 +443,12 @@ export function solveBreakEven(
 
   if (baseRes.general > 0.5) {
     const surplus = baseRes.general;
-    // A&B líquido por pessoa (margem perdida ao remover 1 bilhete).
-    const abMarginPerPubInv =
-      n(cfg.ab_drink_avg_ticket) * (1 - n(cfg.ab_drink_passthrough_pct) / 100) +
-      n(cfg.ab_food_avg_ticket) * (1 - n(cfg.ab_food_passthrough_pct) / 100);
+    // NOTA: no modo SURPLUS a margem efetiva por bilhete removido = só o
+    // preço do bilhete. O A&B/Souvenir/Outros do cenário BE NÃO seguem a
+    // remoção (continuam ancorados ao público real, via beAttendance), por
+    // isso usar margPrice + A&B aqui levaria a remover MENOS bilhetes do
+    // que o necessário e o resultado não fecharia em ~0.
+    const abMarginPerPubInv = 0;
 
     // Agrupa por zona (mesma lógica do modo deficit) para tratar combos.
     const groupIndexes = new Map<string, number[]>();
