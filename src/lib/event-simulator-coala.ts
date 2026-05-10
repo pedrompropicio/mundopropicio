@@ -536,14 +536,17 @@ export function solveBreakEven(
       if (!best) break;
       const lot = best.lotsSoldDesc[0];
       const margin = lot.price + abMarginPerPubInv;
-      const need = Math.max(1, Math.floor(remaining / margin));
+      // No modo surplus o ponto de equilíbrio pode cair "dentro" do último
+      // bilhete removido. Permitimos fração no último take para que o resultado
+      // financeiro feche em 0, enquanto a UI continua a arredondar o público.
+      const need = remaining / margin;
       const take = Math.min(lot.left, need);
       if (take <= 0) { best.lotsSoldDesc.shift(); continue; }
       best.removed += take;
       best.removedRevenue += take * lot.price;
       best.lastPrice = lot.price;
       lot.left -= take;
-      if (lot.left <= 0) best.lotsSoldDesc.shift();
+      if (lot.left <= 0.000001) best.lotsSoldDesc.shift();
       remaining -= take * margin;
     }
 
