@@ -832,7 +832,7 @@ export default function EventSimulator() {
         let left = rem.qty;
         // tenta primeiro a entrada âncora; se insuficiente, varre outras
         const candidates = expanded
-          .filter((r) => r.zone_name === zone && r.paying > 0)
+          .filter((r) => r.zone_label === zone && r.paying > 0)
           .sort((a, b) => (a.day_index === rem.anchorDay ? -1 : b.day_index === rem.anchorDay ? 1 : a.day_index - b.day_index));
         for (const r of candidates) {
           if (left <= 0) break;
