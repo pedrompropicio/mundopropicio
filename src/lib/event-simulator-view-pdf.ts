@@ -202,52 +202,22 @@ export async function exportNodeToPdf(
   for (const section of targets) {
     if (section.offsetHeight === 0 || section.offsetWidth === 0) continue;
 
-    const canvas = await captureCanvas(section, bg, forceWidth);
-    const imgW = usableW;
-    const imgH = (canvas.height * imgW) / canvas.width;
+    const canvas = await captureSectionCanvas(section, bg, forceWidth);
+    const naturalH = (canvas.height * usableW) / canvas.width;
+    const scale = naturalH > usableH ? usableH / naturalH : 1;
+    const imgW = usableW * scale;
+    const imgH = naturalH * scale;
+    const x = MARGIN_MM + (usableW - imgW) / 2;
+    const remaining = bottomY - curY;
 
-    // Cabe inteira em A4?
-    if (imgH <= usableH) {
-      const remaining = bottomY - curY;
-      if (imgH > remaining && curY > topY) {
-        pdf.addPage("a4", orientation);
-        drawHeader(pdf, opts.title, pageW);
-        curY = topY;
-      }
-      pdf.addImage(canvas.toDataURL("image/png"), "PNG", MARGIN_MM, curY, imgW, imgH);
-      curY += imgH + SECTION_GAP_MM;
-    } else {
-      // Secção maior que A4 → começa em página nova e fatia.
-      if (curY > topY) {
-        pdf.addPage("a4", orientation);
-        drawHeader(pdf, opts.title, pageW);
-        curY = topY;
-      }
-      const sliceHeightPx = (usableH * canvas.width) / imgW;
-      let yPx = 0;
-      let first = true;
-      while (yPx < canvas.height) {
-        if (!first) {
-          pdf.addPage("a4", orientation);
-          drawHeader(pdf, opts.title, pageW);
-          curY = topY;
-        }
-        const h = Math.min(sliceHeightPx, canvas.height - yPx);
-        const slice = document.createElement("canvas");
-        slice.width = canvas.width;
-        slice.height = h;
-        const ctx = slice.getContext("2d")!;
-        // pinta fundo para evitar transparência preta
-        ctx.fillStyle = bg;
-        ctx.fillRect(0, 0, canvas.width, h);
-        ctx.drawImage(canvas, 0, yPx, canvas.width, h, 0, 0, canvas.width, h);
-        const sliceMm = (h * imgW) / canvas.width;
-        pdf.addImage(slice.toDataURL("image/png"), "PNG", MARGIN_MM, topY, imgW, sliceMm);
-        curY = topY + sliceMm + SECTION_GAP_MM;
-        yPx += h;
-        first = false;
-      }
+    if (imgH > remaining && curY > topY) {
+      pdf.addPage("a4", orientation);
+      drawHeader(pdf, opts.title, pageW);
+      curY = topY;
     }
+
+    pdf.addImage(canvas.toDataURL("image/png"), "PNG", x, curY, imgW, imgH);
+    curY += imgH + SECTION_GAP_MM;
   }
 
   // Restaura estilos do nó
