@@ -311,11 +311,31 @@ export default function ExecutiveDashboard(props: Props) {
         [data-theme="financial"].pdf-rendering [data-pdf-deck] {
           display: block !important;
         }
+        [data-theme="financial"].pdf-rendering {
+          --background: 0 0% 100%;
+          --foreground: 222 47% 11%;
+          --card: 0 0% 100%;
+          --card-foreground: 222 47% 11%;
+          --popover: 0 0% 100%;
+          --popover-foreground: 222 47% 11%;
+          --muted: 210 40% 96%;
+          --muted-foreground: 215 16% 35%;
+          --border: 214 32% 88%;
+          --input: 214 32% 88%;
+          --secondary: 210 40% 96%;
+          --secondary-foreground: 222 47% 11%;
+          --accent: 210 40% 96%;
+          --accent-foreground: 222 47% 11%;
+        }
         [data-theme="financial"].pdf-rendering [data-pdf-page] {
           width: 1000px !important;
           min-height: 500px !important;
           padding: 18px !important;
-          background: hsl(var(--background)) !important;
+          background: #ffffff !important;
+          color: #0f172a !important;
+        }
+        [data-theme="financial"].pdf-rendering [data-pdf-page] * {
+          color-scheme: light !important;
         }
       `}</style>
 
