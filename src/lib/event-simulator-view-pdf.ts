@@ -202,6 +202,12 @@ export async function exportNodeToPdf(
   for (const section of targets) {
     if (section.offsetHeight === 0 || section.offsetWidth === 0) continue;
 
+    if (section.hasAttribute("data-pdf-break-before") && curY > topY) {
+      pdf.addPage("a4", orientation);
+      drawHeader(pdf, opts.title, pageW);
+      curY = topY;
+    }
+
     const canvas = await captureSectionCanvas(section, bg, forceWidth);
     const naturalH = (canvas.height * usableW) / canvas.width;
     let scale = naturalH > usableH ? usableH / naturalH : 1;
