@@ -287,6 +287,20 @@ export default function ExecutiveDashboard(props: Props) {
           width: 100% !important;
           max-width: none !important;
         }
+        [data-theme="financial"].pdf-rendering [data-pdf-compact] {
+          gap: 8px !important;
+        }
+        [data-theme="financial"].pdf-rendering [data-pdf-compact] [class*="rounded-xl"],
+        [data-theme="financial"].pdf-rendering [data-pdf-compact] .rounded-lg {
+          border-radius: 6px !important;
+        }
+        [data-theme="financial"].pdf-rendering [data-pdf-compact] [class*="p-4"] {
+          padding: 10px !important;
+        }
+        [data-theme="financial"].pdf-rendering [data-pdf-compact] .text-xs {
+          font-size: 10px !important;
+          line-height: 1.25 !important;
+        }
       `}</style>
 
       {/* TOOLBAR — fora do rootRef */}
@@ -324,7 +338,7 @@ export default function ExecutiveDashboard(props: Props) {
         </div>
 
         {/* ZONA 1 — HERO STRIP */}
-        <section data-pdf-section>
+        <section data-pdf-section data-pdf-compact>
           <p className="section-label mb-2">Visão geral · cenário {SCEN_LABELS[active]}</p>
           <div data-pdf-grid style={{ "--pdf-cols": 5 } as React.CSSProperties} className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <KpiHero
@@ -371,7 +385,7 @@ export default function ExecutiveDashboard(props: Props) {
         </section>
 
         {/* ZONA 2 — STATUS BAR */}
-        <div data-pdf-section className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border px-4 py-2.5 text-sm">
+        <div data-pdf-section data-pdf-compact className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border px-4 py-2.5 text-sm">
           <StatusBadge
             ok={reachedBE}
             label="Break Even"
