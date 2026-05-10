@@ -362,7 +362,7 @@ export default function ExecutiveDashboard(props: Props) {
         </section>
 
         {/* ZONA 2 — STATUS BAR */}
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border px-4 py-2.5 text-sm">
+        <div data-pdf-section className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border px-4 py-2.5 text-sm">
           <StatusBadge
             ok={reachedBE}
             label="Break Even"
