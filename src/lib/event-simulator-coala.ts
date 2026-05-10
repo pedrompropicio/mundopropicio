@@ -443,14 +443,19 @@ export function solveBreakEven(
 
   if (baseRes.general > 0.5) {
     const surplus = baseRes.general;
-    // NOTA: no modo SURPLUS a margem efetiva por bilhete removido = só o
-    // preço do bilhete. O A&B/Souvenir/Outros do cenário BE NÃO seguem a
-    // remoção (continuam ancorados ao público real, via beAttendance), por
-    // isso usar margPrice + A&B aqui levaria a remover MENOS bilhetes do
-    // que o necessário e o resultado não fecharia em ~0.
-    const abMarginPerPubInv = 0;
 
-    // Agrupa por zona (mesma lógica do modo deficit) para tratar combos.
+    // Margem efetiva por bilhete removido = preço do lote + A&B líquido por
+    // pessoa. Isto reflete o impacto REAL no resultado: ao remover 1 bilhete,
+    // a presença cai 1, A&B revenue cai (drink+food avg) e A&B cost cai pelo
+    // passthrough — net A&B impact = -abMarginPerPub.
+    // Para que isto se materialize, o `buildDailyFromBreakdown` na UI tem de
+    // propagar `extra_qty<0` para reduzir `beAttendance` (caso contrário A&B
+    // mantém-se ao real e o solver remove tickets a mais).
+    const abMarginPerPubInv =
+      n(cfg.ab_drink_avg_ticket) * (1 - n(cfg.ab_drink_passthrough_pct) / 100) +
+      n(cfg.ab_food_avg_ticket) * (1 - n(cfg.ab_food_passthrough_pct) / 100);
+
+    // Agrupa por zona para tratar combos (mesmo que modo deficit).
     const groupIndexes = new Map<string, number[]>();
     sessions.forEach((s, i) => {
       const arr = groupIndexes.get(s.zone_label) ?? [];
@@ -458,117 +463,104 @@ export function solveBreakEven(
       groupIndexes.set(s.zone_label, arr);
     });
 
-    type RmSlot = {
+    type ZoneRm = {
       idx: number;
       key: string;
-      anchor: boolean;
-      removableLeft: number;       // bilhetes que ainda podemos "des-vender"
       velocity: number;
-      margPrice: number;
-      margin: number;              // preço + A&B líquido
-      weight: number;
       removed: number;
       removedRevenue: number;
-      // lotes em ordem reversa (último vendido primeiro)
+      lastPrice: number;
       lotsSoldDesc: Array<{ price: number; left: number }>;
       fallbackPrice: number;
     };
 
-    const rmSlots: RmSlot[] = sessions.map((s, idx) => {
+    const zones: ZoneRm[] = [];
+    sessions.forEach((s, idx) => {
+      const groupIdxs = groupIndexes.get(s.zone_label) ?? [idx];
+      if (groupIdxs[0] !== idx) return; // só anchor representa a zona
+      const realQtyZone = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
+      if (realQtyZone <= 0) return;
       const key = `${s.day_index}-${s.zone_label}`;
       const info = lotInfoByKey?.[key] ?? lotInfoByKey?.[s.zone_label];
-      const groupIdxs = groupIndexes.get(s.zone_label) ?? [idx];
-      const isAnchor = groupIdxs[0] === idx;
-      const realQtyZone = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
-
-      // Só o anchor representa a zona toda — não-anchors ficam neutros.
-      const removableLeft = isAnchor ? Math.max(0, realQtyZone) : 0;
-
       const days = Math.max(1, info?.days_selling ?? 1);
-      const realVelocity = days > 1
-        ? realQtyZone / days
-        : realQtyZone / Math.max(1, Math.min(30, days));
-      const velocity = isAnchor && realVelocity > 0 ? realVelocity : 0;
-
-      // Lotes ordenados do MAIS RECENTE para o MAIS ANTIGO (vamos "des-vender" do topo).
+      const velocity = realQtyZone / days;
       const lots = (info?.lots ?? []).slice().sort((a, b) => b.lot_number - a.lot_number);
       const lotsSoldDesc = lots
         .map((l) => ({ price: n(l.price), left: Math.max(0, n(l.sold)) }))
         .filter((l) => l.left > 0);
       const tmFallback = sessionAvgTicket(s);
-      const topLot = lotsSoldDesc[0];
-      const fallbackPrice = tmFallback || n(lots[lots.length - 1]?.price);
-      const margPrice = topLot?.price ?? fallbackPrice;
-      const margin = Math.max(0, margPrice + abMarginPerPubInv);
-
-      return {
-        idx, key, anchor: isAnchor, removableLeft, velocity, margPrice, margin,
-        weight: velocity * margin, removed: 0, removedRevenue: 0, lotsSoldDesc, fallbackPrice,
-      };
+      const fallbackPrice = tmFallback || n(lots[lots.length - 1]?.price) || 0;
+      // Se não há lotes com vendas registadas, usa avg ticket como bucket único
+      // com `left = realQtyZone` para permitir remoção.
+      if (!lotsSoldDesc.length && fallbackPrice > 0) {
+        lotsSoldDesc.push({ price: fallbackPrice, left: realQtyZone });
+      }
+      zones.push({
+        idx,
+        key,
+        velocity: velocity > 0 ? velocity : 1,
+        removed: 0,
+        removedRevenue: 0,
+        lastPrice: lotsSoldDesc[0]?.price ?? fallbackPrice,
+        lotsSoldDesc,
+        fallbackPrice,
+      });
     });
 
-    // Distribuição iterativa por ondas — simétrica ao modo deficit.
-    let remainingSurplus = surplus;
-    const MAX_WAVES_INV = 50;
-    for (let wave = 0; wave < MAX_WAVES_INV && remainingSurplus > 0.005; wave++) {
-      const active = rmSlots
-        .filter((sl) => sl.anchor && sl.removableLeft > 0 && sl.weight > 0 && sl.margin > 0)
-        .sort((a, b) => b.weight - a.weight);
-      if (!active.length) break;
-      const sumW = active.reduce((a, sl) => a + sl.weight, 0);
-      let progressed = false;
-
-      for (const sl of active) {
-        if (remainingSurplus <= 0.005) break;
-        const share = remainingSurplus * (sl.weight / sumW);
-        const idealByShare = share / sl.margin;
-        const idealByGlobal = remainingSurplus / sl.margin;
-        let toRemove = Math.min(Math.round(idealByShare), Math.round(idealByGlobal));
-        if (toRemove <= 0 && sl === active[0] && remainingSurplus > sl.margin / 2) {
-          toRemove = 1;
-        }
-        if (toRemove <= 0) continue;
-        toRemove = Math.min(toRemove, sl.removableLeft);
-        const lot = sl.lotsSoldDesc[0];
-        if (lot) toRemove = Math.min(toRemove, lot.left);
-        if (toRemove <= 0) { sl.removableLeft = 0; continue; }
-
-        sl.removed += toRemove;
-        sl.removedRevenue += toRemove * sl.margPrice;
-        sl.removableLeft -= toRemove;
-        if (lot) {
-          lot.left -= toRemove;
-          if (lot.left <= 0) sl.lotsSoldDesc.shift();
-        }
-        remainingSurplus -= toRemove * sl.margin;
-        progressed = true;
-
-        const nextLot = sl.lotsSoldDesc[0];
-        sl.margPrice = nextLot?.price ?? sl.fallbackPrice;
-        sl.margin = Math.max(0, sl.margPrice + abMarginPerPubInv);
-        sl.weight = sl.velocity * sl.margin;
+    // Greedy: a cada iteração escolhe a zona com maior score (velocity*margin),
+    // remove um batch do topo do lote e desconta a margem real do remaining.
+    let remaining = surplus;
+    let safety = 200000;
+    while (remaining > 0.005 && safety-- > 0) {
+      let best: ZoneRm | null = null;
+      let bestScore = -Infinity;
+      for (const z of zones) {
+        if (!z.lotsSoldDesc.length) continue;
+        const margin = z.lotsSoldDesc[0].price + abMarginPerPubInv;
+        if (margin <= 0) continue;
+        const score = z.velocity * margin;
+        if (score > bestScore) { bestScore = score; best = z; }
       }
-      if (!progressed) break;
+      if (!best) break;
+      const lot = best.lotsSoldDesc[0];
+      const margin = lot.price + abMarginPerPubInv;
+      const need = Math.max(1, Math.floor(remaining / margin));
+      const take = Math.min(lot.left, need);
+      if (take <= 0) { best.lotsSoldDesc.shift(); continue; }
+      best.removed += take;
+      best.removedRevenue += take * lot.price;
+      best.lastPrice = lot.price;
+      lot.left -= take;
+      if (lot.left <= 0) best.lotsSoldDesc.shift();
+      remaining -= take * margin;
     }
 
+    // Constrói qtyByKey/revenueByKey/breakdown
     const map: Record<string, number> = { ...baseMap };
     const revMap: Record<string, number> = { ...baseRevByKey };
     let totalRemoved = 0;
-    const breakdown: BreakEvenBreakdownItem[] = rmSlots.map((sl) => {
-      const real = sessionTodayQty(sessions[sl.idx]);
-      const realRev = sessionTodayRevenue(sessions[sl.idx]);
-      map[sl.key] = real - sl.removed;
-      revMap[sl.key] = realRev - sl.removedRevenue;
-      totalRemoved += sl.removed;
+    const removedByZone = new Map<number, ZoneRm>();
+    zones.forEach((z) => removedByZone.set(z.idx, z));
+
+    const breakdown: BreakEvenBreakdownItem[] = sessions.map((s, idx) => {
+      const key = `${s.day_index}-${s.zone_label}`;
+      const z = removedByZone.get(idx);
+      const real = sessionTodayQty(s);
+      const realRev = sessionTodayRevenue(s);
+      if (z) {
+        map[key] = real - z.removed;
+        revMap[key] = realRev - z.removedRevenue;
+        totalRemoved += z.removed;
+      }
       return {
-        key: sl.key,
-        zone_label: sessions[sl.idx].zone_label,
-        day_index: sessions[sl.idx].day_index,
+        key,
+        zone_label: s.zone_label,
+        day_index: s.day_index,
         current_qty: real,
-        extra_qty: -sl.removed, // sinal negativo indica remoção
+        extra_qty: z ? -z.removed : 0,
         capacity_left: 0,
-        marginal_price: sl.margPrice,
-        velocity: sl.velocity,
+        marginal_price: z?.lastPrice ?? 0,
+        velocity: z?.velocity ?? 0,
         reason: "ok",
       };
     });
