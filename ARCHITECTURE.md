@@ -307,6 +307,8 @@ Esta secção sumariza as decisões mais consequentes. Racional detalhado vive n
 
 **Racional:** stack madura em produção, equipa solo + IA, custo de mudança excede benefício. Lovable é a camada de orquestração para UI rápida; Claude Code/Cursor para hardening; Claude (chat) para arquitetura.
 
+**Infraestrutura backend:** Lovable Cloud (Supabase gerido pela Lovable) é permanente até 500+ promotores ativos ou >$5M ARR. Ver ADR-013.
+
 ### 4.2 Plataformas no MVP: Meta + Google. TikTok em v2.
 
 **Decisão:** o MVP do Ad Manager integra Meta Marketing API e Google Ads API. TikTok adiado.
@@ -890,6 +892,22 @@ ADRs documentam decisões significativas com o seu contexto e racional. Append-o
 - (b) Sem features de IA. Rejeitada: deixa ganhos óbvios de produtividade na mesa.
 
 **Consequências:** Humanos mantêm-se em controlo. IA acelera o seu trabalho sem substituir julgamento. Compliance com RGPD Art. 22 (direito a intervenção humana) preservada.
+
+### ADR-013: Lovable Cloud como infraestrutura permanente até 500+ promotores ou >$5M ARR
+
+**Estado:** Aceite, 2026-05-10
+**Contexto:** A MP Suite corre sobre Lovable Cloud (instância Supabase gerida pela Lovable). Existe a opção de migrar para um projeto Supabase próprio, dando acesso direto ao CLI/dashboard Supabase em troca de fricção de migração e duplicação de superfícies de gestão. Questão em aberto desde o desenho inicial.
+**Decisão:** Manter Lovable Cloud como infraestrutura backend permanente. **Não migrar** para Supabase próprio enquanto não se atingir um dos seguintes gatilhos:
+- 500+ promotores ativos na plataforma, OU
+- Receita anual >$5M.
+
+O fluxo híbrido **Claude Code escreve migrations → git push → Lovable aplica** é o destino arquitetural, não temporário.
+**Alternativas consideradas:**
+- (a) Migrar para Supabase próprio agora. Rejeitada: custo de migração (semanas, recriar 90+ tabelas + dados de produção) excede o ganho marginal (CLI direto + dashboard nativo).
+- (b) Estratégia híbrida temporária com plano de migração a 12 meses. Rejeitada: cria dívida cognitiva (equipa continua a pensar "isto é temporário") sem ganho proporcional.
+
+**Consequências:** Aplicação de migrations passa sempre por `git push` → Lovable auto-apply; sem `supabase db push` direto. Dashboard Supabase nativo é indireto (via UI Lovable). SQL ad-hoc via SQL Editor Lovable ou Lovable MCP. Detalhe completo no Project Knowledge do projeto Lovable. Ver também §4.1 e `docs/integrations/lovable-mcp.md`.
+**Gatilhos de re-avaliação:** 500+ promotores ativos OU >$5M ARR; ou dependência crítica não disponível via Lovable Cloud (ex: extensão Postgres específica, política de retenção que exija DBA direto).
 
 ---
 
