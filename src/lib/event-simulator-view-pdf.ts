@@ -146,7 +146,7 @@ export async function exportNodeToPdf(
   const bottomY = pageH - MARGIN_MM - FOOTER_H_MM;
   const usableH = bottomY - topY;
 
-  const forceWidth = opts.forceWidth ?? (orientation === "l" ? 1400 : 1100);
+  const forceWidth = opts.forceWidth ?? (orientation === "l" ? 1000 : 860);
 
   // Forçar largura desktop temporariamente — recupera grids lg:* mesmo em mobile.
   const prevWidth = node.style.width;
@@ -204,18 +204,25 @@ export async function exportNodeToPdf(
 
     const canvas = await captureSectionCanvas(section, bg, forceWidth);
     const naturalH = (canvas.height * usableW) / canvas.width;
-    const scale = naturalH > usableH ? usableH / naturalH : 1;
-    const imgW = usableW * scale;
-    const imgH = naturalH * scale;
-    const x = MARGIN_MM + (usableW - imgW) / 2;
+    let scale = naturalH > usableH ? usableH / naturalH : 1;
+    let imgW = usableW * scale;
+    let imgH = naturalH * scale;
     const remaining = bottomY - curY;
 
     if (imgH > remaining && curY > topY) {
-      pdf.addPage("a4", orientation);
-      drawHeader(pdf, opts.title, pageW);
-      curY = topY;
+      const scaleToRemaining = remaining / naturalH;
+      if (remaining > usableH * 0.58 && scaleToRemaining >= 0.72) {
+        scale = scaleToRemaining;
+        imgW = usableW * scale;
+        imgH = naturalH * scale;
+      } else {
+        pdf.addPage("a4", orientation);
+        drawHeader(pdf, opts.title, pageW);
+        curY = topY;
+      }
     }
 
+    const x = MARGIN_MM + (usableW - imgW) / 2;
     pdf.addImage(canvas.toDataURL("image/png"), "PNG", x, curY, imgW, imgH);
     curY += imgH + SECTION_GAP_MM;
   }
