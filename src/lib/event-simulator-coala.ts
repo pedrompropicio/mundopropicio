@@ -773,6 +773,9 @@ export function solveBreakEven(
     totalExtraTickets: totalExtra,
     unfilled: Math.max(0, remainingDeficit),
     breakdown,
+    mode: "deficit",
+    surplus: 0,
+    totalRemovedTickets: 0,
   };
 }
 
