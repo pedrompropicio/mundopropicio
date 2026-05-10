@@ -315,7 +315,7 @@ export default function ExecutiveDashboard(props: Props) {
         </div>
 
         {/* ZONA 1 — HERO STRIP */}
-        <section>
+        <section data-pdf-section>
           <p className="section-label mb-2">Visão geral · cenário {SCEN_LABELS[active]}</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <KpiHero
