@@ -570,7 +570,7 @@ export default function ExecutiveDashboard(props: Props) {
 
         {/* ZONA 5 — HEATMAP CIDADES (turnê) */}
         {tourBreakdowns && tourBreakdowns.length > 0 && (
-          <section>
+          <section data-pdf-section>
             <p className="section-label mb-3">Comparativo entre cidades · {SCEN_LABELS[active]}</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {tourBreakdowns.map((c) => (
