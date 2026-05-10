@@ -251,6 +251,7 @@ export default function ExecutiveDashboard(props: Props) {
           orientation: "l",
           title: `${eventName} — Dashboard Executivo`,
           subtitle: `Cenário ${SCEN_LABELS[active]} · ${new Date().toLocaleDateString("pt-PT")} · Real · Break Even · Forecast`,
+          forceWidth: 1000,
         },
       );
       toast({ title: "PDF exportado", description: `Dashboard executivo (${SCEN_LABELS[active]})` });
