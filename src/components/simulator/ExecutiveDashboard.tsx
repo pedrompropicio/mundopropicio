@@ -251,6 +251,7 @@ export default function ExecutiveDashboard(props: Props) {
           orientation: "l",
           title: `${eventName} — Dashboard Executivo`,
           subtitle: `Cenário ${SCEN_LABELS[active]} · ${new Date().toLocaleDateString("pt-PT")} · Real · Break Even · Forecast`,
+          forceWidth: 1000,
         },
       );
       toast({ title: "PDF exportado", description: `Dashboard executivo (${SCEN_LABELS[active]})` });
@@ -286,6 +287,20 @@ export default function ExecutiveDashboard(props: Props) {
         [data-theme="financial"].pdf-rendering [data-pdf-full] {
           width: 100% !important;
           max-width: none !important;
+        }
+        [data-theme="financial"].pdf-rendering [data-pdf-compact] {
+          gap: 8px !important;
+        }
+        [data-theme="financial"].pdf-rendering [data-pdf-compact] [class*="rounded-xl"],
+        [data-theme="financial"].pdf-rendering [data-pdf-compact] .rounded-lg {
+          border-radius: 6px !important;
+        }
+        [data-theme="financial"].pdf-rendering [data-pdf-compact] [class*="p-4"] {
+          padding: 10px !important;
+        }
+        [data-theme="financial"].pdf-rendering [data-pdf-compact] .text-xs {
+          font-size: 10px !important;
+          line-height: 1.25 !important;
         }
       `}</style>
 
@@ -324,7 +339,7 @@ export default function ExecutiveDashboard(props: Props) {
         </div>
 
         {/* ZONA 1 — HERO STRIP */}
-        <section data-pdf-section>
+        <section data-pdf-section data-pdf-compact>
           <p className="section-label mb-2">Visão geral · cenário {SCEN_LABELS[active]}</p>
           <div data-pdf-grid style={{ "--pdf-cols": 5 } as React.CSSProperties} className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             <KpiHero
@@ -371,7 +386,7 @@ export default function ExecutiveDashboard(props: Props) {
         </section>
 
         {/* ZONA 2 — STATUS BAR */}
-        <div data-pdf-section className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border px-4 py-2.5 text-sm">
+        <div data-pdf-section data-pdf-compact className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border px-4 py-2.5 text-sm">
           <StatusBadge
             ok={reachedBE}
             label="Break Even"
@@ -395,14 +410,12 @@ export default function ExecutiveDashboard(props: Props) {
           )}
         </div>
 
-        {/* ZONA 3 — FINANCIAL TABLE + KPI STACK
-            Cada coluna é uma pdf-section separada para que o paginador possa
-            empacotá-las individualmente sem deixar páginas semi-vazias. */}
+        {/* ZONA 3 — FINANCIAL TABLE + KPI STACK */}
         <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <div data-pdf-section data-pdf-full>
             <FinancialTable rows={financialRows} active={active} formatFn={fmt} />
           </div>
-          <div data-pdf-section data-pdf-full className="flex flex-col gap-3">
+          <div data-pdf-section data-pdf-full data-pdf-compact className="flex flex-col gap-3">
             <ProgressKpi
               label="Presenças × dia"
               current={todayPres}
@@ -457,13 +470,13 @@ export default function ExecutiveDashboard(props: Props) {
 
         {/* ZONA 3.5 — Público por dia */}
         {eventId ? (
-          <div data-pdf-section>
+          <div data-pdf-section data-pdf-break-before>
             <DailyAttendanceCard eventId={eventId} dailyCapacity={dailyCapacity} beDailyTotals={beDailyTotals} fcDailyTotals={fcDailyTotals} />
           </div>
         ) : null}
 
         {/* ZONA 4 — GRÁFICOS */}
-        <div data-pdf-section data-pdf-grid style={{ "--pdf-cols": 3 } as React.CSSProperties} className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <div data-pdf-section data-pdf-grid data-pdf-break-before style={{ "--pdf-cols": 3 } as React.CSSProperties} className="grid grid-cols-1 gap-3 lg:grid-cols-3">
           {/* Donut Mix Receitas */}
           <Card>
             <CardHeader className="pb-2">

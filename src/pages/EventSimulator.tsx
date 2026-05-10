@@ -692,11 +692,15 @@ export default function EventSimulator() {
   };
   const handleExportViewPdf = async () => {
     if (!tabContentRef.current) return;
+    const pdfThemeWrappers = Array.from(
+      tabContentRef.current.querySelectorAll<HTMLElement>('[data-theme="financial"]'),
+    );
     const tabLabel: Record<string, string> = {
       dashboard: "Dashboard", sessions: "Sessões (Dia × Zona)", daily: "Público diário",
       revenue: "Faturamento", sponsors: "Patrocínios", costs: "Custos", iva: "IVA",
       result: "Resultados", config: "Configuração",
     };
+    pdfThemeWrappers.forEach((el) => el.classList.add("pdf-rendering"));
     try {
       await exportNodeToPdf(
         tabContentRef.current,
@@ -705,11 +709,14 @@ export default function EventSimulator() {
           orientation: "l",
           title: `Simulador — ${event?.name ?? ""}`,
           subtitle: `${tabLabel[activeTab] ?? activeTab} · ${new Date().toLocaleDateString("pt-PT")} · 3 cenários: Real · Break Even · Forecast`,
+          forceWidth: 1000,
         },
       );
       toast({ title: "PDF da vista exportado", description: tabLabel[activeTab] ?? activeTab });
     } catch (e: any) {
       toast({ title: "Erro a exportar PDF", description: e.message, variant: "destructive" });
+    } finally {
+      pdfThemeWrappers.forEach((el) => el.classList.remove("pdf-rendering"));
     }
   };
 
