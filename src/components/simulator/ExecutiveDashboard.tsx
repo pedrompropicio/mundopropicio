@@ -409,14 +409,12 @@ export default function ExecutiveDashboard(props: Props) {
           )}
         </div>
 
-        {/* ZONA 3 — FINANCIAL TABLE + KPI STACK
-            Cada coluna é uma pdf-section separada para que o paginador possa
-            empacotá-las individualmente sem deixar páginas semi-vazias. */}
+        {/* ZONA 3 — FINANCIAL TABLE + KPI STACK */}
         <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <div data-pdf-section data-pdf-full>
+          <div data-pdf-section data-pdf-full data-pdf-break-before>
             <FinancialTable rows={financialRows} active={active} formatFn={fmt} />
           </div>
-          <div data-pdf-section data-pdf-full className="flex flex-col gap-3">
+          <div data-pdf-section data-pdf-full data-pdf-compact className="flex flex-col gap-3">
             <ProgressKpi
               label="Presenças × dia"
               current={todayPres}
@@ -471,13 +469,13 @@ export default function ExecutiveDashboard(props: Props) {
 
         {/* ZONA 3.5 — Público por dia */}
         {eventId ? (
-          <div data-pdf-section>
+          <div data-pdf-section data-pdf-break-before>
             <DailyAttendanceCard eventId={eventId} dailyCapacity={dailyCapacity} beDailyTotals={beDailyTotals} fcDailyTotals={fcDailyTotals} />
           </div>
         ) : null}
 
         {/* ZONA 4 — GRÁFICOS */}
-        <div data-pdf-section data-pdf-grid style={{ "--pdf-cols": 3 } as React.CSSProperties} className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <div data-pdf-section data-pdf-grid data-pdf-break-before style={{ "--pdf-cols": 3 } as React.CSSProperties} className="grid grid-cols-1 gap-3 lg:grid-cols-3">
           {/* Donut Mix Receitas */}
           <Card>
             <CardHeader className="pb-2">
