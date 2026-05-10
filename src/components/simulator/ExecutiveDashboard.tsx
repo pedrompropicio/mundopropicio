@@ -279,6 +279,14 @@ export default function ExecutiveDashboard(props: Props) {
         [data-theme="financial"].pdf-rendering .recharts-wrapper {
           background: transparent !important;
         }
+        [data-theme="financial"].pdf-rendering [data-pdf-grid] {
+          display: grid !important;
+          grid-template-columns: repeat(var(--pdf-cols, 1), minmax(0, 1fr)) !important;
+        }
+        [data-theme="financial"].pdf-rendering [data-pdf-full] {
+          width: 100% !important;
+          max-width: none !important;
+        }
       `}</style>
 
       {/* TOOLBAR — fora do rootRef */}
@@ -391,10 +399,10 @@ export default function ExecutiveDashboard(props: Props) {
             Cada coluna é uma pdf-section separada para que o paginador possa
             empacotá-las individualmente sem deixar páginas semi-vazias. */}
         <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <div data-pdf-section>
+          <div data-pdf-section data-pdf-full>
             <FinancialTable rows={financialRows} active={active} formatFn={fmt} />
           </div>
-          <div data-pdf-section className="flex flex-col gap-3">
+          <div data-pdf-section data-pdf-full className="flex flex-col gap-3">
             <ProgressKpi
               label="Presenças × dia"
               current={todayPres}
