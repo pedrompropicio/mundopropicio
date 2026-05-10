@@ -217,7 +217,7 @@ export async function exportNodeToPdf(
 
     if (imgH > remaining && curY > topY) {
       const scaleToRemaining = remaining / naturalH;
-      if (remaining > usableH * 0.58 && scaleToRemaining >= 0.72) {
+      if (remaining > usableH * 0.45 && scaleToRemaining >= 0.56) {
         scale = scaleToRemaining;
         imgW = usableW * scale;
         imgH = naturalH * scale;
