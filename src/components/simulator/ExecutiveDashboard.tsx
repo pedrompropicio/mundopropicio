@@ -387,10 +387,14 @@ export default function ExecutiveDashboard(props: Props) {
           )}
         </div>
 
-        {/* ZONA 3 — FINANCIAL TABLE + KPI STACK */}
-        <div data-pdf-section className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <FinancialTable rows={financialRows} active={active} formatFn={fmt} />
-          <div className="flex flex-col gap-3">
+        {/* ZONA 3 — FINANCIAL TABLE + KPI STACK
+            Cada coluna é uma pdf-section separada para que o paginador possa
+            empacotá-las individualmente sem deixar páginas semi-vazias. */}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <div data-pdf-section>
+            <FinancialTable rows={financialRows} active={active} formatFn={fmt} />
+          </div>
+          <div data-pdf-section className="flex flex-col gap-3">
             <ProgressKpi
               label="Presenças × dia"
               current={todayPres}
