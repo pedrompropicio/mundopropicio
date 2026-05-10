@@ -6887,6 +6887,7 @@ export type Database = {
         | "admin"
         | "user"
         | "manager"
+        | "marketing_manager"
         | "editor"
         | "viewer"
         | "partner"
@@ -7047,6 +7048,7 @@ export const Constants = {
         "admin",
         "user",
         "manager",
+        "marketing_manager",
         "editor",
         "viewer",
         "partner",
