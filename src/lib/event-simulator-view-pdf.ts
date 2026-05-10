@@ -184,6 +184,37 @@ export async function exportNodeToPdf(
   );
   pdf.setTextColor(0);
 
+  // ----- Modo deck: páginas desenhadas explicitamente para PDF -----
+  const pageTargets = Array.from(node.querySelectorAll<HTMLElement>("[data-pdf-page]"));
+  if (pageTargets.length > 0) {
+    for (const page of pageTargets) {
+      if (page.offsetHeight === 0 || page.offsetWidth === 0) continue;
+      pdf.addPage("a4", orientation);
+      drawHeader(pdf, opts.title, pageW);
+
+      const canvas = await captureSectionCanvas(page, bg, forceWidth);
+      const naturalH = (canvas.height * usableW) / canvas.width;
+      const scale = naturalH > usableH ? usableH / naturalH : 1;
+      const imgW = usableW * scale;
+      const imgH = naturalH * scale;
+      const x = MARGIN_MM + (usableW - imgW) / 2;
+      pdf.addImage(canvas.toDataURL("image/png"), "PNG", x, topY, imgW, imgH);
+    }
+
+    node.style.width = prevWidth;
+    node.style.maxWidth = prevMaxWidth;
+    node.style.minWidth = prevMinWidth;
+
+    const total = (pdf as any).internal.getNumberOfPages();
+    for (let p = 2; p <= total; p++) {
+      pdf.setPage(p);
+      drawFooter(pdf, opts.subtitle, p - 1, total - 1, pageW, pageH);
+    }
+
+    pdf.save(filename);
+    return;
+  }
+
   // ----- Identificar secções -----
   let targets: HTMLElement[] = Array.from(
     node.querySelectorAll<HTMLElement>("[data-pdf-section]"),
