@@ -48,3 +48,6 @@ que `beAttendance`, A&B e KPIs por presença reflitam o público reduzido.
 - v2 (2026-05-10): solver greedy com `margin = price + abMarginPerPub` +
   `buildDailyFromBreakdown` propaga `extra_qty<0`. Resultado fecha em ~0 e
   público dia reflete a remoção.
+- v3 (2026-05-10): o card aplica correção residual ao `ticketsRevenue` do BE
+  quando, após o recálculo final com A&B canónico/attendance expandido, ainda
+  sobra Resultado positivo. A apresentação do BE fica travada em Resultado≈0.
