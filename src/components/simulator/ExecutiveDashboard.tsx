@@ -302,6 +302,21 @@ export default function ExecutiveDashboard(props: Props) {
           font-size: 10px !important;
           line-height: 1.25 !important;
         }
+        [data-theme="financial"] [data-pdf-deck] {
+          display: none;
+        }
+        [data-theme="financial"].pdf-rendering [data-pdf-screen] {
+          display: none !important;
+        }
+        [data-theme="financial"].pdf-rendering [data-pdf-deck] {
+          display: block !important;
+        }
+        [data-theme="financial"].pdf-rendering [data-pdf-page] {
+          width: 1000px !important;
+          min-height: 500px !important;
+          padding: 18px !important;
+          background: hsl(var(--background)) !important;
+        }
       `}</style>
 
       {/* TOOLBAR — fora do rootRef */}
@@ -324,6 +339,77 @@ export default function ExecutiveDashboard(props: Props) {
 
       {/* CONTEÚDO CAPTURADO PARA PDF */}
       <div ref={rootRef} className="space-y-4 bg-background p-2">
+        <div data-pdf-deck>
+          <section data-pdf-page className="space-y-3">
+            <div className="flex items-end justify-between border-b pb-2">
+              <div>
+                <h2 className="text-lg font-bold">{eventName || "Evento"}</h2>
+                <p className="text-xs text-muted-foreground">
+                  Dashboard Executivo · <span className="font-semibold text-foreground">{SCEN_LABELS[active]}</span>
+                </p>
+              </div>
+              <div className="text-right text-[10px] text-muted-foreground">
+                {new Date().toLocaleDateString("pt-PT")} · Real · Break Even · Forecast
+              </div>
+            </div>
+            <p className="section-label">Visão geral · cenário {SCEN_LABELS[active]}</p>
+            <div data-pdf-grid style={{ "--pdf-cols": 5 } as React.CSSProperties} className="grid grid-cols-5 gap-3">
+              <KpiHero label="Resultado Geral" value={fmt(sel.res.general)} tone={sel.res.general >= 0 ? "positive" : "negative"} delta={resultDelta !== 0 ? `${resultDelta >= 0 ? "+" : ""}${fmt(resultDelta)} vs FC` : undefined} deltaPositive={resultDelta >= 0} subtext={reachedBE ? "Break Even atingido" : `Faltam ${fmt(Math.abs(sel.res.general))} para BE`} />
+              <KpiHero label="Receita Total" value={fmt(sel.rev.totalRevenue)} tone="neutral" subtext={`${pctForecast}% do Forecast (${fmt(forecast.totalRevenue)})`} progress={pctForecast} progressColor="blue" />
+              <KpiHero label="Custo Total" value={fmt(sel.cost.totalCost)} tone="muted" subtext={`Custo/pessoa: ${fmt(sel.kpis.costPerPerson)}`} />
+              <KpiHero label="Público Total" value={fmtNum(sel.kpis.totalPublic)} tone="neutral" subtext={`${pctPubForecast}% do alvo (${fmtNum(fcTargetQty)})`} progress={pctPubForecast} progressColor="emerald" />
+              <KpiHero label="Margem" value={fmtPct(margemPct)} tone={margemPct >= 0 ? "positive" : "negative"} subtext={`TM: ${fmt(sel.kpis.tmTickets)} · A&B/pp: ${fmt(sel.kpis.tmAB)}`} />
+            </div>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border px-4 py-2.5 text-sm">
+              <StatusBadge ok={reachedBE} label="Break Even" subtext={reachedBE ? undefined : `Faltam ${fmtNum(needForBE)} bilhetes`} />
+              <StatusBadge ok={todayRes.general >= 0} label="Margem" subtext={`Resultado: ${fmt(todayRes.general)}`} />
+              <StatusBadge ok={pctPubForecast >= 100 ? true : pctPubForecast >= 60 ? "warn" : false} label={`Forecast: ${pctPubForecast}% atingido`} />
+              {abModule.hasConfig && <StatusBadge ok={abMarginReal >= 0} label="A&B" subtext={`Margem A&B: ${fmt(abMarginReal)}`} />}
+            </div>
+            <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4">
+              <FinancialTable rows={financialRows} active={active} formatFn={fmt} />
+              <div className="flex flex-col gap-3">
+                <ProgressKpi label="Presenças × dia" current={todayPres} currentLabel="Real" beTarget={beTargetQty} beLabel="Break Even" fcTarget={fcTargetQty} fcLabel="Forecast" formatFn={fmtNum} footer={(needForBE > 0 ? `Faltam ${fmtNum(needForBE)} presenças para BE` : "Break Even atingido") + ` · 1 Passe N dias = N presenças`} />
+                {abModule.hasConfig && abModule.totals && (
+                  <Card>
+                    <CardHeader className="pb-2"><CardTitle className="text-sm">A&B — Margem ({SCEN_LABELS[active]})</CardTitle></CardHeader>
+                    <CardContent className="space-y-1 text-xs">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Faturação</span><span className="tabular-nums font-semibold">{fmt((abModule.totals as any)[active].faturacaoTotal)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Repasse</span><span className="tabular-nums">{fmt((abModule.totals as any)[active].custoTotal)}</span></div>
+                      <div className="mt-1 flex justify-between border-t pt-1"><span className="font-semibold">Resultado A&B</span><span className={`tabular-nums font-semibold ${(abModule.totals as any)[active].resultadoTotal >= 0 ? "text-emerald-500" : "text-rose-500"}`}>{fmt((abModule.totals as any)[active].resultadoTotal)}</span></div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {eventId ? (
+            <section data-pdf-page>
+              <DailyAttendanceCard eventId={eventId} dailyCapacity={dailyCapacity} beDailyTotals={beDailyTotals} fcDailyTotals={fcDailyTotals} />
+            </section>
+          ) : null}
+
+          <section data-pdf-page className="space-y-3">
+            <p className="section-label">Análise visual · {SCEN_LABELS[active]}</p>
+            <div data-pdf-grid style={{ "--pdf-cols": 3 } as React.CSSProperties} className="grid grid-cols-3 gap-3">
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">Mix Receitas ({SCEN_LABELS[active]})</CardTitle></CardHeader>
+                <CardContent style={{ height: 240 }}>{revenueMixActive.length ? (<div className="grid h-full grid-cols-[1fr_auto] items-center gap-3"><ResponsiveContainer><PieChart><Pie data={revenueMixActive} dataKey="value" nameKey="name" outerRadius={80} innerRadius={50} paddingAngle={2} label={false}>{revenueMixActive.map((_, i) => (<Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />))}</Pie><Tooltip formatter={(v: any) => fmt(Number(v))} /></PieChart></ResponsiveContainer><ul className="flex flex-col gap-1 pr-2 text-[11px]">{revenueMixActive.map((r, i) => { const pct = totalMix > 0 ? (r.value / totalMix) * 100 : 0; return (<li key={r.name} className="flex items-center gap-2"><span className="inline-block h-2 w-2 rounded-sm" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} /><span className="text-muted-foreground">{r.name}</span><span className="ml-auto tabular-nums font-semibold">{pct.toFixed(0)}%</span></li>); })}</ul></div>) : (<div className="flex h-full items-center justify-center text-xs text-muted-foreground">Sem dados</div>)}</CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">Custos — Top categorias</CardTitle></CardHeader>
+                <CardContent style={{ height: 240 }}>{costsCompareChart.length ? (<ResponsiveContainer><BarChart data={costsCompareChart} layout="vertical" margin={{ left: 60 }}><CartesianGrid strokeDasharray="3 3" opacity={0.04} /><XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} /><YAxis type="category" dataKey="name" tick={{ fontSize: 9 }} width={110} /><Tooltip formatter={(v: any) => fmt(Number(v))} /><Bar dataKey="Real" fill="#3b82f6" radius={[3, 3, 0, 0]} /><Bar dataKey="BE" fill="#f59e0b" radius={[3, 3, 0, 0]} /><Bar dataKey="Forecast" fill="#10b981" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer>) : (<div className="flex h-full items-center justify-center text-xs text-muted-foreground">Sem custos</div>)}</CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm">Público diário</CardTitle></CardHeader>
+                <CardContent style={{ height: 240 }}>{dailyChart.length ? (<ResponsiveContainer><BarChart data={dailyChart}><CartesianGrid strokeDasharray="3 3" opacity={0.04} /><XAxis dataKey="name" tick={{ fontSize: 10 }} /><YAxis tick={{ fontSize: 10 }} /><Tooltip /><Bar dataKey="Pagantes" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} /><Bar dataKey="Cortesias" stackId="a" fill="#a855f7" radius={[3, 3, 0, 0]} />{dailyCapacity ? (<ReferenceLine y={dailyCapacity} stroke="#f59e0b" strokeDasharray="4 3" strokeOpacity={0.6} label={{ value: "Cap.", fill: "#f59e0b", fontSize: 9 }} />) : null}</BarChart></ResponsiveContainer>) : (<div className="flex h-full items-center justify-center text-xs text-muted-foreground">Sem dados</div>)}</CardContent>
+              </Card>
+            </div>
+          </section>
+        </div>
+
+        <div data-pdf-screen className="space-y-4">
         {/* Cabeçalho do PDF */}
         <div data-pdf-section className="flex items-end justify-between border-b pb-2">
           <div>
@@ -605,6 +691,7 @@ export default function ExecutiveDashboard(props: Props) {
             </div>
           </section>
         )}
+        </div>
       </div>
     </div>
   );
