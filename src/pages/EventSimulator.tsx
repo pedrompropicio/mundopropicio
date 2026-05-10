@@ -1004,7 +1004,20 @@ export default function EventSimulator() {
     return base;
   }, [calcCosts, fcAB, todayAB, calcCfg, abModule, fcPubProjected]);
 
-  const todayRev = todayAB; const beRev = beAB; const fcRev = fcAB;
+  const todayRev = todayAB;
+  const rawBeRev = beAB;
+  const rawBeRes = useMemo(() => computeScenarioResult(rawBeRev, beCosts), [rawBeRev, beCosts]);
+  const beRev = useMemo(() => {
+    if (beSolution.mode === "surplus" && rawBeRes.general > 0.5) {
+      return {
+        ...rawBeRev,
+        ticketsRevenue: rawBeRev.ticketsRevenue - rawBeRes.general,
+        totalRevenue: rawBeRev.totalRevenue - rawBeRes.general,
+      };
+    }
+    return rawBeRev;
+  }, [rawBeRev, rawBeRes.general, beSolution.mode]);
+  const fcRev = fcAB;
 
   const todayRes = useMemo(() => computeScenarioResult(todayRev, todayCosts), [todayRev, todayCosts]);
   const beRes = useMemo(() => computeScenarioResult(beRev, beCosts), [beRev, beCosts]);
