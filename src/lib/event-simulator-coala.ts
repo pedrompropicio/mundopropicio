@@ -100,6 +100,13 @@ export type BreakEvenSolution = {
   totalRemovedTickets: number;
 };
 
+export type BreakEvenEconomicsOverride = {
+  /** Resultado base (com vendas reais) no mesmo modelo económico que a UI final. */
+  baseResult?: number;
+  /** Margem líquida A&B por presença usada pela UI final. */
+  abMarginPerPub?: number;
+};
+
 // ---------- Forecast solver ----------
 
 export type ForecastBreakdownItem = {
@@ -404,6 +411,7 @@ export function solveBreakEven(
   costLines: CoalaCostLine[],
   cfg: CoalaConfig,
   lotInfoByKey?: Record<string, SessionLotInfo>,
+  economics?: BreakEvenEconomicsOverride,
 ): BreakEvenSolution {
   const baseMap: Record<string, number> = {};
   for (const s of sessions) baseMap[`${s.day_index}-${s.zone_label}`] = sessionTodayQty(s);
@@ -412,6 +420,9 @@ export function solveBreakEven(
   const baseRev = computeScenarioRevenue(sessions, cfg, "breakeven", baseMap);
   const baseCosts = computeScenarioCosts(costLines, baseRev, cfg, "breakeven");
   const baseRes = computeScenarioResult(baseRev, baseCosts);
+  const baseGeneral = Number.isFinite(economics?.baseResult)
+    ? Number(economics?.baseResult)
+    : baseRes.general;
 
   const emptyBreakdown: BreakEvenBreakdownItem[] = sessions.map((s) => ({
     key: `${s.day_index}-${s.zone_label}`,
@@ -433,7 +444,7 @@ export function solveBreakEven(
   // Em vez de devolver "Real" (que mascara o BE como cenário próprio), corremos
   // o solver INVERSO: quantos bilhetes a MENOS ainda zeravam o resultado.
   // O ponto BE é o threshold real (Resultado=0) e a margem positiva fica visível.
-  if (baseRes.general >= -0.5 && baseRes.general <= 0.5) {
+  if (baseGeneral >= -0.5 && baseGeneral <= 0.5) {
     return {
       qtyByKey: baseMap, revenueByKey: baseRevByKey, reachable: true, deficit: 0,
       totalExtraTickets: 0, unfilled: 0, breakdown: emptyBreakdown,
@@ -441,8 +452,8 @@ export function solveBreakEven(
     };
   }
 
-  if (baseRes.general > 0.5) {
-    const surplus = baseRes.general;
+  if (baseGeneral > 0.5) {
+    const surplus = baseGeneral;
 
     // Margem efetiva por bilhete removido = preço do lote + A&B líquido por
     // pessoa. Isto reflete o impacto REAL no resultado: ao remover 1 bilhete,
@@ -451,9 +462,10 @@ export function solveBreakEven(
     // Para que isto se materialize, o `buildDailyFromBreakdown` na UI tem de
     // propagar `extra_qty<0` para reduzir `beAttendance` (caso contrário A&B
     // mantém-se ao real e o solver remove tickets a mais).
-    const abMarginPerPubInv =
-      n(cfg.ab_drink_avg_ticket) * (1 - n(cfg.ab_drink_passthrough_pct) / 100) +
-      n(cfg.ab_food_avg_ticket) * (1 - n(cfg.ab_food_passthrough_pct) / 100);
+    const abMarginPerPubInv = Number.isFinite(economics?.abMarginPerPub)
+      ? Number(economics?.abMarginPerPub)
+      : n(cfg.ab_drink_avg_ticket) * (1 - n(cfg.ab_drink_passthrough_pct) / 100) +
+        n(cfg.ab_food_avg_ticket) * (1 - n(cfg.ab_food_passthrough_pct) / 100);
 
     // Agrupa por zona para tratar combos (mesmo que modo deficit).
     const groupIndexes = new Map<string, number[]>();
@@ -524,14 +536,17 @@ export function solveBreakEven(
       if (!best) break;
       const lot = best.lotsSoldDesc[0];
       const margin = lot.price + abMarginPerPubInv;
-      const need = Math.max(1, Math.floor(remaining / margin));
+      // No modo surplus o ponto de equilíbrio pode cair "dentro" do último
+      // bilhete removido. Permitimos fração no último take para que o resultado
+      // financeiro feche em 0, enquanto a UI continua a arredondar o público.
+      const need = remaining / margin;
       const take = Math.min(lot.left, need);
       if (take <= 0) { best.lotsSoldDesc.shift(); continue; }
       best.removed += take;
       best.removedRevenue += take * lot.price;
       best.lastPrice = lot.price;
       lot.left -= take;
-      if (lot.left <= 0) best.lotsSoldDesc.shift();
+      if (lot.left <= 0.000001) best.lotsSoldDesc.shift();
       remaining -= take * margin;
     }
 
@@ -580,12 +595,13 @@ export function solveBreakEven(
   }
 
 
-  const deficit = -baseRes.general;
+  const deficit = -baseGeneral;
 
   // A&B líquido por pessoa adicional (igual em todas as sessões)
-  const abMarginPerPub =
-    n(cfg.ab_drink_avg_ticket) * (1 - n(cfg.ab_drink_passthrough_pct) / 100) +
-    n(cfg.ab_food_avg_ticket) * (1 - n(cfg.ab_food_passthrough_pct) / 100);
+  const abMarginPerPub = Number.isFinite(economics?.abMarginPerPub)
+    ? Number(economics?.abMarginPerPub)
+    : n(cfg.ab_drink_avg_ticket) * (1 - n(cfg.ab_drink_passthrough_pct) / 100) +
+      n(cfg.ab_food_avg_ticket) * (1 - n(cfg.ab_food_passthrough_pct) / 100);
 
   // Pré-cálculo por sessão
   type Slot = {

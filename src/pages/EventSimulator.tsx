@@ -578,11 +578,6 @@ export default function EventSimulator() {
       is_ab_passthrough: !!c.is_ab_passthrough,
     })), [visibleCosts]);
 
-  const beSolution = useMemo(
-    () => solveBreakEven(calcSessions, calcCosts, calcCfg, beLotInfo),
-    [calcSessions, calcCosts, calcCfg, beLotInfo],
-  );
-
   // Data do evento = última sessão (festival multi-dia) ou end_date/start_date.
   const eventDate = useMemo(() => {
     const dates = (lotSalesData?.dates ?? []).map((d) => d.date).filter(Boolean) as string[];
@@ -598,8 +593,12 @@ export default function EventSimulator() {
     [calcSessions, calcCfg, beLotInfo, eventDate, localCfg?.forecast_final_accel, localCfg?.forecast_final_window_days],
   );
 
+  const beSolution = useMemo(
+    () => solveBreakEven(calcSessions, calcCosts, calcCfg, beLotInfo),
+    [calcSessions, calcCosts, calcCfg, beLotInfo],
+  );
+
   const today = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "today"), [calcSessions, calcCfg]);
-  const breakeven = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolution.qtyByKey, beSolution.revenueByKey), [calcSessions, calcCfg, beSolution]);
   const forecast = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "forecast", fcSolution.qtyByKey, fcSolution.revenueByKey), [calcSessions, calcCfg, fcSolution]);
 
   // abParticipants + bloco A&B movidos para depois de buildDailyFromBreakdown
@@ -1003,7 +1002,20 @@ export default function EventSimulator() {
     return base;
   }, [calcCosts, fcAB, todayAB, calcCfg, abModule, fcPubProjected]);
 
-  const todayRev = todayAB; const beRev = beAB; const fcRev = fcAB;
+  const todayRev = todayAB;
+  const rawBeRev = beAB;
+  const rawBeRes = useMemo(() => computeScenarioResult(rawBeRev, beCosts), [rawBeRev, beCosts]);
+  const beRev = useMemo(() => {
+    if (beSolution.mode === "surplus" && rawBeRes.general > 0.5) {
+      return {
+        ...rawBeRev,
+        ticketsRevenue: rawBeRev.ticketsRevenue - rawBeRes.general,
+        totalRevenue: rawBeRev.totalRevenue - rawBeRes.general,
+      };
+    }
+    return rawBeRev;
+  }, [rawBeRev, rawBeRes.general, beSolution.mode]);
+  const fcRev = fcAB;
 
   const todayRes = useMemo(() => computeScenarioResult(todayRev, todayCosts), [todayRev, todayCosts]);
   const beRes = useMemo(() => computeScenarioResult(beRev, beCosts), [beRev, beCosts]);
