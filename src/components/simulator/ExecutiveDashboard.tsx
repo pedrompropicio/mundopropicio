@@ -387,7 +387,7 @@ export default function ExecutiveDashboard(props: Props) {
         </div>
 
         {/* ZONA 3 — FINANCIAL TABLE + KPI STACK */}
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <div data-pdf-section className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <FinancialTable rows={financialRows} active={active} formatFn={fmt} />
           <div className="flex flex-col gap-3">
             <ProgressKpi
