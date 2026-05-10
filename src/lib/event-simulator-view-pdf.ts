@@ -8,8 +8,9 @@
  *  2. Procura `[data-pdf-section]` dentro do nó. Se existirem, captura cada um
  *     individualmente — assim cards e blocos nunca são partidos a meio.
  *     Caso contrário, faz fallback para os filhos directos do nó.
- *  3. Cada secção é colocada numa página inteira ou no espaço restante; só faz
- *     fatiamento quando a secção isolada é maior que uma página A4.
+ *  3. Cada secção é colocada no espaço restante ou numa página nova.
+ *     Secções maiores que A4 são reduzidas para caber numa página — nunca são
+ *     fatiadas no meio de cards/tabelas.
  *  4. Adiciona capa, cabeçalho com título e rodapé com paginação.
  */
 import jsPDF from "jspdf";
@@ -68,6 +69,32 @@ async function captureCanvas(
     windowWidth,
     onclone: (doc) => disableBackdropFilters(doc),
   });
+}
+
+async function captureSectionCanvas(
+  section: HTMLElement,
+  bg: string,
+  forceWidth: number,
+): Promise<HTMLCanvasElement> {
+  const prevWidth = section.style.width;
+  const prevMaxWidth = section.style.maxWidth;
+  const prevMinWidth = section.style.minWidth;
+  const prevAlignSelf = section.style.alignSelf;
+
+  section.style.width = `${forceWidth}px`;
+  section.style.maxWidth = `${forceWidth}px`;
+  section.style.minWidth = `${forceWidth}px`;
+  section.style.alignSelf = "stretch";
+  await new Promise((r) => requestAnimationFrame(r));
+
+  try {
+    return await captureCanvas(section, bg, forceWidth);
+  } finally {
+    section.style.width = prevWidth;
+    section.style.maxWidth = prevMaxWidth;
+    section.style.minWidth = prevMinWidth;
+    section.style.alignSelf = prevAlignSelf;
+  }
 }
 
 function drawHeader(pdf: jsPDF, title: string | undefined, pageW: number) {
