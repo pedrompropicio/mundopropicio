@@ -580,11 +580,6 @@ export default function EventSimulator() {
       is_ab_passthrough: !!c.is_ab_passthrough,
     })), [visibleCosts]);
 
-  const beSolution = useMemo(
-    () => solveBreakEven(calcSessions, calcCosts, calcCfg, beLotInfo),
-    [calcSessions, calcCosts, calcCfg, beLotInfo],
-  );
-
   // Data do evento = última sessão (festival multi-dia) ou end_date/start_date.
   const eventDate = useMemo(() => {
     const dates = (lotSalesData?.dates ?? []).map((d) => d.date).filter(Boolean) as string[];
@@ -601,7 +596,6 @@ export default function EventSimulator() {
   );
 
   const today = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "today"), [calcSessions, calcCfg]);
-  const breakeven = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolution.qtyByKey, beSolution.revenueByKey), [calcSessions, calcCfg, beSolution]);
   const forecast = useMemo(() => computeScenarioRevenue(calcSessions, calcCfg, "forecast", fcSolution.qtyByKey, fcSolution.revenueByKey), [calcSessions, calcCfg, fcSolution]);
 
   // abParticipants + bloco A&B movidos para depois de buildDailyFromBreakdown
