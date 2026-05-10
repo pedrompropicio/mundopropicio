@@ -386,7 +386,7 @@ export default function ExecutiveDashboard(props: Props) {
 
           {eventId ? (
             <section data-pdf-page>
-              <DailyAttendanceCard eventId={eventId} dailyCapacity={dailyCapacity} beDailyTotals={beDailyTotals} fcDailyTotals={fcDailyTotals} />
+              <DailyAttendanceCard eventId={eventId} byZone />
             </section>
           ) : null}
 
