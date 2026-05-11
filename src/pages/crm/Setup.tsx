@@ -166,6 +166,21 @@ export default function Setup() {
   const [s7, set7] = useStepDone(7);
   const [s8, set8] = useStepDone(8);
 
+  // Detect MP Audience appearing → toast + auto-mark steps 1 and 8 (one-shot per transition)
+  const prevMpAudienceIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const currentId = mpAudience?.ad_account_id ?? null;
+    if (currentId && prevMpAudienceIdRef.current !== currentId) {
+      if (!prevMpAudienceIdRef.current) {
+        toast.success("🎉 Ad account 'MP Audience' detetada!");
+      }
+      if (!s1) set1(true);
+      if (mpAudience?.enabled && !s8) set8(true);
+      prevMpAudienceIdRef.current = currentId;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mpAudience?.ad_account_id, mpAudience?.enabled]);
+
   const [pilots, setPilots] = useState<string>(() => {
     try { return localStorage.getItem(PILOT_KEY) || ""; } catch { return ""; }
   });
