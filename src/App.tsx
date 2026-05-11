@@ -436,6 +436,7 @@ function App() {
                     <Route path="pixels" element={<CrmPixels />} />
                     <Route path="insights" element={<CrmInsights />} />
                     <Route path="ad-accounts" element={<CrmAdAccounts />} />
+                    <Route path="setup" element={<CrmSetup />} />
                   </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
