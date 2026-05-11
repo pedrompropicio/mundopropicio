@@ -25,6 +25,8 @@ import {
 import { printCampaignAnalysis, printAudienceCoach } from "@/lib/audience-pdf";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { computeScore } from "@/lib/campaign-score";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -612,12 +614,35 @@ export default function CrmCampaigns() {
   const [analyzeData, setAnalyzeData] = useState<any>(null);
   const [analyzeLoading, setAnalyzeLoading] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [analyzeCampaignId, setAnalyzeCampaignId] = useState<string | null>(null);
+  const [analyzeCampaignName, setAnalyzeCampaignName] = useState<string>("");
+  const [analyzeHistory, setAnalyzeHistory] = useState<any[]>([]);
+  const [analyzeTab, setAnalyzeTab] = useState<string>("resumo");
 
-  const analyzeCampaign = async (campaignId: string, _campaignName: string) => {
+  const loadHistory = async (campaignId: string) => {
+    try {
+      const { data } = await (supabase as any)
+        .schema("crm")
+        .from("meta_campaign_diagnoses")
+        .select("id, created_at, overall_score, severity, summary_text, period_from, period_to, ai_model, diagnosis_jsonb")
+        .eq("external_campaign_id", campaignId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      setAnalyzeHistory(data ?? []);
+    } catch {
+      setAnalyzeHistory([]);
+    }
+  };
+
+  const analyzeCampaign = async (campaignId: string, campaignName: string) => {
     setAnalyzeOpen(true);
     setAnalyzeLoading(true);
     setAnalyzeError(null);
     setAnalyzeData(null);
+    setAnalyzeCampaignId(campaignId);
+    setAnalyzeCampaignName(campaignName);
+    setAnalyzeTab("resumo");
+    void loadHistory(campaignId);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-campaign-analyze", {
         body: {
@@ -630,11 +655,31 @@ export default function CrmCampaigns() {
       if (error) throw error;
       if (data?.error) throw new Error(data.message || data.error);
       setAnalyzeData(data);
+      void loadHistory(campaignId);
     } catch (e: any) {
       setAnalyzeError(e?.message || "Erro desconhecido");
     } finally {
       setAnalyzeLoading(false);
     }
+  };
+
+  const reanalyzeCampaign = () => {
+    if (analyzeCampaignId) void analyzeCampaign(analyzeCampaignId, analyzeCampaignName);
+  };
+
+  const loadHistoricalDiagnosis = (h: any) => {
+    // Reconstrói shape compatível com o sheet a partir do registo persistido
+    setAnalyzeData({
+      diagnosis_id: h.id,
+      campaign: { name: analyzeCampaignName, external_campaign_id: analyzeCampaignId },
+      period: { from: h.period_from, to: h.period_to },
+      diagnosis: h.diagnosis_jsonb,
+      severity: h.severity,
+      overall_score: Number(h.overall_score) || 0,
+      ai_model: h.ai_model,
+      generated_at: h.created_at,
+    });
+    setAnalyzeTab("resumo");
   };
 
   const [coachOpen, setCoachOpen] = useState(false);
@@ -1222,14 +1267,14 @@ export default function CrmCampaigns() {
       </section>
 
       <Sheet open={analyzeOpen} onOpenChange={setAnalyzeOpen}>
-        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+        <SheetContent className="w-full sm:max-w-3xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-cyan-400" />
-              Análise IA da Campanha
+              Diagnóstico IA da Campanha
             </SheetTitle>
             <SheetDescription>
-              {analyzeData?.campaign?.name ?? "A processar…"}
+              {analyzeData?.campaign?.name ?? analyzeCampaignName ?? "A processar…"}
             </SheetDescription>
           </SheetHeader>
 
@@ -1237,8 +1282,8 @@ export default function CrmCampaigns() {
             {analyzeLoading && (
               <div className="flex flex-col items-center gap-3 py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
-                <p className="text-sm text-muted-foreground">A analisar dados...</p>
-                <p className="text-xs text-muted-foreground/70">Pode demorar 10-20s</p>
+                <p className="text-sm text-muted-foreground">A analisar campanha + adsets + ads + criativos…</p>
+                <p className="text-xs text-muted-foreground/70">Pode demorar 15-30s</p>
               </div>
             )}
 
@@ -1248,100 +1293,280 @@ export default function CrmCampaigns() {
               </div>
             )}
 
-            {analyzeData && analyzeData.analysis && (
-              <>
-                <div className="rounded-lg border border-border bg-card p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={cn(
-                      "text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded",
-                      analyzeData.analysis.verdict === "excelente" ? "bg-emerald-500/15 text-emerald-400" :
-                      analyzeData.analysis.verdict === "bom" ? "bg-green-500/15 text-green-400" :
-                      analyzeData.analysis.verdict === "regular" ? "bg-amber-500/15 text-amber-400" :
-                      analyzeData.analysis.verdict === "fraco" ? "bg-orange-500/15 text-orange-400" :
-                      "bg-red-500/15 text-red-400"
-                    )}>
-                      {analyzeData.analysis.verdict}
-                    </span>
+            {analyzeData && analyzeData.diagnosis && (() => {
+              const d = analyzeData.diagnosis;
+              const sev: string = analyzeData.severity ?? d.severity ?? "warning";
+              const score: number = Number(analyzeData.overall_score ?? d.overall_score ?? 0);
+              const sevColor =
+                sev === "critical" ? "bg-red-500/15 text-red-400 border-red-500/30" :
+                sev === "warning" ? "bg-amber-500/15 text-amber-400 border-amber-500/30" :
+                "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
+              const sevLabel = sev === "critical" ? "crítica" : sev === "warning" ? "atenção" : "saudável";
+              const verdictColor = (v: string) =>
+                v === "pause" ? "bg-red-500/15 text-red-400" :
+                v === "scale" ? "bg-emerald-500/15 text-emerald-400" :
+                v === "optimize" ? "bg-amber-500/15 text-amber-400" :
+                "bg-muted text-muted-foreground";
+              const prioColor = (p: string) =>
+                p === "high" ? "bg-red-500/15 text-red-400" :
+                p === "medium" ? "bg-amber-500/15 text-amber-400" :
+                "bg-muted text-muted-foreground";
+
+              return (
+                <>
+                  <div className={cn("rounded-lg border p-4 flex items-start gap-4", sevColor)}>
+                    <div className="text-3xl font-bold tabular-nums">{Math.round(score)}</div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded border border-current">
+                          {sevLabel}
+                        </span>
+                      </div>
+                      <p className="text-sm">{d.summary_pt ?? ""}</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={reanalyzeCampaign} disabled={analyzeLoading}>
+                      <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Re-analisar
+                    </Button>
                   </div>
-                  <p className="text-sm">{analyzeData.analysis.summary}</p>
-                </div>
 
-                <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Pontos fortes
-                  </h4>
-                  <ul className="space-y-1.5">
-                    {analyzeData.analysis.strengths?.map((s: string, i: number) => (
-                      <li key={i} className="text-sm flex gap-2">
-                        <span className="text-emerald-400 mt-0.5">•</span>
-                        <span>{s}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                  <Tabs value={analyzeTab} onValueChange={setAnalyzeTab}>
+                    <TabsList className="grid grid-cols-3 w-full">
+                      <TabsTrigger value="resumo">Resumo</TabsTrigger>
+                      <TabsTrigger value="detalhe">Detalhe</TabsTrigger>
+                      <TabsTrigger value="historico">Histórico ({analyzeHistory.length})</TabsTrigger>
+                    </TabsList>
 
-                <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
-                    <AlertCircle className="h-3.5 w-3.5 text-orange-400" /> Pontos fracos
-                  </h4>
-                  <ul className="space-y-1.5">
-                    {analyzeData.analysis.weaknesses?.map((w: string, i: number) => (
-                      <li key={i} className="text-sm flex gap-2">
-                        <span className="text-orange-400 mt-0.5">•</span>
-                        <span>{w}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-cyan-400" /> Recomendações
-                  </h4>
-                  <div className="space-y-2">
-                    {analyzeData.analysis.recommendations?.map((r: any, i: number) => (
-                      <div key={i} className="rounded-lg border border-border bg-card p-3">
-                        <div className="flex items-start gap-2">
-                          <span className={cn(
-                            "text-[10px] font-bold uppercase px-1.5 py-0.5 rounded",
-                            r.priority === "high" ? "bg-red-500/15 text-red-400" :
-                            r.priority === "medium" ? "bg-amber-500/15 text-amber-400" :
-                            "bg-muted text-muted-foreground"
-                          )}>
-                            {r.priority}
-                          </span>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">{r.action}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{r.rationale}</p>
+                    <TabsContent value="resumo" className="space-y-5 mt-4">
+                      {Array.isArray(d.top_3_actions) && d.top_3_actions.length > 0 && (
+                        <div>
+                          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                            <Sparkles className="h-3.5 w-3.5 text-cyan-400" /> Top 3 ações prioritárias
+                          </h4>
+                          <div className="grid gap-2">
+                            {d.top_3_actions.map((a: any, i: number) => (
+                              <div key={i} className="rounded-lg border border-border bg-card p-3">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-400">
+                                    #{i + 1}
+                                  </span>
+                                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                    {a.target_type}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground/70 truncate">{a.target_external_id}</span>
+                                </div>
+                                <p className="text-sm font-medium">{a.action}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{a.rationale}</p>
+                                {a.expected_impact && (
+                                  <p className="text-xs text-cyan-400/80 mt-1">→ {a.expected_impact}</p>
+                                )}
+                              </div>
+                            ))}
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      )}
+
+                      {d.campaign_diagnosis && (
+                        <>
+                          <div>
+                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Pontos fortes
+                            </h4>
+                            <ul className="space-y-1.5">
+                              {(d.campaign_diagnosis.strengths ?? []).map((s: string, i: number) => (
+                                <li key={i} className="text-sm flex gap-2">
+                                  <span className="text-emerald-400 mt-0.5">•</span><span>{s}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                              <AlertCircle className="h-3.5 w-3.5 text-orange-400" /> Pontos fracos
+                            </h4>
+                            <ul className="space-y-1.5">
+                              {(d.campaign_diagnosis.weaknesses ?? []).map((w: string, i: number) => (
+                                <li key={i} className="text-sm flex gap-2">
+                                  <span className="text-orange-400 mt-0.5">•</span><span>{w}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                          {d.campaign_diagnosis.key_metrics_analysis && (
+                            <div className="rounded-lg border border-border bg-card p-3">
+                              <p className="text-xs uppercase text-muted-foreground mb-1">Análise de métricas</p>
+                              <p className="text-sm whitespace-pre-line">{d.campaign_diagnosis.key_metrics_analysis}</p>
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {d.creative_insights && (
+                        <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
+                          <p className="text-xs uppercase text-cyan-400 mb-1">Cruzamento criativos × performance</p>
+                          <p className="text-sm whitespace-pre-line">{d.creative_insights}</p>
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="detalhe" className="space-y-6 mt-4">
+                      {Array.isArray(d.adset_breakdown) && d.adset_breakdown.length > 0 && (
+                        <div>
+                          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                            Adsets ({d.adset_breakdown.length})
+                          </h4>
+                          <div className="rounded-lg border border-border overflow-hidden">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Nome</TableHead>
+                                  <TableHead>Verdict</TableHead>
+                                  <TableHead>Prioridade</TableHead>
+                                  <TableHead>Razão / ações</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {d.adset_breakdown.map((a: any, i: number) => (
+                                  <TableRow key={i}>
+                                    <TableCell className="text-xs font-medium align-top max-w-[180px] truncate" title={a.name}>{a.name}</TableCell>
+                                    <TableCell className="align-top">
+                                      <span className={cn("text-[10px] uppercase font-bold px-1.5 py-0.5 rounded", verdictColor(a.verdict))}>
+                                        {a.verdict}
+                                      </span>
+                                    </TableCell>
+                                    <TableCell className="align-top">
+                                      <span className={cn("text-[10px] uppercase px-1.5 py-0.5 rounded", prioColor(a.priority))}>
+                                        {a.priority}
+                                      </span>
+                                    </TableCell>
+                                    <TableCell className="text-xs align-top">
+                                      <p className="text-foreground">{a.reason}</p>
+                                      {Array.isArray(a.suggested_actions) && a.suggested_actions.length > 0 && (
+                                        <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                                          {a.suggested_actions.map((s: string, j: number) => (
+                                            <li key={j}>→ {s}</li>
+                                          ))}
+                                        </ul>
+                                      )}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                      )}
+
+                      {Array.isArray(d.ad_breakdown) && d.ad_breakdown.length > 0 && (
+                        <div>
+                          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                            Ads ({d.ad_breakdown.length})
+                          </h4>
+                          <div className="rounded-lg border border-border overflow-hidden">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Nome</TableHead>
+                                  <TableHead>Score criativo</TableHead>
+                                  <TableHead>Verdict</TableHead>
+                                  <TableHead>Razão / ações</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {d.ad_breakdown.map((a: any, i: number) => (
+                                  <TableRow key={i}>
+                                    <TableCell className="text-xs font-medium align-top max-w-[180px] truncate" title={a.name}>{a.name}</TableCell>
+                                    <TableCell className="text-xs align-top tabular-nums">
+                                      {a.creative_score != null ? Math.round(a.creative_score) : "—"}
+                                    </TableCell>
+                                    <TableCell className="align-top">
+                                      <span className={cn("text-[10px] uppercase font-bold px-1.5 py-0.5 rounded", verdictColor(a.verdict))}>
+                                        {a.verdict}
+                                      </span>
+                                      <div className="mt-0.5">
+                                        <span className={cn("text-[10px] uppercase px-1.5 py-0.5 rounded", prioColor(a.priority))}>
+                                          {a.priority}
+                                        </span>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-xs align-top">
+                                      <p className="text-foreground">{a.reason}</p>
+                                      {Array.isArray(a.suggested_actions) && a.suggested_actions.length > 0 && (
+                                        <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                                          {a.suggested_actions.map((s: string, j: number) => (
+                                            <li key={j}>→ {s}</li>
+                                          ))}
+                                        </ul>
+                                      )}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="historico" className="mt-4">
+                      {analyzeHistory.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">Sem diagnósticos anteriores para esta campanha.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {analyzeHistory.map((h) => (
+                            <button
+                              key={h.id}
+                              type="button"
+                              onClick={() => loadHistoricalDiagnosis(h)}
+                              className="w-full text-left rounded-lg border border-border bg-card hover:bg-accent/40 p-3 transition"
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={cn(
+                                  "text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded",
+                                  h.severity === "critical" ? "bg-red-500/15 text-red-400" :
+                                  h.severity === "warning" ? "bg-amber-500/15 text-amber-400" :
+                                  "bg-emerald-500/15 text-emerald-400"
+                                )}>
+                                  {h.severity === "critical" ? "crítica" : h.severity === "warning" ? "atenção" : "saudável"}
+                                </span>
+                                <span className="text-xs font-bold tabular-nums">{Math.round(Number(h.overall_score) || 0)}</span>
+                                <span className="text-xs text-muted-foreground ml-auto">
+                                  {new Date(h.created_at).toLocaleString("pt-PT")}
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground line-clamp-2">{h.summary_text}</p>
+                              <p className="text-[10px] text-muted-foreground/70 mt-1">
+                                {h.period_from} → {h.period_to} · {h.ai_model}
+                              </p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
+
+                  <div className="pt-4 border-t border-border flex items-center gap-2">
+                    <p className="text-xs text-muted-foreground flex-1">
+                      Gerado {new Date(analyzeData.generated_at).toLocaleString("pt-PT")}
+                      {analyzeData.counts && (
+                        <> · {analyzeData.counts.adsets ?? 0} adsets · {analyzeData.counts.ads ?? 0} ads · {analyzeData.counts.creatives_analyzed ?? 0}/{analyzeData.counts.creatives_total ?? 0} criativos analisados</>
+                      )}
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => printCampaignAnalysis(analyzeData)}
+                    >
+                      <FileDown className="h-4 w-4 mr-2" />
+                      PDF
+                    </Button>
                   </div>
-                </div>
-
-                <div className="pt-4 border-t border-border">
-                  <p className="text-xs text-muted-foreground">
-                    Análise baseada em {analyzeData.period?.days_with_data ?? 0} dias de dados · Gerada {new Date(analyzeData.generated_at).toLocaleString("pt-PT")}
-                  </p>
-                </div>
-
-                {analyzeData?.analysis && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => printCampaignAnalysis(analyzeData)}
-                    className="w-full"
-                  >
-                    <FileDown className="h-4 w-4 mr-2" />
-                    Exportar análise como PDF
-                  </Button>
-                )}
-              </>
-            )}
+                </>
+              );
+            })()}
           </div>
         </SheetContent>
       </Sheet>
+
 
       <Sheet open={coachOpen} onOpenChange={setCoachOpen}>
         <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
