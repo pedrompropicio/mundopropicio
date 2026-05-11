@@ -94,6 +94,16 @@ export function AppSidebar() {
       </nav>
 
       <div className="mt-auto w-full px-2 lg:px-3 space-y-1">
+        {isAdmin && (
+          <button
+            onClick={() => navigate("/")}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            title="Trocar módulo"
+          >
+            <Grid3x3 className="h-5 w-5 shrink-0" />
+            <span className="hidden lg:block">Trocar módulo</span>
+          </button>
+        )}
         <div className="hidden lg:flex items-center justify-between mb-2 px-3">
           <span className="truncate text-xs text-muted-foreground">{user?.email}</span>
         </div>
