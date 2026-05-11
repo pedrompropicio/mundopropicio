@@ -27,6 +27,8 @@ const LOADING_STEPS = [
 
 export default function CrmStrategyNew() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromId = searchParams.get("from");
   const { active, isLoading: adAcctLoading } = useAdAccountSelection();
 
   const [name, setName] = useState("");
