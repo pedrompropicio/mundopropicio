@@ -94,6 +94,7 @@ import Companies from "./pages/admin/Companies";
 import Reminders from "./pages/admin/Reminders";
 import RlsLegacyAudit from "./pages/admin/RlsLegacyAudit";
 import CoalaSync from "./pages/admin/CoalaSync";
+import CrmConnections from "./pages/crm/Connections";
 import { PartnerLayout } from "./components/PartnerLayout";
 
 const queryClient = new QueryClient({
