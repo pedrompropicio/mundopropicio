@@ -13,7 +13,8 @@
 .audience-print .doc {
   max-width: 800px;
   margin: 0 auto;
-  padding: 32px 24px 80px;
+  padding: 64px 24px 100px;
+  overflow-x: hidden;
 }
 
 .audience-print h1 {
@@ -205,6 +206,34 @@
   color: #6b7280;
 }
 
+/* Mobile: collapse wide grids so cards don't overflow */
+@media (max-width: 600px) {
+  .audience-print .doc {
+    padding: 64px 12px 100px;
+  }
+  .audience-print .grid-3,
+  .audience-print .grid-4 {
+    grid-template-columns: 1fr 1fr;
+  }
+  .audience-print .grid-5 {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  .audience-print .stat-box .value {
+    font-size: 13pt;
+  }
+  .audience-print h1 {
+    font-size: 18pt;
+  }
+}
+
+@media (max-width: 380px) {
+  .audience-print .grid-3,
+  .audience-print .grid-4,
+  .audience-print .grid-5 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media print {
   .audience-print .print-toolbar,
   .audience-print .print-action,
@@ -212,4 +241,7 @@
   .audience-print { padding: 0; }
   .audience-print .doc { max-width: none; padding: 0; }
   @page { margin: 14mm 12mm; size: A4; }
+  .audience-print .grid-3 { grid-template-columns: 1fr 1fr 1fr !important; }
+  .audience-print .grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr !important; }
+  .audience-print .grid-5 { grid-template-columns: 1fr 1fr 1fr 1fr 1fr !important; }
 }
