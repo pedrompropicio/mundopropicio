@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   FileDown,
   DownloadCloud,
+  Wand2,
 } from "lucide-react";
 import { printCampaignAnalysis, printAudienceCoach } from "@/lib/audience-pdf";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
