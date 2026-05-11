@@ -226,12 +226,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     if (upsertErr) {
       console.error("[crm-meta-sync-campaigns] upsert failed:", upsertErr);
+      await supabase.schema("crm").from("meta_sync_state").upsert({
+        company_id: companyId, connection_id: connectionId, ad_account_id: adAccountId, level: "campaigns",
+        last_error: upsertErr.message, last_error_at: new Date().toISOString(),
+      }, { onConflict: "company_id,connection_id,ad_account_id,level" });
       return json(
         { error: "persist_failed", detail: upsertErr.message },
         500,
       );
     }
   }
+
+  // 3.5) Update sync state cursor
+  const nowIso = new Date().toISOString();
+  const stateRow: Record<string, unknown> = {
+    company_id: companyId,
+    connection_id: connectionId,
+    ad_account_id: adAccountId,
+    level: "campaigns",
+    last_sync_at: nowIso,
+    last_synced_rows_count: rows.length,
+    last_error: null,
+    last_error_at: null,
+  };
+  if (mode === "full") stateRow.last_full_sync_at = nowIso;
+  await supabase.schema("crm").from("meta_sync_state").upsert(stateRow, {
+    onConflict: "company_id,connection_id,ad_account_id,level",
+  });
 
   // 4) Auto-link campaigns to active events (best-effort, do not block)
   let autoLinkedCount = 0;
@@ -252,6 +273,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   return json({
     synced_count: rows.length,
     ad_account_id: adAccountId,
+    mode,
+    incremental_cursor: lastSyncAt,
     auto_linked_count: autoLinkedCount,
   });
 });
