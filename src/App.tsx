@@ -431,6 +431,9 @@ function App() {
                 <Routes>
                   <Route path="/login" element={<AuthRoute />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/privacy" element={<LegalPrivacy />} />
+                  <Route path="/terms" element={<LegalTerms />} />
+                  <Route path="/about" element={<LegalAbout />} />
                   <Route path="/unsubscribe" element={<Unsubscribe />} />
                   <Route path="/accept-invitation" element={<AcceptInvitation />} />
                   <Route path="/camarim-equipa" element={<CamarimEquipa />} />
