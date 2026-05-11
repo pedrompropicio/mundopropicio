@@ -40,18 +40,49 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
 
   const { data: tokenRows, error: tokenErr } = await supabase.rpc("crm_get_meta_decrypted_token", {
-    p_connection_id: connectionId,
-    p_master_key: ENCRYPTION_MASTER_KEY,
+    p_connection_id: connectionId, p_master_key: ENCRYPTION_MASTER_KEY,
   });
   if (tokenErr || !Array.isArray(tokenRows) || tokenRows.length === 0) {
     return json({ error: "connection_not_found_or_unauthorised", detail: tokenErr?.message }, 403);
   }
   const { access_token: accessToken } = tokenRows[0] as { access_token: string };
 
+  // 1. Active campaigns → pixel mapping
+  const campaignsByPixel: Record<string, Array<{ id: string; name: string }>> = {};
+  try {
+    const campUrl = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${adAccountId}/campaigns`);
+    campUrl.searchParams.set("fields", "id,name,effective_status,adsets.limit(50){id,name,promoted_object,status,effective_status}");
+    campUrl.searchParams.set("effective_status", JSON.stringify(["ACTIVE"]));
+    campUrl.searchParams.set("limit", "200");
+    campUrl.searchParams.set("access_token", accessToken);
+    const r = await fetch(campUrl);
+    const j = await r.json();
+    if (r.ok && !j.error) {
+      const campaigns = j.data ?? [];
+      for (const camp of campaigns) {
+        const adsets = camp.adsets?.data ?? [];
+        for (const adset of adsets) {
+          if (adset.effective_status !== "ACTIVE") continue;
+          const pixelId = adset.promoted_object?.pixel_id;
+          if (!pixelId) continue;
+          if (!campaignsByPixel[pixelId]) campaignsByPixel[pixelId] = [];
+          if (!campaignsByPixel[pixelId].some(c => c.id === camp.id)) {
+            campaignsByPixel[pixelId].push({ id: camp.id, name: camp.name });
+          }
+        }
+      }
+    } else {
+      console.error("[pixel-health] campaigns fetch err:", r.status, j.error);
+    }
+  } catch (e) {
+    console.error("[pixel-health] campaigns fetch threw:", e);
+  }
+
+  // 2. Pixels list with detailed fields
   let pixelsList: any[] = [];
   try {
     const pixUrl = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${adAccountId}/adspixels`);
-    pixUrl.searchParams.set("fields", "id,name,code,creation_time,last_fired_time,can_proxy,is_unavailable,is_created_by_business");
+    pixUrl.searchParams.set("fields", "id,name,creation_time,last_fired_time,can_proxy,is_unavailable,is_created_by_business,automatic_matching_fields,enable_automatic_matching,first_party_cookie_status,data_use_setting");
     pixUrl.searchParams.set("access_token", accessToken);
     const r = await fetch(pixUrl);
     const j = await r.json();
@@ -65,95 +96,133 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: "graph_api_unreachable" }, 502);
   }
 
+  // 3. Per-pixel processing
   const pixelsWithStats = await Promise.all(pixelsList.map(async (pix: any) => {
-    let stats: any[] = [];
-    let statsError: string | null = null;
-    try {
-      const since = new Date();
-      since.setUTCDate(since.getUTCDate() - 7);
-      const statsUrl = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${pix.id}/stats`);
-      statsUrl.searchParams.set("aggregation", "event");
-      statsUrl.searchParams.set("start_time", String(Math.floor(since.getTime() / 1000)));
-      statsUrl.searchParams.set("end_time", String(Math.floor(Date.now() / 1000)));
-      statsUrl.searchParams.set("access_token", accessToken);
-      const r = await fetch(statsUrl);
-      const j = await r.json();
-      if (r.ok && !j.error) {
-        stats = j.data ?? [];
-      } else {
-        statsError = j.error?.message ?? `HTTP ${r.status}`;
-      }
-    } catch (e: any) {
-      statsError = e?.message ?? "fetch_threw";
-    }
+    const since = new Date();
+    since.setUTCDate(since.getUTCDate() - 7);
+    const sinceUnix = Math.floor(since.getTime() / 1000);
+    const nowUnix = Math.floor(Date.now() / 1000);
 
-    const totalEvents = stats.reduce((a, s) => a + (s.count ?? 0), 0);
-    const uniqueEvents = stats.reduce((a, s) => a + (s.unique_count ?? 0), 0);
-    const eventTypes = stats.map((s: any) => ({
-      event: s.event,
-      count: s.count ?? 0,
-      unique_count: s.unique_count ?? 0,
+    let eventStats: any[] = [];
+    try {
+      const u = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${pix.id}/stats`);
+      u.searchParams.set("aggregation", "event");
+      u.searchParams.set("start_time", String(sinceUnix));
+      u.searchParams.set("end_time", String(nowUnix));
+      u.searchParams.set("access_token", accessToken);
+      const r = await fetch(u);
+      const j = await r.json();
+      if (r.ok && !j.error) eventStats = j.data ?? [];
+    } catch {}
+
+    let domainStats: any[] = [];
+    try {
+      const u = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${pix.id}/stats`);
+      u.searchParams.set("aggregation", "domain");
+      u.searchParams.set("start_time", String(sinceUnix));
+      u.searchParams.set("end_time", String(nowUnix));
+      u.searchParams.set("access_token", accessToken);
+      const r = await fetch(u);
+      const j = await r.json();
+      if (r.ok && !j.error) domainStats = j.data ?? [];
+    } catch {}
+
+    let purchaseHasValue = false;
+    let purchaseValueSample: number | null = null;
+    try {
+      const purchase = eventStats.find((s: any) => s.event === "Purchase");
+      if (purchase && (purchase.value ?? 0) > 0) {
+        purchaseHasValue = true;
+        purchaseValueSample = purchase.value;
+      }
+    } catch {}
+
+    const totalEvents = eventStats.reduce((a, s) => a + (s.count ?? 0), 0);
+    const uniqueEvents = eventStats.reduce((a, s) => a + (s.unique_count ?? 0), 0);
+    const eventTypes = eventStats.map((s: any) => ({
+      event: s.event, count: s.count ?? 0, unique_count: s.unique_count ?? 0, value: s.value ?? null,
     })).sort((a: any, b: any) => b.count - a.count);
+
+    const domains = domainStats.map((s: any) => ({
+      domain: s.value || s.domain || s.url || "(desconhecido)",
+      count: s.count ?? 0,
+    })).sort((a: any, b: any) => b.count - a.count).slice(0, 10);
 
     const lastFiredAt = pix.last_fired_time ? new Date(pix.last_fired_time) : null;
     const hoursSinceLastFire = lastFiredAt ? (Date.now() - lastFiredAt.getTime()) / (1000 * 60 * 60) : null;
 
+    const linkedCampaigns = campaignsByPixel[pix.id] || [];
+
+    const presentEvents = new Set(eventTypes.map((e: any) => e.event));
+    const funnelEvents = ["PageView", "ViewContent", "AddToCart", "InitiateCheckout", "Purchase"];
+    const funnelPresent = funnelEvents.filter(e => presentEvents.has(e)).length;
+    const standardEvents = ["PageView", "ViewContent", "AddToCart", "InitiateCheckout", "Purchase", "Lead", "Search", "CompleteRegistration"];
+    const standardPresent = standardEvents.filter(e => presentEvents.has(e)).length;
+    const avgPerDay = totalEvents / 7;
+    const automaticMatchingFields: any[] = pix.automatic_matching_fields ?? [];
+    const allowedDomainsCount = domains.length;
+
+    const checks = [
+      { key: "funnel_complete", label: "Funil completo (PV→VC→ATC→IC→Purchase)", max: 20, pts: Math.round((funnelPresent / 5) * 20), value: `${funnelPresent}/5` },
+      { key: "volume", label: "Volume saudável (>100 eventos/dia)", max: 10, pts: avgPerDay >= 100 ? 10 : avgPerDay >= 50 ? 7 : avgPerDay >= 10 ? 4 : 0, value: `${Math.round(avgPerDay)}/dia` },
+      { key: "freshness", label: "Atividade recente (<2h)", max: 10, pts: hoursSinceLastFire === null ? 0 : hoursSinceLastFire < 2 ? 10 : hoursSinceLastFire < 24 ? 5 : 0, value: hoursSinceLastFire !== null ? `${Math.round(hoursSinceLastFire)}h atrás` : "nunca" },
+      { key: "purchase_value", label: "Purchase com valor (essencial p/ ROAS)", max: 15, pts: purchaseHasValue ? 15 : presentEvents.has("Purchase") ? 5 : 0, value: purchaseHasValue ? `~${purchaseValueSample}` : presentEvents.has("Purchase") ? "sem valor" : "ausente" },
+      { key: "auto_matching", label: "Automatic Matching ativo", max: 10, pts: pix.enable_automatic_matching ? 10 : 0, value: pix.enable_automatic_matching ? "ativo" : "inativo" },
+      { key: "matching_fields", label: "Match Quality fields (email, phone, etc)", max: 10, pts: Math.min(10, automaticMatchingFields.length * 2), value: `${automaticMatchingFields.length} fields` },
+      { key: "domains", label: "Domains a disparar", max: 10, pts: allowedDomainsCount >= 1 ? 10 : 0, value: `${allowedDomainsCount} domains` },
+      { key: "first_party_cookie", label: "First-party cookie (iOS/ITP)", max: 5, pts: pix.first_party_cookie_status === "ENABLED" ? 5 : 0, value: pix.first_party_cookie_status ?? "?" },
+      { key: "standard_events", label: "Coverage standard events (8 tipos)", max: 10, pts: Math.round((standardPresent / 8) * 10), value: `${standardPresent}/8` },
+    ];
+    const score = checks.reduce((a, c) => a + c.pts, 0);
+    let grade: string;
+    if (score >= 90) grade = "A+";
+    else if (score >= 80) grade = "A";
+    else if (score >= 70) grade = "B+";
+    else if (score >= 60) grade = "B";
+    else if (score >= 50) grade = "C";
+    else if (score >= 40) grade = "D";
+    else grade = "F";
+
+    const recommendations: string[] = [];
+    if (funnelPresent < 5) recommendations.push(`Implementar eventos do funil em falta: ${funnelEvents.filter(e => !presentEvents.has(e)).join(", ")}`);
+    if (!purchaseHasValue && presentEvents.has("Purchase")) recommendations.push("Adicionar value+currency ao evento Purchase para ROAS funcionar");
+    if (!pix.enable_automatic_matching) recommendations.push("Ativar Automatic Matching no Events Manager para melhorar attribution");
+    if (automaticMatchingFields.length < 3) recommendations.push("Enviar mais parâmetros de matching (email, phone, fbclid, external_id) via dataLayer ou CAPI");
+    if (allowedDomainsCount === 0) recommendations.push("Verificar e autorizar os domains da bilheteira no Business Manager");
+    if (pix.first_party_cookie_status !== "ENABLED") recommendations.push("Ativar first-party cookie para resiliência ao iOS 14.5+ e Safari ITP");
+    if (avgPerDay < 50) recommendations.push("Volume baixo de eventos. Verificar instalação do pixel nas páginas-chave");
+
     let healthStatus: "healthy" | "warning" | "critical" | "unknown" = "unknown";
     let healthMessage = "";
-    if (pix.is_unavailable) {
-      healthStatus = "critical";
-      healthMessage = "Pixel marcado como indisponível pela Meta";
-    } else if (hoursSinceLastFire === null) {
-      healthStatus = "critical";
-      healthMessage = "Pixel nunca disparou eventos";
-    } else if (hoursSinceLastFire > 24) {
-      healthStatus = "critical";
-      healthMessage = `Sem eventos há ${Math.round(hoursSinceLastFire)}h`;
-    } else if (hoursSinceLastFire > 2) {
-      healthStatus = "warning";
-      healthMessage = `Último evento há ${Math.round(hoursSinceLastFire)}h`;
-    } else if (totalEvents === 0) {
-      healthStatus = "warning";
-      healthMessage = "Sem eventos nos últimos 7 dias";
-    } else {
-      healthStatus = "healthy";
-      healthMessage = `Pixel ativo · ${totalEvents.toLocaleString("pt-PT")} eventos em 7d`;
-    }
-
-    const standardEvents = ["PageView", "ViewContent", "AddToCart", "InitiateCheckout", "Purchase", "Lead", "Search", "CompleteRegistration"];
-    const presentEvents = new Set(eventTypes.map((e: any) => e.event));
-    const missingStandardEvents = standardEvents.filter(se => !presentEvents.has(se));
-    const hasPurchase = presentEvents.has("Purchase");
-    const hasFunnel = presentEvents.has("ViewContent") && presentEvents.has("AddToCart") && presentEvents.has("InitiateCheckout") && presentEvents.has("Purchase");
+    if (pix.is_unavailable) { healthStatus = "critical"; healthMessage = "Pixel marcado como indisponível pela Meta"; }
+    else if (hoursSinceLastFire === null) { healthStatus = "critical"; healthMessage = "Pixel nunca disparou eventos"; }
+    else if (hoursSinceLastFire > 24) { healthStatus = "critical"; healthMessage = `Sem eventos há ${Math.round(hoursSinceLastFire)}h`; }
+    else if (score >= 70) { healthStatus = "healthy"; healthMessage = `${grade} · ${score}/100`; }
+    else if (score >= 50) { healthStatus = "warning"; healthMessage = `${grade} · ${score}/100 — melhorias possíveis`; }
+    else { healthStatus = "critical"; healthMessage = `${grade} · ${score}/100 — pixel precisa atenção urgente`; }
 
     return {
-      id: pix.id,
-      name: pix.name,
-      is_unavailable: !!pix.is_unavailable,
-      can_proxy: !!pix.can_proxy,
+      id: pix.id, name: pix.name, is_unavailable: !!pix.is_unavailable,
       last_fired_time: pix.last_fired_time ?? null,
       hours_since_last_fire: hoursSinceLastFire,
-      stats_7d: {
-        total_events: totalEvents,
-        unique_events: uniqueEvents,
-        events_per_day_avg: Math.round(totalEvents / 7),
-        event_types: eventTypes,
-      },
+      score, grade, checks, recommendations,
       health: { status: healthStatus, message: healthMessage },
-      coverage: {
-        has_purchase: hasPurchase,
-        has_full_funnel: hasFunnel,
-        missing_standard_events: missingStandardEvents,
-        present_events: Array.from(presentEvents),
-      },
-      stats_error: statsError,
+      stats_7d: { total_events: totalEvents, unique_events: uniqueEvents, events_per_day_avg: Math.round(avgPerDay), event_types: eventTypes },
+      domains,
+      linked_campaigns: linkedCampaigns,
+      automatic_matching_fields: automaticMatchingFields,
+      enable_automatic_matching: !!pix.enable_automatic_matching,
+      first_party_cookie_status: pix.first_party_cookie_status ?? null,
     };
   }));
 
+  const usedPixels = pixelsWithStats.filter(p => p.linked_campaigns.length > 0);
+
   return json({
     ad_account_id: adAccountId,
-    pixels: pixelsWithStats,
-    count: pixelsWithStats.length,
+    pixels_used_in_active_campaigns: usedPixels,
+    all_pixels: pixelsWithStats,
+    counts: { used: usedPixels.length, total: pixelsWithStats.length },
     fetched_at: new Date().toISOString(),
   });
 });
