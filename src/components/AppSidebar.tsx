@@ -62,7 +62,17 @@ export function AppSidebar() {
     <aside className="fixed left-0 top-14 z-40 flex h-[calc(100vh-3.5rem)] w-16 flex-col items-center border-r border-border bg-sidebar py-4 lg:w-56">
 
       <nav className="flex flex-1 flex-col gap-1 px-2 lg:px-3 w-full overflow-y-auto">
-        {navItems.filter(i => i.show).map((item) => {
+        {navItems.filter((i: any) => i.show).map((item: any, idx) => {
+          if (item.type === "section") {
+            return (
+              <div
+                key={`section-${idx}-${item.label}`}
+                className="mt-3 mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hidden lg:block"
+              >
+                {item.label}
+              </div>
+            );
+          }
           const isActive =
             item.to === "/"
               ? location.pathname === "/"
