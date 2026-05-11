@@ -537,6 +537,7 @@ function CampaignTableHeader() {
         <th className="py-2 px-3 text-left font-medium">Conv.</th>
         <th className="py-2 px-3 text-left font-medium">Verba/dia</th>
         <th className="py-2 px-3 text-left font-medium">Tend. 14d</th>
+        <th className="py-2 px-3 text-left font-medium">Status</th>
       </tr>
     </thead>
   );
