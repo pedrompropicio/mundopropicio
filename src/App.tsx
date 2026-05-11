@@ -430,6 +430,7 @@ function App() {
                     <Route index element={<Navigate to="/audience/dashboard" replace />} />
                     <Route path="dashboard" element={<CrmCampaigns />} />
                     <Route path="connections" element={<CrmConnections />} />
+                    <Route path="pixels" element={<CrmPixels />} />
                   </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
