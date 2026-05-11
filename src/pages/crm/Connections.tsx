@@ -127,6 +127,59 @@ export default function CrmConnections() {
   const [connectingPlatform, setConnectingPlatform] = useState<Platform | null>(null);
   const [confirmDisconnect, setConfirmDisconnect] = useState<ConnectionRow | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [refreshingAccountsFor, setRefreshingAccountsFor] = useState<string | null>(null);
+  const [savingAccountFor, setSavingAccountFor] = useState<string | null>(null);
+
+  const handleRefreshAdAccounts = async (conn: ConnectionRow) => {
+    setRefreshingAccountsFor(conn.id);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "crm-meta-fetch-ad-accounts",
+        { body: { connection_id: conn.id } },
+      );
+      if (error) throw error;
+      const count = (data?.ad_accounts ?? []).length;
+      toast.success(`${count} conta(s) de anúncios carregada(s)`);
+      qc.invalidateQueries({ queryKey: ["crm-connections"] });
+    } catch (e: any) {
+      console.error("[crm/connections] fetch ad accounts failed:", e);
+      toast.error("Falha ao carregar contas de anúncios", {
+        description: e?.message ?? String(e),
+      });
+    } finally {
+      setRefreshingAccountsFor(null);
+    }
+  };
+
+  const handleSelectAdAccount = async (
+    conn: ConnectionRow,
+    accountId: string,
+  ) => {
+    const acct = (conn.available_ad_accounts ?? []).find(
+      (a) => (a.id ?? a.account_id) === accountId,
+    );
+    setSavingAccountFor(conn.id);
+    try {
+      const { error } = await (supabase as any)
+        .schema("crm")
+        .from("ad_platform_connections")
+        .update({
+          selected_ad_account_id: accountId,
+          selected_ad_account_name: acct?.name ?? null,
+        })
+        .eq("id", conn.id);
+      if (error) throw error;
+      toast.success("Conta de anúncios selecionada");
+      qc.invalidateQueries({ queryKey: ["crm-connections"] });
+    } catch (e: any) {
+      console.error("[crm/connections] save ad account failed:", e);
+      toast.error("Falha ao salvar seleção", {
+        description: e?.message ?? String(e),
+      });
+    } finally {
+      setSavingAccountFor(null);
+    }
+  };
 
   const isAuthorized =
     role === "admin" ||
