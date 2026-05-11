@@ -272,8 +272,10 @@ IMPORTANTE: NÃO chames "excelente" a uma campanha com ROAS 5x. A mediana da Mun
     period: {
       days_back: daysBack,
       days_with_data: insights.length,
-      from: insights[0]?.date_start ?? null,
-      to: insights[insights.length - 1]?.date_start ?? null,
+      from: fromDate,
+      to: toDate,
+      from_with_data: insights[0]?.date_start ?? null,
+      to_with_data: insights[insights.length - 1]?.date_start ?? null,
     },
     metrics: {
       spend_eur: spendEur,
