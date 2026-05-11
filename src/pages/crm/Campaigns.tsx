@@ -1063,6 +1063,7 @@ export default function CrmCampaigns() {
                 spark14ByCampaign={spark14ByCampaign}
                 days={periodDays}
                 currency={currency}
+                onAnalyze={analyzeCampaign}
               />
             );
           })
