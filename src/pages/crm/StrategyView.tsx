@@ -90,6 +90,46 @@ export default function CrmStrategyView() {
     },
   });
 
+  const { data: associations } = useQuery({
+    queryKey: ["crm-strategy-creatives", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_strategy_creatives")
+        .select("id, creative_id, phase_id, position, meta_creatives:creative_id(id, name, type, file_url, duration_seconds)")
+        .eq("strategy_id", id)
+        .order("position", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const associationsByPhase = useMemo(() => {
+    const map = new Map<string, any[]>();
+    for (const a of associations ?? []) {
+      const key = a.phase_id ?? "_global";
+      const arr = map.get(key) ?? [];
+      arr.push(a);
+      map.set(key, arr);
+    }
+    return map;
+  }, [associations]);
+
+  const { data: allCreatives } = useQuery({
+    queryKey: ["crm-creatives-for-selector"],
+    enabled: selectorOpen,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_creatives")
+        .select("id, name, type, file_url, duration_seconds, headline")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const plan = data?.generated_plan as any;
 
   const phasesById = useMemo(() => {
