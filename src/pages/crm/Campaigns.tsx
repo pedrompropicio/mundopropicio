@@ -27,6 +27,7 @@ import { computeScore } from "@/lib/campaign-score";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/hooks/useCompany";
+import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -596,6 +597,7 @@ export default function CrmCampaigns() {
   const { role, hasPermission, loading: authLoading } = useAuth();
   const { companyId, isLoading: companyLoading } = useCompany();
   const qc = useQueryClient();
+  const { active } = useAdAccountSelection();
 
   const [period, setPeriod] = useState<PeriodState>(periodFromMode("7d"));
   const [customRange, setCustomRange] = useState<{ from?: Date; to?: Date }>({});
@@ -638,13 +640,13 @@ export default function CrmCampaigns() {
     setCoachError(null);
     setCoachData(null);
     try {
-      if (!connection?.id || !connection?.selected_ad_account_id) {
-        throw new Error("Sem conexão Meta ativa ou conta de anúncios selecionada.");
+      if (!connectionId || !adAccountId) {
+        throw new Error("Sem ad account ativa.");
       }
       const { data, error } = await supabase.functions.invoke("crm-meta-audience-coach", {
         body: {
-          connection_id: connection.id,
-          ad_account_id: connection.selected_ad_account_id,
+          connection_id: connectionId,
+          ad_account_id: adAccountId,
           campaign_id: campaignId,
         },
       });
@@ -664,35 +666,21 @@ export default function CrmCampaigns() {
     role === ("marketing_manager" as any) ||
     hasPermission("crm.campaign.create");
 
-  // ---------- Connection ----------
-  const { data: connection } = useQuery({
-    queryKey: ["crm-connection-meta-active", companyId],
-    enabled: isAuthorized && !!companyId,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .schema("crm")
-        .from("ad_platform_connections")
-        .select(
-          "id, status, selected_ad_account_id, selected_ad_account_name, selected_ad_account_currency, last_validated_at",
-        )
-        .eq("platform", "meta")
-        .eq("status", "active")
-        .maybeSingle();
-      if (error) throw error;
-      return data as ConnectionRow | null;
-    },
-  });
-  const currency = connection?.selected_ad_account_currency || "EUR";
+  // ---------- Active ad account (multi-account support) ----------
+  const adAccountId = active?.ad_account_id ?? null;
+  const connectionId = active?.connection_id ?? null;
+  const currency = active?.ad_account_currency || "EUR";
 
   // ---------- Campaigns ----------
   const { data: campaigns, isLoading: campaignsLoading } = useQuery({
-    queryKey: ["crm-meta-campaigns", companyId],
-    enabled: isAuthorized && !!companyId,
+    queryKey: ["crm-meta-campaigns", companyId, adAccountId],
+    enabled: isAuthorized && !!companyId && !!adAccountId,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .schema("crm")
         .from("meta_campaign_snapshot")
         .select("*")
+        .eq("ad_account_id", adAccountId)
         .order("updated_time", { ascending: false, nullsFirst: false });
       if (error) throw error;
       return (data ?? []) as CampaignRow[];
@@ -701,8 +689,8 @@ export default function CrmCampaigns() {
 
   // ---------- Insights (last 60d to support sparkline + period + previous period) ----------
   const { data: insights, isLoading: insightsLoading } = useQuery({
-    queryKey: ["crm-meta-insights", companyId],
-    enabled: isAuthorized && !!companyId,
+    queryKey: ["crm-meta-insights", companyId, adAccountId],
+    enabled: isAuthorized && !!companyId && !!adAccountId,
     queryFn: async () => {
       const sixtyAgo = subDays(startOfDay(new Date()), 60);
       const { data, error } = await (supabase as any)
@@ -711,6 +699,7 @@ export default function CrmCampaigns() {
         .select(
           "external_campaign_id, date_start, spend_cents, cpc_cents, ctr, impressions, clicks, purchases_count, purchases_value_cents, frequency, currency",
         )
+        .eq("ad_account_id", adAccountId)
         .gte("date_start", format(sixtyAgo, "yyyy-MM-dd"));
       if (error) throw error;
       lastFetchRef.current = Date.now();
@@ -907,19 +896,15 @@ export default function CrmCampaigns() {
 
   // ---------- Sync ----------
   const handleSync = async () => {
-    if (!connection) {
-      toast.error("Nenhuma conexão Meta ativa encontrada");
-      return;
-    }
-    if (!connection.selected_ad_account_id) {
-      toast.error("Selecione uma conta de anúncios primeiro em Conexões");
+    if (!connectionId || !adAccountId) {
+      toast.error("Sem ad account ativa");
       return;
     }
     setSyncing(true);
     try {
       const params = {
-        connection_id: connection.id,
-        ad_account_id: connection.selected_ad_account_id,
+        connection_id: connectionId,
+        ad_account_id: adAccountId,
       };
       const { data: cData, error: cErr } = await supabase.functions.invoke(
         "crm-meta-sync-campaigns",

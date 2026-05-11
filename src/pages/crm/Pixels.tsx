@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Loader2, RefreshCw, CheckCircle2, AlertTriangle, XCircle, HelpCircle, Zap, Sparkles, Check, X, AlertCircle, Globe, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
 
 export default function CrmPixels() {
   const navigate = useNavigate();
@@ -13,33 +13,18 @@ export default function CrmPixels() {
   const [loading, setLoading] = useState(false);
   const [onlyUsed, setOnlyUsed] = useState(true);
 
-  const { data: connection } = useQuery({
-    queryKey: ["meta-connection-for-pixels"],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .schema("crm")
-        .from("ad_platform_connections")
-        .select("id, selected_ad_account_id, selected_ad_account_currency, status")
-        .eq("platform", "meta")
-        .eq("status", "active")
-        .order("connected_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      return data as { id: string; selected_ad_account_id: string | null; selected_ad_account_currency: string | null; status: string } | null;
-    },
-  });
+  const { active } = useAdAccountSelection();
 
   const [pixelsData, setPixelsData] = useState<any>(null);
   const [pixelsError, setPixelsError] = useState<string | null>(null);
 
   const fetchPixels = async () => {
-    if (!connection?.id || !connection?.selected_ad_account_id) return;
+    if (!active?.connection_id || !active?.ad_account_id) return;
     setLoading(true);
     setPixelsError(null);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-pixel-health", {
-        body: { connection_id: connection.id, ad_account_id: connection.selected_ad_account_id },
+        body: { connection_id: active.connection_id, ad_account_id: active.ad_account_id },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.message || data.error);
@@ -52,16 +37,16 @@ export default function CrmPixels() {
   };
 
   useEffect(() => {
-    if (connection?.id) fetchPixels();
+    if (active?.ad_account_id) fetchPixels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connection?.id, refreshKey]);
+  }, [active?.ad_account_id, refreshKey]);
 
-  if (!connection) {
+  if (!active) {
     return (
       <div className="p-6">
         <Card className="p-6">
           <p className="text-sm text-muted-foreground">
-            Sem conexão Meta ativa. Liga a conta Meta primeiro em{" "}
+            Sem ad account ativa. Liga uma conta Meta em{" "}
             <button onClick={() => navigate("/audience/connections")} className="text-cyan-400 underline">
               Conexões
             </button>
