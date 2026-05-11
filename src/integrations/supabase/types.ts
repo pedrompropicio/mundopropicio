@@ -6632,6 +6632,29 @@ export type Database = {
         }
         Returns: string
       }
+      crm_consume_oauth_state: {
+        Args: { p_state_id: string }
+        Returns: {
+          company_id: string
+          platform: string
+          user_id: string
+          valid: boolean
+        }[]
+      }
+      crm_upsert_meta_connection: {
+        Args: {
+          p_access_token: string
+          p_available_ad_accounts?: Json
+          p_company_id: string
+          p_expires_at: string
+          p_external_business_id: string
+          p_external_business_name: string
+          p_master_key: string
+          p_token_type: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       crm_write_audit_log: {
         Args: {
           p_action: string
