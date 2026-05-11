@@ -6632,6 +6632,20 @@ export type Database = {
         }
         Returns: string
       }
+      crm_write_audit_log: {
+        Args: {
+          p_action: string
+          p_company_id: string
+          p_entity_id: string
+          p_entity_type: string
+          p_ip_address?: unknown
+          p_payload_after?: Json
+          p_payload_before?: Json
+          p_user_agent?: string
+          p_user_id: string
+        }
+        Returns: number
+      }
       current_company_id: { Args: never; Returns: string }
       delete_email: {
         Args: { message_id: number; queue_name: string }
