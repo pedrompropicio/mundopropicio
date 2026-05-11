@@ -423,6 +423,11 @@ function App() {
                   <Route path="/accept-invitation" element={<AcceptInvitation />} />
                   <Route path="/camarim-equipa" element={<CamarimEquipa />} />
                   <Route path="/parceiro/*" element={<PartnerLayout />} />
+                  <Route path="/audience" element={<AudienceLayout />}>
+                    <Route index element={<Navigate to="/audience/dashboard" replace />} />
+                    <Route path="dashboard" element={<CrmCampaigns />} />
+                    <Route path="connections" element={<CrmConnections />} />
+                  </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
               </BrowserRouter>
