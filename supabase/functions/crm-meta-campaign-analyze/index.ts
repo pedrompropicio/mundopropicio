@@ -24,15 +24,38 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { campaign_id?: string; days_back?: number };
+  let body: { campaign_id?: string; days_back?: number; from?: string; to?: string };
   try {
     body = await req.json();
   } catch {
     return json({ error: "invalid_json" }, 400);
   }
   const campaignId = body.campaign_id;
-  const daysBack = Math.min(Math.max(body.days_back ?? 30, 7), 90);
   if (!campaignId) return json({ error: "missing_campaign_id" }, 400);
+
+  // Compute the analysis window.
+  // Priority: explicit from/to (ISO YYYY-MM-DD) → days_back → default 30.
+  const isoRe = /^\d{4}-\d{2}-\d{2}$/;
+  let fromDate: string;
+  let toDate: string;
+  let daysBack: number;
+
+  if (body.from && body.to && isoRe.test(body.from) && isoRe.test(body.to) && body.from <= body.to) {
+    fromDate = body.from;
+    toDate = body.to;
+    const f = new Date(fromDate + "T00:00:00Z").getTime();
+    const t = new Date(toDate + "T00:00:00Z").getTime();
+    daysBack = Math.round((t - f) / (1000 * 60 * 60 * 24)) + 1;
+    daysBack = Math.min(Math.max(daysBack, 1), 365);
+  } else {
+    daysBack = Math.min(Math.max(body.days_back ?? 30, 7), 90);
+    const today = new Date();
+    const todayUtc = today.toISOString().slice(0, 10);
+    const since = new Date(today);
+    since.setUTCDate(since.getUTCDate() - (daysBack - 1));
+    fromDate = since.toISOString().slice(0, 10);
+    toDate = todayUtc;
+  }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
