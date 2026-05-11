@@ -43,7 +43,18 @@ import {
   X,
   Image as ImageIcon,
   Video,
+  RefreshCw,
+  ShieldCheck,
+  Eye,
+  Palette,
+  MessageSquare,
+  Award,
+  AlertCircle,
+  Lightbulb,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const CTA_OPTIONS = [
   { v: "GET_TICKETS", l: "Comprar Bilhetes" },
