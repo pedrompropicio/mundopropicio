@@ -6,7 +6,9 @@
 // 2. Decifra o token Meta via RPC SECURITY DEFINER crm_get_meta_decrypted_token.
 // 3. Chama Graph API /me/adaccounts e filtra pelas que pertencem ao BM da connection.
 // 4. Persiste o array (shape limpo) em crm.ad_platform_connections.available_ad_accounts.
-// 5. Devolve { ad_accounts, business_id, business_name }.
+// 5. Sincroniza crm.ad_platform_account_links (upsert por (connection_id, ad_account_id))
+//    preservando is_primary/enabled definidos manualmente; garante 1 primary por connection.
+// 6. Devolve { ad_accounts, business_id, business_name, links_synced }.
 //
 // Notas:
 // - Usa client Supabase com user JWT (não service role) — UPDATE passa pelas policies.
