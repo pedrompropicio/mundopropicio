@@ -88,7 +88,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { connection_id?: string; ad_account_id?: string; campaign_external_ids?: string[] };
+  let body: { connection_id?: string; ad_account_id?: string; campaign_external_ids?: string[]; mode?: "incremental" | "full" };
   try {
     body = await req.json();
   } catch {
@@ -101,6 +101,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const campaignFilter = Array.isArray(body.campaign_external_ids) && body.campaign_external_ids.length > 0
     ? body.campaign_external_ids
     : null;
+  const mode: "incremental" | "full" = body?.mode === "full" ? "full" : "incremental";
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
