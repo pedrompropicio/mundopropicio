@@ -213,12 +213,24 @@ export default function Setup() {
           <Rocket className="h-5 w-5 text-cyan-400" />
         </div>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold">Setup MP Audience</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Configura uma ad account Meta dedicada exclusivamente a esta plataforma, em paralelo à conta da equipa de tráfego.
-          </p>
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <h1 className="text-2xl font-bold">Setup MP Audience</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Configura uma ad account Meta dedicada exclusivamente a esta plataforma, em paralelo à conta da equipa de tráfego.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-muted-foreground hidden sm:inline">🔄 Auto-sync ativo</span>
+              <Button variant="outline" size="sm" onClick={handleManualSync} disabled={syncing}>
+                {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                Sincronizar agora
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
+
 
       <Card className="p-5 bg-cyan-500/5 border-cyan-500/30">
         <h2 className="font-semibold mb-2 text-cyan-400">Porquê uma ad account paralela?</h2>
