@@ -476,6 +476,7 @@ function EventGroupCard({
   spark14ByCampaign,
   days,
   currency,
+  onAnalyze,
 }: {
   event: EventRow;
   campaigns: CampaignRow[];
@@ -484,6 +485,7 @@ function EventGroupCard({
   spark14ByCampaign: Map<string, number[]>;
   days: number;
   currency: string;
+  onAnalyze?: (id: string, name: string) => void;
 }) {
   const [open, setOpen] = useState(true);
   const allInsights = useMemo(
