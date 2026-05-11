@@ -464,10 +464,50 @@ export default function CrmStrategyView() {
   const kpis = plan.kpis_global ?? {};
   const risks: any[] = plan.risks_and_warnings ?? [];
   const brief = plan.creative_brief ?? {};
-  
+
+  // Deployment com sucesso e ainda pausado → banner "Publicar agora"
+  const publishableDeployment = (deployments ?? []).find(
+    (d: any) =>
+      (d.status === "success" || d.status === "partial") &&
+      (d.current_status === "paused" || d.current_status === "mixed") &&
+      Array.isArray(d.meta_campaign_ids) && d.meta_campaign_ids.length > 0,
+  );
 
   return (
     <div className="space-y-6">
+      {publishableDeployment && (
+        <Card className="p-4 border-emerald-500/40 bg-gradient-to-r from-emerald-500/10 to-cyan-500/5">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-10 w-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center shrink-0">
+                <Play className="h-5 w-5 text-emerald-400" />
+              </div>
+              <div>
+                <div className="font-semibold text-sm">Tudo pronto — falta só publicar no Meta</div>
+                <div className="text-xs text-muted-foreground">
+                  {(publishableDeployment.meta_campaign_ids?.length ?? 0)} campanhas criadas em PAUSED. Carrega para activar todas.
+                </div>
+              </div>
+            </div>
+            <Button
+              size="lg"
+              onClick={() => {
+                if (!confirm("Vai activar todas as campanhas/adsets/ads no Meta. Continuar?")) return;
+                handleToggleDeployment(publishableDeployment.id, "ACTIVE");
+              }}
+              disabled={togglingDeploymentId === publishableDeployment.id}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white"
+            >
+              {togglingDeploymentId === publishableDeployment.id ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4 mr-2" />
+              )}
+              Publicar agora no Meta
+            </Button>
+          </div>
+        </Card>
+      )}
       {/* Breadcrumb / back */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <button onClick={() => navigate("/audience/strategies")} className="flex items-center gap-1 hover:text-foreground">
