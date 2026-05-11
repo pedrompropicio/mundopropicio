@@ -30,8 +30,8 @@ import { PushNotificationToggle } from "@/components/PushNotificationToggle";
 
 export function AppSidebar() {
   const location = useLocation();
-  const { isAdmin, isManager, user, signOut, hasPermission, role } = useAuth();
-  const canMpAudience = isAdmin || (role as any) === "marketing_manager";
+  const navigate = useNavigate();
+  const { isAdmin, isManager, user, signOut, hasPermission } = useAuth();
   const [showChangePassword, setShowChangePassword] = useState(false);
 
   const navItems = [
@@ -46,9 +46,6 @@ export function AppSidebar() {
     { to: "/cotacoes", icon: FileCheck, label: "Cotações", show: hasPermission("manage_quotations") || isAdmin },
     { to: "/iva", icon: Receipt, label: "Gestão IVA", show: hasPermission("manage_iva") || isAdmin },
     { to: "/recorrentes", icon: RefreshCw, label: "Recorrentes", show: hasPermission("manage_recurring") || hasPermission("manage_transactions") || isAdmin },
-    { type: "section", label: "MP Audience", show: canMpAudience } as any,
-    { to: "/crm/campaigns", icon: TrendingUp, label: "Dashboard", show: canMpAudience },
-    { to: "/crm/connections", icon: Plug, label: "Conexões", show: canMpAudience },
     { to: "/reembolsos", icon: ReceiptText, label: "Reembolsos", show: hasPermission("manage_transactions") || isAdmin },
     { to: "/camarim", icon: ShoppingBag, label: "Camarim", show: hasPermission("manage_transactions") || hasPermission("camarim_team") || isAdmin },
     { to: "/relatorios", icon: BarChart3, label: "Relatórios", show: hasPermission("view_reports") || isAdmin },
