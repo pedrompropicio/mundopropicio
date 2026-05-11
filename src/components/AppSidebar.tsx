@@ -59,16 +59,7 @@ export function AppSidebar() {
 
       <nav className="flex flex-1 flex-col gap-1 px-2 lg:px-3 w-full overflow-y-auto">
         {navItems.filter((i: any) => i.show).map((item: any, idx) => {
-          if (item.type === "section") {
-            return (
-              <div
-                key={`section-${idx}-${item.label}`}
-                className="mt-3 mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hidden lg:block"
-              >
-                {item.label}
-              </div>
-            );
-          }
+          // sections removed — flat list
           const isActive =
             item.to === "/"
               ? location.pathname === "/"
