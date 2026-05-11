@@ -70,6 +70,14 @@ export default function CrmStrategyPrint() {
 
   return (
     <div className="strategy-print">
+      <button
+        onClick={() => navigate(`/audience/strategies/${id}`)}
+        className="no-print back-btn"
+        aria-label="Voltar à estratégia"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        <span>Voltar</span>
+      </button>
       <button onClick={() => window.print()} className="no-print print-btn" aria-label="Imprimir ou salvar como PDF">
         <Printer className="h-4 w-4" />
         <span>Imprimir / PDF</span>
