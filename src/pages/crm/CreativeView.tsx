@@ -372,21 +372,22 @@ export default function CrmCreativeView() {
             {!isAnalyzing && !data.analyzed_at && (
               <>
                 <p className="text-sm text-muted-foreground mb-3">
-                  A IA vai avaliar Meta compliance, qualidade visual, clareza da mensagem, presença de CTA e branding. Recebe score 0–100, issues e sugestões concretas.
+                  {isVideo
+                    ? "A IA vai avaliar hook, pacing, CTA, áudio, transcrição e alinhamento com o copy. Recebe scores 0–100, issues e sugestões."
+                    : "A IA vai avaliar Meta compliance, qualidade visual, clareza da mensagem, presença de CTA e branding. Recebe score 0–100, issues e sugestões concretas."}
                 </p>
                 <Button
                   onClick={handleAnalyze}
-                  disabled={data.type !== "image"}
                   className="bg-cyan-500 hover:bg-cyan-600 text-white"
                 >
                   <Sparkles className="h-4 w-4 mr-1.5" />
-                  {data.type === "image" ? "Analisar com IA" : "Análise de vídeo em breve"}
+                  Analisar com IA
                 </Button>
               </>
             )}
 
             {!isAnalyzing && data.analyzed_at && data.analysis_jsonb && (
-              <AnalysisRender analysis={data.analysis_jsonb} analyzedAt={data.analyzed_at} model={data.analysis_model} />
+              <AnalysisRender analysis={data.analysis_jsonb} analyzedAt={data.analyzed_at} model={data.analysis_model} type={data.type} />
             )}
           </Card>
 
