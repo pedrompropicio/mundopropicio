@@ -451,6 +451,7 @@ function App() {
                     <Route path="strategies/new" element={<CrmStrategyNew />} />
                     <Route path="strategies/:id" element={<CrmStrategyView />} />
                   </Route>
+                  <Route path="/audience/strategies/:id/print" element={<CrmStrategyPrint />} />
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
               </BrowserRouter>
