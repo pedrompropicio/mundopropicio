@@ -96,6 +96,14 @@ export default function CrmPixels() {
             PDF
           </button>
           <button
+            onClick={() => navigate("/audience/audit/landing")}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition-colors"
+            title="Auditar landing pages, funnel breakdown e pixel"
+          >
+            <Target className="h-4 w-4" />
+            Auditoria técnica completa
+          </button>
+          <button
             onClick={() => setRefreshKey(k => k + 1)}
             disabled={loading}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 transition-colors disabled:opacity-50"
