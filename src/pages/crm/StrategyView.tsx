@@ -726,6 +726,96 @@ export default function CrmStrategyView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Creative selector */}
+      <Dialog open={selectorOpen} onOpenChange={setSelectorOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Adicionar criativos à fase</DialogTitle>
+            <DialogDescription>
+              Seleciona os criativos a usar nesta fase. Cada criativo será deployado como Ad em todos os AdSets desta fase.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!allCreatives ? (
+            <div className="py-8 flex items-center justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : (() => {
+            const existingIds = new Set((associationsByPhase.get(selectorPhaseId ?? "") ?? []).map((a: any) => a.creative_id));
+            const available = (allCreatives ?? []).filter((c: any) => !existingIds.has(c.id));
+            if (available.length === 0) {
+              return (
+                <div className="py-8 text-center">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {existingIds.size > 0
+                      ? "Todos os criativos disponíveis já estão associados a esta fase."
+                      : "Não tens criativos ainda."}
+                  </p>
+                  <Button variant="outline" size="sm" onClick={() => { setSelectorOpen(false); navigate("/audience/creatives/new"); }}>
+                    <Plus className="h-4 w-4 mr-1.5" /> Criar novo criativo
+                  </Button>
+                </div>
+              );
+            }
+            return (
+              <>
+                <div className="text-xs text-muted-foreground">
+                  {selectedCreativeIds.size} de {available.length} selecionado(s)
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {available.map((c: any) => {
+                    const selected = selectedCreativeIds.has(c.id);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCreativeIds((s) => {
+                            const next = new Set(s);
+                            if (next.has(c.id)) next.delete(c.id);
+                            else next.add(c.id);
+                            return next;
+                          });
+                        }}
+                        className={cn(
+                          "relative rounded border-2 overflow-hidden text-left transition-all",
+                          selected ? "border-cyan-400 ring-2 ring-cyan-400/40" : "border-border hover:border-cyan-500/50"
+                        )}
+                      >
+                        <div className="aspect-square bg-muted overflow-hidden">
+                          {c.type === "video" ? (
+                            <video src={c.file_url} className="w-full h-full object-cover" muted playsInline />
+                          ) : (
+                            <img src={c.file_url} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
+                          )}
+                        </div>
+                        <div className="px-2 py-1.5">
+                          <div className="text-xs font-medium truncate" title={c.name}>{c.name}</div>
+                          {c.headline && <div className="text-[10px] text-muted-foreground truncate">{c.headline}</div>}
+                        </div>
+                        {selected && (
+                          <div className="absolute top-1 right-1 h-5 w-5 rounded-full bg-cyan-500 text-white flex items-center justify-center text-xs font-bold">
+                            ✓
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectorOpen(false)} disabled={actionLoading}>Cancelar</Button>
+            <Button onClick={handleAddCreatives} disabled={actionLoading || selectedCreativeIds.size === 0}>
+              {actionLoading && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Adicionar {selectedCreativeIds.size > 0 ? `(${selectedCreativeIds.size})` : ""}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
