@@ -268,12 +268,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
-  const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
-  if (userErr || !userData?.user) {
-    return json({ error: "unauthorized", detail: userErr?.message }, 401);
-  }
-
   const { data: creative, error: creErr } = await (supabase as any)
     .schema("crm")
     .from("meta_creatives")
