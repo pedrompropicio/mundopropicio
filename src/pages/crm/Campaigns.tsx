@@ -25,6 +25,8 @@ import {
 import { printCampaignAnalysis, printAudienceCoach } from "@/lib/audience-pdf";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { computeScore } from "@/lib/campaign-score";
 
 import { supabase } from "@/integrations/supabase/client";
