@@ -6,7 +6,9 @@
 // 2. Decifra o token Meta via RPC SECURITY DEFINER crm_get_meta_decrypted_token.
 // 3. Chama Graph API /me/adaccounts e filtra pelas que pertencem ao BM da connection.
 // 4. Persiste o array (shape limpo) em crm.ad_platform_connections.available_ad_accounts.
-// 5. Devolve { ad_accounts, business_id, business_name }.
+// 5. Sincroniza crm.ad_platform_account_links (upsert por (connection_id, ad_account_id))
+//    preservando is_primary/enabled definidos manualmente; garante 1 primary por connection.
+// 6. Devolve { ad_accounts, business_id, business_name, links_synced }.
 //
 // Notas:
 // - Usa client Supabase com user JWT (não service role) — UPDATE passa pelas policies.
@@ -96,10 +98,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     access_token: accessToken,
     external_business_id: businessId,
     external_business_name: businessName,
+    company_id: companyId,
   } = tokenRows[0] as {
     access_token: string;
     external_business_id: string;
     external_business_name: string;
+    company_id: string;
   };
 
   // 2) Chamar Graph API. TODO: paginação real (>100). Por agora limit=100.
@@ -167,9 +171,57 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
   }
 
+  // 5) Sincronizar ad_platform_account_links (multi-account source of truth)
+  //    Upsert por (connection_id, ad_account_id). Não passamos is_primary/enabled
+  //    para preservar valores definidos manualmente pelo user.
+  let linksSynced = 0;
+  let linksWarning: string | undefined;
+  if (filtered.length > 0) {
+    const linksToUpsert = filtered.map((a) => ({
+      connection_id: connectionId,
+      company_id: companyId,
+      ad_account_id: a.id,
+      ad_account_name: a.name,
+      ad_account_currency: a.currency,
+      display_label: a.name,
+    }));
+
+    const { error: linksErr } = await supabase
+      .schema("crm")
+      .from("ad_platform_account_links")
+      .upsert(linksToUpsert, { onConflict: "connection_id,ad_account_id" });
+
+    if (linksErr) {
+      console.error("[crm-meta-fetch-ad-accounts] upsert links failed:", linksErr);
+      linksWarning = linksErr.message;
+    } else {
+      linksSynced = linksToUpsert.length;
+
+      // Garantir 1 primary por connection
+      const { data: existingPrimary } = await supabase
+        .schema("crm")
+        .from("ad_platform_account_links")
+        .select("id")
+        .eq("connection_id", connectionId)
+        .eq("is_primary", true)
+        .maybeSingle();
+
+      if (!existingPrimary) {
+        await supabase
+          .schema("crm")
+          .from("ad_platform_account_links")
+          .update({ is_primary: true })
+          .eq("connection_id", connectionId)
+          .eq("ad_account_id", filtered[0].id);
+      }
+    }
+  }
+
   return json({
     ad_accounts: filtered,
     business_id: businessId,
     business_name: businessName,
+    links_synced: linksSynced,
+    ...(linksWarning ? { links_warning: linksWarning } : {}),
   });
 });
