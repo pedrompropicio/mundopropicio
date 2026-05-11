@@ -811,7 +811,7 @@ export default function CrmStrategyView() {
           <Rocket className="h-4 w-4 text-cyan-400" /> Deploy para Meta
         </h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Cria automaticamente todas as campanhas, conjuntos de anúncios e anúncios no Meta. Tudo em PAUSED — ativas manualmente no Ads Manager depois de rever.
+          Cria automaticamente todas as campanhas, conjuntos de anúncios e anúncios no Meta. Por segurança, tudo é criado em PAUSED. Depois aprovas e ativas tudo aqui na plataforma com 1 clique — sem precisar do Ads Manager.
         </p>
 
         <div className="space-y-1.5 mb-4">
