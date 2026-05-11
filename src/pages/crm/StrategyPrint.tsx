@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
+import { Loader2, Printer } from "lucide-react";
 import "./strategy-print.css";
 
 function fmtEur(n: number | null | undefined, frac = 0) {
@@ -70,7 +70,10 @@ export default function CrmStrategyPrint() {
 
   return (
     <div className="strategy-print">
-      <button onClick={() => window.print()} className="no-print print-btn">Imprimir / Salvar PDF</button>
+      <button onClick={() => window.print()} className="no-print print-btn" aria-label="Imprimir ou salvar como PDF">
+        <Printer className="h-4 w-4" />
+        <span>Imprimir / PDF</span>
+      </button>
 
       <section className="cover page-break-after">
         <div className="cover-brand">MUNDO PROPÍCIO · MP AUDIENCE</div>
