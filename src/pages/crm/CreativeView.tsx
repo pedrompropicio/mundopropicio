@@ -78,6 +78,7 @@ export default function CrmCreativeView() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
