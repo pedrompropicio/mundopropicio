@@ -210,7 +210,17 @@ export default function CrmCreativeNew() {
         })
         .select("id")
         .single();
-      if (insErr) throw insErr;
+      if (insErr) {
+        const raw = insErr.message ?? String(insErr);
+        const lower = raw.toLowerCase();
+        let friendly = raw;
+        if (lower.includes("relation") && lower.includes("does not exist")) {
+          friendly = "Tabela de criativos não existe neste ambiente — contacta o admin";
+        } else if (lower.includes("row-level security") || lower.includes("permission denied")) {
+          friendly = "Sem permissão para gravar — verifica a tua empresa ativa";
+        }
+        throw new Error(friendly);
+      }
 
       setProgress(100);
       toast.success("Criativo guardado");
