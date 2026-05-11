@@ -19,7 +19,9 @@ import {
   Sparkles,
   Target,
   CheckCircle2,
+  FileDown,
 } from "lucide-react";
+import { printCampaignAnalysis, printAudienceCoach } from "@/lib/audience-pdf";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { computeScore } from "@/lib/campaign-score";
