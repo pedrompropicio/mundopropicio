@@ -22,6 +22,8 @@ import {
   FileDown,
   DownloadCloud,
   Wand2,
+  Pause,
+  Play,
 } from "lucide-react";
 import { printCampaignAnalysis, printAudienceCoach } from "@/lib/audience-pdf";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
