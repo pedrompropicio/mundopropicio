@@ -284,6 +284,14 @@ function ProtectedLayout() {
     }
   } catch {}
 
+  // Admin/platform_admin landing: '/' shows ModuleSelector (no ERP shell).
+  // Use /erp to enter the ERP workspace explicitly.
+  const currentPath = typeof window !== "undefined" ? window.location.pathname : "/";
+  const isPlatformOrAdmin = isAdmin; // isAdmin already covers platform_admin
+  if (isPlatformOrAdmin && currentPath === "/") {
+    return <ModuleSelector />;
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <ApprovedPaymentListReminder />
