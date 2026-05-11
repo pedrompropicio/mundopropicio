@@ -84,7 +84,7 @@ interface EventRow {
   tickets_sold: number | null;
 }
 
-type PeriodMode = "today" | "7d" | "30d" | "custom";
+type PeriodMode = "yesterday" | "7d" | "30d" | "custom";
 interface PeriodState {
   mode: PeriodMode;
   from: Date;
