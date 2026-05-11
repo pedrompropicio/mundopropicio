@@ -214,6 +214,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // 5) Build prompt
   const prompt = `És um especialista em Meta Ads para a indústria de eventos ao vivo (concertos, festivais) em Portugal e Brasil, com 10 anos de experiência. Desenhas estratégias completas de campanha para vender ingressos de eventos, otimizando custo-benefício do tráfego pago.
 
+IMPORTANTE: Esta estratégia será executada AUTOMATICAMENTE através da Meta Marketing API pela plataforma MP Audience. Não precisas de explicar como aplicar manualmente — os campos targeting_json, optimization_goal, billing_event e budgets serão usados diretamente no payload da API. Foca-te em valores precisos e estruturados.
+
 == OBJETIVO DESTA ESTRATÉGIA ==
 - Evento: ${event.name}
 - Data: ${startAtIso ?? "N/A"}
