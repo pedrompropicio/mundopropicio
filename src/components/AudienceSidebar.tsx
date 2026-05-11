@@ -3,6 +3,7 @@ import {
   TrendingUp,
   Plug,
   Zap,
+  Lightbulb,
   ArrowLeft,
   KeyRound,
   LogOut,
@@ -20,6 +21,7 @@ export function AudienceSidebar() {
 
   const items = [
     { to: "/audience/dashboard", icon: TrendingUp, label: "Dashboard" },
+    { to: "/audience/insights", icon: Lightbulb, label: "Insights" },
     { to: "/audience/connections", icon: Plug, label: "Conexões" },
     { to: "/audience/pixels", icon: Zap, label: "Pixels" },
   ];
