@@ -212,12 +212,6 @@ export default function CrmStrategyPrint() {
         </section>
       )}
 
-      {manualApply && (
-        <section>
-          <h2>Como aplicar no Ads Manager</h2>
-          <p style={{ whiteSpace: "pre-line" }}>{manualApply}</p>
-        </section>
-      )}
 
       <div className="footer-meta">
         Estratégia gerada por MP Audience (IA Gemini 2.5 Flash) · {generatedDate} · ID {data.id.slice(0, 8)}
