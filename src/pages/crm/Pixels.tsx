@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, RefreshCw, CheckCircle2, AlertTriangle, XCircle, HelpCircle, Zap, Sparkles, Check, X, AlertCircle, Globe, Target } from "lucide-react";
+import { Loader2, RefreshCw, CheckCircle2, AlertTriangle, XCircle, HelpCircle, Zap, Sparkles, Check, X, AlertCircle, Globe, Target, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
+import { printPixelHealth } from "@/lib/audience-pdf";
 
 export default function CrmPixels() {
   const navigate = useNavigate();
