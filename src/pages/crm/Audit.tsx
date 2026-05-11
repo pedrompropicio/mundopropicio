@@ -131,13 +131,9 @@ export default function CrmAudit() {
           let urls = new Set<string>();
           if (creativeIds.length) {
             const { data: crs } = await (supabase as any).schema("crm").from("meta_creatives")
-              .select("link_url, object_url, raw_jsonb").in("meta_creative_id", creativeIds);
+              .select("link_url").in("meta_creative_id", creativeIds);
             for (const c of crs ?? []) {
               if (c.link_url) urls.add(String(c.link_url));
-              if (c.object_url) urls.add(String(c.object_url));
-              const raw = c.raw_jsonb ?? {};
-              const cand = raw?.object_story_spec?.link_data?.link ?? raw?.template_url ?? raw?.url_tags;
-              if (typeof cand === "string" && cand.startsWith("http")) urls.add(cand);
             }
           }
           setContextInfo({
@@ -163,13 +159,9 @@ export default function CrmAudit() {
             const cIds = Array.from(new Set((ads ?? []).map((a: any) => a.meta_creative_id).filter(Boolean)));
             if (cIds.length) {
               const { data: crs } = await (supabase as any).schema("crm").from("meta_creatives")
-                .select("link_url, object_url, raw_jsonb").in("meta_creative_id", cIds);
+                .select("link_url").in("meta_creative_id", cIds);
               for (const c of crs ?? []) {
                 if (c.link_url) urls.add(String(c.link_url));
-                if (c.object_url) urls.add(String(c.object_url));
-                const raw = c.raw_jsonb ?? {};
-                const cand = raw?.object_story_spec?.link_data?.link;
-                if (typeof cand === "string" && cand.startsWith("http")) urls.add(cand);
               }
             }
           }
