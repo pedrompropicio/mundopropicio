@@ -15,6 +15,7 @@ import {
   ArrowLeft, Loader2, Brain, Copy, Check, Archive, Target, Calendar, Mic2,
   AlertTriangle, Sparkles, ChevronDown, ChevronUp, Pencil, RefreshCw, FileDown, Trash2, Zap,
   Plus, X as XIcon, ImageIcon as Image2,
+  Rocket, ExternalLink, CheckCircle2, XCircle, AlertCircle, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
