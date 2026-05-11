@@ -13,9 +13,6 @@ import { Brain, Loader2, ArrowLeft, Sparkles, Info } from "lucide-react";
 import { toast } from "sonner";
 import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-
 const COUNTRY_OPTIONS = [
   { code: "PT", label: "Portugal" },
   { code: "BR", label: "Brasil" },
@@ -107,10 +104,6 @@ export default function CrmStrategyNew() {
     setSubmitting(true);
     setErrMsg(null);
     try {
-      const sessionRes = await supabase.auth.getSession();
-      const token = sessionRes.data.session?.access_token;
-      if (!token) throw new Error("Sessão expirada — faz login de novo");
-
       const payload = {
         event_id: eventId,
         connection_id: active.connection_id,
@@ -124,39 +117,45 @@ export default function CrmStrategyNew() {
         strategy_name: name || undefined,
       };
 
-      const resp = await fetch(
-        `${SUPABASE_URL}/functions/v1/crm-meta-campaign-strategy-generate`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-            "apikey": SUPABASE_ANON,
-          },
-          body: JSON.stringify(payload),
-        },
+      const { data, error } = await supabase.functions.invoke(
+        "crm-meta-campaign-strategy-generate",
+        { body: payload },
       );
 
-      const bodyText = await resp.text();
-      let bodyJson: any = null;
-      try { bodyJson = JSON.parse(bodyText); } catch {}
-
-      if (!resp.ok) {
-        const errCode = bodyJson?.error || "http_error";
-        const errDetail = bodyJson?.message || bodyJson?.detail || bodyText.slice(0, 500);
-        const errStatus = `HTTP ${resp.status}`;
-        const rawPreview = bodyJson?.raw_preview
-          ? `\n\nGemini preview:\n${String(bodyJson.raw_preview).slice(0, 400)}`
-          : "";
-        throw new Error(`[${errStatus}] [${errCode}]\n${errDetail}${rawPreview}`);
+      if (error) {
+        let detailedMsg = error.message ?? "Erro a invocar edge function";
+        if ((error as any).context) {
+          try {
+            const ctx = (error as any).context;
+            if (typeof ctx.json === "function") {
+              const cloned = ctx.clone ? ctx.clone() : ctx;
+              const body = await cloned.json();
+              const errCode = body?.error || "unknown";
+              const errDetail = body?.message || body?.detail || "";
+              const rawPrev = body?.raw_preview ? `\n\nGemini preview:\n${String(body.raw_preview).slice(0, 400)}` : "";
+              detailedMsg = `[${errCode}]${errDetail ? "\n" + errDetail : ""}${rawPrev}`;
+            } else if (typeof ctx.text === "function") {
+              const cloned = ctx.clone ? ctx.clone() : ctx;
+              const txt = await cloned.text();
+              detailedMsg = `${detailedMsg}\n\nBody: ${txt.slice(0, 400)}`;
+            }
+          } catch {
+            // ignore
+          }
+        }
+        throw new Error(detailedMsg);
       }
 
-      if (!bodyJson?.strategy_id) {
-        throw new Error(`Resposta inesperada: ${bodyText.slice(0, 300)}`);
+      if ((data as any)?.error) {
+        throw new Error(`[${(data as any).error}] ${(data as any).message || (data as any).detail || ""}`);
+      }
+
+      if (!(data as any)?.strategy_id) {
+        throw new Error(`Resposta sem strategy_id: ${JSON.stringify(data).slice(0, 300)}`);
       }
 
       toast.success("Estratégia gerada!");
-      navigate(`/audience/strategies/${bodyJson.strategy_id}`);
+      navigate(`/audience/strategies/${(data as any).strategy_id}`);
     } catch (e: any) {
       const msg = e?.message ?? "Erro a gerar estratégia";
       setErrMsg(msg);
