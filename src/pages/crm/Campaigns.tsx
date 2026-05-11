@@ -657,6 +657,8 @@ export default function CrmCampaigns() {
       setCoachLoading(false);
     }
   };
+
+  const isAuthorized =
     role === "admin" ||
     role === ("platform_admin" as any) ||
     role === ("marketing_manager" as any) ||
