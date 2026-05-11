@@ -78,9 +78,9 @@ interface ConnectionRow {
 interface EventRow {
   id: string;
   name: string;
-  event_date: string | null;
+  date: string | null;
   status: string;
-  capacity: number | null;
+  tickets_total: number | null;
   tickets_sold: number | null;
 }
 
@@ -538,7 +538,7 @@ export default function CrmCampaigns() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("events")
-        .select("id, name, event_date, status, capacity, tickets_sold")
+        .select("id, name, date, status, tickets_total, tickets_sold")
         .in("id", linkedEventIds);
       if (error) throw error;
       return (data ?? []) as EventRow[];
