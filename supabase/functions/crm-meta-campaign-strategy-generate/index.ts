@@ -98,9 +98,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // 1) auth user
-  const { data: userData, error: userErr } = await supabase.auth.getUser();
-  if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
+  // 1) auth user — extrair token do header e passar explicitamente
+  const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
+  const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
+  if (userErr || !userData?.user) {
+    console.error("[auth] getUser failed", userErr);
+    return json({ error: "unauthorized", detail: userErr?.message }, 401);
+  }
   const userId = userData.user.id;
 
   // 2) decrypt token
