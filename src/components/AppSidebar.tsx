@@ -31,7 +31,8 @@ import { PushNotificationToggle } from "@/components/PushNotificationToggle";
 
 export function AppSidebar() {
   const location = useLocation();
-  const { isAdmin, isManager, user, signOut, hasPermission } = useAuth();
+  const { isAdmin, isManager, user, signOut, hasPermission, role } = useAuth();
+  const canMpAudience = isAdmin || (role as any) === "marketing_manager";
   const [showChangePassword, setShowChangePassword] = useState(false);
 
   const navItems = [
