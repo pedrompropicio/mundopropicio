@@ -470,6 +470,55 @@ function CampaignTableRow({
       <td className="py-2.5 px-3">
         <Sparkline data={spark} />
       </td>
+      <td className="py-2.5 px-3" onClick={(e) => e.stopPropagation()}>
+        {(() => {
+          const eff = c.effective_status ?? c.status ?? null;
+          const isActive = eff === "ACTIVE";
+          const isPaused = eff === "PAUSED";
+          if (!isActive && !isPaused) {
+            return (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-[10px] text-muted-foreground border border-border rounded px-2 py-0.5 cursor-help">
+                    {eff ?? "—"}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Status não permite ação direta no Meta.</TooltipContent>
+              </Tooltip>
+            );
+          }
+          return (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={toggling || !onToggleStatus}
+              onClick={() => {
+                if (!onToggleStatus) return;
+                if (isActive) {
+                  if (!confirm(`Pausar campanha "${c.name}" no Meta? Pode reactivar depois.`)) return;
+                  onToggleStatus(c, "PAUSED");
+                } else {
+                  onToggleStatus(c, "ACTIVE");
+                }
+              }}
+              className={cn(
+                "h-7 px-2 text-[11px]",
+                isActive
+                  ? "border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                  : "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10",
+              )}
+            >
+              {toggling ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : isActive ? (
+                <><Pause className="h-3 w-3 mr-1" />Pausar</>
+              ) : (
+                <><Play className="h-3 w-3 mr-1" />Activar</>
+              )}
+            </Button>
+          );
+        })()}
+      </td>
     </tr>
   );
 }
