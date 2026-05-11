@@ -22,13 +22,13 @@ export default function CrmInsights() {
   const [bpExpanded, setBpExpanded] = useState<Record<string, boolean>>({});
 
   const fetchBlueprints = async () => {
-    if (!connection?.id || !connection?.selected_ad_account_id) return;
+    if (!active?.connection_id || !active?.ad_account_id) return;
     setBpLoading(true); setBpError(null);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-audience-blueprints", {
         body: {
-          connection_id: connection.id,
-          ad_account_id: connection.selected_ad_account_id,
+          connection_id: active.connection_id,
+          ad_account_id: active.ad_account_id,
           min_roas: minRoas,
           days_back: periodDays,
           limit: bpLimit,
@@ -48,12 +48,12 @@ export default function CrmInsights() {
   const [iData, setIData] = useState<any>(null);
 
   const fetchInterests = async () => {
-    if (!connection?.id || !connection?.selected_ad_account_id) return;
+    if (!active?.connection_id || !active?.ad_account_id) return;
     if (!iQuery.trim()) return;
     setILoading(true); setIError(null);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-interest-search", {
-        body: { connection_id: connection.id, ad_account_id: connection.selected_ad_account_id, query: iQuery.trim() },
+        body: { connection_id: active.connection_id, ad_account_id: active.ad_account_id, query: iQuery.trim() },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.message || data.error);
@@ -68,11 +68,11 @@ export default function CrmInsights() {
   const [caData, setCaData] = useState<any>(null);
 
   const fetchCustomAudiences = async () => {
-    if (!connection?.id || !connection?.selected_ad_account_id) return;
+    if (!active?.connection_id || !active?.ad_account_id) return;
     setCaLoading(true); setCaError(null);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-list-custom-audiences", {
-        body: { connection_id: connection.id, ad_account_id: connection.selected_ad_account_id },
+        body: { connection_id: active.connection_id, ad_account_id: active.ad_account_id },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.message || data.error);
@@ -85,7 +85,7 @@ export default function CrmInsights() {
     navigator.clipboard.writeText(text).then(() => toast.success(label));
   };
 
-  if (!connection) {
+  if (!active) {
     return (
       <div className="p-6">
         <Card className="p-6">
