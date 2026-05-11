@@ -1,0 +1,43 @@
+-- Fase 5 — crm.landing_audit_results (idempotente)
+-- Aplicar no SQL Editor do Supabase Live antes de invocar a edge function crm-meta-landing-audit.
+
+CREATE TABLE IF NOT EXISTS crm.landing_audit_results (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id uuid NOT NULL,
+  url text NOT NULL,
+  audit_source text NOT NULL DEFAULT 'pagespeed',
+  strategy text NOT NULL CHECK (strategy IN ('mobile','desktop')),
+  region text,
+  performance_score numeric,
+  accessibility_score numeric,
+  seo_score numeric,
+  best_practices_score numeric,
+  lcp_ms integer,
+  fcp_ms integer,
+  tbt_ms integer,
+  tti_ms integer,
+  si_ms integer,
+  ttfb_ms integer,
+  cls numeric,
+  raw_jsonb jsonb,
+  audited_at timestamptz NOT NULL DEFAULT now(),
+  audited_by uuid
+);
+
+CREATE INDEX IF NOT EXISTS idx_landing_audit_company_url_at ON crm.landing_audit_results (company_id, url, audited_at DESC);
+CREATE INDEX IF NOT EXISTS idx_landing_audit_company_at ON crm.landing_audit_results (company_id, audited_at DESC);
+
+ALTER TABLE crm.landing_audit_results ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS service_role_bypass ON crm.landing_audit_results;
+DROP POLICY IF EXISTS tenant_isolation_select ON crm.landing_audit_results;
+DROP POLICY IF EXISTS tenant_isolation_insert ON crm.landing_audit_results;
+DROP POLICY IF EXISTS tenant_isolation_delete ON crm.landing_audit_results;
+
+CREATE POLICY service_role_bypass ON crm.landing_audit_results AS PERMISSIVE FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY tenant_isolation_select ON crm.landing_audit_results FOR SELECT TO authenticated USING (company_id = current_company_id());
+CREATE POLICY tenant_isolation_insert ON crm.landing_audit_results FOR INSERT TO authenticated WITH CHECK (company_id = current_company_id());
+CREATE POLICY tenant_isolation_delete ON crm.landing_audit_results FOR DELETE TO authenticated USING (company_id = current_company_id());
+
+GRANT SELECT, INSERT, DELETE ON crm.landing_audit_results TO authenticated;
+GRANT ALL ON crm.landing_audit_results TO service_role;
