@@ -1109,6 +1109,7 @@ export default function CrmCampaigns() {
                       days={periodDays}
                       spark={spark14ByCampaign.get(c.external_campaign_id) ?? []}
                       currency={currency}
+                      onAnalyze={analyzeCampaign}
                     />
                   ))}
                 </tbody>
@@ -1117,6 +1118,116 @@ export default function CrmCampaigns() {
           </Card>
         )}
       </section>
+
+      <Sheet open={analyzeOpen} onOpenChange={setAnalyzeOpen}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-cyan-400" />
+              Análise IA da Campanha
+            </SheetTitle>
+            <SheetDescription>
+              {analyzeData?.campaign?.name ?? "A processar…"}
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-6 space-y-6">
+            {analyzeLoading && (
+              <div className="flex flex-col items-center gap-3 py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
+                <p className="text-sm text-muted-foreground">A analisar dados...</p>
+                <p className="text-xs text-muted-foreground/70">Pode demorar 10-20s</p>
+              </div>
+            )}
+
+            {analyzeError && (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+                <p className="text-sm text-red-400">{analyzeError}</p>
+              </div>
+            )}
+
+            {analyzeData && analyzeData.analysis && (
+              <>
+                <div className="rounded-lg border border-border bg-card p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={cn(
+                      "text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded",
+                      analyzeData.analysis.verdict === "excelente" ? "bg-emerald-500/15 text-emerald-400" :
+                      analyzeData.analysis.verdict === "bom" ? "bg-green-500/15 text-green-400" :
+                      analyzeData.analysis.verdict === "regular" ? "bg-amber-500/15 text-amber-400" :
+                      analyzeData.analysis.verdict === "fraco" ? "bg-orange-500/15 text-orange-400" :
+                      "bg-red-500/15 text-red-400"
+                    )}>
+                      {analyzeData.analysis.verdict}
+                    </span>
+                  </div>
+                  <p className="text-sm">{analyzeData.analysis.summary}</p>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Pontos fortes
+                  </h4>
+                  <ul className="space-y-1.5">
+                    {analyzeData.analysis.strengths?.map((s: string, i: number) => (
+                      <li key={i} className="text-sm flex gap-2">
+                        <span className="text-emerald-400 mt-0.5">•</span>
+                        <span>{s}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <AlertCircle className="h-3.5 w-3.5 text-orange-400" /> Pontos fracos
+                  </h4>
+                  <ul className="space-y-1.5">
+                    {analyzeData.analysis.weaknesses?.map((w: string, i: number) => (
+                      <li key={i} className="text-sm flex gap-2">
+                        <span className="text-orange-400 mt-0.5">•</span>
+                        <span>{w}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-cyan-400" /> Recomendações
+                  </h4>
+                  <div className="space-y-2">
+                    {analyzeData.analysis.recommendations?.map((r: any, i: number) => (
+                      <div key={i} className="rounded-lg border border-border bg-card p-3">
+                        <div className="flex items-start gap-2">
+                          <span className={cn(
+                            "text-[10px] font-bold uppercase px-1.5 py-0.5 rounded",
+                            r.priority === "high" ? "bg-red-500/15 text-red-400" :
+                            r.priority === "medium" ? "bg-amber-500/15 text-amber-400" :
+                            "bg-muted text-muted-foreground"
+                          )}>
+                            {r.priority}
+                          </span>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{r.action}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{r.rationale}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-border">
+                  <p className="text-xs text-muted-foreground">
+                    Análise baseada em {analyzeData.period?.days_with_data ?? 0} dias de dados · Gerada {new Date(analyzeData.generated_at).toLocaleString("pt-PT")}
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
