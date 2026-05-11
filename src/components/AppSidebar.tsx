@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
+import { NavLink as RouterNavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Calendar,
@@ -21,8 +21,7 @@ import {
   ReceiptText,
   ShoppingBag,
   ClipboardCheck,
-  TrendingUp,
-  Plug,
+  Grid3x3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
