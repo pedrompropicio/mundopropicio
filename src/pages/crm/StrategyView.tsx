@@ -502,16 +502,33 @@ export default function CrmStrategyView() {
         </Card>
       )}
 
-      {/* Manual apply instructions */}
-      {manualApply && (
-        <Card className="p-5">
-          <h2 className="text-lg font-semibold mb-3">Como aplicar no Ads Manager</h2>
-          <p className="text-sm text-muted-foreground whitespace-pre-line">{manualApply}</p>
-          <Button variant="outline" className="mt-4" onClick={handleCopyJson}>
-            <Copy className="h-4 w-4 mr-1.5" /> {copied ? "Copiado!" : "Copiar plano completo (JSON)"}
+      {/* Next steps - automação futura */}
+      <Card className="p-5 border-cyan-500/30 bg-cyan-500/[0.03]">
+        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <Zap className="h-4 w-4 text-cyan-400" /> Próximos passos
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Em breve poderás criar todas estas campanhas automaticamente na Meta com 1 clique, usando os parâmetros gerados pela IA.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button disabled className="bg-cyan-500/40 cursor-not-allowed">
+            <Sparkles className="h-4 w-4 mr-1.5" /> Criar campanhas automaticamente (em breve)
           </Button>
-        </Card>
-      )}
+          <Button variant="outline" onClick={handleCopyJson}>
+            <Copy className="h-4 w-4 mr-1.5" /> {copied ? "Copiado!" : "Copiar plano (JSON)"}
+          </Button>
+        </div>
+        {plan.automation_metadata?.requires_manual_setup?.length > 0 && (
+          <div className="mt-4 text-xs text-muted-foreground">
+            <strong className="text-foreground">Antes de automatizar, garante que existe no Business Manager:</strong>
+            <ul className="list-disc list-inside mt-1.5 space-y-0.5">
+              {plan.automation_metadata.requires_manual_setup.map((item: string, i: number) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </Card>
 
       {/* Edit Modal */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
