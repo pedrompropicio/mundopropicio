@@ -5,6 +5,7 @@ import {
   Zap,
   Lightbulb,
   Rocket,
+  Brain,
   ArrowLeft,
   KeyRound,
   LogOut,
