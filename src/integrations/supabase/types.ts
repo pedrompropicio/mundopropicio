@@ -6641,6 +6641,15 @@ export type Database = {
           valid: boolean
         }[]
       }
+      crm_get_meta_decrypted_token: {
+        Args: { p_connection_id: string; p_master_key: string }
+        Returns: {
+          access_token: string
+          company_id: string
+          external_business_id: string
+          external_business_name: string
+        }[]
+      }
       crm_upsert_meta_connection: {
         Args: {
           p_access_token: string
