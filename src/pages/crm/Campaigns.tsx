@@ -894,19 +894,15 @@ export default function CrmCampaigns() {
 
   // ---------- Sync ----------
   const handleSync = async () => {
-    if (!connection) {
-      toast.error("Nenhuma conexão Meta ativa encontrada");
-      return;
-    }
-    if (!connection.selected_ad_account_id) {
-      toast.error("Selecione uma conta de anúncios primeiro em Conexões");
+    if (!connectionId || !adAccountId) {
+      toast.error("Sem ad account ativa");
       return;
     }
     setSyncing(true);
     try {
       const params = {
-        connection_id: connection.id,
-        ad_account_id: connection.selected_ad_account_id,
+        connection_id: connectionId,
+        ad_account_id: adAccountId,
       };
       const { data: cData, error: cErr } = await supabase.functions.invoke(
         "crm-meta-sync-campaigns",
