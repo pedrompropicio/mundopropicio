@@ -134,6 +134,37 @@ export default function CrmStrategyView() {
     },
   });
 
+  const { data: connection } = useQuery({
+    queryKey: ["crm-active-connection", data?.connection_id],
+    enabled: !!data?.connection_id,
+    queryFn: async () => {
+      const { data: c, error } = await (supabase as any)
+        .schema("crm")
+        .from("ad_platform_connections")
+        .select("id, status, selected_ad_account_id, selected_ad_account_name, selected_page_id, selected_instagram_id, expires_at")
+        .eq("id", data.connection_id)
+        .maybeSingle();
+      if (error) throw error;
+      return c;
+    },
+  });
+
+  const { data: deployments } = useQuery({
+    queryKey: ["crm-strategy-deployments", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_campaign_strategy_deployments")
+        .select("id, status, ad_account_id, meta_campaign_ids, meta_adset_ids, meta_ad_ids, error_summary, started_at, completed_at, duration_ms, created_at")
+        .eq("strategy_id", id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const plan = data?.generated_plan as any;
 
   const phasesById = useMemo(() => {
