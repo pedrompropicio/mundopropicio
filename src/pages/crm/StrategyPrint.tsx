@@ -59,7 +59,6 @@ export default function CrmStrategyPrint() {
   const kpis = plan.kpis_global ?? {};
   const risks: any[] = plan.risks_and_warnings ?? [];
   const brief = plan.creative_brief ?? {};
-  const manualApply: string = plan.manual_apply_instructions ?? "";
   const generatedDate = data.generated_at ? new Date(data.generated_at).toLocaleDateString("pt-PT") : "—";
 
   const phaseCampaigns = new Map<string, any[]>();
