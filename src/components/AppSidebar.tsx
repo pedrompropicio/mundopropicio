@@ -21,6 +21,8 @@ import {
   ReceiptText,
   ShoppingBag,
   ClipboardCheck,
+  TrendingUp,
+  Plug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,7 +31,8 @@ import { PushNotificationToggle } from "@/components/PushNotificationToggle";
 
 export function AppSidebar() {
   const location = useLocation();
-  const { isAdmin, isManager, user, signOut, hasPermission } = useAuth();
+  const { isAdmin, isManager, user, signOut, hasPermission, role } = useAuth();
+  const canMpAudience = isAdmin || (role as any) === "marketing_manager";
   const [showChangePassword, setShowChangePassword] = useState(false);
 
   const navItems = [
@@ -44,6 +47,9 @@ export function AppSidebar() {
     { to: "/cotacoes", icon: FileCheck, label: "Cotações", show: hasPermission("manage_quotations") || isAdmin },
     { to: "/iva", icon: Receipt, label: "Gestão IVA", show: hasPermission("manage_iva") || isAdmin },
     { to: "/recorrentes", icon: RefreshCw, label: "Recorrentes", show: hasPermission("manage_recurring") || hasPermission("manage_transactions") || isAdmin },
+    { type: "section", label: "MP Audience", show: canMpAudience } as any,
+    { to: "/crm/campaigns", icon: TrendingUp, label: "Dashboard", show: canMpAudience },
+    { to: "/crm/connections", icon: Plug, label: "Conexões", show: canMpAudience },
     { to: "/reembolsos", icon: ReceiptText, label: "Reembolsos", show: hasPermission("manage_transactions") || isAdmin },
     { to: "/camarim", icon: ShoppingBag, label: "Camarim", show: hasPermission("manage_transactions") || hasPermission("camarim_team") || isAdmin },
     { to: "/relatorios", icon: BarChart3, label: "Relatórios", show: hasPermission("view_reports") || isAdmin },
@@ -56,7 +62,17 @@ export function AppSidebar() {
     <aside className="fixed left-0 top-14 z-40 flex h-[calc(100vh-3.5rem)] w-16 flex-col items-center border-r border-border bg-sidebar py-4 lg:w-56">
 
       <nav className="flex flex-1 flex-col gap-1 px-2 lg:px-3 w-full overflow-y-auto">
-        {navItems.filter(i => i.show).map((item) => {
+        {navItems.filter((i: any) => i.show).map((item: any, idx) => {
+          if (item.type === "section") {
+            return (
+              <div
+                key={`section-${idx}-${item.label}`}
+                className="mt-3 mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hidden lg:block"
+              >
+                {item.label}
+              </div>
+            );
+          }
           const isActive =
             item.to === "/"
               ? location.pathname === "/"
