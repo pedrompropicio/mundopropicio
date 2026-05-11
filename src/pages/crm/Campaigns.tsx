@@ -673,13 +673,14 @@ export default function CrmCampaigns() {
 
   // ---------- Campaigns ----------
   const { data: campaigns, isLoading: campaignsLoading } = useQuery({
-    queryKey: ["crm-meta-campaigns", companyId],
-    enabled: isAuthorized && !!companyId,
+    queryKey: ["crm-meta-campaigns", companyId, adAccountId],
+    enabled: isAuthorized && !!companyId && !!adAccountId,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .schema("crm")
         .from("meta_campaign_snapshot")
         .select("*")
+        .eq("ad_account_id", adAccountId)
         .order("updated_time", { ascending: false, nullsFirst: false });
       if (error) throw error;
       return (data ?? []) as CampaignRow[];
@@ -688,8 +689,8 @@ export default function CrmCampaigns() {
 
   // ---------- Insights (last 60d to support sparkline + period + previous period) ----------
   const { data: insights, isLoading: insightsLoading } = useQuery({
-    queryKey: ["crm-meta-insights", companyId],
-    enabled: isAuthorized && !!companyId,
+    queryKey: ["crm-meta-insights", companyId, adAccountId],
+    enabled: isAuthorized && !!companyId && !!adAccountId,
     queryFn: async () => {
       const sixtyAgo = subDays(startOfDay(new Date()), 60);
       const { data, error } = await (supabase as any)
@@ -698,6 +699,7 @@ export default function CrmCampaigns() {
         .select(
           "external_campaign_id, date_start, spend_cents, cpc_cents, ctr, impressions, clicks, purchases_count, purchases_value_cents, frequency, currency",
         )
+        .eq("ad_account_id", adAccountId)
         .gte("date_start", format(sixtyAgo, "yyyy-MM-dd"));
       if (error) throw error;
       lastFetchRef.current = Date.now();
