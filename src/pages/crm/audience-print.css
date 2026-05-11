@@ -212,25 +212,20 @@
     padding: 64px 12px 100px;
   }
   .audience-print .grid-3,
-  .audience-print .grid-4 {
+  .audience-print .grid-4,
+  .audience-print .grid-5 {
     grid-template-columns: 1fr 1fr;
   }
-  .audience-print .grid-5 {
-    grid-template-columns: 1fr 1fr 1fr;
+  /* Make last orphan item span the full row to stay aligned */
+  .audience-print .grid-3 > :last-child:nth-child(odd),
+  .audience-print .grid-5 > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
   }
   .audience-print .stat-box .value {
     font-size: 13pt;
   }
   .audience-print h1 {
     font-size: 18pt;
-  }
-}
-
-@media (max-width: 380px) {
-  .audience-print .grid-3,
-  .audience-print .grid-4,
-  .audience-print .grid-5 {
-    grid-template-columns: 1fr 1fr;
   }
 }
 
