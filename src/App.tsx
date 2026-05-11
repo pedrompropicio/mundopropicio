@@ -458,6 +458,8 @@ function App() {
                     <Route path="creatives" element={<CrmCreatives />} />
                     <Route path="creatives/new" element={<CrmCreativeNew />} />
                     <Route path="creatives/:id" element={<CrmCreativeView />} />
+                    <Route path="audit/:contextType/:contextId" element={<CrmAudit />} />
+                    <Route path="audit/:contextType" element={<CrmAudit />} />
                   </Route>
                   <Route path="/audience/strategies/:id/print" element={<CrmStrategyPrint />} />
                   <Route path="/audience/print/:type" element={<AudiencePrint />} />
