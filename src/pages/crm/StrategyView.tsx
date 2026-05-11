@@ -228,7 +228,7 @@ export default function CrmStrategyView() {
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-semibold truncate">{data.name}</h1>
               <Badge variant="outline" className={cn("text-[10px] uppercase", statusStyles[data.status] ?? statusStyles.draft)}>
-                {data.status}
+                {statusLabel(data.status)}
               </Badge>
             </div>
             <div className="flex items-center gap-4 mt-1.5 text-sm text-muted-foreground flex-wrap">
