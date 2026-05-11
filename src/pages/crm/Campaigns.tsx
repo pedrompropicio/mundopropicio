@@ -22,6 +22,8 @@ import {
   FileDown,
   DownloadCloud,
   Wand2,
+  Pause,
+  Play,
 } from "lucide-react";
 import { printCampaignAnalysis, printAudienceCoach } from "@/lib/audience-pdf";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -300,6 +302,8 @@ function CampaignTableRow({
   spark,
   onAnalyze,
   onCoach,
+  onToggleStatus,
+  toggling,
 }: {
   c: CampaignRow;
   insights: InsightRow[];
@@ -309,6 +313,8 @@ function CampaignTableRow({
   spark: number[];
   onAnalyze?: (id: string, name: string) => void;
   onCoach?: (id: string) => void;
+  onToggleStatus?: (c: CampaignRow, target: "ACTIVE" | "PAUSED") => void;
+  toggling?: boolean;
 }) {
   const agg = useMemo(() => aggregate(insights), [insights]);
   const aggPrev = useMemo(() => aggregate(prevInsights), [prevInsights]);
@@ -464,6 +470,55 @@ function CampaignTableRow({
       <td className="py-2.5 px-3">
         <Sparkline data={spark} />
       </td>
+      <td className="py-2.5 px-3" onClick={(e) => e.stopPropagation()}>
+        {(() => {
+          const eff = c.effective_status ?? c.status ?? null;
+          const isActive = eff === "ACTIVE";
+          const isPaused = eff === "PAUSED";
+          if (!isActive && !isPaused) {
+            return (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-[10px] text-muted-foreground border border-border rounded px-2 py-0.5 cursor-help">
+                    {eff ?? "—"}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Status não permite ação direta no Meta.</TooltipContent>
+              </Tooltip>
+            );
+          }
+          return (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={toggling || !onToggleStatus}
+              onClick={() => {
+                if (!onToggleStatus) return;
+                if (isActive) {
+                  if (!confirm(`Pausar campanha "${c.name}" no Meta? Pode reactivar depois.`)) return;
+                  onToggleStatus(c, "PAUSED");
+                } else {
+                  onToggleStatus(c, "ACTIVE");
+                }
+              }}
+              className={cn(
+                "h-7 px-2 text-[11px]",
+                isActive
+                  ? "border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                  : "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10",
+              )}
+            >
+              {toggling ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : isActive ? (
+                <><Pause className="h-3 w-3 mr-1" />Pausar</>
+              ) : (
+                <><Play className="h-3 w-3 mr-1" />Activar</>
+              )}
+            </Button>
+          );
+        })()}
+      </td>
     </tr>
   );
 }
@@ -482,6 +537,7 @@ function CampaignTableHeader() {
         <th className="py-2 px-3 text-left font-medium">Conv.</th>
         <th className="py-2 px-3 text-left font-medium">Verba/dia</th>
         <th className="py-2 px-3 text-left font-medium">Tend. 14d</th>
+        <th className="py-2 px-3 text-left font-medium">Status</th>
       </tr>
     </thead>
   );
@@ -500,6 +556,8 @@ function EventGroupCard({
   currency,
   onAnalyze,
   onCoach,
+  onToggleStatus,
+  togglingCampaignId,
 }: {
   event: EventRow;
   campaigns: CampaignRow[];
@@ -510,6 +568,8 @@ function EventGroupCard({
   currency: string;
   onAnalyze?: (id: string, name: string) => void;
   onCoach?: (id: string) => void;
+  onToggleStatus?: (c: CampaignRow, target: "ACTIVE" | "PAUSED") => void;
+  togglingCampaignId?: string | null;
 }) {
   const [open, setOpen] = useState(true);
   const allInsights = useMemo(
@@ -585,6 +645,8 @@ function EventGroupCard({
                     currency={currency}
                     onAnalyze={onAnalyze}
                     onCoach={onCoach}
+                    onToggleStatus={onToggleStatus}
+                    toggling={togglingCampaignId === c.external_campaign_id}
                   />
                 ))}
               </tbody>
@@ -751,6 +813,49 @@ export default function CrmCampaigns() {
   const adAccountId = active?.ad_account_id ?? null;
   const connectionId = active?.connection_id ?? null;
   const currency = active?.ad_account_currency || "EUR";
+
+  // ---------- Toggle status (Pause/Activate) ----------
+  const [togglingCampaignId, setTogglingCampaignId] = useState<string | null>(null);
+  const toggleCampaignStatus = async (c: CampaignRow, target: "ACTIVE" | "PAUSED") => {
+    if (!connectionId) {
+      toast.error("Sem ligação Meta ativa.");
+      return;
+    }
+    setTogglingCampaignId(c.external_campaign_id);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-entity-action", {
+        body: {
+          connection_id: connectionId,
+          entity_type: "campaign",
+          external_id: c.external_campaign_id,
+          action: target === "ACTIVE" ? "activate" : "pause",
+          ad_account_id: c.ad_account_id,
+        },
+      });
+      if (error) {
+        let detail = error.message;
+        if ((error as any).context) {
+          try {
+            const ctx = (error as any).context;
+            const b = await (ctx.clone ? ctx.clone() : ctx).json();
+            detail = b?.detail || b?.error || detail;
+          } catch {}
+        }
+        throw new Error(detail);
+      }
+      if (data?.ok === false) throw new Error(data?.detail ?? data?.error ?? "Falha");
+      toast.success(
+        target === "ACTIVE"
+          ? `Campanha "${c.name}" activada (${data?.effective_status ?? "ACTIVE"})`
+          : `Campanha "${c.name}" pausada`,
+      );
+      qc.invalidateQueries({ queryKey: ["crm-meta-campaigns", companyId, adAccountId] });
+    } catch (e: any) {
+      toast.error("Falha a alterar status no Meta", { description: e?.message ?? String(e) });
+    } finally {
+      setTogglingCampaignId(null);
+    }
+  };
 
   // ---------- Campaigns ----------
   const { data: campaigns, isLoading: campaignsLoading } = useQuery({
@@ -1238,6 +1343,8 @@ export default function CrmCampaigns() {
                 currency={currency}
                 onAnalyze={analyzeCampaign}
                 onCoach={coachCampaign}
+                onToggleStatus={toggleCampaignStatus}
+                togglingCampaignId={togglingCampaignId}
               />
             );
           })
@@ -1285,6 +1392,8 @@ export default function CrmCampaigns() {
                       currency={currency}
                       onAnalyze={analyzeCampaign}
                       onCoach={coachCampaign}
+                      onToggleStatus={toggleCampaignStatus}
+                      toggling={togglingCampaignId === c.external_campaign_id}
                     />
                   ))}
                 </tbody>
