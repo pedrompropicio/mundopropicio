@@ -1389,6 +1389,16 @@ export default function CrmCampaigns() {
                 <div className="pt-3 border-t border-border text-xs text-muted-foreground">
                   Análise baseada em: {coachData.context_used.current_adsets} adsets · {coachData.context_used.top_performers_count} top performers · {coachData.context_used.interests_found} interesses · {coachData.context_used.custom_audiences_count} custom audiences. Gerada {new Date(coachData.generated_at).toLocaleString("pt-PT")}
                 </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => printAudienceCoach(coachData)}
+                  className="w-full"
+                >
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Exportar análise como PDF
+                </Button>
               </>
             )}
           </div>
