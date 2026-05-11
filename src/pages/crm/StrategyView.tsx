@@ -770,25 +770,67 @@ export default function CrmStrategyView() {
         </Card>
       )}
 
-      {/* Next steps - automação futura */}
+      {/* Next steps - Deploy real */}
       <Card className="p-5 border-cyan-500/30 bg-cyan-500/[0.03]">
         <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          <Zap className="h-4 w-4 text-cyan-400" /> Próximos passos
+          <Rocket className="h-4 w-4 text-cyan-400" /> Deploy para Meta
         </h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Em breve poderás criar todas estas campanhas automaticamente na Meta com 1 clique, usando os parâmetros gerados pela IA.
+          Cria automaticamente todas as campanhas, conjuntos de anúncios e anúncios no Meta. Tudo em PAUSED — ativas manualmente no Ads Manager depois de rever.
         </p>
+
+        <div className="space-y-1.5 mb-4">
+          {deployChecks.map((check, i) => (
+            <div key={i} className="flex items-start gap-2 text-xs">
+              {check.ok ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 mt-0.5" />
+              ) : check.label === "Instagram associado" ? (
+                <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
+              ) : (
+                <XCircle className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
+              )}
+              <div className="min-w-0">
+                <div className="font-medium">{check.label}</div>
+                {check.detail && <div className="text-muted-foreground text-[11px]">{check.detail}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {canDeploy && (
+          <div className="rounded border border-border bg-muted/30 p-3 mb-4 text-xs space-y-0.5">
+            <div className="font-medium mb-1">Vai criar no Meta:</div>
+            <div className="text-muted-foreground">
+              <strong className="text-foreground">{deployEstimate.campaigns}</strong> Campanhas ·{" "}
+              <strong className="text-foreground">{deployEstimate.adsets}</strong> AdSets ·{" "}
+              <strong className="text-foreground">{deployEstimate.ads}</strong> Anúncios
+            </div>
+            <div className="text-[11px] text-amber-400 mt-1.5">
+              ⚠ Tudo criado em status PAUSED. Tens de ativar manualmente no Ads Manager.
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-2">
-          <Button disabled className="bg-cyan-500/40 cursor-not-allowed">
-            <Sparkles className="h-4 w-4 mr-1.5" /> Criar campanhas automaticamente (em breve)
+          <Button
+            onClick={() => setDeployOpen(true)}
+            disabled={!canDeploy || isDeploying}
+            className="bg-cyan-500 hover:bg-cyan-600 text-white"
+          >
+            {isDeploying ? (
+              <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> A deployar…</>
+            ) : (
+              <><Rocket className="h-4 w-4 mr-1.5" /> Deploy para Meta</>
+            )}
           </Button>
           <Button variant="outline" onClick={handleCopyJson}>
             <Copy className="h-4 w-4 mr-1.5" /> {copied ? "Copiado!" : "Copiar plano (JSON)"}
           </Button>
         </div>
+
         {plan.automation_metadata?.requires_manual_setup?.length > 0 && (
           <div className="mt-4 text-xs text-muted-foreground">
-            <strong className="text-foreground">Antes de automatizar, garante que existe no Business Manager:</strong>
+            <strong className="text-foreground">Antes de deployar, garante que existe no Business Manager:</strong>
             <ul className="list-disc list-inside mt-1.5 space-y-0.5">
               {plan.automation_metadata.requires_manual_setup.map((item: string, i: number) => (
                 <li key={i}>{item}</li>
@@ -797,6 +839,75 @@ export default function CrmStrategyView() {
           </div>
         )}
       </Card>
+
+      {/* Histórico de Deployments */}
+      {deployments && deployments.length > 0 && (
+        <Card className="p-5">
+          <h2 className="text-lg font-semibold mb-3">Histórico de Deployments</h2>
+          <div className="space-y-2">
+            {deployments.map((d: any) => {
+              const statusColors: Record<string, string> = {
+                success: "bg-emerald-500/10 text-emerald-400 border-emerald-500/40",
+                partial: "bg-amber-500/10 text-amber-400 border-amber-500/40",
+                failed: "bg-red-500/10 text-red-400 border-red-500/40",
+                running: "bg-blue-500/10 text-blue-400 border-blue-500/40",
+                pending: "bg-muted/40 text-muted-foreground border-border",
+              };
+              const statusLabels: Record<string, string> = {
+                success: "Sucesso",
+                partial: "Parcial",
+                failed: "Falhou",
+                running: "Em curso",
+                pending: "Pendente",
+              };
+              const StatusIcon = d.status === "success" ? CheckCircle2 : d.status === "failed" ? XCircle : d.status === "partial" ? AlertCircle : Clock;
+              const campaignsCount = Array.isArray(d.meta_campaign_ids) ? d.meta_campaign_ids.length : 0;
+              const adsetsCount = Array.isArray(d.meta_adset_ids) ? d.meta_adset_ids.length : 0;
+              const adsCount = Array.isArray(d.meta_ad_ids) ? d.meta_ad_ids.length : 0;
+              const adsMgrUrl = `https://business.facebook.com/adsmanager/manage/campaigns?act=${d.ad_account_id.replace("act_", "")}`;
+              return (
+                <div key={d.id} className="rounded border border-border p-3 text-xs space-y-1.5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={cn("text-[10px] uppercase border", statusColors[d.status])}>
+                        <StatusIcon className="h-3 w-3 mr-1" /> {statusLabels[d.status] ?? d.status}
+                      </Badge>
+                      <span className="text-muted-foreground">
+                        {new Date(d.created_at).toLocaleString("pt-PT")}
+                      </span>
+                    </div>
+                    {d.duration_ms && (
+                      <span className="text-[10px] text-muted-foreground">
+                        {(d.duration_ms / 1000).toFixed(1)}s
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-muted-foreground">
+                    <strong className="text-foreground">{campaignsCount}</strong> campanhas ·{" "}
+                    <strong className="text-foreground">{adsetsCount}</strong> adsets ·{" "}
+                    <strong className="text-foreground">{adsCount}</strong> ads
+                  </div>
+                  {d.error_summary && (
+                    <div className="text-red-400 text-[11px] bg-red-500/5 rounded p-1.5 border border-red-500/20">
+                      {d.error_summary}
+                    </div>
+                  )}
+                  {campaignsCount > 0 && (
+                    <a
+                      href={adsMgrUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-cyan-400 hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" /> Abrir no Ads Manager
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* Edit Modal */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
