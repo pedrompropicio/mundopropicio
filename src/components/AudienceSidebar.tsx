@@ -2,6 +2,7 @@ import { NavLink as RouterNavLink, useLocation, useNavigate } from "react-router
 import {
   TrendingUp,
   Plug,
+  Zap,
   ArrowLeft,
   KeyRound,
   LogOut,
