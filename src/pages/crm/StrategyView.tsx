@@ -232,7 +232,57 @@ export default function CrmStrategyView() {
     }
   };
 
-  if (isLoading) {
+  const handleOpenSelector = (phaseId: string) => {
+    setSelectorPhaseId(phaseId);
+    setSelectedCreativeIds(new Set());
+    setSelectorOpen(true);
+  };
+
+  const handleAddCreatives = async () => {
+    if (!selectorPhaseId || !data || selectedCreativeIds.size === 0 || !user) return;
+    setActionLoading(true);
+    try {
+      const rows = Array.from(selectedCreativeIds).map((creativeId, idx) => ({
+        company_id: data.company_id,
+        strategy_id: data.id,
+        creative_id: creativeId,
+        phase_id: selectorPhaseId,
+        position: idx,
+        created_by: user.id,
+      }));
+      const { error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_strategy_creatives")
+        .insert(rows);
+      if (error) throw error;
+      toast.success(`${rows.length} criativo(s) adicionado(s)`);
+      queryClient.invalidateQueries({ queryKey: ["crm-strategy-creatives", id] });
+      setSelectorOpen(false);
+    } catch (e: any) {
+      toast.error("Falha a adicionar", { description: e?.message ?? String(e) });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRemoveAssociation = async (associationId: string) => {
+    setActionLoading(true);
+    try {
+      const { error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_strategy_creatives")
+        .delete()
+        .eq("id", associationId);
+      if (error) throw error;
+      toast.success("Criativo removido");
+      queryClient.invalidateQueries({ queryKey: ["crm-strategy-creatives", id] });
+    } catch (e: any) {
+      toast.error("Falha a remover", { description: e?.message ?? String(e) });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
     return (
       <div className="flex items-center gap-2 text-muted-foreground text-sm">
         <Loader2 className="h-4 w-4 animate-spin" /> A carregar estratégia…
