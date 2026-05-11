@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { statusLabel, STRATEGY_STATUS_OPTIONS } from "@/lib/strategy-status";
 
 const feasibilityStyles: Record<string, string> = {
   high: "bg-emerald-500/15 text-emerald-400 border-emerald-500/40",
