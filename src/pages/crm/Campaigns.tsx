@@ -814,6 +814,49 @@ export default function CrmCampaigns() {
   const connectionId = active?.connection_id ?? null;
   const currency = active?.ad_account_currency || "EUR";
 
+  // ---------- Toggle status (Pause/Activate) ----------
+  const [togglingCampaignId, setTogglingCampaignId] = useState<string | null>(null);
+  const toggleCampaignStatus = async (c: CampaignRow, target: "ACTIVE" | "PAUSED") => {
+    if (!connectionId) {
+      toast.error("Sem ligação Meta ativa.");
+      return;
+    }
+    setTogglingCampaignId(c.external_campaign_id);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-entity-action", {
+        body: {
+          connection_id: connectionId,
+          entity_type: "campaign",
+          external_id: c.external_campaign_id,
+          action: target === "ACTIVE" ? "activate" : "pause",
+          ad_account_id: c.ad_account_id,
+        },
+      });
+      if (error) {
+        let detail = error.message;
+        if ((error as any).context) {
+          try {
+            const ctx = (error as any).context;
+            const b = await (ctx.clone ? ctx.clone() : ctx).json();
+            detail = b?.detail || b?.error || detail;
+          } catch {}
+        }
+        throw new Error(detail);
+      }
+      if (data?.ok === false) throw new Error(data?.detail ?? data?.error ?? "Falha");
+      toast.success(
+        target === "ACTIVE"
+          ? `Campanha "${c.name}" activada (${data?.effective_status ?? "ACTIVE"})`
+          : `Campanha "${c.name}" pausada`,
+      );
+      qc.invalidateQueries({ queryKey: ["crm-meta-campaigns", companyId, adAccountId] });
+    } catch (e: any) {
+      toast.error("Falha a alterar status no Meta", { description: e?.message ?? String(e) });
+    } finally {
+      setTogglingCampaignId(null);
+    }
+  };
+
   // ---------- Campaigns ----------
   const { data: campaigns, isLoading: campaignsLoading } = useQuery({
     queryKey: ["crm-meta-campaigns", companyId, adAccountId],
