@@ -157,7 +157,7 @@ export default function CrmStrategyView() {
       const { data, error } = await (supabase as any)
         .schema("crm")
         .from("meta_campaign_strategy_deployments")
-        .select("id, status, ad_account_id, meta_campaign_ids, meta_adset_ids, meta_ad_ids, error_summary, started_at, completed_at, duration_ms, created_at")
+        .select("id, status, current_status, last_toggled_at, ad_account_id, meta_campaign_ids, meta_adset_ids, meta_ad_ids, error_summary, started_at, completed_at, duration_ms, created_at")
         .eq("strategy_id", id)
         .order("created_at", { ascending: false })
         .limit(10);
