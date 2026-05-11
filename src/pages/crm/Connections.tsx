@@ -13,6 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -30,6 +37,15 @@ const META_SCOPES = "ads_management,ads_read,business_management,pages_show_list
 
 type Platform = "meta" | "google" | "tiktok";
 
+interface AdAccountOption {
+  id?: string;
+  account_id?: string;
+  name?: string;
+  currency?: string | null;
+  account_status?: number | null;
+  timezone_name?: string | null;
+}
+
 interface ConnectionRow {
   id: string;
   company_id: string;
@@ -42,6 +58,9 @@ interface ConnectionRow {
   last_error: string | null;
   connected_at: string | null;
   disconnected_at: string | null;
+  selected_ad_account_id: string | null;
+  selected_ad_account_name: string | null;
+  available_ad_accounts: AdAccountOption[] | null;
 }
 
 const PLATFORMS: Array<{
@@ -108,6 +127,59 @@ export default function CrmConnections() {
   const [connectingPlatform, setConnectingPlatform] = useState<Platform | null>(null);
   const [confirmDisconnect, setConfirmDisconnect] = useState<ConnectionRow | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [refreshingAccountsFor, setRefreshingAccountsFor] = useState<string | null>(null);
+  const [savingAccountFor, setSavingAccountFor] = useState<string | null>(null);
+
+  const handleRefreshAdAccounts = async (conn: ConnectionRow) => {
+    setRefreshingAccountsFor(conn.id);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "crm-meta-fetch-ad-accounts",
+        { body: { connection_id: conn.id } },
+      );
+      if (error) throw error;
+      const count = (data?.ad_accounts ?? []).length;
+      toast.success(`${count} conta(s) de anúncios carregada(s)`);
+      qc.invalidateQueries({ queryKey: ["crm-connections"] });
+    } catch (e: any) {
+      console.error("[crm/connections] fetch ad accounts failed:", e);
+      toast.error("Falha ao carregar contas de anúncios", {
+        description: e?.message ?? String(e),
+      });
+    } finally {
+      setRefreshingAccountsFor(null);
+    }
+  };
+
+  const handleSelectAdAccount = async (
+    conn: ConnectionRow,
+    accountId: string,
+  ) => {
+    const acct = (conn.available_ad_accounts ?? []).find(
+      (a) => (a.id ?? a.account_id) === accountId,
+    );
+    setSavingAccountFor(conn.id);
+    try {
+      const { error } = await (supabase as any)
+        .schema("crm")
+        .from("ad_platform_connections")
+        .update({
+          selected_ad_account_id: accountId,
+          selected_ad_account_name: acct?.name ?? null,
+        })
+        .eq("id", conn.id);
+      if (error) throw error;
+      toast.success("Conta de anúncios selecionada");
+      qc.invalidateQueries({ queryKey: ["crm-connections"] });
+    } catch (e: any) {
+      console.error("[crm/connections] save ad account failed:", e);
+      toast.error("Falha ao salvar seleção", {
+        description: e?.message ?? String(e),
+      });
+    } finally {
+      setSavingAccountFor(null);
+    }
+  };
 
   const isAuthorized =
     role === "admin" ||
@@ -345,6 +417,65 @@ export default function CrmConnections() {
                         <div className="text-destructive">Último erro: {conn.last_error}</div>
                       )}
                     </div>
+                    {p.key === "meta" && (() => {
+                      const accounts = conn.available_ad_accounts ?? [];
+                      const first = accounts[0];
+                      // Legado: payload antigo continha BMs (sem account_id, ou id não numérico)
+                      const looksLikeBMs =
+                        accounts.length > 0 &&
+                        (!first?.account_id || !/^\d+$/.test(String(first.account_id)));
+                      const needsRefresh = accounts.length === 0 || looksLikeBMs;
+                      return (
+                        <div className="space-y-2 rounded-md border border-border bg-muted/30 p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium">Conta de anúncios</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => handleRefreshAdAccounts(conn)}
+                              disabled={refreshingAccountsFor === conn.id}
+                            >
+                              {refreshingAccountsFor === conn.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <>
+                                  <RefreshCw className="mr-1 h-3 w-3" />
+                                  Atualizar contas
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                          {needsRefresh ? (
+                            <p className="text-xs text-muted-foreground">
+                              Clique 'Atualizar contas' para carregar suas contas de anúncios.
+                            </p>
+                          ) : (
+                            <Select
+                              value={conn.selected_ad_account_id ?? undefined}
+                              onValueChange={(v) => handleSelectAdAccount(conn, v)}
+                              disabled={savingAccountFor === conn.id}
+                            >
+                              <SelectTrigger className="h-9 text-xs">
+                                <SelectValue placeholder="Selecione a conta de anúncios" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {accounts.map((a) => {
+                                  const value = a.id ?? a.account_id ?? "";
+                                  const accId = a.account_id ?? value.replace(/^act_/, "");
+                                  return (
+                                    <SelectItem key={value} value={value}>
+                                      {a.name ?? "(sem nome)"} (act_{accId})
+                                      {a.currency ? ` — ${a.currency}` : ""}
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+                      );
+                    })()}
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
