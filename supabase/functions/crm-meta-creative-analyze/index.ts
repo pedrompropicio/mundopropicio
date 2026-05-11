@@ -115,7 +115,17 @@ async function callGeminiVideo(prompt: string, videoPart: any): Promise<any> {
 }
 
 function buildImagePrompt(creative: any): string {
-  return `És um especialista em Meta Ads creative analysis com 10 anos de experiência em campanhas de eventos ao vivo (concertos, festivais) em Portugal e Brasil.
+  return `⚠️ IDIOMA OBRIGATÓRIO: TODOS OS CAMPOS TEXTUAIS DA RESPOSTA JSON DEVEM SER ESCRITOS EM PORTUGUÊS.
+Isto inclui (sem exceção): primary_message, text_content, cta_text, notes, verdict_reason, issues.title, issues.description, suggestions.title, suggestions.description, suggestions.impact, e qualquer outro campo de texto livre.
+ENUMS TRADUZIDOS:
+- event_type_detected: "concerto" | "festival" | "espetáculo" | "outro" | "indefinido"
+- composition_quality: "excelente" | "boa" | "razoável" | "fraca"
+- brand_visibility: "alta" | "média" | "baixa" | "nenhuma"
+Mantém em inglês APENAS: nomes próprios, marcas, e termos técnicos consagrados (hook, CTA, pacing, scroll, etc).
+Se tiveres dúvida entre PT-PT e PT-BR, usa PT-BR (público maioritário é Brasil).
+Severity (high/medium/low) e priority (high/medium/low) e verdict (ready/needs_minor_changes/needs_major_changes/reject) FICAM EM INGLÊS — são chaves internas.
+
+És um especialista em Meta Ads creative analysis com 10 anos de experiência em campanhas de eventos ao vivo (concertos, festivais) em Portugal e Brasil.
 
 CONTEXTO DESTE CRIATIVO:
 - Nome interno: ${creative.name}
@@ -178,7 +188,17 @@ Responde APENAS com JSON puro (sem markdown fences):
 }
 
 function buildVideoPrompt(creative: any): string {
-  return `És um especialista em Meta Ads creative analysis com 10 anos de experiência em campanhas de eventos ao vivo (concertos, festivais) em Portugal e Brasil.
+  return `⚠️ IDIOMA OBRIGATÓRIO: TODOS OS CAMPOS TEXTUAIS DA RESPOSTA JSON DEVEM SER ESCRITOS EM PORTUGUÊS.
+Isto inclui (sem exceção): hook_description, text_content_snippets, voiceover_transcript, music_genre, notes, verdict_reason, issues.title, issues.description, suggestions.title, suggestions.description, suggestions.impact, e qualquer outro campo de texto livre.
+ENUMS TRADUZIDOS:
+- detected_event_type: "concerto" | "festival" | "espetáculo" | "promocional" | "testemunho" | "lifestyle" | "produto" | "outro" | "indefinido"
+- production_quality: "excelente" | "boa" | "razoável" | "fraca"
+Mantém em inglês APENAS: nomes próprios, marcas, e termos técnicos consagrados (hook, CTA, pacing, scroll, voiceover, etc).
+A transcrição (voiceover_transcript) deve ser fiel ao áudio original — se for falado em PT, transcreve em PT; se for outra língua, transcreve no original e adiciona tradução PT entre parênteses.
+Se tiveres dúvida entre PT-PT e PT-BR, usa PT-BR (público maioritário é Brasil).
+Severity (high/medium/low), priority (high/medium/low) e verdict (ready/needs_minor_changes/needs_major_changes/reject) FICAM EM INGLÊS — são chaves internas.
+
+És um especialista em Meta Ads creative analysis com 10 anos de experiência em campanhas de eventos ao vivo (concertos, festivais) em Portugal e Brasil.
 
 CONTEXTO DESTE CRIATIVO:
 - Nome interno: ${creative.name}
