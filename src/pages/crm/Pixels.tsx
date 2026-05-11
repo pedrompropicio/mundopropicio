@@ -13,22 +13,7 @@ export default function CrmPixels() {
   const [loading, setLoading] = useState(false);
   const [onlyUsed, setOnlyUsed] = useState(true);
 
-  const { data: connection } = useQuery({
-    queryKey: ["meta-connection-for-pixels"],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .schema("crm")
-        .from("ad_platform_connections")
-        .select("id, selected_ad_account_id, selected_ad_account_currency, status")
-        .eq("platform", "meta")
-        .eq("status", "active")
-        .order("connected_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      return data as { id: string; selected_ad_account_id: string | null; selected_ad_account_currency: string | null; status: string } | null;
-    },
-  });
+  const { active } = useAdAccountSelection();
 
   const [pixelsData, setPixelsData] = useState<any>(null);
   const [pixelsError, setPixelsError] = useState<string | null>(null);
