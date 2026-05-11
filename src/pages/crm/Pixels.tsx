@@ -87,6 +87,15 @@ export default function CrmPixels() {
             </div>
           )}
           <button
+            onClick={() => printPixelHealth(pixelsData, onlyUsed)}
+            disabled={!pixelsData || loading}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted/40 border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+            title="Exportar como PDF"
+          >
+            <FileDown className="h-4 w-4" />
+            PDF
+          </button>
+          <button
             onClick={() => setRefreshKey(k => k + 1)}
             disabled={loading}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 transition-colors disabled:opacity-50"
