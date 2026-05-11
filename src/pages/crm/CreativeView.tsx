@@ -350,23 +350,43 @@ export default function CrmCreativeView() {
           )}
 
           <Card className="p-5 border-cyan-500/30 bg-cyan-500/[0.03]">
-            <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-cyan-400" /> Análise IA
-            </h2>
-            {!data.analyzed_at ? (
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-cyan-400" /> Análise IA
+              </h2>
+              {data.analyzed_at && (
+                <Button variant="ghost" size="sm" onClick={handleAnalyze} disabled={isAnalyzing}>
+                  {isAnalyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
+                  Re-analisar
+                </Button>
+              )}
+            </div>
+
+            {isAnalyzing && (
+              <div className="py-8 flex flex-col items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-6 w-6 animate-spin text-cyan-400" />
+                <p>A analisar criativo… (15–30s)</p>
+              </div>
+            )}
+
+            {!isAnalyzing && !data.analyzed_at && (
               <>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Em breve poderás analisar este criativo com IA para receber score Meta compliance,
-                  sugestões de melhoria e crítica de design.
+                  A IA vai avaliar Meta compliance, qualidade visual, clareza da mensagem, presença de CTA e branding. Recebe score 0–100, issues e sugestões concretas.
                 </p>
-                <Button disabled className="bg-cyan-500/40 cursor-not-allowed">
-                  <Sparkles className="h-4 w-4 mr-1.5" /> Analisar com IA (em breve)
+                <Button
+                  onClick={handleAnalyze}
+                  disabled={data.type !== "image"}
+                  className="bg-cyan-500 hover:bg-cyan-600 text-white"
+                >
+                  <Sparkles className="h-4 w-4 mr-1.5" />
+                  {data.type === "image" ? "Analisar com IA" : "Análise de vídeo em breve"}
                 </Button>
               </>
-            ) : (
-              <p className="text-sm">
-                Análise feita em {new Date(data.analyzed_at).toLocaleDateString("pt-PT")}
-              </p>
+            )}
+
+            {!isAnalyzing && data.analyzed_at && data.analysis_jsonb && (
+              <AnalysisRender analysis={data.analysis_jsonb} analyzedAt={data.analyzed_at} model={data.analysis_model} />
             )}
           </Card>
 
