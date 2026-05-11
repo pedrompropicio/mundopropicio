@@ -17,8 +17,7 @@
 //
 // See ARCHITECTURE.md ADR-010 (token strategy) and §2.6 (audit).
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
 const GRAPH_API_VERSION = "v18.0";
 const UUID_RE =
@@ -70,7 +69,7 @@ interface MetaBusinessesResponse {
   error?: { message: string; type: string; code: number };
 }
 
-serve(async (req: Request): Promise<Response> => {
+Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method !== "GET") {
     return new Response("Method not allowed", { status: 405 });
   }
