@@ -1261,6 +1261,18 @@ export default function CrmCampaigns() {
                     Análise baseada em {analyzeData.period?.days_with_data ?? 0} dias de dados · Gerada {new Date(analyzeData.generated_at).toLocaleString("pt-PT")}
                   </p>
                 </div>
+
+                {analyzeData?.analysis && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => printCampaignAnalysis(analyzeData)}
+                    className="w-full"
+                  >
+                    <FileDown className="h-4 w-4 mr-2" />
+                    Exportar análise como PDF
+                  </Button>
+                )}
               </>
             )}
           </div>
