@@ -66,6 +66,31 @@
   transform: translateY(0);
 }
 
+.back-btn {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 16px);
+  left: calc(env(safe-area-inset-left, 0px) + 16px);
+  background: rgba(255, 255, 255, 0.95);
+  color: #444;
+  border: 1px solid #ddd;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-weight: 500;
+  cursor: pointer;
+  font-size: 13px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  backdrop-filter: blur(8px);
+}
+.back-btn:hover {
+  background: white;
+  color: #111;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
 .footer-meta { text-align: center; font-size: 10px; color: #aaa; margin-top: 40px; padding-top: 16px; border-top: 1px solid #eee; }
 
 .page-break-after { page-break-after: always; }
