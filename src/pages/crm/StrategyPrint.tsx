@@ -1,8 +1,8 @@
 import { useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Printer } from "lucide-react";
+import { Loader2, Printer, ArrowLeft } from "lucide-react";
 import "./strategy-print.css";
 
 function fmtEur(n: number | null | undefined, frac = 0) {
@@ -16,6 +16,7 @@ function fmtNum(n: number | null | undefined) {
 
 export default function CrmStrategyPrint() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
   const { data, isLoading } = useQuery({
     queryKey: ["crm-strategy-print", id],
@@ -58,7 +59,6 @@ export default function CrmStrategyPrint() {
   const kpis = plan.kpis_global ?? {};
   const risks: any[] = plan.risks_and_warnings ?? [];
   const brief = plan.creative_brief ?? {};
-  const manualApply: string = plan.manual_apply_instructions ?? "";
   const generatedDate = data.generated_at ? new Date(data.generated_at).toLocaleDateString("pt-PT") : "—";
 
   const phaseCampaigns = new Map<string, any[]>();
@@ -70,6 +70,14 @@ export default function CrmStrategyPrint() {
 
   return (
     <div className="strategy-print">
+      <button
+        onClick={() => navigate(`/audience/strategies/${id}`)}
+        className="no-print back-btn"
+        aria-label="Voltar à estratégia"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        <span>Voltar</span>
+      </button>
       <button onClick={() => window.print()} className="no-print print-btn" aria-label="Imprimir ou salvar como PDF">
         <Printer className="h-4 w-4" />
         <span>Imprimir / PDF</span>
@@ -204,12 +212,6 @@ export default function CrmStrategyPrint() {
         </section>
       )}
 
-      {manualApply && (
-        <section>
-          <h2>Como aplicar no Ads Manager</h2>
-          <p style={{ whiteSpace: "pre-line" }}>{manualApply}</p>
-        </section>
-      )}
 
       <div className="footer-meta">
         Estratégia gerada por MP Audience (IA Gemini 2.5 Flash) · {generatedDate} · ID {data.id.slice(0, 8)}

@@ -214,6 +214,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // 5) Build prompt
   const prompt = `És um especialista em Meta Ads para a indústria de eventos ao vivo (concertos, festivais) em Portugal e Brasil, com 10 anos de experiência. Desenhas estratégias completas de campanha para vender ingressos de eventos, otimizando custo-benefício do tráfego pago.
 
+IMPORTANTE: Esta estratégia será executada AUTOMATICAMENTE através da Meta Marketing API pela plataforma MP Audience. Não precisas de explicar como aplicar manualmente — os campos targeting_json, optimization_goal, billing_event e budgets serão usados diretamente no payload da API. Foca-te em valores precisos e estruturados.
+
 == OBJETIVO DESTA ESTRATÉGIA ==
 - Evento: ${event.name}
 - Data: ${startAtIso ?? "N/A"}
@@ -346,8 +348,15 @@ Responde APENAS com JSON puro (sem markdown fences) com este schema EXATO:
     "must_include": ["data do evento", "venue", "preço a partir de"],
     "avoid": ["claims excessivos", "promessas não cumpríveis"]
   },
-  "manual_apply_instructions": "Texto curto explicando como copiar este plano para o Ads Manager passo a passo."
+  "automation_metadata": {
+    "ready_to_deploy": true,
+    "estimated_api_calls": <number>,
+    "warnings_before_deploy": ["aviso 1", "aviso 2"],
+    "requires_manual_setup": ["pixels", "domains", "custom_conversions"]
+  }
 }
+
+automation_metadata: flags que ajudam o agent de deployment automático. ready_to_deploy=true se o plano pode ser criado sem intervenção. requires_manual_setup lista o que precisa de ser configurado manualmente no BM antes (pixels, domain verification, custom conversions criadas, etc).
 
 Sê preciso, realista e crítico. Se a meta é inalcançável, diz claramente. Se o orçamento é insuficiente, alerta. Os números devem ser coerentes entre si.`;
 
