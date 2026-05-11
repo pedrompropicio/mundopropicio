@@ -5,6 +5,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { BrandedLogo } from "@/components/BrandedLogo";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
 import { AudienceSidebar } from "@/components/AudienceSidebar";
+import { ModuleSwitcherButton } from "@/components/ModuleSwitcherButton";
 
 function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
@@ -53,6 +54,7 @@ export function AudienceLayout() {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <ModuleSwitcherButton />
           <CompanySwitcher />
           <ThemeToggle />
         </div>

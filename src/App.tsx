@@ -19,6 +19,7 @@ import { CompanyBrandingProvider } from "@/contexts/CompanyBrandingContext";
 import { useCompany } from "@/hooks/useCompany";
 import { BrandedLogo } from "@/components/BrandedLogo";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
+import { ModuleSwitcherButton } from "@/components/ModuleSwitcherButton";
 import { MfaRequiredGate } from "@/components/MfaRequiredGate";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Sun, Moon } from "lucide-react";
@@ -299,6 +300,7 @@ function ProtectedLayout() {
       <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-border bg-sidebar shadow-sm px-4 lg:px-6">
         <BrandedLogo />
         <div className="flex items-center gap-2">
+          <ModuleSwitcherButton />
           <CompanySwitcher />
           <GlobalSearch />
           <NotificationBell />

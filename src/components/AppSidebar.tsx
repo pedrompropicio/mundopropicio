@@ -35,7 +35,7 @@ export function AppSidebar() {
   const [showChangePassword, setShowChangePassword] = useState(false);
 
   const navItems = [
-    { to: "/", icon: LayoutDashboard, label: "Dashboard", show: true },
+    { to: "/erp", icon: LayoutDashboard, label: "Dashboard", show: true },
     { to: "/calendario", icon: CalendarDays, label: "Calendário", show: hasPermission("manage_calendar") || isAdmin },
     { to: "/eventos", icon: Calendar, label: "Eventos", show: hasPermission("manage_events") || hasPermission("view_events") || isAdmin },
     { to: "/transacoes", icon: ArrowUpDown, label: "Transações", show: hasPermission("manage_transactions") || isAdmin },
@@ -61,8 +61,8 @@ export function AppSidebar() {
         {navItems.filter((i: any) => i.show).map((item: any, idx) => {
           // sections removed — flat list
           const isActive =
-            item.to === "/"
-              ? location.pathname === "/"
+            item.to === "/erp"
+              ? location.pathname === "/erp" || location.pathname === "/"
               : location.pathname.startsWith(item.to);
           return (
             <RouterNavLink
