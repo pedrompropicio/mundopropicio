@@ -312,6 +312,7 @@ function ProtectedLayout() {
             {/* MFA gate temporariamente desativado — reativar envolvendo <Routes> com <MfaRequiredGate> */}
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/erp" element={<Index />} />
               <Route path="/calendario" element={<EventCalendar />} />
               <Route path="/eventos" element={<Events />} />
               <Route path="/eventos/:id" element={<EventDetail />} />
