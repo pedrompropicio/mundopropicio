@@ -131,7 +131,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .maybeSingle();
   if (connRow?.selected_ad_account_currency) currency = connRow.selected_ad_account_currency;
 
+  // Read incremental cursor
+  let lastSyncAt: string | null = null;
+  if (mode === "incremental") {
+    const { data: stateRow } = await supabase
+      .schema("crm")
+      .from("meta_sync_state")
+      .select("last_sync_at")
+      .eq("company_id", companyId)
+      .eq("connection_id", connectionId)
+      .eq("ad_account_id", adAccountId)
+      .eq("level", "adsets")
+      .maybeSingle();
+    lastSyncAt = stateRow?.last_sync_at ?? null;
+  }
+
   // Pull all adsets at the ad account level (Meta filters by parent campaign filter via filtering param).
+  // Nota: `adset.updated_time` é filtrável no endpoint /act_X/adsets.
   let adsets: GraphAdset[] = [];
   try {
     const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${adAccountId}/adsets`);
@@ -144,12 +160,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (campaignFilter) {
       filtering.push({ field: "campaign.id", operator: "IN", value: campaignFilter });
     }
+    if (lastSyncAt) {
+      filtering.push({
+        field: "adset.updated_time",
+        operator: "GREATER_THAN",
+        value: Math.floor(new Date(lastSyncAt).getTime() / 1000),
+      });
+    }
     url.searchParams.set("filtering", JSON.stringify(filtering));
     url.searchParams.set("access_token", accessToken);
     adsets = await fetchAllPages(url, accessToken);
-    console.log(`[crm-meta-sync-adsets] fetched ${adsets.length} adsets`);
+    console.log(`[crm-meta-sync-adsets] mode=${mode} cursor=${lastSyncAt ?? "—"} fetched=${adsets.length}`);
   } catch (e) {
     console.error("[crm-meta-sync-adsets] fetch threw:", e);
+    await supabase.schema("crm").from("meta_sync_state").upsert({
+      company_id: companyId, connection_id: connectionId, ad_account_id: adAccountId, level: "adsets",
+      last_error: String(e), last_error_at: new Date().toISOString(),
+    }, { onConflict: "company_id,connection_id,ad_account_id,level" });
     return json({ error: "graph_api_error", message: String(e) }, 502);
   }
 
@@ -188,9 +215,24 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .upsert(rows, { onConflict: "company_id,external_adset_id" });
     if (upErr) {
       console.error("[crm-meta-sync-adsets] upsert failed:", upErr);
+      await supabase.schema("crm").from("meta_sync_state").upsert({
+        company_id: companyId, connection_id: connectionId, ad_account_id: adAccountId, level: "adsets",
+        last_error: upErr.message, last_error_at: new Date().toISOString(),
+      }, { onConflict: "company_id,connection_id,ad_account_id,level" });
       return json({ error: "persist_failed", detail: upErr.message }, 500);
     }
   }
 
-  return json({ synced_count: rows.length, ad_account_id: adAccountId });
+  const nowIso = new Date().toISOString();
+  const stateUpd: Record<string, unknown> = {
+    company_id: companyId, connection_id: connectionId, ad_account_id: adAccountId, level: "adsets",
+    last_sync_at: nowIso, last_synced_rows_count: rows.length,
+    last_error: null, last_error_at: null,
+  };
+  if (mode === "full") stateUpd.last_full_sync_at = nowIso;
+  await supabase.schema("crm").from("meta_sync_state").upsert(stateUpd, {
+    onConflict: "company_id,connection_id,ad_account_id,level",
+  });
+
+  return json({ synced_count: rows.length, ad_account_id: adAccountId, mode, incremental_cursor: lastSyncAt });
 });
