@@ -364,7 +364,11 @@ Responde APENAS com JSON puro (SEM markdown fences, SEM texto antes/depois) com 
       "expected_impact": "impacto esperado em 1 frase"
     }
   ],
-  "creative_insights": "texto livre cruzando scores criativos com performance"
+  "creative_insights": "texto livre cruzando scores criativos com performance",
+  "landing_concern": {
+    "suspected": <boolean — true se houver sinais claros de problema na landing page (ex: LPV/LinkClick combinado <15%, ou CTR/Hook bons mas conversão muito baixa)>,
+    "evidence": "1-2 frases citando métricas concretas que sustentam a suspeita; vazio se suspected=false"
+  }
 }`;
 
   // ── 7) Chamada Lovable AI ──
