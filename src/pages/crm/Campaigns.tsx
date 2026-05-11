@@ -614,12 +614,35 @@ export default function CrmCampaigns() {
   const [analyzeData, setAnalyzeData] = useState<any>(null);
   const [analyzeLoading, setAnalyzeLoading] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [analyzeCampaignId, setAnalyzeCampaignId] = useState<string | null>(null);
+  const [analyzeCampaignName, setAnalyzeCampaignName] = useState<string>("");
+  const [analyzeHistory, setAnalyzeHistory] = useState<any[]>([]);
+  const [analyzeTab, setAnalyzeTab] = useState<string>("resumo");
 
-  const analyzeCampaign = async (campaignId: string, _campaignName: string) => {
+  const loadHistory = async (campaignId: string) => {
+    try {
+      const { data } = await (supabase as any)
+        .schema("crm")
+        .from("meta_campaign_diagnoses")
+        .select("id, created_at, overall_score, severity, summary_text, period_from, period_to, ai_model, diagnosis_jsonb")
+        .eq("external_campaign_id", campaignId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      setAnalyzeHistory(data ?? []);
+    } catch {
+      setAnalyzeHistory([]);
+    }
+  };
+
+  const analyzeCampaign = async (campaignId: string, campaignName: string) => {
     setAnalyzeOpen(true);
     setAnalyzeLoading(true);
     setAnalyzeError(null);
     setAnalyzeData(null);
+    setAnalyzeCampaignId(campaignId);
+    setAnalyzeCampaignName(campaignName);
+    setAnalyzeTab("resumo");
+    void loadHistory(campaignId);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-campaign-analyze", {
         body: {
@@ -632,11 +655,31 @@ export default function CrmCampaigns() {
       if (error) throw error;
       if (data?.error) throw new Error(data.message || data.error);
       setAnalyzeData(data);
+      void loadHistory(campaignId);
     } catch (e: any) {
       setAnalyzeError(e?.message || "Erro desconhecido");
     } finally {
       setAnalyzeLoading(false);
     }
+  };
+
+  const reanalyzeCampaign = () => {
+    if (analyzeCampaignId) void analyzeCampaign(analyzeCampaignId, analyzeCampaignName);
+  };
+
+  const loadHistoricalDiagnosis = (h: any) => {
+    // Reconstrói shape compatível com o sheet a partir do registo persistido
+    setAnalyzeData({
+      diagnosis_id: h.id,
+      campaign: { name: analyzeCampaignName, external_campaign_id: analyzeCampaignId },
+      period: { from: h.period_from, to: h.period_to },
+      diagnosis: h.diagnosis_jsonb,
+      severity: h.severity,
+      overall_score: Number(h.overall_score) || 0,
+      ai_model: h.ai_model,
+      generated_at: h.created_at,
+    });
+    setAnalyzeTab("resumo");
   };
 
   const [coachOpen, setCoachOpen] = useState(false);
