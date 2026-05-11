@@ -33,11 +33,23 @@ function ymd(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-const PURCHASE_TYPES = new Set([
-  "purchase",
-  "omni_purchase",
-  "offsite_conversion.fb_pixel_purchase",
-]);
+// Apenas omni_purchase: é o "rolled-up purchase" do Meta — já desduplicado entre Pixel + Conversions API + offline + WhatsApp + etc.
+// Fallback a "purchase" se omni_purchase não existir (ad accounts mais antigas ou sem CAPI).
+// NÃO somar ambos — provoca dupla contagem.
+function sumPurchaseActions(arr: ActionItem[] | undefined): number {
+  if (!Array.isArray(arr)) return 0;
+  const omni = arr.find((a) => a.action_type === "omni_purchase");
+  if (omni) return parseInt(omni.value, 10) || 0;
+  const std = arr.find((a) => a.action_type === "purchase");
+  return std ? parseInt(std.value, 10) || 0 : 0;
+}
+function sumPurchaseValues(arr: ActionItem[] | undefined): number {
+  if (!Array.isArray(arr)) return 0;
+  const omni = arr.find((a) => a.action_type === "omni_purchase");
+  if (omni) return parseFloat(omni.value) || 0;
+  const std = arr.find((a) => a.action_type === "purchase");
+  return std ? parseFloat(std.value) || 0 : 0;
+}
 const LEAD_TYPES = new Set(["lead", "omni_lead"]);
 const ATC_TYPES = new Set(["add_to_cart", "omni_add_to_cart"]);
 const IC_TYPES = new Set(["initiate_checkout", "omni_initiated_checkout"]);
