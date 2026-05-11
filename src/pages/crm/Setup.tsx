@@ -254,7 +254,19 @@ export default function Setup() {
           n={1} title='Criar ad account "MP Audience" no Business Manager'
           description="No Meta Business Suite → Configurações de Negócios → Contas → Contas de Anúncios → Criar nova. Nome sugerido: MP Audience."
           done={s1} onToggle={set1} auto={mpAudienceAuto}
-        />
+        >
+          {!mpAudience && !isLoading && (
+            <div className="mt-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/audience/connections?reconnect=1")}
+              >
+                Re-conectar Meta para detetar
+              </Button>
+            </div>
+          )}
+        </StepCard>
         <StepCard
           n={2} title="Adicionar método de pagamento à MP Audience"
           description="Indispensável para a ad account ficar utilizável. No próprio Business Manager."
