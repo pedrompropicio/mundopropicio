@@ -244,17 +244,31 @@ export default function CrmStrategyView() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={openEdit}>
+            <Pencil className="h-4 w-4 mr-1.5" /> Editar
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/audience/strategies/new?from=${data.id}`)}>
+            <RefreshCw className="h-4 w-4 mr-1.5" /> Regenerar
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.open(`/audience/strategies/${data.id}/print`, "_blank")}>
+            <FileDown className="h-4 w-4 mr-1.5" /> Exportar PDF
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleCopyJson}>
+            <Copy className="h-4 w-4 mr-1.5" /> {copied ? "Copiado!" : "Copiar JSON"}
+          </Button>
           {data.status === "generated" && (
-            <Button onClick={handleApprove} disabled={actionLoading} className="bg-emerald-500 hover:bg-emerald-600 text-white">
+            <Button onClick={handleApprove} disabled={actionLoading} className="bg-emerald-500 hover:bg-emerald-600 text-white" size="sm">
               <Check className="h-4 w-4 mr-1.5" /> Aprovar
             </Button>
           )}
-          <Button variant="outline" onClick={handleCopyJson}>
-            <Copy className="h-4 w-4 mr-1.5" /> {copied ? "Copiado!" : "Copiar JSON"}
-          </Button>
           {data.status !== "archived" && (
-            <Button variant="outline" onClick={handleArchive} disabled={actionLoading}>
+            <Button variant="outline" size="sm" onClick={handleArchive} disabled={actionLoading}>
               <Archive className="h-4 w-4 mr-1.5" /> Arquivar
+            </Button>
+          )}
+          {data.status === "archived" && (
+            <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)} className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive">
+              <Trash2 className="h-4 w-4 mr-1.5" /> Apagar
             </Button>
           )}
         </div>
