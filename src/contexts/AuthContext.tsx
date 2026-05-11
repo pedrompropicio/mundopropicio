@@ -51,6 +51,7 @@ export const ROLE_COLORS: Record<AppRole, string> = {
   user: "bg-secondary text-secondary-foreground",
   partner: "bg-indigo-500/15 text-indigo-600",
   platform_admin: "bg-rose-500/15 text-rose-600",
+  marketing_manager: "bg-cyan-500/15 text-cyan-600",
 };
 
 export const ALL_PERMISSIONS = [
