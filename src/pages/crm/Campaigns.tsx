@@ -16,8 +16,11 @@ import {
   ArrowUp,
   ArrowDown,
   Minus,
+  Sparkles,
+  CheckCircle2,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { computeScore } from "@/lib/campaign-score";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -287,6 +290,7 @@ function CampaignTableRow({
   days,
   currency,
   spark,
+  onAnalyze,
 }: {
   c: CampaignRow;
   insights: InsightRow[];
@@ -294,6 +298,7 @@ function CampaignTableRow({
   days: number;
   currency: string;
   spark: number[];
+  onAnalyze?: (id: string, name: string) => void;
 }) {
   const agg = useMemo(() => aggregate(insights), [insights]);
   const aggPrev = useMemo(() => aggregate(prevInsights), [prevInsights]);
@@ -361,7 +366,23 @@ function CampaignTableRow({
       className="border-b border-border/40 hover:bg-muted/40 transition-colors cursor-pointer"
       onClick={() => console.log("[campaign click]", c.external_campaign_id, c.name)}
     >
-      <td className="py-2.5 px-3 max-w-[280px] truncate font-medium text-sm">{c.name}</td>
+      <td className="py-2.5 px-3 max-w-[280px] font-medium text-sm">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="truncate">{c.name}</span>
+          {onAnalyze && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAnalyze(c.external_campaign_id, c.name);
+              }}
+              className="opacity-60 hover:opacity-100 transition-opacity p-1 rounded hover:bg-cyan-500/10 shrink-0"
+              title="Analisar com IA"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+            </button>
+          )}
+        </div>
+      </td>
       <td className="py-2.5 px-3">
         <span
           className={cn(
@@ -455,6 +476,7 @@ function EventGroupCard({
   spark14ByCampaign,
   days,
   currency,
+  onAnalyze,
 }: {
   event: EventRow;
   campaigns: CampaignRow[];
@@ -463,6 +485,7 @@ function EventGroupCard({
   spark14ByCampaign: Map<string, number[]>;
   days: number;
   currency: string;
+  onAnalyze?: (id: string, name: string) => void;
 }) {
   const [open, setOpen] = useState(true);
   const allInsights = useMemo(
@@ -536,6 +559,7 @@ function EventGroupCard({
                     days={days}
                     spark={spark14ByCampaign.get(c.external_campaign_id) ?? []}
                     currency={currency}
+                    onAnalyze={onAnalyze}
                   />
                 ))}
               </tbody>
@@ -560,6 +584,30 @@ export default function CrmCampaigns() {
   const [syncing, setSyncing] = useState(false);
   const [secondsAgo, setSecondsAgo] = useState(0);
   const lastFetchRef = useRef<number>(Date.now());
+
+  const [analyzeOpen, setAnalyzeOpen] = useState(false);
+  const [analyzeData, setAnalyzeData] = useState<any>(null);
+  const [analyzeLoading, setAnalyzeLoading] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+
+  const analyzeCampaign = async (campaignId: string, _campaignName: string) => {
+    setAnalyzeOpen(true);
+    setAnalyzeLoading(true);
+    setAnalyzeError(null);
+    setAnalyzeData(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-campaign-analyze", {
+        body: { campaign_id: campaignId, days_back: 30 },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.message || data.error);
+      setAnalyzeData(data);
+    } catch (e: any) {
+      setAnalyzeError(e?.message || "Erro desconhecido");
+    } finally {
+      setAnalyzeLoading(false);
+    }
+  };
 
   const isAuthorized =
     role === "admin" ||
@@ -1015,6 +1063,7 @@ export default function CrmCampaigns() {
                 spark14ByCampaign={spark14ByCampaign}
                 days={periodDays}
                 currency={currency}
+                onAnalyze={analyzeCampaign}
               />
             );
           })
@@ -1060,6 +1109,7 @@ export default function CrmCampaigns() {
                       days={periodDays}
                       spark={spark14ByCampaign.get(c.external_campaign_id) ?? []}
                       currency={currency}
+                      onAnalyze={analyzeCampaign}
                     />
                   ))}
                 </tbody>
@@ -1068,6 +1118,116 @@ export default function CrmCampaigns() {
           </Card>
         )}
       </section>
+
+      <Sheet open={analyzeOpen} onOpenChange={setAnalyzeOpen}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-cyan-400" />
+              Análise IA da Campanha
+            </SheetTitle>
+            <SheetDescription>
+              {analyzeData?.campaign?.name ?? "A processar…"}
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-6 space-y-6">
+            {analyzeLoading && (
+              <div className="flex flex-col items-center gap-3 py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
+                <p className="text-sm text-muted-foreground">A analisar dados...</p>
+                <p className="text-xs text-muted-foreground/70">Pode demorar 10-20s</p>
+              </div>
+            )}
+
+            {analyzeError && (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+                <p className="text-sm text-red-400">{analyzeError}</p>
+              </div>
+            )}
+
+            {analyzeData && analyzeData.analysis && (
+              <>
+                <div className="rounded-lg border border-border bg-card p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={cn(
+                      "text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded",
+                      analyzeData.analysis.verdict === "excelente" ? "bg-emerald-500/15 text-emerald-400" :
+                      analyzeData.analysis.verdict === "bom" ? "bg-green-500/15 text-green-400" :
+                      analyzeData.analysis.verdict === "regular" ? "bg-amber-500/15 text-amber-400" :
+                      analyzeData.analysis.verdict === "fraco" ? "bg-orange-500/15 text-orange-400" :
+                      "bg-red-500/15 text-red-400"
+                    )}>
+                      {analyzeData.analysis.verdict}
+                    </span>
+                  </div>
+                  <p className="text-sm">{analyzeData.analysis.summary}</p>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Pontos fortes
+                  </h4>
+                  <ul className="space-y-1.5">
+                    {analyzeData.analysis.strengths?.map((s: string, i: number) => (
+                      <li key={i} className="text-sm flex gap-2">
+                        <span className="text-emerald-400 mt-0.5">•</span>
+                        <span>{s}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <AlertCircle className="h-3.5 w-3.5 text-orange-400" /> Pontos fracos
+                  </h4>
+                  <ul className="space-y-1.5">
+                    {analyzeData.analysis.weaknesses?.map((w: string, i: number) => (
+                      <li key={i} className="text-sm flex gap-2">
+                        <span className="text-orange-400 mt-0.5">•</span>
+                        <span>{w}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-cyan-400" /> Recomendações
+                  </h4>
+                  <div className="space-y-2">
+                    {analyzeData.analysis.recommendations?.map((r: any, i: number) => (
+                      <div key={i} className="rounded-lg border border-border bg-card p-3">
+                        <div className="flex items-start gap-2">
+                          <span className={cn(
+                            "text-[10px] font-bold uppercase px-1.5 py-0.5 rounded",
+                            r.priority === "high" ? "bg-red-500/15 text-red-400" :
+                            r.priority === "medium" ? "bg-amber-500/15 text-amber-400" :
+                            "bg-muted text-muted-foreground"
+                          )}>
+                            {r.priority}
+                          </span>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{r.action}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{r.rationale}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-border">
+                  <p className="text-xs text-muted-foreground">
+                    Análise baseada em {analyzeData.period?.days_with_data ?? 0} dias de dados · Gerada {new Date(analyzeData.generated_at).toLocaleString("pt-PT")}
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
