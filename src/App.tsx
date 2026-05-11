@@ -116,6 +116,7 @@ function ProtectedLayout() {
   const queryClient = useQueryClient();
   const previousCompanyIdRef = useRef<string | null>(null);
   const isSwitchingCompany = useIsMutating({ mutationKey: ["set-active-company"] }) > 0;
+  const location = useLocation();
   // Camarim-only = utilizador de campo: tem APENAS camarim_team e nenhuma
   // permissão de gestão (nem sequer camarim_manage). Editores que gerem o
   // camarim ou outras áreas continuam a ver o dashboard normal.
