@@ -1048,6 +1048,40 @@ export default function CrmStrategyView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Deploy confirmation */}
+      <AlertDialog open={deployOpen} onOpenChange={setDeployOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Rocket className="h-5 w-5 text-cyan-400" /> Deploy para Meta?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>Vai criar no Meta Ads Manager (ad account <strong>{connection?.selected_ad_account_name}</strong>):</p>
+                <div className="bg-muted/40 rounded p-3 text-sm space-y-1">
+                  <div>• <strong>{deployEstimate.campaigns}</strong> Campanhas</div>
+                  <div>• <strong>{deployEstimate.adsets}</strong> AdSets</div>
+                  <div>• <strong>{deployEstimate.ads}</strong> Anúncios</div>
+                </div>
+                <p className="text-amber-400 text-sm">⚠ Tudo será criado em status <strong>PAUSED</strong>. Nada vai correr sem ativares manualmente no Ads Manager.</p>
+                <p className="text-xs text-muted-foreground">Demora ~30s a 2 min. Não fechas esta página durante o processo.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeploying}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); setDeployOpen(false); handleDeploy(); }}
+              disabled={isDeploying}
+              className="bg-cyan-500 hover:bg-cyan-600 text-white"
+            >
+              {isDeploying && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Sim, deployar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
