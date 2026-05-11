@@ -189,14 +189,35 @@ Deno.serve(async (req: Request): Promise<Response> => {
     else if (score >= 40) grade = "D";
     else grade = "F";
 
-    const recommendations: string[] = [];
-    if (funnelPresent < 5) recommendations.push(`Implementar eventos do funil em falta: ${funnelEvents.filter(e => !presentEvents.has(e)).join(", ")}`);
-    if (!purchaseHasValue && presentEvents.has("Purchase")) recommendations.push("Adicionar value+currency ao evento Purchase para ROAS funcionar");
-    if (!pix.enable_automatic_matching) recommendations.push("Ativar Automatic Matching no Events Manager para melhorar attribution");
-    if (automaticMatchingFields.length < 3) recommendations.push("Enviar mais parâmetros de matching (email, phone, fbclid, external_id) via dataLayer ou CAPI");
-    if (allowedDomainsCount === 0) recommendations.push("Verificar e autorizar os domains da bilheteira no Business Manager");
-    if (pix.first_party_cookie_status !== "ENABLED") recommendations.push("Ativar first-party cookie para resiliência ao iOS 14.5+ e Safari ITP");
-    if (avgPerDay < 50) recommendations.push("Volume baixo de eventos. Verificar instalação do pixel nas páginas-chave");
+    const recommendations: { source: "site" | "meta"; text: string; priority: "high" | "medium" | "low" }[] = [];
+    if (funnelPresent < 5) {
+      const missing = funnelEvents.filter(e => !presentEvents.has(e));
+      recommendations.push({ source: "site", priority: "high", text: `Implementar eventos do funil em falta: ${missing.join(", ")}. Pedir ao dev da bilheteira para disparar fbq('track', '<EventName>', { value, currency }) nas páginas correspondentes.` });
+    }
+    if (!purchaseHasValue && presentEvents.has("Purchase")) {
+      recommendations.push({ source: "site", priority: "high", text: "Adicionar value e currency ao evento Purchase. Sem isto o ROAS não funciona. Exemplo: fbq('track', 'Purchase', { value: 45.00, currency: 'EUR' })." });
+    }
+    if (automaticMatchingFields.length < 3) {
+      recommendations.push({ source: "site", priority: "medium", text: `Enviar mais parâmetros de matching no checkout. Atualmente: ${automaticMatchingFields.length} parâmetros. Pedir ao dev para incluir hashed email (em), phone (ph), nome, fbclid no fbq.` });
+    }
+    if (avgPerDay < 50) {
+      recommendations.push({ source: "site", priority: "medium", text: `Volume baixo (${Math.round(avgPerDay)} eventos/dia). Verificar se o pixel está nas páginas-chave da bilheteira: home, evento, checkout, confirmação.` });
+    }
+    if (hoursSinceLastFire !== null && hoursSinceLastFire > 2 && hoursSinceLastFire < 24) {
+      recommendations.push({ source: "site", priority: "low", text: `Última atividade há ${Math.round(hoursSinceLastFire)}h. Pode indicar baixo tráfego no momento ou problema intermitente — monitorizar.` });
+    }
+    if (standardPresent < 6) {
+      recommendations.push({ source: "site", priority: "low", text: `Apenas ${standardPresent}/8 standard events disparam. Considerar implementar Lead, Search, CompleteRegistration se aplicável ao negócio.` });
+    }
+    if (!pix.enable_automatic_matching) {
+      recommendations.push({ source: "meta", priority: "high", text: "Ativar Automatic Matching no Events Manager → Pixel Settings → Match Quality. Melhora attribution em 10-30% sem mudanças no site." });
+    }
+    if (pix.first_party_cookie_status !== "ENABLED") {
+      recommendations.push({ source: "meta", priority: "high", text: "Ativar First-Party Cookie no Events Manager → Settings → First-Party Cookie. Crítico para iOS 14.5+ e Safari ITP — sem isto perdes ~30% da attribution." });
+    }
+    if (allowedDomainsCount === 0) {
+      recommendations.push({ source: "meta", priority: "high", text: "Verificar domínios no Business Manager → Brand Safety → Domains. E configurar Aggregated Event Measurement (AEM) para iOS 14.5+ no Events Manager." });
+    }
 
     let healthStatus: "healthy" | "warning" | "critical" | "unknown" = "unknown";
     let healthMessage = "";
