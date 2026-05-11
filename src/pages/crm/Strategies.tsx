@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Brain, Plus, Loader2, Target, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { statusLabel } from "@/lib/strategy-status";
 
 type StrategyRow = {
   id: string;
@@ -27,14 +28,7 @@ const statusStyles: Record<string, string> = {
   archived: "bg-muted/40 text-muted-foreground border-border opacity-60",
 };
 
-const statusLabel: Record<string, string> = {
-  draft: "Rascunho",
-  generated: "Gerada",
-  approved: "Aprovada",
-  in_progress: "Em curso",
-  completed: "Concluída",
-  archived: "Arquivada",
-};
+
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -137,7 +131,7 @@ export default function CrmStrategies() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-medium truncate">{s.name}</h3>
                     <Badge variant="outline" className={cn("text-[10px] uppercase", statusStyles[s.status] ?? statusStyles.draft)}>
-                      {statusLabel[s.status] ?? s.status}
+                      {statusLabel(s.status)}
                     </Badge>
                     {s.detected_artist && (
                       <span className="text-xs text-muted-foreground">· 🎤 {s.detected_artist}</span>

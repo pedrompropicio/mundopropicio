@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { statusLabel, STRATEGY_STATUS_OPTIONS } from "@/lib/strategy-status";
 
 const feasibilityStyles: Record<string, string> = {
   high: "bg-emerald-500/15 text-emerald-400 border-emerald-500/40",
@@ -227,7 +228,7 @@ export default function CrmStrategyView() {
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-semibold truncate">{data.name}</h1>
               <Badge variant="outline" className={cn("text-[10px] uppercase", statusStyles[data.status] ?? statusStyles.draft)}>
-                {data.status}
+                {statusLabel(data.status)}
               </Badge>
             </div>
             <div className="flex items-center gap-4 mt-1.5 text-sm text-muted-foreground flex-wrap">
@@ -528,12 +529,9 @@ export default function CrmStrategyView() {
               <Select value={editStatus} onValueChange={setEditStatus}>
                 <SelectTrigger id="edit-status"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="draft">draft</SelectItem>
-                  <SelectItem value="generated">generated</SelectItem>
-                  <SelectItem value="approved">approved</SelectItem>
-                  <SelectItem value="in_progress">in_progress</SelectItem>
-                  <SelectItem value="completed">completed</SelectItem>
-                  <SelectItem value="archived">archived</SelectItem>
+                  {STRATEGY_STATUS_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
