@@ -61,8 +61,8 @@ export function AppSidebar() {
         {navItems.filter((i: any) => i.show).map((item: any, idx) => {
           // sections removed — flat list
           const isActive =
-            item.to === "/"
-              ? location.pathname === "/"
+            item.to === "/erp"
+              ? location.pathname === "/erp" || location.pathname === "/"
               : location.pathname.startsWith(item.to);
           return (
             <RouterNavLink
