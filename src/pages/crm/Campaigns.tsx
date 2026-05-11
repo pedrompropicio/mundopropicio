@@ -16,8 +16,11 @@ import {
   ArrowUp,
   ArrowDown,
   Minus,
+  Sparkles,
+  CheckCircle2,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { computeScore } from "@/lib/campaign-score";
 
 import { supabase } from "@/integrations/supabase/client";
