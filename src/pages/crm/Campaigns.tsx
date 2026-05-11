@@ -619,7 +619,7 @@ export default function CrmCampaigns() {
     setAnalyzeData(null);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-campaign-analyze", {
-        body: { campaign_id: campaignId, days_back: 30 },
+        body: { campaign_id: campaignId, days_back: periodDays },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.message || data.error);
