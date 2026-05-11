@@ -5,6 +5,7 @@ import {
   Zap,
   Lightbulb,
   Rocket,
+  Brain,
   ArrowLeft,
   KeyRound,
   LogOut,
@@ -23,6 +24,7 @@ export function AudienceSidebar() {
   const items = [
     { to: "/audience/setup", icon: Rocket, label: "Setup MP Audience" },
     { to: "/audience/dashboard", icon: TrendingUp, label: "Dashboard" },
+    { to: "/audience/strategies", icon: Brain, label: "Estratégias" },
     { to: "/audience/insights", icon: Lightbulb, label: "Insights" },
     { to: "/audience/connections", icon: Plug, label: "Conexões" },
     { to: "/audience/pixels", icon: Zap, label: "Pixels" },

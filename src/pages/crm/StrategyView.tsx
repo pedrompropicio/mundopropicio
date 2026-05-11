@@ -1,0 +1,469 @@
+import { useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  ArrowLeft, Loader2, Brain, Copy, Check, Archive, Target, Calendar, Mic2,
+  AlertTriangle, Sparkles, ChevronDown, ChevronUp,
+} from "lucide-react";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+
+const feasibilityStyles: Record<string, string> = {
+  high: "bg-emerald-500/15 text-emerald-400 border-emerald-500/40",
+  medium: "bg-amber-500/15 text-amber-400 border-amber-500/40",
+  low: "bg-orange-500/15 text-orange-400 border-orange-500/40",
+  impossible: "bg-red-500/15 text-red-400 border-red-500/40",
+};
+
+const severityStyles: Record<string, string> = {
+  high: "bg-red-500/15 text-red-400 border-red-500/40",
+  medium: "bg-amber-500/15 text-amber-400 border-amber-500/40",
+  low: "bg-blue-500/15 text-blue-400 border-blue-500/40",
+};
+
+const statusStyles: Record<string, string> = {
+  draft: "bg-muted/40 text-muted-foreground border-border",
+  generated: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30",
+  approved: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+  in_progress: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+  completed: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  archived: "bg-muted/40 text-muted-foreground border-border opacity-60",
+};
+
+const PHASE_BORDERS = ["border-cyan-500", "border-blue-500", "border-violet-500", "border-amber-500", "border-emerald-500"];
+
+function fmtEur(n: number | null | undefined, frac = 0) {
+  if (n == null || isNaN(Number(n))) return "—";
+  return Number(n).toLocaleString("pt-PT", { style: "currency", currency: "EUR", maximumFractionDigits: frac });
+}
+function fmtNum(n: number | null | undefined) {
+  if (n == null || isNaN(Number(n))) return "—";
+  return Number(n).toLocaleString("pt-PT", { maximumFractionDigits: 2 });
+}
+
+export default function CrmStrategyView() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const [copied, setCopied] = useState(false);
+  const [expandedCampaigns, setExpandedCampaigns] = useState<Record<string, boolean>>({});
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["crm-strategy", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_campaign_strategies")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      let event: any = null;
+      if (data.event_id) {
+        const { data: e } = await supabase.from("events").select("id, name, date").eq("id", data.event_id).maybeSingle();
+        event = e ?? null;
+      }
+      return { ...data, event };
+    },
+  });
+
+  const plan = data?.generated_plan as any;
+
+  const phasesById = useMemo(() => {
+    const map = new Map<string, any[]>();
+    if (!plan?.recommended_campaigns) return map;
+    for (const c of plan.recommended_campaigns) {
+      const arr = map.get(c.phase_id) ?? [];
+      arr.push(c);
+      map.set(c.phase_id, arr);
+    }
+    return map;
+  }, [plan]);
+
+  const handleApprove = async () => {
+    if (!data || !user) return;
+    setActionLoading(true);
+    try {
+      const { error } = await (supabase as any).schema("crm").from("meta_campaign_strategies")
+        .update({ status: "approved", approved_at: new Date().toISOString(), approved_by: user.id })
+        .eq("id", data.id);
+      if (error) throw error;
+      toast.success("Estratégia aprovada");
+      queryClient.invalidateQueries({ queryKey: ["crm-strategy", id] });
+      queryClient.invalidateQueries({ queryKey: ["crm-strategies-list"] });
+    } catch (e: any) {
+      toast.error(e?.message || "Erro a aprovar");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!data) return;
+    if (!confirm("Arquivar esta estratégia?")) return;
+    setActionLoading(true);
+    try {
+      const { error } = await (supabase as any).schema("crm").from("meta_campaign_strategies")
+        .update({ status: "archived" }).eq("id", data.id);
+      if (error) throw error;
+      toast.success("Estratégia arquivada");
+      queryClient.invalidateQueries({ queryKey: ["crm-strategy", id] });
+      queryClient.invalidateQueries({ queryKey: ["crm-strategies-list"] });
+    } catch (e: any) {
+      toast.error(e?.message || "Erro a arquivar");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCopyJson = async () => {
+    if (!plan) return;
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(plan, null, 2));
+      setCopied(true);
+      toast.success("JSON copiado para o clipboard");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Não foi possível copiar");
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+        <Loader2 className="h-4 w-4 animate-spin" /> A carregar estratégia…
+      </div>
+    );
+  }
+  if (error) return <Card className="p-4 border-destructive/40 bg-destructive/5 text-sm text-destructive">{(error as Error).message}</Card>;
+  if (!data) return <Card className="p-4">Estratégia não encontrada.</Card>;
+  if (!plan) return <Card className="p-4 border-amber-500/40 bg-amber-500/5">Esta estratégia ainda não tem plano gerado.</Card>;
+
+  const summary = plan.summary ?? {};
+  const phases: any[] = plan.phases ?? [];
+  const scaling: any[] = plan.scaling_rules ?? [];
+  const kpis = plan.kpis_global ?? {};
+  const risks: any[] = plan.risks_and_warnings ?? [];
+  const brief = plan.creative_brief ?? {};
+  const manualApply: string = plan.manual_apply_instructions ?? "";
+
+  return (
+    <div className="space-y-6">
+      {/* Breadcrumb / back */}
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <button onClick={() => navigate("/audience/strategies")} className="flex items-center gap-1 hover:text-foreground">
+          <ArrowLeft className="h-3.5 w-3.5" /> Estratégias
+        </button>
+        <span>›</span>
+        <span className="text-foreground truncate">{data.name}</span>
+      </div>
+
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="h-10 w-10 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center shrink-0">
+            <Brain className="h-5 w-5 text-cyan-400" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl font-semibold truncate">{data.name}</h1>
+              <Badge variant="outline" className={cn("text-[10px] uppercase", statusStyles[data.status] ?? statusStyles.draft)}>
+                {data.status}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-4 mt-1.5 text-sm text-muted-foreground flex-wrap">
+              <span className="flex items-center gap-1.5"><Target className="h-3.5 w-3.5" /> Meta: <span className="text-foreground font-medium">{fmtEur(data.goal_revenue_eur)}</span></span>
+              {data.event && (
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" /> {data.event.name} {data.days_until_event != null && <>({data.days_until_event}d)</>}
+                </span>
+              )}
+              {data.detected_artist && (
+                <span className="flex items-center gap-1.5"><Mic2 className="h-3.5 w-3.5" /> {data.detected_artist}</span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {data.status === "generated" && (
+            <Button onClick={handleApprove} disabled={actionLoading} className="bg-emerald-500 hover:bg-emerald-600 text-white">
+              <Check className="h-4 w-4 mr-1.5" /> Aprovar
+            </Button>
+          )}
+          <Button variant="outline" onClick={handleCopyJson}>
+            <Copy className="h-4 w-4 mr-1.5" /> {copied ? "Copiado!" : "Copiar JSON"}
+          </Button>
+          {data.status !== "archived" && (
+            <Button variant="outline" onClick={handleArchive} disabled={actionLoading}>
+              <Archive className="h-4 w-4 mr-1.5" /> Arquivar
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Summary */}
+      <Card className="p-5 border-cyan-500/30 bg-cyan-500/[0.03]">
+        <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
+          <div className="flex items-center gap-3">
+            <Badge className={cn("text-xs uppercase border", feasibilityStyles[summary.feasibility] ?? "bg-muted/40")}>
+              Viabilidade: {summary.feasibility ?? "—"}
+            </Badge>
+            {summary.confidence && (
+              <span className="text-xs text-muted-foreground">Confiança: {summary.confidence}</span>
+            )}
+          </div>
+        </div>
+        {summary.feasibility_reason && (
+          <p className="text-sm text-muted-foreground mb-4">{summary.feasibility_reason}</p>
+        )}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <KPI label="Verba recomendada" value={fmtEur(summary.recommended_total_budget_eur)} />
+          <KPI label="Compras esperadas" value={fmtNum(summary.expected_purchases)} />
+          <KPI label="Receita esperada" value={fmtEur(summary.expected_revenue_eur)} />
+          <KPI label="ROAS esperado" value={summary.expected_overall_roas != null ? `${fmtNum(summary.expected_overall_roas)}x` : "—"} />
+        </div>
+        {summary.expected_cpa_eur != null && (
+          <div className="mt-3 text-xs text-muted-foreground">CPA esperado: <span className="text-foreground font-medium">{fmtEur(summary.expected_cpa_eur, 2)}</span></div>
+        )}
+      </Card>
+
+      {/* Phases */}
+      {phases.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold">Fases</h2>
+          <div className="grid gap-3">
+            {phases.map((p: any, idx: number) => {
+              const border = PHASE_BORDERS[idx % PHASE_BORDERS.length];
+              const camps = phasesById.get(p.id) ?? [];
+              return (
+                <Card key={p.id ?? idx} className={cn("p-4 border-l-4", border)}>
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <div className="text-xs uppercase tracking-wider text-muted-foreground">Fase {idx + 1}</div>
+                      <h3 className="text-base font-semibold">{p.name}</h3>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        D-{p.days_from_event_start} → D-{p.days_from_event_end} ({p.duration_days}d) · {p.objective}
+                      </div>
+                    </div>
+                    <div className="text-right text-xs">
+                      <div className="text-muted-foreground">Daily / Total</div>
+                      <div className="font-semibold">{fmtEur(p.daily_budget_eur, 0)} / {fmtEur(p.total_phase_budget_eur, 0)}</div>
+                    </div>
+                  </div>
+
+                  {p.primary_audiences?.length > 0 && (
+                    <div className="mt-3">
+                      <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5">Audiences</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {p.primary_audiences.map((a: any, i: number) => (
+                          <Badge key={i} variant="outline" className="text-[11px]">
+                            {a.type}: {a.description} {a.estimated_size && <span className="text-muted-foreground ml-1">({a.estimated_size})</span>}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {p.creative_focus && (
+                    <div className="mt-3">
+                      <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5">Criativo</div>
+                      <Badge variant="outline" className="text-[11px]">{p.creative_focus}</Badge>
+                    </div>
+                  )}
+
+                  {p.target_kpis && (
+                    <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <MiniStat label="CPM máx" value={p.target_kpis.cpm_eur_max != null ? fmtEur(p.target_kpis.cpm_eur_max, 2) : "—"} />
+                      <MiniStat label="CTR mín" value={p.target_kpis.ctr_pct_min != null ? `${p.target_kpis.ctr_pct_min}%` : "—"} />
+                      <MiniStat label="CPA máx" value={p.target_kpis.cpa_eur_max != null ? fmtEur(p.target_kpis.cpa_eur_max, 2) : "—"} />
+                      <MiniStat label="ROAS mín" value={p.target_kpis.roas_min != null ? `${p.target_kpis.roas_min}x` : "—"} />
+                    </div>
+                  )}
+
+                  {p.success_criteria_to_next_phase && (
+                    <div className="mt-3 text-xs text-muted-foreground">
+                      → Passa à próxima fase quando: <span className="text-foreground">{p.success_criteria_to_next_phase}</span>
+                    </div>
+                  )}
+
+                  {p.learning_phase_note && (
+                    <div className="mt-2 text-[11px] text-muted-foreground bg-muted/30 rounded px-2 py-1.5">
+                      {p.learning_phase_note}
+                    </div>
+                  )}
+
+                  {camps.length > 0 && (
+                    <div className="mt-4 border-t border-border pt-3">
+                      <button
+                        onClick={() => setExpandedCampaigns((s) => ({ ...s, [p.id]: !s[p.id] }))}
+                        className="flex items-center gap-1.5 text-xs font-medium text-cyan-400 hover:text-cyan-300"
+                      >
+                        {expandedCampaigns[p.id] ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        Campanhas recomendadas ({camps.length})
+                      </button>
+                      {expandedCampaigns[p.id] && (
+                        <div className="mt-3 space-y-3">
+                          {camps.map((c: any, ci: number) => (
+                            <div key={ci} className="rounded border border-border p-3 text-xs space-y-1.5">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div className="font-medium">{c.campaign_name}</div>
+                                <div className="text-muted-foreground">{c.objective} · {fmtEur(c.daily_budget_eur, 0)}/dia · {c.duration_days}d</div>
+                              </div>
+                              {c.adsets?.map((a: any, ai: number) => (
+                                <div key={ai} className="rounded bg-muted/30 p-2">
+                                  <div className="font-medium">{a.adset_name}</div>
+                                  <div className="text-muted-foreground">opt: {a.optimization_goal} · billing: {a.billing_event} · creative: {a.creative_type_recommended}</div>
+                                  <pre className="mt-1.5 overflow-x-auto text-[10px] bg-background/50 rounded p-2 border border-border">{JSON.stringify(a.targeting_json, null, 2)}</pre>
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Scaling rules */}
+      {scaling.length > 0 && (
+        <Card className="p-5">
+          <h2 className="text-lg font-semibold mb-3">Regras de scaling</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-xs uppercase text-muted-foreground border-b border-border">
+                <tr>
+                  <th className="text-left py-2 pr-3">Trigger</th>
+                  <th className="text-left py-2 pr-3">Action</th>
+                  <th className="text-left py-2">Rationale</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scaling.map((r: any, i: number) => (
+                  <tr key={i} className="border-b border-border last:border-0">
+                    <td className="py-2 pr-3 align-top">{r.trigger}</td>
+                    <td className="py-2 pr-3 align-top font-medium">{r.action}</td>
+                    <td className="py-2 align-top text-muted-foreground">{r.rationale}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Global KPIs */}
+      {kpis && Object.keys(kpis).length > 0 && (
+        <Card className="p-5">
+          <h2 className="text-lg font-semibold mb-3">KPIs globais esperados</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <KPI label="Impressões" value={fmtNum(kpis.expected_total_impressions)} />
+            <KPI label="Reach" value={fmtNum(kpis.expected_total_reach)} />
+            <KPI label="Clicks" value={fmtNum(kpis.expected_total_clicks)} />
+            <KPI label="Frequência" value={fmtNum(kpis.expected_avg_frequency)} />
+            <KPI label="Compras" value={fmtNum(kpis.expected_total_purchases)} />
+          </div>
+        </Card>
+      )}
+
+      {/* Risks */}
+      {risks.length > 0 && (
+        <Card className="p-5">
+          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-400" /> Riscos & avisos
+          </h2>
+          <div className="space-y-2">
+            {risks.map((r: any, i: number) => (
+              <div key={i} className="rounded border border-border p-3 flex items-start gap-3">
+                <Badge variant="outline" className={cn("text-[10px] uppercase shrink-0", severityStyles[r.severity] ?? "")}>
+                  {r.severity}
+                </Badge>
+                <div className="text-sm min-w-0">
+                  <div className="font-medium">{r.title}</div>
+                  <div className="text-muted-foreground">{r.description}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Creative brief */}
+      {brief && Object.keys(brief).length > 0 && (
+        <Card className="p-5">
+          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-cyan-400" /> Creative brief
+          </h2>
+          {brief.primary_message && (
+            <div className="rounded bg-cyan-500/[0.05] border border-cyan-500/20 p-3 mb-3">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Mensagem central</div>
+              <div className="text-sm font-medium">{brief.primary_message}</div>
+            </div>
+          )}
+          {brief.tone && <div className="text-sm mb-3"><span className="text-muted-foreground">Tom: </span>{brief.tone}</div>}
+          {brief.must_include?.length > 0 && (
+            <div className="mb-2">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5">Deve incluir</div>
+              <div className="flex flex-wrap gap-1.5">
+                {brief.must_include.map((x: string, i: number) => (
+                  <Badge key={i} variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[11px]">{x}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          {brief.avoid?.length > 0 && (
+            <div>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1.5">Evitar</div>
+              <div className="flex flex-wrap gap-1.5">
+                {brief.avoid.map((x: string, i: number) => (
+                  <Badge key={i} variant="outline" className="bg-red-500/10 text-red-400 border-red-500/30 text-[11px]">{x}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Manual apply instructions */}
+      {manualApply && (
+        <Card className="p-5">
+          <h2 className="text-lg font-semibold mb-3">Como aplicar no Ads Manager</h2>
+          <p className="text-sm text-muted-foreground whitespace-pre-line">{manualApply}</p>
+          <Button variant="outline" className="mt-4" onClick={handleCopyJson}>
+            <Copy className="h-4 w-4 mr-1.5" /> {copied ? "Copiado!" : "Copiar plano completo (JSON)"}
+          </Button>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function KPI({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded border border-border p-3">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{label}</div>
+      <div className="text-base font-semibold">{value}</div>
+    </div>
+  );
+}
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded bg-muted/30 px-2 py-1.5">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-xs font-medium">{value}</div>
+    </div>
+  );
+}

@@ -101,6 +101,9 @@ import CrmPixels from "./pages/crm/Pixels";
 import CrmInsights from "./pages/crm/Insights";
 import CrmAdAccounts from "./pages/crm/AdAccounts";
 import CrmSetup from "./pages/crm/Setup";
+import CrmStrategies from "./pages/crm/Strategies";
+import CrmStrategyNew from "./pages/crm/StrategyNew";
+import CrmStrategyView from "./pages/crm/StrategyView";
 import ModuleSelector from "./pages/ModuleSelector";
 import PostLoginRedirect from "./components/PostLoginRedirect";
 import { AudienceLayout } from "./components/layout/AudienceLayout";
@@ -437,6 +440,9 @@ function App() {
                     <Route path="insights" element={<CrmInsights />} />
                     <Route path="ad-accounts" element={<CrmAdAccounts />} />
                     <Route path="setup" element={<CrmSetup />} />
+                    <Route path="strategies" element={<CrmStrategies />} />
+                    <Route path="strategies/new" element={<CrmStrategyNew />} />
+                    <Route path="strategies/:id" element={<CrmStrategyView />} />
                   </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
