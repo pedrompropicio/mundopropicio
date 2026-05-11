@@ -112,6 +112,7 @@ import AudiencePrint from "@/pages/crm/AudiencePrint";
 import CrmCreatives from "./pages/crm/Creatives";
 import CrmCreativeNew from "./pages/crm/CreativeNew";
 import CrmCreativeView from "./pages/crm/CreativeView";
+import CrmAudit from "./pages/crm/Audit";
 import ModuleSelector from "./pages/ModuleSelector";
 import PostLoginRedirect from "./components/PostLoginRedirect";
 import { AudienceLayout } from "./components/layout/AudienceLayout";
