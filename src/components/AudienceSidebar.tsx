@@ -4,6 +4,7 @@ import {
   Plug,
   Zap,
   Lightbulb,
+  Rocket,
   ArrowLeft,
   KeyRound,
   LogOut,
