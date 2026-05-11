@@ -179,8 +179,8 @@ export default function CrmCreativeView() {
 
   const handleAnalyze = async () => {
     if (!id || !data) return;
-    if (data.type !== "image") {
-      toast.error("Análise de vídeo em breve. Por agora suporta apenas imagens.");
+    if (data.type !== "image" && data.type !== "video") {
+      toast.error("Tipo de criativo não suportado para análise IA.");
       return;
     }
     setIsAnalyzing(true);
