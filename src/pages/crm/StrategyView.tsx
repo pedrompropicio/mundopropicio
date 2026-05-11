@@ -146,6 +146,47 @@ export default function CrmStrategyView() {
     }
   };
 
+  const openEdit = () => {
+    if (!data) return;
+    setEditName(data.name ?? "");
+    setEditStatus(data.status ?? "draft");
+    setEditOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!data) return;
+    setActionLoading(true);
+    try {
+      const { error } = await (supabase as any).schema("crm").from("meta_campaign_strategies")
+        .update({ name: editName, status: editStatus }).eq("id", data.id);
+      if (error) throw error;
+      toast.success("Estratégia atualizada");
+      queryClient.invalidateQueries({ queryKey: ["crm-strategy", id] });
+      queryClient.invalidateQueries({ queryKey: ["crm-strategies-list"] });
+      setEditOpen(false);
+    } catch (e: any) {
+      toast.error(e?.message || "Erro a guardar");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!data) return;
+    setActionLoading(true);
+    try {
+      const { error } = await (supabase as any).schema("crm").from("meta_campaign_strategies")
+        .delete().eq("id", data.id);
+      if (error) throw error;
+      toast.success("Estratégia apagada");
+      queryClient.invalidateQueries({ queryKey: ["crm-strategies-list"] });
+      navigate("/audience/strategies");
+    } catch (e: any) {
+      toast.error(e?.message || "Erro a apagar");
+      setActionLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 text-muted-foreground text-sm">
