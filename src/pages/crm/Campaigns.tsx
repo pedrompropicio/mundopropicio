@@ -1392,6 +1392,8 @@ export default function CrmCampaigns() {
                       currency={currency}
                       onAnalyze={analyzeCampaign}
                       onCoach={coachCampaign}
+                      onToggleStatus={toggleCampaignStatus}
+                      toggling={togglingCampaignId === c.external_campaign_id}
                     />
                   ))}
                 </tbody>
