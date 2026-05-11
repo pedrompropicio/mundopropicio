@@ -366,6 +366,7 @@ function ProtectedLayout() {
               <Route path="/admin/lembretes" element={<Reminders />} />
               <Route path="/admin/auditoria-rls" element={<RlsLegacyAudit />} />
               <Route path="/admin/sync-coala" element={<CoalaSync />} />
+              <Route path="/crm/connections" element={<CrmConnections />} />
             </Routes>
           </div>
         </main>
