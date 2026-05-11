@@ -87,6 +87,12 @@ export const ALL_PERMISSIONS = [
   { key: "edit_approved_bp", label: "Editar BP Aprovado (Em Curso)", group: "Operacional" },
   { key: "camarim_team", label: "Camarim — Equipa de Montagem", group: "Operacional" },
   { key: "camarim_manage", label: "Camarim — Gerir Sessões (criar/aprovar/fechar)", group: "Operacional" },
+  { key: "crm.audience.view", label: "MP Audience — Ver Dashboards", group: "MP Audience" },
+  { key: "crm.audience.export", label: "MP Audience — Exportar Públicos", group: "MP Audience" },
+  { key: "crm.campaign.create", label: "MP Audience — Criar Campanhas", group: "MP Audience" },
+  { key: "crm.campaign.publish", label: "MP Audience — Publicar Campanhas", group: "MP Audience" },
+  { key: "crm.campaign.set_budget", label: "MP Audience — Definir Orçamentos", group: "MP Audience" },
+  { key: "crm.attribution.view", label: "MP Audience — Ver Atribuição", group: "MP Audience" },
 ];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
