@@ -1,144 +1,107 @@
 
-# Hardening `verify_jwt` — 5 edge functions sensíveis
+# Inventário CRM-Meta — estado atual
 
-## TL;DR
+## 1. Edge functions `crm-meta-*` (15)
 
-As 5 funções podem migrar para `verify_jwt = true` **sem ajuste em nenhum caller**. Todos os callers (frontend admin via `supabase.functions.invoke`, cron via anon key, inter-função via service_role) já enviam JWT válido. **Bonus:** descobri 1 finding extra (`preview-transactional-email`) e 1 caller órfão (`surgical-restore` sem frontend).
+**OAuth & ligação**
+- `crm-meta-oauth-callback` — redirect handler do OAuth Meta; troca code → token long-lived, regista BMs.
+- `crm-meta-fetch-ad-accounts` — `{connection_id}` → lê `/me/adaccounts`, persiste em `ad_platform_connections` + sincroniza `ad_platform_account_links`.
+- `crm-meta-fetch-pages` — `{connection_id}` → Pages do user + IG business account associado.
+- `crm-meta-pixel-health` — `{connection_id, ad_account_id}` → estado dos pixels da conta (eventos, last fired).
 
----
+**Sync de dados Meta → DB**
+- `crm-meta-sync-campaigns` — `{connection_id, ad_account_id}` → GET `/act_X/campaigns` e UPSERT em `meta_campaign_snapshot`. Faz auto-link a eventos.
+- `crm-meta-sync-insights` — `{connection_id, ad_account_id, days_back?}` → GET `/insights` por campanha por dia, UPSERT em `meta_campaign_insights_daily` (omni_purchase, ROAS, CPM, CTR, frequency, etc.).
 
-## Mapeamento por função
+**Análise / IA (read-only)**
+- `crm-meta-campaign-analyze` — `{campaign_id, from?, to?, days_back?}` → lê `meta_campaign_snapshot` + `meta_campaign_insights_daily` da BD e devolve análise IA (não persiste). Já foi corrigido o off-by-one hoje.
+- `crm-meta-creative-analyze` — `{creative_id}` → análise IA de imagem (Lovable Gateway) ou vídeo (Gemini direto); persiste em `meta_creatives.analysis_jsonb`.
+- `crm-meta-audience-blueprints` — `{connection_id, ad_account_id, min_roas?, days_back?}` → top campanhas por ROAS + summarize de targeting de cada adset (read-only do Meta).
+- `crm-meta-audience-coach` — chama `/adsets`, `/insights`, `/search` para sugestões de audiência (read-only).
+- `crm-meta-interest-search` — `{query}` → wrapper Graph `/search` (interesses) + `reachestimate`.
+- `crm-meta-list-custom-audiences` — `{ad_account_id}` → custom audiences da conta.
 
-### 1. `database-backup` → ✅ migrar para `true`
+**Geração / deploy de estratégias**
+- `crm-meta-campaign-strategy-generate` — gera plano completo via Lovable AI (Gemini 2.5 Flash) e persiste em `meta_campaign_strategies` com `status='generated'`.
+- `crm-meta-strategy-deploy` — `{strategy_id}` → cria Campaigns + AdSets + AdCreatives + Ads no Meta via Marketing API, **tudo PAUSED**. Persiste em `meta_campaign_strategy_deployments`.
+- `crm-meta-deployment-toggle` — `{deployment_id, target_status}` → muda estado (ACTIVE/PAUSED) de tudo o que foi deployado, com toggle_log.
 
-- **Guards internos:** distingue `service_role` vs admin via JWT claims; cron passa anon mas a função aceita porque também tem Lisbon 03:00 gate + admin role check fallback.
-- **Callers:**
-  - Frontend: `src/pages/DatabaseBackups.tsx:100` via `supabase.functions.invoke("database-backup")` → JWT autenticated automático ✅
-  - Cron Test: `daily-database-backup-summer` (02:00 UTC) e `daily-database-backup-winter` (03:00 UTC) — ambos enviam **anon JWT** no header `Authorization: Bearer <anon>` ✅
-  - Cron Live: `daily-database-backup` (03:00 UTC) — também anon ✅
-- **Inter-função:** nenhuma.
-- **Decisão:** migrar. Anon JWT passa o gateway com `verify_jwt=true`.
+## 2. Tabelas do schema `crm` (Live)
 
-### 2. `database-restore` → ✅ migrar para `true`
+| Tabela | Cols | Pol | Foco |
+|---|---|---|---|
+| `ad_manager_audit_log` (+ partições 2026_05/06/07) | 11 | 2 | (auditoria — fora de scope) |
+| `ad_platform_connections` | 21 | 4 | OAuth tokens cifrados, ad accounts disponíveis |
+| `ad_platform_account_links` | 11 | 2 | Liga connection ↔ ad_account, primary/enabled |
+| `meta_campaign_snapshot` | 23 | 4 | **Campanhas sincronizadas** |
+| `meta_campaign_insights_daily` | 31 | 4 | **Insights diários por campanha** |
+| `meta_campaign_strategies` | 27 | 4 | Estratégias geradas pela IA |
+| `meta_campaign_strategy_deployments` | 19 | 4 | Resultado do deploy ao Meta |
+| `meta_creatives` | 27 | 5 | Criativos (imagem/vídeo) + análise IA |
+| `meta_strategy_creatives` | 8 | 5 | Bridge strategy ↔ creative |
+| `oauth_states`, `role_budget_limits` | — | — | (fora de scope) |
 
-- **Guards:** admin role obrigatório (decoded do JWT); cross-tenant block.
-- **Callers:** apenas `src/pages/DatabaseBackups.tsx:150,169` (frontend admin) ✅
-- **Cron:** nenhum.
-- **Decisão:** migrar trivial.
+**Colunas relevantes:**
 
-### 3. `selective-restore` → ✅ migrar para `true`
+- `meta_campaign_snapshot`: `external_campaign_id`, `name`, `status`, `effective_status`, `objective`, `daily_budget_cents`, `lifetime_budget_cents`, `budget_remaining_cents`, `start_time`, `stop_time`, `buying_type`, `bid_strategy`, `linked_event_id`, `currency`, `raw` (jsonb completo), `last_synced_at`.
+- `meta_campaign_insights_daily`: `external_campaign_id`, `date_start`/`date_stop`, `impressions`, `reach`, `frequency`, `clicks`, `unique_clicks`, `spend_cents`, `cpc/cpm/cpp_cents`, `ctr`, `unique_ctr`, `purchases_count`, `purchases_value_cents`, `leads_count`, `add_to_cart_count`, `initiate_checkout_count`, `view_content_count`, `roas`, `actions/action_values/raw` (jsonb).
+- `meta_campaign_strategies`: ~27 colunas — input do utilizador, `generated_plan` (jsonb), `status` (`generated`/...), `connection_id`, `ad_account_id`, `company_id`.
+- `meta_campaign_strategy_deployments`: liga strategy ↔ IDs reais criados no Meta, `current_status`, `toggle_log`.
 
-- **Guards:** admin only + cross-tenant block (linha 309).
-- **Callers:** apenas `src/components/SelectiveRestoreModal.tsx:105,126` ✅
-- **Decisão:** migrar trivial.
+**Não existe** tabela para adsets nem ads sincronizados (snapshot é só ao nível campanha).
 
-### 4. `surgical-restore` → ✅ migrar para `true` (com nota)
+## 3. Já lemos campanhas Meta?
 
-- **Guards:** admin only via JWT; cross-tenant block; valida que cada `event_id` pertence à company do caller.
-- **Callers frontend:** **nenhum encontrado** (`rg "surgical-restore" src/` retorna 0). Função existe mas não está plugada em UI — provavelmente chamada manualmente via `supabase.functions.invoke` em consola admin, ou órfã.
-- **Decisão:** migrar (não há regressão possível) **e** sinalizar à parte se é para remover ou plugar em UI.
+Sim — várias funções batem na Marketing API:
 
-### 5. `send-push-notification` → ✅ migrar para `true`
+- **Listar campanhas de um ad_account:** `crm-meta-sync-campaigns` (persistente, `meta_campaign_snapshot`) e `crm-meta-pixel-health`/`crm-meta-campaign-strategy-generate` (efémero, só leitura).
+- **Listar adsets de uma campanha:** sim, mas só **em memória** dentro de `crm-meta-audience-blueprints`, `crm-meta-audience-coach` e `crm-meta-campaign-strategy-generate`. **Não persiste em DB.**
+- **Listar ads de um adset:** **não existe**. Só são criados via `crm-meta-strategy-deploy`. Não há sync.
+- **Insights:** `crm-meta-sync-insights` puxa **só ao nível campanha** (não adset, não ad), com `time_increment=1`, métricas completas (CPM, CPA via purchases, CTR, ROAS, frequency, impressions, reach, leads, ATC, IC, VC). Persiste em `meta_campaign_insights_daily`.
+- **Cron:** não verifiquei agendamento, mas `last_synced_at` sugere que o sync corre on-demand (botão "Sincronizar" no dashboard).
 
-- **Guards:** exige `Authorization: Bearer <jwt>`, valida via `auth.getUser()`, resolve `company_id` do caller, filtra subscriptions por tenant.
-- **Callers:**
-  - Frontend: `src/lib/push-notifications.ts:120` via `supabase.functions.invoke` ✅ (passa JWT autenticated)
-  - Inter-função: nenhuma (verificado com `rg` em `supabase/functions/`).
-  - Postgres triggers / `pg_net`: **nenhum** — não encontrei chamadas via cron nem via trigger DB.
-- **Decisão:** migrar. **Nota:** se no futuro adicionares disparo via Postgres trigger, terás de seguir o pattern do `process-email-queue` (service_role do Vault).
+## 4. Frontend (`src/pages/crm/`)
 
----
+| Página | Rota | Acção |
+|---|---|---|
+| `Connections.tsx` | `/audience/connections` | Conectar Meta (OAuth), gerir ad accounts |
+| `AdAccounts.tsx`, `Pixels.tsx`, `Setup.tsx` | setup | Configuração read+write de connection settings |
+| `Campaigns.tsx` | `/audience/dashboard` | **Read-only**: tabela de campanhas + insights + botão "Analisar com IA" → chama `crm-meta-campaign-analyze` (Sheet com resultado, sem persistir) |
+| `Insights.tsx` | `/audience/insights` | Read-only de métricas |
+| `Strategies.tsx` + `StrategyNew.tsx` + `StrategyView.tsx` + `StrategyPrint.tsx` | `/audience/strategies` | **Write**: criar estratégia do zero, ver plano gerado, imprimir |
+| `Creatives.tsx` + `CreativeNew.tsx` + `CreativeView.tsx` | `/audience/creatives` | **Write**: upload de criativos, análise IA |
+| `AudiencePrint.tsx` | print | Export PDF de audience coach |
 
-## Achados paralelos
+Pausar/ativar campanhas existentes só está disponível via `crm-meta-deployment-toggle` (e só para campanhas criadas pelo nosso deploy, não para campanhas legacy do Ads Manager).
 
-### A. `preview-transactional-email` — manter `false` ✅ (era dúvida tua)
+## 5. Estratégias — fluxo end-to-end?
 
-- Está intencionalmente `verify_jwt=false` porque **só o backend Go (Lovable) chama**, autenticando via header `Authorization: Bearer <LOVABLE_API_KEY>`. Não é JWT do Supabase. Se ligares `verify_jwt=true`, **quebras** — o gateway exige JWT do projeto, não LOVABLE_API_KEY.
-- **Decisão:** documentar no comentário do `config.toml` para evitar futura "limpeza" errada.
+**Sim, está completo:**
 
-### B. Cron `daily-database-backup-*` usa anon key (Test e Live)
+1. Utilizador preenche brief em `StrategyNew.tsx` (objetivo, evento, budget, etc.).
+2. Frontend chama `crm-meta-campaign-strategy-generate` → IA gera plano completo, persiste em `meta_campaign_strategies` (`status='generated'`, `generated_plan` jsonb com campaigns/adsets/ads/creatives).
+3. `StrategyView.tsx` mostra o plano e tem CTA "Deploy" → chama `crm-meta-strategy-deploy` → cria tudo no Meta em PAUSED, regista em `meta_campaign_strategy_deployments`.
+4. `crm-meta-deployment-toggle` permite ativar/pausar tudo o que foi deployado.
 
-- Funciona com `verify_jwt=true` (anon JWT é válido). Mas é defesa em profundidade fraca: se o anon key vazar em qualquer cliente público, qualquer pessoa pode disparar a função (que ainda é gated pelo guard interno admin/Lisbon, mas...).
-- **Recomendação opcional, não-blocker desta volta:** migrar os 3 crons para o pattern do `process-email-queue` — guardar service_role no Vault (`vault.create_secret('database_backup_service_role_key', ...)`) e ler em `cron.schedule` via `vault.decrypted_secrets`. Agendar como item separado.
+## Gaps vs Nível 1 (diagnóstico) e Nível 2 (re-design)
 
-### C. `surgical-restore` órfã na UI
+**Nível 1 — diagnóstico de campanha existente**
+- ✅ Já existe `crm-meta-campaign-analyze` que devolve análise + issues + sugestões para uma campanha.
+- ❌ Análise hoje é **só ao nível campanha**: não consulta adsets nem ads individuais, nem os respectivos insights. Para um relatório sério ("este adset está a sangrar dinheiro", "este ad tem CTR 3x abaixo do irmão") falta sincronizar e analisar adsets/ads.
+- ❌ Não há tabelas `meta_adset_snapshot` / `meta_ad_snapshot` / insights por adset ou ad. Sem isto, breakdown granular é impossível sem ir ao Meta em runtime.
+- ❌ A análise IA não é persistida — cada clique re-gera (pode ser intencional, mas perde-se histórico de issues e da evolução).
+- ⚠️ Análise não cruza com criativos: `meta_creatives.analysis_jsonb` existe mas não é usado dentro de `crm-meta-campaign-analyze`.
 
-- Sinalizar em backlog: ou plugar num `SurgicalRestoreModal` (similar ao `SelectiveRestoreModal`) ou remover. Não toca neste plano.
+**Nível 2 — re-design (gerar variante optimizada PAUSED a partir de campanha existente)**
+- ❌ Não existe nenhuma função `crm-meta-campaign-redesign` (ou similar). `crm-meta-campaign-strategy-generate` parte sempre de um brief novo, não de uma campanha real existente como input.
+- ❌ Não há ponte "campanha existente + insights → strategy". Para re-design seria preciso: (a) ler campanha + adsets + ads + insights + creatives da DB, (b) passar isso à IA como contexto, (c) gerar nova `meta_campaign_strategies` row com `source_campaign_id`, (d) reutilizar `crm-meta-strategy-deploy` (que já cria tudo PAUSED — bom).
+- ❌ `meta_campaign_strategies` não tem coluna `source_campaign_id` nem `parent_strategy_id` para versionar re-designs.
+- ❌ UI: não há entry-point em `Campaigns.tsx` para "Re-desenhar esta campanha" (só existe "Analisar com IA").
 
-### D. Outras funções sem entry em `config.toml`
-
-Todas as restantes (≈30 funções: `approve-transaction`, `update-transaction`, `create-user`, `delete-user`, `match-categories`, `extract-*`, `audit-categories`, `close-camarim-session`, `generate-historical-transactions`, `parse-coala-bp`, `apply-coala-bp`, `sync-coala-from-drive`, `google-drive-health`, `help-search`, `invite-company-admin`, `create-company`, `resolve-attachment-url`, `fetch-fx-rate`, `resend-reset-email`, `restore-debug`, `database-restore-v2`, `run-rls-legacy-audit`, `send-system-reminders`, `test-multi-tenant-isolation`, `check-login-rate`) não têm override → herdam o **default `true`**. Já estão protegidas. Nada a fazer.
-
-**Excepção possivelmente preocupante:** `restore-debug` — se for callable e fizer algo destrutivo, vale auditar à parte. Não muda neste plano.
-
----
-
-## Diff proposto
-
-### `supabase/config.toml`
-
-```toml
-project_id = "ukpuhoynrqobqtzdbysp"
-
-[functions]
-  [functions.accept-invitation]
-    verify_jwt = false      # link em email aceite anon
-  [functions.auth-email-hook]
-    verify_jwt = false      # webhook do Supabase Auth
-  [functions.process-email-queue]
-    verify_jwt = true
-  [functions.send-transactional-email]
-    verify_jwt = true
-  [functions.preview-transactional-email]
-    verify_jwt = false      # gated por LOVABLE_API_KEY (não JWT Supabase) — NÃO mudar
-  [functions.handle-email-unsubscribe]
-    verify_jwt = false      # link em email anon
-  [functions.handle-email-suppression]
-    verify_jwt = false      # webhook do email provider
-  [functions.request-password-reset]
-    verify_jwt = false      # anon precisa pedir reset
-  [functions.send-push-notification]
-    verify_jwt = true       # ← MUDADO (era false)
-  [functions.database-backup]
-    verify_jwt = true       # ← MUDADO (era false)
-  [functions.database-restore]
-    verify_jwt = true       # ← MUDADO (era false)
-  [functions.selective-restore]
-    verify_jwt = true       # ← MUDADO (era false)
-  [functions.surgical-restore]
-    verify_jwt = true       # ← MUDADO (era false)
-```
-
-### Ajustes em callers
-
-**Nenhum.** Todos os callers actuais já enviam JWT válido.
-
-### Cron `daily-database-backup` (opcional, não-blocker)
-
-Migrar para service_role do Vault — ver Achado B. Plano separado se aprovares.
+**Sumário acionável**
+1. Para Nível 1 robusto: criar `crm-meta-sync-adsets` + `crm-meta-sync-ads` + tabelas `meta_adset_snapshot`/`meta_ad_snapshot` + insights granulares; estender `crm-meta-campaign-analyze` para consumir esse detalhe e cruzar com `meta_creatives.analysis_jsonb`.
+2. Para Nível 2: adicionar coluna `source_campaign_id` em `meta_campaign_strategies` + nova edge function `crm-meta-campaign-redesign` (lê snapshot + insights + creatives → IA → cria strategy) + botão na UI; reutilizar `crm-meta-strategy-deploy` tal como está.
 
 ---
 
-## Smoke tests pós-deploy (em Test, depois Live)
-
-1. **Frontend admin → "Backup agora"** em `/admin/backups` → 200, ficheiro novo no bucket `database-backups`.
-2. **Cron 02:00 UTC (summer) ou 03:00 UTC (winter)** → consultar `net._http_response ORDER BY id DESC LIMIT 5` no dia seguinte → status 200 e ficheiro do dia presente.
-3. **Frontend admin → "Restore completo"** em backup recente (numa entrada não-destrutiva, ex: backup vazio de teste) → 200.
-4. **Frontend admin → "Restore selectivo"** numa tabela inócua → 200.
-5. **Push notification** → criar uma `payment_list` com `status='pending_approval'` (que dispara o badge em `app-icon-badge.ts`) → confirmar push entregue ao admin subscrito.
-
-## Rollback
-
-Reverter exclusivamente as 5 linhas de `config.toml` para `verify_jwt = false` e re-deploy. Sem migração DB, sem mudança em código JS — rollback em <2 min.
-
-## Critério de sucesso
-
-- 5 funções com `verify_jwt = true` deployadas em Live.
-- 24h sem 401 inesperado nos logs (`supabase--edge_function_logs` para cada uma).
-- Backup automático das 03:00 (Lisbon → 02:00/03:00 UTC) gerado no dia seguinte ao deploy.
-
-## Restrições / notas finais
-
-- **Sem alteração no Vault nesta volta** — cron continua com anon key (já compatível com `verify_jwt=true`).
-- **Sem alteração em código de callers** — confirmado por `rg`.
-- Order de aplicação sugerida: Test primeiro (smoke), 24h, depois Live.
+**Próximo passo sugerido:** confirmares qual destes dois níveis queres atacar primeiro (ou ambos em paralelo), e eu desenho um plano de implementação detalhado para esse scope.
