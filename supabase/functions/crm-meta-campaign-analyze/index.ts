@@ -125,7 +125,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
         .from("meta_campaign_insights_daily")
         .select("external_campaign_id, spend_cents, purchases_value_cents")
         .in("external_campaign_id", peerIds)
-        .gte("date_start", sinceDate.toISOString().slice(0, 10));
+        .gte("date_start", fromDate)
+        .lte("date_start", toDate);
       if (peerInsights) {
         const peerSpend = peerInsights.reduce((a: number, r: any) => a + (r.spend_cents ?? 0), 0);
         const peerRev = peerInsights.reduce((a: number, r: any) => a + (r.purchases_value_cents ?? 0), 0);
