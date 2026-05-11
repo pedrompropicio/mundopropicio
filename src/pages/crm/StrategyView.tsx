@@ -489,6 +489,11 @@ export default function CrmStrategyView() {
               <Badge variant="outline" className={cn("text-[10px] uppercase", statusStyles[data.status] ?? statusStyles.draft)}>
                 {statusLabel(data.status)}
               </Badge>
+              {data.source_campaign_id && (
+                <Badge variant="outline" className="text-[10px] uppercase border-cyan-500/40 text-cyan-300 bg-cyan-500/10">
+                  Re-design
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-4 mt-1.5 text-sm text-muted-foreground flex-wrap">
               <span className="flex items-center gap-1.5"><Target className="h-3.5 w-3.5" /> Meta: <span className="text-foreground font-medium">{fmtEur(data.goal_revenue_eur)}</span></span>
@@ -500,7 +505,18 @@ export default function CrmStrategyView() {
               {data.detected_artist && (
                 <span className="flex items-center gap-1.5"><Mic2 className="h-3.5 w-3.5" /> {data.detected_artist}</span>
               )}
+              {data.source_campaign_id && (
+                <span className="flex items-center gap-1.5 text-cyan-300/80">
+                  Baseado na campanha: <span className="font-medium text-foreground">{data.sourceCampaign?.name ?? data.source_campaign_id}</span>
+                </span>
+              )}
             </div>
+            {data.redesign_rationale && (
+              <div className="mt-3 rounded-md border border-cyan-500/20 bg-cyan-500/5 p-3">
+                <div className="text-xs font-semibold uppercase tracking-wider text-cyan-300 mb-1">Mudanças vs original</div>
+                <p className="text-sm text-foreground/90 whitespace-pre-wrap">{data.redesign_rationale}</p>
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
