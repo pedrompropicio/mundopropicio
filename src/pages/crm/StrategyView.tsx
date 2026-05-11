@@ -529,12 +529,9 @@ export default function CrmStrategyView() {
               <Select value={editStatus} onValueChange={setEditStatus}>
                 <SelectTrigger id="edit-status"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="draft">draft</SelectItem>
-                  <SelectItem value="generated">generated</SelectItem>
-                  <SelectItem value="approved">approved</SelectItem>
-                  <SelectItem value="in_progress">in_progress</SelectItem>
-                  <SelectItem value="completed">completed</SelectItem>
-                  <SelectItem value="archived">archived</SelectItem>
+                  {STRATEGY_STATUS_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
