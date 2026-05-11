@@ -462,5 +462,17 @@ Responde APENAS com JSON puro (SEM markdown fences, SEM texto antes/depois) com 
     overall_score: score,
     ai_model: AI_MODEL,
     generated_at: new Date().toISOString(),
+    // Back-compat shim para PDF antigo (printCampaignAnalysis espera .analysis)
+    analysis: {
+      summary: summaryText,
+      verdict: severity === "healthy" ? "bom" : severity === "warning" ? "regular" : "fraco",
+      strengths: diagnosis?.campaign_diagnosis?.strengths ?? [],
+      weaknesses: diagnosis?.campaign_diagnosis?.weaknesses ?? [],
+      recommendations: (diagnosis?.top_3_actions ?? []).map((a: any) => ({
+        priority: "high",
+        action: a.action,
+        rationale: a.rationale,
+      })),
+    },
   });
 });
