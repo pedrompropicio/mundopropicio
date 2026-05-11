@@ -546,3 +546,149 @@ export default function CrmCreativeView() {
     </div>
   );
 }
+
+function scoreColor(score: number): string {
+  if (score >= 80) return "text-emerald-400 border-emerald-500/40 bg-emerald-500/10";
+  if (score >= 60) return "text-amber-400 border-amber-500/40 bg-amber-500/10";
+  if (score >= 40) return "text-orange-400 border-orange-500/40 bg-orange-500/10";
+  return "text-red-400 border-red-500/40 bg-red-500/10";
+}
+
+const verdictMeta: Record<string, { label: string; color: string; icon: any }> = {
+  ready: { label: "Pronto para usar", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/40", icon: CheckCircle2 },
+  needs_minor_changes: { label: "Pequenos ajustes", color: "text-amber-400 bg-amber-500/10 border-amber-500/40", icon: AlertCircle },
+  needs_major_changes: { label: "Grandes mudanças", color: "text-orange-400 bg-orange-500/10 border-orange-500/40", icon: AlertCircle },
+  reject: { label: "Não usar", color: "text-red-400 bg-red-500/10 border-red-500/40", icon: XCircle },
+};
+
+const severityColor: Record<string, string> = {
+  high: "border-red-500/40 bg-red-500/10 text-red-400",
+  medium: "border-amber-500/40 bg-amber-500/10 text-amber-400",
+  low: "border-blue-500/40 bg-blue-500/10 text-blue-400",
+};
+
+function AnalysisRender({ analysis, analyzedAt, model }: { analysis: any; analyzedAt: string; model: string | null }) {
+  const scores = analysis?.scores ?? {};
+  const detected = analysis?.detected ?? {};
+  const issues: any[] = analysis?.issues ?? [];
+  const suggestions: any[] = analysis?.suggestions ?? [];
+  const alignment = analysis?.alignment_with_copy ?? {};
+  const verdict = analysis?.verdict ?? "needs_minor_changes";
+  const vMeta = verdictMeta[verdict] ?? verdictMeta.needs_minor_changes;
+  const VIcon = vMeta.icon;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <Badge className={cn("text-sm px-3 py-1.5 border", vMeta.color)}>
+          <VIcon className="h-4 w-4 mr-1.5" /> {vMeta.label}
+        </Badge>
+        <div className={cn("rounded-full px-3 py-1.5 text-lg font-bold border", scoreColor(scores.overall ?? 0))}>
+          {scores.overall ?? "—"} / 100
+        </div>
+      </div>
+
+      {analysis.verdict_reason && (
+        <p className="text-sm text-muted-foreground italic">{analysis.verdict_reason}</p>
+      )}
+
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        <SubScore label="Meta Compliance" icon={ShieldCheck} score={scores.meta_compliance} />
+        <SubScore label="Visual" icon={Eye} score={scores.visual_quality} />
+        <SubScore label="Mensagem" icon={MessageSquare} score={scores.message_clarity} />
+        <SubScore label="CTA" icon={Award} score={scores.cta_presence} />
+        <SubScore label="Branding" icon={Palette} score={scores.branding} />
+      </div>
+
+      <div className="rounded-lg border border-border p-3 space-y-1.5 text-xs">
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">O que a IA detetou</div>
+        {detected.primary_message && <div><strong>Mensagem principal:</strong> {detected.primary_message}</div>}
+        {detected.text_in_image_pct != null && (
+          <div>
+            <strong>Texto na imagem:</strong> ~{detected.text_in_image_pct}%
+            {detected.text_in_image_pct > 20 && <span className="text-amber-400 ml-1">⚠️ acima do recomendado</span>}
+          </div>
+        )}
+        {detected.text_content && <div><strong>Texto visível:</strong> "{detected.text_content}"</div>}
+        {detected.has_cta != null && (
+          <div>
+            <strong>CTA na imagem:</strong> {detected.has_cta ? `✓ "${detected.cta_text ?? "sim"}"` : "✗ não detetado"}
+          </div>
+        )}
+        {detected.brand_visibility && (
+          <div><strong>Visibilidade da marca:</strong> {detected.brand_visibility}</div>
+        )}
+        {detected.event_type_detected && (
+          <div><strong>Tipo de evento:</strong> {detected.event_type_detected}</div>
+        )}
+        {detected.composition_quality && (
+          <div><strong>Composição:</strong> {detected.composition_quality}</div>
+        )}
+      </div>
+
+      {issues.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1.5">
+            <AlertCircle className="h-3.5 w-3.5" /> Problemas ({issues.length})
+          </div>
+          {issues.map((iss, i) => (
+            <div key={i} className={cn("rounded border p-2.5", severityColor[iss.severity] ?? severityColor.low)}>
+              <div className="flex items-start gap-2">
+                <Badge variant="outline" className="text-[9px] uppercase shrink-0 mt-0.5">{iss.severity}</Badge>
+                <div className="text-xs min-w-0">
+                  <div className="font-medium">{iss.title}</div>
+                  <div className="text-muted-foreground mt-0.5">{iss.description}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {suggestions.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1.5">
+            <Lightbulb className="h-3.5 w-3.5" /> Sugestões ({suggestions.length})
+          </div>
+          {suggestions.map((sug, i) => (
+            <div key={i} className="rounded border border-border p-2.5 bg-muted/20">
+              <div className="text-xs">
+                <div className="font-medium flex items-center gap-1.5">
+                  {i + 1}. {sug.title}
+                  {sug.priority === "high" && <Badge variant="outline" className="text-[9px] bg-red-500/10 text-red-400 border-red-500/30">prioridade alta</Badge>}
+                </div>
+                <div className="text-muted-foreground mt-1">{sug.description}</div>
+                {sug.impact && <div className="text-cyan-400 mt-1 text-[11px]"><strong>Impacto:</strong> {sug.impact}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(alignment.headline_match != null || alignment.body_match != null) && (
+        <div className="rounded-lg border border-border p-3 text-xs space-y-1.5">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Alinhamento com o texto definido</div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>Headline: <strong className={cn(scoreColor(alignment.headline_match ?? 0), "px-1.5 py-0.5 rounded")}>{alignment.headline_match}/100</strong></div>
+            <div>Body: <strong className={cn(scoreColor(alignment.body_match ?? 0), "px-1.5 py-0.5 rounded")}>{alignment.body_match}/100</strong></div>
+          </div>
+          {alignment.notes && <p className="text-muted-foreground mt-1">{alignment.notes}</p>}
+        </div>
+      )}
+
+      <div className="text-[10px] text-muted-foreground pt-2 border-t border-border">
+        Analisado por {model ?? "IA"} em {new Date(analyzedAt).toLocaleString("pt-PT")}
+      </div>
+    </div>
+  );
+}
+
+function SubScore({ label, icon: Icon, score }: { label: string; icon: any; score: number | undefined }) {
+  return (
+    <div className={cn("rounded border px-2 py-1.5 text-center", scoreColor(score ?? 0))}>
+      <Icon className="h-3.5 w-3.5 mx-auto mb-0.5 opacity-70" />
+      <div className="text-base font-bold leading-tight">{score ?? "—"}</div>
+      <div className="text-[9px] uppercase tracking-wider opacity-70 leading-tight">{label}</div>
+    </div>
+  );
+}
