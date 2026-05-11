@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Brain, Plus, Loader2, Target, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { statusLabel } from "@/lib/strategy-status";
 
 type StrategyRow = {
   id: string;
