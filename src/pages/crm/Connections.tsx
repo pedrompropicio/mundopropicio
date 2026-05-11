@@ -166,6 +166,7 @@ export default function CrmConnections() {
         .update({
           selected_ad_account_id: accountId,
           selected_ad_account_name: acct?.name ?? null,
+          selected_ad_account_currency: acct?.currency ?? null,
         })
         .eq("id", conn.id);
       if (error) throw error;

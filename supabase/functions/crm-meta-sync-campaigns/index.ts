@@ -147,11 +147,24 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const campaigns = graphJson.data ?? [];
 
+  // 2.5) Read currency from connection (default EUR)
+  let currency = "EUR";
+  const { data: connRow } = await supabase
+    .schema("crm")
+    .from("ad_platform_connections")
+    .select("selected_ad_account_currency")
+    .eq("id", connectionId)
+    .maybeSingle();
+  if (connRow?.selected_ad_account_currency) {
+    currency = connRow.selected_ad_account_currency;
+  }
+
   // 3) UPSERT em batch
   const rows = campaigns.map((c) => ({
     connection_id: connectionId,
     company_id: companyId,
     ad_account_id: adAccountId,
+    currency,
     external_campaign_id: c.id,
     name: c.name ?? "(sem nome)",
     status: c.status ?? null,
@@ -185,8 +198,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   }
 
+  // 4) Auto-link campaigns to active events (best-effort, do not block)
+  let autoLinkedCount = 0;
+  try {
+    const { data: linkData, error: linkErr } = await supabase.rpc(
+      "crm_auto_link_meta_campaigns_to_events",
+      { p_company_id: companyId },
+    );
+    if (linkErr) {
+      console.error("[crm-meta-sync-campaigns] auto-link failed:", linkErr);
+    } else if (Array.isArray(linkData) && linkData.length > 0) {
+      autoLinkedCount = (linkData[0] as any).updated_count ?? 0;
+    }
+  } catch (e) {
+    console.error("[crm-meta-sync-campaigns] auto-link threw:", e);
+  }
+
   return json({
     synced_count: rows.length,
     ad_account_id: adAccountId,
+    auto_linked_count: autoLinkedCount,
   });
 });
