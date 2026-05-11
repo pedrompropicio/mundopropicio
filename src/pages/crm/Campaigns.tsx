@@ -492,6 +492,7 @@ function EventGroupCard({
   days,
   currency,
   onAnalyze,
+  onCoach,
 }: {
   event: EventRow;
   campaigns: CampaignRow[];
