@@ -1,32 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Lightbulb, Search, Trophy, Users, Copy, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
 
 export default function CrmInsights() {
   const navigate = useNavigate();
-
-  const { data: connection } = useQuery({
-    queryKey: ["meta-connection-for-insights"],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .schema("crm")
-        .from("ad_platform_connections")
-        .select("id, selected_ad_account_id, selected_ad_account_currency, status")
-        .eq("platform", "meta")
-        .eq("status", "active")
-        .order("connected_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error) throw error;
-      return data as { id: string; selected_ad_account_id: string | null } | null;
-    },
-  });
+  const { active } = useAdAccountSelection();
 
   // ===== Tab A: Top Performers / Blueprints =====
   const [minRoas, setMinRoas] = useState(3);
