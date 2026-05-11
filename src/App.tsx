@@ -96,7 +96,10 @@ import RlsLegacyAudit from "./pages/admin/RlsLegacyAudit";
 import CoalaSync from "./pages/admin/CoalaSync";
 import CrmConnections from "./pages/crm/Connections";
 import CrmCampaigns from "./pages/crm/Campaigns";
+import ModuleSelector from "./pages/ModuleSelector";
+import { AudienceLayout } from "./components/layout/AudienceLayout";
 import { PartnerLayout } from "./components/PartnerLayout";
+import { useLocation } from "react-router-dom";
 
 const queryClient = new QueryClient({
   defaultOptions: {
