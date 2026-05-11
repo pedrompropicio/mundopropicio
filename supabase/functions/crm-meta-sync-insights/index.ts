@@ -165,6 +165,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       ad_account_id: adAccountId,
       external_campaign_id: it.campaign_id,
       date_start: it.date_start,
+      date_stop: it.date_stop || it.date_start,
+      campaign_name: it.campaign_name || null,
       impressions: it.impressions ? parseInt(it.impressions, 10) : null,
       reach: it.reach ? parseInt(it.reach, 10) : null,
       frequency: it.frequency ? parseFloat(it.frequency) : null,
