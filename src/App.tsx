@@ -440,6 +440,9 @@ function App() {
                     <Route path="insights" element={<CrmInsights />} />
                     <Route path="ad-accounts" element={<CrmAdAccounts />} />
                     <Route path="setup" element={<CrmSetup />} />
+                    <Route path="strategies" element={<CrmStrategies />} />
+                    <Route path="strategies/new" element={<CrmStrategyNew />} />
+                    <Route path="strategies/:id" element={<CrmStrategyView />} />
                   </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
