@@ -1,0 +1,133 @@
+CREATE TABLE IF NOT EXISTS crm.meta_adset_snapshot (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id uuid NOT NULL,
+  connection_id uuid NOT NULL,
+  ad_account_id text NOT NULL,
+  external_adset_id text NOT NULL,
+  external_campaign_id text NOT NULL,
+  name text, status text, effective_status text,
+  optimization_goal text, billing_event text, bid_strategy text,
+  bid_amount_cents bigint, daily_budget_cents bigint, lifetime_budget_cents bigint, budget_remaining_cents bigint,
+  start_time timestamptz, end_time timestamptz,
+  targeting jsonb, attribution_spec jsonb, pacing_type text[], learning_stage_info jsonb,
+  currency text, raw jsonb,
+  last_synced_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT meta_adset_snapshot_company_external_uniq UNIQUE (company_id, external_adset_id)
+);
+CREATE INDEX IF NOT EXISTS idx_meta_adset_snapshot_company_campaign ON crm.meta_adset_snapshot (company_id, external_campaign_id);
+CREATE INDEX IF NOT EXISTS idx_meta_adset_snapshot_company_status ON crm.meta_adset_snapshot (company_id, effective_status);
+CREATE INDEX IF NOT EXISTS idx_meta_adset_snapshot_synced ON crm.meta_adset_snapshot (last_synced_at DESC);
+ALTER TABLE crm.meta_adset_snapshot ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS service_role_bypass ON crm.meta_adset_snapshot;
+DROP POLICY IF EXISTS tenant_isolation_select ON crm.meta_adset_snapshot;
+DROP POLICY IF EXISTS tenant_isolation_insert ON crm.meta_adset_snapshot;
+DROP POLICY IF EXISTS tenant_isolation_update ON crm.meta_adset_snapshot;
+CREATE POLICY service_role_bypass ON crm.meta_adset_snapshot AS PERMISSIVE FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY tenant_isolation_select ON crm.meta_adset_snapshot FOR SELECT TO authenticated USING (company_id = current_company_id());
+CREATE POLICY tenant_isolation_insert ON crm.meta_adset_snapshot FOR INSERT TO authenticated WITH CHECK (company_id = current_company_id());
+CREATE POLICY tenant_isolation_update ON crm.meta_adset_snapshot FOR UPDATE TO authenticated USING (company_id = current_company_id()) WITH CHECK (company_id = current_company_id());
+GRANT SELECT, INSERT, UPDATE ON crm.meta_adset_snapshot TO authenticated;
+GRANT ALL ON crm.meta_adset_snapshot TO service_role;
+
+CREATE TABLE IF NOT EXISTS crm.meta_ad_snapshot (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id uuid NOT NULL,
+  connection_id uuid NOT NULL,
+  ad_account_id text NOT NULL,
+  external_ad_id text NOT NULL,
+  external_adset_id text NOT NULL,
+  external_campaign_id text NOT NULL,
+  name text, status text, effective_status text,
+  meta_creative_id text,
+  tracking_specs jsonb, conversion_specs jsonb, recommendations jsonb, issues_info jsonb,
+  created_time timestamptz, updated_time timestamptz,
+  raw jsonb,
+  last_synced_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT meta_ad_snapshot_company_external_uniq UNIQUE (company_id, external_ad_id)
+);
+CREATE INDEX IF NOT EXISTS idx_meta_ad_snapshot_company_adset ON crm.meta_ad_snapshot (company_id, external_adset_id);
+CREATE INDEX IF NOT EXISTS idx_meta_ad_snapshot_company_campaign ON crm.meta_ad_snapshot (company_id, external_campaign_id);
+CREATE INDEX IF NOT EXISTS idx_meta_ad_snapshot_company_status ON crm.meta_ad_snapshot (company_id, effective_status);
+CREATE INDEX IF NOT EXISTS idx_meta_ad_snapshot_synced ON crm.meta_ad_snapshot (last_synced_at DESC);
+ALTER TABLE crm.meta_ad_snapshot ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS service_role_bypass ON crm.meta_ad_snapshot;
+DROP POLICY IF EXISTS tenant_isolation_select ON crm.meta_ad_snapshot;
+DROP POLICY IF EXISTS tenant_isolation_insert ON crm.meta_ad_snapshot;
+DROP POLICY IF EXISTS tenant_isolation_update ON crm.meta_ad_snapshot;
+CREATE POLICY service_role_bypass ON crm.meta_ad_snapshot AS PERMISSIVE FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY tenant_isolation_select ON crm.meta_ad_snapshot FOR SELECT TO authenticated USING (company_id = current_company_id());
+CREATE POLICY tenant_isolation_insert ON crm.meta_ad_snapshot FOR INSERT TO authenticated WITH CHECK (company_id = current_company_id());
+CREATE POLICY tenant_isolation_update ON crm.meta_ad_snapshot FOR UPDATE TO authenticated USING (company_id = current_company_id()) WITH CHECK (company_id = current_company_id());
+GRANT SELECT, INSERT, UPDATE ON crm.meta_ad_snapshot TO authenticated;
+GRANT ALL ON crm.meta_ad_snapshot TO service_role;
+
+CREATE TABLE IF NOT EXISTS crm.meta_adset_insights_daily (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id uuid NOT NULL, connection_id uuid NOT NULL, ad_account_id text NOT NULL,
+  external_adset_id text NOT NULL, external_campaign_id text,
+  adset_name text, campaign_name text,
+  date_start date NOT NULL, date_stop date NOT NULL,
+  impressions bigint, reach bigint, frequency numeric,
+  clicks bigint, unique_clicks bigint, spend_cents bigint,
+  cpc_cents numeric, cpm_cents numeric, cpp_cents numeric, ctr numeric, unique_ctr numeric,
+  purchases_count bigint, purchases_value_cents bigint, leads_count bigint,
+  add_to_cart_count bigint, initiate_checkout_count bigint, view_content_count bigint,
+  roas numeric, actions jsonb, action_values jsonb, raw jsonb, currency text,
+  last_synced_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT meta_adset_insights_company_adset_date_uniq UNIQUE (company_id, external_adset_id, date_start)
+);
+CREATE INDEX IF NOT EXISTS idx_adset_insights_company_date ON crm.meta_adset_insights_daily (company_id, date_start DESC);
+CREATE INDEX IF NOT EXISTS idx_adset_insights_adset_date ON crm.meta_adset_insights_daily (external_adset_id, date_start DESC);
+CREATE INDEX IF NOT EXISTS idx_adset_insights_campaign_date ON crm.meta_adset_insights_daily (external_campaign_id, date_start DESC);
+CREATE INDEX IF NOT EXISTS idx_adset_insights_synced ON crm.meta_adset_insights_daily (last_synced_at DESC);
+ALTER TABLE crm.meta_adset_insights_daily ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS service_role_bypass ON crm.meta_adset_insights_daily;
+DROP POLICY IF EXISTS tenant_isolation_select ON crm.meta_adset_insights_daily;
+DROP POLICY IF EXISTS tenant_isolation_insert ON crm.meta_adset_insights_daily;
+DROP POLICY IF EXISTS tenant_isolation_update ON crm.meta_adset_insights_daily;
+CREATE POLICY service_role_bypass ON crm.meta_adset_insights_daily AS PERMISSIVE FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY tenant_isolation_select ON crm.meta_adset_insights_daily FOR SELECT TO authenticated USING (company_id = current_company_id());
+CREATE POLICY tenant_isolation_insert ON crm.meta_adset_insights_daily FOR INSERT TO authenticated WITH CHECK (company_id = current_company_id());
+CREATE POLICY tenant_isolation_update ON crm.meta_adset_insights_daily FOR UPDATE TO authenticated USING (company_id = current_company_id()) WITH CHECK (company_id = current_company_id());
+GRANT SELECT, INSERT, UPDATE ON crm.meta_adset_insights_daily TO authenticated;
+GRANT ALL ON crm.meta_adset_insights_daily TO service_role;
+
+CREATE TABLE IF NOT EXISTS crm.meta_ad_insights_daily (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id uuid NOT NULL, connection_id uuid NOT NULL, ad_account_id text NOT NULL,
+  external_ad_id text NOT NULL, external_adset_id text, external_campaign_id text,
+  ad_name text, adset_name text, campaign_name text,
+  date_start date NOT NULL, date_stop date NOT NULL,
+  impressions bigint, reach bigint, frequency numeric,
+  clicks bigint, unique_clicks bigint, spend_cents bigint,
+  cpc_cents numeric, cpm_cents numeric, cpp_cents numeric, ctr numeric, unique_ctr numeric,
+  purchases_count bigint, purchases_value_cents bigint, leads_count bigint,
+  add_to_cart_count bigint, initiate_checkout_count bigint, view_content_count bigint,
+  roas numeric, actions jsonb, action_values jsonb, raw jsonb, currency text,
+  last_synced_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT meta_ad_insights_company_ad_date_uniq UNIQUE (company_id, external_ad_id, date_start)
+);
+CREATE INDEX IF NOT EXISTS idx_ad_insights_company_date ON crm.meta_ad_insights_daily (company_id, date_start DESC);
+CREATE INDEX IF NOT EXISTS idx_ad_insights_ad_date ON crm.meta_ad_insights_daily (external_ad_id, date_start DESC);
+CREATE INDEX IF NOT EXISTS idx_ad_insights_adset_date ON crm.meta_ad_insights_daily (external_adset_id, date_start DESC);
+CREATE INDEX IF NOT EXISTS idx_ad_insights_campaign_date ON crm.meta_ad_insights_daily (external_campaign_id, date_start DESC);
+CREATE INDEX IF NOT EXISTS idx_ad_insights_synced ON crm.meta_ad_insights_daily (last_synced_at DESC);
+ALTER TABLE crm.meta_ad_insights_daily ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS service_role_bypass ON crm.meta_ad_insights_daily;
+DROP POLICY IF EXISTS tenant_isolation_select ON crm.meta_ad_insights_daily;
+DROP POLICY IF EXISTS tenant_isolation_insert ON crm.meta_ad_insights_daily;
+DROP POLICY IF EXISTS tenant_isolation_update ON crm.meta_ad_insights_daily;
+CREATE POLICY service_role_bypass ON crm.meta_ad_insights_daily AS PERMISSIVE FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY tenant_isolation_select ON crm.meta_ad_insights_daily FOR SELECT TO authenticated USING (company_id = current_company_id());
+CREATE POLICY tenant_isolation_insert ON crm.meta_ad_insights_daily FOR INSERT TO authenticated WITH CHECK (company_id = current_company_id());
+CREATE POLICY tenant_isolation_update ON crm.meta_ad_insights_daily FOR UPDATE TO authenticated USING (company_id = current_company_id()) WITH CHECK (company_id = current_company_id());
+GRANT SELECT, INSERT, UPDATE ON crm.meta_ad_insights_daily TO authenticated;
+GRANT ALL ON crm.meta_ad_insights_daily TO service_role;
