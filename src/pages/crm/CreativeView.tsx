@@ -548,6 +548,7 @@ export default function CrmCreativeView() {
 }
 
 function scoreColor(score: number): string {
+  // analysis renderer helpers
   if (score >= 80) return "text-emerald-400 border-emerald-500/40 bg-emerald-500/10";
   if (score >= 60) return "text-amber-400 border-amber-500/40 bg-amber-500/10";
   if (score >= 40) return "text-orange-400 border-orange-500/40 bg-orange-500/10";
