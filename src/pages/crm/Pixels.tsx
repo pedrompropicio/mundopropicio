@@ -20,7 +20,7 @@ export default function CrmPixels() {
         .select("id, selected_ad_account_id, selected_ad_account_currency, status")
         .eq("platform", "meta")
         .eq("status", "active")
-        .order("created_at", { ascending: false })
+        .order("connected_at", { ascending: false })
         .limit(1)
         .maybeSingle();
       if (error) throw error;
