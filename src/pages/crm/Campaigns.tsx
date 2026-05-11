@@ -908,40 +908,78 @@ export default function CrmCampaigns() {
       return;
     }
     setSyncing(true);
+    const params = { connection_id: connectionId, ad_account_id: adAccountId };
+    const errors: string[] = [];
+
+    // Step 1: campaigns
+    let cData: any = null;
+    const t1 = toast.loading("A sincronizar campanhas…");
     try {
-      const params = {
-        connection_id: connectionId,
-        ad_account_id: adAccountId,
-      };
-      const { data: cData, error: cErr } = await supabase.functions.invoke(
-        "crm-meta-sync-campaigns",
-        { body: params },
-      );
-      if (cErr) throw cErr;
-      const { data: iData, error: iErr } = await supabase.functions.invoke(
-        "crm-meta-sync-insights",
-        { body: { ...params, days_back: 30 } },
-      );
-      if (iErr) throw iErr;
-      toast.success(
-        `Sync OK: ${cData?.synced_count ?? 0} campanhas, ${iData?.synced_rows ?? 0} insights`,
-        {
-          description:
-            cData?.auto_linked_count
-              ? `${cData.auto_linked_count} campanha(s) vinculada(s) a evento`
-              : undefined,
-        },
-      );
-      qc.invalidateQueries({ queryKey: ["crm-meta-campaigns"] });
-      qc.invalidateQueries({ queryKey: ["crm-meta-insights"] });
+      const { data, error } = await supabase.functions.invoke("crm-meta-sync-campaigns", { body: params });
+      if (error) throw error;
+      cData = data;
+      toast.success(`${data?.synced_count ?? 0} campanhas`, { id: t1 });
     } catch (e: any) {
-      console.error("[crm/campaigns] sync failed:", e);
-      toast.error("Falha ao sincronizar", {
-        description: e?.message ?? String(e),
-      });
-    } finally {
-      setSyncing(false);
+      console.error("[crm/campaigns] sync campaigns failed:", e);
+      toast.error("Falha em campanhas", { id: t1, description: e?.message ?? String(e) });
+      errors.push(`campanhas: ${e?.message ?? String(e)}`);
     }
+
+    // Step 2: adsets
+    let asData: any = null;
+    const t2 = toast.loading("A sincronizar adsets…");
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-sync-adsets", { body: params });
+      if (error) throw error;
+      asData = data;
+      toast.success(`${data?.synced_count ?? 0} adsets`, { id: t2 });
+    } catch (e: any) {
+      console.error("[crm/campaigns] sync adsets failed:", e);
+      toast.error("Falha em adsets", { id: t2, description: e?.message ?? String(e) });
+      errors.push(`adsets: ${e?.message ?? String(e)}`);
+    }
+
+    // Step 3: ads
+    let adData: any = null;
+    const t3 = toast.loading("A sincronizar ads…");
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-sync-ads", { body: params });
+      if (error) throw error;
+      adData = data;
+      toast.success(`${data?.synced_count ?? 0} ads`, { id: t3 });
+    } catch (e: any) {
+      console.error("[crm/campaigns] sync ads failed:", e);
+      toast.error("Falha em ads", { id: t3, description: e?.message ?? String(e) });
+      errors.push(`ads: ${e?.message ?? String(e)}`);
+    }
+
+    // Step 4: insights (3 níveis)
+    let iData: any = null;
+    const t4 = toast.loading("A sincronizar insights (campaign + adset + ad)…");
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-sync-insights", {
+        body: { ...params, days_back: 30, levels: ["campaign", "adset", "ad"] },
+      });
+      if (error) throw error;
+      iData = data;
+      toast.success(`${data?.synced_rows ?? 0} linhas de insights`, { id: t4 });
+    } catch (e: any) {
+      console.error("[crm/campaigns] sync insights failed:", e);
+      toast.error("Falha em insights", { id: t4, description: e?.message ?? String(e) });
+      errors.push(`insights: ${e?.message ?? String(e)}`);
+    }
+
+    if (errors.length === 0) {
+      toast.success("Sync completo", {
+        description: `${cData?.synced_count ?? 0} campanhas · ${asData?.synced_count ?? 0} adsets · ${adData?.synced_count ?? 0} ads · ${iData?.synced_rows ?? 0} insights${cData?.auto_linked_count ? ` · ${cData.auto_linked_count} vinculadas a evento` : ""}`,
+      });
+    } else {
+      toast.error(`Sync com ${errors.length} erro(s)`, { description: errors.join(" · ") });
+    }
+
+    qc.invalidateQueries({ queryKey: ["crm-meta-campaigns"] });
+    qc.invalidateQueries({ queryKey: ["crm-meta-insights"] });
+    setSyncing(false);
   };
 
   // ---------- Period helpers ----------
