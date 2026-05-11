@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
+import { Loader2, Printer } from "lucide-react";
 import "./strategy-print.css";
 
 function fmtEur(n: number | null | undefined, frac = 0) {
