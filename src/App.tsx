@@ -97,6 +97,7 @@ import RlsLegacyAudit from "./pages/admin/RlsLegacyAudit";
 import CoalaSync from "./pages/admin/CoalaSync";
 import CrmConnections from "./pages/crm/Connections";
 import CrmCampaigns from "./pages/crm/Campaigns";
+import CrmPixels from "./pages/crm/Pixels";
 import ModuleSelector from "./pages/ModuleSelector";
 import PostLoginRedirect from "./components/PostLoginRedirect";
 import { AudienceLayout } from "./components/layout/AudienceLayout";
@@ -429,6 +430,7 @@ function App() {
                     <Route index element={<Navigate to="/audience/dashboard" replace />} />
                     <Route path="dashboard" element={<CrmCampaigns />} />
                     <Route path="connections" element={<CrmConnections />} />
+                    <Route path="pixels" element={<CrmPixels />} />
                   </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>

@@ -2,6 +2,7 @@ import { NavLink as RouterNavLink, useLocation, useNavigate } from "react-router
 import {
   TrendingUp,
   Plug,
+  Zap,
   ArrowLeft,
   KeyRound,
   LogOut,
@@ -20,6 +21,7 @@ export function AudienceSidebar() {
   const items = [
     { to: "/audience/dashboard", icon: TrendingUp, label: "Dashboard" },
     { to: "/audience/connections", icon: Plug, label: "Conexões" },
+    { to: "/audience/pixels", icon: Zap, label: "Pixels" },
   ];
 
   return (
