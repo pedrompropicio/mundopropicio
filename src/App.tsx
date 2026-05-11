@@ -98,6 +98,7 @@ import CoalaSync from "./pages/admin/CoalaSync";
 import CrmConnections from "./pages/crm/Connections";
 import CrmCampaigns from "./pages/crm/Campaigns";
 import CrmPixels from "./pages/crm/Pixels";
+import CrmInsights from "./pages/crm/Insights";
 import ModuleSelector from "./pages/ModuleSelector";
 import PostLoginRedirect from "./components/PostLoginRedirect";
 import { AudienceLayout } from "./components/layout/AudienceLayout";
@@ -431,6 +432,7 @@ function App() {
                     <Route path="dashboard" element={<CrmCampaigns />} />
                     <Route path="connections" element={<CrmConnections />} />
                     <Route path="pixels" element={<CrmPixels />} />
+                    <Route path="insights" element={<CrmInsights />} />
                   </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
