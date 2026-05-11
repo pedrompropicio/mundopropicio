@@ -19,6 +19,7 @@ import { CompanyBrandingProvider } from "@/contexts/CompanyBrandingContext";
 import { useCompany } from "@/hooks/useCompany";
 import { BrandedLogo } from "@/components/BrandedLogo";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
+import { ModuleSwitcherButton } from "@/components/ModuleSwitcherButton";
 import { MfaRequiredGate } from "@/components/MfaRequiredGate";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Sun, Moon } from "lucide-react";
