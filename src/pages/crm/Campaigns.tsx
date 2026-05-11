@@ -27,6 +27,7 @@ import { computeScore } from "@/lib/campaign-score";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompany } from "@/hooks/useCompany";
+import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
