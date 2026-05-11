@@ -154,7 +154,24 @@ export default function CrmCreativeNew() {
       const { error: upErr } = await supabase.storage
         .from("crm-meta-creatives")
         .upload(path, file, { contentType: file.type, upsert: false });
-      if (upErr) throw upErr;
+      if (upErr) {
+        const raw = (upErr as any)?.message ?? String(upErr);
+        const status = (upErr as any)?.statusCode ?? (upErr as any)?.status;
+        const lower = raw.toLowerCase();
+        let friendly = raw;
+        if (lower.includes("payload too large") || lower.includes("exceeded the maximum") || String(status) === "413") {
+          friendly = `Ficheiro demasiado grande (máx ${(MAX_BYTES / 1024 / 1024).toFixed(0)}MB)`;
+        } else if (lower.includes("mime type") || lower.includes("not allowed") || lower.includes("invalid_mime")) {
+          friendly = `Formato não suportado (${file.type || "desconhecido"})`;
+        } else if (lower.includes("bucket not found") || lower.includes("not found")) {
+          friendly = "Bucket de criativos não existe neste ambiente — contacta o admin";
+        } else if (lower.includes("row-level security") || lower.includes("permission") || lower.includes("unauthorized") || String(status) === "401" || String(status) === "403") {
+          friendly = "Sem permissão para fazer upload — verifica a tua sessão e empresa ativa";
+        } else if (lower.includes("duplicate") || lower.includes("already exists")) {
+          friendly = "Já existe um ficheiro com esse nome — tenta novamente";
+        }
+        throw new Error(friendly);
+      }
 
       setProgress(70);
       const { data: pub } = supabase.storage
@@ -193,7 +210,17 @@ export default function CrmCreativeNew() {
         })
         .select("id")
         .single();
-      if (insErr) throw insErr;
+      if (insErr) {
+        const raw = insErr.message ?? String(insErr);
+        const lower = raw.toLowerCase();
+        let friendly = raw;
+        if (lower.includes("relation") && lower.includes("does not exist")) {
+          friendly = "Tabela de criativos não existe neste ambiente — contacta o admin";
+        } else if (lower.includes("row-level security") || lower.includes("permission denied")) {
+          friendly = "Sem permissão para gravar — verifica a tua empresa ativa";
+        }
+        throw new Error(friendly);
+      }
 
       setProgress(100);
       toast.success("Criativo guardado");
