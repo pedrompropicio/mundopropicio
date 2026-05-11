@@ -272,7 +272,9 @@ export default function CrmStrategyNew() {
       )}
 
       {errMsg && (
-        <Card className="p-3 border-destructive/40 bg-destructive/5 text-sm text-destructive">{errMsg}</Card>
+        <Card className="p-3 border-destructive/40 bg-destructive/5 text-sm text-destructive">
+          <pre className="whitespace-pre-wrap font-mono text-xs">{errMsg}</pre>
+        </Card>
       )}
 
       <div className="flex items-center justify-end gap-2">
