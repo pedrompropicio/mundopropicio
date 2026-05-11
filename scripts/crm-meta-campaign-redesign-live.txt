@@ -1,0 +1,19 @@
+-- ============================================================
+-- Fase 3 — Re-design de campanhas Meta
+-- Aplicar em LIVE via Supabase SQL Editor.
+-- Idempotente: pode ser corrido várias vezes sem efeitos colaterais.
+-- ============================================================
+
+ALTER TABLE crm.meta_campaign_strategies
+  ADD COLUMN IF NOT EXISTS source_campaign_id text NULL,
+  ADD COLUMN IF NOT EXISTS source_diagnosis_id uuid NULL,
+  ADD COLUMN IF NOT EXISTS redesign_rationale text NULL;
+
+CREATE INDEX IF NOT EXISTS idx_meta_campaign_strategies_source_campaign
+  ON crm.meta_campaign_strategies (company_id, source_campaign_id)
+  WHERE source_campaign_id IS NOT NULL;
+
+-- Verificação:
+SELECT column_name FROM information_schema.columns
+ WHERE table_schema='crm' AND table_name='meta_campaign_strategies'
+   AND column_name IN ('source_campaign_id','source_diagnosis_id','redesign_rationale');

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow, parseISO, subDays, differenceInDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   FileDown,
   DownloadCloud,
+  Wand2,
 } from "lucide-react";
 import { printCampaignAnalysis, printAudienceCoach } from "@/lib/audience-pdf";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -665,6 +666,33 @@ export default function CrmCampaigns() {
 
   const reanalyzeCampaign = () => {
     if (analyzeCampaignId) void analyzeCampaign(analyzeCampaignId, analyzeCampaignName);
+  };
+
+  const navigate = useNavigate();
+  const [redesignLoading, setRedesignLoading] = useState(false);
+  const redesignCampaign = async () => {
+    if (!analyzeCampaignId) return;
+    const diagId = analyzeData?.diagnosis_id;
+    if (!diagId) {
+      toast.error("Faz primeiro um diagnóstico desta campanha.");
+      return;
+    }
+    if (!confirm("Vou gerar uma versão optimizada desta campanha baseada no diagnóstico. Continuar?")) return;
+    setRedesignLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-campaign-redesign", {
+        body: { campaign_id: analyzeCampaignId, diagnosis_id: diagId, period_days: periodDays },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.message || data.error);
+      if (!data?.strategy_id) throw new Error("Resposta inválida do servidor");
+      toast.success("Re-design gerado. A abrir nova estratégia…");
+      navigate(`/audience/strategies/${data.strategy_id}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Falha a re-desenhar campanha");
+    } finally {
+      setRedesignLoading(false);
+    }
   };
 
   const loadHistoricalDiagnosis = (h: any) => {
@@ -1324,9 +1352,21 @@ export default function CrmCampaigns() {
                       </div>
                       <p className="text-sm">{d.summary_pt ?? ""}</p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={reanalyzeCampaign} disabled={analyzeLoading}>
+                    <Button variant="outline" size="sm" onClick={reanalyzeCampaign} disabled={analyzeLoading || redesignLoading}>
                       <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Re-analisar
                     </Button>
+                    {analyzeData?.diagnosis_id && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={redesignCampaign}
+                        disabled={analyzeLoading || redesignLoading}
+                        className="border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
+                      >
+                        {redesignLoading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5 mr-1.5" />}
+                        Re-desenhar campanha
+                      </Button>
+                    )}
                   </div>
 
                   <Tabs value={analyzeTab} onValueChange={setAnalyzeTab}>
