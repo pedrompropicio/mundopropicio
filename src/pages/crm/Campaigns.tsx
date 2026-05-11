@@ -283,21 +283,79 @@ function deltaPct(curr: number, prev: number): number | null {
 function CampaignTableRow({
   c,
   insights,
+  prevInsights,
+  days,
   currency,
   spark,
 }: {
   c: CampaignRow;
   insights: InsightRow[];
+  prevInsights: InsightRow[];
+  days: number;
   currency: string;
   spark: number[];
 }) {
   const agg = useMemo(() => aggregate(insights), [insights]);
+  const aggPrev = useMemo(() => aggregate(prevInsights), [prevInsights]);
   const cpcAvg = agg.clicks > 0 ? Math.round(agg.spendCents / agg.clicks) : null;
-  const budget = c.daily_budget_cents
-    ? `${formatCurrency(c.daily_budget_cents, currency)}/dia`
-    : c.lifetime_budget_cents
-      ? `${formatCurrency(c.lifetime_budget_cents, currency)} total`
-      : "—";
+  const ctrAvg = agg.impressions > 0 ? agg.clicks / agg.impressions : null;
+
+  // Weighted-average frequency (weighted by impressions); fall back to simple mean.
+  const freqAvg = useMemo(() => {
+    let wf = 0;
+    let wi = 0;
+    let simpleSum = 0;
+    let simpleN = 0;
+    for (const r of insights) {
+      const f = r.frequency;
+      if (f == null || !Number.isFinite(f)) continue;
+      simpleSum += f;
+      simpleN += 1;
+      const imp = r.impressions ?? 0;
+      if (imp > 0) {
+        wf += f * imp;
+        wi += imp;
+      }
+    }
+    if (wi > 0) return wf / wi;
+    if (simpleN > 0) return simpleSum / simpleN;
+    return null;
+  }, [insights]);
+
+  const score = useMemo(
+    () =>
+      computeScore({
+        roas: agg.roas,
+        ctr: ctrAvg,
+        cpcCents: cpcAvg,
+        frequency: freqAvg,
+        spendCurrentCents: agg.spendCents,
+        spendPrevCents: aggPrev.spendCents,
+      }),
+    [agg, aggPrev, ctrAvg, cpcAvg, freqAvg],
+  );
+
+  const spendPerDay = agg.spendCents / days;
+  const prevSpendPerDay = aggPrev.spendCents / days;
+  const velRatio = prevSpendPerDay > 0 ? spendPerDay / prevSpendPerDay : null;
+  const velIcon =
+    velRatio == null ? (
+      <Minus className="h-3 w-3 text-muted-foreground" />
+    ) : velRatio >= 1.05 ? (
+      <ArrowUp className="h-3 w-3 text-emerald-500" />
+    ) : velRatio <= 0.95 ? (
+      <ArrowDown className="h-3 w-3 text-red-500" />
+    ) : (
+      <Minus className="h-3 w-3 text-muted-foreground" />
+    );
+
+  const breakdownText =
+    `ROAS ${formatRoas(agg.roas)} → ${score.breakdown.roasPts}pts · ` +
+    `CTR ${ctrAvg != null ? (ctrAvg * 100).toFixed(2) + "%" : "—"} → ${score.breakdown.ctrPts}pts · ` +
+    `CPC ${formatCurrency(cpcAvg, currency)} → ${score.breakdown.cpcPts}pts · ` +
+    `Freq ${freqAvg != null ? freqAvg.toFixed(1) : "—"} → ${score.breakdown.freqPts}pts · ` +
+    `Vel ${velRatio != null ? velRatio.toFixed(2) + "x" : "—"} → ${score.breakdown.velPts}pts`;
+
   return (
     <tr
       className="border-b border-border/40 hover:bg-muted/40 transition-colors cursor-pointer"
@@ -314,6 +372,23 @@ function CampaignTableRow({
           {formatRoas(agg.roas)}
         </span>
       </td>
+      <td className="py-2.5 px-3">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-mono font-semibold cursor-help",
+                score.gradeClass,
+              )}
+            >
+              {score.grade} · {score.score}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs text-xs">
+            {breakdownText}
+          </TooltipContent>
+        </Tooltip>
+      </td>
       <td className="py-2.5 px-3 text-sm font-mono tabular-nums">
         {formatCurrency(agg.spendCents, currency)}
       </td>
@@ -329,7 +404,20 @@ function CampaignTableRow({
       <td className="py-2.5 px-3 text-sm font-mono tabular-nums">
         {agg.conversions > 0 ? agg.conversions : "—"}
       </td>
-      <td className="py-2.5 px-3 text-xs text-muted-foreground">{budget}</td>
+      <td className="py-2.5 px-3">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex items-center gap-1 text-sm font-mono tabular-nums cursor-help">
+              {formatCurrency(Math.round(spendPerDay), currency)}
+              {velIcon}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent className="text-xs">
+            Spend médio diário no período
+            {velRatio != null && ` · vs anterior: ${(velRatio * 100).toFixed(0)}%`}
+          </TooltipContent>
+        </Tooltip>
+      </td>
       <td className="py-2.5 px-3">
         <Sparkline data={spark} />
       </td>
@@ -343,12 +431,13 @@ function CampaignTableHeader() {
       <tr>
         <th className="py-2 px-3 text-left font-medium">Campanha</th>
         <th className="py-2 px-3 text-left font-medium">ROAS</th>
+        <th className="py-2 px-3 text-left font-medium">Score</th>
         <th className="py-2 px-3 text-left font-medium">Gasto</th>
         <th className="py-2 px-3 text-left font-medium">Receita</th>
         <th className="py-2 px-3 text-left font-medium">CPC</th>
         <th className="py-2 px-3 text-left font-medium">Impr.</th>
         <th className="py-2 px-3 text-left font-medium">Conv.</th>
-        <th className="py-2 px-3 text-left font-medium">Orçamento</th>
+        <th className="py-2 px-3 text-left font-medium">Verba/dia</th>
         <th className="py-2 px-3 text-left font-medium">Tend. 14d</th>
       </tr>
     </thead>
