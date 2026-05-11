@@ -13,6 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -30,6 +37,15 @@ const META_SCOPES = "ads_management,ads_read,business_management,pages_show_list
 
 type Platform = "meta" | "google" | "tiktok";
 
+interface AdAccountOption {
+  id?: string;
+  account_id?: string;
+  name?: string;
+  currency?: string | null;
+  account_status?: number | null;
+  timezone_name?: string | null;
+}
+
 interface ConnectionRow {
   id: string;
   company_id: string;
@@ -42,6 +58,9 @@ interface ConnectionRow {
   last_error: string | null;
   connected_at: string | null;
   disconnected_at: string | null;
+  selected_ad_account_id: string | null;
+  selected_ad_account_name: string | null;
+  available_ad_accounts: AdAccountOption[] | null;
 }
 
 const PLATFORMS: Array<{
