@@ -17,6 +17,7 @@ import {
   ArrowDown,
   Minus,
   Sparkles,
+  Target,
   CheckCircle2,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -291,6 +292,7 @@ function CampaignTableRow({
   currency,
   spark,
   onAnalyze,
+  onCoach,
 }: {
   c: CampaignRow;
   insights: InsightRow[];
@@ -299,6 +301,7 @@ function CampaignTableRow({
   currency: string;
   spark: number[];
   onAnalyze?: (id: string, name: string) => void;
+  onCoach?: (id: string) => void;
 }) {
   const agg = useMemo(() => aggregate(insights), [insights]);
   const aggPrev = useMemo(() => aggregate(prevInsights), [prevInsights]);
@@ -379,6 +382,18 @@ function CampaignTableRow({
               title="Analisar com IA"
             >
               <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+            </button>
+          )}
+          {onCoach && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onCoach(c.external_campaign_id);
+              }}
+              className="opacity-60 hover:opacity-100 transition-opacity p-1 rounded hover:bg-purple-500/10 shrink-0"
+              title="AI Audience Coach"
+            >
+              <Target className="h-3.5 w-3.5 text-purple-400" />
             </button>
           )}
         </div>
@@ -486,6 +501,7 @@ function EventGroupCard({
   days: number;
   currency: string;
   onAnalyze?: (id: string, name: string) => void;
+  onCoach?: (id: string) => void;
 }) {
   const [open, setOpen] = useState(true);
   const allInsights = useMemo(
@@ -560,6 +576,7 @@ function EventGroupCard({
                     spark={spark14ByCampaign.get(c.external_campaign_id) ?? []}
                     currency={currency}
                     onAnalyze={onAnalyze}
+                    onCoach={onCoach}
                   />
                 ))}
               </tbody>
