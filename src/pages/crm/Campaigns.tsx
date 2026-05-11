@@ -532,6 +532,8 @@ function EventGroupCard({
                     key={c.id}
                     c={c}
                     insights={insightsByCampaign.get(c.external_campaign_id) ?? []}
+                    prevInsights={prevInsightsByCampaign.get(c.external_campaign_id) ?? []}
+                    days={days}
                     spark={spark14ByCampaign.get(c.external_campaign_id) ?? []}
                     currency={currency}
                   />
