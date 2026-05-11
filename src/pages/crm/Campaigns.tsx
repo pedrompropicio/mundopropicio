@@ -1056,6 +1056,8 @@ export default function CrmCampaigns() {
                       key={c.id}
                       c={c}
                       insights={insightsByCampaign.get(c.external_campaign_id) ?? []}
+                      prevInsights={previousInsightsByCampaign.get(c.external_campaign_id) ?? []}
+                      days={periodDays}
                       spark={spark14ByCampaign.get(c.external_campaign_id) ?? []}
                       currency={currency}
                     />
