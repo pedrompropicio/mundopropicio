@@ -405,6 +405,40 @@ export default function CrmStrategyView() {
     }
   };
 
+  const [togglingDeploymentId, setTogglingDeploymentId] = useState<string | null>(null);
+
+  const handleToggleDeployment = async (deploymentId: string, target: "ACTIVE" | "PAUSED") => {
+    setTogglingDeploymentId(deploymentId);
+    try {
+      const { data: resp, error } = await supabase.functions.invoke(
+        "crm-meta-deployment-toggle",
+        { body: { deployment_id: deploymentId, target_status: target } }
+      );
+      if (error) {
+        let detail = error.message;
+        if ((error as any).context) {
+          try {
+            const ctx = (error as any).context;
+            const b = await (ctx.clone ? ctx.clone() : ctx).json();
+            detail = `[${b?.error || "?"}] ${b?.message || b?.detail || detail}`;
+          } catch {}
+        }
+        throw new Error(detail);
+      }
+      const action = target === "ACTIVE" ? "Ativadas" : "Pausadas";
+      if (resp.summary.errors === 0) {
+        toast.success(`${action} ${resp.summary.success} entidades no Meta`);
+      } else {
+        toast.warning(`${action} ${resp.summary.success}, com ${resp.summary.errors} erros`);
+      }
+      queryClient.invalidateQueries({ queryKey: ["crm-strategy-deployments", id] });
+    } catch (e: any) {
+      toast.error("Falha a alterar status no Meta", { description: e?.message ?? String(e) });
+    } finally {
+      setTogglingDeploymentId(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 text-muted-foreground text-sm">
