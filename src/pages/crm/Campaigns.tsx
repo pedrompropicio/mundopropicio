@@ -666,25 +666,10 @@ export default function CrmCampaigns() {
     role === ("marketing_manager" as any) ||
     hasPermission("crm.campaign.create");
 
-  // ---------- Connection ----------
-  const { data: connection } = useQuery({
-    queryKey: ["crm-connection-meta-active", companyId],
-    enabled: isAuthorized && !!companyId,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .schema("crm")
-        .from("ad_platform_connections")
-        .select(
-          "id, status, selected_ad_account_id, selected_ad_account_name, selected_ad_account_currency, last_validated_at",
-        )
-        .eq("platform", "meta")
-        .eq("status", "active")
-        .maybeSingle();
-      if (error) throw error;
-      return data as ConnectionRow | null;
-    },
-  });
-  const currency = connection?.selected_ad_account_currency || "EUR";
+  // ---------- Active ad account (multi-account support) ----------
+  const adAccountId = active?.ad_account_id ?? null;
+  const connectionId = active?.connection_id ?? null;
+  const currency = active?.ad_account_currency || "EUR";
 
   // ---------- Campaigns ----------
   const { data: campaigns, isLoading: campaignsLoading } = useQuery({
