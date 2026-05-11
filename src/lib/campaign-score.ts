@@ -26,39 +26,43 @@ export interface ScoreResult {
 }
 
 function roasPts(r: number | null): number {
+  // Calibrado para Mundo Propício (mediana 4.5x) + setor eventos.
   if (r == null || !Number.isFinite(r)) return 0;
-  if (r >= 5) return 100;
-  if (r >= 3) return 75;
-  if (r >= 2) return 50;
-  if (r >= 1) return 25;
-  return 0;
+  if (r >= 8) return 100;   // Excelente — top 5% das campanhas (P95=5.78x)
+  if (r >= 5) return 80;    // Bom — top 25% (acima do P75=4.99x)
+  if (r >= 3) return 60;    // Regular — em torno da mediana
+  if (r >= 2) return 35;    // Fraco — próximo do benchmark Meta global
+  return 10;                // Mau — abaixo do break-even setor
 }
 
 function ctrPts(c: number | null): number {
+  // Benchmark Arts & Entertainment: 1.16% médio, 3%+ top.
   if (c == null || !Number.isFinite(c)) return 0;
   const pct = c * 100;
-  if (pct >= 2.5) return 100;
-  if (pct >= 1.5) return 85;
-  if (pct >= 1) return 60;
-  if (pct >= 0.5) return 30;
+  if (pct >= 3.0) return 100;
+  if (pct >= 2.0) return 80;
+  if (pct >= 1.2) return 60;
+  if (pct >= 0.9) return 30;
   return 0;
 }
 
 function cpcPts(cents: number | null): number {
+  // Benchmark A&E setor: ~0.45€ médio.
   if (cents == null || !Number.isFinite(cents)) return 0;
-  if (cents < 10) return 100;
-  if (cents < 20) return 85;
-  if (cents < 30) return 60;
-  if (cents < 50) return 30;
+  if (cents < 20) return 100;
+  if (cents < 40) return 80;
+  if (cents < 60) return 60;
+  if (cents < 100) return 30;
   return 0;
 }
 
 function freqPts(f: number | null): number {
+  // Saudável <3.5; saturação >4-5.
   if (f == null || !Number.isFinite(f)) return 50;
   if (f < 1.5) return 100;
-  if (f < 2) return 90;
-  if (f < 3) return 70;
-  if (f < 5) return 40;
+  if (f < 2.5) return 85;
+  if (f < 3.5) return 65;
+  if (f < 5.0) return 30;
   return 0;
 }
 
