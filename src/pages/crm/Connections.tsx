@@ -139,6 +139,50 @@ export default function CrmConnections() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [refreshingAccountsFor, setRefreshingAccountsFor] = useState<string | null>(null);
   const [savingAccountFor, setSavingAccountFor] = useState<string | null>(null);
+  const [refreshingPagesFor, setRefreshingPagesFor] = useState<string | null>(null);
+  const [savingPageFor, setSavingPageFor] = useState<string | null>(null);
+  const [pagesCache, setPagesCache] = useState<Record<string, any[]>>({});
+
+  const handleFetchPages = async (conn: ConnectionRow) => {
+    setRefreshingPagesFor(conn.id);
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "crm-meta-fetch-pages",
+        { body: { connection_id: conn.id } },
+      );
+      if (error) throw error;
+      const pages = data?.pages ?? [];
+      setPagesCache((s) => ({ ...s, [conn.id]: pages }));
+      toast.success(`${pages.length} página(s) carregada(s)`);
+    } catch (e: any) {
+      toast.error("Falha ao carregar páginas", { description: e?.message ?? String(e) });
+    } finally {
+      setRefreshingPagesFor(null);
+    }
+  };
+
+  const handleSelectPage = async (conn: ConnectionRow, pageId: string) => {
+    const pages = pagesCache[conn.id] ?? [];
+    const page = pages.find((p) => p.id === pageId);
+    setSavingPageFor(conn.id);
+    try {
+      const { error } = await (supabase as any)
+        .schema("crm")
+        .from("ad_platform_connections")
+        .update({
+          selected_page_id: pageId,
+          selected_instagram_id: page?.instagram_business_account?.id ?? null,
+        })
+        .eq("id", conn.id);
+      if (error) throw error;
+      toast.success("Página e Instagram selecionados");
+      qc.invalidateQueries({ queryKey: ["crm-connections"] });
+    } catch (e: any) {
+      toast.error("Falha ao salvar página", { description: e?.message ?? String(e) });
+    } finally {
+      setSavingPageFor(null);
+    }
+  };
 
   const handleRefreshAdAccounts = async (conn: ConnectionRow) => {
     setRefreshingAccountsFor(conn.id);
@@ -483,6 +527,92 @@ export default function CrmConnections() {
                                 })}
                               </SelectContent>
                             </Select>
+                          )}
+                        </div>
+                      );
+                    })()}
+                    {p.key === "meta" && conn.selected_ad_account_id && (() => {
+                      const pages = pagesCache[conn.id] ?? [];
+                      const hasPages = pages.length > 0;
+                      const selectedPage = pages.find((pg) => pg.id === conn.selected_page_id);
+                      return (
+                        <div className="space-y-2 rounded-md border border-border bg-muted/30 p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium flex items-center gap-1.5">
+                              <Facebook className="h-3.5 w-3.5" /> Página & Instagram
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => handleFetchPages(conn)}
+                              disabled={refreshingPagesFor === conn.id}
+                            >
+                              {refreshingPagesFor === conn.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <>
+                                  <RefreshCw className="mr-1 h-3 w-3" />
+                                  {hasPages ? "Atualizar" : "Carregar páginas"}
+                                </>
+                              )}
+                            </Button>
+                          </div>
+
+                          {!hasPages && !conn.selected_page_id && (
+                            <p className="text-xs text-muted-foreground">
+                              Clique 'Carregar páginas' para listar as Pages do Facebook ligadas à sua conta.
+                            </p>
+                          )}
+
+                          {!hasPages && conn.selected_page_id && (
+                            <p className="text-xs text-muted-foreground">
+                              Page selecionada (ID {conn.selected_page_id.slice(0, 12)}…) — clique 'Atualizar' para ver detalhes.
+                            </p>
+                          )}
+
+                          {hasPages && (
+                            <>
+                              <Select
+                                value={conn.selected_page_id ?? undefined}
+                                onValueChange={(v) => handleSelectPage(conn, v)}
+                                disabled={savingPageFor === conn.id}
+                              >
+                                <SelectTrigger className="h-9 text-xs">
+                                  <SelectValue placeholder="Selecione a Page" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {pages.map((pg) => (
+                                    <SelectItem key={pg.id} value={pg.id}>
+                                      <div className="flex items-center gap-2">
+                                        <span>{pg.name}</span>
+                                        {pg.instagram_business_account && (
+                                          <Badge variant="outline" className="text-[9px] py-0 px-1.5">
+                                            <Instagram className="h-2.5 w-2.5 mr-0.5" />
+                                            @{pg.instagram_business_account.username}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+
+                              {selectedPage && (
+                                <div className="text-[11px] text-muted-foreground space-y-0.5">
+                                  {selectedPage.instagram_business_account ? (
+                                    <div className="flex items-center gap-1.5">
+                                      <Instagram className="h-3 w-3 text-pink-400" />
+                                      Instagram: <strong>@{selectedPage.instagram_business_account.username}</strong>
+                                    </div>
+                                  ) : (
+                                    <div className="text-amber-500 flex items-center gap-1.5">
+                                      ⚠️ Sem Instagram Business associado a esta Page. Ads só correm no Facebook.
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       );
