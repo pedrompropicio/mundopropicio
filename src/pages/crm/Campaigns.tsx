@@ -1034,14 +1034,26 @@ export default function CrmCampaigns() {
               Última sync Meta: {lastSyncMeta ?? "—"} · campanhas: {campaigns?.length ?? 0} · contas: {adAccountsCount}
             </p>
           </div>
-          <Button onClick={handleSync} disabled={syncing}>
-            {syncing ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="mr-2 h-4 w-4" />
-            )}
-            Sincronizar agora
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => handleSync("incremental")} disabled={syncing}>
+              {syncing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              Sincronizar agora
+            </Button>
+            <Button
+              onClick={handleFullSync}
+              disabled={syncing}
+              variant="outline"
+              size="sm"
+              title="Sync histórico completo (últimos 30 dias) — consome quota"
+            >
+              <DownloadCloud className="mr-2 h-4 w-4" />
+              Sync histórico
+            </Button>
+          </div>
         </div>
 
         {/* Period tabs */}
