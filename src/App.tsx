@@ -469,6 +469,10 @@ function AuthRoute() {
     const isCamarimOnly =
       !isAdmin && !isManager && hasPermission("camarim_team") && !hasAnyManagement;
     if (isCamarimOnly) return <Navigate to="/camarim-equipa" replace />;
+    // marketing_manager-only → módulo MP Audience direto
+    if ((role as any) === "marketing_manager") {
+      return <Navigate to="/audience/dashboard" replace />;
+    }
     // Preferência opcional: admin/manager pode forçar entrada direta na vista compacta
     try {
       const prefersCamarim =
