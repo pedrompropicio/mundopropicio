@@ -668,6 +668,33 @@ export default function CrmCampaigns() {
     if (analyzeCampaignId) void analyzeCampaign(analyzeCampaignId, analyzeCampaignName);
   };
 
+  const navigate = useNavigate();
+  const [redesignLoading, setRedesignLoading] = useState(false);
+  const redesignCampaign = async () => {
+    if (!analyzeCampaignId) return;
+    const diagId = analyzeData?.diagnosis_id;
+    if (!diagId) {
+      toast.error("Faz primeiro um diagnóstico desta campanha.");
+      return;
+    }
+    if (!confirm("Vou gerar uma versão optimizada desta campanha baseada no diagnóstico. Continuar?")) return;
+    setRedesignLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-campaign-redesign", {
+        body: { campaign_id: analyzeCampaignId, diagnosis_id: diagId, period_days: periodDays },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.message || data.error);
+      if (!data?.strategy_id) throw new Error("Resposta inválida do servidor");
+      toast.success("Re-design gerado. A abrir nova estratégia…");
+      navigate(`/audience/strategies/${data.strategy_id}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Falha a re-desenhar campanha");
+    } finally {
+      setRedesignLoading(false);
+    }
+  };
+
   const loadHistoricalDiagnosis = (h: any) => {
     // Reconstrói shape compatível com o sheet a partir do registo persistido
     setAnalyzeData({
