@@ -214,6 +214,12 @@ export default function CrmStrategyNew() {
         </div>
       </div>
 
+      {fromId && sourceStrategy && (
+        <Card className="p-3 border-cyan-500/40 bg-cyan-500/5 text-sm">
+          A regenerar a partir de <strong>{sourceStrategy.name}</strong> — os parâmetros foram pré-preenchidos, ajusta o que quiseres antes de gerar.
+        </Card>
+      )}
+
       {!adAcctLoading && !active && (
         <Card className="p-4 border-amber-500/40 bg-amber-500/5 text-sm">
           Não foi detetada uma ad account ativa. Configura uma em Conexões / Ad Accounts antes de gerar.
