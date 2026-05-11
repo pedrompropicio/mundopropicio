@@ -569,7 +569,7 @@ const severityColor: Record<string, string> = {
   low: "border-blue-500/40 bg-blue-500/10 text-blue-400",
 };
 
-function AnalysisRender({ analysis, analyzedAt, model }: { analysis: any; analyzedAt: string; model: string | null }) {
+function AnalysisRender({ analysis, analyzedAt, model, type }: { analysis: any; analyzedAt: string; model: string | null; type: string }) {
   const scores = analysis?.scores ?? {};
   const detected = analysis?.detected ?? {};
   const issues: any[] = analysis?.issues ?? [];
@@ -578,6 +578,7 @@ function AnalysisRender({ analysis, analyzedAt, model }: { analysis: any; analyz
   const verdict = analysis?.verdict ?? "needs_minor_changes";
   const vMeta = verdictMeta[verdict] ?? verdictMeta.needs_minor_changes;
   const VIcon = vMeta.icon;
+  const isVideo = type === "video";
 
   return (
     <div className="space-y-4">
@@ -594,39 +595,11 @@ function AnalysisRender({ analysis, analyzedAt, model }: { analysis: any; analyz
         <p className="text-sm text-muted-foreground italic">{analysis.verdict_reason}</p>
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-        <SubScore label="Meta Compliance" icon={ShieldCheck} score={scores.meta_compliance} />
-        <SubScore label="Visual" icon={Eye} score={scores.visual_quality} />
-        <SubScore label="Mensagem" icon={MessageSquare} score={scores.message_clarity} />
-        <SubScore label="CTA" icon={Award} score={scores.cta_presence} />
-        <SubScore label="Branding" icon={Palette} score={scores.branding} />
-      </div>
-
-      <div className="rounded-lg border border-border p-3 space-y-1.5 text-xs">
-        <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">O que a IA detetou</div>
-        {detected.primary_message && <div><strong>Mensagem principal:</strong> {detected.primary_message}</div>}
-        {detected.text_in_image_pct != null && (
-          <div>
-            <strong>Texto na imagem:</strong> ~{detected.text_in_image_pct}%
-            {detected.text_in_image_pct > 20 && <span className="text-amber-400 ml-1">⚠️ acima do recomendado</span>}
-          </div>
-        )}
-        {detected.text_content && <div><strong>Texto visível:</strong> "{detected.text_content}"</div>}
-        {detected.has_cta != null && (
-          <div>
-            <strong>CTA na imagem:</strong> {detected.has_cta ? `✓ "${detected.cta_text ?? "sim"}"` : "✗ não detetado"}
-          </div>
-        )}
-        {detected.brand_visibility && (
-          <div><strong>Visibilidade da marca:</strong> {detected.brand_visibility}</div>
-        )}
-        {detected.event_type_detected && (
-          <div><strong>Tipo de evento:</strong> {detected.event_type_detected}</div>
-        )}
-        {detected.composition_quality && (
-          <div><strong>Composição:</strong> {detected.composition_quality}</div>
-        )}
-      </div>
+      {isVideo ? (
+        <VideoAnalysisBody scores={scores} detected={detected} />
+      ) : (
+        <ImageAnalysisBody scores={scores} detected={detected} />
+      )}
 
       {issues.length > 0 && (
         <div className="space-y-2">
@@ -682,6 +655,143 @@ function AnalysisRender({ analysis, analyzedAt, model }: { analysis: any; analyz
         Analisado por {model ?? "IA"} em {new Date(analyzedAt).toLocaleString("pt-PT")}
       </div>
     </div>
+  );
+}
+
+function ImageAnalysisBody({ scores, detected }: { scores: any; detected: any }) {
+  return (
+    <>
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        <SubScore label="Meta Compliance" icon={ShieldCheck} score={scores.meta_compliance} />
+        <SubScore label="Visual" icon={Eye} score={scores.visual_quality} />
+        <SubScore label="Mensagem" icon={MessageSquare} score={scores.message_clarity} />
+        <SubScore label="CTA" icon={Award} score={scores.cta_presence} />
+        <SubScore label="Branding" icon={Palette} score={scores.branding} />
+      </div>
+
+      <div className="rounded-lg border border-border p-3 space-y-1.5 text-xs">
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">O que a IA detetou</div>
+        {detected.primary_message && <div><strong>Mensagem principal:</strong> {detected.primary_message}</div>}
+        {detected.text_in_image_pct != null && (
+          <div>
+            <strong>Texto na imagem:</strong> ~{detected.text_in_image_pct}%
+            {detected.text_in_image_pct > 20 && <span className="text-amber-400 ml-1">⚠️ acima do recomendado</span>}
+          </div>
+        )}
+        {detected.text_content && <div><strong>Texto visível:</strong> "{detected.text_content}"</div>}
+        {detected.has_cta != null && (
+          <div>
+            <strong>CTA na imagem:</strong> {detected.has_cta ? `✓ "${detected.cta_text ?? "sim"}"` : "✗ não detetado"}
+          </div>
+        )}
+        {detected.brand_visibility && (
+          <div><strong>Visibilidade da marca:</strong> {detected.brand_visibility}</div>
+        )}
+        {detected.event_type_detected && (
+          <div><strong>Tipo de evento:</strong> {detected.event_type_detected}</div>
+        )}
+        {detected.composition_quality && (
+          <div><strong>Composição:</strong> {detected.composition_quality}</div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function VideoAnalysisBody({ scores, detected }: { scores: any; detected: any }) {
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const transcript: string = detected.voiceover_transcript ?? "";
+  const longTranscript = transcript.length > 300;
+  const transcriptDisplay = !longTranscript || transcriptOpen ? transcript : transcript.slice(0, 300) + "…";
+  const artists: string[] = Array.isArray(detected.detected_artists) ? detected.detected_artists.filter(Boolean) : [];
+
+  return (
+    <>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+        <SubScore label="Hook" icon={Sparkles} score={scores.hook} />
+        <SubScore label="Pacing" icon={RefreshCw} score={scores.pacing} />
+        <SubScore label="CTA" icon={Award} score={scores.cta_clarity} />
+        <SubScore label="Áudio" icon={MessageSquare} score={scores.audio_quality} />
+        <SubScore label="Compliance" icon={ShieldCheck} score={scores.meta_compliance} />
+        <SubScore label="Alinhamento" icon={Palette} score={scores.alignment_with_copy} />
+      </div>
+
+      {detected.hook_description && (
+        <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/[0.05] p-3">
+          <div className="text-[10px] uppercase tracking-wider text-cyan-400 font-medium mb-1">Hook (primeiros 3s)</div>
+          <p className="text-sm">{detected.hook_description}</p>
+        </div>
+      )}
+
+      {transcript && (
+        <div className="rounded-lg border border-border p-3 space-y-1.5">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Transcrição</div>
+          <p className="text-xs whitespace-pre-wrap">{transcriptDisplay}</p>
+          {longTranscript && (
+            <button
+              onClick={() => setTranscriptOpen((v) => !v)}
+              className="text-[11px] text-cyan-400 hover:underline"
+            >
+              {transcriptOpen ? "Ver menos" : "Ver mais"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {(detected.has_music || detected.music_genre) && (
+        <div className="rounded-lg border border-border p-3 text-xs">
+          <strong>Música:</strong> {detected.music_genre || (detected.has_music ? "sim" : "—")}
+          {detected.has_voiceover != null && (
+            <span className="ml-3"><strong>Locução:</strong> {detected.has_voiceover ? "sim" : "não"}</span>
+          )}
+        </div>
+      )}
+
+      {artists.length > 0 && (
+        <div className="rounded-lg border border-border p-3">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5">Artistas detetados</div>
+          <div className="flex flex-wrap gap-1.5">
+            {artists.map((a) => (
+              <Badge key={a} variant="secondary">{a}</Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-lg border border-border p-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+        {detected.cuts_count_estimate != null && (
+          <div><div className="text-muted-foreground text-[10px]">Cortes</div><div className="font-bold">{detected.cuts_count_estimate}</div></div>
+        )}
+        {detected.text_on_screen_pct_estimate != null && (
+          <div>
+            <div className="text-muted-foreground text-[10px]">Texto on-screen</div>
+            <div className="font-bold">~{detected.text_on_screen_pct_estimate}%
+              {detected.text_on_screen_pct_estimate > 20 && <span className="text-amber-400 ml-1">⚠️</span>}
+            </div>
+          </div>
+        )}
+        {detected.cta_appears_at_second != null && (
+          <div><div className="text-muted-foreground text-[10px]">CTA aparece</div><div className="font-bold">{detected.cta_appears_at_second}s</div></div>
+        )}
+        {detected.production_quality && (
+          <div><div className="text-muted-foreground text-[10px]">Produção</div><div className="font-bold capitalize">{detected.production_quality}</div></div>
+        )}
+        {detected.detected_event_type && (
+          <div><div className="text-muted-foreground text-[10px]">Tipo</div><div className="font-bold capitalize">{detected.detected_event_type}</div></div>
+        )}
+      </div>
+
+      {Array.isArray(detected.text_content_snippets) && detected.text_content_snippets.length > 0 && (
+        <div className="rounded-lg border border-border p-3 text-xs">
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">Texto on-screen</div>
+          <div className="flex flex-wrap gap-1.5">
+            {detected.text_content_snippets.map((s: string, i: number) => (
+              <Badge key={i} variant="outline" className="text-[10px]">"{s}"</Badge>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
