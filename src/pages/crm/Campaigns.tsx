@@ -1352,9 +1352,21 @@ export default function CrmCampaigns() {
                       </div>
                       <p className="text-sm">{d.summary_pt ?? ""}</p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={reanalyzeCampaign} disabled={analyzeLoading}>
+                    <Button variant="outline" size="sm" onClick={reanalyzeCampaign} disabled={analyzeLoading || redesignLoading}>
                       <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Re-analisar
                     </Button>
+                    {analyzeData?.diagnosis_id && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={redesignCampaign}
+                        disabled={analyzeLoading || redesignLoading}
+                        className="border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
+                      >
+                        {redesignLoading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5 mr-1.5" />}
+                        Re-desenhar campanha
+                      </Button>
+                    )}
                   </div>
 
                   <Tabs value={analyzeTab} onValueChange={setAnalyzeTab}>
