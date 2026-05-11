@@ -76,7 +76,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { connection_id?: string; ad_account_id?: string };
+  let body: { connection_id?: string; ad_account_id?: string; mode?: "incremental" | "full" };
   try {
     body = await req.json();
   } catch {
@@ -88,6 +88,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: "missing_params" }, 400);
   }
   const adAccountId = normalizeAdAccountId(rawAdAccount);
+  const mode: "incremental" | "full" = body?.mode === "full" ? "full" : "incremental";
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
