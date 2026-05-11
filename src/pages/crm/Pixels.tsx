@@ -19,12 +19,12 @@ export default function CrmPixels() {
   const [pixelsError, setPixelsError] = useState<string | null>(null);
 
   const fetchPixels = async () => {
-    if (!connection?.id || !connection?.selected_ad_account_id) return;
+    if (!active?.connection_id || !active?.ad_account_id) return;
     setLoading(true);
     setPixelsError(null);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-pixel-health", {
-        body: { connection_id: connection.id, ad_account_id: connection.selected_ad_account_id },
+        body: { connection_id: active.connection_id, ad_account_id: active.ad_account_id },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.message || data.error);
@@ -37,16 +37,16 @@ export default function CrmPixels() {
   };
 
   useEffect(() => {
-    if (connection?.id) fetchPixels();
+    if (active?.ad_account_id) fetchPixels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connection?.id, refreshKey]);
+  }, [active?.ad_account_id, refreshKey]);
 
-  if (!connection) {
+  if (!active) {
     return (
       <div className="p-6">
         <Card className="p-6">
           <p className="text-sm text-muted-foreground">
-            Sem conexão Meta ativa. Liga a conta Meta primeiro em{" "}
+            Sem ad account ativa. Liga uma conta Meta em{" "}
             <button onClick={() => navigate("/audience/connections")} className="text-cyan-400 underline">
               Conexões
             </button>
