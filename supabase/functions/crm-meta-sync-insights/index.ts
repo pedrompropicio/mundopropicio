@@ -161,8 +161,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // TODO: pagination via graphJson.paging.next when >500 rows.
 
   const rows = items.map((it) => {
-    const purchasesCount = sumActions(it.actions, PURCHASE_TYPES);
-    const purchasesValue = sumActionValues(it.action_values, PURCHASE_TYPES);
+    const purchasesCount = sumPurchaseActions(it.actions);
+    const purchasesValue = sumPurchaseValues(it.action_values);
     const purchasesValueCents = Math.round(purchasesValue * 100);
     const spendCents = Math.round((parseFloat(it.spend) || 0) * 100);
     const ctrPct = parseFloat(it.ctr);
