@@ -10,9 +10,6 @@ import { cn } from "@/lib/utils";
 
 type AuditContext = { type: "event" | "campaign" | "landing"; id: string };
 
-const BENCH = {
-  lcp_ms: 2500, fcp_ms: 1800, tbt_ms: 200, tti_ms: 3800, ttfb_ms: 600, cls: 0.1, perf: 70,
-};
 
 function statusForMetric(metric: string, v: number | null | undefined): "good" | "warn" | "bad" | "unknown" {
   if (v == null) return "unknown";
