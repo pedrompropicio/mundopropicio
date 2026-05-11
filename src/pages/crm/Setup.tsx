@@ -79,6 +79,35 @@ function StepCard({
 
 export default function Setup() {
   const { links, isLoading } = useAdAccountSelection();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [syncing, setSyncing] = useState(false);
+
+  // Auto-refresh ad account links every 15s to detect MP Audience as soon as it appears
+  useEffect(() => {
+    const id = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ["ad-account-links"] });
+    }, 15000);
+    return () => clearInterval(id);
+  }, [queryClient]);
+
+  const handleManualSync = async () => {
+    setSyncing(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["ad-account-links"] }),
+        queryClient.invalidateQueries({ predicate: (q) => {
+          const k = q.queryKey?.[0];
+          return typeof k === "string" && k.startsWith("meta-connection");
+        }}),
+      ]);
+      toast.success("Sincronizado");
+    } catch (e: any) {
+      toast.error(e?.message || "Erro a sincronizar");
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const mpAudience = useMemo(() => {
     if (!links?.length) return null;
