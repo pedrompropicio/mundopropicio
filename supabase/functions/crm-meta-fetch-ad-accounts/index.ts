@@ -150,13 +150,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // 4) Persistir (UPDATE via user JWT — RLS aplica-se)
   const { error: updErr } = await supabase
+    .schema("crm")
     .from("ad_platform_connections")
     .update({ available_ad_accounts: filtered })
-    .eq("id", connectionId)
-    // schema crm exposed via Postgrest; se não estiver, este UPDATE pode falhar.
-    // TODO: se schema crm não estiver no search_path do PostgREST, criar wrapper RPC
-    // crm_set_available_ad_accounts(uuid, jsonb) e chamar via supabase.rpc.
-    ;
+    .eq("id", connectionId);
 
   if (updErr) {
     console.error("[crm-meta-fetch-ad-accounts] update failed:", updErr);
