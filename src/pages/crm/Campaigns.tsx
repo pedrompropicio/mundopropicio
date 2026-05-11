@@ -451,13 +451,17 @@ function EventGroupCard({
   event,
   campaigns,
   insightsByCampaign,
+  prevInsightsByCampaign,
   spark14ByCampaign,
+  days,
   currency,
 }: {
   event: EventRow;
   campaigns: CampaignRow[];
   insightsByCampaign: Map<string, InsightRow[]>;
+  prevInsightsByCampaign: Map<string, InsightRow[]>;
   spark14ByCampaign: Map<string, number[]>;
+  days: number;
   currency: string;
 }) {
   const [open, setOpen] = useState(true);
