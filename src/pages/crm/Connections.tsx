@@ -417,6 +417,65 @@ export default function CrmConnections() {
                         <div className="text-destructive">Último erro: {conn.last_error}</div>
                       )}
                     </div>
+                    {p.key === "meta" && (() => {
+                      const accounts = conn.available_ad_accounts ?? [];
+                      const first = accounts[0];
+                      // Legado: payload antigo continha BMs (sem account_id, ou id não numérico)
+                      const looksLikeBMs =
+                        accounts.length > 0 &&
+                        (!first?.account_id || !/^\d+$/.test(String(first.account_id)));
+                      const needsRefresh = accounts.length === 0 || looksLikeBMs;
+                      return (
+                        <div className="space-y-2 rounded-md border border-border bg-muted/30 p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium">Conta de anúncios</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => handleRefreshAdAccounts(conn)}
+                              disabled={refreshingAccountsFor === conn.id}
+                            >
+                              {refreshingAccountsFor === conn.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <>
+                                  <RefreshCw className="mr-1 h-3 w-3" />
+                                  Atualizar contas
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                          {needsRefresh ? (
+                            <p className="text-xs text-muted-foreground">
+                              Clique 'Atualizar contas' para carregar suas contas de anúncios.
+                            </p>
+                          ) : (
+                            <Select
+                              value={conn.selected_ad_account_id ?? undefined}
+                              onValueChange={(v) => handleSelectAdAccount(conn, v)}
+                              disabled={savingAccountFor === conn.id}
+                            >
+                              <SelectTrigger className="h-9 text-xs">
+                                <SelectValue placeholder="Selecione a conta de anúncios" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {accounts.map((a) => {
+                                  const value = a.id ?? a.account_id ?? "";
+                                  const accId = a.account_id ?? value.replace(/^act_/, "");
+                                  return (
+                                    <SelectItem key={value} value={value}>
+                                      {a.name ?? "(sem nome)"} (act_{accId})
+                                      {a.currency ? ` — ${a.currency}` : ""}
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+                      );
+                    })()}
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
