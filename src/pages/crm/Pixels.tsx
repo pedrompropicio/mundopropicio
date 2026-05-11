@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, RefreshCw, CheckCircle2, AlertTriangle, XCircle, HelpCircle, Zap, Sparkles, Check, X, AlertCircle, Globe, Target } from "lucide-react";
+import { Loader2, RefreshCw, CheckCircle2, AlertTriangle, XCircle, HelpCircle, Zap, Sparkles, Check, X, AlertCircle, Globe, Target, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
+import { printPixelHealth } from "@/lib/audience-pdf";
 
 export default function CrmPixels() {
   const navigate = useNavigate();
@@ -85,6 +86,15 @@ export default function CrmPixels() {
               </label>
             </div>
           )}
+          <button
+            onClick={() => printPixelHealth(pixelsData, onlyUsed)}
+            disabled={!pixelsData || loading}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted/40 border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+            title="Exportar como PDF"
+          >
+            <FileDown className="h-4 w-4" />
+            PDF
+          </button>
           <button
             onClick={() => setRefreshKey(k => k + 1)}
             disabled={loading}
