@@ -597,6 +597,7 @@ export default function CrmCampaigns() {
   const { role, hasPermission, loading: authLoading } = useAuth();
   const { companyId, isLoading: companyLoading } = useCompany();
   const qc = useQueryClient();
+  const { active } = useAdAccountSelection();
 
   const [period, setPeriod] = useState<PeriodState>(periodFromMode("7d"));
   const [customRange, setCustomRange] = useState<{ from?: Date; to?: Date }>({});
