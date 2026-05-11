@@ -95,6 +95,7 @@ import Reminders from "./pages/admin/Reminders";
 import RlsLegacyAudit from "./pages/admin/RlsLegacyAudit";
 import CoalaSync from "./pages/admin/CoalaSync";
 import CrmConnections from "./pages/crm/Connections";
+import CrmCampaigns from "./pages/crm/Campaigns";
 import { PartnerLayout } from "./components/PartnerLayout";
 
 const queryClient = new QueryClient({
@@ -367,6 +368,7 @@ function ProtectedLayout() {
               <Route path="/admin/auditoria-rls" element={<RlsLegacyAudit />} />
               <Route path="/admin/sync-coala" element={<CoalaSync />} />
               <Route path="/crm/connections" element={<CrmConnections />} />
+              <Route path="/crm/campaigns" element={<CrmCampaigns />} />
             </Routes>
           </div>
         </main>
