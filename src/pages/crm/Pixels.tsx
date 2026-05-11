@@ -14,17 +14,17 @@ export default function CrmPixels() {
   const { data: connection } = useQuery({
     queryKey: ["meta-connection-for-pixels"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .schema("crm")
         .from("ad_platform_connections")
         .select("id, selected_ad_account_id, selected_ad_account_currency, status")
-        .eq("provider", "meta")
-        .eq("status", "ACTIVE")
+        .eq("platform", "meta")
+        .eq("status", "active")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      return data as { id: string; selected_ad_account_id: string | null; selected_ad_account_currency: string | null; status: string } | null;
     },
   });
 
