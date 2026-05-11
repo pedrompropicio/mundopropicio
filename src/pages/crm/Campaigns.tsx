@@ -24,6 +24,7 @@ import {
   Wand2,
   Pause,
   Play,
+  AlertTriangle,
 } from "lucide-react";
 import { printCampaignAnalysis, printAudienceCoach } from "@/lib/audience-pdf";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
