@@ -126,9 +126,31 @@ export default function CrmStrategyNew() {
       toast.success("Estratégia gerada!");
       navigate(`/audience/strategies/${(data as any).strategy_id}`);
     } catch (e: any) {
-      const msg = e?.message ?? "Erro a gerar estratégia";
-      setErrMsg(msg);
-      toast.error(msg);
+      let detailedMsg = e?.message ?? "Erro a gerar estratégia";
+
+      // supabase-js FunctionsHttpError coloca a Response em error.context
+      if (e?.context && typeof e.context === "object") {
+        try {
+          const ctx = e.context as Response;
+          if (typeof ctx.json === "function") {
+            const body = await ctx.json();
+            const errorCode = body?.error || "unknown";
+            const errorDetail = body?.message || body?.detail || "";
+            const rawPreview = body?.raw_preview
+              ? `\n\nPreview: ${String(body.raw_preview).slice(0, 300)}`
+              : "";
+            detailedMsg = `[${errorCode}] ${errorDetail}${rawPreview}`;
+          } else if (typeof ctx.text === "function") {
+            const text = await ctx.text();
+            detailedMsg = `${detailedMsg}\n\nBody: ${text.slice(0, 500)}`;
+          }
+        } catch {
+          // ignore — mantém detailedMsg original
+        }
+      }
+
+      setErrMsg(detailedMsg);
+      toast.error("Erro ao gerar estratégia", { description: detailedMsg.slice(0, 200) });
     } finally {
       setSubmitting(false);
     }
