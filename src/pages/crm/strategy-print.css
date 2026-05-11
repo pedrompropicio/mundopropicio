@@ -40,12 +40,31 @@
 .risk-block { padding: 8px 12px; margin-bottom: 8px; border-left: 3px solid #e0a800; background: #fffbf0; }
 
 .print-btn {
-  position: fixed; top: 16px; right: 16px;
-  background: #0891b2; color: white; border: none; padding: 10px 20px;
-  border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 100;
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+  right: calc(env(safe-area-inset-right, 0px) + 20px);
+  background: #0891b2;
+  color: white;
+  border: none;
+  padding: 12px 22px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+  box-shadow: 0 4px 16px rgba(8, 145, 178, 0.35), 0 2px 4px rgba(0,0,0,0.1);
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
-.print-btn:hover { background: #0e7490; }
+.print-btn:hover {
+  background: #0e7490;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(8, 145, 178, 0.45), 0 2px 4px rgba(0,0,0,0.1);
+}
+.print-btn:active {
+  transform: translateY(0);
+}
 
 .footer-meta { text-align: center; font-size: 10px; color: #aaa; margin-top: 40px; padding-top: 16px; border-top: 1px solid #eee; }
 
