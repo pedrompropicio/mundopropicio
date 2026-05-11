@@ -795,7 +795,7 @@ export default function CrmCampaigns() {
         {/* Period tabs */}
         <div className="mt-3 flex items-center gap-2 flex-wrap">
           {([
-            { k: "today", l: "Hoje" },
+            { k: "yesterday", l: "Ontem" },
             { k: "7d", l: "7 dias" },
             { k: "30d", l: "30 dias" },
           ] as const).map((p) => (
