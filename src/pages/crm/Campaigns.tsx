@@ -627,7 +627,36 @@ export default function CrmCampaigns() {
     }
   };
 
-  const isAuthorized =
+  const [coachOpen, setCoachOpen] = useState(false);
+  const [coachData, setCoachData] = useState<any>(null);
+  const [coachLoading, setCoachLoading] = useState(false);
+  const [coachError, setCoachError] = useState<string | null>(null);
+
+  const coachCampaign = async (campaignId: string) => {
+    setCoachOpen(true);
+    setCoachLoading(true);
+    setCoachError(null);
+    setCoachData(null);
+    try {
+      if (!connection?.id || !connection?.selected_ad_account_id) {
+        throw new Error("Sem conexão Meta ativa ou conta de anúncios selecionada.");
+      }
+      const { data, error } = await supabase.functions.invoke("crm-meta-audience-coach", {
+        body: {
+          connection_id: connection.id,
+          ad_account_id: connection.selected_ad_account_id,
+          campaign_id: campaignId,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.message || data.error);
+      setCoachData(data);
+    } catch (e: any) {
+      setCoachError(e?.message || "Erro desconhecido");
+    } finally {
+      setCoachLoading(false);
+    }
+  };
     role === "admin" ||
     role === ("platform_admin" as any) ||
     role === ("marketing_manager" as any) ||
