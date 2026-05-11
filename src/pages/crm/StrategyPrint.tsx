@@ -70,7 +70,10 @@ export default function CrmStrategyPrint() {
 
   return (
     <div className="strategy-print">
-      <button onClick={() => window.print()} className="no-print print-btn">Imprimir / Salvar PDF</button>
+      <button onClick={() => window.print()} className="no-print print-btn" aria-label="Imprimir ou salvar como PDF">
+        <Printer className="h-4 w-4" />
+        <span>Imprimir / PDF</span>
+      </button>
 
       <section className="cover page-break-after">
         <div className="cover-brand">MUNDO PROPÍCIO · MP AUDIENCE</div>
