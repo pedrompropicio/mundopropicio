@@ -290,6 +290,7 @@ function CampaignTableRow({
   days,
   currency,
   spark,
+  onAnalyze,
 }: {
   c: CampaignRow;
   insights: InsightRow[];
@@ -297,6 +298,7 @@ function CampaignTableRow({
   days: number;
   currency: string;
   spark: number[];
+  onAnalyze?: (id: string, name: string) => void;
 }) {
   const agg = useMemo(() => aggregate(insights), [insights]);
   const aggPrev = useMemo(() => aggregate(prevInsights), [prevInsights]);
