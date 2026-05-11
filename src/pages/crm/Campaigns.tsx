@@ -592,6 +592,21 @@ export default function CrmCampaigns() {
     return m;
   }, [periodInsights]);
 
+  const previousInsightsByCampaign = useMemo(() => {
+    const m = new Map<string, InsightRow[]>();
+    for (const r of previousInsights) {
+      const arr = m.get(r.external_campaign_id) ?? [];
+      arr.push(r);
+      m.set(r.external_campaign_id, arr);
+    }
+    return m;
+  }, [previousInsights]);
+
+  const periodDays = useMemo(
+    () => Math.max(1, differenceInDays(period.to, period.from) + 1),
+    [period],
+  );
+
   // 14-day spend sparkline per campaign
   const spark14ByCampaign = useMemo(() => {
     const m = new Map<string, number[]>();
