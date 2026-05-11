@@ -302,6 +302,8 @@ function CampaignTableRow({
   spark,
   onAnalyze,
   onCoach,
+  onToggleStatus,
+  toggling,
 }: {
   c: CampaignRow;
   insights: InsightRow[];
@@ -311,6 +313,8 @@ function CampaignTableRow({
   spark: number[];
   onAnalyze?: (id: string, name: string) => void;
   onCoach?: (id: string) => void;
+  onToggleStatus?: (c: CampaignRow, target: "ACTIVE" | "PAUSED") => void;
+  toggling?: boolean;
 }) {
   const agg = useMemo(() => aggregate(insights), [insights]);
   const aggPrev = useMemo(() => aggregate(prevInsights), [prevInsights]);
