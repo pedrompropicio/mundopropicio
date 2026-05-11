@@ -99,6 +99,7 @@ import CrmConnections from "./pages/crm/Connections";
 import CrmCampaigns from "./pages/crm/Campaigns";
 import CrmPixels from "./pages/crm/Pixels";
 import CrmInsights from "./pages/crm/Insights";
+import CrmAdAccounts from "./pages/crm/AdAccounts";
 import ModuleSelector from "./pages/ModuleSelector";
 import PostLoginRedirect from "./components/PostLoginRedirect";
 import { AudienceLayout } from "./components/layout/AudienceLayout";
