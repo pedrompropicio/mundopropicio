@@ -205,7 +205,7 @@ export default function CrmStrategyView() {
   const kpis = plan.kpis_global ?? {};
   const risks: any[] = plan.risks_and_warnings ?? [];
   const brief = plan.creative_brief ?? {};
-  const manualApply: string = plan.manual_apply_instructions ?? "";
+  
 
   return (
     <div className="space-y-6">
