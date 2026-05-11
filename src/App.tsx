@@ -285,12 +285,11 @@ function ProtectedLayout() {
     }
   } catch {}
 
-  // Admin/platform_admin landing: '/' shows ModuleSelector (no ERP shell).
-  // Use /erp to enter the ERP workspace explicitly.
+  // Post-login routing for "/": let PostLoginRedirect decide based on perms
+  // (ModuleSelector for users with both modules, direct redirect otherwise).
   const currentPath = location.pathname;
-  const isPlatformOrAdmin = isAdmin; // isAdmin already covers platform_admin
-  if (isPlatformOrAdmin && currentPath === "/") {
-    return <ModuleSelector />;
+  if (currentPath === "/") {
+    return <PostLoginRedirect />;
   }
 
   return (
