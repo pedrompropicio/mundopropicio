@@ -366,7 +366,23 @@ function CampaignTableRow({
       className="border-b border-border/40 hover:bg-muted/40 transition-colors cursor-pointer"
       onClick={() => console.log("[campaign click]", c.external_campaign_id, c.name)}
     >
-      <td className="py-2.5 px-3 max-w-[280px] truncate font-medium text-sm">{c.name}</td>
+      <td className="py-2.5 px-3 max-w-[280px] font-medium text-sm">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="truncate">{c.name}</span>
+          {onAnalyze && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAnalyze(c.external_campaign_id, c.name);
+              }}
+              className="opacity-60 hover:opacity-100 transition-opacity p-1 rounded hover:bg-cyan-500/10 shrink-0"
+              title="Analisar com IA"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+            </button>
+          )}
+        </div>
+      </td>
       <td className="py-2.5 px-3">
         <span
           className={cn(
