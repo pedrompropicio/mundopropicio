@@ -318,7 +318,92 @@ export default function CrmStrategyView() {
     }
   };
 
-  if (isLoading) {
+  const deployChecks = useMemo(() => {
+    const checks: { label: string; ok: boolean; detail?: string }[] = [];
+    checks.push({
+      label: "Conexão Meta ativa",
+      ok: connection?.status === "active",
+      detail: connection?.status === "active" ? connection.selected_ad_account_name ?? "" : "Vai a /audience/connections",
+    });
+    checks.push({
+      label: "Page do Facebook selecionada",
+      ok: !!connection?.selected_page_id,
+      detail: connection?.selected_page_id ? "✓" : "Seleciona uma Page em /audience/connections",
+    });
+    checks.push({
+      label: "Instagram associado",
+      ok: !!connection?.selected_instagram_id,
+      detail: connection?.selected_instagram_id ? "✓ (ads no IG ativos)" : "Opcional — sem IG, ads só no Facebook",
+    });
+    const phasesWithoutCreatives: string[] = [];
+    for (const phase of plan?.phases ?? []) {
+      const hasCreatives = (associationsByPhase.get(phase.id) ?? []).length > 0;
+      if (!hasCreatives) phasesWithoutCreatives.push(phase.name);
+    }
+    checks.push({
+      label: `Criativos em todas as fases (${(plan?.phases?.length ?? 0) - phasesWithoutCreatives.length}/${plan?.phases?.length ?? 0})`,
+      ok: phasesWithoutCreatives.length === 0,
+      detail: phasesWithoutCreatives.length === 0 ? "✓" : `Em falta: ${phasesWithoutCreatives.join(", ")}`,
+    });
+    return checks;
+  }, [connection, plan, associationsByPhase]);
+
+  const canDeploy = deployChecks.filter((c) => c.label !== "Instagram associado").every((c) => c.ok);
+
+  const deployEstimate = useMemo(() => {
+    let campaigns = 0, adsets = 0, ads = 0;
+    for (const phase of plan?.phases ?? []) {
+      const phaseCreatives = associationsByPhase.get(phase.id) ?? [];
+      if (phaseCreatives.length === 0) continue;
+      const phaseCampaigns = (plan?.recommended_campaigns ?? []).filter((c: any) => c.phase_id === phase.id);
+      campaigns += phaseCampaigns.length;
+      for (const c of phaseCampaigns) {
+        const phaseAdsets = (c.adsets ?? []).length;
+        adsets += phaseAdsets;
+        ads += phaseAdsets * phaseCreatives.length;
+      }
+    }
+    return { campaigns, adsets, ads };
+  }, [plan, associationsByPhase]);
+
+  const handleDeploy = async () => {
+    if (!data || isDeploying) return;
+    setIsDeploying(true);
+    setDeployResult(null);
+    try {
+      const { data: resp, error } = await supabase.functions.invoke(
+        "crm-meta-strategy-deploy",
+        { body: { strategy_id: data.id } }
+      );
+      if (error) {
+        let detail = error.message;
+        if ((error as any).context) {
+          try {
+            const ctx = (error as any).context;
+            const b = await (ctx.clone ? ctx.clone() : ctx).json();
+            detail = `[${b?.error || "?"}] ${b?.message || b?.detail || detail}`;
+          } catch {}
+        }
+        throw new Error(detail);
+      }
+      setDeployResult(resp);
+      if (resp.status === "success") {
+        toast.success(`Deploy concluído: ${resp.summary?.ads_created ?? 0} ads criados`);
+      } else if (resp.status === "partial") {
+        toast.warning(`Deploy parcial: ${resp.summary?.ads_created ?? 0} ads criados, ${resp.summary?.errors ?? 0} erros`);
+      } else {
+        toast.error("Deploy falhou — vê os logs no histórico");
+      }
+      queryClient.invalidateQueries({ queryKey: ["crm-strategy", id] });
+      queryClient.invalidateQueries({ queryKey: ["crm-strategy-deployments", id] });
+    } catch (e: any) {
+      toast.error("Falha no deploy", { description: e?.message ?? String(e) });
+      setDeployResult({ status: "failed", error: e?.message });
+    } finally {
+      setIsDeploying(false);
+    }
+  };
+
     return (
       <div className="flex items-center gap-2 text-muted-foreground text-sm">
         <Loader2 className="h-4 w-4 animate-spin" /> A carregar estratégia…
