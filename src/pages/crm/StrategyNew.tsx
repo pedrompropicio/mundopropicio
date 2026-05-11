@@ -13,9 +13,6 @@ import { Brain, Loader2, ArrowLeft, Sparkles, Info } from "lucide-react";
 import { toast } from "sonner";
 import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-
 const COUNTRY_OPTIONS = [
   { code: "PT", label: "Portugal" },
   { code: "BR", label: "Brasil" },
