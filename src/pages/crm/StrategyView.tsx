@@ -69,6 +69,9 @@ export default function CrmStrategyView() {
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectorPhaseId, setSelectorPhaseId] = useState<string | null>(null);
   const [selectedCreativeIds, setSelectedCreativeIds] = useState<Set<string>>(new Set());
+  const [deployOpen, setDeployOpen] = useState(false);
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [deployResult, setDeployResult] = useState<any>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["crm-strategy", id],
