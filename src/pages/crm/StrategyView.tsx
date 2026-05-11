@@ -491,6 +491,58 @@ export default function CrmStrategyView() {
                       )}
                     </div>
                   )}
+
+                  <div className="mt-4 border-t border-border pt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <Image2 className="h-3.5 w-3.5" /> Criativos para esta fase
+                        {(associationsByPhase.get(p.id) ?? []).length > 0 && (
+                          <span className="text-foreground">({(associationsByPhase.get(p.id) ?? []).length})</span>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-cyan-400 hover:text-cyan-300"
+                        onClick={() => handleOpenSelector(p.id)}
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
+                      </Button>
+                    </div>
+
+                    {(associationsByPhase.get(p.id) ?? []).length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">
+                        Sem criativos associados. Adiciona pelo menos 1 para poder fazer deploy desta fase.
+                      </p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {(associationsByPhase.get(p.id) ?? []).map((assoc: any) => {
+                          const c = assoc.meta_creatives;
+                          if (!c) return null;
+                          return (
+                            <div key={assoc.id} className="group relative rounded border border-border bg-muted/30 overflow-hidden w-24">
+                              <div className="aspect-square bg-muted overflow-hidden">
+                                {c.type === "video" ? (
+                                  <video src={c.file_url} className="w-full h-full object-cover" muted playsInline />
+                                ) : (
+                                  <img src={c.file_url} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
+                                )}
+                              </div>
+                              <div className="px-1.5 py-1 text-[10px] truncate" title={c.name}>{c.name}</div>
+                              <button
+                                onClick={() => handleRemoveAssociation(assoc.id)}
+                                className="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/70 hover:bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Remover"
+                                disabled={actionLoading}
+                              >
+                                <XIcon className="h-3 w-3" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </Card>
               );
             })}
