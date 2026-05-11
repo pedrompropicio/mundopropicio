@@ -15,6 +15,7 @@ import {
   ArrowLeft, Loader2, Brain, Copy, Check, Archive, Target, Calendar, Mic2,
   AlertTriangle, Sparkles, ChevronDown, ChevronUp, Pencil, RefreshCw, FileDown, Trash2, Zap,
   Plus, X as XIcon, ImageIcon as Image2,
+  Rocket, ExternalLink, CheckCircle2, XCircle, AlertCircle, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -68,6 +69,9 @@ export default function CrmStrategyView() {
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectorPhaseId, setSelectorPhaseId] = useState<string | null>(null);
   const [selectedCreativeIds, setSelectedCreativeIds] = useState<Set<string>>(new Set());
+  const [deployOpen, setDeployOpen] = useState(false);
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [deployResult, setDeployResult] = useState<any>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["crm-strategy", id],
@@ -125,6 +129,37 @@ export default function CrmStrategyView() {
         .from("meta_creatives")
         .select("id, name, type, file_url, duration_seconds, headline")
         .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const { data: connection } = useQuery({
+    queryKey: ["crm-active-connection", data?.connection_id],
+    enabled: !!data?.connection_id,
+    queryFn: async () => {
+      const { data: c, error } = await (supabase as any)
+        .schema("crm")
+        .from("ad_platform_connections")
+        .select("id, status, selected_ad_account_id, selected_ad_account_name, selected_page_id, selected_instagram_id, expires_at")
+        .eq("id", data.connection_id)
+        .maybeSingle();
+      if (error) throw error;
+      return c;
+    },
+  });
+
+  const { data: deployments } = useQuery({
+    queryKey: ["crm-strategy-deployments", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_campaign_strategy_deployments")
+        .select("id, status, ad_account_id, meta_campaign_ids, meta_adset_ids, meta_ad_ids, error_summary, started_at, completed_at, duration_ms, created_at")
+        .eq("strategy_id", id)
+        .order("created_at", { ascending: false })
+        .limit(10);
       if (error) throw error;
       return data ?? [];
     },
@@ -280,6 +315,92 @@ export default function CrmStrategyView() {
       toast.error("Falha a remover", { description: e?.message ?? String(e) });
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const deployChecks = useMemo(() => {
+    const checks: { label: string; ok: boolean; detail?: string }[] = [];
+    checks.push({
+      label: "Conexão Meta ativa",
+      ok: connection?.status === "active",
+      detail: connection?.status === "active" ? connection.selected_ad_account_name ?? "" : "Vai a /audience/connections",
+    });
+    checks.push({
+      label: "Page do Facebook selecionada",
+      ok: !!connection?.selected_page_id,
+      detail: connection?.selected_page_id ? "✓" : "Seleciona uma Page em /audience/connections",
+    });
+    checks.push({
+      label: "Instagram associado",
+      ok: !!connection?.selected_instagram_id,
+      detail: connection?.selected_instagram_id ? "✓ (ads no IG ativos)" : "Opcional — sem IG, ads só no Facebook",
+    });
+    const phasesWithoutCreatives: string[] = [];
+    for (const phase of plan?.phases ?? []) {
+      const hasCreatives = (associationsByPhase.get(phase.id) ?? []).length > 0;
+      if (!hasCreatives) phasesWithoutCreatives.push(phase.name);
+    }
+    checks.push({
+      label: `Criativos em todas as fases (${(plan?.phases?.length ?? 0) - phasesWithoutCreatives.length}/${plan?.phases?.length ?? 0})`,
+      ok: phasesWithoutCreatives.length === 0,
+      detail: phasesWithoutCreatives.length === 0 ? "✓" : `Em falta: ${phasesWithoutCreatives.join(", ")}`,
+    });
+    return checks;
+  }, [connection, plan, associationsByPhase]);
+
+  const canDeploy = deployChecks.filter((c) => c.label !== "Instagram associado").every((c) => c.ok);
+
+  const deployEstimate = useMemo(() => {
+    let campaigns = 0, adsets = 0, ads = 0;
+    for (const phase of plan?.phases ?? []) {
+      const phaseCreatives = associationsByPhase.get(phase.id) ?? [];
+      if (phaseCreatives.length === 0) continue;
+      const phaseCampaigns = (plan?.recommended_campaigns ?? []).filter((c: any) => c.phase_id === phase.id);
+      campaigns += phaseCampaigns.length;
+      for (const c of phaseCampaigns) {
+        const phaseAdsets = (c.adsets ?? []).length;
+        adsets += phaseAdsets;
+        ads += phaseAdsets * phaseCreatives.length;
+      }
+    }
+    return { campaigns, adsets, ads };
+  }, [plan, associationsByPhase]);
+
+  const handleDeploy = async () => {
+    if (!data || isDeploying) return;
+    setIsDeploying(true);
+    setDeployResult(null);
+    try {
+      const { data: resp, error } = await supabase.functions.invoke(
+        "crm-meta-strategy-deploy",
+        { body: { strategy_id: data.id } }
+      );
+      if (error) {
+        let detail = error.message;
+        if ((error as any).context) {
+          try {
+            const ctx = (error as any).context;
+            const b = await (ctx.clone ? ctx.clone() : ctx).json();
+            detail = `[${b?.error || "?"}] ${b?.message || b?.detail || detail}`;
+          } catch {}
+        }
+        throw new Error(detail);
+      }
+      setDeployResult(resp);
+      if (resp.status === "success") {
+        toast.success(`Deploy concluído: ${resp.summary?.ads_created ?? 0} ads criados`);
+      } else if (resp.status === "partial") {
+        toast.warning(`Deploy parcial: ${resp.summary?.ads_created ?? 0} ads criados, ${resp.summary?.errors ?? 0} erros`);
+      } else {
+        toast.error("Deploy falhou — vê os logs no histórico");
+      }
+      queryClient.invalidateQueries({ queryKey: ["crm-strategy", id] });
+      queryClient.invalidateQueries({ queryKey: ["crm-strategy-deployments", id] });
+    } catch (e: any) {
+      toast.error("Falha no deploy", { description: e?.message ?? String(e) });
+      setDeployResult({ status: "failed", error: e?.message });
+    } finally {
+      setIsDeploying(false);
     }
   };
 
@@ -649,25 +770,67 @@ export default function CrmStrategyView() {
         </Card>
       )}
 
-      {/* Next steps - automação futura */}
+      {/* Next steps - Deploy real */}
       <Card className="p-5 border-cyan-500/30 bg-cyan-500/[0.03]">
         <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          <Zap className="h-4 w-4 text-cyan-400" /> Próximos passos
+          <Rocket className="h-4 w-4 text-cyan-400" /> Deploy para Meta
         </h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Em breve poderás criar todas estas campanhas automaticamente na Meta com 1 clique, usando os parâmetros gerados pela IA.
+          Cria automaticamente todas as campanhas, conjuntos de anúncios e anúncios no Meta. Tudo em PAUSED — ativas manualmente no Ads Manager depois de rever.
         </p>
+
+        <div className="space-y-1.5 mb-4">
+          {deployChecks.map((check, i) => (
+            <div key={i} className="flex items-start gap-2 text-xs">
+              {check.ok ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 mt-0.5" />
+              ) : check.label === "Instagram associado" ? (
+                <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
+              ) : (
+                <XCircle className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
+              )}
+              <div className="min-w-0">
+                <div className="font-medium">{check.label}</div>
+                {check.detail && <div className="text-muted-foreground text-[11px]">{check.detail}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {canDeploy && (
+          <div className="rounded border border-border bg-muted/30 p-3 mb-4 text-xs space-y-0.5">
+            <div className="font-medium mb-1">Vai criar no Meta:</div>
+            <div className="text-muted-foreground">
+              <strong className="text-foreground">{deployEstimate.campaigns}</strong> Campanhas ·{" "}
+              <strong className="text-foreground">{deployEstimate.adsets}</strong> AdSets ·{" "}
+              <strong className="text-foreground">{deployEstimate.ads}</strong> Anúncios
+            </div>
+            <div className="text-[11px] text-amber-400 mt-1.5">
+              ⚠ Tudo criado em status PAUSED. Tens de ativar manualmente no Ads Manager.
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-2">
-          <Button disabled className="bg-cyan-500/40 cursor-not-allowed">
-            <Sparkles className="h-4 w-4 mr-1.5" /> Criar campanhas automaticamente (em breve)
+          <Button
+            onClick={() => setDeployOpen(true)}
+            disabled={!canDeploy || isDeploying}
+            className="bg-cyan-500 hover:bg-cyan-600 text-white"
+          >
+            {isDeploying ? (
+              <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> A deployar…</>
+            ) : (
+              <><Rocket className="h-4 w-4 mr-1.5" /> Deploy para Meta</>
+            )}
           </Button>
           <Button variant="outline" onClick={handleCopyJson}>
             <Copy className="h-4 w-4 mr-1.5" /> {copied ? "Copiado!" : "Copiar plano (JSON)"}
           </Button>
         </div>
+
         {plan.automation_metadata?.requires_manual_setup?.length > 0 && (
           <div className="mt-4 text-xs text-muted-foreground">
-            <strong className="text-foreground">Antes de automatizar, garante que existe no Business Manager:</strong>
+            <strong className="text-foreground">Antes de deployar, garante que existe no Business Manager:</strong>
             <ul className="list-disc list-inside mt-1.5 space-y-0.5">
               {plan.automation_metadata.requires_manual_setup.map((item: string, i: number) => (
                 <li key={i}>{item}</li>
@@ -676,6 +839,75 @@ export default function CrmStrategyView() {
           </div>
         )}
       </Card>
+
+      {/* Histórico de Deployments */}
+      {deployments && deployments.length > 0 && (
+        <Card className="p-5">
+          <h2 className="text-lg font-semibold mb-3">Histórico de Deployments</h2>
+          <div className="space-y-2">
+            {deployments.map((d: any) => {
+              const statusColors: Record<string, string> = {
+                success: "bg-emerald-500/10 text-emerald-400 border-emerald-500/40",
+                partial: "bg-amber-500/10 text-amber-400 border-amber-500/40",
+                failed: "bg-red-500/10 text-red-400 border-red-500/40",
+                running: "bg-blue-500/10 text-blue-400 border-blue-500/40",
+                pending: "bg-muted/40 text-muted-foreground border-border",
+              };
+              const statusLabels: Record<string, string> = {
+                success: "Sucesso",
+                partial: "Parcial",
+                failed: "Falhou",
+                running: "Em curso",
+                pending: "Pendente",
+              };
+              const StatusIcon = d.status === "success" ? CheckCircle2 : d.status === "failed" ? XCircle : d.status === "partial" ? AlertCircle : Clock;
+              const campaignsCount = Array.isArray(d.meta_campaign_ids) ? d.meta_campaign_ids.length : 0;
+              const adsetsCount = Array.isArray(d.meta_adset_ids) ? d.meta_adset_ids.length : 0;
+              const adsCount = Array.isArray(d.meta_ad_ids) ? d.meta_ad_ids.length : 0;
+              const adsMgrUrl = `https://business.facebook.com/adsmanager/manage/campaigns?act=${d.ad_account_id.replace("act_", "")}`;
+              return (
+                <div key={d.id} className="rounded border border-border p-3 text-xs space-y-1.5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={cn("text-[10px] uppercase border", statusColors[d.status])}>
+                        <StatusIcon className="h-3 w-3 mr-1" /> {statusLabels[d.status] ?? d.status}
+                      </Badge>
+                      <span className="text-muted-foreground">
+                        {new Date(d.created_at).toLocaleString("pt-PT")}
+                      </span>
+                    </div>
+                    {d.duration_ms && (
+                      <span className="text-[10px] text-muted-foreground">
+                        {(d.duration_ms / 1000).toFixed(1)}s
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-muted-foreground">
+                    <strong className="text-foreground">{campaignsCount}</strong> campanhas ·{" "}
+                    <strong className="text-foreground">{adsetsCount}</strong> adsets ·{" "}
+                    <strong className="text-foreground">{adsCount}</strong> ads
+                  </div>
+                  {d.error_summary && (
+                    <div className="text-red-400 text-[11px] bg-red-500/5 rounded p-1.5 border border-red-500/20">
+                      {d.error_summary}
+                    </div>
+                  )}
+                  {campaignsCount > 0 && (
+                    <a
+                      href={adsMgrUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-cyan-400 hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" /> Abrir no Ads Manager
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* Edit Modal */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
@@ -816,6 +1048,40 @@ export default function CrmStrategyView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Deploy confirmation */}
+      <AlertDialog open={deployOpen} onOpenChange={setDeployOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Rocket className="h-5 w-5 text-cyan-400" /> Deploy para Meta?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>Vai criar no Meta Ads Manager (ad account <strong>{connection?.selected_ad_account_name}</strong>):</p>
+                <div className="bg-muted/40 rounded p-3 text-sm space-y-1">
+                  <div>• <strong>{deployEstimate.campaigns}</strong> Campanhas</div>
+                  <div>• <strong>{deployEstimate.adsets}</strong> AdSets</div>
+                  <div>• <strong>{deployEstimate.ads}</strong> Anúncios</div>
+                </div>
+                <p className="text-amber-400 text-sm">⚠ Tudo será criado em status <strong>PAUSED</strong>. Nada vai correr sem ativares manualmente no Ads Manager.</p>
+                <p className="text-xs text-muted-foreground">Demora ~30s a 2 min. Não fechas esta página durante o processo.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeploying}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); setDeployOpen(false); handleDeploy(); }}
+              disabled={isDeploying}
+              className="bg-cyan-500 hover:bg-cyan-600 text-white"
+            >
+              {isDeploying && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Sim, deployar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
