@@ -1,5 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { Rocket, CheckCircle2, Circle, Loader2, AlertCircle } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Rocket, CheckCircle2, Circle, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -76,6 +79,35 @@ function StepCard({
 
 export default function Setup() {
   const { links, isLoading } = useAdAccountSelection();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [syncing, setSyncing] = useState(false);
+
+  // Auto-refresh ad account links every 15s to detect MP Audience as soon as it appears
+  useEffect(() => {
+    const id = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ["ad-account-links"] });
+    }, 15000);
+    return () => clearInterval(id);
+  }, [queryClient]);
+
+  const handleManualSync = async () => {
+    setSyncing(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["ad-account-links"] }),
+        queryClient.invalidateQueries({ predicate: (q) => {
+          const k = q.queryKey?.[0];
+          return typeof k === "string" && k.startsWith("meta-connection");
+        }}),
+      ]);
+      toast.success("Sincronizado");
+    } catch (e: any) {
+      toast.error(e?.message || "Erro a sincronizar");
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const mpAudience = useMemo(() => {
     if (!links?.length) return null;
@@ -134,6 +166,21 @@ export default function Setup() {
   const [s7, set7] = useStepDone(7);
   const [s8, set8] = useStepDone(8);
 
+  // Detect MP Audience appearing → toast + auto-mark steps 1 and 8 (one-shot per transition)
+  const prevMpAudienceIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const currentId = mpAudience?.ad_account_id ?? null;
+    if (currentId && prevMpAudienceIdRef.current !== currentId) {
+      if (!prevMpAudienceIdRef.current) {
+        toast.success("🎉 Ad account 'MP Audience' detetada!");
+      }
+      if (!s1) set1(true);
+      if (mpAudience?.enabled && !s8) set8(true);
+      prevMpAudienceIdRef.current = currentId;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mpAudience?.ad_account_id, mpAudience?.enabled]);
+
   const [pilots, setPilots] = useState<string>(() => {
     try { return localStorage.getItem(PILOT_KEY) || ""; } catch { return ""; }
   });
@@ -166,12 +213,24 @@ export default function Setup() {
           <Rocket className="h-5 w-5 text-cyan-400" />
         </div>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold">Setup MP Audience</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Configura uma ad account Meta dedicada exclusivamente a esta plataforma, em paralelo à conta da equipa de tráfego.
-          </p>
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <h1 className="text-2xl font-bold">Setup MP Audience</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Configura uma ad account Meta dedicada exclusivamente a esta plataforma, em paralelo à conta da equipa de tráfego.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-muted-foreground hidden sm:inline">🔄 Auto-sync ativo</span>
+              <Button variant="outline" size="sm" onClick={handleManualSync} disabled={syncing}>
+                {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                Sincronizar agora
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
+
 
       <Card className="p-5 bg-cyan-500/5 border-cyan-500/30">
         <h2 className="font-semibold mb-2 text-cyan-400">Porquê uma ad account paralela?</h2>
@@ -195,7 +254,19 @@ export default function Setup() {
           n={1} title='Criar ad account "MP Audience" no Business Manager'
           description="No Meta Business Suite → Configurações de Negócios → Contas → Contas de Anúncios → Criar nova. Nome sugerido: MP Audience."
           done={s1} onToggle={set1} auto={mpAudienceAuto}
-        />
+        >
+          {!mpAudience && !isLoading && (
+            <div className="mt-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/audience/connections?reconnect=1")}
+              >
+                Re-conectar Meta para detetar
+              </Button>
+            </div>
+          )}
+        </StepCard>
         <StepCard
           n={2} title="Adicionar método de pagamento à MP Audience"
           description="Indispensável para a ad account ficar utilizável. No próprio Business Manager."
