@@ -645,6 +645,8 @@ function EventGroupCard({
                     currency={currency}
                     onAnalyze={onAnalyze}
                     onCoach={onCoach}
+                    onToggleStatus={onToggleStatus}
+                    toggling={togglingCampaignId === c.external_campaign_id}
                   />
                 ))}
               </tbody>
