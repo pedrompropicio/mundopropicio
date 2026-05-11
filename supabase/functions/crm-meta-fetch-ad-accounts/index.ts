@@ -171,9 +171,57 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
   }
 
+  // 5) Sincronizar ad_platform_account_links (multi-account source of truth)
+  //    Upsert por (connection_id, ad_account_id). Não passamos is_primary/enabled
+  //    para preservar valores definidos manualmente pelo user.
+  let linksSynced = 0;
+  let linksWarning: string | undefined;
+  if (filtered.length > 0) {
+    const linksToUpsert = filtered.map((a) => ({
+      connection_id: connectionId,
+      company_id: companyId,
+      ad_account_id: a.id,
+      ad_account_name: a.name,
+      ad_account_currency: a.currency,
+      display_label: a.name,
+    }));
+
+    const { error: linksErr } = await supabase
+      .schema("crm")
+      .from("ad_platform_account_links")
+      .upsert(linksToUpsert, { onConflict: "connection_id,ad_account_id" });
+
+    if (linksErr) {
+      console.error("[crm-meta-fetch-ad-accounts] upsert links failed:", linksErr);
+      linksWarning = linksErr.message;
+    } else {
+      linksSynced = linksToUpsert.length;
+
+      // Garantir 1 primary por connection
+      const { data: existingPrimary } = await supabase
+        .schema("crm")
+        .from("ad_platform_account_links")
+        .select("id")
+        .eq("connection_id", connectionId)
+        .eq("is_primary", true)
+        .maybeSingle();
+
+      if (!existingPrimary) {
+        await supabase
+          .schema("crm")
+          .from("ad_platform_account_links")
+          .update({ is_primary: true })
+          .eq("connection_id", connectionId)
+          .eq("ad_account_id", filtered[0].id);
+      }
+    }
+  }
+
   return json({
     ad_accounts: filtered,
     business_id: businessId,
     business_name: businessName,
+    links_synced: linksSynced,
+    ...(linksWarning ? { links_warning: linksWarning } : {}),
   });
 });
