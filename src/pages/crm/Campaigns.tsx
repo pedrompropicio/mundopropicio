@@ -585,6 +585,30 @@ export default function CrmCampaigns() {
   const [secondsAgo, setSecondsAgo] = useState(0);
   const lastFetchRef = useRef<number>(Date.now());
 
+  const [analyzeOpen, setAnalyzeOpen] = useState(false);
+  const [analyzeData, setAnalyzeData] = useState<any>(null);
+  const [analyzeLoading, setAnalyzeLoading] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+
+  const analyzeCampaign = async (campaignId: string, _campaignName: string) => {
+    setAnalyzeOpen(true);
+    setAnalyzeLoading(true);
+    setAnalyzeError(null);
+    setAnalyzeData(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-campaign-analyze", {
+        body: { campaign_id: campaignId, days_back: 30 },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.message || data.error);
+      setAnalyzeData(data);
+    } catch (e: any) {
+      setAnalyzeError(e?.message || "Erro desconhecido");
+    } finally {
+      setAnalyzeLoading(false);
+    }
+  };
+
   const isAuthorized =
     role === "admin" ||
     role === ("platform_admin" as any) ||
