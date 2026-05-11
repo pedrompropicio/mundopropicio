@@ -512,7 +512,7 @@ export default function CrmCampaigns() {
         .schema("crm")
         .from("meta_campaign_insights_daily")
         .select(
-          "external_campaign_id, date_start, spend_cents, cpc_cents, ctr, impressions, clicks, purchases_count, purchases_value_cents, currency",
+          "external_campaign_id, date_start, spend_cents, cpc_cents, ctr, impressions, clicks, purchases_count, purchases_value_cents, frequency, currency",
         )
         .gte("date_start", format(sixtyAgo, "yyyy-MM-dd"));
       if (error) throw error;
