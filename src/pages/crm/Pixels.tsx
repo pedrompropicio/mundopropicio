@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Loader2, RefreshCw, CheckCircle2, AlertTriangle, XCircle, HelpCircle, Zap, Sparkles, Check, X, AlertCircle, Globe, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
 
 export default function CrmPixels() {
   const navigate = useNavigate();
