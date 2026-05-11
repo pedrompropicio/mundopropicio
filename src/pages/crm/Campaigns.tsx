@@ -559,6 +559,7 @@ function EventGroupCard({
                     days={days}
                     spark={spark14ByCampaign.get(c.external_campaign_id) ?? []}
                     currency={currency}
+                    onAnalyze={onAnalyze}
                   />
                 ))}
               </tbody>
