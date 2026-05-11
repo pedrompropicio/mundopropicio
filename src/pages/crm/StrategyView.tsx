@@ -927,6 +927,57 @@ export default function CrmStrategyView() {
                       {d.error_summary}
                     </div>
                   )}
+                  {(d.status === "success" || d.status === "partial") && campaignsCount > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap pt-1">
+                      {d.current_status === "active" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleToggleDeployment(d.id, "PAUSED")}
+                          disabled={togglingDeploymentId === d.id}
+                          className="h-7 px-2.5 text-xs border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                        >
+                          {togglingDeploymentId === d.id ? (
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          ) : (
+                            <Pause className="h-3 w-3 mr-1" />
+                          )}
+                          Pausar tudo
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => handleToggleDeployment(d.id, "ACTIVE")}
+                          disabled={togglingDeploymentId === d.id}
+                          className="h-7 px-2.5 text-xs bg-emerald-500 hover:bg-emerald-600 text-white"
+                        >
+                          {togglingDeploymentId === d.id ? (
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          ) : (
+                            <Play className="h-3 w-3 mr-1" />
+                          )}
+                          Ativar tudo no Meta
+                        </Button>
+                      )}
+
+                      <Badge variant="outline" className={cn(
+                        "text-[10px] uppercase",
+                        d.current_status === "active" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/40" :
+                        d.current_status === "mixed" ? "bg-amber-500/10 text-amber-400 border-amber-500/40" :
+                        "bg-muted/40 text-muted-foreground border-border"
+                      )}>
+                        {d.current_status === "active" ? "🟢 No ar" :
+                         d.current_status === "mixed" ? "🟡 Misto" :
+                         "⏸ Pausado"}
+                      </Badge>
+
+                      {d.last_toggled_at && (
+                        <span className="text-[10px] text-muted-foreground">
+                          Última alteração: {new Date(d.last_toggled_at).toLocaleString("pt-PT")}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {campaignsCount > 0 && (
                     <a
                       href={adsMgrUrl}
