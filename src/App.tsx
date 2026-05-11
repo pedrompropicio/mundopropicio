@@ -108,6 +108,7 @@ import CrmStrategies from "./pages/crm/Strategies";
 import CrmStrategyNew from "./pages/crm/StrategyNew";
 import CrmStrategyView from "./pages/crm/StrategyView";
 import CrmStrategyPrint from "./pages/crm/StrategyPrint";
+import AudiencePrint from "@/pages/crm/AudiencePrint";
 import CrmCreatives from "./pages/crm/Creatives";
 import CrmCreativeNew from "./pages/crm/CreativeNew";
 import CrmCreativeView from "./pages/crm/CreativeView";
