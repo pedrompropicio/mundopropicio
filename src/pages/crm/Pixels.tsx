@@ -225,53 +225,126 @@ export default function CrmPixels() {
               </div>
             )}
 
-            {/* CHECKS BREAKDOWN */}
-            <div className="mb-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Health checks (9)</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
-                {px.checks.map((c: any) => {
-                  const full = c.pts === c.max;
-                  const partial = c.pts > 0 && c.pts < c.max;
-                  const Icon = full ? Check : partial ? AlertCircle : X;
-                  return (
-                    <div key={c.key} className={cn(
-                      "flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border",
-                      full && "border-emerald-500/30 bg-emerald-500/5",
-                      partial && "border-amber-500/30 bg-amber-500/5",
-                      !full && !partial && "border-red-500/30 bg-red-500/5"
-                    )}>
-                      <Icon className={cn(
-                        "h-3.5 w-3.5 shrink-0",
-                        full && "text-emerald-400",
-                        partial && "text-amber-400",
-                        !full && !partial && "text-red-400"
-                      )} />
-                      <span className="flex-1 truncate" title={c.label}>{c.label}</span>
-                      <span className="text-muted-foreground tabular-nums whitespace-nowrap">{c.value}</span>
-                      <span className="text-muted-foreground tabular-nums font-mono">{c.pts}/{c.max}</span>
-                    </div>
-                  );
-                })}
+            {/* SUB-SCORES */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <span>🛒</span> Bilheteira (site)
+                </p>
+                <p className="text-2xl font-bold mt-1">
+                  {px.site_score}<span className="text-sm font-normal text-muted-foreground">/{px.site_max}</span>
+                </p>
+                <div className="h-1.5 bg-muted/40 rounded-full overflow-hidden mt-2">
+                  <div className="h-full bg-emerald-500 transition-all" style={{ width: `${px.site_max ? (px.site_score / px.site_max) * 100 : 0}%` }} />
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">Responsabilidade do dev/site</p>
+              </div>
+              <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <span>⚙️</span> Meta (config)
+                </p>
+                <p className="text-2xl font-bold mt-1">
+                  {px.meta_score}<span className="text-sm font-normal text-muted-foreground">/{px.meta_max}</span>
+                </p>
+                <div className="h-1.5 bg-muted/40 rounded-full overflow-hidden mt-2">
+                  <div className="h-full bg-cyan-500 transition-all" style={{ width: `${px.meta_max ? (px.meta_score / px.meta_max) * 100 : 0}%` }} />
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">Events Manager / Business Manager</p>
               </div>
             </div>
 
-            {/* RECOMMENDATIONS */}
-            {px.recommendations?.length > 0 && (
-              <div className="mb-4 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300 mb-2 flex items-center gap-1.5">
-                  <Sparkles className="h-3 w-3" />
-                  Recomendações ({px.recommendations.length})
-                </p>
-                <ul className="space-y-1.5">
-                  {px.recommendations.map((r: string, i: number) => (
-                    <li key={i} className="text-xs text-foreground/90 flex items-start gap-2">
-                      <Sparkles className="h-3 w-3 text-cyan-400 shrink-0 mt-0.5" />
-                      <span>{r}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            {/* CHECKS BREAKDOWN — split por source */}
+            {(() => {
+              const siteChecks = px.checks.filter((c: any) => c.source === "site");
+              const metaChecks = px.checks.filter((c: any) => c.source === "meta");
+              const renderCheck = (c: any) => {
+                const full = c.pts === c.max;
+                const partial = c.pts > 0 && c.pts < c.max;
+                const Icon = full ? Check : partial ? AlertCircle : X;
+                return (
+                  <div key={c.key} className={cn(
+                    "flex items-center gap-2 text-xs px-2.5 py-1.5 rounded border",
+                    full && "border-emerald-500/30 bg-emerald-500/5",
+                    partial && "border-amber-500/30 bg-amber-500/5",
+                    !full && !partial && "border-red-500/30 bg-red-500/5"
+                  )}>
+                    <Icon className={cn(
+                      "h-3.5 w-3.5 shrink-0",
+                      full && "text-emerald-400",
+                      partial && "text-amber-400",
+                      !full && !partial && "text-red-400"
+                    )} />
+                    <span className="flex-1 truncate" title={c.label}>{c.label}</span>
+                    <span className="text-muted-foreground tabular-nums whitespace-nowrap">{c.value}</span>
+                    <span className="text-muted-foreground tabular-nums font-mono">{c.pts}/{c.max}</span>
+                  </div>
+                );
+              };
+              return (
+                <div className="mb-4 space-y-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400/80 mb-2 flex items-center gap-1.5">
+                      <span>🛒</span> Checks da bilheteira ({siteChecks.length})
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                      {siteChecks.map(renderCheck)}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-cyan-400/80 mb-2 flex items-center gap-1.5">
+                      <span>⚙️</span> Checks da Meta ({metaChecks.length})
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                      {metaChecks.map(renderCheck)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* RECOMMENDATIONS — split por source */}
+            {(() => {
+              const siteRecs = (px.recommendations ?? []).filter((r: any) => r.source === "site");
+              const metaRecs = (px.recommendations ?? []).filter((r: any) => r.source === "meta");
+              const prioCls = (p: string) =>
+                p === "high" ? "bg-red-500/15 text-red-400" :
+                p === "medium" ? "bg-amber-500/15 text-amber-400" :
+                "bg-muted text-muted-foreground";
+              return (
+                <>
+                  {siteRecs.length > 0 && (
+                    <div className="mb-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-2 flex items-center gap-1.5">
+                        <span>🛒</span> Ações para o dev da bilheteira ({siteRecs.length})
+                      </p>
+                      <ul className="space-y-1.5">
+                        {siteRecs.map((r: any, i: number) => (
+                          <li key={i} className="text-xs text-foreground/90 flex items-start gap-2">
+                            <span className={cn("text-[9px] font-bold uppercase px-1 py-0.5 rounded shrink-0 mt-0.5", prioCls(r.priority))}>{r.priority}</span>
+                            <span>{r.text}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {metaRecs.length > 0 && (
+                    <div className="mb-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-cyan-400 mb-2 flex items-center gap-1.5">
+                        <span>⚙️</span> Ações no Events Manager / Business Manager ({metaRecs.length})
+                      </p>
+                      <ul className="space-y-1.5">
+                        {metaRecs.map((r: any, i: number) => (
+                          <li key={i} className="text-xs text-foreground/90 flex items-start gap-2">
+                            <span className={cn("text-[9px] font-bold uppercase px-1 py-0.5 rounded shrink-0 mt-0.5", prioCls(r.priority))}>{r.priority}</span>
+                            <span>{r.text}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             {/* STATS 7d */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">

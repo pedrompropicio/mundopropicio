@@ -163,17 +163,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const allowedDomainsCount = domains.length;
 
     const checks = [
-      { key: "funnel_complete", label: "Funil completo (PV→VC→ATC→IC→Purchase)", max: 20, pts: Math.round((funnelPresent / 5) * 20), value: `${funnelPresent}/5` },
-      { key: "volume", label: "Volume saudável (>100 eventos/dia)", max: 10, pts: avgPerDay >= 100 ? 10 : avgPerDay >= 50 ? 7 : avgPerDay >= 10 ? 4 : 0, value: `${Math.round(avgPerDay)}/dia` },
-      { key: "freshness", label: "Atividade recente (<2h)", max: 10, pts: hoursSinceLastFire === null ? 0 : hoursSinceLastFire < 2 ? 10 : hoursSinceLastFire < 24 ? 5 : 0, value: hoursSinceLastFire !== null ? `${Math.round(hoursSinceLastFire)}h atrás` : "nunca" },
-      { key: "purchase_value", label: "Purchase com valor (essencial p/ ROAS)", max: 15, pts: purchaseHasValue ? 15 : presentEvents.has("Purchase") ? 5 : 0, value: purchaseHasValue ? `~${purchaseValueSample}` : presentEvents.has("Purchase") ? "sem valor" : "ausente" },
-      { key: "auto_matching", label: "Automatic Matching ativo", max: 10, pts: pix.enable_automatic_matching ? 10 : 0, value: pix.enable_automatic_matching ? "ativo" : "inativo" },
-      { key: "matching_fields", label: "Match Quality fields (email, phone, etc)", max: 10, pts: Math.min(10, automaticMatchingFields.length * 2), value: `${automaticMatchingFields.length} fields` },
-      { key: "domains", label: "Domains a disparar", max: 10, pts: allowedDomainsCount >= 1 ? 10 : 0, value: `${allowedDomainsCount} domains` },
-      { key: "first_party_cookie", label: "First-party cookie (iOS/ITP)", max: 5, pts: pix.first_party_cookie_status === "ENABLED" ? 5 : 0, value: pix.first_party_cookie_status ?? "?" },
-      { key: "standard_events", label: "Coverage standard events (8 tipos)", max: 10, pts: Math.round((standardPresent / 8) * 10), value: `${standardPresent}/8` },
+      { key: "funnel_complete", source: "site", label: "Funil completo (PV→VC→ATC→IC→Purchase)", max: 20, pts: Math.round((funnelPresent / 5) * 20), value: `${funnelPresent}/5` },
+      { key: "purchase_value", source: "site", label: "Purchase com valor (essencial p/ ROAS)", max: 15, pts: purchaseHasValue ? 15 : presentEvents.has("Purchase") ? 5 : 0, value: purchaseHasValue ? `~${purchaseValueSample}` : presentEvents.has("Purchase") ? "sem valor" : "ausente" },
+      { key: "matching_fields", source: "site", label: "Match Quality fields (email, phone, fbclid…)", max: 10, pts: Math.min(10, automaticMatchingFields.length * 2), value: `${automaticMatchingFields.length} fields` },
+      { key: "volume", source: "site", label: "Volume saudável (>100 eventos/dia)", max: 10, pts: avgPerDay >= 100 ? 10 : avgPerDay >= 50 ? 7 : avgPerDay >= 10 ? 4 : 0, value: `${Math.round(avgPerDay)}/dia` },
+      { key: "freshness", source: "site", label: "Atividade recente (<2h)", max: 10, pts: hoursSinceLastFire === null ? 0 : hoursSinceLastFire < 2 ? 10 : hoursSinceLastFire < 24 ? 5 : 0, value: hoursSinceLastFire !== null ? `${Math.round(hoursSinceLastFire)}h atrás` : "nunca" },
+      { key: "standard_events", source: "site", label: "Coverage standard events (8 tipos)", max: 5, pts: Math.round((standardPresent / 8) * 5), value: `${standardPresent}/8` },
+      { key: "auto_matching", source: "meta", label: "Automatic Matching ativo", max: 10, pts: pix.enable_automatic_matching ? 10 : 0, value: pix.enable_automatic_matching ? "ativo" : "inativo" },
+      { key: "first_party_cookie", source: "meta", label: "First-party cookie (iOS/ITP)", max: 10, pts: pix.first_party_cookie_status === "ENABLED" ? 10 : 0, value: pix.first_party_cookie_status ?? "?" },
+      { key: "domains", source: "meta", label: "Domains verificados a disparar", max: 10, pts: allowedDomainsCount >= 1 ? 10 : 0, value: `${allowedDomainsCount} domains` },
     ];
-    const score = checks.reduce((a, c) => a + c.pts, 0);
+    const siteChecks = checks.filter(c => c.source === "site");
+    const metaChecks = checks.filter(c => c.source === "meta");
+    const siteScore = siteChecks.reduce((a, c) => a + c.pts, 0);
+    const siteMax = siteChecks.reduce((a, c) => a + c.max, 0);
+    const metaScore = metaChecks.reduce((a, c) => a + c.pts, 0);
+    const metaMax = metaChecks.reduce((a, c) => a + c.max, 0);
+    const score = siteScore + metaScore;
     let grade: string;
     if (score >= 90) grade = "A+";
     else if (score >= 80) grade = "A";
@@ -183,14 +189,35 @@ Deno.serve(async (req: Request): Promise<Response> => {
     else if (score >= 40) grade = "D";
     else grade = "F";
 
-    const recommendations: string[] = [];
-    if (funnelPresent < 5) recommendations.push(`Implementar eventos do funil em falta: ${funnelEvents.filter(e => !presentEvents.has(e)).join(", ")}`);
-    if (!purchaseHasValue && presentEvents.has("Purchase")) recommendations.push("Adicionar value+currency ao evento Purchase para ROAS funcionar");
-    if (!pix.enable_automatic_matching) recommendations.push("Ativar Automatic Matching no Events Manager para melhorar attribution");
-    if (automaticMatchingFields.length < 3) recommendations.push("Enviar mais parâmetros de matching (email, phone, fbclid, external_id) via dataLayer ou CAPI");
-    if (allowedDomainsCount === 0) recommendations.push("Verificar e autorizar os domains da bilheteira no Business Manager");
-    if (pix.first_party_cookie_status !== "ENABLED") recommendations.push("Ativar first-party cookie para resiliência ao iOS 14.5+ e Safari ITP");
-    if (avgPerDay < 50) recommendations.push("Volume baixo de eventos. Verificar instalação do pixel nas páginas-chave");
+    const recommendations: { source: "site" | "meta"; text: string; priority: "high" | "medium" | "low" }[] = [];
+    if (funnelPresent < 5) {
+      const missing = funnelEvents.filter(e => !presentEvents.has(e));
+      recommendations.push({ source: "site", priority: "high", text: `Implementar eventos do funil em falta: ${missing.join(", ")}. Pedir ao dev da bilheteira para disparar fbq('track', '<EventName>', { value, currency }) nas páginas correspondentes.` });
+    }
+    if (!purchaseHasValue && presentEvents.has("Purchase")) {
+      recommendations.push({ source: "site", priority: "high", text: "Adicionar value e currency ao evento Purchase. Sem isto o ROAS não funciona. Exemplo: fbq('track', 'Purchase', { value: 45.00, currency: 'EUR' })." });
+    }
+    if (automaticMatchingFields.length < 3) {
+      recommendations.push({ source: "site", priority: "medium", text: `Enviar mais parâmetros de matching no checkout. Atualmente: ${automaticMatchingFields.length} parâmetros. Pedir ao dev para incluir hashed email (em), phone (ph), nome, fbclid no fbq.` });
+    }
+    if (avgPerDay < 50) {
+      recommendations.push({ source: "site", priority: "medium", text: `Volume baixo (${Math.round(avgPerDay)} eventos/dia). Verificar se o pixel está nas páginas-chave da bilheteira: home, evento, checkout, confirmação.` });
+    }
+    if (hoursSinceLastFire !== null && hoursSinceLastFire > 2 && hoursSinceLastFire < 24) {
+      recommendations.push({ source: "site", priority: "low", text: `Última atividade há ${Math.round(hoursSinceLastFire)}h. Pode indicar baixo tráfego no momento ou problema intermitente — monitorizar.` });
+    }
+    if (standardPresent < 6) {
+      recommendations.push({ source: "site", priority: "low", text: `Apenas ${standardPresent}/8 standard events disparam. Considerar implementar Lead, Search, CompleteRegistration se aplicável ao negócio.` });
+    }
+    if (!pix.enable_automatic_matching) {
+      recommendations.push({ source: "meta", priority: "high", text: "Ativar Automatic Matching no Events Manager → Pixel Settings → Match Quality. Melhora attribution em 10-30% sem mudanças no site." });
+    }
+    if (pix.first_party_cookie_status !== "ENABLED") {
+      recommendations.push({ source: "meta", priority: "high", text: "Ativar First-Party Cookie no Events Manager → Settings → First-Party Cookie. Crítico para iOS 14.5+ e Safari ITP — sem isto perdes ~30% da attribution." });
+    }
+    if (allowedDomainsCount === 0) {
+      recommendations.push({ source: "meta", priority: "high", text: "Verificar domínios no Business Manager → Brand Safety → Domains. E configurar Aggregated Event Measurement (AEM) para iOS 14.5+ no Events Manager." });
+    }
 
     let healthStatus: "healthy" | "warning" | "critical" | "unknown" = "unknown";
     let healthMessage = "";
@@ -205,7 +232,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
       id: pix.id, name: pix.name, is_unavailable: !!pix.is_unavailable,
       last_fired_time: pix.last_fired_time ?? null,
       hours_since_last_fire: hoursSinceLastFire,
-      score, grade, checks, recommendations,
+      score, grade,
+      site_score: siteScore, site_max: siteMax,
+      meta_score: metaScore, meta_max: metaMax,
+      checks, recommendations,
       health: { status: healthStatus, message: healthMessage },
       stats_7d: { total_events: totalEvents, unique_events: uniqueEvents, events_per_day_avg: Math.round(avgPerDay), event_types: eventTypes },
       domains,
