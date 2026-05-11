@@ -640,13 +640,13 @@ export default function CrmCampaigns() {
     setCoachError(null);
     setCoachData(null);
     try {
-      if (!connection?.id || !connection?.selected_ad_account_id) {
-        throw new Error("Sem conexão Meta ativa ou conta de anúncios selecionada.");
+      if (!connectionId || !adAccountId) {
+        throw new Error("Sem ad account ativa.");
       }
       const { data, error } = await supabase.functions.invoke("crm-meta-audience-coach", {
         body: {
-          connection_id: connection.id,
-          ad_account_id: connection.selected_ad_account_id,
+          connection_id: connectionId,
+          ad_account_id: adAccountId,
           campaign_id: campaignId,
         },
       });
