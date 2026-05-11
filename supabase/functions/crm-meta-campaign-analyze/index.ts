@@ -72,14 +72,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: "campaign_not_found", detail: campErr?.message }, 404);
   }
 
-  const sinceDate = new Date();
-  sinceDate.setUTCDate(sinceDate.getUTCDate() - daysBack);
   const { data: insights, error: insErr } = await supabase
     .schema("crm")
     .from("meta_campaign_insights_daily")
     .select("date_start, impressions, reach, frequency, clicks, spend_cents, cpc_cents, cpm_cents, ctr, purchases_count, purchases_value_cents, leads_count, add_to_cart_count, initiate_checkout_count, view_content_count, roas")
     .eq("external_campaign_id", campaignId)
-    .gte("date_start", sinceDate.toISOString().slice(0, 10))
+    .gte("date_start", fromDate)
+    .lte("date_start", toDate)
     .order("date_start", { ascending: true });
   if (insErr) {
     console.error("[analyze] insights err:", insErr);
