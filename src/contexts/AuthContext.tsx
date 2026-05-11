@@ -40,6 +40,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   user: "Utilizador",
   partner: "Parceiro",
   platform_admin: "Super-Admin",
+  marketing_manager: "Marketing Manager",
 };
 
 export const ROLE_COLORS: Record<AppRole, string> = {
