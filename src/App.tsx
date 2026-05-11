@@ -440,7 +440,7 @@ function App() {
 }
 
 function AuthRoute() {
-  const { user, loading, isPartner, isAdmin, isManager, hasPermission } = useAuth();
+  const { user, loading, isPartner, isAdmin, isManager, hasPermission, role } = useAuth();
   if (loading) return null;
   // Don't redirect if user is in the middle of password recovery flow
   const isRecoveryFlow = sessionStorage.getItem("recovery_in_progress") === "true";
