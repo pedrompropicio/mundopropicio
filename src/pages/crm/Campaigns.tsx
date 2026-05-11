@@ -1011,7 +1011,9 @@ export default function CrmCampaigns() {
                 event={event}
                 campaigns={ec}
                 insightsByCampaign={insightsByCampaign}
+                prevInsightsByCampaign={previousInsightsByCampaign}
                 spark14ByCampaign={spark14ByCampaign}
+                days={periodDays}
                 currency={currency}
               />
             );
