@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef, ty
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
-export type AppRole = "admin" | "manager" | "editor" | "viewer" | "user" | "partner" | "platform_admin";
+export type AppRole = "admin" | "manager" | "editor" | "viewer" | "user" | "partner" | "platform_admin" | "marketing_manager";
 
 interface AuthContextType {
   user: User | null;
@@ -40,6 +40,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   user: "Utilizador",
   partner: "Parceiro",
   platform_admin: "Super-Admin",
+  marketing_manager: "Marketing Manager",
 };
 
 export const ROLE_COLORS: Record<AppRole, string> = {
@@ -50,6 +51,7 @@ export const ROLE_COLORS: Record<AppRole, string> = {
   user: "bg-secondary text-secondary-foreground",
   partner: "bg-indigo-500/15 text-indigo-600",
   platform_admin: "bg-rose-500/15 text-rose-600",
+  marketing_manager: "bg-cyan-500/15 text-cyan-600",
 };
 
 export const ALL_PERMISSIONS = [
@@ -85,6 +87,12 @@ export const ALL_PERMISSIONS = [
   { key: "edit_approved_bp", label: "Editar BP Aprovado (Em Curso)", group: "Operacional" },
   { key: "camarim_team", label: "Camarim — Equipa de Montagem", group: "Operacional" },
   { key: "camarim_manage", label: "Camarim — Gerir Sessões (criar/aprovar/fechar)", group: "Operacional" },
+  { key: "crm.audience.view", label: "MP Audience — Ver Dashboards", group: "MP Audience" },
+  { key: "crm.audience.export", label: "MP Audience — Exportar Públicos", group: "MP Audience" },
+  { key: "crm.campaign.create", label: "MP Audience — Criar Campanhas", group: "MP Audience" },
+  { key: "crm.campaign.publish", label: "MP Audience — Publicar Campanhas", group: "MP Audience" },
+  { key: "crm.campaign.set_budget", label: "MP Audience — Definir Orçamentos", group: "MP Audience" },
+  { key: "crm.attribution.view", label: "MP Audience — Ver Atribuição", group: "MP Audience" },
 ];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -107,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Priority: platform_admin > admin > manager > accountant > editor > partner > viewer > user
     const priority: Record<string, number> = {
       platform_admin: 0, admin: 1, manager: 2, accountant: 3,
-      editor: 4, partner: 5, viewer: 6, user: 7,
+      marketing_manager: 4, editor: 4, partner: 5, viewer: 6, user: 7,
     };
     const roles = Array.from(new Set((roleRows ?? []).map((r: any) => r.role as AppRole)));
     roles.sort((a, b) => (priority[a] ?? 99) - (priority[b] ?? 99));
