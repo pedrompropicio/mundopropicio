@@ -136,12 +136,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${adAccountId}/adsets`);
     url.searchParams.set("fields", ADSET_FIELDS);
     url.searchParams.set("limit", "100");
+    const filtering: any[] = [
+      { field: "adset.effective_status", operator: "IN", value: ["ACTIVE", "PAUSED"] },
+      { field: "campaign.effective_status", operator: "IN", value: ["ACTIVE", "PAUSED"] },
+    ];
     if (campaignFilter) {
-      url.searchParams.set(
-        "filtering",
-        JSON.stringify([{ field: "campaign.id", operator: "IN", value: campaignFilter }]),
-      );
+      filtering.push({ field: "campaign.id", operator: "IN", value: campaignFilter });
     }
+    url.searchParams.set("filtering", JSON.stringify(filtering));
     url.searchParams.set("access_token", accessToken);
     adsets = await fetchAllPages(url, accessToken);
     console.log(`[crm-meta-sync-adsets] fetched ${adsets.length} adsets`);

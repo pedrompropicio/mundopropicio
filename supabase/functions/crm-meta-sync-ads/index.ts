@@ -108,12 +108,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${adAccountId}/ads`);
     url.searchParams.set("fields", AD_FIELDS);
     url.searchParams.set("limit", "100");
+    const filtering: any[] = [
+      { field: "ad.effective_status", operator: "IN", value: ["ACTIVE", "PAUSED"] },
+      { field: "campaign.effective_status", operator: "IN", value: ["ACTIVE", "PAUSED"] },
+    ];
     if (campaignFilter) {
-      url.searchParams.set(
-        "filtering",
-        JSON.stringify([{ field: "campaign.id", operator: "IN", value: campaignFilter }]),
-      );
+      filtering.push({ field: "campaign.id", operator: "IN", value: campaignFilter });
     }
+    url.searchParams.set("filtering", JSON.stringify(filtering));
     url.searchParams.set("access_token", accessToken);
     ads = await fetchAllPages(url);
     console.log(`[crm-meta-sync-ads] fetched ${ads.length} ads`);
@@ -145,13 +147,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }));
 
   if (rows.length > 0) {
-    const { error: upErr } = await supabase
-      .schema("crm")
-      .from("meta_ad_snapshot")
-      .upsert(rows, { onConflict: "company_id,external_ad_id" });
-    if (upErr) {
-      console.error("[crm-meta-sync-ads] upsert failed:", upErr);
-      return json({ error: "persist_failed", detail: upErr.message }, 500);
+    const CHUNK = 500;
+    const total = rows.length;
+    const chunks = Math.ceil(total / CHUNK);
+    for (let i = 0; i < total; i += CHUNK) {
+      const slice = rows.slice(i, i + CHUNK);
+      const idx = Math.floor(i / CHUNK) + 1;
+      const { error: upErr } = await supabase
+        .schema("crm")
+        .from("meta_ad_snapshot")
+        .upsert(slice, { onConflict: "company_id,external_ad_id" });
+      if (upErr) {
+        console.error(`[crm-meta-sync-ads] upsert chunk ${idx}/${chunks} failed:`, upErr);
+        return json({ error: "persist_failed", detail: upErr.message, chunk: idx, total_chunks: chunks }, 500);
+      }
+      console.log(`[crm-meta-sync-ads] chunk ${idx}/${chunks}: ${slice.length} rows upserted`);
     }
   }
 
