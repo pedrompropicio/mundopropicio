@@ -63,6 +63,7 @@ interface InsightRow {
   clicks: number | null;
   purchases_count: number | null;
   purchases_value_cents: number | null;
+  frequency: number | null;
   currency: string | null;
 }
 
