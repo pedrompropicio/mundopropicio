@@ -59,6 +59,10 @@ export default function CrmStrategyView() {
   const [copied, setCopied] = useState(false);
   const [expandedCampaigns, setExpandedCampaigns] = useState<Record<string, boolean>>({});
   const [actionLoading, setActionLoading] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editStatus, setEditStatus] = useState<string>("draft");
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["crm-strategy", id],
