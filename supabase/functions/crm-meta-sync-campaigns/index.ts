@@ -15,7 +15,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-const META_MASTER_KEY = Deno.env.get("META_MASTER_KEY")!;
+const ENCRYPTION_MASTER_KEY = Deno.env.get("ENCRYPTION_MASTER_KEY")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -97,7 +97,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // 1) Decifrar token
   const { data: tokenRows, error: tokenErr } = await supabase.rpc(
     "crm_get_meta_decrypted_token",
-    { p_connection_id: connectionId, p_master_key: META_MASTER_KEY },
+    { p_connection_id: connectionId, p_master_key: ENCRYPTION_MASTER_KEY },
   );
   if (tokenErr || !Array.isArray(tokenRows) || tokenRows.length === 0) {
     console.error("[crm-meta-sync-campaigns] decrypt failed:", tokenErr);
