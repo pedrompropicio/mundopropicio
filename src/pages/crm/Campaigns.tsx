@@ -17,7 +17,7 @@ import {
   ArrowDown,
   Minus,
 } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { computeScore } from "@/lib/campaign-score";
 
 import { supabase } from "@/integrations/supabase/client";
