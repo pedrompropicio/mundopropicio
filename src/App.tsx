@@ -37,6 +37,9 @@ import FinancialAccounts from "./pages/FinancialAccounts";
 import UserManagement from "./pages/UserManagement";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
+import LegalPrivacy from "./pages/legal/Privacy";
+import LegalTerms from "./pages/legal/Terms";
+import LegalAbout from "./pages/legal/About";
 // TicketManagement now embedded in TicketOffices module
 import EventCalendar from "./pages/EventCalendar";
 import Reports from "./pages/Reports";
