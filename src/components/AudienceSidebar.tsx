@@ -21,6 +21,7 @@ export function AudienceSidebar() {
   const [showChangePassword, setShowChangePassword] = useState(false);
 
   const items = [
+    { to: "/audience/setup", icon: Rocket, label: "Setup MP Audience" },
     { to: "/audience/dashboard", icon: TrendingUp, label: "Dashboard" },
     { to: "/audience/insights", icon: Lightbulb, label: "Insights" },
     { to: "/audience/connections", icon: Plug, label: "Conexões" },
