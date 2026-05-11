@@ -244,21 +244,47 @@ Deno.serve(async (req: Request): Promise<Response> => {
         if (upErr) {
           console.error(`[crm-meta-sync-insights] upsert ${level} failed:`, upErr);
           perLevel[level] = { fetched: items.length, persisted: 0, error: upErr.message };
+          await supabase.schema("crm").from("meta_sync_state").upsert({
+            company_id: companyId, connection_id: connectionId, ad_account_id: adAccountId,
+            level: `insights_${level}`,
+            last_error: upErr.message, last_error_at: new Date().toISOString(),
+          }, { onConflict: "company_id,connection_id,ad_account_id,level" });
           continue;
         }
         persisted = rows.length;
         totalRows += rows.length;
       }
       perLevel[level] = { fetched: items.length, persisted };
+
+      // Update sync_state for this insights level
+      const nowIso = new Date().toISOString();
+      const stateUpd: Record<string, unknown> = {
+        company_id: companyId, connection_id: connectionId, ad_account_id: adAccountId,
+        level: `insights_${level}`,
+        last_sync_at: nowIso, last_synced_rows_count: persisted,
+        last_cursor_value: ymd(since),
+        last_error: null, last_error_at: null,
+      };
+      if (mode === "full") stateUpd.last_full_sync_at = nowIso;
+      await supabase.schema("crm").from("meta_sync_state").upsert(stateUpd, {
+        onConflict: "company_id,connection_id,ad_account_id,level",
+      });
     } catch (e) {
       console.error(`[crm-meta-sync-insights] level=${level} threw:`, e);
       perLevel[level] = { fetched: 0, persisted: 0, error: String(e) };
+      await supabase.schema("crm").from("meta_sync_state").upsert({
+        company_id: companyId, connection_id: connectionId, ad_account_id: adAccountId,
+        level: `insights_${level}`,
+        last_error: String(e), last_error_at: new Date().toISOString(),
+      }, { onConflict: "company_id,connection_id,ad_account_id,level" });
     }
   }
 
   return json({
     synced_rows: totalRows,
     days_back: daysBack,
+    requested_days_back: requestedDaysBack,
+    mode,
     levels,
     per_level: perLevel,
     ad_account_id: adAccountId,
