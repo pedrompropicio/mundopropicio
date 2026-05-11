@@ -9,11 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
   ArrowLeft, Loader2, Brain, Copy, Check, Archive, Target, Calendar, Mic2,
   AlertTriangle, Sparkles, ChevronDown, ChevronUp, Pencil, RefreshCw, FileDown, Trash2, Zap,
+  Plus, X as XIcon, ImageIcon as Image2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -64,6 +65,9 @@ export default function CrmStrategyView() {
   const [editName, setEditName] = useState("");
   const [editStatus, setEditStatus] = useState<string>("draft");
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [selectorPhaseId, setSelectorPhaseId] = useState<string | null>(null);
+  const [selectedCreativeIds, setSelectedCreativeIds] = useState<Set<string>>(new Set());
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["crm-strategy", id],
@@ -83,6 +87,46 @@ export default function CrmStrategyView() {
         event = e ?? null;
       }
       return { ...data, event };
+    },
+  });
+
+  const { data: associations } = useQuery({
+    queryKey: ["crm-strategy-creatives", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_strategy_creatives")
+        .select("id, creative_id, phase_id, position, meta_creatives:creative_id(id, name, type, file_url, duration_seconds)")
+        .eq("strategy_id", id)
+        .order("position", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const associationsByPhase = useMemo(() => {
+    const map = new Map<string, any[]>();
+    for (const a of associations ?? []) {
+      const key = a.phase_id ?? "_global";
+      const arr = map.get(key) ?? [];
+      arr.push(a);
+      map.set(key, arr);
+    }
+    return map;
+  }, [associations]);
+
+  const { data: allCreatives } = useQuery({
+    queryKey: ["crm-creatives-for-selector"],
+    enabled: selectorOpen,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_creatives")
+        .select("id, name, type, file_url, duration_seconds, headline")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
@@ -184,6 +228,57 @@ export default function CrmStrategyView() {
       navigate("/audience/strategies");
     } catch (e: any) {
       toast.error(e?.message || "Erro a apagar");
+      setActionLoading(false);
+    }
+  };
+
+  const handleOpenSelector = (phaseId: string) => {
+    setSelectorPhaseId(phaseId);
+    setSelectedCreativeIds(new Set());
+    setSelectorOpen(true);
+  };
+
+  const handleAddCreatives = async () => {
+    if (!selectorPhaseId || !data || selectedCreativeIds.size === 0 || !user) return;
+    setActionLoading(true);
+    try {
+      const rows = Array.from(selectedCreativeIds).map((creativeId, idx) => ({
+        company_id: data.company_id,
+        strategy_id: data.id,
+        creative_id: creativeId,
+        phase_id: selectorPhaseId,
+        position: idx,
+        created_by: user.id,
+      }));
+      const { error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_strategy_creatives")
+        .insert(rows);
+      if (error) throw error;
+      toast.success(`${rows.length} criativo(s) adicionado(s)`);
+      queryClient.invalidateQueries({ queryKey: ["crm-strategy-creatives", id] });
+      setSelectorOpen(false);
+    } catch (e: any) {
+      toast.error("Falha a adicionar", { description: e?.message ?? String(e) });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRemoveAssociation = async (associationId: string) => {
+    setActionLoading(true);
+    try {
+      const { error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_strategy_creatives")
+        .delete()
+        .eq("id", associationId);
+      if (error) throw error;
+      toast.success("Criativo removido");
+      queryClient.invalidateQueries({ queryKey: ["crm-strategy-creatives", id] });
+    } catch (e: any) {
+      toast.error("Falha a remover", { description: e?.message ?? String(e) });
+    } finally {
       setActionLoading(false);
     }
   };
@@ -396,6 +491,58 @@ export default function CrmStrategyView() {
                       )}
                     </div>
                   )}
+
+                  <div className="mt-4 border-t border-border pt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <Image2 className="h-3.5 w-3.5" /> Criativos para esta fase
+                        {(associationsByPhase.get(p.id) ?? []).length > 0 && (
+                          <span className="text-foreground">({(associationsByPhase.get(p.id) ?? []).length})</span>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-cyan-400 hover:text-cyan-300"
+                        onClick={() => handleOpenSelector(p.id)}
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Adicionar
+                      </Button>
+                    </div>
+
+                    {(associationsByPhase.get(p.id) ?? []).length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">
+                        Sem criativos associados. Adiciona pelo menos 1 para poder fazer deploy desta fase.
+                      </p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {(associationsByPhase.get(p.id) ?? []).map((assoc: any) => {
+                          const c = assoc.meta_creatives;
+                          if (!c) return null;
+                          return (
+                            <div key={assoc.id} className="group relative rounded border border-border bg-muted/30 overflow-hidden w-24">
+                              <div className="aspect-square bg-muted overflow-hidden">
+                                {c.type === "video" ? (
+                                  <video src={c.file_url} className="w-full h-full object-cover" muted playsInline />
+                                ) : (
+                                  <img src={c.file_url} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
+                                )}
+                              </div>
+                              <div className="px-1.5 py-1 text-[10px] truncate" title={c.name}>{c.name}</div>
+                              <button
+                                onClick={() => handleRemoveAssociation(assoc.id)}
+                                className="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/70 hover:bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Remover"
+                                disabled={actionLoading}
+                              >
+                                <XIcon className="h-3 w-3" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </Card>
               );
             })}
@@ -579,6 +726,96 @@ export default function CrmStrategyView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Creative selector */}
+      <Dialog open={selectorOpen} onOpenChange={setSelectorOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Adicionar criativos à fase</DialogTitle>
+            <DialogDescription>
+              Seleciona os criativos a usar nesta fase. Cada criativo será deployado como Ad em todos os AdSets desta fase.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!allCreatives ? (
+            <div className="py-8 flex items-center justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : (() => {
+            const existingIds = new Set((associationsByPhase.get(selectorPhaseId ?? "") ?? []).map((a: any) => a.creative_id));
+            const available = (allCreatives ?? []).filter((c: any) => !existingIds.has(c.id));
+            if (available.length === 0) {
+              return (
+                <div className="py-8 text-center">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {existingIds.size > 0
+                      ? "Todos os criativos disponíveis já estão associados a esta fase."
+                      : "Não tens criativos ainda."}
+                  </p>
+                  <Button variant="outline" size="sm" onClick={() => { setSelectorOpen(false); navigate("/audience/creatives/new"); }}>
+                    <Plus className="h-4 w-4 mr-1.5" /> Criar novo criativo
+                  </Button>
+                </div>
+              );
+            }
+            return (
+              <>
+                <div className="text-xs text-muted-foreground">
+                  {selectedCreativeIds.size} de {available.length} selecionado(s)
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {available.map((c: any) => {
+                    const selected = selectedCreativeIds.has(c.id);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCreativeIds((s) => {
+                            const next = new Set(s);
+                            if (next.has(c.id)) next.delete(c.id);
+                            else next.add(c.id);
+                            return next;
+                          });
+                        }}
+                        className={cn(
+                          "relative rounded border-2 overflow-hidden text-left transition-all",
+                          selected ? "border-cyan-400 ring-2 ring-cyan-400/40" : "border-border hover:border-cyan-500/50"
+                        )}
+                      >
+                        <div className="aspect-square bg-muted overflow-hidden">
+                          {c.type === "video" ? (
+                            <video src={c.file_url} className="w-full h-full object-cover" muted playsInline />
+                          ) : (
+                            <img src={c.file_url} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
+                          )}
+                        </div>
+                        <div className="px-2 py-1.5">
+                          <div className="text-xs font-medium truncate" title={c.name}>{c.name}</div>
+                          {c.headline && <div className="text-[10px] text-muted-foreground truncate">{c.headline}</div>}
+                        </div>
+                        {selected && (
+                          <div className="absolute top-1 right-1 h-5 w-5 rounded-full bg-cyan-500 text-white flex items-center justify-center text-xs font-bold">
+                            ✓
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectorOpen(false)} disabled={actionLoading}>Cancelar</Button>
+            <Button onClick={handleAddCreatives} disabled={actionLoading || selectedCreativeIds.size === 0}>
+              {actionLoading && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Adicionar {selectedCreativeIds.size > 0 ? `(${selectedCreativeIds.size})` : ""}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
