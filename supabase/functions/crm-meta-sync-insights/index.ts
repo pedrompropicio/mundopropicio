@@ -175,7 +175,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { connection_id?: string; ad_account_id?: string; days_back?: number; levels?: Level[] };
+  let body: { connection_id?: string; ad_account_id?: string; days_back?: number; levels?: Level[]; mode?: "incremental" | "full" };
   try {
     body = await req.json();
   } catch {
@@ -183,7 +183,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   const connectionId = body.connection_id;
   const rawAcct = body.ad_account_id;
-  const daysBack = Math.min(Math.max(body.days_back ?? 30, 1), 90);
+  const mode: "incremental" | "full" = body?.mode === "full" ? "full" : "incremental";
+  // Em incremental, força janela curta (Meta só reconcilia retroactivamente até ~72h).
+  const requestedDaysBack = Math.min(Math.max(body.days_back ?? 30, 1), 90);
+  const daysBack = mode === "incremental" ? Math.min(requestedDaysBack, 3) : requestedDaysBack;
   if (!connectionId || !rawAcct) return json({ error: "missing_params" }, 400);
   const adAccountId = normalizeAdAccountId(rawAcct);
   const validLevels: Level[] = ["campaign", "adset", "ad"];
@@ -241,21 +244,47 @@ Deno.serve(async (req: Request): Promise<Response> => {
         if (upErr) {
           console.error(`[crm-meta-sync-insights] upsert ${level} failed:`, upErr);
           perLevel[level] = { fetched: items.length, persisted: 0, error: upErr.message };
+          await supabase.schema("crm").from("meta_sync_state").upsert({
+            company_id: companyId, connection_id: connectionId, ad_account_id: adAccountId,
+            level: `insights_${level}`,
+            last_error: upErr.message, last_error_at: new Date().toISOString(),
+          }, { onConflict: "company_id,connection_id,ad_account_id,level" });
           continue;
         }
         persisted = rows.length;
         totalRows += rows.length;
       }
       perLevel[level] = { fetched: items.length, persisted };
+
+      // Update sync_state for this insights level
+      const nowIso = new Date().toISOString();
+      const stateUpd: Record<string, unknown> = {
+        company_id: companyId, connection_id: connectionId, ad_account_id: adAccountId,
+        level: `insights_${level}`,
+        last_sync_at: nowIso, last_synced_rows_count: persisted,
+        last_cursor_value: ymd(since),
+        last_error: null, last_error_at: null,
+      };
+      if (mode === "full") stateUpd.last_full_sync_at = nowIso;
+      await supabase.schema("crm").from("meta_sync_state").upsert(stateUpd, {
+        onConflict: "company_id,connection_id,ad_account_id,level",
+      });
     } catch (e) {
       console.error(`[crm-meta-sync-insights] level=${level} threw:`, e);
       perLevel[level] = { fetched: 0, persisted: 0, error: String(e) };
+      await supabase.schema("crm").from("meta_sync_state").upsert({
+        company_id: companyId, connection_id: connectionId, ad_account_id: adAccountId,
+        level: `insights_${level}`,
+        last_error: String(e), last_error_at: new Date().toISOString(),
+      }, { onConflict: "company_id,connection_id,ad_account_id,level" });
     }
   }
 
   return json({
     synced_rows: totalRows,
     days_back: daysBack,
+    requested_days_back: requestedDaysBack,
+    mode,
     levels,
     per_level: perLevel,
     ad_account_id: adAccountId,

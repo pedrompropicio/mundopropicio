@@ -76,7 +76,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { connection_id?: string; ad_account_id?: string };
+  let body: { connection_id?: string; ad_account_id?: string; mode?: "incremental" | "full" };
   try {
     body = await req.json();
   } catch {
@@ -88,6 +88,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: "missing_params" }, 400);
   }
   const adAccountId = normalizeAdAccountId(rawAdAccount);
+  const mode: "incremental" | "full" = body?.mode === "full" ? "full" : "incremental";
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
@@ -111,7 +112,24 @@ Deno.serve(async (req: Request): Promise<Response> => {
     company_id: string;
   };
 
-  // 2) Fetch campaigns. TODO: paginação real (>200).
+  // 1.5) Read incremental cursor (last_sync_at) for this level
+  let lastSyncAt: string | null = null;
+  if (mode === "incremental") {
+    const { data: stateRow } = await supabase
+      .schema("crm")
+      .from("meta_sync_state")
+      .select("last_sync_at")
+      .eq("company_id", companyId)
+      .eq("connection_id", connectionId)
+      .eq("ad_account_id", adAccountId)
+      .eq("level", "campaigns")
+      .maybeSingle();
+    lastSyncAt = stateRow?.last_sync_at ?? null;
+  }
+
+  // 2) Fetch campaigns. Aplica filtering com effective_status + (incremental) updated_time>cursor.
+  // Nota Meta Graph: `campaign.updated_time` é filtrável no endpoint /act_X/campaigns
+  // (operator GREATER_THAN, value=unix-timestamp em segundos).
   let graphJson: GraphCampaignsResponse;
   try {
     const url = new URL(
@@ -122,6 +140,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
       "id,name,status,effective_status,objective,daily_budget,lifetime_budget,budget_remaining,start_time,stop_time,created_time,updated_time,buying_type,bid_strategy",
     );
     url.searchParams.set("limit", "200");
+    const filtering: any[] = [
+      { field: "campaign.effective_status", operator: "IN", value: ["ACTIVE", "PAUSED"] },
+    ];
+    if (lastSyncAt) {
+      filtering.push({
+        field: "campaign.updated_time",
+        operator: "GREATER_THAN",
+        value: Math.floor(new Date(lastSyncAt).getTime() / 1000),
+      });
+    }
+    url.searchParams.set("filtering", JSON.stringify(filtering));
     url.searchParams.set("access_token", accessToken);
 
     const res = await fetch(url);
@@ -132,6 +161,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
         res.status,
         graphJson.error,
       );
+      // Best-effort: regista erro
+      await supabase.schema("crm").from("meta_sync_state").upsert({
+        company_id: companyId, connection_id: connectionId, ad_account_id: adAccountId, level: "campaigns",
+        last_error: graphJson.error?.message ?? `HTTP ${res.status}`,
+        last_error_at: new Date().toISOString(),
+      }, { onConflict: "company_id,connection_id,ad_account_id,level" });
       return json(
         {
           error: "graph_api_error",
@@ -191,12 +226,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     if (upsertErr) {
       console.error("[crm-meta-sync-campaigns] upsert failed:", upsertErr);
+      await supabase.schema("crm").from("meta_sync_state").upsert({
+        company_id: companyId, connection_id: connectionId, ad_account_id: adAccountId, level: "campaigns",
+        last_error: upsertErr.message, last_error_at: new Date().toISOString(),
+      }, { onConflict: "company_id,connection_id,ad_account_id,level" });
       return json(
         { error: "persist_failed", detail: upsertErr.message },
         500,
       );
     }
   }
+
+  // 3.5) Update sync state cursor
+  const nowIso = new Date().toISOString();
+  const stateRow: Record<string, unknown> = {
+    company_id: companyId,
+    connection_id: connectionId,
+    ad_account_id: adAccountId,
+    level: "campaigns",
+    last_sync_at: nowIso,
+    last_synced_rows_count: rows.length,
+    last_error: null,
+    last_error_at: null,
+  };
+  if (mode === "full") stateRow.last_full_sync_at = nowIso;
+  await supabase.schema("crm").from("meta_sync_state").upsert(stateRow, {
+    onConflict: "company_id,connection_id,ad_account_id,level",
+  });
 
   // 4) Auto-link campaigns to active events (best-effort, do not block)
   let autoLinkedCount = 0;
@@ -217,6 +273,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   return json({
     synced_count: rows.length,
     ad_account_id: adAccountId,
+    mode,
+    incremental_cursor: lastSyncAt,
     auto_linked_count: autoLinkedCount,
   });
 });

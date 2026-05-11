@@ -20,6 +20,7 @@ import {
   Target,
   CheckCircle2,
   FileDown,
+  DownloadCloud,
 } from "lucide-react";
 import { printCampaignAnalysis, printAudienceCoach } from "@/lib/audience-pdf";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -902,18 +903,19 @@ export default function CrmCampaigns() {
   }, [campaigns]);
 
   // ---------- Sync ----------
-  const handleSync = async () => {
+  const handleSync = async (mode: "incremental" | "full" = "incremental") => {
     if (!connectionId || !adAccountId) {
       toast.error("Sem ad account ativa");
       return;
     }
     setSyncing(true);
-    const params = { connection_id: connectionId, ad_account_id: adAccountId };
+    const params = { connection_id: connectionId, ad_account_id: adAccountId, mode };
     const errors: string[] = [];
+    const modeLabel = mode === "full" ? "completa" : "incremental";
 
     // Step 1: campaigns
     let cData: any = null;
-    const t1 = toast.loading("A sincronizar campanhas…");
+    const t1 = toast.loading(`A sincronizar campanhas (${modeLabel})…`);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-sync-campaigns", { body: params });
       if (error) throw error;
@@ -927,7 +929,7 @@ export default function CrmCampaigns() {
 
     // Step 2: adsets
     let asData: any = null;
-    const t2 = toast.loading("A sincronizar adsets…");
+    const t2 = toast.loading(`A sincronizar adsets (${modeLabel})…`);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-sync-adsets", { body: params });
       if (error) throw error;
@@ -941,7 +943,7 @@ export default function CrmCampaigns() {
 
     // Step 3: ads
     let adData: any = null;
-    const t3 = toast.loading("A sincronizar ads…");
+    const t3 = toast.loading(`A sincronizar ads (${modeLabel})…`);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-sync-ads", { body: params });
       if (error) throw error;
@@ -955,7 +957,7 @@ export default function CrmCampaigns() {
 
     // Step 4: insights (3 níveis)
     let iData: any = null;
-    const t4 = toast.loading("A sincronizar insights (campaign + adset + ad)…");
+    const t4 = toast.loading(`A sincronizar insights (${modeLabel})…`);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-sync-insights", {
         body: { ...params, days_back: 30, levels: ["campaign", "adset", "ad"] },
@@ -970,7 +972,7 @@ export default function CrmCampaigns() {
     }
 
     if (errors.length === 0) {
-      toast.success("Sync completo", {
+      toast.success(`Sync ${modeLabel} completa`, {
         description: `${cData?.synced_count ?? 0} campanhas · ${asData?.synced_count ?? 0} adsets · ${adData?.synced_count ?? 0} ads · ${iData?.synced_rows ?? 0} insights${cData?.auto_linked_count ? ` · ${cData.auto_linked_count} vinculadas a evento` : ""}`,
       });
     } else {
@@ -980,6 +982,13 @@ export default function CrmCampaigns() {
     qc.invalidateQueries({ queryKey: ["crm-meta-campaigns"] });
     qc.invalidateQueries({ queryKey: ["crm-meta-insights"] });
     setSyncing(false);
+  };
+
+  const handleFullSync = () => {
+    if (!window.confirm(
+      "Tens a certeza? Vai puxar todos os dados elegíveis dos últimos 30 dias do Meta, demora minutos e consome quota. Continuar?"
+    )) return;
+    void handleSync("full");
   };
 
   // ---------- Period helpers ----------
@@ -1025,14 +1034,26 @@ export default function CrmCampaigns() {
               Última sync Meta: {lastSyncMeta ?? "—"} · campanhas: {campaigns?.length ?? 0} · contas: {adAccountsCount}
             </p>
           </div>
-          <Button onClick={handleSync} disabled={syncing}>
-            {syncing ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="mr-2 h-4 w-4" />
-            )}
-            Sincronizar agora
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => handleSync("incremental")} disabled={syncing}>
+              {syncing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              Sincronizar agora
+            </Button>
+            <Button
+              onClick={handleFullSync}
+              disabled={syncing}
+              variant="outline"
+              size="sm"
+              title="Sync histórico completo (últimos 30 dias) — consome quota"
+            >
+              <DownloadCloud className="mr-2 h-4 w-4" />
+              Sync histórico
+            </Button>
+          </div>
         </div>
 
         {/* Period tabs */}

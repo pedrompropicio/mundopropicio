@@ -1,0 +1,49 @@
+CREATE TABLE IF NOT EXISTS crm.meta_sync_state (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id uuid NOT NULL,
+  connection_id uuid NOT NULL,
+  ad_account_id text NOT NULL,
+  level text NOT NULL CHECK (level IN ('campaigns','adsets','ads','insights_campaign','insights_adset','insights_ad')),
+  last_sync_at timestamptz,
+  last_full_sync_at timestamptz,
+  last_cursor_value text,
+  last_error text,
+  last_error_at timestamptz,
+  last_synced_rows_count integer,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT meta_sync_state_uniq UNIQUE (company_id, connection_id, ad_account_id, level)
+);
+
+CREATE INDEX IF NOT EXISTS idx_meta_sync_state_lookup ON crm.meta_sync_state (company_id, connection_id, ad_account_id, level);
+CREATE INDEX IF NOT EXISTS idx_meta_sync_state_last_sync ON crm.meta_sync_state (company_id, ad_account_id, last_sync_at DESC);
+
+ALTER TABLE crm.meta_sync_state ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS service_role_bypass ON crm.meta_sync_state;
+DROP POLICY IF EXISTS tenant_isolation_select ON crm.meta_sync_state;
+DROP POLICY IF EXISTS tenant_isolation_insert ON crm.meta_sync_state;
+DROP POLICY IF EXISTS tenant_isolation_update ON crm.meta_sync_state;
+
+CREATE POLICY service_role_bypass ON crm.meta_sync_state AS PERMISSIVE FOR ALL TO service_role USING (true) WITH CHECK (true);
+CREATE POLICY tenant_isolation_select ON crm.meta_sync_state FOR SELECT TO authenticated USING (company_id = current_company_id());
+CREATE POLICY tenant_isolation_insert ON crm.meta_sync_state FOR INSERT TO authenticated WITH CHECK (company_id = current_company_id());
+CREATE POLICY tenant_isolation_update ON crm.meta_sync_state FOR UPDATE TO authenticated USING (company_id = current_company_id()) WITH CHECK (company_id = current_company_id());
+
+GRANT SELECT, INSERT, UPDATE ON crm.meta_sync_state TO authenticated;
+GRANT ALL ON crm.meta_sync_state TO service_role;
+
+CREATE OR REPLACE FUNCTION crm.touch_meta_sync_state_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_meta_sync_state_updated_at ON crm.meta_sync_state;
+CREATE TRIGGER trg_meta_sync_state_updated_at
+BEFORE UPDATE ON crm.meta_sync_state
+FOR EACH ROW EXECUTE FUNCTION crm.touch_meta_sync_state_updated_at();

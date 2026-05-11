@@ -71,7 +71,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { connection_id?: string; ad_account_id?: string; campaign_external_ids?: string[] };
+  let body: { connection_id?: string; ad_account_id?: string; campaign_external_ids?: string[]; mode?: "incremental" | "full" };
   try {
     body = await req.json();
   } catch {
@@ -84,6 +84,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const campaignFilter = Array.isArray(body.campaign_external_ids) && body.campaign_external_ids.length > 0
     ? body.campaign_external_ids
     : null;
+  const mode: "incremental" | "full" = body?.mode === "full" ? "full" : "incremental";
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
@@ -103,11 +104,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
     company_id: string;
   };
 
+  // Read incremental cursor
+  let lastSyncAt: string | null = null;
+  if (mode === "incremental") {
+    const { data: stateRow } = await supabase
+      .schema("crm")
+      .from("meta_sync_state")
+      .select("last_sync_at")
+      .eq("company_id", companyId)
+      .eq("connection_id", connectionId)
+      .eq("ad_account_id", adAccountId)
+      .eq("level", "ads")
+      .maybeSingle();
+    lastSyncAt = stateRow?.last_sync_at ?? null;
+  }
+
   let ads: GraphAd[] = [];
   try {
     const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${adAccountId}/ads`);
     url.searchParams.set("fields", AD_FIELDS);
     url.searchParams.set("limit", "100");
+    // Nota: `ad.updated_time` é filtrável no endpoint /act_X/ads (operator GREATER_THAN, value=unix-ts em segundos).
     const filtering: any[] = [
       { field: "ad.effective_status", operator: "IN", value: ["ACTIVE", "PAUSED"] },
       { field: "campaign.effective_status", operator: "IN", value: ["ACTIVE", "PAUSED"] },
@@ -115,12 +132,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (campaignFilter) {
       filtering.push({ field: "campaign.id", operator: "IN", value: campaignFilter });
     }
+    if (lastSyncAt) {
+      filtering.push({
+        field: "ad.updated_time",
+        operator: "GREATER_THAN",
+        value: Math.floor(new Date(lastSyncAt).getTime() / 1000),
+      });
+    }
     url.searchParams.set("filtering", JSON.stringify(filtering));
     url.searchParams.set("access_token", accessToken);
     ads = await fetchAllPages(url);
-    console.log(`[crm-meta-sync-ads] fetched ${ads.length} ads`);
+    console.log(`[crm-meta-sync-ads] mode=${mode} cursor=${lastSyncAt ?? "—"} fetched=${ads.length}`);
   } catch (e) {
     console.error("[crm-meta-sync-ads] fetch threw:", e);
+    await supabase.schema("crm").from("meta_sync_state").upsert({
+      company_id: companyId, connection_id: connectionId, ad_account_id: adAccountId, level: "ads",
+      last_error: String(e), last_error_at: new Date().toISOString(),
+    }, { onConflict: "company_id,connection_id,ad_account_id,level" });
     return json({ error: "graph_api_error", message: String(e) }, 502);
   }
 
@@ -159,11 +187,26 @@ Deno.serve(async (req: Request): Promise<Response> => {
         .upsert(slice, { onConflict: "company_id,external_ad_id" });
       if (upErr) {
         console.error(`[crm-meta-sync-ads] upsert chunk ${idx}/${chunks} failed:`, upErr);
+        await supabase.schema("crm").from("meta_sync_state").upsert({
+          company_id: companyId, connection_id: connectionId, ad_account_id: adAccountId, level: "ads",
+          last_error: upErr.message, last_error_at: new Date().toISOString(),
+        }, { onConflict: "company_id,connection_id,ad_account_id,level" });
         return json({ error: "persist_failed", detail: upErr.message, chunk: idx, total_chunks: chunks }, 500);
       }
       console.log(`[crm-meta-sync-ads] chunk ${idx}/${chunks}: ${slice.length} rows upserted`);
     }
   }
 
-  return json({ synced_count: rows.length, ad_account_id: adAccountId });
+  const nowIso = new Date().toISOString();
+  const stateUpd: Record<string, unknown> = {
+    company_id: companyId, connection_id: connectionId, ad_account_id: adAccountId, level: "ads",
+    last_sync_at: nowIso, last_synced_rows_count: rows.length,
+    last_error: null, last_error_at: null,
+  };
+  if (mode === "full") stateUpd.last_full_sync_at = nowIso;
+  await supabase.schema("crm").from("meta_sync_state").upsert(stateUpd, {
+    onConflict: "company_id,connection_id,ad_account_id,level",
+  });
+
+  return json({ synced_count: rows.length, ad_account_id: adAccountId, mode, incremental_cursor: lastSyncAt });
 });
