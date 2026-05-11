@@ -175,7 +175,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { connection_id?: string; ad_account_id?: string; days_back?: number; levels?: Level[] };
+  let body: { connection_id?: string; ad_account_id?: string; days_back?: number; levels?: Level[]; mode?: "incremental" | "full" };
   try {
     body = await req.json();
   } catch {
@@ -183,7 +183,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   const connectionId = body.connection_id;
   const rawAcct = body.ad_account_id;
-  const daysBack = Math.min(Math.max(body.days_back ?? 30, 1), 90);
+  const mode: "incremental" | "full" = body?.mode === "full" ? "full" : "incremental";
+  // Em incremental, força janela curta (Meta só reconcilia retroactivamente até ~72h).
+  const requestedDaysBack = Math.min(Math.max(body.days_back ?? 30, 1), 90);
+  const daysBack = mode === "incremental" ? Math.min(requestedDaysBack, 3) : requestedDaysBack;
   if (!connectionId || !rawAcct) return json({ error: "missing_params" }, 400);
   const adAccountId = normalizeAdAccountId(rawAcct);
   const validLevels: Level[] = ["campaign", "adset", "ad"];
