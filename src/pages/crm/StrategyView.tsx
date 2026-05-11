@@ -91,7 +91,15 @@ export default function CrmStrategyView() {
         const { data: e } = await supabase.from("events").select("id, name, date").eq("id", data.event_id).maybeSingle();
         event = e ?? null;
       }
-      return { ...data, event };
+      let sourceCampaign: { external_campaign_id: string; name: string | null } | null = null;
+      if (data.source_campaign_id) {
+        const { data: sc } = await (supabase as any)
+          .schema("crm").from("meta_campaign_snapshot")
+          .select("external_campaign_id, name")
+          .eq("external_campaign_id", data.source_campaign_id).maybeSingle();
+        sourceCampaign = sc ?? { external_campaign_id: data.source_campaign_id, name: null };
+      }
+      return { ...data, event, sourceCampaign };
     },
   });
 
