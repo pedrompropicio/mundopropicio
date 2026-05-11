@@ -16,6 +16,7 @@ function fmtNum(n: number | null | undefined) {
 
 export default function CrmStrategyPrint() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
   const { data, isLoading } = useQuery({
     queryKey: ["crm-strategy-print", id],
