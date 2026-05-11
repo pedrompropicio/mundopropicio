@@ -98,10 +98,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     access_token: accessToken,
     external_business_id: businessId,
     external_business_name: businessName,
+    company_id: companyId,
   } = tokenRows[0] as {
     access_token: string;
     external_business_id: string;
     external_business_name: string;
+    company_id: string;
   };
 
   // 2) Chamar Graph API. TODO: paginação real (>100). Por agora limit=100.
