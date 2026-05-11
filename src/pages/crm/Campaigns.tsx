@@ -601,7 +601,7 @@ export default function CrmCampaigns() {
   const qc = useQueryClient();
   const { active } = useAdAccountSelection();
 
-  const [period, setPeriod] = useState<PeriodState>(periodFromMode("7d"));
+  const [period, setPeriod] = useState<PeriodState>(periodFromMode("30d"));
   const [customRange, setCustomRange] = useState<{ from?: Date; to?: Date }>({});
   const [syncing, setSyncing] = useState(false);
   const [secondsAgo, setSecondsAgo] = useState(0);
