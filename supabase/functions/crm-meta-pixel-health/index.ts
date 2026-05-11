@@ -163,17 +163,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const allowedDomainsCount = domains.length;
 
     const checks = [
-      { key: "funnel_complete", label: "Funil completo (PV→VC→ATC→IC→Purchase)", max: 20, pts: Math.round((funnelPresent / 5) * 20), value: `${funnelPresent}/5` },
-      { key: "volume", label: "Volume saudável (>100 eventos/dia)", max: 10, pts: avgPerDay >= 100 ? 10 : avgPerDay >= 50 ? 7 : avgPerDay >= 10 ? 4 : 0, value: `${Math.round(avgPerDay)}/dia` },
-      { key: "freshness", label: "Atividade recente (<2h)", max: 10, pts: hoursSinceLastFire === null ? 0 : hoursSinceLastFire < 2 ? 10 : hoursSinceLastFire < 24 ? 5 : 0, value: hoursSinceLastFire !== null ? `${Math.round(hoursSinceLastFire)}h atrás` : "nunca" },
-      { key: "purchase_value", label: "Purchase com valor (essencial p/ ROAS)", max: 15, pts: purchaseHasValue ? 15 : presentEvents.has("Purchase") ? 5 : 0, value: purchaseHasValue ? `~${purchaseValueSample}` : presentEvents.has("Purchase") ? "sem valor" : "ausente" },
-      { key: "auto_matching", label: "Automatic Matching ativo", max: 10, pts: pix.enable_automatic_matching ? 10 : 0, value: pix.enable_automatic_matching ? "ativo" : "inativo" },
-      { key: "matching_fields", label: "Match Quality fields (email, phone, etc)", max: 10, pts: Math.min(10, automaticMatchingFields.length * 2), value: `${automaticMatchingFields.length} fields` },
-      { key: "domains", label: "Domains a disparar", max: 10, pts: allowedDomainsCount >= 1 ? 10 : 0, value: `${allowedDomainsCount} domains` },
-      { key: "first_party_cookie", label: "First-party cookie (iOS/ITP)", max: 5, pts: pix.first_party_cookie_status === "ENABLED" ? 5 : 0, value: pix.first_party_cookie_status ?? "?" },
-      { key: "standard_events", label: "Coverage standard events (8 tipos)", max: 10, pts: Math.round((standardPresent / 8) * 10), value: `${standardPresent}/8` },
+      { key: "funnel_complete", source: "site", label: "Funil completo (PV→VC→ATC→IC→Purchase)", max: 20, pts: Math.round((funnelPresent / 5) * 20), value: `${funnelPresent}/5` },
+      { key: "purchase_value", source: "site", label: "Purchase com valor (essencial p/ ROAS)", max: 15, pts: purchaseHasValue ? 15 : presentEvents.has("Purchase") ? 5 : 0, value: purchaseHasValue ? `~${purchaseValueSample}` : presentEvents.has("Purchase") ? "sem valor" : "ausente" },
+      { key: "matching_fields", source: "site", label: "Match Quality fields (email, phone, fbclid…)", max: 10, pts: Math.min(10, automaticMatchingFields.length * 2), value: `${automaticMatchingFields.length} fields` },
+      { key: "volume", source: "site", label: "Volume saudável (>100 eventos/dia)", max: 10, pts: avgPerDay >= 100 ? 10 : avgPerDay >= 50 ? 7 : avgPerDay >= 10 ? 4 : 0, value: `${Math.round(avgPerDay)}/dia` },
+      { key: "freshness", source: "site", label: "Atividade recente (<2h)", max: 10, pts: hoursSinceLastFire === null ? 0 : hoursSinceLastFire < 2 ? 10 : hoursSinceLastFire < 24 ? 5 : 0, value: hoursSinceLastFire !== null ? `${Math.round(hoursSinceLastFire)}h atrás` : "nunca" },
+      { key: "standard_events", source: "site", label: "Coverage standard events (8 tipos)", max: 5, pts: Math.round((standardPresent / 8) * 5), value: `${standardPresent}/8` },
+      { key: "auto_matching", source: "meta", label: "Automatic Matching ativo", max: 10, pts: pix.enable_automatic_matching ? 10 : 0, value: pix.enable_automatic_matching ? "ativo" : "inativo" },
+      { key: "first_party_cookie", source: "meta", label: "First-party cookie (iOS/ITP)", max: 10, pts: pix.first_party_cookie_status === "ENABLED" ? 10 : 0, value: pix.first_party_cookie_status ?? "?" },
+      { key: "domains", source: "meta", label: "Domains verificados a disparar", max: 10, pts: allowedDomainsCount >= 1 ? 10 : 0, value: `${allowedDomainsCount} domains` },
     ];
-    const score = checks.reduce((a, c) => a + c.pts, 0);
+    const siteChecks = checks.filter(c => c.source === "site");
+    const metaChecks = checks.filter(c => c.source === "meta");
+    const siteScore = siteChecks.reduce((a, c) => a + c.pts, 0);
+    const siteMax = siteChecks.reduce((a, c) => a + c.max, 0);
+    const metaScore = metaChecks.reduce((a, c) => a + c.pts, 0);
+    const metaMax = metaChecks.reduce((a, c) => a + c.max, 0);
+    const score = siteScore + metaScore;
     let grade: string;
     if (score >= 90) grade = "A+";
     else if (score >= 80) grade = "A";
