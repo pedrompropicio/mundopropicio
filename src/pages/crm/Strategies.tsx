@@ -28,14 +28,7 @@ const statusStyles: Record<string, string> = {
   archived: "bg-muted/40 text-muted-foreground border-border opacity-60",
 };
 
-const statusLabel: Record<string, string> = {
-  draft: "Rascunho",
-  generated: "Gerada",
-  approved: "Aprovada",
-  in_progress: "Em curso",
-  completed: "Concluída",
-  archived: "Arquivada",
-};
+
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
