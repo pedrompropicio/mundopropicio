@@ -96,7 +96,10 @@ import RlsLegacyAudit from "./pages/admin/RlsLegacyAudit";
 import CoalaSync from "./pages/admin/CoalaSync";
 import CrmConnections from "./pages/crm/Connections";
 import CrmCampaigns from "./pages/crm/Campaigns";
+import ModuleSelector from "./pages/ModuleSelector";
+import { AudienceLayout } from "./components/layout/AudienceLayout";
 import { PartnerLayout } from "./components/PartnerLayout";
+import { useLocation } from "react-router-dom";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -113,6 +116,7 @@ function ProtectedLayout() {
   const queryClient = useQueryClient();
   const previousCompanyIdRef = useRef<string | null>(null);
   const isSwitchingCompany = useIsMutating({ mutationKey: ["set-active-company"] }) > 0;
+  const location = useLocation();
   // Camarim-only = utilizador de campo: tem APENAS camarim_team e nenhuma
   // permissão de gestão (nem sequer camarim_manage). Editores que gerem o
   // camarim ou outras áreas continuam a ver o dashboard normal.
@@ -281,6 +285,14 @@ function ProtectedLayout() {
     }
   } catch {}
 
+  // Admin/platform_admin landing: '/' shows ModuleSelector (no ERP shell).
+  // Use /erp to enter the ERP workspace explicitly.
+  const currentPath = location.pathname;
+  const isPlatformOrAdmin = isAdmin; // isAdmin already covers platform_admin
+  if (isPlatformOrAdmin && currentPath === "/") {
+    return <ModuleSelector />;
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <ApprovedPaymentListReminder />
@@ -300,6 +312,7 @@ function ProtectedLayout() {
             {/* MFA gate temporariamente desativado — reativar envolvendo <Routes> com <MfaRequiredGate> */}
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/erp" element={<Index />} />
               <Route path="/calendario" element={<EventCalendar />} />
               <Route path="/eventos" element={<Events />} />
               <Route path="/eventos/:id" element={<EventDetail />} />
@@ -367,8 +380,8 @@ function ProtectedLayout() {
               <Route path="/admin/lembretes" element={<Reminders />} />
               <Route path="/admin/auditoria-rls" element={<RlsLegacyAudit />} />
               <Route path="/admin/sync-coala" element={<CoalaSync />} />
-              <Route path="/crm/connections" element={<CrmConnections />} />
-              <Route path="/crm/campaigns" element={<CrmCampaigns />} />
+              <Route path="/crm/connections" element={<Navigate to="/audience/connections" replace />} />
+              <Route path="/crm/campaigns" element={<Navigate to="/audience/dashboard" replace />} />
             </Routes>
           </div>
         </main>
@@ -410,6 +423,11 @@ function App() {
                   <Route path="/accept-invitation" element={<AcceptInvitation />} />
                   <Route path="/camarim-equipa" element={<CamarimEquipa />} />
                   <Route path="/parceiro/*" element={<PartnerLayout />} />
+                  <Route path="/audience" element={<AudienceLayout />}>
+                    <Route index element={<Navigate to="/audience/dashboard" replace />} />
+                    <Route path="dashboard" element={<CrmCampaigns />} />
+                    <Route path="connections" element={<CrmConnections />} />
+                  </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
               </BrowserRouter>
@@ -422,7 +440,7 @@ function App() {
 }
 
 function AuthRoute() {
-  const { user, loading, isPartner, isAdmin, isManager, hasPermission } = useAuth();
+  const { user, loading, isPartner, isAdmin, isManager, hasPermission, role } = useAuth();
   if (loading) return null;
   // Don't redirect if user is in the middle of password recovery flow
   const isRecoveryFlow = sessionStorage.getItem("recovery_in_progress") === "true";
@@ -451,6 +469,10 @@ function AuthRoute() {
     const isCamarimOnly =
       !isAdmin && !isManager && hasPermission("camarim_team") && !hasAnyManagement;
     if (isCamarimOnly) return <Navigate to="/camarim-equipa" replace />;
+    // marketing_manager-only → módulo MP Audience direto
+    if ((role as any) === "marketing_manager") {
+      return <Navigate to="/audience/dashboard" replace />;
+    }
     // Preferência opcional: admin/manager pode forçar entrada direta na vista compacta
     try {
       const prefersCamarim =

@@ -47,7 +47,7 @@ function clientIp(req: Request): string | null {
 }
 
 function buildAppRedirect(params: Record<string, string>): string {
-  const url = new URL("/crm/connections", APP_BASE_URL);
+  const url = new URL("/audience/connections", APP_BASE_URL);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   return url.toString();
 }

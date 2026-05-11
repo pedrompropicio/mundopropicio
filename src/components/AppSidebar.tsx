@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
+import { NavLink as RouterNavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Calendar,
@@ -21,8 +21,7 @@ import {
   ReceiptText,
   ShoppingBag,
   ClipboardCheck,
-  TrendingUp,
-  Plug,
+  Grid3x3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,8 +30,8 @@ import { PushNotificationToggle } from "@/components/PushNotificationToggle";
 
 export function AppSidebar() {
   const location = useLocation();
-  const { isAdmin, isManager, user, signOut, hasPermission, role } = useAuth();
-  const canMpAudience = isAdmin || (role as any) === "marketing_manager";
+  const navigate = useNavigate();
+  const { isAdmin, isManager, user, signOut, hasPermission } = useAuth();
   const [showChangePassword, setShowChangePassword] = useState(false);
 
   const navItems = [
@@ -47,9 +46,6 @@ export function AppSidebar() {
     { to: "/cotacoes", icon: FileCheck, label: "Cotações", show: hasPermission("manage_quotations") || isAdmin },
     { to: "/iva", icon: Receipt, label: "Gestão IVA", show: hasPermission("manage_iva") || isAdmin },
     { to: "/recorrentes", icon: RefreshCw, label: "Recorrentes", show: hasPermission("manage_recurring") || hasPermission("manage_transactions") || isAdmin },
-    { type: "section", label: "MP Audience", show: canMpAudience } as any,
-    { to: "/crm/campaigns", icon: TrendingUp, label: "Dashboard", show: canMpAudience },
-    { to: "/crm/connections", icon: Plug, label: "Conexões", show: canMpAudience },
     { to: "/reembolsos", icon: ReceiptText, label: "Reembolsos", show: hasPermission("manage_transactions") || isAdmin },
     { to: "/camarim", icon: ShoppingBag, label: "Camarim", show: hasPermission("manage_transactions") || hasPermission("camarim_team") || isAdmin },
     { to: "/relatorios", icon: BarChart3, label: "Relatórios", show: hasPermission("view_reports") || isAdmin },
@@ -63,16 +59,7 @@ export function AppSidebar() {
 
       <nav className="flex flex-1 flex-col gap-1 px-2 lg:px-3 w-full overflow-y-auto">
         {navItems.filter((i: any) => i.show).map((item: any, idx) => {
-          if (item.type === "section") {
-            return (
-              <div
-                key={`section-${idx}-${item.label}`}
-                className="mt-3 mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hidden lg:block"
-              >
-                {item.label}
-              </div>
-            );
-          }
+          // sections removed — flat list
           const isActive =
             item.to === "/"
               ? location.pathname === "/"
@@ -98,6 +85,16 @@ export function AppSidebar() {
       </nav>
 
       <div className="mt-auto w-full px-2 lg:px-3 space-y-1">
+        {isAdmin && (
+          <button
+            onClick={() => navigate("/")}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            title="Trocar módulo"
+          >
+            <Grid3x3 className="h-5 w-5 shrink-0" />
+            <span className="hidden lg:block">Trocar módulo</span>
+          </button>
+        )}
         <div className="hidden lg:flex items-center justify-between mb-2 px-3">
           <span className="truncate text-xs text-muted-foreground">{user?.email}</span>
         </div>
