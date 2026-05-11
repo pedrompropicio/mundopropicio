@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
-import { Facebook, Loader2, Plug, Power, RefreshCw, Search, Music2 } from "lucide-react";
+import { Facebook, Instagram, Loader2, Plug, Power, RefreshCw, Search, Music2 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,7 +33,15 @@ import {
 const META_APP_ID = "2065507417360931";
 const META_REDIRECT_URI =
   "https://sfohvvlqccmmebvjgibx.supabase.co/functions/v1/crm-meta-oauth-callback";
-const META_SCOPES = "ads_management,ads_read,business_management,pages_show_list";
+// Scopes necessários:
+//   ads_management        — criar/editar Campaigns, AdSets, Ads via Marketing API
+//   ads_read              — ler insights, spend, ROAS das campanhas existentes
+//   business_management   — acesso ao Business Manager
+//   pages_show_list       — listar Pages do utilizador (para escolher publisher dos Ads)
+//   pages_manage_ads      — usar Page como publisher do Ad (obrigatório para criar AdCreative)
+//   pages_read_engagement — ler insights da Page (futuro: post promoção)
+//   instagram_basic       — listar contas Instagram Business associadas às Pages
+const META_SCOPES = "ads_management,ads_read,business_management,pages_show_list,pages_manage_ads,pages_read_engagement,instagram_basic";
 
 type Platform = "meta" | "google" | "tiktok";
 
@@ -61,6 +69,8 @@ interface ConnectionRow {
   selected_ad_account_id: string | null;
   selected_ad_account_name: string | null;
   available_ad_accounts: AdAccountOption[] | null;
+  selected_page_id?: string | null;
+  selected_instagram_id?: string | null;
 }
 
 const PLATFORMS: Array<{
