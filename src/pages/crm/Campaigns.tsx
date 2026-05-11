@@ -387,14 +387,14 @@ function EventGroupCard({
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-semibold truncate">{event.name}</h3>
-                  {event.event_date && (
+                  {event.date && (
                     <Badge variant="outline" className="text-xs font-mono">
-                      {format(parseISO(event.event_date), "dd/MM/yyyy")}
+                      {format(parseISO(event.date), "dd/MM/yyyy")}
                     </Badge>
                   )}
-                  {event.capacity !== null && (
+                  {event.tickets_total !== null && event.tickets_total > 0 && (
                     <Badge variant="outline" className="text-xs">
-                      {event.tickets_sold ?? 0}/{event.capacity} bilhetes
+                      {event.tickets_sold ?? 0}/{event.tickets_total} bilhetes
                     </Badge>
                   )}
                   <Badge variant="secondary" className="text-xs">
