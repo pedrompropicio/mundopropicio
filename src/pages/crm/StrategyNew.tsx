@@ -107,53 +107,60 @@ export default function CrmStrategyNew() {
     setSubmitting(true);
     setErrMsg(null);
     try {
-      const { data, error } = await supabase.functions.invoke(
-        "crm-meta-campaign-strategy-generate",
+      const sessionRes = await supabase.auth.getSession();
+      const token = sessionRes.data.session?.access_token;
+      if (!token) throw new Error("Sessão expirada — faz login de novo");
+
+      const payload = {
+        event_id: eventId,
+        connection_id: active.connection_id,
+        ad_account_id: active.ad_account_id,
+        goal_revenue_eur: parseFloat(goalRevenue),
+        ticket_avg_eur: parseFloat(ticketAvg),
+        total_budget_eur: totalBudget ? parseFloat(totalBudget) : undefined,
+        target_roas: targetRoas ? parseFloat(targetRoas) : undefined,
+        country_codes: countries.length ? countries : undefined,
+        user_notes: userNotes || undefined,
+        strategy_name: name || undefined,
+      };
+
+      const resp = await fetch(
+        `${SUPABASE_URL}/functions/v1/crm-meta-campaign-strategy-generate`,
         {
-          body: {
-            event_id: eventId,
-            connection_id: active.connection_id,
-            ad_account_id: active.ad_account_id,
-            goal_revenue_eur: parseFloat(goalRevenue),
-            ticket_avg_eur: parseFloat(ticketAvg),
-            total_budget_eur: totalBudget ? parseFloat(totalBudget) : undefined,
-            target_roas: targetRoas ? parseFloat(targetRoas) : undefined,
-            country_codes: countries.length ? countries : undefined,
-            user_notes: userNotes || undefined,
-            strategy_name: name || undefined,
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+            "apikey": SUPABASE_ANON,
           },
+          body: JSON.stringify(payload),
         },
       );
-      if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).message || (data as any).error);
-      toast.success("Estratégia gerada!");
-      navigate(`/audience/strategies/${(data as any).strategy_id}`);
-    } catch (e: any) {
-      let detailedMsg = e?.message ?? "Erro a gerar estratégia";
 
-      // supabase-js FunctionsHttpError coloca a Response em error.context
-      if (e?.context && typeof e.context === "object") {
-        try {
-          const ctx = e.context as Response;
-          if (typeof ctx.json === "function") {
-            const body = await ctx.json();
-            const errorCode = body?.error || "unknown";
-            const errorDetail = body?.message || body?.detail || "";
-            const rawPreview = body?.raw_preview
-              ? `\n\nPreview: ${String(body.raw_preview).slice(0, 300)}`
-              : "";
-            detailedMsg = `[${errorCode}] ${errorDetail}${rawPreview}`;
-          } else if (typeof ctx.text === "function") {
-            const text = await ctx.text();
-            detailedMsg = `${detailedMsg}\n\nBody: ${text.slice(0, 500)}`;
-          }
-        } catch {
-          // ignore — mantém detailedMsg original
-        }
+      const bodyText = await resp.text();
+      let bodyJson: any = null;
+      try { bodyJson = JSON.parse(bodyText); } catch {}
+
+      if (!resp.ok) {
+        const errCode = bodyJson?.error || "http_error";
+        const errDetail = bodyJson?.message || bodyJson?.detail || bodyText.slice(0, 500);
+        const errStatus = `HTTP ${resp.status}`;
+        const rawPreview = bodyJson?.raw_preview
+          ? `\n\nGemini preview:\n${String(bodyJson.raw_preview).slice(0, 400)}`
+          : "";
+        throw new Error(`[${errStatus}] [${errCode}]\n${errDetail}${rawPreview}`);
       }
 
-      setErrMsg(detailedMsg);
-      toast.error("Erro ao gerar estratégia", { description: detailedMsg.slice(0, 200) });
+      if (!bodyJson?.strategy_id) {
+        throw new Error(`Resposta inesperada: ${bodyText.slice(0, 300)}`);
+      }
+
+      toast.success("Estratégia gerada!");
+      navigate(`/audience/strategies/${bodyJson.strategy_id}`);
+    } catch (e: any) {
+      const msg = e?.message ?? "Erro a gerar estratégia";
+      setErrMsg(msg);
+      toast.error("Erro ao gerar estratégia", { description: msg.slice(0, 200) });
     } finally {
       setSubmitting(false);
     }
