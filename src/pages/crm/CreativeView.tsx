@@ -177,6 +177,38 @@ export default function CrmCreativeView() {
     setTagInput("");
   };
 
+  const handleAnalyze = async () => {
+    if (!id || !data) return;
+    if (data.type !== "image") {
+      toast.error("Análise de vídeo em breve. Por agora suporta apenas imagens.");
+      return;
+    }
+    setIsAnalyzing(true);
+    try {
+      const { data: resp, error } = await supabase.functions.invoke(
+        "crm-meta-creative-analyze",
+        { body: { creative_id: id } }
+      );
+      if (error) {
+        let detail = error.message;
+        if ((error as any).context) {
+          try {
+            const ctx = (error as any).context;
+            const b = await (ctx.clone ? ctx.clone() : ctx).json();
+            detail = `[${b?.error || "?"}] ${b?.message || b?.detail || detail}`;
+          } catch {}
+        }
+        throw new Error(detail);
+      }
+      toast.success("Análise concluída");
+      qc.invalidateQueries({ queryKey: ["crm-creative", id] });
+    } catch (e: any) {
+      toast.error("Falha na análise", { description: e?.message ?? String(e) });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
