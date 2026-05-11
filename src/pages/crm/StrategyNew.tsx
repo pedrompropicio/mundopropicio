@@ -59,6 +59,33 @@ export default function CrmStrategyNew() {
     },
   });
 
+  const { data: sourceStrategy } = useQuery({
+    queryKey: ["source-strategy", fromId],
+    enabled: !!fromId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_campaign_strategies")
+        .select("*")
+        .eq("id", fromId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  useEffect(() => {
+    if (!sourceStrategy) return;
+    setEventId(sourceStrategy.event_id ?? "");
+    setGoalRevenue(String(sourceStrategy.goal_revenue_eur ?? ""));
+    setTicketAvg(String(sourceStrategy.ticket_avg_eur ?? ""));
+    setTotalBudget(sourceStrategy.total_budget_eur ? String(sourceStrategy.total_budget_eur) : "");
+    setTargetRoas(sourceStrategy.target_roas ? String(sourceStrategy.target_roas) : "");
+    setCountries(sourceStrategy.country_codes ?? ["PT", "BR"]);
+    setUserNotes(sourceStrategy.user_notes ?? "");
+    setName(`${sourceStrategy.name} (v2)`);
+  }, [sourceStrategy]);
+
   const selectedEvent = useMemo(
     () => events?.find((e: any) => e.id === eventId) ?? null,
     [events, eventId],
