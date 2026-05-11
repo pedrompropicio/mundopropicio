@@ -27,7 +27,10 @@ const UUID_RE =
 const META_APP_ID = Deno.env.get("META_APP_ID")!;
 const META_APP_SECRET = Deno.env.get("META_APP_SECRET")!;
 const ENCRYPTION_MASTER_KEY = Deno.env.get("ENCRYPTION_MASTER_KEY")!;
-const APP_BASE_URL = Deno.env.get("APP_BASE_URL")!;
+// Fallback hardcoded para resiliência: se o secret estiver vazio/inacessível em runtime
+// (visto durante setup inicial — desalinhamento entre Lovable Cloud Test/Live projects),
+// a function continua a funcionar. Ver troubleshooting em sessões de 2026-05-10.
+const APP_BASE_URL = Deno.env.get("APP_BASE_URL") || "https://www.mpgestaoeventos.com";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -118,8 +121,7 @@ serve(async (req: Request): Promise<Response> => {
 
   // (3) Consume single-use state — deletes the row, returns owning company+user
   const { data: stateRows, error: stateErr } = await supabase
-    .schema("crm")
-    .rpc("consume_oauth_state", { p_state_id: state });
+    .rpc("crm_consume_oauth_state", { p_state_id: state });
 
   if (
     stateErr ||
@@ -298,8 +300,7 @@ serve(async (req: Request): Promise<Response> => {
 
   // (7) Encrypt token and upsert the platform connection
   const { data: connectionId, error: upsertErr } = await supabase
-    .schema("crm")
-    .rpc("upsert_meta_connection", {
+    .rpc("crm_upsert_meta_connection", {
       p_company_id: company_id,
       p_user_id: user_id,
       p_external_business_id: primary.id,
@@ -332,8 +333,7 @@ serve(async (req: Request): Promise<Response> => {
   // (8) Audit log — best effort, do not block the redirect on failure
   try {
     const { error: auditErr } = await supabase
-      .schema("crm")
-      .rpc("write_audit_log", {
+      .rpc("crm_write_audit_log", {
         p_company_id: company_id,
         p_user_id: user_id,
         p_action: "crm.ad_platform_connection.created",
