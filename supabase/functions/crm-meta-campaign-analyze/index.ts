@@ -154,7 +154,39 @@ Responde APENAS com JSON válido (sem markdown, sem texto antes/depois) com este
   ]
 }
 
-Sê crítico mas construtivo. Foca em ações concretas. Para eventos com bilhetes, ROAS >5x é excelente (margem alta), 2-5x bom, <2x preocupante. Frequência >4 indica saturação. CTR <1% no Meta indica criativo fraco. Funil deve ter taxas de conversão razoáveis: ATC/VC ~20%, IC/ATC ~50%, Purchase/IC ~30%.`;
+Sê crítico mas construtivo. Foca em ações concretas. Usa estes critérios CALIBRADOS para a Mundo Propício (eventos ao vivo / bilheteira em Portugal e Brasil), tendo em conta os benchmarks reais da empresa e do setor:
+
+ROAS (benchmark interno: mediana histórica 4.5x; benchmark setor Arts & Entertainment ~3x):
+- ROAS >= 8x: excelente (apenas top 5% das campanhas, território de blockbuster)
+- ROAS 5-8x: bom (top 25%, acima da mediana da empresa)
+- ROAS 3-5x: regular (em linha com a mediana — funcional mas nada excecional, não chames de "bom")
+- ROAS 2-3x: fraco (próximo do benchmark Meta global de 2.19x — abaixo do que se espera para eventos)
+- ROAS <2x: mau (não está a pagar-se face ao setor)
+
+CTR (benchmark Arts & Entertainment ~1.16%; top 25% >3%):
+- >= 3%: excelente
+- 2-3%: bom
+- 1.2-2%: regular (próximo do setor)
+- 0.9-1.2%: fraco — criativo a precisar de revisão
+- <0.9%: mau — abaixo do benchmark global Meta
+
+CPC (benchmark A&E ~0.45€):
+- <0.20€: excelente
+- 0.20-0.40€: bom
+- 0.40-0.60€: regular
+- 0.60-1.00€: caro para o setor
+- >=1€: muito caro
+
+Frequência:
+- <1.5: ótimo, audiência fresca
+- 1.5-2.5: bom
+- 2.5-3.5: aceitável
+- 3.5-5: atenção à saturação
+- >5: claramente saturado, criativo gasto
+
+Funil esperado para bilheteira (taxas face ao passo anterior): ATC/VC ~20%, IC/ATC ~50%, Purchase/IC ~30%. Desvios significativos indicam friction.
+
+IMPORTANTE: NÃO chames "excelente" a uma campanha com ROAS 5x. A mediana da Mundo Propício é 4.5x — uma campanha 5x está apenas em linha com a casa, não excede. Excelente é território de 8x+. Sê rigoroso.`;
 
   const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
