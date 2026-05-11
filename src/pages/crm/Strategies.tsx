@@ -131,7 +131,7 @@ export default function CrmStrategies() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-medium truncate">{s.name}</h3>
                     <Badge variant="outline" className={cn("text-[10px] uppercase", statusStyles[s.status] ?? statusStyles.draft)}>
-                      {statusLabel[s.status] ?? s.status}
+                      {statusLabel(s.status)}
                     </Badge>
                     {s.detected_artist && (
                       <span className="text-xs text-muted-foreground">· 🎤 {s.detected_artist}</span>
