@@ -107,6 +107,7 @@ import CrmSetup from "./pages/crm/Setup";
 import CrmStrategies from "./pages/crm/Strategies";
 import CrmStrategyNew from "./pages/crm/StrategyNew";
 import CrmStrategyView from "./pages/crm/StrategyView";
+import CrmStrategyPrint from "./pages/crm/StrategyPrint";
 import ModuleSelector from "./pages/ModuleSelector";
 import PostLoginRedirect from "./components/PostLoginRedirect";
 import { AudienceLayout } from "./components/layout/AudienceLayout";
@@ -450,6 +451,7 @@ function App() {
                     <Route path="strategies/new" element={<CrmStrategyNew />} />
                     <Route path="strategies/:id" element={<CrmStrategyView />} />
                   </Route>
+                  <Route path="/audience/strategies/:id/print" element={<CrmStrategyPrint />} />
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
               </BrowserRouter>

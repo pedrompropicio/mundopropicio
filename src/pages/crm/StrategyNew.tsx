@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -27,6 +27,8 @@ const LOADING_STEPS = [
 
 export default function CrmStrategyNew() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromId = searchParams.get("from");
   const { active, isLoading: adAcctLoading } = useAdAccountSelection();
 
   const [name, setName] = useState("");
@@ -56,6 +58,33 @@ export default function CrmStrategyNew() {
       return data ?? [];
     },
   });
+
+  const { data: sourceStrategy } = useQuery({
+    queryKey: ["source-strategy", fromId],
+    enabled: !!fromId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_campaign_strategies")
+        .select("*")
+        .eq("id", fromId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  useEffect(() => {
+    if (!sourceStrategy) return;
+    setEventId(sourceStrategy.event_id ?? "");
+    setGoalRevenue(String(sourceStrategy.goal_revenue_eur ?? ""));
+    setTicketAvg(String(sourceStrategy.ticket_avg_eur ?? ""));
+    setTotalBudget(sourceStrategy.total_budget_eur ? String(sourceStrategy.total_budget_eur) : "");
+    setTargetRoas(sourceStrategy.target_roas ? String(sourceStrategy.target_roas) : "");
+    setCountries(sourceStrategy.country_codes ?? ["PT", "BR"]);
+    setUserNotes(sourceStrategy.user_notes ?? "");
+    setName(`${sourceStrategy.name} (v2)`);
+  }, [sourceStrategy]);
 
   const selectedEvent = useMemo(
     () => events?.find((e: any) => e.id === eventId) ?? null,
@@ -184,6 +213,12 @@ export default function CrmStrategyNew() {
           </p>
         </div>
       </div>
+
+      {fromId && sourceStrategy && (
+        <Card className="p-3 border-cyan-500/40 bg-cyan-500/5 text-sm">
+          A regenerar a partir de <strong>{sourceStrategy.name}</strong> — os parâmetros foram pré-preenchidos, ajusta o que quiseres antes de gerar.
+        </Card>
+      )}
 
       {!adAcctLoading && !active && (
         <Card className="p-4 border-amber-500/40 bg-amber-500/5 text-sm">

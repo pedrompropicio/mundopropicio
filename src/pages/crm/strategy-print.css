@@ -1,0 +1,62 @@
+.strategy-print {
+  background: white;
+  color: #111;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  padding: 2rem 2.5rem;
+  max-width: 210mm;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+.strategy-print h1 { font-size: 28px; margin: 0 0 8px; }
+.strategy-print h2 { font-size: 20px; margin: 24px 0 12px; border-bottom: 2px solid #0891b2; padding-bottom: 4px; color: #0891b2; }
+.strategy-print h3 { font-size: 15px; margin: 16px 0 8px; }
+.strategy-print p { margin: 0 0 12px; }
+.strategy-print section { margin-bottom: 24px; }
+.strategy-print table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 12px; }
+.strategy-print th, .strategy-print td { padding: 6px 10px; border: 1px solid #ddd; text-align: left; vertical-align: top; }
+.strategy-print th { background: #f5f9fa; font-weight: 600; }
+.strategy-print .kpi-table th { width: 40%; }
+.strategy-print .rules-table th { background: #0891b2; color: white; }
+
+.cover { padding-top: 60px; text-align: center; }
+.cover-brand { font-size: 11px; letter-spacing: 3px; color: #0891b2; font-weight: 600; margin-bottom: 40px; }
+.cover-title { font-size: 36px; line-height: 1.2; margin: 0 0 40px; color: #111; }
+.cover-event { margin-bottom: 40px; }
+.cover-event-name { font-size: 18px; color: #444; }
+.cover-event-date, .cover-event-location { font-size: 13px; color: #666; margin-top: 2px; }
+.cover-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 500px; margin: 40px auto; }
+.cover-kpis > div { border: 1px solid #ddd; padding: 12px; text-align: left; border-radius: 4px; }
+.cover-kpis span { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 4px; }
+.cover-kpis strong { font-size: 18px; }
+.cover-meta { font-size: 11px; color: #888; margin-top: 60px; }
+
+.phase-block { border-left: 3px solid #0891b2; padding: 8px 14px; margin-bottom: 16px; }
+.phase-meta { font-size: 11px; color: #555; margin-bottom: 8px; }
+.phase-sub { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin: 8px 0 4px; }
+.phase-kpis { font-size: 12px; margin: 8px 0; }
+.phase-note { background: #f5f5f5; padding: 6px 10px; font-size: 11px; margin-top: 8px; border-radius: 3px; }
+.campaign-block { margin: 8px 0; padding: 8px; background: #fafafa; border-radius: 3px; font-size: 12px; }
+.adset-block { margin-top: 4px; padding-left: 10px; font-size: 11px; color: #555; }
+.risk-block { padding: 8px 12px; margin-bottom: 8px; border-left: 3px solid #e0a800; background: #fffbf0; }
+
+.print-btn {
+  position: fixed; top: 16px; right: 16px;
+  background: #0891b2; color: white; border: none; padding: 10px 20px;
+  border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 100;
+}
+.print-btn:hover { background: #0e7490; }
+
+.footer-meta { text-align: center; font-size: 10px; color: #aaa; margin-top: 40px; padding-top: 16px; border-top: 1px solid #eee; }
+
+.page-break-after { page-break-after: always; }
+.page-break-before { page-break-before: always; }
+
+@media print {
+  .strategy-print { padding: 0; max-width: none; }
+  .no-print { display: none !important; }
+  @page { margin: 1.5cm; size: A4; }
+  .phase-block, .risk-block, .campaign-block { page-break-inside: avoid; }
+  h2 { page-break-after: avoid; }
+  h3 { page-break-after: avoid; }
+}

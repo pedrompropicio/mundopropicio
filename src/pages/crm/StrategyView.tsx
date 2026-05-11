@@ -6,9 +6,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
   ArrowLeft, Loader2, Brain, Copy, Check, Archive, Target, Calendar, Mic2,
-  AlertTriangle, Sparkles, ChevronDown, ChevronUp,
+  AlertTriangle, Sparkles, ChevronDown, ChevronUp, Pencil, RefreshCw, FileDown, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -54,6 +59,10 @@ export default function CrmStrategyView() {
   const [copied, setCopied] = useState(false);
   const [expandedCampaigns, setExpandedCampaigns] = useState<Record<string, boolean>>({});
   const [actionLoading, setActionLoading] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editStatus, setEditStatus] = useState<string>("draft");
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["crm-strategy", id],
@@ -137,6 +146,47 @@ export default function CrmStrategyView() {
     }
   };
 
+  const openEdit = () => {
+    if (!data) return;
+    setEditName(data.name ?? "");
+    setEditStatus(data.status ?? "draft");
+    setEditOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!data) return;
+    setActionLoading(true);
+    try {
+      const { error } = await (supabase as any).schema("crm").from("meta_campaign_strategies")
+        .update({ name: editName, status: editStatus }).eq("id", data.id);
+      if (error) throw error;
+      toast.success("Estratégia atualizada");
+      queryClient.invalidateQueries({ queryKey: ["crm-strategy", id] });
+      queryClient.invalidateQueries({ queryKey: ["crm-strategies-list"] });
+      setEditOpen(false);
+    } catch (e: any) {
+      toast.error(e?.message || "Erro a guardar");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!data) return;
+    setActionLoading(true);
+    try {
+      const { error } = await (supabase as any).schema("crm").from("meta_campaign_strategies")
+        .delete().eq("id", data.id);
+      if (error) throw error;
+      toast.success("Estratégia apagada");
+      queryClient.invalidateQueries({ queryKey: ["crm-strategies-list"] });
+      navigate("/audience/strategies");
+    } catch (e: any) {
+      toast.error(e?.message || "Erro a apagar");
+      setActionLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 text-muted-foreground text-sm">
@@ -194,17 +244,31 @@ export default function CrmStrategyView() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={openEdit}>
+            <Pencil className="h-4 w-4 mr-1.5" /> Editar
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/audience/strategies/new?from=${data.id}`)}>
+            <RefreshCw className="h-4 w-4 mr-1.5" /> Regenerar
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.open(`/audience/strategies/${data.id}/print`, "_blank")}>
+            <FileDown className="h-4 w-4 mr-1.5" /> Exportar PDF
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleCopyJson}>
+            <Copy className="h-4 w-4 mr-1.5" /> {copied ? "Copiado!" : "Copiar JSON"}
+          </Button>
           {data.status === "generated" && (
-            <Button onClick={handleApprove} disabled={actionLoading} className="bg-emerald-500 hover:bg-emerald-600 text-white">
+            <Button onClick={handleApprove} disabled={actionLoading} className="bg-emerald-500 hover:bg-emerald-600 text-white" size="sm">
               <Check className="h-4 w-4 mr-1.5" /> Aprovar
             </Button>
           )}
-          <Button variant="outline" onClick={handleCopyJson}>
-            <Copy className="h-4 w-4 mr-1.5" /> {copied ? "Copiado!" : "Copiar JSON"}
-          </Button>
           {data.status !== "archived" && (
-            <Button variant="outline" onClick={handleArchive} disabled={actionLoading}>
+            <Button variant="outline" size="sm" onClick={handleArchive} disabled={actionLoading}>
               <Archive className="h-4 w-4 mr-1.5" /> Arquivar
+            </Button>
+          )}
+          {data.status === "archived" && (
+            <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)} className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive">
+              <Trash2 className="h-4 w-4 mr-1.5" /> Apagar
             </Button>
           )}
         </div>
@@ -447,6 +511,59 @@ export default function CrmStrategyView() {
           </Button>
         </Card>
       )}
+
+      {/* Edit Modal */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar estratégia</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-name">Nome</Label>
+              <Input id="edit-name" value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-status">Status</Label>
+              <Select value={editStatus} onValueChange={setEditStatus}>
+                <SelectTrigger id="edit-status"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="draft">draft</SelectItem>
+                  <SelectItem value="generated">generated</SelectItem>
+                  <SelectItem value="approved">approved</SelectItem>
+                  <SelectItem value="in_progress">in_progress</SelectItem>
+                  <SelectItem value="completed">completed</SelectItem>
+                  <SelectItem value="archived">archived</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={actionLoading}>Cancelar</Button>
+            <Button onClick={handleSaveEdit} disabled={actionLoading || !editName.trim()}>
+              {actionLoading && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />} Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar definitivamente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tens a certeza que queres apagar definitivamente esta estratégia? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={actionLoading} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Apagar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
