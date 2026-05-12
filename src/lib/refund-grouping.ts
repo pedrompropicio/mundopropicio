@@ -53,7 +53,7 @@ export interface GroupOptions<T> {
  * Notas com 0 filhas (ausentes do array de input) NÃO são renderizadas.
  */
 export function groupTransactionsByRefund<T>(transactions: T[], opts: GroupOptions<T>): RefundRenderItem<T>[] {
-  const { getId, getNoteId, getAmount, notes } = opts;
+  const { getId, getNoteId, getAmount, notes, isPaymentTx } = opts;
 
   // Pré-cálculo: para cada noteId presente, lista de tx pela ordem original.
   const childrenByNote = new Map<string, T[]>();
@@ -88,7 +88,9 @@ export function groupTransactionsByRefund<T>(transactions: T[], opts: GroupOptio
       employeeName: null,
       status: null,
     };
-    const total = children.reduce((s, c) => s + getAmount(c), 0);
+    // Total: soma só despesas originais — exclui a tx de pagamento (espelho da soma)
+    // para não duplicar visualmente o valor da nota.
+    const total = children.reduce((s, c) => (isPaymentTx?.(c) ? s : s + getAmount(c)), 0);
     out.push({
       kind: "group-header",
       noteId,
