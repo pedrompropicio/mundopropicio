@@ -348,7 +348,44 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
 
   const rationale: string = String(plan.redesign_rationale ?? "").slice(0, 4000);
 
-  // 7) Persistir nova strategy
+  // 7) Validar e enforce constraints (sobrescreve se IA desviou >5%)
+  const constraintViolations: string[] = [];
+  if (effDailyCents != null) {
+    const expectedEur = effDailyCents / 100;
+    const sumDaily = (plan?.recommended_campaigns ?? []).reduce(
+      (s: number, c: any) => s + (Number(c?.daily_budget_eur) || 0), 0,
+    );
+    if (sumDaily > 0 && Math.abs(sumDaily - expectedEur) / expectedEur > 0.05) {
+      constraintViolations.push(`daily_budget desvio: AI=${sumDaily.toFixed(2)}€ vs constraint=${expectedEur.toFixed(2)}€`);
+      // sobrescreve plan.summary
+      if (plan.summary) plan.summary.recommended_total_budget_eur = expectedEur * (Number(plan?.summary?.expected_duration_days) || 30);
+      // re-escala adsets proporcionalmente
+      if (sumDaily > 0) {
+        const scale = expectedEur / sumDaily;
+        for (const c of plan.recommended_campaigns ?? []) {
+          if (typeof c.daily_budget_eur === "number") c.daily_budget_eur = +(c.daily_budget_eur * scale).toFixed(2);
+        }
+      }
+    }
+  }
+  if (effRoasFloor != null) {
+    for (const phase of plan?.phases ?? []) {
+      if (phase?.target_kpis && (phase.target_kpis.roas_min == null || phase.target_kpis.roas_min < effRoasFloor)) {
+        phase.target_kpis.roas_min = effRoasFloor;
+      }
+    }
+  }
+
+  const appliedConstraints = {
+    keep_original_budget: keepOriginal,
+    daily_budget_cents: effDailyCents,
+    lifetime_budget_cents: effLifetimeCents,
+    roas_floor: effRoasFloor,
+    end_time: effEndTime,
+    violations_corrected: constraintViolations,
+  };
+
+  // 8) Persistir nova strategy
   const stratName = `Re-design — ${campaign.name}`.slice(0, 200);
   const adAccountId = campaign.ad_account_id?.startsWith("act_") ? campaign.ad_account_id : `act_${campaign.ad_account_id}`;
 
@@ -376,6 +413,7 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       source_campaign_id: campaign.external_campaign_id,
       source_diagnosis_id: diagnosisId,
       redesign_rationale: rationale,
+      applied_constraints: appliedConstraints,
       created_by: userId,
     })
     .select("id").single();
