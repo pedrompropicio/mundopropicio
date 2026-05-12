@@ -3,7 +3,7 @@
 
 const STORAGE_KEY = "audience-print-data";
 
-function openPrintPage(type: "pixel-health" | "campaign-analysis" | "audience-coach", payload: any) {
+function openPrintPage(type: "pixel-health" | "campaign-analysis" | "audience-coach" | "audit-report", payload: any) {
   const data = { type, payload, ts: Date.now() };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
