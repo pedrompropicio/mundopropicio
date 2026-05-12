@@ -27,8 +27,10 @@ export type RefundRenderItem<T> =
       employeeName: string | null;
       status: string | null;
       childCount: number;
+      totalChildCount: number;
       total: number;
       childIds: string[];
+      children: T[];
     }
   | { kind: "group-child"; tx: T; noteId: string };
 
@@ -46,6 +48,11 @@ export interface GroupOptions<T> {
    * total agregado para evitar duplicação (a saída espelha a soma das despesas originais).
    */
   isPaymentTx?: (tx: T) => boolean;
+  /**
+   * Devolve o número total absoluto de filhas da nota (independente de filtros).
+   * Quando ausente, totalChildCount = childCount visível.
+   */
+  getTotalChildCount?: (noteId: string) => number;
 }
 
 /**
@@ -53,7 +60,7 @@ export interface GroupOptions<T> {
  * Notas com 0 filhas (ausentes do array de input) NÃO são renderizadas.
  */
 export function groupTransactionsByRefund<T>(transactions: T[], opts: GroupOptions<T>): RefundRenderItem<T>[] {
-  const { getId, getNoteId, getAmount, notes, isPaymentTx } = opts;
+  const { getId, getNoteId, getAmount, notes, isPaymentTx, getTotalChildCount } = opts;
 
   // Pré-cálculo: para cada noteId presente, lista de tx pela ordem original.
   const childrenByNote = new Map<string, T[]>();
@@ -75,12 +82,11 @@ export function groupTransactionsByRefund<T>(transactions: T[], opts: GroupOptio
       continue;
     }
     if (emittedNotes.has(noteId)) {
-      // Já emitida — não duplicar (filha já foi colocada após o header).
       continue;
     }
     emittedNotes.add(noteId);
     const children = childrenByNote.get(noteId) ?? [];
-    if (children.length === 0) continue; // defensivo
+    if (children.length === 0) continue;
 
     const summary = notes.get(noteId) ?? {
       noteId,
@@ -88,18 +94,20 @@ export function groupTransactionsByRefund<T>(transactions: T[], opts: GroupOptio
       employeeName: null,
       status: null,
     };
-    // Total: soma só despesas originais — exclui a tx de pagamento (espelho da soma)
-    // para não duplicar visualmente o valor da nota.
     const total = children.reduce((s, c) => (isPaymentTx?.(c) ? s : s + getAmount(c)), 0);
+    const visibleCount = children.length;
+    const totalAbs = getTotalChildCount?.(noteId) ?? visibleCount;
     out.push({
       kind: "group-header",
       noteId,
       code: summary.code,
       employeeName: summary.employeeName,
       status: summary.status,
-      childCount: children.length,
+      childCount: visibleCount,
+      totalChildCount: Math.max(totalAbs, visibleCount),
       total,
       childIds: children.map(getId),
+      children,
     });
     for (const child of children) {
       out.push({ kind: "group-child", tx: child, noteId });
