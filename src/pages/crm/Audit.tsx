@@ -9,7 +9,7 @@ import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
 import { printAuditReport } from "@/lib/audience-pdf";
 import { cn } from "@/lib/utils";
 
-type AuditContext = { type: "event" | "campaign" | "landing"; id: string };
+type AuditContext = { type: "event" | "campaign" | "landing" | "pixel"; id: string };
 
 
 function statusForMetric(metric: string, v: number | null | undefined): "good" | "warn" | "bad" | "unknown" {
@@ -80,7 +80,7 @@ export default function CrmAudit() {
 
   const ctx: AuditContext | null = useMemo(() => {
     if (!contextType) return null;
-    if (!["event", "campaign", "landing"].includes(contextType)) return null;
+    if (!["event", "campaign", "landing", "pixel"].includes(contextType)) return null;
     return { type: contextType as any, id: contextId ?? "" };
   }, [contextType, contextId]);
 
@@ -170,13 +170,60 @@ export default function CrmAudit() {
             campaignName: camps?.[0]?.name,
             landingUrls: Array.from(urls).slice(0, 10),
           });
+        } else if (ctx.type === "pixel") {
+          // Resolve pixel via crm-meta-pixel-health, then find landing URLs from ads with matching tracking_specs
+          let pixelName = "Pixel";
+          if (active?.connection_id && active?.ad_account_id) {
+            try {
+              const { data: ph } = await supabase.functions.invoke("crm-meta-pixel-health", {
+                body: { connection_id: active.connection_id, ad_account_id: active.ad_account_id },
+              });
+              const all = [...(ph?.all_pixels ?? []), ...(ph?.pixels_used_in_active_campaigns ?? [])];
+              const found = all.find((p: any) => String(p.id) === String(ctx.id));
+              if (found?.name) pixelName = found.name;
+            } catch { /* ignore */ }
+          }
+
+          const urls = new Set<string>();
+          if (active?.ad_account_id) {
+            const { data: ads } = await (supabase as any).schema("crm").from("meta_ad_snapshot")
+              .select("meta_creative_id, tracking_specs")
+              .eq("ad_account_id", active.ad_account_id);
+            const matchingCreatives = new Set<string>();
+            for (const a of ads ?? []) {
+              const ts = a.tracking_specs;
+              if (!ts) continue;
+              const json = JSON.stringify(ts);
+              if (json.includes(`"${ctx.id}"`) && a.meta_creative_id) {
+                matchingCreatives.add(a.meta_creative_id);
+              }
+            }
+            if (matchingCreatives.size) {
+              const { data: crs } = await (supabase as any).schema("crm").from("meta_creatives")
+                .select("link_url").in("meta_creative_id", Array.from(matchingCreatives));
+              for (const c of crs ?? []) if (c.link_url) urls.add(String(c.link_url));
+            }
+            // Fallback: top URLs across ad_account if no match
+            if (urls.size === 0) {
+              const creativeIds = Array.from(new Set((ads ?? []).map((a: any) => a.meta_creative_id).filter(Boolean)));
+              if (creativeIds.length) {
+                const { data: crs } = await (supabase as any).schema("crm").from("meta_creatives")
+                  .select("link_url").in("meta_creative_id", creativeIds.slice(0, 200));
+                for (const c of crs ?? []) if (c.link_url) urls.add(String(c.link_url));
+              }
+            }
+          }
+          setContextInfo({
+            title: `Pixel: ${pixelName}`,
+            landingUrls: Array.from(urls).slice(0, 5),
+          });
         }
       } finally {
         if (!cancelled) setResolving(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [ctx?.type, ctx?.id]);
+  }, [ctx?.type, ctx?.id, active?.connection_id, active?.ad_account_id]);
 
   // ── Trigger audits
   const auditLanding = useCallback(async (url: string) => {
@@ -328,7 +375,14 @@ export default function CrmAudit() {
         </div>
       </div>
 
-      {/* AI Verdict */}
+      {ctx.type === "landing" && contextInfo.landingUrls.length === 0 && !contextInfo.campaignId && !resolving && (
+        <Card className="p-3 border-cyan-500/30 bg-cyan-500/5">
+          <p className="text-xs text-cyan-200">
+            ℹ️ Auditoria geral do ad account. Para análise focada, entra pela página de uma campanha ou clica num pixel específico.
+          </p>
+        </Card>
+      )}
+
       <Card className="p-5">
         <div className="flex items-center gap-2 mb-3">
           <Activity className="h-4 w-4 text-amber-400" />
