@@ -451,3 +451,209 @@ function AudienceCoachView({ coachData }: { coachData: any }) {
     </>
   );
 }
+
+function metricStatus(metric: string, v: number | null | undefined): { label: string; color: string; benchmark: string } {
+  if (v == null) return { label: "—", color: "#6b7280", benchmark: "—" };
+  const ok = "#059669", warn = "#d97706", bad = "#dc2626";
+  switch (metric) {
+    case "lcp_ms": return { label: v <= 2500 ? "OK" : v <= 4000 ? "Atenção" : "Crítico", color: v <= 2500 ? ok : v <= 4000 ? warn : bad, benchmark: "<2500ms" };
+    case "fcp_ms": return { label: v <= 1800 ? "OK" : v <= 3000 ? "Atenção" : "Crítico", color: v <= 1800 ? ok : v <= 3000 ? warn : bad, benchmark: "<1800ms" };
+    case "tbt_ms": return { label: v <= 200 ? "OK" : v <= 600 ? "Atenção" : "Crítico", color: v <= 200 ? ok : v <= 600 ? warn : bad, benchmark: "<200ms" };
+    case "tti_ms": return { label: v <= 3800 ? "OK" : v <= 7300 ? "Atenção" : "Crítico", color: v <= 3800 ? ok : v <= 7300 ? warn : bad, benchmark: "<3800ms" };
+    case "ttfb_ms": return { label: v <= 600 ? "OK" : v <= 1500 ? "Atenção" : "Crítico", color: v <= 600 ? ok : v <= 1500 ? warn : bad, benchmark: "<600ms" };
+    case "cls": return { label: v <= 0.1 ? "OK" : v <= 0.25 ? "Atenção" : "Crítico", color: v <= 0.1 ? ok : v <= 0.25 ? warn : bad, benchmark: "<0.1" };
+    case "si_ms": return { label: "—", color: "#6b7280", benchmark: "<3400ms" };
+  }
+  return { label: "—", color: "#6b7280", benchmark: "—" };
+}
+
+function lpvCellColor(pct: number | null | undefined): string {
+  if (pct == null) return "transparent";
+  if (pct >= 80) return "#d1fae5";
+  if (pct >= 60) return "#fef3c7";
+  return "#fee2e2";
+}
+
+function AuditReportView({ context, generated_at, verdict, landing, funnel, pixel }: any) {
+  const sevBadge = (s: string) => {
+    if (s === "healthy") return "success";
+    if (s === "landing" || s === "mixed") return "warn";
+    return "danger";
+  };
+  return (
+    <>
+      <h1>Auditoria técnica — {context.title}</h1>
+      <p className="subtitle">
+        {context.eventName ? `Evento: ${context.eventName} · ` : ""}
+        {context.campaignName ? `Campanha: ${context.campaignName} · ` : ""}
+        Gerado em {new Date(generated_at).toLocaleString("pt-PT")}
+      </p>
+
+      {verdict && (
+        <>
+          <h2>Veredicto IA</h2>
+          <div className={`card ${sevBadge(verdict.verdict_severity)}`}>
+            <div className="row" style={{ marginBottom: 6 }}>
+              <span className={`badge ${sevBadge(verdict.verdict_severity)}`}>{verdict.verdict_severity}</span>
+              <span className="meta">Confiança: {verdict.confidence}</span>
+            </div>
+            <p>{verdict.summary_pt}</p>
+            {Array.isArray(verdict.evidence) && verdict.evidence.length > 0 && (
+              <>
+                <h3>Evidência</h3>
+                <ul>
+                  {verdict.evidence.map((e: any, i: number) => (
+                    <li key={i}>
+                      <span className="mono">{e.status === "good" ? "✓" : e.status === "warning" ? "⚠" : "✕"}</span>{" "}
+                      <strong>{e.metric}:</strong> {String(e.value)} <span className="meta">(benchmark: {e.benchmark})</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {Array.isArray(verdict.actions) && verdict.actions.length > 0 && (
+              <>
+                <h3>Ações priorizadas</h3>
+                <ol>
+                  {verdict.actions.map((a: any, i: number) => (
+                    <li key={i} style={{ marginBottom: 4 }}>
+                      <span className={`badge ${a.priority === "high" ? "danger" : a.priority === "medium" ? "warn" : "success"}`}>{a.priority}</span>{" "}
+                      <span className="badge info">{a.target}</span>{" "}
+                      {a.action}
+                      {a.expected_impact && <div className="meta" style={{ marginTop: 2 }}>→ {a.expected_impact}</div>}
+                    </li>
+                  ))}
+                </ol>
+              </>
+            )}
+          </div>
+        </>
+      )}
+
+      {Array.isArray(landing) && landing.length > 0 && (
+        <>
+          <h2>Landing Performance</h2>
+          {landing.map((l: any, i: number) => {
+            const s = l.scores ?? {};
+            const m = l.metrics ?? {};
+            return (
+              <div key={i} className="card">
+                <div className="mono" style={{ fontSize: "9pt", marginBottom: 6 }}>{l.url} · {l.strategy}</div>
+                <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
+                  <thead>
+                    <tr style={{ background: "#f3f4f6" }}>
+                      <th style={{ padding: 4, textAlign: "left" }}>Performance</th>
+                      <th style={{ padding: 4, textAlign: "left" }}>Acessibilidade</th>
+                      <th style={{ padding: 4, textAlign: "left" }}>SEO</th>
+                      <th style={{ padding: 4, textAlign: "left" }}>Best Practices</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style={{ padding: 4 }}>{s.performance ?? "—"}</td>
+                      <td style={{ padding: 4 }}>{s.accessibility ?? "—"}</td>
+                      <td style={{ padding: 4 }}>{s.seo ?? "—"}</td>
+                      <td style={{ padding: 4 }}>{s.best_practices ?? "—"}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ background: "#f3f4f6" }}>
+                      <th style={{ padding: 4, textAlign: "left" }}>Métrica</th>
+                      <th style={{ padding: 4, textAlign: "right" }}>Valor</th>
+                      <th style={{ padding: 4, textAlign: "left" }}>Benchmark</th>
+                      <th style={{ padding: 4, textAlign: "left" }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      ["LCP", "lcp_ms", m.lcp_ms, "ms"],
+                      ["FCP", "fcp_ms", m.fcp_ms, "ms"],
+                      ["TBT", "tbt_ms", m.tbt_ms, "ms"],
+                      ["TTI", "tti_ms", m.tti_ms, "ms"],
+                      ["SI", "si_ms", m.si_ms, "ms"],
+                      ["TTFB", "ttfb_ms", m.ttfb_ms, "ms"],
+                      ["CLS", "cls", m.cls, ""],
+                    ].map(([lab, key, val, suf]: any) => {
+                      const st = metricStatus(key, val);
+                      return (
+                        <tr key={key} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                          <td style={{ padding: 4 }}>{lab}</td>
+                          <td style={{ padding: 4, textAlign: "right" }} className="mono">{val ?? "—"}{val != null && suf ? suf : ""}</td>
+                          <td style={{ padding: 4 }} className="meta">{st.benchmark}</td>
+                          <td style={{ padding: 4, color: st.color, fontWeight: 600 }}>{st.label}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {l.audited_at && <div className="meta" style={{ marginTop: 4 }}>Auditado em {new Date(l.audited_at).toLocaleString("pt-PT")}</div>}
+              </div>
+            );
+          })}
+        </>
+      )}
+
+      {funnel && (funnel.placement || funnel.device || funnel.platform) && (
+        <>
+          <h2>Funnel Breakdown (30 dias)</h2>
+          {(["placement", "device", "platform"] as const).map(b => {
+            const data = funnel[b];
+            if (!data?.rows?.length) return null;
+            return (
+              <div key={b} style={{ marginBottom: 12 }}>
+                <h3 style={{ textTransform: "capitalize" }}>{b}</h3>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9pt" }}>
+                  <thead>
+                    <tr style={{ background: "#f3f4f6" }}>
+                      <th style={{ padding: 3, textAlign: "left" }}>Categoria</th>
+                      <th style={{ padding: 3, textAlign: "right" }}>Spend</th>
+                      <th style={{ padding: 3, textAlign: "right" }}>Clicks</th>
+                      <th style={{ padding: 3, textAlign: "right" }}>LPV</th>
+                      <th style={{ padding: 3, textAlign: "right" }}>ATC</th>
+                      <th style={{ padding: 3, textAlign: "right" }}>IC</th>
+                      <th style={{ padding: 3, textAlign: "right" }}>Purch</th>
+                      <th style={{ padding: 3, textAlign: "right" }}>LPV/Click</th>
+                      <th style={{ padding: 3, textAlign: "right" }}>Purch/Click</th>
+                      <th style={{ padding: 3, textAlign: "right" }}>ROAS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.rows.slice(0, 30).map((r: any, i: number) => (
+                      <tr key={i} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                        <td style={{ padding: 3 }}>{r.label}</td>
+                        <td style={{ padding: 3, textAlign: "right" }} className="mono">€{r.spend_eur}</td>
+                        <td style={{ padding: 3, textAlign: "right" }} className="mono">{r.link_clicks}</td>
+                        <td style={{ padding: 3, textAlign: "right" }} className="mono">{r.lpv}</td>
+                        <td style={{ padding: 3, textAlign: "right" }} className="mono">{r.atc}</td>
+                        <td style={{ padding: 3, textAlign: "right" }} className="mono">{r.ic}</td>
+                        <td style={{ padding: 3, textAlign: "right" }} className="mono">{r.purchases}</td>
+                        <td style={{ padding: 3, textAlign: "right", background: lpvCellColor(r.rates?.lpv_per_click_pct) }} className="mono">
+                          {r.rates?.lpv_per_click_pct ?? "—"}%
+                        </td>
+                        <td style={{ padding: 3, textAlign: "right" }} className="mono">{r.rates?.overall_funnel_conversion_pct ?? "—"}%</td>
+                        <td style={{ padding: 3, textAlign: "right" }} className="mono">{r.rates?.roas ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {data.rows.length > 30 && <div className="meta">… {data.rows.length - 30} linhas adicionais omitidas</div>}
+              </div>
+            );
+          })}
+        </>
+      )}
+
+      {pixel && (
+        <>
+          <h2>Pixel Health</h2>
+          <div className="card">
+            <p>{pixel.counts?.used ?? 0} pixel(s) em uso de {pixel.counts?.total ?? 0}.</p>
+            <p className="meta">Para análise detalhada por pixel, consultar a página Pixel Health da plataforma.</p>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
