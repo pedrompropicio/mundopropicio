@@ -395,6 +395,51 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
 
   const rationale: string = String(plan.redesign_rationale ?? "").slice(0, 4000);
 
+  // 7.0) Anexar criativos herdados (mesmo que IA não tenha referenciado) + sanitizar ads
+  plan.inherited_creatives = inheritedCreatives.map((c) => ({
+    meta_creative_id: c.meta_creative_id,
+    ad_name: c.ad_name,
+    library_id: c.library?.id ?? null,
+    name: c.library?.name ?? c.ad_name ?? null,
+    type: c.library?.type ?? null,
+    file_url: c.library?.file_url ?? null,
+    headline: c.library?.headline ?? null,
+  }));
+  const validInheritedSet = new Set(inheritedCreatives.map((c) => c.meta_creative_id));
+  let inheritedAdsCount = 0;
+  for (const c of plan?.recommended_campaigns ?? []) {
+    for (const a of c?.adsets ?? []) {
+      if (!Array.isArray(a.ads)) continue;
+      a.ads = a.ads.map((ad: any) => {
+        const hasExisting = typeof ad?.existing_creative_id === "string" && validInheritedSet.has(ad.existing_creative_id);
+        const hasBrief = ad?.creative_brief && typeof ad.creative_brief === "object";
+        if (hasExisting && hasBrief) {
+          // mutuamente exclusivo — preferir existing
+          delete ad.creative_brief;
+        }
+        if (hasExisting) inheritedAdsCount++;
+        if (!hasExisting && typeof ad?.existing_creative_id === "string") {
+          // referência inválida — descartar
+          delete ad.existing_creative_id;
+        }
+        return ad;
+      });
+    }
+  }
+  // Fallback: se há herdados mas IA não usou nenhum, distribui um ad por adset com o 1º herdado
+  if (inheritedCreatives.length > 0 && inheritedAdsCount === 0) {
+    const fallbackId = inheritedCreatives[0].meta_creative_id;
+    for (const c of plan?.recommended_campaigns ?? []) {
+      for (const a of c?.adsets ?? []) {
+        if (!Array.isArray(a.ads) || a.ads.length === 0) {
+          a.ads = inheritedCreatives.map((ic) => ({ existing_creative_id: ic.meta_creative_id }));
+        }
+      }
+    }
+    console.log("[redesign] fallback: aplicado", fallbackId, "a todos os adsets vazios");
+  }
+
+
   // 7) Validar e enforce constraints (sobrescreve se IA desviou >5%)
   const constraintViolations: string[] = [];
   if (effDailyCents != null) {
