@@ -896,6 +896,105 @@ export default function Transactions() {
   const editingTransaction = transactions.find((t) => t.id === editingId);
   const paymentTransaction = transactions.find((t) => t.id === showPaymentId);
 
+  // Auto-expand notas quando há pesquisa activa: qualquer nota cujas filhas matcham é aberta.
+  const searchAutoExpanded = useMemo(() => {
+    if (!consolidateRefunds) return new Set<string>();
+    if (!searchTerm.trim()) return new Set<string>();
+    const set = new Set<string>();
+    const collect = (arr: any[]) => {
+      for (const t of arr) {
+        const noteId = refundIndex.byTx.get(t.id);
+        if (noteId) set.add(noteId);
+      }
+    };
+    collect(filtered);
+    collect(paidTransactions);
+    return set;
+  }, [consolidateRefunds, searchTerm, filtered, paidTransactions, refundIndex]);
+
+  const isNoteExpanded = (noteId: string) => expandedNotes.has(noteId) || searchAutoExpanded.has(noteId);
+
+  // Helper para renderizar transações com suporte a consolidação de reembolsos.
+  const renderTransactionList = (
+    items: any[],
+    opts: { showPaymentDate?: boolean; colSpan: number },
+  ): React.ReactNode => {
+    const rowFor = (t: any) => (
+      <TransactionRow
+        key={t.id}
+        transaction={t}
+        isAdmin={canApprove}
+        selectable={canApprove && (t.status === "pending" || t.status === "approved")}
+        selected={selectedIds.has(t.id)}
+        onToggleSelect={() => toggleSelect(t.id)}
+        showSelectColumn={hasSelectableItems}
+        eventCompleted={(t.events as any)?.status === "completed"}
+        showPaymentDate={opts.showPaymentDate}
+        onEdit={(id) => setEditingId(id)}
+        onApprove={(id) => approveMutation.mutate(id)}
+        onPayment={(id) => setShowPaymentId(id)}
+        onDocs={(id) => setShowDocsId(id)}
+        onAudit={(id) => setShowAuditId(id)}
+        onDelete={(id) => handleDeleteRequest(id)}
+        onToggleHidden={isAdmin ? handleToggleHidden : undefined}
+        onViewPayments={(id) => setShowPaymentsListId(id)}
+        highlightId={highlightId}
+      />
+    );
+
+    if (!consolidateRefunds) {
+      return items.map((t) => rowFor(t));
+    }
+
+    const grouped: RefundRenderItem<any>[] = groupTransactionsByRefund(items, {
+      getId: (t: any) => t.id,
+      getNoteId: (t: any) => refundIndex.byTx.get(t.id) ?? null,
+      getAmount: (t: any) => Number(t.amount ?? 0),
+      notes: refundIndex.notes,
+    });
+
+    const out: React.ReactNode[] = [];
+    for (const item of grouped) {
+      if (item.kind === "tx") {
+        out.push(rowFor(item.tx));
+      } else if (item.kind === "group-header") {
+        const expanded = isNoteExpanded(item.noteId);
+        const label = item.code ?? "Nota de reembolso";
+        const employee = item.employeeName ?? "—";
+        out.push(
+          <tr
+            key={`refund-header-${item.noteId}`}
+            className="border-b border-border/40 bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors"
+            onClick={() => toggleNoteExpanded(item.noteId)}
+          >
+            <td colSpan={opts.colSpan} className="px-2 py-2">
+              <div className="flex items-center gap-2 text-xs">
+                {expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                <Receipt className="h-3.5 w-3.5 text-primary" />
+                <span className="font-semibold">{label}</span>
+                <span className="text-muted-foreground">— {employee}</span>
+                <Badge variant="secondary" className="ml-1 text-[10px]">
+                  {item.childCount} item{item.childCount === 1 ? "" : "s"}
+                </Badge>
+                {item.status && (
+                  <Badge variant="outline" className="text-[10px] capitalize">
+                    {item.status}
+                  </Badge>
+                )}
+                <span className="ml-auto font-mono text-foreground">{formatCurrency(item.total)}</span>
+              </div>
+            </td>
+          </tr>,
+        );
+      } else if (item.kind === "group-child") {
+        if (isNoteExpanded(item.noteId)) {
+          out.push(rowFor(item.tx));
+        }
+      }
+    }
+    return out;
+  };
+
   return (
     <div className="space-y-6">
       {/* Header: title + action buttons */}
