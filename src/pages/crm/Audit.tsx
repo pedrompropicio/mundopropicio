@@ -80,7 +80,7 @@ export default function CrmAudit() {
 
   const ctx: AuditContext | null = useMemo(() => {
     if (!contextType) return null;
-    if (!["event", "campaign", "landing"].includes(contextType)) return null;
+    if (!["event", "campaign", "landing", "pixel"].includes(contextType)) return null;
     return { type: contextType as any, id: contextId ?? "" };
   }, [contextType, contextId]);
 
