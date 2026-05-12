@@ -70,6 +70,7 @@ interface CampaignRow {
   last_synced_at: string;
   linked_event_id: string | null;
   currency: string | null;
+  bid_strategy: string | null;
 }
 
 interface InsightRow {
