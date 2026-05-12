@@ -918,7 +918,7 @@ export default function Transactions() {
   const renderTransactionList = (
     items: any[],
     opts: { showPaymentDate?: boolean; colSpan: number },
-  ): React.ReactNode => {
+  ): ReactNode => {
     const rowFor = (t: any) => (
       <TransactionRow
         key={t.id}
@@ -953,7 +953,7 @@ export default function Transactions() {
       notes: refundIndex.notes,
     });
 
-    const out: React.ReactNode[] = [];
+    const out: ReactNode[] = [];
     for (const item of grouped) {
       if (item.kind === "tx") {
         out.push(rowFor(item.tx));
