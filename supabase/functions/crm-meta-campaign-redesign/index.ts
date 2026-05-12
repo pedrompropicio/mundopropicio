@@ -145,6 +145,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .eq("external_campaign_id", campaignId);
   const adsetIds: string[] = (adsets ?? []).map((a: any) => a.external_adset_id);
 
+  // 3.1) Criativos herdados — reaproveitar por defeito
+  const { data: ads } = await (supabase as any)
+    .schema("crm").from("meta_ad_snapshot")
+    .select("meta_creative_id, name, effective_status")
+    .eq("external_campaign_id", campaignId)
+    .in("effective_status", ["ACTIVE", "PAUSED"])
+    .not("meta_creative_id", "is", null);
+  const inheritedMap = new Map<string, { meta_creative_id: string; ad_name: string | null; library: any | null }>();
+  for (const a of ads ?? []) {
+    if (!a.meta_creative_id) continue;
+    if (!inheritedMap.has(a.meta_creative_id)) {
+      inheritedMap.set(a.meta_creative_id, { meta_creative_id: a.meta_creative_id, ad_name: a.name ?? null, library: null });
+    }
+  }
+  const inheritedIds = [...inheritedMap.keys()];
+  if (inheritedIds.length > 0) {
+    const { data: lib } = await (supabase as any)
+      .schema("crm").from("meta_creatives")
+      .select("id, name, type, file_url, headline, body, meta_creative_id")
+      .in("meta_creative_id", inheritedIds);
+    for (const c of lib ?? []) {
+      const slot = inheritedMap.get(c.meta_creative_id);
+      if (slot) slot.library = c;
+    }
+  }
+  const inheritedCreatives = [...inheritedMap.values()];
+
   // 4) Evento + ticket avg
   let eventCtx: { id?: string; name?: string; date?: string; daysUntil?: number | null; tickets_total?: number | null; location?: string | null } = {};
   if (campaign.linked_event_id) {
