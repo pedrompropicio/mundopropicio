@@ -223,7 +223,7 @@ export default function CrmAudit() {
       }
     })();
     return () => { cancelled = true; };
-  }, [ctx?.type, ctx?.id]);
+  }, [ctx?.type, ctx?.id, active?.connection_id, active?.ad_account_id]);
 
   // ── Trigger audits
   const auditLanding = useCallback(async (url: string) => {
