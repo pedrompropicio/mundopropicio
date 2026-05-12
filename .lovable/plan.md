@@ -1,107 +1,85 @@
+## ⚠️ Ambiguidades a confirmar antes de codar
 
-# Inventário CRM-Meta — estado atual
+1. **"Conta mãe / contas filhas" em reembolsos** — no schema actual **não existe transação "mãe" gerada pela nota**. O modelo é:
+   - `reimbursement_notes` (a nota R-XXX)
+   - `reimbursement_note_items` → aponta para as `transactions` originais (despesas pagas pelo funcionário)
+   - Não há `parent_transaction_id` nas transações de reembolso
+   
+   **Hipótese de trabalho:** "mãe" = a **nota de reembolso** (linha sintética agregadora R-XXX) e "filhas" = as transações com `reimbursement_note_id` via items. O toggle ON renderiza **uma linha sintética por nota** (não vinda de `transactions`) com badge "N itens", expandível para mostrar as transações reais. Confirma?
 
-## 1. Edge functions `crm-meta-*` (15)
+2. **Onde fica o toggle?** O briefing diz "Modal Notas de Reembolso", mas o toggle afecta a listagem `/transacoes`. **Hipótese:** colocar no header de `/transacoes` (junto aos filtros), não na página `/reembolsos`. Confirma?
 
-**OAuth & ligação**
-- `crm-meta-oauth-callback` — redirect handler do OAuth Meta; troca code → token long-lived, regista BMs.
-- `crm-meta-fetch-ad-accounts` — `{connection_id}` → lê `/me/adaccounts`, persiste em `ad_platform_connections` + sincroniza `ad_platform_account_links`.
-- `crm-meta-fetch-pages` — `{connection_id}` → Pages do user + IG business account associado.
-- `crm-meta-pixel-health` — `{connection_id, ad_account_id}` → estado dos pixels da conta (eventos, last fired).
-
-**Sync de dados Meta → DB**
-- `crm-meta-sync-campaigns` — `{connection_id, ad_account_id}` → GET `/act_X/campaigns` e UPSERT em `meta_campaign_snapshot`. Faz auto-link a eventos.
-- `crm-meta-sync-insights` — `{connection_id, ad_account_id, days_back?}` → GET `/insights` por campanha por dia, UPSERT em `meta_campaign_insights_daily` (omni_purchase, ROAS, CPM, CTR, frequency, etc.).
-
-**Análise / IA (read-only)**
-- `crm-meta-campaign-analyze` — `{campaign_id, from?, to?, days_back?}` → lê `meta_campaign_snapshot` + `meta_campaign_insights_daily` da BD e devolve análise IA (não persiste). Já foi corrigido o off-by-one hoje.
-- `crm-meta-creative-analyze` — `{creative_id}` → análise IA de imagem (Lovable Gateway) ou vídeo (Gemini direto); persiste em `meta_creatives.analysis_jsonb`.
-- `crm-meta-audience-blueprints` — `{connection_id, ad_account_id, min_roas?, days_back?}` → top campanhas por ROAS + summarize de targeting de cada adset (read-only do Meta).
-- `crm-meta-audience-coach` — chama `/adsets`, `/insights`, `/search` para sugestões de audiência (read-only).
-- `crm-meta-interest-search` — `{query}` → wrapper Graph `/search` (interesses) + `reachestimate`.
-- `crm-meta-list-custom-audiences` — `{ad_account_id}` → custom audiences da conta.
-
-**Geração / deploy de estratégias**
-- `crm-meta-campaign-strategy-generate` — gera plano completo via Lovable AI (Gemini 2.5 Flash) e persiste em `meta_campaign_strategies` com `status='generated'`.
-- `crm-meta-strategy-deploy` — `{strategy_id}` → cria Campaigns + AdSets + AdCreatives + Ads no Meta via Marketing API, **tudo PAUSED**. Persiste em `meta_campaign_strategy_deployments`.
-- `crm-meta-deployment-toggle` — `{deployment_id, target_status}` → muda estado (ACTIVE/PAUSED) de tudo o que foi deployado, com toggle_log.
-
-## 2. Tabelas do schema `crm` (Live)
-
-| Tabela | Cols | Pol | Foco |
-|---|---|---|---|
-| `ad_manager_audit_log` (+ partições 2026_05/06/07) | 11 | 2 | (auditoria — fora de scope) |
-| `ad_platform_connections` | 21 | 4 | OAuth tokens cifrados, ad accounts disponíveis |
-| `ad_platform_account_links` | 11 | 2 | Liga connection ↔ ad_account, primary/enabled |
-| `meta_campaign_snapshot` | 23 | 4 | **Campanhas sincronizadas** |
-| `meta_campaign_insights_daily` | 31 | 4 | **Insights diários por campanha** |
-| `meta_campaign_strategies` | 27 | 4 | Estratégias geradas pela IA |
-| `meta_campaign_strategy_deployments` | 19 | 4 | Resultado do deploy ao Meta |
-| `meta_creatives` | 27 | 5 | Criativos (imagem/vídeo) + análise IA |
-| `meta_strategy_creatives` | 8 | 5 | Bridge strategy ↔ creative |
-| `oauth_states`, `role_budget_limits` | — | — | (fora de scope) |
-
-**Colunas relevantes:**
-
-- `meta_campaign_snapshot`: `external_campaign_id`, `name`, `status`, `effective_status`, `objective`, `daily_budget_cents`, `lifetime_budget_cents`, `budget_remaining_cents`, `start_time`, `stop_time`, `buying_type`, `bid_strategy`, `linked_event_id`, `currency`, `raw` (jsonb completo), `last_synced_at`.
-- `meta_campaign_insights_daily`: `external_campaign_id`, `date_start`/`date_stop`, `impressions`, `reach`, `frequency`, `clicks`, `unique_clicks`, `spend_cents`, `cpc/cpm/cpp_cents`, `ctr`, `unique_ctr`, `purchases_count`, `purchases_value_cents`, `leads_count`, `add_to_cart_count`, `initiate_checkout_count`, `view_content_count`, `roas`, `actions/action_values/raw` (jsonb).
-- `meta_campaign_strategies`: ~27 colunas — input do utilizador, `generated_plan` (jsonb), `status` (`generated`/...), `connection_id`, `ad_account_id`, `company_id`.
-- `meta_campaign_strategy_deployments`: liga strategy ↔ IDs reais criados no Meta, `current_status`, `toggle_log`.
-
-**Não existe** tabela para adsets nem ads sincronizados (snapshot é só ao nível campanha).
-
-## 3. Já lemos campanhas Meta?
-
-Sim — várias funções batem na Marketing API:
-
-- **Listar campanhas de um ad_account:** `crm-meta-sync-campaigns` (persistente, `meta_campaign_snapshot`) e `crm-meta-pixel-health`/`crm-meta-campaign-strategy-generate` (efémero, só leitura).
-- **Listar adsets de uma campanha:** sim, mas só **em memória** dentro de `crm-meta-audience-blueprints`, `crm-meta-audience-coach` e `crm-meta-campaign-strategy-generate`. **Não persiste em DB.**
-- **Listar ads de um adset:** **não existe**. Só são criados via `crm-meta-strategy-deploy`. Não há sync.
-- **Insights:** `crm-meta-sync-insights` puxa **só ao nível campanha** (não adset, não ad), com `time_increment=1`, métricas completas (CPM, CPA via purchases, CTR, ROAS, frequency, impressions, reach, leads, ATC, IC, VC). Persiste em `meta_campaign_insights_daily`.
-- **Cron:** não verifiquei agendamento, mas `last_synced_at` sugere que o sync corre on-demand (botão "Sincronizar" no dashboard).
-
-## 4. Frontend (`src/pages/crm/`)
-
-| Página | Rota | Acção |
-|---|---|---|
-| `Connections.tsx` | `/audience/connections` | Conectar Meta (OAuth), gerir ad accounts |
-| `AdAccounts.tsx`, `Pixels.tsx`, `Setup.tsx` | setup | Configuração read+write de connection settings |
-| `Campaigns.tsx` | `/audience/dashboard` | **Read-only**: tabela de campanhas + insights + botão "Analisar com IA" → chama `crm-meta-campaign-analyze` (Sheet com resultado, sem persistir) |
-| `Insights.tsx` | `/audience/insights` | Read-only de métricas |
-| `Strategies.tsx` + `StrategyNew.tsx` + `StrategyView.tsx` + `StrategyPrint.tsx` | `/audience/strategies` | **Write**: criar estratégia do zero, ver plano gerado, imprimir |
-| `Creatives.tsx` + `CreativeNew.tsx` + `CreativeView.tsx` | `/audience/creatives` | **Write**: upload de criativos, análise IA |
-| `AudiencePrint.tsx` | print | Export PDF de audience coach |
-
-Pausar/ativar campanhas existentes só está disponível via `crm-meta-deployment-toggle` (e só para campanhas criadas pelo nosso deploy, não para campanhas legacy do Ads Manager).
-
-## 5. Estratégias — fluxo end-to-end?
-
-**Sim, está completo:**
-
-1. Utilizador preenche brief em `StrategyNew.tsx` (objetivo, evento, budget, etc.).
-2. Frontend chama `crm-meta-campaign-strategy-generate` → IA gera plano completo, persiste em `meta_campaign_strategies` (`status='generated'`, `generated_plan` jsonb com campaigns/adsets/ads/creatives).
-3. `StrategyView.tsx` mostra o plano e tem CTA "Deploy" → chama `crm-meta-strategy-deploy` → cria tudo no Meta em PAUSED, regista em `meta_campaign_strategy_deployments`.
-4. `crm-meta-deployment-toggle` permite ativar/pausar tudo o que foi deployado.
-
-## Gaps vs Nível 1 (diagnóstico) e Nível 2 (re-design)
-
-**Nível 1 — diagnóstico de campanha existente**
-- ✅ Já existe `crm-meta-campaign-analyze` que devolve análise + issues + sugestões para uma campanha.
-- ❌ Análise hoje é **só ao nível campanha**: não consulta adsets nem ads individuais, nem os respectivos insights. Para um relatório sério ("este adset está a sangrar dinheiro", "este ad tem CTR 3x abaixo do irmão") falta sincronizar e analisar adsets/ads.
-- ❌ Não há tabelas `meta_adset_snapshot` / `meta_ad_snapshot` / insights por adset ou ad. Sem isto, breakdown granular é impossível sem ir ao Meta em runtime.
-- ❌ A análise IA não é persistida — cada clique re-gera (pode ser intencional, mas perde-se histórico de issues e da evolução).
-- ⚠️ Análise não cruza com criativos: `meta_creatives.analysis_jsonb` existe mas não é usado dentro de `crm-meta-campaign-analyze`.
-
-**Nível 2 — re-design (gerar variante optimizada PAUSED a partir de campanha existente)**
-- ❌ Não existe nenhuma função `crm-meta-campaign-redesign` (ou similar). `crm-meta-campaign-strategy-generate` parte sempre de um brief novo, não de uma campanha real existente como input.
-- ❌ Não há ponte "campanha existente + insights → strategy". Para re-design seria preciso: (a) ler campanha + adsets + ads + insights + creatives da DB, (b) passar isso à IA como contexto, (c) gerar nova `meta_campaign_strategies` row com `source_campaign_id`, (d) reutilizar `crm-meta-strategy-deploy` (que já cria tudo PAUSED — bom).
-- ❌ `meta_campaign_strategies` não tem coluna `source_campaign_id` nem `parent_strategy_id` para versionar re-designs.
-- ❌ UI: não há entry-point em `Campaigns.tsx` para "Re-desenhar esta campanha" (só existe "Analisar com IA").
-
-**Sumário acionável**
-1. Para Nível 1 robusto: criar `crm-meta-sync-adsets` + `crm-meta-sync-ads` + tabelas `meta_adset_snapshot`/`meta_ad_snapshot` + insights granulares; estender `crm-meta-campaign-analyze` para consumir esse detalhe e cruzar com `meta_creatives.analysis_jsonb`.
-2. Para Nível 2: adicionar coluna `source_campaign_id` em `meta_campaign_strategies` + nova edge function `crm-meta-campaign-redesign` (lê snapshot + insights + creatives → IA → cria strategy) + botão na UI; reutilizar `crm-meta-strategy-deploy` tal como está.
+3. **`user_preferences` por `(user_id, account_id)`** — `account_id` aqui significa qual contexto?
+   - (a) `financial_account_id` da conta financeira filtrada na listagem (multi-select hoje), ou
+   - (b) preferência **global por utilizador** (ignora `account_id`)?
+   
+   **Hipótese:** (b) global — o filtro de contas é multi-select e não há "conta activa única". Se for (a), preciso saber o que fazer quando há 0 ou >1 contas seleccionadas.
 
 ---
 
-**Próximo passo sugerido:** confirmares qual destes dois níveis queres atacar primeiro (ou ambos em paralelo), e eu desenho um plano de implementação detalhado para esse scope.
+## Arquivos a alterar/criar (assumindo as 3 hipóteses acima)
+
+### Migration nova
+`supabase/migrations/<ts>_user_preferences_consolidate_refunds.sql`
+```sql
+CREATE TABLE public.user_preferences (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  consolidate_refunds_view boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "own prefs select" ON public.user_preferences FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "own prefs upsert" ON public.user_preferences FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "own prefs update" ON public.user_preferences FOR UPDATE USING (auth.uid() = user_id);
+```
+Mais script `.txt` para Live em `scripts/user-preferences-live.txt`.
+
+### Hook novo
+`src/hooks/useUserPreferences.ts` — get/set com TanStack Query + cache local; expõe `consolidateRefunds` e `setConsolidateRefunds`.
+
+### Lógica de agrupamento
+`src/lib/refund-grouping.ts` (novo) — função pura `groupTransactionsByRefund(transactions, items)` que devolve uma lista heterogénea de `{kind:'tx', tx}` ou `{kind:'refund-group', noteId, code, employee, total, children:[tx...]}`.
+Tem testes em `src/lib/__tests__/refund-grouping.test.ts`.
+
+### Listagem
+`src/pages/Transactions.tsx`:
+- Adicionar Switch "Consolidar reembolsos" no toolbar (estilo padrão).
+- Buscar `reimbursement_note_items` + `reimbursement_notes` via query nova quando toggle ON (ou sempre, leve).
+- Substituir mapeamento actual por iteração sobre o resultado de `groupTransactionsByRefund`.
+- Estado local `Map<noteId, expanded:boolean>` para chevrons.
+- Auto-expand quando filtro/busca matcha filha (estado separado `searchAutoExpanded`).
+- Manter somatórios/exports inalterados (operam sobre `transactions` cru, não sobre o agrupado).
+
+`src/components/TransactionRow.tsx`:
+- Aceitar prop opcional `groupHeader?: { noteId, count, expanded, onToggle, code, employee, total }` que renderiza chevron + badge "N item(s)" e suprime colunas que não fazem sentido.
+- Fallback: comportamento actual.
+
+### Seeds de teste
+`src/test/seeds/refund-consolidation.ts` — fixtures TS para os 8 cenários (mock data, não toca DB).
+
+---
+
+## Ordem de implementação
+
+1. Migration + script Live + tabela `user_preferences`
+2. Hook `useUserPreferences`
+3. Lib `refund-grouping` + testes unitários (cobre cenários 1, 2, 4, 8)
+4. Switch + query de items em `Transactions.tsx`
+5. Adaptar `TransactionRow` para modo grupo
+6. Auto-expand em busca/filtro (cenário 7)
+7. Validar exports/relatórios não afectados (grep `getFilteredTransactions` e similares)
+8. Seeds + screenshots cenários 1, 2, 4
+
+---
+
+## Pontos de risco
+
+- **Exports e relatórios**: `Transactions.tsx` tem >1500 linhas e várias funções de export. Risco de o agrupamento contaminar o input do export. Mitigação: agrupar **só na fase de render**, manter `filteredTransactions` puro.
+- **Performance**: query extra de `reimbursement_note_items` em listagens grandes. Mitigação: 1 query agregada com `select reimbursement_note_id, transaction_id, reimbursement_notes(code, employee_name, status)`.
+- **Edição inline / acções por linha**: ao consolidar, os botões de pagar/aprovar/eliminar só fazem sentido nas filhas. A linha "mãe sintética" deve ter acções desabilitadas (ou só "expandir").
+- **Busca por texto na "mãe sintética"**: precisa decidir se o code R-XXX e nome do funcionário são searchable também (sugiro sim).
+- **Persistência por `(user_id, account_id)`** (Cenário 5) — depende da resposta à pergunta 3. Se for global, o cenário 5 b/c falha por design e precisa ser revisto contigo.
+- **Cenário 8 "0 filhas"**: uma nota sem items não aparece hoje na listagem de transações (não há tx ligadas). Sugestão: nesse caso a "mãe sintética" não é renderizada.
+
+Aguardo confirmação das 3 hipóteses (e em particular #3) antes de avançar.
