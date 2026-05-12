@@ -218,6 +218,7 @@ export default function CrmAudit() {
             landingUrls: Array.from(urls).slice(0, 5),
           });
         }
+      } finally {
         if (!cancelled) setResolving(false);
       }
     })();
