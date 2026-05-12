@@ -253,6 +253,7 @@ ${eventCtx.name ? `- Nome: ${eventCtx.name}
 
 == DIAGNÓSTICO ANTERIOR (severity=${diagnosis.severity}, score=${diagnosis.overall_score}) ==
 ${diagJsonStr}
+${inheritedBlock}
 
 == O QUE PRECISO QUE FAÇAS ==
 Desenha uma estratégia COMPLETA estruturada em fases (3-5), aplicando o diagnóstico:
