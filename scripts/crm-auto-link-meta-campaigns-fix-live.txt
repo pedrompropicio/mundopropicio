@@ -1,0 +1,92 @@
+-- Fix matching campanha→evento (Live).
+-- Idempotente. Correr no Cloud View > Run SQL com Live seleccionado.
+--
+-- O quê:
+--   1) Garante extensão unaccent disponível em extensions
+--   2) Recria crm.auto_link_meta_campaigns_to_events(uuid) com:
+--        - search_path inclui 'extensions' (para encontrar unaccent)
+--        - threshold endurecido: score >= 2 (evita cross-links por "2026"/"vendas")
+--        - strip de prefixos em brackets ([SoldOut],[Vendas],[F],[Q],[Tráfego],[LS],[Alcance]…) antes de tokenizar
+--   3) Re-executa para todas as companies com campanhas ainda sem linked_event_id
+--
+-- Não toca em frontend, sync edge functions, nem schema.
+
+CREATE EXTENSION IF NOT EXISTS unaccent WITH SCHEMA extensions;
+
+CREATE OR REPLACE FUNCTION crm.auto_link_meta_campaigns_to_events(p_company_id uuid)
+RETURNS TABLE(updated_count integer, total_active_campaigns integer)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'crm', 'public', 'extensions'
+AS $function$
+DECLARE
+  v_updated int := 0;
+  v_total int;
+BEGIN
+  WITH event_tokens AS (
+    SELECT
+      e.id AS event_id,
+      e.name AS event_name,
+      regexp_replace(
+        regexp_replace(lower(unaccent(e.name)), '[^a-z0-9\s&]', ' ', 'g'),
+        '\s+', ' ', 'g'
+      ) AS normalized,
+      e.date AS event_date
+    FROM public.events e
+    WHERE e.company_id = p_company_id
+      AND e.status = 'active'
+  ),
+  campaign_norm AS (
+    SELECT
+      mcs.id AS campaign_id,
+      lower(unaccent(regexp_replace(mcs.name, '\[[^\]]*\]', ' ', 'g'))) AS clean_name
+    FROM crm.meta_campaign_snapshot mcs
+    WHERE mcs.company_id = p_company_id
+      AND COALESCE(mcs.linked_event_locked, false) = false
+  ),
+  campaign_matches AS (
+    SELECT
+      cn.campaign_id,
+      et.event_id,
+      (SELECT count(*)::int FROM regexp_split_to_table(et.normalized, ' ') AS tok
+        WHERE length(tok) >= 4 AND cn.clean_name LIKE '%' || tok || '%') AS score,
+      et.event_date,
+      row_number() OVER (
+        PARTITION BY cn.campaign_id
+        ORDER BY
+          (SELECT count(*)::int FROM regexp_split_to_table(et.normalized, ' ') AS tok
+            WHERE length(tok) >= 4 AND cn.clean_name LIKE '%' || tok || '%') DESC,
+          et.event_date ASC NULLS LAST
+      ) AS rk
+    FROM campaign_norm cn
+    CROSS JOIN event_tokens et
+  ),
+  best_match AS (
+    SELECT campaign_id, event_id, score
+    FROM campaign_matches
+    WHERE rk = 1 AND score >= 2
+  )
+  UPDATE crm.meta_campaign_snapshot mcs
+  SET linked_event_id = bm.event_id
+  FROM best_match bm
+  WHERE mcs.id = bm.campaign_id
+    AND (mcs.linked_event_id IS DISTINCT FROM bm.event_id);
+
+  GET DIAGNOSTICS v_updated = ROW_COUNT;
+
+  SELECT count(*) INTO v_total
+  FROM crm.meta_campaign_snapshot
+  WHERE company_id = p_company_id AND status = 'ACTIVE';
+
+  RETURN QUERY SELECT v_updated, v_total;
+END;
+$function$;
+
+-- Re-run para todas as companies com órfãs
+SELECT t.company_id, (crm.auto_link_meta_campaigns_to_events(t.company_id)).*
+FROM (
+  SELECT DISTINCT company_id
+  FROM crm.meta_campaign_snapshot
+  WHERE linked_event_id IS NULL
+    AND COALESCE(linked_event_locked,false) = false
+) AS t;
