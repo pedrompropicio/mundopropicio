@@ -30,6 +30,8 @@ interface Props {
   onToggleHidden?: (id: string, currentlyHidden: boolean) => void;
   onViewPayments?: (id: string) => void;
   highlightId?: string | null;
+  /** Quando true, renderiza a linha como filha de um grupo de reembolso (barra accent + bg sutil). */
+  inGroup?: boolean;
 }
 
 function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; onClick: () => void }) {
@@ -76,7 +78,7 @@ function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; on
   );
 }
 
-export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete, onToggleHidden, onViewPayments, highlightId }: Props) {
+export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete, onToggleHidden, onViewPayments, highlightId, inGroup }: Props) {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const [childrenExpanded, setChildrenExpanded] = useState(false);
@@ -289,7 +291,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
 
   return (
     <>
-      <tr ref={rowRef} className={`hover:bg-secondary/20 transition-colors ${computedStatus === "paid" ? "opacity-80" : ""} ${selected ? "bg-primary/5" : ""} ${isHidden ? "opacity-50 bg-muted/20" : ""} ${isHighlighted ? "ring-2 ring-primary ring-inset bg-primary/10 animate-pulse" : ""}`}>
+      <tr ref={rowRef} className={`hover:bg-secondary/20 transition-colors ${computedStatus === "paid" ? "opacity-80" : ""} ${selected ? "bg-primary/5" : ""} ${isHidden ? "opacity-50 bg-muted/20" : ""} ${isHighlighted ? "ring-2 ring-primary ring-inset bg-primary/10 animate-pulse" : ""} ${inGroup ? "border-l-2 border-l-primary bg-primary/5" : ""}`}>
         {showSelectColumn && (
           <td className="py-2 pr-1 text-center w-6">
             {selectable ? (

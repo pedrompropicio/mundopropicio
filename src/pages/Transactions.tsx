@@ -205,37 +205,58 @@ export default function Transactions() {
   });
 
   // ===== Reembolsos: dados para consolidação visual =====
-  // Mapa transaction_id → {noteId, code, employee, status} para qualquer status (retroativo).
-  const { data: refundIndex = { byTx: new Map<string, string>(), notes: new Map<string, RefundNoteSummary>() } } =
-    useQuery({
-      queryKey: ["reimbursement-index-for-tx-list"],
-      queryFn: async () => {
-        const { data, error } = await supabase
+  // Mapa transaction_id → noteId para qualquer status (retroativo). Inclui:
+  //  (a) despesas-filhas via reimbursement_note_items
+  //  (b) a transação de pagamento/saída de caixa via reimbursement_notes.payment_transaction_id
+  // O set `paymentTxIds` permite identificar (b) para EXCLUIR do total agregado (evita duplicação).
+  const { data: refundIndex = {
+    byTx: new Map<string, string>(),
+    notes: new Map<string, RefundNoteSummary>(),
+    paymentTxIds: new Set<string>(),
+  } } = useQuery({
+    queryKey: ["reimbursement-index-for-tx-list-v2"],
+    queryFn: async () => {
+      const [itemsRes, notesRes] = await Promise.all([
+        supabase
           .from("reimbursement_note_items")
-          .select("transaction_id, reimbursement_note_id, reimbursement_notes(id, code, employee_name, status)")
-          .limit(20000);
-        if (error) throw error;
-        const byTx = new Map<string, string>();
-        const notes = new Map<string, RefundNoteSummary>();
-        for (const row of data ?? []) {
-          const txId = (row as any).transaction_id;
-          const noteId = (row as any).reimbursement_note_id;
-          if (!txId || !noteId) continue;
-          byTx.set(txId, noteId);
-          const note = (row as any).reimbursement_notes;
-          if (note && !notes.has(noteId)) {
-            notes.set(noteId, {
-              noteId,
-              code: note.code ?? null,
-              employeeName: note.employee_name ?? null,
-              status: note.status ?? null,
-            });
-          }
+          .select("transaction_id, reimbursement_note_id")
+          .limit(20000),
+        supabase
+          .from("reimbursement_notes")
+          .select("id, code, employee_name, status, payment_transaction_id")
+          .limit(20000),
+      ]);
+      if (itemsRes.error) throw itemsRes.error;
+      if (notesRes.error) throw notesRes.error;
+
+      const byTx = new Map<string, string>();
+      const notes = new Map<string, RefundNoteSummary>();
+      const paymentTxIds = new Set<string>();
+
+      for (const n of notesRes.data ?? []) {
+        const noteId = (n as any).id;
+        notes.set(noteId, {
+          noteId,
+          code: (n as any).code ?? null,
+          employeeName: (n as any).employee_name ?? null,
+          status: (n as any).status ?? null,
+        });
+        const payTxId = (n as any).payment_transaction_id;
+        if (payTxId) {
+          byTx.set(payTxId, noteId);
+          paymentTxIds.add(payTxId);
         }
-        return { byTx, notes };
-      },
-      staleTime: 60_000,
-    });
+      }
+      for (const row of itemsRes.data ?? []) {
+        const txId = (row as any).transaction_id;
+        const noteId = (row as any).reimbursement_note_id;
+        if (!txId || !noteId) continue;
+        byTx.set(txId, noteId);
+      }
+      return { byTx, notes, paymentTxIds };
+    },
+    staleTime: 60_000,
+  });
 
   const { consolidateRefunds, setConsolidateRefunds } = useUserPreferences();
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
@@ -919,7 +940,7 @@ export default function Transactions() {
     items: any[],
     opts: { showPaymentDate?: boolean; colSpan: number },
   ): ReactNode => {
-    const rowFor = (t: any) => (
+    const rowFor = (t: any, inGroup = false) => (
       <TransactionRow
         key={t.id}
         transaction={t}
@@ -939,6 +960,7 @@ export default function Transactions() {
         onToggleHidden={isAdmin ? handleToggleHidden : undefined}
         onViewPayments={(id) => setShowPaymentsListId(id)}
         highlightId={highlightId}
+        inGroup={inGroup}
       />
     );
 
@@ -951,6 +973,7 @@ export default function Transactions() {
       getNoteId: (t: any) => refundIndex.byTx.get(t.id) ?? null,
       getAmount: (t: any) => Number(t.amount ?? 0),
       notes: refundIndex.notes,
+      isPaymentTx: (t: any) => refundIndex.paymentTxIds.has(t.id),
     });
 
     const out: ReactNode[] = [];
@@ -961,34 +984,40 @@ export default function Transactions() {
         const expanded = isNoteExpanded(item.noteId);
         const label = item.code ?? "Nota de reembolso";
         const employee = item.employeeName ?? "—";
+        // Estilo coeso: barra accent à esquerda + bg sutil. Mesma assinatura visual nas filhas.
+        const headerCls = expanded
+          ? "border-l-2 border-l-primary bg-primary/5 hover:bg-primary/10 cursor-pointer transition-colors"
+          : "border-b border-border/40 border-l-2 border-l-transparent bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors";
         out.push(
           <tr
             key={`refund-header-${item.noteId}`}
-            className="border-b border-border/40 bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors"
+            className={headerCls}
             onClick={() => toggleNoteExpanded(item.noteId)}
           >
-            <td colSpan={opts.colSpan} className="px-2 py-2">
+            <td colSpan={opts.colSpan} className="py-2 pl-2 pr-2">
+              {/* pl-7 alinha o ícone Receipt aproximadamente com a coluna "descrição" das filhas
+                  (que começam após o checkbox + chevron). */}
               <div className="flex items-center gap-2 text-xs">
-                {expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-                <Receipt className="h-3.5 w-3.5 text-primary" />
+                {expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                <Receipt className="h-3.5 w-3.5 text-primary shrink-0" />
                 <span className="font-semibold">{label}</span>
-                <span className="text-muted-foreground">— {employee}</span>
-                <Badge variant="secondary" className="ml-1 text-[10px]">
+                <span className="text-muted-foreground truncate">— {employee}</span>
+                <Badge variant="secondary" className="ml-1 text-[10px] shrink-0">
                   {item.childCount} item{item.childCount === 1 ? "" : "s"}
                 </Badge>
                 {item.status && (
-                  <Badge variant="outline" className="text-[10px] capitalize">
+                  <Badge variant="outline" className="text-[10px] capitalize shrink-0">
                     {item.status}
                   </Badge>
                 )}
-                <span className="ml-auto font-mono text-foreground">{formatCurrency(item.total)}</span>
+                <span className="ml-auto font-mono text-foreground shrink-0">{formatCurrency(item.total)}</span>
               </div>
             </td>
           </tr>,
         );
       } else if (item.kind === "group-child") {
         if (isNoteExpanded(item.noteId)) {
-          out.push(rowFor(item.tx));
+          out.push(rowFor(item.tx, true));
         }
       }
     }
