@@ -1220,6 +1220,29 @@ export default function Transactions() {
           </PopoverContent>
         </Popover>
 
+        {/* Consolidar reembolsos */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <label className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 h-8 cursor-pointer hover:bg-muted transition-colors">
+                <Receipt className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[13px] font-normal text-foreground hidden md:inline">Consolidar reembolsos</span>
+                <span className="text-[13px] font-normal text-foreground md:hidden">Reemb.</span>
+                <Switch
+                  checked={consolidateRefunds}
+                  onCheckedChange={(v) => setConsolidateRefunds(!!v)}
+                  aria-label="Consolidar reembolsos na listagem"
+                />
+              </label>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs max-w-xs">
+                Mostra apenas a conta mãe; as filhas ficam ocultas e podem ser expandidas individualmente.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
         {/* Period filter (open view only) */}
         {viewMode === "open" && (
           <Popover modal={false} open={periodPopoverOpen} onOpenChange={setPeriodPopoverOpen}>
