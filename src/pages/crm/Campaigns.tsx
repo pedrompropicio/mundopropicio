@@ -1899,6 +1899,80 @@ export default function CrmCampaigns() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Dialog: constraints pré-redesign */}
+      <Dialog open={redesignDialogOpen} onOpenChange={setRedesignDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Re-desenhar campanha</DialogTitle>
+            <DialogDescription>
+              Define as constraints. A IA vai respeitá-las exactamente em vez de inventar valores.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-center justify-between rounded border border-border p-3">
+              <div>
+                <Label htmlFor="rd-keep" className="text-sm font-medium">Manter verba actual</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Usa a verba diária/lifetime já configurada na campanha original.
+                </p>
+              </div>
+              <Switch id="rd-keep" checked={rdKeepBudget} onCheckedChange={setRdKeepBudget} />
+            </div>
+            {!rdKeepBudget && (
+              <div className="space-y-1.5">
+                <Label htmlFor="rd-daily" className="text-xs">Verba diária (€)</Label>
+                <Input
+                  id="rd-daily"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="50.00"
+                  value={rdDailyEur}
+                  onChange={(e) => setRdDailyEur(e.target.value)}
+                />
+              </div>
+            )}
+            {(() => {
+              const camp = campaigns?.find((c) => c.external_campaign_id === analyzeCampaignId);
+              if (camp?.bid_strategy !== "LOWEST_COST_WITH_MIN_ROAS") return null;
+              return (
+                <div className="space-y-1.5">
+                  <Label htmlFor="rd-roas" className="text-xs">ROAS goal (ex: 4.5 = 450%)</Label>
+                  <Input
+                    id="rd-roas"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    placeholder="4.5"
+                    value={rdRoasGoal}
+                    onChange={(e) => setRdRoasGoal(e.target.value)}
+                  />
+                </div>
+              );
+            })()}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Data de fim (opcional)</Label>
+              <DatePicker value={rdEndTime} onChange={setRdEndTime} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRedesignDialogOpen(false)} disabled={redesignLoading}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={submitRedesign}
+              disabled={redesignLoading}
+              className="border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
+              variant="outline"
+            >
+              {redesignLoading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5 mr-1.5" />}
+              Re-desenhar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
