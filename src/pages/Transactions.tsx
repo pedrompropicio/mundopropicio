@@ -249,7 +249,7 @@ export default function Transactions() {
     });
   };
 
-
+  const selectedEventScopeIds = useMemo(() => {
     if (selectedEventIds.size === 0) return new Set<string>();
 
     const next = new Set<string>(selectedEventIds);
