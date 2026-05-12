@@ -31,3 +31,7 @@ project_id = "ukpuhoynrqobqtzdbysp"
     verify_jwt = true
   [functions.crm-meta-oauth-callback]
     verify_jwt = false
+  [functions.crm-meta-funnel-test-run]
+    verify_jwt = true
+  [functions.crm-meta-funnel-test-status]
+    verify_jwt = true
