@@ -272,6 +272,21 @@ export default function CrmConnections() {
     },
   });
 
+  // Auto-hidratação dos detalhes da Page (nome + IG) quando há selected_page_id
+  // mas o cache local está vazio. Evita o placeholder "ID 184... — clique 'Atualizar'".
+  useEffect(() => {
+    (connections ?? []).forEach((conn) => {
+      if (conn.platform !== "meta") return;
+      if (conn.status !== "active") return;
+      if (!conn.selected_page_id) return;
+      if (pagesCache[conn.id]) return;
+      if (autoFetchingPages[conn.id]) return;
+      if (autoFetchPagesError[conn.id]) return; // já falhou; espera "Tentar novamente"
+      fetchPagesInternal(conn, { silent: true });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connections]);
+
   // Handle OAuth redirect feedback
   useEffect(() => {
     const status = searchParams.get("status");
