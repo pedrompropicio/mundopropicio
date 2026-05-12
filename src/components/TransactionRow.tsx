@@ -78,7 +78,7 @@ function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; on
   );
 }
 
-export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete, onToggleHidden, onViewPayments, highlightId }: Props) {
+export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete, onToggleHidden, onViewPayments, highlightId, inGroup }: Props) {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const [childrenExpanded, setChildrenExpanded] = useState(false);
