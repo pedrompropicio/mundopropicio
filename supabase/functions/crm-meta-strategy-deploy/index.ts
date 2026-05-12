@@ -175,12 +175,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     for (const phase of phases) {
       const phaseCreativeIds = creativeIdsByPhase[phase.id] ?? creativeIdsByPhase["_global"] ?? [];
-      if (phaseCreativeIds.length === 0) {
-        addLog("warn", `Phase "${phase.name}" (${phase.id}) sem criativos — skip`);
-        continue;
-      }
       const phaseCreatives = phaseCreativeIds.map((id) => creativesById.get(id)).filter(Boolean);
       const phaseCampaigns = recommendedCampaigns.filter((c: any) => c.phase_id === phase.id);
+      // Detectar herdados no plan para esta fase
+      const phaseHasInherited = phaseCampaigns.some((c: any) =>
+        (c.adsets ?? []).some((a: any) =>
+          Array.isArray(a.ads) && a.ads.some((ad: any) => typeof ad?.existing_creative_id === "string")
+        )
+      );
+      if (phaseCreatives.length === 0 && !phaseHasInherited) {
+        addLog("warn", `Phase "${phase.name}" (${phase.id}) sem criativos (nem herdados nem novos) — skip`);
+        continue;
+      }
       if (phaseCampaigns.length === 0) {
         addLog("warn", `Phase "${phase.name}" sem campanhas no plano — skip`);
         continue;
