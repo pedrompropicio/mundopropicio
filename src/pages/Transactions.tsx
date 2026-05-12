@@ -966,6 +966,7 @@ export default function Transactions() {
     items: any[],
     opts: { showPaymentDate?: boolean; colSpan: number },
   ): ReactNode => {
+    const showSelectionColumn = opts.colSpan === 10 && hasSelectableItems;
     const rowFor = (t: any, inGroup = false) => (
       <TransactionRow
         key={t.id}
@@ -974,7 +975,7 @@ export default function Transactions() {
         selectable={canApprove && (t.status === "pending" || t.status === "approved")}
         selected={selectedIds.has(t.id)}
         onToggleSelect={() => toggleSelect(t.id)}
-        showSelectColumn={hasSelectableItems}
+        showSelectColumn={showSelectionColumn}
         eventCompleted={(t.events as any)?.status === "completed"}
         showPaymentDate={opts.showPaymentDate}
         onEdit={(id) => setEditingId(id)}
@@ -1020,7 +1021,7 @@ export default function Transactions() {
             className={headerCls}
             onClick={() => toggleNoteExpanded(item.noteId)}
           >
-            {hasSelectableItems && <td className="py-2 pr-1 text-center w-6" />}
+            {showSelectionColumn && <td className="py-2 pr-1 text-center w-6" />}
             <td className="py-2 pr-2">
               <div className="flex items-center gap-1.5 text-xs">
                 <span className="rounded p-0.5 text-muted-foreground shrink-0">
