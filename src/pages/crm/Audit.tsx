@@ -170,8 +170,54 @@ export default function CrmAudit() {
             campaignName: camps?.[0]?.name,
             landingUrls: Array.from(urls).slice(0, 10),
           });
+        } else if (ctx.type === "pixel") {
+          // Resolve pixel via crm-meta-pixel-health, then find landing URLs from ads with matching tracking_specs
+          let pixelName = "Pixel";
+          if (active?.connection_id && active?.ad_account_id) {
+            try {
+              const { data: ph } = await supabase.functions.invoke("crm-meta-pixel-health", {
+                body: { connection_id: active.connection_id, ad_account_id: active.ad_account_id },
+              });
+              const all = [...(ph?.all_pixels ?? []), ...(ph?.pixels_used_in_active_campaigns ?? [])];
+              const found = all.find((p: any) => String(p.id) === String(ctx.id));
+              if (found?.name) pixelName = found.name;
+            } catch { /* ignore */ }
+          }
+
+          const urls = new Set<string>();
+          if (active?.ad_account_id) {
+            const { data: ads } = await (supabase as any).schema("crm").from("meta_ad_snapshot")
+              .select("meta_creative_id, tracking_specs")
+              .eq("ad_account_id", active.ad_account_id);
+            const matchingCreatives = new Set<string>();
+            for (const a of ads ?? []) {
+              const ts = a.tracking_specs;
+              if (!ts) continue;
+              const json = JSON.stringify(ts);
+              if (json.includes(`"${ctx.id}"`) && a.meta_creative_id) {
+                matchingCreatives.add(a.meta_creative_id);
+              }
+            }
+            if (matchingCreatives.size) {
+              const { data: crs } = await (supabase as any).schema("crm").from("meta_creatives")
+                .select("link_url").in("meta_creative_id", Array.from(matchingCreatives));
+              for (const c of crs ?? []) if (c.link_url) urls.add(String(c.link_url));
+            }
+            // Fallback: top URLs across ad_account if no match
+            if (urls.size === 0) {
+              const creativeIds = Array.from(new Set((ads ?? []).map((a: any) => a.meta_creative_id).filter(Boolean)));
+              if (creativeIds.length) {
+                const { data: crs } = await (supabase as any).schema("crm").from("meta_creatives")
+                  .select("link_url").in("meta_creative_id", creativeIds.slice(0, 200));
+                for (const c of crs ?? []) if (c.link_url) urls.add(String(c.link_url));
+              }
+            }
+          }
+          setContextInfo({
+            title: `Pixel: ${pixelName}`,
+            landingUrls: Array.from(urls).slice(0, 5),
+          });
         }
-      } finally {
         if (!cancelled) setResolving(false);
       }
     })();
