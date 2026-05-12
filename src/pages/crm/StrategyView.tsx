@@ -327,6 +327,30 @@ export default function CrmStrategyView() {
     }
   };
 
+  // Detectar herdados no plan: ads com existing_creative_id por fase
+  const inheritedByPhase = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const c of plan?.recommended_campaigns ?? []) {
+      const phaseId = c.phase_id;
+      if (!phaseId) continue;
+      for (const a of c.adsets ?? []) {
+        for (const ad of a.ads ?? []) {
+          if (typeof ad?.existing_creative_id === "string") {
+            if (!map.has(phaseId)) map.set(phaseId, new Set());
+            map.get(phaseId)!.add(ad.existing_creative_id);
+          }
+        }
+      }
+    }
+    return map;
+  }, [plan]);
+
+  const inheritedTotal = useMemo(() => {
+    const all = new Set<string>();
+    for (const set of inheritedByPhase.values()) for (const id of set) all.add(id);
+    return all.size;
+  }, [inheritedByPhase]);
+
   const deployChecks = useMemo(() => {
     const checks: { label: string; ok: boolean; detail?: string }[] = [];
     checks.push({
@@ -345,17 +369,24 @@ export default function CrmStrategyView() {
       detail: connection?.selected_instagram_id ? "✓ (ads no IG ativos)" : "Opcional — sem IG, ads só no Facebook",
     });
     const phasesWithoutCreatives: string[] = [];
+    let phasesCovered = 0;
     for (const phase of plan?.phases ?? []) {
-      const hasCreatives = (associationsByPhase.get(phase.id) ?? []).length > 0;
-      if (!hasCreatives) phasesWithoutCreatives.push(phase.name);
+      const hasNew = (associationsByPhase.get(phase.id) ?? []).length > 0;
+      const hasInherited = (inheritedByPhase.get(phase.id)?.size ?? 0) > 0;
+      if (hasNew || hasInherited) phasesCovered++;
+      else phasesWithoutCreatives.push(phase.name);
     }
+    const totalPhases = plan?.phases?.length ?? 0;
+    const detail = phasesWithoutCreatives.length === 0
+      ? (inheritedTotal > 0 ? `✓ ${inheritedTotal} criativo(s) reaproveitado(s) da campanha original` : "✓")
+      : `Em falta: ${phasesWithoutCreatives.join(", ")}`;
     checks.push({
-      label: `Criativos em todas as fases (${(plan?.phases?.length ?? 0) - phasesWithoutCreatives.length}/${plan?.phases?.length ?? 0})`,
+      label: `Criativos em todas as fases (${phasesCovered}/${totalPhases})`,
       ok: phasesWithoutCreatives.length === 0,
-      detail: phasesWithoutCreatives.length === 0 ? "✓" : `Em falta: ${phasesWithoutCreatives.join(", ")}`,
+      detail,
     });
     return checks;
-  }, [connection, plan, associationsByPhase]);
+  }, [connection, plan, associationsByPhase, inheritedByPhase, inheritedTotal]);
 
   const canDeploy = deployChecks.filter((c) => c.label !== "Instagram associado").every((c) => c.ok);
 
@@ -363,17 +394,22 @@ export default function CrmStrategyView() {
     let campaigns = 0, adsets = 0, ads = 0;
     for (const phase of plan?.phases ?? []) {
       const phaseCreatives = associationsByPhase.get(phase.id) ?? [];
-      if (phaseCreatives.length === 0) continue;
+      const inherited = inheritedByPhase.get(phase.id) ?? new Set<string>();
+      if (phaseCreatives.length === 0 && inherited.size === 0) continue;
       const phaseCampaigns = (plan?.recommended_campaigns ?? []).filter((c: any) => c.phase_id === phase.id);
       campaigns += phaseCampaigns.length;
       for (const c of phaseCampaigns) {
         const phaseAdsets = (c.adsets ?? []).length;
         adsets += phaseAdsets;
-        ads += phaseAdsets * phaseCreatives.length;
+        // Por adset: se há herdados no plano, usa esses; caso contrário usa associações novas
+        for (const a of c.adsets ?? []) {
+          const inheritedInAdset = (a.ads ?? []).filter((x: any) => typeof x?.existing_creative_id === "string").length;
+          ads += inheritedInAdset > 0 ? inheritedInAdset : phaseCreatives.length;
+        }
       }
     }
     return { campaigns, adsets, ads };
-  }, [plan, associationsByPhase]);
+  }, [plan, associationsByPhase, inheritedByPhase]);
 
   const handleDeploy = async () => {
     if (!data || isDeploying) return;
