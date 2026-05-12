@@ -218,6 +218,7 @@ export default function Transactions() {
     byTx: new Map<string, string>(),
     notes: new Map<string, RefundNoteSummary>(),
     paymentTxIds: new Set<string>(),
+    totalChildCounts: new Map<string, number>(),
   } } = useQuery({
     queryKey: ["reimbursement-index-for-tx-list-v2"],
     queryFn: async () => {
