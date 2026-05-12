@@ -27,8 +27,10 @@ export type RefundRenderItem<T> =
       employeeName: string | null;
       status: string | null;
       childCount: number;
+      totalChildCount: number;
       total: number;
       childIds: string[];
+      children: T[];
     }
   | { kind: "group-child"; tx: T; noteId: string };
 
