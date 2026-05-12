@@ -309,7 +309,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
             ) : null}
           </td>
         )}
-        <td className="py-2 pr-2">
+        <td className={`py-2 pr-2 ${inGroup ? "pl-6 sm:pl-8" : ""}`}>
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => isParentSplit ? setChildrenExpanded(!childrenExpanded) : setExpanded(!expanded)}
