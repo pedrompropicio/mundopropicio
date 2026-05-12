@@ -299,6 +299,141 @@ function deltaPct(curr: number, prev: number): number | null {
 }
 
 // ============================================================
+// Edit Campaign Popover (inline)
+// ============================================================
+function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(c.name);
+  const [dailyEur, setDailyEur] = useState(
+    c.daily_budget_cents ? (c.daily_budget_cents / 100).toFixed(2) : "",
+  );
+  const [endDate, setEndDate] = useState(c.stop_time ? c.stop_time.slice(0, 10) : "");
+  const [roasGoal, setRoasGoal] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const supportsRoas = c.bid_strategy === "LOWEST_COST_WITH_MIN_ROAS";
+
+  const handleApply = async () => {
+    const updates: any = {};
+    if (name.trim() && name.trim() !== c.name) updates.name = name.trim();
+    if (dailyEur) {
+      const n = parseFloat(dailyEur.replace(",", "."));
+      if (Number.isFinite(n) && n > 0) {
+        const cents = Math.round(n * 100);
+        if (cents !== c.daily_budget_cents) updates.daily_budget_cents = cents;
+      }
+    }
+    if (endDate) updates.end_time = `${endDate}T23:59:59Z`;
+    if (supportsRoas && roasGoal) {
+      const r = parseFloat(roasGoal.replace(",", "."));
+      if (Number.isFinite(r) && r > 0) updates.roas_average_floor = r;
+    }
+    if (Object.keys(updates).length === 0) {
+      toast.info("Nada para alterar.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-entity-action", {
+        body: {
+          connection_id: c.connection_id,
+          entity_type: "campaign",
+          external_id: c.external_campaign_id,
+          action: "update",
+          ad_account_id: c.ad_account_id,
+          updates,
+        },
+      });
+      if (error) {
+        let detail = error.message;
+        if ((error as any).context) {
+          try {
+            const ctx = (error as any).context;
+            const b = await (ctx.clone ? ctx.clone() : ctx).json();
+            detail = b?.message || b?.detail || b?.error || detail;
+          } catch {}
+        }
+        throw new Error(detail);
+      }
+      if (data?.ok === false) throw new Error(data?.message ?? data?.detail ?? data?.error ?? "Falha");
+      toast.success(`Campanha "${c.name}" actualizada.`);
+      setOpen(false);
+      onSaved();
+    } catch (e: any) {
+      toast.error("Falha a actualizar no Meta", { description: e?.message ?? String(e) });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 px-2 text-[11px]"
+          title="Editar campanha"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Pencil className="h-3 w-3" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-80 z-[100]"
+        align="end"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label htmlFor={`edit-name-${c.id}`} className="text-xs">Nome</Label>
+            <Input id={`edit-name-${c.id}`} value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor={`edit-daily-${c.id}`} className="text-xs">Verba diária (€)</Label>
+            <Input
+              id={`edit-daily-${c.id}`}
+              type="number"
+              step="0.01"
+              min="0"
+              value={dailyEur}
+              onChange={(e) => setDailyEur(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Data de fim (opcional)</Label>
+            <DatePicker value={endDate} onChange={setEndDate} />
+          </div>
+          {supportsRoas && (
+            <div className="space-y-1">
+              <Label htmlFor={`edit-roas-${c.id}`} className="text-xs">ROAS goal (ex: 4.5)</Label>
+              <Input
+                id={`edit-roas-${c.id}`}
+                type="number"
+                step="0.1"
+                min="0"
+                placeholder="—"
+                value={roasGoal}
+                onChange={(e) => setRoasGoal(e.target.value)}
+              />
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={handleApply} disabled={saving}>
+              {saving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
+              Aplicar
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ============================================================
 // Campaign Row
 // ============================================================
 function CampaignTableRow({
