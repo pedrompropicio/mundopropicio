@@ -39,6 +39,11 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import BPViewerModal from "@/components/BPViewerModal";
 
+const extractRefundCodeFromPaymentDescription = (description?: string | null) => {
+  const match = description?.match(/^Reembolso\s+(R-\d+\/\d{4})\b/i);
+  return match?.[1] ?? null;
+};
+
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
   const [viewMode, setViewMode] = useState<"open" | "paid">("open");
@@ -216,7 +221,7 @@ export default function Transactions() {
   } } = useQuery({
     queryKey: ["reimbursement-index-for-tx-list-v2"],
     queryFn: async () => {
-      const [itemsRes, notesRes] = await Promise.all([
+      const [itemsRes, notesRes, paymentTxRes] = await Promise.all([
         supabase
           .from("reimbursement_note_items")
           .select("transaction_id, reimbursement_note_id")
@@ -225,27 +230,48 @@ export default function Transactions() {
           .from("reimbursement_notes")
           .select("id, code, employee_name, status, payment_transaction_id")
           .limit(20000),
+        supabase
+          .from("transactions")
+          .select("id, description")
+          .ilike("description", "Reembolso R-%")
+          .limit(20000),
       ]);
       if (itemsRes.error) throw itemsRes.error;
       if (notesRes.error) throw notesRes.error;
+      if (paymentTxRes.error) throw paymentTxRes.error;
 
       const byTx = new Map<string, string>();
       const notes = new Map<string, RefundNoteSummary>();
       const paymentTxIds = new Set<string>();
+      const notesByCode = new Map<string, string>();
+      const notesWithExplicitPayment = new Set<string>();
 
       for (const n of notesRes.data ?? []) {
         const noteId = (n as any).id;
+        const code = (n as any).code ?? null;
         notes.set(noteId, {
           noteId,
-          code: (n as any).code ?? null,
+          code,
           employeeName: (n as any).employee_name ?? null,
           status: (n as any).status ?? null,
         });
+        if (code) notesByCode.set(code, noteId);
         const payTxId = (n as any).payment_transaction_id;
         if (payTxId) {
           byTx.set(payTxId, noteId);
           paymentTxIds.add(payTxId);
+          notesWithExplicitPayment.add(noteId);
         }
+      }
+      // Fallback não-destrutivo para notas antigas sem payment_transaction_id:
+      // liga a tx de saída pelo prefixo "Reembolso R-XXX/AAAA" apenas em memória.
+      for (const tx of paymentTxRes.data ?? []) {
+        const txId = (tx as any).id;
+        const code = extractRefundCodeFromPaymentDescription((tx as any).description);
+        const noteId = code ? notesByCode.get(code) : null;
+        if (!txId || !noteId || notesWithExplicitPayment.has(noteId)) continue;
+        byTx.set(txId, noteId);
+        paymentTxIds.add(txId);
       }
       for (const row of itemsRes.data ?? []) {
         const txId = (row as any).transaction_id;
@@ -940,6 +966,7 @@ export default function Transactions() {
     items: any[],
     opts: { showPaymentDate?: boolean; colSpan: number },
   ): ReactNode => {
+    const showSelectionColumn = opts.colSpan === 10 && hasSelectableItems;
     const rowFor = (t: any, inGroup = false) => (
       <TransactionRow
         key={t.id}
@@ -948,7 +975,7 @@ export default function Transactions() {
         selectable={canApprove && (t.status === "pending" || t.status === "approved")}
         selected={selectedIds.has(t.id)}
         onToggleSelect={() => toggleSelect(t.id)}
-        showSelectColumn={hasSelectableItems}
+        showSelectColumn={showSelectionColumn}
         eventCompleted={(t.events as any)?.status === "completed"}
         showPaymentDate={opts.showPaymentDate}
         onEdit={(id) => setEditingId(id)}
@@ -984,7 +1011,7 @@ export default function Transactions() {
         const expanded = isNoteExpanded(item.noteId);
         const label = item.code ?? "Nota de reembolso";
         const employee = item.employeeName ?? "—";
-        // Estilo coeso: barra accent à esquerda + bg sutil. Mesma assinatura visual nas filhas.
+        // Estilo coeso: mesma grelha visual das linhas normais; o grupo distingue-se só pela barra accent + bg.
         const headerCls = expanded
           ? "border-l-2 border-l-primary bg-primary/5 hover:bg-primary/10 cursor-pointer transition-colors"
           : "border-b border-border/40 border-l-2 border-l-transparent bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors";
@@ -994,13 +1021,14 @@ export default function Transactions() {
             className={headerCls}
             onClick={() => toggleNoteExpanded(item.noteId)}
           >
-            <td colSpan={opts.colSpan} className="py-2 pl-2 pr-2">
-              {/* pl-7 alinha o ícone Receipt aproximadamente com a coluna "descrição" das filhas
-                  (que começam após o checkbox + chevron). */}
-              <div className="flex items-center gap-2 text-xs">
-                {expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-                <Receipt className="h-3.5 w-3.5 text-primary shrink-0" />
+            {showSelectionColumn && <td className="py-2 pr-1 text-center w-6" />}
+            <td className="py-2 pr-2">
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="rounded p-0.5 text-muted-foreground shrink-0">
+                  {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                </span>
                 <span className="font-semibold">{label}</span>
+                <Receipt className="h-3.5 w-3.5 text-primary shrink-0" />
                 <span className="text-muted-foreground truncate">— {employee}</span>
                 <Badge variant="secondary" className="ml-1 text-[10px] shrink-0">
                   {item.childCount} item{item.childCount === 1 ? "" : "s"}
@@ -1010,9 +1038,18 @@ export default function Transactions() {
                     {item.status}
                   </Badge>
                 )}
-                <span className="ml-auto font-mono text-foreground shrink-0">{formatCurrency(item.total)}</span>
               </div>
             </td>
+            <td className="hidden py-2 pr-2 sm:table-cell text-muted-foreground">—</td>
+            <td className="hidden py-2 pr-2 md:table-cell text-muted-foreground">{employee}</td>
+            <td className="hidden py-2 pr-2 lg:table-cell text-muted-foreground">Nota de reembolso</td>
+            <td className="py-2 pr-2 text-muted-foreground">—</td>
+            <td className="py-2 pr-2 text-muted-foreground whitespace-nowrap">—</td>
+            <td className="py-2 pr-2 text-right font-mono text-muted-foreground whitespace-nowrap">—</td>
+            <td className="py-2 pr-2 text-right whitespace-nowrap text-warning">
+              <span className="font-mono font-semibold">-{formatCurrency(item.total)}</span>
+            </td>
+            <td className="py-2" />
           </tr>,
         );
       } else if (item.kind === "group-child") {
