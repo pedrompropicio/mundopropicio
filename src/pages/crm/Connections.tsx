@@ -31,8 +31,11 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const META_APP_ID = "2065507417360931";
+// Deve apontar SEMPRE para o projeto Supabase deste tenant. Usar VITE_SUPABASE_URL
+// evita o bug de redirect_uri desalinhado (era hardcoded para outro project ref →
+// Facebook redirecionava para host inexistente e o spinner do "Reconectar" ficava infinito).
 const META_REDIRECT_URI =
-  "https://sfohvvlqccmmebvjgibx.supabase.co/functions/v1/crm-meta-oauth-callback";
+  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/crm-meta-oauth-callback`;
 // Scopes necessários:
 //   ads_management        — criar/editar Campaigns, AdSets, Ads via Marketing API
 //   ads_read              — ler insights, spend, ROAS das campanhas existentes
