@@ -40,6 +40,12 @@ export interface GroupOptions<T> {
   getAmount: (tx: T) => number;
   /** Map noteId → summary (code, employee, status). Notas sem entrada no mapa caem para fallback. */
   notes: Map<string, RefundNoteSummary>;
+  /**
+   * Identifica a transação de pagamento/liquidação da nota (saída de caixa para o funcionário).
+   * Quando devolve true, a tx é mostrada como filha do grupo MAS o seu valor é EXCLUÍDO do
+   * total agregado para evitar duplicação (a saída espelha a soma das despesas originais).
+   */
+  isPaymentTx?: (tx: T) => boolean;
 }
 
 /**
