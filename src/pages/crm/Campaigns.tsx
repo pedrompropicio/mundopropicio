@@ -740,23 +740,56 @@ export default function CrmCampaigns() {
 
   const navigate = useNavigate();
   const [redesignLoading, setRedesignLoading] = useState(false);
-  const redesignCampaign = async () => {
+  const [redesignDialogOpen, setRedesignDialogOpen] = useState(false);
+  const [rdKeepBudget, setRdKeepBudget] = useState(true);
+  const [rdDailyEur, setRdDailyEur] = useState<string>("");
+  const [rdRoasGoal, setRdRoasGoal] = useState<string>("");
+  const [rdEndTime, setRdEndTime] = useState<string>("");
+
+  const openRedesignDialog = () => {
+    if (!analyzeCampaignId) return;
+    if (!analyzeData?.diagnosis_id) {
+      toast.error("Faz primeiro um diagnóstico desta campanha.");
+      return;
+    }
+    // Pré-popula com valor actual
+    const camp = campaigns?.find((c) => c.external_campaign_id === analyzeCampaignId);
+    const dailyEur = camp?.daily_budget_cents ? (camp.daily_budget_cents / 100).toFixed(2) : "";
+    setRdKeepBudget(true);
+    setRdDailyEur(dailyEur);
+    setRdRoasGoal("");
+    setRdEndTime("");
+    setRedesignDialogOpen(true);
+  };
+
+  const submitRedesign = async () => {
     if (!analyzeCampaignId) return;
     const diagId = analyzeData?.diagnosis_id;
     if (!diagId) {
       toast.error("Faz primeiro um diagnóstico desta campanha.");
       return;
     }
-    if (!confirm("Vou gerar uma versão optimizada desta campanha baseada no diagnóstico. Continuar?")) return;
+    const constraints: any = { keep_original_budget: rdKeepBudget };
+    if (!rdKeepBudget && rdDailyEur) {
+      const n = parseFloat(rdDailyEur.replace(",", "."));
+      if (Number.isFinite(n) && n > 0) constraints.daily_budget_cents = Math.round(n * 100);
+    }
+    if (rdRoasGoal) {
+      const r = parseFloat(rdRoasGoal.replace(",", "."));
+      if (Number.isFinite(r) && r > 0) constraints.roas_floor = r;
+    }
+    if (rdEndTime) constraints.end_time = `${rdEndTime}T23:59:59Z`;
+
     setRedesignLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-campaign-redesign", {
-        body: { campaign_id: analyzeCampaignId, diagnosis_id: diagId, period_days: periodDays },
+        body: { campaign_id: analyzeCampaignId, diagnosis_id: diagId, period_days: periodDays, constraints },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.message || data.error);
       if (!data?.strategy_id) throw new Error("Resposta inválida do servidor");
       toast.success("Re-design gerado. A abrir nova estratégia…");
+      setRedesignDialogOpen(false);
       navigate(`/audience/strategies/${data.strategy_id}`);
     } catch (e: any) {
       toast.error(e?.message || "Falha a re-desenhar campanha");
