@@ -230,7 +230,42 @@ Deno.serve(async (req: Request): Promise<Response> => {
               });
               addLog("info", `  ✓ AdSet criado: ${metaAdsetId}`);
 
-              for (const creative of phaseCreatives) {
+              // 6.1) Reaproveitar criativos herdados (existing_creative_id no plan)
+              const planAds: any[] = Array.isArray(planAdset.ads) ? planAdset.ads : [];
+              const reuseAds = planAds.filter((a) => typeof a?.existing_creative_id === "string");
+              const briefAds = planAds.filter((a) => !a?.existing_creative_id && a?.creative_brief);
+              let inheritedUsed = false;
+              for (const ra of reuseAds) {
+                if (ra.creative_brief) {
+                  addLog("error", `    ✗ Ad inválido: tem existing_creative_id E creative_brief — skip`, { existing_creative_id: ra.existing_creative_id });
+                  continue;
+                }
+                try {
+                  const adRes = await metaPost(`${adAccountId}/ads`, accessToken, {
+                    name: `Ad (reused): ${ra.existing_creative_id} → ${planAdset.adset_name}`.slice(0, 100),
+                    adset_id: metaAdsetId,
+                    creative: JSON.stringify({ creative_id: ra.existing_creative_id }),
+                    status: "PAUSED",
+                  });
+                  metaAds.push({
+                    inherited: true,
+                    meta_creative_id: ra.existing_creative_id,
+                    meta_ad_id: adRes.id,
+                    parent_meta_adset_id: metaAdsetId,
+                  });
+                  inheritedUsed = true;
+                  addLog("info", `    ✓ Ad (reused) criado: ${adRes.id} (creative ${ra.existing_creative_id})`);
+                } catch (e: any) {
+                  addLog("error", `    ✗ Falha a reaproveitar creative ${ra.existing_creative_id}`, { error: e.message });
+                }
+              }
+              if (briefAds.length > 0) {
+                addLog("warn", `    ⚠ ${briefAds.length} ad(s) com creative_brief sem upload — anexa criativos via UI`);
+              }
+
+              // 6.2) Criativos novos via associação UI (legacy) — só se não usámos herdados
+              const creativesToCreate = inheritedUsed ? [] : phaseCreatives;
+              for (const creative of creativesToCreate) {
                 try {
                   let imageHash = imageHashCache[creative.id] || creative.meta_image_hash;
                   if (!imageHash) {
