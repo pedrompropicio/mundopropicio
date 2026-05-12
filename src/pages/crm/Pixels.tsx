@@ -167,6 +167,14 @@ export default function CrmPixels() {
                   <h3 className="text-lg font-semibold truncate">{px.name}</h3>
                 </div>
                 <p className="text-xs text-muted-foreground font-mono">ID: {px.id}</p>
+                <button
+                  onClick={() => navigate(`/audience/audit/pixel/${px.id}`)}
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded border border-cyan-500/40 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 transition-colors"
+                  title="Auditoria técnica deste pixel"
+                >
+                  <Target className="h-3 w-3" />
+                  Auditar
+                </button>
                 <p className={cn(
                   "text-sm mt-2",
                   statusColor === "emerald" && "text-emerald-400",
