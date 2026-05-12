@@ -145,9 +145,13 @@ export default function CrmConnections() {
   const [refreshingPagesFor, setRefreshingPagesFor] = useState<string | null>(null);
   const [savingPageFor, setSavingPageFor] = useState<string | null>(null);
   const [pagesCache, setPagesCache] = useState<Record<string, any[]>>({});
+  const [autoFetchingPages, setAutoFetchingPages] = useState<Record<string, boolean>>({});
+  const [autoFetchPagesError, setAutoFetchPagesError] = useState<Record<string, boolean>>({});
 
-  const handleFetchPages = async (conn: ConnectionRow) => {
-    setRefreshingPagesFor(conn.id);
+  const fetchPagesInternal = async (conn: ConnectionRow, opts: { silent?: boolean } = {}) => {
+    const { silent = false } = opts;
+    if (!silent) setRefreshingPagesFor(conn.id);
+    else setAutoFetchingPages((s) => ({ ...s, [conn.id]: true }));
     try {
       const { data, error } = await supabase.functions.invoke(
         "crm-meta-fetch-pages",
@@ -156,13 +160,22 @@ export default function CrmConnections() {
       if (error) throw error;
       const pages = data?.pages ?? [];
       setPagesCache((s) => ({ ...s, [conn.id]: pages }));
-      toast.success(`${pages.length} página(s) carregada(s)`);
+      setAutoFetchPagesError((s) => ({ ...s, [conn.id]: false }));
+      if (!silent) toast.success(`${pages.length} página(s) carregada(s)`);
     } catch (e: any) {
-      toast.error("Falha ao carregar páginas", { description: e?.message ?? String(e) });
+      if (!silent) {
+        toast.error("Falha ao carregar páginas", { description: e?.message ?? String(e) });
+      } else {
+        console.warn("[crm/connections] auto-fetch pages failed:", e?.message ?? e);
+        setAutoFetchPagesError((s) => ({ ...s, [conn.id]: true }));
+      }
     } finally {
-      setRefreshingPagesFor(null);
+      if (!silent) setRefreshingPagesFor(null);
+      else setAutoFetchingPages((s) => ({ ...s, [conn.id]: false }));
     }
   };
+
+  const handleFetchPages = (conn: ConnectionRow) => fetchPagesInternal(conn, { silent: false });
 
   const handleSelectPage = async (conn: ConnectionRow, pageId: string) => {
     const pages = pagesCache[conn.id] ?? [];
