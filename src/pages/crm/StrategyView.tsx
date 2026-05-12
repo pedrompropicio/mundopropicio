@@ -652,6 +652,60 @@ export default function CrmStrategyView() {
         )}
       </Card>
 
+      {/* Criativos herdados (re-design) */}
+      {Array.isArray(plan.inherited_creatives) && plan.inherited_creatives.length > 0 && (
+        <Card className="p-5 border-cyan-500/30 bg-cyan-500/[0.04]">
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+            <div className="flex items-center gap-2">
+              <Image2 className="h-4 w-4 text-cyan-400" />
+              <h2 className="text-base font-semibold">Criativos reaproveitados da campanha original</h2>
+              <Badge className="bg-cyan-500/15 text-cyan-300 border-cyan-500/40 text-[10px] uppercase">
+                {inheritedTotal}/{plan.inherited_creatives.length} usados no plano
+              </Badge>
+            </div>
+            <div className="text-[11px] text-muted-foreground">
+              Estes criativos já existem no Meta — vão ser reutilizados directamente sem upload.
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {plan.inherited_creatives.map((c: any) => {
+              const phasesUsing: string[] = [];
+              for (const phase of plan?.phases ?? []) {
+                if (inheritedByPhase.get(phase.id)?.has(c.meta_creative_id)) phasesUsing.push(phase.name);
+              }
+              return (
+                <div key={c.meta_creative_id} className="flex gap-3 rounded border border-border bg-background/50 p-2">
+                  <div className="h-14 w-14 rounded bg-muted/50 border border-border overflow-hidden shrink-0 flex items-center justify-center">
+                    {c.file_url && c.type !== "video" ? (
+                      <img src={c.file_url} alt={c.name ?? ""} className="h-full w-full object-cover" loading="lazy" />
+                    ) : c.file_url && c.type === "video" ? (
+                      <video src={c.file_url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+                    ) : (
+                      <Image2 className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium truncate">{c.name ?? c.ad_name ?? "Sem nome"}</div>
+                    <div className="text-[10px] text-muted-foreground font-mono truncate">{c.meta_creative_id}</div>
+                    {phasesUsing.length > 0 ? (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {phasesUsing.map((pn) => (
+                          <Badge key={pn} variant="outline" className="text-[9px] py-0 px-1.5 border-cyan-500/30 text-cyan-300/90">
+                            {pn}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-muted-foreground mt-1">Disponível mas não atribuído</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
       {/* Phases */}
       {phases.length > 0 && (
         <div className="space-y-3">
