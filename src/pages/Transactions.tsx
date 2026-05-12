@@ -940,7 +940,7 @@ export default function Transactions() {
     items: any[],
     opts: { showPaymentDate?: boolean; colSpan: number },
   ): ReactNode => {
-    const rowFor = (t: any) => (
+    const rowFor = (t: any, inGroup = false) => (
       <TransactionRow
         key={t.id}
         transaction={t}
@@ -960,6 +960,7 @@ export default function Transactions() {
         onToggleHidden={isAdmin ? handleToggleHidden : undefined}
         onViewPayments={(id) => setShowPaymentsListId(id)}
         highlightId={highlightId}
+        inGroup={inGroup}
       />
     );
 
@@ -972,6 +973,7 @@ export default function Transactions() {
       getNoteId: (t: any) => refundIndex.byTx.get(t.id) ?? null,
       getAmount: (t: any) => Number(t.amount ?? 0),
       notes: refundIndex.notes,
+      isPaymentTx: (t: any) => refundIndex.paymentTxIds.has(t.id),
     });
 
     const out: ReactNode[] = [];
@@ -982,34 +984,40 @@ export default function Transactions() {
         const expanded = isNoteExpanded(item.noteId);
         const label = item.code ?? "Nota de reembolso";
         const employee = item.employeeName ?? "—";
+        // Estilo coeso: barra accent à esquerda + bg sutil. Mesma assinatura visual nas filhas.
+        const headerCls = expanded
+          ? "border-l-2 border-l-primary bg-primary/5 hover:bg-primary/10 cursor-pointer transition-colors"
+          : "border-b border-border/40 border-l-2 border-l-transparent bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors";
         out.push(
           <tr
             key={`refund-header-${item.noteId}`}
-            className="border-b border-border/40 bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors"
+            className={headerCls}
             onClick={() => toggleNoteExpanded(item.noteId)}
           >
-            <td colSpan={opts.colSpan} className="px-2 py-2">
+            <td colSpan={opts.colSpan} className="py-2 pl-2 pr-2">
+              {/* pl-7 alinha o ícone Receipt aproximadamente com a coluna "descrição" das filhas
+                  (que começam após o checkbox + chevron). */}
               <div className="flex items-center gap-2 text-xs">
-                {expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-                <Receipt className="h-3.5 w-3.5 text-primary" />
+                {expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                <Receipt className="h-3.5 w-3.5 text-primary shrink-0" />
                 <span className="font-semibold">{label}</span>
-                <span className="text-muted-foreground">— {employee}</span>
-                <Badge variant="secondary" className="ml-1 text-[10px]">
+                <span className="text-muted-foreground truncate">— {employee}</span>
+                <Badge variant="secondary" className="ml-1 text-[10px] shrink-0">
                   {item.childCount} item{item.childCount === 1 ? "" : "s"}
                 </Badge>
                 {item.status && (
-                  <Badge variant="outline" className="text-[10px] capitalize">
+                  <Badge variant="outline" className="text-[10px] capitalize shrink-0">
                     {item.status}
                   </Badge>
                 )}
-                <span className="ml-auto font-mono text-foreground">{formatCurrency(item.total)}</span>
+                <span className="ml-auto font-mono text-foreground shrink-0">{formatCurrency(item.total)}</span>
               </div>
             </td>
           </tr>,
         );
       } else if (item.kind === "group-child") {
         if (isNoteExpanded(item.noteId)) {
-          out.push(rowFor(item.tx));
+          out.push(rowFor(item.tx, true));
         }
       }
     }
