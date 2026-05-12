@@ -1023,9 +1023,11 @@ export default function Transactions() {
             {hasSelectableItems && <td className="py-2 pr-1 text-center w-6" />}
             <td className="py-2 pr-2">
               <div className="flex items-center gap-1.5 text-xs">
-                {expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-                <Receipt className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span className="rounded p-0.5 text-muted-foreground shrink-0">
+                  {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                </span>
                 <span className="font-semibold">{label}</span>
+                <Receipt className="h-3.5 w-3.5 text-primary shrink-0" />
                 <span className="text-muted-foreground truncate">— {employee}</span>
                 <Badge variant="secondary" className="ml-1 text-[10px] shrink-0">
                   {item.childCount} item{item.childCount === 1 ? "" : "s"}
