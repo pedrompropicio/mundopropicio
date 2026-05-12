@@ -1587,28 +1587,7 @@ export default function Transactions() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
-                  {paidTransactions.map((t) => (
-                    <TransactionRow
-                      key={t.id}
-                      transaction={t}
-                      isAdmin={canApprove}
-                      selectable={false}
-                      selected={false}
-                      onToggleSelect={() => {}}
-                      showSelectColumn={false}
-                      eventCompleted={(t.events as any)?.status === "completed"}
-                      showPaymentDate={true}
-                      onEdit={(id) => setEditingId(id)}
-                      onApprove={(id) => approveMutation.mutate(id)}
-                      onPayment={(id) => setShowPaymentId(id)}
-                      onDocs={(id) => setShowDocsId(id)}
-                      onAudit={(id) => setShowAuditId(id)}
-                      onDelete={(id) => handleDeleteRequest(id)}
-                      onToggleHidden={isAdmin ? handleToggleHidden : undefined}
-                      onViewPayments={(id) => setShowPaymentsListId(id)}
-                      highlightId={highlightId}
-                    />
-                  ))}
+                  {renderTransactionList(paidTransactions, { colSpan: 9, showPaymentDate: true })}
                 </tbody>
               </table>
             </div>
