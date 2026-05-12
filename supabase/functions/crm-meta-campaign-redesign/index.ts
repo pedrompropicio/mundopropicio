@@ -219,7 +219,7 @@ Desenha uma estratégia COMPLETA estruturada em fases (3-5), aplicando o diagnó
 - Verbas diárias e KPIs por fase.
 - Inclui também \`redesign_rationale\` (texto curto, 3-6 frases, em PT) explicando o porquê das mudanças vs original.
 
-Países alvo: ${countries.join(", ")}.
+Países alvo: ${countries.join(", ")}.${constraintsBlock}
 
 REGRAS:
 - Learning Phase: cada adset OFFSITE_CONVERSIONS precisa ~50 conversões/7d.
