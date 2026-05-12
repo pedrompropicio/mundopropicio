@@ -106,6 +106,7 @@ export default function AudiencePrint() {
         {type === "pixel-health" && <PixelHealthView {...data.payload} />}
         {type === "campaign-analysis" && <CampaignAnalysisView {...data.payload} />}
         {type === "audience-coach" && <AudienceCoachView {...data.payload} />}
+        {type === "audit-report" && <AuditReportView {...data.payload} />}
 
         <div className="footer-doc">
           MP Audience · Gerado em {new Date().toLocaleString("pt-PT")}
