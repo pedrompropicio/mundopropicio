@@ -1558,27 +1558,7 @@ export default function Transactions() {
                       </td>
                     </tr>
                   )}
-                  {noDateGroup.map((t) => (
-                    <TransactionRow
-                      key={t.id}
-                      transaction={t}
-                      isAdmin={canApprove}
-                      selectable={canApprove && (t.status === "pending" || t.status === "approved")}
-                      selected={selectedIds.has(t.id)}
-                      onToggleSelect={() => toggleSelect(t.id)}
-                      showSelectColumn={hasSelectableItems}
-                      eventCompleted={(t.events as any)?.status === "completed"}
-                      onEdit={(id) => setEditingId(id)}
-                      onApprove={(id) => approveMutation.mutate(id)}
-                      onPayment={(id) => setShowPaymentId(id)}
-                      onDocs={(id) => setShowDocsId(id)}
-                      onAudit={(id) => setShowAuditId(id)}
-                      onDelete={(id) => handleDeleteRequest(id)}
-                      onToggleHidden={isAdmin ? handleToggleHidden : undefined}
-                      onViewPayments={(id) => setShowPaymentsListId(id)}
-                      highlightId={highlightId}
-                    />
-                  ))}
+                  {renderTransactionList(noDateGroup, { colSpan: 10 })}
                 </tbody>
               </table>
             </div>
