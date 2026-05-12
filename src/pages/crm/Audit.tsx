@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, RefreshCw, Target, ExternalLink, Globe, Zap, AlertTriangle, CheckCircle2, XCircle, Activity } from "lucide-react";
+import { Loader2, RefreshCw, Target, ExternalLink, Globe, Zap, AlertTriangle, CheckCircle2, XCircle, Activity, FileDown } from "lucide-react";
 import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
+import { printAuditReport } from "@/lib/audience-pdf";
 import { cn } from "@/lib/utils";
 
 type AuditContext = { type: "event" | "campaign" | "landing"; id: string };
