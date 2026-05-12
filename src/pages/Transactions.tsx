@@ -1010,6 +1010,7 @@ export default function Transactions() {
       getAmount: (t: any) => Number(t.amount ?? 0),
       notes: refundIndex.notes,
       isPaymentTx: (t: any) => refundIndex.paymentTxIds.has(t.id),
+      getTotalChildCount: (noteId: string) => refundIndex.totalChildCounts.get(noteId) ?? 0,
     });
 
     const out: ReactNode[] = [];
@@ -1020,10 +1021,51 @@ export default function Transactions() {
         const expanded = isNoteExpanded(item.noteId);
         const label = item.code ?? "Nota de reembolso";
         const employee = item.employeeName ?? "—";
-        // Estilo coeso: mesma grelha visual das linhas normais; o grupo distingue-se só pela barra accent + bg.
+
+        // Agregações a partir das filhas visíveis (e da nota).
+        const kids: any[] = item.children;
+        const paidKids = kids.filter((k) => k.status === "paid");
+        const aggStatus =
+          kids.length === 0
+            ? item.status ?? "—"
+            : paidKids.length === kids.length
+              ? "paid"
+              : paidKids.length === 0
+                ? "pending"
+                : "mixed";
+        // Data de pagamento agregada: maior payment_date entre as filhas pagas.
+        const paymentDates = paidKids.map((k) => k.payment_date).filter(Boolean) as string[];
+        const aggPaymentDate = paymentDates.length > 0 ? paymentDates.sort().slice(-1)[0] : null;
+        // Evento agregado: se todas as filhas têm o mesmo evento, mostrar; senão "Vários".
+        const eventNames = Array.from(
+          new Set(kids.map((k) => (k.events as any)?.name).filter(Boolean) as string[]),
+        );
+        const aggEvent =
+          eventNames.length === 0 ? "—" : eventNames.length === 1 ? eventNames[0] : `Vários (${eventNames.length})`;
+        // Soma dos valores pagos (paid_amount) — para coluna "Pago".
+        const paidSum = kids.reduce((s, k) => {
+          if (refundIndex.paymentTxIds.has(k.id)) return s; // não duplicar saída
+          return s + Number(k.paid_amount ?? 0);
+        }, 0);
+
+        const statusBadgeCls =
+          aggStatus === "paid"
+            ? "bg-success/15 text-success border-success/30"
+            : aggStatus === "mixed"
+              ? "bg-warning/15 text-warning border-warning/30"
+              : "bg-muted text-muted-foreground border-border";
+        const statusLabel =
+          aggStatus === "paid" ? "Pago" : aggStatus === "mixed" ? "Misto" : aggStatus === "pending" ? "Pendente" : "—";
+
         const headerCls = expanded
           ? "border-l-2 border-l-primary bg-primary/5 hover:bg-primary/10 cursor-pointer transition-colors"
           : "border-b border-border/40 border-l-2 border-l-transparent bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors";
+
+        const showVisibleVsTotal = item.totalChildCount > item.childCount;
+        const countTitle = showVisibleVsTotal
+          ? `${item.childCount} de ${item.totalChildCount} (alguns ocultos por filtros)`
+          : `${item.childCount} item${item.childCount === 1 ? "" : "s"}`;
+
         out.push(
           <tr
             key={`refund-header-${item.noteId}`}
@@ -1039,22 +1081,29 @@ export default function Transactions() {
                 <span className="font-semibold">{label}</span>
                 <Receipt className="h-3.5 w-3.5 text-primary shrink-0" />
                 <span className="text-muted-foreground truncate">— {employee}</span>
-                <Badge variant="secondary" className="ml-1 text-[10px] shrink-0">
-                  {item.childCount} item{item.childCount === 1 ? "" : "s"}
+                <Badge variant="secondary" className="ml-1 text-[10px] shrink-0" title={countTitle}>
+                  {showVisibleVsTotal
+                    ? `${item.childCount}/${item.totalChildCount} itens`
+                    : `${item.childCount} item${item.childCount === 1 ? "" : "s"}`}
                 </Badge>
-                {item.status && (
-                  <Badge variant="outline" className="text-[10px] capitalize shrink-0">
-                    {item.status}
-                  </Badge>
-                )}
               </div>
             </td>
-            <td className="hidden py-2 pr-2 sm:table-cell text-muted-foreground">—</td>
+            <td className="hidden py-2 pr-2 sm:table-cell text-muted-foreground truncate max-w-[160px]" title={aggEvent}>
+              {aggEvent}
+            </td>
             <td className="hidden py-2 pr-2 md:table-cell text-muted-foreground">{employee}</td>
             <td className="hidden py-2 pr-2 lg:table-cell text-muted-foreground">Nota de reembolso</td>
-            <td className="py-2 pr-2 text-muted-foreground">—</td>
-            <td className="py-2 pr-2 text-muted-foreground whitespace-nowrap">—</td>
-            <td className="py-2 pr-2 text-right font-mono text-muted-foreground whitespace-nowrap">—</td>
+            <td className="py-2 pr-2">
+              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusBadgeCls}`}>
+                {statusLabel}
+              </span>
+            </td>
+            <td className="py-2 pr-2 text-muted-foreground whitespace-nowrap">
+              {aggPaymentDate ? new Date(aggPaymentDate).toLocaleDateString("pt-PT") : "—"}
+            </td>
+            <td className="py-2 pr-2 text-right font-mono text-muted-foreground whitespace-nowrap">
+              {paidSum > 0 ? formatCurrency(paidSum) : "—"}
+            </td>
             <td className="py-2 pr-2 text-right whitespace-nowrap text-warning">
               <span className="font-mono font-semibold">-{formatCurrency(item.total)}</span>
             </td>
