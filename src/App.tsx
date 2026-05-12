@@ -112,6 +112,7 @@ import AudiencePrint from "@/pages/crm/AudiencePrint";
 import CrmCreatives from "./pages/crm/Creatives";
 import CrmCreativeNew from "./pages/crm/CreativeNew";
 import CrmCreativeView from "./pages/crm/CreativeView";
+import CrmAudit from "./pages/crm/Audit";
 import ModuleSelector from "./pages/ModuleSelector";
 import PostLoginRedirect from "./components/PostLoginRedirect";
 import { AudienceLayout } from "./components/layout/AudienceLayout";
@@ -457,6 +458,8 @@ function App() {
                     <Route path="creatives" element={<CrmCreatives />} />
                     <Route path="creatives/new" element={<CrmCreativeNew />} />
                     <Route path="creatives/:id" element={<CrmCreativeView />} />
+                    <Route path="audit/:contextType/:contextId" element={<CrmAudit />} />
+                    <Route path="audit/:contextType" element={<CrmAudit />} />
                   </Route>
                   <Route path="/audience/strategies/:id/print" element={<CrmStrategyPrint />} />
                   <Route path="/audience/print/:type" element={<AudiencePrint />} />

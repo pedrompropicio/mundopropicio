@@ -24,6 +24,7 @@ import {
   Wand2,
   Pause,
   Play,
+  AlertTriangle,
 } from "lucide-react";
 import { printCampaignAnalysis, printAudienceCoach } from "@/lib/audience-pdf";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -1486,6 +1487,22 @@ export default function CrmCampaigns() {
                     </TabsList>
 
                     <TabsContent value="resumo" className="space-y-5 mt-4">
+                      {d.landing_concern?.suspected && (
+                        <button
+                          type="button"
+                          onClick={() => { setAnalyzeOpen(false); navigate(`/audience/audit/campaign/${analyzeCampaignId}`); }}
+                          className="w-full text-left rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 hover:bg-amber-500/20 transition-colors flex items-start gap-2"
+                        >
+                          <AlertTriangle className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-amber-300">⚠️ Possível problema na landing page — Investigar</p>
+                            {d.landing_concern.evidence && (
+                              <p className="text-xs text-amber-200/80 mt-0.5">{d.landing_concern.evidence}</p>
+                            )}
+                          </div>
+                          <span className="text-[10px] uppercase font-bold text-amber-300 self-center">Auditar →</span>
+                        </button>
+                      )}
                       {Array.isArray(d.top_3_actions) && d.top_3_actions.length > 0 && (
                         <div>
                           <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
