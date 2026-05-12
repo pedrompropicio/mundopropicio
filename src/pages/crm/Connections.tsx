@@ -596,7 +596,33 @@ export default function CrmConnections() {
                             </p>
                           )}
 
-                          {!hasPages && conn.selected_page_id && (
+                          {!hasPages && conn.selected_page_id && autoFetchingPages[conn.id] && (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              A carregar detalhes da Page…
+                            </div>
+                          )}
+
+                          {!hasPages && conn.selected_page_id && !autoFetchingPages[conn.id] && autoFetchPagesError[conn.id] && (
+                            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                              <span>
+                                Page selecionada (ID {conn.selected_page_id.slice(0, 12)}…) — não foi possível carregar detalhes.
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-[11px]"
+                                onClick={() => {
+                                  setAutoFetchPagesError((s) => ({ ...s, [conn.id]: false }));
+                                  fetchPagesInternal(conn, { silent: true });
+                                }}
+                              >
+                                Tentar novamente
+                              </Button>
+                            </div>
+                          )}
+
+                          {!hasPages && conn.selected_page_id && !autoFetchingPages[conn.id] && !autoFetchPagesError[conn.id] && (
                             <p className="text-xs text-muted-foreground">
                               Page selecionada (ID {conn.selected_page_id.slice(0, 12)}…) — clique 'Atualizar' para ver detalhes.
                             </p>
