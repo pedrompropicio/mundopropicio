@@ -1579,6 +1579,7 @@ export default function CrmCampaigns() {
                       onCoach={coachCampaign}
                       onToggleStatus={toggleCampaignStatus}
                       toggling={togglingCampaignId === c.external_campaign_id}
+                      onEdited={() => qc.invalidateQueries({ queryKey: ["crm-meta-campaigns", companyId, adAccountId] })}
                     />
                   ))}
                 </tbody>
