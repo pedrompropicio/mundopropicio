@@ -39,6 +39,11 @@ import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import BPViewerModal from "@/components/BPViewerModal";
 
+const extractRefundCodeFromPaymentDescription = (description?: string | null) => {
+  const match = description?.match(/^Reembolso\s+(R-\d+\/\d{4})\b/i);
+  return match?.[1] ?? null;
+};
+
 export default function Transactions() {
   const [filter, setFilter] = useState<"all" | "income" | "expense">("all");
   const [viewMode, setViewMode] = useState<"open" | "paid">("open");
@@ -216,7 +221,7 @@ export default function Transactions() {
   } } = useQuery({
     queryKey: ["reimbursement-index-for-tx-list-v2"],
     queryFn: async () => {
-      const [itemsRes, notesRes] = await Promise.all([
+      const [itemsRes, notesRes, paymentTxRes] = await Promise.all([
         supabase
           .from("reimbursement_note_items")
           .select("transaction_id, reimbursement_note_id")
@@ -225,27 +230,48 @@ export default function Transactions() {
           .from("reimbursement_notes")
           .select("id, code, employee_name, status, payment_transaction_id")
           .limit(20000),
+        supabase
+          .from("transactions")
+          .select("id, description")
+          .ilike("description", "Reembolso R-%")
+          .limit(20000),
       ]);
       if (itemsRes.error) throw itemsRes.error;
       if (notesRes.error) throw notesRes.error;
+      if (paymentTxRes.error) throw paymentTxRes.error;
 
       const byTx = new Map<string, string>();
       const notes = new Map<string, RefundNoteSummary>();
       const paymentTxIds = new Set<string>();
+      const notesByCode = new Map<string, string>();
+      const notesWithExplicitPayment = new Set<string>();
 
       for (const n of notesRes.data ?? []) {
         const noteId = (n as any).id;
+        const code = (n as any).code ?? null;
         notes.set(noteId, {
           noteId,
-          code: (n as any).code ?? null,
+          code,
           employeeName: (n as any).employee_name ?? null,
           status: (n as any).status ?? null,
         });
+        if (code) notesByCode.set(code, noteId);
         const payTxId = (n as any).payment_transaction_id;
         if (payTxId) {
           byTx.set(payTxId, noteId);
           paymentTxIds.add(payTxId);
+          notesWithExplicitPayment.add(noteId);
         }
+      }
+      // Fallback não-destrutivo para notas antigas sem payment_transaction_id:
+      // liga a tx de saída pelo prefixo "Reembolso R-XXX/AAAA" apenas em memória.
+      for (const tx of paymentTxRes.data ?? []) {
+        const txId = (tx as any).id;
+        const code = extractRefundCodeFromPaymentDescription((tx as any).description);
+        const noteId = code ? notesByCode.get(code) : null;
+        if (!txId || !noteId || notesWithExplicitPayment.has(noteId)) continue;
+        byTx.set(txId, noteId);
+        paymentTxIds.add(txId);
       }
       for (const row of itemsRes.data ?? []) {
         const txId = (row as any).transaction_id;
