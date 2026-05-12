@@ -291,7 +291,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
 
   return (
     <>
-      <tr ref={rowRef} className={`hover:bg-secondary/20 transition-colors ${computedStatus === "paid" ? "opacity-80" : ""} ${selected ? "bg-primary/5" : ""} ${isHidden ? "opacity-50 bg-muted/20" : ""} ${isHighlighted ? "ring-2 ring-primary ring-inset bg-primary/10 animate-pulse" : ""}`}>
+      <tr ref={rowRef} className={`hover:bg-secondary/20 transition-colors ${computedStatus === "paid" ? "opacity-80" : ""} ${selected ? "bg-primary/5" : ""} ${isHidden ? "opacity-50 bg-muted/20" : ""} ${isHighlighted ? "ring-2 ring-primary ring-inset bg-primary/10 animate-pulse" : ""} ${inGroup ? "border-l-2 border-l-primary bg-primary/5" : ""}`}>
         {showSelectColumn && (
           <td className="py-2 pr-1 text-center w-6">
             {selectable ? (
