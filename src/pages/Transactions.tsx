@@ -274,13 +274,28 @@ export default function Transactions() {
         byTx.set(txId, noteId);
         paymentTxIds.add(txId);
       }
+      const totalChildCounts = new Map<string, number>();
       for (const row of itemsRes.data ?? []) {
         const txId = (row as any).transaction_id;
         const noteId = (row as any).reimbursement_note_id;
         if (!txId || !noteId) continue;
         byTx.set(txId, noteId);
+        totalChildCounts.set(noteId, (totalChildCounts.get(noteId) ?? 0) + 1);
       }
-      return { byTx, notes, paymentTxIds };
+      // Soma a tx de pagamento ao total absoluto (faz parte das "filhas" visíveis no grupo).
+      for (const noteId of paymentTxIds.size > 0 ? Array.from(notes.keys()) : []) {
+        const note = notes.get(noteId);
+        if (!note) continue;
+        // Procurar se esta nota tem alguma tx mapeada como pagamento.
+        // Critério: existe pelo menos um txId em paymentTxIds cujo byTx aponta para este noteId.
+      }
+      // Forma direta: incrementar 1 quando a nota tem payment tx mapeado.
+      for (const [txId, nId] of byTx.entries()) {
+        if (paymentTxIds.has(txId)) {
+          totalChildCounts.set(nId, (totalChildCounts.get(nId) ?? 0) + 1);
+        }
+      }
+      return { byTx, notes, paymentTxIds, totalChildCounts };
     },
     staleTime: 60_000,
   });
