@@ -1637,31 +1637,35 @@ export default function CrmCampaigns() {
 
               return (
                 <>
-                  <div className={cn("rounded-lg border p-4 flex items-start gap-4", sevColor)}>
-                    <div className="text-3xl font-bold tabular-nums">{Math.round(score)}</div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded border border-current">
-                          {sevLabel}
-                        </span>
+                  <div className={cn("rounded-lg border p-4 flex flex-col sm:flex-row sm:items-start gap-4", sevColor)}>
+                    <div className="flex items-start gap-4 flex-1 min-w-0">
+                      <div className="text-3xl font-bold tabular-nums">{Math.round(score)}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded border border-current">
+                            {sevLabel}
+                          </span>
+                        </div>
+                        <p className="text-sm break-words">{d.summary_pt ?? ""}</p>
                       </div>
-                      <p className="text-sm">{d.summary_pt ?? ""}</p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={reanalyzeCampaign} disabled={analyzeLoading || redesignLoading}>
-                      <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Re-analisar
-                    </Button>
-                    {analyzeData?.diagnosis_id && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={openRedesignDialog}
-                        disabled={analyzeLoading || redesignLoading}
-                        className="border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
-                      >
-                        {redesignLoading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5 mr-1.5" />}
-                        Re-desenhar campanha
+                    <div className="flex flex-row gap-2 sm:flex-shrink-0">
+                      <Button variant="outline" size="sm" onClick={reanalyzeCampaign} disabled={analyzeLoading || redesignLoading} className="flex-1 sm:flex-initial sm:w-auto">
+                        <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Re-analisar
                       </Button>
-                    )}
+                      {analyzeData?.diagnosis_id && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={openRedesignDialog}
+                          disabled={analyzeLoading || redesignLoading}
+                          className="flex-1 sm:flex-initial sm:w-auto border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
+                        >
+                          {redesignLoading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5 mr-1.5" />}
+                          Re-desenhar<span className="hidden sm:inline">&nbsp;campanha</span>
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   <Tabs value={analyzeTab} onValueChange={setAnalyzeTab}>
