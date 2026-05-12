@@ -157,7 +157,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   }
 
-  // 5) Prompt → variante optimizada compatível com generated_plan
+  // 5) Resolve constraints efectivas
+  const keepOriginal = ctIn.keep_original_budget !== false; // default true
+  let effDailyCents: number | null = typeof ctIn.daily_budget_cents === "number" ? ctIn.daily_budget_cents : null;
+  let effLifetimeCents: number | null = typeof ctIn.lifetime_budget_cents === "number" ? ctIn.lifetime_budget_cents : null;
+  if (keepOriginal && effDailyCents == null && effLifetimeCents == null) {
+    effDailyCents = campaign.daily_budget_cents ?? null;
+    effLifetimeCents = campaign.lifetime_budget_cents ?? null;
+  }
+  const effRoasFloor: number | null = typeof ctIn.roas_floor === "number" ? ctIn.roas_floor : null;
+  const effEndTime: string | null = typeof ctIn.end_time === "string" && ctIn.end_time ? ctIn.end_time : null;
+
+  const constraintLines: string[] = [];
+  if (effDailyCents != null) constraintLines.push(`- Verba diária TOTAL da campanha: €${(effDailyCents / 100).toFixed(2)}/dia (não inventes valor diferente)`);
+  if (effLifetimeCents != null) constraintLines.push(`- Verba lifetime TOTAL da campanha: €${(effLifetimeCents / 100).toFixed(2)} (não inventes valor diferente)`);
+  if (effRoasFloor != null) constraintLines.push(`- ROAS mínimo (floor): ${effRoasFloor.toFixed(2)}x — todos os adsets devem ter target_kpis.roas_min ≥ ${effRoasFloor.toFixed(2)}`);
+  if (effEndTime) constraintLines.push(`- Data de fim da campanha: ${effEndTime} (calcular duration_days a partir daqui)`);
+  const constraintsBlock = constraintLines.length > 0
+    ? `\n\n== CONSTRAINTS RÍGIDAS (NÃO NEGOCIÁVEIS) ==\nRespeita EXACTAMENTE os seguintes limites. Não inventes valores diferentes:\n${constraintLines.join("\n")}\n`
+    : "";
+
+  // 6) Prompt
   const diagJsonStr = JSON.stringify(diagnosis.diagnosis_jsonb ?? {}).slice(0, 12000);
   const countries = ["PT", "BR"];
 
