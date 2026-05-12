@@ -321,7 +321,11 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
           },
           "optimization_goal": "REACH",
           "billing_event": "IMPRESSIONS",
-          "creative_type_recommended": "video"
+          "creative_type_recommended": "video",
+          "ads": [
+            { "existing_creative_id": "<meta_creative_id herdado>" },
+            { "creative_brief": { "primary_message": "...", "tone": "...", "must_include": ["..."], "avoid": ["..."] }, "creative_replacement_reason": "porquê substituir um criativo herdado" }
+          ]
         }
       ]
     }
