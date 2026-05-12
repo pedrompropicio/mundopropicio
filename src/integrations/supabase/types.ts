@@ -6304,6 +6304,27 @@ export type Database = {
           },
         ]
       }
+      user_preferences: {
+        Row: {
+          consolidate_refunds_view: boolean
+          created_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          consolidate_refunds_view?: boolean
+          created_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          consolidate_refunds_view?: boolean
+          created_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           company_id: string

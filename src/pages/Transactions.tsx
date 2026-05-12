@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, type ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate, calcIvaAmount } from "@/lib/mock-data";
@@ -20,6 +20,11 @@ import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsListModal";
 import { TransactionRow } from "@/components/TransactionRow";
+import { groupTransactionsByRefund, type RefundNoteSummary, type RefundRenderItem } from "@/lib/refund-grouping";
+import { useUserPreferences } from "@/hooks/useUserPreferences";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { TransferFormModal } from "@/components/TransferFormModal";
 import { BatchPaymentModal } from "@/components/BatchPaymentModal";
 import { TicketOfficeSettlementLauncher } from "@/components/TicketOfficeSettlementLauncher";
@@ -198,6 +203,51 @@ export default function Transactions() {
       return data;
     },
   });
+
+  // ===== Reembolsos: dados para consolidação visual =====
+  // Mapa transaction_id → {noteId, code, employee, status} para qualquer status (retroativo).
+  const { data: refundIndex = { byTx: new Map<string, string>(), notes: new Map<string, RefundNoteSummary>() } } =
+    useQuery({
+      queryKey: ["reimbursement-index-for-tx-list"],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from("reimbursement_note_items")
+          .select("transaction_id, reimbursement_note_id, reimbursement_notes(id, code, employee_name, status)")
+          .limit(20000);
+        if (error) throw error;
+        const byTx = new Map<string, string>();
+        const notes = new Map<string, RefundNoteSummary>();
+        for (const row of data ?? []) {
+          const txId = (row as any).transaction_id;
+          const noteId = (row as any).reimbursement_note_id;
+          if (!txId || !noteId) continue;
+          byTx.set(txId, noteId);
+          const note = (row as any).reimbursement_notes;
+          if (note && !notes.has(noteId)) {
+            notes.set(noteId, {
+              noteId,
+              code: note.code ?? null,
+              employeeName: note.employee_name ?? null,
+              status: note.status ?? null,
+            });
+          }
+        }
+        return { byTx, notes };
+      },
+      staleTime: 60_000,
+    });
+
+  const { consolidateRefunds, setConsolidateRefunds } = useUserPreferences();
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+
+  const toggleNoteExpanded = (noteId: string) => {
+    setExpandedNotes((prev) => {
+      const next = new Set(prev);
+      if (next.has(noteId)) next.delete(noteId);
+      else next.add(noteId);
+      return next;
+    });
+  };
 
   const selectedEventScopeIds = useMemo(() => {
     if (selectedEventIds.size === 0) return new Set<string>();
@@ -462,6 +512,9 @@ export default function Transactions() {
     const tokens = raw.toLowerCase().split(/\s+/).filter(Boolean);
     // Constrói um "haystack" único com todos os campos pesquisáveis
     const cat = t.account_categories ?? {};
+    // Refund note (mãe sintética) — torna code/funcionário pesquisáveis na linha
+    const refundNoteId = refundIndex.byTx.get(t.id);
+    const refundNote = refundNoteId ? refundIndex.notes.get(refundNoteId) : undefined;
     const haystack = [
       t.description,
       t.specification,
@@ -484,6 +537,8 @@ export default function Transactions() {
       (t.financial_accounts as any)?.name,
       cat.code,
       cat.name,
+      refundNote?.code,
+      refundNote?.employeeName,
     ]
       .map(normalize)
       .join(" \u0001 ");
@@ -841,6 +896,105 @@ export default function Transactions() {
   const editingTransaction = transactions.find((t) => t.id === editingId);
   const paymentTransaction = transactions.find((t) => t.id === showPaymentId);
 
+  // Auto-expand notas quando há pesquisa activa: qualquer nota cujas filhas matcham é aberta.
+  const searchAutoExpanded = useMemo(() => {
+    if (!consolidateRefunds) return new Set<string>();
+    if (!searchTerm.trim()) return new Set<string>();
+    const set = new Set<string>();
+    const collect = (arr: any[]) => {
+      for (const t of arr) {
+        const noteId = refundIndex.byTx.get(t.id);
+        if (noteId) set.add(noteId);
+      }
+    };
+    collect(filtered);
+    collect(paidTransactions);
+    return set;
+  }, [consolidateRefunds, searchTerm, filtered, paidTransactions, refundIndex]);
+
+  const isNoteExpanded = (noteId: string) => expandedNotes.has(noteId) || searchAutoExpanded.has(noteId);
+
+  // Helper para renderizar transações com suporte a consolidação de reembolsos.
+  const renderTransactionList = (
+    items: any[],
+    opts: { showPaymentDate?: boolean; colSpan: number },
+  ): ReactNode => {
+    const rowFor = (t: any) => (
+      <TransactionRow
+        key={t.id}
+        transaction={t}
+        isAdmin={canApprove}
+        selectable={canApprove && (t.status === "pending" || t.status === "approved")}
+        selected={selectedIds.has(t.id)}
+        onToggleSelect={() => toggleSelect(t.id)}
+        showSelectColumn={hasSelectableItems}
+        eventCompleted={(t.events as any)?.status === "completed"}
+        showPaymentDate={opts.showPaymentDate}
+        onEdit={(id) => setEditingId(id)}
+        onApprove={(id) => approveMutation.mutate(id)}
+        onPayment={(id) => setShowPaymentId(id)}
+        onDocs={(id) => setShowDocsId(id)}
+        onAudit={(id) => setShowAuditId(id)}
+        onDelete={(id) => handleDeleteRequest(id)}
+        onToggleHidden={isAdmin ? handleToggleHidden : undefined}
+        onViewPayments={(id) => setShowPaymentsListId(id)}
+        highlightId={highlightId}
+      />
+    );
+
+    if (!consolidateRefunds) {
+      return items.map((t) => rowFor(t));
+    }
+
+    const grouped: RefundRenderItem<any>[] = groupTransactionsByRefund(items, {
+      getId: (t: any) => t.id,
+      getNoteId: (t: any) => refundIndex.byTx.get(t.id) ?? null,
+      getAmount: (t: any) => Number(t.amount ?? 0),
+      notes: refundIndex.notes,
+    });
+
+    const out: ReactNode[] = [];
+    for (const item of grouped) {
+      if (item.kind === "tx") {
+        out.push(rowFor(item.tx));
+      } else if (item.kind === "group-header") {
+        const expanded = isNoteExpanded(item.noteId);
+        const label = item.code ?? "Nota de reembolso";
+        const employee = item.employeeName ?? "—";
+        out.push(
+          <tr
+            key={`refund-header-${item.noteId}`}
+            className="border-b border-border/40 bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors"
+            onClick={() => toggleNoteExpanded(item.noteId)}
+          >
+            <td colSpan={opts.colSpan} className="px-2 py-2">
+              <div className="flex items-center gap-2 text-xs">
+                {expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                <Receipt className="h-3.5 w-3.5 text-primary" />
+                <span className="font-semibold">{label}</span>
+                <span className="text-muted-foreground">— {employee}</span>
+                <Badge variant="secondary" className="ml-1 text-[10px]">
+                  {item.childCount} item{item.childCount === 1 ? "" : "s"}
+                </Badge>
+                {item.status && (
+                  <Badge variant="outline" className="text-[10px] capitalize">
+                    {item.status}
+                  </Badge>
+                )}
+                <span className="ml-auto font-mono text-foreground">{formatCurrency(item.total)}</span>
+              </div>
+            </td>
+          </tr>,
+        );
+      } else if (item.kind === "group-child") {
+        if (isNoteExpanded(item.noteId)) {
+          out.push(rowFor(item.tx));
+        }
+      }
+    }
+    return out;
+  };
+
   return (
     <div className="space-y-6">
       {/* Header: title + action buttons */}
@@ -1065,6 +1219,29 @@ export default function Transactions() {
             </div>
           </PopoverContent>
         </Popover>
+
+        {/* Consolidar reembolsos */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <label className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 h-8 cursor-pointer hover:bg-muted transition-colors">
+                <Receipt className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[13px] font-normal text-foreground hidden md:inline">Consolidar reembolsos</span>
+                <span className="text-[13px] font-normal text-foreground md:hidden">Reemb.</span>
+                <Switch
+                  checked={consolidateRefunds}
+                  onCheckedChange={(v) => setConsolidateRefunds(!!v)}
+                  aria-label="Consolidar reembolsos na listagem"
+                />
+              </label>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-xs max-w-xs">
+                Mostra apenas a conta mãe; as filhas ficam ocultas e podem ser expandidas individualmente.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
         {/* Period filter (open view only) */}
         {viewMode === "open" && (
@@ -1376,27 +1553,7 @@ export default function Transactions() {
                       </td>
                     </tr>
                   )}
-                  {overdueGroup.map((t) => (
-                    <TransactionRow
-                      key={t.id}
-                      transaction={t}
-                      isAdmin={canApprove}
-                      selectable={canApprove && (t.status === "pending" || t.status === "approved")}
-                      selected={selectedIds.has(t.id)}
-                      onToggleSelect={() => toggleSelect(t.id)}
-                      showSelectColumn={hasSelectableItems}
-                      eventCompleted={(t.events as any)?.status === "completed"}
-                      onEdit={(id) => setEditingId(id)}
-                      onApprove={(id) => approveMutation.mutate(id)}
-                      onPayment={(id) => setShowPaymentId(id)}
-                      onDocs={(id) => setShowDocsId(id)}
-                      onAudit={(id) => setShowAuditId(id)}
-                      onDelete={(id) => handleDeleteRequest(id)}
-                      onToggleHidden={isAdmin ? handleToggleHidden : undefined}
-                      onViewPayments={(id) => setShowPaymentsListId(id)}
-                      highlightId={highlightId}
-                    />
-                  ))}
+                  {renderTransactionList(overdueGroup, { colSpan: 10 })}
 
                   {periodGroup.length > 0 && (
                     <tr>
@@ -1410,27 +1567,7 @@ export default function Transactions() {
                       </td>
                     </tr>
                   )}
-                  {periodGroup.map((t) => (
-                    <TransactionRow
-                      key={t.id}
-                      transaction={t}
-                      isAdmin={canApprove}
-                      selectable={canApprove && (t.status === "pending" || t.status === "approved")}
-                      selected={selectedIds.has(t.id)}
-                      onToggleSelect={() => toggleSelect(t.id)}
-                      showSelectColumn={hasSelectableItems}
-                      eventCompleted={(t.events as any)?.status === "completed"}
-                      onEdit={(id) => setEditingId(id)}
-                      onApprove={(id) => approveMutation.mutate(id)}
-                      onPayment={(id) => setShowPaymentId(id)}
-                      onDocs={(id) => setShowDocsId(id)}
-                      onAudit={(id) => setShowAuditId(id)}
-                      onDelete={(id) => handleDeleteRequest(id)}
-                      onToggleHidden={isAdmin ? handleToggleHidden : undefined}
-                      onViewPayments={(id) => setShowPaymentsListId(id)}
-                      highlightId={highlightId}
-                    />
-                  ))}
+                  {renderTransactionList(periodGroup, { colSpan: 10 })}
 
                   {noDateGroup.length > 0 && (
                     <tr>
@@ -1444,27 +1581,7 @@ export default function Transactions() {
                       </td>
                     </tr>
                   )}
-                  {noDateGroup.map((t) => (
-                    <TransactionRow
-                      key={t.id}
-                      transaction={t}
-                      isAdmin={canApprove}
-                      selectable={canApprove && (t.status === "pending" || t.status === "approved")}
-                      selected={selectedIds.has(t.id)}
-                      onToggleSelect={() => toggleSelect(t.id)}
-                      showSelectColumn={hasSelectableItems}
-                      eventCompleted={(t.events as any)?.status === "completed"}
-                      onEdit={(id) => setEditingId(id)}
-                      onApprove={(id) => approveMutation.mutate(id)}
-                      onPayment={(id) => setShowPaymentId(id)}
-                      onDocs={(id) => setShowDocsId(id)}
-                      onAudit={(id) => setShowAuditId(id)}
-                      onDelete={(id) => handleDeleteRequest(id)}
-                      onToggleHidden={isAdmin ? handleToggleHidden : undefined}
-                      onViewPayments={(id) => setShowPaymentsListId(id)}
-                      highlightId={highlightId}
-                    />
-                  ))}
+                  {renderTransactionList(noDateGroup, { colSpan: 10 })}
                 </tbody>
               </table>
             </div>
@@ -1493,28 +1610,7 @@ export default function Transactions() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
-                  {paidTransactions.map((t) => (
-                    <TransactionRow
-                      key={t.id}
-                      transaction={t}
-                      isAdmin={canApprove}
-                      selectable={false}
-                      selected={false}
-                      onToggleSelect={() => {}}
-                      showSelectColumn={false}
-                      eventCompleted={(t.events as any)?.status === "completed"}
-                      showPaymentDate={true}
-                      onEdit={(id) => setEditingId(id)}
-                      onApprove={(id) => approveMutation.mutate(id)}
-                      onPayment={(id) => setShowPaymentId(id)}
-                      onDocs={(id) => setShowDocsId(id)}
-                      onAudit={(id) => setShowAuditId(id)}
-                      onDelete={(id) => handleDeleteRequest(id)}
-                      onToggleHidden={isAdmin ? handleToggleHidden : undefined}
-                      onViewPayments={(id) => setShowPaymentsListId(id)}
-                      highlightId={highlightId}
-                    />
-                  ))}
+                  {renderTransactionList(paidTransactions, { colSpan: 9, showPaymentDate: true })}
                 </tbody>
               </table>
             </div>
