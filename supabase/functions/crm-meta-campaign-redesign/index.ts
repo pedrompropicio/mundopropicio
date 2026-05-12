@@ -208,6 +208,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const diagJsonStr = JSON.stringify(diagnosis.diagnosis_jsonb ?? {}).slice(0, 12000);
   const countries = ["PT", "BR"];
 
+  const inheritedBlock = inheritedCreatives.length > 0
+    ? `\n== CRIATIVOS DISPONÍVEIS (REAPROVEITAR POR DEFEITO) ==
+A campanha original tem ${inheritedCreatives.length} criativo(s) que JÁ EXISTEM no Meta. **Reaproveita-os por defeito** — não peças briefs novos para o que já está bom.
+
+Lista (Meta creative_id → descrição):
+${inheritedCreatives.map((c, i) => `  ${i + 1}. ${c.meta_creative_id} — "${c.library?.name ?? c.ad_name ?? "sem nome"}"${c.library?.headline ? ` | hook: "${c.library.headline}"` : ""}`).join("\n")}
+
+REGRAS PARA OS \`ads\` DE CADA ADSET:
+- Para cada ad no plano, indica \`existing_creative_id: "<meta_creative_id>"\` em vez de pedir um brief novo.
+- Distribui os criativos herdados pelos adsets de forma sensata (todos em todas as fases por defeito, salvo se a fase pedir criativo específico).
+- Só sugere \`creative_brief\` (em alternativa) se o diagnóstico identificou problema concreto num criativo (hook_score < 60, audio_score < 60, congruência baixa) — nesse caso preenche \`creative_replacement_reason\` a explicar.
+- Cada ad usa OR \`existing_creative_id\` OR \`creative_brief\`, NUNCA ambos.
+`
+    : "";
+
   const prompt = `⚠️ IDIOMA OBRIGATÓRIO: TODOS OS CAMPOS TEXTUAIS DA RESPOSTA JSON DEVEM SER ESCRITOS EM PORTUGUÊS (PT-BR preferencial — público maioritário é Brasil).
 Mantém em inglês APENAS: nomes próprios, marcas, IDs, e termos técnicos (hook, CTA, ROAS, CTR, CPA).
 
