@@ -1509,7 +1509,7 @@ export default function CrmCampaigns() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={redesignCampaign}
+                        onClick={openRedesignDialog}
                         disabled={analyzeLoading || redesignLoading}
                         className="border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
                       >
