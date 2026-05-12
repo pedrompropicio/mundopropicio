@@ -145,6 +145,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .eq("external_campaign_id", campaignId);
   const adsetIds: string[] = (adsets ?? []).map((a: any) => a.external_adset_id);
 
+  // 3.1) Criativos herdados — reaproveitar por defeito
+  const { data: ads } = await (supabase as any)
+    .schema("crm").from("meta_ad_snapshot")
+    .select("meta_creative_id, name, effective_status")
+    .eq("external_campaign_id", campaignId)
+    .in("effective_status", ["ACTIVE", "PAUSED"])
+    .not("meta_creative_id", "is", null);
+  const inheritedMap = new Map<string, { meta_creative_id: string; ad_name: string | null; library: any | null }>();
+  for (const a of ads ?? []) {
+    if (!a.meta_creative_id) continue;
+    if (!inheritedMap.has(a.meta_creative_id)) {
+      inheritedMap.set(a.meta_creative_id, { meta_creative_id: a.meta_creative_id, ad_name: a.name ?? null, library: null });
+    }
+  }
+  const inheritedIds = [...inheritedMap.keys()];
+  if (inheritedIds.length > 0) {
+    const { data: lib } = await (supabase as any)
+      .schema("crm").from("meta_creatives")
+      .select("id, name, type, file_url, headline, body, meta_creative_id")
+      .in("meta_creative_id", inheritedIds);
+    for (const c of lib ?? []) {
+      const slot = inheritedMap.get(c.meta_creative_id);
+      if (slot) slot.library = c;
+    }
+  }
+  const inheritedCreatives = [...inheritedMap.values()];
+
   // 4) Evento + ticket avg
   let eventCtx: { id?: string; name?: string; date?: string; daysUntil?: number | null; tickets_total?: number | null; location?: string | null } = {};
   if (campaign.linked_event_id) {
@@ -181,6 +208,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const diagJsonStr = JSON.stringify(diagnosis.diagnosis_jsonb ?? {}).slice(0, 12000);
   const countries = ["PT", "BR"];
 
+  const inheritedBlock = inheritedCreatives.length > 0
+    ? `\n== CRIATIVOS DISPONÍVEIS (REAPROVEITAR POR DEFEITO) ==
+A campanha original tem ${inheritedCreatives.length} criativo(s) que JÁ EXISTEM no Meta. **Reaproveita-os por defeito** — não peças briefs novos para o que já está bom.
+
+Lista (Meta creative_id → descrição):
+${inheritedCreatives.map((c, i) => `  ${i + 1}. ${c.meta_creative_id} — "${c.library?.name ?? c.ad_name ?? "sem nome"}"${c.library?.headline ? ` | hook: "${c.library.headline}"` : ""}`).join("\n")}
+
+REGRAS PARA OS \`ads\` DE CADA ADSET:
+- Para cada ad no plano, indica \`existing_creative_id: "<meta_creative_id>"\` em vez de pedir um brief novo.
+- Distribui os criativos herdados pelos adsets de forma sensata (todos em todas as fases por defeito, salvo se a fase pedir criativo específico).
+- Só sugere \`creative_brief\` (em alternativa) se o diagnóstico identificou problema concreto num criativo (hook_score < 60, audio_score < 60, congruência baixa) — nesse caso preenche \`creative_replacement_reason\` a explicar.
+- Cada ad usa OR \`existing_creative_id\` OR \`creative_brief\`, NUNCA ambos.
+`
+    : "";
+
   const prompt = `⚠️ IDIOMA OBRIGATÓRIO: TODOS OS CAMPOS TEXTUAIS DA RESPOSTA JSON DEVEM SER ESCRITOS EM PORTUGUÊS (PT-BR preferencial — público maioritário é Brasil).
 Mantém em inglês APENAS: nomes próprios, marcas, IDs, e termos técnicos (hook, CTA, ROAS, CTR, CPA).
 
@@ -211,6 +253,7 @@ ${eventCtx.name ? `- Nome: ${eventCtx.name}
 
 == DIAGNÓSTICO ANTERIOR (severity=${diagnosis.severity}, score=${diagnosis.overall_score}) ==
 ${diagJsonStr}
+${inheritedBlock}
 
 == O QUE PRECISO QUE FAÇAS ==
 Desenha uma estratégia COMPLETA estruturada em fases (3-5), aplicando o diagnóstico:
@@ -278,7 +321,11 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
           },
           "optimization_goal": "REACH",
           "billing_event": "IMPRESSIONS",
-          "creative_type_recommended": "video"
+          "creative_type_recommended": "video",
+          "ads": [
+            { "existing_creative_id": "<meta_creative_id herdado>" },
+            { "creative_brief": { "primary_message": "...", "tone": "...", "must_include": ["..."], "avoid": ["..."] }, "creative_replacement_reason": "porquê substituir um criativo herdado" }
+          ]
         }
       ]
     }
@@ -347,6 +394,51 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
   }
 
   const rationale: string = String(plan.redesign_rationale ?? "").slice(0, 4000);
+
+  // 7.0) Anexar criativos herdados (mesmo que IA não tenha referenciado) + sanitizar ads
+  plan.inherited_creatives = inheritedCreatives.map((c) => ({
+    meta_creative_id: c.meta_creative_id,
+    ad_name: c.ad_name,
+    library_id: c.library?.id ?? null,
+    name: c.library?.name ?? c.ad_name ?? null,
+    type: c.library?.type ?? null,
+    file_url: c.library?.file_url ?? null,
+    headline: c.library?.headline ?? null,
+  }));
+  const validInheritedSet = new Set(inheritedCreatives.map((c) => c.meta_creative_id));
+  let inheritedAdsCount = 0;
+  for (const c of plan?.recommended_campaigns ?? []) {
+    for (const a of c?.adsets ?? []) {
+      if (!Array.isArray(a.ads)) continue;
+      a.ads = a.ads.map((ad: any) => {
+        const hasExisting = typeof ad?.existing_creative_id === "string" && validInheritedSet.has(ad.existing_creative_id);
+        const hasBrief = ad?.creative_brief && typeof ad.creative_brief === "object";
+        if (hasExisting && hasBrief) {
+          // mutuamente exclusivo — preferir existing
+          delete ad.creative_brief;
+        }
+        if (hasExisting) inheritedAdsCount++;
+        if (!hasExisting && typeof ad?.existing_creative_id === "string") {
+          // referência inválida — descartar
+          delete ad.existing_creative_id;
+        }
+        return ad;
+      });
+    }
+  }
+  // Fallback: se há herdados mas IA não usou nenhum, distribui um ad por adset com o 1º herdado
+  if (inheritedCreatives.length > 0 && inheritedAdsCount === 0) {
+    const fallbackId = inheritedCreatives[0].meta_creative_id;
+    for (const c of plan?.recommended_campaigns ?? []) {
+      for (const a of c?.adsets ?? []) {
+        if (!Array.isArray(a.ads) || a.ads.length === 0) {
+          a.ads = inheritedCreatives.map((ic) => ({ existing_creative_id: ic.meta_creative_id }));
+        }
+      }
+    }
+    console.log("[redesign] fallback: aplicado", fallbackId, "a todos os adsets vazios");
+  }
+
 
   // 7) Validar e enforce constraints (sobrescreve se IA desviou >5%)
   const constraintViolations: string[] = [];

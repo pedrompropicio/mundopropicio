@@ -327,6 +327,30 @@ export default function CrmStrategyView() {
     }
   };
 
+  // Detectar herdados no plan: ads com existing_creative_id por fase
+  const inheritedByPhase = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const c of plan?.recommended_campaigns ?? []) {
+      const phaseId = c.phase_id;
+      if (!phaseId) continue;
+      for (const a of c.adsets ?? []) {
+        for (const ad of a.ads ?? []) {
+          if (typeof ad?.existing_creative_id === "string") {
+            if (!map.has(phaseId)) map.set(phaseId, new Set());
+            map.get(phaseId)!.add(ad.existing_creative_id);
+          }
+        }
+      }
+    }
+    return map;
+  }, [plan]);
+
+  const inheritedTotal = useMemo(() => {
+    const all = new Set<string>();
+    for (const set of inheritedByPhase.values()) for (const id of set) all.add(id);
+    return all.size;
+  }, [inheritedByPhase]);
+
   const deployChecks = useMemo(() => {
     const checks: { label: string; ok: boolean; detail?: string }[] = [];
     checks.push({
@@ -345,17 +369,24 @@ export default function CrmStrategyView() {
       detail: connection?.selected_instagram_id ? "✓ (ads no IG ativos)" : "Opcional — sem IG, ads só no Facebook",
     });
     const phasesWithoutCreatives: string[] = [];
+    let phasesCovered = 0;
     for (const phase of plan?.phases ?? []) {
-      const hasCreatives = (associationsByPhase.get(phase.id) ?? []).length > 0;
-      if (!hasCreatives) phasesWithoutCreatives.push(phase.name);
+      const hasNew = (associationsByPhase.get(phase.id) ?? []).length > 0;
+      const hasInherited = (inheritedByPhase.get(phase.id)?.size ?? 0) > 0;
+      if (hasNew || hasInherited) phasesCovered++;
+      else phasesWithoutCreatives.push(phase.name);
     }
+    const totalPhases = plan?.phases?.length ?? 0;
+    const detail = phasesWithoutCreatives.length === 0
+      ? (inheritedTotal > 0 ? `✓ ${inheritedTotal} criativo(s) reaproveitado(s) da campanha original` : "✓")
+      : `Em falta: ${phasesWithoutCreatives.join(", ")}`;
     checks.push({
-      label: `Criativos em todas as fases (${(plan?.phases?.length ?? 0) - phasesWithoutCreatives.length}/${plan?.phases?.length ?? 0})`,
+      label: `Criativos em todas as fases (${phasesCovered}/${totalPhases})`,
       ok: phasesWithoutCreatives.length === 0,
-      detail: phasesWithoutCreatives.length === 0 ? "✓" : `Em falta: ${phasesWithoutCreatives.join(", ")}`,
+      detail,
     });
     return checks;
-  }, [connection, plan, associationsByPhase]);
+  }, [connection, plan, associationsByPhase, inheritedByPhase, inheritedTotal]);
 
   const canDeploy = deployChecks.filter((c) => c.label !== "Instagram associado").every((c) => c.ok);
 
@@ -363,17 +394,22 @@ export default function CrmStrategyView() {
     let campaigns = 0, adsets = 0, ads = 0;
     for (const phase of plan?.phases ?? []) {
       const phaseCreatives = associationsByPhase.get(phase.id) ?? [];
-      if (phaseCreatives.length === 0) continue;
+      const inherited = inheritedByPhase.get(phase.id) ?? new Set<string>();
+      if (phaseCreatives.length === 0 && inherited.size === 0) continue;
       const phaseCampaigns = (plan?.recommended_campaigns ?? []).filter((c: any) => c.phase_id === phase.id);
       campaigns += phaseCampaigns.length;
       for (const c of phaseCampaigns) {
         const phaseAdsets = (c.adsets ?? []).length;
         adsets += phaseAdsets;
-        ads += phaseAdsets * phaseCreatives.length;
+        // Por adset: se há herdados no plano, usa esses; caso contrário usa associações novas
+        for (const a of c.adsets ?? []) {
+          const inheritedInAdset = (a.ads ?? []).filter((x: any) => typeof x?.existing_creative_id === "string").length;
+          ads += inheritedInAdset > 0 ? inheritedInAdset : phaseCreatives.length;
+        }
       }
     }
     return { campaigns, adsets, ads };
-  }, [plan, associationsByPhase]);
+  }, [plan, associationsByPhase, inheritedByPhase]);
 
   const handleDeploy = async () => {
     if (!data || isDeploying) return;
@@ -615,6 +651,60 @@ export default function CrmStrategyView() {
           <div className="mt-3 text-xs text-muted-foreground">CPA esperado: <span className="text-foreground font-medium">{fmtEur(summary.expected_cpa_eur, 2)}</span></div>
         )}
       </Card>
+
+      {/* Criativos herdados (re-design) */}
+      {Array.isArray(plan.inherited_creatives) && plan.inherited_creatives.length > 0 && (
+        <Card className="p-5 border-cyan-500/30 bg-cyan-500/[0.04]">
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+            <div className="flex items-center gap-2">
+              <Image2 className="h-4 w-4 text-cyan-400" />
+              <h2 className="text-base font-semibold">Criativos reaproveitados da campanha original</h2>
+              <Badge className="bg-cyan-500/15 text-cyan-300 border-cyan-500/40 text-[10px] uppercase">
+                {inheritedTotal}/{plan.inherited_creatives.length} usados no plano
+              </Badge>
+            </div>
+            <div className="text-[11px] text-muted-foreground">
+              Estes criativos já existem no Meta — vão ser reutilizados directamente sem upload.
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {plan.inherited_creatives.map((c: any) => {
+              const phasesUsing: string[] = [];
+              for (const phase of plan?.phases ?? []) {
+                if (inheritedByPhase.get(phase.id)?.has(c.meta_creative_id)) phasesUsing.push(phase.name);
+              }
+              return (
+                <div key={c.meta_creative_id} className="flex gap-3 rounded border border-border bg-background/50 p-2">
+                  <div className="h-14 w-14 rounded bg-muted/50 border border-border overflow-hidden shrink-0 flex items-center justify-center">
+                    {c.file_url && c.type !== "video" ? (
+                      <img src={c.file_url} alt={c.name ?? ""} className="h-full w-full object-cover" loading="lazy" />
+                    ) : c.file_url && c.type === "video" ? (
+                      <video src={c.file_url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+                    ) : (
+                      <Image2 className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium truncate">{c.name ?? c.ad_name ?? "Sem nome"}</div>
+                    <div className="text-[10px] text-muted-foreground font-mono truncate">{c.meta_creative_id}</div>
+                    {phasesUsing.length > 0 ? (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {phasesUsing.map((pn) => (
+                          <Badge key={pn} variant="outline" className="text-[9px] py-0 px-1.5 border-cyan-500/30 text-cyan-300/90">
+                            {pn}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-muted-foreground mt-1">Disponível mas não atribuído</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* Phases */}
       {phases.length > 0 && (
