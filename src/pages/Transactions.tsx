@@ -512,6 +512,9 @@ export default function Transactions() {
     const tokens = raw.toLowerCase().split(/\s+/).filter(Boolean);
     // Constrói um "haystack" único com todos os campos pesquisáveis
     const cat = t.account_categories ?? {};
+    // Refund note (mãe sintética) — torna code/funcionário pesquisáveis na linha
+    const refundNoteId = refundIndex.byTx.get(t.id);
+    const refundNote = refundNoteId ? refundIndex.notes.get(refundNoteId) : undefined;
     const haystack = [
       t.description,
       t.specification,
@@ -534,6 +537,8 @@ export default function Transactions() {
       (t.financial_accounts as any)?.name,
       cat.code,
       cat.name,
+      refundNote?.code,
+      refundNote?.employeeName,
     ]
       .map(normalize)
       .join(" \u0001 ");
