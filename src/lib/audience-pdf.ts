@@ -30,3 +30,17 @@ export function printAudienceCoach(coachData: any) {
   if (!coachData?.coach) return;
   openPrintPage("audience-coach", { coachData });
 }
+
+export interface AuditReportPayload {
+  context: { type: string; title: string; eventName?: string; campaignName?: string; primary_url?: string };
+  generated_at: string;
+  verdict?: any;
+  landing: any[];
+  funnel: { placement?: { rows: any[] }; device?: { rows: any[] }; platform?: { rows: any[] } };
+  pixel?: any;
+}
+
+export function printAuditReport(payload: AuditReportPayload) {
+  if (!payload) return;
+  openPrintPage("audit-report", payload);
+}
