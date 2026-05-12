@@ -205,37 +205,58 @@ export default function Transactions() {
   });
 
   // ===== Reembolsos: dados para consolidação visual =====
-  // Mapa transaction_id → {noteId, code, employee, status} para qualquer status (retroativo).
-  const { data: refundIndex = { byTx: new Map<string, string>(), notes: new Map<string, RefundNoteSummary>() } } =
-    useQuery({
-      queryKey: ["reimbursement-index-for-tx-list"],
-      queryFn: async () => {
-        const { data, error } = await supabase
+  // Mapa transaction_id → noteId para qualquer status (retroativo). Inclui:
+  //  (a) despesas-filhas via reimbursement_note_items
+  //  (b) a transação de pagamento/saída de caixa via reimbursement_notes.payment_transaction_id
+  // O set `paymentTxIds` permite identificar (b) para EXCLUIR do total agregado (evita duplicação).
+  const { data: refundIndex = {
+    byTx: new Map<string, string>(),
+    notes: new Map<string, RefundNoteSummary>(),
+    paymentTxIds: new Set<string>(),
+  } } = useQuery({
+    queryKey: ["reimbursement-index-for-tx-list-v2"],
+    queryFn: async () => {
+      const [itemsRes, notesRes] = await Promise.all([
+        supabase
           .from("reimbursement_note_items")
-          .select("transaction_id, reimbursement_note_id, reimbursement_notes(id, code, employee_name, status)")
-          .limit(20000);
-        if (error) throw error;
-        const byTx = new Map<string, string>();
-        const notes = new Map<string, RefundNoteSummary>();
-        for (const row of data ?? []) {
-          const txId = (row as any).transaction_id;
-          const noteId = (row as any).reimbursement_note_id;
-          if (!txId || !noteId) continue;
-          byTx.set(txId, noteId);
-          const note = (row as any).reimbursement_notes;
-          if (note && !notes.has(noteId)) {
-            notes.set(noteId, {
-              noteId,
-              code: note.code ?? null,
-              employeeName: note.employee_name ?? null,
-              status: note.status ?? null,
-            });
-          }
+          .select("transaction_id, reimbursement_note_id")
+          .limit(20000),
+        supabase
+          .from("reimbursement_notes")
+          .select("id, code, employee_name, status, payment_transaction_id")
+          .limit(20000),
+      ]);
+      if (itemsRes.error) throw itemsRes.error;
+      if (notesRes.error) throw notesRes.error;
+
+      const byTx = new Map<string, string>();
+      const notes = new Map<string, RefundNoteSummary>();
+      const paymentTxIds = new Set<string>();
+
+      for (const n of notesRes.data ?? []) {
+        const noteId = (n as any).id;
+        notes.set(noteId, {
+          noteId,
+          code: (n as any).code ?? null,
+          employeeName: (n as any).employee_name ?? null,
+          status: (n as any).status ?? null,
+        });
+        const payTxId = (n as any).payment_transaction_id;
+        if (payTxId) {
+          byTx.set(payTxId, noteId);
+          paymentTxIds.add(payTxId);
         }
-        return { byTx, notes };
-      },
-      staleTime: 60_000,
-    });
+      }
+      for (const row of itemsRes.data ?? []) {
+        const txId = (row as any).transaction_id;
+        const noteId = (row as any).reimbursement_note_id;
+        if (!txId || !noteId) continue;
+        byTx.set(txId, noteId);
+      }
+      return { byTx, notes, paymentTxIds };
+    },
+    staleTime: 60_000,
+  });
 
   const { consolidateRefunds, setConsolidateRefunds } = useUserPreferences();
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
