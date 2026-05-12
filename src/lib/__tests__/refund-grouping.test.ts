@@ -36,7 +36,7 @@ describe("groupTransactionsByRefund", () => {
     expect(out[2]).toMatchObject({ kind: "group-child", noteId: "NOTE_A" });
     expect(out[3]).toMatchObject({ kind: "group-child", noteId: "NOTE_A" });
     expect(out[4]).toMatchObject({ kind: "group-header", noteId: "NOTE_B", childCount: 2 });
-    expect(out.at(-1)).toMatchObject({ kind: "tx" });
+    expect(out[out.length - 1]).toMatchObject({ kind: "tx" });
   });
 
   it("Cenário 8: nota com 0 filhas (ausente do input) não é renderizada", () => {
