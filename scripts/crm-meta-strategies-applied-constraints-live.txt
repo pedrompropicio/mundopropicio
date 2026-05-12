@@ -1,0 +1,15 @@
+-- ============================================================
+-- Fase 6 — Constraints no redesign + editor inline
+-- Aplicar em LIVE via Supabase SQL Editor.
+-- Idempotente.
+-- ============================================================
+
+ALTER TABLE crm.meta_campaign_strategies
+  ADD COLUMN IF NOT EXISTS applied_constraints jsonb NULL;
+
+-- Verificação:
+SELECT column_name, data_type
+  FROM information_schema.columns
+ WHERE table_schema='crm'
+   AND table_name='meta_campaign_strategies'
+   AND column_name='applied_constraints';
