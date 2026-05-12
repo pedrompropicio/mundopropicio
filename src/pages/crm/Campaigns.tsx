@@ -706,6 +706,7 @@ function EventGroupCard({
   onCoach,
   onToggleStatus,
   togglingCampaignId,
+  onEdited,
 }: {
   event: EventRow;
   campaigns: CampaignRow[];
@@ -718,6 +719,7 @@ function EventGroupCard({
   onCoach?: (id: string) => void;
   onToggleStatus?: (c: CampaignRow, target: "ACTIVE" | "PAUSED") => void;
   togglingCampaignId?: string | null;
+  onEdited?: () => void;
 }) {
   const [open, setOpen] = useState(true);
   const allInsights = useMemo(
