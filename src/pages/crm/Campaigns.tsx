@@ -797,6 +797,7 @@ function EventGroupCard({
                     onCoach={onCoach}
                     onToggleStatus={onToggleStatus}
                     toggling={togglingCampaignId === c.external_campaign_id}
+                    onEdited={onEdited}
                   />
                 ))}
               </tbody>
