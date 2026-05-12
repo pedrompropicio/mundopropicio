@@ -9,7 +9,7 @@ import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
 import { printAuditReport } from "@/lib/audience-pdf";
 import { cn } from "@/lib/utils";
 
-type AuditContext = { type: "event" | "campaign" | "landing"; id: string };
+type AuditContext = { type: "event" | "campaign" | "landing" | "pixel"; id: string };
 
 
 function statusForMetric(metric: string, v: number | null | undefined): "good" | "warn" | "bad" | "unknown" {
