@@ -30,6 +30,8 @@ interface Props {
   onToggleHidden?: (id: string, currentlyHidden: boolean) => void;
   onViewPayments?: (id: string) => void;
   highlightId?: string | null;
+  /** Quando true, renderiza a linha como filha de um grupo de reembolso (barra accent + bg sutil). */
+  inGroup?: boolean;
 }
 
 function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; onClick: () => void }) {
