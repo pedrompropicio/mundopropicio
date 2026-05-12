@@ -25,7 +25,13 @@ import {
   Pause,
   Play,
   AlertTriangle,
+  Pencil,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { DatePicker } from "@/components/ui/date-picker";
 import { printCampaignAnalysis, printAudienceCoach } from "@/lib/audience-pdf";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -70,6 +76,7 @@ interface CampaignRow {
   last_synced_at: string;
   linked_event_id: string | null;
   currency: string | null;
+  bid_strategy: string | null;
 }
 
 interface InsightRow {
@@ -292,6 +299,141 @@ function deltaPct(curr: number, prev: number): number | null {
 }
 
 // ============================================================
+// Edit Campaign Popover (inline)
+// ============================================================
+function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(c.name);
+  const [dailyEur, setDailyEur] = useState(
+    c.daily_budget_cents ? (c.daily_budget_cents / 100).toFixed(2) : "",
+  );
+  const [endDate, setEndDate] = useState(c.stop_time ? c.stop_time.slice(0, 10) : "");
+  const [roasGoal, setRoasGoal] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const supportsRoas = c.bid_strategy === "LOWEST_COST_WITH_MIN_ROAS";
+
+  const handleApply = async () => {
+    const updates: any = {};
+    if (name.trim() && name.trim() !== c.name) updates.name = name.trim();
+    if (dailyEur) {
+      const n = parseFloat(dailyEur.replace(",", "."));
+      if (Number.isFinite(n) && n > 0) {
+        const cents = Math.round(n * 100);
+        if (cents !== c.daily_budget_cents) updates.daily_budget_cents = cents;
+      }
+    }
+    if (endDate) updates.end_time = `${endDate}T23:59:59Z`;
+    if (supportsRoas && roasGoal) {
+      const r = parseFloat(roasGoal.replace(",", "."));
+      if (Number.isFinite(r) && r > 0) updates.roas_average_floor = r;
+    }
+    if (Object.keys(updates).length === 0) {
+      toast.info("Nada para alterar.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-entity-action", {
+        body: {
+          connection_id: c.connection_id,
+          entity_type: "campaign",
+          external_id: c.external_campaign_id,
+          action: "update",
+          ad_account_id: c.ad_account_id,
+          updates,
+        },
+      });
+      if (error) {
+        let detail = error.message;
+        if ((error as any).context) {
+          try {
+            const ctx = (error as any).context;
+            const b = await (ctx.clone ? ctx.clone() : ctx).json();
+            detail = b?.message || b?.detail || b?.error || detail;
+          } catch {}
+        }
+        throw new Error(detail);
+      }
+      if (data?.ok === false) throw new Error(data?.message ?? data?.detail ?? data?.error ?? "Falha");
+      toast.success(`Campanha "${c.name}" actualizada.`);
+      setOpen(false);
+      onSaved();
+    } catch (e: any) {
+      toast.error("Falha a actualizar no Meta", { description: e?.message ?? String(e) });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 px-2 text-[11px]"
+          title="Editar campanha"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Pencil className="h-3 w-3" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-80 z-[100]"
+        align="end"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label htmlFor={`edit-name-${c.id}`} className="text-xs">Nome</Label>
+            <Input id={`edit-name-${c.id}`} value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor={`edit-daily-${c.id}`} className="text-xs">Verba diária (€)</Label>
+            <Input
+              id={`edit-daily-${c.id}`}
+              type="number"
+              step="0.01"
+              min="0"
+              value={dailyEur}
+              onChange={(e) => setDailyEur(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Data de fim (opcional)</Label>
+            <DatePicker value={endDate} onChange={setEndDate} />
+          </div>
+          {supportsRoas && (
+            <div className="space-y-1">
+              <Label htmlFor={`edit-roas-${c.id}`} className="text-xs">ROAS goal (ex: 4.5)</Label>
+              <Input
+                id={`edit-roas-${c.id}`}
+                type="number"
+                step="0.1"
+                min="0"
+                placeholder="—"
+                value={roasGoal}
+                onChange={(e) => setRoasGoal(e.target.value)}
+              />
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={handleApply} disabled={saving}>
+              {saving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
+              Aplicar
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ============================================================
 // Campaign Row
 // ============================================================
 function CampaignTableRow({
@@ -305,6 +447,7 @@ function CampaignTableRow({
   onCoach,
   onToggleStatus,
   toggling,
+  onEdited,
 }: {
   c: CampaignRow;
   insights: InsightRow[];
@@ -316,6 +459,7 @@ function CampaignTableRow({
   onCoach?: (id: string) => void;
   onToggleStatus?: (c: CampaignRow, target: "ACTIVE" | "PAUSED") => void;
   toggling?: boolean;
+  onEdited?: () => void;
 }) {
   const agg = useMemo(() => aggregate(insights), [insights]);
   const aggPrev = useMemo(() => aggregate(prevInsights), [prevInsights]);
@@ -472,53 +616,56 @@ function CampaignTableRow({
         <Sparkline data={spark} />
       </td>
       <td className="py-2.5 px-3" onClick={(e) => e.stopPropagation()}>
-        {(() => {
-          const eff = c.effective_status ?? c.status ?? null;
-          const isActive = eff === "ACTIVE";
-          const isPaused = eff === "PAUSED";
-          if (!isActive && !isPaused) {
+        <div className="flex items-center gap-1.5">
+          {(() => {
+            const eff = c.effective_status ?? c.status ?? null;
+            const isActive = eff === "ACTIVE";
+            const isPaused = eff === "PAUSED";
+            if (!isActive && !isPaused) {
+              return (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-[10px] text-muted-foreground border border-border rounded px-2 py-0.5 cursor-help">
+                      {eff ?? "—"}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Status não permite ação direta no Meta.</TooltipContent>
+                </Tooltip>
+              );
+            }
             return (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="text-[10px] text-muted-foreground border border-border rounded px-2 py-0.5 cursor-help">
-                    {eff ?? "—"}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>Status não permite ação direta no Meta.</TooltipContent>
-              </Tooltip>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={toggling || !onToggleStatus}
+                onClick={() => {
+                  if (!onToggleStatus) return;
+                  if (isActive) {
+                    if (!confirm(`Pausar campanha "${c.name}" no Meta? Pode reactivar depois.`)) return;
+                    onToggleStatus(c, "PAUSED");
+                  } else {
+                    onToggleStatus(c, "ACTIVE");
+                  }
+                }}
+                className={cn(
+                  "h-7 px-2 text-[11px]",
+                  isActive
+                    ? "border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                    : "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10",
+                )}
+              >
+                {toggling ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : isActive ? (
+                  <><Pause className="h-3 w-3 mr-1" />Pausar</>
+                ) : (
+                  <><Play className="h-3 w-3 mr-1" />Activar</>
+                )}
+              </Button>
             );
-          }
-          return (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={toggling || !onToggleStatus}
-              onClick={() => {
-                if (!onToggleStatus) return;
-                if (isActive) {
-                  if (!confirm(`Pausar campanha "${c.name}" no Meta? Pode reactivar depois.`)) return;
-                  onToggleStatus(c, "PAUSED");
-                } else {
-                  onToggleStatus(c, "ACTIVE");
-                }
-              }}
-              className={cn(
-                "h-7 px-2 text-[11px]",
-                isActive
-                  ? "border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
-                  : "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10",
-              )}
-            >
-              {toggling ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : isActive ? (
-                <><Pause className="h-3 w-3 mr-1" />Pausar</>
-              ) : (
-                <><Play className="h-3 w-3 mr-1" />Activar</>
-              )}
-            </Button>
-          );
-        })()}
+          })()}
+          {onEdited && <EditCampaignPopover c={c} onSaved={onEdited} />}
+        </div>
       </td>
     </tr>
   );
@@ -559,6 +706,7 @@ function EventGroupCard({
   onCoach,
   onToggleStatus,
   togglingCampaignId,
+  onEdited,
 }: {
   event: EventRow;
   campaigns: CampaignRow[];
@@ -571,6 +719,7 @@ function EventGroupCard({
   onCoach?: (id: string) => void;
   onToggleStatus?: (c: CampaignRow, target: "ACTIVE" | "PAUSED") => void;
   togglingCampaignId?: string | null;
+  onEdited?: () => void;
 }) {
   const [open, setOpen] = useState(true);
   const allInsights = useMemo(
@@ -648,6 +797,7 @@ function EventGroupCard({
                     onCoach={onCoach}
                     onToggleStatus={onToggleStatus}
                     toggling={togglingCampaignId === c.external_campaign_id}
+                    onEdited={onEdited}
                   />
                 ))}
               </tbody>
@@ -733,23 +883,56 @@ export default function CrmCampaigns() {
 
   const navigate = useNavigate();
   const [redesignLoading, setRedesignLoading] = useState(false);
-  const redesignCampaign = async () => {
+  const [redesignDialogOpen, setRedesignDialogOpen] = useState(false);
+  const [rdKeepBudget, setRdKeepBudget] = useState(true);
+  const [rdDailyEur, setRdDailyEur] = useState<string>("");
+  const [rdRoasGoal, setRdRoasGoal] = useState<string>("");
+  const [rdEndTime, setRdEndTime] = useState<string>("");
+
+  const openRedesignDialog = () => {
+    if (!analyzeCampaignId) return;
+    if (!analyzeData?.diagnosis_id) {
+      toast.error("Faz primeiro um diagnóstico desta campanha.");
+      return;
+    }
+    // Pré-popula com valor actual
+    const camp = campaigns?.find((c) => c.external_campaign_id === analyzeCampaignId);
+    const dailyEur = camp?.daily_budget_cents ? (camp.daily_budget_cents / 100).toFixed(2) : "";
+    setRdKeepBudget(true);
+    setRdDailyEur(dailyEur);
+    setRdRoasGoal("");
+    setRdEndTime("");
+    setRedesignDialogOpen(true);
+  };
+
+  const submitRedesign = async () => {
     if (!analyzeCampaignId) return;
     const diagId = analyzeData?.diagnosis_id;
     if (!diagId) {
       toast.error("Faz primeiro um diagnóstico desta campanha.");
       return;
     }
-    if (!confirm("Vou gerar uma versão optimizada desta campanha baseada no diagnóstico. Continuar?")) return;
+    const constraints: any = { keep_original_budget: rdKeepBudget };
+    if (!rdKeepBudget && rdDailyEur) {
+      const n = parseFloat(rdDailyEur.replace(",", "."));
+      if (Number.isFinite(n) && n > 0) constraints.daily_budget_cents = Math.round(n * 100);
+    }
+    if (rdRoasGoal) {
+      const r = parseFloat(rdRoasGoal.replace(",", "."));
+      if (Number.isFinite(r) && r > 0) constraints.roas_floor = r;
+    }
+    if (rdEndTime) constraints.end_time = `${rdEndTime}T23:59:59Z`;
+
     setRedesignLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-campaign-redesign", {
-        body: { campaign_id: analyzeCampaignId, diagnosis_id: diagId, period_days: periodDays },
+        body: { campaign_id: analyzeCampaignId, diagnosis_id: diagId, period_days: periodDays, constraints },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.message || data.error);
       if (!data?.strategy_id) throw new Error("Resposta inválida do servidor");
       toast.success("Re-design gerado. A abrir nova estratégia…");
+      setRedesignDialogOpen(false);
       navigate(`/audience/strategies/${data.strategy_id}`);
     } catch (e: any) {
       toast.error(e?.message || "Falha a re-desenhar campanha");
@@ -1346,6 +1529,7 @@ export default function CrmCampaigns() {
                 onCoach={coachCampaign}
                 onToggleStatus={toggleCampaignStatus}
                 togglingCampaignId={togglingCampaignId}
+                onEdited={() => qc.invalidateQueries({ queryKey: ["crm-meta-campaigns", companyId, adAccountId] })}
               />
             );
           })
@@ -1395,6 +1579,7 @@ export default function CrmCampaigns() {
                       onCoach={coachCampaign}
                       onToggleStatus={toggleCampaignStatus}
                       toggling={togglingCampaignId === c.external_campaign_id}
+                      onEdited={() => qc.invalidateQueries({ queryKey: ["crm-meta-campaigns", companyId, adAccountId] })}
                     />
                   ))}
                 </tbody>
@@ -1469,7 +1654,7 @@ export default function CrmCampaigns() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={redesignCampaign}
+                        onClick={openRedesignDialog}
                         disabled={analyzeLoading || redesignLoading}
                         className="border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
                       >
@@ -1859,6 +2044,80 @@ export default function CrmCampaigns() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Dialog: constraints pré-redesign */}
+      <Dialog open={redesignDialogOpen} onOpenChange={setRedesignDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Re-desenhar campanha</DialogTitle>
+            <DialogDescription>
+              Define as constraints. A IA vai respeitá-las exactamente em vez de inventar valores.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-center justify-between rounded border border-border p-3">
+              <div>
+                <Label htmlFor="rd-keep" className="text-sm font-medium">Manter verba actual</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Usa a verba diária/lifetime já configurada na campanha original.
+                </p>
+              </div>
+              <Switch id="rd-keep" checked={rdKeepBudget} onCheckedChange={setRdKeepBudget} />
+            </div>
+            {!rdKeepBudget && (
+              <div className="space-y-1.5">
+                <Label htmlFor="rd-daily" className="text-xs">Verba diária (€)</Label>
+                <Input
+                  id="rd-daily"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="50.00"
+                  value={rdDailyEur}
+                  onChange={(e) => setRdDailyEur(e.target.value)}
+                />
+              </div>
+            )}
+            {(() => {
+              const camp = campaigns?.find((c) => c.external_campaign_id === analyzeCampaignId);
+              if (camp?.bid_strategy !== "LOWEST_COST_WITH_MIN_ROAS") return null;
+              return (
+                <div className="space-y-1.5">
+                  <Label htmlFor="rd-roas" className="text-xs">ROAS goal (ex: 4.5 = 450%)</Label>
+                  <Input
+                    id="rd-roas"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    placeholder="4.5"
+                    value={rdRoasGoal}
+                    onChange={(e) => setRdRoasGoal(e.target.value)}
+                  />
+                </div>
+              );
+            })()}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Data de fim (opcional)</Label>
+              <DatePicker value={rdEndTime} onChange={setRdEndTime} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRedesignDialogOpen(false)} disabled={redesignLoading}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={submitRedesign}
+              disabled={redesignLoading}
+              className="border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
+              variant="outline"
+            >
+              {redesignLoading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5 mr-1.5" />}
+              Re-desenhar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+

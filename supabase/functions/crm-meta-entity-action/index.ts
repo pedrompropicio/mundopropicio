@@ -94,9 +94,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // Snapshot atual (pode não existir se for entidade legacy nunca sincronizada — tudo bem)
   const snapMeta = SNAPSHOT_TABLE[entity_type];
+  const snapSelectCols = entity_type === "campaign"
+    ? `id, name, status, effective_status, ad_account_id, bid_strategy`
+    : `id, name, status, effective_status, ad_account_id`;
   const { data: snapRow } = await (supabase as any)
     .schema("crm").from(snapMeta.table)
-    .select(`id, name, status, effective_status, ad_account_id`)
+    .select(snapSelectCols)
     .eq(snapMeta.idCol, external_id)
     .eq("connection_id", connection_id)
     .maybeSingle();
@@ -135,6 +138,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (typeof updates.end_time === "string" && updates.end_time) {
       metaParams.end_time = updates.end_time;
       actionLogged = "update_end_time";
+    }
+    if (typeof updates.roas_average_floor === "number") {
+      const bidStrat = (snapRow as any)?.bid_strategy ?? null;
+      if (entity_type === "campaign" && bidStrat && bidStrat !== "LOWEST_COST_WITH_MIN_ROAS") {
+        return json({
+          error: "incompatible_bid_strategy",
+          message: `Esta entidade não suporta ROAS floor (bid_strategy actual: ${bidStrat}).`,
+        }, 400);
+      }
+      // Meta espera o ROAS floor como inteiro (multiplicado por 1.000.000). Ex: 4.5x → 4500000
+      const roasInt = Math.round(updates.roas_average_floor * 1_000_000);
+      metaParams.bid_strategy = "LOWEST_COST_WITH_MIN_ROAS";
+      metaParams.roas_average_floor = String(roasInt);
+      actionLogged = "update_roas_floor";
     }
     if (Object.keys(metaParams).length === 0) {
       return json({ error: "no_valid_updates" }, 400);

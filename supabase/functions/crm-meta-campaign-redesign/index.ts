@@ -61,11 +61,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { campaign_id?: string; diagnosis_id?: string; period_days?: number };
+  let body: {
+    campaign_id?: string;
+    diagnosis_id?: string;
+    period_days?: number;
+    constraints?: {
+      keep_original_budget?: boolean;
+      daily_budget_cents?: number;
+      lifetime_budget_cents?: number;
+      roas_floor?: number;
+      end_time?: string;
+    };
+  };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
   const campaignId = body.campaign_id;
   if (!campaignId) return json({ error: "missing_campaign_id" }, 400);
   const periodDays = Math.min(Math.max(body.period_days ?? 30, 7), 90);
+  const ctIn = body.constraints ?? {};
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
@@ -145,7 +157,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   }
 
-  // 5) Prompt → variante optimizada compatível com generated_plan
+  // 5) Resolve constraints efectivas
+  const keepOriginal = ctIn.keep_original_budget !== false; // default true
+  let effDailyCents: number | null = typeof ctIn.daily_budget_cents === "number" ? ctIn.daily_budget_cents : null;
+  let effLifetimeCents: number | null = typeof ctIn.lifetime_budget_cents === "number" ? ctIn.lifetime_budget_cents : null;
+  if (keepOriginal && effDailyCents == null && effLifetimeCents == null) {
+    effDailyCents = campaign.daily_budget_cents ?? null;
+    effLifetimeCents = campaign.lifetime_budget_cents ?? null;
+  }
+  const effRoasFloor: number | null = typeof ctIn.roas_floor === "number" ? ctIn.roas_floor : null;
+  const effEndTime: string | null = typeof ctIn.end_time === "string" && ctIn.end_time ? ctIn.end_time : null;
+
+  const constraintLines: string[] = [];
+  if (effDailyCents != null) constraintLines.push(`- Verba diária TOTAL da campanha: €${(effDailyCents / 100).toFixed(2)}/dia (não inventes valor diferente)`);
+  if (effLifetimeCents != null) constraintLines.push(`- Verba lifetime TOTAL da campanha: €${(effLifetimeCents / 100).toFixed(2)} (não inventes valor diferente)`);
+  if (effRoasFloor != null) constraintLines.push(`- ROAS mínimo (floor): ${effRoasFloor.toFixed(2)}x — todos os adsets devem ter target_kpis.roas_min ≥ ${effRoasFloor.toFixed(2)}`);
+  if (effEndTime) constraintLines.push(`- Data de fim da campanha: ${effEndTime} (calcular duration_days a partir daqui)`);
+  const constraintsBlock = constraintLines.length > 0
+    ? `\n\n== CONSTRAINTS RÍGIDAS (NÃO NEGOCIÁVEIS) ==\nRespeita EXACTAMENTE os seguintes limites. Não inventes valores diferentes:\n${constraintLines.join("\n")}\n`
+    : "";
+
+  // 6) Prompt
   const diagJsonStr = JSON.stringify(diagnosis.diagnosis_jsonb ?? {}).slice(0, 12000);
   const countries = ["PT", "BR"];
 
@@ -187,7 +219,7 @@ Desenha uma estratégia COMPLETA estruturada em fases (3-5), aplicando o diagnó
 - Verbas diárias e KPIs por fase.
 - Inclui também \`redesign_rationale\` (texto curto, 3-6 frases, em PT) explicando o porquê das mudanças vs original.
 
-Países alvo: ${countries.join(", ")}.
+Países alvo: ${countries.join(", ")}.${constraintsBlock}
 
 REGRAS:
 - Learning Phase: cada adset OFFSITE_CONVERSIONS precisa ~50 conversões/7d.
@@ -316,7 +348,44 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
 
   const rationale: string = String(plan.redesign_rationale ?? "").slice(0, 4000);
 
-  // 7) Persistir nova strategy
+  // 7) Validar e enforce constraints (sobrescreve se IA desviou >5%)
+  const constraintViolations: string[] = [];
+  if (effDailyCents != null) {
+    const expectedEur = effDailyCents / 100;
+    const sumDaily = (plan?.recommended_campaigns ?? []).reduce(
+      (s: number, c: any) => s + (Number(c?.daily_budget_eur) || 0), 0,
+    );
+    if (sumDaily > 0 && Math.abs(sumDaily - expectedEur) / expectedEur > 0.05) {
+      constraintViolations.push(`daily_budget desvio: AI=${sumDaily.toFixed(2)}€ vs constraint=${expectedEur.toFixed(2)}€`);
+      // sobrescreve plan.summary
+      if (plan.summary) plan.summary.recommended_total_budget_eur = expectedEur * (Number(plan?.summary?.expected_duration_days) || 30);
+      // re-escala adsets proporcionalmente
+      if (sumDaily > 0) {
+        const scale = expectedEur / sumDaily;
+        for (const c of plan.recommended_campaigns ?? []) {
+          if (typeof c.daily_budget_eur === "number") c.daily_budget_eur = +(c.daily_budget_eur * scale).toFixed(2);
+        }
+      }
+    }
+  }
+  if (effRoasFloor != null) {
+    for (const phase of plan?.phases ?? []) {
+      if (phase?.target_kpis && (phase.target_kpis.roas_min == null || phase.target_kpis.roas_min < effRoasFloor)) {
+        phase.target_kpis.roas_min = effRoasFloor;
+      }
+    }
+  }
+
+  const appliedConstraints = {
+    keep_original_budget: keepOriginal,
+    daily_budget_cents: effDailyCents,
+    lifetime_budget_cents: effLifetimeCents,
+    roas_floor: effRoasFloor,
+    end_time: effEndTime,
+    violations_corrected: constraintViolations,
+  };
+
+  // 8) Persistir nova strategy
   const stratName = `Re-design — ${campaign.name}`.slice(0, 200);
   const adAccountId = campaign.ad_account_id?.startsWith("act_") ? campaign.ad_account_id : `act_${campaign.ad_account_id}`;
 
@@ -344,6 +413,7 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       source_campaign_id: campaign.external_campaign_id,
       source_diagnosis_id: diagnosisId,
       redesign_rationale: rationale,
+      applied_constraints: appliedConstraints,
       created_by: userId,
     })
     .select("id").single();
