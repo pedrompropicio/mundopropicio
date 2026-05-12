@@ -94,9 +94,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // Snapshot atual (pode não existir se for entidade legacy nunca sincronizada — tudo bem)
   const snapMeta = SNAPSHOT_TABLE[entity_type];
+  const snapSelectCols = entity_type === "campaign"
+    ? `id, name, status, effective_status, ad_account_id, bid_strategy`
+    : `id, name, status, effective_status, ad_account_id`;
   const { data: snapRow } = await (supabase as any)
     .schema("crm").from(snapMeta.table)
-    .select(`id, name, status, effective_status, ad_account_id`)
+    .select(snapSelectCols)
     .eq(snapMeta.idCol, external_id)
     .eq("connection_id", connection_id)
     .maybeSingle();
