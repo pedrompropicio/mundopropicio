@@ -447,6 +447,7 @@ function CampaignTableRow({
   onCoach,
   onToggleStatus,
   toggling,
+  onEdited,
 }: {
   c: CampaignRow;
   insights: InsightRow[];
@@ -458,6 +459,7 @@ function CampaignTableRow({
   onCoach?: (id: string) => void;
   onToggleStatus?: (c: CampaignRow, target: "ACTIVE" | "PAUSED") => void;
   toggling?: boolean;
+  onEdited?: () => void;
 }) {
   const agg = useMemo(() => aggregate(insights), [insights]);
   const aggPrev = useMemo(() => aggregate(prevInsights), [prevInsights]);
