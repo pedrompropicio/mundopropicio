@@ -61,11 +61,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { campaign_id?: string; diagnosis_id?: string; period_days?: number };
+  let body: {
+    campaign_id?: string;
+    diagnosis_id?: string;
+    period_days?: number;
+    constraints?: {
+      keep_original_budget?: boolean;
+      daily_budget_cents?: number;
+      lifetime_budget_cents?: number;
+      roas_floor?: number;
+      end_time?: string;
+    };
+  };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
   const campaignId = body.campaign_id;
   if (!campaignId) return json({ error: "missing_campaign_id" }, 400);
   const periodDays = Math.min(Math.max(body.period_days ?? 30, 7), 90);
+  const ctIn = body.constraints ?? {};
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
