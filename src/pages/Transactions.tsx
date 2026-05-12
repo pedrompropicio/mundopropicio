@@ -204,7 +204,52 @@ export default function Transactions() {
     },
   });
 
-  const selectedEventScopeIds = useMemo(() => {
+  // ===== Reembolsos: dados para consolidação visual =====
+  // Mapa transaction_id → {noteId, code, employee, status} para qualquer status (retroativo).
+  const { data: refundIndex = { byTx: new Map<string, string>(), notes: new Map<string, RefundNoteSummary>() } } =
+    useQuery({
+      queryKey: ["reimbursement-index-for-tx-list"],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from("reimbursement_note_items")
+          .select("transaction_id, reimbursement_note_id, reimbursement_notes(id, code, employee_name, status)")
+          .limit(20000);
+        if (error) throw error;
+        const byTx = new Map<string, string>();
+        const notes = new Map<string, RefundNoteSummary>();
+        for (const row of data ?? []) {
+          const txId = (row as any).transaction_id;
+          const noteId = (row as any).reimbursement_note_id;
+          if (!txId || !noteId) continue;
+          byTx.set(txId, noteId);
+          const note = (row as any).reimbursement_notes;
+          if (note && !notes.has(noteId)) {
+            notes.set(noteId, {
+              noteId,
+              code: note.code ?? null,
+              employeeName: note.employee_name ?? null,
+              status: note.status ?? null,
+            });
+          }
+        }
+        return { byTx, notes };
+      },
+      staleTime: 60_000,
+    });
+
+  const { consolidateRefunds, setConsolidateRefunds } = useUserPreferences();
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+
+  const toggleNoteExpanded = (noteId: string) => {
+    setExpandedNotes((prev) => {
+      const next = new Set(prev);
+      if (next.has(noteId)) next.delete(noteId);
+      else next.add(noteId);
+      return next;
+    });
+  };
+
+
     if (selectedEventIds.size === 0) return new Set<string>();
 
     const next = new Set<string>(selectedEventIds);
