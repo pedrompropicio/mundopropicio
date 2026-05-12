@@ -297,14 +297,35 @@ export default function CrmAudit() {
             <span>{resolving ? "A carregar contexto…" : contextInfo.title}</span>
           </p>
         </div>
-        <button
-          onClick={runAll}
-          disabled={resolving}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Re-auditar tudo
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => printAuditReport({
+              context: { type: ctx.type, title: contextInfo.title, eventName: contextInfo.eventName, campaignName: contextInfo.campaignName, primary_url: contextInfo.landingUrls[0] },
+              generated_at: new Date().toISOString(),
+              verdict: verdict.data,
+              landing: contextInfo.landingUrls.map(u => landingByUrl[u]?.data).filter(Boolean),
+              funnel: {
+                placement: funnel.placement?.data ? { rows: funnel.placement.data.rows ?? [] } : undefined,
+                device: funnel.device?.data ? { rows: funnel.device.data.rows ?? [] } : undefined,
+                platform: funnel.platform?.data ? { rows: funnel.platform.data.rows ?? [] } : undefined,
+              },
+              pixel: pixel.data,
+            })}
+            disabled={resolving || verdict.loading}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 transition-colors disabled:opacity-50"
+          >
+            <FileDown className="h-4 w-4" />
+            PDF
+          </button>
+          <button
+            onClick={runAll}
+            disabled={resolving}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Re-auditar tudo
+          </button>
+        </div>
       </div>
 
       {/* AI Verdict */}
