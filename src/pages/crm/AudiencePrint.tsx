@@ -6,7 +6,7 @@ const STORAGE_KEY = "audience-print-data";
 const MAX_AGE_MS = 5 * 60 * 1000;
 
 interface StoredPayload {
-  type: "pixel-health" | "campaign-analysis" | "audience-coach";
+  type: "pixel-health" | "campaign-analysis" | "audience-coach" | "audit-report";
   payload: any;
   ts: number;
 }
