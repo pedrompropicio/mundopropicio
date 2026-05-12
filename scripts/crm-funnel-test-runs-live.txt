@@ -1,0 +1,188 @@
+-- =========================================================
+-- LIVE — Funnel Test 360 (Fase 1) — schema + bucket
+-- Idempotente. Correr no SQL Editor do projeto Live.
+-- =========================================================
+
+CREATE SCHEMA IF NOT EXISTS crm;
+
+-- 1) funnel_test_runs
+CREATE TABLE IF NOT EXISTS crm.funnel_test_runs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id uuid NOT NULL,
+  connection_id uuid NULL,
+  target_url text NOT NULL,
+  event_id uuid NULL,
+  status text NOT NULL DEFAULT 'queued'
+    CHECK (status IN ('queued','running','completed','failed')),
+  started_at timestamptz NULL,
+  completed_at timestamptz NULL,
+  total_duration_ms integer NULL,
+  expected_pixel_events text[] NOT NULL
+    DEFAULT ARRAY['PageView','ViewContent','AddToCart','InitiateCheckout']::text[],
+  detected_pixel_events jsonb NOT NULL DEFAULT '[]'::jsonb,
+  console_errors jsonb NOT NULL DEFAULT '[]'::jsonb,
+  lighthouse_summary jsonb NULL,
+  ai_summary text NULL,
+  severity text NULL CHECK (severity IN ('healthy','warning','critical')),
+  error_message text NULL,
+  created_by uuid NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_funnel_runs_company_created
+  ON crm.funnel_test_runs (company_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_funnel_runs_event_created
+  ON crm.funnel_test_runs (event_id, created_at DESC);
+
+ALTER TABLE crm.funnel_test_runs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS funnel_runs_select ON crm.funnel_test_runs;
+CREATE POLICY funnel_runs_select ON crm.funnel_test_runs
+  FOR SELECT TO authenticated
+  USING (public.is_platform_admin(auth.uid()) OR company_id = public.current_company_id());
+
+DROP POLICY IF EXISTS funnel_runs_insert ON crm.funnel_test_runs;
+CREATE POLICY funnel_runs_insert ON crm.funnel_test_runs
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    company_id = public.current_company_id()
+    AND (public.has_role(auth.uid(), 'admin'::app_role)
+         OR public.has_role(auth.uid(), 'manager'::app_role)
+         OR public.has_role(auth.uid(), 'editor'::app_role))
+  );
+
+DROP POLICY IF EXISTS funnel_runs_update ON crm.funnel_test_runs;
+CREATE POLICY funnel_runs_update ON crm.funnel_test_runs
+  FOR UPDATE TO authenticated
+  USING (
+    public.is_platform_admin(auth.uid())
+    OR (company_id = public.current_company_id()
+        AND (public.has_role(auth.uid(), 'admin'::app_role)
+             OR public.has_role(auth.uid(), 'manager'::app_role)
+             OR public.has_role(auth.uid(), 'editor'::app_role)))
+  );
+
+DROP POLICY IF EXISTS funnel_runs_delete ON crm.funnel_test_runs;
+CREATE POLICY funnel_runs_delete ON crm.funnel_test_runs
+  FOR DELETE TO authenticated
+  USING (
+    public.is_platform_admin(auth.uid())
+    OR (company_id = public.current_company_id()
+        AND (public.has_role(auth.uid(), 'admin'::app_role)
+             OR public.has_role(auth.uid(), 'manager'::app_role)))
+  );
+
+-- 2) funnel_test_steps
+CREATE TABLE IF NOT EXISTS crm.funnel_test_steps (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  run_id uuid NOT NULL REFERENCES crm.funnel_test_runs(id) ON DELETE CASCADE,
+  step_index integer NOT NULL,
+  step_name text NOT NULL,
+  step_status text NOT NULL DEFAULT 'pending'
+    CHECK (step_status IN ('pending','running','passed','failed','skipped')),
+  started_at timestamptz NULL,
+  completed_at timestamptz NULL,
+  duration_ms integer NULL,
+  screenshot_url text NULL,
+  url_at_step text NULL,
+  pixel_events_in_step jsonb NOT NULL DEFAULT '[]'::jsonb,
+  console_errors_in_step jsonb NOT NULL DEFAULT '[]'::jsonb,
+  lighthouse_at_step jsonb NULL,
+  notes text NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_funnel_steps_run_idx
+  ON crm.funnel_test_steps (run_id, step_index);
+
+ALTER TABLE crm.funnel_test_steps ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS funnel_steps_select ON crm.funnel_test_steps;
+CREATE POLICY funnel_steps_select ON crm.funnel_test_steps
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM crm.funnel_test_runs r
+      WHERE r.id = funnel_test_steps.run_id
+        AND (public.is_platform_admin(auth.uid()) OR r.company_id = public.current_company_id())
+    )
+  );
+
+DROP POLICY IF EXISTS funnel_steps_modify ON crm.funnel_test_steps;
+CREATE POLICY funnel_steps_modify ON crm.funnel_test_steps
+  FOR ALL TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM crm.funnel_test_runs r
+      WHERE r.id = funnel_test_steps.run_id
+        AND (public.is_platform_admin(auth.uid())
+             OR (r.company_id = public.current_company_id()
+                 AND (public.has_role(auth.uid(), 'admin'::app_role)
+                      OR public.has_role(auth.uid(), 'manager'::app_role)
+                      OR public.has_role(auth.uid(), 'editor'::app_role))))
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM crm.funnel_test_runs r
+      WHERE r.id = funnel_test_steps.run_id
+        AND (public.is_platform_admin(auth.uid())
+             OR (r.company_id = public.current_company_id()
+                 AND (public.has_role(auth.uid(), 'admin'::app_role)
+                      OR public.has_role(auth.uid(), 'manager'::app_role)
+                      OR public.has_role(auth.uid(), 'editor'::app_role))))
+    )
+  );
+
+CREATE OR REPLACE FUNCTION crm.touch_funnel_runs_updated_at()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_touch_funnel_runs ON crm.funnel_test_runs;
+CREATE TRIGGER trg_touch_funnel_runs
+  BEFORE UPDATE ON crm.funnel_test_runs
+  FOR EACH ROW EXECUTE FUNCTION crm.touch_funnel_runs_updated_at();
+
+-- 3) Storage bucket privado
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('funnel-test-screenshots', 'funnel-test-screenshots', false)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS funnel_screens_select ON storage.objects;
+CREATE POLICY funnel_screens_select ON storage.objects
+  FOR SELECT TO authenticated
+  USING (
+    bucket_id = 'funnel-test-screenshots'
+    AND (public.is_platform_admin(auth.uid())
+         OR (storage.foldername(name))[1] = public.current_company_id()::text)
+  );
+
+DROP POLICY IF EXISTS funnel_screens_insert ON storage.objects;
+CREATE POLICY funnel_screens_insert ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'funnel-test-screenshots'
+    AND (public.is_platform_admin(auth.uid())
+         OR (storage.foldername(name))[1] = public.current_company_id()::text)
+  );
+
+DROP POLICY IF EXISTS funnel_screens_delete ON storage.objects;
+CREATE POLICY funnel_screens_delete ON storage.objects
+  FOR DELETE TO authenticated
+  USING (
+    bucket_id = 'funnel-test-screenshots'
+    AND (public.is_platform_admin(auth.uid())
+         OR (storage.foldername(name))[1] = public.current_company_id()::text)
+  );
+
+-- =========================================================
+-- VALIDAÇÃO
+-- =========================================================
+SELECT 'funnel_test_runs' AS tbl, count(*) FROM crm.funnel_test_runs
+UNION ALL SELECT 'funnel_test_steps', count(*) FROM crm.funnel_test_steps
+UNION ALL SELECT 'bucket', count(*) FROM storage.buckets WHERE id = 'funnel-test-screenshots';
