@@ -375,7 +375,14 @@ export default function CrmAudit() {
         </div>
       </div>
 
-      {/* AI Verdict */}
+      {ctx.type === "landing" && contextInfo.landingUrls.length === 0 && !contextInfo.campaignId && !resolving && (
+        <Card className="p-3 border-cyan-500/30 bg-cyan-500/5">
+          <p className="text-xs text-cyan-200">
+            ℹ️ Auditoria geral do ad account. Para análise focada, entra pela página de uma campanha ou clica num pixel específico.
+          </p>
+        </Card>
+      )}
+
       <Card className="p-5">
         <div className="flex items-center gap-2 mb-3">
           <Activity className="h-4 w-4 text-amber-400" />
