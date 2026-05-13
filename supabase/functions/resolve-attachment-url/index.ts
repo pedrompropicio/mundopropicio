@@ -223,7 +223,7 @@ Deno.serve(async (req) => {
             ...corsHeaders,
             "Content-Type": contentType,
             "Content-Disposition": contentDisposition(resolved.filename),
-            "X-Resolved-Attachment-Path": candidate,
+            "X-Resolved-Attachment-Path": asciiHeader(candidate),
           },
         });
       }
