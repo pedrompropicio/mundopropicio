@@ -1,0 +1,6 @@
+GRANT USAGE ON SCHEMA crm TO authenticated,service_role;
+GRANT SELECT,INSERT,UPDATE,DELETE ON TABLE crm.funnel_test_runs TO authenticated,service_role;
+GRANT SELECT,INSERT,UPDATE,DELETE ON TABLE crm.funnel_test_steps TO authenticated,service_role;
+SELECT 'funnel_test_runs' AS table_name,has_table_privilege('service_role','crm.funnel_test_runs','INSERT') AS service_can_insert,has_table_privilege('authenticated','crm.funnel_test_runs','INSERT') AS auth_can_insert
+UNION ALL
+SELECT 'funnel_test_steps',has_table_privilege('service_role','crm.funnel_test_steps','INSERT'),has_table_privilege('authenticated','crm.funnel_test_steps','INSERT');
