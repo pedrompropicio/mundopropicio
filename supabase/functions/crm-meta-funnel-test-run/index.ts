@@ -11,6 +11,7 @@ import {
 import {
   runBrowserlessSession,
   fetchLighthouse,
+  pingBrowserless,
   type SessionStepResult,
 } from "./_browserless.ts";
 
@@ -294,8 +295,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { target_url?: string; connection_id?: string; event_id?: string };
+  let body: { target_url?: string; connection_id?: string; event_id?: string; debug_browserless?: boolean };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
+
+  if (body.debug_browserless === true && isServiceRoleAuth(authHeader)) {
+    if (!BROWSERLESS_API_KEY) return json({ error: "missing_browserless_api_key" }, 500);
+    const ping = await pingBrowserless(BROWSERLESS_API_KEY);
+    return json({ browserless: ping }, ping.some((x) => x.ok) ? 200 : 502);
+  }
 
   const targetUrl = (body.target_url ?? "").trim();
   if (!targetUrl || !isValidUrl(targetUrl)) return json({ error: "invalid_target_url" }, 400);
