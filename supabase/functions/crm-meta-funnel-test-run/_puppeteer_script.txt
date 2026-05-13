@@ -71,10 +71,10 @@ export default async function ({ page, context }) {
         try {
           // Suporte para has-text via XPath quando aplicável
           if (sel.includes(':has-text(')) {
-            const m = sel.match(/^([a-z]+):has-text\\("(.+)"\\)$/i);
+            const m = sel.match(/^([a-z]+):has-text\("(.+)"\)$/i);
             if (m) {
               const tag = m[1]; const text = m[2];
-              const xp = \`//\${tag}[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÀÂÊÔÃÕÇ', 'abcdefghijklmnopqrstuvwxyzáéíóúàâêôãõç'), '\${text.toLowerCase()}')]\`;
+              const xp = `//${tag}[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÀÂÊÔÃÕÇ', 'abcdefghijklmnopqrstuvwxyzáéíóúàâêôãõç'), '${text.toLowerCase()}')]`;
               const handles = await page.$x(xp);
               if (handles.length) return handles[0];
               continue;
