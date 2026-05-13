@@ -38,6 +38,8 @@ function pushIfUrl(out: string[], v: unknown) {
 function digCreative(creative: any, out: string[]) {
   if (!creative || typeof creative !== "object") return;
   pushIfUrl(out, creative.link_url);
+  pushIfUrl(out, creative.instagram_permalink_url);
+  pushIfUrl(out, creative.link_destination_display_url);
   const oss = creative.object_story_spec ?? {};
   pushIfUrl(out, oss?.link_data?.link);
   pushIfUrl(out, oss?.video_data?.call_to_action?.value?.link);
@@ -182,9 +184,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${campaignId}/ads`);
     url.searchParams.set(
       "fields",
-      "effective_status,creative{link_url,object_story_spec{link_data{link,child_attachments{link}},video_data{call_to_action{value{link}}},template_data{link,call_to_action{value{link}}}},asset_feed_spec{link_urls{website_url}}}",
+      "effective_status,creative{link_url,instagram_permalink_url,link_destination_display_url,object_story_spec{link_data{link,child_attachments{link}},video_data{call_to_action{value{link}}},template_data{link,call_to_action{value{link}}}},asset_feed_spec{link_urls{website_url}}}",
     );
-    url.searchParams.set("effective_status", JSON.stringify(["ACTIVE", "PAUSED"]));
+    url.searchParams.set(
+      "filtering",
+      JSON.stringify([{ field: "effective_status", operator: "IN", value: ["ACTIVE", "PAUSED"] }]),
+    );
     url.searchParams.set("limit", "100");
     url.searchParams.set("access_token", accessToken);
 
