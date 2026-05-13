@@ -375,6 +375,20 @@ export default function CrmAudit() {
         </div>
       </div>
 
+      {/* CTA: Funnel Test 360 */}
+      <Card
+        className="p-4 border-cyan-500/40 bg-cyan-500/5 cursor-pointer hover:bg-cyan-500/10 transition-colors"
+        onClick={() => navigate("/audience/audit/funnel-test")}
+      >
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <p className="text-sm font-semibold text-cyan-200">🎯 NOVO: Teste 360 automatizado do funil Meta Pixel</p>
+            <p className="text-xs text-cyan-100/70 mt-0.5">Browser real percorre home → evento → bilhete → cart → checkout e valida cada disparo de pixel.</p>
+          </div>
+          <span className="text-xs text-cyan-300 font-semibold">Abrir →</span>
+        </div>
+      </Card>
+
       {ctx.type === "landing" && contextInfo.landingUrls.length === 0 && !contextInfo.campaignId && !resolving && (
         <Card className="p-3 border-cyan-500/30 bg-cyan-500/5">
           <p className="text-xs text-cyan-200">
