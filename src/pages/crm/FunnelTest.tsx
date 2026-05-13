@@ -224,16 +224,7 @@ export default function FunnelTest() {
         </div>
       </div>
 
-      {/* BETA banner */}
-      <Card className="p-3 border-amber-500/30 bg-amber-500/5">
-        <p className="text-xs text-amber-200 flex items-start gap-2">
-          <Info className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>
-            <strong>Modo BETA:</strong> o motor de browser real (Browserless.io) será activado em breve.
-            Por agora os resultados são simulados para validar o fluxo.
-          </span>
-        </p>
-      </Card>
+      {/* (banner BETA removido — Browserless real activo) */}
 
       {/* Input card */}
       {!isActiveRun && !run && (
