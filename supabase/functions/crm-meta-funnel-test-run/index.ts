@@ -45,7 +45,8 @@ function isServiceRoleAuth(authHeader: string): boolean {
   if (SERVICE_ROLE.length > 0 && authHeader === `Bearer ${SERVICE_ROLE}`) return true;
   try {
     const token = authHeader.replace(/^Bearer\s+/i, "");
-    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    const part = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(part.padEnd(Math.ceil(part.length / 4) * 4, "=")));
     return payload?.role === "service_role";
   } catch { return false; }
 }
