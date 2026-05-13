@@ -12,6 +12,7 @@ import {
   runBrowserlessSession,
   fetchLighthouse,
   pingBrowserless,
+  normalizeBrowserlessApiKey,
   type SessionStepResult,
 } from "./_browserless.ts";
 
@@ -26,7 +27,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
-const BROWSERLESS_API_KEY = (Deno.env.get("BROWSERLESS_API_KEY") ?? "").trim();
+const BROWSERLESS_API_KEY_RAW = Deno.env.get("BROWSERLESS_API_KEY") ?? "";
+const BROWSERLESS_API_KEY = normalizeBrowserlessApiKey(BROWSERLESS_API_KEY_RAW);
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
