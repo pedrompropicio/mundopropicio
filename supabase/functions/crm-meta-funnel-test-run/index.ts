@@ -320,19 +320,29 @@ Deno.serve(async (req: Request): Promise<Response> => {
       companyId = conn?.company_id ?? null;
       console.log(`[funnel-test] auth=service_role company=${companyId ? "ok" : "missing"}`);
     } else {
-      const { data: u, error: userErr } = await userClient.auth.getUser();
-      userId = u?.user?.id ?? null;
-      if (userErr || !userId) {
-        console.error("[funnel-test] auth getUser failed", userErr);
-        return json({ error: "unauthenticated" }, 401);
+      // Extract userId directly from JWT claim (sub) — avoids /auth/v1/user round-trip
+      // which can fail with new asymmetric signing keys.
+      try {
+        const token = authHeader.replace(/^Bearer\s+/i, "");
+        const part = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+        const payload = JSON.parse(atob(part.padEnd(Math.ceil(part.length / 4) * 4, "=")));
+        userId = payload?.sub ?? null;
+      } catch (e) {
+        console.error("[funnel-test] JWT decode failed", e);
+        return json({ error: "unauthenticated", detail: "jwt_decode_failed" }, 401);
+      }
+      if (!userId) {
+        console.error("[funnel-test] no sub claim in JWT");
+        return json({ error: "unauthenticated", detail: "no_sub_claim" }, 401);
       }
 
       const { data: cid, error: cidErr } = await userClient.rpc("current_company_id");
       companyId = (cid as string) ?? null;
       if (cidErr || !companyId) {
         console.error("[funnel-test] current_company_id failed", cidErr);
-        return json({ error: "no_company_context" }, 403);
+        return json({ error: "no_company_context", detail: cidErr?.message }, 403);
       }
+      console.log(`[funnel-test] auth=user user=${userId} company=${companyId}`);
     }
 
   if (!companyId) return json({ error: "no_company_context" }, 403);
