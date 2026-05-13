@@ -658,3 +658,235 @@ function AuditReportView({ context, generated_at, verdict, landing, funnel, pixe
     </>
   );
 }
+
+const FT_STEP_LABELS: Record<string, string> = {
+  navigate_home: "Navegar para home",
+  click_event: "Clicar no evento",
+  select_ticket: "Selecionar bilhete",
+  add_to_cart: "Adicionar ao carrinho",
+  open_cart: "Abrir carrinho",
+  begin_checkout: "Iniciar checkout",
+};
+const FT_STEP_ORDER = ["navigate_home", "click_event", "select_ticket", "add_to_cart", "open_cart", "begin_checkout"];
+const FT_EXPECTED = ["PageView", "ViewContent", "AddToCart", "InitiateCheckout"];
+
+function ftFmtMs(ms: number | null | undefined) {
+  if (ms == null) return "—";
+  if (ms < 1000) return `${ms} ms`;
+  return `${(ms / 1000).toFixed(2)} s`;
+}
+
+function ftSeverityColor(s?: string) {
+  if (s === "healthy") return { bg: "#d1fae5", fg: "#065f46", border: "#10b981" };
+  if (s === "warning") return { bg: "#fef3c7", fg: "#92400e", border: "#f59e0b" };
+  if (s === "critical") return { bg: "#fee2e2", fg: "#b91c1c", border: "#ef4444" };
+  return { bg: "#f3f4f6", fg: "#374151", border: "#9ca3af" };
+}
+
+function FunnelTestReportView({ run, steps }: { run: any; steps: any[] }) {
+  const allEvents = (steps ?? []).flatMap((s: any) => (s.pixel_events ?? []).map((e: any) => ({ ...e, step: s.step_name })));
+  const allErrors = (steps ?? []).flatMap((s: any) => (s.console_errors ?? []).map((e: any) => ({ ...e, step: s.step_name })));
+  const detected = FT_EXPECTED.filter((ev) => allEvents.some((e: any) => e.event === ev)).length;
+  const totalSteps = (steps ?? []).length;
+  const passedSteps = (steps ?? []).filter((s: any) => s.step_status === "passed").length;
+  const funnelPct = totalSteps > 0 ? Math.round((passedSteps / totalSteps) * 100) : 0;
+  const criticalErrors = allErrors.filter((e: any) => e.level === "error").length;
+  const duration = run?.started_at && run?.finished_at
+    ? new Date(run.finished_at).getTime() - new Date(run.started_at).getTime()
+    : null;
+  const sev = ftSeverityColor(run?.severity);
+
+  return (
+    <>
+      {/* Cover */}
+      <div style={{ pageBreakAfter: "always", paddingTop: 60 }}>
+        <h1 style={{ fontSize: "26pt", marginBottom: 8 }}>Funnel Test 360</h1>
+        <p className="subtitle" style={{ fontSize: "12pt" }}>Auditoria automatizada do funil Meta Pixel</p>
+        <div style={{ marginTop: 30 }} className="card">
+          <div style={{ marginBottom: 10 }}>
+            <strong>URL alvo:</strong>
+            <div className="mono" style={{ wordBreak: "break-all" }}>{run?.target_url}</div>
+          </div>
+          <div><strong>Data:</strong> {run?.started_at ? new Date(run.started_at).toLocaleString("pt-PT") : "—"}</div>
+          <div><strong>Duração total:</strong> {ftFmtMs(duration)}</div>
+          <div><strong>Run ID:</strong> <span className="mono">{run?.id}</span></div>
+          {run?.severity && (
+            <div style={{ marginTop: 14 }}>
+              <span style={{
+                display: "inline-block", padding: "8px 16px", borderRadius: 8,
+                background: sev.bg, color: sev.fg, border: `2px solid ${sev.border}`,
+                fontWeight: "bold", fontSize: "14pt", textTransform: "uppercase",
+              }}>
+                Severidade: {run.severity}
+              </span>
+            </div>
+          )}
+        </div>
+        <p className="meta" style={{ marginTop: 20 }}>
+          Auditoria automatizada com Browserless + Playwright. Sem compra real.
+        </p>
+      </div>
+
+      {/* Sumário executivo */}
+      <h2>Sumário executivo</h2>
+      <div className="grid grid-2" style={{ marginBottom: 16 }}>
+        <div className="stat-box"><div className="label">Eventos Pixel detectados</div><div className="value">{detected} / {FT_EXPECTED.length}</div></div>
+        <div className="stat-box"><div className="label">Funil completo</div><div className="value">{funnelPct}%</div></div>
+        <div className="stat-box"><div className="label">Problemas críticos</div><div className="value">{criticalErrors}</div></div>
+        <div className="stat-box"><div className="label">Duração</div><div className="value">{ftFmtMs(duration)}</div></div>
+      </div>
+
+      {/* Veredicto IA */}
+      {run?.ai_summary && (
+        <>
+          <h2>Veredicto IA</h2>
+          <div className="card" style={{ background: sev.bg, color: sev.fg, borderColor: sev.border }}>
+            <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{run.ai_summary}</p>
+          </div>
+        </>
+      )}
+
+      {/* Eventos Pixel */}
+      <h2>Eventos Pixel: esperados vs detectados</h2>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9pt", marginBottom: 16 }}>
+        <thead>
+          <tr style={{ background: "#f3f4f6" }}>
+            <th style={{ padding: 4, textAlign: "left" }}>Evento</th>
+            <th style={{ padding: 4, textAlign: "center" }}>Esperado</th>
+            <th style={{ padding: 4, textAlign: "center" }}>Detectado</th>
+            <th style={{ padding: 4, textAlign: "left" }}>Quando (step)</th>
+            <th style={{ padding: 4, textAlign: "right" }}>Value</th>
+            <th style={{ padding: 4, textAlign: "left" }}>Currency</th>
+            <th style={{ padding: 4, textAlign: "left" }}>Content IDs</th>
+          </tr>
+        </thead>
+        <tbody>
+          {FT_EXPECTED.map((ev) => {
+            const found = allEvents.find((e: any) => e.event === ev);
+            return (
+              <tr key={ev} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                <td style={{ padding: 4 }}>{ev}</td>
+                <td style={{ padding: 4, textAlign: "center", color: "#10b981" }}>✓</td>
+                <td style={{ padding: 4, textAlign: "center", color: found ? "#10b981" : "#ef4444" }}>{found ? "✓" : "✗"}</td>
+                <td style={{ padding: 4 }}>{found ? FT_STEP_LABELS[found.step] ?? found.step : "—"}</td>
+                <td style={{ padding: 4, textAlign: "right" }} className="mono">{found?.value ?? "—"}</td>
+                <td style={{ padding: 4 }}>{found?.currency ?? "—"}</td>
+                <td style={{ padding: 4 }} className="mono">{found?.content_ids?.join(", ") ?? "—"}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {/* Steps detalhados */}
+      <div style={{ pageBreakBefore: "always" }}>
+        <h2>Steps detalhados</h2>
+        {FT_STEP_ORDER.map((stepName, idx) => {
+          const step = (steps ?? []).find((s: any) => s.step_name === stepName);
+          if (!step) return null;
+          const statusColor = step.step_status === "passed" ? "#10b981" : step.step_status === "failed" ? "#ef4444" : "#9ca3af";
+          return (
+            <div key={stepName} className="card" style={{ pageBreakInside: "avoid", marginBottom: 14 }}>
+              <div className="row">
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ margin: 0 }}>{idx + 1}. {FT_STEP_LABELS[stepName]}</h3>
+                  <div className="mono" style={{ fontSize: "8pt", wordBreak: "break-all" }}>{step.url_at_step}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ color: statusColor, fontWeight: "bold", textTransform: "uppercase" }}>{step.step_status}</div>
+                  <div className="meta">{ftFmtMs(step.duration_ms)}</div>
+                </div>
+              </div>
+
+              {step.screenshot_url && (
+                <div style={{ marginTop: 8 }}>
+                  <img src={step.screenshot_url} alt={stepName} style={{ width: "100%", maxWidth: 480, border: "1px solid #e5e7eb", borderRadius: 4 }} />
+                </div>
+              )}
+
+              {step.lighthouse && (
+                <div style={{ marginTop: 8 }}>
+                  <div className="meta" style={{ marginBottom: 4 }}><strong>Lighthouse</strong></div>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "8pt" }}>
+                    <thead><tr style={{ background: "#f9fafb" }}>
+                      <th style={{ padding: 3 }}>LCP</th><th style={{ padding: 3 }}>TBT</th><th style={{ padding: 3 }}>TTI</th><th style={{ padding: 3 }}>CLS</th><th style={{ padding: 3 }}>Performance</th>
+                    </tr></thead>
+                    <tbody><tr>
+                      <td style={{ padding: 3, textAlign: "center" }} className="mono">{step.lighthouse.lcp ?? "—"} ms</td>
+                      <td style={{ padding: 3, textAlign: "center" }} className="mono">{step.lighthouse.tbt ?? "—"} ms</td>
+                      <td style={{ padding: 3, textAlign: "center" }} className="mono">{step.lighthouse.tti ?? "—"} ms</td>
+                      <td style={{ padding: 3, textAlign: "center" }} className="mono">{step.lighthouse.cls?.toFixed(2) ?? "—"}</td>
+                      <td style={{ padding: 3, textAlign: "center" }} className="mono">{step.lighthouse.performance != null ? Math.round(step.lighthouse.performance * 100) : "—"}</td>
+                    </tr></tbody>
+                  </table>
+                </div>
+              )}
+
+              {step.pixel_events?.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <div className="meta" style={{ marginBottom: 4 }}><strong>Pixel events</strong></div>
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    {step.pixel_events.map((e: any, i: number) => (
+                      <li key={i} style={{ fontSize: "8.5pt" }}>
+                        <strong>{e.event}</strong>
+                        {e.value != null && ` · ${e.value} ${e.currency ?? ""}`}
+                        {e.content_ids?.length > 0 && ` · IDs: ${e.content_ids.join(", ")}`}
+                        {" · @ "}{e.fired_at_ms}ms
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {step.console_errors?.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <div className="meta" style={{ marginBottom: 4 }}><strong>Console</strong></div>
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    {step.console_errors.map((e: any, i: number) => (
+                      <li key={i} style={{ fontSize: "8.5pt", color: e.level === "error" ? "#b91c1c" : "#92400e" }}>
+                        [{e.level}] {e.message}{e.source && ` — ${e.source}`}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {step.notes && <p className="meta" style={{ marginTop: 6 }}>{step.notes}</p>}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Console errors agregados */}
+      {allErrors.length > 0 && (
+        <div style={{ pageBreakBefore: "always" }}>
+          <h2>Console errors agregados ({allErrors.length})</h2>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "8.5pt" }}>
+            <thead>
+              <tr style={{ background: "#f3f4f6" }}>
+                <th style={{ padding: 4, textAlign: "left" }}>Step</th>
+                <th style={{ padding: 4, textAlign: "left" }}>Level</th>
+                <th style={{ padding: 4, textAlign: "left" }}>Message</th>
+                <th style={{ padding: 4, textAlign: "left" }}>Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allErrors.map((e: any, i: number) => (
+                <tr key={i} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                  <td style={{ padding: 4 }}>{FT_STEP_LABELS[e.step] ?? e.step}</td>
+                  <td style={{ padding: 4, color: e.level === "error" ? "#b91c1c" : "#92400e", fontWeight: "bold" }}>{e.level}</td>
+                  <td style={{ padding: 4 }}>{e.message}</td>
+                  <td style={{ padding: 4 }} className="mono">{e.source ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <p className="meta" style={{ marginTop: 24, textAlign: "center" }}>
+        Gerado por Mundo Propício · MP Audience · Auditoria automatizada com Browserless + Playwright
+      </p>
+    </>
+  );
+}
