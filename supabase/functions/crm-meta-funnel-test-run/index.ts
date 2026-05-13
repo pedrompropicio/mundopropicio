@@ -254,6 +254,20 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
     }
   };
 
+  // F.2: wrapper defensivo — nunca lança, devolve null se atob falhar.
+  // Conta falhas para diagnóstico no fim do run (sistémico vs flake).
+  let b64FailCount = 0;
+  const safeB64ToBytes = (b64: string | null | undefined, label: string): Uint8Array | null => {
+    if (!b64 || b64.length < 4) return null;
+    try {
+      return b64ToBytes(b64);
+    } catch (e) {
+      b64FailCount++;
+      console.warn(`[funnel-test] b64 decode failed for ${label} (skipping upload): ${e instanceof Error ? e.message : String(e)}`);
+      return null;
+    }
+  };
+
   for (let i = 0; i < sessionSteps.length; i++) {
     const s = sessionSteps[i];
     const id = stepRowIds[s.name];
@@ -262,12 +276,15 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
     const b64Len = s.screenshot_b64 ? s.screenshot_b64.length : 0;
     console.log(`[funnel-test] step=${s.name} screenshot_b64_len=${b64Len}`);
     if (s.screenshot_b64 && b64Len > 100) {
-      screenshotUrl = await uploadBlob(
-        `${companyId}/${runId}/${i}.png`,
-        b64ToBytes(s.screenshot_b64),
-        "image/png",
-      );
-      console.log(`[funnel-test] step=${s.name} screenshot uploaded url=${screenshotUrl ? "ok" : "null"}`);
+      const bytes = safeB64ToBytes(s.screenshot_b64, `${s.name}/viewport_screenshot`);
+      if (bytes) {
+        screenshotUrl = await uploadBlob(
+          `${companyId}/${runId}/${i}.png`,
+          bytes,
+          "image/png",
+        );
+        console.log(`[funnel-test] step=${s.name} screenshot uploaded url=${screenshotUrl ? "ok" : "null"}`);
+      }
     }
 
     // Patch 6: failure_context (apenas em steps FAILED reais — pós patch 1 já não inclui cascata)
@@ -275,18 +292,24 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
     if (s.step_status === "failed" && s.failure_context) {
       const failureUrls: { full_screenshot?: string | null; dom?: string | null } = {};
       if (s.failure_context.full_screenshot_b64 && s.failure_context.full_screenshot_b64.length > 100) {
-        failureUrls.full_screenshot = await uploadBlob(
-          `${companyId}/${runId}/${i}-full.png`,
-          b64ToBytes(s.failure_context.full_screenshot_b64),
-          "image/png",
-        );
+        const bytes = safeB64ToBytes(s.failure_context.full_screenshot_b64, `${s.name}/full_screenshot`);
+        if (bytes) {
+          failureUrls.full_screenshot = await uploadBlob(
+            `${companyId}/${runId}/${i}-full.png`,
+            bytes,
+            "image/png",
+          );
+        }
       }
       if (s.failure_context.dom_b64 && s.failure_context.dom_b64.length > 100) {
-        failureUrls.dom = await uploadBlob(
-          `${companyId}/${runId}/${i}-dom.html`,
-          b64ToBytes(s.failure_context.dom_b64),
-          "text/html; charset=utf-8",
-        );
+        const bytes = safeB64ToBytes(s.failure_context.dom_b64, `${s.name}/dom`);
+        if (bytes) {
+          failureUrls.dom = await uploadBlob(
+            `${companyId}/${runId}/${i}-dom.html`,
+            bytes,
+            "text/html; charset=utf-8",
+          );
+        }
       }
       const linkBits: string[] = [];
       if (failureUrls.full_screenshot) linkBits.push(`screenshot: ${failureUrls.full_screenshot}`);
@@ -364,6 +387,15 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
     lighthouse: lighthouseSummary,
   });
 
+  // F.2: se b64FailCount > 0, prepende warning ao ai_summary para diagnóstico
+  // (≥4 numa run = problema sistémico do encoding Browserless; 1-2 = flake).
+  const aiSummaryWithB64Warning = b64FailCount > 0
+    ? `⚠️ ${b64FailCount} screenshot(s)/dom(s) com b64 inválido — verificar Browserless return type (Uint8Array vs Buffer). Logs Supabase têm detalhe por label.\n\n${aiSummary ?? ""}`.trim()
+    : aiSummary;
+  if (b64FailCount > 0) {
+    console.warn(`[funnel-test] run=${runId} b64_fail_count=${b64FailCount} — anexado ao ai_summary`);
+  }
+
   const completedAt = new Date();
   await admin.schema("crm").from("funnel_test_runs").update({
     status: allPassed ? "completed" : "failed",
@@ -373,7 +405,7 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
     console_errors: consoleAll,
     lighthouse_summary: lighthouseSummary,
     severity,
-    ai_summary: aiSummary,
+    ai_summary: aiSummaryWithB64Warning,
   }).eq("id", runId);
 }
 
@@ -475,8 +507,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   EdgeRuntime.waitUntil(
     executeRun(ins.id, targetUrl, companyId).catch(async (e) => {
       console.error("[funnel-test] run failed", e);
+      // Bonus F: severity explícita em early-abort. Sem isto fica null e UI
+      // mostra ícones neutros (loading-like) confundindo o utilizador.
       await admin.schema("crm").from("funnel_test_runs").update({
         status: "failed",
+        severity: "critical",
         completed_at: new Date().toISOString(),
         error_message: e instanceof Error ? e.message : String(e),
       }).eq("id", ins.id);

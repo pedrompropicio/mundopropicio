@@ -99,19 +99,42 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
     return arr.filter(x => x._ts >= sinceTs).map(({_ts, ...r}) => r);
   };
 
+  // F.1: usa encoding:'base64' nativo do Puppeteer (sidestep ao Buffer vs
+  // Uint8Array return type da v2). 3 fallbacks: (1) Buffer.from() se Node
+  // padrão; (2) Uint8Array → String.fromCharCode → btoa manual se Buffer
+  // ausente; final null + warn para telemetria.
   const screenshot = async (full) => {
     try {
-      const buf = await page.screenshot({ type: 'png', fullPage: !!full });
-      return buf.toString('base64');
-    } catch (_) { return null; }
+      const out = await page.screenshot({ type: 'png', fullPage: !!full, encoding: 'base64' });
+      if (typeof out === 'string' && out.length > 4) return out;
+      if (typeof Buffer !== 'undefined' && out) return Buffer.from(out).toString('base64');
+      if (out && out.length) {
+        let bin = '';
+        for (let i = 0; i < out.length; i++) bin += String.fromCharCode(out[i]);
+        return btoa(bin);
+      }
+      return null;
+    } catch (e) {
+      console.warn('[puppeteer] screenshot failed:', e && e.message);
+      return null;
+    }
   };
 
   const getDomB64 = async () => {
     try {
       const html = await page.content();
-      // Buffer existe no Node.js runtime de Browserless
-      return Buffer.from(html, 'utf8').toString('base64');
-    } catch (_) { return null; }
+      if (typeof Buffer !== 'undefined') {
+        return Buffer.from(html, 'utf8').toString('base64');
+      }
+      // Fallback: TextEncoder + btoa manual (sem Buffer)
+      const bytes = new TextEncoder().encode(html);
+      let bin = '';
+      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      return btoa(bin);
+    } catch (e) {
+      console.warn('[puppeteer] getDomB64 failed:', e && e.message);
+      return null;
+    }
   };
 
   const trySelectors = async (selectors, timeoutMs) => {
