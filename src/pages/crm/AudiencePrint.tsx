@@ -691,8 +691,8 @@ function FunnelTestReportView({ run, steps }: { run: any; steps: any[] }) {
   const passedSteps = (steps ?? []).filter((s: any) => s.step_status === "passed").length;
   const funnelPct = totalSteps > 0 ? Math.round((passedSteps / totalSteps) * 100) : 0;
   const criticalErrors = allErrors.filter((e: any) => e.level === "error").length;
-  const duration = run?.started_at && run?.finished_at
-    ? new Date(run.finished_at).getTime() - new Date(run.started_at).getTime()
+  const duration = run?.started_at && run?.completed_at
+    ? new Date(run.completed_at).getTime() - new Date(run.started_at).getTime()
     : null;
   const sev = ftSeverityColor(run?.severity);
 
