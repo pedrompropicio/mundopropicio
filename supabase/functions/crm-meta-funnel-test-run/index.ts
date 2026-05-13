@@ -23,7 +23,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
 const BROWSERLESS_API_KEY = Deno.env.get("BROWSERLESS_API_KEY") ?? "";
 
@@ -269,11 +269,16 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+  try {
+    if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+    if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+    if (!SERVICE_ROLE) {
+      console.error("[funnel-test] missing SUPABASE_SERVICE_ROLE_KEY");
+      return json({ error: "server_misconfigured", detail: "missing_service_role" }, 500);
+    }
 
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) return json({ error: "missing_authorization" }, 401);
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
   let body: { target_url?: string; connection_id?: string; event_id?: string };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
@@ -327,5 +332,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }),
   );
 
-  return json({ run_id: ins.id, status: "queued" }, 202);
+    console.log(`[funnel-test] queued run=${ins.id} browserless=${BROWSERLESS_API_KEY ? "real" : "stub"}`);
+    return json({ run_id: ins.id, status: "queued" }, 202);
+  } catch (e) {
+    console.error("[funnel-test] handler_uncaught", e);
+    return json({ error: "handler_uncaught", detail: e instanceof Error ? e.message : String(e) }, 500);
+  }
 });
