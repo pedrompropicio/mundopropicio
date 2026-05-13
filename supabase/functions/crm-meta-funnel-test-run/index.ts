@@ -186,7 +186,30 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
     return;
   }
 
-  // 3) Persist screenshots + step rows
+  // 3a) Aplicar pré-requisitos: se um step depende de outro que falhou,
+  //     marcar como skipped (mesmo que o selector tenha apanhado um elemento genérico).
+  const PREREQ: Partial<Record<StepName, StepName>> = {
+    select_ticket: "click_event",
+    add_to_cart: "select_ticket",
+    open_cart: "add_to_cart",
+    begin_checkout: "open_cart",
+  };
+  const statusByName = new Map<StepName, string>(
+    sessionSteps.map((s) => [s.name, s.step_status]),
+  );
+  for (const s of sessionSteps) {
+    const dep = PREREQ[s.name];
+    if (!dep) continue;
+    const depStatus = statusByName.get(dep);
+    if (depStatus && depStatus !== "passed" && s.step_status === "passed") {
+      s.step_status = "skipped";
+      s.notes = `skipped: depende de step anterior "${dep}" que terminou em ${depStatus}`;
+      statusByName.set(s.name, "skipped");
+      console.log(`[funnel-test] step=${s.name} forçado a skipped (dep=${dep} status=${depStatus})`);
+    }
+  }
+
+  // 3b) Persist screenshots + step rows
   const detectedAll: any[] = [];
   const consoleAll: any[] = [];
   const lighthouseSummary: Record<string, any> = {};
@@ -197,20 +220,27 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
     const id = stepRowIds[s.name];
     let screenshotUrl: string | null = null;
 
-    if (s.screenshot_b64) {
+    const b64Len = s.screenshot_b64 ? s.screenshot_b64.length : 0;
+    console.log(`[funnel-test] step=${s.name} screenshot_b64_len=${b64Len}`);
+    if (s.screenshot_b64 && b64Len > 100) {
       try {
         const path = `${companyId}/${runId}/${i}.png`;
         const bytes = b64ToBytes(s.screenshot_b64);
-        await admin.storage.from("funnel-test-screenshots").upload(path, bytes, {
-          contentType: "image/png",
-          upsert: true,
-        });
-        const { data: signed } = await admin.storage
+        const { error: upErr } = await admin.storage
           .from("funnel-test-screenshots")
-          .createSignedUrl(path, 7 * 24 * 3600);
-        screenshotUrl = signed?.signedUrl ?? null;
+          .upload(path, bytes, { contentType: "image/png", upsert: true });
+        if (upErr) {
+          console.warn(`[funnel-test] screenshot upload error step=${s.name} bytes=${bytes.length}: ${upErr.message}`);
+        } else {
+          const { data: signed, error: signErr } = await admin.storage
+            .from("funnel-test-screenshots")
+            .createSignedUrl(path, 7 * 24 * 3600);
+          if (signErr) console.warn(`[funnel-test] signed url error step=${s.name}: ${signErr.message}`);
+          screenshotUrl = signed?.signedUrl ?? null;
+          console.log(`[funnel-test] step=${s.name} screenshot uploaded path=${path} url=${screenshotUrl ? "ok" : "null"}`);
+        }
       } catch (e) {
-        console.warn("[funnel-test] screenshot upload failed", e);
+        console.warn(`[funnel-test] screenshot upload threw step=${s.name}:`, e);
       }
     }
 
