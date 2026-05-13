@@ -254,6 +254,9 @@ export default function FunnelTest() {
           <p className="text-xs text-muted-foreground text-center">
             O teste percorre 6 passos: home → evento → bilhete → carrinho → cart → checkout. Sem compra real.
           </p>
+          <p className="text-[11px] text-muted-foreground text-center">
+            ℹ️ O teste demora ~30–60s. Browserless.io executa navegação real.
+          </p>
         </Card>
       )}
 
