@@ -298,20 +298,36 @@ export default function FunnelTest() {
               onChange={(e) => { setTargetUrl(e.target.value); setError(null); }}
               placeholder="https://www.ticketline.pt/evento/..."
               className="mt-1"
-              disabled={submitting}
+              disabled={submitting || extracting}
             />
             {targetUrl && !urlValid && (
               <p className="text-xs text-red-400 mt-1">URL deve começar com https://</p>
             )}
             {error && <p className="text-xs text-red-400 mt-1">{error}</p>}
           </div>
+          {candidateUrls.length > 1 && (
+            <div>
+              <label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                URLs detectadas ({candidateUrls.length})
+              </label>
+              <select
+                value={targetUrl}
+                onChange={(e) => setTargetUrl(e.target.value)}
+                className="mt-1 w-full bg-background border border-border rounded-md px-3 py-2 text-sm"
+              >
+                {candidateUrls.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <button
-            onClick={startRun}
-            disabled={!urlValid || submitting}
+            onClick={() => startRun()}
+            disabled={!urlValid || submitting || extracting}
             className="flex items-center justify-center gap-2 w-full px-6 py-3 rounded-lg bg-cyan-500/15 border border-cyan-500/40 text-cyan-200 hover:bg-cyan-500/25 transition-colors disabled:opacity-50 font-semibold"
           >
-            {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Play className="h-5 w-5" />}
-            Iniciar teste 360
+            {submitting || extracting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Play className="h-5 w-5" />}
+            {extracting ? "A extrair URLs…" : "Iniciar teste 360"}
           </button>
           <p className="text-xs text-muted-foreground text-center">
             O teste percorre 6 passos: home → evento → bilhete → carrinho → cart → checkout. Sem compra real.
