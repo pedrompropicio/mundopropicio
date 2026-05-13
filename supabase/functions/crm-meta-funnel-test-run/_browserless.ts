@@ -35,6 +35,12 @@ export interface LighthouseScore {
   performance: number | null;
 }
 
+export interface FailureContext {
+  full_screenshot_b64: string | null;
+  dom_b64: string | null;
+  recent_console: ConsoleEntry[];
+}
+
 export interface SessionStepResult {
   name: StepName;
   step_status: "passed" | "failed" | "skipped";
@@ -44,6 +50,7 @@ export interface SessionStepResult {
   pixel_events: PixelEvent[];
   console_errors: ConsoleEntry[];
   notes?: string | null;
+  failure_context?: FailureContext | null;
 }
 
 export interface SessionResult {

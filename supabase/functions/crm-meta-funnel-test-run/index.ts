@@ -186,34 +186,73 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
     return;
   }
 
-  // 3a) Aplicar pré-requisitos: se um step depende de outro que falhou,
-  //     marcar como skipped (mesmo que o selector tenha apanhado um elemento genérico).
+  // 3a) Patch 1: propagação SKIPPED transitiva.
+  //     Se QUALQUER step anterior na cadeia (não só predecessor direto) terminou
+  //     em failed/skipped, este step é consequência — marca-se como skipped,
+  //     mesmo que o seu próprio status seja "failed" (selector terá apanhado lixo).
   const PREREQ: Partial<Record<StepName, StepName>> = {
     select_ticket: "click_event",
     add_to_cart: "select_ticket",
     open_cart: "add_to_cart",
     begin_checkout: "open_cart",
   };
+  const ancestorsOf = (name: StepName): StepName[] => {
+    const out: StepName[] = [];
+    let cur = PREREQ[name];
+    while (cur) { out.push(cur); cur = PREREQ[cur]; }
+    return out;
+  };
   const statusByName = new Map<StepName, string>(
     sessionSteps.map((s) => [s.name, s.step_status]),
   );
   for (const s of sessionSteps) {
-    const dep = PREREQ[s.name];
-    if (!dep) continue;
-    const depStatus = statusByName.get(dep);
-    if (depStatus && depStatus !== "passed" && s.step_status === "passed") {
-      s.step_status = "skipped";
-      s.notes = `skipped: depende de step anterior "${dep}" que terminou em ${depStatus}`;
-      statusByName.set(s.name, "skipped");
-      console.log(`[funnel-test] step=${s.name} forçado a skipped (dep=${dep} status=${depStatus})`);
+    if (s.step_status === "skipped") continue;
+    for (const anc of ancestorsOf(s.name)) {
+      const ancStatus = statusByName.get(anc);
+      if (ancStatus === "failed" || ancStatus === "skipped") {
+        const prevStatus = s.step_status;
+        s.step_status = "skipped";
+        s.notes = `skipped: ancestral "${anc}" terminou em ${ancStatus}${prevStatus === "failed" ? " (descartado FAILED — consequência da cadeia)" : ""}`;
+        statusByName.set(s.name, "skipped");
+        console.log(`[funnel-test] step=${s.name} forçado a skipped (ancestor=${anc} status=${ancStatus} prev=${prevStatus})`);
+        break;
+      }
     }
   }
 
   // 3b) Persist screenshots + step rows
+  // Patch 3: detectedAll é a ÚNICA fonte de verdade — anotado com step name,
+  //          alimenta tanto o payload do LLM (Veredicto IA) como a tabela
+  //          "Eventos Pixel" do frontend (que lê run.detected_pixel_events).
+  // Patch 6: para steps FAILED, sobe full-page screenshot + DOM + console
+  //          recente para o bucket e regista os URLs em notes para o PDF.
   const detectedAll: any[] = [];
   const consoleAll: any[] = [];
   const lighthouseSummary: Record<string, any> = {};
   let allPassed = true;
+
+  const uploadBlob = async (path: string, bytes: Uint8Array, contentType: string): Promise<string | null> => {
+    try {
+      const { error: upErr } = await admin.storage
+        .from("funnel-test-screenshots")
+        .upload(path, bytes, { contentType, upsert: true });
+      if (upErr) {
+        console.warn(`[funnel-test] upload error path=${path}: ${upErr.message}`);
+        return null;
+      }
+      const { data: signed, error: signErr } = await admin.storage
+        .from("funnel-test-screenshots")
+        .createSignedUrl(path, 7 * 24 * 3600);
+      if (signErr) {
+        console.warn(`[funnel-test] signed url error path=${path}: ${signErr.message}`);
+        return null;
+      }
+      return signed?.signedUrl ?? null;
+    } catch (e) {
+      console.warn(`[funnel-test] upload threw path=${path}:`, e);
+      return null;
+    }
+  };
 
   for (let i = 0; i < sessionSteps.length; i++) {
     const s = sessionSteps[i];
@@ -223,29 +262,50 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
     const b64Len = s.screenshot_b64 ? s.screenshot_b64.length : 0;
     console.log(`[funnel-test] step=${s.name} screenshot_b64_len=${b64Len}`);
     if (s.screenshot_b64 && b64Len > 100) {
-      try {
-        const path = `${companyId}/${runId}/${i}.png`;
-        const bytes = b64ToBytes(s.screenshot_b64);
-        const { error: upErr } = await admin.storage
-          .from("funnel-test-screenshots")
-          .upload(path, bytes, { contentType: "image/png", upsert: true });
-        if (upErr) {
-          console.warn(`[funnel-test] screenshot upload error step=${s.name} bytes=${bytes.length}: ${upErr.message}`);
-        } else {
-          const { data: signed, error: signErr } = await admin.storage
-            .from("funnel-test-screenshots")
-            .createSignedUrl(path, 7 * 24 * 3600);
-          if (signErr) console.warn(`[funnel-test] signed url error step=${s.name}: ${signErr.message}`);
-          screenshotUrl = signed?.signedUrl ?? null;
-          console.log(`[funnel-test] step=${s.name} screenshot uploaded path=${path} url=${screenshotUrl ? "ok" : "null"}`);
-        }
-      } catch (e) {
-        console.warn(`[funnel-test] screenshot upload threw step=${s.name}:`, e);
-      }
+      screenshotUrl = await uploadBlob(
+        `${companyId}/${runId}/${i}.png`,
+        b64ToBytes(s.screenshot_b64),
+        "image/png",
+      );
+      console.log(`[funnel-test] step=${s.name} screenshot uploaded url=${screenshotUrl ? "ok" : "null"}`);
     }
 
-    detectedAll.push(...(s.pixel_events ?? []));
-    consoleAll.push(...(s.console_errors ?? []));
+    // Patch 6: failure_context (apenas em steps FAILED reais — pós patch 1 já não inclui cascata)
+    let notesWithLinks = s.notes ?? null;
+    if (s.step_status === "failed" && s.failure_context) {
+      const failureUrls: { full_screenshot?: string | null; dom?: string | null } = {};
+      if (s.failure_context.full_screenshot_b64 && s.failure_context.full_screenshot_b64.length > 100) {
+        failureUrls.full_screenshot = await uploadBlob(
+          `${companyId}/${runId}/${i}-full.png`,
+          b64ToBytes(s.failure_context.full_screenshot_b64),
+          "image/png",
+        );
+      }
+      if (s.failure_context.dom_b64 && s.failure_context.dom_b64.length > 100) {
+        failureUrls.dom = await uploadBlob(
+          `${companyId}/${runId}/${i}-dom.html`,
+          b64ToBytes(s.failure_context.dom_b64),
+          "text/html; charset=utf-8",
+        );
+      }
+      const linkBits: string[] = [];
+      if (failureUrls.full_screenshot) linkBits.push(`screenshot: ${failureUrls.full_screenshot}`);
+      if (failureUrls.dom) linkBits.push(`dom: ${failureUrls.dom}`);
+      const recent = s.failure_context.recent_console ?? [];
+      if (recent.length > 0) linkBits.push(`console_recent: ${recent.length} entradas`);
+      if (linkBits.length > 0) {
+        notesWithLinks = `${notesWithLinks ?? ""}\nfailure_context — ${linkBits.join(" | ")}`.trim();
+      }
+      console.log(`[funnel-test] step=${s.name} failure_context uploaded full=${!!failureUrls.full_screenshot} dom=${!!failureUrls.dom}`);
+    }
+
+    // Patch 3: anota cada evento com o step onde foi detectado
+    for (const ev of s.pixel_events ?? []) {
+      detectedAll.push({ ...ev, step: s.name });
+    }
+    for (const ce of s.console_errors ?? []) {
+      consoleAll.push({ ...ce, step: s.name });
+    }
     if (s.step_status !== "passed") allPassed = false;
 
     // Stub lighthouse goes in directly; real lighthouse comes after.
@@ -263,7 +323,7 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
         pixel_events_in_step: s.pixel_events ?? [],
         console_errors_in_step: s.console_errors ?? [],
         lighthouse_at_step: s._stubLighthouse ?? null,
-        notes: s.notes ?? null,
+        notes: notesWithLinks,
       }).eq("id", id);
     }
   }

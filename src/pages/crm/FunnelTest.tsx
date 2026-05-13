@@ -252,14 +252,29 @@ export default function FunnelTest() {
     setRunId(id);
   };
 
-  // Build aggregate pixel events for verdict table
+  // Patch 3: a tabela "Eventos Pixel" e o Veredicto IA vêm AGORA do mesmo array.
+  // `run.detected_pixel_events` é a fonte autoritária (já anotada com step pelo backend)
+  // — mesmo array enviado ao LLM. Fallback para o flatmap dos steps enquanto a run
+  // ainda está a correr (run.detected_pixel_events só é gravado no fim).
   const allPixelEvents = useMemo(() => {
+    if (Array.isArray(run?.detected_pixel_events) && run.detected_pixel_events.length > 0) {
+      return run.detected_pixel_events.map((e: any) => ({
+        ...e,
+        step: e.step ?? e.step_name ?? null,
+      }));
+    }
     return steps.flatMap((s: any) => (s.pixel_events ?? []).map((e: any) => ({ ...e, step: s.step_name })));
-  }, [steps]);
+  }, [run, steps]);
 
   const allConsoleErrors = useMemo(() => {
+    if (Array.isArray(run?.console_errors) && run.console_errors.length > 0) {
+      return run.console_errors.map((e: any) => ({
+        ...e,
+        step: e.step ?? e.step_name ?? null,
+      }));
+    }
     return steps.flatMap((s: any) => (s.console_errors ?? []).map((e: any) => ({ ...e, step: s.step_name })));
-  }, [steps]);
+  }, [run, steps]);
 
   const elapsed = useMemo(() => {
     if (!run?.started_at) return null;
