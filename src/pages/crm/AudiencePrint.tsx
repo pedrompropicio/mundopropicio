@@ -6,7 +6,7 @@ const STORAGE_KEY = "audience-print-data";
 const MAX_AGE_MS = 5 * 60 * 1000;
 
 interface StoredPayload {
-  type: "pixel-health" | "campaign-analysis" | "audience-coach" | "audit-report";
+  type: "pixel-health" | "campaign-analysis" | "audience-coach" | "audit-report" | "funnel-test-report";
   payload: any;
   ts: number;
 }
@@ -107,6 +107,7 @@ export default function AudiencePrint() {
         {type === "campaign-analysis" && <CampaignAnalysisView {...data.payload} />}
         {type === "audience-coach" && <AudienceCoachView {...data.payload} />}
         {type === "audit-report" && <AuditReportView {...data.payload} />}
+        {type === "funnel-test-report" && <FunnelTestReportView {...data.payload} />}
 
         <div className="footer-doc">
           MP Audience · Gerado em {new Date().toLocaleString("pt-PT")}
