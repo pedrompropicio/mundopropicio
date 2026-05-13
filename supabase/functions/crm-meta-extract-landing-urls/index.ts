@@ -42,6 +42,9 @@ function digCreative(creative: any, out: string[]) {
   pushIfUrl(out, oss?.link_data?.link);
   pushIfUrl(out, oss?.video_data?.call_to_action?.value?.link);
   pushIfUrl(out, oss?.template_data?.link);
+  pushIfUrl(out, oss?.template_data?.call_to_action?.value?.link);
+  const attachments = oss?.link_data?.child_attachments;
+  if (Array.isArray(attachments)) for (const a of attachments) pushIfUrl(out, a?.link);
   // asset_feed_spec.link_urls: [{ website_url }]
   const lus = creative?.asset_feed_spec?.link_urls;
   if (Array.isArray(lus)) for (const l of lus) pushIfUrl(out, l?.website_url);
@@ -95,7 +98,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const { data: campaignRow } = await (supabase as any)
     .schema("crm")
     .from("meta_campaign_snapshot")
-    .select("connection_id")
+    .select("connection_id, company_id")
     .eq("external_campaign_id", campaignId)
     .maybeSingle();
 
@@ -142,8 +145,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // Camada 2 — Graph API fallback
   if (!connectionId) {
-    console.log("[extract-urls] camada=GraphAPI skip (sem connection_id)");
-    return json({ urls: [], primary: null, source: "campaign", layer: "db", reason: "no_ads_synced" });
+    const companyId = campaignRow?.company_id ?? (await supabase.rpc("current_company_id")).data;
+    if (companyId) {
+      const { data: fallbackConn, error: fallbackErr } = await (supabase as any)
+        .schema("crm")
+        .from("ad_platform_connections")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("platform", "meta")
+        .eq("status", "active")
+        .order("connected_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (fallbackErr) console.error("[extract-urls] fallback connection erro:", fallbackErr);
+      connectionId = fallbackConn?.id ?? null;
+    }
+    if (!connectionId) {
+      console.log("[extract-urls] camada=GraphAPI skip (sem connection_id)");
+      return json({ urls: [], primary: null, source: "campaign", layer: "db", reason: "no_connection_id" });
+    }
   }
 
   const { data: tokenRows, error: tokenErr } = await supabase.rpc(
@@ -162,12 +182,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${campaignId}/ads`);
     url.searchParams.set(
       "fields",
-      "effective_status,creative{link_url,object_story_spec{link_data{link},video_data{call_to_action{value}},template_data{link}},asset_feed_spec{link_urls{website_url}}}",
+      "effective_status,creative{link_url,object_story_spec{link_data{link,child_attachments{link}},video_data{call_to_action{value{link}}},template_data{link,call_to_action{value{link}}}},asset_feed_spec{link_urls{website_url}}}",
     );
-    url.searchParams.set(
-      "filtering",
-      JSON.stringify([{ field: "effective_status", operator: "IN", value: ["ACTIVE", "PAUSED"] }]),
-    );
+    url.searchParams.set("effective_status", JSON.stringify(["ACTIVE", "PAUSED"]));
     url.searchParams.set("limit", "100");
     url.searchParams.set("access_token", accessToken);
 
