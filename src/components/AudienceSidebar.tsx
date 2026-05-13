@@ -31,6 +31,7 @@ export function AudienceSidebar() {
     { to: "/audience/insights", icon: Lightbulb, label: "Insights" },
     { to: "/audience/connections", icon: Plug, label: "Conexões" },
     { to: "/audience/pixels", icon: Zap, label: "Pixels" },
+    { to: "/audience/audit/funnel-test", icon: Target, label: "Funnel Test 360" },
   ];
 
   return (
