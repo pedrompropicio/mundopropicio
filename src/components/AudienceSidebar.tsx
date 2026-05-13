@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   KeyRound,
   LogOut,
+  Target,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
