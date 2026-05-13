@@ -150,8 +150,9 @@ export default function FunnelTest() {
     };
   }, [runId, pollStatus]);
 
-  const startRun = async () => {
-    if (!urlValid) {
+  const startRun = useCallback(async (urlOverride?: string) => {
+    const url = (urlOverride ?? targetUrl).trim();
+    if (!/^https:\/\//i.test(url)) {
       setError("URL deve começar com https://");
       return;
     }
@@ -159,16 +160,14 @@ export default function FunnelTest() {
     setSubmitting(true);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-funnel-test-run", {
-        body: {
-          target_url: targetUrl.trim(),
-          connection_id: active?.connection_id ?? null,
-        },
+        body: { target_url: url, connection_id: active?.connection_id ?? null },
       });
       if (error) throw error;
       if (data?.run_id) {
         setRun(null);
         setSteps([]);
         setExpanded({});
+        setCandidateUrls([]);
         setRunId(data.run_id);
       } else {
         throw new Error("Sem run_id na resposta");
@@ -178,7 +177,65 @@ export default function FunnelTest() {
     } finally {
       setSubmitting(false);
     }
-  };
+  }, [targetUrl, active?.connection_id]);
+
+  // Auto-flow via query string: ?url=, ?campaign_id=, ?event_id=
+  useEffect(() => {
+    if (autoTriggeredRef.current) return;
+    const qUrl = searchParams.get("url");
+    const qCampaign = searchParams.get("campaign_id");
+    const qEvent = searchParams.get("event_id");
+    if (!qUrl && !qCampaign && !qEvent) return;
+    autoTriggeredRef.current = true;
+
+    const consumeParams = () => {
+      const next = new URLSearchParams(searchParams);
+      next.delete("url"); next.delete("campaign_id"); next.delete("event_id");
+      setSearchParams(next, { replace: true });
+    };
+
+    if (qUrl) {
+      setTargetUrl(qUrl);
+      toast.message("Iniciando teste automaticamente", { description: qUrl });
+      consumeParams();
+      window.setTimeout(() => startRun(qUrl), 1000);
+      return;
+    }
+
+    (async () => {
+      setExtracting(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("crm-meta-extract-landing-urls", {
+          body: qCampaign ? { campaign_id: qCampaign } : { event_id: qEvent },
+        });
+        if (error) throw error;
+        const urls: string[] = data?.urls ?? [];
+        const primary: string | null = data?.primary ?? null;
+        consumeParams();
+        if (urls.length === 0) {
+          toast.error(qEvent
+            ? "Este evento não tem landing URL configurada. Cole manualmente."
+            : "Nenhuma landing URL encontrada nesta campanha. Cole manualmente.");
+          return;
+        }
+        if (urls.length === 1 && primary) {
+          setTargetUrl(primary);
+          toast.message("Iniciando teste automaticamente", { description: primary });
+          window.setTimeout(() => startRun(primary), 1000);
+          return;
+        }
+        setCandidateUrls(urls);
+        if (primary) setTargetUrl(primary);
+        toast.message("Várias URLs detectadas — escolhe abaixo");
+      } catch (e: any) {
+        toast.error(e?.message ?? "Erro a extrair URLs da campanha");
+        consumeParams();
+      } finally {
+        setExtracting(false);
+      }
+    })();
+  }, [searchParams, setSearchParams, startRun]);
+
 
   const resetForNew = () => {
     setRun(null);
