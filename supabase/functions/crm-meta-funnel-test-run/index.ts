@@ -95,10 +95,11 @@ function classifySeverity(
 }
 
 function lhKeyForStep(step: StepName): string {
+  // G.1: mapping atualizado para novos step IDs.
   if (step === "navigate_home") return "home";
-  if (step === "click_event") return "product";
-  if (step === "open_cart") return "cart";
-  if (step === "begin_checkout") return "checkout";
+  if (step === "select_zone") return "product";
+  if (step === "open_cart_page") return "cart";
+  if (step === "initiate_checkout") return "checkout";
   return step;
 }
 
@@ -133,8 +134,8 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
 
   // 1) Pre-insert all step rows as 'running' so o frontend mostra logo a sequência
   const stepRowIds: Record<StepName, string | null> = {
-    navigate_home: null, click_event: null, select_ticket: null,
-    add_to_cart: null, open_cart: null, begin_checkout: null,
+    navigate_home: null, select_zone: null, select_quantity: null,
+    add_to_cart: null, open_cart_page: null, initiate_checkout: null,
   };
   for (let i = 0; i < STEP_SEQUENCE.length; i++) {
     const name = STEP_SEQUENCE[i];
@@ -190,11 +191,12 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
   //     Se QUALQUER step anterior na cadeia (não só predecessor direto) terminou
   //     em failed/skipped, este step é consequência — marca-se como skipped,
   //     mesmo que o seu próprio status seja "failed" (selector terá apanhado lixo).
+  // G.1: PREREQ atualizado para novos step IDs (ver _browserless.ts StepName).
   const PREREQ: Partial<Record<StepName, StepName>> = {
-    select_ticket: "click_event",
-    add_to_cart: "select_ticket",
-    open_cart: "add_to_cart",
-    begin_checkout: "open_cart",
+    select_quantity: "select_zone",
+    add_to_cart: "select_quantity",
+    open_cart_page: "add_to_cart",
+    initiate_checkout: "open_cart_page",
   };
   const ancestorsOf = (name: StepName): StepName[] => {
     const out: StepName[] = [];
@@ -355,9 +357,9 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
   if (!useStub) {
     const lhTargets: { key: string; url: string | null; step: StepName }[] = [
       { key: "home", url: sessionSteps.find((x) => x.name === "navigate_home")?.url_at_step ?? null, step: "navigate_home" },
-      { key: "product", url: sessionSteps.find((x) => x.name === "click_event")?.url_at_step ?? null, step: "click_event" },
-      { key: "cart", url: sessionSteps.find((x) => x.name === "open_cart")?.url_at_step ?? null, step: "open_cart" },
-      { key: "checkout", url: sessionSteps.find((x) => x.name === "begin_checkout")?.url_at_step ?? null, step: "begin_checkout" },
+      { key: "product", url: sessionSteps.find((x) => x.name === "select_zone")?.url_at_step ?? null, step: "select_zone" },
+      { key: "cart", url: sessionSteps.find((x) => x.name === "open_cart_page")?.url_at_step ?? null, step: "open_cart_page" },
+      { key: "checkout", url: sessionSteps.find((x) => x.name === "initiate_checkout")?.url_at_step ?? null, step: "initiate_checkout" },
     ];
     await Promise.all(lhTargets.map(async (t) => {
       if (!t.url) return;

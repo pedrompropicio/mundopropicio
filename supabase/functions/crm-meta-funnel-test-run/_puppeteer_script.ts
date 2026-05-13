@@ -189,72 +189,147 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
     }
   };
 
-  // ---- Patch 4: Ticketline real flow ----
-  // Fluxo descoberto via diagnóstico (sessão → zona → COMPRAR → CONTINUAR → FINALIZAR → close upsell):
-  //   1. navigate_home   navegar URL sessão                                  → PageView
-  //   2. click_event     clicar linha de zona ("Arena" etc.) na tabela       → ViewContent (modal abre)
-  //   3. select_ticket   clicar COMPRAR no modal de quantidade               → modal fecha, muda tab "Lugares Escolhidos"
-  //   4. add_to_cart     clicar CONTINUAR                                    → navega /carrinho?confirm → AddToCart
-  //   5. open_cart       clicar FINALIZAR COMPRA                             → modal upsell "Ticketline Premium" aparece
-  //   6. begin_checkout  clicar X do modal upsell                            → navega checkout real → InitiateCheckout
+  // ---- G.1: TICKETLINE_FLOW (array, schema declarativo) ----
+  // Substitui o objeto TICKETLINE_STEPS por um array ordenado. Cada item:
+  //   { id, label, selectors[], expectNavigation, postWaitMs,
+  //     validateOnly?, dismissAfterClick?, isNavigate? }
+  // Migração futura para preset-by-domain (Opção 2) torna-se trivial: bastará
+  // exportar TICKETLINE_FLOW / GENERIC_FLOW como entradas de um Record<domain,Flow[]>.
+  //
+  // Fluxo Ticketline real (descoberto via diagnóstico screenshots manuais 2026-05-13):
+  //   1. navigate_home     navegar URL sessão                                 → PageView
+  //   2. select_zone       clicar linha da tabela de zonas ("Arena - Lote 2")  → modal abre → ViewContent
+  //   3. select_quantity   clicar COMPRAR no modal de quantidade              → modal fecha, tab "Lugares Escolhidos"
+  //   4. add_to_cart       clicar CONTINUAR                                   → navega /carrinho?confirm → AddToCart
+  //   5. open_cart_page    validateOnly: verifica FINALIZAR COMPRA visível    → sem click, sem navegação
+  //   6. initiate_checkout clicar FINALIZAR COMPRA + dismiss upsell Premium   → navega checkout real → InitiateCheckout
+  //
+  // TODO G.2: selectores actuais são Phase 1 best-guess (sem DOM real). Refinar
+  // após primeira run pós-G.1 (esperado: step `select_zone` falha e o
+  // failure_context grava o DOM da página de sessão → input directo para G.2).
   const isTicketline = (() => {
     try { return /(?:^|\.)ticketline\.pt$/i.test(new URL(targetUrl).hostname); }
     catch (_) { return false; }
   })();
 
-  const GENERIC_STEPS = {
-    click_event:    { selectors: ['a[href*="/evento/"]','a[href*="/event/"]','.event-card a','article a[href*="/"]','a:has(img)'], expectNavigation: true,  postWaitMs: 1500 },
-    select_ticket:  { selectors: ['button:has-text("Comprar")','button:has-text("Bilhetes")','a:has-text("Comprar")','[data-testid*="ticket"]','button.btn-primary'], expectNavigation: false, postWaitMs: 1500 },
-    add_to_cart:    { selectors: ['button:has-text("Adicionar")','button:has-text("Cesto")','button:has-text("Cart")','[data-testid*="add"]','input[type="submit"][value*="dicionar"]'], expectNavigation: false, postWaitMs: 1500 },
-    open_cart:      { selectors: ['a[href*="/cesto"]','a[href*="/cart"]','a[href*="/carrinho"]','[aria-label*="cart" i]'], expectNavigation: true,  postWaitMs: 1500 },
-    begin_checkout: { selectors: ['button:has-text("Continuar")','button:has-text("Finalizar")','a:has-text("Checkout")','button[type="submit"]'], expectNavigation: true,  postWaitMs: 1800 },
-  };
-
-  const TICKETLINE_STEPS = {
-    click_event: {
-      // Tabela de zonas — qualquer linha tr clicável (procurar "Arena" / "Plateia" etc.; cair em qualquer tr de tbody)
-      selectors: ['tr:has-text("Arena")','tr:has-text("Plateia")','tr:has-text("Bancada")','tbody tr[role="button"]','tbody tr.zona','table tbody tr'],
+  const TICKETLINE_FLOW = [
+    {
+      id: 'navigate_home',
+      label: 'Navegar para sessão',
+      isNavigate: true,
+    },
+    {
+      id: 'select_zone',
+      label: 'Selecionar zona',
+      // TODO G.2: substituir por classe CSS real da tabela de zonas.
+      selectors: [
+        'tr:has-text("Arena - Lote 2")',
+        'table tr:nth-child(2)',
+        'tbody tr:first-of-type',
+      ],
       expectNavigation: false,
       postWaitMs: 1500,
     },
-    select_ticket: {
-      // Modal de quantidade → botão COMPRAR
-      selectors: ['.modal.show button:has-text("Comprar")','.modal button:has-text("Comprar")','.modal .btn-primary:has-text("Comprar")','button:has-text("Comprar")'],
+    {
+      id: 'select_quantity',
+      label: 'Selecionar quantidade',
+      // TODO G.2: refinar selector específico do modal de quantidade.
+      selectors: [
+        'button:has-text("COMPRAR")',
+        '.modal button.primary',
+        '[role="dialog"] button:not(.close)',
+      ],
       expectNavigation: false,
       postWaitMs: 1500,
     },
-    add_to_cart: {
-      // CONTINUAR — provoca navegação para /carrinho?confirm
-      selectors: ['button:has-text("Continuar")','a:has-text("Continuar")','.btn:has-text("Continuar")','input[type="submit"][value*="ontinuar"]'],
+    {
+      id: 'add_to_cart',
+      label: 'Adicionar ao carrinho',
+      // TODO G.2: confirmar texto exacto (CONTINUAR vs Continuar) + classe real.
+      selectors: [
+        'button:has-text("CONTINUAR")',
+        '.btn-continue',
+        'button.primary:visible',
+      ],
       expectNavigation: true,
       postWaitMs: 1800,
     },
-    open_cart: {
-      // FINALIZAR COMPRA — abre modal upsell, NÃO navega
-      selectors: ['button:has-text("Finalizar Compra")','button:has-text("Finalizar compra")','a:has-text("Finalizar")','.btn:has-text("Finalizar")','button:has-text("FINALIZAR")'],
+    {
+      id: 'open_cart_page',
+      label: 'Validar carrinho',
+      // validateOnly: já estamos em /carrinho?confirm; só verifica
+      // que FINALIZAR COMPRA está visível (= página renderizada). Sem click.
+      validateOnly: true,
+      selectors: [
+        'button:has-text("FINALIZAR COMPRA")',
+        '.checkout-btn',
+      ],
+      expectNavigation: false,
+      postWaitMs: 800,
+    },
+    {
+      id: 'initiate_checkout',
+      label: 'Iniciar checkout',
+      // Clica FINALIZAR COMPRA → modal upsell Premium pode aparecer →
+      // dismissAfterClick tenta fechar entre click e postWait para liberar
+      // a navegação para o checkout real.
+      // TODO G.2: refinar selectors do close button do upsell.
+      selectors: [
+        'button:has-text("FINALIZAR COMPRA")',
+        '.checkout-btn',
+      ],
+      expectNavigation: true,
+      postWaitMs: 2200,
+      dismissAfterClick: [
+        '.modal-premium .close',
+        '[role="dialog"] button[aria-label*="fechar" i]',
+        '.modal.show button[data-dismiss="modal"]',
+      ],
+    },
+  ];
+
+  // Fluxo genérico (não-Ticketline) — mantém IDs unificados pós-G.1 mas com
+  // selectores best-effort para qualquer site de bilheteira.
+  const GENERIC_FLOW = [
+    { id: 'navigate_home', label: 'Navegar para home', isNavigate: true },
+    {
+      id: 'select_zone',
+      label: 'Clicar no evento',
+      selectors: ['a[href*="/evento/"]','a[href*="/event/"]','.event-card a','article a[href*="/"]','a:has(img)'],
+      expectNavigation: true,
+      postWaitMs: 1500,
+    },
+    {
+      id: 'select_quantity',
+      label: 'Selecionar bilhete',
+      selectors: ['button:has-text("Comprar")','button:has-text("Bilhetes")','a:has-text("Comprar")','[data-testid*="ticket"]','button.btn-primary'],
       expectNavigation: false,
       postWaitMs: 1500,
     },
-    begin_checkout: {
-      // Fechar X do modal upsell "Ticketline Premium" — provoca navegação checkout real
-      selectors: [
-        '.modal.show button.close',
-        '.modal.show button[aria-label*="close" i]',
-        '.modal.show button[aria-label*="fechar" i]',
-        '.modal.show button[data-dismiss="modal"]',
-        '.modal[style*="display: block"] button.close',
-        '.modal[style*="display: block"] button[aria-label*="close" i]',
-        // Fallbacks textuais
-        '.modal.show button:has-text("×")',
-        '.modal.show button:has-text("X")',
-      ],
-      expectNavigation: true,
-      postWaitMs: 2000,
+    {
+      id: 'add_to_cart',
+      label: 'Adicionar ao carrinho',
+      selectors: ['button:has-text("Adicionar")','button:has-text("Cesto")','button:has-text("Cart")','[data-testid*="add"]','input[type="submit"][value*="dicionar"]'],
+      expectNavigation: false,
+      postWaitMs: 1500,
     },
-  };
+    {
+      id: 'open_cart_page',
+      label: 'Abrir carrinho',
+      selectors: ['a[href*="/cesto"]','a[href*="/cart"]','a[href*="/carrinho"]','[aria-label*="cart" i]'],
+      expectNavigation: true,
+      postWaitMs: 1500,
+    },
+    {
+      id: 'initiate_checkout',
+      label: 'Iniciar checkout',
+      selectors: ['button:has-text("Continuar")','button:has-text("Finalizar")','a:has-text("Checkout")','button[type="submit"]'],
+      expectNavigation: true,
+      postWaitMs: 1800,
+    },
+  ];
 
-  const STEP_CONFIG = isTicketline ? TICKETLINE_STEPS : GENERIC_STEPS;
-  const STEP_SEQ = ['navigate_home','click_event','select_ticket','add_to_cart','open_cart','begin_checkout'];
+  const FLOW = isTicketline ? TICKETLINE_FLOW : GENERIC_FLOW;
 
   const steps = [];
   // Patch B: assim que um step falha, os subsequentes são marcados skipped sem
@@ -262,7 +337,8 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
   // index.ts ancestorsOf vê step_status === "skipped" e continua (no-op).
   let cascadeBrokenAt = null;
 
-  for (const name of STEP_SEQ) {
+  for (const cfg of FLOW) {
+    const name = cfg.id;
     const stepStart = Date.now();
     const sinceTs = stepStart;
 
@@ -289,25 +365,41 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
     let note = null;
 
     try {
-      if (name === 'navigate_home') {
+      if (cfg.isNavigate) {
         await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 30000 });
       } else {
-        const cfg = STEP_CONFIG[name];
         // Patch A + E.1: timeouts conservadores para manter wall-clock total
         // bem abaixo dos 55s do AbortController e 60s do cap Browserless.
         // Budget worst-case actual: 18s realista, 43s patológico — margem 12s
         // antes do AbortController disparar.
-        const handle = await trySelectors(cfg.selectors, 5000);
+        const handle = await trySelectors(cfg.selectors || [], 5000);
         if (!handle) {
           status = 'failed';
-          note = 'selector_not_found';
+          note = cfg.validateOnly ? 'validation_selector_not_found' : 'selector_not_found';
+        } else if (cfg.validateOnly) {
+          // G.1: validateOnly = só verifica existência, sem click nem nav.
+          await new Promise(r => setTimeout(r, cfg.postWaitMs || 600));
         } else if (cfg.expectNavigation) {
           const navP = page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 7000 }).catch(() => null);
           await handle.click().catch(() => null);
           await navP;
+          // G.1: dismissAfterClick — tenta fechar overlays específicos entre
+          // o click e o postWait (e.g., modal upsell Premium da Ticketline).
+          if (cfg.dismissAfterClick && cfg.dismissAfterClick.length) {
+            const dh = await trySelectors(cfg.dismissAfterClick, 1500);
+            if (dh) {
+              try { await dh.click(); await new Promise(r => setTimeout(r, 500)); } catch (_) { /* noop */ }
+            }
+          }
           await new Promise(r => setTimeout(r, cfg.postWaitMs || 1500));
         } else {
           await handle.click().catch(() => null);
+          if (cfg.dismissAfterClick && cfg.dismissAfterClick.length) {
+            const dh = await trySelectors(cfg.dismissAfterClick, 1500);
+            if (dh) {
+              try { await dh.click(); await new Promise(r => setTimeout(r, 500)); } catch (_) { /* noop */ }
+            }
+          }
           await new Promise(r => setTimeout(r, cfg.postWaitMs || 1500));
         }
       }

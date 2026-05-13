@@ -13,18 +13,29 @@ import { cn } from "@/lib/utils";
 import { printFunnelTestReport } from "@/lib/audience-pdf";
 import { toast } from "sonner";
 
+// G.1: STEP_LABELS contém AMBOS conjuntos (novos pós-G.1 + legados pré-G.1)
+// para que runs históricas no histórico continuem a renderizar com o label correto
+// sem precisar de migrar registos antigos em BD.
 const STEP_LABELS: Record<string, string> = {
-  navigate_home: "Navegar para home",
+  // Novos (pós-G.1, fluxo Ticketline real)
+  navigate_home: "Navegar para sessão",
+  select_zone: "Selecionar zona",
+  select_quantity: "Selecionar quantidade",
+  add_to_cart: "Adicionar ao carrinho",
+  open_cart_page: "Validar carrinho",
+  initiate_checkout: "Iniciar checkout",
+  // Legados (pré-G.1, mantidos para runs históricas)
   click_event: "Clicar no evento",
   select_ticket: "Selecionar bilhete",
-  add_to_cart: "Adicionar ao carrinho",
   open_cart: "Abrir carrinho",
   begin_checkout: "Iniciar checkout",
 };
 
-const STEP_ORDER = [
-  "navigate_home", "click_event", "select_ticket",
-  "add_to_cart", "open_cart", "begin_checkout",
+// Template para o estado pending (run ainda não inseriu step rows).
+// Em runs activas/completas, STEP_ORDER vem dinamicamente da BD (ver render).
+const STEP_ORDER_TEMPLATE = [
+  "navigate_home", "select_zone", "select_quantity",
+  "add_to_cart", "open_cart_page", "initiate_checkout",
 ];
 
 const EXPECTED_PIXEL_EVENTS = ["PageView", "ViewContent", "AddToCart", "InitiateCheckout"];
@@ -376,11 +387,14 @@ export default function FunnelTest() {
           </div>
 
           <div className="space-y-2">
-            {STEP_ORDER.map((stepName, idx) => {
-              const step = steps.find((s: any) => s.step_name === stepName);
-              const status = step?.step_status ?? (isActiveRun ? "pending" : "pending");
+            {(steps.length > 0
+              ? steps
+              : STEP_ORDER_TEMPLATE.map((id) => ({ step_name: id, step_status: "pending" }))
+            ).map((step: any, idx: number) => {
+              const stepName: string = step.step_name;
+              const status = step.step_status ?? "pending";
               const isExpanded = !!expanded[stepName];
-              const canExpand = step && (status === "passed" || status === "failed");
+              const canExpand = (status === "passed" || status === "failed") && !!step.id;
               return (
                 <div key={stepName} className="rounded-md border border-border bg-card/40">
                   <button
@@ -394,16 +408,16 @@ export default function FunnelTest() {
                     <div className="text-xs text-muted-foreground font-mono w-6">{idx + 1}.</div>
                     <StepStatusIcon status={status} />
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium">{STEP_LABELS[stepName]}</div>
-                      {step?.url_at_step && (
+                      <div className="text-sm font-medium">{STEP_LABELS[stepName] ?? stepName}</div>
+                      {step.url_at_step && (
                         <div className="text-[11px] text-muted-foreground truncate font-mono">{step.url_at_step}</div>
                       )}
                     </div>
-                    <div className="text-xs text-muted-foreground tabular-nums">{fmtMs(step?.duration_ms)}</div>
+                    <div className="text-xs text-muted-foreground tabular-nums">{fmtMs(step.duration_ms)}</div>
                     {canExpand && (isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
                   </button>
 
-                  {isExpanded && step && (
+                  {isExpanded && step.id && (
                     <div className="border-t border-border p-3 space-y-3 bg-background/40">
                       {step.screenshot_url && (
                         <img src={step.screenshot_url} alt={stepName} className="w-full max-w-md rounded border border-border" />

@@ -4,13 +4,20 @@
 
 import { browserlessPuppeteerScript } from "./_puppeteer_script.ts";
 
+// G.1: step IDs renomeados para refletir o flow real Ticketline.
+// Mapeamento legado→novo (para retrocompat com runs históricas em BD):
+//   click_event     → select_zone
+//   select_ticket   → select_quantity
+//   open_cart       → open_cart_page
+//   begin_checkout  → initiate_checkout
+// (navigate_home e add_to_cart mantêm-se).
 export type StepName =
   | "navigate_home"
-  | "click_event"
-  | "select_ticket"
+  | "select_zone"
+  | "select_quantity"
   | "add_to_cart"
-  | "open_cart"
-  | "begin_checkout";
+  | "open_cart_page"
+  | "initiate_checkout";
 
 export interface PixelEvent {
   event: string;
@@ -59,11 +66,11 @@ export interface SessionResult {
 
 const STEP_SEQUENCE: StepName[] = [
   "navigate_home",
-  "click_event",
-  "select_ticket",
+  "select_zone",
+  "select_quantity",
   "add_to_cart",
-  "open_cart",
-  "begin_checkout",
+  "open_cart_page",
+  "initiate_checkout",
 ];
 
 // Puppeteer script enviado para Browserless /function.
