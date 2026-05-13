@@ -3,7 +3,7 @@
 
 const STORAGE_KEY = "audience-print-data";
 
-function openPrintPage(type: "pixel-health" | "campaign-analysis" | "audience-coach" | "audit-report", payload: any) {
+function openPrintPage(type: "pixel-health" | "campaign-analysis" | "audience-coach" | "audit-report" | "funnel-test-report", payload: any) {
   const data = { type, payload, ts: Date.now() };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -43,4 +43,9 @@ export interface AuditReportPayload {
 export function printAuditReport(payload: AuditReportPayload) {
   if (!payload) return;
   openPrintPage("audit-report", payload);
+}
+
+export function printFunnelTestReport(run: any, steps: any[]) {
+  if (!run) return;
+  openPrintPage("funnel-test-report", { run, steps: steps ?? [] });
 }
