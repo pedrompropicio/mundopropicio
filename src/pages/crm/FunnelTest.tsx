@@ -103,7 +103,7 @@ export default function FunnelTest() {
     const { data } = await (supabase as any)
       .schema("crm")
       .from("funnel_test_runs")
-      .select("id, target_url, status, severity, started_at, finished_at")
+      .select("id, target_url, status, severity, started_at, completed_at")
       .order("started_at", { ascending: false })
       .limit(10);
     setHistory(data ?? []);
