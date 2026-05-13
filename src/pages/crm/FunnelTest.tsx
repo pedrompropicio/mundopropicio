@@ -214,8 +214,8 @@ export default function FunnelTest() {
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Target className="h-6 w-6 text-cyan-400" />
             Funnel Test 360
-            <span className="text-[10px] uppercase font-bold px-2 py-1 rounded border bg-amber-500/15 text-amber-300 border-amber-500/40">
-              BETA — dados simulados
+            <span className="text-[10px] uppercase font-bold px-2 py-1 rounded border bg-cyan-500/15 text-cyan-300 border-cyan-500/40">
+              navegação real
             </span>
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
