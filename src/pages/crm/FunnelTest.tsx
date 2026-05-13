@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Play, FileDown, RefreshCw, CheckCircle2, XCircle, Loader2, Clock,
-  ChevronDown, ChevronRight, Activity, Target, AlertTriangle, Info,
+  ChevronDown, ChevronRight, Activity, Target, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { printFunnelTestReport } from "@/lib/audience-pdf";
