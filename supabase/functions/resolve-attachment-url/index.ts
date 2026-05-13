@@ -163,8 +163,14 @@ async function resolveCamarimItemDocument(adminClient: any, documentId: string, 
 }
 
 function contentDisposition(filename?: string | null) {
-  const clean = (filename ?? "anexo").replace(/[\r\n"]/g, "_");
-  return `inline; filename="${clean}"; filename*=UTF-8''${encodeURIComponent(clean)}`;
+  const clean = (filename ?? "anexo").replace(/[\r\n"\\]/g, "_");
+  // ASCII-only fallback para a parte filename="..." (HTTP header values são ByteString = latin-1)
+  const ascii = clean.replace(/[^\x20-\x7E]/g, "_") || "anexo";
+  return `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(clean)}`;
+}
+
+function asciiHeader(value: string) {
+  return value.replace(/[^\x20-\x7E]/g, "_");
 }
 
 Deno.serve(async (req) => {
