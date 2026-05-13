@@ -180,6 +180,8 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
       completed_at: failedAt.toISOString(),
       total_duration_ms: elapsedMs,
       error_message: `Browserless: ${runError}`,
+      severity: "critical",
+      ai_summary: `Falha no arranque Browserless: ${runError}`,
     }).eq("id", runId);
     return;
   }
