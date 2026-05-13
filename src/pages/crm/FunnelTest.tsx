@@ -84,6 +84,7 @@ function lhColor(s: string) {
 export default function FunnelTest() {
   const navigate = useNavigate();
   const { active } = useAdAccountSelection();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [targetUrl, setTargetUrl] = useState("");
   const [runId, setRunId] = useState<string | null>(null);
@@ -93,7 +94,10 @@ export default function FunnelTest() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [candidateUrls, setCandidateUrls] = useState<string[]>([]);
+  const [extracting, setExtracting] = useState(false);
   const pollRef = useRef<number | null>(null);
+  const autoTriggeredRef = useRef(false);
 
   const isActiveRun = run && (run.status === "queued" || run.status === "running");
 
