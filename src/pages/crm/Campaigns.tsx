@@ -664,6 +664,19 @@ function CampaignTableRow({
               </Button>
             );
           })()}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 px-2 text-[11px] border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.location.assign(`/audience/audit/funnel-test?campaign_id=${encodeURIComponent(c.external_campaign_id)}`);
+            }}
+            title="Testar funil 360 desta campanha"
+          >
+            <Target className="h-3 w-3 mr-1" />Testar funil
+          </Button>
           {onEdited && <EditCampaignPopover c={c} onSaved={onEdited} />}
         </div>
       </td>
