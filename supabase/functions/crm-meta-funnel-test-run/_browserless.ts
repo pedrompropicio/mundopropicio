@@ -2,6 +2,8 @@
 // Mantém UMA sessão Puppeteer para toda a navegação e devolve steps estruturados.
 // Lighthouse é obtido depois via /performance endpoint para URLs-chave.
 
+import { browserlessPuppeteerScript } from "./_puppeteer_script.ts";
+
 export type StepName =
   | "navigate_home"
   | "click_event"
@@ -59,7 +61,7 @@ const STEP_SEQUENCE: StepName[] = [
 
 // Puppeteer script enviado para Browserless /function.
 // É serializado como string — não tem closures sobre Deno.
-const PUPPETEER_SCRIPT = await Deno.readTextFile(new URL("./_puppeteer_script.txt", import.meta.url));
+const PUPPETEER_SCRIPT = `export default ${browserlessPuppeteerScript.toString()}`;
 
 const DEFAULT_BROWSERLESS_BASES = [
   "https://production-lon.browserless.io",
