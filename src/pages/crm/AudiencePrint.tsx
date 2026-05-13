@@ -686,11 +686,25 @@ function ftSeverityColor(s?: string) {
 function FunnelTestReportView({ run, steps }: { run: any; steps: any[] }) {
   const allEvents = (steps ?? []).flatMap((s: any) => (s.pixel_events ?? []).map((e: any) => ({ ...e, step: s.step_name })));
   const allErrors = (steps ?? []).flatMap((s: any) => (s.console_errors ?? []).map((e: any) => ({ ...e, step: s.step_name })));
-  const detected = FT_EXPECTED.filter((ev) => allEvents.some((e: any) => e.event === ev)).length;
-  const totalSteps = (steps ?? []).length;
-  const passedSteps = (steps ?? []).filter((s: any) => s.step_status === "passed").length;
-  const funnelPct = totalSteps > 0 ? Math.round((passedSteps / totalSteps) * 100) : 0;
-  const criticalErrors = allErrors.filter((e: any) => e.level === "error").length;
+
+  // Match case-insensitive + trim para alinhar tabela com veredicto IA.
+  const norm = (v: any) => String(v ?? "").trim().toLowerCase();
+  const eventMatches = (target: string) => allEvents.filter((e: any) => norm(e.event) === norm(target));
+
+  const fireCounts: Record<string, number> = {};
+  for (const e of allEvents) {
+    const k = norm(e.event);
+    if (!k) continue;
+    fireCounts[k] = (fireCounts[k] ?? 0) + 1;
+  }
+
+  const detectedExpected = FT_EXPECTED.filter((ev) => eventMatches(ev).length > 0);
+  const failedSteps = (steps ?? []).filter((s: any) => s.step_status === "failed").length;
+  const consoleErrors = allErrors.filter((e: any) => e.level === "error").length;
+  const criticalProblems = failedSteps + consoleErrors;
+  const funnelPct = FT_EXPECTED.length > 0
+    ? Math.round((detectedExpected.length / FT_EXPECTED.length) * 100)
+    : 0;
   const duration = run?.started_at && run?.completed_at
     ? new Date(run.completed_at).getTime() - new Date(run.started_at).getTime()
     : null;
@@ -730,9 +744,9 @@ function FunnelTestReportView({ run, steps }: { run: any; steps: any[] }) {
       {/* Sumário executivo */}
       <h2>Sumário executivo</h2>
       <div className="grid grid-2" style={{ marginBottom: 16 }}>
-        <div className="stat-box"><div className="label">Eventos Pixel detectados</div><div className="value">{detected} / {FT_EXPECTED.length}</div></div>
+        <div className="stat-box"><div className="label">Eventos Pixel detectados</div><div className="value">{detectedExpected.length} / {FT_EXPECTED.length}</div></div>
         <div className="stat-box"><div className="label">Funil completo</div><div className="value">{funnelPct}%</div></div>
-        <div className="stat-box"><div className="label">Problemas críticos</div><div className="value">{criticalErrors}</div></div>
+        <div className="stat-box"><div className="label">Problemas críticos</div><div className="value">{criticalProblems}</div></div>
         <div className="stat-box"><div className="label">Duração</div><div className="value">{ftFmtMs(duration)}</div></div>
       </div>
 
@@ -748,12 +762,13 @@ function FunnelTestReportView({ run, steps }: { run: any; steps: any[] }) {
 
       {/* Eventos Pixel */}
       <h2>Eventos Pixel: esperados vs detectados</h2>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9pt", marginBottom: 16 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "9pt", marginBottom: 8 }}>
         <thead>
           <tr style={{ background: "#f3f4f6" }}>
             <th style={{ padding: 4, textAlign: "left" }}>Evento</th>
             <th style={{ padding: 4, textAlign: "center" }}>Esperado</th>
             <th style={{ padding: 4, textAlign: "center" }}>Detectado</th>
+            <th style={{ padding: 4, textAlign: "center" }}>Disparos</th>
             <th style={{ padding: 4, textAlign: "left" }}>Quando (step)</th>
             <th style={{ padding: 4, textAlign: "right" }}>Value</th>
             <th style={{ padding: 4, textAlign: "left" }}>Currency</th>
@@ -762,12 +777,17 @@ function FunnelTestReportView({ run, steps }: { run: any; steps: any[] }) {
         </thead>
         <tbody>
           {FT_EXPECTED.map((ev) => {
-            const found = allEvents.find((e: any) => e.event === ev);
+            const matches = eventMatches(ev);
+            const found = matches[0];
+            const count = matches.length;
             return (
               <tr key={ev} style={{ borderBottom: "1px solid #e5e7eb" }}>
                 <td style={{ padding: 4 }}>{ev}</td>
                 <td style={{ padding: 4, textAlign: "center", color: "#10b981" }}>✓</td>
-                <td style={{ padding: 4, textAlign: "center", color: found ? "#10b981" : "#ef4444" }}>{found ? "✓" : "✗"}</td>
+                <td style={{ padding: 4, textAlign: "center", color: count > 0 ? "#10b981" : "#ef4444" }}>{count > 0 ? "✓" : "✗"}</td>
+                <td style={{ padding: 4, textAlign: "center", color: count > 1 ? "#92400e" : "#374151", fontWeight: count > 1 ? "bold" : "normal" }}>
+                  {count > 0 ? `×${count}${count > 1 ? " ⚠" : ""}` : "—"}
+                </td>
                 <td style={{ padding: 4 }}>{found ? FT_STEP_LABELS[found.step] ?? found.step : "—"}</td>
                 <td style={{ padding: 4, textAlign: "right" }} className="mono">{found?.value ?? "—"}</td>
                 <td style={{ padding: 4 }}>{found?.currency ?? "—"}</td>
@@ -777,6 +797,16 @@ function FunnelTestReportView({ run, steps }: { run: any; steps: any[] }) {
           })}
         </tbody>
       </table>
+      {(() => {
+        const expectedSet = new Set(FT_EXPECTED.map(norm));
+        const extras = Object.entries(fireCounts).filter(([k]) => !expectedSet.has(k));
+        if (extras.length === 0) return null;
+        return (
+          <p className="meta" style={{ marginBottom: 16 }}>
+            Eventos extra detectados (fora da lista esperada): {extras.map(([k, n]) => `${k} ×${n}`).join(", ")}
+          </p>
+        );
+      })()}
 
       {/* Steps detalhados */}
       <div style={{ pageBreakBefore: "always" }}>
