@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Play, FileDown, RefreshCw, CheckCircle2, XCircle, Loader2, Clock,
-  ChevronDown, ChevronRight, Activity, Target, AlertTriangle, Info,
+  ChevronDown, ChevronRight, Activity, Target, AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { printFunnelTestReport } from "@/lib/audience-pdf";
@@ -103,7 +103,7 @@ export default function FunnelTest() {
     const { data } = await (supabase as any)
       .schema("crm")
       .from("funnel_test_runs")
-      .select("id, target_url, status, severity, started_at, finished_at")
+      .select("id, target_url, status, severity, started_at, completed_at")
       .order("started_at", { ascending: false })
       .limit(10);
     setHistory(data ?? []);
@@ -201,7 +201,7 @@ export default function FunnelTest() {
 
   const elapsed = useMemo(() => {
     if (!run?.started_at) return null;
-    const end = run.finished_at ? new Date(run.finished_at).getTime() : Date.now();
+    const end = run.completed_at ? new Date(run.completed_at).getTime() : Date.now();
     const start = new Date(run.started_at).getTime();
     return Math.max(0, end - start);
   }, [run]);
@@ -214,8 +214,8 @@ export default function FunnelTest() {
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Target className="h-6 w-6 text-cyan-400" />
             Funnel Test 360
-            <span className="text-[10px] uppercase font-bold px-2 py-1 rounded border bg-amber-500/15 text-amber-300 border-amber-500/40">
-              BETA — dados simulados
+            <span className="text-[10px] uppercase font-bold px-2 py-1 rounded border bg-cyan-500/15 text-cyan-300 border-cyan-500/40">
+              navegação real
             </span>
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -224,16 +224,7 @@ export default function FunnelTest() {
         </div>
       </div>
 
-      {/* BETA banner */}
-      <Card className="p-3 border-amber-500/30 bg-amber-500/5">
-        <p className="text-xs text-amber-200 flex items-start gap-2">
-          <Info className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>
-            <strong>Modo BETA:</strong> o motor de browser real (Browserless.io) será activado em breve.
-            Por agora os resultados são simulados para validar o fluxo.
-          </span>
-        </p>
-      </Card>
+      {/* (banner BETA removido — Browserless real activo) */}
 
       {/* Input card */}
       {!isActiveRun && !run && (
@@ -262,6 +253,9 @@ export default function FunnelTest() {
           </button>
           <p className="text-xs text-muted-foreground text-center">
             O teste percorre 6 passos: home → evento → bilhete → carrinho → cart → checkout. Sem compra real.
+          </p>
+          <p className="text-[11px] text-muted-foreground text-center">
+            ℹ️ O teste demora ~30–60s. Browserless.io executa navegação real.
           </p>
         </Card>
       )}

@@ -1,14 +1,18 @@
 // crm-meta-funnel-test-run
 // Cria run, retorna run_id imediatamente, e executa em background.
-// STUB: chamadas a Browserless são simuladas via _stub_fixtures.
+// Real Browserless quando BROWSERLESS_API_KEY presente; fallback para stub.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import {
   STEP_SEQUENCE,
   STUB_FIXTURES,
   type StepName,
-  type StubStepResult,
 } from "./_stub_fixtures.ts";
+import {
+  runBrowserlessSession,
+  fetchLighthouse,
+  type SessionStepResult,
+} from "./_browserless.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,6 +25,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
+const BROWSERLESS_API_KEY = Deno.env.get("BROWSERLESS_API_KEY") ?? "";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -33,21 +38,14 @@ function isValidUrl(u: string): boolean {
   try {
     const p = new URL(u);
     return p.protocol === "http:" || p.protocol === "https:";
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
-// TODO[browserless-stub]: substituir por chamada real à API Browserless
-// quando BROWSERLESS_API_KEY estiver disponível.
-async function runBrowserlessStep(
-  step: StepName,
-  _targetUrl: string,
-  _prevState: { lastUrl: string | null },
-): Promise<StubStepResult> {
-  // Simula latência da chamada remota
-  await new Promise((r) => setTimeout(r, 250));
-  return STUB_FIXTURES[step];
+function b64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
 }
 
 async function generateAiSummary(payload: unknown): Promise<string | null> {
@@ -55,35 +53,19 @@ async function generateAiSummary(payload: unknown): Promise<string | null> {
   try {
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          {
-            role: "system",
-            content:
-              "És analista do funil Meta Pixel. Em PT-PT, 4-6 linhas, identifica eventos esperados em falta, problemas de Lighthouse (LCP/TBT/CLS), erros de consola relevantes e dá 1 recomendação prioritária.",
-          },
-          {
-            role: "user",
-            content: `Resultado da auditoria:\n${JSON.stringify(payload, null, 2)}`,
-          },
+          { role: "system", content: "És analista do funil Meta Pixel. Em PT-PT, 4-6 linhas, identifica eventos esperados em falta, problemas de Lighthouse (LCP/TBT/CLS), erros de consola relevantes e dá 1 recomendação prioritária." },
+          { role: "user", content: `Resultado da auditoria:\n${JSON.stringify(payload, null, 2)}` },
         ],
       }),
     });
-    if (!resp.ok) {
-      console.error("[funnel-test] AI summary error", resp.status, await resp.text());
-      return null;
-    }
+    if (!resp.ok) { console.error("[funnel-test] AI summary error", resp.status, await resp.text()); return null; }
     const data = await resp.json();
     return data?.choices?.[0]?.message?.content ?? null;
-  } catch (e) {
-    console.error("[funnel-test] AI summary threw", e);
-    return null;
-  }
+  } catch (e) { console.error("[funnel-test] AI summary threw", e); return null; }
 }
 
 function classifySeverity(
@@ -91,89 +73,175 @@ function classifySeverity(
   detected: { event: string }[],
   consoleErrors: { level: string }[],
 ): "healthy" | "warning" | "critical" {
-  const detectedSet = new Set(detected.map((e) => e.event));
-  const missing = expected.filter((e) => !detectedSet.has(e));
+  const set = new Set(detected.map((e) => e.event));
+  const missing = expected.filter((e) => !set.has(e));
   const errors = consoleErrors.filter((c) => c.level === "error").length;
   if (missing.length >= 2 || errors >= 3) return "critical";
   if (missing.length >= 1 || errors >= 1) return "warning";
   return "healthy";
 }
 
-async function executeRun(runId: string, targetUrl: string) {
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
-    auth: { persistSession: false },
+function lhKeyForStep(step: StepName): string {
+  if (step === "navigate_home") return "home";
+  if (step === "click_event") return "product";
+  if (step === "open_cart") return "cart";
+  if (step === "begin_checkout") return "checkout";
+  return step;
+}
+
+async function buildSessionStepsFromStub(): Promise<SessionStepResult[]> {
+  return STEP_SEQUENCE.map((name) => {
+    const f = STUB_FIXTURES[name];
+    return {
+      name,
+      step_status: f.step_status,
+      duration_ms: f.duration_ms,
+      url_at_step: f.url_at_step,
+      screenshot_b64: null,
+      pixel_events: f.pixel_events,
+      console_errors: f.console_errors,
+      notes: f.notes ?? null,
+      // stub provides lighthouse direct on the fixture; smuggle via _stubLighthouse
+      _stubLighthouse: f.lighthouse,
+    } as SessionStepResult & { _stubLighthouse?: any };
   });
+}
+
+async function executeRun(runId: string, targetUrl: string, companyId: string) {
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
   const startedAt = new Date();
   await admin.schema("crm").from("funnel_test_runs").update({
     status: "running",
     started_at: startedAt.toISOString(),
   }).eq("id", runId);
 
-  const detectedAll: any[] = [];
-  const consoleAll: any[] = [];
-  const lighthouseSummary: Record<string, any> = {};
-  const prevState = { lastUrl: null as string | null };
+  const useStub = !BROWSERLESS_API_KEY;
+  if (useStub) console.warn("[funnel-test] BROWSERLESS_API_KEY ausente — fallback STUB");
 
-  let allPassed = true;
-  let stepIdx = 0;
-
-  for (const step of STEP_SEQUENCE) {
-    const stepStart = new Date();
-    // insert pending step
-    const { data: stepRow } = await admin.schema("crm").from("funnel_test_steps").insert({
+  // 1) Pre-insert all step rows as 'running' so o frontend mostra logo a sequência
+  const stepRowIds: Record<StepName, string | null> = {
+    navigate_home: null, click_event: null, select_ticket: null,
+    add_to_cart: null, open_cart: null, begin_checkout: null,
+  };
+  for (let i = 0; i < STEP_SEQUENCE.length; i++) {
+    const name = STEP_SEQUENCE[i];
+    const { data: row } = await admin.schema("crm").from("funnel_test_steps").insert({
       run_id: runId,
-      step_index: stepIdx,
-      step_name: step,
+      step_index: i,
+      step_name: name,
       step_status: "running",
-      started_at: stepStart.toISOString(),
+      started_at: new Date().toISOString(),
     }).select("id").maybeSingle();
+    stepRowIds[name] = row?.id ?? null;
+  }
 
-    try {
-      const result = await runBrowserlessStep(step, targetUrl, prevState);
-      const stepEnd = new Date();
-      prevState.lastUrl = result.url_at_step;
-
-      detectedAll.push(...result.pixel_events);
-      consoleAll.push(...result.console_errors);
-      if (result.lighthouse) {
-        const key =
-          step === "navigate_home" ? "home" :
-          step === "click_event" ? "product" :
-          step === "open_cart" ? "cart" :
-          step === "begin_checkout" ? "checkout" : step;
-        lighthouseSummary[key] = result.lighthouse;
-      }
-
-      if (result.step_status !== "passed") allPassed = false;
-
-      if (stepRow?.id) {
-        await admin.schema("crm").from("funnel_test_steps").update({
-          step_status: result.step_status,
-          completed_at: stepEnd.toISOString(),
-          duration_ms: result.duration_ms,
-          screenshot_url: result.screenshot_url,
-          url_at_step: result.url_at_step,
-          pixel_events_in_step: result.pixel_events,
-          console_errors_in_step: result.console_errors,
-          lighthouse_at_step: result.lighthouse,
-          notes: result.notes ?? null,
-        }).eq("id", stepRow.id);
-      }
-    } catch (e) {
-      allPassed = false;
-      console.error("[funnel-test] step threw", step, e);
-      if (stepRow?.id) {
+  // 2) Run session (real or stub)
+  let sessionSteps: (SessionStepResult & { _stubLighthouse?: any })[] = [];
+  let runError: string | null = null;
+  try {
+    if (useStub) {
+      sessionSteps = await buildSessionStepsFromStub();
+    } else {
+      const result = await runBrowserlessSession(targetUrl, BROWSERLESS_API_KEY);
+      sessionSteps = result.steps;
+    }
+  } catch (e) {
+    runError = e instanceof Error ? e.message : String(e);
+    console.error("[funnel-test] session failed", runError);
+    // mark all pending steps as failed
+    for (const name of STEP_SEQUENCE) {
+      const id = stepRowIds[name];
+      if (id) {
         await admin.schema("crm").from("funnel_test_steps").update({
           step_status: "failed",
           completed_at: new Date().toISOString(),
-          notes: e instanceof Error ? e.message : String(e),
-        }).eq("id", stepRow.id);
+          notes: "browserless_session_failed",
+        }).eq("id", id);
       }
     }
-    stepIdx++;
+    await admin.schema("crm").from("funnel_test_runs").update({
+      status: "failed",
+      completed_at: new Date().toISOString(),
+      error_message: `Browserless: ${runError}`,
+    }).eq("id", runId);
+    return;
   }
 
-  // fetch expected to compute severity
+  // 3) Persist screenshots + step rows
+  const detectedAll: any[] = [];
+  const consoleAll: any[] = [];
+  const lighthouseSummary: Record<string, any> = {};
+  let allPassed = true;
+
+  for (let i = 0; i < sessionSteps.length; i++) {
+    const s = sessionSteps[i];
+    const id = stepRowIds[s.name];
+    let screenshotUrl: string | null = null;
+
+    if (s.screenshot_b64) {
+      try {
+        const path = `${companyId}/${runId}/${i}.png`;
+        const bytes = b64ToBytes(s.screenshot_b64);
+        await admin.storage.from("funnel-test-screenshots").upload(path, bytes, {
+          contentType: "image/png",
+          upsert: true,
+        });
+        const { data: signed } = await admin.storage
+          .from("funnel-test-screenshots")
+          .createSignedUrl(path, 7 * 24 * 3600);
+        screenshotUrl = signed?.signedUrl ?? null;
+      } catch (e) {
+        console.warn("[funnel-test] screenshot upload failed", e);
+      }
+    }
+
+    detectedAll.push(...(s.pixel_events ?? []));
+    consoleAll.push(...(s.console_errors ?? []));
+    if (s.step_status !== "passed") allPassed = false;
+
+    // Stub lighthouse goes in directly; real lighthouse comes after.
+    if (s._stubLighthouse) {
+      lighthouseSummary[lhKeyForStep(s.name)] = s._stubLighthouse;
+    }
+
+    if (id) {
+      await admin.schema("crm").from("funnel_test_steps").update({
+        step_status: s.step_status,
+        completed_at: new Date().toISOString(),
+        duration_ms: s.duration_ms,
+        screenshot_url: screenshotUrl,
+        url_at_step: s.url_at_step,
+        pixel_events_in_step: s.pixel_events ?? [],
+        console_errors_in_step: s.console_errors ?? [],
+        lighthouse_at_step: s._stubLighthouse ?? null,
+        notes: s.notes ?? null,
+      }).eq("id", id);
+    }
+  }
+
+  // 4) Real Lighthouse (após sessão fechar) para os 4 URLs-chave
+  if (!useStub) {
+    const lhTargets: { key: string; url: string | null; step: StepName }[] = [
+      { key: "home", url: sessionSteps.find((x) => x.name === "navigate_home")?.url_at_step ?? null, step: "navigate_home" },
+      { key: "product", url: sessionSteps.find((x) => x.name === "click_event")?.url_at_step ?? null, step: "click_event" },
+      { key: "cart", url: sessionSteps.find((x) => x.name === "open_cart")?.url_at_step ?? null, step: "open_cart" },
+      { key: "checkout", url: sessionSteps.find((x) => x.name === "begin_checkout")?.url_at_step ?? null, step: "begin_checkout" },
+    ];
+    await Promise.all(lhTargets.map(async (t) => {
+      if (!t.url) return;
+      const lh = await fetchLighthouse(t.url, BROWSERLESS_API_KEY);
+      if (!lh) return;
+      lighthouseSummary[t.key] = lh;
+      const id = stepRowIds[t.step];
+      if (id) {
+        await admin.schema("crm").from("funnel_test_steps").update({
+          lighthouse_at_step: lh,
+        }).eq("id", id);
+      }
+    }));
+  }
+
+  // 5) Severidade + AI summary + fechar run
   const { data: runRow } = await admin.schema("crm").from("funnel_test_runs")
     .select("expected_pixel_events").eq("id", runId).maybeSingle();
   const expected = runRow?.expected_pixel_events ?? [];
@@ -207,7 +275,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { target_url?: string; connection_id?: string; event_id?: string; test_event_code?: string };
+  let body: { target_url?: string; connection_id?: string; event_id?: string };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
 
   const targetUrl = (body.target_url ?? "").trim();
@@ -226,9 +294,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const companyId = (cid as string) ?? null;
   if (!companyId) return json({ error: "no_company_context" }, 403);
 
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
-    auth: { persistSession: false },
-  });
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
   const { data: ins, error: insErr } = await admin
     .schema("crm")
@@ -249,10 +315,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: "insert_failed", detail: insErr?.message }, 500);
   }
 
-  // background
   // @ts-ignore - EdgeRuntime is available in Supabase Edge Runtime
   EdgeRuntime.waitUntil(
-    executeRun(ins.id, targetUrl).catch(async (e) => {
+    executeRun(ins.id, targetUrl, companyId).catch(async (e) => {
       console.error("[funnel-test] run failed", e);
       await admin.schema("crm").from("funnel_test_runs").update({
         status: "failed",
