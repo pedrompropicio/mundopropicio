@@ -42,7 +42,12 @@ function isValidUrl(u: string): boolean {
 }
 
 function isServiceRoleAuth(authHeader: string): boolean {
-  return SERVICE_ROLE.length > 0 && authHeader === `Bearer ${SERVICE_ROLE}`;
+  if (SERVICE_ROLE.length > 0 && authHeader === `Bearer ${SERVICE_ROLE}`) return true;
+  try {
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return payload?.role === "service_role";
+  } catch { return false; }
 }
 
 function b64ToBytes(b64: string): Uint8Array {
