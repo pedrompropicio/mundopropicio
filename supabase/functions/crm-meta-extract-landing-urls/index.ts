@@ -92,6 +92,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // ─── CAMPAIGN path ──────────────────────────────────────────
+  const { data: campaignRow } = await (supabase as any)
+    .schema("crm")
+    .from("meta_campaign_snapshot")
+    .select("connection_id")
+    .eq("external_campaign_id", campaignId)
+    .maybeSingle();
+
   // Camada 1 — DB local
   const { data: ads, error: adsErr } = await (supabase as any)
     .schema("crm")
@@ -103,7 +110,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const dbUrls: string[] = [];
   const creativeIds = new Set<string>();
-  let connectionId: string | null = null;
+  let connectionId: string | null = campaignRow?.connection_id ?? null;
 
   for (const ad of ads ?? []) {
     if (!connectionId && ad.connection_id) connectionId = ad.connection_id;
