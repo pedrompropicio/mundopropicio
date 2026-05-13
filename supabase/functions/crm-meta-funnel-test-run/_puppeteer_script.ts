@@ -270,14 +270,16 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
         await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 30000 });
       } else {
         const cfg = STEP_CONFIG[name];
-        // Patch A: timeouts mais conservadores para manter wall-clock total < 60s
-        // (Browserless /function default timeout ~60s)
+        // Patch A + E.1: timeouts conservadores para manter wall-clock total
+        // bem abaixo dos 55s do AbortController e 60s do cap Browserless.
+        // Budget worst-case actual: 18s realista, 43s patológico — margem 12s
+        // antes do AbortController disparar.
         const handle = await trySelectors(cfg.selectors, 5000);
         if (!handle) {
           status = 'failed';
           note = 'selector_not_found';
         } else if (cfg.expectNavigation) {
-          const navP = page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 8000 }).catch(() => null);
+          const navP = page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 7000 }).catch(() => null);
           await handle.click().catch(() => null);
           await navP;
           await new Promise(r => setTimeout(r, cfg.postWaitMs || 1500));
