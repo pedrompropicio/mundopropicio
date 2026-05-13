@@ -1,5 +1,4 @@
-
-export default async function ({ page, context }) {
+export const browserlessPuppeteerScript = async function ({ page, context }) {
   const { targetUrl } = context;
   const sessionStart = Date.now();
   const allPixel = [];
@@ -144,4 +143,4 @@ export default async function ({ page, context }) {
     data: { steps },
     type: 'application/json',
   };
-}
+};
