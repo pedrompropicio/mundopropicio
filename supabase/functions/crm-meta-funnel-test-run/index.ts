@@ -25,7 +25,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
-const BROWSERLESS_API_KEY = Deno.env.get("BROWSERLESS_API_KEY") ?? "";
+const BROWSERLESS_API_KEY = (Deno.env.get("BROWSERLESS_API_KEY") ?? "").trim();
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -158,20 +158,24 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
   } catch (e) {
     runError = e instanceof Error ? e.message : String(e);
     console.error("[funnel-test] session failed", runError);
+    const failedAt = new Date();
+    const elapsedMs = failedAt.getTime() - startedAt.getTime();
     // mark all pending steps as failed
     for (const name of STEP_SEQUENCE) {
       const id = stepRowIds[name];
       if (id) {
         await admin.schema("crm").from("funnel_test_steps").update({
           step_status: "failed",
-          completed_at: new Date().toISOString(),
-          notes: "browserless_session_failed",
+          completed_at: failedAt.toISOString(),
+          duration_ms: elapsedMs,
+          notes: `browserless_session_failed: ${runError}`,
         }).eq("id", id);
       }
     }
     await admin.schema("crm").from("funnel_test_runs").update({
       status: "failed",
-      completed_at: new Date().toISOString(),
+      completed_at: failedAt.toISOString(),
+      total_duration_ms: elapsedMs,
       error_message: `Browserless: ${runError}`,
     }).eq("id", runId);
     return;
