@@ -201,7 +201,7 @@ export default function FunnelTest() {
 
   const elapsed = useMemo(() => {
     if (!run?.started_at) return null;
-    const end = run.finished_at ? new Date(run.finished_at).getTime() : Date.now();
+    const end = run.completed_at ? new Date(run.completed_at).getTime() : Date.now();
     const start = new Date(run.started_at).getTime();
     return Math.max(0, end - start);
   }, [run]);
