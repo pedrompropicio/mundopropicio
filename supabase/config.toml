@@ -35,3 +35,5 @@ project_id = "ukpuhoynrqobqtzdbysp"
     verify_jwt = true
   [functions.crm-meta-funnel-test-status]
     verify_jwt = true
+  [functions.crm-meta-extract-landing-urls]
+    verify_jwt = true
