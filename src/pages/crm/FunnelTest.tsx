@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
 import { Card } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { printFunnelTestReport } from "@/lib/audience-pdf";
+import { toast } from "sonner";
 
 const STEP_LABELS: Record<string, string> = {
   navigate_home: "Navegar para home",
