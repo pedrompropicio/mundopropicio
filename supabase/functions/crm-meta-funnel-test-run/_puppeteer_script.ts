@@ -234,13 +234,34 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
   const STEP_SEQ = ['navigate_home','click_event','select_ticket','add_to_cart','open_cart','begin_checkout'];
 
   const steps = [];
+  // Patch B: assim que um step falha, os subsequentes são marcados skipped sem
+  // tentar selectores/cliques/screenshots — wall-clock no worst-case cai ~70%.
+  // index.ts ancestorsOf vê step_status === "skipped" e continua (no-op).
+  let cascadeBrokenAt = null;
 
   for (const name of STEP_SEQ) {
+    const stepStart = Date.now();
+    const sinceTs = stepStart;
+
+    // Patch B: short-circuit — não desperdiçar tempo se a cadeia já quebrou.
+    if (cascadeBrokenAt !== null) {
+      steps.push({
+        name,
+        step_status: 'skipped',
+        duration_ms: 0,
+        url_at_step: page.url(),
+        screenshot_b64: null,
+        pixel_events: [],
+        console_errors: [],
+        notes: `skipped_after_chain_fail: cadeia quebrada por step "${cascadeBrokenAt}"`,
+        failure_context: null,
+      });
+      continue;
+    }
+
     // Patch 5: limpa cookies/newsletter antes de cada step (especialmente importante entre 5 e 6)
     try { await dismissOverlayIfPresent(); } catch (_) { /* noop */ }
 
-    const stepStart = Date.now();
-    const sinceTs = stepStart;
     let status = 'passed';
     let note = null;
 
@@ -249,12 +270,14 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
         await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 30000 });
       } else {
         const cfg = STEP_CONFIG[name];
-        const handle = await trySelectors(cfg.selectors, 10000);
+        // Patch A: timeouts mais conservadores para manter wall-clock total < 60s
+        // (Browserless /function default timeout ~60s)
+        const handle = await trySelectors(cfg.selectors, 5000);
         if (!handle) {
           status = 'failed';
           note = 'selector_not_found';
         } else if (cfg.expectNavigation) {
-          const navP = page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 12000 }).catch(() => null);
+          const navP = page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 8000 }).catch(() => null);
           await handle.click().catch(() => null);
           await navP;
           await new Promise(r => setTimeout(r, cfg.postWaitMs || 1500));
@@ -298,6 +321,11 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
       notes: note,
       failure_context: failureContext,
     });
+
+    // Patch B: arma o short-circuit para os steps seguintes assim que algo falha
+    if (status === 'failed') {
+      cascadeBrokenAt = name;
+    }
   }
 
   return {

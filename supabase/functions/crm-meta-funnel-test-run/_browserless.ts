@@ -114,18 +114,39 @@ async function postBrowserlessFunction(
   context: Record<string, unknown>,
   apiKey: string,
 ): Promise<{ base: string; status: number; text: string; ok: boolean }> {
+  // Hierarquia de timeouts para evitar 408 opaco do Browserless v2:
+  //   Patch C — AbortController 75s (corte local, primeira linha de defesa)
+  //   Patch D — ?timeout=120000 (corte server-side Browserless, override do
+  //             default v2 ~60s que ignora env TIMEOUT — issue browserless#4096)
+  //   Hard limit do plano cloud-unit: 15min (irrelevante aqui)
   let last: { base: string; status: number; text: string; ok: boolean } | null = null;
   for (const base of browserlessBases()) {
-    const resp = await fetch(browserlessEndpoint(base, "function", apiKey), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, context }),
-    });
-    const text = await resp.text();
-    console.log(`[funnel-test] browserless /function base=${base} status=${resp.status} body=${text.slice(0, 300)}`);
-    last = { base, status: resp.status, text, ok: resp.ok };
-    if (resp.ok) return last;
-    if (![401, 403, 429, 500, 502, 503, 504].includes(resp.status)) return last;
+    try {
+      const baseUrl = browserlessEndpoint(base, "function", apiKey);
+      // Patch D: append idempotente — usa & se já há query string, ? se não.
+      // (browserlessEndpoint actualmente sempre adiciona ?token, mas mantemos defensivo.)
+      const url = baseUrl + (baseUrl.includes("?") ? "&" : "?") + "timeout=120000";
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, context }),
+        signal: AbortSignal.timeout(75000),
+      });
+      const text = await resp.text();
+      console.log(`[funnel-test] browserless /function base=${base} status=${resp.status} body=${text.slice(0, 300)}`);
+      last = { base, status: resp.status, text, ok: resp.ok };
+      if (resp.ok) return last;
+      if (![401, 403, 429, 500, 502, 503, 504].includes(resp.status)) return last;
+    } catch (e) {
+      const isAbort = e instanceof DOMException && e.name === "TimeoutError";
+      const msg = isAbort
+        ? "Browserless excedeu timeout de 75s — script demasiado lento (verificar logs do puppeteer script)"
+        : (e instanceof Error ? e.message : String(e));
+      console.error(`[funnel-test] browserless /function base=${base} threw: ${msg}`);
+      last = { base, status: isAbort ? 408 : 0, text: msg, ok: false };
+      // Tenta a base seguinte só se for um erro transitório
+      if (!isAbort) continue;
+    }
   }
   return last!;
 }
