@@ -210,11 +210,17 @@ export default async function ({ page, context }) {
 
 const BROWSERLESS_BASE = "https://production-sfo.browserless.io";
 
+function browserlessEndpoint(path: "function" | "performance", apiKey: string): string {
+  const token = apiKey.trim();
+  return `${BROWSERLESS_BASE}/${path}?token=${encodeURIComponent(token)}`;
+}
+
 export async function runBrowserlessSession(
   targetUrl: string,
   apiKey: string,
 ): Promise<SessionResult> {
-  const resp = await fetch(`${BROWSERLESS_BASE}/function?token=${apiKey}`, {
+  console.log(`[funnel-test] runBrowserlessSession start key_len=${apiKey.trim().length} target=${targetUrl}`);
+  const resp = await fetch(browserlessEndpoint("function", apiKey), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -222,11 +228,17 @@ export async function runBrowserlessSession(
       context: { targetUrl },
     }),
   });
+  const text = await resp.text();
+  console.log(`[funnel-test] browserless /function status=${resp.status} body=${text.slice(0, 300)}`);
   if (!resp.ok) {
-    const text = await resp.text();
     throw new Error(`Browserless /function ${resp.status}: ${text.slice(0, 300)}`);
   }
-  const data = await resp.json();
+  let data: any;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch (e) {
+    throw new Error(`Browserless /function invalid JSON: ${e instanceof Error ? e.message : String(e)} body=${text.slice(0, 300)}`);
+  }
   // Browserless wraps as { data: {...} } when we set type=application/json,
   // but some configurations return the body directly. Handle both.
   const payload = data?.data?.steps ? data.data : data;
@@ -239,7 +251,7 @@ export async function fetchLighthouse(
   apiKey: string,
 ): Promise<LighthouseScore | null> {
   try {
-    const resp = await fetch(`${BROWSERLESS_BASE}/performance?token=${apiKey}`, {
+    const resp = await fetch(browserlessEndpoint("performance", apiKey), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
