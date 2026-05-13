@@ -208,30 +208,51 @@ export default async function ({ page, context }) {
 }
 `;
 
-const BROWSERLESS_BASE = "https://production-sfo.browserless.io";
+const DEFAULT_BROWSERLESS_BASES = [
+  "https://production-lon.browserless.io",
+  "https://production-sfo.browserless.io",
+];
 
-function browserlessEndpoint(path: "function" | "performance", apiKey: string): string {
+function browserlessBases(): string[] {
+  const configured = (globalThis as any).Deno?.env?.get?.("BROWSERLESS_BASE_URL")?.trim?.() ?? "";
+  return Array.from(new Set([configured, ...DEFAULT_BROWSERLESS_BASES].filter(Boolean)));
+}
+
+function browserlessEndpoint(base: string, path: "function" | "performance", apiKey: string): string {
   const token = apiKey.trim();
-  return `${BROWSERLESS_BASE}/${path}?token=${encodeURIComponent(token)}`;
+  return `${base}/${path}?token=${encodeURIComponent(token)}`;
+}
+
+async function postBrowserlessFunction(
+  code: string,
+  context: Record<string, unknown>,
+  apiKey: string,
+): Promise<{ base: string; status: number; text: string; ok: boolean }> {
+  let last: { base: string; status: number; text: string; ok: boolean } | null = null;
+  for (const base of browserlessBases()) {
+    const resp = await fetch(browserlessEndpoint(base, "function", apiKey), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, context }),
+    });
+    const text = await resp.text();
+    console.log(`[funnel-test] browserless /function base=${base} status=${resp.status} body=${text.slice(0, 300)}`);
+    last = { base, status: resp.status, text, ok: resp.ok };
+    if (resp.ok) return last;
+    if (![401, 403, 429, 500, 502, 503, 504].includes(resp.status)) return last;
+  }
+  return last!;
 }
 
 export async function runBrowserlessSession(
   targetUrl: string,
   apiKey: string,
 ): Promise<SessionResult> {
-  console.log(`[funnel-test] runBrowserlessSession start key_len=${apiKey.trim().length} target=${targetUrl}`);
-  const resp = await fetch(browserlessEndpoint("function", apiKey), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      code: PUPPETEER_SCRIPT,
-      context: { targetUrl },
-    }),
-  });
-  const text = await resp.text();
-  console.log(`[funnel-test] browserless /function status=${resp.status} body=${text.slice(0, 300)}`);
-  if (!resp.ok) {
-    throw new Error(`Browserless /function ${resp.status}: ${text.slice(0, 300)}`);
+  console.log(`[funnel-test] runBrowserlessSession start key_len=${apiKey.trim().length} bases=${browserlessBases().join(",")} target=${targetUrl}`);
+  const result = await postBrowserlessFunction(PUPPETEER_SCRIPT, { targetUrl }, apiKey);
+  const text = result.text;
+  if (!result.ok) {
+    throw new Error(`Browserless /function ${result.status} (${result.base}): ${text.slice(0, 300)}`);
   }
   let data: any;
   try {
@@ -246,12 +267,32 @@ export async function runBrowserlessSession(
   return { steps };
 }
 
+export async function pingBrowserless(apiKey: string): Promise<Array<{ base: string; status: number; ok: boolean; body: string }>> {
+  const code = `export default async function({ page }) {
+    await page.goto("https://example.com", { waitUntil: "domcontentloaded", timeout: 15000 });
+    return { data: { title: await page.title(), url: page.url() }, type: "application/json" };
+  }`;
+  const out = [];
+  for (const base of browserlessBases()) {
+    const resp = await fetch(browserlessEndpoint(base, "function", apiKey), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, context: {} }),
+    });
+    const body = await resp.text();
+    console.log(`[funnel-test] browserless ping base=${base} status=${resp.status} body=${body.slice(0, 300)}`);
+    out.push({ base, status: resp.status, ok: resp.ok, body: body.slice(0, 500) });
+  }
+  return out;
+}
+
 export async function fetchLighthouse(
   url: string,
   apiKey: string,
 ): Promise<LighthouseScore | null> {
   try {
-    const resp = await fetch(browserlessEndpoint("performance", apiKey), {
+    const base = browserlessBases()[0];
+    const resp = await fetch(browserlessEndpoint(base, "performance", apiKey), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
