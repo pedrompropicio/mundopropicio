@@ -32,7 +32,7 @@ project_id = "ukpuhoynrqobqtzdbysp"
   [functions.crm-meta-oauth-callback]
     verify_jwt = false
   [functions.crm-meta-funnel-test-run]
-    verify_jwt = true
+    verify_jwt = false
   [functions.crm-meta-funnel-test-status]
     verify_jwt = true
   [functions.crm-meta-extract-landing-urls]
