@@ -41,6 +41,16 @@ function isValidUrl(u: string): boolean {
   } catch { return false; }
 }
 
+function isServiceRoleAuth(authHeader: string): boolean {
+  if (SERVICE_ROLE.length > 0 && authHeader === `Bearer ${SERVICE_ROLE}`) return true;
+  try {
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    const part = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(part.padEnd(Math.ceil(part.length / 4) * 4, "=")));
+    return payload?.role === "service_role";
+  } catch { return false; }
+}
+
 function b64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64);
   const out = new Uint8Array(bin.length);
@@ -286,20 +296,46 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const targetUrl = (body.target_url ?? "").trim();
   if (!targetUrl || !isValidUrl(targetUrl)) return json({ error: "invalid_target_url" }, 400);
 
-  const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    const serviceRoleRequest = isServiceRoleAuth(authHeader);
+    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: u } = await userClient.auth.getUser();
-  const userId = u?.user?.id ?? null;
-  if (!userId) return json({ error: "unauthenticated" }, 401);
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+    let userId: string | null = null;
+    let companyId: string | null = null;
 
-  const { data: cid } = await userClient.rpc("current_company_id");
-  const companyId = (cid as string) ?? null;
+    if (serviceRoleRequest) {
+      const { data: conn, error: connErr } = await (admin as any)
+        .schema("crm")
+        .from("ad_platform_connections")
+        .select("company_id")
+        .eq("platform", "meta")
+        .eq("status", "active")
+        .order("connected_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (connErr) console.error("[funnel-test] service company lookup err", connErr);
+      companyId = conn?.company_id ?? null;
+      console.log(`[funnel-test] auth=service_role company=${companyId ? "ok" : "missing"}`);
+    } else {
+      const { data: u, error: userErr } = await userClient.auth.getUser();
+      userId = u?.user?.id ?? null;
+      if (userErr || !userId) {
+        console.error("[funnel-test] auth getUser failed", userErr);
+        return json({ error: "unauthenticated" }, 401);
+      }
+
+      const { data: cid, error: cidErr } = await userClient.rpc("current_company_id");
+      companyId = (cid as string) ?? null;
+      if (cidErr || !companyId) {
+        console.error("[funnel-test] current_company_id failed", cidErr);
+        return json({ error: "no_company_context" }, 403);
+      }
+    }
+
   if (!companyId) return json({ error: "no_company_context" }, 403);
-
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
   const { data: ins, error: insErr } = await admin
     .schema("crm")
