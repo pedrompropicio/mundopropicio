@@ -213,13 +213,37 @@ const DEFAULT_BROWSERLESS_BASES = [
   "https://production-sfo.browserless.io",
 ];
 
+export function normalizeBrowserlessApiKey(value: string): string {
+  let token = String(value ?? "").trim();
+
+  if (/^BROWSERLESS_API_KEY\s*=/.test(token)) {
+    token = token.replace(/^BROWSERLESS_API_KEY\s*=\s*/, "");
+  }
+
+  try {
+    if (/^https?:\/\//i.test(token)) {
+      const parsed = new URL(token);
+      token = parsed.searchParams.get("token") ?? token;
+    }
+  } catch (_) {
+    // Keep raw token if it is not a valid URL.
+  }
+
+  return token
+    .trim()
+    .replace(/^[`'"]+|[`'"]+$/g, "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/\s+/g, "");
+}
+
 function browserlessBases(): string[] {
   const configured = (globalThis as any).Deno?.env?.get?.("BROWSERLESS_BASE_URL")?.trim?.() ?? "";
   return Array.from(new Set([configured, ...DEFAULT_BROWSERLESS_BASES].filter(Boolean)));
 }
 
 function browserlessEndpoint(base: string, path: "function" | "performance", apiKey: string): string {
-  const token = apiKey.trim();
+  const token = normalizeBrowserlessApiKey(apiKey);
+  if (!token) throw new Error("BROWSERLESS_API_KEY empty after normalization");
   return `${base}/${path}?token=${encodeURIComponent(token)}`;
 }
 
@@ -248,8 +272,9 @@ export async function runBrowserlessSession(
   targetUrl: string,
   apiKey: string,
 ): Promise<SessionResult> {
-  console.log(`[funnel-test] runBrowserlessSession start key_len=${apiKey.trim().length} bases=${browserlessBases().join(",")} target=${targetUrl}`);
-  const result = await postBrowserlessFunction(PUPPETEER_SCRIPT, { targetUrl }, apiKey);
+  const normalized = normalizeBrowserlessApiKey(apiKey);
+  console.log(`[funnel-test] runBrowserlessSession start raw_key_len=${apiKey.trim().length} key_len=${normalized.length} normalized=${normalized !== apiKey.trim()} bases=${browserlessBases().join(",")} target=${targetUrl}`);
+  const result = await postBrowserlessFunction(PUPPETEER_SCRIPT, { targetUrl }, normalized);
   const text = result.text;
   if (!result.ok) {
     throw new Error(`Browserless /function ${result.status} (${result.base}): ${text.slice(0, 300)}`);
