@@ -98,12 +98,16 @@ export interface AggregatedGroup {
 }
 
 /**
- * Aggregate items (transactions or forecasts) into groups by L2 category.
+ * Aggregate items (transactions or forecasts) into groups by chart-of-accounts level.
+ * - level=1: group by L1 (root). Details = L2 children (or self if cat is L1).
+ * - level=2 (default, legacy): group by L2. Details = L3 leaves (or self if cat is L2).
+ * - level=3: group by the leaf itself with a single self-detail (flat list).
  * Each item must have: category_id, amount, iva_rate
  */
 export function aggregateByHierarchy(
   items: any[],
-  lookup: Record<string, CategoryLookup>
+  lookup: Record<string, CategoryLookup>,
+  level: AccountLevel = 2
 ): AggregatedGroup[] {
   const groups: Record<string, {
     groupName: string;
@@ -113,10 +117,28 @@ export function aggregateByHierarchy(
 
   items.forEach((item) => {
     const catInfo = lookup[item.category_id];
-    const groupName = catInfo?.groupName ?? "Sem categoria";
-    const groupCode = catInfo?.groupCode ?? "Z";
-    const detailName = catInfo?.name ?? "Sem categoria";
-    const detailCode = catInfo?.code ?? "Z.Z";
+    let groupName: string;
+    let groupCode: string;
+    let detailName: string;
+    let detailCode: string;
+
+    if (!catInfo) {
+      groupName = "Sem categoria"; groupCode = "Z";
+      detailName = "Sem categoria"; detailCode = "Z.Z";
+    } else if (level === 1) {
+      groupName = catInfo.l1Name; groupCode = catInfo.l1Code;
+      // Detail = L2 (or own name if cat IS L1)
+      detailName = catInfo.l2Name ?? catInfo.name;
+      detailCode = catInfo.l2Code ?? catInfo.code;
+    } else if (level === 3) {
+      // Flat: each leaf is its own group with a single self-detail
+      groupName = catInfo.name; groupCode = catInfo.code;
+      detailName = catInfo.name; detailCode = catInfo.code;
+    } else {
+      // level 2 (legacy)
+      groupName = catInfo.groupName; groupCode = catInfo.groupCode;
+      detailName = catInfo.name; detailCode = catInfo.code;
+    }
 
     if (!groups[groupName]) {
       groups[groupName] = { groupName, groupCode, details: {} };
