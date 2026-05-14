@@ -50,27 +50,36 @@ export default function UserManagement() {
     queryKey: ["users-with-roles", companyId],
     enabled: !!companyId,
     queryFn: async () => {
-      // 1) Memberships na empresa ativa (multi-tenant)
-      const { data: roleRows, error: rErr } = await supabase
+      // 1) Memberships na empresa ativa
+      const { data: companyRoles, error: rErr } = await supabase
         .from("user_roles")
         .select("user_id, role")
         .eq("company_id", companyId!);
       if (rErr) throw rErr;
 
-      const userIds = Array.from(new Set((roleRows ?? []).map((r) => r.user_id)));
-      if (userIds.length === 0) return [];
+      // 2) Platform_admins (acesso global) — sempre presentes na lista
+      const { data: paRoles, error: paErr } = await supabase
+        .from("user_roles")
+        .select("user_id, role")
+        .eq("role", "platform_admin");
+      if (paErr) throw paErr;
+
+      const companyUserIds = new Set((companyRoles ?? []).map((r) => r.user_id));
+      const paUserIds = new Set((paRoles ?? []).map((r) => r.user_id));
+      const allUserIds = Array.from(new Set([...companyUserIds, ...paUserIds]));
+      if (allUserIds.length === 0) return [];
 
       const { data: profiles, error: pErr } = await supabase
         .from("profiles")
         .select("id, full_name, email, created_at, company_id")
-        .in("id", userIds);
+        .in("id", allUserIds);
       if (pErr) throw pErr;
 
       const priority: Record<string, number> = {
         platform_admin: 0, admin: 1, manager: 2, editor: 3, partner: 4, viewer: 5, user: 6,
       };
       const roleByUser = new Map<string, AppRole>();
-      for (const row of roleRows ?? []) {
+      for (const row of companyRoles ?? []) {
         const cur = roleByUser.get(row.user_id);
         if (!cur || (priority[row.role] ?? 99) < (priority[cur] ?? 99)) {
           roleByUser.set(row.user_id, row.role as AppRole);
@@ -78,10 +87,15 @@ export default function UserManagement() {
       }
 
       return (profiles ?? [])
-        .map((p) => ({ ...p, role: roleByUser.get(p.id) ?? ("user" as AppRole) }))
-        .sort((a, b) =>
-          (a.created_at ?? "").localeCompare(b.created_at ?? "")
-        );
+        .map((p) => {
+          const hasCompanyRole = companyUserIds.has(p.id);
+          const isPlatformAdminFallback = !hasCompanyRole && paUserIds.has(p.id);
+          const role: AppRole = hasCompanyRole
+            ? (roleByUser.get(p.id) ?? ("user" as AppRole))
+            : ("platform_admin" as AppRole);
+          return { ...p, role, isPlatformAdminFallback };
+        })
+        .sort((a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""));
     },
   });
 
@@ -361,15 +375,20 @@ export default function UserManagement() {
               <tbody className="divide-y divide-border/30">
                 {users.map((u) => {
                   const Icon = ROLE_ICONS[u.role] || User;
+                  const isPaFallback = (u as any).isPlatformAdminFallback === true;
+                  const paTooltip = "Super-Admin tem acesso global. Para gerir, contactar suporte.";
                   return (
                     <tr key={u.id} className="hover:bg-secondary/20 transition-colors">
                       <td className="py-3 pr-4 font-medium">{u.full_name || "—"}</td>
                       <td className="py-3 pr-4 text-muted-foreground">{u.email}</td>
                       <td className="py-3 text-center">
-                        {u.id === user?.id ? (
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_COLORS[u.role]}`}>
+                        {u.id === user?.id || isPaFallback ? (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_COLORS[u.role]}`}
+                            title={isPaFallback ? paTooltip : undefined}
+                          >
                             <Icon className="h-3 w-3" />
-                            {ROLE_LABELS[u.role]}
+                            {isPaFallback ? "Super-Admin" : ROLE_LABELS[u.role]}
                           </span>
                         ) : (
                           <select
@@ -385,7 +404,7 @@ export default function UserManagement() {
                         )}
                       </td>
                       <td className="py-3 text-center">
-                        {u.id !== user?.id && (
+                        {u.id !== user?.id && !isPaFallback && (
                           <div className="flex items-center justify-center gap-1">
                             <button
                               onClick={() => setPermModalUser({ id: u.id, name: u.full_name || u.email, role: u.role })}
@@ -415,6 +434,9 @@ export default function UserManagement() {
                               <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
+                        )}
+                        {isPaFallback && (
+                          <span className="text-xs text-muted-foreground" title={paTooltip}>—</span>
                         )}
                       </td>
                     </tr>
