@@ -3740,6 +3740,8 @@ export type Database = {
           partner_calc_basis: string
           pl_mode: string
           status: string
+          ticketing_provider: string | null
+          ticketing_url: string | null
           tickets_sold: number
           tickets_total: number
           updated_at: string
@@ -3764,6 +3766,8 @@ export type Database = {
           partner_calc_basis?: string
           pl_mode?: string
           status?: string
+          ticketing_provider?: string | null
+          ticketing_url?: string | null
           tickets_sold?: number
           tickets_total?: number
           updated_at?: string
@@ -3788,6 +3792,8 @@ export type Database = {
           partner_calc_basis?: string
           pl_mode?: string
           status?: string
+          ticketing_provider?: string | null
+          ticketing_url?: string | null
           tickets_sold?: number
           tickets_total?: number
           updated_at?: string
