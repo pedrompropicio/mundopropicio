@@ -453,8 +453,10 @@ function buildPLForExport(
 export function exportPLToExcel(
   eventsToExport: any[], allEvents: any[], forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[] = [], ticketLots: any[] = [], ticketSales: any[] = [], mode: PLMode = "comparison",
-  cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = []
+  cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
+  _auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2
 ) {
+  void typeFilter; void accountLevel;
   const wb = XLSX.utils.book_new();
   const isComparison = mode === "comparison";
   const hierarchy = buildEventHierarchyMaps(allEvents);
@@ -590,8 +592,9 @@ export function exportPLToPDF(
   eventsToExport: any[], allEvents: any[], forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[] = [], ticketLots: any[] = [], ticketSales: any[] = [], mode: PLMode = "comparison",
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
-  auditLogs: any[] = []
+  auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2
 ) {
+  void typeFilter; void accountLevel;
   const doc = new jsPDF({ orientation: "landscape" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
