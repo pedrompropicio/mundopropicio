@@ -499,7 +499,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!preset) {
     const supportedList = SUPPORTED_PROVIDERS.join(", ");
     const errMsg = `Bilheteira não suportada. Provedores suportados: ${supportedList}. Outras bilheteiras (Blueticket, BOL, See Tickets, FNAC Tickets, etc.) em roadmap.`;
-    const { data: failedIns } = await admin
+    // PATCH 2: timestamp único partilhado para created_at/started_at/completed_at.
+    // Resolve started_at NULL (UI mostrava "Invalid Date"/epoch zero) +
+    // completed_at < created_at por drift de ~100-400ms.
+    const nowIso = new Date().toISOString();
+    // PATCH 3: severity="info" em vez de "critical" — "não suportado ainda"
+    // não é equivalente a "implementação do cliente partida". Requer
+    // 'info' no CHECK constraint (migration 20260514160000_*.sql).
+    const { data: failedIns, error: failedInsErr } = await admin
       .schema("crm")
       .from("funnel_test_runs")
       .insert({
@@ -508,20 +515,26 @@ Deno.serve(async (req: Request): Promise<Response> => {
         event_id: body.event_id ?? null,
         target_url: targetUrl,
         status: "failed",
-        severity: "critical",
+        severity: "info",
         error_message: errMsg,
         ai_summary: errMsg,
-        completed_at: new Date().toISOString(),
+        created_at: nowIso,
+        started_at: nowIso,
+        completed_at: nowIso,
         total_duration_ms: 0,
         created_by: userId,
       })
       .select("id")
       .maybeSingle();
+    if (failedInsErr) {
+      console.error(`[funnel-test] unsupported_provider insert failed: ${failedInsErr.message}`);
+    }
     console.warn(`[funnel-test] unsupported_provider target=${targetUrl} run=${failedIns?.id}`);
     return json({
       run_id: failedIns?.id ?? null,
       status: "failed",
       error: "unsupported_provider",
+      error_message: errMsg,
       detail: errMsg,
     }, 400);
   }

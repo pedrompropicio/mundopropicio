@@ -48,11 +48,22 @@ function fmtMs(ms: number | null | undefined) {
 
 function severityClass(s?: string) {
   switch (s) {
+    case "info": return "bg-blue-500/15 text-blue-300 border-blue-500/40";
     case "healthy": return "bg-emerald-500/15 text-emerald-300 border-emerald-500/40";
     case "warning": return "bg-amber-500/15 text-amber-300 border-amber-500/40";
     case "critical": return "bg-red-500/15 text-red-300 border-red-500/40";
     default: return "bg-muted text-muted-foreground border-border";
   }
+}
+
+// Formata timestamp com fallback defensivo (PATCH 2.5).
+// Aceita started_at OU created_at — render "—" se ambos inválidos.
+function fmtHistoryDate(startedAt?: string | null, createdAt?: string | null): string {
+  const candidate = startedAt ?? createdAt;
+  if (!candidate) return "—";
+  const t = new Date(candidate).getTime();
+  if (isNaN(t)) return "—";
+  return new Date(t).toLocaleString("pt-PT");
 }
 
 function statusBadgeClass(s?: string) {
@@ -104,6 +115,9 @@ export default function FunnelTest() {
   const [history, setHistory] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // PATCH 4: distinguir "info" (HTTP 400 validação — ex: bilheteira não
+  // suportada) de "error" (técnico — Browserless 500, timeout, etc.).
+  const [errorKind, setErrorKind] = useState<"info" | "error">("error");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [candidateUrls, setCandidateUrls] = useState<string[]>([]);
   const [extracting, setExtracting] = useState(false);
@@ -119,8 +133,10 @@ export default function FunnelTest() {
     const { data } = await (supabase as any)
       .schema("crm")
       .from("funnel_test_runs")
-      .select("id, target_url, status, severity, started_at, completed_at")
-      .order("started_at", { ascending: false })
+      .select("id, target_url, status, severity, started_at, completed_at, created_at")
+      // PATCH 2.5: ordenar por created_at (sempre populado) em vez de started_at
+      // (NULL em rows do path unsupported_provider).
+      .order("created_at", { ascending: false })
       .limit(10);
     setHistory(data ?? []);
   }, []);
@@ -184,7 +200,25 @@ export default function FunnelTest() {
         throw new Error("Sem run_id na resposta");
       }
     } catch (e: any) {
-      setError(e?.message ?? "Erro ao iniciar teste");
+      // PATCH 1: supabase-js v2.99.x — FunctionsHttpError tem .context = Response.
+      // Tentar extrair detail/error_message do body JSON antes do fallback genérico.
+      let msg = e?.message ?? "Erro ao iniciar teste";
+      let kind: "info" | "error" = "error";
+      if (e?.context && typeof e.context.json === "function") {
+        try {
+          const body = await e.context.json();
+          // Prioridade: error_message > detail > error
+          if (body?.error_message) msg = body.error_message;
+          else if (body?.detail) msg = body.detail;
+          else if (body?.error) msg = body.error;
+          // HTTP 400 com error="unsupported_provider" → validação, não erro técnico
+          if (e?.context?.status === 400 && body?.error === "unsupported_provider") {
+            kind = "info";
+          }
+        } catch (_) { /* parse fail → mantém msg genérico */ }
+      }
+      setError(msg);
+      setErrorKind(kind);
     } finally {
       setSubmitting(false);
     }
@@ -321,7 +355,7 @@ export default function FunnelTest() {
             <label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">URL alvo</label>
             <Input
               value={targetUrl}
-              onChange={(e) => { setTargetUrl(e.target.value); setError(null); }}
+              onChange={(e) => { setTargetUrl(e.target.value); setError(null); setErrorKind("error"); }}
               placeholder="https://www.ticketline.pt/evento/..."
               className="mt-1"
               disabled={submitting || extracting}
@@ -329,7 +363,19 @@ export default function FunnelTest() {
             {targetUrl && !urlValid && (
               <p className="text-xs text-red-400 mt-1">URL deve começar com https://</p>
             )}
-            {error && <p className="text-xs text-red-400 mt-1">{error}</p>}
+            {error && (
+              errorKind === "info" ? (
+                // PATCH 4: caixa info azul para validações (ex: bilheteira não suportada)
+                <div className="mt-2 rounded-md border border-blue-500/40 bg-blue-500/10 px-3 py-2 text-xs text-blue-200">
+                  <div className="flex items-start gap-2">
+                    <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border bg-blue-500/20 border-blue-500/40 text-blue-100 shrink-0">Info</span>
+                    <span>{error}</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-red-400 mt-1">{error}</p>
+              )
+            )}
           </div>
           {candidateUrls.length > 1 && (
             <div>
@@ -576,7 +622,8 @@ export default function FunnelTest() {
                 className="w-full flex items-center gap-3 px-2 py-1.5 rounded text-xs hover:bg-muted/40 text-left"
               >
                 <span className="text-muted-foreground tabular-nums">
-                  {new Date(h.started_at).toLocaleString("pt-PT")}
+                  {/* PATCH 2.5: fallback h.started_at ?? h.created_at + guard contra NaN */}
+                  {fmtHistoryDate(h.started_at, h.created_at)}
                 </span>
                 <span className="flex-1 truncate font-mono text-[11px]">{h.target_url}</span>
                 {h.severity && (
