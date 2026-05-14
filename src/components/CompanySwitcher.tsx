@@ -93,7 +93,7 @@ export function CompanySwitcher() {
           )}
           <span className="truncate text-xs font-medium">{label}</span>
           <Badge variant="secondary" className="hidden lg:inline-flex h-4 px-1 text-[10px]">
-            admin
+            {isPlatformAdmin ? "admin" : `${memberships?.length ?? 0} empresas`}
           </Badge>
           <ChevronsUpDown className="h-3.5 w-3.5 opacity-50 shrink-0" />
         </Button>
