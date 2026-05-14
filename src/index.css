@@ -48,7 +48,7 @@
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 210 15% 90%;
     --sidebar-accent-foreground: 215 25% 10%;
-    --sidebar-border: 210 15% 88%;
+    --sidebar-border: 210 16% 78%; /* a11y: contrast bump WCAG AA — 14/05/2026 */
     --sidebar-ring: 210 70% 42%;
 
     --gradient-primary: linear-gradient(135deg, hsl(210 70% 42%), hsl(200 75% 35%));
