@@ -436,21 +436,25 @@ function buildPLForExport(
     }
   });
 
-  const fResBase = totalFIncBase - totalFExpBase;
-  const fResIva = totalFIncIva - totalFExpIva;
-  const tResBase = totalTIncBase - totalTExpBase;
-  const tResIva = totalTIncIva - totalTExpIva;
-  lines.push(pl({
-    label: "RESULTADO LÍQUIDO",
-    forecast: fResBase,
-    actual: tResBase,
-    variance: tResBase - fResBase,
-    isGrandTotal: true,
-    forecastIva: fResIva,
-    forecastTotal: fResBase + fResIva,
-    actualIva: tResIva,
-    actualTotal: tResBase + tResIva,
-  }));
+  } // end showExpense
+
+  if (showIncome && showExpense) {
+    const fResBase = totalFIncBase - totalFExpBase;
+    const fResIva = totalFIncIva - totalFExpIva;
+    const tResBase = totalTIncBase - totalTExpBase;
+    const tResIva = totalTIncIva - totalTExpIva;
+    lines.push(pl({
+      label: "RESULTADO LÍQUIDO",
+      forecast: fResBase,
+      actual: tResBase,
+      variance: tResBase - fResBase,
+      isGrandTotal: true,
+      forecastIva: fResIva,
+      forecastTotal: fResBase + fResIva,
+      actualIva: tResIva,
+      actualTotal: tResBase + tResIva,
+    }));
+  }
 
   return lines;
 }
