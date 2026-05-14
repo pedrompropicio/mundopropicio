@@ -23,10 +23,20 @@ export interface CategoryLookup {
   name: string;
   code: string;
   parentId: string | null;
-  /** L2 parent (group) name — or own name if this IS L2 */
+  /** L2 parent (group) name — or own name if this IS L2 (legacy field, kept for back-compat) */
   groupName: string;
   groupCode: string;
+  /** L1 ancestor (root) — always present */
+  l1Name: string;
+  l1Code: string;
+  /** L2 ancestor — own values when cat IS L2, null when cat IS L1 */
+  l2Name: string | null;
+  l2Code: string | null;
+  /** Depth: 1, 2 or 3 */
+  depth: 1 | 2 | 3;
 }
+
+export type AccountLevel = 1 | 2 | 3;
 
 /**
  * Build a lookup map: categoryId → CategoryLookup
