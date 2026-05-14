@@ -98,7 +98,9 @@ function buildPL(
   ticketZones: any[], ticketLots: any[], ticketSales: any[], eventId: string,
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
   relevantEventIds: string[] = [eventId],
-  cacheExtras: any[] = []
+  cacheExtras: any[] = [],
+  typeFilter: PLTypeFilter = "both",
+  level: AccountLevel = 2
 ): PLLine[] {
   const lookup = buildCategoryLookup(categories);
 
