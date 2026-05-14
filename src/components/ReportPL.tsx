@@ -186,10 +186,10 @@ function buildPL(
   const tInc = transactions.filter((t) => t.type === "income" && !t.is_transitory && !t.exclude_from_result);
   const tExp = transactions.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result);
 
-  const fIncGroups = aggregateByHierarchy(fInc, lookup);
-  const fExpGroups = aggregateByHierarchy(fExp, lookup);
-  const tIncGroups = aggregateByHierarchy(tInc, lookup);
-  const tExpGroups = aggregateByHierarchy(tExp, lookup);
+  const fIncGroups = aggregateByHierarchy(fInc, lookup, level);
+  const fExpGroups = aggregateByHierarchy(fExp, lookup, level);
+  const tIncGroups = aggregateByHierarchy(tInc, lookup, level);
+  const tExpGroups = aggregateByHierarchy(tExp, lookup, level);
 
   // Calculate cachê lines and inject into expense hierarchy under "Artístico" > "Cachês" (2.1.01)
   const eventCacheConfigs = cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id));
