@@ -241,11 +241,12 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
     {
       id: 'select_zone',
       label: 'Selecionar zona',
-      // TODO G.2: substituir por classe CSS real da tabela de zonas.
+      // G.2: lista de zonas usa <li id="listZone_<id>" data-zone-id="<id>">
+      // com <p class="zone"> contendo o nome (Arena - Lote 2 etc.).
       selectors: [
-        'tr:has-text("Arena - Lote 2")',
-        'table tr:nth-child(2)',
-        'tbody tr:first-of-type',
+        'li[id^="listZone_"]',
+        'li[data-zone-id]',
+        'li:has-text("Arena")',
       ],
       expectNavigation: false,
       postWaitMs: 1500,
@@ -253,11 +254,12 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
     {
       id: 'select_quantity',
       label: 'Selecionar quantidade',
-      // TODO G.2: refinar selector específico do modal de quantidade.
+      // G.2: modal venue tem <a id="venueMapModalWindowReserveButton"
+      // class="button confirm reserve">Comprar</a> pré-renderizado.
       selectors: [
-        'button:has-text("COMPRAR")',
-        '.modal button.primary',
-        '[role="dialog"] button:not(.close)',
+        '#venueMapModalWindowReserveButton',
+        'a.button.confirm.reserve',
+        'a:has-text("Comprar")',
       ],
       expectNavigation: false,
       postWaitMs: 1500,
@@ -265,24 +267,28 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
     {
       id: 'add_to_cart',
       label: 'Adicionar ao carrinho',
-      // TODO G.2: confirmar texto exacto (CONTINUAR vs Continuar) + classe real.
+      // G.2: <a id="venueMapModalWindowContinueButton"
+      // class="button confirm continue">Continuar</a> — leva a /carrinho?confirm.
       selectors: [
-        'button:has-text("CONTINUAR")',
-        '.btn-continue',
-        'button.primary:visible',
+        '#venueMapModalWindowContinueButton',
+        'a.button.confirm.continue',
+        'a:has-text("Continuar")',
       ],
       expectNavigation: true,
-      postWaitMs: 1800,
+      postWaitMs: 2000,
     },
     {
       id: 'open_cart_page',
       label: 'Validar carrinho',
       // validateOnly: já estamos em /carrinho?confirm; só verifica
       // que FINALIZAR COMPRA está visível (= página renderizada). Sem click.
+      // TODO G.3: best-guess — DOM da /carrinho ainda não foi capturado.
+      // Quando step 5 destrancar, próxima run grava failure_context para refinar.
       validateOnly: true,
       selectors: [
+        'a.button:has-text("FINALIZAR COMPRA")',
         'button:has-text("FINALIZAR COMPRA")',
-        '.checkout-btn',
+        '.btn-finalizar',
       ],
       expectNavigation: false,
       postWaitMs: 800,
@@ -293,17 +299,21 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
       // Clica FINALIZAR COMPRA → modal upsell Premium pode aparecer →
       // dismissAfterClick tenta fechar entre click e postWait para liberar
       // a navegação para o checkout real.
-      // TODO G.2: refinar selectors do close button do upsell.
+      // TODO G.3: best-guess — DOM da /carrinho e do modal upsell ainda
+      // não capturado. Refinar após step 5 destrancar.
       selectors: [
+        'a.button:has-text("FINALIZAR COMPRA")',
         'button:has-text("FINALIZAR COMPRA")',
-        '.checkout-btn',
+        '.btn-finalizar',
       ],
       expectNavigation: true,
       postWaitMs: 2200,
       dismissAfterClick: [
         '.modal-premium .close',
         '[role="dialog"] button[aria-label*="fechar" i]',
-        '.modal.show button[data-dismiss="modal"]',
+        '[role="dialog"] button[aria-label*="close" i]',
+        '.modalContainer .close',
+        'a[href="#"]:has-text("×")',
       ],
     },
   ];
