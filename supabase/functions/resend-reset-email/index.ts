@@ -122,14 +122,19 @@ Deno.serve(async (req) => {
     }
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const { data: roleData } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", caller.id)
-      .eq("role", "admin")
-      .single();
-
-    if (!roleData) {
+    const { data: isPaCheck } = await adminClient.rpc("is_platform_admin", { _user_id: caller.id });
+    const callerIsPlatformAdmin = Boolean(isPaCheck);
+    let callerIsAdmin = callerIsPlatformAdmin;
+    if (!callerIsAdmin) {
+      const { data: roleData } = await adminClient
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", caller.id)
+        .eq("role", "admin")
+        .maybeSingle();
+      callerIsAdmin = Boolean(roleData);
+    }
+    if (!callerIsAdmin) {
       return new Response(JSON.stringify({ error: "Apenas administradores podem reenviar emails" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
