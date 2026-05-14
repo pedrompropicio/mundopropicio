@@ -421,6 +421,8 @@ export default function ReportPL() {
   const [expandedAuditLines, setExpandedAuditLines] = useState<Set<string>>(new Set());
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [mode, setMode] = useState<PLMode>("forecast");
+  const [typeFilter, setTypeFilter] = useState<PLTypeFilter>("both");
+  const [accountLevel, setAccountLevel] = useState<AccountLevel>(2);
   const [showPdfDialog, setShowPdfDialog] = useState(false);
   const [scenarioVersionId, setScenarioVersionId] = useState<string | null>(null);
 
