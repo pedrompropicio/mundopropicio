@@ -32,13 +32,21 @@ import {
  */
 export function CompanySwitcher() {
   const { company, companyId, isPlatformAdmin } = useCompany();
-  const { data: companies, isLoading } = useCompaniesList(isPlatformAdmin);
+  const { data: memberships, isLoading } = useUserMemberships(true);
   const setActive = useSetActiveCompany();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
-  if (!isPlatformAdmin) return null;
+  const companies = (memberships ?? []).map((m) => ({
+    id: m.company_id,
+    display_name: m.display_name,
+    legal_name: m.display_name,
+    slug: m.slug,
+  }));
+
+  const visible = isPlatformAdmin || (memberships?.length ?? 0) >= 2;
+  if (!visible) return null;
 
   const handleSelect = async (id: string) => {
     if (id === companyId) {
