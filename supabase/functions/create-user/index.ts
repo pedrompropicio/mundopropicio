@@ -183,15 +183,21 @@ Deno.serve(async (req) => {
       return respond({ error: "Não foi possível determinar a empresa ativa." });
     }
 
-    const { data: roleData } = await adminClient
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", caller.id)
-      .eq("company_id", callerCompanyId)
-      .eq("role", "admin")
-      .maybeSingle();
-
-    if (!roleData) {
+    // Permitido se caller é admin na empresa ativa OU platform_admin (global)
+    const { data: isPa } = await adminClient.rpc("is_platform_admin", { _user_id: caller.id });
+    const isPlatformAdmin = Boolean(isPa);
+    let isAdminHere = false;
+    if (!isPlatformAdmin) {
+      const { data: roleData } = await adminClient
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", caller.id)
+        .eq("company_id", callerCompanyId)
+        .eq("role", "admin")
+        .maybeSingle();
+      isAdminHere = Boolean(roleData);
+    }
+    if (!isPlatformAdmin && !isAdminHere) {
       return respond({ error: "Apenas administradores podem criar utilizadores." });
     }
 
