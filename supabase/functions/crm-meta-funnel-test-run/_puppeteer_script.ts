@@ -289,20 +289,48 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
         'a:has-text("Continuar")',
       ],
       expectNavigation: true,
-      postWaitMs: 2000,
+      // G.4: postWaitMs 2000→3000 + dismissAfterClick com selectores reais
+      // Ticketline. Modal "Já conhece o novo seguro Ticketline Premium"
+      // aparece via JS injection com delay após nav para /carrinho?confirm
+      // (confirmado por screenshot do failure_context da run #62fc4cd7).
+      // O DOM bruto extraído sem dismiss mostra Premium como sidebar inline,
+      // MAS o overlay real aparece centrado no ecrã quando JS termina.
+      postWaitMs: 3000,
+      dismissAfterClick: [
+        '.lb-close',                                       // lightbox close (Ticketline genérico)
+        'a.button.close[data-element="close"]',            // close aplicacional via data-element
+        'a[data-element="close"]',                         // fallback data-element
+        '.modal-premium .close',                           // defensivo
+        '[role="dialog"] button[aria-label*="fechar" i]',
+        '[role="dialog"] button[aria-label*="close" i]',
+      ],
     },
+    /**
+     * IMPORTANTE: Ticketline Premium é renderizado como modal overlay
+     * quando /carrinho?confirm carrega (NÃO como sidebar inline, apesar
+     * do DOM raw extraído sugerir o contrário). O modal pode ter delay
+     * de injeção via JS — confirmar com screenshot do failure_context
+     * se step falhar.
+     *
+     * Botão "Finalizar compra" tem href estável /carrinho/checkout.
+     * Selector primary é a[href="/carrinho/checkout"] — único no DOM
+     * (validado: o outro <a class="confirm"> é "Adicionar" do upsell
+     * seguro Premium, distinguível pela ausência do .large modifier).
+     *
+     * Note text case: "Finalizar compra" (Title Case), NÃO "FINALIZAR
+     * COMPRA". H.1 evaluateHandle faz lowercase match — :has-text é
+     * case-tolerante por construção, mas o text literal correcto.
+     */
     {
       id: 'open_cart_page',
       label: 'Validar carrinho',
-      // validateOnly: já estamos em /carrinho?confirm; só verifica
-      // que FINALIZAR COMPRA está visível (= página renderizada). Sem click.
-      // TODO G.3: best-guess — DOM da /carrinho ainda não foi capturado.
-      // Quando step 5 destrancar, próxima run grava failure_context para refinar.
+      // G.4: selectores cirúrgicos do DOM real (run #62fc4cd7).
       validateOnly: true,
       selectors: [
-        'a.button:has-text("FINALIZAR COMPRA")',
-        'button:has-text("FINALIZAR COMPRA")',
-        '.btn-finalizar',
+        'a[href="/carrinho/checkout"]',           // PRIMARY — href estável, único
+        'a[href*="/carrinho/checkout"]',          // fallback href parcial
+        'a.button.large.confirm',                 // class única (.large distingue do upsell)
+        'a:has-text("Finalizar compra")',         // H.1 evaluateHandle (Title Case via lowercase)
       ],
       expectNavigation: false,
       postWaitMs: 800,
@@ -310,24 +338,25 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
     {
       id: 'initiate_checkout',
       label: 'Iniciar checkout',
-      // Clica FINALIZAR COMPRA → modal upsell Premium pode aparecer →
-      // dismissAfterClick tenta fechar entre click e postWait para liberar
-      // a navegação para o checkout real.
-      // TODO G.3: best-guess — DOM da /carrinho e do modal upsell ainda
-      // não capturado. Refinar após step 5 destrancar.
+      // G.4: mesmos selectores cirúrgicos do step 5 + click + nav. O modal
+      // Premium já foi dismissed no step 4 (após nav para /carrinho), mas
+      // mantemos dismissAfterClick defensivo aqui caso outro modal apareça
+      // no /carrinho/checkout (etapa ainda não capturada em DOM).
       selectors: [
-        'a.button:has-text("FINALIZAR COMPRA")',
-        'button:has-text("FINALIZAR COMPRA")',
-        '.btn-finalizar',
+        'a[href="/carrinho/checkout"]',
+        'a[href*="/carrinho/checkout"]',
+        'a.button.large.confirm',
+        'a:has-text("Finalizar compra")',
       ],
       expectNavigation: true,
       postWaitMs: 2200,
       dismissAfterClick: [
+        '.lb-close',
+        'a.button.close[data-element="close"]',
+        'a[data-element="close"]',
         '.modal-premium .close',
         '[role="dialog"] button[aria-label*="fechar" i]',
         '[role="dialog"] button[aria-label*="close" i]',
-        '.modalContainer .close',
-        'a[href="#"]:has-text("×")',
       ],
     },
   ];
