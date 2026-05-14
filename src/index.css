@@ -22,7 +22,7 @@
     --secondary-foreground: 215 25% 25%;
 
     --muted: 210 15% 93%;
-    --muted-foreground: 215 12% 45%;
+    --muted-foreground: 215 14% 32%; /* a11y: contrast bump WCAG AA — 14/05/2026 */
 
     --accent: 72 65% 40%;
     --accent-foreground: 0 0% 100%;
@@ -36,19 +36,19 @@
     --warning: 30 85% 42%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 210 15% 88%;
-    --input: 210 15% 88%;
+    --border: 210 16% 78%; /* a11y: contrast bump WCAG AA — 14/05/2026 */
+    --input: 210 16% 78%; /* a11y: contrast bump WCAG AA — 14/05/2026 */
     --ring: 210 70% 42%;
 
     --radius: 0.75rem;
 
     --sidebar-background: 210 18% 96%;
-    --sidebar-foreground: 215 15% 35%;
+    --sidebar-foreground: 215 18% 22%; /* a11y: contrast bump WCAG AA — 14/05/2026 */
     --sidebar-primary: 210 70% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 210 15% 90%;
     --sidebar-accent-foreground: 215 25% 10%;
-    --sidebar-border: 210 15% 88%;
+    --sidebar-border: 210 16% 78%; /* a11y: contrast bump WCAG AA — 14/05/2026 */
     --sidebar-ring: 210 70% 42%;
 
     --gradient-primary: linear-gradient(135deg, hsl(210 70% 42%), hsl(200 75% 35%));
