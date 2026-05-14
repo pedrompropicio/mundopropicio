@@ -724,17 +724,39 @@ export default function ReportPL() {
       />
       {/* Mode selector + Event selector */}
       <div className="glass rounded-xl p-4 space-y-4">
-        <div className="flex items-center gap-4">
-          <label className="text-sm font-medium whitespace-nowrap">Tipo de Relatório</label>
-          <Select value={mode} onValueChange={(v) => setMode(v as PLMode)}>
-            <SelectTrigger className="w-[260px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="forecast">Apenas Previsão</SelectItem>
-              <SelectItem value="comparison">Previsão vs Realizado</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Tipo de Relatório</label>
+            <Select value={mode} onValueChange={(v) => setMode(v as PLMode)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="forecast">Apenas Previsão</SelectItem>
+                <SelectItem value="comparison">Previsão vs Realizado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Mostrar</label>
+            <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as PLTypeFilter)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="both">Ambos (Receitas + Despesas)</SelectItem>
+                <SelectItem value="income">Apenas Receitas</SelectItem>
+                <SelectItem value="expense">Apenas Despesas</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Nível de detalhe</label>
+            <Select value={String(accountLevel)} onValueChange={(v) => setAccountLevel(Number(v) as AccountLevel)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Nível 1 — Macro</SelectItem>
+                <SelectItem value="2">Nível 2 — Grupo (default)</SelectItem>
+                <SelectItem value="3">Nível 3 — Detalhe completo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="border-t border-border/30 pt-3 space-y-3">
           <div className="flex items-center justify-between">
