@@ -623,7 +623,7 @@ export default function FunnelTest() {
           <button
             onClick={() => startRun()}
             disabled={!urlValid || submitting || extracting}
-            className="flex items-center justify-center gap-2 w-full px-6 py-3 rounded-lg bg-cyan-500/15 border border-cyan-500/40 text-cyan-200 hover:bg-cyan-500/25 transition-colors disabled:opacity-50 font-semibold"
+            className="flex items-center justify-center gap-2 w-full px-6 py-3 rounded-lg bg-cyan-500/15 border border-cyan-500/40 text-cyan-700 dark:text-cyan-200 hover:bg-cyan-500/25 transition-colors disabled:opacity-100 disabled:bg-muted disabled:text-muted-foreground disabled:border-border disabled:cursor-not-allowed font-semibold" /* a11y: WCAG AA contrast — 14/05/2026 */
           >
             {submitting || extracting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Play className="h-5 w-5" />}
             {extracting ? "A extrair URLs…" : "Iniciar teste 360"}
