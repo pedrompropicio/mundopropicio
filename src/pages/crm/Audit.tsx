@@ -359,7 +359,7 @@ export default function CrmAudit() {
               pixel: pixel.data,
             })}
             disabled={resolving || verdict.loading}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-500/10 border border-cyan-500/40 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/20 transition-colors disabled:opacity-100 disabled:bg-muted disabled:text-muted-foreground disabled:border-border disabled:cursor-not-allowed" /* a11y: WCAG AA contrast — 14/05/2026 */
           >
             <FileDown className="h-4 w-4" />
             PDF
@@ -367,7 +367,7 @@ export default function CrmAudit() {
           <button
             onClick={runAll}
             disabled={resolving}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 transition-colors disabled:opacity-100 disabled:bg-muted disabled:text-muted-foreground disabled:border-border disabled:cursor-not-allowed" /* a11y: WCAG AA contrast — 14/05/2026 */
           >
             <RefreshCw className="h-4 w-4" />
             Re-auditar tudo
