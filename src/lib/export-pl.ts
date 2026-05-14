@@ -243,10 +243,10 @@ function buildPLForExport(
   const tInc = transactions.filter((t) => t.type === "income");
   const tExp = transactions.filter((t) => t.type === "expense");
 
-  const fIncGroups = aggregateByHierarchy(fInc, lookup);
-  const fExpGroups = aggregateByHierarchy(fExp, lookup);
-  const tIncGroups = aggregateByHierarchy(tInc, lookup);
-  const tExpGroups = aggregateByHierarchy(tExp, lookup);
+  const fIncGroups = aggregateByHierarchy(fInc, lookup, level);
+  const fExpGroups = aggregateByHierarchy(fExp, lookup, level);
+  const tIncGroups = aggregateByHierarchy(tInc, lookup, level);
+  const tExpGroups = aggregateByHierarchy(tExp, lookup, level);
 
   const eventCacheConfigs = cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id));
   const cachePLLines = calculateCacheLinesForPL(
