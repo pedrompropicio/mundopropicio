@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { exportPLToPDF, exportPLToExcel } from "@/lib/export-pl";
+import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
 import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup, type AccountLevel } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes } from "@/lib/utils";
@@ -425,6 +426,24 @@ export default function ReportPL() {
   const [accountLevel, setAccountLevel] = useState<AccountLevel>(2);
   const [showPdfDialog, setShowPdfDialog] = useState(false);
   const [scenarioVersionId, setScenarioVersionId] = useState<string | null>(null);
+  const { logoUrl, displayName } = useCompanyBranding();
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
+
+  // Pré-carrega o logo da empresa ativa em data URL para o jsPDF poder embutir
+  useEffect(() => {
+    let cancelled = false;
+    if (!logoUrl) { setLogoDataUrl(null); return; }
+    (async () => {
+      try {
+        const res = await fetch(logoUrl);
+        const blob = await res.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => { if (!cancelled) setLogoDataUrl(typeof reader.result === "string" ? reader.result : null); };
+        reader.readAsDataURL(blob);
+      } catch { if (!cancelled) setLogoDataUrl(null); }
+    })();
+    return () => { cancelled = true; };
+  }, [logoUrl]);
 
   // Reset cenário quando muda o conjunto de eventos selecionados
   useEffect(() => {
@@ -801,7 +820,7 @@ export default function ReportPL() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => exportPLToExcel(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, undefined, typeFilter, accountLevel)}
+          onClick={() => exportPLToExcel(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, undefined, typeFilter, accountLevel, displayName)}
           disabled={activeEvents.length === 0}
         >
           <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
@@ -828,7 +847,7 @@ export default function ReportPL() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions);
+                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, [], typeFilter, accountLevel, logoDataUrl, displayName);
                 setShowPdfDialog(false);
               }}
             >
@@ -836,7 +855,7 @@ export default function ReportPL() {
             </AlertDialogAction>
             <AlertDialogAction
               onClick={() => {
-                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, forecastAuditLogs);
+                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, forecastAuditLogs, typeFilter, accountLevel, logoDataUrl, displayName);
                 setShowPdfDialog(false);
               }}
               className="bg-primary"

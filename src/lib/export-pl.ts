@@ -138,6 +138,8 @@ function buildPLForExport(
   typeFilter: PLTypeFilter = "both",
   level: AccountLevel = 2
 ): PLLine[] {
+  const showIncome = typeFilter === "income" || typeFilter === "both";
+  const showExpense = typeFilter === "expense" || typeFilter === "both";
   const lookup = buildCategoryLookup(categories);
 
   const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
@@ -314,6 +316,7 @@ function buildPLForExport(
 
   const lines: PLLine[] = [];
   let ticketLinesInserted = false;
+  if (showIncome) {
   lines.push(pl({
     label: "RECEITAS",
     forecast: totalFIncBase,
@@ -377,7 +380,9 @@ function buildPLForExport(
   if (!ticketLinesInserted && ticketLines.length > 0) {
     ticketLines.forEach((tl) => lines.push(tl));
   }
+  } // end showIncome
 
+  if (showExpense) {
   lines.push(pl({
     label: "DESPESAS",
     forecast: totalFExpBase,
@@ -431,21 +436,25 @@ function buildPLForExport(
     }
   });
 
-  const fResBase = totalFIncBase - totalFExpBase;
-  const fResIva = totalFIncIva - totalFExpIva;
-  const tResBase = totalTIncBase - totalTExpBase;
-  const tResIva = totalTIncIva - totalTExpIva;
-  lines.push(pl({
-    label: "RESULTADO LÍQUIDO",
-    forecast: fResBase,
-    actual: tResBase,
-    variance: tResBase - fResBase,
-    isGrandTotal: true,
-    forecastIva: fResIva,
-    forecastTotal: fResBase + fResIva,
-    actualIva: tResIva,
-    actualTotal: tResBase + tResIva,
-  }));
+  } // end showExpense
+
+  if (showIncome && showExpense) {
+    const fResBase = totalFIncBase - totalFExpBase;
+    const fResIva = totalFIncIva - totalFExpIva;
+    const tResBase = totalTIncBase - totalTExpBase;
+    const tResIva = totalTIncIva - totalTExpIva;
+    lines.push(pl({
+      label: "RESULTADO LÍQUIDO",
+      forecast: fResBase,
+      actual: tResBase,
+      variance: tResBase - fResBase,
+      isGrandTotal: true,
+      forecastIva: fResIva,
+      forecastTotal: fResBase + fResIva,
+      actualIva: tResIva,
+      actualTotal: tResBase + tResIva,
+    }));
+  }
 
   return lines;
 }
@@ -454,9 +463,10 @@ export function exportPLToExcel(
   eventsToExport: any[], allEvents: any[], forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[] = [], ticketLots: any[] = [], ticketSales: any[] = [], mode: PLMode = "comparison",
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
-  _auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2
+  _auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2,
+  companyDisplayName: string = "MP Gestão Eventos"
 ) {
-  void typeFilter; void accountLevel;
+  void companyDisplayName;
   const wb = XLSX.utils.book_new();
   const isComparison = mode === "comparison";
   const hierarchy = buildEventHierarchyMaps(allEvents);
@@ -540,7 +550,7 @@ export function exportPLToExcel(
     const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     if (evtF.length === 0 && evtT.length === 0) return;
     const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
-    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds);
+    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds, typeFilter, accountLevel);
     const rows: any[][] = [
       [`Business Plan - ${evt.name}`],
       [],
@@ -585,16 +595,18 @@ export function exportPLToExcel(
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
 
-  XLSX.writeFile(wb, `BP_Relatorio_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  const filterSuffix = typeFilter === "both" ? "" : typeFilter === "income" ? "_Receitas" : "_Despesas";
+  XLSX.writeFile(wb, `BP_Relatorio_N${accountLevel}${filterSuffix}_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 export function exportPLToPDF(
   eventsToExport: any[], allEvents: any[], forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[] = [], ticketLots: any[] = [], ticketSales: any[] = [], mode: PLMode = "comparison",
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
-  auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2
+  auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2,
+  companyLogoDataUrl: string | null = null,
+  companyDisplayName: string = "MP Gestão Eventos"
 ) {
-  void typeFilter; void accountLevel;
   const doc = new jsPDF({ orientation: "landscape" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -645,12 +657,17 @@ export function exportPLToPDF(
   }
 
   try {
-    doc.addImage(logoHorizontal, "PNG", marginLeft, y, 78, 22);
+    const logoSrc = companyLogoDataUrl ?? logoHorizontal;
+    // Try to detect format from data URL; fall back to PNG
+    const fmt = typeof logoSrc === "string" && logoSrc.startsWith("data:image/jpeg") ? "JPEG" : "PNG";
+    doc.addImage(logoSrc, fmt as any, marginLeft, y, 78, 22);
     y += 28;
   } catch {
     y += 4;
   }
 
+  const filterLabel = typeFilter === "income" ? " · Apenas Receitas" : typeFilter === "expense" ? " · Apenas Despesas" : "";
+  const levelLabel = ` · Nível ${accountLevel}`;
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
   doc.text(isComparison ? "Relatório Business Plan — Previsão vs Realizado" : "Relatório Business Plan — Previsão", marginLeft, y);
@@ -658,7 +675,7 @@ export function exportPLToPDF(
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100, 100, 100);
-  doc.text(`Gerado em ${new Date().toLocaleDateString("pt-PT")}`, marginLeft, y);
+  doc.text(`${companyDisplayName} · Gerado em ${new Date().toLocaleDateString("pt-PT")}${filterLabel}${levelLabel}`, marginLeft, y);
   doc.setTextColor(0, 0, 0);
   y += 10;
 
@@ -666,7 +683,7 @@ export function exportPLToPDF(
     const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     if (evtF.length === 0 && evtT.length === 0) return;
     const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
-    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds);
+    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds, typeFilter, accountLevel);
 
     if (evtIdx > 0) {
       doc.addPage();
