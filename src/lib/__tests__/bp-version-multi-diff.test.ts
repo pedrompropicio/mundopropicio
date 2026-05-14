@@ -31,6 +31,9 @@ const lookup: Record<string, CategoryLookup> = {
     parentId: "cat-vendas",
     groupName: "Vendas",
     groupCode: "1.1",
+    l1Name: "Rendimentos", l1Code: "1",
+    l2Name: "Vendas", l2Code: "1.1",
+    depth: 3,
   },
   "cat-cache": {
     id: "cat-cache",
@@ -39,6 +42,9 @@ const lookup: Record<string, CategoryLookup> = {
     parentId: "cat-artistico",
     groupName: "Artístico",
     groupCode: "2.1",
+    l1Name: "Custos do Evento", l1Code: "2",
+    l2Name: "Artístico", l2Code: "2.1",
+    depth: 3,
   },
 };
 
