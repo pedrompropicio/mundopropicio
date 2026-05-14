@@ -138,6 +138,8 @@ function buildPLForExport(
   typeFilter: PLTypeFilter = "both",
   level: AccountLevel = 2
 ): PLLine[] {
+  const showIncome = typeFilter === "income" || typeFilter === "both";
+  const showExpense = typeFilter === "expense" || typeFilter === "both";
   const lookup = buildCategoryLookup(categories);
 
   const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
