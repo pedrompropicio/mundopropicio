@@ -312,100 +312,106 @@ function buildPL(
     return enriched;
   };
 
-  lines.push(plLine({
-    label: "RECEITAS", forecast: totalFIncBase, actual: totalTIncBase, variance: totalTIncBase - totalFIncBase, isTotal: true,
-    forecastIva: totalFIncIva, forecastTotal: totalFIncBase + totalFIncIva,
-    actualIva: totalTIncIva, actualTotal: totalTIncBase + totalTIncIva,
-  }));
-  mergedInc.forEach((group) => {
-    const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
-    if (hasManyDetails) {
-      lines.push(plLine({
-        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, isGroupHeader: true,
-        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
-        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
-      }));
-      group.details.forEach((d) => {
+  const showIncome = typeFilter === "income" || typeFilter === "both";
+  const showExpense = typeFilter === "expense" || typeFilter === "both";
+
+  if (showIncome) {
+    lines.push(plLine({
+      label: "RECEITAS", forecast: totalFIncBase, actual: totalTIncBase, variance: totalTIncBase - totalFIncBase, isTotal: true,
+      forecastIva: totalFIncIva, forecastTotal: totalFIncBase + totalFIncIva,
+      actualIva: totalTIncIva, actualTotal: totalTIncBase + totalTIncIva,
+    }));
+    mergedInc.forEach((group) => {
+      const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
+      if (hasManyDetails) {
+        lines.push(plLine({
+          label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, isGroupHeader: true,
+          forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+          actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
+        }));
+        group.details.forEach((d) => {
+          lines.push(enrichWithOverride(plLine({
+            label: d.name, categoryCode: d.code, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
+            forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
+            actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
+          }), d.name));
+          if (level === 3 && d.name.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
+            ticketLines.forEach((tl) => lines.push(tl));
+            ticketLinesInserted = true;
+          }
+        });
+      } else {
         lines.push(enrichWithOverride(plLine({
-          label: d.name, categoryCode: d.code, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
-          forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
-          actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
-        }), d.name));
-        if (d.name.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
+          label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
+          forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+          actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
+        }), group.groupName));
+        if (level === 3 && group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
           ticketLines.forEach((tl) => lines.push(tl));
           ticketLinesInserted = true;
         }
-      });
-    } else {
-      lines.push(enrichWithOverride(plLine({
-        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
-        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
-        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
-      }), group.groupName));
-      if (group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
-        ticketLines.forEach((tl) => lines.push(tl));
-        ticketLinesInserted = true;
       }
+    });
+    // Fallback: if ticket lines weren't inserted via category matching, add them after income groups (level 3 only)
+    if (level === 3 && !ticketLinesInserted && ticketLines.length > 0) {
+      ticketLines.forEach((tl) => lines.push(tl));
     }
-  });
-  // Fallback: if ticket lines weren't inserted via category matching, add them after income groups
-  if (!ticketLinesInserted && ticketLines.length > 0) {
-    ticketLines.forEach((tl) => lines.push(tl));
   }
 
-  lines.push(plLine({
-    label: "DESPESAS", forecast: totalFExpBase, actual: totalTExpBase, variance: totalTExpBase - totalFExpBase, isTotal: true,
-    forecastIva: totalFExpIva, forecastTotal: totalFExpBase + totalFExpIva,
-    actualIva: totalTExpIva, actualTotal: totalTExpBase + totalTExpIva,
-  }));
-  let cacheArtistLinesInserted = false;
-  mergedExp.forEach((group) => {
-    const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
-    if (hasManyDetails) {
-      lines.push(plLine({
-        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, isGroupHeader: true,
-        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
-        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
-      }));
-      group.details.forEach((d) => {
+  if (showExpense) {
+    lines.push(plLine({
+      label: "DESPESAS", forecast: totalFExpBase, actual: totalTExpBase, variance: totalTExpBase - totalFExpBase, isTotal: true,
+      forecastIva: totalFExpIva, forecastTotal: totalFExpBase + totalFExpIva,
+      actualIva: totalTExpIva, actualTotal: totalTExpBase + totalTExpIva,
+    }));
+    let cacheArtistLinesInserted = false;
+    mergedExp.forEach((group) => {
+      const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
+      if (hasManyDetails) {
+        lines.push(plLine({
+          label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, isGroupHeader: true,
+          forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+          actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
+        }));
+        group.details.forEach((d) => {
+          lines.push(enrichWithOverride(plLine({
+            label: d.name, categoryCode: d.code, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
+            forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
+            actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
+          }), d.name));
+          if (level === 3 && (d.name === "Cachês" || d.name.toLowerCase().includes("cachê")) && cacheArtistLines.length > 0) {
+            cacheArtistLines.forEach((cl) => lines.push(cl));
+            cacheArtistLinesInserted = true;
+          }
+        });
+      } else {
         lines.push(enrichWithOverride(plLine({
-          label: d.name, categoryCode: d.code, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
-          forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
-          actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
-        }), d.name));
-        // Insert individual artist cache lines after "Cachês"
-        if ((d.name === "Cachês" || d.name.toLowerCase().includes("cachê")) && cacheArtistLines.length > 0) {
+          label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
+          forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+          actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
+        }), group.groupName));
+        if (level === 3 && (group.groupCode === "2.1" || group.groupName === "Artístico") && cacheArtistLines.length > 0 && !cacheArtistLinesInserted) {
           cacheArtistLines.forEach((cl) => lines.push(cl));
           cacheArtistLinesInserted = true;
         }
-      });
-    } else {
-      lines.push(enrichWithOverride(plLine({
-        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
-        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
-        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
-      }), group.groupName));
-      // Check if this single-detail group is Cachês
-      if ((group.groupCode === "2.1" || group.groupName === "Artístico") && cacheArtistLines.length > 0 && !cacheArtistLinesInserted) {
-        cacheArtistLines.forEach((cl) => lines.push(cl));
-        cacheArtistLinesInserted = true;
       }
+    });
+    if (level === 3 && !cacheArtistLinesInserted && cacheArtistLines.length > 0) {
+      cacheArtistLines.forEach((cl) => lines.push(cl));
     }
-  });
-  // Fallback: if cache artist lines weren't inserted, add after expenses
-  if (!cacheArtistLinesInserted && cacheArtistLines.length > 0) {
-    cacheArtistLines.forEach((cl) => lines.push(cl));
   }
 
-  const fResultBase = totalFIncBase - totalFExpBase;
-  const fResultIva = totalFIncIva - totalFExpIva;
-  const tResultBase = totalTIncBase - totalTExpBase;
-  const tResultIva = totalTIncIva - totalTExpIva;
-  lines.push(plLine({
-    label: "RESULTADO LÍQUIDO", forecast: fResultBase, actual: tResultBase, variance: tResultBase - fResultBase, isGrandTotal: true,
-    forecastIva: fResultIva, forecastTotal: fResultBase + fResultIva,
-    actualIva: tResultIva, actualTotal: tResultBase + tResultIva,
-  }));
+  if (typeFilter === "both") {
+    const fResultBase = totalFIncBase - totalFExpBase;
+    const fResultIva = totalFIncIva - totalFExpIva;
+    const tResultBase = totalTIncBase - totalTExpBase;
+    const tResultIva = totalTIncIva - totalTExpIva;
+    lines.push(plLine({
+      label: "RESULTADO LÍQUIDO", forecast: fResultBase, actual: tResultBase, variance: tResultBase - fResultBase, isGrandTotal: true,
+      forecastIva: fResultIva, forecastTotal: fResultBase + fResultIva,
+      actualIva: tResultIva, actualTotal: tResultBase + tResultIva,
+    }));
+  }
 
   return lines;
 }
