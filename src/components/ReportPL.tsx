@@ -426,6 +426,24 @@ export default function ReportPL() {
   const [accountLevel, setAccountLevel] = useState<AccountLevel>(2);
   const [showPdfDialog, setShowPdfDialog] = useState(false);
   const [scenarioVersionId, setScenarioVersionId] = useState<string | null>(null);
+  const { logoUrl, displayName } = useCompanyBranding();
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
+
+  // Pré-carrega o logo da empresa ativa em data URL para o jsPDF poder embutir
+  useEffect(() => {
+    let cancelled = false;
+    if (!logoUrl) { setLogoDataUrl(null); return; }
+    (async () => {
+      try {
+        const res = await fetch(logoUrl);
+        const blob = await res.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => { if (!cancelled) setLogoDataUrl(typeof reader.result === "string" ? reader.result : null); };
+        reader.readAsDataURL(blob);
+      } catch { if (!cancelled) setLogoDataUrl(null); }
+    })();
+    return () => { cancelled = true; };
+  }, [logoUrl]);
 
   // Reset cenário quando muda o conjunto de eventos selecionados
   useEffect(() => {
