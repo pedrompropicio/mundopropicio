@@ -5,6 +5,7 @@ import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import {
   Play, FileDown, RefreshCw, CheckCircle2, XCircle, Loader2, Clock,
   ChevronDown, ChevronRight, Activity, Target, AlertTriangle,
@@ -12,6 +13,22 @@ import {
 import { cn } from "@/lib/utils";
 import { printFunnelTestReport } from "@/lib/audience-pdf";
 import { toast } from "sonner";
+
+// Fase 2 multi-bilheteira: tipos para o seletor de eventos.
+interface PlatformEvent {
+  id: string;
+  name: string;
+  date: string | null;
+  location: string | null;
+  status: string;
+  event_type: string;
+  parent_event_id: string | null;
+  ticketing_url: string | null;
+  ticketing_provider: string | null;
+}
+
+// Master events não-selecionáveis (a URL de bilheteira é sempre por sessão).
+const MASTER_EVENT_TYPES = new Set(["multi_day", "festival", "tour"]);
 
 // G.1: STEP_LABELS contém AMBOS conjuntos (novos pós-G.1 + legados pré-G.1)
 // para que runs históricas no histórico continuem a renderizar com o label correto
@@ -121,6 +138,12 @@ export default function FunnelTest() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [candidateUrls, setCandidateUrls] = useState<string[]>([]);
   const [extracting, setExtracting] = useState(false);
+  // Fase 2: seletor de eventos da plataforma MP.
+  const [events, setEvents] = useState<PlatformEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [showPast, setShowPast] = useState(false);
+  const [showAllPast, setShowAllPast] = useState(false);
   const pollRef = useRef<number | null>(null);
   const autoTriggeredRef = useRef(false);
 
@@ -142,6 +165,140 @@ export default function FunnelTest() {
   }, []);
 
   useEffect(() => { loadHistory(); }, [loadHistory]);
+
+  // Fase 2: lazy-load events da plataforma MP (status=active). RLS filtra por
+  // company. Fetch once on mount — JS faz filtros (date) e hierarquia.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setEventsLoading(true);
+      try {
+        const { data, error } = await (supabase as any)
+          .from("events")
+          .select("id, name, date, location, status, event_type, parent_event_id, ticketing_url, ticketing_provider")
+          .eq("status", "active")
+          .order("date", { ascending: true })
+          .limit(500);
+        if (cancelled) return;
+        if (error) {
+          console.warn("[funnel-test] events load error:", error);
+          setEvents([]);
+        } else {
+          setEvents((data ?? []) as PlatformEvent[]);
+        }
+      } finally {
+        if (!cancelled) setEventsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Fase 2: build do array de options do SearchableSelect — incluindo
+  // hierarquia master→sub e filtros de data.
+  const eventOptions = useMemo<SearchableSelectOption[]>(() => {
+    if (events.length === 0) return [];
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const passesDateFilter = (e: PlatformEvent): boolean => {
+      if (!e.date) return false;
+      const d = new Date(e.date);
+      if (showAllPast) return true;
+      if (showPast) return d >= sixMonthsAgo;
+      return d >= today;
+    };
+
+    // Map children por parent_event_id
+    const childrenByParent = new Map<string, PlatformEvent[]>();
+    for (const e of events) {
+      if (e.parent_event_id) {
+        const arr = childrenByParent.get(e.parent_event_id) ?? [];
+        arr.push(e);
+        childrenByParent.set(e.parent_event_id, arr);
+      }
+    }
+
+    const isMaster = (e: PlatformEvent): boolean =>
+      MASTER_EVENT_TYPES.has(e.event_type) || (childrenByParent.get(e.id)?.length ?? 0) > 0;
+
+    // visibleIds: eventos que passam o filtro + masters de subs visíveis
+    const visibleIds = new Set<string>();
+    for (const e of events) if (passesDateFilter(e)) visibleIds.add(e.id);
+    for (const e of events) {
+      if (visibleIds.has(e.id) && e.parent_event_id) visibleIds.add(e.parent_event_id);
+    }
+
+    // Sort top-level: futures ASC, depois past DESC (mais recente primeiro)
+    const sortedTopLevel = events
+      .filter((e) => !e.parent_event_id && visibleIds.has(e.id))
+      .sort((a, b) => {
+        const da = a.date ?? "";
+        const db = b.date ?? "";
+        const aFuture = da >= today.toISOString().slice(0, 10);
+        const bFuture = db >= today.toISOString().slice(0, 10);
+        if (aFuture && !bFuture) return -1;
+        if (!aFuture && bFuture) return 1;
+        return aFuture ? da.localeCompare(db) : db.localeCompare(da);
+      });
+
+    const fmtDate = (d: string | null): string => {
+      if (!d) return "—";
+      try {
+        return new Date(d).toLocaleDateString("pt-PT", { day: "2-digit", month: "short", year: "numeric" });
+      } catch { return d; }
+    };
+
+    const buildOption = (e: PlatformEvent, indent: number): SearchableSelectOption => {
+      const providerBadge = e.ticketing_provider ? ` · [${e.ticketing_provider}]` : "";
+      const noUrl = !e.ticketing_url;
+      return {
+        value: e.id,
+        label: `${e.name}${providerBadge}`,
+        description: `${fmtDate(e.date)}${e.location ? " · " + e.location : ""}`,
+        searchText: [e.name, e.location, e.ticketing_provider].filter(Boolean).join(" "),
+        indentLevel: indent,
+        disabled: noUrl,
+        disabledReason: noUrl ? "URL de bilheteira não configurada" : undefined,
+      };
+    };
+
+    const out: SearchableSelectOption[] = [];
+    for (const top of sortedTopLevel) {
+      const children = (childrenByParent.get(top.id) ?? [])
+        .filter((c) => visibleIds.has(c.id))
+        .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
+
+      if (isMaster(top) || children.length > 0) {
+        // Header não-clicável
+        out.push({
+          value: `header:${top.id}`,
+          label: top.name + (top.location ? ` · ${top.location}` : ""),
+          isHeader: true,
+          indentLevel: 0,
+        });
+        for (const c of children) out.push(buildOption(c, 1));
+      } else {
+        // Standalone flat
+        out.push(buildOption(top, 0));
+      }
+    }
+    return out;
+  }, [events, showPast, showAllPast]);
+
+  // Fase 2: ao selecionar evento, auto-popular URL alvo. User pode editar
+  // o input manualmente depois (override permitido).
+  useEffect(() => {
+    if (!selectedEventId) return;
+    const evt = events.find((e) => e.id === selectedEventId);
+    if (evt?.ticketing_url) {
+      setTargetUrl(evt.ticketing_url);
+      setError(null);
+      setErrorKind("error");
+    }
+  }, [selectedEventId, events]);
 
   // Polling
   const pollStatus = useCallback(async (id: string) => {
@@ -187,7 +344,13 @@ export default function FunnelTest() {
     setSubmitting(true);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-funnel-test-run", {
-        body: { target_url: url, connection_id: active?.connection_id ?? null },
+        // Fase 2: passar event_id se houver evento da plataforma seleccionado.
+        // Backend valida que event.company_id == active company antes de gravar.
+        body: {
+          target_url: url,
+          connection_id: active?.connection_id ?? null,
+          event_id: selectedEventId ?? undefined,
+        },
       });
       if (error) throw error;
       if (data?.run_id) {
@@ -222,7 +385,7 @@ export default function FunnelTest() {
     } finally {
       setSubmitting(false);
     }
-  }, [targetUrl, active?.connection_id]);
+  }, [targetUrl, active?.connection_id, selectedEventId]);
 
   // Auto-flow via query string: ?url=, ?campaign_id=, ?event_id=
   useEffect(() => {
@@ -351,11 +514,75 @@ export default function FunnelTest() {
       {/* Input card */}
       {!isActiveRun && !run && (
         <Card className="p-6 space-y-4">
+          {/* Fase 2: seletor de eventos da plataforma MP. Auto-popula URL alvo
+              quando seleccionado. Input manual continua disponível (override). */}
+          <div>
+            <label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+              Evento da plataforma <span className="text-muted-foreground/60 normal-case">(opcional)</span>
+            </label>
+            <div className="mt-1">
+              <SearchableSelect
+                options={eventOptions}
+                value={selectedEventId ?? ""}
+                onValueChange={(v) => setSelectedEventId(v || null)}
+                placeholder={
+                  eventsLoading
+                    ? "A carregar eventos…"
+                    : eventOptions.length === 0
+                      ? (events.length === 0 ? "Nenhum evento activo" : "Nenhum evento no filtro actual")
+                      : "Selecionar evento…"
+                }
+                searchPlaceholder="Pesquisar por nome, local, bilheteira…"
+                emptyMessage={events.length === 0 ? "Nenhum evento activo nesta company." : "Nenhum resultado."}
+                disabled={eventsLoading || submitting || extracting}
+              />
+            </div>
+            <div className="mt-2 flex items-center gap-4 text-[11px] text-muted-foreground">
+              <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={showPast}
+                  onChange={(e) => {
+                    setShowPast(e.target.checked);
+                    if (!e.target.checked) setShowAllPast(false);
+                  }}
+                  className="rounded border-border"
+                />
+                Ver passados (≤ 6 meses)
+              </label>
+              <label className={cn("flex items-center gap-1.5 select-none", showPast ? "cursor-pointer" : "opacity-50 cursor-not-allowed")}>
+                <input
+                  type="checkbox"
+                  checked={showAllPast}
+                  onChange={(e) => setShowAllPast(e.target.checked)}
+                  disabled={!showPast}
+                  className="rounded border-border"
+                />
+                Mostrar todos os passados
+              </label>
+            </div>
+            <p className="mt-1 text-[10px] text-muted-foreground italic">
+              Selecionar um evento auto-preenche o URL abaixo. Eventos sem URL de bilheteira aparecem desactivados.
+            </p>
+          </div>
+
           <div>
             <label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">URL alvo</label>
             <Input
               value={targetUrl}
-              onChange={(e) => { setTargetUrl(e.target.value); setError(null); setErrorKind("error"); }}
+              onChange={(e) => {
+                const next = e.target.value;
+                setTargetUrl(next);
+                setError(null);
+                setErrorKind("error");
+                // Fase 2: se o user editou a URL manualmente e já não bate certo com
+                // o evento seleccionado, limpar a ligação para não gravar event_id
+                // dessincronizado da target_url efectiva.
+                if (selectedEventId) {
+                  const evt = events.find((ev) => ev.id === selectedEventId);
+                  if (evt && evt.ticketing_url !== next) setSelectedEventId(null);
+                }
+              }}
               placeholder="https://www.ticketline.pt/evento/..."
               className="mt-1"
               disabled={submitting || extracting}

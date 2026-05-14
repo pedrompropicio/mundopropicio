@@ -493,6 +493,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   if (!companyId) return json({ error: "no_company_context" }, 403);
 
+  // Fase 2: defensive validation do event_id (admin client bypassa RLS, então
+  // verificamos manualmente que o evento pertence à company do user).
+  if (body.event_id) {
+    const { data: evt, error: evtErr } = await (admin as any)
+      .schema("public")
+      .from("events")
+      .select("id, company_id")
+      .eq("id", body.event_id)
+      .eq("company_id", companyId)
+      .maybeSingle();
+    if (evtErr || !evt) {
+      console.warn(`[funnel-test] event_id rejected: id=${body.event_id} company=${companyId} err=${evtErr?.message ?? "not_found"}`);
+      return json({
+        error: "event_not_found",
+        error_message: "Evento não pertence à tua company ou não existe.",
+      }, 400);
+    }
+  }
+
   // Fase 1 multi-bilheteira: resolver preset por hostname ANTES de inserir.
   // Bilheteiras não suportadas falham graciosamente com mensagem clara.
   const preset = selectPreset(targetUrl);

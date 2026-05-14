@@ -46,3 +46,32 @@ export function selectPreset(url: string): FlowPreset | null {
 
 /** Lista de nomes de bilheteiras suportadas (para mensagens de erro). */
 export const SUPPORTED_PROVIDERS: string[] = PRESETS.map((p) => p.name);
+
+/**
+ * Lista canónica de provider IDs conhecidos pelo Funnel Test 360.
+ * Inclui presets implementados (subset de PRESETS) + futuros que ainda não têm
+ * preset mas são reconhecidos como bilheteira válida (ex: para classificação
+ * de eventos em public.events.ticketing_provider antes do preset existir).
+ *
+ * **Deve manter-se alinhado** com o CHECK constraint em
+ * `supabase/migrations/20260514170000_events_ticketing_url.sql`:
+ *   `events_ticketing_provider_check` em public.events.
+ *
+ * Para adicionar novo provider:
+ *  1. Adicionar string aqui
+ *  2. Adicionar string no CHECK constraint (via nova migration)
+ *  3. Eventualmente criar preset em `presets/<provider>.ts` + registrar em PRESETS
+ */
+export const PROVIDERS_KNOWN = [
+  "ticketline",
+  "blueticket",
+  "bol",
+  "see_tickets",
+  "fnac_tickets",
+  "eventbrite",
+  "ingresse",
+  "sympla",
+  "other",
+] as const;
+
+export type ProviderId = (typeof PROVIDERS_KNOWN)[number];

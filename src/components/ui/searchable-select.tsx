@@ -17,6 +17,11 @@ export interface SearchableSelectOption {
   isHeader?: boolean;
   /** Indentation level for hierarchy (0=root, 1=child, 2=grandchild) */
   indentLevel?: number;
+  /** If true, item is visible but not selectable. Differs from isHeader by
+   *  preserving normal item styling (check column, label, description). */
+  disabled?: boolean;
+  /** Tooltip text shown on hover when disabled. */
+  disabledReason?: string;
 }
 
 interface SearchableSelectProps {
@@ -175,17 +180,29 @@ export function SearchableSelect({
                   <button
                     key={opt.value}
                     type="button"
-                    onClick={() => { onValueChange(opt.value); setOpen(false); setSearch(""); }}
+                    disabled={opt.disabled}
+                    title={opt.disabled ? opt.disabledReason : undefined}
+                    onClick={() => {
+                      if (opt.disabled) return;
+                      onValueChange(opt.value);
+                      setOpen(false);
+                      setSearch("");
+                    }}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground",
-                      opt.value === value && "bg-accent/50",
+                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-left",
+                      !opt.disabled && "hover:bg-accent hover:text-accent-foreground",
+                      opt.disabled && "opacity-50 cursor-not-allowed",
+                      opt.value === value && !opt.disabled && "bg-accent/50",
                     )}
                     style={paddingLeft ? { paddingLeft } : undefined}
                   >
-                    <Check className={cn("h-3.5 w-3.5 shrink-0 mt-0.5", opt.value === value ? "opacity-100" : "opacity-0")} />
-                    <div className="min-w-0">
+                    <Check className={cn("h-3.5 w-3.5 shrink-0 mt-0.5", opt.value === value && !opt.disabled ? "opacity-100" : "opacity-0")} />
+                    <div className="min-w-0 flex-1">
                       <span className="truncate block">{opt.icon ? `${opt.icon} ` : ""}{opt.label}</span>
                       {opt.description && <span className="text-[10px] text-muted-foreground truncate block">{opt.description}</span>}
+                      {opt.disabled && opt.disabledReason && (
+                        <span className="text-[10px] text-amber-500/80 truncate block italic">{opt.disabledReason}</span>
+                      )}
                     </div>
                   </button>
                 );
