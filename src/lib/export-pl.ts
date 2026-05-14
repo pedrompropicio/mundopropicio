@@ -316,6 +316,7 @@ function buildPLForExport(
 
   const lines: PLLine[] = [];
   let ticketLinesInserted = false;
+  if (showIncome) {
   lines.push(pl({
     label: "RECEITAS",
     forecast: totalFIncBase,
