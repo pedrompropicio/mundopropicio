@@ -380,7 +380,9 @@ function buildPLForExport(
   if (!ticketLinesInserted && ticketLines.length > 0) {
     ticketLines.forEach((tl) => lines.push(tl));
   }
+  } // end showIncome
 
+  if (showExpense) {
   lines.push(pl({
     label: "DESPESAS",
     forecast: totalFExpBase,
