@@ -146,9 +146,29 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
             const m = sel.match(/^([a-zA-Z*]+):has-text\("(.+)"\)$/);
             if (m) {
               const tag = m[1]; const text = m[2];
-              const xp = `//${tag}[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZÁÉÍÓÚÀÂÊÔÃÕÇ', 'abcdefghijklmnopqrstuvwxyzáéíóúàâêôãõç'), '${text.toLowerCase()}')]`;
-              const handles = await page.$x(xp);
-              if (handles.length) return handles[0];
+              // H.1: substitui page.$x (removido em Puppeteer 23+) por
+              // evaluateHandle (API core estável desde 1.x). Normalize NFD
+              // remove acentos (ã→a, é→e) e match é case-insensitive +
+              // includes — compatível com sites pt-PT/pt-BR/es.
+              console.warn(`[puppeteer] :has-text resolve via evaluateHandle tag="${tag}" text="${text}"`);
+              let jsh = null;
+              try {
+                jsh = await page.evaluateHandle((tag, text) => {
+                  const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+                  const target = norm(text);
+                  const els = document.querySelectorAll(tag);
+                  for (const el of els) {
+                    if (norm(el.innerText || el.textContent).includes(target)) return el;
+                  }
+                  return null;
+                }, tag, text);
+                const el = jsh.asElement();
+                if (el) return el; // caller usa para .click() (mesmo padrão pré-H.1)
+                await jsh.dispose();
+              } catch (e) {
+                if (jsh) { try { await jsh.dispose(); } catch (_) {} }
+                /* try next selector */
+              }
               continue;
             }
           }
