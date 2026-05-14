@@ -289,13 +289,12 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
         'a:has-text("Continuar")',
       ],
       expectNavigation: true,
-      // G.4: postWaitMs 2000→3000 + dismissAfterClick com selectores reais
-      // Ticketline. Modal "Já conhece o novo seguro Ticketline Premium"
-      // aparece via JS injection com delay após nav para /carrinho?confirm
-      // (confirmado por screenshot do failure_context da run #62fc4cd7).
-      // O DOM bruto extraído sem dismiss mostra Premium como sidebar inline,
-      // MAS o overlay real aparece centrado no ecrã quando JS termina.
-      postWaitMs: 3000,
+      // G.4 + G.5: dismissAfterClick com selectores reais Ticketline para
+      // fechar modal "Ticketline Premium" que aparece via JS injection após
+      // nav para /carrinho?confirm. postWaitMs reduzido 3000→2000 em G.5
+      // porque dismiss + 500ms wait já cobre injeção do modal — poupa 1s
+      // do wall-clock budget (necessário para G.5 step 6 re-click logic).
+      postWaitMs: 2000,
       dismissAfterClick: [
         '.lb-close',                                       // lightbox close (Ticketline genérico)
         'a.button.close[data-element="close"]',            // close aplicacional via data-element
@@ -338,10 +337,14 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
     {
       id: 'initiate_checkout',
       label: 'Iniciar checkout',
-      // G.4: mesmos selectores cirúrgicos do step 5 + click + nav. O modal
-      // Premium já foi dismissed no step 4 (após nav para /carrinho), mas
-      // mantemos dismissAfterClick defensivo aqui caso outro modal apareça
-      // no /carrinho/checkout (etapa ainda não capturada em DOM).
+      // G.5: descoberta na run #f4e0f64f — Ticketline mostra o modal Premium
+      // DUAS vezes: (1) ao carregar /carrinho?confirm (G.4 step 4 dismiss
+      // resolve), (2) ao clicar Finalizar compra (modal REABRE, intercepta
+      // nav). Botão "Fechar" do modal só fecha sem proceder. Solução:
+      // clickAgainAfterDismiss=true → re-click handle original após dismiss
+      // (2ª click não dispara modal porque Ticketline trackeia que já
+      // mostrou). navigationTimeoutMs=5000 porque modal abre rápido e nav
+      // wait curto poupa wall-clock budget.
       selectors: [
         'a[href="/carrinho/checkout"]',
         'a[href*="/carrinho/checkout"]',
@@ -349,7 +352,9 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
         'a:has-text("Finalizar compra")',
       ],
       expectNavigation: true,
-      postWaitMs: 2200,
+      navigationTimeoutMs: 5000,         // G.5: override do default 7000ms
+      postWaitMs: 1500,                  // G.5: reduzido 2200→1500 para budget
+      clickAgainAfterDismiss: true,      // G.5: re-click após dismiss do Premium
       dismissAfterClick: [
         '.lb-close',
         'a.button.close[data-element="close"]',
@@ -456,7 +461,11 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
           // Patch I: snapshot URL antes do click para validar navegação real
           // (não fiar-se em waitForNavigation timeout silencioso).
           const urlBeforeClick = page.url();
-          const navP = page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 7000 }).catch(() => null);
+          // G.5: navigationTimeoutMs per-step override (default 7000ms). Usado
+          // em sites onde modal interceptor abre rápido e queremos cortar nav
+          // wait mais cedo (e.g., Ticketline /carrinho → Premium modal).
+          const navTimeout = cfg.navigationTimeoutMs || 7000;
+          const navP = page.waitForNavigation({ waitUntil: 'networkidle2', timeout: navTimeout }).catch(() => null);
           await handle.click().catch(() => null);
           await navP;
           // G.1: dismissAfterClick — tenta fechar overlays específicos entre
@@ -465,6 +474,17 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
             const dh = await trySelectors(cfg.dismissAfterClick, 1500);
             if (dh) {
               try { await dh.click(); await new Promise(r => setTimeout(r, 500)); } catch (_) { /* noop */ }
+            }
+            // G.5: clickAgainAfterDismiss — re-click handle original se URL ainda
+            // não mudou após o dismiss. Para sites com "modal interceptor duplo"
+            // (e.g., Ticketline Premium: modal abre no click "Finalizar compra";
+            // botão "Fechar" só fecha modal sem navegar; user real tem que clicar
+            // 2× para navegar — 2ª click não dispara modal porque Ticketline
+            // trackeia que já mostrou).
+            if (cfg.clickAgainAfterDismiss && page.url() === urlBeforeClick) {
+              const navP2 = page.waitForNavigation({ waitUntil: 'networkidle2', timeout: navTimeout }).catch(() => null);
+              await handle.click().catch(() => null);
+              await navP2;
             }
           }
           await new Promise(r => setTimeout(r, cfg.postWaitMs || 1500));
