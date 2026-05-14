@@ -4,11 +4,21 @@ description: Plano e estado da transição multi-empresa (Coala/Cloudscape como 
 type: feature
 ---
 
-## Estado: Fase 1 + Fase 2 (A→F) + Fase 3 + Fase 4 + Fase 5 (UI) + Fase 6 (validação cross-tenant) COMPLETAS em Test (Fase 7 = Live, pendente)
+## Estado: Fases 1→6 + refactor multi-membership N:N COMPLETAS em Test (Fase 7 = Live, pendente)
+
+**2026-05-14 — Refactor multi-membership (Padrão A: Identidade única + Memberships N:N)**:
+- 1 user em `auth.users` pode ter membership em N empresas via `user_roles` UNIQUE (user_id, company_id, role).
+- `profiles.company_id` NULLABLE (só fallback); `current_company_id()` resolve por `active_company_id` + memberships.
+- VIEW `user_companies` (security_invoker) — `useUserMemberships()` no frontend.
+- `CompanySwitcher` visível a QUALQUER user com ≥2 memberships (não só platform_admin).
+- Edge fn `create-user` com `dry_run` → `will_create | will_attach | already_member`; UI confirma attach via AlertDialog.
+- `UserManagement` lista por `user_roles WHERE company_id = activeCompanyId`; eliminar remove só a membership desta empresa (apaga `auth.users` apenas se zero memberships restantes); mudança de role escopada por empresa.
+- Quarentena Fase 8 multi-país: refactor não destrava sozinho — gatilhos atuais mantêm-se.
+- Detalhes: ver memória `multi-membership-model`.
 
 Plano completo em `.lovable/plan.md`. Decisões fechadas:
 - Single DB + `company_id` em tabelas core + RLS rigorosa
-- 1 utilizador = 1 empresa (`profiles.company_id`)
+- 1 user → N empresas (Padrão A: memberships N:N)
 - Branding por empresa (logo + cores + favicon), nome do app FIXO "MP Gestão Eventos"
 - Plano de contas isolado por empresa
 - Super-admin (`platform_admin`) cria empresas e convida admins

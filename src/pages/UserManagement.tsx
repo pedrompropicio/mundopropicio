@@ -10,6 +10,16 @@ import { logAudit, getAuditUser } from "@/lib/audit";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
 import { useCompany } from "@/hooks/useCompany";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const ROLE_ICONS: Record<AppRole, React.ElementType> = {
   admin: ShieldCheck,
@@ -26,7 +36,7 @@ const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "editor", "viewer", "pa
 
 export default function UserManagement() {
   const { isAdmin, user } = useAuth();
-  const { companyId } = useCompany();
+  const { companyId, company } = useCompany();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
@@ -34,66 +44,67 @@ export default function UserManagement() {
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState<AppRole>("editor");
   const [permModalUser, setPermModalUser] = useState<{ id: string; name: string; role: AppRole } | null>(null);
+  const [attachConfirm, setAttachConfirm] = useState<{ existingName: string } | null>(null);
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["users-with-roles", companyId],
     enabled: !!companyId,
     queryFn: async () => {
-      const activeCompanyId = companyId;
-      const query = supabase
-        .from("profiles")
-        .select("id, full_name, email, created_at, company_id")
-        .order("created_at", { ascending: true });
-
-      const { data: profiles, error: pErr } = await query;
-      if (pErr) throw pErr;
-
-      const { data: roles, error: rErr } = await supabase
+      // 1) Memberships na empresa ativa (multi-tenant)
+      const { data: roleRows, error: rErr } = await supabase
         .from("user_roles")
-        .select("user_id, role");
+        .select("user_id, role")
+        .eq("company_id", companyId!);
       if (rErr) throw rErr;
 
+      const userIds = Array.from(new Set((roleRows ?? []).map((r) => r.user_id)));
+      if (userIds.length === 0) return [];
+
+      const { data: profiles, error: pErr } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, created_at, company_id")
+        .in("id", userIds);
+      if (pErr) throw pErr;
+
       const priority: Record<string, number> = {
-        platform_admin: 0,
-        admin: 1,
-        manager: 2,
-        editor: 3,
-        partner: 4,
-        viewer: 5,
-        user: 6,
+        platform_admin: 0, admin: 1, manager: 2, editor: 3, partner: 4, viewer: 5, user: 6,
       };
       const roleByUser = new Map<string, AppRole>();
-      for (const row of roles ?? []) {
-        const current = roleByUser.get(row.user_id);
-        if (!current || (priority[row.role] ?? 99) < (priority[current] ?? 99)) {
+      for (const row of roleRows ?? []) {
+        const cur = roleByUser.get(row.user_id);
+        if (!cur || (priority[row.role] ?? 99) < (priority[cur] ?? 99)) {
           roleByUser.set(row.user_id, row.role as AppRole);
         }
       }
 
-      const profilesWithRoles = (profiles ?? []).map((p) => ({
-        ...p,
-        role: roleByUser.get(p.id) ?? "user",
-      }));
-      return profilesWithRoles.filter(
-        (p) => p.company_id === activeCompanyId || p.role === ("platform_admin" as AppRole)
-      );
+      return (profiles ?? [])
+        .map((p) => ({ ...p, role: roleByUser.get(p.id) ?? ("user" as AppRole) }))
+        .sort((a, b) =>
+          (a.created_at ?? "").localeCompare(b.created_at ?? "")
+        );
     },
   });
 
   const changeRoleMutation = useMutation({
     mutationFn: async ({ userId, newRole, oldRole, userName }: { userId: string; newRole: AppRole; oldRole: AppRole; userName: string }) => {
-      const { error } = await supabase
+      // Apenas mexe nas memberships desta empresa (multi-tenant)
+      const { error: dErr } = await supabase
         .from("user_roles")
-        .update({ role: newRole })
-        .eq("user_id", userId);
-      if (error) throw error;
+        .delete()
+        .eq("user_id", userId)
+        .eq("company_id", companyId!);
+      if (dErr) throw dErr;
+      const { error: iErr } = await supabase
+        .from("user_roles")
+        .insert({ user_id: userId, company_id: companyId!, role: newRole });
+      if (iErr) throw iErr;
       await logAudit({
         entity_type: "user_role",
         entity_id: userId,
         action: "update",
         changed_by: getAuditUser(user),
-        old_data: { role: oldRole },
-        new_data: { role: newRole },
+        old_data: { role: oldRole, company_id: companyId },
+        new_data: { role: newRole, company_id: companyId },
         metadata: { user_name: userName },
       });
     },
@@ -107,7 +118,22 @@ export default function UserManagement() {
   });
 
   const createUserMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (opts?: { skipDryRun?: boolean }) => {
+      // dry_run primeiro (a menos que já tenhamos confirmado attach)
+      if (!opts?.skipDryRun) {
+        const { data: dryData, error: dryErr } = await supabase.functions.invoke("create-user", {
+          body: { email: newEmail, full_name: newName, role: newRole, dry_run: true },
+        });
+        if (dryErr) throw dryErr;
+        if (dryData?.status === "already_member") {
+          throw new Error(dryData.error || "Este utilizador já tem acesso a esta empresa.");
+        }
+        if (dryData?.status === "will_attach") {
+          setAttachConfirm({ existingName: dryData.existing_full_name || newEmail });
+          return { __pendingAttach: true } as any;
+        }
+        if (dryData?.error) throw new Error(dryData.error);
+      }
       const { data, error } = await supabase.functions.invoke("create-user", {
         body: { email: newEmail, full_name: newName, role: newRole },
       });
@@ -115,9 +141,17 @@ export default function UserManagement() {
       if (data?.error) throw new Error(data.error);
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
+      if (data?.__pendingAttach) return;
       queryClient.invalidateQueries({ queryKey: ["users-with-roles"] });
-      toast({ title: "Utilizador criado!", description: data.message });
+      const status = data?.status;
+      if (status === "attached") {
+        toast({ title: "Utilizador adicionado à empresa." });
+      } else if (status === "created") {
+        toast({ title: "Utilizador criado", description: "Email de definição de senha enviado." });
+      } else {
+        toast({ title: "Utilizador criado!", description: data?.message });
+      }
       setShowForm(false);
       setNewEmail("");
       setNewName("");
@@ -145,21 +179,45 @@ export default function UserManagement() {
     },
   });
 
+  // Multi-tenant: remove apenas a membership na empresa ativa.
+  // Se sobrar zero memberships, apaga o user globalmente (delete-user edge fn).
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const { data, error } = await supabase.functions.invoke("delete-user", {
-        body: { user_id: userId },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data;
+      const { error: rErr } = await supabase
+        .from("user_roles")
+        .delete()
+        .eq("user_id", userId)
+        .eq("company_id", companyId!);
+      if (rErr) throw rErr;
+
+      await supabase
+        .from("user_permissions")
+        .delete()
+        .eq("user_id", userId)
+        .eq("company_id", companyId!);
+
+      const { count } = await supabase
+        .from("user_roles")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId);
+      if ((count ?? 0) === 0) {
+        const { data, error } = await supabase.functions.invoke("delete-user", {
+          body: { user_id: userId },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        return { fullyDeleted: true };
+      }
+      return { fullyDeleted: false };
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["users-with-roles"] });
-      toast({ title: "Utilizador eliminado!" });
+      toast({
+        title: res?.fullyDeleted ? "Utilizador eliminado!" : "Acesso removido desta empresa.",
+      });
     },
     onError: (err: any) => {
-      toast({ title: "Erro ao eliminar utilizador", description: err.message, variant: "destructive" });
+      toast({ title: "Erro ao remover utilizador", description: err.message, variant: "destructive" });
     },
   });
 
@@ -179,7 +237,9 @@ export default function UserManagement() {
             <button onClick={() => navigate("/admin")} className="inline-flex items-center justify-center rounded-md h-8 w-8 hover:bg-accent transition-colors"><ArrowLeft className="h-4 w-4" /></button>
             Gestão de Utilizadores <HelpTooltip text={helpTexts.userManagement} />
           </h1>
-          <p className="text-sm text-muted-foreground">Gerir acessos e permissões</p>
+          <p className="text-sm text-muted-foreground">
+            Gerir acessos e permissões {company?.display_name ? `— ${company.display_name}` : ""}
+          </p>
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
@@ -216,14 +276,14 @@ export default function UserManagement() {
 
       {showForm && (
         <div className="glass rounded-xl p-5 space-y-4">
-          <h2 className="text-lg font-semibold">Criar Novo Utilizador</h2>
+          <h2 className="text-lg font-semibold">Adicionar Utilizador a esta empresa</h2>
           <p className="text-xs text-muted-foreground">
-            O utilizador receberá um email para definir a sua senha.
+            Se o email já existir noutra empresa, será apenas anexado a esta — sem novo email de senha.
           </p>
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              createUserMutation.mutate();
+              createUserMutation.mutate(undefined);
             }}
             className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
           >
@@ -268,7 +328,7 @@ export default function UserManagement() {
                 className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50"
               >
                 {createUserMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Criar
+                Adicionar
               </button>
               <button
                 type="button"
@@ -286,7 +346,7 @@ export default function UserManagement() {
         {isLoading ? (
           <p className="py-8 text-center text-muted-foreground">A carregar…</p>
         ) : users.length === 0 ? (
-          <p className="py-8 text-center text-muted-foreground">Sem utilizadores registados.</p>
+          <p className="py-8 text-center text-muted-foreground">Sem utilizadores nesta empresa.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -344,13 +404,13 @@ export default function UserManagement() {
                             </button>
                             <button
                               onClick={() => {
-                                if (confirm(`Eliminar o utilizador ${u.full_name || u.email}?`)) {
+                                if (confirm(`Remover o acesso de ${u.full_name || u.email} a esta empresa?`)) {
                                   deleteUserMutation.mutate(u.id);
                                 }
                               }}
                               disabled={deleteUserMutation.isPending}
                               className="rounded-lg p-1.5 text-xs text-destructive hover:bg-destructive/15 transition-colors disabled:opacity-50"
-                              title="Eliminar utilizador"
+                              title="Remover acesso a esta empresa"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -375,6 +435,31 @@ export default function UserManagement() {
           userRole={permModalUser.role}
         />
       )}
+
+      <AlertDialog open={!!attachConfirm} onOpenChange={(o) => { if (!o) setAttachConfirm(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Utilizador já existe noutra empresa</AlertDialogTitle>
+            <AlertDialogDescription>
+              Já existe um utilizador com este email
+              {attachConfirm?.existingName ? ` (${attachConfirm.existingName})` : ""}.
+              Adicionar a <strong>{company?.display_name ?? "esta empresa"}</strong> como{" "}
+              <strong>{ROLE_LABELS[newRole]}</strong>? Não será enviado novo email de senha.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setAttachConfirm(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setAttachConfirm(null);
+                createUserMutation.mutate({ skipDryRun: true });
+              }}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

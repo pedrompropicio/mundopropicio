@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   useCompany,
-  useCompaniesList,
+  useUserMemberships,
   useSetActiveCompany,
 } from "@/hooks/useCompany";
 
@@ -32,13 +32,21 @@ import {
  */
 export function CompanySwitcher() {
   const { company, companyId, isPlatformAdmin } = useCompany();
-  const { data: companies, isLoading } = useCompaniesList(isPlatformAdmin);
+  const { data: memberships, isLoading } = useUserMemberships(true);
   const setActive = useSetActiveCompany();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
-  if (!isPlatformAdmin) return null;
+  const companies = (memberships ?? []).map((m) => ({
+    id: m.company_id,
+    display_name: m.display_name,
+    legal_name: m.display_name,
+    slug: m.slug,
+  }));
+
+  const visible = isPlatformAdmin || (memberships?.length ?? 0) >= 2;
+  if (!visible) return null;
 
   const handleSelect = async (id: string) => {
     if (id === companyId) {
@@ -85,7 +93,7 @@ export function CompanySwitcher() {
           )}
           <span className="truncate text-xs font-medium">{label}</span>
           <Badge variant="secondary" className="hidden lg:inline-flex h-4 px-1 text-[10px]">
-            admin
+            {isPlatformAdmin ? "admin" : `${memberships?.length ?? 0} empresas`}
           </Badge>
           <ChevronsUpDown className="h-3.5 w-3.5 opacity-50 shrink-0" />
         </Button>
