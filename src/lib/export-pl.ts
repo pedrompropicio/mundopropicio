@@ -657,12 +657,17 @@ export function exportPLToPDF(
   }
 
   try {
-    doc.addImage(logoHorizontal, "PNG", marginLeft, y, 78, 22);
+    const logoSrc = companyLogoDataUrl ?? logoHorizontal;
+    // Try to detect format from data URL; fall back to PNG
+    const fmt = typeof logoSrc === "string" && logoSrc.startsWith("data:image/jpeg") ? "JPEG" : "PNG";
+    doc.addImage(logoSrc, fmt as any, marginLeft, y, 78, 22);
     y += 28;
   } catch {
     y += 4;
   }
 
+  const filterLabel = typeFilter === "income" ? " · Apenas Receitas" : typeFilter === "expense" ? " · Apenas Despesas" : "";
+  const levelLabel = ` · Nível ${accountLevel}`;
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
   doc.text(isComparison ? "Relatório Business Plan — Previsão vs Realizado" : "Relatório Business Plan — Previsão", marginLeft, y);
@@ -670,7 +675,7 @@ export function exportPLToPDF(
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100, 100, 100);
-  doc.text(`Gerado em ${new Date().toLocaleDateString("pt-PT")}`, marginLeft, y);
+  doc.text(`${companyDisplayName} · Gerado em ${new Date().toLocaleDateString("pt-PT")}${filterLabel}${levelLabel}`, marginLeft, y);
   doc.setTextColor(0, 0, 0);
   y += 10;
 
