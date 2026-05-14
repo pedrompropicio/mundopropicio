@@ -467,11 +467,6 @@ export function exportPLToExcel(
   companyDisplayName: string = "MP Gestão Eventos"
 ) {
   void companyDisplayName;
-  void showIncome;
-  void showExpense;
-  const showIncomeFlag = typeFilter === "income" || typeFilter === "both";
-  const showExpenseFlag = typeFilter === "expense" || typeFilter === "both";
-  void showIncomeFlag; void showExpenseFlag;
   const wb = XLSX.utils.book_new();
   const isComparison = mode === "comparison";
   const hierarchy = buildEventHierarchyMaps(allEvents);
