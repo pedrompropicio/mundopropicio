@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { exportPLToPDF, exportPLToExcel } from "@/lib/export-pl";
-import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup } from "@/lib/category-hierarchy";
+import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup, type AccountLevel } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { ReportScenarioSelector } from "@/components/reports/ReportScenarioSelector";
@@ -27,6 +27,7 @@ import { useScenarioForecasts } from "@/hooks/useScenarioForecasts";
 import { buildAbsorptionMap } from "@/lib/admin-cost-allocation";
 
 export type PLMode = "forecast" | "comparison";
+export type PLTypeFilter = "income" | "expense" | "both";
 
 interface PLLine {
   label: string;
