@@ -22,6 +22,7 @@ import {
   useCompany,
   useUserMemberships,
   useSetActiveCompany,
+  useCompaniesList,
 } from "@/hooks/useCompany";
 
 /**
@@ -32,18 +33,28 @@ import {
  */
 export function CompanySwitcher() {
   const { company, companyId, isPlatformAdmin } = useCompany();
-  const { data: memberships, isLoading } = useUserMemberships(true);
+  const { data: memberships, isLoading: loadingMemberships } = useUserMemberships(!isPlatformAdmin);
+  const { data: allCompanies, isLoading: loadingAll } = useCompaniesList(isPlatformAdmin);
   const setActive = useSetActiveCompany();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
-  const companies = (memberships ?? []).map((m) => ({
-    id: m.company_id,
-    display_name: m.display_name,
-    legal_name: m.display_name,
-    slug: m.slug,
-  }));
+  const isLoading = isPlatformAdmin ? loadingAll : loadingMemberships;
+
+  const companies = isPlatformAdmin
+    ? (allCompanies ?? []).map((c) => ({
+        id: c.id,
+        display_name: c.display_name,
+        legal_name: c.legal_name,
+        slug: c.slug,
+      }))
+    : (memberships ?? []).map((m) => ({
+        id: m.company_id,
+        display_name: m.display_name,
+        legal_name: m.display_name,
+        slug: m.slug,
+      }));
 
   const visible = isPlatformAdmin || (memberships?.length ?? 0) >= 2;
   if (!visible) return null;
