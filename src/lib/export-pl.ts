@@ -134,7 +134,9 @@ function buildPLForExport(
   forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[], ticketLots: any[], ticketSales: any[], eventId: string,
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
-  relevantEventIds: string[] = [eventId]
+  relevantEventIds: string[] = [eventId],
+  typeFilter: PLTypeFilter = "both",
+  level: AccountLevel = 2
 ): PLLine[] {
   const lookup = buildCategoryLookup(categories);
 
