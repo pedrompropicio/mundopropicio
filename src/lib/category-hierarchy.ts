@@ -23,10 +23,20 @@ export interface CategoryLookup {
   name: string;
   code: string;
   parentId: string | null;
-  /** L2 parent (group) name — or own name if this IS L2 */
+  /** L2 parent (group) name — or own name if this IS L2 (legacy field, kept for back-compat) */
   groupName: string;
   groupCode: string;
+  /** L1 ancestor (root) — always present */
+  l1Name: string;
+  l1Code: string;
+  /** L2 ancestor — own values when cat IS L2, null when cat IS L1 */
+  l2Name: string | null;
+  l2Code: string | null;
+  /** Depth: 1, 2 or 3 */
+  depth: 1 | 2 | 3;
 }
+
+export type AccountLevel = 1 | 2 | 3;
 
 /**
  * Build a lookup map: categoryId → CategoryLookup
@@ -47,22 +57,31 @@ export function buildCategoryLookup(categories: CategoryNode[]): Record<string, 
     const grandParent = parentPid ? byId[parentPid] : null;
 
     if (grandParent) {
-      // This is L3 (leaf) → group = parent (L2)
+      // L3 leaf: group = parent (L2), L1 = grandparent
       lookup[cat.id] = {
         id: cat.id, name: cat.name, code: cat.code, parentId: pid,
         groupName: parent!.name, groupCode: parent!.code,
+        l1Name: grandParent.name, l1Code: grandParent.code,
+        l2Name: parent!.name, l2Code: parent!.code,
+        depth: 3,
       };
     } else if (parent) {
-      // This is L2 → group = itself
+      // L2: group = self, L1 = parent
       lookup[cat.id] = {
         id: cat.id, name: cat.name, code: cat.code, parentId: pid,
         groupName: cat.name, groupCode: cat.code,
+        l1Name: parent.name, l1Code: parent.code,
+        l2Name: cat.name, l2Code: cat.code,
+        depth: 2,
       };
     } else {
-      // This is L1 (root) → group = itself
+      // L1 root
       lookup[cat.id] = {
         id: cat.id, name: cat.name, code: cat.code, parentId: null,
         groupName: cat.name, groupCode: cat.code,
+        l1Name: cat.name, l1Code: cat.code,
+        l2Name: null, l2Code: null,
+        depth: 1,
       };
     }
   });
@@ -79,12 +98,16 @@ export interface AggregatedGroup {
 }
 
 /**
- * Aggregate items (transactions or forecasts) into groups by L2 category.
+ * Aggregate items (transactions or forecasts) into groups by chart-of-accounts level.
+ * - level=1: group by L1 (root). Details = L2 children (or self if cat is L1).
+ * - level=2 (default, legacy): group by L2. Details = L3 leaves (or self if cat is L2).
+ * - level=3: group by the leaf itself with a single self-detail (flat list).
  * Each item must have: category_id, amount, iva_rate
  */
 export function aggregateByHierarchy(
   items: any[],
-  lookup: Record<string, CategoryLookup>
+  lookup: Record<string, CategoryLookup>,
+  level: AccountLevel = 2
 ): AggregatedGroup[] {
   const groups: Record<string, {
     groupName: string;
@@ -94,10 +117,28 @@ export function aggregateByHierarchy(
 
   items.forEach((item) => {
     const catInfo = lookup[item.category_id];
-    const groupName = catInfo?.groupName ?? "Sem categoria";
-    const groupCode = catInfo?.groupCode ?? "Z";
-    const detailName = catInfo?.name ?? "Sem categoria";
-    const detailCode = catInfo?.code ?? "Z.Z";
+    let groupName: string;
+    let groupCode: string;
+    let detailName: string;
+    let detailCode: string;
+
+    if (!catInfo) {
+      groupName = "Sem categoria"; groupCode = "Z";
+      detailName = "Sem categoria"; detailCode = "Z.Z";
+    } else if (level === 1) {
+      groupName = catInfo.l1Name; groupCode = catInfo.l1Code;
+      // Detail = L2 (or own name if cat IS L1)
+      detailName = catInfo.l2Name ?? catInfo.name;
+      detailCode = catInfo.l2Code ?? catInfo.code;
+    } else if (level === 3) {
+      // Flat: each leaf is its own group with a single self-detail
+      groupName = catInfo.name; groupCode = catInfo.code;
+      detailName = catInfo.name; detailCode = catInfo.code;
+    } else {
+      // level 2 (legacy)
+      groupName = catInfo.groupName; groupCode = catInfo.groupCode;
+      detailName = catInfo.name; detailCode = catInfo.code;
+    }
 
     if (!groups[groupName]) {
       groups[groupName] = { groupName, groupCode, details: {} };

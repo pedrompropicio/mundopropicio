@@ -2,8 +2,8 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrency } from "@/lib/mock-data";
-import type { PLMode } from "@/components/ReportPL";
-import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup } from "@/lib/category-hierarchy";
+import type { PLMode, PLTypeFilter } from "@/components/ReportPL";
+import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup, type AccountLevel } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { applyPTNumberFormat } from "@/lib/excel-format";
@@ -134,7 +134,9 @@ function buildPLForExport(
   forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[], ticketLots: any[], ticketSales: any[], eventId: string,
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
-  relevantEventIds: string[] = [eventId]
+  relevantEventIds: string[] = [eventId],
+  typeFilter: PLTypeFilter = "both",
+  level: AccountLevel = 2
 ): PLLine[] {
   const lookup = buildCategoryLookup(categories);
 
@@ -241,10 +243,10 @@ function buildPLForExport(
   const tInc = transactions.filter((t) => t.type === "income");
   const tExp = transactions.filter((t) => t.type === "expense");
 
-  const fIncGroups = aggregateByHierarchy(fInc, lookup);
-  const fExpGroups = aggregateByHierarchy(fExp, lookup);
-  const tIncGroups = aggregateByHierarchy(tInc, lookup);
-  const tExpGroups = aggregateByHierarchy(tExp, lookup);
+  const fIncGroups = aggregateByHierarchy(fInc, lookup, level);
+  const fExpGroups = aggregateByHierarchy(fExp, lookup, level);
+  const tIncGroups = aggregateByHierarchy(tInc, lookup, level);
+  const tExpGroups = aggregateByHierarchy(tExp, lookup, level);
 
   const eventCacheConfigs = cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id));
   const cachePLLines = calculateCacheLinesForPL(

@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { exportPLToPDF, exportPLToExcel } from "@/lib/export-pl";
-import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup } from "@/lib/category-hierarchy";
+import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup, type AccountLevel } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { ReportScenarioSelector } from "@/components/reports/ReportScenarioSelector";
@@ -27,6 +27,7 @@ import { useScenarioForecasts } from "@/hooks/useScenarioForecasts";
 import { buildAbsorptionMap } from "@/lib/admin-cost-allocation";
 
 export type PLMode = "forecast" | "comparison";
+export type PLTypeFilter = "income" | "expense" | "both";
 
 interface PLLine {
   label: string;
@@ -97,7 +98,9 @@ function buildPL(
   ticketZones: any[], ticketLots: any[], ticketSales: any[], eventId: string,
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
   relevantEventIds: string[] = [eventId],
-  cacheExtras: any[] = []
+  cacheExtras: any[] = [],
+  typeFilter: PLTypeFilter = "both",
+  level: AccountLevel = 2
 ): PLLine[] {
   const lookup = buildCategoryLookup(categories);
 
@@ -183,10 +186,10 @@ function buildPL(
   const tInc = transactions.filter((t) => t.type === "income" && !t.is_transitory && !t.exclude_from_result);
   const tExp = transactions.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result);
 
-  const fIncGroups = aggregateByHierarchy(fInc, lookup);
-  const fExpGroups = aggregateByHierarchy(fExp, lookup);
-  const tIncGroups = aggregateByHierarchy(tInc, lookup);
-  const tExpGroups = aggregateByHierarchy(tExp, lookup);
+  const fIncGroups = aggregateByHierarchy(fInc, lookup, level);
+  const fExpGroups = aggregateByHierarchy(fExp, lookup, level);
+  const tIncGroups = aggregateByHierarchy(tInc, lookup, level);
+  const tExpGroups = aggregateByHierarchy(tExp, lookup, level);
 
   // Calculate cachê lines and inject into expense hierarchy under "Artístico" > "Cachês" (2.1.01)
   const eventCacheConfigs = cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id));
@@ -199,30 +202,41 @@ function buildPL(
   );
   const totalCacheAmount = cacheLines.reduce((s, c) => s + c.amount, 0);
 
-  if (totalCacheAmount > 0) {
-    const artisticoGroup = fExpGroups.find((g) => g.groupCode === "2.1" || g.groupName === "Artístico");
-    if (artisticoGroup) {
-      const cachesDetail = artisticoGroup.details.find((d) => d.code === "2.1.01" || d.name === "Cachês");
-      if (cachesDetail) {
-        cachesDetail.base += totalCacheAmount;
-      } else {
-        artisticoGroup.details.push({ name: "Cachês", code: "2.1.01", base: totalCacheAmount, iva: 0 });
-      }
-      artisticoGroup.totalBase += totalCacheAmount;
-    } else {
-      fExpGroups.push({
-        groupName: "Artístico",
-        groupCode: "2.1",
-        totalBase: totalCacheAmount,
-        totalIva: 0,
-        details: [{ name: "Cachês", code: "2.1.01", base: totalCacheAmount, iva: 0 }],
-      });
+  // Helper: resolve target group key/name for a leaf category code at the active level
+  function resolveTargetGroup(leafCode: string, leafName: string, fallbackGroupCode: string, fallbackGroupName: string) {
+    const leafCat = categories.find((c: any) => c.code === leafCode);
+    const info = leafCat ? lookup[leafCat.id] : undefined;
+    if (!info) {
+      return { groupCode: fallbackGroupCode, groupName: fallbackGroupName, detailCode: leafCode, detailName: leafName };
     }
+    if (level === 1) {
+      return {
+        groupCode: info.l1Code, groupName: info.l1Name,
+        detailCode: info.l2Code ?? info.code, detailName: info.l2Name ?? info.name,
+      };
+    }
+    if (level === 3) {
+      return { groupCode: info.code, groupName: info.name, detailCode: info.code, detailName: info.name };
+    }
+    return { groupCode: info.groupCode, groupName: info.groupName, detailCode: info.code, detailName: info.name };
   }
 
-  // Build individual cache artist lines for analytical display
+  if (totalCacheAmount > 0) {
+    const t = resolveTargetGroup("2.1.01", "Cachês", "2.1", "Artístico");
+    let targetGroup = fExpGroups.find((g) => g.groupCode === t.groupCode || g.groupName === t.groupName);
+    if (!targetGroup) {
+      targetGroup = { groupName: t.groupName, groupCode: t.groupCode, totalBase: 0, totalIva: 0, details: [] };
+      fExpGroups.push(targetGroup);
+    }
+    const det = targetGroup.details.find((d) => d.code === t.detailCode || d.name === t.detailName);
+    if (det) det.base += totalCacheAmount;
+    else targetGroup.details.push({ name: t.detailName, code: t.detailCode, base: totalCacheAmount, iva: 0 });
+    targetGroup.totalBase += totalCacheAmount;
+  }
+
+  // Build individual cache artist lines for analytical display (only at level 3)
   const cacheArtistLines: PLLine[] = [];
-  if (cacheLines.length > 0) {
+  if (level === 3 && cacheLines.length > 0) {
     cacheLines.forEach((cl) => {
       cacheArtistLines.push(plLine({
         label: `${cl.artistName} (${cl.cacheType === "fixed" ? "Fixo" : "Variável"})`,
@@ -254,24 +268,23 @@ function buildPL(
     });
   }
 
-  // Add ticket lot net revenue to forecast Bilheteira
+  // Add ticket lot net revenue to forecast Bilheteira (level-aware)
   if (ticketForecastNet > 0) {
-    const bilhGroup = fIncGroups.find(g => g.details.some(d => d.name.toLowerCase().includes("bilhete")));
-    if (bilhGroup) {
-      const bilhDetail = bilhGroup.details.find(d => d.name.toLowerCase().includes("bilhete"));
-      if (bilhDetail) {
-        bilhDetail.base += ticketForecastNet;
-        bilhDetail.iva += ticketForecastIva;
-      }
-      bilhGroup.totalBase += ticketForecastNet;
-      bilhGroup.totalIva += ticketForecastIva;
-    } else {
-      fIncGroups.push({
-        groupName: "Bilheteira", groupCode: "0.0",
-        totalBase: ticketForecastNet, totalIva: ticketForecastIva,
-        details: [{ name: "Bilheteira", code: "0.0.01", base: ticketForecastNet, iva: ticketForecastIva }],
-      });
+    const t = resolveTargetGroup("0.0.01", "Bilheteira", "0.0", "Bilheteira");
+    let targetGroup = fIncGroups.find((g) => g.groupCode === t.groupCode || g.groupName === t.groupName);
+    if (!targetGroup) {
+      targetGroup = { groupName: t.groupName, groupCode: t.groupCode, totalBase: 0, totalIva: 0, details: [] };
+      fIncGroups.push(targetGroup);
     }
+    const det = targetGroup.details.find((d) => d.code === t.detailCode || d.name === t.detailName);
+    if (det) {
+      det.base += ticketForecastNet;
+      det.iva += ticketForecastIva;
+    } else {
+      targetGroup.details.push({ name: t.detailName, code: t.detailCode, base: ticketForecastNet, iva: ticketForecastIva });
+    }
+    targetGroup.totalBase += ticketForecastNet;
+    targetGroup.totalIva += ticketForecastIva;
   }
 
   const mergedInc = mergeGroups(fIncGroups, tIncGroups);
@@ -299,100 +312,106 @@ function buildPL(
     return enriched;
   };
 
-  lines.push(plLine({
-    label: "RECEITAS", forecast: totalFIncBase, actual: totalTIncBase, variance: totalTIncBase - totalFIncBase, isTotal: true,
-    forecastIva: totalFIncIva, forecastTotal: totalFIncBase + totalFIncIva,
-    actualIva: totalTIncIva, actualTotal: totalTIncBase + totalTIncIva,
-  }));
-  mergedInc.forEach((group) => {
-    const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
-    if (hasManyDetails) {
-      lines.push(plLine({
-        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, isGroupHeader: true,
-        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
-        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
-      }));
-      group.details.forEach((d) => {
+  const showIncome = typeFilter === "income" || typeFilter === "both";
+  const showExpense = typeFilter === "expense" || typeFilter === "both";
+
+  if (showIncome) {
+    lines.push(plLine({
+      label: "RECEITAS", forecast: totalFIncBase, actual: totalTIncBase, variance: totalTIncBase - totalFIncBase, isTotal: true,
+      forecastIva: totalFIncIva, forecastTotal: totalFIncBase + totalFIncIva,
+      actualIva: totalTIncIva, actualTotal: totalTIncBase + totalTIncIva,
+    }));
+    mergedInc.forEach((group) => {
+      const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
+      if (hasManyDetails) {
+        lines.push(plLine({
+          label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, isGroupHeader: true,
+          forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+          actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
+        }));
+        group.details.forEach((d) => {
+          lines.push(enrichWithOverride(plLine({
+            label: d.name, categoryCode: d.code, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
+            forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
+            actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
+          }), d.name));
+          if (level === 3 && d.name.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
+            ticketLines.forEach((tl) => lines.push(tl));
+            ticketLinesInserted = true;
+          }
+        });
+      } else {
         lines.push(enrichWithOverride(plLine({
-          label: d.name, categoryCode: d.code, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
-          forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
-          actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
-        }), d.name));
-        if (d.name.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
+          label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
+          forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+          actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
+        }), group.groupName));
+        if (level === 3 && group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
           ticketLines.forEach((tl) => lines.push(tl));
           ticketLinesInserted = true;
         }
-      });
-    } else {
-      lines.push(enrichWithOverride(plLine({
-        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
-        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
-        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
-      }), group.groupName));
-      if (group.groupName.toLowerCase().includes("bilhete") && ticketLines.length > 0) {
-        ticketLines.forEach((tl) => lines.push(tl));
-        ticketLinesInserted = true;
       }
+    });
+    // Fallback: if ticket lines weren't inserted via category matching, add them after income groups (level 3 only)
+    if (level === 3 && !ticketLinesInserted && ticketLines.length > 0) {
+      ticketLines.forEach((tl) => lines.push(tl));
     }
-  });
-  // Fallback: if ticket lines weren't inserted via category matching, add them after income groups
-  if (!ticketLinesInserted && ticketLines.length > 0) {
-    ticketLines.forEach((tl) => lines.push(tl));
   }
 
-  lines.push(plLine({
-    label: "DESPESAS", forecast: totalFExpBase, actual: totalTExpBase, variance: totalTExpBase - totalFExpBase, isTotal: true,
-    forecastIva: totalFExpIva, forecastTotal: totalFExpBase + totalFExpIva,
-    actualIva: totalTExpIva, actualTotal: totalTExpBase + totalTExpIva,
-  }));
-  let cacheArtistLinesInserted = false;
-  mergedExp.forEach((group) => {
-    const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
-    if (hasManyDetails) {
-      lines.push(plLine({
-        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, isGroupHeader: true,
-        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
-        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
-      }));
-      group.details.forEach((d) => {
+  if (showExpense) {
+    lines.push(plLine({
+      label: "DESPESAS", forecast: totalFExpBase, actual: totalTExpBase, variance: totalTExpBase - totalFExpBase, isTotal: true,
+      forecastIva: totalFExpIva, forecastTotal: totalFExpBase + totalFExpIva,
+      actualIva: totalTExpIva, actualTotal: totalTExpBase + totalTExpIva,
+    }));
+    let cacheArtistLinesInserted = false;
+    mergedExp.forEach((group) => {
+      const hasManyDetails = group.details.length > 1 || (group.details.length === 1 && group.details[0].name !== group.groupName);
+      if (hasManyDetails) {
+        lines.push(plLine({
+          label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, isGroupHeader: true,
+          forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+          actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
+        }));
+        group.details.forEach((d) => {
+          lines.push(enrichWithOverride(plLine({
+            label: d.name, categoryCode: d.code, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
+            forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
+            actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
+          }), d.name));
+          if (level === 3 && (d.name === "Cachês" || d.name.toLowerCase().includes("cachê")) && cacheArtistLines.length > 0) {
+            cacheArtistLines.forEach((cl) => lines.push(cl));
+            cacheArtistLinesInserted = true;
+          }
+        });
+      } else {
         lines.push(enrichWithOverride(plLine({
-          label: d.name, categoryCode: d.code, forecast: d.fBase, actual: d.tBase, variance: d.tBase - d.fBase, indent: true,
-          forecastIva: d.fIva, forecastTotal: d.fBase + d.fIva,
-          actualIva: d.tIva, actualTotal: d.tBase + d.tIva,
-        }), d.name));
-        // Insert individual artist cache lines after "Cachês"
-        if ((d.name === "Cachês" || d.name.toLowerCase().includes("cachê")) && cacheArtistLines.length > 0) {
+          label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
+          forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
+          actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
+        }), group.groupName));
+        if (level === 3 && (group.groupCode === "2.1" || group.groupName === "Artístico") && cacheArtistLines.length > 0 && !cacheArtistLinesInserted) {
           cacheArtistLines.forEach((cl) => lines.push(cl));
           cacheArtistLinesInserted = true;
         }
-      });
-    } else {
-      lines.push(enrichWithOverride(plLine({
-        label: group.groupName, forecast: group.fBase, actual: group.tBase, variance: group.tBase - group.fBase, indent: true,
-        forecastIva: group.fIva, forecastTotal: group.fBase + group.fIva,
-        actualIva: group.tIva, actualTotal: group.tBase + group.tIva,
-      }), group.groupName));
-      // Check if this single-detail group is Cachês
-      if ((group.groupCode === "2.1" || group.groupName === "Artístico") && cacheArtistLines.length > 0 && !cacheArtistLinesInserted) {
-        cacheArtistLines.forEach((cl) => lines.push(cl));
-        cacheArtistLinesInserted = true;
       }
+    });
+    if (level === 3 && !cacheArtistLinesInserted && cacheArtistLines.length > 0) {
+      cacheArtistLines.forEach((cl) => lines.push(cl));
     }
-  });
-  // Fallback: if cache artist lines weren't inserted, add after expenses
-  if (!cacheArtistLinesInserted && cacheArtistLines.length > 0) {
-    cacheArtistLines.forEach((cl) => lines.push(cl));
   }
 
-  const fResultBase = totalFIncBase - totalFExpBase;
-  const fResultIva = totalFIncIva - totalFExpIva;
-  const tResultBase = totalTIncBase - totalTExpBase;
-  const tResultIva = totalTIncIva - totalTExpIva;
-  lines.push(plLine({
-    label: "RESULTADO LÍQUIDO", forecast: fResultBase, actual: tResultBase, variance: tResultBase - fResultBase, isGrandTotal: true,
-    forecastIva: fResultIva, forecastTotal: fResultBase + fResultIva,
-    actualIva: tResultIva, actualTotal: tResultBase + tResultIva,
-  }));
+  if (typeFilter === "both") {
+    const fResultBase = totalFIncBase - totalFExpBase;
+    const fResultIva = totalFIncIva - totalFExpIva;
+    const tResultBase = totalTIncBase - totalTExpBase;
+    const tResultIva = totalTIncIva - totalTExpIva;
+    lines.push(plLine({
+      label: "RESULTADO LÍQUIDO", forecast: fResultBase, actual: tResultBase, variance: tResultBase - fResultBase, isGrandTotal: true,
+      forecastIva: fResultIva, forecastTotal: fResultBase + fResultIva,
+      actualIva: tResultIva, actualTotal: tResultBase + tResultIva,
+    }));
+  }
 
   return lines;
 }
@@ -402,6 +421,8 @@ export default function ReportPL() {
   const [expandedAuditLines, setExpandedAuditLines] = useState<Set<string>>(new Set());
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [mode, setMode] = useState<PLMode>("forecast");
+  const [typeFilter, setTypeFilter] = useState<PLTypeFilter>("both");
+  const [accountLevel, setAccountLevel] = useState<AccountLevel>(2);
   const [showPdfDialog, setShowPdfDialog] = useState(false);
   const [scenarioVersionId, setScenarioVersionId] = useState<string | null>(null);
 
@@ -703,17 +724,39 @@ export default function ReportPL() {
       />
       {/* Mode selector + Event selector */}
       <div className="glass rounded-xl p-4 space-y-4">
-        <div className="flex items-center gap-4">
-          <label className="text-sm font-medium whitespace-nowrap">Tipo de Relatório</label>
-          <Select value={mode} onValueChange={(v) => setMode(v as PLMode)}>
-            <SelectTrigger className="w-[260px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="forecast">Apenas Previsão</SelectItem>
-              <SelectItem value="comparison">Previsão vs Realizado</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Tipo de Relatório</label>
+            <Select value={mode} onValueChange={(v) => setMode(v as PLMode)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="forecast">Apenas Previsão</SelectItem>
+                <SelectItem value="comparison">Previsão vs Realizado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Mostrar</label>
+            <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as PLTypeFilter)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="both">Ambos (Receitas + Despesas)</SelectItem>
+                <SelectItem value="income">Apenas Receitas</SelectItem>
+                <SelectItem value="expense">Apenas Despesas</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Nível de detalhe</label>
+            <Select value={String(accountLevel)} onValueChange={(v) => setAccountLevel(Number(v) as AccountLevel)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Nível 1 — Macro</SelectItem>
+                <SelectItem value="2">Nível 2 — Grupo (default)</SelectItem>
+                <SelectItem value="3">Nível 3 — Detalhe completo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="border-t border-border/30 pt-3 space-y-3">
           <div className="flex items-center justify-between">
@@ -758,7 +801,7 @@ export default function ReportPL() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => exportPLToExcel(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions)}
+          onClick={() => exportPLToExcel(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, undefined, typeFilter, accountLevel)}
           disabled={activeEvents.length === 0}
         >
           <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
@@ -835,7 +878,7 @@ export default function ReportPL() {
           const { evtF, evtT } = getEffectiveData(evt.id);
           const evtTicketEventIds = getTicketEventIds(evt.id);
           const evtTicketZones = ticketZones.filter((z: any) => evtTicketEventIds.includes(z.event_id));
-          const pl = isOpen ? buildPL(evtF, evtT, categories, evtTicketZones, ticketLots, ticketSales, evt.id, allCacheConfigs, allCacheDeductions, evtTicketEventIds, allCacheExtras) : [];
+          const pl = isOpen ? buildPL(evtF, evtT, categories, evtTicketZones, ticketLots, ticketSales, evt.id, allCacheConfigs, allCacheDeductions, evtTicketEventIds, allCacheExtras, typeFilter, accountLevel) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">
