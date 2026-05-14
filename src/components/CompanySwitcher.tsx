@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   useCompany,
-  useCompaniesList,
+  useUserMemberships,
   useSetActiveCompany,
 } from "@/hooks/useCompany";
 
