@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { exportPLToPDF, exportPLToExcel } from "@/lib/export-pl";
+import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
 import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup, type AccountLevel } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
 import { compareHierarchicalCodes } from "@/lib/utils";
