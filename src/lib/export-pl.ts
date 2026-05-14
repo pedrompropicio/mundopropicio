@@ -463,9 +463,12 @@ export function exportPLToExcel(
   eventsToExport: any[], allEvents: any[], forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[] = [], ticketLots: any[] = [], ticketSales: any[] = [], mode: PLMode = "comparison",
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
-  _auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2
+  _auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2,
+  companyDisplayName: string = "MP Gestão Eventos"
 ) {
-  void typeFilter; void accountLevel;
+  void companyDisplayName;
+  const showIncome = typeFilter === "income" || typeFilter === "both";
+  const showExpense = typeFilter === "expense" || typeFilter === "both";
   const wb = XLSX.utils.book_new();
   const isComparison = mode === "comparison";
   const hierarchy = buildEventHierarchyMaps(allEvents);
