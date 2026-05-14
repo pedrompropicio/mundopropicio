@@ -36,14 +36,14 @@
     --warning: 30 85% 42%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 210 15% 88%;
-    --input: 210 15% 88%;
+    --border: 210 16% 78%; /* a11y: contrast bump WCAG AA — 14/05/2026 */
+    --input: 210 16% 78%; /* a11y: contrast bump WCAG AA — 14/05/2026 */
     --ring: 210 70% 42%;
 
     --radius: 0.75rem;
 
     --sidebar-background: 210 18% 96%;
-    --sidebar-foreground: 215 15% 35%;
+    --sidebar-foreground: 215 18% 22%; /* a11y: contrast bump WCAG AA — 14/05/2026 */
     --sidebar-primary: 210 70% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 210 15% 90%;
