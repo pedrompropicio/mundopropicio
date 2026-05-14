@@ -202,30 +202,41 @@ function buildPL(
   );
   const totalCacheAmount = cacheLines.reduce((s, c) => s + c.amount, 0);
 
-  if (totalCacheAmount > 0) {
-    const artisticoGroup = fExpGroups.find((g) => g.groupCode === "2.1" || g.groupName === "Artístico");
-    if (artisticoGroup) {
-      const cachesDetail = artisticoGroup.details.find((d) => d.code === "2.1.01" || d.name === "Cachês");
-      if (cachesDetail) {
-        cachesDetail.base += totalCacheAmount;
-      } else {
-        artisticoGroup.details.push({ name: "Cachês", code: "2.1.01", base: totalCacheAmount, iva: 0 });
-      }
-      artisticoGroup.totalBase += totalCacheAmount;
-    } else {
-      fExpGroups.push({
-        groupName: "Artístico",
-        groupCode: "2.1",
-        totalBase: totalCacheAmount,
-        totalIva: 0,
-        details: [{ name: "Cachês", code: "2.1.01", base: totalCacheAmount, iva: 0 }],
-      });
+  // Helper: resolve target group key/name for a leaf category code at the active level
+  function resolveTargetGroup(leafCode: string, leafName: string, fallbackGroupCode: string, fallbackGroupName: string) {
+    const leafCat = categories.find((c: any) => c.code === leafCode);
+    const info = leafCat ? lookup[leafCat.id] : undefined;
+    if (!info) {
+      return { groupCode: fallbackGroupCode, groupName: fallbackGroupName, detailCode: leafCode, detailName: leafName };
     }
+    if (level === 1) {
+      return {
+        groupCode: info.l1Code, groupName: info.l1Name,
+        detailCode: info.l2Code ?? info.code, detailName: info.l2Name ?? info.name,
+      };
+    }
+    if (level === 3) {
+      return { groupCode: info.code, groupName: info.name, detailCode: info.code, detailName: info.name };
+    }
+    return { groupCode: info.groupCode, groupName: info.groupName, detailCode: info.code, detailName: info.name };
   }
 
-  // Build individual cache artist lines for analytical display
+  if (totalCacheAmount > 0) {
+    const t = resolveTargetGroup("2.1.01", "Cachês", "2.1", "Artístico");
+    let targetGroup = fExpGroups.find((g) => g.groupCode === t.groupCode || g.groupName === t.groupName);
+    if (!targetGroup) {
+      targetGroup = { groupName: t.groupName, groupCode: t.groupCode, totalBase: 0, totalIva: 0, details: [] };
+      fExpGroups.push(targetGroup);
+    }
+    const det = targetGroup.details.find((d) => d.code === t.detailCode || d.name === t.detailName);
+    if (det) det.base += totalCacheAmount;
+    else targetGroup.details.push({ name: t.detailName, code: t.detailCode, base: totalCacheAmount, iva: 0 });
+    targetGroup.totalBase += totalCacheAmount;
+  }
+
+  // Build individual cache artist lines for analytical display (only at level 3)
   const cacheArtistLines: PLLine[] = [];
-  if (cacheLines.length > 0) {
+  if (level === 3 && cacheLines.length > 0) {
     cacheLines.forEach((cl) => {
       cacheArtistLines.push(plLine({
         label: `${cl.artistName} (${cl.cacheType === "fixed" ? "Fixo" : "Variável"})`,
@@ -257,24 +268,23 @@ function buildPL(
     });
   }
 
-  // Add ticket lot net revenue to forecast Bilheteira
+  // Add ticket lot net revenue to forecast Bilheteira (level-aware)
   if (ticketForecastNet > 0) {
-    const bilhGroup = fIncGroups.find(g => g.details.some(d => d.name.toLowerCase().includes("bilhete")));
-    if (bilhGroup) {
-      const bilhDetail = bilhGroup.details.find(d => d.name.toLowerCase().includes("bilhete"));
-      if (bilhDetail) {
-        bilhDetail.base += ticketForecastNet;
-        bilhDetail.iva += ticketForecastIva;
-      }
-      bilhGroup.totalBase += ticketForecastNet;
-      bilhGroup.totalIva += ticketForecastIva;
-    } else {
-      fIncGroups.push({
-        groupName: "Bilheteira", groupCode: "0.0",
-        totalBase: ticketForecastNet, totalIva: ticketForecastIva,
-        details: [{ name: "Bilheteira", code: "0.0.01", base: ticketForecastNet, iva: ticketForecastIva }],
-      });
+    const t = resolveTargetGroup("0.0.01", "Bilheteira", "0.0", "Bilheteira");
+    let targetGroup = fIncGroups.find((g) => g.groupCode === t.groupCode || g.groupName === t.groupName);
+    if (!targetGroup) {
+      targetGroup = { groupName: t.groupName, groupCode: t.groupCode, totalBase: 0, totalIva: 0, details: [] };
+      fIncGroups.push(targetGroup);
     }
+    const det = targetGroup.details.find((d) => d.code === t.detailCode || d.name === t.detailName);
+    if (det) {
+      det.base += ticketForecastNet;
+      det.iva += ticketForecastIva;
+    } else {
+      targetGroup.details.push({ name: t.detailName, code: t.detailCode, base: ticketForecastNet, iva: ticketForecastIva });
+    }
+    targetGroup.totalBase += ticketForecastNet;
+    targetGroup.totalIva += ticketForecastIva;
   }
 
   const mergedInc = mergeGroups(fIncGroups, tIncGroups);
