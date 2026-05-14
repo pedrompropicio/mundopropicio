@@ -264,13 +264,27 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
       expectNavigation: false,
       postWaitMs: 1500,
     },
+    /**
+     * G.3: IMPORTANTE — AddToCart Pixel event dispara no clique COMPRAR
+     * (step 3 select_quantity), NÃO neste step. Confirmado via run
+     * #abf6c4df detected_pixel_events com step="select_quantity".
+     *
+     * Aqui o user clica "Continuar" para navegar para /carrinho?confirm.
+     * Descoberta crítica do DOM: o modal venue tem botão "Continuar"
+     * interno (#venueMapModalWindowContinueButton) que APENAS FECHA O
+     * MODAL (href="#" — não navega). O REAL link de navegação é
+     * <a id="addToCart" href="/carrinho?confirm"> fora do modal, na
+     * sidebar/footer. Sem o link real, navegação falha silenciosamente
+     * (waitForNavigation timeout) e o step marcava como passed antes
+     * do Patch I.
+     */
     {
       id: 'add_to_cart',
       label: 'Adicionar ao carrinho',
-      // G.2: <a id="venueMapModalWindowContinueButton"
-      // class="button confirm continue">Continuar</a> — leva a /carrinho?confirm.
       selectors: [
-        '#venueMapModalWindowContinueButton',
+        '#addToCart',                          // LINK de navegação real (href=/carrinho?confirm)
+        'a[href*="/carrinho?confirm"]',        // fallback por href
+        '#venueMapModalWindowContinueButton',  // modal close (NÃO navega) — último recurso
         'a.button.confirm.continue',
         'a:has-text("Continuar")',
       ],
@@ -410,6 +424,9 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
           // G.1: validateOnly = só verifica existência, sem click nem nav.
           await new Promise(r => setTimeout(r, cfg.postWaitMs || 600));
         } else if (cfg.expectNavigation) {
+          // Patch I: snapshot URL antes do click para validar navegação real
+          // (não fiar-se em waitForNavigation timeout silencioso).
+          const urlBeforeClick = page.url();
           const navP = page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 7000 }).catch(() => null);
           await handle.click().catch(() => null);
           await navP;
@@ -422,6 +439,15 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
             }
           }
           await new Promise(r => setTimeout(r, cfg.postWaitMs || 1500));
+          // Patch I: validação defensiva pós-postWait — se expectNavigation:true
+          // mas URL não mudou, marcar como failed. Previne false positive de
+          // clicks em botões "close modal" sem href real (visto na run #abf6c4df
+          // step add_to_cart com #venueMapModalWindowContinueButton).
+          const urlAfterClick = page.url();
+          if (urlBeforeClick === urlAfterClick) {
+            status = 'failed';
+            note = `expectNavigation:true mas URL não mudou (${urlBeforeClick}). Click ocorreu mas não navegou — selector pode ser modal-close em vez de link de navegação.`;
+          }
         } else {
           await handle.click().catch(() => null);
           if (cfg.dismissAfterClick && cfg.dismissAfterClick.length) {
