@@ -597,7 +597,8 @@ export function exportPLToExcel(
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
 
-  XLSX.writeFile(wb, `BP_Relatorio_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  const filterSuffix = typeFilter === "both" ? "" : typeFilter === "income" ? "_Receitas" : "_Despesas";
+  XLSX.writeFile(wb, `BP_Relatorio_N${accountLevel}${filterSuffix}_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 export function exportPLToPDF(
