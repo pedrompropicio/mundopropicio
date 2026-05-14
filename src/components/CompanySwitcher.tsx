@@ -22,6 +22,7 @@ import {
   useCompany,
   useUserMemberships,
   useSetActiveCompany,
+  useCompaniesList,
 } from "@/hooks/useCompany";
 
 /**
