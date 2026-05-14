@@ -603,9 +603,10 @@ export function exportPLToPDF(
   eventsToExport: any[], allEvents: any[], forecasts: any[], transactions: any[], categories: any[],
   ticketZones: any[] = [], ticketLots: any[] = [], ticketSales: any[] = [], mode: PLMode = "comparison",
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
-  auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2
+  auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2,
+  companyLogoDataUrl: string | null = null,
+  companyDisplayName: string = "MP Gestão Eventos"
 ) {
-  void typeFilter; void accountLevel;
   const doc = new jsPDF({ orientation: "landscape" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
