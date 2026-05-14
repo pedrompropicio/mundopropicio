@@ -3,21 +3,13 @@
 // Lighthouse é obtido depois via /performance endpoint para URLs-chave.
 
 import { browserlessPuppeteerScript } from "./_puppeteer_script.ts";
+import type { FlowPreset } from "./presets/index.ts";
 
-// G.1: step IDs renomeados para refletir o flow real Ticketline.
-// Mapeamento legado→novo (para retrocompat com runs históricas em BD):
-//   click_event     → select_zone
-//   select_ticket   → select_quantity
-//   open_cart       → open_cart_page
-//   begin_checkout  → initiate_checkout
-// (navigate_home e add_to_cart mantêm-se).
-export type StepName =
-  | "navigate_home"
-  | "select_zone"
-  | "select_quantity"
-  | "add_to_cart"
-  | "open_cart_page"
-  | "initiate_checkout";
+// Pós-Fase-1 multi-bilheteira (2026-05-14): step IDs deixam de ser uma union
+// fechada (eram Ticketline-only em G.1). Agora são `string` genérico — variam
+// por preset. _stub_fixtures.ts mantém o union antigo para tipar STUB_FIXTURES
+// (stub é degradado a Ticketline-only por enquanto).
+export type StepName = string;
 
 export interface PixelEvent {
   event: string;
@@ -64,17 +56,9 @@ export interface SessionResult {
   steps: SessionStepResult[];
 }
 
-const STEP_SEQUENCE: StepName[] = [
-  "navigate_home",
-  "select_zone",
-  "select_quantity",
-  "add_to_cart",
-  "open_cart_page",
-  "initiate_checkout",
-];
-
 // Puppeteer script enviado para Browserless /function.
-// É serializado como string — não tem closures sobre Deno.
+// É serializado como string — não tem closures sobre Deno. O flow é injectado
+// via Browserless `context.flow` em runtime (built do preset por bilheteira).
 const PUPPETEER_SCRIPT = `export default ${browserlessPuppeteerScript.toString()}`;
 
 const DEFAULT_BROWSERLESS_BASES = [
@@ -166,11 +150,19 @@ async function postBrowserlessFunction(
 
 export async function runBrowserlessSession(
   targetUrl: string,
+  preset: FlowPreset,
   apiKey: string,
 ): Promise<SessionResult> {
   const normalized = normalizeBrowserlessApiKey(apiKey);
-  console.log(`[funnel-test] runBrowserlessSession start raw_key_len=${apiKey.trim().length} key_len=${normalized.length} normalized=${normalized !== apiKey.trim()} bases=${browserlessBases().join(",")} target=${targetUrl}`);
-  const result = await postBrowserlessFunction(PUPPETEER_SCRIPT, { targetUrl }, normalized);
+  console.log(`[funnel-test] runBrowserlessSession start raw_key_len=${apiKey.trim().length} key_len=${normalized.length} normalized=${normalized !== apiKey.trim()} bases=${browserlessBases().join(",")} target=${targetUrl} preset=${preset.id}@${preset.version}`);
+  // Fase 1 multi-bilheteira: o flow é injectado no context Browserless,
+  // não hardcoded no script. Permite suporte multi-provider sem editar o
+  // puppeteer script — basta adicionar preset em presets/<bilheteira>.ts.
+  const result = await postBrowserlessFunction(
+    PUPPETEER_SCRIPT,
+    { targetUrl, flow: preset.steps },
+    normalized,
+  );
   const text = result.text;
   if (!result.ok) {
     throw new Error(`Browserless /function ${result.status} (${result.base}): ${text.slice(0, 300)}`);
@@ -245,4 +237,5 @@ export async function fetchLighthouse(
   }
 }
 
-export { STEP_SEQUENCE };
+// Pós-Fase-1: STEP_SEQUENCE deixou de existir aqui (era Ticketline-only).
+// O step order agora deriva do `FlowPreset.steps` activo (ver `./presets/`).

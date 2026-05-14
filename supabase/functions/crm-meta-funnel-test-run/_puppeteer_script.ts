@@ -209,205 +209,27 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
     }
   };
 
-  // ---- G.1: TICKETLINE_FLOW (array, schema declarativo) ----
-  // Substitui o objeto TICKETLINE_STEPS por um array ordenado. Cada item:
-  //   { id, label, selectors[], expectNavigation, postWaitMs,
-  //     validateOnly?, dismissAfterClick?, isNavigate? }
-  // Migração futura para preset-by-domain (Opção 2) torna-se trivial: bastará
-  // exportar TICKETLINE_FLOW / GENERIC_FLOW como entradas de um Record<domain,Flow[]>.
+  // ---- Fase 1 multi-bilheteira (2026-05-14) ----
+  // O flow já não é hardcoded aqui — é injectado via Browserless `context.flow`
+  // (built pelo edge function a partir do preset que matcha o hostname do URL).
+  // O puppeteer script é agora preset-agnostic: itera `FLOW` cego, sem assumir
+  // bilheteira específica. Para adicionar novo provider, criar
+  // `presets/<bilheteira>.ts` + registar em `presets/index.ts` — zero edit aqui.
   //
-  // Fluxo Ticketline real (descoberto via diagnóstico screenshots manuais 2026-05-13):
-  //   1. navigate_home     navegar URL sessão                                 → PageView
-  //   2. select_zone       clicar linha da tabela de zonas ("Arena - Lote 2")  → modal abre → ViewContent
-  //   3. select_quantity   clicar COMPRAR no modal de quantidade              → modal fecha, tab "Lugares Escolhidos"
-  //   4. add_to_cart       clicar CONTINUAR                                   → navega /carrinho?confirm → AddToCart
-  //   5. open_cart_page    validateOnly: verifica FINALIZAR COMPRA visível    → sem click, sem navegação
-  //   6. initiate_checkout clicar FINALIZAR COMPRA + dismiss upsell Premium   → navega checkout real → InitiateCheckout
-  //
-  // TODO G.2: selectores actuais são Phase 1 best-guess (sem DOM real). Refinar
-  // após primeira run pós-G.1 (esperado: step `select_zone` falha e o
-  // failure_context grava o DOM da página de sessão → input directo para G.2).
-  const isTicketline = (() => {
-    try { return /(?:^|\.)ticketline\.pt$/i.test(new URL(targetUrl).hostname); }
-    catch (_) { return false; }
-  })();
-
-  const TICKETLINE_FLOW = [
-    {
-      id: 'navigate_home',
-      label: 'Navegar para sessão',
-      isNavigate: true,
-    },
-    {
-      id: 'select_zone',
-      label: 'Selecionar zona',
-      // G.2: lista de zonas usa <li id="listZone_<id>" data-zone-id="<id>">
-      // com <p class="zone"> contendo o nome (Arena - Lote 2 etc.).
-      selectors: [
-        'li[id^="listZone_"]',
-        'li[data-zone-id]',
-        'li:has-text("Arena")',
-      ],
-      expectNavigation: false,
-      postWaitMs: 1500,
-    },
-    {
-      id: 'select_quantity',
-      label: 'Selecionar quantidade',
-      // G.2: modal venue tem <a id="venueMapModalWindowReserveButton"
-      // class="button confirm reserve">Comprar</a> pré-renderizado.
-      selectors: [
-        '#venueMapModalWindowReserveButton',
-        'a.button.confirm.reserve',
-        'a:has-text("Comprar")',
-      ],
-      expectNavigation: false,
-      postWaitMs: 1500,
-    },
-    /**
-     * G.3: IMPORTANTE — AddToCart Pixel event dispara no clique COMPRAR
-     * (step 3 select_quantity), NÃO neste step. Confirmado via run
-     * #abf6c4df detected_pixel_events com step="select_quantity".
-     *
-     * Aqui o user clica "Continuar" para navegar para /carrinho?confirm.
-     * Descoberta crítica do DOM: o modal venue tem botão "Continuar"
-     * interno (#venueMapModalWindowContinueButton) que APENAS FECHA O
-     * MODAL (href="#" — não navega). O REAL link de navegação é
-     * <a id="addToCart" href="/carrinho?confirm"> fora do modal, na
-     * sidebar/footer. Sem o link real, navegação falha silenciosamente
-     * (waitForNavigation timeout) e o step marcava como passed antes
-     * do Patch I.
-     */
-    {
-      id: 'add_to_cart',
-      label: 'Adicionar ao carrinho',
-      selectors: [
-        '#addToCart',                          // LINK de navegação real (href=/carrinho?confirm)
-        'a[href*="/carrinho?confirm"]',        // fallback por href
-        '#venueMapModalWindowContinueButton',  // modal close (NÃO navega) — último recurso
-        'a.button.confirm.continue',
-        'a:has-text("Continuar")',
-      ],
-      expectNavigation: true,
-      // G.4 + G.5: dismissAfterClick com selectores reais Ticketline para
-      // fechar modal "Ticketline Premium" que aparece via JS injection após
-      // nav para /carrinho?confirm. postWaitMs reduzido 3000→2000 em G.5
-      // porque dismiss + 500ms wait já cobre injeção do modal — poupa 1s
-      // do wall-clock budget (necessário para G.5 step 6 re-click logic).
-      postWaitMs: 2000,
-      dismissAfterClick: [
-        '.lb-close',                                       // lightbox close (Ticketline genérico)
-        'a.button.close[data-element="close"]',            // close aplicacional via data-element
-        'a[data-element="close"]',                         // fallback data-element
-        '.modal-premium .close',                           // defensivo
-        '[role="dialog"] button[aria-label*="fechar" i]',
-        '[role="dialog"] button[aria-label*="close" i]',
-      ],
-    },
-    /**
-     * IMPORTANTE: Ticketline Premium é renderizado como modal overlay
-     * quando /carrinho?confirm carrega (NÃO como sidebar inline, apesar
-     * do DOM raw extraído sugerir o contrário). O modal pode ter delay
-     * de injeção via JS — confirmar com screenshot do failure_context
-     * se step falhar.
-     *
-     * Botão "Finalizar compra" tem href estável /carrinho/checkout.
-     * Selector primary é a[href="/carrinho/checkout"] — único no DOM
-     * (validado: o outro <a class="confirm"> é "Adicionar" do upsell
-     * seguro Premium, distinguível pela ausência do .large modifier).
-     *
-     * Note text case: "Finalizar compra" (Title Case), NÃO "FINALIZAR
-     * COMPRA". H.1 evaluateHandle faz lowercase match — :has-text é
-     * case-tolerante por construção, mas o text literal correcto.
-     */
-    {
-      id: 'open_cart_page',
-      label: 'Validar carrinho',
-      // G.4: selectores cirúrgicos do DOM real (run #62fc4cd7).
-      validateOnly: true,
-      selectors: [
-        'a[href="/carrinho/checkout"]',           // PRIMARY — href estável, único
-        'a[href*="/carrinho/checkout"]',          // fallback href parcial
-        'a.button.large.confirm',                 // class única (.large distingue do upsell)
-        'a:has-text("Finalizar compra")',         // H.1 evaluateHandle (Title Case via lowercase)
-      ],
-      expectNavigation: false,
-      postWaitMs: 800,
-    },
-    {
-      id: 'initiate_checkout',
-      label: 'Iniciar checkout',
-      // G.5: descoberta na run #f4e0f64f — Ticketline mostra o modal Premium
-      // DUAS vezes: (1) ao carregar /carrinho?confirm (G.4 step 4 dismiss
-      // resolve), (2) ao clicar Finalizar compra (modal REABRE, intercepta
-      // nav). Botão "Fechar" do modal só fecha sem proceder. Solução:
-      // clickAgainAfterDismiss=true → re-click handle original após dismiss
-      // (2ª click não dispara modal porque Ticketline trackeia que já
-      // mostrou). navigationTimeoutMs=5000 porque modal abre rápido e nav
-      // wait curto poupa wall-clock budget.
-      selectors: [
-        'a[href="/carrinho/checkout"]',
-        'a[href*="/carrinho/checkout"]',
-        'a.button.large.confirm',
-        'a:has-text("Finalizar compra")',
-      ],
-      expectNavigation: true,
-      navigationTimeoutMs: 5000,         // G.5: override do default 7000ms
-      postWaitMs: 1500,                  // G.5: reduzido 2200→1500 para budget
-      clickAgainAfterDismiss: true,      // G.5: re-click após dismiss do Premium
-      dismissAfterClick: [
-        '.lb-close',
-        'a.button.close[data-element="close"]',
-        'a[data-element="close"]',
-        '.modal-premium .close',
-        '[role="dialog"] button[aria-label*="fechar" i]',
-        '[role="dialog"] button[aria-label*="close" i]',
-      ],
-    },
-  ];
-
-  // Fluxo genérico (não-Ticketline) — mantém IDs unificados pós-G.1 mas com
-  // selectores best-effort para qualquer site de bilheteira.
-  const GENERIC_FLOW = [
-    { id: 'navigate_home', label: 'Navegar para home', isNavigate: true },
-    {
-      id: 'select_zone',
-      label: 'Clicar no evento',
-      selectors: ['a[href*="/evento/"]','a[href*="/event/"]','.event-card a','article a[href*="/"]','a:has(img)'],
-      expectNavigation: true,
-      postWaitMs: 1500,
-    },
-    {
-      id: 'select_quantity',
-      label: 'Selecionar bilhete',
-      selectors: ['button:has-text("Comprar")','button:has-text("Bilhetes")','a:has-text("Comprar")','[data-testid*="ticket"]','button.btn-primary'],
-      expectNavigation: false,
-      postWaitMs: 1500,
-    },
-    {
-      id: 'add_to_cart',
-      label: 'Adicionar ao carrinho',
-      selectors: ['button:has-text("Adicionar")','button:has-text("Cesto")','button:has-text("Cart")','[data-testid*="add"]','input[type="submit"][value*="dicionar"]'],
-      expectNavigation: false,
-      postWaitMs: 1500,
-    },
-    {
-      id: 'open_cart_page',
-      label: 'Abrir carrinho',
-      selectors: ['a[href*="/cesto"]','a[href*="/cart"]','a[href*="/carrinho"]','[aria-label*="cart" i]'],
-      expectNavigation: true,
-      postWaitMs: 1500,
-    },
-    {
-      id: 'initiate_checkout',
-      label: 'Iniciar checkout',
-      selectors: ['button:has-text("Continuar")','button:has-text("Finalizar")','a:has-text("Checkout")','button[type="submit"]'],
-      expectNavigation: true,
-      postWaitMs: 1800,
-    },
-  ];
-
-  const FLOW = isTicketline ? TICKETLINE_FLOW : GENERIC_FLOW;
+  // Ver `presets/ticketline.ts` para o flow Ticketline detalhado + JSDoc com
+  // anotações dos quirks (modal Premium duplo, AddToCart firing em
+  // select_quantity, clickAgainAfterDismiss para Finalizar compra, etc).
+  const FLOW = Array.isArray(context.flow) ? context.flow : null;
+  if (!FLOW || FLOW.length === 0) {
+    return {
+      data: {
+        error: 'no_flow_in_context',
+        message: 'O edge function não injectou context.flow. Bilheteira não suportada ou erro interno.',
+        steps: [],
+      },
+      type: 'application/json',
+    };
+  }
 
   const steps = [];
   // Patch B: assim que um step falha, os subsequentes são marcados skipped sem
@@ -551,7 +373,7 @@ export const browserlessPuppeteerScript = async function ({ page, context }) {
   }
 
   return {
-    data: { steps, flow: isTicketline ? 'ticketline' : 'generic' },
+    data: { steps },
     type: 'application/json',
   };
 };

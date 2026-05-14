@@ -4,9 +4,8 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import {
-  STEP_SEQUENCE,
+  STEP_SEQUENCE as STUB_STEP_SEQUENCE,
   STUB_FIXTURES,
-  type StepName,
 } from "./_stub_fixtures.ts";
 import {
   runBrowserlessSession,
@@ -15,6 +14,14 @@ import {
   normalizeBrowserlessApiKey,
   type SessionStepResult,
 } from "./_browserless.ts";
+import {
+  selectPreset,
+  SUPPORTED_PROVIDERS,
+  type FlowPreset,
+} from "./presets/index.ts";
+
+// Pós-Fase-1: step IDs são `string` genérico (variam por preset).
+type StepName = string;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -94,18 +101,11 @@ function classifySeverity(
   return "healthy";
 }
 
-function lhKeyForStep(step: StepName): string {
-  // G.1: mapping atualizado para novos step IDs.
-  if (step === "navigate_home") return "home";
-  if (step === "select_zone") return "product";
-  if (step === "open_cart_page") return "cart";
-  if (step === "initiate_checkout") return "checkout";
-  return step;
-}
-
 async function buildSessionStepsFromStub(): Promise<SessionStepResult[]> {
-  return STEP_SEQUENCE.map((name) => {
-    const f = STUB_FIXTURES[name];
+  // Stub é degradado a Ticketline-only por enquanto (usado quando
+  // BROWSERLESS_API_KEY ausente; modo dev). Futuro: per-preset stubs.
+  return STUB_STEP_SEQUENCE.map((name) => {
+    const f = STUB_FIXTURES[name as keyof typeof STUB_FIXTURES];
     return {
       name,
       step_status: f.step_status,
@@ -121,7 +121,7 @@ async function buildSessionStepsFromStub(): Promise<SessionStepResult[]> {
   });
 }
 
-async function executeRun(runId: string, targetUrl: string, companyId: string) {
+async function executeRun(runId: string, targetUrl: string, companyId: string, preset: FlowPreset) {
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
   const startedAt = new Date();
   await admin.schema("crm").from("funnel_test_runs").update({
@@ -129,16 +129,21 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
     started_at: startedAt.toISOString(),
   }).eq("id", runId);
 
+  // Fase 1 multi-bilheteira: step IDs vêm do preset.
+  const stepIds: StepName[] = preset.steps.map((s) => s.id);
+  const lhKeyByStepId = new Map<StepName, string>(
+    preset.steps.filter((s) => !!s.lhKey).map((s) => [s.id, s.lhKey as string]),
+  );
+
   const useStub = !BROWSERLESS_API_KEY;
   if (useStub) console.warn("[funnel-test] BROWSERLESS_API_KEY ausente — fallback STUB");
 
   // 1) Pre-insert all step rows as 'running' so o frontend mostra logo a sequência
-  const stepRowIds: Record<StepName, string | null> = {
-    navigate_home: null, select_zone: null, select_quantity: null,
-    add_to_cart: null, open_cart_page: null, initiate_checkout: null,
-  };
-  for (let i = 0; i < STEP_SEQUENCE.length; i++) {
-    const name = STEP_SEQUENCE[i];
+  const stepRowIds: Record<StepName, string | null> = Object.fromEntries(
+    stepIds.map((id) => [id, null]),
+  );
+  for (let i = 0; i < stepIds.length; i++) {
+    const name = stepIds[i];
     const { data: row } = await admin.schema("crm").from("funnel_test_steps").insert({
       run_id: runId,
       step_index: i,
@@ -156,7 +161,7 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
     if (useStub) {
       sessionSteps = await buildSessionStepsFromStub();
     } else {
-      const result = await runBrowserlessSession(targetUrl, BROWSERLESS_API_KEY);
+      const result = await runBrowserlessSession(targetUrl, preset, BROWSERLESS_API_KEY);
       sessionSteps = result.steps;
     }
   } catch (e) {
@@ -165,7 +170,7 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
     const failedAt = new Date();
     const elapsedMs = failedAt.getTime() - startedAt.getTime();
     // mark all pending steps as failed
-    for (const name of STEP_SEQUENCE) {
+    for (const name of stepIds) {
       const id = stepRowIds[name];
       if (id) {
         await admin.schema("crm").from("funnel_test_steps").update({
@@ -191,16 +196,14 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
   //     Se QUALQUER step anterior na cadeia (não só predecessor direto) terminou
   //     em failed/skipped, este step é consequência — marca-se como skipped,
   //     mesmo que o seu próprio status seja "failed" (selector terá apanhado lixo).
-  // G.1: PREREQ atualizado para novos step IDs (ver _browserless.ts StepName).
-  const PREREQ: Partial<Record<StepName, StepName>> = {
-    select_quantity: "select_zone",
-    add_to_cart: "select_quantity",
-    open_cart_page: "add_to_cart",
-    initiate_checkout: "open_cart_page",
-  };
+  // Pós-Fase-1: PREREQ derivado da ordem do preset.steps (step[i].prereq = step[i-1].id).
+  const PREREQ: Record<StepName, StepName> = {};
+  for (let i = 1; i < stepIds.length; i++) {
+    PREREQ[stepIds[i]] = stepIds[i - 1];
+  }
   const ancestorsOf = (name: StepName): StepName[] => {
     const out: StepName[] = [];
-    let cur = PREREQ[name];
+    let cur: StepName | undefined = PREREQ[name];
     while (cur) { out.push(cur); cur = PREREQ[cur]; }
     return out;
   };
@@ -335,7 +338,8 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
 
     // Stub lighthouse goes in directly; real lighthouse comes after.
     if (s._stubLighthouse) {
-      lighthouseSummary[lhKeyForStep(s.name)] = s._stubLighthouse;
+      const lhKey = lhKeyByStepId.get(s.name) ?? s.name;
+      lighthouseSummary[lhKey] = s._stubLighthouse;
     }
 
     if (id) {
@@ -353,14 +357,17 @@ async function executeRun(runId: string, targetUrl: string, companyId: string) {
     }
   }
 
-  // 4) Real Lighthouse (após sessão fechar) para os 4 URLs-chave
+  // 4) Real Lighthouse (após sessão fechar) — alvos derivados dos steps que
+  // o preset declarou com `lhKey`. Fase 1 multi-bilheteira: zero hardcoding.
   if (!useStub) {
-    const lhTargets: { key: string; url: string | null; step: StepName }[] = [
-      { key: "home", url: sessionSteps.find((x) => x.name === "navigate_home")?.url_at_step ?? null, step: "navigate_home" },
-      { key: "product", url: sessionSteps.find((x) => x.name === "select_zone")?.url_at_step ?? null, step: "select_zone" },
-      { key: "cart", url: sessionSteps.find((x) => x.name === "open_cart_page")?.url_at_step ?? null, step: "open_cart_page" },
-      { key: "checkout", url: sessionSteps.find((x) => x.name === "initiate_checkout")?.url_at_step ?? null, step: "initiate_checkout" },
-    ];
+    const lhTargets: { key: string; url: string | null; step: StepName }[] =
+      preset.steps
+        .filter((p) => !!p.lhKey)
+        .map((p) => ({
+          key: p.lhKey as string,
+          url: sessionSteps.find((x) => x.name === p.id)?.url_at_step ?? null,
+          step: p.id,
+        }));
     await Promise.all(lhTargets.map(async (t) => {
       if (!t.url) return;
       const lh = await fetchLighthouse(t.url, BROWSERLESS_API_KEY);
@@ -486,6 +493,39 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   if (!companyId) return json({ error: "no_company_context" }, 403);
 
+  // Fase 1 multi-bilheteira: resolver preset por hostname ANTES de inserir.
+  // Bilheteiras não suportadas falham graciosamente com mensagem clara.
+  const preset = selectPreset(targetUrl);
+  if (!preset) {
+    const supportedList = SUPPORTED_PROVIDERS.join(", ");
+    const errMsg = `Bilheteira não suportada. Provedores suportados: ${supportedList}. Outras bilheteiras (Blueticket, BOL, See Tickets, FNAC Tickets, etc.) em roadmap.`;
+    const { data: failedIns } = await admin
+      .schema("crm")
+      .from("funnel_test_runs")
+      .insert({
+        company_id: companyId,
+        connection_id: body.connection_id ?? null,
+        event_id: body.event_id ?? null,
+        target_url: targetUrl,
+        status: "failed",
+        severity: "critical",
+        error_message: errMsg,
+        ai_summary: errMsg,
+        completed_at: new Date().toISOString(),
+        total_duration_ms: 0,
+        created_by: userId,
+      })
+      .select("id")
+      .maybeSingle();
+    console.warn(`[funnel-test] unsupported_provider target=${targetUrl} run=${failedIns?.id}`);
+    return json({
+      run_id: failedIns?.id ?? null,
+      status: "failed",
+      error: "unsupported_provider",
+      detail: errMsg,
+    }, 400);
+  }
+
   const { data: ins, error: insErr } = await admin
     .schema("crm")
     .from("funnel_test_runs")
@@ -496,6 +536,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       target_url: targetUrl,
       status: "queued",
       created_by: userId,
+      preset_id: preset.id,
+      preset_version: preset.version,
     })
     .select("id")
     .maybeSingle();
@@ -507,7 +549,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // @ts-ignore - EdgeRuntime is available in Supabase Edge Runtime
   EdgeRuntime.waitUntil(
-    executeRun(ins.id, targetUrl, companyId).catch(async (e) => {
+    executeRun(ins.id, targetUrl, companyId, preset).catch(async (e) => {
       console.error("[funnel-test] run failed", e);
       // Bonus F: severity explícita em early-abort. Sem isto fica null e UI
       // mostra ícones neutros (loading-like) confundindo o utilizador.
