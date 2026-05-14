@@ -134,6 +134,37 @@ export function useCompaniesList(enabled: boolean) {
 }
 
 /**
+ * Multi-membership: lists every company where the current user has a role.
+ * Reads from the SQL VIEW `user_companies` (security_invoker, filtered by auth.uid()).
+ */
+export interface UserMembership {
+  company_id: string;
+  display_name: string;
+  slug: string;
+  logo_url: string | null;
+  status: string;
+  primary_role: string | null;
+}
+
+export function useUserMemberships(enabled: boolean = true) {
+  return useQuery({
+    queryKey: ["user-memberships"],
+    enabled,
+    staleTime: 30_000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    queryFn: async (): Promise<UserMembership[]> => {
+      const { data, error } = await supabase
+        .from("user_companies" as any)
+        .select("company_id, display_name, slug, logo_url, status, primary_role")
+        .order("display_name");
+      if (error) throw error;
+      return (data ?? []) as unknown as UserMembership[];
+    },
+  });
+}
+
+/**
  * Mutation to switch the active company (platform_admin only).
  * Calls the SQL RPC `set_active_company(uuid)` and invalidates all queries
  * because the entire dataset changes between tenants.

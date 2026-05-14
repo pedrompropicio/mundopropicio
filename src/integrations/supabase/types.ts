@@ -4352,7 +4352,7 @@ export type Database = {
       profiles: {
         Row: {
           active_company_id: string | null
-          company_id: string
+          company_id: string | null
           created_at: string
           email: string | null
           full_name: string
@@ -4361,7 +4361,7 @@ export type Database = {
         }
         Insert: {
           active_company_id?: string | null
-          company_id?: string
+          company_id?: string | null
           created_at?: string
           email?: string | null
           full_name?: string
@@ -4370,7 +4370,7 @@ export type Database = {
         }
         Update: {
           active_company_id?: string | null
-          company_id?: string
+          company_id?: string | null
           created_at?: string
           email?: string | null
           full_name?: string
@@ -6453,6 +6453,26 @@ export type Database = {
       }
     }
     Views: {
+      user_companies: {
+        Row: {
+          company_id: string | null
+          display_name: string | null
+          logo_url: string | null
+          primary_role: Database["public"]["Enums"]["app_role"] | null
+          slug: string | null
+          status: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vw_tickets_v2_sync_summary_7d: {
         Row: {
           empresa: string | null
@@ -6756,8 +6776,20 @@ export type Database = {
         Args: { _permission: string; _user_id: string }
         Returns: boolean
       }
+      has_permission_in: {
+        Args: { _company_id: string; _permission: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      has_role_in: {
+        Args: {
+          _company_id: string
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }

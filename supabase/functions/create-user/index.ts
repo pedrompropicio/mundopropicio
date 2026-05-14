@@ -8,67 +8,22 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-function respond(payload: {
+type RespondPayload = {
   success?: boolean;
   error?: string;
   user_id?: string;
   message?: string;
+  // Multi-membership response shape
+  status?: "will_create" | "will_attach" | "already_member" | "created" | "attached";
+  existing_full_name?: string | null;
   diagnostics?: Record<string, unknown>;
-}) {
+};
+
+function respond(payload: RespondPayload) {
   return new Response(JSON.stringify(payload), {
     status: 200,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-
-async function ensureProfileAndRole(
-  adminClient: any,
-  userId: string,
-  email: string,
-  fullName: string,
-  role: string,
-  companyId: string | null,
-) {
-  const { error: profileError } = await adminClient.from("profiles").upsert(
-    { id: userId, full_name: fullName, email, company_id: companyId },
-    { onConflict: "id" },
-  );
-
-  if (profileError) {
-    throw new Error(`Erro ao sincronizar perfil: ${profileError.message}`);
-  }
-
-  const { data: existingRole, error: roleLookupError } = await adminClient
-    .from("user_roles")
-    .select("id")
-    .eq("user_id", userId)
-    .limit(1)
-    .maybeSingle();
-
-  if (roleLookupError) {
-    throw new Error(`Erro ao localizar permissões: ${roleLookupError.message}`);
-  }
-
-  if (existingRole?.id) {
-    const { error: roleUpdateError } = await adminClient
-      .from("user_roles")
-      .update({ role, company_id: companyId })
-      .eq("id", existingRole.id);
-
-    if (roleUpdateError) {
-      throw new Error(`Erro ao atualizar permissões: ${roleUpdateError.message}`);
-    }
-
-    return;
-  }
-
-  const { error: roleInsertError } = await adminClient
-    .from("user_roles")
-    .insert({ user_id: userId, role, company_id: companyId });
-
-  if (roleInsertError) {
-    throw new Error(`Erro ao criar permissões: ${roleInsertError.message}`);
-  }
 }
 
 // Inline invite email template (branded, no Lovable references)
@@ -157,6 +112,47 @@ const InviteSetPasswordEmail = ({
     )
   );
 
+async function findExistingAuthUser(adminClient: any, email: string) {
+  const { data, error } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  if (error) throw error;
+  return data.users.find(
+    (u: { email?: string | null; id: string; user_metadata?: any }) =>
+      u.email?.toLowerCase() === email,
+  );
+}
+
+async function attachUserToCompany(
+  adminClient: any,
+  userId: string,
+  companyId: string,
+  role: string,
+  fullName: string,
+  email: string,
+) {
+  // 1) Profile: only insert if missing — never overwrite another company's primary.
+  const { data: existingProfile } = await adminClient
+    .from("profiles")
+    .select("id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!existingProfile) {
+    const { error: pErr } = await adminClient.from("profiles").insert({
+      id: userId,
+      full_name: fullName,
+      email,
+      company_id: companyId,
+    });
+    if (pErr) throw new Error(`Erro ao criar perfil: ${pErr.message}`);
+  }
+
+  // 2) Insert user_role for (user, company, role) — UNIQUE permite N empresas.
+  const { error: rErr } = await adminClient
+    .from("user_roles")
+    .insert({ user_id: userId, role, company_id: companyId });
+  if (rErr) throw new Error(`Erro ao associar à empresa: ${rErr.message}`);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -166,10 +162,7 @@ Deno.serve(async (req) => {
     const startTime = Date.now();
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return respond({
-        error: "Não autorizado",
-        diagnostics: { stage: "auth_header_missing", processing_time_ms: Date.now() - startTime },
-      });
+      return respond({ error: "Não autorizado", diagnostics: { stage: "auth_header_missing" } });
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -179,65 +172,95 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user: caller } } = await callerClient.auth.getUser();
-    if (!caller) {
-      return respond({
-        error: "Não autorizado",
-        diagnostics: { stage: "caller_not_found", processing_time_ms: Date.now() - startTime },
-      });
-    }
+    if (!caller) return respond({ error: "Não autorizado", diagnostics: { stage: "caller_not_found" } });
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    // Caller must be admin in their active company
+    const { data: callerCompanyIdData } = await callerClient.rpc("current_company_id" as any);
+    const callerCompanyId = (callerCompanyIdData as string | null) ?? null;
+    if (!callerCompanyId) {
+      return respond({ error: "Não foi possível determinar a empresa ativa." });
+    }
+
     const { data: roleData } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", caller.id)
+      .eq("company_id", callerCompanyId)
       .eq("role", "admin")
-      .single();
+      .maybeSingle();
 
     if (!roleData) {
-      return respond({
-        error: "Apenas administradores podem criar utilizadores",
-        diagnostics: { stage: "role_check_failed", processing_time_ms: Date.now() - startTime },
-      });
+      return respond({ error: "Apenas administradores podem criar utilizadores." });
     }
 
-    // Resolve caller's company — new user MUST belong to the SAME company.
-    const { data: callerProfile } = await adminClient
-      .from("profiles")
-      .select("company_id, active_company_id")
-      .eq("id", caller.id)
-      .maybeSingle();
-    const { data: isPa } = await adminClient.rpc("is_platform_admin", { _user_id: caller.id });
-    const callerCompanyId: string | null = isPa
-      ? (callerProfile?.active_company_id ?? callerProfile?.company_id ?? null)
-      : (callerProfile?.company_id ?? null);
+    const body = await req.json();
+    const normalizedEmail = String(body.email ?? "").trim().toLowerCase();
+    const normalizedFullName = String(body.full_name ?? "").trim();
+    const dryRun = body.dry_run === true;
+    const role = body.role;
 
-    if (!callerCompanyId) {
-      return respond({
-        error: "Não foi possível determinar a empresa do administrador. Contacte o suporte.",
-        diagnostics: { stage: "company_resolution", processing_time_ms: Date.now() - startTime },
-      });
-    }
-
-    const { email, full_name, role } = await req.json();
-    const normalizedEmail = String(email ?? "").trim().toLowerCase();
-    const normalizedFullName = String(full_name ?? "").trim();
-
-    if (!normalizedEmail || !normalizedFullName) {
-      return respond({
-        error: "Email e nome são obrigatórios",
-        diagnostics: { stage: "validation", processing_time_ms: Date.now() - startTime },
-      });
+    if (!normalizedEmail || (!dryRun && !normalizedFullName)) {
+      return respond({ error: "Email e nome são obrigatórios." });
     }
 
     const validRoles = ["admin", "manager", "editor", "viewer", "user", "partner"];
     const targetRole = validRoles.includes(role) ? role : "user";
 
-    // Generate a random temporary password (user will never use it)
-    const tempPassword = crypto.randomUUID() + "Aa1!";
+    // ── Pre-check: existe em auth.users?
+    const existingAuthUser = await findExistingAuthUser(adminClient, normalizedEmail);
 
-    // Step 1: Create user with confirmed email and temporary password
-    // Pass company_id in user_metadata so handle_new_user trigger picks it up.
+    if (existingAuthUser) {
+      // Já tem membership na empresa ativa?
+      const { data: existingMembership } = await adminClient
+        .from("user_roles")
+        .select("id, role")
+        .eq("user_id", existingAuthUser.id)
+        .eq("company_id", callerCompanyId)
+        .maybeSingle();
+
+      if (existingMembership) {
+        return respond({
+          status: "already_member",
+          error: "Este utilizador já tem acesso a esta empresa. Para alterar o nível, edite na lista abaixo.",
+          existing_full_name: existingAuthUser.user_metadata?.full_name ?? null,
+        });
+      }
+
+      if (dryRun) {
+        return respond({
+          status: "will_attach",
+          existing_full_name: existingAuthUser.user_metadata?.full_name ?? normalizedFullName ?? null,
+        });
+      }
+
+      // Attach (sem email)
+      try {
+        await attachUserToCompany(
+          adminClient,
+          existingAuthUser.id,
+          callerCompanyId,
+          targetRole,
+          existingAuthUser.user_metadata?.full_name ?? normalizedFullName,
+          normalizedEmail,
+        );
+      } catch (e) {
+        return respond({ error: e instanceof Error ? e.message : "Erro ao associar utilizador." });
+      }
+
+      return respond({
+        success: true,
+        status: "attached",
+        user_id: existingAuthUser.id,
+        message: "Utilizador adicionado à empresa.",
+      });
+    }
+
+    // ── Não existe → criar
+    if (dryRun) return respond({ status: "will_create" });
+
+    const tempPassword = crypto.randomUUID() + "Aa1!";
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email: normalizedEmail,
       password: tempPassword,
@@ -245,147 +268,70 @@ Deno.serve(async (req) => {
       user_metadata: { full_name: normalizedFullName, company_id: callerCompanyId },
     });
 
-    let userId = newUser.user?.id;
-
     if (createError) {
-      console.error("Create user error:", createError);
+      return respond({ error: createError.message, diagnostics: { stage: "auth_create_user" } });
+    }
 
-      const isDuplicateEmail = /already/i.test(createError.message ?? "");
-      if (!isDuplicateEmail) {
-        return respond({
-          error: createError.message,
-          diagnostics: { stage: "auth_create_user", processing_time_ms: Date.now() - startTime },
-        });
-      }
+    const userId = newUser.user?.id;
+    if (!userId) return respond({ error: "Não foi possível preparar a conta do utilizador." });
 
-      const { data: existingUsers, error: listUsersError } = await adminClient.auth.admin.listUsers({
-        page: 1,
-        perPage: 1000,
-      });
-
-      if (listUsersError) {
-        console.error("List users error:", listUsersError);
-        return respond({
-          error: "Este email já existe no sistema, mas não consegui recuperar a conta anterior.",
-          diagnostics: { stage: "auth_list_users", processing_time_ms: Date.now() - startTime },
-        });
-      }
-
-      const existingUser = existingUsers.users.find(
-        (candidate: { email?: string | null; id: string }) =>
-          candidate.email?.toLowerCase() === normalizedEmail,
+    // handle_new_user trigger já cria profile + user_roles (role 'user' na company);
+    // garantir que a role correta fica registada na empresa ativa.
+    const { error: roleErr } = await adminClient
+      .from("user_roles")
+      .upsert(
+        { user_id: userId, role: targetRole, company_id: callerCompanyId },
+        { onConflict: "user_id,company_id,role" },
       );
-
-      if (!existingUser) {
-        return respond({
-          error: createError.message,
-          diagnostics: { stage: "existing_user_not_found", processing_time_ms: Date.now() - startTime },
-        });
-      }
-
-      const { data: existingProfile, error: existingProfileError } = await adminClient
-        .from("profiles")
-        .select("id")
-        .eq("id", existingUser.id)
-        .maybeSingle();
-
-      if (existingProfileError) {
-        return respond({
-          error: `Erro ao verificar utilizador existente: ${existingProfileError.message}`,
-          diagnostics: { stage: "existing_profile_lookup", processing_time_ms: Date.now() - startTime },
-        });
-      }
-
-      if (existingProfile?.id) {
-        return respond({
-          error: "Já existe um utilizador com este email. Use 'Reenviar email' na lista de utilizadores.",
-          diagnostics: { stage: "existing_visible_user", processing_time_ms: Date.now() - startTime },
-        });
-      }
-
-      userId = existingUser.id;
+    if (roleErr) {
+      return respond({ error: `Utilizador criado mas erro ao definir role: ${roleErr.message}`, user_id: userId });
+    }
+    // Remover a role default 'user' se não foi a pedida
+    if (targetRole !== "user") {
+      await adminClient
+        .from("user_roles")
+        .delete()
+        .eq("user_id", userId)
+        .eq("company_id", callerCompanyId)
+        .eq("role", "user");
     }
 
-    if (!userId) {
-      return respond({
-        error: "Não foi possível preparar a conta do utilizador.",
-        diagnostics: { stage: "missing_user_id", processing_time_ms: Date.now() - startTime },
-      });
-    }
-
-    try {
-      await ensureProfileAndRole(adminClient, userId, normalizedEmail, normalizedFullName, targetRole, callerCompanyId);
-    } catch (syncError) {
-      console.error("Sync user error:", syncError);
-      return respond({
-        error: syncError instanceof Error ? syncError.message : "Erro ao sincronizar utilizador",
-        diagnostics: { stage: "profile_role_sync", processing_time_ms: Date.now() - startTime },
-      });
-    }
-
-    // Step 3: Generate a recovery link directly (bypasses Supabase/Lovable auth page)
+    // ── Generate password recovery link + send branded invite email
     const siteUrl = "https://mpgestaoeventos.com";
     const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
       type: "recovery",
       email: normalizedEmail,
-      options: {
-        redirectTo: `${siteUrl}/reset-password`,
-      },
+      options: { redirectTo: `${siteUrl}/reset-password` },
     });
 
     if (linkError || !linkData) {
-      console.error("Generate link error:", linkError?.message);
-      return new Response(
-        JSON.stringify({
-          success: true,
-          user_id: userId,
-          message: "Utilizador criado mas houve erro ao gerar o link. Use 'Reenviar convite'.",
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return respond({
+        success: true,
+        status: "created",
+        user_id: userId,
+        message: "Utilizador criado mas erro ao gerar link. Use 'Reenviar convite'.",
+      });
     }
 
-    // Extract the token hash from the generated link
-    // The action_link contains the token as a query parameter
     const actionLink = linkData.properties?.action_link || "";
     const actionUrl = new URL(actionLink);
     const tokenHash = actionUrl.searchParams.get("token_hash") || actionUrl.searchParams.get("token") || "";
     const linkType = actionUrl.searchParams.get("type") || "recovery";
-
-    // Build a direct URL to the app's reset-password page (no Supabase redirect)
     const setupUrl = `${siteUrl}/reset-password?token_hash=${encodeURIComponent(tokenHash)}&type=${linkType}`;
 
-    // Step 4: Send branded invite email via the email queue
     const siteName = "MP Gestão de Eventos";
     const html = await renderAsync(
-      React.createElement(InviteSetPasswordEmail, {
-        siteName,
-        fullName: normalizedFullName,
-        setupUrl,
-      })
+      React.createElement(InviteSetPasswordEmail, { siteName, fullName: normalizedFullName, setupUrl }),
     );
 
-    // Enqueue the email — use transactional purpose with unsubscribe token
     const messageId = crypto.randomUUID();
     const idempotencyKey = `invite-set-password-${userId}`;
     const unsubscribeToken = crypto.randomUUID();
 
-    // Create unsubscribe token entry
-    const { error: unsubscribeError } = await adminClient.from("email_unsubscribe_tokens").upsert(
+    await adminClient.from("email_unsubscribe_tokens").upsert(
       { email: normalizedEmail, token: unsubscribeToken },
-      { onConflict: "email" }
+      { onConflict: "email" },
     );
-
-    if (unsubscribeError) {
-      console.error("Unsubscribe token error:", unsubscribeError);
-      return new Response(
-        JSON.stringify({
-          error: "Utilizador criado, mas houve erro ao preparar o email. Use 'Reenviar convite'.",
-          user_id: userId,
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
     await adminClient.from("email_send_log").insert({
       message_id: messageId,
@@ -413,38 +359,21 @@ Deno.serve(async (req) => {
     });
 
     if (enqueueError) {
-      console.error("Enqueue error:", enqueueError);
-
-      await adminClient.from("email_send_log").insert({
-        message_id: messageId,
-        template_name: "invite_set_password",
-        recipient_email: normalizedEmail,
-        status: "failed",
-        error_message: enqueueError.message,
+      return respond({
+        success: true,
+        status: "created",
+        user_id: userId,
+        error: "Utilizador criado, mas o email não foi enviado. Use 'Reenviar convite'.",
       });
-
-      return new Response(
-        JSON.stringify({
-          error: "Utilizador criado, mas o email de definição de senha não foi enviado. Use 'Reenviar convite'.",
-          user_id: userId,
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        user_id: userId,
-        message: "Utilizador criado com sucesso. Email de definição de senha enviado.",
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return respond({
+      success: true,
+      status: "created",
+      user_id: userId,
+      message: "Utilizador criado com sucesso. Email de definição de senha enviado.",
+    });
   } catch (err) {
-    console.error("Unexpected create-user error:", err);
     return respond({
       error: err instanceof Error ? err.message : "Erro interno ao criar utilizador",
       diagnostics: { stage: "unexpected" },
