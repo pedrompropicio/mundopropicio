@@ -22,7 +22,7 @@
     --secondary-foreground: 215 25% 25%;
 
     --muted: 210 15% 93%;
-    --muted-foreground: 215 14% 32%; /* a11y: contrast bump WCAG AA — 14/05/2026 */
+    --muted-foreground: 215 25% 30%; /* a11y: WCAG AA contrast — 14/05/2026 */
 
     --accent: 72 65% 40%;
     --accent-foreground: 0 0% 100%;
