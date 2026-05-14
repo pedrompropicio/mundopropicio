@@ -57,22 +57,31 @@ export function buildCategoryLookup(categories: CategoryNode[]): Record<string, 
     const grandParent = parentPid ? byId[parentPid] : null;
 
     if (grandParent) {
-      // This is L3 (leaf) → group = parent (L2)
+      // L3 leaf: group = parent (L2), L1 = grandparent
       lookup[cat.id] = {
         id: cat.id, name: cat.name, code: cat.code, parentId: pid,
         groupName: parent!.name, groupCode: parent!.code,
+        l1Name: grandParent.name, l1Code: grandParent.code,
+        l2Name: parent!.name, l2Code: parent!.code,
+        depth: 3,
       };
     } else if (parent) {
-      // This is L2 → group = itself
+      // L2: group = self, L1 = parent
       lookup[cat.id] = {
         id: cat.id, name: cat.name, code: cat.code, parentId: pid,
         groupName: cat.name, groupCode: cat.code,
+        l1Name: parent.name, l1Code: parent.code,
+        l2Name: cat.name, l2Code: cat.code,
+        depth: 2,
       };
     } else {
-      // This is L1 (root) → group = itself
+      // L1 root
       lookup[cat.id] = {
         id: cat.id, name: cat.name, code: cat.code, parentId: null,
         groupName: cat.name, groupCode: cat.code,
+        l1Name: cat.name, l1Code: cat.code,
+        l2Name: null, l2Code: null,
+        depth: 1,
       };
     }
   });
