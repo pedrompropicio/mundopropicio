@@ -716,17 +716,28 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
         </ScrollArea>
 
         <DialogFooter>
-          {step === "upload" && (
-            <>
-              <Button variant="ghost" onClick={handleClose}>Cancelar</Button>
-              <Button
-                disabled={!eventId || !feverAccountId || !salesFile || !pricesFile || parsing}
-                onClick={handleParse}
-              >
-                {parsing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />A ler…</> : <>Analisar <ArrowRight className="h-4 w-4 ml-2" /></>}
-              </Button>
-            </>
-          )}
+          {step === "upload" && (() => {
+            const reasons: string[] = [];
+            if (!eventId) reasons.push("Selecione o evento");
+            if (!feverAccountId) reasons.push(feverAccounts.length === 0 ? "Sem conta Fever disponível nesta empresa" : "Selecione a bilheteira Fever");
+            if (!salesFile) reasons.push("Anexe o ficheiro de vendas");
+            if (!pricesFile) reasons.push("Anexe o ficheiro de preços");
+            const disabled = reasons.length > 0 || parsing;
+            const reasonText = parsing ? "A processar…" : reasons.join(" · ");
+            return (
+              <>
+                {disabled && reasonText && (
+                  <span className="text-xs text-muted-foreground mr-auto self-center">{reasonText}</span>
+                )}
+                <Button variant="ghost" onClick={handleClose}>Cancelar</Button>
+                <span title={disabled ? reasonText : undefined} className={disabled ? "cursor-not-allowed" : ""}>
+                  <Button disabled={disabled} onClick={handleParse}>
+                    {parsing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />A ler…</> : <>Analisar <ArrowRight className="h-4 w-4 ml-2" /></>}
+                  </Button>
+                </span>
+              </>
+            );
+          })()}
           {step === "setup" && (
             <>
               <Button variant="ghost" onClick={() => setStep("upload")}>
