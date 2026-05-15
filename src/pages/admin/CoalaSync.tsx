@@ -983,10 +983,12 @@ function ExpressReviewOverlay({
   onClose,
   items,
   onDecide,
+  driveFileId,
 }: {
   open: boolean;
   onClose: () => void;
   items: DiffItem[];
+  driveFileId: string | null;
   onDecide: (
     item: DiffItem,
     decision: "validate" | "ignore" | "edit",
