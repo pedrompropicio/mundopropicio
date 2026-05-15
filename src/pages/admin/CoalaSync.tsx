@@ -347,6 +347,9 @@ export default function CoalaSync() {
       {/* Diff modal */}
       <DiffReviewDialog
         run={selectedRun}
+        driveFileId={
+          (cfgQ.data ?? []).find((c) => c.id === selectedRun?.config_id)?.drive_file_id ?? null
+        }
         onClose={() => setSelectedRun(null)}
         onApplied={() => {
           qc.invalidateQueries({ queryKey: ["coala-sync-runs"] });
