@@ -1,0 +1,37 @@
+-- ============================================================================
+-- Fix cron coala-sync-auto em LIVE
+-- ----------------------------------------------------------------------------
+-- Correr este SQL no SQL Editor do projeto Live (sfohvvlqccmmebvjgibx)
+-- APÓS o Publish do código novo. Garante que o cron coala-sync-auto aponta
+-- para a URL correta de Live e usa o service_role JWT do vault.
+-- ============================================================================
+
+-- Remove agendamento anterior (se existir) — ignora erro se ainda não existe
+DO $$ BEGIN
+  PERFORM cron.unschedule('coala-sync-auto');
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'coala-sync-auto não estava agendado, continuar.';
+END $$;
+
+-- Agenda novo: a cada 15 minutos, dispara dry_run em todas as configs ativas.
+-- A escalada para auto_apply é feita dentro da edge function quando reviewCount=0.
+SELECT cron.schedule(
+  'coala-sync-auto',
+  '*/15 * * * *',
+  $cron$
+  SELECT net.http_post(
+    url := 'https://sfohvvlqccmmebvjgibx.supabase.co/functions/v1/sync-coala-from-drive',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (
+        SELECT decrypted_secret FROM vault.decrypted_secrets
+        WHERE name = 'email_queue_service_role_key'
+      )
+    ),
+    body := jsonb_build_object('mode','dry_run','triggeredBy','cron')
+  );
+  $cron$
+);
+
+-- Verificação rápida
+SELECT jobid, schedule, jobname, active FROM cron.job WHERE jobname = 'coala-sync-auto';
