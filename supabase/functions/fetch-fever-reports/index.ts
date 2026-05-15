@@ -47,16 +47,9 @@ function buildPuppeteerScript(args: {
   return `
 export default async function ({ page }) {
   const args = ${a};
-  const fs = require('fs');
-  const path = require('path');
-  const os = require('os');
 
   const logs = [];
   const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
-
-  // download dir
-  const downloadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fever-'));
-  log('downloadDir=' + downloadDir);
 
   let lastScreenshot = null;
   const snap = async (label) => {
@@ -68,17 +61,16 @@ export default async function ({ page }) {
 
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-  const listDir = (p) => { try { return fs.readdirSync(p); } catch { return []; } };
-  const waitNewFile = async (dir, before, timeoutMs) => {
-    const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
-      const now = listDir(dir);
-      const nf = now.filter(f => !before.includes(f) && !f.endsWith('.crdownload') && !f.endsWith('.tmp'));
-      if (nf.length) return nf[0];
-      await sleep(400);
+  // Capturar URL do download via interceptação de requests
+  let lastDownloadUrl = null;
+  const downloadUrlRegex = /(\\.xlsx|\\.csv|export|download)/i;
+  page.on('request', (req) => {
+    const u = req.url();
+    if (downloadUrlRegex.test(u) && !u.includes('fonts') && !u.includes('static')) {
+      lastDownloadUrl = u;
+      log('download url candidato: ' + u);
     }
-    throw new Error('download timeout em ' + dir);
-  };
+  });
 
   const clickByText = async (text, opts = {}) => {
     const exact = opts.exact === true;
