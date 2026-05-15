@@ -35,7 +35,7 @@ async function updateConfig(admin: any, configId: string, patch: Record<string, 
  *
  * Selectors: prefere texto visível (PT) ou data-* attributes; CSS evitado.
  */
-function buildPlaywrightScript(args: {
+function buildPuppeteerScript(args: {
   username: string;
   password: string;
   organization: string;
@@ -47,99 +47,183 @@ function buildPlaywrightScript(args: {
   return `
 export default async function ({ page }) {
   const args = ${a};
+  const fs = require('fs');
+  const path = require('path');
+  const os = require('os');
 
-  // 1. LOGIN
-  await page.goto('https://partners.feverup.com/login', { waitUntil: 'networkidle' });
-  await page.waitForTimeout(1500);
+  const logs = [];
+  const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
 
-  // tentar campos comuns: email + password
-  const emailSel = 'input[type="email"], input[name="email"], input[id*="email" i]';
-  const passSel  = 'input[type="password"], input[name="password"]';
-  await page.waitForSelector(emailSel, { timeout: 15000 });
-  await page.fill(emailSel, args.username);
-  await page.fill(passSel, args.password);
+  // download dir
+  const downloadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fever-'));
+  log('downloadDir=' + downloadDir);
 
-  // submit
-  const submitSel = 'button[type="submit"]';
-  await page.click(submitSel);
-
-  // 2. Tela de seleção de organização
-  await page.waitForLoadState('networkidle', { timeout: 30000 });
-  // procura card pelo nome da organização (texto visível)
-  try {
-    await page.getByText(args.organization, { exact: false }).first().click({ timeout: 12000 });
-  } catch (e) {
-    // se já estiver dentro de uma org sem prompt de seleção, ignorar
-    console.log('no org picker:', e?.message || e);
-  }
-
-  // 3. Navegar para o dashboard do plano
-  const url = 'https://partners.feverup.com/plans/dashboard?cityId=' + args.cityId +
-              '&planId=' + args.planId + '&venueId=' + args.venueId;
-  await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
-  await page.waitForTimeout(2500);
-
-  // 4. Aba "Detalhamento de vendas"
-  await page.getByText('Detalhamento de vendas', { exact: false }).first().click({ timeout: 15000 });
-  await page.waitForTimeout(1500);
-
-  // 5. Sub-aba "Vendas por tipo de ingresso"
-  await page.getByText('Vendas por tipo de ingresso', { exact: false }).first().click({ timeout: 15000 });
-  await page.waitForTimeout(2500);
-
-  // 6. Helper para baixar XLSX de um card pelo título
-  async function downloadCard(cardTitle) {
-    // localizar card pelo título e clicar nos "..."
-    const card = page.locator('div', { hasText: cardTitle }).filter({
-      has: page.locator('button[aria-label*="opc" i], button:has-text("...")')
-    }).first();
-
-    // fallback: localizar o "..." mais próximo do título
-    const titleLoc = page.getByText(cardTitle, { exact: true }).first();
-    await titleLoc.scrollIntoViewIfNeeded();
-    // procura o botão de menu (3 pontos) na mesma secção
-    const menuBtn = titleLoc.locator('xpath=ancestor::*[self::section or self::div][1]//button[contains(@aria-label,"opc") or contains(@aria-label,"Opc") or contains(.,"...") or contains(@class,"menu") or contains(@aria-haspopup,"true")]').first();
-    await menuBtn.click({ timeout: 10000 });
-
-    // Modal "Baixar dados" → seleciona .xlsx (default) → "Baixar"
-    await page.getByText('Baixar dados', { exact: false }).first().waitFor({ timeout: 10000 });
-
-    // garantir radio xlsx (default)
-    const xlsxRadio = page.locator('input[type="radio"][value*="xlsx" i], label:has-text(".xlsx")').first();
-    try { await xlsxRadio.click({ timeout: 3000 }); } catch (_) {}
-
-    const [download] = await Promise.all([
-      page.waitForEvent('download', { timeout: 60000 }),
-      page.getByRole('button', { name: /baixar/i }).last().click(),
-    ]);
-
-    const path = await download.path();
-    const buf = await Deno.readFile(path);
-    const b64 = btoa(String.fromCharCode(...buf));
-    const name = download.suggestedFilename();
-    // fechar modal se ainda estiver aberto
-    try { await page.keyboard.press('Escape'); } catch (_) {}
-    await page.waitForTimeout(1000);
-    return { b64, name };
-  }
-
-  const card1 = await downloadCard('Vendas por tipo de ingresso');
-  const card2 = await downloadCard('Ingressos por tipo de ingresso e data de compra');
-
-  return {
-    data: {
-      sales:      card2.b64,  // tickets_per_ticket_type_and_purchase_date
-      salesName:  card2.name,
-      prices:     card1.b64,  // sales_per_ticket_type_and_ticket_price
-      pricesName: card1.name,
-    },
-    type: 'application/json',
+  let lastScreenshot = null;
+  const snap = async (label) => {
+    try {
+      lastScreenshot = await page.screenshot({ encoding: 'base64', fullPage: false });
+      log('snap ' + label + ' url=' + page.url());
+    } catch (e) { log('snap fail: ' + (e && e.message)); }
   };
+
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  const listDir = (p) => { try { return fs.readdirSync(p); } catch { return []; } };
+  const waitNewFile = async (dir, before, timeoutMs) => {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const now = listDir(dir);
+      const nf = now.filter(f => !before.includes(f) && !f.endsWith('.crdownload') && !f.endsWith('.tmp'));
+      if (nf.length) return nf[0];
+      await sleep(400);
+    }
+    throw new Error('download timeout em ' + dir);
+  };
+
+  const clickByText = async (text, opts = {}) => {
+    const exact = opts.exact === true;
+    const xp = exact
+      ? "//*[normalize-space(text())=" + JSON.stringify(text) + "]"
+      : "//*[contains(normalize-space(.), " + JSON.stringify(text) + ")]";
+    await page.waitForXPath(xp, { timeout: opts.timeout || 15000 });
+    const els = await page.$x(xp);
+    if (!els.length) throw new Error('texto nao encontrado: ' + text);
+    // pega no mais profundo (último) para evitar clicar em wrapper enorme
+    const el = els[els.length - 1];
+    await el.evaluate(e => e.scrollIntoView({ block: 'center' }));
+    await el.click();
+    return el;
+  };
+
+  try {
+    // 1. LOGIN
+    log('goto login');
+    await page.goto('https://partners.feverup.com/login', { waitUntil: 'networkidle2', timeout: 45000 });
+    await sleep(1500);
+
+    const emailSel = 'input[type="email"], input[name="email"], input[id*="email" i]';
+    const passSel  = 'input[type="password"], input[name="password"]';
+    await page.waitForSelector(emailSel, { timeout: 15000 });
+    await page.type(emailSel, args.username, { delay: 20 });
+    await page.type(passSel, args.password, { delay: 20 });
+    log('credentials filled');
+    await snap('pre-submit');
+
+    await Promise.all([
+      page.click('button[type="submit"]'),
+      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
+    ]);
+    log('post-login url=' + page.url());
+    await snap('post-login');
+
+    // 2. Org picker (opcional)
+    try {
+      const xp = "//*[contains(normalize-space(.), " + JSON.stringify(args.organization) + ")]";
+      await page.waitForXPath(xp, { timeout: 8000 });
+      const els = await page.$x(xp);
+      if (els.length) {
+        await els[els.length - 1].click();
+        log('org clicked: ' + args.organization);
+        await page.waitForNetworkIdle({ idleTime: 1000, timeout: 15000 }).catch(() => {});
+      }
+    } catch (_) {
+      log('no org picker (skip)');
+    }
+
+    // 3. Dashboard do plano
+    const dashUrl = 'https://partners.feverup.com/plans/dashboard?cityId=' + args.cityId +
+                    '&planId=' + args.planId + '&venueId=' + args.venueId;
+    log('goto dashboard ' + dashUrl);
+    await page.goto(dashUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+    await sleep(2500);
+    await snap('dashboard');
+
+    // 4. Aba "Detalhamento de vendas"
+    log('click tab Detalhamento de vendas');
+    await clickByText('Detalhamento de vendas', { timeout: 20000 });
+    await sleep(1500);
+
+    // 5. Sub-aba "Vendas por tipo de ingresso"
+    log('click subtab Vendas por tipo de ingresso');
+    await clickByText('Vendas por tipo de ingresso', { timeout: 20000 });
+    await sleep(2500);
+    await snap('subtab');
+
+    // 6. CDP download behavior
+    const client = await page.target().createCDPSession();
+    await client.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: downloadDir });
+
+    async function downloadCard(cardTitle) {
+      log('download card: ' + cardTitle);
+      const titleXp = "//*[contains(normalize-space(.), " + JSON.stringify(cardTitle) + ")]";
+      await page.waitForXPath(titleXp, { timeout: 15000 });
+      const titles = await page.$x(titleXp);
+      const titleEl = titles[titles.length - 1];
+      await titleEl.evaluate(e => e.scrollIntoView({ block: 'center' }));
+
+      // botão "..." na mesma secção (ancestor)
+      const menuXp = "ancestor::*[self::section or self::div][1]//button[contains(translate(@aria-label,'OPC','opc'),'opc') or contains(@aria-haspopup,'true') or contains(@class,'menu') or contains(.,'...') or contains(.,'⋯') or contains(.,'⋮')]";
+      const menus = await titleEl.$x(menuXp);
+      if (!menus.length) throw new Error('menu (...) nao encontrado para card: ' + cardTitle);
+      await menus[0].click();
+      log('menu clicked');
+
+      // modal "Baixar dados"
+      await page.waitForXPath("//*[contains(normalize-space(.), 'Baixar dados')]", { timeout: 10000 });
+      await sleep(400);
+
+      // tentar marcar xlsx (default)
+      try {
+        const xlsx = await page.$x("//label[contains(translate(.,'XLSX','xlsx'),'xlsx')] | //input[@type='radio'][contains(translate(@value,'XLSX','xlsx'),'xlsx')]");
+        if (xlsx[0]) await xlsx[0].click().catch(() => {});
+      } catch (_) {}
+
+      const before = listDir(downloadDir);
+
+      // botão Baixar (último, evita o do header)
+      const btnXp = "//button[contains(translate(., 'BAIXAR', 'baixar'), 'baixar')]";
+      const btns = await page.$x(btnXp);
+      if (!btns.length) throw new Error('botao Baixar nao encontrado');
+      await btns[btns.length - 1].click();
+      log('baixar clicked, aguardar ficheiro');
+
+      const file = await waitNewFile(downloadDir, before, 60000);
+      const buf = fs.readFileSync(path.join(downloadDir, file));
+      const b64 = buf.toString('base64');
+      log('downloaded: ' + file + ' (' + buf.length + ' bytes)');
+
+      try { await page.keyboard.press('Escape'); } catch (_) {}
+      await sleep(800);
+      return { b64, name: file };
+    }
+
+    const card1 = await downloadCard('Vendas por tipo de ingresso');
+    const card2 = await downloadCard('Ingressos por tipo de ingresso e data de compra');
+
+    return {
+      data: {
+        sales:      card2.b64,
+        salesName:  card2.name,
+        prices:     card1.b64,
+        pricesName: card1.name,
+        logs,
+      },
+      type: 'application/json',
+    };
+  } catch (e) {
+    const msg = (e && e.message) || String(e);
+    log('FATAL: ' + msg);
+    await snap('fatal');
+    return {
+      data: { error: msg, logs, screenshot: lastScreenshot, url: page.url() },
+      type: 'application/json',
+    };
+  }
 }
 `;
 }
 
-async function runBrowserless(script: string): Promise<{ sales: string; prices: string; salesName: string; pricesName: string }> {
+async function runBrowserless(script: string): Promise<any> {
   if (!BROWSERLESS_KEY) throw new Error("BROWSERLESS_API_KEY não configurado");
   const url = `https://production-sfo.browserless.io/function?token=${BROWSERLESS_KEY}`;
   const resp = await fetch(url, {
@@ -151,8 +235,7 @@ async function runBrowserless(script: string): Promise<{ sales: string; prices: 
     const text = await resp.text();
     throw new Error(`Browserless ${resp.status}: ${text.slice(0, 500)}`);
   }
-  const data = await resp.json();
-  return data;
+  return await resp.json();
 }
 
 function b64ToArrayBuffer(b64: string): ArrayBuffer {
@@ -215,8 +298,8 @@ Deno.serve(async (req) => {
       throw Object.assign(new Error(`Credenciais ausentes no Vault (${cfg.vault_secret_name})`), { phase: "auth_failed" });
     }
 
-    // 4. Browserless → Playwright → 2 XLSX
-    const script = buildPlaywrightScript({
+    // 4. Browserless → Puppeteer → 2 XLSX
+    const script = buildPuppeteerScript({
       username: creds.username, password: creds.password,
       organization: cfg.organization_name,
       cityId: cfg.city_id, planId: cfg.plan_id, venueId: cfg.venue_id,
@@ -228,10 +311,24 @@ Deno.serve(async (req) => {
     } catch (e: any) {
       throw Object.assign(new Error(e?.message || "Browserless falhou"), { phase: "navigation_failed" });
     }
+    const browserlessLogs: string[] = Array.isArray(downloadResult?.logs) ? downloadResult.logs : [];
+    if (downloadResult?.error) {
+      console.error("[fetch-fever] script error:", downloadResult.error);
+      console.error("[fetch-fever] last url:", downloadResult.url);
+      if (browserlessLogs.length) console.error("[fetch-fever] script logs:\n" + browserlessLogs.join("\n"));
+      throw Object.assign(new Error(`Browserless script: ${downloadResult.error}`), {
+        phase: "navigation_failed",
+        filesAudit: { browserless_logs: browserlessLogs, screenshot_b64: downloadResult.screenshot || null, last_url: downloadResult.url || null },
+      });
+    }
     let { sales, prices, salesName, pricesName } = downloadResult || {};
     if (!sales || !prices) {
-      throw Object.assign(new Error("Browserless devolveu ficheiros vazios"), { phase: "download_failed" });
+      throw Object.assign(new Error("Browserless devolveu ficheiros vazios"), {
+        phase: "download_failed",
+        filesAudit: { browserless_logs: browserlessLogs },
+      });
     }
+    if (browserlessLogs.length) console.log("[fetch-fever] browserless logs:\n" + browserlessLogs.join("\n"));
 
     // Re-mapear por filename pattern (defensivo: caso Fever reordene cards na UI)
     // - sales_per_ticket_type_and_ticket_price_*  → "prices" (Relatório 1: Ticket Type+Price+Gross)
@@ -284,7 +381,7 @@ Deno.serve(async (req) => {
     // 8. Sucesso
     await updateRun(admin, runId, {
       status: "success", finished_at: new Date().toISOString(),
-      files_downloaded: filesAudit, import_audit: audit,
+      files_downloaded: filesAudit, import_audit: { ...audit, browserless_logs: browserlessLogs },
     });
     await updateConfig(admin, cfg.id, { last_run_at: new Date().toISOString(), last_run_status: "success" });
 
