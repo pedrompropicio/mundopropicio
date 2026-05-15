@@ -315,13 +315,16 @@ Deno.serve(async (req) => {
       let driveModifiedTime: string | null = null;
       try {
         const fileId = extractDriveFileId(cfg.drive_file_id);
+        console.log(`[modifiedTime] cfg=${cfg.id} fileId=${fileId} (raw=${String(cfg.drive_file_id).slice(0, 80)})`);
         const metaRes = await fetch(
           `https://www.googleapis.com/drive/v3/files/${fileId}?fields=modifiedTime,name`,
           { headers: { Authorization: `Bearer ${driveToken}` } },
         );
+        console.log(`[modifiedTime] HTTP ${metaRes.status} for cfg=${cfg.id}`);
         if (metaRes.ok) {
           const meta = await metaRes.json();
           driveModifiedTime = meta?.modifiedTime ?? null;
+          console.log(`[modifiedTime] Captured: ${driveModifiedTime} for file: ${meta?.name ?? "?"}`);
           // SKIP pré-download se modifiedTime <= last_modified_time processado
           if (mode === "dry_run" && driveModifiedTime && cfg.last_modified_time) {
             const drv = new Date(driveModifiedTime).getTime();
