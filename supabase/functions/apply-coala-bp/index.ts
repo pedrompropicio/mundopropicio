@@ -742,16 +742,21 @@ Deno.serve(async (req) => {
       const configId = bodyConfigId ?? baseRun.config_id;
       const diff: any = baseRun.diff ?? {};
 
-      // Snapshot BP (best-effort)
+      // Snapshot BP (STRICT — abort se falhar; sem snapshot não há recovery)
       let bpVersionId: string | null = null;
       try {
-        const { data: snapId } = await admin.rpc("create_bp_snapshot", {
+        const { data: snapId, error: snapErr } = await admin.rpc("create_bp_snapshot", {
           p_event_id: eventId,
           p_label: `Pré-auto_apply Coala ${new Date().toISOString()}`,
         });
-        if (snapId) bpVersionId = snapId as string;
+        if (snapErr) throw new Error(snapErr.message);
+        if (!snapId) throw new Error("create_bp_snapshot devolveu NULL (sem snapshot, sem recovery)");
+        bpVersionId = snapId as string;
+        console.log(`[auto_apply] bp_versions snapshot criado: ${bpVersionId}`);
       } catch (e) {
-        console.warn("create_bp_snapshot indisponível (auto_apply):", (e as Error).message);
+        const msg = (e as Error).message;
+        console.error(`[auto_apply] ABORTADO — snapshot BP falhou: ${msg}`);
+        return json({ error: `auto_apply abortado — snapshot BP falhou: ${msg}` }, 500);
       }
 
       // Protected IDs (sponsorship)
@@ -893,6 +898,11 @@ Deno.serve(async (req) => {
         if (!fcId || protectedFcIds.has(fcId)) { audit.skipped.push({ kind: "valueMismatch", reason: "no bpId or protected", id: fcId }); continue; }
         const oldVal = Number(it.bpAmount) || 0;
         const newVal = Number(it.fileAmount) || 0;
+        // Skip no-op (evita poluir value_changes com old==new)
+        if (Math.abs(oldVal - newVal) < 0.005) {
+          audit.skipped.push({ kind: "valueMismatch", reason: "no-op (old==new)", id: fcId });
+          continue;
+        }
         const { error } = await admin.from("event_forecasts").update({ amount: newVal }).eq("id", fcId);
         if (error) { audit.errors.push({ kind: "valueMismatch", error: error.message, ref: fcId }); continue; }
         await admin.from("coala_sync_value_changes").insert({
@@ -950,11 +960,20 @@ Deno.serve(async (req) => {
           continue;
         }
         if (isPagoBR) {
+          // schema partner_paid_expenses: id, event_id, partner_id, transaction_id, notes, paid_date, company_id
+          // (não tem coluna amount — valor vem da transação ligada)
           const { error: ppeErr } = await admin.from("partner_paid_expenses").insert({
-            company_id: ev.company_id, event_id: eventId, partner_id: COALA_BR_PARTNER_ID,
-            transaction_id: t.id, amount: r.grossAmount, notes: "Coala auto-sync (Pago BR)",
+            company_id: ev.company_id,
+            event_id: eventId,
+            partner_id: COALA_BR_PARTNER_ID,
+            transaction_id: t.id,
+            paid_date: payDate,
+            notes: "Coala auto-sync (Pago BR)",
           });
-          if (ppeErr) audit.errors.push({ kind: "partner_paid_expenses", error: ppeErr.message, ref: t.id });
+          if (ppeErr) {
+            console.error(`[auto_apply] partner_paid_expenses INSERT falhou para tx=${t.id}: ${ppeErr.message}`);
+            audit.errors.push({ kind: "partner_paid_expenses", error: ppeErr.message, ref: t.id });
+          }
         }
         audit.txInserted++;
       }
@@ -967,6 +986,10 @@ Deno.serve(async (req) => {
         if (it.txIsPaid) { audit.skipped.push({ kind: "txValueMismatch", reason: "tx is paid", id: txId }); continue; }
         const oldVal = Number(it.txAmount) || 0;
         const newVal = Number(it.fileAmount) || 0;
+        if (Math.abs(oldVal - newVal) < 0.005) {
+          audit.skipped.push({ kind: "txValueMismatch", reason: "no-op (old==new)", id: txId });
+          continue;
+        }
         const { error } = await admin.from("transactions").update({ amount: newVal }).eq("id", txId);
         if (error) { audit.errors.push({ kind: "txValueMismatch", error: error.message, ref: txId }); continue; }
         await admin.from("coala_sync_value_changes").insert({
