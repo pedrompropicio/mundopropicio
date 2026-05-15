@@ -746,8 +746,9 @@ Deno.serve(async (req) => {
       let bpVersionId: string | null = null;
       try {
         const { data: snapId, error: snapErr } = await admin.rpc("create_bp_snapshot", {
-          p_event_id: eventId,
-          p_label: `Pré-auto_apply Coala ${new Date().toISOString()}`,
+          _event_id: eventId,
+          _description: `Pré-auto_apply Coala ${new Date().toISOString()}`,
+          _created_by_label: "coala-auto-sync",
         });
         if (snapErr) throw new Error(snapErr.message);
         if (!snapId) throw new Error("create_bp_snapshot devolveu NULL (sem snapshot, sem recovery)");
