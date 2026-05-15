@@ -1,0 +1,24 @@
+-- LIVE: Inserção retroativa em partner_paid_expenses para a TX "Mídia atualizada em 5/5"
+-- (Pago BR) que ficou em falta no auto_apply do cron 11:15 — INSERT falhou silenciosamente
+-- porque o código antigo passava 'amount' (coluna inexistente). Bug fixado em apply-coala-bp.
+-- Correr no Supabase Dashboard > SQL Editor (Live).
+
+INSERT INTO partner_paid_expenses (company_id, event_id, partner_id, transaction_id, paid_date, notes)
+SELECT t.company_id,
+       t.event_id,
+       'bfdbd7dc-b424-47ed-aae8-b15fb540a557'::uuid,  -- event_partners.id (COALA BRASIL/MANDO)
+       t.id,
+       COALESCE(t.payment_date, t.date),
+       'Coala auto-sync (Pago BR) — retroativo (cron 2026-05-15 11:15)'
+FROM transactions t
+WHERE t.id = 'ea30cca6-b54f-4c95-9b23-0dd3c1250ecd'
+  AND NOT EXISTS (
+    SELECT 1 FROM partner_paid_expenses WHERE transaction_id = t.id
+  )
+RETURNING id, transaction_id, partner_id, event_id, paid_date;
+
+-- Validação:
+SELECT pe.id, pe.transaction_id, pe.partner_id, pe.paid_date, t.description, t.amount
+FROM partner_paid_expenses pe
+JOIN transactions t ON t.id = pe.transaction_id
+WHERE pe.transaction_id = 'ea30cca6-b54f-4c95-9b23-0dd3c1250ecd';
