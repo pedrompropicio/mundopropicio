@@ -342,62 +342,49 @@ Deno.serve(async (req) => {
         }
       }
 
-      // PASSO 2.5: match por VALOR EXATO entre file rows pendentes e BP rows
-      // ainda não matched. Se o valor bate (±0,01€) e o candidato é único,
-      // é a mesma rubrica apenas com nome alterado (rename) → valueMismatch
-      // com delta=0 e fuzzy baixo, em vez de "Falta no BP".
-      // Cobre casos como "Mídia atualizada em 5/5" 8 192,36 € que no BP
-      // existe como "Mídia / Facebook Ads" 8 192,36 €.
+      // PASSO 2.5: match por VALOR EXATO entre file rows pendentes e BP rows.
+      // Aceita como rename APENAS se Dice ≥ 0.55 (defesa contra falsos positivos
+      // tipo "Plataforma diária extra" ↔ "Custos com influencers" só por terem
+      // o mesmo valor). Senão, vai para missingInBp para humano decidir.
+      const renameOnly: any[] = [];
+      const RENAME_DICE_MIN = 0.55;
       for (const r of pendingFile) {
         const target = moneyKey(r.netAmount);
         const candidates = bpRows.filter(
           (f) => !matchedBpIds.has(f.id) && moneyKey(Number(f.amount) || 0) === target,
         );
-        if (candidates.length === 1) {
-          const best = candidates[0];
-          valueMismatches.push({
-            description: r.description,
-            bpDescription: best.description,
-            fileAmount: r.netAmount,
-            bpAmount: Number(best.amount) || 0,
-            delta: 0,
+        if (candidates.length === 0) {
+          missingInBp.push({
             rowNumber: r.rowNumber,
-            bpId: best.id,
-            fuzzyScore: +dice(r.description, best.description).toFixed(2),
-            renameOnly: true,
+            description: r.description,
+            supplier: r.supplier,
+            netAmount: r.netAmount,
           });
-          matchedBpIds.add(best.id);
-        } else if (candidates.length > 1) {
-          // ambíguo (vários BP com mesmo valor): emparelha pelo melhor Dice
-          let pick: any = null;
-          let pickScore = -1;
-          for (const f of candidates) {
-            const s = dice(r.description, f.description);
-            if (s > pickScore) { pick = f; pickScore = s; }
-          }
-          if (pick) {
-            valueMismatches.push({
-              description: r.description,
-              bpDescription: pick.description,
-              fileAmount: r.netAmount,
-              bpAmount: Number(pick.amount) || 0,
-              delta: 0,
-              rowNumber: r.rowNumber,
-              bpId: pick.id,
-              fuzzyScore: +pickScore.toFixed(2),
-              renameOnly: true,
-              ambiguous: candidates.length,
-            });
-            matchedBpIds.add(pick.id);
-          } else {
-            missingInBp.push({
-              rowNumber: r.rowNumber,
-              description: r.description,
-              supplier: r.supplier,
-              netAmount: r.netAmount,
-            });
-          }
+          continue;
+        }
+        // escolhe o melhor por Dice
+        let pick: any = null;
+        let pickScore = -1;
+        for (const f of candidates) {
+          const s = dice(r.description, f.description);
+          if (s > pickScore) { pick = f; pickScore = s; }
+        }
+        if (pick && pickScore >= RENAME_DICE_MIN) {
+          renameOnly.push({
+            rowNumber: r.rowNumber,
+            description: r.description,
+            bpDescription: pick.description,
+            fileAmount: r.netAmount,
+            bpAmount: Number(pick.amount) || 0,
+            delta: 0,
+            bpId: pick.id,
+            fuzzyScore: +pickScore.toFixed(2),
+            ambiguous: candidates.length > 1 ? candidates.length : undefined,
+          });
+          matchedBpIds.add(pick.id);
         } else {
+          // valor bate mas descrição muito diferente → trata como nova linha;
+          // o utilizador escolhe se vincula a um candidato top-N na UI
           missingInBp.push({
             rowNumber: r.rowNumber,
             description: r.description,
@@ -419,9 +406,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Enriquecer "missingInBp" com Top-3 candidatos do BP por proximidade
-      // (valor ±20% OU dice ≥ 0.45) — ajuda a decidir se é nova rubrica ou só
-      // mudança de nome / descrição. Usa apenas BP rows ainda não matched.
+      // Enriquecer "missingInBp" com Top-3 candidatos do BP (Dice ≥ 0.45 ou valor ±20%)
       const unmatchedBp = bpRows.filter((f) => !matchedBpIds.has(f.id));
       for (const m of missingInBp) {
         const target = Number(m.netAmount) || 0;
@@ -430,11 +415,10 @@ Deno.serve(async (req) => {
           const valueDelta = Math.abs(amt - target);
           const valueRatio = target > 0 ? valueDelta / target : 1;
           const descScore = dice(m.description, f.description);
-          // score combinado: peso 60% descrição + 40% proximidade de valor
           const valueScore = valueRatio <= 0.20 ? 1 - valueRatio / 0.20 : 0;
           const combined = descScore * 0.6 + valueScore * 0.4;
           return { f, descScore, valueDelta, valueRatio, combined };
-        }).filter((x) => x.descScore >= 0.30 || x.valueRatio <= 0.20);
+        }).filter((x) => x.descScore >= 0.45 || x.valueRatio <= 0.20);
         scored.sort((a, b) => b.combined - a.combined);
         m.bpCandidates = scored.slice(0, 3).map((x) => ({
           id: x.f.id,
@@ -446,15 +430,70 @@ Deno.serve(async (req) => {
         }));
       }
 
+      // PASSO 3: detector de split 1→N — uma linha BP corresponde a N linhas
+      // do ficheiro cuja soma bate ±2%. Reduz falsos "missingInBp" quando
+      // o utilizador desmembrou uma rubrica em sub-itens.
+      const splitPending: any[] = [];
+      const findSumCombination = (
+        pool: any[], target: number, tolPct: number, maxK: number,
+      ): any[] | null => {
+        const tol = Math.max(0.01, target * tolPct);
+        // limitar pool a candidatos plausíveis (≤ target+tol) e até 50 maiores
+        const cands = pool
+          .filter((r) => r.netAmount > 0 && r.netAmount <= target + tol)
+          .sort((a, b) => b.netAmount - a.netAmount)
+          .slice(0, 50);
+        let found: any[] | null = null;
+        const recurse = (idx: number, remaining: number, picked: any[]): boolean => {
+          if (Math.abs(remaining) <= tol && picked.length >= 2) {
+            found = picked.slice();
+            return true;
+          }
+          if (picked.length >= maxK) return false;
+          if (idx >= cands.length) return false;
+          if (remaining < -tol) return false;
+          for (let i = idx; i < cands.length; i++) {
+            picked.push(cands[i]);
+            if (recurse(i + 1, remaining - cands[i].netAmount, picked)) return true;
+            picked.pop();
+          }
+          return false;
+        };
+        recurse(0, target, []);
+        return found;
+      };
+      const unmatchedBpForSplit = bpRows.filter((f) => !matchedBpIds.has(f.id));
+      for (const bp of unmatchedBpForSplit) {
+        const target = Number(bp.amount) || 0;
+        if (target < 100) continue;
+        for (let k = 2; k <= 4; k++) {
+          const combo = findSumCombination(missingInBp, target, 0.02, k);
+          if (combo) {
+            const sumActual = combo.reduce((a: number, r: any) => a + r.netAmount, 0);
+            splitPending.push({
+              bpId: bp.id,
+              bpDescription: bp.description,
+              bpAmount: target,
+              fileRows: combo.map((r: any) => ({
+                rowNumber: r.rowNumber, description: r.description, netAmount: r.netAmount,
+              })),
+              sumDelta: +(sumActual - target).toFixed(2),
+            });
+            for (const c of combo) {
+              const idx = missingInBp.findIndex((m) => m.rowNumber === c.rowNumber);
+              if (idx >= 0) missingInBp.splice(idx, 1);
+            }
+            // remover bp da extraInBp se lá estiver
+            const eIdx = extraInBp.findIndex((e: any) => e.id === bp.id);
+            if (eIdx >= 0) extraInBp.splice(eIdx, 1);
+            matchedBpIds.add(bp.id);
+            break;
+          }
+        }
+      }
+
       // ── TX DIFF — espelho do BP, agora aplicado às transações
-      // Filtra TX ligadas a sponsorship_pipeline (tratadas separadamente)
-      const { data: spLinks } = await admin
-        .from("sponsorship_pipeline")
-        .select("linked_transaction_id")
-        .eq("event_id", eventId);
-      const protectedTxIds = new Set<string>(
-        (spLinks || []).map((r: any) => r.linked_transaction_id).filter((x: any) => typeof x === "string"),
-      );
+      // (protectedTxIds já carregado no topo via spForecastLinks)
 
       // Pool TX consideradas no diff (despesa, não-sponsor)
       const txPool = ((existingTxs || []) as any[]).filter((t) => !protectedTxIds.has(t.id));
@@ -475,8 +514,8 @@ Deno.serve(async (req) => {
       }
 
       const txMatchedIds = new Set<string>();
-      const txMissing: any[] = [];           // ficheiro diz pago, sem TX
-      const txValueMismatches: any[] = [];   // TX existe, valor difere
+      const txMissing: any[] = [];
+      const txValueMismatches: any[] = [];
       const pendingTxFile: ParsedRow[] = [];
 
       for (const r of fileTxRows) {
@@ -485,21 +524,15 @@ Deno.serve(async (req) => {
           const t = txByKey.get(k);
           if (!txMatchedIds.has(t.id)) { txMatchedIds.add(t.id); continue; }
         }
-        // mesma descrição, valor diferente
         const sameDesc = (txByDesc.get(normTxt(r.description)) ?? []).filter((t) => !txMatchedIds.has(t.id));
         if (sameDesc.length > 0) {
           const best = sameDesc[0];
           const isPaid = best.status === "paid" || Number(best.paid_amount || 0) > 0.005;
           txValueMismatches.push({
-            rowNumber: r.rowNumber,
-            description: r.description,
-            txDescription: best.description,
-            fileAmount: r.netAmount,
-            txAmount: Number(best.amount) || 0,
+            rowNumber: r.rowNumber, description: r.description, txDescription: best.description,
+            fileAmount: r.netAmount, txAmount: Number(best.amount) || 0,
             delta: +(r.netAmount - (Number(best.amount) || 0)).toFixed(2),
-            txId: best.id,
-            txStatus: best.status,
-            txIsPaid: isPaid,
+            txId: best.id, txStatus: best.status, txIsPaid: isPaid,
           });
           txMatchedIds.add(best.id);
           continue;
@@ -507,86 +540,69 @@ Deno.serve(async (req) => {
         pendingTxFile.push(r);
       }
 
-      // Match por valor exato entre pendentes e TX restantes (rename)
+      // Match por valor exato pendentes ↔ TX restantes — Dice ≥ 0.55 obrigatório
       for (const r of pendingTxFile) {
         const target = moneyKey(r.netAmount);
         const cands = txPool.filter((t) => !txMatchedIds.has(t.id) && moneyKey(Number(t.amount) || 0) === target);
         if (cands.length >= 1) {
-          // pega o primeiro com melhor Dice
           let pick = cands[0]; let pickScore = -1;
           for (const t of cands) {
             const s = dice(r.description, t.description);
             if (s > pickScore) { pick = t; pickScore = s; }
           }
-          const isPaid = pick.status === "paid" || Number(pick.paid_amount || 0) > 0.005;
-          txValueMismatches.push({
-            rowNumber: r.rowNumber,
-            description: r.description,
-            txDescription: pick.description,
-            fileAmount: r.netAmount,
-            txAmount: Number(pick.amount) || 0,
-            delta: 0,
-            txId: pick.id,
-            txStatus: pick.status,
-            txIsPaid: isPaid,
-            renameOnly: true,
-            fuzzyScore: +Math.max(0, pickScore).toFixed(2),
-            ambiguous: cands.length > 1 ? cands.length : undefined,
-          });
-          txMatchedIds.add(pick.id);
-        } else {
-          // fuzzy ≥ 0.7 sem match de valor
-          let bestF: { t: any; score: number } | null = null;
-          for (const t of txPool) {
-            if (txMatchedIds.has(t.id)) continue;
-            const s = dice(r.description, t.description);
-            if (s >= 0.7 && (!bestF || s > bestF.score)) bestF = { t, score: s };
-          }
-          if (bestF) {
-            const isPaid = bestF.t.status === "paid" || Number(bestF.t.paid_amount || 0) > 0.005;
+          if (pickScore >= RENAME_DICE_MIN) {
+            const isPaid = pick.status === "paid" || Number(pick.paid_amount || 0) > 0.005;
             txValueMismatches.push({
-              rowNumber: r.rowNumber,
-              description: r.description,
-              txDescription: bestF.t.description,
-              fileAmount: r.netAmount,
-              txAmount: Number(bestF.t.amount) || 0,
-              delta: +(r.netAmount - (Number(bestF.t.amount) || 0)).toFixed(2),
-              txId: bestF.t.id,
-              txStatus: bestF.t.status,
-              txIsPaid: isPaid,
-              fuzzyScore: +bestF.score.toFixed(2),
+              rowNumber: r.rowNumber, description: r.description, txDescription: pick.description,
+              fileAmount: r.netAmount, txAmount: Number(pick.amount) || 0, delta: 0,
+              txId: pick.id, txStatus: pick.status, txIsPaid: isPaid,
+              renameOnly: true, fuzzyScore: +Math.max(0, pickScore).toFixed(2),
+              ambiguous: cands.length > 1 ? cands.length : undefined,
             });
-            txMatchedIds.add(bestF.t.id);
-          } else {
-            txMissing.push({
-              rowNumber: r.rowNumber,
-              description: r.description,
-              supplier: r.supplier,
-              netAmount: r.netAmount,
-              grossAmount: r.grossAmount,
-              status: r.status,
-              paymentDate: r.paymentDate,
-            });
+            txMatchedIds.add(pick.id);
+            continue;
           }
+        }
+        // fuzzy ≥ 0.7 sem match de valor
+        let bestF: { t: any; score: number } | null = null;
+        for (const t of txPool) {
+          if (txMatchedIds.has(t.id)) continue;
+          const s = dice(r.description, t.description);
+          if (s >= 0.7 && (!bestF || s > bestF.score)) bestF = { t, score: s };
+        }
+        if (bestF) {
+          const isPaid = bestF.t.status === "paid" || Number(bestF.t.paid_amount || 0) > 0.005;
+          txValueMismatches.push({
+            rowNumber: r.rowNumber, description: r.description, txDescription: bestF.t.description,
+            fileAmount: r.netAmount, txAmount: Number(bestF.t.amount) || 0,
+            delta: +(r.netAmount - (Number(bestF.t.amount) || 0)).toFixed(2),
+            txId: bestF.t.id, txStatus: bestF.t.status, txIsPaid: isPaid,
+            fuzzyScore: +bestF.score.toFixed(2),
+          });
+          txMatchedIds.add(bestF.t.id);
+        } else {
+          txMissing.push({
+            rowNumber: r.rowNumber, description: r.description,
+            supplier: r.supplier, netAmount: r.netAmount,
+            grossAmount: r.grossAmount, status: r.status,
+            paymentDate: r.paymentDate, paidVia: r.paidVia,
+          });
         }
       }
 
-      // TX extra (no sistema, sem linha equivalente no XLSX)
+      // TX extra (no sistema, sem linha equivalente no XLSX) — sponsorship já filtrada
       const txExtra: any[] = [];
       for (const t of txPool) {
         if (txMatchedIds.has(t.id)) continue;
         const isPaid = t.status === "paid" || Number(t.paid_amount || 0) > 0.005;
         txExtra.push({
-          id: t.id,
-          description: t.description,
-          amount: Number(t.amount) || 0,
-          status: t.status,
-          isPaid,
-          paymentDate: t.payment_date,
+          id: t.id, description: t.description, amount: Number(t.amount) || 0,
+          status: t.status, isPaid, paymentDate: t.payment_date,
         });
       }
 
-      // Sponsors compare (Pipe sheet vs current sponsorship_pipeline)
+      // Sponsors compare (Pipe sheet vs current sponsorship_pipeline) — não confundir
+      // com a proteção de TX/forecasts: aqui é só comparação de números esperados.
       const { data: existingSponsors } = await admin
         .from("sponsorship_pipeline")
         .select("id, supplier_name, stage, confirmed_amount, proposed_amount")
@@ -610,6 +626,44 @@ Deno.serve(async (req) => {
       const sponsorExtra = (existingSponsors || []).filter((s: any) => !sponsorMatchedIds.has(s.id))
         .map((s: any) => ({ id: s.id, name: s.supplier_name, stage: s.stage, confirmed: Number(s.confirmed_amount) || 0, proposed: Number(s.proposed_amount) || 0 }));
 
+      // ── Severity classifier — decide o que pode ser auto-aplicado vs revisão humana
+      const classifySeverity = (item: any, kind: string): "auto" | "review" => {
+        switch (kind) {
+          case "missingInBp": return "auto";
+          case "extraInBp":   return item.hasTransaction ? "review" : "auto";
+          case "valueMismatch": {
+            const rel = item.bpAmount > 0 ? Math.abs(item.delta) / item.bpAmount : 1;
+            return (Math.abs(item.delta) < 5 && rel < 0.001) ? "auto" : "review";
+          }
+          case "renameOnly":  return (item.fuzzyScore ?? 0) >= 0.85 ? "auto" : "review";
+          case "splitPending": return "review";
+          case "txMissing":   return item.paidVia === "BR" ? "review" : "auto";
+          case "txValueMismatch": return item.txIsPaid ? "review" : (Math.abs(item.delta ?? 0) < 5 ? "auto" : "review");
+          case "txExtra":     return item.isPaid ? "review" : "auto";
+        }
+        return "review";
+      };
+      for (const i of missingInBp) i.severity = classifySeverity(i, "missingInBp");
+      for (const i of extraInBp) i.severity = classifySeverity(i, "extraInBp");
+      for (const i of valueMismatches) i.severity = classifySeverity(i, "valueMismatch");
+      for (const i of renameOnly) i.severity = classifySeverity(i, "renameOnly");
+      for (const i of splitPending) i.severity = classifySeverity(i, "splitPending");
+      for (const i of txMissing) i.severity = classifySeverity(i, "txMissing");
+      for (const i of txValueMismatches) i.severity = classifySeverity(i, "txValueMismatch");
+      for (const i of txExtra) i.severity = classifySeverity(i, "txExtra");
+
+      const countSeverity = (arr: any[], sev: string) => arr.filter((x) => x.severity === sev).length;
+      const autoCount =
+        countSeverity(missingInBp, "auto") + countSeverity(extraInBp, "auto") +
+        countSeverity(valueMismatches, "auto") + countSeverity(renameOnly, "auto") +
+        countSeverity(splitPending, "auto") + countSeverity(txMissing, "auto") +
+        countSeverity(txValueMismatches, "auto") + countSeverity(txExtra, "auto");
+      const reviewCount =
+        countSeverity(missingInBp, "review") + countSeverity(extraInBp, "review") +
+        countSeverity(valueMismatches, "review") + countSeverity(renameOnly, "review") +
+        countSeverity(splitPending, "review") + countSeverity(txMissing, "review") +
+        countSeverity(txValueMismatches, "review") + countSeverity(txExtra, "review");
+
       const fileNetTotal = fileRows.reduce((a, r) => a + r.netAmount, 0);
       const bpNetTotal = bpRows.reduce((a: number, f: any) => a + (Number(f.amount) || 0), 0);
 
@@ -623,6 +677,8 @@ Deno.serve(async (req) => {
           missingInBp: missingInBp.length,
           extraInBp: extraInBp.length,
           valueMismatches: valueMismatches.length,
+          renameOnly: renameOnly.length,
+          splitPending: splitPending.length,
           tx: {
             fileLinesPaid: fileTxRows.length,
             poolSize: txPool.length,
@@ -631,10 +687,14 @@ Deno.serve(async (req) => {
             extra: txExtra.length,
           },
           sponsors: { missing: sponsorMissing.length, extra: sponsorExtra.length, mismatch: sponsorMismatch.length },
+          severity: { auto: autoCount, review: reviewCount },
+          protected: { forecasts: protectedFcIds.size, transactions: protectedTxIds.size },
         },
         missingInBp,
         extraInBp,
         valueMismatches,
+        renameOnly,
+        splitPending,
         txMissing,
         txValueMismatches,
         txExtra,
