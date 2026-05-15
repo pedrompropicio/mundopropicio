@@ -106,6 +106,39 @@ export default async function ({ page }) {
     if (!clicked) throw new Error('texto nao encontrado: ' + text);
   };
 
+  const clickByTextMulti = async (texts, opts = {}) => {
+    const timeout = opts.timeout || 8000;
+    try {
+      await page.waitForFunction((needles) => {
+        const all = Array.from(document.querySelectorAll('button, a, [role="tab"], [role="button"], li, div, span'));
+        return needles.some(n => all.some(el => {
+          const t = (el.textContent || '').trim();
+          return t.includes(n) && t.length < 300;
+        }));
+      }, { timeout }, texts);
+    } catch (_) {}
+
+    return await page.evaluate((needles) => {
+      const all = Array.from(document.querySelectorAll('button, a, [role="tab"], [role="button"], li, div, span'));
+      for (const n of needles) {
+        const candidates = all.filter(el => {
+          const t = (el.textContent || '').trim();
+          return t.includes(n) && t.length < 300;
+        });
+        if (candidates.length) {
+          candidates.sort((a, b) => (a.textContent || '').length - (b.textContent || '').length);
+          candidates[0].scrollIntoView({ block: 'center' });
+          candidates[0].click();
+          return { clicked: true, matched: n, text: (candidates[0].textContent || '').trim().slice(0, 100) };
+        }
+      }
+      const available = Array.from(document.querySelectorAll('[role="tab"], button, a'))
+        .map(el => (el.textContent || '').trim())
+        .filter(t => t && t.length > 1 && t.length < 60);
+      return { clicked: false, available: Array.from(new Set(available)).slice(0, 30) };
+    }, texts);
+  };
+
   try {
     // 1. LOGIN
     log('goto login');
