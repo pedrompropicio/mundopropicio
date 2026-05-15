@@ -47,16 +47,9 @@ function buildPuppeteerScript(args: {
   return `
 export default async function ({ page }) {
   const args = ${a};
-  const fs = require('fs');
-  const path = require('path');
-  const os = require('os');
 
   const logs = [];
   const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
-
-  // download dir
-  const downloadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fever-'));
-  log('downloadDir=' + downloadDir);
 
   let lastScreenshot = null;
   const snap = async (label) => {
@@ -68,17 +61,16 @@ export default async function ({ page }) {
 
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-  const listDir = (p) => { try { return fs.readdirSync(p); } catch { return []; } };
-  const waitNewFile = async (dir, before, timeoutMs) => {
-    const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
-      const now = listDir(dir);
-      const nf = now.filter(f => !before.includes(f) && !f.endsWith('.crdownload') && !f.endsWith('.tmp'));
-      if (nf.length) return nf[0];
-      await sleep(400);
+  // Capturar URL do download via interceptação de requests
+  let lastDownloadUrl = null;
+  const downloadUrlRegex = /(\\.xlsx|\\.csv|export|download)/i;
+  page.on('request', (req) => {
+    const u = req.url();
+    if (downloadUrlRegex.test(u) && !u.includes('fonts') && !u.includes('static')) {
+      lastDownloadUrl = u;
+      log('download url candidato: ' + u);
     }
-    throw new Error('download timeout em ' + dir);
-  };
+  });
 
   const clickByText = async (text, opts = {}) => {
     const exact = opts.exact === true;
@@ -149,10 +141,6 @@ export default async function ({ page }) {
     await sleep(2500);
     await snap('subtab');
 
-    // 6. CDP download behavior
-    const client = await page.target().createCDPSession();
-    await client.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: downloadDir });
-
     async function downloadCard(cardTitle) {
       log('download card: ' + cardTitle);
       const titleXp = "//*[contains(normalize-space(.), " + JSON.stringify(cardTitle) + ")]";
@@ -172,29 +160,57 @@ export default async function ({ page }) {
       await page.waitForXPath("//*[contains(normalize-space(.), 'Baixar dados')]", { timeout: 10000 });
       await sleep(400);
 
-      // tentar marcar xlsx (default)
+      // tentar marcar xlsx (default já é xlsx)
       try {
         const xlsx = await page.$x("//label[contains(translate(.,'XLSX','xlsx'),'xlsx')] | //input[@type='radio'][contains(translate(@value,'XLSX','xlsx'),'xlsx')]");
         if (xlsx[0]) await xlsx[0].click().catch(() => {});
       } catch (_) {}
 
-      const before = listDir(downloadDir);
+      // limpar a URL capturada anteriormente
+      lastDownloadUrl = null;
 
       // botão Baixar (último, evita o do header)
       const btnXp = "//button[contains(translate(., 'BAIXAR', 'baixar'), 'baixar')]";
       const btns = await page.$x(btnXp);
       if (!btns.length) throw new Error('botao Baixar nao encontrado');
       await btns[btns.length - 1].click();
-      log('baixar clicked, aguardar ficheiro');
+      log('baixar clicked, aguardar URL');
 
-      const file = await waitNewFile(downloadDir, before, 60000);
-      const buf = fs.readFileSync(path.join(downloadDir, file));
-      const b64 = buf.toString('base64');
-      log('downloaded: ' + file + ' (' + buf.length + ' bytes)');
+      // aguardar URL aparecer
+      let tries = 0;
+      while (!lastDownloadUrl && tries < 120) {
+        await sleep(500);
+        tries++;
+      }
+      if (!lastDownloadUrl) {
+        await snap('no-download-url');
+        throw new Error('URL de download nao foi capturada apos clicar Baixar');
+      }
+
+      // fetch dentro do browser context (herda cookies)
+      const result = await page.evaluate(async (url) => {
+        const r = await fetch(url, { credentials: 'include' });
+        if (!r.ok) throw new Error('fetch ' + r.status + ' ' + url);
+        const cd = r.headers.get('content-disposition') || '';
+        let filename = 'fever_download.xlsx';
+        const m = cd.match(/filename[^;=\\n]*=(?:UTF-\\d['"]*)?([^;\\n"']+)/i);
+        if (m && m[1]) filename = decodeURIComponent(m[1].replace(/^["']|["']$/g, '').trim());
+        const blob = await r.blob();
+        const ab = await blob.arrayBuffer();
+        const bytes = new Uint8Array(ab);
+        let binary = '';
+        const chunk = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunk) {
+          binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+        }
+        return { b64: btoa(binary), name: filename };
+      }, lastDownloadUrl);
+
+      log('downloaded: ' + result.name);
 
       try { await page.keyboard.press('Escape'); } catch (_) {}
       await sleep(800);
-      return { b64, name: file };
+      return result;
     }
 
     const card1 = await downloadCard('Vendas por tipo de ingresso');
