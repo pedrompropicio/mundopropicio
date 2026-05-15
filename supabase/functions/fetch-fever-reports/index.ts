@@ -101,12 +101,70 @@ export default async function ({ page }) {
     log('credentials filled');
     await snap('pre-submit');
 
+    // Submit via Enter — robusto contra mudanças de selector do botão
+    log('submitting via Enter');
     await Promise.all([
-      page.click('button[type="submit"]'),
-      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {}),
+      page.keyboard.press('Enter'),
+      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch((e) => {
+        log('no navigation event: ' + (e && e.message));
+      }),
     ]);
     log('post-login url=' + page.url());
     await snap('post-login');
+
+    // Verificar que saímos da página de login
+    if (page.url().includes('/login')) {
+      log('still on login — trying button selectors');
+      const buttonSelectors = [
+        'button[type="submit"]',
+        'input[type="submit"]',
+        'form button',
+        'button[data-testid*="login" i]',
+        'button[data-testid*="sign" i]',
+      ];
+      let submitted = false;
+      for (const sel of buttonSelectors) {
+        try {
+          const btn = await page.$(sel);
+          if (btn) {
+            log('found button via: ' + sel);
+            await Promise.all([
+              btn.click(),
+              page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 20000 }).catch(() => {}),
+            ]);
+            submitted = true;
+            break;
+          }
+        } catch (_) {}
+      }
+
+      if (!submitted) {
+        log('no button selector worked, trying by text');
+        const textOptions = ['Entrar', 'Iniciar sessão', 'Login', 'Sign in', 'Acceder', 'Acessar'];
+        for (const txt of textOptions) {
+          try {
+            const xp = "//button[contains(normalize-space(.), " + JSON.stringify(txt) + ")]";
+            const els = await page.$x(xp);
+            if (els.length) {
+              log('clicking button by text: ' + txt);
+              await Promise.all([
+                els[0].click(),
+                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 20000 }).catch(() => {}),
+              ]);
+              submitted = true;
+              break;
+            }
+          } catch (_) {}
+        }
+      }
+
+      if (page.url().includes('/login')) {
+        await snap('still-on-login');
+        throw new Error('login submit falhou: ainda na pagina /login apos Enter e fallbacks');
+      }
+    }
+
+    log('login successful, url=' + page.url());
 
     // 2. Org picker (opcional)
     try {
