@@ -553,10 +553,12 @@ const fmtMoney = (n: number | null | undefined) =>
 
 function DiffReviewDialog({
   run,
+  driveFileId,
   onClose,
   onApplied,
 }: {
   run: Run | null;
+  driveFileId: string | null;
   onClose: () => void;
   onApplied: () => void;
 }) {
