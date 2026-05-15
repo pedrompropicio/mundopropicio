@@ -784,6 +784,7 @@ function DiffReviewDialog({
               open={expressOpen}
               onClose={() => setExpressOpen(false)}
               items={expressItems}
+              driveFileId={driveFileId}
               onDecide={(item, decision, customAmount, notes) =>
                 decideMut.mutateAsync({ item, decision, customAmount, notes })
               }
