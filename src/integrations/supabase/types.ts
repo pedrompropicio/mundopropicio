@@ -6939,6 +6939,10 @@ export type Database = {
         }
         Returns: string
       }
+      create_vault_secret: {
+        Args: { _description?: string; _name: string; _value: string }
+        Returns: string
+      }
       crm_consume_oauth_state: {
         Args: { p_state_id: string }
         Returns: {
@@ -7034,6 +7038,7 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      get_vault_secret: { Args: { _name: string }; Returns: string }
       has_partner_access: {
         Args: { _event_id: string; _user_id: string }
         Returns: boolean
@@ -7241,6 +7246,10 @@ export type Database = {
           _version_id: string
         }
         Returns: undefined
+      }
+      update_vault_secret: {
+        Args: { _id: string; _value: string }
+        Returns: boolean
       }
       validate_trusted_device: {
         Args: { _token_hash: string }
