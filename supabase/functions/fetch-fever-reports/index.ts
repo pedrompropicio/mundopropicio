@@ -228,10 +228,22 @@ Deno.serve(async (req) => {
     } catch (e: any) {
       throw Object.assign(new Error(e?.message || "Browserless falhou"), { phase: "navigation_failed" });
     }
-    const { sales, prices, salesName, pricesName } = downloadResult || {};
+    let { sales, prices, salesName, pricesName } = downloadResult || {};
     if (!sales || !prices) {
       throw Object.assign(new Error("Browserless devolveu ficheiros vazios"), { phase: "download_failed" });
     }
+
+    // Re-mapear por filename pattern (defensivo: caso Fever reordene cards na UI)
+    // - sales_per_ticket_type_and_ticket_price_*  → "prices" (Relatório 1: Ticket Type+Price+Gross)
+    // - tickets_per_ticket_type_and_purchase_date_* → "sales" (Relatório 2: Date+Weekday+Type+Qty)
+    const isPricesName = (n?: string) => !!n && /sales_per_ticket_type_and_ticket_price/i.test(n);
+    const isSalesName  = (n?: string) => !!n && /tickets_per_ticket_type_and_purchase_date/i.test(n);
+    if (isPricesName(salesName) && isSalesName(pricesName)) {
+      console.log("[fetch-fever] swap detectado por filename → trocar sales↔prices");
+      [sales, prices] = [prices, sales];
+      [salesName, pricesName] = [pricesName, salesName];
+    }
+    console.log(`[fetch-fever] prices file="${pricesName}" sales file="${salesName}"`);
 
     const filesAudit = [
       { name: salesName || "fever_sales.xlsx", size: Math.round((sales.length * 3) / 4), sheet_name: "sales" },
@@ -242,6 +254,8 @@ Deno.serve(async (req) => {
     let parseResult: any, grouped: any;
     try {
       parseResult = parseFeverXlsxBuffers(b64ToArrayBuffer(sales), b64ToArrayBuffer(prices));
+      console.log(`[fetch-fever] parsed: ${parseResult.lots.length} lotes, ${parseResult.sales.length} linhas venda, período ${parseResult.totals.periodFrom}→${parseResult.totals.periodTo}, qty=${parseResult.totals.totalQty}, gross=${parseResult.totals.totalGross}, warnings=${parseResult.warnings.length}`);
+      if (parseResult.warnings.length) console.log("[fetch-fever] warnings:", parseResult.warnings.slice(0, 10));
       grouped = groupFeverLots(parseResult.lots);
     } catch (e: any) {
       throw Object.assign(new Error(`Parser: ${e?.message || e}`), { phase: "parse_failed", filesAudit });
