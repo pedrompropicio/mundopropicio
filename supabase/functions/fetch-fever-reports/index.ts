@@ -56,7 +56,7 @@ export default async function ({ page }) {
 
   const logs = [];
   const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
-  log('VERSION_MARKER_2026_05_15_v10');
+  log('VERSION_MARKER_2026_05_15_v11');
 
   let lastScreenshot = null;
   const snap = async (label) => {
@@ -80,18 +80,30 @@ export default async function ({ page }) {
   });
 
   const clickByText = async (text, opts = {}) => {
-    const exact = opts.exact === true;
-    const xp = exact
-      ? "//*[normalize-space(text())=" + JSON.stringify(text) + "]"
-      : "//*[contains(normalize-space(.), " + JSON.stringify(text) + ")]";
-    await page.waitForXPath(xp, { timeout: opts.timeout || 15000 });
-    const els = await page.$x(xp);
-    if (!els.length) throw new Error('texto nao encontrado: ' + text);
-    // pega no mais profundo (último) para evitar clicar em wrapper enorme
-    const el = els[els.length - 1];
-    await el.evaluate(e => e.scrollIntoView({ block: 'center' }));
-    await el.click();
-    return el;
+    const timeout = opts.timeout || 15000;
+    await page.waitForFunction((needle) => {
+      const all = Array.from(document.querySelectorAll('button, a, [role="tab"], [role="button"], li, div, span'));
+      return all.some(el => {
+        const t = (el.textContent || '').trim();
+        return t.includes(needle) && t.length < 300;
+      });
+    }, { timeout }, text);
+
+    const clicked = await page.evaluate((needle) => {
+      const all = Array.from(document.querySelectorAll('button, a, [role="tab"], [role="button"], li, div, span'));
+      const candidates = all.filter(el => {
+        const t = (el.textContent || '').trim();
+        return t.includes(needle) && t.length < 300;
+      });
+      if (!candidates.length) return false;
+      candidates.sort((a, b) => (a.textContent || '').length - (b.textContent || '').length);
+      const el = candidates[0];
+      el.scrollIntoView({ block: 'center' });
+      el.click();
+      return true;
+    }, text);
+
+    if (!clicked) throw new Error('texto nao encontrado: ' + text);
   };
 
   try {
@@ -276,40 +288,60 @@ export default async function ({ page }) {
 
     async function downloadCard(cardTitle) {
       log('download card: ' + cardTitle);
-      const titleXp = "//*[contains(normalize-space(.), " + JSON.stringify(cardTitle) + ")]";
-      await page.waitForXPath(titleXp, { timeout: 15000 });
-      const titles = await page.$x(titleXp);
-      const titleEl = titles[titles.length - 1];
-      await titleEl.evaluate(e => e.scrollIntoView({ block: 'center' }));
 
-      // botão "..." na mesma secção (ancestor)
-      const menuXp = "ancestor::*[self::section or self::div][1]//button[contains(translate(@aria-label,'OPC','opc'),'opc') or contains(@aria-haspopup,'true') or contains(@class,'menu') or contains(.,'...') or contains(.,'⋯') or contains(.,'⋮')]";
-      const menus = await titleEl.$x(menuXp);
-      if (!menus.length) throw new Error('menu (...) nao encontrado para card: ' + cardTitle);
-      await menus[0].click();
-      log('menu clicked');
+      const menuClicked = await page.evaluate((title) => {
+        const titles = Array.from(document.querySelectorAll('*')).filter(el => {
+          const t = (el.textContent || '').trim();
+          return t.includes(title) && t.length < 300;
+        });
+        if (!titles.length) return { found: false, reason: 'no title element' };
+        titles.sort((a, b) => (a.textContent || '').length - (b.textContent || '').length);
+        const titleEl = titles[0];
+        titleEl.scrollIntoView({ block: 'center' });
 
-      // modal "Baixar dados"
-      await page.waitForXPath("//*[contains(normalize-space(.), 'Baixar dados')]", { timeout: 10000 });
+        let section = titleEl.closest('section, article, [class*="card"], [class*="Card"]') || titleEl.parentElement;
+        for (let depth = 0; depth < 5 && section; depth++) {
+          const btns = Array.from(section.querySelectorAll('button'));
+          const menu = btns.find(b => {
+            const t = (b.textContent || '').trim();
+            const al = (b.getAttribute('aria-label') || '').toLowerCase();
+            return /^[.…⋯⋮]+$/.test(t) || /more|opções|opciones|options/i.test(al) || b.getAttribute('aria-haspopup') === 'true';
+          });
+          if (menu) {
+            menu.click();
+            return { found: true, clicked: true, depth };
+          }
+          section = section.parentElement;
+        }
+        return { found: true, clicked: false, reason: 'no menu button in card' };
+      }, cardTitle);
+
+      log('menu click: ' + JSON.stringify(menuClicked));
+      if (!menuClicked.found) throw new Error('card não encontrado: ' + cardTitle);
+      if (!menuClicked.clicked) throw new Error('menu (...) não encontrado para card: ' + cardTitle);
+
+      await page.waitForFunction(() => {
+        const text = document.body ? document.body.innerText : '';
+        return /baixar dados|download data|descargar datos/i.test(text);
+      }, { timeout: 10000 });
       await sleep(400);
 
-      // tentar marcar xlsx (default já é xlsx)
-      try {
-        const xlsx = await page.$x("//label[contains(translate(.,'XLSX','xlsx'),'xlsx')] | //input[@type='radio'][contains(translate(@value,'XLSX','xlsx'),'xlsx')]");
-        if (xlsx[0]) await xlsx[0].click().catch(() => {});
-      } catch (_) {}
-
-      // limpar a URL capturada anteriormente
       lastDownloadUrl = null;
 
-      // botão Baixar (último, evita o do header)
-      const btnXp = "//button[contains(translate(., 'BAIXAR', 'baixar'), 'baixar')]";
-      const btns = await page.$x(btnXp);
-      if (!btns.length) throw new Error('botao Baixar nao encontrado');
-      await btns[btns.length - 1].click();
+      const downloadClicked = await page.evaluate(() => {
+        const btns = Array.from(document.querySelectorAll('button'));
+        const candidates = btns.filter(b => {
+          const t = (b.textContent || '').trim().toLowerCase();
+          return /^(baixar|download|descargar)$/i.test(t) || (t.length < 30 && /(baixar|download|descargar)/i.test(t));
+        });
+        if (!candidates.length) return false;
+        candidates[candidates.length - 1].click();
+        return true;
+      });
+
+      if (!downloadClicked) throw new Error('botao Baixar nao encontrado');
       log('baixar clicked, aguardar URL');
 
-      // aguardar URL aparecer
       let tries = 0;
       while (!lastDownloadUrl && tries < 120) {
         await sleep(500);
@@ -320,7 +352,6 @@ export default async function ({ page }) {
         throw new Error('URL de download nao foi capturada apos clicar Baixar');
       }
 
-      // fetch dentro do browser context (herda cookies)
       const result = await page.evaluate(async (url) => {
         const r = await fetch(url, { credentials: 'include' });
         if (!r.ok) throw new Error('fetch ' + r.status + ' ' + url);
