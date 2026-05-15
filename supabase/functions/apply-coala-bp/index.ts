@@ -1610,8 +1610,9 @@ Deno.serve(async (req) => {
     let bpVersionId: string | null = null;
     try {
       const { data: snapId } = await admin.rpc("create_bp_snapshot", {
-        p_event_id: eventId,
-        p_label: `Pré-import Coala ${fileVersion} (${new Date().toISOString().slice(0, 10)})`,
+        _event_id: eventId,
+        _description: `Pré-import Coala ${fileVersion} (${new Date().toISOString().slice(0, 10)})`,
+        _created_by_label: "coala-auto-sync",
       });
       if (snapId) bpVersionId = snapId as string;
     } catch (e) {
