@@ -223,7 +223,7 @@ export default async function ({ page }) {
 `;
 }
 
-async function runBrowserless(script: string): Promise<{ sales: string; prices: string; salesName: string; pricesName: string }> {
+async function runBrowserless(script: string): Promise<any> {
   if (!BROWSERLESS_KEY) throw new Error("BROWSERLESS_API_KEY não configurado");
   const url = `https://production-sfo.browserless.io/function?token=${BROWSERLESS_KEY}`;
   const resp = await fetch(url, {
@@ -235,8 +235,7 @@ async function runBrowserless(script: string): Promise<{ sales: string; prices: 
     const text = await resp.text();
     throw new Error(`Browserless ${resp.status}: ${text.slice(0, 500)}`);
   }
-  const data = await resp.json();
-  return data;
+  return await resp.json();
 }
 
 function b64ToArrayBuffer(b64: string): ArrayBuffer {
