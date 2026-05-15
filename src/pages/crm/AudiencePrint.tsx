@@ -659,15 +659,24 @@ function AuditReportView({ context, generated_at, verdict, landing, funnel, pixe
   );
 }
 
+// Labels portuguesas para steps. Suporta ambos os conjuntos (novos pós-G.1 primários
+// + legados pré-G.1 para runs históricas), alinhado com STEP_LABELS em FunnelTest.tsx.
 const FT_STEP_LABELS: Record<string, string> = {
-  navigate_home: "Navegar para home",
+  // Novos (pós-G.1, fluxo Ticketline real)
+  navigate_home: "Navegar para sessão",
+  select_zone: "Selecionar zona",
+  select_quantity: "Selecionar quantidade",
+  add_to_cart: "Adicionar ao carrinho",
+  open_cart_page: "Validar carrinho",
+  initiate_checkout: "Iniciar checkout",
+  // Legados (pré-G.1, mantidos para runs históricas em BD)
   click_event: "Clicar no evento",
   select_ticket: "Selecionar bilhete",
-  add_to_cart: "Adicionar ao carrinho",
   open_cart: "Abrir carrinho",
   begin_checkout: "Iniciar checkout",
 };
-const FT_STEP_ORDER = ["navigate_home", "click_event", "select_ticket", "add_to_cart", "open_cart", "begin_checkout"];
+// FT_STEP_ORDER agora é derivado DINAMICAMENTE de steps[].step_index dentro do
+// componente (ver FunnelTestReportView abaixo) — multi-bilheteira friendly.
 const FT_EXPECTED = ["PageView", "ViewContent", "AddToCart", "InitiateCheckout"];
 
 function ftFmtMs(ms: number | null | undefined) {
@@ -684,8 +693,25 @@ function ftSeverityColor(s?: string) {
 }
 
 function FunnelTestReportView({ run, steps }: { run: any; steps: any[] }) {
-  const allEvents = (steps ?? []).flatMap((s: any) => (s.pixel_events ?? []).map((e: any) => ({ ...e, step: s.step_name })));
-  const allErrors = (steps ?? []).flatMap((s: any) => (s.console_errors ?? []).map((e: any) => ({ ...e, step: s.step_name })));
+  // FIX 1+2 — Mesma lógica que FunnelTest.tsx (UI principal). Fonte autoritativa:
+  // run.detected_pixel_events / run.console_errors (top-level, populadas no fim
+  // da run). Fallback aos arrays por step (coluna real é pixel_events_in_step /
+  // console_errors_in_step, NÃO pixel_events / console_errors).
+  const allEvents = Array.isArray(run?.detected_pixel_events) && run.detected_pixel_events.length > 0
+    ? run.detected_pixel_events.map((e: any) => ({ ...e, step: e.step ?? e.step_name ?? null }))
+    : (steps ?? []).flatMap((s: any) => (s.pixel_events_in_step ?? []).map((e: any) => ({ ...e, step: s.step_name })));
+  const allErrors = Array.isArray(run?.console_errors) && run.console_errors.length > 0
+    ? run.console_errors.map((e: any) => ({ ...e, step: e.step ?? e.step_name ?? null }))
+    : (steps ?? []).flatMap((s: any) => (s.console_errors_in_step ?? []).map((e: any) => ({ ...e, step: s.step_name })));
+
+  // FIX 3 — FT_STEP_ORDER derivado dinamicamente de steps[].step_index, em vez
+  // de hard-coded. Multi-bilheteira friendly (Blueticket, BOL, etc futuras funcionam
+  // out-of-the-box). Para runs históricas pré-G.1, step_name continua a mapear para
+  // FT_STEP_LABELS legado.
+  const stepOrder: string[] = (steps ?? [])
+    .slice()
+    .sort((a: any, b: any) => (a.step_index ?? 0) - (b.step_index ?? 0))
+    .map((s: any) => s.step_name);
 
   // Match case-insensitive + trim para alinhar tabela com veredicto IA.
   const norm = (v: any) => String(v ?? "").trim().toLowerCase();
@@ -737,7 +763,7 @@ function FunnelTestReportView({ run, steps }: { run: any; steps: any[] }) {
           )}
         </div>
         <p className="meta" style={{ marginTop: 20 }}>
-          Auditoria automatizada com Browserless + Playwright. Sem compra real.
+          Auditoria automatizada com Browserless + Puppeteer. Sem compra real.
         </p>
       </div>
 
@@ -811,7 +837,7 @@ function FunnelTestReportView({ run, steps }: { run: any; steps: any[] }) {
       {/* Steps detalhados */}
       <div style={{ pageBreakBefore: "always" }}>
         <h2>Steps detalhados</h2>
-        {FT_STEP_ORDER.map((stepName, idx) => {
+        {stepOrder.map((stepName, idx) => {
           const step = (steps ?? []).find((s: any) => s.step_name === stepName);
           if (!step) return null;
           const statusColor = step.step_status === "passed" ? "#10b981" : step.step_status === "failed" ? "#ef4444" : "#9ca3af";
@@ -819,7 +845,7 @@ function FunnelTestReportView({ run, steps }: { run: any; steps: any[] }) {
             <div key={stepName} className="card" style={{ pageBreakInside: "avoid", marginBottom: 14 }}>
               <div className="row">
                 <div style={{ flex: 1 }}>
-                  <h3 style={{ margin: 0 }}>{idx + 1}. {FT_STEP_LABELS[stepName]}</h3>
+                  <h3 style={{ margin: 0 }}>{idx + 1}. {FT_STEP_LABELS[stepName] ?? stepName}</h3>
                   <div className="mono" style={{ fontSize: "8pt", wordBreak: "break-all" }}>{step.url_at_step}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
@@ -852,11 +878,11 @@ function FunnelTestReportView({ run, steps }: { run: any; steps: any[] }) {
                 </div>
               )}
 
-              {step.pixel_events?.length > 0 && (
+              {step.pixel_events_in_step?.length > 0 && (
                 <div style={{ marginTop: 8 }}>
                   <div className="meta" style={{ marginBottom: 4 }}><strong>Pixel events</strong></div>
                   <ul style={{ margin: 0, paddingLeft: 18 }}>
-                    {step.pixel_events.map((e: any, i: number) => (
+                    {step.pixel_events_in_step.map((e: any, i: number) => (
                       <li key={i} style={{ fontSize: "8.5pt" }}>
                         <strong>{e.event}</strong>
                         {e.value != null && ` · ${e.value} ${e.currency ?? ""}`}
@@ -868,11 +894,11 @@ function FunnelTestReportView({ run, steps }: { run: any; steps: any[] }) {
                 </div>
               )}
 
-              {step.console_errors?.length > 0 && (
+              {step.console_errors_in_step?.length > 0 && (
                 <div style={{ marginTop: 8 }}>
                   <div className="meta" style={{ marginBottom: 4 }}><strong>Console</strong></div>
                   <ul style={{ margin: 0, paddingLeft: 18 }}>
-                    {step.console_errors.map((e: any, i: number) => (
+                    {step.console_errors_in_step.map((e: any, i: number) => (
                       <li key={i} style={{ fontSize: "8.5pt", color: e.level === "error" ? "#b91c1c" : "#92400e" }}>
                         [{e.level}] {e.message}{e.source && ` — ${e.source}`}
                       </li>
@@ -915,7 +941,7 @@ function FunnelTestReportView({ run, steps }: { run: any; steps: any[] }) {
       )}
 
       <p className="meta" style={{ marginTop: 24, textAlign: "center" }}>
-        Gerado por Mundo Propício · MP Audience · Auditoria automatizada com Browserless + Playwright
+        Gerado por Mundo Propício · MP Audience · Auditoria automatizada com Browserless + Puppeteer
       </p>
     </>
   );
