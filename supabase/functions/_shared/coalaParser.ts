@@ -107,8 +107,12 @@ export interface ParseResult {
 // ─────────────────────────────────────────────────────────────────────
 const norm = (s: any): string =>
   String(s ?? "")
-    .normalize("NFD")
+    .normalize("NFKC")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u200B-\u200F\u2060\uFEFF]/g, "")
+    .replace(/[\u00AD\u034F\u17B4\u17B5]/g, "")
+    .replace(/[\p{Cc}\p{Cf}]/gu, "")
+    .replace(/[•·●○◦‣⁃▪▫■□◆◇★☆]/g, "")
     .toLowerCase()
     .replace(/\s+/g, " ")
     .trim();
