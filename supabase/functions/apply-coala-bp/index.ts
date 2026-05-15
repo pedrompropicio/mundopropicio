@@ -403,6 +403,7 @@ Deno.serve(async (req) => {
           description: f.description,
           amount: Number(f.amount) || 0,
           hasTransaction: !!f.transaction_id,
+          transactionId: f.transaction_id ?? null,
         });
       }
 
