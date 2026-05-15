@@ -220,7 +220,7 @@ export default async function ({ page }) {
     };
   }
 }
-\`;
+`;
 }
 
 async function runBrowserless(script: string): Promise<{ sales: string; prices: string; salesName: string; pricesName: string }> {
