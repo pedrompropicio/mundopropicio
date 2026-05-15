@@ -56,7 +56,7 @@ export default async function ({ page }) {
 
   const logs = [];
   const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
-  log('VERSION_MARKER_2026_05_15_v15');
+  log('VERSION_MARKER_2026_05_15_v16');
 
   let lastScreenshot = null;
   const snap = async (label) => {
@@ -127,9 +127,20 @@ export default async function ({ page }) {
         });
         if (candidates.length) {
           candidates.sort((a, b) => (a.textContent || '').length - (b.textContent || '').length);
-          candidates[0].scrollIntoView({ block: 'center' });
-          candidates[0].click();
-          return { clicked: true, matched: n, text: (candidates[0].textContent || '').trim().slice(0, 100) };
+          const innerEl = candidates[0];
+          const clickable = innerEl.closest('a, button, [role="tab"], [role="button"], [onclick], [tabindex]') || innerEl;
+          const info = {
+            clicked: true,
+            matched: n,
+            text: (innerEl.textContent || '').trim().slice(0, 100),
+            innerTag: innerEl.tagName.toLowerCase(),
+            clickableTag: clickable.tagName.toLowerCase(),
+            clickableRole: clickable.getAttribute('role') || null,
+            clickableHref: clickable.getAttribute('href') || null,
+          };
+          clickable.scrollIntoView({ block: 'center' });
+          clickable.click();
+          return info;
         }
       }
       const available = Array.from(document.querySelectorAll('[role="tab"], button, a'))
@@ -319,6 +330,35 @@ export default async function ({ page }) {
     log('dashboard tabs/clickables: ' + JSON.stringify(tabsInfo));
 
     // 4. Aba "Detalhamento de vendas" / "Sales detail" (multi-variante numa única chamada)
+    // Discovery: estrutura do elemento "Sales breakdown"
+    const breakdownStructure = await page.evaluate(() => {
+      const all = Array.from(document.querySelectorAll('*'));
+      const found = all.filter(el => {
+        const t = (el.textContent || '').trim();
+        return t === 'Sales breakdown' || (t.includes('Sales breakdown') && t.length < 30);
+      });
+      if (!found.length) return { found: false };
+      return found.slice(0, 3).map(el => {
+        const ancestors = [];
+        let cur = el;
+        for (let i = 0; i < 6 && cur && cur.parentElement; i++) {
+          cur = cur.parentElement;
+          ancestors.push({
+            tag: cur.tagName.toLowerCase(),
+            role: cur.getAttribute('role') || null,
+            href: cur.getAttribute('href') || null,
+            cls: (cur.className || '').toString().slice(0, 100),
+            hasOnclick: !!cur.onclick || cur.hasAttribute('onclick'),
+          });
+        }
+        return {
+          el: { tag: el.tagName.toLowerCase(), text: (el.textContent || '').trim() },
+          ancestors,
+        };
+      });
+    });
+    log('breakdown structure: ' + JSON.stringify(breakdownStructure));
+
     log('click tab sales detail');
     const tabResult = await clickByTextMulti(
       ['Detalhamento de vendas', 'Sales detail', 'Sales breakdown', 'Sales overview', 'Sales analytics'],
@@ -333,6 +373,7 @@ export default async function ({ page }) {
     // 5. Após click em Sales breakdown, esperar carregar e descobrir
     await sleep(3500);
     await snap('after-sales-breakdown');
+    log('after-breakdown url: ' + page.url());
 
     const breakdownText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 5000) : '').catch(() => '');
     log('after-breakdown page text: ' + breakdownText.replace(/\\n+/g, ' | ').slice(0, 2500));
