@@ -632,13 +632,14 @@ Deno.serve(async (req) => {
       // (>= €10k absoluto OU >= 500% relativo) ou splits com baixa confiança.
       const ABS_THRESHOLD = 10000;   // €10k absoluto
       const PCT_THRESHOLD = 5.0;     // 500% (delta/base)
-      const SPLIT_SUM_TOL = 0.01;    // 1% de tolerância na soma do split
+      const SPLIT_SUM_ABS_TOL = 200;  // €200 absoluto (auto se sumDelta < €200)
+      const SPLIT_SUM_PCT_TOL = 0.05; // 5% relativo (auto se delta/base < 5%)
       const classifySeverity = (item: any, kind: string): "auto" | "review" => {
         switch (kind) {
           case "missingInBp": return "auto";
           case "extraInBp":   return "auto"; // Opção C: apaga sempre (com ou sem TX)
           case "renameOnly":  return "auto"; // delta=0, zero risco
-          case "txMissing":   return item.paidVia === "BR" ? "review" : "auto";
+          case "txMissing":   return "auto"; // Pago BR também é auto (supplier+partner fixos)
           case "txExtra":     return "auto"; // Opção B: apaga mesmo paga (Santander sem saldo)
           case "valueMismatch":
           case "txValueMismatch": {
@@ -653,7 +654,10 @@ Deno.serve(async (req) => {
             const target = Number(item.bpAmount) || 0;
             const sumDelta = Math.abs(Number(item.sumDelta) || 0);
             const pct = target > 0 ? sumDelta / target : 0;
-            return pct < SPLIT_SUM_TOL ? "auto" : "review";
+            // Auto se ABSOLUTO pequeno OU PERCENTUAL pequeno (não AND)
+            if (sumDelta < SPLIT_SUM_ABS_TOL) return "auto";
+            if (pct < SPLIT_SUM_PCT_TOL) return "auto";
+            return "review";
           }
         }
         return "review";
