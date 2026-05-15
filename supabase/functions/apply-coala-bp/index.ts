@@ -143,7 +143,16 @@ Deno.serve(async (req) => {
     }
 
     const normTxt = (s: string | null) =>
-      String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+      String(s ?? "")
+        .normalize("NFKC")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[\u200B-\u200F\u2060\uFEFF]/g, "")
+        .replace(/[\u00AD\u034F\u17B4\u17B5]/g, "")
+        .replace(/[\p{Cc}\p{Cf}]/gu, "")
+        .replace(/[•·●○◦‣⁃▪▫■□◆◇★☆]/g, "")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
     const moneyKey = (n: number) => Math.round(n * 100); // tolerância 0.005€
 
     // ── Dedupe pre-load (também precisamos para preview)
@@ -211,7 +220,19 @@ Deno.serve(async (req) => {
       };
 
       // SÓ comparamos despesas — o XLSX V13 lista apenas despesas (P&L > P_L Despesas)
-      const bpRows = ((existingFcs || []) as any[]).filter((f) => f.type === "expense");
+      // Excluir forecasts ligados a sponsorship_pipeline (geridos pelo módulo de patrocínios)
+      const { data: spForecastLinks } = await admin
+        .from("sponsorship_pipeline")
+        .select("linked_forecast_id, linked_transaction_id")
+        .eq("event_id", eventId);
+      const protectedFcIds = new Set<string>(
+        (spForecastLinks || []).map((r: any) => r.linked_forecast_id).filter((x: any) => typeof x === "string"),
+      );
+      const protectedTxIds = new Set<string>(
+        (spForecastLinks || []).map((r: any) => r.linked_transaction_id).filter((x: any) => typeof x === "string"),
+      );
+
+      const bpRows = ((existingFcs || []) as any[]).filter((f) => f.type === "expense" && !protectedFcIds.has(f.id));
       const bpByKey = new Map<string, any>();
       const bpByDesc = new Map<string, any[]>();
       const bpByBase = new Map<string, any[]>();
