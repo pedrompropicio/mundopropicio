@@ -225,6 +225,7 @@ export default function CoalaSync() {
                   <TableHead>Drive File ID</TableHead>
                   <TableHead>Etiqueta</TableHead>
                   <TableHead>Ativo</TableHead>
+                  <TableHead>Auto-aplicar</TableHead>
                   <TableHead>Última run</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -242,6 +243,17 @@ export default function CoalaSync() {
                           checked={c.enabled}
                           onCheckedChange={(v) => upsertMut.mutate({ id: c.id, enabled: v })}
                         />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={c.auto_apply_enabled !== false}
+                            onCheckedChange={(v) => upsertMut.mutate({ id: c.id, auto_apply_enabled: v })}
+                          />
+                          <span className="text-[10px] text-muted-foreground">
+                            {c.auto_apply_enabled !== false ? "auto" : "manual"}
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell>
                         {c.last_run_status ? (
