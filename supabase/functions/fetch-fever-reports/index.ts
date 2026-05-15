@@ -318,29 +318,28 @@ export default async function ({ page }) {
     });
     log('dashboard tabs/clickables: ' + JSON.stringify(tabsInfo));
 
-    // 4. Aba "Detalhamento de vendas" / "Sales detail" / "Sales breakdown" (multilíngua)
+    // 4. Aba "Detalhamento de vendas" / "Sales detail" (multi-variante numa única chamada)
     log('click tab sales detail');
-    await clickByText('Detalhamento de vendas', { timeout: 5000 }).catch(async (e1) => {
-      log('tab "Detalhamento de vendas" não encontrado, tentando em inglês: ' + e1.message);
-      await clickByText('Sales detail', { timeout: 5000 }).catch(async (e2) => {
-        log('"Sales detail" não encontrado, tentando "Sales breakdown": ' + e2.message);
-        await clickByText('Sales breakdown', { timeout: 5000 }).catch(async (e3) => {
-          log('"Sales breakdown" não encontrado, tentando "Sales overview": ' + e3.message);
-          await clickByText('Sales overview', { timeout: 5000 });
-        });
-      });
-    });
+    const tabResult = await clickByTextMulti(
+      ['Detalhamento de vendas', 'Sales detail', 'Sales breakdown', 'Sales overview', 'Sales analytics'],
+      { timeout: 8000 }
+    );
+    log('tab result: ' + JSON.stringify(tabResult));
+    if (!tabResult.clicked) {
+      throw new Error('tab sales não encontrado. available=' + JSON.stringify(tabResult.available));
+    }
     await sleep(1500);
 
     // 5. Sub-aba "Vendas por tipo de ingresso" / "Sales by ticket type"
     log('click subtab sales by ticket type');
-    await clickByText('Vendas por tipo de ingresso', { timeout: 5000 }).catch(async (e1) => {
-      log('subtab PT não encontrado: ' + e1.message);
-      await clickByText('Sales by ticket type', { timeout: 5000 }).catch(async (e2) => {
-        log('"Sales by ticket type" não encontrado, tentando "Ticket type sales": ' + e2.message);
-        await clickByText('Ticket type sales', { timeout: 5000 });
-      });
-    });
+    const subtabResult = await clickByTextMulti(
+      ['Vendas por tipo de ingresso', 'Sales by ticket type', 'Ticket type sales', 'By ticket type', 'Per ticket type'],
+      { timeout: 8000 }
+    );
+    log('subtab result: ' + JSON.stringify(subtabResult));
+    if (!subtabResult.clicked) {
+      throw new Error('subtab ticket type não encontrado. available=' + JSON.stringify(subtabResult.available));
+    }
     await sleep(2500);
     await snap('subtab');
 
