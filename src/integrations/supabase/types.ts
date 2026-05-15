@@ -1090,6 +1090,7 @@ export type Database = {
       }
       coala_sync_config: {
         Row: {
+          auto_apply_enabled: boolean
           company_id: string
           created_at: string
           created_by: string | null
@@ -1105,6 +1106,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auto_apply_enabled?: boolean
           company_id: string
           created_at?: string
           created_by?: string | null
@@ -1120,6 +1122,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auto_apply_enabled?: boolean
           company_id?: string
           created_at?: string
           created_by?: string | null
@@ -1201,6 +1204,54 @@ export type Database = {
           },
           {
             foreignKeyName: "coala_sync_decisions_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "coala_sync_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coala_sync_deletes: {
+        Row: {
+          config_id: string
+          deleted_at: string
+          id: string
+          reason: string | null
+          run_id: string | null
+          snapshot: Json
+          target_id: string
+          target_table: string
+        }
+        Insert: {
+          config_id: string
+          deleted_at?: string
+          id?: string
+          reason?: string | null
+          run_id?: string | null
+          snapshot: Json
+          target_id: string
+          target_table: string
+        }
+        Update: {
+          config_id?: string
+          deleted_at?: string
+          id?: string
+          reason?: string | null
+          run_id?: string | null
+          snapshot?: Json
+          target_id?: string
+          target_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coala_sync_deletes_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "coala_sync_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coala_sync_deletes_run_id_fkey"
             columns: ["run_id"]
             isOneToOne: false
             referencedRelation: "coala_sync_runs"
@@ -1349,6 +1400,57 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coala_sync_value_changes: {
+        Row: {
+          changed_at: string
+          config_id: string
+          field: string
+          id: string
+          new_value: Json
+          old_value: Json
+          run_id: string | null
+          target_id: string
+          target_table: string
+        }
+        Insert: {
+          changed_at?: string
+          config_id: string
+          field: string
+          id?: string
+          new_value: Json
+          old_value: Json
+          run_id?: string | null
+          target_id: string
+          target_table: string
+        }
+        Update: {
+          changed_at?: string
+          config_id?: string
+          field?: string
+          id?: string
+          new_value?: Json
+          old_value?: Json
+          run_id?: string | null
+          target_id?: string
+          target_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coala_sync_value_changes_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "coala_sync_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coala_sync_value_changes_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "coala_sync_runs"
             referencedColumns: ["id"]
           },
         ]

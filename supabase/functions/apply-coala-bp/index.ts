@@ -705,6 +705,280 @@ Deno.serve(async (req) => {
     }
 
     // ===========================================================================
+    // PHASE = "auto_apply": aplica APENAS items severity='auto' do diff de uma run base
+    // Body extra: { basedOnRunId, configId? }  — fileBase64/eventId/fileVersion já vêm
+    // ===========================================================================
+    if (phase === "auto_apply") {
+      const { basedOnRunId, configId: bodyConfigId } = body ?? {};
+      if (!basedOnRunId) return json({ error: "auto_apply requer basedOnRunId" }, 400);
+
+      const { data: baseRun } = await admin
+        .from("coala_sync_runs")
+        .select("id, config_id, diff")
+        .eq("id", basedOnRunId)
+        .maybeSingle();
+      if (!baseRun || !baseRun.diff) {
+        return json({ error: "Run base sem diff" }, 404);
+      }
+      const configId = bodyConfigId ?? baseRun.config_id;
+      const diff: any = baseRun.diff ?? {};
+
+      // Snapshot BP (best-effort)
+      let bpVersionId: string | null = null;
+      try {
+        const { data: snapId } = await admin.rpc("create_bp_snapshot", {
+          p_event_id: eventId,
+          p_label: `Pré-auto_apply Coala ${new Date().toISOString()}`,
+        });
+        if (snapId) bpVersionId = snapId as string;
+      } catch (e) {
+        console.warn("create_bp_snapshot indisponível (auto_apply):", (e as Error).message);
+      }
+
+      // Protected IDs (sponsorship)
+      const { data: spLinks } = await admin
+        .from("sponsorship_pipeline")
+        .select("linked_forecast_id, linked_transaction_id")
+        .eq("event_id", eventId);
+      const protectedFcIds = new Set<string>(
+        (spLinks || []).map((r: any) => r.linked_forecast_id).filter((x: any) => typeof x === "string"),
+      );
+      const protectedTxIds = new Set<string>(
+        (spLinks || []).map((r: any) => r.linked_transaction_id).filter((x: any) => typeof x === "string"),
+      );
+
+      // Index parsed rows by rowNumber for full data
+      const rowByNum = new Map<number, ParsedRow>();
+      for (const r of parsed.rows) {
+        if (!r.excluded) rowByNum.set(r.rowNumber, r);
+      }
+
+      // Pre-create suppliers needed (for missingInBp + txMissing severity=auto)
+      const neededSuppliers = new Set<string>();
+      for (const it of (diff.missingInBp ?? [])) {
+        if (it.severity === "auto" && it.supplier && !supByName.has(it.supplier)) {
+          neededSuppliers.add(it.supplier);
+        }
+      }
+      for (const it of (diff.txMissing ?? [])) {
+        if (it.severity === "auto" && it.supplier && !supByName.has(it.supplier) && it.paidVia !== "BR") {
+          neededSuppliers.add(it.supplier);
+        }
+      }
+      const newSupplierIds: string[] = [];
+      for (const name of neededSuppliers) {
+        const { data: ins } = await admin
+          .from("suppliers")
+          .insert({ name, company_id: ev.company_id, is_active: true })
+          .select("id").single();
+        if (ins) { supByName.set(name, ins.id); newSupplierIds.push(ins.id); }
+      }
+
+      // BR partner heuristic (defense in depth — should already be 'review')
+      const { data: epRows } = await admin
+        .from("event_partners")
+        .select("id, supplier_id, suppliers!inner(name)")
+        .eq("event_id", eventId);
+      const brPartnerCandidates = (epRows || []).filter((ep: any) => {
+        const n = normTxt(ep.suppliers?.name ?? "");
+        return /\bbr\b/.test(n) || n.includes("brasil") || n.includes("brazil") || n.includes("coala br");
+      });
+      const brPartnerId: string | null =
+        brPartnerCandidates.length === 1 ? brPartnerCandidates[0].id : null;
+
+      const formalidadeMap: Record<string, string> = {
+        "Fechado": "fechado", "Negociado": "negociacao", "Estimado": "estimado", "Cotação": "estimado",
+      };
+      const resolveCatForRow = (r: ParsedRow): string => {
+        if (r.rawCenterCusto) {
+          const m = allCats.find((c: any) => c.parent_id != null && norm(c.name) === norm(r.rawCenterCusto || ""));
+          if (m) return m.id;
+        }
+        return fallback.id;
+      };
+
+      const audit = {
+        forecastsInserted: 0,
+        forecastsDeleted: 0,
+        forecastsAmountUpdated: 0,
+        forecastsRenamed: 0,
+        txInserted: 0,
+        txDeleted: 0,
+        txAmountUpdated: 0,
+        suppliersCreated: newSupplierIds.length,
+        skipped: [] as Array<{ kind: string; reason: string; id?: string; rowNumber?: number }>,
+        errors: [] as Array<{ kind: string; error: string; ref?: any }>,
+      };
+
+      // 1) missingInBp (auto) → INSERT forecast
+      for (const it of (diff.missingInBp ?? [])) {
+        if (it.severity !== "auto") continue;
+        const r = rowByNum.get(it.rowNumber);
+        if (!r) { audit.skipped.push({ kind: "missingInBp", reason: "row not in parsed", rowNumber: it.rowNumber }); continue; }
+        const categoryId = resolveCatForRow(r);
+        const { error } = await admin.from("event_forecasts").insert({
+          company_id: ev.company_id, event_id: eventId, category_id: categoryId, type: "expense",
+          description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
+          status: "approved", approved_at: new Date().toISOString(),
+          approved_by: "system:coala-auto-sync",
+          formalidade: formalidadeMap[r.formalidade] ?? "estimado",
+          notes: ["Coala auto-sync", r.invoiceRef ? `Fatura ${r.invoiceRef}` : null].filter(Boolean).join(" • "),
+        });
+        if (error) audit.errors.push({ kind: "missingInBp", error: error.message, ref: it.rowNumber });
+        else audit.forecastsInserted++;
+      }
+
+      // 2) extraInBp (auto, sem TX) → DELETE forecast + snapshot
+      for (const it of (diff.extraInBp ?? [])) {
+        if (it.severity !== "auto") continue;
+        if (protectedFcIds.has(it.id)) { audit.skipped.push({ kind: "extraInBp", reason: "sponsorship-protected", id: it.id }); continue; }
+        const { data: snap } = await admin.from("event_forecasts").select("*").eq("id", it.id).maybeSingle();
+        if (!snap) { audit.skipped.push({ kind: "extraInBp", reason: "row gone", id: it.id }); continue; }
+        const { error } = await admin.from("event_forecasts").delete().eq("id", it.id);
+        if (error) { audit.errors.push({ kind: "extraInBp", error: error.message, ref: it.id }); continue; }
+        await admin.from("coala_sync_deletes").insert({
+          config_id: configId, run_id: basedOnRunId,
+          target_table: "event_forecasts", target_id: it.id,
+          snapshot: snap, reason: "auto_apply: extra in BP, sem TX",
+        });
+        audit.forecastsDeleted++;
+      }
+
+      // 3) valueMismatches (auto) → UPDATE forecast.amount + audit
+      for (const it of (diff.valueMismatches ?? [])) {
+        if (it.severity !== "auto") continue;
+        const fcId = it.bpId;
+        if (!fcId || protectedFcIds.has(fcId)) { audit.skipped.push({ kind: "valueMismatch", reason: "no bpId or protected", id: fcId }); continue; }
+        const oldVal = Number(it.bpAmount) || 0;
+        const newVal = Number(it.fileAmount) || 0;
+        const { error } = await admin.from("event_forecasts").update({ amount: newVal }).eq("id", fcId);
+        if (error) { audit.errors.push({ kind: "valueMismatch", error: error.message, ref: fcId }); continue; }
+        await admin.from("coala_sync_value_changes").insert({
+          config_id: configId, run_id: basedOnRunId,
+          target_table: "event_forecasts", target_id: fcId,
+          field: "amount", old_value: oldVal, new_value: newVal,
+        });
+        audit.forecastsAmountUpdated++;
+      }
+
+      // 4) renameOnly (auto, dice≥0.85) → UPDATE forecast.description + audit
+      for (const it of (diff.renameOnly ?? [])) {
+        if (it.severity !== "auto") continue;
+        const fcId = it.bpId;
+        if (!fcId || protectedFcIds.has(fcId)) continue;
+        const oldDesc = String(it.bpDescription ?? "");
+        const newDesc = String(it.description ?? "");
+        if (!newDesc || oldDesc === newDesc) continue;
+        const { error } = await admin.from("event_forecasts").update({ description: newDesc }).eq("id", fcId);
+        if (error) { audit.errors.push({ kind: "renameOnly", error: error.message, ref: fcId }); continue; }
+        await admin.from("coala_sync_value_changes").insert({
+          config_id: configId, run_id: basedOnRunId,
+          target_table: "event_forecasts", target_id: fcId,
+          field: "description", old_value: oldDesc, new_value: newDesc,
+        });
+        audit.forecastsRenamed++;
+      }
+
+      // 5) txMissing (auto) → INSERT transaction
+      for (const it of (diff.txMissing ?? [])) {
+        if (it.severity !== "auto") continue;
+        const r = rowByNum.get(it.rowNumber);
+        if (!r) { audit.skipped.push({ kind: "txMissing", reason: "row not in parsed", rowNumber: it.rowNumber }); continue; }
+        const categoryId = resolveCatForRow(r);
+        const supplierId = r.supplier ? supByName.get(r.supplier) ?? null : null;
+        const payDate = r.paymentDate ?? today();
+
+        if (it.paidVia === "BR") {
+          // Defense in depth: should already be 'review'. If not, only proceed with single match.
+          if (!brPartnerId) {
+            audit.skipped.push({ kind: "txMissing", reason: "BR partner ambiguous/none", rowNumber: it.rowNumber });
+            continue;
+          }
+          const { data: t, error } = await admin.from("transactions").insert({
+            company_id: ev.company_id, event_id: eventId, type: "expense", category_id: categoryId,
+            description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
+            date: payDate, status: "paid", supplier_id: supplierId,
+            paid_amount: r.grossAmount, payment_date: payDate,
+            due_date: r.dueDate, invoice_ref: r.invoiceRef,
+            account_id: null,
+          }).select("id").single();
+          if (error || !t) { audit.errors.push({ kind: "txMissing-BR", error: error?.message ?? "no id", ref: it.rowNumber }); continue; }
+          const { error: ppeErr } = await admin.from("partner_paid_expenses").insert({
+            company_id: ev.company_id, event_id: eventId, partner_id: brPartnerId,
+            transaction_id: t.id, amount: r.grossAmount, notes: "Coala auto-sync (Pago BR)",
+          });
+          if (ppeErr) audit.errors.push({ kind: "partner_paid_expenses", error: ppeErr.message, ref: t.id });
+          audit.txInserted++;
+        } else {
+          const { error } = await admin.from("transactions").insert({
+            company_id: ev.company_id, event_id: eventId, type: "expense", category_id: categoryId,
+            description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
+            date: payDate, status: "paid", supplier_id: supplierId,
+            paid_amount: r.grossAmount, payment_date: payDate,
+            due_date: r.dueDate, invoice_ref: r.invoiceRef,
+            account_id: defaultAccountId,
+          });
+          if (error) audit.errors.push({ kind: "txMissing", error: error.message, ref: it.rowNumber });
+          else audit.txInserted++;
+        }
+      }
+
+      // 6) txValueMismatches (auto, !isPaid) → UPDATE tx.amount + audit
+      for (const it of (diff.txValueMismatches ?? [])) {
+        if (it.severity !== "auto") continue;
+        const txId = it.txId;
+        if (!txId || protectedTxIds.has(txId)) continue;
+        if (it.txIsPaid) { audit.skipped.push({ kind: "txValueMismatch", reason: "tx is paid", id: txId }); continue; }
+        const oldVal = Number(it.txAmount) || 0;
+        const newVal = Number(it.fileAmount) || 0;
+        const { error } = await admin.from("transactions").update({ amount: newVal }).eq("id", txId);
+        if (error) { audit.errors.push({ kind: "txValueMismatch", error: error.message, ref: txId }); continue; }
+        await admin.from("coala_sync_value_changes").insert({
+          config_id: configId, run_id: basedOnRunId,
+          target_table: "transactions", target_id: txId,
+          field: "amount", old_value: oldVal, new_value: newVal,
+        });
+        audit.txAmountUpdated++;
+      }
+
+      // 7) txExtra (auto, !isPaid) → DELETE transaction + snapshot
+      for (const it of (diff.txExtra ?? [])) {
+        if (it.severity !== "auto") continue;
+        if (protectedTxIds.has(it.id)) continue;
+        if (it.isPaid) { audit.skipped.push({ kind: "txExtra", reason: "tx is paid", id: it.id }); continue; }
+        const { data: snap } = await admin.from("transactions").select("*").eq("id", it.id).maybeSingle();
+        if (!snap) continue;
+        const { error } = await admin.from("transactions").delete().eq("id", it.id);
+        if (error) { audit.errors.push({ kind: "txExtra", error: error.message, ref: it.id }); continue; }
+        await admin.from("coala_sync_deletes").insert({
+          config_id: configId, run_id: basedOnRunId,
+          target_table: "transactions", target_id: it.id,
+          snapshot: snap, reason: "auto_apply: extra TX, não paga",
+        });
+        audit.txDeleted++;
+      }
+
+      // Audit run record
+      await admin.from("coala_import_runs").insert({
+        company_id: ev.company_id, event_id: eventId,
+        file_version: fileVersion, file_name: fileName ?? null,
+        bp_version_id: bpVersionId,
+        status: audit.errors.length === 0 ? "auto_applied" : "auto_applied_with_errors",
+        totals: parsed.totals, validation_report: validation,
+        pendencies_report: { auto_apply: true, basedOnRunId, audit },
+        applied_at: new Date().toISOString(), created_by: user?.id ?? null,
+      });
+
+      return json({
+        ok: true,
+        phase: "auto_apply",
+        bpVersionId,
+        basedOnRunId,
+        audit,
+      });
+    }
+
+    // ===========================================================================
     // PHASE = "preview": calcula dedupe exato + fuzzy candidates + IA → ambíguos
     // ===========================================================================
     if (phase === "preview") {

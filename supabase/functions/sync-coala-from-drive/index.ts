@@ -188,7 +188,56 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
     const { configId, mode = "dry_run", basedOnRunId } = body ?? {};
     const triggeredBy = isCron ? "cron" : (body?.triggeredBy ?? "manual");
-    if (!["dry_run", "apply"].includes(mode)) return json({ error: "mode inválido" }, 400);
+    if (!["dry_run", "apply", "auto_apply"].includes(mode)) return json({ error: "mode inválido" }, 400);
+
+    // ─────────────────────────────────────────────────────────────
+    // Modo auto_apply manual: re-baixa o XLSX da config, chama
+    // apply-coala-bp phase=auto_apply usando basedOnRunId.
+    // ─────────────────────────────────────────────────────────────
+    if (mode === "auto_apply") {
+      if (!basedOnRunId) return json({ error: "auto_apply requer basedOnRunId" }, 400);
+      const { data: baseRun } = await admin.from("coala_sync_runs")
+        .select("id, config_id, event_id, company_id").eq("id", basedOnRunId).maybeSingle();
+      if (!baseRun) return json({ error: "Run base não encontrada" }, 404);
+      const { data: cfg } = await admin.from("coala_sync_config").select("*").eq("id", baseRun.config_id).maybeSingle();
+      if (!cfg) return json({ error: "Config não encontrada" }, 404);
+      const tok = await getDriveAccessToken();
+      const buf = await downloadDriveXlsx(cfg.drive_file_id, tok);
+      const fileBase64 = arrayBufferToBase64(buf);
+      const aaResp = await fetch(`${SUPABASE_URL}/functions/v1/apply-coala-bp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${SERVICE_ROLE}`,
+          apikey: SERVICE_ROLE,
+        },
+        body: JSON.stringify({
+          fileBase64,
+          fileName: `drive-auto-${cfg.drive_file_id}.xlsx`,
+          fileVersion: `drive-auto-${new Date().toISOString().slice(0, 10)}`,
+          eventId: cfg.event_id,
+          phase: "auto_apply",
+          basedOnRunId,
+          configId: cfg.id,
+          ackTotals: true,
+        }),
+      });
+      const aaJson = await aaResp.json().catch(() => ({}));
+      if (!aaResp.ok || !aaJson?.ok) {
+        return json({ error: "auto_apply falhou", detail: aaJson }, 500);
+      }
+      // Marca a run base como auto_applied
+      await admin.from("coala_sync_runs").update({
+        status: "auto_applied",
+        diff: null, // limpa diff já consumido
+      }).eq("id", basedOnRunId);
+      await admin.from("coala_sync_config").update({
+        last_run_at: new Date().toISOString(),
+        last_run_status: "auto_applied",
+      }).eq("id", cfg.id);
+      return json({ ok: true, mode: "auto_apply", basedOnRunId, audit: aaJson?.audit ?? null });
+    }
+
 
     // Se for apply baseado numa dry-run revista, exige decisão para TODAS as
     // diferenças (validate/ignore/edit). Caso contrário, bloqueia.
@@ -470,8 +519,13 @@ Deno.serve(async (req) => {
           runs.push({ runId, configId: cfg.id, status: "success" });
         } else {
           // dry_run
+          const sev = compareJson?.summary?.severity ?? { auto: 0, review: 0 };
+          const autoCount = Number(sev.auto) || 0;
+          const reviewCount = Number(sev.review) || 0;
+          const canEscalate = !hasConflicts && reviewCount === 0 && autoCount > 0 && cfg.auto_apply_enabled !== false;
+
           await admin.from("coala_sync_runs").update({
-            status: "success",
+            status: canEscalate ? "success" : (reviewCount > 0 ? "needs_review" : "success"),
             xlsx_sha256: sha,
             xlsx_size_bytes: buf.byteLength,
             file_version: parsed.fileVersion,
@@ -483,16 +537,58 @@ Deno.serve(async (req) => {
             diff,
             finished_at: new Date().toISOString(),
           }).eq("id", runId);
+
+          let escalation: any = null;
+          if (canEscalate) {
+            try {
+              const aaResp = await fetch(`${SUPABASE_URL}/functions/v1/apply-coala-bp`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${SERVICE_ROLE}`,
+                  apikey: SERVICE_ROLE,
+                },
+                body: JSON.stringify({
+                  fileBase64,
+                  fileName: `drive-auto-${cfg.drive_file_id}.xlsx`,
+                  fileVersion: `drive-auto-${new Date().toISOString().slice(0, 10)}`,
+                  eventId: cfg.event_id,
+                  phase: "auto_apply",
+                  basedOnRunId: runId,
+                  configId: cfg.id,
+                  ackTotals: true,
+                }),
+              });
+              const aaJson = await aaResp.json().catch(() => ({}));
+              if (aaResp.ok && aaJson?.ok) {
+                escalation = { status: "auto_applied", audit: aaJson.audit };
+                await admin.from("coala_sync_runs").update({
+                  status: "auto_applied",
+                  diff: { ...diff, autoApplyAudit: aaJson.audit },
+                }).eq("id", runId);
+              } else {
+                escalation = { status: "auto_apply_failed", error: aaJson };
+              }
+            } catch (e) {
+              escalation = { status: "auto_apply_failed", error: (e as Error).message };
+            }
+          }
+
           await admin.from("coala_sync_config").update({
             last_run_at: new Date().toISOString(),
-            last_run_status: hasConflicts || hasMismatches ? "needs_review" : "success",
+            last_run_status: escalation?.status === "auto_applied"
+              ? "auto_applied"
+              : (hasConflicts || reviewCount > 0 ? "needs_review" : "success"),
           }).eq("id", cfg.id);
           runs.push({
-            runId, configId: cfg.id, status: "success",
+            runId, configId: cfg.id,
+            status: escalation?.status === "auto_applied" ? "auto_applied" : "success",
             new: newRows.length, removed: removedRows.length, conflicts: conflictRows.length,
-            mismatches: compareJson?.summary?.valueMismatches ?? 0,
+            auto: autoCount, review: reviewCount,
+            escalation,
           });
         }
+
       } catch (e) {
         const msg = (e as Error).message;
         await admin.from("coala_sync_runs").update({
