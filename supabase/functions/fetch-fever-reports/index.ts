@@ -104,8 +104,7 @@ export default async function ({ page }) {
     const passSel  = 'input[type="password"], input[name="password"]';
     await page.waitForSelector(emailSel, { timeout: 15000 });
 
-    // React-aware fill: setar value via native setter + disparar input/change events
-    // page.type() não actualiza o state interno do React em controlled components
+    // Helper React-aware
     const setReactInput = async (selector, value) => {
       await page.evaluate(({ sel, val }) => {
         const el = document.querySelector(sel);
@@ -118,61 +117,89 @@ export default async function ({ page }) {
       }, { sel: selector, val: value });
     };
 
+    // Helper para clicar botão por texto (case-insensitive, multilíngue)
+    const clickButtonByText = async (textPatterns) => {
+      const result = await page.evaluate((patterns) => {
+        const regex = new RegExp(patterns.join('|'), 'i');
+        const btns = Array.from(document.querySelectorAll('button'));
+        const match = btns.find(b => regex.test((b.textContent || '').trim()));
+        if (!match) return { found: false, available: btns.map(b => (b.textContent || '').trim()).slice(0, 10) };
+        if (match.disabled) return { found: true, disabled: true, text: match.textContent.trim() };
+        match.click();
+        return { found: true, clicked: true, text: match.textContent.trim() };
+      }, textPatterns);
+      return result;
+    };
+
+    // ETAPA 1: email + Continue
     await setReactInput(emailSel, args.username);
-    await sleep(200);
-    await setReactInput(passSel, args.password);
-    log('credentials filled (React-aware)');
-    await snap('pre-submit');
-    await sleep(2000);
+    log('email filled');
+    await snap('step1-email-filled');
+    await sleep(1500);
 
-    // Procurar e logar estado do botão Sign in
-    const signInInfo = await page.evaluate(() => {
-      const btns = Array.from(document.querySelectorAll('button'));
-      const signIn = btns.find(b => /sign in|entrar|iniciar sessão|login/i.test((b.textContent || '').trim()));
-      if (!signIn) return { found: false };
-      return {
-        found: true,
-        disabled: signIn.disabled,
-        text: (signIn.textContent || '').trim(),
-        type: signIn.type,
-        visible: !!(signIn.offsetWidth || signIn.offsetHeight),
-      };
-    });
-    log('sign-in button state: ' + JSON.stringify(signInInfo));
+    const continueResult = await clickButtonByText(['continue', 'continuar', 'next', 'próximo', 'siguiente']);
+    log('step1 continue button: ' + JSON.stringify(continueResult));
 
-    // Submit clicando no botão por texto
-    log('clicking Sign in button');
-    const clicked = await page.evaluate(() => {
-      const btns = Array.from(document.querySelectorAll('button'));
-      const signIn = btns.find(b => /sign in|entrar|iniciar sessão|login/i.test((b.textContent || '').trim()));
-      if (!signIn) return false;
-      signIn.click();
-      return true;
-    });
-    log('click result: ' + clicked);
-
-    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch((e) => {
-      log('no navigation after click: ' + (e && e.message));
-    });
-
-    log('post-click url=' + page.url());
-    await snap('post-click');
-
-    // Se ficámos em /login, capturar o que a página mostra (likely anti-bot)
-    if (page.url().includes('/login')) {
-      log('still on /login — capturing page text');
-      await snap('still-on-login');
+    if (!continueResult.found || !continueResult.clicked) {
+      await snap('step1-no-continue');
       let pageText = '';
       try {
-        pageText = await page.evaluate(() => {
-          const body = document.body ? document.body.innerText : '';
-          return body.slice(0, 3000);
-        });
+        pageText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 2000) : '');
       } catch (_) {}
-      log('page text: ' + pageText.replace(/\\n+/g, ' | '));
-      throw new Error('login bloqueado: ainda em /login apos submit. Page text: ' + pageText.slice(0, 500));
+      log('step1 page text: ' + pageText.replace(/\\n+/g, ' | '));
+      throw new Error('etapa 1 falhou: botão Continue não encontrado/clicado. State: ' + JSON.stringify(continueResult));
     }
 
+    // Esperar campo password aparecer (etapa 2)
+    await sleep(2000);
+    try {
+      await page.waitForSelector(passSel, { timeout: 10000 });
+      log('password field appeared');
+    } catch (_) {
+      await snap('step2-no-password-field');
+      let pageText = '';
+      try {
+        pageText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 2000) : '');
+      } catch (_) {}
+      log('step2 page text: ' + pageText.replace(/\\n+/g, ' | '));
+      throw new Error('etapa 2 falhou: campo password não apareceu após Continue');
+    }
+
+    // ETAPA 2: password + Sign in
+    await setReactInput(passSel, args.password);
+    log('password filled');
+    await snap('step2-pass-filled');
+    await sleep(1500);
+
+    const signInResult = await clickButtonByText(['sign in', 'log in', 'entrar', 'iniciar sessão', 'acessar', 'acceder']);
+    log('step2 sign-in button: ' + JSON.stringify(signInResult));
+
+    if (!signInResult.found || !signInResult.clicked) {
+      await snap('step2-no-signin');
+      let pageText = '';
+      try {
+        pageText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 2000) : '');
+      } catch (_) {}
+      log('step2 page text: ' + pageText.replace(/\\n+/g, ' | '));
+      throw new Error('etapa 2 falhou: botão Sign in não encontrado/clicado. State: ' + JSON.stringify(signInResult));
+    }
+
+    // Esperar redirect pós-login
+    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch((e) => {
+      log('no navigation after sign in: ' + (e && e.message));
+    });
+    log('post-signin url=' + page.url());
+    await snap('post-signin');
+
+    // Se ainda estamos em /login após sign-in, é credenciais inválidas ou bloqueio
+    if (page.url().includes('/login')) {
+      let pageText = '';
+      try {
+        pageText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 3000) : '');
+      } catch (_) {}
+      log('still on /login after sign-in. page text: ' + pageText.replace(/\\n+/g, ' | '));
+      throw new Error('credenciais rejeitadas ou bloqueio: ' + pageText.slice(0, 500));
+    }
     log('login successful, url=' + page.url());
 
     // 2. Org picker (opcional)
