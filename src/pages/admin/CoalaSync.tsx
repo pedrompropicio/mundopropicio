@@ -968,3 +968,251 @@ function DecisionRow({
     </TableRow>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Modo Revisão Express — overlay 1-a-1 com atalhos de teclado
+// ─────────────────────────────────────────────────────────────────
+function ExpressReviewOverlay({
+  open,
+  onClose,
+  items,
+  onDecide,
+}: {
+  open: boolean;
+  onClose: () => void;
+  items: DiffItem[];
+  onDecide: (
+    item: DiffItem,
+    decision: "validate" | "ignore" | "edit",
+    customAmount?: number | null,
+    notes?: string | null,
+  ) => Promise<unknown> | void;
+}) {
+  const [idx, setIdx] = useState(0);
+  const [editing, setEditing] = useState(false);
+  const [customAmount, setCustomAmount] = useState<string>("");
+  const [notes, setNotes] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+
+  // Reset índice quando o overlay abre OU quando a fila muda (após decisões).
+  useEffect(() => {
+    if (open) setIdx(0);
+  }, [open]);
+
+  useEffect(() => {
+    if (idx >= items.length && items.length > 0) setIdx(items.length - 1);
+  }, [items.length, idx]);
+
+  const current = items[idx];
+
+  useEffect(() => {
+    setEditing(false);
+    setCustomAmount(current?.fileAmount?.toString() ?? "");
+    setNotes("");
+  }, [current?.rowKey, current?.diffKind]);
+
+  const handleDecide = async (
+    decision: "validate" | "ignore" | "edit",
+    extra?: { customAmount?: number | null; notes?: string | null },
+  ) => {
+    if (!current || busy) return;
+    setBusy(true);
+    try {
+      await onDecide(current, decision, extra?.customAmount, extra?.notes);
+      // próximo carrega em 200ms ou fecha quando acabar
+      setTimeout(() => {
+        setBusy(false);
+        if (idx + 1 >= items.length) {
+          onClose();
+        } else {
+          setIdx((i) => i + 1);
+        }
+      }, 200);
+    } catch (e) {
+      setBusy(false);
+    }
+  };
+
+  // Atalhos de teclado
+  useEffect(() => {
+    if (!open || editing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "1") { e.preventDefault(); handleDecide("validate"); }
+      else if (e.key === "2") { e.preventDefault(); handleDecide("ignore"); }
+      else if (e.key === "3") { e.preventDefault(); setEditing(true); }
+      else if (e.key === "ArrowRight") { e.preventDefault(); setIdx((i) => Math.min(i + 1, items.length - 1)); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); setIdx((i) => Math.max(i - 1, 0)); }
+      else if (e.key === "Escape") { e.preventDefault(); onClose(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, editing, idx, items.length]); // eslint-disable-line
+
+  if (!open) return null;
+  if (!current) {
+    return (
+      <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Revisão Express</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Sem itens para rever. Tudo decidido ✅</p>
+          <DialogFooter><Button onClick={onClose}>Fechar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  const total = items.length;
+  const progress = ((idx + 1) / total) * 100;
+  const delta = current.delta ?? 0;
+  const split = current.diffKind === "split_pending" ? (current.raw?.fileRows ?? []) : [];
+  const isRename = current.diffKind === "rename_only";
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-primary" />
+              Revisão Express — Item {idx + 1} de {total}
+            </span>
+            <span className="text-xs text-muted-foreground font-normal">
+              ESC fecha · ←/→ navega · 1/2/3 decide
+            </span>
+          </DialogTitle>
+        </DialogHeader>
+
+        <Progress value={progress} className="h-2" />
+
+        <div className="rounded-lg border bg-card p-5 space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <Badge variant="outline" className="text-xs">{kindLabel[current.diffKind]}</Badge>
+            <div className="text-xs text-muted-foreground space-x-2">
+              {current.rowNumber != null && <span>XLSX linha {current.rowNumber}</span>}
+              {current.supplier && <span>· {current.supplier}</span>}
+            </div>
+          </div>
+
+          <div className="text-base font-medium">{current.description}</div>
+          {current.bpDescription && current.bpDescription !== current.description && (
+            <div className="text-xs text-muted-foreground">
+              Sistema: <i>{current.bpDescription}</i>
+              {current.fuzzyScore != null && <> · match {(current.fuzzyScore * 100).toFixed(0)}%</>}
+            </div>
+          )}
+
+          {!isRename && (
+            <div className="grid grid-cols-3 gap-3 pt-2">
+              <div className="rounded-md border p-3">
+                <div className="text-[10px] uppercase text-muted-foreground">Planilha</div>
+                <div className="text-lg font-semibold">{fmtMoney(current.fileAmount)}</div>
+              </div>
+              <div className="rounded-md border p-3">
+                <div className="text-[10px] uppercase text-muted-foreground">Sistema</div>
+                <div className="text-lg font-semibold">{fmtMoney(current.bpAmount)}</div>
+              </div>
+              <div className={`rounded-md border p-3 ${delta > 0 ? "border-emerald-500/40" : delta < 0 ? "border-destructive/40" : ""}`}>
+                <div className="text-[10px] uppercase text-muted-foreground">Δ</div>
+                <div className={`text-lg font-semibold ${delta > 0 ? "text-emerald-500" : delta < 0 ? "text-destructive" : ""}`}>
+                  {current.delta != null ? `${delta >= 0 ? "+" : ""}${delta.toFixed(2)} €` : "—"}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isRename && (
+            <div className="space-y-2 pt-2">
+              <div className="text-[10px] uppercase text-muted-foreground">Renomeação detectada</div>
+              <div className="rounded-md border p-3 text-sm">
+                <div className="text-xs text-muted-foreground">Sistema (atual):</div>
+                <div className="line-through opacity-60">{current.bpDescription}</div>
+                <div className="text-xs text-muted-foreground mt-1">Planilha (nova):</div>
+                <div className="font-medium">{current.description}</div>
+              </div>
+            </div>
+          )}
+
+          {split.length > 0 && (
+            <div className="space-y-1 pt-2">
+              <div className="text-[10px] uppercase text-muted-foreground">Linhas do XLSX que somam ({split.length})</div>
+              <div className="rounded-md border divide-y text-sm">
+                {split.map((r: any, i: number) => (
+                  <div key={i} className="flex justify-between p-2">
+                    <span className="truncate">{r.description ?? r.rowNumber}</span>
+                    <span className="font-mono">{fmtMoney(r.netAmount ?? r.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {editing && (
+            <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+              {isRename ? (
+                <>
+                  <Label>Descrição custom</Label>
+                  <Textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Descrição a adoptar"
+                  />
+                </>
+              ) : (
+                <>
+                  <Label>Valor custom (€)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={customAmount}
+                    onChange={(e) => setCustomAmount(e.target.value)}
+                  />
+                  <Label>Notas (opcional)</Label>
+                  <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
+                </>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button size="sm" variant="outline" onClick={() => setEditing(false)}>Cancelar</Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const amt = customAmount ? Number(customAmount) : null;
+                    handleDecide("edit", { customAmount: amt, notes: notes || null });
+                  }}
+                  disabled={busy}
+                >
+                  Confirmar custom
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+          {!editing && (
+            <div className="grid grid-cols-3 gap-2 w-full">
+              <Button size="lg" variant="default" disabled={busy} onClick={() => handleDecide("validate")}>
+                <span className="font-bold mr-2">1</span> Aceitar planilha
+              </Button>
+              <Button size="lg" variant="secondary" disabled={busy} onClick={() => handleDecide("ignore")}>
+                <span className="font-bold mr-2">2</span> Manter sistema
+              </Button>
+              <Button size="lg" variant="outline" disabled={busy} onClick={() => setEditing(true)}>
+                <span className="font-bold mr-2">3</span> Editar
+              </Button>
+            </div>
+          )}
+          <div className="flex justify-between w-full pt-1">
+            <Button size="sm" variant="ghost" onClick={() => setIdx((i) => Math.max(0, i - 1))} disabled={idx === 0}>
+              <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+            </Button>
+            <Button size="sm" variant="ghost" onClick={onClose}>Sair</Button>
+            <Button size="sm" variant="ghost" onClick={() => setIdx((i) => Math.min(items.length - 1, i + 1))} disabled={idx >= items.length - 1}>
+              Próximo <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
