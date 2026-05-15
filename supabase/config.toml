@@ -37,3 +37,6 @@ project_id = "ukpuhoynrqobqtzdbysp"
     verify_jwt = false
   [functions.crm-meta-extract-landing-urls]
     verify_jwt = false
+
+[functions.debug-coala-ab-trace]
+verify_jwt = false
