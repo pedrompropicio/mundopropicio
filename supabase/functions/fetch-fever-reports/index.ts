@@ -56,7 +56,7 @@ export default async function ({ page }) {
 
   const logs = [];
   const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
-  log('VERSION_MARKER_2026_05_15_v16');
+  log('VERSION_MARKER_2026_05_15_v17');
 
   let lastScreenshot = null;
   const snap = async (label) => {
