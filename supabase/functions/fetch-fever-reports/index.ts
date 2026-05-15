@@ -56,7 +56,7 @@ export default async function ({ page }) {
 
   const logs = [];
   const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
-  log('VERSION_MARKER_2026_05_15_v9');
+  log('VERSION_MARKER_2026_05_15_v10');
 
   let lastScreenshot = null;
   const snap = async (label) => {
@@ -191,30 +191,69 @@ export default async function ({ page }) {
     log('post-signin url=' + page.url());
     await snap('post-signin');
 
-    // Se ainda estamos em /login após sign-in, é credenciais inválidas ou bloqueio
-    if (page.url().includes('/login')) {
-      let pageText = '';
-      try {
-        pageText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 3000) : '');
-      } catch (_) {}
-      log('still on /login after sign-in. page text: ' + pageText.replace(/\\n+/g, ' | '));
-      throw new Error('credenciais rejeitadas ou bloqueio: ' + pageText.slice(0, 500));
-    }
-    log('login successful, url=' + page.url());
-
-    // 2. Org picker (opcional)
+    // Capturar page text para decidir próximo passo (URL pode continuar /login mas conteúdo mudou)
+    let postSigninText = '';
     try {
-      const xp = "//*[contains(normalize-space(.), " + JSON.stringify(args.organization) + ")]";
-      await page.waitForXPath(xp, { timeout: 8000 });
-      const els = await page.$x(xp);
-      if (els.length) {
-        await els[els.length - 1].click();
-        log('org clicked: ' + args.organization);
-        await page.waitForNetworkIdle({ idleTime: 1000, timeout: 15000 }).catch(() => {});
-      }
-    } catch (_) {
-      log('no org picker (skip)');
+      postSigninText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 3000) : '');
+    } catch (_) {}
+    log('post-signin page text: ' + postSigninText.replace(/\\n+/g, ' | ').slice(0, 800));
+
+    // Credenciais inválidas → mensagem clara de erro
+    if (/do not match|don't match|incorrect|inválida|invalid/i.test(postSigninText)) {
+      throw new Error('credenciais rejeitadas: ' + postSigninText.slice(0, 300));
     }
+
+    // Org picker → clicar org configurada
+    if (/welcome back|bem-vindo|select.*organization|escolha.*organização|multiple organizations|múltiplas organizações/i.test(postSigninText)) {
+      log('detected org picker — clicking org: ' + args.organization);
+      await snap('org-picker');
+
+      const orgClickResult = await page.evaluate((orgName) => {
+        const all = Array.from(document.querySelectorAll('button, div[role="button"], a, [class*="card"], [class*="organization"]'));
+        const candidates = all.filter(el => {
+          const t = (el.textContent || '').trim();
+          return t.includes(orgName) && t.length < 500;
+        });
+        if (!candidates.length) {
+          const all2 = Array.from(document.querySelectorAll('*'));
+          const fallback = all2.filter(el => {
+            const t = (el.textContent || '').trim();
+            return t.includes(orgName) && t.length < 200;
+          });
+          if (!fallback.length) return { found: false };
+          fallback.sort((a, b) => (a.textContent || '').length - (b.textContent || '').length);
+          fallback[0].click();
+          return { found: true, clicked: true, via: 'fallback', text: (fallback[0].textContent || '').trim().slice(0, 100) };
+        }
+        candidates.sort((a, b) => (a.textContent || '').length - (b.textContent || '').length);
+        candidates[0].click();
+        return { found: true, clicked: true, via: 'card', text: (candidates[0].textContent || '').trim().slice(0, 100) };
+      }, args.organization);
+
+      log('org click result: ' + JSON.stringify(orgClickResult));
+
+      if (!orgClickResult.found || !orgClickResult.clicked) {
+        throw new Error('org picker: não encontrou ou não clicou em "' + args.organization + '"');
+      }
+
+      await sleep(3000);
+
+      const postOrgText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 2000) : '').catch(() => '');
+      log('post-org page text: ' + postOrgText.replace(/\\n+/g, ' | ').slice(0, 500));
+
+      if (/não tem acesso|no access|access denied|not authorized/i.test(postOrgText)) {
+        log('popup "no access" detected — clicking OK');
+        await page.evaluate(() => {
+          const btns = Array.from(document.querySelectorAll('button'));
+          const ok = btns.find(b => /^(ok|okay|aceitar|aceito|fechar|close)$/i.test((b.textContent || '').trim()));
+          if (ok) ok.click();
+        });
+        await sleep(1500);
+      }
+    }
+
+    log('login flow complete, url=' + page.url());
+    await snap('login-complete');
 
     // 3. Dashboard do plano
     const dashUrl = 'https://partners.feverup.com/plans/dashboard?cityId=' + args.cityId +
