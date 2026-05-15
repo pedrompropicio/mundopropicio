@@ -62,13 +62,10 @@ async function dl(fileId: string, tok: string): Promise<ArrayBuffer> {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    const auth = req.headers.get("Authorization") ?? "";
-    const svc = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    if (auth !== `Bearer ${svc}`) return json({ error: "service-role only" }, 401);
-
     const { configId } = await req.json().catch(() => ({}));
     if (!configId) return json({ error: "configId obrigatório" }, 400);
 
+    const svc = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, svc);
     const { data: cfg, error } = await sb.from("coala_sync_config").select("drive_file_id, file_version").eq("id", configId).single();
     if (error || !cfg) return json({ error: "config não encontrada" }, 404);
