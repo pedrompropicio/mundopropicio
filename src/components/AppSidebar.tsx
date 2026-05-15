@@ -22,17 +22,20 @@ import {
   ShoppingBag,
   ClipboardCheck,
   Grid3x3,
+  Cloud,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 import { PushNotificationToggle } from "@/components/PushNotificationToggle";
+import { useCoalaSyncBadge } from "@/hooks/useCoalaSyncBadge";
 
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAdmin, isManager, user, signOut, hasPermission } = useAuth();
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const coalaBadgeCount = useCoalaSyncBadge(isAdmin);
 
   const navItems = [
     { to: "/erp", icon: LayoutDashboard, label: "Dashboard", show: true },
