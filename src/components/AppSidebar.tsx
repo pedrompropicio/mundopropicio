@@ -82,7 +82,12 @@ export function AppSidebar() {
               title={item.label}
             >
               <item.icon className="h-5 w-5 shrink-0" />
-              <span className="hidden lg:block">{item.label}</span>
+              <span className="hidden lg:block flex-1">{item.label}</span>
+              {item.badge > 0 && (
+                <span className="ml-auto inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
+                  {item.badge > 99 ? "99+" : item.badge}
+                </span>
+              )}
             </RouterNavLink>
           );
         })}
