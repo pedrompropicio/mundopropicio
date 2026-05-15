@@ -781,7 +781,9 @@ Deno.serve(async (req) => {
         }
       }
       const newSupplierIds: string[] = [];
-      for (const name of neededSuppliers) {
+      for (const rawName of neededSuppliers) {
+        const name = String(rawName || "").trim().toUpperCase();
+        if (!name || supByName.has(name)) continue;
         const { data: ins } = await admin
           .from("suppliers")
           .insert({ name, company_id: ev.company_id, is_active: true })
