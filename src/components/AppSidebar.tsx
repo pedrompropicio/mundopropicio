@@ -22,17 +22,20 @@ import {
   ShoppingBag,
   ClipboardCheck,
   Grid3x3,
+  Cloud,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 import { PushNotificationToggle } from "@/components/PushNotificationToggle";
+import { useCoalaSyncBadge } from "@/hooks/useCoalaSyncBadge";
 
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAdmin, isManager, user, signOut, hasPermission } = useAuth();
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const coalaBadgeCount = useCoalaSyncBadge(isAdmin);
 
   const navItems = [
     { to: "/erp", icon: LayoutDashboard, label: "Dashboard", show: true },
@@ -50,6 +53,7 @@ export function AppSidebar() {
     { to: "/camarim", icon: ShoppingBag, label: "Camarim", show: hasPermission("manage_transactions") || hasPermission("camarim_team") || isAdmin },
     { to: "/relatorios", icon: BarChart3, label: "Relatórios", show: hasPermission("view_reports") || isAdmin },
     { to: "/admin/auditoria-contas", icon: ClipboardCheck, label: "Auditoria Contas", show: !isAdmin && isManager },
+    { to: "/admin/coala-sync", icon: Cloud, label: "Sync Coala", show: isAdmin, badge: coalaBadgeCount },
     { to: "/admin", icon: Settings, label: "Admin", show: isAdmin },
     { to: "/ajuda", icon: HelpCircle, label: "Manual", show: true },
   ];
@@ -78,7 +82,12 @@ export function AppSidebar() {
               title={item.label}
             >
               <item.icon className="h-5 w-5 shrink-0" />
-              <span className="hidden lg:block">{item.label}</span>
+              <span className="hidden lg:block flex-1">{item.label}</span>
+              {item.badge > 0 && (
+                <span className="ml-auto inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
+                  {item.badge > 99 ? "99+" : item.badge}
+                </span>
+              )}
             </RouterNavLink>
           );
         })}
