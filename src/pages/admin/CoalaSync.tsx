@@ -628,6 +628,15 @@ function DiffReviewDialog({
   const pending = items.filter((i) => !decByKey.has(`${i.rowKey}::${i.diffKind}`));
   const allDecided = items.length > 0 && pending.length === 0;
 
+  const autoItems = useMemo(() => items.filter((i) => i.severity === "auto"), [items]);
+  const reviewItems = useMemo(() => items.filter((i) => i.severity === "review"), [items]);
+
+  const [tab, setTab] = useState<"all" | "auto" | "review">("all");
+  const filtered = tab === "auto" ? autoItems : tab === "review" ? reviewItems : items;
+
+  const [expressOpen, setExpressOpen] = useState(false);
+  const expressItems = reviewItems.filter((i) => !decByKey.has(`${i.rowKey}::${i.diffKind}`));
+
   return (
     <Dialog open={!!run} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
@@ -680,8 +689,6 @@ function DiffReviewDialog({
               );
             })()}
 
-
-
             {run.error_message && (
               <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
                 <b>Erro:</b> {run.error_message}
@@ -691,37 +698,60 @@ function DiffReviewDialog({
             {items.length === 0 ? (
               <p className="text-sm text-muted-foreground">Sem diferenças nesta execução. Tudo alinhado ✅</p>
             ) : (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[140px]">Tipo</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead className="text-right">Ficheiro</TableHead>
-                      <TableHead className="text-right">Sistema</TableHead>
-                      <TableHead className="text-right">Δ</TableHead>
-                      <TableHead className="w-[280px]">Decisão</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((it) => {
-                      const key = `${it.rowKey}::${it.diffKind}`;
-                      const dec = decByKey.get(key);
-                      return (
-                        <DecisionRow
-                          key={key}
-                          item={it}
-                          existing={dec}
-                          onDecide={(decision, customAmount, notes) =>
-                            decideMut.mutate({ item: it, decision, customAmount, notes })
-                          }
-                          pending={decideMut.isPending}
-                        />
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+              <>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+                    <TabsList>
+                      <TabsTrigger value="all">Tudo ({items.length})</TabsTrigger>
+                      <TabsTrigger value="auto">Auto ({autoItems.length})</TabsTrigger>
+                      <TabsTrigger value="review">Review ({reviewItems.length})</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                  {expressItems.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => setExpressOpen(true)}
+                      className="gap-2"
+                    >
+                      <Zap className="h-4 w-4" />
+                      Modo Revisão Express ({expressItems.length})
+                    </Button>
+                  )}
+                </div>
+
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[140px]">Tipo</TableHead>
+                        <TableHead>Descrição</TableHead>
+                        <TableHead className="text-right">Ficheiro</TableHead>
+                        <TableHead className="text-right">Sistema</TableHead>
+                        <TableHead className="text-right">Δ</TableHead>
+                        <TableHead className="w-[280px]">Decisão</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.map((it) => {
+                        const key = `${it.rowKey}::${it.diffKind}`;
+                        const dec = decByKey.get(key);
+                        return (
+                          <DecisionRow
+                            key={key}
+                            item={it}
+                            existing={dec}
+                            onDecide={(decision, customAmount, notes) =>
+                              decideMut.mutate({ item: it, decision, customAmount, notes })
+                            }
+                            pending={decideMut.isPending}
+                          />
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
 
             <DialogFooter className="flex items-center justify-between gap-3">
@@ -740,10 +770,19 @@ function DiffReviewDialog({
                   }}
                 >
                   {applyMut.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Aplicar com decisões
+                  Aplicar decisões
                 </Button>
               </div>
             </DialogFooter>
+
+            <ExpressReviewOverlay
+              open={expressOpen}
+              onClose={() => setExpressOpen(false)}
+              items={expressItems}
+              onDecide={(item, decision, customAmount, notes) =>
+                decideMut.mutateAsync({ item, decision, customAmount, notes })
+              }
+            />
           </div>
         )}
       </DialogContent>
