@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
     }
 
     // Run parser oficial p/ totals confirmados
-    const parsed = parseCoalaXlsx(buf, cfg.file_version || "debug");
+    const parsed = parseCoalaXlsx(buf, fileVersion);
 
     return json({
       ok: true,
