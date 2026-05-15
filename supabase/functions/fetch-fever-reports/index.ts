@@ -56,7 +56,7 @@ export default async function ({ page }) {
 
   const logs = [];
   const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
-  log('VERSION_MARKER_2026_05_15_v14');
+  log('VERSION_MARKER_2026_05_15_v15');
 
   let lastScreenshot = null;
   const snap = async (label) => {
@@ -330,18 +330,36 @@ export default async function ({ page }) {
     }
     await sleep(1500);
 
-    // 5. Sub-aba "Vendas por tipo de ingresso" / "Sales by ticket type"
-    log('click subtab sales by ticket type');
+    // 5. Após click em Sales breakdown, esperar carregar e descobrir
+    await sleep(3500);
+    await snap('after-sales-breakdown');
+
+    const breakdownText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 5000) : '').catch(() => '');
+    log('after-breakdown page text: ' + breakdownText.replace(/\\n+/g, ' | ').slice(0, 2500));
+
+    const cardsAndTabs = await page.evaluate(() => {
+      const elements = Array.from(document.querySelectorAll('[role="tab"], button, h1, h2, h3, h4, [class*="title"], [class*="Title"], [class*="card-header"]'));
+      return elements
+        .map(el => ({
+          tag: el.tagName.toLowerCase(),
+          role: el.getAttribute('role') || null,
+          text: (el.textContent || '').trim().slice(0, 80),
+        }))
+        .filter(x => x.text && x.text.length > 2 && x.text.length < 80)
+        .slice(0, 60);
+    });
+    log('after-breakdown clickables/titles: ' + JSON.stringify(cardsAndTabs));
+
+    log('attempting subtab click (optional)');
     const subtabResult = await clickByTextMulti(
       ['Vendas por tipo de ingresso', 'Sales by ticket type', 'Ticket type sales', 'By ticket type', 'Per ticket type'],
-      { timeout: 8000 }
+      { timeout: 3000 }
     );
     log('subtab result: ' + JSON.stringify(subtabResult));
-    if (!subtabResult.clicked) {
-      throw new Error('subtab ticket type não encontrado. available=' + JSON.stringify(subtabResult.available));
+    if (subtabResult.clicked) {
+      await sleep(1500);
+      await snap('after-subtab');
     }
-    await sleep(2500);
-    await snap('subtab');
 
     async function downloadCard(cardTitle) {
       log('download card: ' + cardTitle);
