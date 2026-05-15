@@ -270,10 +270,7 @@ export default async function ({ page }) {
 
 async function runBrowserless(script: string): Promise<any> {
   if (!BROWSERLESS_KEY) throw new Error("BROWSERLESS_API_KEY não configurado");
-  const launchOpts = encodeURIComponent(JSON.stringify({
-    args: ['--disable-blink-features=AutomationControlled']
-  }));
-  const url = `https://production-sfo.browserless.io/function?token=${BROWSERLESS_KEY}&stealth=true&launch=${launchOpts}`;
+  const url = `https://production-sfo.browserless.io/function?token=${BROWSERLESS_KEY}&stealth=true`;
   const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/javascript" },
