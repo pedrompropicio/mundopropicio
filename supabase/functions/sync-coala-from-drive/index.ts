@@ -624,6 +624,7 @@ Deno.serve(async (req) => {
             last_run_status: escalation?.status === "auto_applied"
               ? "auto_applied"
               : (hasConflicts || reviewCount > 0 ? "needs_review" : "success"),
+            ...(driveModifiedTime ? { last_modified_time: driveModifiedTime } : {}),
           }).eq("id", cfg.id);
           runs.push({
             runId, configId: cfg.id,
