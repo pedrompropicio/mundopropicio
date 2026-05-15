@@ -618,9 +618,17 @@ Deno.serve(async (req) => {
                 }).eq("id", runId);
               } else {
                 escalation = { status: "auto_apply_failed", error: aaJson };
+                await admin.from("coala_sync_runs").update({
+                  status: "needs_review",
+                  diff: { ...diff, escalation },
+                }).eq("id", runId);
               }
             } catch (e) {
               escalation = { status: "auto_apply_failed", error: (e as Error).message };
+              await admin.from("coala_sync_runs").update({
+                status: "needs_review",
+                diff: { ...diff, escalation },
+              }).eq("id", runId);
             }
           }
 
