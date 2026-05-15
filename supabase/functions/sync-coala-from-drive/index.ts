@@ -519,8 +519,13 @@ Deno.serve(async (req) => {
           runs.push({ runId, configId: cfg.id, status: "success" });
         } else {
           // dry_run
+          const sev = compareJson?.summary?.severity ?? { auto: 0, review: 0 };
+          const autoCount = Number(sev.auto) || 0;
+          const reviewCount = Number(sev.review) || 0;
+          const canEscalate = !hasConflicts && reviewCount === 0 && autoCount > 0 && cfg.auto_apply_enabled !== false;
+
           await admin.from("coala_sync_runs").update({
-            status: "success",
+            status: canEscalate ? "success" : (reviewCount > 0 ? "needs_review" : "success"),
             xlsx_sha256: sha,
             xlsx_size_bytes: buf.byteLength,
             file_version: parsed.fileVersion,
@@ -532,16 +537,58 @@ Deno.serve(async (req) => {
             diff,
             finished_at: new Date().toISOString(),
           }).eq("id", runId);
+
+          let escalation: any = null;
+          if (canEscalate) {
+            try {
+              const aaResp = await fetch(`${SUPABASE_URL}/functions/v1/apply-coala-bp`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${SERVICE_ROLE}`,
+                  apikey: SERVICE_ROLE,
+                },
+                body: JSON.stringify({
+                  fileBase64,
+                  fileName: `drive-auto-${cfg.drive_file_id}.xlsx`,
+                  fileVersion: `drive-auto-${new Date().toISOString().slice(0, 10)}`,
+                  eventId: cfg.event_id,
+                  phase: "auto_apply",
+                  basedOnRunId: runId,
+                  configId: cfg.id,
+                  ackTotals: true,
+                }),
+              });
+              const aaJson = await aaResp.json().catch(() => ({}));
+              if (aaResp.ok && aaJson?.ok) {
+                escalation = { status: "auto_applied", audit: aaJson.audit };
+                await admin.from("coala_sync_runs").update({
+                  status: "auto_applied",
+                  diff: { ...diff, autoApplyAudit: aaJson.audit },
+                }).eq("id", runId);
+              } else {
+                escalation = { status: "auto_apply_failed", error: aaJson };
+              }
+            } catch (e) {
+              escalation = { status: "auto_apply_failed", error: (e as Error).message };
+            }
+          }
+
           await admin.from("coala_sync_config").update({
             last_run_at: new Date().toISOString(),
-            last_run_status: hasConflicts || hasMismatches ? "needs_review" : "success",
+            last_run_status: escalation?.status === "auto_applied"
+              ? "auto_applied"
+              : (hasConflicts || reviewCount > 0 ? "needs_review" : "success"),
           }).eq("id", cfg.id);
           runs.push({
-            runId, configId: cfg.id, status: "success",
+            runId, configId: cfg.id,
+            status: escalation?.status === "auto_applied" ? "auto_applied" : "success",
             new: newRows.length, removed: removedRows.length, conflicts: conflictRows.length,
-            mismatches: compareJson?.summary?.valueMismatches ?? 0,
+            auto: autoCount, review: reviewCount,
+            escalation,
           });
         }
+
       } catch (e) {
         const msg = (e as Error).message;
         await admin.from("coala_sync_runs").update({
