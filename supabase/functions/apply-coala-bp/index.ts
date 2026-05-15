@@ -977,11 +977,12 @@ Deno.serve(async (req) => {
         audit.txAmountUpdated++;
       }
 
-      // 7) txExtra (auto, !isPaid) → DELETE transaction + snapshot
+      // 7) txExtra (auto, paga ou não) → DELETE transaction + snapshot
+      // Conta Santander em Live é sem controle de saldo: apagar TX paga não causa
+      // inconsistência bancária. Planilha = verdade absoluta.
       for (const it of (diff.txExtra ?? [])) {
         if (it.severity !== "auto") continue;
-        if (protectedTxIds.has(it.id)) continue;
-        if (it.isPaid) { audit.skipped.push({ kind: "txExtra", reason: "tx is paid", id: it.id }); continue; }
+        if (protectedTxIds.has(it.id)) { audit.skipped.push({ kind: "txExtra", reason: "sponsorship-protected", id: it.id }); continue; }
         const { data: snap } = await admin.from("transactions").select("*").eq("id", it.id).maybeSingle();
         if (!snap) continue;
         const { error } = await admin.from("transactions").delete().eq("id", it.id);
@@ -989,9 +990,68 @@ Deno.serve(async (req) => {
         await admin.from("coala_sync_deletes").insert({
           config_id: configId, run_id: basedOnRunId,
           target_table: "transactions", target_id: it.id,
-          snapshot: snap, reason: "auto_apply: extra TX, não paga",
+          snapshot: snap, reason: it.isPaid ? "auto_apply: extra TX (paga)" : "auto_apply: extra TX",
         });
         audit.txDeleted++;
+      }
+
+      // 8) splitPending (auto, soma bate <1%) → INSERT N forecasts + DELETE original
+      for (const it of (diff.splitPending ?? [])) {
+        if (it.severity !== "auto") continue;
+        const bpId: string | null = it.bpId ?? null;
+        if (!bpId || protectedFcIds.has(bpId)) {
+          audit.skipped.push({ kind: "splitPending", reason: "no bpId or protected", id: bpId ?? undefined });
+          continue;
+        }
+        const { data: origSnap } = await admin.from("event_forecasts").select("*").eq("id", bpId).maybeSingle();
+        if (!origSnap) { audit.skipped.push({ kind: "splitPending", reason: "row gone", id: bpId }); continue; }
+
+        const fileRowsArr: any[] = Array.isArray(it.fileRows) ? it.fileRows : [];
+        if (fileRowsArr.length < 2) { audit.skipped.push({ kind: "splitPending", reason: "fileRows < 2", id: bpId }); continue; }
+
+        // INSERT N novos forecasts a partir das fileRows (replicar lógica reset_reimport)
+        const insertedIds: string[] = [];
+        let insertErr = false;
+        for (const fr of fileRowsArr) {
+          const r = rowByNum.get(fr.rowNumber);
+          if (!r) { audit.skipped.push({ kind: "splitPending", reason: "row not in parsed", rowNumber: fr.rowNumber }); insertErr = true; break; }
+          const categoryId = resolveCatForRow(r);
+          const { data: ins, error } = await admin.from("event_forecasts").insert({
+            company_id: ev.company_id, event_id: eventId, category_id: categoryId, type: "expense",
+            description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
+            status: "approved", approved_at: new Date().toISOString(),
+            approved_by: "system:coala-auto-sync",
+            formalidade: formalidadeMap[r.formalidade] ?? "estimado",
+            notes: ["Coala auto-sync (split)", `de bp ${bpId}`, r.invoiceRef ? `Fatura ${r.invoiceRef}` : null].filter(Boolean).join(" • "),
+          }).select("id").single();
+          if (error || !ins) { audit.errors.push({ kind: "splitPending-insert", error: error?.message ?? "no id", ref: fr.rowNumber }); insertErr = true; break; }
+          insertedIds.push(ins.id);
+          await admin.from("coala_sync_value_changes").insert({
+            config_id: configId, run_id: basedOnRunId,
+            target_table: "event_forecasts", target_id: ins.id,
+            field: "split_created", old_value: 0, new_value: r.netAmount,
+          });
+          audit.forecastsInserted++;
+        }
+        if (insertErr) {
+          // Rollback inserts
+          if (insertedIds.length) await admin.from("event_forecasts").delete().in("id", insertedIds);
+          continue;
+        }
+
+        // DELETE original
+        const { error: delErr } = await admin.from("event_forecasts").delete().eq("id", bpId);
+        if (delErr) {
+          audit.errors.push({ kind: "splitPending-delete", error: delErr.message, ref: bpId });
+          if (insertedIds.length) await admin.from("event_forecasts").delete().in("id", insertedIds);
+          continue;
+        }
+        await admin.from("coala_sync_deletes").insert({
+          config_id: configId, run_id: basedOnRunId,
+          target_table: "event_forecasts", target_id: bpId,
+          snapshot: origSnap, reason: `auto_apply: split 1→${insertedIds.length}`,
+        });
+        audit.forecastsDeleted++;
       }
 
       // Audit run record
