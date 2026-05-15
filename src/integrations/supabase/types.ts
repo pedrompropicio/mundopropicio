@@ -1099,6 +1099,7 @@ export type Database = {
           event_id: string
           file_label: string | null
           id: string
+          last_modified_time: string | null
           last_run_at: string | null
           last_run_status: string | null
           notify_whatsapp: boolean
@@ -1115,6 +1116,7 @@ export type Database = {
           event_id: string
           file_label?: string | null
           id?: string
+          last_modified_time?: string | null
           last_run_at?: string | null
           last_run_status?: string | null
           notify_whatsapp?: boolean
@@ -1131,6 +1133,7 @@ export type Database = {
           event_id?: string
           file_label?: string | null
           id?: string
+          last_modified_time?: string | null
           last_run_at?: string | null
           last_run_status?: string | null
           notify_whatsapp?: boolean
