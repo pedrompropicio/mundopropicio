@@ -348,6 +348,8 @@ type DiffItem = {
   rowKey: string;
   diffKind:
     | "value_mismatch"
+    | "rename_only"
+    | "split_pending"
     | "new_row"
     | "removed_row"
     | "conflict"
@@ -365,6 +367,7 @@ type DiffItem = {
   bpDescription?: string | null;
   fuzzyScore?: number | null;
   txIsPaid?: boolean;
+  severity?: "auto" | "review";
   raw?: any;
 };
 
@@ -385,7 +388,39 @@ function buildDiffItems(run: Run | null): DiffItem[] {
       bpDescription: m.bpDescription ?? null,
       fuzzyScore: m.fuzzyScore ?? null,
       rowNumber: m.rowNumber ?? null,
+      severity: m.severity,
       raw: m,
+    });
+  }
+
+  // 1b. BP — Renomeações (mesmo valor, descrição diferente)
+  for (const m of d.renameOnly ?? []) {
+    items.push({
+      rowKey: `rn:${m.bpId}:${m.rowNumber}`,
+      diffKind: "rename_only",
+      description: m.description ?? "(sem descrição)",
+      fileAmount: m.fileAmount ?? null,
+      bpAmount: m.bpAmount ?? null,
+      delta: 0,
+      bpDescription: m.bpDescription ?? null,
+      fuzzyScore: m.fuzzyScore ?? null,
+      rowNumber: m.rowNumber ?? null,
+      severity: m.severity,
+      raw: m,
+    });
+  }
+
+  // 1c. BP — Splits 1→N detectados
+  for (const s of d.splitPending ?? []) {
+    items.push({
+      rowKey: `sp:${s.bpId}`,
+      diffKind: "split_pending",
+      description: `${s.bpDescription} ↔ ${s.fileRows.length} linhas do XLSX`,
+      bpAmount: s.bpAmount,
+      fileAmount: s.bpAmount + s.sumDelta,
+      delta: s.sumDelta,
+      severity: s.severity,
+      raw: s,
     });
   }
 
@@ -482,6 +517,8 @@ function buildDiffItems(run: Run | null): DiffItem[] {
 
 const kindLabel: Record<DiffItem["diffKind"], string> = {
   value_mismatch: "BP — Δ valor",
+  rename_only: "BP — Renomeada",
+  split_pending: "BP — Split 1→N",
   new_row: "BP — Falta",
   removed_row: "Linha removida",
   extra_in_bp: "BP — Extra",
