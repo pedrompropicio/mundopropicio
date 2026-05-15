@@ -22,6 +22,7 @@ type Cfg = {
   schedule_cron: string;
   last_run_at: string | null;
   last_run_status: string | null;
+  auto_apply_enabled?: boolean;
 };
 
 type Run = {
