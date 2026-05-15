@@ -56,7 +56,7 @@ export default async function ({ page }) {
 
   const logs = [];
   const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
-  log('VERSION_MARKER_2026_05_15_v13');
+  log('VERSION_MARKER_2026_05_15_v14');
 
   let lastScreenshot = null;
   const snap = async (label) => {
@@ -104,6 +104,39 @@ export default async function ({ page }) {
     }, text);
 
     if (!clicked) throw new Error('texto nao encontrado: ' + text);
+  };
+
+  const clickByTextMulti = async (texts, opts = {}) => {
+    const timeout = opts.timeout || 8000;
+    try {
+      await page.waitForFunction((needles) => {
+        const all = Array.from(document.querySelectorAll('button, a, [role="tab"], [role="button"], li, div, span'));
+        return needles.some(n => all.some(el => {
+          const t = (el.textContent || '').trim();
+          return t.includes(n) && t.length < 300;
+        }));
+      }, { timeout }, texts);
+    } catch (_) {}
+
+    return await page.evaluate((needles) => {
+      const all = Array.from(document.querySelectorAll('button, a, [role="tab"], [role="button"], li, div, span'));
+      for (const n of needles) {
+        const candidates = all.filter(el => {
+          const t = (el.textContent || '').trim();
+          return t.includes(n) && t.length < 300;
+        });
+        if (candidates.length) {
+          candidates.sort((a, b) => (a.textContent || '').length - (b.textContent || '').length);
+          candidates[0].scrollIntoView({ block: 'center' });
+          candidates[0].click();
+          return { clicked: true, matched: n, text: (candidates[0].textContent || '').trim().slice(0, 100) };
+        }
+      }
+      const available = Array.from(document.querySelectorAll('[role="tab"], button, a'))
+        .map(el => (el.textContent || '').trim())
+        .filter(t => t && t.length > 1 && t.length < 60);
+      return { clicked: false, available: Array.from(new Set(available)).slice(0, 30) };
+    }, texts);
   };
 
   try {
@@ -285,29 +318,28 @@ export default async function ({ page }) {
     });
     log('dashboard tabs/clickables: ' + JSON.stringify(tabsInfo));
 
-    // 4. Aba "Detalhamento de vendas" / "Sales detail" / "Sales breakdown" (multilíngua)
+    // 4. Aba "Detalhamento de vendas" / "Sales detail" (multi-variante numa única chamada)
     log('click tab sales detail');
-    await clickByText('Detalhamento de vendas', { timeout: 5000 }).catch(async (e1) => {
-      log('tab "Detalhamento de vendas" não encontrado, tentando em inglês: ' + e1.message);
-      await clickByText('Sales detail', { timeout: 5000 }).catch(async (e2) => {
-        log('"Sales detail" não encontrado, tentando "Sales breakdown": ' + e2.message);
-        await clickByText('Sales breakdown', { timeout: 5000 }).catch(async (e3) => {
-          log('"Sales breakdown" não encontrado, tentando "Sales overview": ' + e3.message);
-          await clickByText('Sales overview', { timeout: 5000 });
-        });
-      });
-    });
+    const tabResult = await clickByTextMulti(
+      ['Detalhamento de vendas', 'Sales detail', 'Sales breakdown', 'Sales overview', 'Sales analytics'],
+      { timeout: 8000 }
+    );
+    log('tab result: ' + JSON.stringify(tabResult));
+    if (!tabResult.clicked) {
+      throw new Error('tab sales não encontrado. available=' + JSON.stringify(tabResult.available));
+    }
     await sleep(1500);
 
     // 5. Sub-aba "Vendas por tipo de ingresso" / "Sales by ticket type"
     log('click subtab sales by ticket type');
-    await clickByText('Vendas por tipo de ingresso', { timeout: 5000 }).catch(async (e1) => {
-      log('subtab PT não encontrado: ' + e1.message);
-      await clickByText('Sales by ticket type', { timeout: 5000 }).catch(async (e2) => {
-        log('"Sales by ticket type" não encontrado, tentando "Ticket type sales": ' + e2.message);
-        await clickByText('Ticket type sales', { timeout: 5000 });
-      });
-    });
+    const subtabResult = await clickByTextMulti(
+      ['Vendas por tipo de ingresso', 'Sales by ticket type', 'Ticket type sales', 'By ticket type', 'Per ticket type'],
+      { timeout: 8000 }
+    );
+    log('subtab result: ' + JSON.stringify(subtabResult));
+    if (!subtabResult.clicked) {
+      throw new Error('subtab ticket type não encontrado. available=' + JSON.stringify(subtabResult.available));
+    }
     await sleep(2500);
     await snap('subtab');
 
