@@ -317,7 +317,7 @@ Deno.serve(async (req) => {
         const fileId = extractDriveFileId(cfg.drive_file_id);
         console.log(`[modifiedTime] cfg=${cfg.id} fileId=${fileId} (raw=${String(cfg.drive_file_id).slice(0, 80)})`);
         const metaRes = await fetch(
-          `https://www.googleapis.com/drive/v3/files/${fileId}?fields=modifiedTime,name`,
+          `https://www.googleapis.com/drive/v3/files/${fileId}?fields=modifiedTime,name&supportsAllDrives=true&includeItemsFromAllDrives=true`,
           { headers: { Authorization: `Bearer ${driveToken}` } },
         );
         console.log(`[modifiedTime] HTTP ${metaRes.status} for cfg=${cfg.id}`);
