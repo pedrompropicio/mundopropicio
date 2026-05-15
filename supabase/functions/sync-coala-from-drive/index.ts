@@ -311,6 +311,48 @@ Deno.serve(async (req) => {
       }
       const runId = runIns.id as string;
 
+      // Captura o modifiedTime do Drive (gravado em cfg.last_modified_time no fim do sync com sucesso)
+      let driveModifiedTime: string | null = null;
+      try {
+        const fileId = extractDriveFileId(cfg.drive_file_id);
+        const metaRes = await fetch(
+          `https://www.googleapis.com/drive/v3/files/${fileId}?fields=modifiedTime,name`,
+          { headers: { Authorization: `Bearer ${driveToken}` } },
+        );
+        if (metaRes.ok) {
+          const meta = await metaRes.json();
+          driveModifiedTime = meta?.modifiedTime ?? null;
+          // SKIP pré-download se modifiedTime <= last_modified_time processado
+          if (mode === "dry_run" && driveModifiedTime && cfg.last_modified_time) {
+            const drv = new Date(driveModifiedTime).getTime();
+            const last = new Date(cfg.last_modified_time).getTime();
+            if (Number.isFinite(drv) && Number.isFinite(last) && drv <= last) {
+              await admin.from("coala_sync_runs").update({
+                status: "skipped_unchanged",
+                diff: {
+                  skipped: true,
+                  reason: "drive_modified_time_unchanged",
+                  driveModifiedTime,
+                  lastProcessed: cfg.last_modified_time,
+                  fileName: meta?.name ?? null,
+                },
+                finished_at: new Date().toISOString(),
+              }).eq("id", runId);
+              await admin.from("coala_sync_config").update({
+                last_run_at: new Date().toISOString(),
+                last_run_status: "skipped_unchanged",
+              }).eq("id", cfg.id);
+              runs.push({ runId, configId: cfg.id, status: "skipped_unchanged", reason: "drive_modified_time_unchanged" });
+              continue;
+            }
+          }
+        } else {
+          console.warn(`Drive metadata check failed (${metaRes.status}); fallback: download`);
+        }
+      } catch (e) {
+        console.warn("Drive metadata check error, fallback: download —", (e as Error).message);
+      }
+
       try {
         // 1. Download XLSX
         const buf = await downloadDriveXlsx(cfg.drive_file_id, driveToken);
@@ -517,6 +559,7 @@ Deno.serve(async (req) => {
           await admin.from("coala_sync_config").update({
             last_run_at: new Date().toISOString(),
             last_run_status: "success",
+            ...(driveModifiedTime ? { last_modified_time: driveModifiedTime } : {}),
           }).eq("id", cfg.id);
           runs.push({ runId, configId: cfg.id, status: "success" });
         } else {
@@ -581,6 +624,7 @@ Deno.serve(async (req) => {
             last_run_status: escalation?.status === "auto_applied"
               ? "auto_applied"
               : (hasConflicts || reviewCount > 0 ? "needs_review" : "success"),
+            ...(driveModifiedTime ? { last_modified_time: driveModifiedTime } : {}),
           }).eq("id", cfg.id);
           runs.push({
             runId, configId: cfg.id,
