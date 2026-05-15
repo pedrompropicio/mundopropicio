@@ -113,71 +113,26 @@ export default async function ({ page }) {
     log('submitting via Enter');
     await Promise.all([
       page.keyboard.press('Enter'),
-      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch((e) => {
+      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 12000 }).catch((e) => {
         log('no navigation event: ' + (e && e.message));
       }),
     ]);
     log('post-login url=' + page.url());
     await snap('post-login');
 
-    // Verificar que saímos da página de login
+    // Se ficámos em /login, capturar o que a página mostra (likely anti-bot)
     if (page.url().includes('/login')) {
-      log('still on login — trying button selectors');
-      const buttonSelectors = [
-        'button[type="submit"]',
-        'input[type="submit"]',
-        'form button',
-        'button[data-testid*="login" i]',
-        'button[data-testid*="sign" i]',
-      ];
-      let submitted = false;
-      for (const sel of buttonSelectors) {
-        try {
-          const btn = await page.$(sel);
-          if (btn) {
-            log('found button via: ' + sel);
-            await Promise.all([
-              btn.click(),
-              page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 20000 }).catch(() => {}),
-            ]);
-            submitted = true;
-            break;
-          }
-        } catch (_) {}
-      }
-
-      if (!submitted) {
-        log('no button selector worked, trying by text');
-        const textOptions = ['Entrar', 'Iniciar sessão', 'Login', 'Sign in', 'Acceder', 'Acessar'];
-        for (const txt of textOptions) {
-          try {
-            const xp = "//button[contains(normalize-space(.), " + JSON.stringify(txt) + ")]";
-            const els = await page.$x(xp);
-            if (els.length) {
-              log('clicking button by text: ' + txt);
-              await Promise.all([
-                els[0].click(),
-                page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 20000 }).catch(() => {}),
-              ]);
-              submitted = true;
-              break;
-            }
-          } catch (_) {}
-        }
-      }
-
-      if (page.url().includes('/login')) {
-        await snap('still-on-login');
-        let pageText = '';
-        try {
-          pageText = await page.evaluate(() => {
-            const body = document.body ? document.body.innerText : '';
-            return body.slice(0, 3000);
-          });
-        } catch (_) {}
-        log('page text: ' + pageText.replace(/\\n+/g, ' | '));
-        throw new Error('login submit falhou: ainda na pagina /login apos Enter e fallbacks');
-      }
+      log('still on /login — capturing page text');
+      await snap('still-on-login');
+      let pageText = '';
+      try {
+        pageText = await page.evaluate(() => {
+          const body = document.body ? document.body.innerText : '';
+          return body.slice(0, 3000);
+        });
+      } catch (_) {}
+      log('page text: ' + pageText.replace(/\\n+/g, ' | '));
+      throw new Error('login bloqueado: ainda em /login apos submit. Page text: ' + pageText.slice(0, 500));
     }
 
     log('login successful, url=' + page.url());
