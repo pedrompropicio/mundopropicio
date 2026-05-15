@@ -1,94 +1,46 @@
 
-# Plano — Filtros Tipo + Nível no Relatório Business Plan
+# Sync Coala automatizado — plano de execução
 
-## Investigação concluída
+Briefing recebido é exaustivo e prescritivo. Este plano confirma a sequência de execução e levanta 4 decisões que não consigo inferir do código sem te perguntar (vou parar antes de codar para não desperdiçar 48h em refazer).
 
-**Componente alvo:** `src/components/ReportPL.tsx` (rota `/relatorios/business-plan` via `src/pages/ReportPLPage.tsx`). É este o "Relatório Business Plan" (Previsão vs Realizado por evento). Não confundir com `ReportBPTransactions` (BP x Transações de Despesas — outro relatório).
+## Sequência (1 commit, sem Publish)
 
-**Exporters:** `src/lib/export-pl.ts` (PDF jsPDF + Excel xlsx) — duplica a lógica de `buildPL`/`mergeGroups` do componente.
+1. **Leitura completa** dos 4 ficheiros core (`coalaParser.ts`, `apply-coala-bp/index.ts`, `sync-coala-from-drive/index.ts`, `CoalaSync.tsx`) + memórias coala-drive-readonly e ab-module-dual-mode + estrutura de `coala_sync_runs/config/decisions` e crons existentes.
+2. **Mudança 1** — `norm()` NFKC-aware no parser.
+3. **Mudança 2** — `apply-coala-bp`:
+   - 2a/2b: `normTxt` NFKC + thresholds (renameOnly dice ≥ 0.55, bpCandidates ≥ 0.45)
+   - 2c: detector split 1→N (`findSumCombination` k≤4, tol 2%, ≤50 candidatos)
+   - 2d: separar `renameOnly` / `valueMismatches` / `splitPending` no JSON
+   - 2e: `severity: auto|review` por item via `classifySeverity`
+   - 2f: novo `phase=auto_apply` (snapshot BP via `create_bp_snapshot`, protected sponsorship IDs, processa só severity=auto, audit em 2 tabelas novas, suporta Pago BR via `partner_paid_expenses`)
+4. **Mudança 3** — `sync-coala-from-drive`:
+   - escala dry_run → auto_apply quando `reviewCount===0 && autoCount>0`
+   - aceita `mode:"auto_apply"` no body
+   - status novos: `auto_applied`, `needs_review`
+5. **Mudança 4** — Migration: `coala_sync_deletes` + `coala_sync_value_changes` (RLS por config_id + platform_admin) + cron 15min seguindo padrão do projeto.
+6. **Mudança 5** — `CoalaSync.tsx`: toggle "Auto-aplicar", tabs Tudo/Auto/Review, modo Revisão Express com atalhos 1/2/3 e gravação em `coala_sync_decisions`.
+7. **Mudança 6** — `AppSidebar.tsx` + `useCoalaSyncBadge`: badge realtime quando `coala_sync_runs.status='needs_review'`.
+8. **Testes** dos 6 cenários obrigatórios via `supabase--curl_edge_functions` + `supabase--read_query`.
 
-**Hierarquia:** `src/lib/category-hierarchy.ts`
-- L1 = root (ex.: "Rendimentos", "Custos do Evento")
-- L2 = group (ex.: "Vendas", "Artístico")
-- L3 = leaf (ex.: "Bilheteira", "Cachês", "Aéreo") — **é onde transações/forecasts são lançados** (Core rule: "Only L3 nodes are selectable")
-- `aggregateByHierarchy` hoje agrega **sempre por L2** com L3 como detalhe.
+## Decisões que preciso de fechar antes de codar
 
-**Default sugerido para BP:** **Nível 2**. Razão: é exatamente o que o relatório já mostra hoje (compromisso entre legibilidade executiva e granularidade) e mantém comportamento por defeito inalterado. Nível 1 = visão macro (só "Rendimentos" / "Custos do Evento" / "Custos Corporativos"). Nível 3 = full drill-down (como o "expandir" atual).
+**D1 — Secret e padrão do cron.** Os outros crons do projeto (ex. `database-backup`, `cleanup-old-backups`) usam `apikey: anon` em `net.http_post` ou um `X-Cron-Secret` dedicado? E o `COALA_SYNC_CRON_SECRET` já está adicionado no Lovable Cloud, ou paro e peço-te para adicionar antes de aplicar a migration?
 
-## Especificação aplicada
+**D2 — TX/forecast tocados por sponsorship aparecem no diff?** O briefing diz "nunca são tocados em apply". Pergunta: também os escondemos do diff (não aparecem em `txExtra`/`extraInBp`), ou aparecem com `severity:'review'` e badge "protegido"? Recomendo **esconder do diff** — alinha com o teste 5 ("NÃO aparece em txExtra mesmo sem par no XLSX").
 
-| Seletor | Opções | Default |
-|---|---|---|
-| Tipo | Receitas / Despesas / Ambos | Ambos |
-| Nível | 1 / 2 / 3 | 2 |
+**D3 — Sócio Brasil para `partner_paid_expenses` em txMissing/Pago BR.** Como resolvo o sócio? Há um único `event_partners` marcado como BR no evento, ou tenho de usar convenção (ex. supplier `MANDO (COALA BR)` mapeia a um `partner_id` específico via setting do `coala_sync_config`)? Se não houver regra clara, marco esses items como `severity:'review'` e não auto-aplico.
 
-Regras:
-- **Tipo = Receitas** → esconde bloco DESPESAS e linha RESULTADO LÍQUIDO; cards de topo mostram só Receitas Previstas/Reais.
-- **Tipo = Despesas** → esconde bloco RECEITAS e RESULTADO; cards mostram só Despesas.
-- **Tipo = Ambos** → comportamento atual.
-- **Nível N** → contas exibidas só até nível N; valores dos níveis abaixo consolidados no pai. Linhas auxiliares (zonas/lotes de bilheteira, cachês por artista) **só aparecem em nível 3**.
+**D4 — Onde vai o badge na sidebar?** No item "Admin" topo-nível, num sub-item "Coala Sync", ou ambos? Tenho um path tipo `/admin/coala-sync` para `CoalaSync.tsx`?
 
-## Ficheiros a alterar
+## Risco assumido
 
-1. **`src/lib/category-hierarchy.ts`** — generalizar `aggregateByHierarchy` para aceitar `level: 1 | 2 | 3` (default 2 = comportamento atual). Lógica nova:
-   - Para cada item, resolver a chave de agregação consoante o nível: subir na cadeia `parentId` até chegar a L1/L2/L3 conforme escolhido.
-   - Devolver `AggregatedGroup` igual à atual; quando `level=1` ou `level=3` o conceito "group + details" colapsa (details vazio em L1; details = própria linha em L3) — manter assinatura para não partir callers de DRE.
-   - Adicionar helper `resolveAncestorAtLevel(catId, lookup, level)` reutilizável.
-   - **Não tocar** em `aggregateByHierarchyDRE` ou outros consumidores; só adicionar o parâmetro opcional.
+- `auto_apply` apaga forecasts/TX não-pagas sem confirmação humana quando severity=auto. Mitigação: snapshot BP obrigatório + audit tables + proteção sponsorship + nunca tocar em pagas (txExtra paid → review).
+- Mudança nos thresholds e na normalização pode mudar contagens do diff de eventos antigos. Não é regressão funcional — só recalibração.
 
-2. **`src/components/ReportPL.tsx`**
-   - Estado novo: `typeFilter: 'income' | 'expense' | 'both'` (default `'both'`), `accountLevel: 1 | 2 | 3` (default `2`).
-   - 2 `<Select>` ao lado do "Tipo de Relatório" (linha 706-717), num grid responsivo.
-   - `buildPL` recebe `typeFilter` e `accountLevel`:
-     - Filtra blocos receitas/despesas conforme `typeFilter`.
-     - Passa `accountLevel` para `aggregateByHierarchy`.
-     - Em nível ≠ 3: omitir `ticketLines` (zonas/lotes) e `cacheArtistLines` (cachês individuais) — ficam consolidados no agregado da L2/L1.
-     - Em nível 1: render simplificado (sem `isGroupHeader` + details — só uma linha por L1).
-     - Linha RESULTADO LÍQUIDO só quando `typeFilter === 'both'`.
-   - Cards de topo (linhas 808-829) condicionais ao `typeFilter`.
-   - Override badges + audit logs continuam a funcionar em nível 3; em nível 1/2 a contagem de overrides agrega para o pai (somar `overrideCount` dos filhos no agregador).
-   - `getEffectiveData` e `eventSummaries` (cálculo dos cards por evento) **não mudam** — totais não dependem do nível.
+## Não-âmbito (confirmado)
 
-3. **`src/lib/export-pl.ts`** — espelhar:
-   - Assinatura de `exportPLToPDF` / `exportPLToExcel` ganha `typeFilter` e `accountLevel`.
-   - `buildPL` interno reutiliza a mesma lógica do componente (manter paridade visual).
-   - Cabeçalho do PDF e nome do ficheiro Excel passam a incluir os filtros (ex.: `BP_Receitas_Nivel2_<evento>.xlsx`) para auditoria.
-   - Chamadas em `ReportPL.tsx` (linhas 761 e 788/796) passam os 2 novos parâmetros.
-
-## Posicionamento UI
-
-```text
-┌─ Cenário (já existe) ──────────────────────────────────────────┐
-├─ glass card "Configuração" ────────────────────────────────────┤
-│  Tipo de Relatório: [Apenas Previsão ▼]                        │
-│  Mostrar:           [Ambos ▼]   Nível de detalhe: [Nível 2 ▼] │  ← NOVO
-│  ───────────────────────────────────────────                   │
-│  Selecionar Eventos (existente)                                │
-└────────────────────────────────────────────────────────────────┘
-```
-
-## Pontos de risco
-
-1. **Linhas especiais em nível < 3.** Bilheteira por zona/lote e cachês por artista são "filhos virtuais" injetados no L3 "Bilheteira"/"Cachês". Em nível 1/2 têm de desaparecer e os seus totais já estão integrados no agregado pai (verificar dupla contagem). Mitigação: testar evento Coala (nível 2) e Mágicos H&K (nível 1) — totais devem bater com o card de topo.
-2. **Master/Split + rateio (`getEffectiveData`).** A proração já está concluída antes do `aggregateByHierarchy`; mudança de nível não interfere com rateio Master ÷N.
-3. **Audit logs por linha.** Hoje cruzam por `categoryName` (L3). Em nível 2/1 a tooltip "Histórico" deixa de fazer sentido por linha — esconder badge `History` quando `level !== 3` (não regredir, só não mostrar).
-4. **Comparação com cenário (BP versions).** `scenarioForecasts` entram no `forecasts` antes do agregador → herdam o nível automaticamente.
-5. **Tipo=Despesas + cachês.** O bloco de cachês (`calculateCacheLinesForPL`) injeta no array de despesas — manter; só se `typeFilter='income'` é que se ignora todo o bloco de despesas.
-6. **Resultado por evento (header colapsado).** O "Previsto/Real/Variação" no cabeçalho de cada evento mostra resultado líquido. Quando `typeFilter ≠ 'both'`, mostrar só o lado relevante (Receitas Previstas vs Reais OU Despesas).
-7. **Excel — nome de sheets.** Manter; só ajustar o título/cabeçalho da sheet com os filtros aplicados.
-
-## Validação proposta (após aprovação e implementação)
-
-- Evento Coala 2026 (Master): nível 1, 2 e 3 — totais Receitas/Despesas/Resultado têm de coincidir com o card de topo nas três vistas.
-- Sub-evento de turnê (Mágicos H&K) com rateio Master: testar nível 2 + Tipo=Despesas, garantir que rateio aparece consolidado.
-- PDF e Excel: abrir os 6 cruzamentos (3 níveis × 3 tipos) num evento e confirmar que totais e nome do ficheiro refletem os filtros.
-
-## Não-objetivos (fora deste plano)
-
-- Não alterar o relatório `BP x Transações` (`ReportBPTransactions.tsx`).
-- Não alterar `aggregateByHierarchyDRE` nem outros relatórios (DRE, Cash Flow, etc.).
-- Não persistir os filtros entre sessões (são estado local; pode-se acrescentar depois via `useUserPreferences` se quiseres).
+Bilheteria, A&B, Simulador, pipeline patrocínios (UI), wizards manuais (`CoalaImportWizard`, `FeverImportModal`).
 
 ---
 
-**Aguardo aprovação para implementar.**
+**Próximo passo se aprovares:** respondes às 4 perguntas (curto: D1: padrão X / secret OK ou não; D2: esconder/mostrar; D3: regra; D4: path) e eu executo tudo num único turno até aos 6 testes. Se preferires, respondo já D2 e D4 com a minha recomendação (esconder do diff; badge em "Admin" top-level até existir entry dedicada) e tu só fechas D1 + D3.
