@@ -298,8 +298,8 @@ Deno.serve(async (req) => {
       throw Object.assign(new Error(`Credenciais ausentes no Vault (${cfg.vault_secret_name})`), { phase: "auth_failed" });
     }
 
-    // 4. Browserless → Playwright → 2 XLSX
-    const script = buildPlaywrightScript({
+    // 4. Browserless → Puppeteer → 2 XLSX
+    const script = buildPuppeteerScript({
       username: creds.username, password: creds.password,
       organization: cfg.organization_name,
       cityId: cfg.city_id, planId: cfg.plan_id, venueId: cfg.venue_id,
@@ -311,10 +311,24 @@ Deno.serve(async (req) => {
     } catch (e: any) {
       throw Object.assign(new Error(e?.message || "Browserless falhou"), { phase: "navigation_failed" });
     }
+    const browserlessLogs: string[] = Array.isArray(downloadResult?.logs) ? downloadResult.logs : [];
+    if (downloadResult?.error) {
+      console.error("[fetch-fever] script error:", downloadResult.error);
+      console.error("[fetch-fever] last url:", downloadResult.url);
+      if (browserlessLogs.length) console.error("[fetch-fever] script logs:\n" + browserlessLogs.join("\n"));
+      throw Object.assign(new Error(`Browserless script: ${downloadResult.error}`), {
+        phase: "navigation_failed",
+        filesAudit: { browserless_logs: browserlessLogs, screenshot_b64: downloadResult.screenshot || null, last_url: downloadResult.url || null },
+      });
+    }
     let { sales, prices, salesName, pricesName } = downloadResult || {};
     if (!sales || !prices) {
-      throw Object.assign(new Error("Browserless devolveu ficheiros vazios"), { phase: "download_failed" });
+      throw Object.assign(new Error("Browserless devolveu ficheiros vazios"), {
+        phase: "download_failed",
+        filesAudit: { browserless_logs: browserlessLogs },
+      });
     }
+    if (browserlessLogs.length) console.log("[fetch-fever] browserless logs:\n" + browserlessLogs.join("\n"));
 
     // Re-mapear por filename pattern (defensivo: caso Fever reordene cards na UI)
     // - sales_per_ticket_type_and_ticket_price_*  → "prices" (Relatório 1: Ticket Type+Price+Gross)
