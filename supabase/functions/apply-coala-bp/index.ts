@@ -626,20 +626,34 @@ Deno.serve(async (req) => {
       const sponsorExtra = (existingSponsors || []).filter((s: any) => !sponsorMatchedIds.has(s.id))
         .map((s: any) => ({ id: s.id, name: s.supplier_name, stage: s.stage, confirmed: Number(s.confirmed_amount) || 0, proposed: Number(s.proposed_amount) || 0 }));
 
-      // ── Severity classifier — decide o que pode ser auto-aplicado vs revisão humana
+      // ── Severity classifier — espelho com circuit breaker
+      // Regra: planilha = verdade absoluta. Só vão a "review" desvios absurdos
+      // (>= €10k absoluto OU >= 500% relativo) ou splits com baixa confiança.
+      const ABS_THRESHOLD = 10000;   // €10k absoluto
+      const PCT_THRESHOLD = 5.0;     // 500% (delta/base)
+      const SPLIT_SUM_TOL = 0.01;    // 1% de tolerância na soma do split
       const classifySeverity = (item: any, kind: string): "auto" | "review" => {
         switch (kind) {
           case "missingInBp": return "auto";
-          case "extraInBp":   return item.hasTransaction ? "review" : "auto";
-          case "valueMismatch": {
-            const rel = item.bpAmount > 0 ? Math.abs(item.delta) / item.bpAmount : 1;
-            return (Math.abs(item.delta) < 5 && rel < 0.001) ? "auto" : "review";
-          }
-          case "renameOnly":  return (item.fuzzyScore ?? 0) >= 0.85 ? "auto" : "review";
-          case "splitPending": return "review";
+          case "extraInBp":   return "auto"; // Opção C: apaga sempre (com ou sem TX)
+          case "renameOnly":  return "auto"; // delta=0, zero risco
           case "txMissing":   return item.paidVia === "BR" ? "review" : "auto";
-          case "txValueMismatch": return item.txIsPaid ? "review" : (Math.abs(item.delta ?? 0) < 5 ? "auto" : "review");
-          case "txExtra":     return item.isPaid ? "review" : "auto";
+          case "txExtra":     return "auto"; // Opção B: apaga mesmo paga (Santander sem saldo)
+          case "valueMismatch":
+          case "txValueMismatch": {
+            const delta = Math.abs(Number(item.delta) || 0);
+            const base = Number(item.bpAmount ?? item.txAmount ?? 0);
+            const pct = base > 0 ? delta / base : 0;
+            if (delta >= ABS_THRESHOLD) return "review";
+            if (pct >= PCT_THRESHOLD) return "review";
+            return "auto";
+          }
+          case "splitPending": {
+            const target = Number(item.bpAmount) || 0;
+            const sumDelta = Math.abs(Number(item.sumDelta) || 0);
+            const pct = target > 0 ? sumDelta / target : 0;
+            return pct < SPLIT_SUM_TOL ? "auto" : "review";
+          }
         }
         return "review";
       };
