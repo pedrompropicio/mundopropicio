@@ -347,6 +347,9 @@ export default function CoalaSync() {
       {/* Diff modal */}
       <DiffReviewDialog
         run={selectedRun}
+        driveFileId={
+          (cfgQ.data ?? []).find((c) => c.id === selectedRun?.config_id)?.drive_file_id ?? null
+        }
         onClose={() => setSelectedRun(null)}
         onApplied={() => {
           qc.invalidateQueries({ queryKey: ["coala-sync-runs"] });
@@ -550,10 +553,12 @@ const fmtMoney = (n: number | null | undefined) =>
 
 function DiffReviewDialog({
   run,
+  driveFileId,
   onClose,
   onApplied,
 }: {
   run: Run | null;
+  driveFileId: string | null;
   onClose: () => void;
   onApplied: () => void;
 }) {
@@ -779,6 +784,7 @@ function DiffReviewDialog({
               open={expressOpen}
               onClose={() => setExpressOpen(false)}
               items={expressItems}
+              driveFileId={driveFileId}
               onDecide={(item, decision, customAmount, notes) =>
                 decideMut.mutateAsync({ item, decision, customAmount, notes })
               }
@@ -977,10 +983,12 @@ function ExpressReviewOverlay({
   onClose,
   items,
   onDecide,
+  driveFileId,
 }: {
   open: boolean;
   onClose: () => void;
   items: DiffItem[];
+  driveFileId: string | null;
   onDecide: (
     item: DiffItem,
     decision: "validate" | "ignore" | "edit",
@@ -1088,9 +1096,19 @@ function ExpressReviewOverlay({
         <div className="rounded-lg border bg-card p-5 space-y-4">
           <div className="flex items-center justify-between gap-2">
             <Badge variant="outline" className="text-xs">{kindLabel[current.diffKind]}</Badge>
-            <div className="text-xs text-muted-foreground space-x-2">
-              {current.rowNumber != null && <span>XLSX linha {current.rowNumber}</span>}
+            <div className="text-xs text-muted-foreground space-x-2 flex items-center">
+              {current.rowNumber != null && <span>Linha {current.rowNumber}</span>}
               {current.supplier && <span>· {current.supplier}</span>}
+              {driveFileId && current.rowNumber != null && (
+                <a
+                  href={`https://docs.google.com/spreadsheets/d/${driveFileId}/edit?gid=1423346099&range=A${current.rowNumber}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-primary hover:underline ml-1"
+                >
+                  Abrir na planilha ↗
+                </a>
+              )}
             </div>
           </div>
 
