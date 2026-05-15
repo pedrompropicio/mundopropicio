@@ -37,3 +37,9 @@ project_id = "ukpuhoynrqobqtzdbysp"
     verify_jwt = false
   [functions.crm-meta-extract-landing-urls]
     verify_jwt = false
+  # fetch-fever-reports: pode ser chamado por cron (sem JWT user) ou pela UI (JWT).
+  # Mantemos verify_jwt=false e o caller passa configId/mode no body.
+  [functions.fetch-fever-reports]
+    verify_jwt = false
+  [functions.update-fever-credentials]
+    verify_jwt = false
