@@ -62,16 +62,12 @@ async function dl(fileId: string, tok: string): Promise<ArrayBuffer> {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    const { configId } = await req.json().catch(() => ({}));
-    if (!configId) return json({ error: "configId obrigatório" }, 400);
-
-    const svc = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const sb = createClient(Deno.env.get("SUPABASE_URL")!, svc);
-    const { data: cfg, error } = await sb.from("coala_sync_config").select("drive_file_id, file_version").eq("id", configId).single();
-    if (error || !cfg) return json({ error: "config não encontrada" }, 404);
+    const body = await req.json().catch(() => ({}));
+    const driveFileId = body.driveFileId || "1psA-GNOQd-1U2jlgQzV8ebXgGK6wM6jZjpXUmQVzLQA";
+    const fileVersion = body.fileVersion || "debug";
 
     const tok = await getDriveAccessToken();
-    const buf = await dl(cfg.drive_file_id, tok);
+    const buf = await dl(driveFileId, tok);
 
     // Raw scan
     const wb = XLSX.read(buf, { type: "array", cellDates: true });
