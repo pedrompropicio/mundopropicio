@@ -356,9 +356,15 @@ Deno.serve(async (req) => {
     }
     let { sales, prices, salesName, pricesName } = downloadResult || {};
     if (!sales || !prices) {
+      const rawTruncated = JSON.stringify(downloadResult ?? null).slice(0, 8000);
+      console.error("[fetch-fever] raw downloadResult:", rawTruncated);
       throw Object.assign(new Error("Browserless devolveu ficheiros vazios"), {
         phase: "download_failed",
-        filesAudit: { browserless_logs: browserlessLogs },
+        filesAudit: {
+          browserless_logs: browserlessLogs,
+          raw_response_truncated: rawTruncated,
+          raw_response_keys: downloadResult ? Object.keys(downloadResult) : null,
+        },
       });
     }
     if (browserlessLogs.length) console.log("[fetch-fever] browserless logs:\n" + browserlessLogs.join("\n"));
