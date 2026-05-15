@@ -381,7 +381,7 @@ Deno.serve(async (req) => {
     // 8. Sucesso
     await updateRun(admin, runId, {
       status: "success", finished_at: new Date().toISOString(),
-      files_downloaded: filesAudit, import_audit: audit,
+      files_downloaded: filesAudit, import_audit: { ...audit, browserless_logs: browserlessLogs },
     });
     await updateConfig(admin, cfg.id, { last_run_at: new Date().toISOString(), last_run_status: "success" });
 
