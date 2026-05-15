@@ -922,47 +922,41 @@ Deno.serve(async (req) => {
       }
 
       // 5) txMissing (auto) → INSERT transaction
+      // Pago BR: supplier+partner fixos (regra de negócio Coala 2026)
+      const COALA_BR_SUPPLIER_ID = "d42cdc45-ab7a-4ff5-9ff9-cfe785c211c1"; // COALA BRASIL (MANDO)
+      const COALA_BR_PARTNER_ID  = "bfdbd7dc-b424-47ed-aae8-b15fb540a557"; // event_partners (sócio BR)
       for (const it of (diff.txMissing ?? [])) {
         if (it.severity !== "auto") continue;
         const r = rowByNum.get(it.rowNumber);
         if (!r) { audit.skipped.push({ kind: "txMissing", reason: "row not in parsed", rowNumber: it.rowNumber }); continue; }
         const categoryId = resolveCatForRow(r);
-        const supplierId = r.supplier ? supByName.get(r.supplier) ?? null : null;
         const payDate = r.paymentDate ?? today();
+        const isPagoBR = it.paidVia === "BR";
+        const supplierId = isPagoBR
+          ? COALA_BR_SUPPLIER_ID
+          : (r.supplier ? supByName.get(r.supplier) ?? null : null);
+        const accountId = isPagoBR ? null : defaultAccountId;
 
-        if (it.paidVia === "BR") {
-          // Defense in depth: should already be 'review'. If not, only proceed with single match.
-          if (!brPartnerId) {
-            audit.skipped.push({ kind: "txMissing", reason: "BR partner ambiguous/none", rowNumber: it.rowNumber });
-            continue;
-          }
-          const { data: t, error } = await admin.from("transactions").insert({
-            company_id: ev.company_id, event_id: eventId, type: "expense", category_id: categoryId,
-            description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
-            date: payDate, status: "paid", supplier_id: supplierId,
-            paid_amount: r.grossAmount, payment_date: payDate,
-            due_date: r.dueDate, invoice_ref: r.invoiceRef,
-            account_id: null,
-          }).select("id").single();
-          if (error || !t) { audit.errors.push({ kind: "txMissing-BR", error: error?.message ?? "no id", ref: it.rowNumber }); continue; }
+        const { data: t, error } = await admin.from("transactions").insert({
+          company_id: ev.company_id, event_id: eventId, type: "expense", category_id: categoryId,
+          description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
+          date: payDate, status: "paid", supplier_id: supplierId,
+          paid_amount: r.grossAmount, payment_date: payDate,
+          due_date: r.dueDate, invoice_ref: r.invoiceRef,
+          account_id: accountId,
+        }).select("id").single();
+        if (error || !t) {
+          audit.errors.push({ kind: isPagoBR ? "txMissing-BR" : "txMissing", error: error?.message ?? "no id", ref: it.rowNumber });
+          continue;
+        }
+        if (isPagoBR) {
           const { error: ppeErr } = await admin.from("partner_paid_expenses").insert({
-            company_id: ev.company_id, event_id: eventId, partner_id: brPartnerId,
+            company_id: ev.company_id, event_id: eventId, partner_id: COALA_BR_PARTNER_ID,
             transaction_id: t.id, amount: r.grossAmount, notes: "Coala auto-sync (Pago BR)",
           });
           if (ppeErr) audit.errors.push({ kind: "partner_paid_expenses", error: ppeErr.message, ref: t.id });
-          audit.txInserted++;
-        } else {
-          const { error } = await admin.from("transactions").insert({
-            company_id: ev.company_id, event_id: eventId, type: "expense", category_id: categoryId,
-            description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
-            date: payDate, status: "paid", supplier_id: supplierId,
-            paid_amount: r.grossAmount, payment_date: payDate,
-            due_date: r.dueDate, invoice_ref: r.invoiceRef,
-            account_id: defaultAccountId,
-          });
-          if (error) audit.errors.push({ kind: "txMissing", error: error.message, ref: it.rowNumber });
-          else audit.txInserted++;
         }
+        audit.txInserted++;
       }
 
       // 6) txValueMismatches (auto, !isPaid) → UPDATE tx.amount + audit
