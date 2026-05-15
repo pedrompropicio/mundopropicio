@@ -56,7 +56,7 @@ export default async function ({ page }) {
 
   const logs = [];
   const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
-  log('VERSION_MARKER_2026_05_15_v7');
+  log('VERSION_MARKER_2026_05_15_v8');
 
   let lastScreenshot = null;
   const snap = async (label) => {
@@ -103,22 +103,60 @@ export default async function ({ page }) {
     const emailSel = 'input[type="email"], input[name="email"], input[id*="email" i]';
     const passSel  = 'input[type="password"], input[name="password"]';
     await page.waitForSelector(emailSel, { timeout: 15000 });
-    await page.type(emailSel, args.username, { delay: 80 });
-    await page.type(passSel, args.password, { delay: 80 });
-    log('credentials filled');
-    await snap('pre-submit');
-    await sleep(3000);
 
-    // Submit via Enter — robusto contra mudanças de selector do botão
-    log('submitting via Enter');
-    await Promise.all([
-      page.keyboard.press('Enter'),
-      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 12000 }).catch((e) => {
-        log('no navigation event: ' + (e && e.message));
-      }),
-    ]);
-    log('post-login url=' + page.url());
-    await snap('post-login');
+    // React-aware fill: setar value via native setter + disparar input/change events
+    // page.type() não actualiza o state interno do React em controlled components
+    const setReactInput = async (selector, value) => {
+      await page.evaluate(({ sel, val }) => {
+        const el = document.querySelector(sel);
+        if (!el) throw new Error('input nao encontrado: ' + sel);
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        setter.call(el, val);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        el.blur();
+      }, { sel: selector, val: value });
+    };
+
+    await setReactInput(emailSel, args.username);
+    await sleep(200);
+    await setReactInput(passSel, args.password);
+    log('credentials filled (React-aware)');
+    await snap('pre-submit');
+    await sleep(2000);
+
+    // Procurar e logar estado do botão Sign in
+    const signInInfo = await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const signIn = btns.find(b => /sign in|entrar|iniciar sessão|login/i.test((b.textContent || '').trim()));
+      if (!signIn) return { found: false };
+      return {
+        found: true,
+        disabled: signIn.disabled,
+        text: (signIn.textContent || '').trim(),
+        type: signIn.type,
+        visible: !!(signIn.offsetWidth || signIn.offsetHeight),
+      };
+    });
+    log('sign-in button state: ' + JSON.stringify(signInInfo));
+
+    // Submit clicando no botão por texto
+    log('clicking Sign in button');
+    const clicked = await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const signIn = btns.find(b => /sign in|entrar|iniciar sessão|login/i.test((b.textContent || '').trim()));
+      if (!signIn) return false;
+      signIn.click();
+      return true;
+    });
+    log('click result: ' + clicked);
+
+    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch((e) => {
+      log('no navigation after click: ' + (e && e.message));
+    });
+
+    log('post-click url=' + page.url());
+    await snap('post-click');
 
     // Se ficámos em /login, capturar o que a página mostra (likely anti-bot)
     if (page.url().includes('/login')) {
