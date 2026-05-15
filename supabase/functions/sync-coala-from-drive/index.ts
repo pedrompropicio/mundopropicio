@@ -350,11 +350,13 @@ Deno.serve(async (req) => {
             }
           }
         } else {
-          console.warn(`Drive metadata check failed (${metaRes.status}); fallback: download`);
+          const errBody = await metaRes.text().catch(() => "");
+          console.warn(`[modifiedTime] Drive metadata HTTP ${metaRes.status}: ${errBody.slice(0, 300)}`);
         }
       } catch (e) {
-        console.warn("Drive metadata check error, fallback: download —", (e as Error).message);
+        console.error("[modifiedTime] error, fallback: download —", (e as Error).message);
       }
+      console.log(`[modifiedTime] final driveModifiedTime=${driveModifiedTime} (will write to cfg=${cfg.id} at end of run)`);
 
       try {
         // 1. Download XLSX
