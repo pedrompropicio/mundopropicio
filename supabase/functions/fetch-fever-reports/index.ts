@@ -48,9 +48,15 @@ function buildPuppeteerScript(args: {
 export default async function ({ page }) {
   const args = ${a};
 
+  await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36');
+  await page.setViewport({ width: 1440, height: 900 });
+  await page.setExtraHTTPHeaders({
+    'Accept-Language': 'pt-PT,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+  });
+
   const logs = [];
   const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
-  log('VERSION_MARKER_2026_05_15_v2');
+  log('VERSION_MARKER_2026_05_15_v3');
 
   let lastScreenshot = null;
   const snap = async (label) => {
@@ -97,10 +103,11 @@ export default async function ({ page }) {
     const emailSel = 'input[type="email"], input[name="email"], input[id*="email" i]';
     const passSel  = 'input[type="password"], input[name="password"]';
     await page.waitForSelector(emailSel, { timeout: 15000 });
-    await page.type(emailSel, args.username, { delay: 20 });
-    await page.type(passSel, args.password, { delay: 20 });
+    await page.type(emailSel, args.username, { delay: 80 });
+    await page.type(passSel, args.password, { delay: 80 });
     log('credentials filled');
     await snap('pre-submit');
+    await sleep(1500);
 
     // Submit via Enter — robusto contra mudanças de selector do botão
     log('submitting via Enter');
@@ -300,7 +307,7 @@ export default async function ({ page }) {
 
 async function runBrowserless(script: string): Promise<any> {
   if (!BROWSERLESS_KEY) throw new Error("BROWSERLESS_API_KEY não configurado");
-  const url = `https://production-sfo.browserless.io/function?token=${BROWSERLESS_KEY}`;
+  const url = `https://production-sfo.browserless.io/function?token=${BROWSERLESS_KEY}&stealth=true`;
   const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/javascript" },
