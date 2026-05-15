@@ -56,7 +56,7 @@ export default async function ({ page }) {
 
   const logs = [];
   const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
-  log('VERSION_MARKER_2026_05_15_v12');
+  log('VERSION_MARKER_2026_05_15_v13');
 
   let lastScreenshot = null;
   const snap = async (label) => {
@@ -277,7 +277,7 @@ export default async function ({ page }) {
 
     // DESCOBERTA: logar page text e tabs disponíveis (Fever em EN no Browserless)
     const dashboardText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 4000) : '').catch(() => '');
-    log('dashboard page text: ' + dashboardText.replace(/\n+/g, ' | ').slice(0, 2000));
+    log('dashboard page text: ' + dashboardText.replace(/\\n+/g, ' | ').slice(0, 2000));
 
     const tabsInfo = await page.evaluate(() => {
       const tabs = Array.from(document.querySelectorAll('[role="tab"], button, a, li'));
