@@ -28,7 +28,11 @@ SELECT cron.schedule(
         WHERE name = 'email_queue_service_role_key'
       )
     ),
-    body := jsonb_build_object('mode','dry_run','triggeredBy','cron')
+    body := jsonb_build_object(
+      'mode','dry_run',
+      'configId','c4d00d98-3c71-455a-a5fc-244b13b58f65',
+      'triggeredBy','cron'
+    )
   );
   $cron$
 );
