@@ -359,37 +359,67 @@ export default async function ({ page }) {
     });
     log('breakdown structure: ' + JSON.stringify(breakdownStructure));
 
-    log('click tab sales detail');
-    const tabResult = await clickByTextMulti(
-      ['Detalhamento de vendas', 'Sales detail', 'Sales breakdown', 'Sales overview', 'Sales analytics'],
-      { timeout: 8000 }
-    );
-    log('tab result: ' + JSON.stringify(tabResult));
-    if (!tabResult.clicked) {
-      throw new Error('tab sales não encontrado. available=' + JSON.stringify(tabResult.available));
-    }
-    await sleep(1500);
+    // 4. Click via page.click() real (simula browser real, dispara React synthetic events)
+    log('click tab Sales breakdown via page.click()');
+    const marked = await page.evaluate(() => {
+      const names = ['Detalhamento de vendas', 'Sales detail', 'Sales breakdown', 'Sales overview', 'Sales analytics'];
+      const all = Array.from(document.querySelectorAll('div, span, button, a, li, [role]'));
+      for (const n of names) {
+        const candidates = all.filter(el => {
+          const t = (el.textContent || '').trim();
+          return t === n || (t.includes(n) && t.length < 30);
+        });
+        if (candidates.length) {
+          candidates.sort((a, b) => (a.textContent || '').length - (b.textContent || '').length);
+          const el = candidates[0];
+          el.setAttribute('data-claude-target', 'sales-tab');
+          el.scrollIntoView({ block: 'center' });
+          return { found: true, matched: n, tag: el.tagName.toLowerCase(), text: (el.textContent || '').trim().slice(0, 80) };
+        }
+      }
+      return { found: false };
+    });
+    log('mark sales tab: ' + JSON.stringify(marked));
 
-    // 5. Após click em Sales breakdown, esperar carregar e descobrir
+    if (!marked.found) {
+      throw new Error('Sales breakdown não encontrado para marcar');
+    }
+
+    await sleep(300);
+    try {
+      await page.click('[data-claude-target="sales-tab"]', { delay: 50 });
+      log('page.click() executed on Sales breakdown');
+    } catch (e) {
+      log('page.click error: ' + (e && e.message));
+      const box = await page.evaluate(() => {
+        const el = document.querySelector('[data-claude-target="sales-tab"]');
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      });
+      if (box) {
+        log('fallback mouse.click at ' + JSON.stringify(box));
+        await page.mouse.click(box.x, box.y, { delay: 50 });
+      } else {
+        throw new Error('não consegui clicar Sales breakdown');
+      }
+    }
+
     await sleep(3500);
     await snap('after-sales-breakdown');
     log('after-breakdown url: ' + page.url());
 
-    const breakdownText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 5000) : '').catch(() => '');
-    log('after-breakdown page text: ' + breakdownText.replace(/\\n+/g, ' | ').slice(0, 2500));
+    const afterText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 5000) : '').catch(() => '');
+    log('after-breakdown page text: ' + afterText.replace(/\\n+/g, ' | ').slice(0, 2500));
 
-    const cardsAndTabs = await page.evaluate(() => {
-      const elements = Array.from(document.querySelectorAll('[role="tab"], button, h1, h2, h3, h4, [class*="title"], [class*="Title"], [class*="card-header"]'));
-      return elements
-        .map(el => ({
-          tag: el.tagName.toLowerCase(),
-          role: el.getAttribute('role') || null,
-          text: (el.textContent || '').trim().slice(0, 80),
-        }))
+    const afterClickables = await page.evaluate(() => {
+      const els = Array.from(document.querySelectorAll('h1, h2, h3, h4, [role="tab"], button, [class*="card-title"], [class*="cardTitle"], [class*="title"]'));
+      return els
+        .map(el => ({ tag: el.tagName.toLowerCase(), text: (el.textContent || '').trim().slice(0, 80) }))
         .filter(x => x.text && x.text.length > 2 && x.text.length < 80)
-        .slice(0, 60);
+        .slice(0, 50);
     });
-    log('after-breakdown clickables/titles: ' + JSON.stringify(cardsAndTabs));
+    log('after-breakdown titles/clickables: ' + JSON.stringify(afterClickables));
 
     log('attempting subtab click (optional)');
     const subtabResult = await clickByTextMulti(
