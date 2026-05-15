@@ -324,8 +324,25 @@ Deno.serve(async (req) => {
     let downloadResult: any;
     try {
       downloadResult = await runBrowserless(script);
+      console.log("[fetch-fever] browserless raw keys:", downloadResult ? Object.keys(downloadResult) : 'null');
+      if (typeof downloadResult === 'object' && downloadResult !== null) {
+        const summary: Record<string, any> = {};
+        for (const [k, v] of Object.entries(downloadResult)) {
+          summary[k] = typeof v === 'string' ? `string(len=${v.length})` :
+                       Array.isArray(v) ? `array(len=${v.length})` :
+                       v === null ? 'null' :
+                       typeof v === 'object' ? `object(keys=${Object.keys(v as any).join(',')})` :
+                       typeof v;
+        }
+        console.log("[fetch-fever] browserless raw summary:", JSON.stringify(summary));
+      }
     } catch (e: any) {
       throw Object.assign(new Error(e?.message || "Browserless falhou"), { phase: "navigation_failed" });
+    }
+    // Defensivo: se Browserless envolveu em { data: {...} }, desembrulhar
+    if (downloadResult && !downloadResult.sales && !downloadResult.prices && !downloadResult.error && downloadResult.data && typeof downloadResult.data === 'object') {
+      console.log("[fetch-fever] desembrulhando downloadResult.data");
+      downloadResult = downloadResult.data;
     }
     const browserlessLogs: string[] = Array.isArray(downloadResult?.logs) ? downloadResult.logs : [];
     if (downloadResult?.error) {
@@ -339,9 +356,15 @@ Deno.serve(async (req) => {
     }
     let { sales, prices, salesName, pricesName } = downloadResult || {};
     if (!sales || !prices) {
+      const rawTruncated = JSON.stringify(downloadResult ?? null).slice(0, 8000);
+      console.error("[fetch-fever] raw downloadResult:", rawTruncated);
       throw Object.assign(new Error("Browserless devolveu ficheiros vazios"), {
         phase: "download_failed",
-        filesAudit: { browserless_logs: browserlessLogs },
+        filesAudit: {
+          browserless_logs: browserlessLogs,
+          raw_response_truncated: rawTruncated,
+          raw_response_keys: downloadResult ? Object.keys(downloadResult) : null,
+        },
       });
     }
     if (browserlessLogs.length) console.log("[fetch-fever] browserless logs:\n" + browserlessLogs.join("\n"));
