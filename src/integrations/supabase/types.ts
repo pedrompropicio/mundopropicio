@@ -3974,6 +3974,122 @@ export type Database = {
           },
         ]
       }
+      fever_sync_config: {
+        Row: {
+          city_id: string
+          company_id: string
+          created_at: string
+          enabled: boolean
+          event_id: string
+          id: string
+          last_run_at: string | null
+          last_run_status: string | null
+          organization_name: string
+          plan_id: string
+          updated_at: string
+          vault_secret_name: string
+          venue_id: string
+        }
+        Insert: {
+          city_id: string
+          company_id: string
+          created_at?: string
+          enabled?: boolean
+          event_id: string
+          id?: string
+          last_run_at?: string | null
+          last_run_status?: string | null
+          organization_name?: string
+          plan_id: string
+          updated_at?: string
+          vault_secret_name: string
+          venue_id: string
+        }
+        Update: {
+          city_id?: string
+          company_id?: string
+          created_at?: string
+          enabled?: boolean
+          event_id?: string
+          id?: string
+          last_run_at?: string | null
+          last_run_status?: string | null
+          organization_name?: string
+          plan_id?: string
+          updated_at?: string
+          vault_secret_name?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fever_sync_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fever_sync_config_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fever_sync_runs: {
+        Row: {
+          company_id: string
+          config_id: string
+          created_at: string
+          error_message: string | null
+          files_downloaded: Json | null
+          finished_at: string | null
+          id: string
+          import_audit: Json | null
+          mode: string
+          started_at: string
+          status: string
+          triggered_by: string | null
+        }
+        Insert: {
+          company_id: string
+          config_id: string
+          created_at?: string
+          error_message?: string | null
+          files_downloaded?: Json | null
+          finished_at?: string | null
+          id?: string
+          import_audit?: Json | null
+          mode: string
+          started_at?: string
+          status: string
+          triggered_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          config_id?: string
+          created_at?: string
+          error_message?: string | null
+          files_downloaded?: Json | null
+          finished_at?: string | null
+          id?: string
+          import_audit?: Json | null
+          mode?: string
+          started_at?: string
+          status?: string
+          triggered_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fever_sync_runs_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "fever_sync_config"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_account_access: {
         Row: {
           account_id: string
@@ -6823,6 +6939,10 @@ export type Database = {
         }
         Returns: string
       }
+      create_vault_secret: {
+        Args: { _description?: string; _name: string; _value: string }
+        Returns: string
+      }
       crm_consume_oauth_state: {
         Args: { p_state_id: string }
         Returns: {
@@ -6918,6 +7038,7 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      get_vault_secret: { Args: { _name: string }; Returns: string }
       has_partner_access: {
         Args: { _event_id: string; _user_id: string }
         Returns: boolean
@@ -7125,6 +7246,10 @@ export type Database = {
           _version_id: string
         }
         Returns: undefined
+      }
+      update_vault_secret: {
+        Args: { _id: string; _value: string }
+        Returns: boolean
       }
       validate_trusted_device: {
         Args: { _token_hash: string }

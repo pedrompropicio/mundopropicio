@@ -98,6 +98,7 @@ import Companies from "./pages/admin/Companies";
 import Reminders from "./pages/admin/Reminders";
 import RlsLegacyAudit from "./pages/admin/RlsLegacyAudit";
 import CoalaSync from "./pages/admin/CoalaSync";
+import FeverSync from "./pages/admin/FeverSync";
 import CrmConnections from "./pages/crm/Connections";
 import CrmCampaigns from "./pages/crm/Campaigns";
 import CrmPixels from "./pages/crm/Pixels";
@@ -399,6 +400,7 @@ function ProtectedLayout() {
               <Route path="/admin/lembretes" element={<Reminders />} />
               <Route path="/admin/auditoria-rls" element={<RlsLegacyAudit />} />
               <Route path="/admin/sync-coala" element={<CoalaSync />} />
+              <Route path="/admin/fever-sync" element={<FeverSync />} />
               <Route path="/crm/connections" element={<Navigate to="/audience/connections" replace />} />
               <Route path="/crm/campaigns" element={<Navigate to="/audience/dashboard" replace />} />
             </Routes>
