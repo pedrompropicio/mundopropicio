@@ -275,14 +275,39 @@ export default async function ({ page }) {
     await sleep(2500);
     await snap('dashboard');
 
-    // 4. Aba "Detalhamento de vendas"
-    log('click tab Detalhamento de vendas');
-    await clickByText('Detalhamento de vendas', { timeout: 20000 });
+    // DESCOBERTA: logar page text e tabs disponíveis (Fever em EN no Browserless)
+    const dashboardText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 4000) : '').catch(() => '');
+    log('dashboard page text: ' + dashboardText.replace(/\n+/g, ' | ').slice(0, 2000));
+
+    const tabsInfo = await page.evaluate(() => {
+      const tabs = Array.from(document.querySelectorAll('[role="tab"], button, a, li'));
+      return tabs.map(t => (t.textContent || '').trim()).filter(t => t && t.length < 60).slice(0, 50);
+    });
+    log('dashboard tabs/clickables: ' + JSON.stringify(tabsInfo));
+
+    // 4. Aba "Detalhamento de vendas" / "Sales detail" / "Sales breakdown" (multilíngua)
+    log('click tab sales detail');
+    await clickByText('Detalhamento de vendas', { timeout: 5000 }).catch(async (e1) => {
+      log('tab "Detalhamento de vendas" não encontrado, tentando em inglês: ' + e1.message);
+      await clickByText('Sales detail', { timeout: 5000 }).catch(async (e2) => {
+        log('"Sales detail" não encontrado, tentando "Sales breakdown": ' + e2.message);
+        await clickByText('Sales breakdown', { timeout: 5000 }).catch(async (e3) => {
+          log('"Sales breakdown" não encontrado, tentando "Sales overview": ' + e3.message);
+          await clickByText('Sales overview', { timeout: 5000 });
+        });
+      });
+    });
     await sleep(1500);
 
-    // 5. Sub-aba "Vendas por tipo de ingresso"
-    log('click subtab Vendas por tipo de ingresso');
-    await clickByText('Vendas por tipo de ingresso', { timeout: 20000 });
+    // 5. Sub-aba "Vendas por tipo de ingresso" / "Sales by ticket type"
+    log('click subtab sales by ticket type');
+    await clickByText('Vendas por tipo de ingresso', { timeout: 5000 }).catch(async (e1) => {
+      log('subtab PT não encontrado: ' + e1.message);
+      await clickByText('Sales by ticket type', { timeout: 5000 }).catch(async (e2) => {
+        log('"Sales by ticket type" não encontrado, tentando "Ticket type sales": ' + e2.message);
+        await clickByText('Ticket type sales', { timeout: 5000 });
+      });
+    });
     await sleep(2500);
     await snap('subtab');
 
