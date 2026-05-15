@@ -56,7 +56,7 @@ export default async function ({ page }) {
 
   const logs = [];
   const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
-  log('VERSION_MARKER_2026_05_15_v4');
+  log('VERSION_MARKER_2026_05_15_v5');
 
   let lastScreenshot = null;
   const snap = async (label) => {
@@ -318,7 +318,7 @@ async function runBrowserless(script: string): Promise<any> {
   const launchOpts = encodeURIComponent(JSON.stringify({
     args: ['--disable-blink-features=AutomationControlled']
   }));
-  const url = `https://production-sfo.browserless.io/function?token=${BROWSERLESS_KEY}&stealth=true&headless=false&launch=${launchOpts}`;
+  const url = `https://production-sfo.browserless.io/function?token=${BROWSERLESS_KEY}&stealth=true&headless=false&timeout=120000&launch=${launchOpts}`;
   const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/javascript" },
