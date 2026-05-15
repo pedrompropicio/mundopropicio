@@ -56,7 +56,7 @@ export default async function ({ page }) {
 
   const logs = [];
   const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
-  log('VERSION_MARKER_2026_05_15_v3');
+  log('VERSION_MARKER_2026_05_15_v4');
 
   let lastScreenshot = null;
   const snap = async (label) => {
@@ -107,7 +107,7 @@ export default async function ({ page }) {
     await page.type(passSel, args.password, { delay: 80 });
     log('credentials filled');
     await snap('pre-submit');
-    await sleep(1500);
+    await sleep(3000);
 
     // Submit via Enter — robusto contra mudanças de selector do botão
     log('submitting via Enter');
@@ -168,6 +168,14 @@ export default async function ({ page }) {
 
       if (page.url().includes('/login')) {
         await snap('still-on-login');
+        let pageText = '';
+        try {
+          pageText = await page.evaluate(() => {
+            const body = document.body ? document.body.innerText : '';
+            return body.slice(0, 3000);
+          });
+        } catch (_) {}
+        log('page text: ' + pageText.replace(/\\n+/g, ' | '));
         throw new Error('login submit falhou: ainda na pagina /login apos Enter e fallbacks');
       }
     }
@@ -307,7 +315,10 @@ export default async function ({ page }) {
 
 async function runBrowserless(script: string): Promise<any> {
   if (!BROWSERLESS_KEY) throw new Error("BROWSERLESS_API_KEY não configurado");
-  const url = `https://production-sfo.browserless.io/function?token=${BROWSERLESS_KEY}&stealth=true`;
+  const launchOpts = encodeURIComponent(JSON.stringify({
+    args: ['--disable-blink-features=AutomationControlled']
+  }));
+  const url = `https://production-sfo.browserless.io/function?token=${BROWSERLESS_KEY}&stealth=true&headless=false&launch=${launchOpts}`;
   const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/javascript" },
