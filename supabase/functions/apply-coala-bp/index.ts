@@ -843,18 +843,39 @@ Deno.serve(async (req) => {
         else audit.forecastsInserted++;
       }
 
-      // 2) extraInBp (auto, sem TX) → DELETE forecast + snapshot
+      // 2) extraInBp (auto) → DELETE forecast (+ TX ligada se houver) + snapshot
       for (const it of (diff.extraInBp ?? [])) {
         if (it.severity !== "auto") continue;
         if (protectedFcIds.has(it.id)) { audit.skipped.push({ kind: "extraInBp", reason: "sponsorship-protected", id: it.id }); continue; }
         const { data: snap } = await admin.from("event_forecasts").select("*").eq("id", it.id).maybeSingle();
         if (!snap) { audit.skipped.push({ kind: "extraInBp", reason: "row gone", id: it.id }); continue; }
+        const linkedTxId: string | null = (snap as any).transaction_id ?? it.transactionId ?? null;
+
+        // Apaga TX ligada primeiro (se houver e não estiver protegida)
+        if (linkedTxId && !protectedTxIds.has(linkedTxId)) {
+          const { data: txSnap } = await admin.from("transactions").select("*").eq("id", linkedTxId).maybeSingle();
+          if (txSnap) {
+            const { error: txErr } = await admin.from("transactions").delete().eq("id", linkedTxId);
+            if (txErr) { audit.errors.push({ kind: "extraInBp-tx", error: txErr.message, ref: linkedTxId }); }
+            else {
+              await admin.from("coala_sync_deletes").insert({
+                config_id: configId, run_id: basedOnRunId,
+                target_table: "transactions", target_id: linkedTxId,
+                snapshot: txSnap, reason: "auto_apply: extraInBp cascade (TX ligada)",
+              });
+              audit.txDeleted++;
+            }
+          }
+        } else if (linkedTxId && protectedTxIds.has(linkedTxId)) {
+          audit.skipped.push({ kind: "extraInBp-tx", reason: "sponsorship-protected", id: linkedTxId });
+        }
+
         const { error } = await admin.from("event_forecasts").delete().eq("id", it.id);
         if (error) { audit.errors.push({ kind: "extraInBp", error: error.message, ref: it.id }); continue; }
         await admin.from("coala_sync_deletes").insert({
           config_id: configId, run_id: basedOnRunId,
           target_table: "event_forecasts", target_id: it.id,
-          snapshot: snap, reason: "auto_apply: extra in BP, sem TX",
+          snapshot: snap, reason: linkedTxId ? "auto_apply: extra in BP (com TX ligada)" : "auto_apply: extra in BP",
         });
         audit.forecastsDeleted++;
       }
