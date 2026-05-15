@@ -1568,8 +1568,9 @@ Deno.serve(async (req) => {
       if (r.excluded) continue;
       if (r.supplier) distinctSuppliers.add(r.supplier);
     }
-    for (const name of distinctSuppliers) {
-      if (supByName.has(name)) continue;
+    for (const rawName of distinctSuppliers) {
+      const name = String(rawName || "").trim().toUpperCase();
+      if (!name || supByName.has(name)) continue;
       const { data: ins, error: e } = await admin
         .from("suppliers")
         .insert({ name, company_id: ev.company_id, is_active: true })
