@@ -559,6 +559,7 @@ Deno.serve(async (req) => {
           await admin.from("coala_sync_config").update({
             last_run_at: new Date().toISOString(),
             last_run_status: "success",
+            ...(driveModifiedTime ? { last_modified_time: driveModifiedTime } : {}),
           }).eq("id", cfg.id);
           runs.push({ runId, configId: cfg.id, status: "success" });
         } else {
