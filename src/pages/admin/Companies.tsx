@@ -595,6 +595,8 @@ function EditCompanyDialog({
               Usada nos botões e códigos OTP dos emails de auth.
             </p>
           </div>
+
+          <CompanyFeaturesPanel companyId={company.id} />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
