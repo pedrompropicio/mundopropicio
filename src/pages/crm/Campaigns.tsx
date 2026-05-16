@@ -607,6 +607,7 @@ function CampaignTableRow({
   onAnalyze,
   onCoach,
   onToggleStatus,
+  onActivate,
   toggling,
   onEdited,
   tourContext,
@@ -620,10 +621,12 @@ function CampaignTableRow({
   onAnalyze?: (id: string, name: string) => void;
   onCoach?: (id: string) => void;
   onToggleStatus?: (c: CampaignRow, target: "ACTIVE" | "PAUSED") => void;
+  onActivate?: (c: CampaignRow) => void; // opens reactivate confirm dialog (substitui flow direct)
   toggling?: boolean;
   onEdited?: () => void;
   tourContext?: { master: EventRow; splits: EventRow[]; onReassigned: () => void };
 }) {
+  const isPaused = (c.effective_status ?? c.status) === "PAUSED";
   const agg = useMemo(() => aggregate(insights), [insights]);
   const aggPrev = useMemo(() => aggregate(prevInsights), [prevInsights]);
   const cpcAvg = agg.clicks > 0 ? Math.round(agg.spendCents / agg.clicks) : null;
@@ -687,11 +690,22 @@ function CampaignTableRow({
 
   return (
     <tr
-      className="border-b border-border/40 hover:bg-muted/40 transition-colors cursor-pointer"
+      className={cn(
+        "border-b border-border/40 hover:bg-muted/40 transition-colors cursor-pointer",
+        isPaused && "opacity-60",
+      )}
       onClick={() => console.log("[campaign click]", c.external_campaign_id, c.name)}
     >
       <td className="py-2.5 px-3 max-w-[280px] font-medium text-sm">
         <div className="flex items-center gap-1.5 min-w-0">
+          {isPaused && (
+            <Badge
+              variant="secondary"
+              className="text-[9px] uppercase shrink-0 bg-muted text-muted-foreground border-muted-foreground/30 px-1.5 py-0"
+            >
+              Pausada
+            </Badge>
+          )}
           <span className="truncate">{c.name}</span>
           {onAnalyze && (
             <button
@@ -776,7 +790,7 @@ function CampaignTableRow({
         </Tooltip>
       </td>
       <td className="py-2.5 px-3">
-        <Sparkline data={spark} />
+        <Sparkline data={spark} className={isPaused ? "opacity-40" : undefined} />
       </td>
       <td className="py-2.5 px-3" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-1.5">
@@ -802,12 +816,14 @@ function CampaignTableRow({
                 variant="outline"
                 disabled={toggling || !onToggleStatus}
                 onClick={() => {
-                  if (!onToggleStatus) return;
                   if (isActive) {
+                    if (!onToggleStatus) return;
                     if (!confirm(`Pausar campanha "${c.name}" no Meta? Pode reactivar depois.`)) return;
                     onToggleStatus(c, "PAUSED");
                   } else {
-                    onToggleStatus(c, "ACTIVE");
+                    // Reactivate via Dialog dedicado (substitui chamada directa para minimizar pausa-acidental).
+                    if (onActivate) { onActivate(c); return; }
+                    if (onToggleStatus) onToggleStatus(c, "ACTIVE");
                   }
                 }}
                 className={cn(
@@ -900,6 +916,7 @@ function EventGroupCard({
   onAnalyze,
   onCoach,
   onToggleStatus,
+  onActivate,
   togglingCampaignId,
   onEdited,
 }: {
@@ -913,6 +930,7 @@ function EventGroupCard({
   onAnalyze?: (id: string, name: string) => void;
   onCoach?: (id: string) => void;
   onToggleStatus?: (c: CampaignRow, target: "ACTIVE" | "PAUSED") => void;
+  onActivate?: (c: CampaignRow) => void;
   togglingCampaignId?: string | null;
   onEdited?: () => void;
 }) {
@@ -1049,6 +1067,7 @@ function EventGroupCard({
                     onAnalyze={onAnalyze}
                     onCoach={onCoach}
                     onToggleStatus={onToggleStatus}
+                    onActivate={onActivate}
                     toggling={togglingCampaignId === c.external_campaign_id}
                     onEdited={onEdited}
                   />
@@ -1078,6 +1097,7 @@ function TourFamilyCard({
   onAnalyze,
   onCoach,
   onToggleStatus,
+  onActivate,
   togglingCampaignId,
   onEdited,
 }: {
@@ -1093,6 +1113,7 @@ function TourFamilyCard({
   onAnalyze?: (id: string, name: string) => void;
   onCoach?: (id: string) => void;
   onToggleStatus?: (c: CampaignRow, target: "ACTIVE" | "PAUSED") => void;
+  onActivate?: (c: CampaignRow) => void;
   togglingCampaignId?: string | null;
   onEdited?: () => void;
 }) {
@@ -1227,6 +1248,7 @@ function TourFamilyCard({
                               onAnalyze={onAnalyze}
                               onCoach={onCoach}
                               onToggleStatus={onToggleStatus}
+                              onActivate={onActivate}
                               toggling={togglingCampaignId === c.external_campaign_id}
                               onEdited={onEdited}
                               tourContext={tourContext}
@@ -1269,6 +1291,7 @@ function TourFamilyCard({
                           onAnalyze={onAnalyze}
                           onCoach={onCoach}
                           onToggleStatus={onToggleStatus}
+                          onActivate={onActivate}
                           toggling={togglingCampaignId === c.external_campaign_id}
                           onEdited={onEdited}
                           tourContext={tourContext}
@@ -1300,6 +1323,13 @@ export default function CrmCampaigns() {
   const [syncing, setSyncing] = useState(false);
   const [secondsAgo, setSecondsAgo] = useState(0);
   const lastFetchRef = useRef<number>(Date.now());
+  const [statusFilter, setStatusFilter] = useState<"active" | "paused" | "all">("active");
+
+  // Reactivate dialog (substitui window.confirm para activate; pause mantém confirm).
+  const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
+  const [reactivateCampaign, setReactivateCampaign] = useState<CampaignRow | null>(null);
+  const [reactivateReason, setReactivateReason] = useState("");
+  const [reactivateLoading, setReactivateLoading] = useState(false);
 
   const [analyzeOpen, setAnalyzeOpen] = useState(false);
   const [analyzeData, setAnalyzeData] = useState<any>(null);
@@ -1566,7 +1596,7 @@ export default function CrmCampaigns() {
 
   // ---------- Toggle status (Pause/Activate) ----------
   const [togglingCampaignId, setTogglingCampaignId] = useState<string | null>(null);
-  const toggleCampaignStatus = async (c: CampaignRow, target: "ACTIVE" | "PAUSED") => {
+  const toggleCampaignStatus = async (c: CampaignRow, target: "ACTIVE" | "PAUSED", reasonText?: string) => {
     if (!connectionId) {
       toast.error("Sem ligação Meta ativa.");
       return;
@@ -1580,6 +1610,7 @@ export default function CrmCampaigns() {
           external_id: c.external_campaign_id,
           action: target === "ACTIVE" ? "activate" : "pause",
           ad_account_id: c.ad_account_id,
+          ...(reasonText ? { reason_text: reasonText, triggered_by: "user_manual" } : {}),
         },
       });
       if (error) {
@@ -1604,6 +1635,24 @@ export default function CrmCampaigns() {
       toast.error("Falha a alterar status no Meta", { description: e?.message ?? String(e) });
     } finally {
       setTogglingCampaignId(null);
+    }
+  };
+
+  // Abre dialog de reactivação (substitui chamada directa para evitar reactivação acidental).
+  const openReactivateDialog = (c: CampaignRow) => {
+    setReactivateCampaign(c);
+    setReactivateReason("");
+    setReactivateDialogOpen(true);
+  };
+
+  const confirmReactivate = async () => {
+    if (!reactivateCampaign) return;
+    setReactivateLoading(true);
+    try {
+      await toggleCampaignStatus(reactivateCampaign, "ACTIVE", reactivateReason.trim() || undefined);
+      setReactivateDialogOpen(false);
+    } finally {
+      setReactivateLoading(false);
     }
   };
 
@@ -1644,13 +1693,15 @@ export default function CrmCampaigns() {
     },
   });
 
-  // ---------- Events for active campaigns ----------
+  // ---------- Events for displayed campaigns (independente de status filter) ----------
+  // Inclui linked_event_ids de TODAS as campanhas (ACTIVE + PAUSED) para que o dashboard
+  // possa mostrar paused via statusFilter sem ter de re-fetch events.
   const linkedEventIds = useMemo(
     () =>
       Array.from(
         new Set(
           (campaigns ?? [])
-            .filter((c) => c.status === "ACTIVE" && c.linked_event_id)
+            .filter((c) => c.linked_event_id)
             .map((c) => c.linked_event_id as string),
         ),
       ),
@@ -1811,9 +1862,15 @@ export default function CrmCampaigns() {
     return m;
   }, [events]);
 
-  const activeCampaigns = useMemo(
-    () => (campaigns ?? []).filter((c) => c.status === "ACTIVE"),
-    [campaigns],
+  // Filtro por status (sticky header): "active" (default), "paused" ou "all".
+  // Campanhas pausadas continuam visíveis no Dashboard quando filter !== "active".
+  const displayedCampaigns = useMemo(
+    () => (campaigns ?? []).filter((c) =>
+      statusFilter === "all" ? true
+      : statusFilter === "active" ? c.status === "ACTIVE"
+      : c.status === "PAUSED"
+    ),
+    [campaigns, statusFilter],
   );
 
   // Splits indexados pelo id do master (a partir dos events carregados — independente
@@ -1834,7 +1891,7 @@ export default function CrmCampaigns() {
   // Grupos hierárquicos do dashboard: simple events vs tour families (master+splits).
   const dashboardGroups = useMemo<DashboardGroup[]>(() => {
     const byKey = new Map<string, DashboardGroup>();
-    for (const c of activeCampaigns) {
+    for (const c of displayedCampaigns) {
       if (!c.linked_event_id) continue;
       const e = eventsById.get(c.linked_event_id);
       if (!e || e.status !== "active") continue;
@@ -1884,14 +1941,14 @@ export default function CrmCampaigns() {
       }
     }
     return [...byKey.values()];
-  }, [activeCampaigns, eventsById, splitsByMaster]);
+  }, [displayedCampaigns, eventsById, splitsByMaster]);
 
   const orphanCampaigns = useMemo(
     () =>
-      activeCampaigns.filter(
+      displayedCampaigns.filter(
         (c) => !c.linked_event_id || eventsById.get(c.linked_event_id)?.status !== "active",
       ),
-    [activeCampaigns, eventsById],
+    [displayedCampaigns, eventsById],
   );
 
   // ---------- Header counters ----------
@@ -2040,7 +2097,9 @@ export default function CrmCampaigns() {
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Última sync Meta: {lastSyncMeta ?? "—"} · campanhas: {campaigns?.length ?? 0} · contas: {adAccountsCount}
+              Última sync Meta: {lastSyncMeta ?? "—"} · campanhas: {campaigns?.length ?? 0}
+              {" "}({(campaigns ?? []).filter((c) => c.status === "ACTIVE").length} activas, {(campaigns ?? []).filter((c) => c.status === "PAUSED").length} pausadas)
+              {" "}· contas: {adAccountsCount}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -2109,6 +2168,24 @@ export default function CrmCampaigns() {
               />
             </PopoverContent>
           </Popover>
+
+          <span className="text-muted-foreground/40 mx-1">·</span>
+
+          {([
+            { k: "active", l: "Activas" },
+            { k: "paused", l: "Pausadas" },
+            { k: "all", l: "Todas" },
+          ] as const).map((s) => (
+            <Button
+              key={s.k}
+              size="sm"
+              variant={statusFilter === s.k ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => setStatusFilter(s.k)}
+            >
+              {s.l}
+            </Button>
+          ))}
         </div>
       </div>
 
@@ -2177,6 +2254,7 @@ export default function CrmCampaigns() {
                   onAnalyze={analyzeCampaign}
                   onCoach={coachCampaign}
                   onToggleStatus={toggleCampaignStatus}
+                  onActivate={openReactivateDialog}
                   togglingCampaignId={togglingCampaignId}
                   onEdited={onEdited}
                 />
@@ -2195,6 +2273,7 @@ export default function CrmCampaigns() {
                 onAnalyze={analyzeCampaign}
                 onCoach={coachCampaign}
                 onToggleStatus={toggleCampaignStatus}
+                onActivate={openReactivateDialog}
                 togglingCampaignId={togglingCampaignId}
                 onEdited={onEdited}
               />
@@ -2245,6 +2324,7 @@ export default function CrmCampaigns() {
                       onAnalyze={analyzeCampaign}
                       onCoach={coachCampaign}
                       onToggleStatus={toggleCampaignStatus}
+                      onActivate={openReactivateDialog}
                       toggling={togglingCampaignId === c.external_campaign_id}
                       onEdited={() => qc.invalidateQueries({ queryKey: ["crm-meta-campaigns", companyId, adAccountId] })}
                     />
@@ -2934,6 +3014,45 @@ export default function CrmCampaigns() {
             <Button size="sm" onClick={submitApplyAction} disabled={applyLoading}>
               {applyLoading && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
               Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reactivateDialogOpen} onOpenChange={setReactivateDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reactivar campanha?</DialogTitle>
+            <DialogDescription>
+              <span className="block">{reactivateCampaign?.name ?? ""}</span>
+              <span className="block mt-1">Vai voltar a gastar verba do Meta. Confirmar?</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-[11px] text-muted-foreground">
+              Para ajustar verba diária antes, usa o botão de editar (✎) na linha da campanha primeiro.
+            </p>
+            <div>
+              <Label htmlFor="reactivate-reason" className="text-xs uppercase text-muted-foreground">
+                Razão (opcional)
+              </Label>
+              <Input
+                id="reactivate-reason"
+                value={reactivateReason}
+                onChange={(e) => setReactivateReason(e.target.value)}
+                placeholder="ex: pausa terminada — retomar conversão pre-evento"
+                disabled={reactivateLoading}
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setReactivateDialogOpen(false)} disabled={reactivateLoading}>
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={confirmReactivate} disabled={reactivateLoading || !reactivateCampaign}>
+              {reactivateLoading && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+              Reactivar
             </Button>
           </DialogFooter>
         </DialogContent>
