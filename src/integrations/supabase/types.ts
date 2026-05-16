@@ -3976,45 +3976,66 @@ export type Database = {
       }
       fever_sync_config: {
         Row: {
+          b2b_token_secret_name: string | null
+          card_sales_card: number
+          card_sales_dashcard: number
+          card_tickets_card: number
+          card_tickets_dashcard: number
           city_id: string
           company_id: string
           created_at: string
+          dashboard_id: number
           enabled: boolean
           event_id: string
           id: string
           last_run_at: string | null
           last_run_status: string | null
           organization_name: string
+          partner_id: number
           plan_id: string
           updated_at: string
           vault_secret_name: string
           venue_id: string
         }
         Insert: {
+          b2b_token_secret_name?: string | null
+          card_sales_card?: number
+          card_sales_dashcard?: number
+          card_tickets_card?: number
+          card_tickets_dashcard?: number
           city_id: string
           company_id: string
           created_at?: string
+          dashboard_id?: number
           enabled?: boolean
           event_id: string
           id?: string
           last_run_at?: string | null
           last_run_status?: string | null
           organization_name?: string
+          partner_id?: number
           plan_id: string
           updated_at?: string
           vault_secret_name: string
           venue_id: string
         }
         Update: {
+          b2b_token_secret_name?: string | null
+          card_sales_card?: number
+          card_sales_dashcard?: number
+          card_tickets_card?: number
+          card_tickets_dashcard?: number
           city_id?: string
           company_id?: string
           created_at?: string
+          dashboard_id?: number
           enabled?: boolean
           event_id?: string
           id?: string
           last_run_at?: string | null
           last_run_status?: string | null
           organization_name?: string
+          partner_id?: number
           plan_id?: string
           updated_at?: string
           vault_secret_name?: string
