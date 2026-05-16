@@ -26,6 +26,7 @@ import { WithholdingDeclaredFields } from "@/components/WithholdingDeclaredField
 import { extractJpegFromDng, isDngFile } from "@/lib/dng-extract-preview";
 import { pdfFirstPageToJpeg } from "@/lib/pdf-first-page-to-jpeg";
 import { uploadToCompanyBucket } from "@/lib/storage";
+import { getL2Id } from "@/lib/bp-category-constraint";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
@@ -127,6 +128,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
   const [duplicateMatches, setDuplicateMatches] = useState<any[]>([]);
   const [plExpanded, setPlExpanded] = useState(true);
+  // Linha BP escolhida pelo utilizador (FK a escrever em event_forecasts.transaction_id).
+  // Quando set: filtra dropdown de categoria a L3 do mesmo L2 e escreve FK no INSERT.
+  const [selectedForecastId, setSelectedForecastId] = useState<string | null>(null);
   const [plOverride, setPlOverride] = useState(false);
   const [isSplit, setIsSplit] = useState(false);
   const [splitEntries, setSplitEntries] = useState<SplitEntry[]>([]);
@@ -638,6 +642,27 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     }
     return eventForecasts;
   }, [eventForecasts, isParentMultiDay, effectiveEventId]);
+
+  // Forecast vinculado: usado para filtrar categoria por L2 e escrever FK no INSERT.
+  const selectedForecast = useMemo(
+    () => (selectedForecastId ? (relevantForecasts as any[]).find((f: any) => f.id === selectedForecastId) : null),
+    [selectedForecastId, relevantForecasts],
+  );
+  const selectedForecastL2Id = useMemo(
+    () => (selectedForecast ? getL2Id(selectedForecast.category_id, categories as any[]) : null),
+    [selectedForecast, categories],
+  );
+  const selectedForecastL2Label = useMemo(() => {
+    if (!selectedForecastL2Id) return null;
+    const l2 = (categories as any[]).find((c) => c.id === selectedForecastL2Id);
+    return l2 ? `${l2.code} ${l2.name}` : null;
+  }, [selectedForecastL2Id, categories]);
+
+  // Reset vínculo quando o evento muda (linha BP deixa de fazer sentido noutro evento).
+  useEffect(() => {
+    if (selectedForecastId) setSelectedForecastId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.event_id]);
 
   // Helper: when user is in a sub-event and selects a category from the parent's BP,
   // show disambiguation dialog instead of auto-activating split.
@@ -1240,6 +1265,25 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         if (error) throw error;
         createdTxId = insertedTx?.id ?? null;
 
+        // 🔑 Escreve FK event_forecasts.transaction_id ↔ TX criada.
+        // Defesa universal: o trigger trg_enforce_tx_category_l2_match valida que a L3 escolhida
+        // pertence ao mesmo L2 do BP. Sem FK, a TX fica "órfã" (qualquer L3 aceite).
+        if (insertedTx?.id && selectedForecastId) {
+          const { error: fkErr } = await supabase
+            .from("event_forecasts")
+            .update({ transaction_id: insertedTx.id } as any)
+            .eq("id", selectedForecastId)
+            .is("transaction_id", null); // não sobrepor vínculo existente
+          if (fkErr) {
+            console.error("[BP FK link] failed", fkErr);
+            toast({
+              title: "TX criada, mas não foi possível vincular à linha BP",
+              description: "Pode vincular manualmente depois pela edição da linha do BP.",
+              variant: "destructive",
+            });
+          }
+        }
+
         // Audit: log creation
         if (insertedTx?.id) {
           const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
@@ -1698,6 +1742,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     // Only leaf categories (no children)
     const isLeaf = !categories.some((ch) => ch.parent_id === c.id);
     if (!isLeaf) return false;
+    // Regra L2: se vinculado a linha BP, restringe a L3 do mesmo L2.
+    if (selectedForecastL2Id) {
+      const parent = categories.find((p) => p.id === c.parent_id);
+      const l2Id = parent && parent.parent_id ? parent.id : c.id;
+      if (l2Id !== selectedForecastL2Id) return false;
+    }
     if (hasPLRestriction && effectiveEventId && !plOverride) {
       // Allow sub-event's BP categories OR Master BP categories (for "Reforço Local" flow)
       const isInSubEventBP = allowedCategoryIds.includes(c.id);
@@ -2091,6 +2141,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               .map(g => ({ ...g, details: sortByHierarchicalCode(g.details, (detail) => detail.catCode) }))
               .sort((a, b) => compareHierarchicalCodes(a.groupCode, b.groupCode));
 
+            const isUuid = (v: any) => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+
             const handleLineClick = (line: any, detail: PLDetail) => {
               if (detail.catId === "none") return;
               const switched = tryAutoSplitFromSubEvent(detail.catId, form.type, line);
@@ -2103,6 +2155,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 iva_rate: (line.iva_rate ?? 23) as IvaRate,
                 specification: line.specification || "",
               }));
+              // Vincula à linha BP (FK escrita no INSERT). Ignora pseudo-ids (ex: "cache-auto").
+              if (isUuid(line.id)) setSelectedForecastId(line.id);
               setPlExpanded(false);
             };
 
@@ -2118,6 +2172,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 ...prev,
                 category_id: detail.catId,
               }));
+              // Múltiplas linhas: não vinculamos automaticamente; user precisa clicar uma linha específica.
+              setSelectedForecastId(null);
               setPlExpanded(false);
             };
 
@@ -2275,6 +2331,23 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               placeholder={hasPLRestriction && !plOverride ? "Selecionar do BP…" : "Selecionar categoria…"}
               searchPlaceholder="Pesquisar categoria…"
             />
+            {selectedForecastL2Label && (
+              <div className="mt-1 flex items-center justify-between gap-2 text-[10px]">
+                <span className="text-muted-foreground">
+                  🔒 Categoria limitada pelo BP: <span className="font-mono text-primary/80">{selectedForecastL2Label}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedForecastId(null);
+                    setPlExpanded(true);
+                  }}
+                  className="text-primary hover:underline font-medium shrink-0"
+                >
+                  Trocar linha BP
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Justification field when BP override is active */}

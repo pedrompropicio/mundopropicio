@@ -390,6 +390,22 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         await supabase.from("partner_paid_expenses").update({ paid_date: partnerPaidDate }).eq("id", partnerPaidLink.id);
       }
 
+      // Desvincular linha BP (limpa event_forecasts.transaction_id) se o user pediu.
+      if (unlinkBpRequested && (linkedForecast as any)?.id) {
+        const { error: unlinkErr } = await supabase
+          .from("event_forecasts")
+          .update({ transaction_id: null } as any)
+          .eq("id", (linkedForecast as any).id);
+        if (unlinkErr) {
+          console.error("[BP unlink] failed", unlinkErr);
+          toast({
+            title: "TX atualizada, mas falhou desvincular da linha BP",
+            description: "Pode tentar novamente pela edição da linha do BP.",
+            variant: "destructive",
+          });
+        }
+      }
+
       return { data, snapshot, changesCount: changes.length };
     },
     onSuccess: async (result) => {
@@ -443,8 +459,11 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       return data;
     },
   });
-  const isBpLinked = !!linkedForecast;
-  const bpCategoryId = (linkedForecast as any)?.category_id ?? null;
+  // Permite o utilizador desvincular a TX da linha BP para alterar a categoria.
+  // Ao gravar, se unlinkBpRequested=true, limpa event_forecasts.transaction_id.
+  const [unlinkBpRequested, setUnlinkBpRequested] = useState(false);
+  const isBpLinked = !!linkedForecast && !unlinkBpRequested;
+  const bpCategoryId = isBpLinked ? ((linkedForecast as any)?.category_id ?? null) : null;
   // Regra: TX vinculada a BP só aceita L3 do mesmo L2 do BP.
   const bpL2Id = (() => {
     if (!bpCategoryId) return null;
@@ -762,8 +781,24 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
                 searchPlaceholder="Pesquisar categoria…"
               />
               {bpL2Label && (
-                <p className="mt-1 text-[10px] text-muted-foreground">
-                  Categoria limitada pelo BP: <span className="font-mono text-primary/80">{bpL2Label}</span>
+                <div className="mt-1 flex items-center justify-between gap-2 text-[10px]">
+                  <span className="text-muted-foreground">
+                    🔒 Categoria limitada pelo BP: <span className="font-mono text-primary/80">{bpL2Label}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setUnlinkBpRequested(true)}
+                    className="text-primary hover:underline font-medium shrink-0"
+                    title="Remove o vínculo desta TX à linha BP. Após gravar, a TX fica órfã (aceita qualquer L3)."
+                  >
+                    Desvincular do BP
+                  </button>
+                </div>
+              )}
+              {unlinkBpRequested && !!linkedForecast && (
+                <p className="mt-1 text-[10px] text-warning">
+                  ⚠️ Vínculo BP será removido ao gravar.{" "}
+                  <button type="button" className="underline" onClick={() => setUnlinkBpRequested(false)}>Reverter</button>
                 </p>
               )}
             </div>
