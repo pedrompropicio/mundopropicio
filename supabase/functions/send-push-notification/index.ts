@@ -95,20 +95,30 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get subscriptions — ALWAYS filter by caller's company to prevent cross-tenant push.
-    // Platform admin without active company falls back to no filter (rare; backups/system).
+    // Get subscriptions.
+    // - User caller: ALWAYS filter by caller's company to prevent cross-tenant push.
+    // - Service-role caller: requires explicit user_ids; no company filter (trigger already resolved tenant).
     let query = adminClient.from("push_subscriptions").select("*");
-    if (callerCompanyId) {
-      query = query.eq("company_id", callerCompanyId);
-    } else if (!isPlatformAdmin) {
-      // Caller has no company and is not platform admin → reject.
-      return new Response(JSON.stringify({ error: "Caller has no company" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (user_ids && Array.isArray(user_ids) && user_ids.length > 0) {
+    if (isServiceRole) {
+      if (!user_ids || !Array.isArray(user_ids) || user_ids.length === 0) {
+        return new Response(JSON.stringify({ error: "service_role requires explicit user_ids" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       query = query.in("user_id", user_ids);
+    } else {
+      if (callerCompanyId) {
+        query = query.eq("company_id", callerCompanyId);
+      } else if (!isPlatformAdmin) {
+        return new Response(JSON.stringify({ error: "Caller has no company" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (user_ids && Array.isArray(user_ids) && user_ids.length > 0) {
+        query = query.in("user_id", user_ids);
+      }
     }
     const { data: subscriptions, error: subError } = await query;
 
