@@ -5,8 +5,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { parseFeverXlsxBuffers, groupFeverLots } from "../_shared/fever-parser.ts";
 import { runFeverImport } from "../_shared/fever-import-server.ts";
 
-// v25_phantom_tickets_discarded_2026_05_16
-const VERSION = "v25_phantom_tickets_discarded_2026_05_16";
+// v26_phantom_tickets_discarded_single_variant_2026_05_16
+const VERSION = "v26_phantom_tickets_discarded_single_variant_2026_05_16";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
