@@ -1560,6 +1560,50 @@ export type Database = {
         }
         Relationships: []
       }
+      company_features: {
+        Row: {
+          company_id: string
+          config: Json
+          created_at: string
+          enabled: boolean
+          enabled_at: string | null
+          enabled_by: string | null
+          feature_key: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          config?: Json
+          created_at?: string
+          enabled?: boolean
+          enabled_at?: string | null
+          enabled_by?: string | null
+          feature_key: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          config?: Json
+          created_at?: string
+          enabled?: boolean
+          enabled_at?: string | null
+          enabled_by?: string | null
+          feature_key?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_features_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_invitations: {
         Row: {
           accepted_at: string | null
@@ -7099,6 +7143,10 @@ export type Database = {
         Returns: Database["public"]["Enums"]["app_role"]
       }
       get_vault_secret: { Args: { _name: string }; Returns: string }
+      has_company_feature: {
+        Args: { _company_id: string; _feature_key: string }
+        Returns: boolean
+      }
       has_partner_access: {
         Args: { _event_id: string; _user_id: string }
         Returns: boolean
