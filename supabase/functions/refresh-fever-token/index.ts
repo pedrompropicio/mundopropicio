@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
 
   // 2. Ler credenciais do Vault
   const { data: credsRaw, error: credsErr } = await admin.rpc("get_vault_secret" as any, {
-    secret_name: cfg.vault_secret_name,
+    _name: cfg.vault_secret_name,
   });
   if (credsErr || !credsRaw) {
     console.log(`[refresh-fever-token] get_vault_secret failed: ${credsErr?.message}`);
