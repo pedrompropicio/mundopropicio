@@ -1127,6 +1127,70 @@ export type Database = {
           },
         ]
       }
+      coala_supplier_category_map: {
+        Row: {
+          category_id: string
+          company_id: string
+          confirmed_count: number
+          created_at: string
+          created_by: string | null
+          description_normalized: string
+          id: string
+          last_used_at: string
+          matched_via: string
+          supplier_id: string
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          company_id: string
+          confirmed_count?: number
+          created_at?: string
+          created_by?: string | null
+          description_normalized: string
+          id?: string
+          last_used_at?: string
+          matched_via?: string
+          supplier_id: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          company_id?: string
+          confirmed_count?: number
+          created_at?: string
+          created_by?: string | null
+          description_normalized?: string
+          id?: string
+          last_used_at?: string
+          matched_via?: string
+          supplier_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coala_supplier_category_map_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "account_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coala_supplier_category_map_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coala_supplier_category_map_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coala_sync_config: {
         Row: {
           auto_apply_enabled: boolean
@@ -7236,6 +7300,7 @@ export type Database = {
         }
         Returns: number
       }
+      norm_coala_desc: { Args: { s: string }; Returns: string }
       promote_scenario_draft_to_active: {
         Args: {
           _new_active_description?: string
@@ -7303,6 +7368,7 @@ export type Database = {
         }
         Returns: string
       }
+      revoke_coala_learning: { Args: { rule_id: string }; Returns: boolean }
       row_belongs_to_current_company: {
         Args: { _row_company_id: string }
         Returns: boolean
@@ -7325,10 +7391,13 @@ export type Database = {
         Args: { target_company_id: string }
         Returns: string
       }
+      set_coala_match_source: { Args: { source: string }; Returns: undefined }
       set_formalidade_auto_suggested: {
         Args: { _value: boolean }
         Returns: undefined
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       storage_path_belongs_to_current_company: {
         Args: { _name: string }
         Returns: boolean
