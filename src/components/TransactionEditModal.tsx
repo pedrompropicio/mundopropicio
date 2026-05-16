@@ -443,8 +443,11 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       return data;
     },
   });
-  const isBpLinked = !!linkedForecast;
-  const bpCategoryId = (linkedForecast as any)?.category_id ?? null;
+  // Permite o utilizador desvincular a TX da linha BP para alterar a categoria.
+  // Ao gravar, se unlinkBpRequested=true, limpa event_forecasts.transaction_id.
+  const [unlinkBpRequested, setUnlinkBpRequested] = useState(false);
+  const isBpLinked = !!linkedForecast && !unlinkBpRequested;
+  const bpCategoryId = isBpLinked ? ((linkedForecast as any)?.category_id ?? null) : null;
   // Regra: TX vinculada a BP só aceita L3 do mesmo L2 do BP.
   const bpL2Id = (() => {
     if (!bpCategoryId) return null;
