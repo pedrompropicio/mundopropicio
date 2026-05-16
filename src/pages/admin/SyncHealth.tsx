@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Activity, AlertTriangle, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
+import { useHasFeature } from "@/hooks/useCompanyFeatures";
+import { FEATURES } from "@/lib/features";
+import { FeatureNotEnabledCard } from "@/components/FeatureNotEnabledCard";
 
 type Row = {
   sync_name: string;
