@@ -150,6 +150,23 @@ export default function FeverSync() {
     onError: (e: any) => toast.error(e?.message || "Erro"),
   });
 
+  const refreshTokenMut = useMutation({
+    mutationFn: async () => {
+      if (!tokenModal) throw new Error("sem config");
+      const { data, error } = await supabase.functions.invoke("refresh-fever-token", {
+        body: { configId: tokenModal.id, triggeredBy: "ui" },
+      });
+      if (error) throw error;
+      if (!(data as any)?.ok) throw new Error((data as any)?.error || "falhou");
+      return data as { ok: true; exp: number; hoursRemaining: number; user_email: string | null };
+    },
+    onSuccess: (data) => {
+      toast.success(`Token renovado. Expira em ~${data.hoursRemaining}h.`);
+      qc.invalidateQueries({ queryKey: ["fever-sync-config"] });
+    },
+    onError: (e: any) => toast.error(e?.message || "Erro a renovar token"),
+  });
+
   const enableMut = useMutation({
     mutationFn: async (args: { id: string; enabled: boolean }) => {
       const { error } = await supabase.from("fever_sync_config" as any).update({ enabled: args.enabled }).eq("id", args.id);
