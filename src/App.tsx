@@ -80,6 +80,7 @@ import SecurityDashboard from "./pages/SecurityDashboard";
 import AdminPanel from "./pages/AdminPanel";
 import AuditoriaContas from "./pages/AuditoriaContas";
 import FormalidadeAudit from "./pages/FormalidadeAudit";
+import ReconciliacaoBpTx from "./pages/ReconciliacaoBpTx";
 import Unsubscribe from "./pages/Unsubscribe";
 import TicketOffices from "./pages/TicketOffices";
 import HelpCenter from "./pages/HelpCenter";
@@ -397,6 +398,7 @@ function ProtectedLayout() {
               <Route path="/admin/atividade" element={<UserActivityLog />} />
               <Route path="/admin/auditoria-contas" element={<AuditoriaContas />} />
               <Route path="/admin/formalidade" element={<FormalidadeAudit />} />
+              <Route path="/admin/reconciliacao-bp-tx" element={<ReconciliacaoBpTx />} />
               <Route path="/admin/empresas" element={<Companies />} />
               <Route path="/admin/lembretes" element={<Reminders />} />
               <Route path="/admin/auditoria-rls" element={<RlsLegacyAudit />} />
