@@ -149,6 +149,7 @@ export default function FeverSync() {
     onError: (e: any) => toast.error(e?.message || "Erro"),
   });
 
+  const enableMut = useMutation({
     mutationFn: async (args: { id: string; enabled: boolean }) => {
       const { error } = await supabase.from("fever_sync_config" as any).update({ enabled: args.enabled }).eq("id", args.id);
       if (error) throw error;
