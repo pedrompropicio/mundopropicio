@@ -56,7 +56,11 @@ interface AuditRow {
   chosen_id?: string | null;
   chosen_code?: string | null;
   chosen_name?: string | null;
-  status?: "pending" | "accepted" | "rejected" | "applied";
+  status?: "pending" | "accepted" | "rejected" | "applied" | "blocked";
+  // Frente C: TX vinculada a BP cuja sugestão violaria L2
+  blocked_reason?: string | null;
+  bp_l2_code?: string | null;
+  bp_category_id?: string | null;
 }
 
 function buildLeafSet(cats: Category[]) {
@@ -458,6 +462,33 @@ function AnaliseIATab() {
         .eq("type", "expense");
       if (txErr) throw txErr;
 
+      // Frente C: identificar TXs vinculadas a BP (para validação L2 pré-batch)
+      const txIds = (txs || []).map((t: any) => t.id);
+      const txToBpCatMap = new Map<string, string>(); // tx_id → bp.category_id
+      if (txIds.length > 0) {
+        const CHUNK = 500;
+        for (let i = 0; i < txIds.length; i += CHUNK) {
+          const slice = txIds.slice(i, i + CHUNK);
+          const { data: links } = await supabase
+            .from("event_forecasts")
+            .select("transaction_id, category_id")
+            .in("transaction_id", slice)
+            .is("version_id", null);
+          (links || []).forEach((l: any) => {
+            if (l.transaction_id && l.category_id) txToBpCatMap.set(l.transaction_id, l.category_id);
+          });
+        }
+      }
+      const catMapLocal = new Map(categories.map((c) => [c.id, c]));
+      const getL2IdLocal = (catId: string | null | undefined): string | null => {
+        if (!catId) return null;
+        const cur = catMapLocal.get(catId);
+        if (!cur || !cur.parent_id) return null;
+        const parent = catMapLocal.get(cur.parent_id);
+        if (!parent) return null;
+        return parent.parent_id ? parent.id : cur.id;
+      };
+
       const catMap = new Map(categories.map((c) => [c.id, c]));
 
       const merged: AuditRow[] = [
@@ -476,10 +507,15 @@ function AnaliseIATab() {
         }),
         ...(txs || []).map((t: any) => {
           const c = t.category_id ? catMap.get(t.category_id) : null;
+          const bpCatId = txToBpCatMap.get(t.id) ?? null;
+          const bpL2Id = getL2IdLocal(bpCatId);
+          const bpL2 = bpL2Id ? catMapLocal.get(bpL2Id) : null;
           return {
             source: "tx" as const, id: t.id, description: t.description, specification: null,
             current_category_id: t.category_id, current_category_code: c?.code ?? null, current_category_name: c?.name ?? null,
             event_label: eventLabelMap.get(t.event_id) ?? null, status: "pending" as const,
+            bp_l2_code: bpL2 ? `${bpL2.code} ${bpL2.name}` : null,
+            bp_category_id: bpCatId,
             details: {
               amount: t.amount, iva_rate: t.iva_rate, currency: t.currency, status: t.status,
               payment_date: t.payment_date, due_date: t.due_date,
@@ -534,7 +570,7 @@ function AnaliseIATab() {
         const m = allMatches.find((x) => x.rowIndex === idx);
         if (!m) return r;
         const cat = codeMap.get(m.suggested_code);
-        return {
+        const base: AuditRow = {
           ...r,
           suggested_code: m.suggested_code,
           suggested_id: cat?.id ?? null,
@@ -542,6 +578,19 @@ function AnaliseIATab() {
           confidence: m.confidence,
           reason: m.reason,
         };
+        // Frente C: bloquear se TX vinculada a BP e sugestão L2 ≠ BP L2
+        if (r.source === "tx" && r.bp_category_id && cat?.id) {
+          const bpL2 = getL2IdLocal(r.bp_category_id);
+          const sugL2 = getL2IdLocal(cat.id);
+          if (bpL2 && sugL2 && bpL2 !== sugL2) {
+            return {
+              ...base,
+              status: "blocked" as const,
+              blocked_reason: `Conflito L2: BP em ${r.bp_l2_code}, sugestão em outra L2 (${m.suggested_code})`,
+            };
+          }
+        }
+        return base;
       });
 
       setRows(enriched);
@@ -571,12 +620,32 @@ function AnaliseIATab() {
       const id = targetId ?? r.suggested_id ?? null;
       if (!id) return r;
       const cat = leafCatsById.get(id);
+      // Frente C: re-validar L2 quando user escolhe manualmente p/ TX vinculada
+      if (r.source === "tx" && r.bp_category_id) {
+        const getL2 = (cid: string | null): string | null => {
+          if (!cid) return null;
+          const cur = leafCatsById.get(cid) || categories.find((x) => x.id === cid);
+          if (!cur || !cur.parent_id) return null;
+          const parent = categories.find((x) => x.id === cur.parent_id);
+          if (!parent) return null;
+          return parent.parent_id ? parent.id : cur.id;
+        };
+        const bpL2 = getL2(r.bp_category_id);
+        const newL2 = getL2(id);
+        if (bpL2 && newL2 && bpL2 !== newL2) {
+          toast.error("Categoria fora do L2 do BP", {
+            description: `Esta TX está vinculada a BP em ${r.bp_l2_code}. Escolhe uma L3 do mesmo L2.`,
+          });
+          return r;
+        }
+      }
       return {
         ...r,
         status: "accepted",
         chosen_id: id,
         chosen_code: cat?.code ?? r.suggested_code ?? null,
         chosen_name: cat?.name ?? r.suggested_name ?? null,
+        blocked_reason: null,
       };
     }));
   }
@@ -592,7 +661,7 @@ function AnaliseIATab() {
   function acceptAllVisible() {
     setRows((prev) => prev.map((r) => {
       const visible = filteredRows.some((f) => f.id === r.id && f.source === r.source);
-      if (!visible || r.status === "applied" || r.status === "rejected") return r;
+      if (!visible || r.status === "applied" || r.status === "rejected" || r.status === "blocked") return r;
       if (!r.suggested_id || r.suggested_code === r.current_category_code) return r;
       const cat = leafCatsById.get(r.suggested_id);
       return { ...r, status: "accepted", chosen_id: r.suggested_id, chosen_code: cat?.code ?? r.suggested_code ?? null, chosen_name: cat?.name ?? r.suggested_name ?? null };
@@ -629,7 +698,8 @@ function AnaliseIATab() {
     setSummaryOpen(false);
     qc.invalidateQueries({ queryKey: ["transactions"] });
     qc.invalidateQueries({ queryKey: ["event_forecasts"] });
-    toast.success(`${ok} aplicadas${fail ? `, ${fail} com erro` : ""}`);
+    const blockedCount = rows.filter((r) => r.status === "blocked").length;
+    toast.success(`${ok} aplicadas${fail ? `, ${fail} com erro` : ""}${blockedCount ? `, ${blockedCount} bloqueadas por conflito L2` : ""}`);
   }
 
   const stats = useMemo(() => {
@@ -714,12 +784,13 @@ function AnaliseIATab() {
                   const isDiff = r.suggested_code && r.suggested_code !== r.current_category_code;
                   const isAccepted = r.status === "accepted";
                   const isRejected = r.status === "rejected";
+                  const isBlocked = r.status === "blocked";
                   const selectValue = r.chosen_id ?? r.suggested_id ?? "";
                   const rowKey = `${r.source}-${r.id}`;
                   const isExpanded = expandedRow === rowKey;
                   return (
                     <Fragment key={rowKey}>
-                    <tr className={`hover:bg-secondary/20 ${isRejected ? "opacity-50" : ""} ${isAccepted ? "bg-success/5" : ""}`}>
+                    <tr className={`hover:bg-secondary/20 ${isRejected ? "opacity-50" : ""} ${isAccepted ? "bg-success/5" : ""} ${isBlocked ? "bg-destructive/5" : ""}`}>
                       <td className="px-2 py-2 align-top">
                         <button
                           type="button"
@@ -829,6 +900,15 @@ function AnaliseIATab() {
                           )}
                           {isAccepted && <Badge variant="outline" className="text-[9px] border-success/40 text-success">aceite</Badge>}
                           {isRejected && <Badge variant="outline" className="text-[9px] border-muted-foreground/40 text-muted-foreground">rejeit.</Badge>}
+                          {isBlocked && (
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] border-destructive/40 text-destructive cursor-help"
+                              title={r.blocked_reason ?? "Conflito L2 com BP vinculado"}
+                            >
+                              bloq. L2
+                            </Badge>
+                          )}
                         </div>
                       </td>
                     </tr>

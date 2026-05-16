@@ -435,7 +435,7 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id")
+        .select("id, category_id")
         .eq("transaction_id", transaction.id)
         .is("version_id", null)
         .maybeSingle();
@@ -444,6 +444,22 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     },
   });
   const isBpLinked = !!linkedForecast;
+  const bpCategoryId = (linkedForecast as any)?.category_id ?? null;
+  // Regra: TX vinculada a BP só aceita L3 do mesmo L2 do BP.
+  const bpL2Id = (() => {
+    if (!bpCategoryId) return null;
+    const cur = (categories as any[]).find((c) => c.id === bpCategoryId);
+    if (!cur) return null;
+    if (!cur.parent_id) return null;
+    const parent = (categories as any[]).find((c) => c.id === cur.parent_id);
+    if (!parent) return null;
+    return parent.parent_id ? parent.id : cur.id;
+  })();
+  const bpL2Label = (() => {
+    if (!bpL2Id) return null;
+    const l2 = (categories as any[]).find((c) => c.id === bpL2Id);
+    return l2 ? `${l2.code} ${l2.name}` : null;
+  })();
 
   const isExpense = transaction.type === "expense";
   const isApproved = transaction.status === "approved";
@@ -489,7 +505,14 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     const typeMatch = transaction.type === "income" ? c.type === "income" : c.type === "expense";
     if (!typeMatch) return false;
     // Only leaf categories (no children)
-    return !categories.some((ch) => ch.parent_id === c.id);
+    if (categories.some((ch) => ch.parent_id === c.id)) return false;
+    // Frente B: se TX vinculada a BP, restringir a L3 do mesmo L2 do BP
+    if (bpL2Id) {
+      const parent = categories.find((p) => p.id === c.parent_id);
+      const l2Id = parent && parent.parent_id ? parent.id : c.id;
+      if (l2Id !== bpL2Id) return false;
+    }
+    return true;
   });
 
   const eventOptions = events.map((ev) => ({ value: ev.id, label: ev.name }));
@@ -738,6 +761,11 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
                 placeholder="Sem categoria"
                 searchPlaceholder="Pesquisar categoria…"
               />
+              {bpL2Label && (
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Categoria limitada pelo BP: <span className="font-mono text-primary/80">{bpL2Label}</span>
+                </p>
+              )}
             </div>
             {hasChildren ? (
               <div>
