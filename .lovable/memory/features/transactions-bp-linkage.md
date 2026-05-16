@@ -1,6 +1,6 @@
 ---
 name: Transactions ↔ BP linkage
-description: Como TX se ligam ao BP (FK direta + match fuzzy), regra L2, e fluxo manual com escrita da FK
+description: Como TX se ligam ao BP (FK direta + match fuzzy), regra L2, fluxo manual com escrita da FK e página de Reconciliação histórica
 type: feature
 ---
 
@@ -34,7 +34,6 @@ O match fuzzy é o que permite que TXs criadas sem FK (a maioria do histórico) 
 5. Reset automático: quando `form.event_id` muda, `selectedForecastId` volta a `null`.
 6. No INSERT (single-tx path em `createMutation`): após criar a TX, executa
    `UPDATE event_forecasts SET transaction_id = <novaTxId> WHERE id = <selectedForecastId> AND transaction_id IS NULL`.
-   Se o UPDATE falhar, toast de erro mas TX permanece criada.
 7. Split (rateio) **não** escreve FK: pai/filhos múltiplos não cabem no modelo 1↔1.
 
 ### Automático (`EventForecast.tsx` → "Gerar Transações")
@@ -44,10 +43,9 @@ O match fuzzy é o que permite que TXs criadas sem FK (a maioria do histórico) 
 ## Edição (`TransactionEditModal`)
 
 - Pre-fetch via `linked-forecast` query lê `event_forecasts.transaction_id = tx.id`.
-- Se ligada, dropdown de categoria filtrado por L2 (mesma regra) e helper text mostrado.
-- Botão **Desvincular do BP**: marca `unlinkBpRequested=true`, helper text muda para aviso warning. Reverter está disponível antes de gravar.
-- Ao gravar: se `unlinkBpRequested`, executa `UPDATE event_forecasts SET transaction_id = NULL WHERE id = <linkedForecast.id>`.
-- Trocar a linha BP via modal de edição não é suportado (UX adicional fica para futuro — o user pode desvincular, depois reabrir o painel BP em nova TX se necessário, ou vincular manualmente pela linha do BP).
+- Se ligada, dropdown de categoria filtrado por L2 e helper text mostrado.
+- Botão **Desvincular do BP**: marca `unlinkBpRequested=true`, helper text muda para warning. Reversível antes de gravar.
+- Ao gravar: se `unlinkBpRequested`, executa `UPDATE event_forecasts SET transaction_id = NULL`.
 
 ## Trigger L2 (defesa universal no banco)
 
@@ -58,24 +56,51 @@ O match fuzzy é o que permite que TXs criadas sem FK (a maioria do histórico) 
 
 Trigger irmão `trg_enforce_forecast_tx_link_l2_match` impede que o lado BP (UPDATE em `event_forecasts.transaction_id`) ligue a uma TX em L2 incompatível.
 
-Com a escrita da FK no fluxo manual (passo 6 acima), o trigger passa a cobrir todos os caminhos — incluindo o caso "Anitta carrinha" que originalmente passou por ser TX sem FK.
-
 ## Regra de negócio
 
 - **TX vinculada a BP** (com FK escrita): obrigatório L3 do mesmo L2 do BP.
 - **TX órfã** (sem FK): aceita qualquer L3. Decisão consciente do user de não amarrar a uma linha BP específica.
 - Match fuzzy continua a funcionar para reporting/painéis, mas não é gatilho de validação L2.
 
+## Backfill histórico (Mundo Propício, 2026-05-16)
+
+Migration `20260516181303_*` aplicou backfill seguro **só para empresa `mundo-propicio`**:
+
+- Procura TXs sem FK cujo (event_id + category_id + type) bate em **1 única linha BP livre**.
+- Escreve `event_forecasts.transaction_id` apenas se passar validação L2 defensiva (`validate_tx_category_l2_match`).
+- Loop com EXCEPTION handler — qualquer falha é logada via NOTICE mas não interrompe o lote.
+- Em Test processou 5 candidatos. Em Live (após publish): ~53 candidatos esperados; restantes 35 vão para a página de Reconciliação para revisão humana.
+- Coala **não** entra no backfill (todas as TXs Coala são ambíguas, precisam decisão manual).
+
+## Página de Reconciliação histórica (`/admin/reconciliacao-bp-tx`)
+
+Acesso: admin / manager / platform_admin. Lista apenas TXs sem FK direta, agrupadas em 3 abas:
+
+### Aba 1 — Ambíguas
+`cat+event` bate em 2+ linhas BP livres. Cada linha é apresentada como card com **descrição BP, valor previsto e % de match por tokens**; a com maior score recebe badge "Sugerido". Ação principal: **Vincular**. Alternativa: **Marcar como TX órfã legítima**.
+
+### Aba 2 — L2-only
+Categoria L3 da TX **não** existe no BP mas o L2 sim. Para cada candidato no mesmo L2:
+- **Vincular e mudar L3** (faz UPDATE em `transactions.category_id` para o L3 da linha BP, depois escreve FK).
+- Alternativa: **Criar linha BP nova com o L3 atual (€0)** + vincular.
+- **TX órfã legítima**.
+
+### Aba 3 — Fora do BP
+L2 da categoria não existe no BP do evento. Ações:
+- **Criar linha BP nova com a categoria da TX (valor da TX)** + vincular.
+- **Mudar categoria para uma do BP** (dropdown só com L3 dos L2 já no BP — sem ligar automaticamente).
+- **TX órfã legítima**.
+
+### Persistência das "ignoradas"
+Tabela `bp_tx_reconciliation_ignored (id, company_id, transaction_id UNIQUE, ignored_by, ignored_at, reason)`. RLS:
+- SELECT: `company_id = current_company_id() OR platform_admin`.
+- ALL: admin/manager da empresa OU platform_admin.
+- Trigger preenche `company_id` e `ignored_by` automaticamente.
+
+### Filtros
+Evento (multi-select por dropdown), data desde/até. Contadores no header + botão "Atualizar".
+
 ## Outros pontos que inserem TX (não tocados)
 
-- `CacheTransactionModal.tsx`, `Quotations.tsx`, `RecurringTransactions.tsx`, `FinancialOperationsTab.tsx`: não passam pelo painel BP visual; criação direta sem escolha de linha. Não aplicam a regra (TX órfã). Se no futuro precisarem, replicar o padrão de `selectedForecastId` + UPDATE FK.
+- `CacheTransactionModal.tsx`, `Quotations.tsx`, `RecurringTransactions.tsx`, `FinancialOperationsTab.tsx`: criação direta sem painel BP visual. TX nasce órfã. Replicar `selectedForecastId` se um dia precisarem.
 - `EventForecast.tsx` (bulk gerar TX): já correto.
-
-## UX summary
-
-- Filtro de dropdown em tempo real (forecast set → L3 do L2)
-- Botão **Trocar linha BP** (limpa só o vínculo, preserva resto)
-- Botão **Desvincular do BP** no editor
-- Helper text "🔒 Categoria limitada pelo BP: \<L2\>"
-- Reset automático ao mudar de evento
-- Sem diálogo anti-fricção separado: filtragem do dropdown já impede escolha fora do L2
