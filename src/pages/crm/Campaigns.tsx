@@ -2443,18 +2443,41 @@ export default function CrmCampaigns() {
                       <Button variant="outline" size="sm" onClick={reanalyzeCampaign} disabled={analyzeLoading || redesignLoading} className="flex-1 sm:flex-initial sm:w-auto">
                         <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Re-analisar
                       </Button>
-                      {analyzeData?.diagnosis_id && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={openRedesignDialog}
-                          disabled={analyzeLoading || redesignLoading}
-                          className="flex-1 sm:flex-initial sm:w-auto border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
-                        >
-                          {redesignLoading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5 mr-1.5" />}
-                          Re-desenhar<span className="hidden sm:inline">&nbsp;campanha</span>
-                        </Button>
-                      )}
+                      {analyzeData?.diagnosis_id && (() => {
+                        const drawerCampaign = campaigns?.find((cc) => cc.external_campaign_id === analyzeCampaignId);
+                        const drawerIsReplaced = drawerCampaign?.replaced_by_strategy_id != null;
+                        return (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={openRedesignDialog}
+                              disabled={analyzeLoading || redesignLoading || drawerIsReplaced}
+                              className="flex-1 sm:flex-initial sm:w-auto border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
+                              title={drawerIsReplaced ? "Campanha já substituída" : "Re-design rápido (defaults da IA)"}
+                            >
+                              {redesignLoading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5 mr-1.5" />}
+                              Re-desenhar<span className="hidden sm:inline">&nbsp;(rápido)</span>
+                            </Button>
+                            {!drawerIsReplaced && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setAnalyzeOpen(false);
+                                  navigate(`/audience/strategies/redesign/${analyzeCampaignId}`);
+                                }}
+                                disabled={analyzeLoading || redesignLoading}
+                                className="flex-1 sm:flex-initial sm:w-auto border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
+                                title="Wizard 4 passos com revisão manual do inventário"
+                              >
+                                <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                                Com herança<span className="hidden sm:inline">&nbsp;(wizard)</span>
+                              </Button>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
 

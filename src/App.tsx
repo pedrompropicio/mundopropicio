@@ -109,6 +109,7 @@ import CrmAdAccounts from "./pages/crm/AdAccounts";
 import CrmSetup from "./pages/crm/Setup";
 import CrmStrategies from "./pages/crm/Strategies";
 import CrmStrategyNew from "./pages/crm/StrategyNew";
+import CrmStrategyRedesign from "./pages/crm/StrategyRedesign";
 import CrmStrategyView from "./pages/crm/StrategyView";
 import CrmStrategyPrint from "./pages/crm/StrategyPrint";
 import AudiencePrint from "@/pages/crm/AudiencePrint";
@@ -461,6 +462,7 @@ function App() {
                     <Route path="setup" element={<CrmSetup />} />
                     <Route path="strategies" element={<CrmStrategies />} />
                     <Route path="strategies/new" element={<CrmStrategyNew />} />
+                    <Route path="strategies/redesign/:campaignId" element={<CrmStrategyRedesign />} />
                     <Route path="strategies/:id" element={<CrmStrategyView />} />
                     <Route path="creatives" element={<CrmCreatives />} />
                     <Route path="creatives/new" element={<CrmCreativeNew />} />
