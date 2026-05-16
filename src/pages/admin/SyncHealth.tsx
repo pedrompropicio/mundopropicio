@@ -45,6 +45,7 @@ function healthBadge(h: Row["health"]) {
 export default function SyncHealth() {
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const hasFeature = useHasFeature(FEATURES.SYNC_HEALTH);
 
   const q = useQuery({
     queryKey: ["vw_sync_health"],
