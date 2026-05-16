@@ -2116,6 +2116,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               .map(g => ({ ...g, details: sortByHierarchicalCode(g.details, (detail) => detail.catCode) }))
               .sort((a, b) => compareHierarchicalCodes(a.groupCode, b.groupCode));
 
+            const isUuid = (v: any) => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+
             const handleLineClick = (line: any, detail: PLDetail) => {
               if (detail.catId === "none") return;
               const switched = tryAutoSplitFromSubEvent(detail.catId, form.type, line);
@@ -2128,6 +2130,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 iva_rate: (line.iva_rate ?? 23) as IvaRate,
                 specification: line.specification || "",
               }));
+              // Vincula à linha BP (FK escrita no INSERT). Ignora pseudo-ids (ex: "cache-auto").
+              if (isUuid(line.id)) setSelectedForecastId(line.id);
               setPlExpanded(false);
             };
 
@@ -2143,6 +2147,8 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                 ...prev,
                 category_id: detail.catId,
               }));
+              // Múltiplas linhas: não vinculamos automaticamente; user precisa clicar uma linha específica.
+              setSelectedForecastId(null);
               setPlExpanded(false);
             };
 
