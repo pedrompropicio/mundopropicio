@@ -5554,6 +5554,27 @@ export type Database = {
           },
         ]
       }
+      sync_notifications_sent: {
+        Row: {
+          config_id: string
+          id: string
+          last_notified_at: string
+          sync_type: string
+        }
+        Insert: {
+          config_id: string
+          id?: string
+          last_notified_at?: string
+          sync_type: string
+        }
+        Update: {
+          config_id?: string
+          id?: string
+          last_notified_at?: string
+          sync_type?: string
+        }
+        Relationships: []
+      }
       system_audit_log: {
         Row: {
           action: string
@@ -6762,6 +6783,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vw_sync_health: {
+        Row: {
+          expected_runs_24h: number | null
+          health: string | null
+          is_stale: boolean | null
+          last_run_at: string | null
+          last_run_duration_sec: number | null
+          last_run_status: string | null
+          runs_needing_action_24h: number | null
+          runs_success_24h: number | null
+          seconds_since_last_run: number | null
+          sync_name: string | null
+        }
+        Relationships: []
       }
       vw_tickets_v2_sync_summary_7d: {
         Row: {
