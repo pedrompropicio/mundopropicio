@@ -327,7 +327,7 @@ export default async function ({ page }) {
                     '&planId=' + args.planId + '&venueId=' + args.venueId;
     log('goto dashboard ' + dashUrl);
     await page.goto(dashUrl, { waitUntil: 'networkidle2', timeout: 60000 });
-    await sleep(2500);
+    await sleep(5000);
     await snap('dashboard');
 
     // DESCOBERTA: logar page text e tabs disponíveis (Fever em EN no Browserless)
