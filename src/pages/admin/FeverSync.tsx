@@ -182,6 +182,8 @@ export default function FeverSync() {
   const cfgs = cfgQ.data || [];
   const runs = runsQ.data || [];
 
+  if (!hasFeature) return <FeatureNotEnabledCard featureKey={FEATURES.SYNC_FEVER} />;
+
   return (
     <div className="container py-8 space-y-6">
       <div>
