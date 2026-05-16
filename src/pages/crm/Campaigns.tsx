@@ -26,6 +26,7 @@ import {
   Play,
   AlertTriangle,
   Pencil,
+  MapPin,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -75,6 +76,7 @@ interface CampaignRow {
   updated_time: string | null;
   last_synced_at: string;
   linked_event_id: string | null;
+  linked_event_locked: boolean | null;
   currency: string | null;
   bid_strategy: string | null;
 }
@@ -109,7 +111,20 @@ interface EventRow {
   status: string;
   tickets_total: number | null;
   tickets_sold: number | null;
+  event_type: string | null;       // 'simple' | 'tour_master' | 'tour_split'
+  parent_event_id: string | null;  // null for simple/master; master id for split
 }
+
+// Dashboard hierárquico: simple events vs tour families (master + splits).
+type SimpleGroup = { kind: "simple"; event: EventRow; campaigns: CampaignRow[] };
+type TourGroup = {
+  kind: "tour";
+  master: EventRow;
+  splits: EventRow[];
+  campaignsBySplit: Map<string, CampaignRow[]>;
+  masterCampaigns: CampaignRow[]; // campanhas linkadas ao master directamente (não atribuídas a split)
+};
+type DashboardGroup = SimpleGroup | TourGroup;
 
 type PeriodMode = "yesterday" | "7d" | "30d" | "custom";
 interface PeriodState {
@@ -183,6 +198,22 @@ function roasBarBgByEvent(roas: number | null | undefined): string {
   if (roas >= 6) return "bg-amber-500";
   if (roas >= 4) return "bg-orange-500";
   return "bg-red-500";
+}
+
+// Range de datas a partir das splits de um tour_master.
+// Devolve "dd-dd MMM yyyy · N datas" quando há mais de uma data; "dd MMM yyyy" para uma só.
+function formatTourDateRange(splits: EventRow[]): string | null {
+  const datesIso = splits.map((s) => s.date).filter((d): d is string => !!d);
+  if (datesIso.length === 0) return null;
+  const dates = datesIso.map((d) => parseISO(d)).sort((a, b) => a.getTime() - b.getTime());
+  const count = dates.length;
+  const first = dates[0];
+  const last = dates[count - 1];
+  if (count === 1) return `${format(first, "dd MMM yyyy", { locale: ptBR })} · 1 data`;
+  if (first.getFullYear() === last.getFullYear() && first.getMonth() === last.getMonth()) {
+    return `${format(first, "dd", { locale: ptBR })}–${format(last, "dd MMM yyyy", { locale: ptBR })} · ${count} datas`;
+  }
+  return `${format(first, "dd MMM", { locale: ptBR })} → ${format(last, "dd MMM yyyy", { locale: ptBR })} · ${count} datas`;
 }
 
 // ============================================================
@@ -459,6 +490,111 @@ function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: () => vo
 }
 
 // ============================================================
+// Reassign Campaign to Split (popover) — para tour_master families
+// ============================================================
+function ReassignCampaignToSplit({
+  campaign,
+  master,
+  splits,
+  onReassigned,
+}: {
+  campaign: CampaignRow;
+  master: EventRow;
+  splits: EventRow[];
+  onReassigned: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const initialId = campaign.linked_event_id ?? master.id;
+  const [pendingId, setPendingId] = useState<string>(initialId);
+  // Default lock=true: reassignment manual deve ficar pegado contra auto-linker.
+  // Se a campanha já estava locked, mantém-se locked; se não estava, fica locked após Apply.
+  const [lock, setLock] = useState<boolean>(campaign.linked_event_locked ?? true);
+  const [saving, setSaving] = useState(false);
+
+  // Re-sincroniza estado quando a popover abre (caso o user mude a campanha entretanto)
+  useEffect(() => {
+    if (open) {
+      setPendingId(campaign.linked_event_id ?? master.id);
+      setLock(campaign.linked_event_locked ?? true);
+    }
+  }, [open, campaign.linked_event_id, campaign.linked_event_locked, master.id]);
+
+  const apply = async () => {
+    setSaving(true);
+    try {
+      const { error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_campaign_snapshot")
+        .update({ linked_event_id: pendingId, linked_event_locked: lock })
+        .eq("id", campaign.id);
+      if (error) throw error;
+      toast.success("Linkage actualizado");
+      setOpen(false);
+      onReassigned();
+    } catch (e: any) {
+      toast.error(e?.message || "Falha a actualizar linkage");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          onClick={(e) => e.stopPropagation()}
+          className="opacity-60 hover:opacity-100 transition-opacity p-1 rounded hover:bg-cyan-500/10"
+          title="Apontar a uma cidade (split) ou ao master"
+        >
+          <MapPin className="h-3.5 w-3.5 text-cyan-400" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-3" align="start" onClick={(e) => e.stopPropagation()}>
+        <p className="text-xs font-semibold mb-2">Apontar campanha a:</p>
+        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+          <label className="flex items-center gap-2 text-xs cursor-pointer">
+            <input
+              type="radio"
+              name={`reassign-${campaign.id}`}
+              checked={pendingId === master.id}
+              onChange={() => setPendingId(master.id)}
+              disabled={saving}
+            />
+            <span><strong>Master / blended</strong> · {master.name}</span>
+          </label>
+          {splits.map((s) => (
+            <label key={s.id} className="flex items-center gap-2 text-xs cursor-pointer">
+              <input
+                type="radio"
+                name={`reassign-${campaign.id}`}
+                checked={pendingId === s.id}
+                onChange={() => setPendingId(s.id)}
+                disabled={saving}
+              />
+              <span>{s.name}{s.date && ` · ${format(parseISO(s.date), "dd MMM", { locale: ptBR })}`}</span>
+            </label>
+          ))}
+        </div>
+        <hr className="my-2 border-border" />
+        <label className="flex items-center gap-2 text-xs cursor-pointer">
+          <input
+            type="checkbox"
+            checked={lock}
+            onChange={(e) => setLock(e.target.checked)}
+            disabled={saving}
+          />
+          <span>Bloquear contra auto-linker</span>
+        </label>
+        <Button size="sm" className="w-full mt-3" onClick={apply} disabled={saving || pendingId === initialId && lock === (campaign.linked_event_locked ?? false)}>
+          {saving && <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />}
+          Aplicar
+        </Button>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ============================================================
 // Campaign Row
 // ============================================================
 function CampaignTableRow({
@@ -473,6 +609,7 @@ function CampaignTableRow({
   onToggleStatus,
   toggling,
   onEdited,
+  tourContext,
 }: {
   c: CampaignRow;
   insights: InsightRow[];
@@ -485,6 +622,7 @@ function CampaignTableRow({
   onToggleStatus?: (c: CampaignRow, target: "ACTIVE" | "PAUSED") => void;
   toggling?: boolean;
   onEdited?: () => void;
+  tourContext?: { master: EventRow; splits: EventRow[]; onReassigned: () => void };
 }) {
   const agg = useMemo(() => aggregate(insights), [insights]);
   const aggPrev = useMemo(() => aggregate(prevInsights), [prevInsights]);
@@ -702,6 +840,14 @@ function CampaignTableRow({
           >
             <Target className="h-3 w-3 mr-1" />Testar funil
           </Button>
+          {tourContext && (
+            <ReassignCampaignToSplit
+              campaign={c}
+              master={tourContext.master}
+              splits={tourContext.splits}
+              onReassigned={tourContext.onReassigned}
+            />
+          )}
           {onEdited && <EditCampaignPopover c={c} onSaved={onEdited} />}
         </div>
       </td>
@@ -909,6 +1055,230 @@ function EventGroupCard({
                 ))}
               </tbody>
             </table>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  );
+}
+
+// ============================================================
+// Tour Family Card (master + splits hierárquico)
+// ============================================================
+function TourFamilyCard({
+  master,
+  splits,
+  campaignsBySplit,
+  masterCampaigns,
+  insightsByCampaign,
+  prevInsightsByCampaign,
+  spark14ByCampaign,
+  days,
+  currency,
+  onAnalyze,
+  onCoach,
+  onToggleStatus,
+  togglingCampaignId,
+  onEdited,
+}: {
+  master: EventRow;
+  splits: EventRow[];
+  campaignsBySplit: Map<string, CampaignRow[]>;
+  masterCampaigns: CampaignRow[];
+  insightsByCampaign: Map<string, InsightRow[]>;
+  prevInsightsByCampaign: Map<string, InsightRow[]>;
+  spark14ByCampaign: Map<string, number[]>;
+  days: number;
+  currency: string;
+  onAnalyze?: (id: string, name: string) => void;
+  onCoach?: (id: string) => void;
+  onToggleStatus?: (c: CampaignRow, target: "ACTIVE" | "PAUSED") => void;
+  togglingCampaignId?: string | null;
+  onEdited?: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+
+  const allCampaigns = useMemo(() => {
+    const arr: CampaignRow[] = [...masterCampaigns];
+    for (const [, cs] of campaignsBySplit) arr.push(...cs);
+    return arr;
+  }, [campaignsBySplit, masterCampaigns]);
+
+  const allInsights = useMemo(
+    () => allCampaigns.flatMap((c) => insightsByCampaign.get(c.external_campaign_id) ?? []),
+    [allCampaigns, insightsByCampaign],
+  );
+  const aggAll = aggregate(allInsights);
+
+  const tourContext = { master, splits, onReassigned: () => onEdited?.() };
+
+  const dailyBudget = allCampaigns.reduce((s, c) => s + (c.daily_budget_cents ?? 0), 0);
+  const lifetimeBudget = allCampaigns.reduce((s, c) => s + (c.lifetime_budget_cents ?? 0), 0);
+
+  const tourDateLabel = formatTourDateRange(splits);
+
+  const progressPct = aggAll.roas != null && Number.isFinite(aggAll.roas)
+    ? Math.min(100, Math.max(0, (aggAll.roas / EVENT_TARGET_ROAS) * 100))
+    : null;
+
+  return (
+    <Card>
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <CollapsibleTrigger asChild>
+          <div className="flex items-center justify-between gap-4 p-4 cursor-pointer hover:bg-muted/30 transition-colors">
+            <div className="flex items-center gap-3 min-w-0">
+              {open ? (
+                <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+              ) : (
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              )}
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-semibold truncate">{master.name}</h3>
+                  <Badge variant="outline" className="text-xs uppercase border-cyan-500/40 text-cyan-300">
+                    Tour · {splits.length} {splits.length === 1 ? "cidade" : "cidades"}
+                  </Badge>
+                  {tourDateLabel && (
+                    <Badge variant="outline" className="text-xs font-mono">{tourDateLabel}</Badge>
+                  )}
+                  <Badge variant="secondary" className="text-xs">
+                    {allCampaigns.length} {allCampaigns.length === 1 ? "campanha" : "campanhas"}
+                  </Badge>
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground tabular-nums">
+                  ROAS{" "}
+                  <span className={cn("font-semibold font-mono", roasColorByEvent(aggAll.roas))}>
+                    {formatRoas(aggAll.roas)}
+                  </span>{" "}
+                  · Gasto {formatCurrency(aggAll.spendCents, currency)} · Receita{" "}
+                  <span className="text-emerald-500/90">{formatCurrency(aggAll.revenueCents, currency)}</span>{" "}
+                  · Conv. {aggAll.conversions}
+                </div>
+                {progressPct != null && (
+                  <div className="mt-1.5 flex items-center gap-2 text-[11px]">
+                    <div className="h-1.5 rounded bg-muted overflow-hidden w-[180px] shrink-0">
+                      <div
+                        className={cn("h-full transition-all", roasBarBgByEvent(aggAll.roas))}
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
+                    <span className="font-mono tabular-nums text-muted-foreground">
+                      {formatRoas(aggAll.roas)} / {EVENT_TARGET_ROAS}x → {progressPct.toFixed(0)}% (blended tour)
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="text-right text-xs text-muted-foreground tabular-nums hidden md:block">
+              {dailyBudget > 0 && (
+                <div>{formatCurrency(dailyBudget, currency)}/dia ativo</div>
+              )}
+              {lifetimeBudget > 0 && (
+                <div>{formatCurrency(lifetimeBudget, currency)} lifetime</div>
+              )}
+            </div>
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="border-t border-border divide-y divide-border">
+            {splits.map((s) => {
+              const cs = campaignsBySplit.get(s.id) ?? [];
+              const splitInsights = cs.flatMap((c) => insightsByCampaign.get(c.external_campaign_id) ?? []);
+              const aggSplit = aggregate(splitInsights);
+              return (
+                <div key={s.id} className="p-4 space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <MapPin className="h-3.5 w-3.5 text-cyan-400" />
+                    <h4 className="text-sm font-semibold">{s.name}</h4>
+                    {s.date && (
+                      <Badge variant="outline" className="text-[10px] font-mono">
+                        {format(parseISO(s.date), "dd MMM yyyy", { locale: ptBR })}
+                      </Badge>
+                    )}
+                    <Badge variant="secondary" className="text-[10px]">
+                      {cs.length} {cs.length === 1 ? "campanha" : "campanhas"}
+                    </Badge>
+                    {cs.length > 0 && (
+                      <span className="text-[11px] text-muted-foreground tabular-nums ml-auto">
+                        ROAS{" "}
+                        <span className={cn("font-semibold font-mono", roasColorByEvent(aggSplit.roas))}>
+                          {formatRoas(aggSplit.roas)}
+                        </span>{" "}
+                        · {formatCurrency(aggSplit.spendCents, currency)} · {formatCurrency(aggSplit.revenueCents, currency)} · {aggSplit.conversions} conv.
+                      </span>
+                    )}
+                  </div>
+                  {cs.length === 0 ? (
+                    <p className="text-xs text-muted-foreground/80 italic">Sem campanhas atribuídas a esta cidade. Re-aponta uma campanha do master abaixo via 📍.</p>
+                  ) : (
+                    <div className="overflow-x-auto rounded border border-border/40">
+                      <table className="w-full">
+                        <CampaignTableHeader />
+                        <tbody>
+                          {cs.map((c) => (
+                            <CampaignTableRow
+                              key={c.id}
+                              c={c}
+                              insights={insightsByCampaign.get(c.external_campaign_id) ?? []}
+                              prevInsights={prevInsightsByCampaign.get(c.external_campaign_id) ?? []}
+                              days={days}
+                              spark={spark14ByCampaign.get(c.external_campaign_id) ?? []}
+                              currency={currency}
+                              onAnalyze={onAnalyze}
+                              onCoach={onCoach}
+                              onToggleStatus={onToggleStatus}
+                              toggling={togglingCampaignId === c.external_campaign_id}
+                              onEdited={onEdited}
+                              tourContext={tourContext}
+                            />
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {masterCampaigns.length > 0 && (
+              <div className="p-4 space-y-2 bg-amber-500/5">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-amber-300">
+                      Master / blended · {masterCampaigns.length} {masterCampaigns.length === 1 ? "campanha não atribuída" : "campanhas não atribuídas"}
+                    </p>
+                    <p className="text-[11px] text-amber-200/80 mt-0.5">
+                      Estas campanhas estão linkadas ao master — re-aponta a uma cidade (📍) para ver ROAS por split.
+                    </p>
+                  </div>
+                </div>
+                <div className="overflow-x-auto rounded border border-amber-500/30">
+                  <table className="w-full">
+                    <CampaignTableHeader />
+                    <tbody>
+                      {masterCampaigns.map((c) => (
+                        <CampaignTableRow
+                          key={c.id}
+                          c={c}
+                          insights={insightsByCampaign.get(c.external_campaign_id) ?? []}
+                          prevInsights={prevInsightsByCampaign.get(c.external_campaign_id) ?? []}
+                          days={days}
+                          spark={spark14ByCampaign.get(c.external_campaign_id) ?? []}
+                          currency={currency}
+                          onAnalyze={onAnalyze}
+                          onCoach={onCoach}
+                          onToggleStatus={onToggleStatus}
+                          toggling={togglingCampaignId === c.external_campaign_id}
+                          onEdited={onEdited}
+                          tourContext={tourContext}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         </CollapsibleContent>
       </Collapsible>
@@ -1287,15 +1657,38 @@ export default function CrmCampaigns() {
     [campaigns],
   );
   const { data: events } = useQuery({
-    queryKey: ["crm-campaigns-events", linkedEventIds.sort().join(",")],
+    queryKey: ["crm-campaigns-events-tour", linkedEventIds.sort().join(",")],
     enabled: isAuthorized && linkedEventIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("events")
-        .select("id, name, date, status, tickets_total, tickets_sold")
-        .in("id", linkedEventIds);
-      if (error) throw error;
-      return (data ?? []) as EventRow[];
+      const eventCols = "id, name, date, status, tickets_total, tickets_sold, event_type, parent_event_id";
+      // Stage 1: events diretamente linkados às campanhas
+      const { data: linkedData, error: err1 } = await supabase
+        .from("events").select(eventCols).in("id", linkedEventIds);
+      if (err1) throw err1;
+      const linkedRows = (linkedData ?? []) as EventRow[];
+
+      // Identificar masters envolvidos (linkados directamente OU pais de splits linkados)
+      const masterIds = new Set<string>();
+      for (const e of linkedRows) {
+        if (e.event_type === "tour_master") masterIds.add(e.id);
+        if (e.event_type === "tour_split" && e.parent_event_id) masterIds.add(e.parent_event_id);
+      }
+      if (masterIds.size === 0) return linkedRows;
+
+      // Stage 2: para cada master envolvido, trazer o próprio master + TODAS as splits filhas
+      // (mesmo as que não têm campanhas linkadas — para renderizar sub-card "Cidade Y · sem campanhas").
+      const masterArr = [...masterIds];
+      const masterArrCsv = masterArr.map((id) => `"${id}"`).join(",");
+      const { data: familyData, error: err2 } = await supabase
+        .from("events").select(eventCols)
+        .or(`id.in.(${masterArrCsv}),parent_event_id.in.(${masterArrCsv})`);
+      if (err2) throw err2;
+      const familyRows = (familyData ?? []) as EventRow[];
+
+      // Dedupe por id
+      const m = new Map<string, EventRow>();
+      for (const e of [...linkedRows, ...familyRows]) m.set(e.id, e);
+      return [...m.values()];
     },
   });
 
@@ -1423,17 +1816,75 @@ export default function CrmCampaigns() {
     [campaigns],
   );
 
-  const campaignsByEvent = useMemo(() => {
-    const m = new Map<string, CampaignRow[]>();
+  // Splits indexados pelo id do master (a partir dos events carregados — independente
+  // de haver campanhas linkadas; permite renderizar sub-cards "Cidade · sem campanhas").
+  const splitsByMaster = useMemo(() => {
+    const m = new Map<string, EventRow[]>();
+    (events ?? []).forEach((e) => {
+      if (e.event_type === "tour_split" && e.parent_event_id) {
+        const arr = m.get(e.parent_event_id) ?? [];
+        arr.push(e);
+        m.set(e.parent_event_id, arr);
+      }
+    });
+    for (const [, arr] of m) arr.sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
+    return m;
+  }, [events]);
+
+  // Grupos hierárquicos do dashboard: simple events vs tour families (master+splits).
+  const dashboardGroups = useMemo<DashboardGroup[]>(() => {
+    const byKey = new Map<string, DashboardGroup>();
     for (const c of activeCampaigns) {
-      if (c.linked_event_id && eventsById.get(c.linked_event_id)?.status === "active") {
-        const arr = m.get(c.linked_event_id) ?? [];
+      if (!c.linked_event_id) continue;
+      const e = eventsById.get(c.linked_event_id);
+      if (!e || e.status !== "active") continue;
+
+      if (e.event_type === "tour_split" && e.parent_event_id) {
+        const master = eventsById.get(e.parent_event_id);
+        if (!master) {
+          // Master não carregado (improvável após family-fetch) — fallback simples.
+          const key = `simple:${e.id}`;
+          let g = byKey.get(key) as SimpleGroup | undefined;
+          if (!g) { g = { kind: "simple", event: e, campaigns: [] }; byKey.set(key, g); }
+          g.campaigns.push(c);
+          continue;
+        }
+        const key = `tour:${master.id}`;
+        let g = byKey.get(key) as TourGroup | undefined;
+        if (!g) {
+          g = {
+            kind: "tour", master,
+            splits: splitsByMaster.get(master.id) ?? [],
+            campaignsBySplit: new Map(),
+            masterCampaigns: [],
+          };
+          byKey.set(key, g);
+        }
+        const arr = g.campaignsBySplit.get(e.id) ?? [];
         arr.push(c);
-        m.set(c.linked_event_id, arr);
+        g.campaignsBySplit.set(e.id, arr);
+      } else if (e.event_type === "tour_master") {
+        const key = `tour:${e.id}`;
+        let g = byKey.get(key) as TourGroup | undefined;
+        if (!g) {
+          g = {
+            kind: "tour", master: e,
+            splits: splitsByMaster.get(e.id) ?? [],
+            campaignsBySplit: new Map(),
+            masterCampaigns: [],
+          };
+          byKey.set(key, g);
+        }
+        g.masterCampaigns.push(c);
+      } else {
+        const key = `simple:${e.id}`;
+        let g = byKey.get(key) as SimpleGroup | undefined;
+        if (!g) { g = { kind: "simple", event: e, campaigns: [] }; byKey.set(key, g); }
+        g.campaigns.push(c);
       }
     }
-    return m;
-  }, [activeCampaigns, eventsById]);
+    return [...byKey.values()];
+  }, [activeCampaigns, eventsById, splitsByMaster]);
 
   const orphanCampaigns = useMemo(
     () =>
@@ -1701,21 +2152,41 @@ export default function CrmCampaigns() {
             <Skeleton className="h-20 w-full" />
             <Skeleton className="h-20 w-full" />
           </div>
-        ) : campaignsByEvent.size === 0 ? (
+        ) : dashboardGroups.length === 0 ? (
           <Card>
             <CardContent className="p-8 text-center text-sm text-muted-foreground">
               Nenhum evento ativo com campanhas Meta vinculadas neste período.
             </CardContent>
           </Card>
         ) : (
-          Array.from(campaignsByEvent.entries()).map(([eventId, ec]) => {
-            const event = eventsById.get(eventId);
-            if (!event) return null;
+          dashboardGroups.map((g) => {
+            const onEdited = () => qc.invalidateQueries({ queryKey: ["crm-meta-campaigns", companyId, adAccountId] });
+            if (g.kind === "tour") {
+              return (
+                <TourFamilyCard
+                  key={`tour:${g.master.id}`}
+                  master={g.master}
+                  splits={g.splits}
+                  campaignsBySplit={g.campaignsBySplit}
+                  masterCampaigns={g.masterCampaigns}
+                  insightsByCampaign={insightsByCampaign}
+                  prevInsightsByCampaign={previousInsightsByCampaign}
+                  spark14ByCampaign={spark14ByCampaign}
+                  days={periodDays}
+                  currency={currency}
+                  onAnalyze={analyzeCampaign}
+                  onCoach={coachCampaign}
+                  onToggleStatus={toggleCampaignStatus}
+                  togglingCampaignId={togglingCampaignId}
+                  onEdited={onEdited}
+                />
+              );
+            }
             return (
               <EventGroupCard
-                key={eventId}
-                event={event}
-                campaigns={ec}
+                key={`simple:${g.event.id}`}
+                event={g.event}
+                campaigns={g.campaigns}
                 insightsByCampaign={insightsByCampaign}
                 prevInsightsByCampaign={previousInsightsByCampaign}
                 spark14ByCampaign={spark14ByCampaign}
@@ -1725,7 +2196,7 @@ export default function CrmCampaigns() {
                 onCoach={coachCampaign}
                 onToggleStatus={toggleCampaignStatus}
                 togglingCampaignId={togglingCampaignId}
-                onEdited={() => qc.invalidateQueries({ queryKey: ["crm-meta-campaigns", companyId, adAccountId] })}
+                onEdited={onEdited}
               />
             );
           })

@@ -1,0 +1,155 @@
+-- ============================================================================
+-- Re-linkage manual das campanhas Simone Mendes (master → splits)
+-- ----------------------------------------------------------------------------
+-- CONTEXTO: o auto-linker actual escolhe o evento com melhor token-overlap.
+-- Para tours com master + splits, ele pode legitimamente apontar para o
+-- master (nome contém "Simone Mendes" só) em vez da split correcta
+-- (que tem cidade no nome). Este script PROPÕE re-mapping baseado em
+-- presença de "Porto" / "Lisboa" no nome da campanha — mas o UPDATE
+-- final está comentado: revê o output da CTE de preview ANTES.
+--
+-- Como correr:
+--   1) Cola este SQL inteiro no Supabase SQL Editor (projecto Live)
+--   2) Corre o PASSO 1 e PASSO 2 (apenas SELECTs)
+--   3) Revê o output do PASSO 2 — confirma que cada (campanha → split
+--      proposto) faz sentido (NB: geo-targeting Meta pode contradizer
+--      o nome; quando ambíguo, mantém master)
+--   4) Descomenta o PASSO 3 (UPDATE) e corre para aplicar
+--
+-- Idempotente: pode correr os SELECTs vezes sem efeito; o UPDATE só
+-- escreve onde linked_event_id realmente muda.
+-- ============================================================================
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- PASSO 1 — Estado actual: master + splits + campanhas Simone activas
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- 1a. Eventos Simone (master + splits)
+SELECT id, name, event_type, parent_event_id, date, status
+FROM public.events
+WHERE name ILIKE '%simone%mendes%'
+ORDER BY event_type DESC NULLS LAST, date NULLS LAST;
+
+-- 1b. Campanhas Simone activas + linkage actual
+SELECT
+  c.id              AS campaign_uuid,
+  c.external_campaign_id,
+  c.name            AS campaign_name,
+  c.linked_event_id,
+  c.linked_event_locked,
+  e.name            AS linked_event_name,
+  e.event_type      AS linked_event_type,
+  e.parent_event_id AS linked_event_parent_id
+FROM crm.meta_campaign_snapshot c
+LEFT JOIN public.events e ON e.id = c.linked_event_id
+WHERE c.name ILIKE '%simone%'
+  AND c.status = 'ACTIVE'
+ORDER BY c.name;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- PASSO 2 — Preview do re-mapping proposto (não escreve nada)
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Heurística: se nome da campanha contém "porto" → split Porto;
+--             se contém "lisboa" → split Lisboa;
+--             caso contrário → mantém o linkage actual (provavelmente master).
+-- O preview mostra side-by-side current vs proposed para tu confirmares.
+
+WITH simone_master AS (
+  SELECT id, name FROM public.events
+  WHERE name ILIKE '%simone%mendes%'
+    AND event_type = 'tour_master'
+  LIMIT 1
+),
+simone_splits AS (
+  SELECT s.id, s.name, s.parent_event_id,
+         CASE
+           WHEN unaccent(lower(s.name)) ILIKE '%porto%'  THEN 'porto'
+           WHEN unaccent(lower(s.name)) ILIKE '%lisboa%' THEN 'lisboa'
+           ELSE NULL
+         END AS city_tag
+  FROM public.events s
+  JOIN simone_master m ON s.parent_event_id = m.id
+  WHERE s.event_type = 'tour_split'
+),
+campaign_proposal AS (
+  SELECT
+    c.id AS campaign_uuid,
+    c.external_campaign_id,
+    c.name AS campaign_name,
+    c.linked_event_id AS current_event_id,
+    e_curr.name AS current_event_name,
+    CASE
+      WHEN unaccent(lower(c.name)) ILIKE '%porto%'  THEN (SELECT id FROM simone_splits WHERE city_tag = 'porto'  LIMIT 1)
+      WHEN unaccent(lower(c.name)) ILIKE '%lisboa%' THEN (SELECT id FROM simone_splits WHERE city_tag = 'lisboa' LIMIT 1)
+      ELSE c.linked_event_id
+    END AS proposed_event_id
+  FROM crm.meta_campaign_snapshot c
+  LEFT JOIN public.events e_curr ON e_curr.id = c.linked_event_id
+  WHERE c.name ILIKE '%simone%'
+    AND c.status = 'ACTIVE'
+)
+SELECT
+  cp.campaign_uuid,
+  cp.external_campaign_id,
+  cp.campaign_name,
+  cp.current_event_name,
+  e_prop.name AS proposed_event_name,
+  e_prop.event_type AS proposed_event_type,
+  CASE
+    WHEN cp.proposed_event_id = cp.current_event_id THEN 'no-op'
+    WHEN cp.proposed_event_id IS NULL              THEN 'skip (ambíguo)'
+    ELSE 're-link'
+  END AS action
+FROM campaign_proposal cp
+LEFT JOIN public.events e_prop ON e_prop.id = cp.proposed_event_id
+ORDER BY cp.campaign_name;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- PASSO 3 — APLICAR (descomenta após validar o PASSO 2)
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Aplica o re-mapping + lock contra auto-linker. Mantém no master se ambíguo.
+--
+-- /*
+-- WITH simone_master AS (
+--   SELECT id FROM public.events
+--   WHERE name ILIKE '%simone%mendes%' AND event_type = 'tour_master'
+--   LIMIT 1
+-- ),
+-- simone_splits AS (
+--   SELECT s.id,
+--          CASE
+--            WHEN unaccent(lower(s.name)) ILIKE '%porto%'  THEN 'porto'
+--            WHEN unaccent(lower(s.name)) ILIKE '%lisboa%' THEN 'lisboa'
+--            ELSE NULL
+--          END AS city_tag
+--   FROM public.events s
+--   JOIN simone_master m ON s.parent_event_id = m.id
+--   WHERE s.event_type = 'tour_split'
+-- ),
+-- proposal AS (
+--   SELECT
+--     c.id AS campaign_uuid,
+--     CASE
+--       WHEN unaccent(lower(c.name)) ILIKE '%porto%'
+--         THEN (SELECT id FROM simone_splits WHERE city_tag = 'porto'  LIMIT 1)
+--       WHEN unaccent(lower(c.name)) ILIKE '%lisboa%'
+--         THEN (SELECT id FROM simone_splits WHERE city_tag = 'lisboa' LIMIT 1)
+--       ELSE NULL
+--     END AS new_event_id
+--   FROM crm.meta_campaign_snapshot c
+--   WHERE c.name ILIKE '%simone%' AND c.status = 'ACTIVE'
+-- )
+-- UPDATE crm.meta_campaign_snapshot mcs
+-- SET linked_event_id     = p.new_event_id,
+--     linked_event_locked = true
+-- FROM proposal p
+-- WHERE mcs.id = p.campaign_uuid
+--   AND p.new_event_id IS NOT NULL
+--   AND mcs.linked_event_id IS DISTINCT FROM p.new_event_id;
+-- */
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- PASSO 4 — Verificação pós-UPDATE (re-corre 1b para confirmar)
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Após aplicar o PASSO 3, re-corre o PASSO 1b para confirmar que
+-- linked_event_id mudou para as splits e linked_event_locked = true.
