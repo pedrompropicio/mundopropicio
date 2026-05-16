@@ -7436,6 +7436,10 @@ export type Database = {
         Args: { _token_hash: string }
         Returns: boolean
       }
+      validate_tx_category_l2_match: {
+        Args: { _forecast_id: string; _tx_category_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role:
