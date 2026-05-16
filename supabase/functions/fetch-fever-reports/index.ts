@@ -472,7 +472,8 @@ export default async function ({ page }) {
       }
     }
 
-    await sleep(3000);
+    await sleep(5000);
+    await snap('after-sales-breakdown-1');
     log('after-breakdown url: ' + page.url());
 
     // Scroll para baixo da página para forçar lazy-load dos cards
@@ -480,8 +481,12 @@ export default async function ({ page }) {
     await page.evaluate(() => {
       window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' });
     });
+    await sleep(2000);
+    await page.evaluate(() => {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    });
     await sleep(1500);
-    await snap('after-sales-breakdown');
+    await snap('after-sales-breakdown-scrolled');
 
     const afterText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 5000) : '').catch(() => '');
     log('after-breakdown page text: ' + afterText.replace(/\\n+/g, ' | ').slice(0, 2500));
