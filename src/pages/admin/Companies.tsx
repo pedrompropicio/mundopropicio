@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { Building2, UserPlus, Copy, Plus, Pencil, Upload, Trash2 } from "lucide-react";
+import { CompanyFeaturesPanel } from "@/components/CompanyFeaturesPanel";
 
 interface CompanyRow {
   id: string;
@@ -595,6 +596,8 @@ function EditCompanyDialog({
               Usada nos botões e códigos OTP dos emails de auth.
             </p>
           </div>
+
+          <CompanyFeaturesPanel companyId={company.id} />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>

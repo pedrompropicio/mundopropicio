@@ -15,6 +15,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Loader2, Play, Plus, RefreshCw, AlertTriangle, CheckCircle2, Clock, Zap, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { useHasFeature } from "@/hooks/useCompanyFeatures";
+import { FEATURES } from "@/lib/features";
+import { FeatureNotEnabledCard } from "@/components/FeatureNotEnabledCard";
 
 type Cfg = {
   id: string;
@@ -59,6 +62,7 @@ export default function CoalaSync() {
   const [selectedRun, setSelectedRun] = useState<Run | null>(null);
   const [newCfg, setNewCfg] = useState({ event_id: "", drive_file_id: "", file_label: "" });
   const [createOpen, setCreateOpen] = useState(false);
+  const hasFeature = useHasFeature(FEATURES.SYNC_COALA);
 
   const cfgQ = useQuery({
     queryKey: ["coala-sync-config"],
@@ -145,6 +149,8 @@ export default function CoalaSync() {
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  if (!hasFeature) return <FeatureNotEnabledCard featureKey={FEATURES.SYNC_COALA} />;
 
   return (
     <div className="space-y-6">

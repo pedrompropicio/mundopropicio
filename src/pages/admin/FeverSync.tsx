@@ -13,6 +13,9 @@ import { Loader2, Play, RefreshCw, AlertTriangle, CheckCircle2, KeyRound, Shield
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { useHasFeature } from "@/hooks/useCompanyFeatures";
+import { FEATURES } from "@/lib/features";
+import { FeatureNotEnabledCard } from "@/components/FeatureNotEnabledCard";
 
 type Cfg = {
   id: string;
@@ -57,6 +60,7 @@ export default function FeverSync() {
   const [tokenInput, setTokenInput] = useState("");
   const [tokenInfo, setTokenInfo] = useState<{ exp: number; user_email?: string; hoursRemaining: number } | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
+  const hasFeature = useHasFeature(FEATURES.SYNC_FEVER);
 
   function decodeToken(raw: string) {
     setTokenError(null); setTokenInfo(null);
@@ -177,6 +181,8 @@ export default function FeverSync() {
 
   const cfgs = cfgQ.data || [];
   const runs = runsQ.data || [];
+
+  if (!hasFeature) return <FeatureNotEnabledCard featureKey={FEATURES.SYNC_FEVER} />;
 
   return (
     <div className="container py-8 space-y-6">

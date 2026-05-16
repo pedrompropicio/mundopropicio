@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Activity, AlertTriangle, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
+import { useHasFeature } from "@/hooks/useCompanyFeatures";
+import { FEATURES } from "@/lib/features";
+import { FeatureNotEnabledCard } from "@/components/FeatureNotEnabledCard";
 
 type Row = {
   sync_name: string;
@@ -42,6 +45,7 @@ function healthBadge(h: Row["health"]) {
 export default function SyncHealth() {
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const hasFeature = useHasFeature(FEATURES.SYNC_HEALTH);
 
   const q = useQuery({
     queryKey: ["vw_sync_health"],
@@ -80,6 +84,8 @@ export default function SyncHealth() {
   const critCount = rows.filter((r) => r.health === "critical").length;
   const hasCrit = critCount > 0;
   const hasWarn = warnCount > 0;
+
+  if (!hasFeature) return <FeatureNotEnabledCard featureKey={FEATURES.SYNC_HEALTH} />;
 
   return (
     <div className="container mx-auto p-6 space-y-6">
