@@ -62,6 +62,7 @@ export default function CoalaSync() {
   const [selectedRun, setSelectedRun] = useState<Run | null>(null);
   const [newCfg, setNewCfg] = useState({ event_id: "", drive_file_id: "", file_label: "" });
   const [createOpen, setCreateOpen] = useState(false);
+  const hasFeature = useHasFeature(FEATURES.SYNC_COALA);
 
   const cfgQ = useQuery({
     queryKey: ["coala-sync-config"],
