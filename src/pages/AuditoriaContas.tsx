@@ -60,6 +60,7 @@ interface AuditRow {
   // Frente C: TX vinculada a BP cuja sugestão violaria L2
   blocked_reason?: string | null;
   bp_l2_code?: string | null;
+  bp_category_id?: string | null;
 }
 
 function buildLeafSet(cats: Category[]) {
