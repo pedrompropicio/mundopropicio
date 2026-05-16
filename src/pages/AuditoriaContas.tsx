@@ -506,15 +506,22 @@ function AnaliseIATab() {
         }),
         ...(txs || []).map((t: any) => {
           const c = t.category_id ? catMap.get(t.category_id) : null;
+          const bpCatId = txToBpCatMap.get(t.id) ?? null;
+          const bpL2Id = getL2IdLocal(bpCatId);
+          const bpL2 = bpL2Id ? catMapLocal.get(bpL2Id) : null;
           return {
             source: "tx" as const, id: t.id, description: t.description, specification: null,
             current_category_id: t.category_id, current_category_code: c?.code ?? null, current_category_name: c?.name ?? null,
             event_label: eventLabelMap.get(t.event_id) ?? null, status: "pending" as const,
+            bp_l2_code: bpL2 ? `${bpL2.code} ${bpL2.name}` : null,
+            // Reaproveitamos chosen_id como veículo: armazena BP catId aqui para validação posterior; será sobrescrito no acceptRow
             details: {
               amount: t.amount, iva_rate: t.iva_rate, currency: t.currency, status: t.status,
               payment_date: t.payment_date, due_date: t.due_date,
               is_transitory: t.is_transitory, exclude_from_result: t.exclude_from_result,
             },
+            // metadata interna p/ validação L2
+            chosen_name: bpCatId ? `__bp_cat:${bpCatId}` : null,
           };
         }),
       ];
