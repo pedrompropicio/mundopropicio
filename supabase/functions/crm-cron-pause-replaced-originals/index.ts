@@ -6,6 +6,7 @@
 // regista em meta_campaign_changes.
 //
 // Auth: service_role apenas (cron-callable). Sem JWT user.
+// Deploy trigger: Sprint 3a-1 (re-push)
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 

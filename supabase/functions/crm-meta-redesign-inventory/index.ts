@@ -13,6 +13,7 @@
 //   audience_gap
 //
 // Auth: user JWT (verify_jwt=true).
+// Deploy trigger: Sprint 3a-1 (re-push)
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 

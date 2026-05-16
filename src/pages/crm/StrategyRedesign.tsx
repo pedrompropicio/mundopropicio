@@ -181,7 +181,17 @@ export default function CrmStrategyRedesign() {
       const { data, error } = await supabase.functions.invoke("crm-meta-redesign-inventory", {
         body: { campaign_id: campaignId, period_days: 30 },
       });
-      if (error) throw new Error(error.message);
+      if (error) {
+        let detail = error.message;
+        if ((error as any).context) {
+          try {
+            const ctx = (error as any).context;
+            const b = await (ctx.clone ? ctx.clone() : ctx).json();
+            detail = b?.message || b?.detail || b?.error || detail;
+          } catch {}
+        }
+        throw new Error(detail);
+      }
       if ((data as any)?.error) throw new Error((data as any).message ?? (data as any).error);
       return data as InventoryResponse;
     },
@@ -321,7 +331,17 @@ export default function CrmStrategyRedesign() {
 
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-campaign-redesign", { body: payload });
-      if (error) throw new Error(error.message);
+      if (error) {
+        let detail = error.message;
+        if ((error as any).context) {
+          try {
+            const ctx = (error as any).context;
+            const b = await (ctx.clone ? ctx.clone() : ctx).json();
+            detail = b?.message || b?.detail || b?.error || detail;
+          } catch {}
+        }
+        throw new Error(detail);
+      }
       if ((data as any)?.error) throw new Error((data as any).message ?? (data as any).error);
       if (!(data as any)?.strategy_id) throw new Error("Resposta inválida do servidor (sem strategy_id).");
       clearInterval(tickInterval);
