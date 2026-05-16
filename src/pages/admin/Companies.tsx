@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { Building2, UserPlus, Copy, Plus, Pencil, Upload, Trash2 } from "lucide-react";
+import { CompanyFeaturesPanel } from "@/components/CompanyFeaturesPanel";
 
 interface CompanyRow {
   id: string;
