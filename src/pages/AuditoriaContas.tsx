@@ -784,12 +784,13 @@ function AnaliseIATab() {
                   const isDiff = r.suggested_code && r.suggested_code !== r.current_category_code;
                   const isAccepted = r.status === "accepted";
                   const isRejected = r.status === "rejected";
+                  const isBlocked = r.status === "blocked";
                   const selectValue = r.chosen_id ?? r.suggested_id ?? "";
                   const rowKey = `${r.source}-${r.id}`;
                   const isExpanded = expandedRow === rowKey;
                   return (
                     <Fragment key={rowKey}>
-                    <tr className={`hover:bg-secondary/20 ${isRejected ? "opacity-50" : ""} ${isAccepted ? "bg-success/5" : ""}`}>
+                    <tr className={`hover:bg-secondary/20 ${isRejected ? "opacity-50" : ""} ${isAccepted ? "bg-success/5" : ""} ${isBlocked ? "bg-destructive/5" : ""}`}>
                       <td className="px-2 py-2 align-top">
                         <button
                           type="button"
