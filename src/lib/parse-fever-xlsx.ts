@@ -363,16 +363,26 @@ export async function parseFeverXlsx(
 
     if (variants.length === 1) {
       const lot = variants[0];
+      let remainingStock = lot.totalQty;
       for (const r of dailyRows) {
+        if (remainingStock <= 0) {
+          warnings.push(`Descartado ${r.qty} bilhete(s) "${ticketType}" em ${r.date} — não corresponde a vendas confirmadas no relatório sales_per_ticket_type (provavelmente reservas pendentes / refunds posteriores)`);
+          continue;
+        }
+        const take = Math.min(r.qty, remainingStock);
         sales.push({
           purchaseDate: r.date,
           weekday: r.weekday,
           lotKey: lot.key,
           ticketType: lot.ticketType,
           unitPrice: lot.unitPrice,
-          quantity: r.qty,
-          totalValue: roundCents(r.qty * lot.unitPrice),
+          quantity: take,
+          totalValue: roundCents(take * lot.unitPrice),
         });
+        remainingStock -= take;
+        if (r.qty > take) {
+          warnings.push(`Descartado ${r.qty - take} bilhete(s) "${ticketType}" em ${r.date} — não corresponde a vendas confirmadas no relatório sales_per_ticket_type (provavelmente reservas pendentes / refunds posteriores)`);
+        }
       }
       continue;
     }
