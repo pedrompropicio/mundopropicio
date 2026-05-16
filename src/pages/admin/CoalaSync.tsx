@@ -150,6 +150,8 @@ export default function CoalaSync() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  if (!hasFeature) return <FeatureNotEnabledCard featureKey={FEATURES.SYNC_COALA} />;
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
