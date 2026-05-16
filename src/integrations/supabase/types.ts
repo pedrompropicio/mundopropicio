@@ -3990,6 +3990,7 @@ export type Database = {
           id: string
           last_run_at: string | null
           last_run_status: string | null
+          last_token_refresh_at: string | null
           organization_name: string
           partner_id: number
           plan_id: string
@@ -4012,6 +4013,7 @@ export type Database = {
           id?: string
           last_run_at?: string | null
           last_run_status?: string | null
+          last_token_refresh_at?: string | null
           organization_name?: string
           partner_id?: number
           plan_id: string
@@ -4034,6 +4036,7 @@ export type Database = {
           id?: string
           last_run_at?: string | null
           last_run_status?: string | null
+          last_token_refresh_at?: string | null
           organization_name?: string
           partner_id?: number
           plan_id?: string
@@ -7271,6 +7274,10 @@ export type Database = {
       update_vault_secret: {
         Args: { _id: string; _value: string }
         Returns: boolean
+      }
+      upsert_vault_secret: {
+        Args: { _description?: string; _name: string; _value: string }
+        Returns: string
       }
       validate_trusted_device: {
         Args: { _token_hash: string }
