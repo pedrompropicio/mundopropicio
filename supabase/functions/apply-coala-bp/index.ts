@@ -1357,9 +1357,14 @@ Deno.serve(async (req) => {
       let preservedFromMap = 0;
       let fellbackToCC = 0;
       let fellbackToFallback = 0;
+      let autoLearnedExact = 0;
+      let autoLearnedFuzzy = 0;
+      let ccProtectedConflicts = 0;
       // Tracking detalhado para painel de diff
       const failedForecasts: Array<{ row: number; description: string; supplier: string | null; netAmount: number; reason: string }> = [];
       const failedPaidTx: Array<{ row: number; description: string; supplier: string | null; expectedPaidGross: number; reason: string }> = [];
+      const autoLearnedMeta: Array<{ row: number; description: string; supplier: string | null; categoryId: string; categoryCode: string; ruleId: string; matchedVia: 'exact' | 'fuzzy'; similarity?: number; confirmedCount: number }> = [];
+      const ccProtectedLog: Array<{ row: number; description: string; supplier: string | null; xlsxSuggestedCC: string; systemCC: string; systemCategoryId: string }> = [];
       // Soma esperada por categoria (BP líquido) — comparada com inserido depois
       const expectedNetByCat = new Map<string, number>();
       const expectedPaidByCat = new Map<string, number>();
@@ -1370,33 +1375,121 @@ Deno.serve(async (req) => {
         catIdToName.set(c.id, c.name ?? "");
       }
 
-      const resolveCat = (r: ParsedRow): string => {
+      // ───────────────────────────────────────────────────────────
+      // FRENTE 2: carregar regras de aprendizado supplier→categoria
+      // (cross-event para a mesma empresa)
+      // ───────────────────────────────────────────────────────────
+      type LearnedRule = { id: string; supplier_id: string; description_normalized: string; category_id: string; confirmed_count: number };
+      const learnedRulesBySupplier = new Map<string, LearnedRule[]>();
+      try {
+        const { data: rules } = await admin
+          .from("coala_supplier_category_map")
+          .select("id, supplier_id, description_normalized, category_id, confirmed_count")
+          .eq("company_id", ev.company_id);
+        for (const rl of (rules || []) as LearnedRule[]) {
+          if (!catIdToCode.has(rl.category_id)) continue; // categoria desactivada
+          const arr = learnedRulesBySupplier.get(rl.supplier_id) ?? [];
+          arr.push(rl);
+          learnedRulesBySupplier.set(rl.supplier_id, arr);
+        }
+      } catch (e) {
+        console.warn("[learning] load failed:", (e as Error).message);
+      }
+
+      // Trigram similarity em JS (Sørensen-Dice sobre trigramas) — só usado se NÃO houve match exacto
+      const trigrams = (s: string): Set<string> => {
+        const padded = `  ${s}  `;
+        const out = new Set<string>();
+        for (let i = 0; i < padded.length - 2; i++) out.add(padded.slice(i, i + 3));
+        return out;
+      };
+      const similarity = (a: string, b: string): number => {
+        if (!a || !b) return 0;
+        if (a === b) return 1;
+        const A = trigrams(a), B = trigrams(b);
+        let inter = 0;
+        for (const t of A) if (B.has(t)) inter++;
+        return (2 * inter) / (A.size + B.size);
+      };
+
+      const resolveCat = (r: ParsedRow, supplierId: string | null): { catId: string; learned?: { ruleId: string; via: 'exact' | 'fuzzy'; sim?: number; confirmedCount: number } } => {
         const bk = baseDesc(r.description);
         const supN = r.supplier ? normTxt(r.supplier) : "";
-        // 1) (base + supplier) → maior precisão
+        // 1) (base + supplier) → maior precisão (in-memory, mesmo evento)
         if (bk && supN) {
           const hit = descBaseSupToCat.get(`${bk}|${supN}`);
-          if (hit) { preservedFromMap++; return hit; }
+          if (hit) { preservedFromMap++; return { catId: hit }; }
         }
-        // 2) só base
+        // 2) só base (in-memory, mesmo evento)
         if (bk) {
           const hit = descBaseToCat.get(bk);
-          if (hit) { preservedFromMap++; return hit; }
+          if (hit) { preservedFromMap++; return { catId: hit }; }
         }
-        // 3) Centro de custo do ficheiro → categoria
+        // 3) Learning table — match exacto por (supplier_id + descrição normalizada)
+        if (supplierId) {
+          const rules = learnedRulesBySupplier.get(supplierId);
+          if (rules && rules.length > 0) {
+            const descNorm = normTxt(r.description);
+            const exact = rules.find((rl) => rl.description_normalized === descNorm);
+            if (exact) {
+              autoLearnedExact++;
+              return { catId: exact.category_id, learned: { ruleId: exact.id, via: 'exact', confirmedCount: exact.confirmed_count } };
+            }
+            // 3b) Fuzzy ≥ 0.85
+            let best: { rule: LearnedRule; sim: number } | null = null;
+            for (const rl of rules) {
+              const sim = similarity(descNorm, rl.description_normalized);
+              if (sim >= 0.85 && (!best || sim > best.sim)) best = { rule: rl, sim };
+            }
+            if (best) {
+              autoLearnedFuzzy++;
+              return { catId: best.rule.category_id, learned: { ruleId: best.rule.id, via: 'fuzzy', sim: best.sim, confirmedCount: best.rule.confirmed_count } };
+            }
+          }
+        }
+        // 4) Centro de custo do ficheiro → categoria
         if (r.rawCenterCusto) {
           const m = allCats.find((c: any) => c.parent_id != null && norm(c.name) === norm(r.rawCenterCusto || ""));
-          if (m) { fellbackToCC++; return m.id; }
+          if (m) { fellbackToCC++; return { catId: m.id }; }
         }
-        // 4) Fallback "0.0.99 A Classificar"
+        // 5) Fallback "0.0.99 A Classificar"
         fellbackToFallback++;
-        return fallback.id;
+        return { catId: fallback.id };
       };
 
       for (const r of parsed.rows) {
         if (r.excluded) continue;
-        const categoryId = resolveCat(r);
         const supplierId = r.supplier ? supByName.get(r.supplier) ?? null : null;
+        const resolved = resolveCat(r, supplierId);
+        const categoryId = resolved.catId;
+        if (resolved.learned) {
+          autoLearnedMeta.push({
+            row: r.rowNumber,
+            description: r.description,
+            supplier: r.supplier,
+            categoryId,
+            categoryCode: catIdToCode.get(categoryId) ?? "",
+            ruleId: resolved.learned.ruleId,
+            matchedVia: resolved.learned.via,
+            similarity: resolved.learned.sim,
+            confirmedCount: resolved.learned.confirmedCount,
+          });
+          // Detectar conflito: XLSX traz CC e learning diz outra coisa
+          if (r.rawCenterCusto) {
+            const xlsxCat = allCats.find((c: any) => c.parent_id != null && norm(c.name) === norm(r.rawCenterCusto || ""));
+            if (xlsxCat && xlsxCat.id !== categoryId) {
+              ccProtectedConflicts++;
+              ccProtectedLog.push({
+                row: r.rowNumber,
+                description: r.description,
+                supplier: r.supplier,
+                xlsxSuggestedCC: r.rawCenterCusto,
+                systemCC: catIdToName.get(categoryId) ?? "",
+                systemCategoryId: categoryId,
+              });
+            }
+          }
+        }
 
         // Esperado por categoria (BP líquido)
         expectedNetByCat.set(categoryId, +(((expectedNetByCat.get(categoryId) ?? 0) + r.netAmount).toFixed(2)));
@@ -1555,6 +1648,9 @@ Deno.serve(async (req) => {
         status: reconciliation.ok ? "applied" : "applied_with_diff",
         totals: parsed.totals, validation_report: validation,
         pendencies_report: { reset_mode: true, preservedFromMap, fellbackToCC, fellbackToFallback,
+          autoLearnedExact, autoLearnedFuzzy, ccProtectedConflicts,
+          autoLearnedMeta: autoLearnedMeta.slice(0, 500),
+          ccProtectedLog: ccProtectedLog.slice(0, 200),
           deletedForecasts: (existingFcs || []).length, deletedTransactions: txIds.length,
           reconciliation },
         created_transaction_ids: createdTransactionIds, created_forecast_ids: createdForecastIds,
@@ -1574,7 +1670,12 @@ Deno.serve(async (req) => {
             preservedFromAdjustedMap: preservedFromMap,
             fellbackToCenterOfCost: fellbackToCC,
             fellbackToAClassificar: fellbackToFallback,
+            autoLearnedExact,
+            autoLearnedFuzzy,
+            ccProtectedConflicts,
           },
+          autoLearnedMeta: autoLearnedMeta.slice(0, 100),
+          ccProtectedLog: ccProtectedLog.slice(0, 50),
           totals: parsed.totals,
         },
       });

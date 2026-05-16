@@ -628,8 +628,19 @@ function DiffReviewDialog({
     },
     onSuccess: (data: any) => {
       const r = data?.runs?.[0];
-      if (r?.status === "blocked") toast.error(`Sync bloqueada: ${r.conflicts} conflito(s) pendentes`);
-      else toast.success(`Sync aplicada (${r?.status ?? "ok"})`);
+      if (r?.status === "blocked") {
+        toast.error(`Sync bloqueada: ${r.conflicts} conflito(s) pendentes`);
+      } else {
+        // Auto-aprendizado: ler do audit?.summary?.categoryMapping ou pendencies_report
+        const cm = r?.audit?.summary?.categoryMapping ?? r?.summary?.categoryMapping ?? null;
+        const learnedExact = cm?.autoLearnedExact ?? 0;
+        const learnedFuzzy = cm?.autoLearnedFuzzy ?? 0;
+        const ccProtected = cm?.ccProtectedConflicts ?? 0;
+        const extras: string[] = [];
+        if (learnedExact + learnedFuzzy > 0) extras.push(`🧠 ${learnedExact + learnedFuzzy} auto-aprendidas (${learnedExact} exactas, ${learnedFuzzy} fuzzy)`);
+        if (ccProtected > 0) extras.push(`🛡 ${ccProtected} CC protegidos`);
+        toast.success(`Sync aplicada (${r?.status ?? "ok"})${extras.length ? " — " + extras.join(" • ") : ""}`);
+      }
       onApplied();
       onClose();
     },

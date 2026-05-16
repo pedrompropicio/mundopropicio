@@ -605,6 +605,8 @@ function AnaliseIATab() {
     if (!toApply.length) { toast.info("Nada para aplicar"); setSummaryOpen(false); return; }
     setApplying(true);
     let ok = 0, fail = 0;
+    // Nota: cada UPDATE dispara o trigger coala_capture_category_change e alimenta
+    // a tabela coala_supplier_category_map (matched_via='inline_edit' por defeito).
     for (const r of toApply) {
       try {
         const table = r.source === "bp" ? "event_forecasts" : "transactions";

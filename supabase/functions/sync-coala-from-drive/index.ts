@@ -566,7 +566,7 @@ Deno.serve(async (req) => {
             last_run_status: "success",
             ...(driveModifiedTime ? { last_modified_time: driveModifiedTime } : {}),
           }).eq("id", cfg.id);
-          runs.push({ runId, configId: cfg.id, status: "success" });
+          runs.push({ runId, configId: cfg.id, status: "success", summary: applyJson?.summary ?? null });
         } else {
           // dry_run
           const sev = compareJson?.summary?.severity ?? { auto: 0, review: 0 };
