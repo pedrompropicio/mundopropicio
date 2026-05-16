@@ -307,19 +307,27 @@ ${adBlock}
 CRIATIVOS ANALISADOS PELA IA: ${creativesAnalyzedCount} de ${creativeIds.length}.
 Quando o ad tem creative analysis (scores hook/pacing/CTA/audio/compliance/alignment), USA esses scores em "creative_insights" para correlacionar com performance real (ex: hook 40 + CTR 0.5% = correlação confirmada; agir).
 
+META PRINCIPAL: ROAS 8x BLENDED por evento (ao longo de toda a campanha, não por campanha individual). Uma campanha avalia-se pela sua CONTRIBUIÇÃO ao blended do evento — uma campanha de awareness com ROAS 1x que alimenta retargeting eficiente é boa; uma campanha de retargeting com ROAS 4x é má.
+
 BENCHMARKS CALIBRADOS MUNDO PROPÍCIO (eventos PT/BR):
-- ROAS mediana interna 4.5x. Excelente >=8x. Bom 5–8x. Regular 3–5x. Fraco 2–3x. Mau <2x.
+- ROAS mediana interna 8x (target Mundo Propício, não o benchmark Meta global). Excelente >=11x. Bom 8–11x. Regular 5–8x. Fraco 3–5x. Mau <3x.
 - CTR setor A&E ~1.16%. Top 25% >3%. Regular 1.2–2%. Fraco <0.9%.
 - CPC A&E ~€0.45. Bom <€0.40. Caro 0.6–1. Muito caro >€1.
 - Frequência: <1.5 ótimo, 1.5–2.5 bom, 2.5–3.5 ok, 3.5–5 atenção, >5 saturado.
 - Funil bilheteira: ATC/VC ~20%, IC/ATC ~50%, Purchase/IC ~30%.
 
+AVALIAÇÃO POR FASE DO FUNIL — uma campanha NÃO se avalia só pelo ROAS individual; depende do objectivo:
+- REACH / AWARENESS / VIDEO_VIEWS: avaliar por CPM e hook rate; NÃO por ROAS. ROAS 0–2x aqui é esperado e aceitável se alimenta retargeting.
+- TRAFFIC: avaliar por CPC, CTR, LPV/Click. ROAS secundário.
+- CONVERSIONS / OFFSITE_CONVERSIONS / SALES: avaliar ROAS contra a banda acima (target 8x).
+- RETARGETING (warm audiences): ROAS esperado 10–20x — se está <8x aqui é problema sério, não normal.
+
 REGRAS:
-- Sê crítico, direto, NÃO diplomata. NÃO chames "excelente" a uma campanha em linha com a mediana (4.5x).
+- Sê crítico, direto, NÃO diplomata. NÃO chames "excelente" a uma campanha em linha com a mediana (8x); excelente é >=11x.
 - Não inventes IDs nem nomes. Usa exatamente os IDs e nomes fornecidos acima.
 - adset_breakdown: máximo 10 adsets (mais relevantes / mais críticos).
 - ad_breakdown: máximo 15 ads (mais relevantes / mais críticos).
-- top_3_actions: exatamente 3, ordenadas por impacto (a mais urgente primeiro). target_external_id deve ser o ID exato (campaign/adset/ad).
+- top_3_actions: exatamente 3, ordenadas por impacto (a mais urgente primeiro). target_external_id deve ser o ID exato (campaign/adset/ad). DEVE considerar contribuição ao ROAS BLENDED do evento: não recomendes PAUSE a uma campanha de awareness com ROAS baixo se ela está claramente a alimentar conversão a jusante (verifica objective, frequência, e se há outras campanhas de conversão no evento que ganharam tracção depois).
 - creative_insights: 2–5 frases cruzando scores creativos com métricas reais. Se nenhum creative foi analisado, escreve "Nenhum creative ainda analisado pela IA — recomendamos correr análise de criativos para diagnóstico mais preciso."
 - overall_score: 0–100. severity derivada: <40 critical | 40–70 warning | >70 healthy.
 

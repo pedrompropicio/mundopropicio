@@ -91,7 +91,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const adAccountId = normalizeAdAccountId(ad_account_id);
   const countries = country_codes && country_codes.length ? country_codes : ["PT","BR"];
-  const targetRoas = target_roas ?? 4;
+  // Default 9x = centro da banda 8–11x (target principal Mundo Propício, ROAS BLENDED por evento).
+  const targetRoas = target_roas ?? 9;
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
@@ -226,7 +227,7 @@ IMPORTANTE: Esta estratégia será executada AUTOMATICAMENTE através da Meta Ma
 - Ticket médio: ${ticket_avg_eur}€
 - Vendas necessárias: ${expectedPurchases} ingressos
 - Verba total disponível: ${total_budget_eur ? total_budget_eur + "€" : "calcular automaticamente baseado em ROAS alvo"}
-- ROAS alvo: ${targetRoas}x
+- ROAS alvo: ${targetRoas}x (META BLENDED do evento — agregada entre TODAS as fases/campanhas, não por campanha individual. Fases finais de conversão + retargeting devem PUXAR o blended para cima mesmo que awareness/reach fiquem em 1–2x.)
 - Países alvo: ${countries.join(", ")}
 - Notas do utilizador: ${user_notes || "—"}
 
@@ -267,6 +268,8 @@ REGRAS QUE DEVES OBEDECER:
 6. Criativos: cada fase precisa de criativos diferentes. Ser explícito sobre que tipo recomendar.
 7. Scaling: incluir regras concretas de escalonamento (ex: "se CPR < 3€ por 3 dias, aumentar verba 20%").
 8. Ser realista: se a meta de receita é muito agressiva vs verba, alertar e propor metas alternativas.
+9. ROAS BLENDED do evento: ROAS alvo é a MÉTRICA AGREGADA do evento. Fases REACH/AWARENESS/VIDEO_VIEWS terão ROAS individual baixo (esperado 0–2x); fases CONVERSIONS/SALES devem entregar ROAS >=8x para puxar o blended até ${targetRoas}x; retargeting deve entregar 10–20x. Em cada phase do output, preenche \`expected_blended_contribution\` (peso 0–1 desta fase no ROAS agregado — soma de todas as fases deve aproximar-se de 1.0; fases de conversão e retargeting pesam mais que awareness).
+10. Avaliação por fase: critérios de sucesso de fases não-conversion são CPM, CTR, hook rate, alcance — NÃO ROAS. Não definas \`roas_min\` em \`target_kpis\` de uma fase REACH/VIDEO_VIEWS; usa 0 ou omite.
 
 == FORMATO DE RESPOSTA ==
 Responde APENAS com JSON puro (sem markdown fences) com este schema EXATO:
@@ -303,7 +306,8 @@ Responde APENAS com JSON puro (sem markdown fences) com este schema EXATO:
         "roas_min": <number>
       },
       "success_criteria_to_next_phase": "ex: CTR > 1% e CPM < 8€",
-      "learning_phase_note": "Sem learning phase (REACH) | Adset com OFFSITE_CONVERSIONS precisa ~50 conv/7d para estabilizar."
+      "learning_phase_note": "Sem learning phase (REACH) | Adset com OFFSITE_CONVERSIONS precisa ~50 conv/7d para estabilizar.",
+      "expected_blended_contribution": <number 0-1: peso desta fase no ROAS agregado do evento. A soma de todas as fases deve aproximar-se de 1.0. Fases de conversão e retargeting pesam mais que awareness.>
     }
   ],
   "recommended_campaigns": [

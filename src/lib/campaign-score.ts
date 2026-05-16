@@ -26,13 +26,17 @@ export interface ScoreResult {
 }
 
 function roasPts(r: number | null): number {
-  // Calibrado para Mundo Propício (mediana 4.5x) + setor eventos.
+  // Calibrado para Mundo Propício: meta = ROAS 8x BLENDED por evento.
+  // Inflexão (50pts) em ROAS 6; 8x = pontuação 65 (meta atingida).
   if (r == null || !Number.isFinite(r)) return 0;
-  if (r >= 8) return 100;   // Excelente — top 5% das campanhas (P95=5.78x)
-  if (r >= 5) return 80;    // Bom — top 25% (acima do P75=4.99x)
-  if (r >= 3) return 60;    // Regular — em torno da mediana
-  if (r >= 2) return 35;    // Fraco — próximo do benchmark Meta global
-  return 10;                // Mau — abaixo do break-even setor
+  if (r >= 15) return 100;
+  if (r >= 12) return 90;
+  if (r >= 10) return 80;
+  if (r >= 8) return 65;
+  if (r >= 6) return 50;
+  if (r >= 4) return 35;
+  if (r >= 2) return 15;
+  return 0;
 }
 
 function ctrPts(c: number | null): number {

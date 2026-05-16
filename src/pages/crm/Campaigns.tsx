@@ -147,6 +147,7 @@ function formatRoas(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
   return `${value.toFixed(2)}x`;
 }
+// Bandas para CAMPANHA INDIVIDUAL (avaliação por fase do funil — ROAS individual não é a meta principal).
 function roasColor(roas: number | null | undefined): string {
   if (roas === null || roas === undefined) return "text-muted-foreground";
   if (roas >= 2) return "text-emerald-500";
@@ -158,6 +159,30 @@ function roasBadgeClass(roas: number | null | undefined): string {
   if (roas >= 2) return "bg-emerald-500/15 text-emerald-500 border border-emerald-500/30";
   if (roas >= 1) return "bg-amber-500/15 text-amber-500 border border-amber-500/30";
   return "bg-red-500/15 text-red-500 border border-red-500/30";
+}
+
+// Banda do ROAS BLENDED por EVENTO (target Mundo Propício = 8x agregado).
+const EVENT_TARGET_ROAS = 8;
+function roasColorByEvent(roas: number | null | undefined): string {
+  if (roas === null || roas === undefined) return "text-muted-foreground";
+  if (roas >= 8) return "text-emerald-500";
+  if (roas >= 6) return "text-amber-500";
+  if (roas >= 4) return "text-orange-500";
+  return "text-red-500";
+}
+function roasBadgeClassByEvent(roas: number | null | undefined): string {
+  if (roas === null || roas === undefined) return "bg-muted text-muted-foreground";
+  if (roas >= 8) return "bg-emerald-500/15 text-emerald-500 border border-emerald-500/30";
+  if (roas >= 6) return "bg-amber-500/15 text-amber-500 border border-amber-500/30";
+  if (roas >= 4) return "bg-orange-500/15 text-orange-500 border border-orange-500/30";
+  return "bg-red-500/15 text-red-500 border border-red-500/30";
+}
+function roasBarBgByEvent(roas: number | null | undefined): string {
+  if (roas === null || roas === undefined) return "bg-muted-foreground";
+  if (roas >= 8) return "bg-emerald-500";
+  if (roas >= 6) return "bg-amber-500";
+  if (roas >= 4) return "bg-orange-500";
+  return "bg-red-500";
 }
 
 // ============================================================
@@ -689,7 +714,18 @@ function CampaignTableHeader() {
     <thead className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
       <tr>
         <th className="py-2 px-3 text-left font-medium">Campanha</th>
-        <th className="py-2 px-3 text-left font-medium">ROAS</th>
+        <th className="py-2 px-3 text-left font-medium">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="cursor-help underline decoration-dotted decoration-muted-foreground/40 underline-offset-2">
+                ROAS
+              </span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs text-xs">
+              Avaliação por fase do funil — ROAS individual não é a meta principal. Meta = ROAS 8x blended por evento.
+            </TooltipContent>
+          </Tooltip>
+        </th>
         <th className="py-2 px-3 text-left font-medium">Score</th>
         <th className="py-2 px-3 text-left font-medium">Gasto</th>
         <th className="py-2 px-3 text-left font-medium">Receita</th>
@@ -743,6 +779,39 @@ function EventGroupCard({
   const dailyBudget = campaigns.reduce((s, c) => s + (c.daily_budget_cents ?? 0), 0);
   const lifetimeBudget = campaigns.reduce((s, c) => s + (c.lifetime_budget_cents ?? 0), 0);
 
+  // Projecção linear conservadora do ROAS blended até à data do evento.
+  // (currentRevenue + roas14 × dailySpend14 × daysUntil) / (currentSpend + dailySpend14 × daysUntil)
+  // Conservadora: não inclui uplift de urgência típico das últimas 3-4 semanas pré-evento.
+  const projection = useMemo(() => {
+    if (!event.date) return null;
+    const eventDay = startOfDay(parseISO(event.date));
+    const today = startOfDay(new Date());
+    const daysUntilEvent = differenceInDays(eventDay, today);
+    if (daysUntilEvent <= 0) return null;
+
+    const fourteenAgo = subDays(today, 14).getTime();
+    let spend14 = 0;
+    let revenue14 = 0;
+    for (const r of allInsights) {
+      if (!r.date_start) continue;
+      if (parseISO(r.date_start).getTime() < fourteenAgo) continue;
+      spend14 += r.spend_cents ?? 0;
+      revenue14 += r.purchases_value_cents ?? 0;
+    }
+    if (spend14 <= 0) return null;
+
+    const dailySpendAvg = spend14 / 14;
+    const roas14 = revenue14 / spend14;
+    const projectedRevenue = agg.revenueCents + roas14 * dailySpendAvg * daysUntilEvent;
+    const projectedSpend = agg.spendCents + dailySpendAvg * daysUntilEvent;
+    if (projectedSpend <= 0) return null;
+    return { daysUntilEvent, projectedBlended: projectedRevenue / projectedSpend };
+  }, [allInsights, agg.revenueCents, agg.spendCents, event.date]);
+
+  const progressPct = agg.roas != null && Number.isFinite(agg.roas)
+    ? Math.min(100, Math.max(0, (agg.roas / EVENT_TARGET_ROAS) * 100))
+    : null;
+
   return (
     <Card>
       <Collapsible open={open} onOpenChange={setOpen}>
@@ -773,13 +842,38 @@ function EventGroupCard({
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground tabular-nums">
                   ROAS{" "}
-                  <span className={cn("font-semibold font-mono", roasColor(agg.roas))}>
+                  <span className={cn("font-semibold font-mono", roasColorByEvent(agg.roas))}>
                     {formatRoas(agg.roas)}
                   </span>{" "}
                   · Gasto {formatCurrency(agg.spendCents, currency)} · Receita{" "}
                   <span className="text-emerald-500/90">{formatCurrency(agg.revenueCents, currency)}</span>{" "}
                   · Conv. {agg.conversions}
                 </div>
+                {progressPct != null && (
+                  <div className="mt-1.5 flex items-center gap-2 text-[11px]">
+                    <div className="h-1.5 rounded bg-muted overflow-hidden w-[180px] shrink-0">
+                      <div
+                        className={cn("h-full transition-all", roasBarBgByEvent(agg.roas))}
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
+                    <span className="font-mono tabular-nums text-muted-foreground">
+                      {formatRoas(agg.roas)} / {EVENT_TARGET_ROAS}x → {progressPct.toFixed(0)}%
+                    </span>
+                  </div>
+                )}
+                {projection && (
+                  <div className="mt-1 text-[11px] text-muted-foreground">
+                    Projecção linear conservadora (não inclui uplift de urgência):{" "}
+                    <span className={cn("font-mono font-semibold", roasColorByEvent(projection.projectedBlended))}>
+                      {formatRoas(projection.projectedBlended)}
+                    </span>{" "}
+                    em {projection.daysUntilEvent}d
+                    {projection.projectedBlended < EVENT_TARGET_ROAS && (
+                      <span className="text-amber-500"> · Risco de não atingir meta — analisar</span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             <div className="text-right text-xs text-muted-foreground tabular-nums hidden md:block">

@@ -194,6 +194,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   const effRoasFloor: number | null = typeof ctIn.roas_floor === "number" ? ctIn.roas_floor : null;
   const effEndTime: string | null = typeof ctIn.end_time === "string" && ctIn.end_time ? ctIn.end_time : null;
+  // Target BLENDED ROAS para o evento (piso da meta — redesign corrige campanha existente face a este piso).
+  // Default 8 (não 9 como em strategy-generate; aqui é piso, não centro da banda).
+  const targetBlendedRoas: number = typeof ctIn.roas_floor === "number" && ctIn.roas_floor > 0 ? ctIn.roas_floor : 8;
 
   const constraintLines: string[] = [];
   if (effDailyCents != null) constraintLines.push(`- Verba diária TOTAL da campanha: €${(effDailyCents / 100).toFixed(2)}/dia (não inventes valor diferente)`);
@@ -255,6 +258,10 @@ ${eventCtx.name ? `- Nome: ${eventCtx.name}
 ${diagJsonStr}
 ${inheritedBlock}
 
+== META PRINCIPAL ==
+ROAS alvo BLENDED do evento: ${targetBlendedRoas.toFixed(1)}x (agregado entre TODAS as fases — não por campanha/adset individual).
+Avaliação por fase: fases REACH/AWARENESS/VIDEO_VIEWS terão ROAS individual baixo (esperado 0–2x); fases CONVERSIONS/SALES devem entregar ROAS >=${targetBlendedRoas.toFixed(1)}x para puxar o blended; retargeting deve entregar 10–20x.
+
 == O QUE PRECISO QUE FAÇAS ==
 Desenha uma estratégia COMPLETA estruturada em fases (3-5), aplicando o diagnóstico:
 - Pausa/elimina o que está mau, escala o que funciona, corrige fraquezas (CTR baixo, CPA alto, frequência saturada, etc.).
@@ -269,6 +276,7 @@ REGRAS:
 - Frequência: alertar se >5.
 - Não inventes IDs Meta. Usa nomes humanos para audiences/criativos.
 - Sê crítico e directo no rationale.
+- ROAS BLENDED: em cada phase do output, preenche \`expected_blended_contribution\` (peso 0–1 desta fase no ROAS agregado do evento — soma de todas as fases deve aproximar-se de 1.0; fases de conversão e retargeting pesam mais que awareness). Não definas \`roas_min\` em \`target_kpis\` de fases REACH/VIDEO_VIEWS; usa 0 ou omite.
 
 == FORMATO DE RESPOSTA ==
 APENAS JSON puro (sem markdown fences) com este schema EXATO:
@@ -301,7 +309,8 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       "creative_focus": "video_30s|carousel|single_image|reel",
       "target_kpis": { "cpm_eur_max": <number>, "ctr_pct_min": <number>, "cpa_eur_max": <number>, "roas_min": <number> },
       "success_criteria_to_next_phase": "...",
-      "learning_phase_note": "..."
+      "learning_phase_note": "...",
+      "expected_blended_contribution": <number 0-1: peso desta fase no ROAS agregado do evento>
     }
   ],
   "recommended_campaigns": [
