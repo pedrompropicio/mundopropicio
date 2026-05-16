@@ -620,12 +620,32 @@ function AnaliseIATab() {
       const id = targetId ?? r.suggested_id ?? null;
       if (!id) return r;
       const cat = leafCatsById.get(id);
+      // Frente C: re-validar L2 quando user escolhe manualmente p/ TX vinculada
+      if (r.source === "tx" && r.bp_category_id) {
+        const getL2 = (cid: string | null): string | null => {
+          if (!cid) return null;
+          const cur = leafCatsById.get(cid) || categories.find((x) => x.id === cid);
+          if (!cur || !cur.parent_id) return null;
+          const parent = categories.find((x) => x.id === cur.parent_id);
+          if (!parent) return null;
+          return parent.parent_id ? parent.id : cur.id;
+        };
+        const bpL2 = getL2(r.bp_category_id);
+        const newL2 = getL2(id);
+        if (bpL2 && newL2 && bpL2 !== newL2) {
+          toast.error("Categoria fora do L2 do BP", {
+            description: `Esta TX está vinculada a BP em ${r.bp_l2_code}. Escolhe uma L3 do mesmo L2.`,
+          });
+          return r;
+        }
+      }
       return {
         ...r,
         status: "accepted",
         chosen_id: id,
         chosen_code: cat?.code ?? r.suggested_code ?? null,
         chosen_name: cat?.name ?? r.suggested_name ?? null,
+        blocked_reason: null,
       };
     }));
   }
