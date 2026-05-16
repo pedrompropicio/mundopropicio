@@ -570,7 +570,7 @@ function AnaliseIATab() {
         const m = allMatches.find((x) => x.rowIndex === idx);
         if (!m) return r;
         const cat = codeMap.get(m.suggested_code);
-        return {
+        const base: AuditRow = {
           ...r,
           suggested_code: m.suggested_code,
           suggested_id: cat?.id ?? null,
@@ -578,6 +578,19 @@ function AnaliseIATab() {
           confidence: m.confidence,
           reason: m.reason,
         };
+        // Frente C: bloquear se TX vinculada a BP e sugestão L2 ≠ BP L2
+        if (r.source === "tx" && r.bp_category_id && cat?.id) {
+          const bpL2 = getL2IdLocal(r.bp_category_id);
+          const sugL2 = getL2IdLocal(cat.id);
+          if (bpL2 && sugL2 && bpL2 !== sugL2) {
+            return {
+              ...base,
+              status: "blocked" as const,
+              blocked_reason: `Conflito L2: BP em ${r.bp_l2_code}, sugestão em outra L2 (${m.suggested_code})`,
+            };
+          }
+        }
+        return base;
       });
 
       setRows(enriched);
