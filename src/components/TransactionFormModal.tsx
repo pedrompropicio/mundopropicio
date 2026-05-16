@@ -2312,6 +2312,23 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               placeholder={hasPLRestriction && !plOverride ? "Selecionar do BP…" : "Selecionar categoria…"}
               searchPlaceholder="Pesquisar categoria…"
             />
+            {selectedForecastL2Label && (
+              <div className="mt-1 flex items-center justify-between gap-2 text-[10px]">
+                <span className="text-muted-foreground">
+                  🔒 Categoria limitada pelo BP: <span className="font-mono text-primary/80">{selectedForecastL2Label}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedForecastId(null);
+                    setPlExpanded(true);
+                  }}
+                  className="text-primary hover:underline font-medium shrink-0"
+                >
+                  Trocar linha BP
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Justification field when BP override is active */}
