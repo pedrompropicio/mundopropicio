@@ -151,6 +151,17 @@ export default async function ({ page }) {
   };
 
   try {
+    // Emular iPhone (Pedro faz login com sucesso no celular)
+    await page.setViewport({
+      width: 390,
+      height: 844,
+      deviceScaleFactor: 2,
+      isMobile: true,
+      hasTouch: true,
+    });
+    await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1');
+    log('viewport set to iPhone mobile');
+
     // 1. LOGIN
     log('goto login');
     await page.goto('https://partners.feverup.com/login', { waitUntil: 'networkidle2', timeout: 45000 });
