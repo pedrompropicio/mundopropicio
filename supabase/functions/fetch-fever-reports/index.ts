@@ -56,7 +56,7 @@ export default async function ({ page }) {
 
   const logs = [];
   const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
-  log('VERSION_MARKER_2026_05_15_v20');
+  log('VERSION_MARKER_2026_05_15_v21');
 
   let lastScreenshot = null;
   const snap = async (label) => {
@@ -394,7 +394,8 @@ export default async function ({ page }) {
       const all = Array.from(document.querySelectorAll('*'));
       const found = all.filter(el => {
         const t = (el.textContent || '').trim();
-        return t === 'Sales breakdown' || (t.includes('Sales breakdown') && t.length < 30);
+        return t === 'Detalhes de vendas' || t === 'Detalhamento de vendas' || t === 'Sales breakdown' ||
+               ((t.includes('Detalhes de vendas') || t.includes('Detalhamento de vendas') || t.includes('Sales breakdown')) && t.length < 30);
       });
       if (!found.length) return { found: false };
       return found.slice(0, 3).map(el => {
@@ -421,7 +422,7 @@ export default async function ({ page }) {
     // 4. Click via page.click() real (simula browser real, dispara React synthetic events)
     log('click tab Sales breakdown via page.click()');
     const marked = await page.evaluate(() => {
-      const names = ['Detalhamento de vendas', 'Sales detail', 'Sales breakdown', 'Sales overview', 'Sales analytics'];
+      const names = ['Detalhes de vendas', 'Detalhamento de vendas', 'Sales detail', 'Sales breakdown', 'Sales overview', 'Sales analytics'];
       const all = Array.from(document.querySelectorAll('div, span, button, a, li, [role]'));
       for (const n of names) {
         const candidates = all.filter(el => {
@@ -482,7 +483,7 @@ export default async function ({ page }) {
 
     log('attempting subtab click (optional)');
     const subtabResult = await clickByTextMulti(
-      ['Vendas por tipo de ingresso', 'Sales by ticket type', 'Ticket type sales', 'By ticket type', 'Per ticket type'],
+      ['Vendas por tipo de bilhete', 'Vendas por tipo de ingresso', 'Sales by ticket type', 'Ticket type sales', 'By ticket type', 'Per ticket type'],
       { timeout: 3000 }
     );
     log('subtab result: ' + JSON.stringify(subtabResult));
@@ -582,10 +583,12 @@ export default async function ({ page }) {
       return result;
     }
 
-    const card1 = await downloadCard('Vendas por tipo de ingresso')
+    const card1 = await downloadCard('Vendas por tipo de bilhete')
+      .catch(async () => await downloadCard('Vendas por tipo de ingresso'))
       .catch(async () => await downloadCard('Sales by ticket type'))
       .catch(async () => await downloadCard('Ticket type sales'));
-    const card2 = await downloadCard('Ingressos por tipo de ingresso e data de compra')
+    const card2 = await downloadCard('Bilhetes por tipo de bilhete e data de compra')
+      .catch(async () => await downloadCard('Ingressos por tipo de ingresso e data de compra'))
       .catch(async () => await downloadCard('Tickets by ticket type and purchase date'))
       .catch(async () => await downloadCard('Tickets per ticket type and purchase date'));
 
