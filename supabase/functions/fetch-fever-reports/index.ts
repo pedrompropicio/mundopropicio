@@ -483,7 +483,7 @@ export default async function ({ page }) {
 
     log('attempting subtab click (optional)');
     const subtabResult = await clickByTextMulti(
-      ['Vendas por tipo de ingresso', 'Sales by ticket type', 'Ticket type sales', 'By ticket type', 'Per ticket type'],
+      ['Vendas por tipo de bilhete', 'Vendas por tipo de ingresso', 'Sales by ticket type', 'Ticket type sales', 'By ticket type', 'Per ticket type'],
       { timeout: 3000 }
     );
     log('subtab result: ' + JSON.stringify(subtabResult));
