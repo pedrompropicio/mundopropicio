@@ -43,3 +43,5 @@ project_id = "ukpuhoynrqobqtzdbysp"
     verify_jwt = false
   [functions.update-fever-credentials]
     verify_jwt = false
+  [functions.update-fever-b2b-token]
+    verify_jwt = false
