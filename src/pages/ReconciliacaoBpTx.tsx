@@ -33,7 +33,6 @@ interface Forecast {
   amount: number;
   category_id: string;
   event_id: string;
-  supplier_id: string | null;
   type: string;
   transaction_id: string | null;
 }
@@ -142,7 +141,7 @@ export default function ReconciliacaoBpTx() {
       if (eventIds.length === 0) return [];
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, description, amount, category_id, event_id, supplier_id, type, transaction_id")
+        .select("id, description, amount, category_id, event_id, type, transaction_id")
         .eq("company_id", companyId!)
         .in("event_id", eventIds);
       if (error) throw error;
@@ -267,7 +266,6 @@ export default function ReconciliacaoBpTx() {
           type: tx.type as any,
           description: tx.description ?? "Linha BP criada via reconciliação",
           amount: useTxAmount ? tx.amount : 0,
-          supplier_id: tx.supplier_id,
           status: "approved",
           transaction_id: tx.id,
         } as any)
@@ -411,7 +409,7 @@ export default function ReconciliacaoBpTx() {
                             {c.id === suggestedId && <Badge variant="secondary" className="ml-1">Sugerido</Badge>}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            Previsto {formatInCurrency(c.amount, "EUR")} · Fornecedor BP: {supplierName(c.supplier_id)} · match {Math.round(score * 100)}%
+                            Previsto {formatInCurrency(c.amount, "EUR")} · match {Math.round(score * 100)}%
                           </div>
                         </div>
                         <Button
@@ -464,7 +462,7 @@ export default function ReconciliacaoBpTx() {
                         <div className="text-sm">
                           <div className="font-medium">{c.description ?? "(sem descrição)"}</div>
                           <div className="text-xs text-muted-foreground">
-                            {catLabel(c.category_id)} · Previsto {formatInCurrency(c.amount, "EUR")} · {supplierName(c.supplier_id)}
+                            {catLabel(c.category_id)} · Previsto {formatInCurrency(c.amount, "EUR")}
                           </div>
                         </div>
                         <div className="flex gap-2 flex-wrap">
