@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, Play, RefreshCw, AlertTriangle, CheckCircle2, KeyRound } from "lucide-react";
+import { Loader2, Play, RefreshCw, AlertTriangle, CheckCircle2, KeyRound, ShieldCheck } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
 type Cfg = {
@@ -50,6 +52,28 @@ export default function FeverSync() {
   const [selectedRun, setSelectedRun] = useState<Run | null>(null);
   const [credsModal, setCredsModal] = useState<Cfg | null>(null);
   const [credsForm, setCredsForm] = useState({ username: "", password: "" });
+  const [tokenModal, setTokenModal] = useState<Cfg | null>(null);
+  const [tokenInput, setTokenInput] = useState("");
+  const [tokenInfo, setTokenInfo] = useState<{ exp: number; user_email?: string; hoursRemaining: number } | null>(null);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+
+  function decodeToken(raw: string) {
+    setTokenError(null); setTokenInfo(null);
+    const t = raw.trim();
+    if (!t) { setTokenError("Cola o token primeiro."); return; }
+    const parts = t.split(".");
+    if (parts.length !== 3) { setTokenError("Não parece um JWT (≠3 segmentos)."); return; }
+    try {
+      let p = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      while (p.length % 4) p += "=";
+      const payload = JSON.parse(atob(p));
+      const now = Math.floor(Date.now() / 1000);
+      if (!payload?.exp) { setTokenError("Token sem campo exp."); return; }
+      const hoursRemaining = Math.round(((payload.exp - now) / 3600) * 10) / 10;
+      setTokenInfo({ exp: payload.exp, user_email: payload.user_email, hoursRemaining });
+      if (payload.exp <= now) setTokenError(`Token já expirou em ${new Date(payload.exp * 1000).toLocaleString("pt-PT")}.`);
+    } catch (e: any) { setTokenError(`Falha a descodificar: ${e?.message || e}`); }
+  }
 
   const cfgQ = useQuery({
     queryKey: ["fever-sync-config"],
@@ -104,6 +128,27 @@ export default function FeverSync() {
     onError: (e: any) => toast.error(e?.message || "Erro"),
   });
 
+  const tokenMut = useMutation({
+    mutationFn: async () => {
+      if (!tokenModal) throw new Error("sem config");
+      const { data, error } = await supabase.functions.invoke("update-fever-b2b-token", {
+        body: { configId: tokenModal.id, token: tokenInput.trim() },
+      });
+      if (error) throw error;
+      if (!(data as any)?.ok) throw new Error((data as any)?.error || "falhou");
+      return data as { ok: true; exp: number; hoursRemaining: number };
+    },
+    onSuccess: (data) => {
+      const expDate = new Date(data.exp * 1000).toLocaleString("pt-PT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+      toast.success(`Token guardado. Válido até ${expDate} (faltam ~${data.hoursRemaining}h). Sync automático activo.`);
+      setTimeout(() => {
+        setTokenModal(null);
+        setTokenInput(""); setTokenInfo(null); setTokenError(null);
+      }, 2000);
+    },
+    onError: (e: any) => toast.error(e?.message || "Erro"),
+  });
+
   const enableMut = useMutation({
     mutationFn: async (args: { id: string; enabled: boolean }) => {
       const { error } = await supabase.from("fever_sync_config" as any).update({ enabled: args.enabled }).eq("id", args.id);
@@ -153,6 +198,9 @@ export default function FeverSync() {
                     checked={cfg.enabled}
                     onCheckedChange={(v) => enableMut.mutate({ id: cfg.id, enabled: v })}
                   />
+                  <Button variant="default" size="sm" onClick={() => { setTokenModal(cfg); setTokenInput(""); setTokenInfo(null); setTokenError(null); }}>
+                    <ShieldCheck className="h-4 w-4 mr-2" /> Token Fever
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => { setCredsModal(cfg); setCredsForm({ username: "", password: "" }); }}>
                     <KeyRound className="h-4 w-4 mr-2" /> Credenciais
                   </Button>
@@ -270,6 +318,85 @@ export default function FeverSync() {
             <Button variant="outline" onClick={() => setCredsModal(null)}>Cancelar</Button>
             <Button disabled={credsMut.isPending || !credsForm.username || !credsForm.password} onClick={() => credsMut.mutate()}>
               {credsMut.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!tokenModal} onOpenChange={(o) => { if (!o) { setTokenModal(null); setTokenInput(""); setTokenInfo(null); setTokenError(null); } }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-auto">
+          <DialogHeader><DialogTitle>Token Fever (B2bToken)</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>B2bToken (JWT)</Label>
+              <Textarea
+                value={tokenInput}
+                onChange={(e) => { setTokenInput(e.target.value); setTokenInfo(null); setTokenError(null); }}
+                placeholder="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+                className="font-mono text-xs min-h-[120px]"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => decodeToken(tokenInput)} disabled={!tokenInput.trim()}>
+                Descodificar e validar
+              </Button>
+              {tokenInfo && (
+                <Badge
+                  variant="outline"
+                  className={
+                    tokenInfo.hoursRemaining <= 0 ? "bg-destructive/15 text-destructive border-destructive/30" :
+                    tokenInfo.hoursRemaining < 2 ? "bg-destructive/15 text-destructive border-destructive/30" :
+                    tokenInfo.hoursRemaining < 12 ? "bg-yellow-500/15 text-yellow-600 border-yellow-500/30" :
+                    "bg-green-500/15 text-green-600 border-green-500/30"
+                  }
+                >
+                  Expira em {new Date(tokenInfo.exp * 1000).toLocaleString("pt-PT")} (~{tokenInfo.hoursRemaining}h)
+                </Badge>
+              )}
+            </div>
+            {tokenInfo?.user_email && (
+              <p className="text-xs text-muted-foreground">Utilizador: <code>{tokenInfo.user_email}</code></p>
+            )}
+            {tokenError && <p className="text-xs text-destructive">{tokenError}</p>}
+
+            <div className="border-t pt-4">
+              <p className="text-sm font-medium mb-2">Como obter o token</p>
+              <Tabs defaultValue="mobile">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="mobile">📱 iPhone (recomendado)</TabsTrigger>
+                  <TabsTrigger value="desktop">💻 Mac</TabsTrigger>
+                </TabsList>
+                <TabsContent value="mobile" className="text-xs space-y-2 mt-3">
+                  <ol className="list-decimal pl-5 space-y-1">
+                    <li>Activa "Web Inspector": <b>Ajustes → Apps → Safari → Avançado → Web Inspector</b></li>
+                    <li>Liga o iPhone ao Mac por USB</li>
+                    <li>No Mac, abre Safari → menu <b>Desenvolver</b> → escolhe o teu iPhone → escolhe a aba <code>partners.feverup.com</code></li>
+                    <li>No DevTools, vai à aba <b>Console</b> e cola: <code className="bg-muted px-1 rounded">copy(localStorage.getItem('token'))</code></li>
+                    <li>O token fica na clipboard do <b>iPhone</b>. Volta aqui e cola no campo acima.</li>
+                  </ol>
+                </TabsContent>
+                <TabsContent value="desktop" className="text-xs space-y-2 mt-3">
+                  <ol className="list-decimal pl-5 space-y-1">
+                    <li>Abre <code>partners.feverup.com</code> no Mac com sessão iniciada</li>
+                    <li>DevTools → <b>Console</b> → cola: <code className="bg-muted px-1 rounded">copy(localStorage.getItem('token'))</code></li>
+                    <li>Cola aqui no campo acima.</li>
+                  </ol>
+                </TabsContent>
+              </Tabs>
+              <p className="text-xs text-muted-foreground mt-3">
+                O token expira em ~21h. Renova quando esta página avisar (faltam &lt;2h → vermelho).
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setTokenModal(null); setTokenInput(""); setTokenInfo(null); setTokenError(null); }}>Cancelar</Button>
+            <Button
+              disabled={tokenMut.isPending || !tokenInput.trim() || !tokenInfo || tokenInfo.hoursRemaining <= 0}
+              onClick={() => tokenMut.mutate()}
+            >
+              {tokenMut.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Guardar
             </Button>
           </DialogFooter>
         </DialogContent>
