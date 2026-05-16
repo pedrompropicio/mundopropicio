@@ -698,7 +698,8 @@ function AnaliseIATab() {
     setSummaryOpen(false);
     qc.invalidateQueries({ queryKey: ["transactions"] });
     qc.invalidateQueries({ queryKey: ["event_forecasts"] });
-    toast.success(`${ok} aplicadas${fail ? `, ${fail} com erro` : ""}`);
+    const blockedCount = rows.filter((r) => r.status === "blocked").length;
+    toast.success(`${ok} aplicadas${fail ? `, ${fail} com erro` : ""}${blockedCount ? `, ${blockedCount} bloqueadas por conflito L2` : ""}`);
   }
 
   const stats = useMemo(() => {
