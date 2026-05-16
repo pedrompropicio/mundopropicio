@@ -56,7 +56,7 @@ export default async function ({ page }) {
 
   const logs = [];
   const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
-  log('VERSION_MARKER_2026_05_15_v19');
+  log('VERSION_MARKER_2026_05_15_v20');
 
   let lastScreenshot = null;
   const snap = async (label) => {
@@ -161,6 +161,16 @@ export default async function ({ page }) {
     });
     await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1');
     log('viewport set to iPhone mobile');
+
+    // Forçar idioma pt-PT (Fever pode servir UI diferente baseado em locale)
+    await page.setExtraHTTPHeaders({
+      'Accept-Language': 'pt-PT,pt;q=0.9,en;q=0.5',
+    });
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'language', { get: () => 'pt-PT' });
+      Object.defineProperty(navigator, 'languages', { get: () => ['pt-PT', 'pt', 'en'] });
+    });
+    log('locale set to pt-PT');
 
     // 1. LOGIN
     log('goto login');
@@ -320,6 +330,13 @@ export default async function ({ page }) {
     }
 
     log('login flow complete, url=' + page.url());
+
+    try {
+      const cookies = await page.cookies();
+      log('cookies count: ' + cookies.length + ' | names: ' + cookies.map(c => c.name).slice(0, 20).join(','));
+    } catch (e) {
+      log('cookies error: ' + (e && e.message));
+    }
     await snap('login-complete');
 
     // 3. Dashboard do plano
