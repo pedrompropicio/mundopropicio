@@ -128,7 +128,27 @@ export default function FeverSync() {
     onError: (e: any) => toast.error(e?.message || "Erro"),
   });
 
-  const enableMut = useMutation({
+  const tokenMut = useMutation({
+    mutationFn: async () => {
+      if (!tokenModal) throw new Error("sem config");
+      const { data, error } = await supabase.functions.invoke("update-fever-b2b-token", {
+        body: { configId: tokenModal.id, token: tokenInput.trim() },
+      });
+      if (error) throw error;
+      if (!(data as any)?.ok) throw new Error((data as any)?.error || "falhou");
+      return data as { ok: true; exp: number; hoursRemaining: number };
+    },
+    onSuccess: (data) => {
+      const expDate = new Date(data.exp * 1000).toLocaleString("pt-PT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+      toast.success(`Token guardado. Válido até ${expDate} (faltam ~${data.hoursRemaining}h). Sync automático activo.`);
+      setTimeout(() => {
+        setTokenModal(null);
+        setTokenInput(""); setTokenInfo(null); setTokenError(null);
+      }, 2000);
+    },
+    onError: (e: any) => toast.error(e?.message || "Erro"),
+  });
+
     mutationFn: async (args: { id: string; enabled: boolean }) => {
       const { error } = await supabase.from("fever_sync_config" as any).update({ enabled: args.enabled }).eq("id", args.id);
       if (error) throw error;
