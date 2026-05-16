@@ -390,7 +390,21 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
         await supabase.from("partner_paid_expenses").update({ paid_date: partnerPaidDate }).eq("id", partnerPaidLink.id);
       }
 
-      return { data, snapshot, changesCount: changes.length };
+      // Desvincular linha BP (limpa event_forecasts.transaction_id) se o user pediu.
+      if (unlinkBpRequested && (linkedForecast as any)?.id) {
+        const { error: unlinkErr } = await supabase
+          .from("event_forecasts")
+          .update({ transaction_id: null } as any)
+          .eq("id", (linkedForecast as any).id);
+        if (unlinkErr) {
+          console.error("[BP unlink] failed", unlinkErr);
+          toast({
+            title: "TX atualizada, mas falhou desvincular da linha BP",
+            description: "Pode tentar novamente pela edição da linha do BP.",
+            variant: "destructive",
+          });
+        }
+      }
     },
     onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
