@@ -405,6 +405,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
           });
         }
       }
+
+      return { data, snapshot, changesCount: changes.length };
     },
     onSuccess: async (result) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
