@@ -761,6 +761,11 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
                 placeholder="Sem categoria"
                 searchPlaceholder="Pesquisar categoria…"
               />
+              {bpL2Label && (
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  Categoria limitada pelo BP: <span className="font-mono text-primary/80">{bpL2Label}</span>
+                </p>
+              )}
             </div>
             {hasChildren ? (
               <div>
