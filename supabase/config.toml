@@ -45,3 +45,7 @@ project_id = "ukpuhoynrqobqtzdbysp"
     verify_jwt = false
   [functions.update-fever-b2b-token]
     verify_jwt = false
+  # refresh-fever-token: chamado por cron (service_role) e UI (user JWT).
+  # Auth é validada em código (service_role bypass + role check).
+  [functions.refresh-fever-token]
+    verify_jwt = false

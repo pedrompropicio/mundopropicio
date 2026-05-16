@@ -25,6 +25,7 @@ type Cfg = {
   enabled: boolean;
   last_run_at: string | null;
   last_run_status: string | null;
+  last_token_refresh_at: string | null;
 };
 
 type Run = {
@@ -147,6 +148,23 @@ export default function FeverSync() {
       }, 2000);
     },
     onError: (e: any) => toast.error(e?.message || "Erro"),
+  });
+
+  const refreshTokenMut = useMutation({
+    mutationFn: async () => {
+      if (!tokenModal) throw new Error("sem config");
+      const { data, error } = await supabase.functions.invoke("refresh-fever-token", {
+        body: { configId: tokenModal.id, triggeredBy: "ui" },
+      });
+      if (error) throw error;
+      if (!(data as any)?.ok) throw new Error((data as any)?.error || "falhou");
+      return data as { ok: true; exp: number; hoursRemaining: number; user_email: string | null };
+    },
+    onSuccess: (data) => {
+      toast.success(`Token renovado. Expira em ~${data.hoursRemaining}h.`);
+      qc.invalidateQueries({ queryKey: ["fever-sync-config"] });
+    },
+    onError: (e: any) => toast.error(e?.message || "Erro a renovar token"),
   });
 
   const enableMut = useMutation({
@@ -327,6 +345,32 @@ export default function FeverSync() {
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-auto">
           <DialogHeader><DialogTitle>Token Fever (B2bToken)</DialogTitle></DialogHeader>
           <div className="space-y-4">
+            <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">Refresh automático</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={refreshTokenMut.isPending}
+                  onClick={() => refreshTokenMut.mutate()}
+                >
+                  {refreshTokenMut.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                  Refrescar agora
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                O token é renovado automaticamente 2× por dia (00:00 e 12:00 UTC) usando as credenciais guardadas. Só precisas de colar manualmente se a password mudar ou se quiseres forçar.
+              </p>
+              <p className="text-xs">
+                <span className="text-muted-foreground">Último refresh automático: </span>
+                <span className="font-mono">
+                  {tokenModal?.last_token_refresh_at
+                    ? new Intl.DateTimeFormat("pt-PT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(tokenModal.last_token_refresh_at))
+                    : "ainda nunca foi feito"}
+                </span>
+              </p>
+            </div>
+
             <div>
               <Label>B2bToken (JWT)</Label>
               <Textarea
