@@ -30,6 +30,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
 import { PushNotificationToggle } from "@/components/PushNotificationToggle";
 import { useCoalaSyncBadge } from "@/hooks/useCoalaSyncBadge";
+import { useHasFeature } from "@/hooks/useCompanyFeatures";
+import { FEATURES } from "@/lib/features";
 
 export function AppSidebar() {
   const location = useLocation();
@@ -37,6 +39,9 @@ export function AppSidebar() {
   const { isAdmin, isManager, user, signOut, hasPermission } = useAuth();
   const [showChangePassword, setShowChangePassword] = useState(false);
   const coalaBadgeCount = useCoalaSyncBadge(isAdmin);
+  const hasCoala = useHasFeature(FEATURES.SYNC_COALA);
+  const hasFever = useHasFeature(FEATURES.SYNC_FEVER);
+  const hasHealth = useHasFeature(FEATURES.SYNC_HEALTH);
 
   const navItems = [
     { to: "/erp", icon: LayoutDashboard, label: "Dashboard", show: true },
