@@ -505,7 +505,14 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
     const typeMatch = transaction.type === "income" ? c.type === "income" : c.type === "expense";
     if (!typeMatch) return false;
     // Only leaf categories (no children)
-    return !categories.some((ch) => ch.parent_id === c.id);
+    if (categories.some((ch) => ch.parent_id === c.id)) return false;
+    // Frente B: se TX vinculada a BP, restringir a L3 do mesmo L2 do BP
+    if (bpL2Id) {
+      const parent = categories.find((p) => p.id === c.parent_id);
+      const l2Id = parent && parent.parent_id ? parent.id : c.id;
+      if (l2Id !== bpL2Id) return false;
+    }
+    return true;
   });
 
   const eventOptions = events.map((ev) => ({ value: ev.id, label: ev.name }));
