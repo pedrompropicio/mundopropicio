@@ -1723,6 +1723,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     // Only leaf categories (no children)
     const isLeaf = !categories.some((ch) => ch.parent_id === c.id);
     if (!isLeaf) return false;
+    // Regra L2: se vinculado a linha BP, restringe a L3 do mesmo L2.
+    if (selectedForecastL2Id) {
+      const parent = categories.find((p) => p.id === c.parent_id);
+      const l2Id = parent && parent.parent_id ? parent.id : c.id;
+      if (l2Id !== selectedForecastL2Id) return false;
+    }
     if (hasPLRestriction && effectiveEventId && !plOverride) {
       // Allow sub-event's BP categories OR Master BP categories (for "Reforço Local" flow)
       const isInSubEventBP = allowedCategoryIds.includes(c.id);
