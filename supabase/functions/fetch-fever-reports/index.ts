@@ -422,7 +422,7 @@ export default async function ({ page }) {
     // 4. Click via page.click() real (simula browser real, dispara React synthetic events)
     log('click tab Sales breakdown via page.click()');
     const marked = await page.evaluate(() => {
-      const names = ['Detalhamento de vendas', 'Sales detail', 'Sales breakdown', 'Sales overview', 'Sales analytics'];
+      const names = ['Detalhes de vendas', 'Detalhamento de vendas', 'Sales detail', 'Sales breakdown', 'Sales overview', 'Sales analytics'];
       const all = Array.from(document.querySelectorAll('div, span, button, a, li, [role]'));
       for (const n of names) {
         const candidates = all.filter(el => {
