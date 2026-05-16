@@ -25,6 +25,7 @@ type Cfg = {
   enabled: boolean;
   last_run_at: string | null;
   last_run_status: string | null;
+  last_token_refresh_at: string | null;
 };
 
 type Run = {
