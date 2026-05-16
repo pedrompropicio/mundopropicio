@@ -99,6 +99,7 @@ import Reminders from "./pages/admin/Reminders";
 import RlsLegacyAudit from "./pages/admin/RlsLegacyAudit";
 import CoalaSync from "./pages/admin/CoalaSync";
 import FeverSync from "./pages/admin/FeverSync";
+import SyncHealth from "./pages/admin/SyncHealth";
 import CrmConnections from "./pages/crm/Connections";
 import CrmCampaigns from "./pages/crm/Campaigns";
 import CrmPixels from "./pages/crm/Pixels";
