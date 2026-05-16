@@ -461,6 +461,33 @@ function AnaliseIATab() {
         .eq("type", "expense");
       if (txErr) throw txErr;
 
+      // Frente C: identificar TXs vinculadas a BP (para validação L2 pré-batch)
+      const txIds = (txs || []).map((t: any) => t.id);
+      const txToBpCatMap = new Map<string, string>(); // tx_id → bp.category_id
+      if (txIds.length > 0) {
+        const CHUNK = 500;
+        for (let i = 0; i < txIds.length; i += CHUNK) {
+          const slice = txIds.slice(i, i + CHUNK);
+          const { data: links } = await supabase
+            .from("event_forecasts")
+            .select("transaction_id, category_id")
+            .in("transaction_id", slice)
+            .is("version_id", null);
+          (links || []).forEach((l: any) => {
+            if (l.transaction_id && l.category_id) txToBpCatMap.set(l.transaction_id, l.category_id);
+          });
+        }
+      }
+      const catMapLocal = new Map(categories.map((c) => [c.id, c]));
+      const getL2IdLocal = (catId: string | null | undefined): string | null => {
+        if (!catId) return null;
+        const cur = catMapLocal.get(catId);
+        if (!cur || !cur.parent_id) return null;
+        const parent = catMapLocal.get(cur.parent_id);
+        if (!parent) return null;
+        return parent.parent_id ? parent.id : cur.id;
+      };
+
       const catMap = new Map(categories.map((c) => [c.id, c]));
 
       const merged: AuditRow[] = [
