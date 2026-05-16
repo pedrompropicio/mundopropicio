@@ -344,7 +344,7 @@ export default async function ({ page }) {
                     '&planId=' + args.planId + '&venueId=' + args.venueId;
     log('goto dashboard ' + dashUrl);
     await page.goto(dashUrl, { waitUntil: 'networkidle2', timeout: 60000 });
-    await sleep(5000);
+    await sleep(3000);
     await snap('dashboard');
 
     // CRÍTICO: clicar "Show" / "Mostrar" para ativar os filtros e tornar a página interactiva
