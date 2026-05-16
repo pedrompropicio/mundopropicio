@@ -661,7 +661,7 @@ function AnaliseIATab() {
   function acceptAllVisible() {
     setRows((prev) => prev.map((r) => {
       const visible = filteredRows.some((f) => f.id === r.id && f.source === r.source);
-      if (!visible || r.status === "applied" || r.status === "rejected") return r;
+      if (!visible || r.status === "applied" || r.status === "rejected" || r.status === "blocked") return r;
       if (!r.suggested_id || r.suggested_code === r.current_category_code) return r;
       const cat = leafCatsById.get(r.suggested_id);
       return { ...r, status: "accepted", chosen_id: r.suggested_id, chosen_code: cat?.code ?? r.suggested_code ?? null, chosen_name: cat?.name ?? r.suggested_name ?? null };
