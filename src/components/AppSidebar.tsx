@@ -23,6 +23,7 @@ import {
   ClipboardCheck,
   Grid3x3,
   Cloud,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -53,7 +54,8 @@ export function AppSidebar() {
     { to: "/camarim", icon: ShoppingBag, label: "Camarim", show: hasPermission("manage_transactions") || hasPermission("camarim_team") || isAdmin },
     { to: "/relatorios", icon: BarChart3, label: "Relatórios", show: hasPermission("view_reports") || isAdmin },
     { to: "/admin/auditoria-contas", icon: ClipboardCheck, label: "Auditoria Contas", show: !isAdmin && isManager },
-    { to: "/admin/coala-sync", icon: Cloud, label: "Sync Coala", show: isAdmin, badge: coalaBadgeCount },
+    { to: "/admin/sync-health", icon: Activity, label: "Sync Health", show: isAdmin },
+    { to: "/admin/sync-coala", icon: Cloud, label: "Sync Coala", show: isAdmin, badge: coalaBadgeCount },
     { to: "/admin/fever-sync", icon: Cloud, label: "Sync Fever", show: isAdmin },
     { to: "/admin", icon: Settings, label: "Admin", show: isAdmin },
     { to: "/ajuda", icon: HelpCircle, label: "Manual", show: true },
