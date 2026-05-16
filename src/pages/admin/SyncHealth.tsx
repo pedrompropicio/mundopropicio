@@ -85,6 +85,8 @@ export default function SyncHealth() {
   const hasCrit = critCount > 0;
   const hasWarn = warnCount > 0;
 
+  if (!hasFeature) return <FeatureNotEnabledCard featureKey={FEATURES.SYNC_HEALTH} />;
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
