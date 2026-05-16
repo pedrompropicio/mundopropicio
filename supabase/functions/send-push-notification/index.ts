@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate caller is admin/manager
+    // Validate caller: accept user JWT (admin/manager) OR service_role with explicit user_ids
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Não autorizado" }), {
@@ -43,31 +43,48 @@ Deno.serve(async (req) => {
       });
     }
 
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const callerClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: userError } = await callerClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Não autorizado" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Multi-tenant: resolve caller's active company; restrict push delivery to that tenant.
-    const { data: callerProfile } = await adminClient
-      .from("profiles")
-      .select("company_id, active_company_id")
-      .eq("id", user.id)
-      .maybeSingle();
-    const { data: isPaRow } = await adminClient.rpc("is_platform_admin", { _user_id: user.id });
-    const isPlatformAdmin = Boolean(isPaRow);
-    const callerCompanyId = isPlatformAdmin
-      ? (callerProfile?.active_company_id ?? callerProfile?.company_id ?? null)
-      : (callerProfile?.company_id ?? null);
+    // Detect service_role JWT (used by DB triggers / cron via Vault)
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    let isServiceRole = false;
+    try {
+      const parts = token.split(".");
+      if (parts.length === 3) {
+        let p = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+        while (p.length % 4) p += "=";
+        const payload = JSON.parse(atob(p));
+        if (payload?.role === "service_role") isServiceRole = true;
+      }
+    } catch { /* ignore */ }
+
+    let callerCompanyId: string | null = null;
+    let isPlatformAdmin = false;
+
+    if (!isServiceRole) {
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+      const callerClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user }, error: userError } = await callerClient.auth.getUser();
+      if (userError || !user) {
+        return new Response(JSON.stringify({ error: "Não autorizado" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: callerProfile } = await adminClient
+        .from("profiles")
+        .select("company_id, active_company_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      const { data: isPaRow } = await adminClient.rpc("is_platform_admin", { _user_id: user.id });
+      isPlatformAdmin = Boolean(isPaRow);
+      callerCompanyId = isPlatformAdmin
+        ? (callerProfile?.active_company_id ?? callerProfile?.company_id ?? null)
+        : (callerProfile?.company_id ?? null);
+    }
 
     const { user_ids, title, body, url, badge_count } = await req.json();
 
