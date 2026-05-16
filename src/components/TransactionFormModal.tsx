@@ -128,6 +128,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
   const [duplicateMatches, setDuplicateMatches] = useState<any[]>([]);
   const [plExpanded, setPlExpanded] = useState(true);
+  // Linha BP escolhida pelo utilizador (FK a escrever em event_forecasts.transaction_id).
+  // Quando set: filtra dropdown de categoria a L3 do mesmo L2 e escreve FK no INSERT.
+  const [selectedForecastId, setSelectedForecastId] = useState<string | null>(null);
   const [plOverride, setPlOverride] = useState(false);
   const [isSplit, setIsSplit] = useState(false);
   const [splitEntries, setSplitEntries] = useState<SplitEntry[]>([]);
