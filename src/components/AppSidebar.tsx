@@ -23,6 +23,7 @@ import {
   ClipboardCheck,
   Grid3x3,
   Cloud,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
