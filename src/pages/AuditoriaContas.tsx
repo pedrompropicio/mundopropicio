@@ -900,6 +900,15 @@ function AnaliseIATab() {
                           )}
                           {isAccepted && <Badge variant="outline" className="text-[9px] border-success/40 text-success">aceite</Badge>}
                           {isRejected && <Badge variant="outline" className="text-[9px] border-muted-foreground/40 text-muted-foreground">rejeit.</Badge>}
+                          {isBlocked && (
+                            <Badge
+                              variant="outline"
+                              className="text-[9px] border-destructive/40 text-destructive cursor-help"
+                              title={r.blocked_reason ?? "Conflito L2 com BP vinculado"}
+                            >
+                              bloq. L2
+                            </Badge>
+                          )}
                         </div>
                       </td>
                     </tr>
