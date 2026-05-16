@@ -363,6 +363,63 @@ Deno.serve(async (req: Request): Promise<Response> => {
       await (supabase as any).schema("crm").from("meta_campaign_strategies").update({
         status: "in_progress",
       }).eq("id", strategy_id);
+
+      // ============================================================
+      // PAUSE DA CAMPANHA ORIGINAL (redesign workflow — Sprint 3a-1)
+      // ------------------------------------------------------------
+      // strategy.source_campaign_id presente significa que esta strategy
+      // é um redesign de uma campanha existente. pause_original_mode
+      // controla quando a original é pausada:
+      //   immediate  → pausa agora via Meta API
+      //   delayed_7d → cron crm-cron-pause-replaced-originals pausa em D+7
+      //   manual     → só marca replaced_by_strategy_id; user decide
+      // Falha aqui é tolerada (deploy já teve sucesso).
+      // ============================================================
+      if (strategy.source_campaign_id) {
+        const pauseMode: "immediate" | "delayed_7d" | "manual" = strategy.pause_original_mode ?? "immediate";
+        try {
+          if (pauseMode === "immediate") {
+            const { data: sourceCamp } = await (supabase as any)
+              .schema("crm").from("meta_campaign_snapshot")
+              .select("status, effective_status")
+              .eq("external_campaign_id", strategy.source_campaign_id)
+              .maybeSingle();
+            const alreadyPaused = sourceCamp?.status === "PAUSED" || sourceCamp?.effective_status === "PAUSED";
+            if (!alreadyPaused) {
+              await metaPost(strategy.source_campaign_id, accessToken, { status: "PAUSED" });
+            }
+            await (supabase as any)
+              .schema("crm").from("meta_campaign_snapshot")
+              .update({ replaced_by_strategy_id: strategy_id })
+              .eq("external_campaign_id", strategy.source_campaign_id);
+            await (supabase as any)
+              .schema("crm").from("meta_campaign_strategies")
+              .update({ pause_original_executed_at: new Date().toISOString() })
+              .eq("id", strategy_id);
+            addLog("info", `Immediate pause executed for source ${strategy.source_campaign_id}`);
+          } else if (pauseMode === "delayed_7d") {
+            const scheduledFor = new Date();
+            scheduledFor.setUTCDate(scheduledFor.getUTCDate() + 7);
+            await (supabase as any)
+              .schema("crm").from("meta_campaign_snapshot")
+              .update({ replaced_by_strategy_id: strategy_id })
+              .eq("external_campaign_id", strategy.source_campaign_id);
+            await (supabase as any)
+              .schema("crm").from("meta_campaign_strategies")
+              .update({ pause_original_scheduled_for: scheduledFor.toISOString() })
+              .eq("id", strategy_id);
+            addLog("info", `Delayed pause scheduled for ${scheduledFor.toISOString()}`);
+          } else {
+            await (supabase as any)
+              .schema("crm").from("meta_campaign_snapshot")
+              .update({ replaced_by_strategy_id: strategy_id })
+              .eq("external_campaign_id", strategy.source_campaign_id);
+            addLog("info", "Manual pause mode — only marked replaced_by_strategy_id");
+          }
+        } catch (pauseErr: any) {
+          addLog("error", "Pause/mark step failed", { error: pauseErr?.message?.slice(0, 300) });
+        }
+      }
     }
 
     return json({

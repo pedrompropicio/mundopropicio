@@ -54,3 +54,11 @@ project_id = "ukpuhoynrqobqtzdbysp"
   # scripts/crm-cron-measure-action-impact-live.txt (aplicar manualmente).
   [functions.crm-measure-action-impact]
     verify_jwt = false
+  # crm-meta-redesign-inventory: chamado pelo wizard 3b (UI/user JWT).
+  [functions.crm-meta-redesign-inventory]
+    verify_jwt = true
+  # crm-cron-pause-replaced-originals: cron-only (executa pauses delayed_7d
+  # depois do A/B window expirar). Rejeita tudo excepto service_role.
+  # Daily schedule em scripts/crm-cron-pause-replaced-originals-live.txt.
+  [functions.crm-cron-pause-replaced-originals]
+    verify_jwt = false
