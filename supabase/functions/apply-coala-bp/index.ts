@@ -1365,6 +1365,9 @@ Deno.serve(async (req) => {
       const failedPaidTx: Array<{ row: number; description: string; supplier: string | null; expectedPaidGross: number; reason: string }> = [];
       const autoLearnedMeta: Array<{ row: number; description: string; supplier: string | null; categoryId: string; categoryCode: string; ruleId: string; matchedVia: 'exact' | 'fuzzy'; similarity?: number; confirmedCount: number }> = [];
       const ccProtectedLog: Array<{ row: number; description: string; supplier: string | null; xlsxSuggestedCC: string; systemCC: string; systemCategoryId: string }> = [];
+      // Frente D: regras aprendidas rejeitadas por conflito L2 com CC do XLSX
+      const rejectedLearningMeta: Array<{ row: number; description: string; supplier: string | null; ruleId: string; ruleCategoryId: string; ruleCategoryCode: string; xlsxCategoryId: string; xlsxCategoryCode: string; reason: 'l2_mismatch' }> = [];
+      let rejectedLearningCount = 0;
       // Soma esperada por categoria (BP líquido) — comparada com inserido depois
       const expectedNetByCat = new Map<string, number>();
       const expectedPaidByCat = new Map<string, number>();
