@@ -223,6 +223,48 @@ export type Database = {
           },
         ]
       }
+      bp_tx_reconciliation_ignored: {
+        Row: {
+          company_id: string
+          id: string
+          ignored_at: string
+          ignored_by: string | null
+          reason: string | null
+          transaction_id: string
+        }
+        Insert: {
+          company_id: string
+          id?: string
+          ignored_at?: string
+          ignored_by?: string | null
+          reason?: string | null
+          transaction_id: string
+        }
+        Update: {
+          company_id?: string
+          id?: string
+          ignored_at?: string
+          ignored_by?: string | null
+          reason?: string | null
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bp_tx_reconciliation_ignored_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bp_tx_reconciliation_ignored_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bp_version_audit_log: {
         Row: {
           action: string
