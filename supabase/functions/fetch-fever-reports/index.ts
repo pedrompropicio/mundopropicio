@@ -56,7 +56,7 @@ export default async function ({ page }) {
 
   const logs = [];
   const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
-  log('VERSION_MARKER_2026_05_15_v22');
+  log('VERSION_MARKER_2026_05_15_v23');
 
   let lastScreenshot = null;
   const snap = async (label) => {
@@ -262,7 +262,7 @@ export default async function ({ page }) {
     }
 
     // Esperar redirect pós-login
-    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch((e) => {
+    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 5000 }).catch((e) => {
       log('no navigation after sign in: ' + (e && e.message));
     });
     log('post-signin url=' + page.url());
@@ -344,7 +344,7 @@ export default async function ({ page }) {
                     '&planId=' + args.planId + '&venueId=' + args.venueId;
     log('goto dashboard ' + dashUrl);
     await page.goto(dashUrl, { waitUntil: 'networkidle2', timeout: 60000 });
-    await sleep(5000);
+    await sleep(3000);
     await snap('dashboard');
 
     // CRÍTICO: clicar "Show" / "Mostrar" para ativar os filtros e tornar a página interactiva
@@ -370,7 +370,7 @@ export default async function ({ page }) {
       } catch (e) {
         log('show button click error: ' + (e && e.message));
       }
-      await sleep(10000);
+      await sleep(6000);
       await snap('after-show');
       const afterShowText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 5000) : '').catch(() => '');
       log('after-show page text: ' + afterShowText.replace(/\\n+/g, ' | ').slice(0, 2500));
@@ -472,8 +472,7 @@ export default async function ({ page }) {
       }
     }
 
-    await sleep(5000);
-    await snap('after-sales-breakdown-1');
+    await sleep(3000);
     log('after-breakdown url: ' + page.url());
 
     // Scroll para baixo da página para forçar lazy-load dos cards
@@ -481,12 +480,8 @@ export default async function ({ page }) {
     await page.evaluate(() => {
       window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' });
     });
-    await sleep(2000);
-    await page.evaluate(() => {
-      window.scrollTo({ top: 0, behavior: 'instant' });
-    });
     await sleep(1500);
-    await snap('after-sales-breakdown-scrolled');
+    await snap('after-sales-breakdown');
 
     const afterText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 5000) : '').catch(() => '');
     log('after-breakdown page text: ' + afterText.replace(/\\n+/g, ' | ').slice(0, 2500));
