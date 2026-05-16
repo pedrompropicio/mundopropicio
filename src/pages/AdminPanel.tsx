@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Users, Database, ShieldAlert, ShieldCheck, Trash2, History, Activity, ClipboardCheck, Sparkles, Building2, Bell, Cloud } from "lucide-react";
+import { Users, Database, ShieldAlert, ShieldCheck, Trash2, History, Activity, ClipboardCheck, Sparkles, Building2, Bell, Cloud, Link2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -48,6 +48,12 @@ const adminCards = [
     icon: ClipboardCheck,
     title: "Auditoria Contas",
     description: "Análise IA de classificações no BP/Transações e gestão da numeração do Plano de Contas",
+  },
+  {
+    to: "/admin/reconciliacao-bp-tx",
+    icon: Link2,
+    title: "Reconciliação BP ↔ TX",
+    description: "Resolver transações ambíguas, L2-only ou fora do BP, escrevendo a ligação direta às linhas do BP",
   },
   {
     to: "/admin/formalidade",
