@@ -370,7 +370,7 @@ export default async function ({ page }) {
       } catch (e) {
         log('show button click error: ' + (e && e.message));
       }
-      await sleep(10000);
+      await sleep(6000);
       await snap('after-show');
       const afterShowText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 5000) : '').catch(() => '');
       log('after-show page text: ' + afterShowText.replace(/\\n+/g, ' | ').slice(0, 2500));
