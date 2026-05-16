@@ -66,20 +66,12 @@ Deno.serve(async (req) => {
   const secretName = cfg.b2b_token_secret_name;
   const secretValue = b2bToken.trim();
 
-  // Upsert no Vault: procura existente por nome.
-  const { data: existing } = await admin.from("vault.secrets" as any)
-    .select("id").eq("name", secretName).maybeSingle();
-
-  let vaultErr: any = null;
-  if (existing?.id) {
-    const { error } = await admin.rpc("update_vault_secret" as any, { _id: existing.id, _value: secretValue });
-    vaultErr = error;
-  } else {
-    const { error } = await admin.rpc("create_vault_secret" as any, {
-      _name: secretName, _value: secretValue, _description: `Fever B2bToken (config ${configId})`,
-    });
-    vaultErr = error;
-  }
+  // Upsert atómico no Vault (RPC criada para resolver bug do SDK não aceder schema vault)
+  const { error: vaultErr } = await admin.rpc("upsert_vault_secret" as any, {
+    _name: secretName,
+    _value: secretValue,
+    _description: `Fever B2bToken (config ${configId})`,
+  });
   if (vaultErr) return json(500, { error: `vault: ${vaultErr.message}` });
 
   const hoursRemaining = Math.round(((payload.exp - now) / 3600) * 10) / 10;
