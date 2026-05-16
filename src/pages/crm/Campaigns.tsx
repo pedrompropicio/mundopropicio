@@ -940,6 +940,17 @@ export default function CrmCampaigns() {
   const [analyzeHistory, setAnalyzeHistory] = useState<any[]>([]);
   const [analyzeTab, setAnalyzeTab] = useState<string>("resumo");
 
+  // Audit trail meta_campaign_changes — tab "Mudanças" + apply-action dialog
+  const [changes, setChanges] = useState<any[]>([]);
+  const [changesLoading, setChangesLoading] = useState(false);
+  const [applyDialogOpen, setApplyDialogOpen] = useState(false);
+  const [applyAction, setApplyAction] = useState<{ idx: number; action: any } | null>(null);
+  const [applyMeasureImpact, setApplyMeasureImpact] = useState(false);
+  const [applyActionType, setApplyActionType] = useState<"pause" | "activate">("pause");
+  const [applyAutoDetected, setApplyAutoDetected] = useState(false);
+  const [applyReason, setApplyReason] = useState("");
+  const [applyLoading, setApplyLoading] = useState(false);
+
   const loadHistory = async (campaignId: string) => {
     try {
       const { data } = await (supabase as any)
@@ -955,6 +966,83 @@ export default function CrmCampaigns() {
     }
   };
 
+  const loadChanges = async (campaignId: string) => {
+    setChangesLoading(true);
+    try {
+      const { data } = await (supabase as any)
+        .schema("crm")
+        .from("meta_campaign_changes")
+        .select("id, applied_at, change_type, reason_text, triggered_by, applied_action_index, measure_impact_requested, before_jsonb, after_jsonb, impact_measured_at, impact_metrics_jsonb")
+        .eq("external_campaign_id", campaignId)
+        .order("applied_at", { ascending: false })
+        .limit(10);
+      setChanges(data ?? []);
+    } catch {
+      setChanges([]);
+    } finally {
+      setChangesLoading(false);
+    }
+  };
+
+  const openApplyDialog = (idx: number, action: any, measureImpact: boolean) => {
+    setApplyAction({ idx, action });
+    setApplyMeasureImpact(measureImpact);
+    // Auto-detect tipo de acção a partir do texto livre da IA (override no dialog).
+    const txt = String(action?.action ?? "").toLowerCase();
+    const isPause = /pausar|pause|stop|parar|desactivar|desativar/.test(txt);
+    const isActivate = /ativar|activar|reativar|reactivar|activate|resume|retomar/.test(txt);
+    setApplyActionType(isPause ? "pause" : isActivate ? "activate" : "pause");
+    setApplyAutoDetected(isPause || isActivate);
+    setApplyReason("");
+    setApplyDialogOpen(true);
+  };
+
+  const submitApplyAction = async () => {
+    if (!applyAction || !analyzeCampaignId) return;
+    const a = applyAction.action;
+    const entityType: string = a?.target_type;
+    const externalId: string = a?.target_external_id;
+    if (!entityType || !externalId || !["campaign", "adset", "ad"].includes(entityType)) {
+      toast.error("Acção inválida: target_type/target_external_id em falta.");
+      return;
+    }
+    const camp = campaigns?.find((c) => c.external_campaign_id === analyzeCampaignId);
+    const connectionId = camp?.connection_id;
+    if (!connectionId) {
+      toast.error("Connection da campanha não encontrada.");
+      return;
+    }
+    setApplyLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-entity-action", {
+        body: {
+          connection_id: connectionId,
+          entity_type: entityType,
+          external_id: externalId,
+          action: applyActionType,
+          diagnosis_id: analyzeData?.diagnosis_id ?? null,
+          applied_action_index: applyAction.idx + 1,
+          triggered_by: "user_manual",
+          reason_text: applyReason.trim() || null,
+          measure_impact_requested: applyMeasureImpact,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.message || data.error);
+      toast.success(
+        applyActionType === "pause"
+          ? (applyMeasureImpact ? "Entidade pausada. Medição de impacto agendada para D+7." : "Entidade pausada.")
+          : (applyMeasureImpact ? "Entidade reactivada. Medição de impacto agendada para D+7." : "Entidade reactivada.")
+      );
+      setApplyDialogOpen(false);
+      await loadChanges(analyzeCampaignId);
+    } catch (e: any) {
+      toast.error(e?.message || "Falha a aplicar acção");
+    } finally {
+      setApplyLoading(false);
+    }
+  };
+
   const analyzeCampaign = async (campaignId: string, campaignName: string) => {
     setAnalyzeOpen(true);
     setAnalyzeLoading(true);
@@ -964,6 +1052,7 @@ export default function CrmCampaigns() {
     setAnalyzeCampaignName(campaignName);
     setAnalyzeTab("resumo");
     void loadHistory(campaignId);
+    void loadChanges(campaignId);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-campaign-analyze", {
         body: {
@@ -1776,10 +1865,11 @@ export default function CrmCampaigns() {
                   </div>
 
                   <Tabs value={analyzeTab} onValueChange={setAnalyzeTab}>
-                    <TabsList className="grid grid-cols-3 w-full">
+                    <TabsList className="grid grid-cols-4 w-full">
                       <TabsTrigger value="resumo">Resumo</TabsTrigger>
                       <TabsTrigger value="detalhe">Detalhe</TabsTrigger>
                       <TabsTrigger value="historico">Histórico ({analyzeHistory.length})</TabsTrigger>
+                      <TabsTrigger value="mudancas">Mudanças ({changes.length})</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="resumo" className="space-y-5 mt-4">
@@ -1805,24 +1895,47 @@ export default function CrmCampaigns() {
                             <Sparkles className="h-3.5 w-3.5 text-cyan-400" /> Top 3 ações prioritárias
                           </h4>
                           <div className="grid gap-2">
-                            {d.top_3_actions.map((a: any, i: number) => (
-                              <div key={i} className="rounded-lg border border-border bg-card p-3">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-400">
-                                    #{i + 1}
-                                  </span>
-                                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                                    {a.target_type}
-                                  </span>
-                                  <span className="text-[10px] text-muted-foreground/70 truncate">{a.target_external_id}</span>
+                            {d.top_3_actions.map((a: any, i: number) => {
+                              const canApply = ["campaign","adset","ad"].includes(a?.target_type) && !!a?.target_external_id;
+                              return (
+                                <div key={i} className="rounded-lg border border-border bg-card p-3">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-400">
+                                      #{i + 1}
+                                    </span>
+                                    <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                      {a.target_type}
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground/70 truncate">{a.target_external_id}</span>
+                                  </div>
+                                  <p className="text-sm font-medium">{a.action}</p>
+                                  <p className="text-xs text-muted-foreground mt-1">{a.rationale}</p>
+                                  {a.expected_impact && (
+                                    <p className="text-xs text-cyan-400/80 mt-1">→ {a.expected_impact}</p>
+                                  )}
+                                  {canApply && (
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 px-2 text-[11px]"
+                                        onClick={() => openApplyDialog(i, a, false)}
+                                      >
+                                        Aplicar agora
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 px-2 text-[11px] border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10"
+                                        onClick={() => openApplyDialog(i, a, true)}
+                                      >
+                                        Aplicar e medir 7d
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
-                                <p className="text-sm font-medium">{a.action}</p>
-                                <p className="text-xs text-muted-foreground mt-1">{a.rationale}</p>
-                                {a.expected_impact && (
-                                  <p className="text-xs text-cyan-400/80 mt-1">→ {a.expected_impact}</p>
-                                )}
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -2001,6 +2114,58 @@ export default function CrmCampaigns() {
                               </p>
                             </button>
                           ))}
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="mudancas" className="mt-4">
+                      {changesLoading ? (
+                        <div className="py-8 flex justify-center">
+                          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : changes.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">Sem mudanças registadas para esta campanha (mostra as últimas 10).</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {changes.map((c) => {
+                            const impact = c.impact_metrics_jsonb?.delta;
+                            return (
+                              <div key={c.id} className="rounded-lg border border-border bg-card p-3 text-xs">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                  <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-400">
+                                    {c.change_type}
+                                  </span>
+                                  <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                    {c.triggered_by}
+                                  </span>
+                                  {c.applied_action_index != null && (
+                                    <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                      acção #{c.applied_action_index}
+                                    </span>
+                                  )}
+                                  <span className="text-[10px] text-muted-foreground ml-auto tabular-nums">
+                                    {new Date(c.applied_at).toLocaleString("pt-PT")}
+                                  </span>
+                                </div>
+                                {c.reason_text && (
+                                  <p className="text-foreground mb-1">{c.reason_text}</p>
+                                )}
+                                <div className="text-[10px] text-muted-foreground/80 font-mono">
+                                  {c.before_jsonb?.status ?? "?"} → {c.after_jsonb?.status ?? "?"}
+                                  {c.before_jsonb?.daily_budget_cents !== c.after_jsonb?.daily_budget_cents && (
+                                    <> · budget {((c.before_jsonb?.daily_budget_cents ?? 0) / 100).toFixed(2)}€ → {((c.after_jsonb?.daily_budget_cents ?? 0) / 100).toFixed(2)}€</>
+                                  )}
+                                </div>
+                                {impact ? (
+                                  <p className="text-emerald-400 mt-1">
+                                    Impacto D+7: ΔROAS {(impact.roas_abs ?? 0).toFixed(2)}x · ΔSpend €{(impact.spend_eur ?? 0).toFixed(2)} · ΔPurchases {impact.purchases_abs ?? 0}
+                                  </p>
+                                ) : c.measure_impact_requested ? (
+                                  <p className="text-muted-foreground/70 mt-1">A aguardar medição de impacto (D+7)…</p>
+                                ) : null}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </TabsContent>
@@ -2224,6 +2389,80 @@ export default function CrmCampaigns() {
             >
               {redesignLoading ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5 mr-1.5" />}
               Re-desenhar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={applyDialogOpen} onOpenChange={setApplyDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Aplicar acção #{(applyAction?.idx ?? 0) + 1}</DialogTitle>
+            <DialogDescription className="space-y-1">
+              <span className="block">{applyAction?.action?.action}</span>
+              <span className="block text-[10px] text-muted-foreground/80">
+                Target: {applyAction?.action?.target_type} · {applyAction?.action?.target_external_id}
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs uppercase text-muted-foreground">Tipo de mudança</Label>
+              <div className="mt-2 flex gap-2">
+                <Button
+                  variant={applyActionType === "pause" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setApplyActionType("pause")}
+                  disabled={applyLoading}
+                >
+                  Pausar
+                </Button>
+                <Button
+                  variant={applyActionType === "activate" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setApplyActionType("activate")}
+                  disabled={applyLoading}
+                >
+                  Reactivar
+                </Button>
+              </div>
+              {!applyAutoDetected && (
+                <p className="text-[10px] text-amber-400 mt-1">
+                  Não foi possível identificar o tipo de acção automaticamente — escolhe acima.
+                </p>
+              )}
+              <p className="text-[10px] text-muted-foreground/80 mt-1">
+                Mudanças mais complexas (verba, end_time, targeting) ainda passam pela tabela de campanhas / re-design.
+              </p>
+            </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="apply-measure" className="text-sm">Medir impacto em D+7</Label>
+              <Switch
+                id="apply-measure"
+                checked={applyMeasureImpact}
+                onCheckedChange={setApplyMeasureImpact}
+                disabled={applyLoading}
+              />
+            </div>
+            <div>
+              <Label htmlFor="apply-reason" className="text-xs uppercase text-muted-foreground">Razão (opcional)</Label>
+              <Input
+                id="apply-reason"
+                value={applyReason}
+                onChange={(e) => setApplyReason(e.target.value)}
+                placeholder="ex: ROAS abaixo do floor por 3 dias consecutivos"
+                disabled={applyLoading}
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setApplyDialogOpen(false)} disabled={applyLoading}>
+              Cancelar
+            </Button>
+            <Button size="sm" onClick={submitApplyAction} disabled={applyLoading}>
+              {applyLoading && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+              Confirmar
             </Button>
           </DialogFooter>
         </DialogContent>

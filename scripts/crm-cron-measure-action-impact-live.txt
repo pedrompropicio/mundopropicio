@@ -1,0 +1,38 @@
+-- ============================================================================
+-- Cron crm-measure-action-impact em LIVE
+-- ----------------------------------------------------------------------------
+-- Correr este SQL no SQL Editor do projeto Live (ukpuhoynrqobqtzdbysp)
+-- APÓS o push do código novo (que cria a tabela crm.meta_campaign_changes
+-- e deploys a edge function crm-measure-action-impact).
+--
+-- Schedule: diariamente às 04:00 UTC. Encontra mudanças com applied_at
+-- >= 7 dias e impact_measured_at IS NULL, agrega métricas 7d antes/depois
+-- e popula impact_metrics_jsonb.
+-- ============================================================================
+
+DO $$ BEGIN
+  PERFORM cron.unschedule('crm-measure-action-impact');
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'crm-measure-action-impact não estava agendado, continuar.';
+END $$;
+
+SELECT cron.schedule(
+  'crm-measure-action-impact',
+  '0 4 * * *',
+  $cron$
+  SELECT net.http_post(
+    url := 'https://ukpuhoynrqobqtzdbysp.supabase.co/functions/v1/crm-measure-action-impact',
+    headers := jsonb_build_object(
+      'Content-Type','application/json',
+      'Authorization','Bearer ' || (
+        SELECT decrypted_secret FROM vault.decrypted_secrets
+        WHERE name = 'email_queue_service_role_key'
+      )
+    ),
+    body := jsonb_build_object('triggeredBy','cron-daily')
+  );
+  $cron$
+);
+
+-- Verificação
+SELECT jobid, schedule, jobname, active FROM cron.job WHERE jobname = 'crm-measure-action-impact';

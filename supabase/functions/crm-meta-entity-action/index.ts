@@ -61,7 +61,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   let body: any;
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
 
-  const { connection_id, entity_type, external_id, action, updates } = body ?? {};
+  const {
+    connection_id, entity_type, external_id, action, updates,
+    // Campos opcionais para o audit trail crm.meta_campaign_changes:
+    diagnosis_id, applied_action_index, triggered_by, reason_text, measure_impact_requested,
+  } = body ?? {};
   if (!connection_id || !entity_type || !external_id || !action) {
     return json({ error: "missing_fields", required: ["connection_id", "entity_type", "external_id", "action"] }, 400);
   }
@@ -71,6 +75,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!["pause", "activate", "update"].includes(action)) {
     return json({ error: "invalid_action", message: "action deve ser pause, activate ou update" }, 400);
   }
+  const triggeredBy: string = typeof triggered_by === "string" && ["user_manual","cron_auto","ai_suggestion"].includes(triggered_by)
+    ? triggered_by
+    : "user_manual";
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
@@ -95,8 +102,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Snapshot atual (pode não existir se for entidade legacy nunca sincronizada — tudo bem)
   const snapMeta = SNAPSHOT_TABLE[entity_type];
   const snapSelectCols = entity_type === "campaign"
-    ? `id, name, status, effective_status, ad_account_id, bid_strategy`
-    : `id, name, status, effective_status, ad_account_id`;
+    ? `id, name, status, effective_status, ad_account_id, bid_strategy, daily_budget_cents, lifetime_budget_cents, external_campaign_id`
+    : entity_type === "adset"
+    ? `id, name, status, effective_status, ad_account_id, daily_budget_cents, lifetime_budget_cents, external_campaign_id`
+    : `id, name, status, effective_status, ad_account_id, external_adset_id, external_campaign_id`;
   const { data: snapRow } = await (supabase as any)
     .schema("crm").from(snapMeta.table)
     .select(snapSelectCols)
@@ -107,6 +116,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const prevStatus = snapRow?.effective_status ?? snapRow?.status ?? null;
   const entityName = snapRow?.name ?? null;
   const adAccountId: string = snapRow?.ad_account_id ?? body.ad_account_id ?? "";
+
+  // Snapshot canonicalizado para before_jsonb do audit trail.
+  const beforeJsonb = snapRow ? {
+    name: (snapRow as any).name ?? null,
+    status: (snapRow as any).status ?? null,
+    effective_status: (snapRow as any).effective_status ?? null,
+    daily_budget_cents: (snapRow as any).daily_budget_cents ?? null,
+    lifetime_budget_cents: (snapRow as any).lifetime_budget_cents ?? null,
+    bid_strategy: (snapRow as any).bid_strategy ?? null,
+  } : null;
 
   // Construir payload Meta + nome semântico da action
   let metaParams: Record<string, string> = {};
@@ -199,7 +218,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       effectiveStatus = newStatus;
     }
 
-    // Log success
+    // Log success no audit log existente (mantido inalterado).
     await (supabase as any).schema("crm").from("meta_entity_actions_log").insert({
       company_id: companyId,
       connection_id,
@@ -215,6 +234,62 @@ Deno.serve(async (req: Request): Promise<Response> => {
       meta_response_jsonb: metaResponse,
       performed_by: userId,
     });
+
+    // Audit trail rico em meta_campaign_changes (paralelo, falha aqui não rolla back).
+    const changeType =
+      actionLogged === "pause" || actionLogged === "activate" ? "status" :
+      actionLogged === "update_name" ? "name" :
+      actionLogged === "update_budget" ? "budget" :
+      actionLogged === "update_roas_floor" ? "bid" :
+      "other";
+    const afterJsonb = {
+      name: typeof metaParams.name === "string" ? metaParams.name : (snapRow as any)?.name ?? null,
+      status: newStatus,
+      effective_status: effectiveStatus,
+      daily_budget_cents: typeof metaParams.daily_budget === "string"
+        ? (parseInt(metaParams.daily_budget, 10) || null)
+        : (snapRow as any)?.daily_budget_cents ?? null,
+      lifetime_budget_cents: typeof metaParams.lifetime_budget === "string"
+        ? (parseInt(metaParams.lifetime_budget, 10) || null)
+        : (snapRow as any)?.lifetime_budget_cents ?? null,
+      bid_strategy: typeof metaParams.bid_strategy === "string"
+        ? metaParams.bid_strategy
+        : (snapRow as any)?.bid_strategy ?? null,
+    };
+    const changeIds: { external_campaign_id: string | null; external_adset_id: string | null; external_ad_id: string | null } = {
+      external_campaign_id: null, external_adset_id: null, external_ad_id: null,
+    };
+    if (entity_type === "campaign") {
+      changeIds.external_campaign_id = external_id;
+    } else if (entity_type === "adset") {
+      changeIds.external_adset_id = external_id;
+      changeIds.external_campaign_id = (snapRow as any)?.external_campaign_id ?? null;
+    } else {
+      changeIds.external_ad_id = external_id;
+      changeIds.external_adset_id = (snapRow as any)?.external_adset_id ?? null;
+      changeIds.external_campaign_id = (snapRow as any)?.external_campaign_id ?? null;
+    }
+    try {
+      const { error: changeInsErr } = await (supabase as any).schema("crm").from("meta_campaign_changes").insert({
+        company_id: companyId,
+        connection_id,
+        external_campaign_id: changeIds.external_campaign_id,
+        external_adset_id: changeIds.external_adset_id,
+        external_ad_id: changeIds.external_ad_id,
+        change_type: changeType,
+        before_jsonb: beforeJsonb,
+        after_jsonb: afterJsonb,
+        reason_text: typeof reason_text === "string" ? reason_text.slice(0, 2000) : null,
+        diagnosis_id: typeof diagnosis_id === "string" ? diagnosis_id : null,
+        applied_action_index: Number.isInteger(applied_action_index) ? applied_action_index : null,
+        triggered_by: triggeredBy,
+        measure_impact_requested: measure_impact_requested === true,
+        applied_by_user_id: userId,
+      });
+      if (changeInsErr) console.warn("[entity-action] meta_campaign_changes insert failed:", changeInsErr.message);
+    } catch (e) {
+      console.warn("[entity-action] meta_campaign_changes insert exception:", (e as Error).message);
+    }
 
     return json({
       ok: true,

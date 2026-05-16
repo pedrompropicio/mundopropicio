@@ -49,3 +49,8 @@ project_id = "ukpuhoynrqobqtzdbysp"
   # Auth é validada em código (service_role bypass + role check).
   [functions.refresh-fever-token]
     verify_jwt = false
+  # crm-measure-action-impact: cron-only (D+7 impact measurement).
+  # Rejeita tudo excepto service_role. Daily schedule em
+  # scripts/crm-cron-measure-action-impact-live.txt (aplicar manualmente).
+  [functions.crm-measure-action-impact]
+    verify_jwt = false
