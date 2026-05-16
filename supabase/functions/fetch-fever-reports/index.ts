@@ -445,7 +445,14 @@ export default async function ({ page }) {
       throw new Error('Sales breakdown não encontrado para marcar');
     }
 
-    await sleep(300);
+    // Scroll explícito horizontal+vertical (carousel mobile)
+    await page.evaluate(() => {
+      const el = document.querySelector('[data-claude-target="sales-tab"]');
+      if (el) {
+        (el as any).scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+      }
+    });
+    await sleep(1000);
     try {
       await page.click('[data-claude-target="sales-tab"]', { delay: 50 });
       log('page.click() executed on Sales breakdown');
