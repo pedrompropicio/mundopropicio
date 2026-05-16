@@ -390,19 +390,8 @@ export async function parseFeverXlsx(
           cursor++;
         }
         if (cursor >= variants.length) {
-          // sem stock — atribui tudo ao lote mais caro (último) com aviso
-          const fallback = variants[variants.length - 1];
-          sales.push({
-            purchaseDate: r.date,
-            weekday: r.weekday,
-            lotKey: fallback.key,
-            ticketType: fallback.ticketType,
-            unitPrice: fallback.unitPrice,
-            quantity: need,
-            totalValue: roundCents(need * fallback.unitPrice),
-          });
           warnings.push(
-            `Excedente de ${need} bilhete(s) "${ticketType}" em ${r.date} sem stock no ficheiro de preços — atribuídos a €${fallback.unitPrice.toFixed(2)}.`,
+            `Descartado ${need} bilhete(s) "${ticketType}" em ${r.date} — não corresponde a vendas confirmadas no relatório sales_per_ticket_type (provavelmente reservas pendentes / refunds posteriores)`,
           );
           need = 0;
           break;
