@@ -583,10 +583,12 @@ export default async function ({ page }) {
       return result;
     }
 
-    const card1 = await downloadCard('Vendas por tipo de ingresso')
+    const card1 = await downloadCard('Vendas por tipo de bilhete')
+      .catch(async () => await downloadCard('Vendas por tipo de ingresso'))
       .catch(async () => await downloadCard('Sales by ticket type'))
       .catch(async () => await downloadCard('Ticket type sales'));
-    const card2 = await downloadCard('Ingressos por tipo de ingresso e data de compra')
+    const card2 = await downloadCard('Bilhetes por tipo de bilhete e data de compra')
+      .catch(async () => await downloadCard('Ingressos por tipo de ingresso e data de compra'))
       .catch(async () => await downloadCard('Tickets by ticket type and purchase date'))
       .catch(async () => await downloadCard('Tickets per ticket type and purchase date'));
 
