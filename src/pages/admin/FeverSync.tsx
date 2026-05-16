@@ -322,6 +322,85 @@ export default function FeverSync() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!tokenModal} onOpenChange={(o) => { if (!o) { setTokenModal(null); setTokenInput(""); setTokenInfo(null); setTokenError(null); } }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-auto">
+          <DialogHeader><DialogTitle>Token Fever (B2bToken)</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>B2bToken (JWT)</Label>
+              <Textarea
+                value={tokenInput}
+                onChange={(e) => { setTokenInput(e.target.value); setTokenInfo(null); setTokenError(null); }}
+                placeholder="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+                className="font-mono text-xs min-h-[120px]"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => decodeToken(tokenInput)} disabled={!tokenInput.trim()}>
+                Descodificar e validar
+              </Button>
+              {tokenInfo && (
+                <Badge
+                  variant="outline"
+                  className={
+                    tokenInfo.hoursRemaining <= 0 ? "bg-destructive/15 text-destructive border-destructive/30" :
+                    tokenInfo.hoursRemaining < 2 ? "bg-destructive/15 text-destructive border-destructive/30" :
+                    tokenInfo.hoursRemaining < 12 ? "bg-yellow-500/15 text-yellow-600 border-yellow-500/30" :
+                    "bg-green-500/15 text-green-600 border-green-500/30"
+                  }
+                >
+                  Expira em {new Date(tokenInfo.exp * 1000).toLocaleString("pt-PT")} (~{tokenInfo.hoursRemaining}h)
+                </Badge>
+              )}
+            </div>
+            {tokenInfo?.user_email && (
+              <p className="text-xs text-muted-foreground">Utilizador: <code>{tokenInfo.user_email}</code></p>
+            )}
+            {tokenError && <p className="text-xs text-destructive">{tokenError}</p>}
+
+            <div className="border-t pt-4">
+              <p className="text-sm font-medium mb-2">Como obter o token</p>
+              <Tabs defaultValue="mobile">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="mobile">📱 iPhone (recomendado)</TabsTrigger>
+                  <TabsTrigger value="desktop">💻 Mac</TabsTrigger>
+                </TabsList>
+                <TabsContent value="mobile" className="text-xs space-y-2 mt-3">
+                  <ol className="list-decimal pl-5 space-y-1">
+                    <li>Activa "Web Inspector": <b>Ajustes → Apps → Safari → Avançado → Web Inspector</b></li>
+                    <li>Liga o iPhone ao Mac por USB</li>
+                    <li>No Mac, abre Safari → menu <b>Desenvolver</b> → escolhe o teu iPhone → escolhe a aba <code>partners.feverup.com</code></li>
+                    <li>No DevTools, vai à aba <b>Console</b> e cola: <code className="bg-muted px-1 rounded">copy(localStorage.getItem('token'))</code></li>
+                    <li>O token fica na clipboard do <b>iPhone</b>. Volta aqui e cola no campo acima.</li>
+                  </ol>
+                </TabsContent>
+                <TabsContent value="desktop" className="text-xs space-y-2 mt-3">
+                  <ol className="list-decimal pl-5 space-y-1">
+                    <li>Abre <code>partners.feverup.com</code> no Mac com sessão iniciada</li>
+                    <li>DevTools → <b>Console</b> → cola: <code className="bg-muted px-1 rounded">copy(localStorage.getItem('token'))</code></li>
+                    <li>Cola aqui no campo acima.</li>
+                  </ol>
+                </TabsContent>
+              </Tabs>
+              <p className="text-xs text-muted-foreground mt-3">
+                O token expira em ~21h. Renova quando esta página avisar (faltam &lt;2h → vermelho).
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setTokenModal(null); setTokenInput(""); setTokenInfo(null); setTokenError(null); }}>Cancelar</Button>
+            <Button
+              disabled={tokenMut.isPending || !tokenInput.trim() || !tokenInfo || tokenInfo.hoursRemaining <= 0}
+              onClick={() => tokenMut.mutate()}
+            >
+              {tokenMut.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
