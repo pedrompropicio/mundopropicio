@@ -345,6 +345,32 @@ export default function FeverSync() {
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-auto">
           <DialogHeader><DialogTitle>Token Fever (B2bToken)</DialogTitle></DialogHeader>
           <div className="space-y-4">
+            <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">Refresh automático</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={refreshTokenMut.isPending}
+                  onClick={() => refreshTokenMut.mutate()}
+                >
+                  {refreshTokenMut.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                  Refrescar agora
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                O token é renovado automaticamente 2× por dia (00:00 e 12:00 UTC) usando as credenciais guardadas. Só precisas de colar manualmente se a password mudar ou se quiseres forçar.
+              </p>
+              <p className="text-xs">
+                <span className="text-muted-foreground">Último refresh automático: </span>
+                <span className="font-mono">
+                  {tokenModal?.last_token_refresh_at
+                    ? new Intl.DateTimeFormat("pt-PT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(tokenModal.last_token_refresh_at))
+                    : "ainda nunca foi feito"}
+                </span>
+              </p>
+            </div>
+
             <div>
               <Label>B2bToken (JWT)</Label>
               <Textarea
