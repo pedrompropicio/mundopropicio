@@ -400,6 +400,7 @@ function ProtectedLayout() {
               <Route path="/admin/empresas" element={<Companies />} />
               <Route path="/admin/lembretes" element={<Reminders />} />
               <Route path="/admin/auditoria-rls" element={<RlsLegacyAudit />} />
+              <Route path="/admin/sync-health" element={<SyncHealth />} />
               <Route path="/admin/sync-coala" element={<CoalaSync />} />
               <Route path="/admin/fever-sync" element={<FeverSync />} />
               <Route path="/crm/connections" element={<Navigate to="/audience/connections" replace />} />
