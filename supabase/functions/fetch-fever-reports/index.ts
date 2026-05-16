@@ -56,7 +56,7 @@ export default async function ({ page }) {
 
   const logs = [];
   const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
-  log('VERSION_MARKER_2026_05_15_v18');
+  log('VERSION_MARKER_2026_05_15_v19');
 
   let lastScreenshot = null;
   const snap = async (label) => {
@@ -329,6 +329,37 @@ export default async function ({ page }) {
     await page.goto(dashUrl, { waitUntil: 'networkidle2', timeout: 60000 });
     await sleep(5000);
     await snap('dashboard');
+
+    // CRÍTICO: clicar "Show" / "Mostrar" para ativar os filtros e tornar a página interactiva
+    log('clicking Show button to activate filters');
+    const showMarked = await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const showBtn = btns.find(b => {
+        const t = (b.textContent || '').trim().toLowerCase();
+        return /^(show|mostrar|aplicar|apply)$/i.test(t);
+      });
+      if (!showBtn) return { found: false, buttons: btns.map(b => (b.textContent || '').trim().slice(0, 30)).slice(0, 20) };
+      showBtn.setAttribute('data-claude-target', 'show-btn');
+      showBtn.scrollIntoView({ block: 'center' });
+      return { found: true, text: (showBtn.textContent || '').trim() };
+    });
+    log('show button mark: ' + JSON.stringify(showMarked));
+
+    if (showMarked.found) {
+      await sleep(300);
+      try {
+        await page.click('[data-claude-target="show-btn"]', { delay: 50 });
+        log('Show button clicked');
+      } catch (e) {
+        log('show button click error: ' + (e && e.message));
+      }
+      await sleep(4000);
+      await snap('after-show');
+      const afterShowText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 5000) : '').catch(() => '');
+      log('after-show page text: ' + afterShowText.replace(/\\n+/g, ' | ').slice(0, 2500));
+    } else {
+      log('Show button not found, continuing anyway');
+    }
 
     // DESCOBERTA: logar page text e tabs disponíveis (Fever em EN no Browserless)
     const dashboardText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 4000) : '').catch(() => '');
