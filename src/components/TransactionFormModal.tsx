@@ -643,6 +643,27 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     return eventForecasts;
   }, [eventForecasts, isParentMultiDay, effectiveEventId]);
 
+  // Forecast vinculado: usado para filtrar categoria por L2 e escrever FK no INSERT.
+  const selectedForecast = useMemo(
+    () => (selectedForecastId ? (relevantForecasts as any[]).find((f: any) => f.id === selectedForecastId) : null),
+    [selectedForecastId, relevantForecasts],
+  );
+  const selectedForecastL2Id = useMemo(
+    () => (selectedForecast ? getL2Id(selectedForecast.category_id, categories as any[]) : null),
+    [selectedForecast, categories],
+  );
+  const selectedForecastL2Label = useMemo(() => {
+    if (!selectedForecastL2Id) return null;
+    const l2 = (categories as any[]).find((c) => c.id === selectedForecastL2Id);
+    return l2 ? `${l2.code} ${l2.name}` : null;
+  }, [selectedForecastL2Id, categories]);
+
+  // Reset vínculo quando o evento muda (linha BP deixa de fazer sentido noutro evento).
+  useEffect(() => {
+    if (selectedForecastId) setSelectedForecastId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.event_id]);
+
   // Helper: when user is in a sub-event and selects a category from the parent's BP,
   // show disambiguation dialog instead of auto-activating split.
   // `clickedLine` (optional): when the user clicks a specific BP line, prefer it
