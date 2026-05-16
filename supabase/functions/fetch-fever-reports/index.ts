@@ -56,7 +56,7 @@ export default async function ({ page }) {
 
   const logs = [];
   const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
-  log('VERSION_MARKER_2026_05_15_v21');
+  log('VERSION_MARKER_2026_05_15_v22');
 
   let lastScreenshot = null;
   const snap = async (label) => {
@@ -370,7 +370,7 @@ export default async function ({ page }) {
       } catch (e) {
         log('show button click error: ' + (e && e.message));
       }
-      await sleep(4000);
+      await sleep(10000);
       await snap('after-show');
       const afterShowText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 5000) : '').catch(() => '');
       log('after-show page text: ' + afterShowText.replace(/\\n+/g, ' | ').slice(0, 2500));
@@ -445,7 +445,14 @@ export default async function ({ page }) {
       throw new Error('Sales breakdown não encontrado para marcar');
     }
 
-    await sleep(300);
+    // Scroll explícito horizontal+vertical (carousel mobile)
+    await page.evaluate(() => {
+      const el = document.querySelector('[data-claude-target="sales-tab"]');
+      if (el) {
+        el.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+      }
+    });
+    await sleep(1000);
     try {
       await page.click('[data-claude-target="sales-tab"]', { delay: 50 });
       log('page.click() executed on Sales breakdown');
@@ -465,9 +472,21 @@ export default async function ({ page }) {
       }
     }
 
-    await sleep(3500);
-    await snap('after-sales-breakdown');
+    await sleep(5000);
+    await snap('after-sales-breakdown-1');
     log('after-breakdown url: ' + page.url());
+
+    // Scroll para baixo da página para forçar lazy-load dos cards
+    log('scrolling to bottom for lazy-load');
+    await page.evaluate(() => {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' });
+    });
+    await sleep(2000);
+    await page.evaluate(() => {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    });
+    await sleep(1500);
+    await snap('after-sales-breakdown-scrolled');
 
     const afterText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 5000) : '').catch(() => '');
     log('after-breakdown page text: ' + afterText.replace(/\\n+/g, ' | ').slice(0, 2500));
