@@ -605,13 +605,11 @@ function AnaliseIATab() {
     if (!toApply.length) { toast.info("Nada para aplicar"); setSummaryOpen(false); return; }
     setApplying(true);
     let ok = 0, fail = 0;
-    // Marca origem para o trigger de aprendizado Coala (coala_capture_category_change)
-    try { await supabase.rpc("set_coala_match_source" as any, { source: "audit_ia" }); } catch { /* opcional */ }
+    // Nota: cada UPDATE dispara o trigger coala_capture_category_change e alimenta
+    // a tabela coala_supplier_category_map (matched_via='inline_edit' por defeito).
     for (const r of toApply) {
       try {
         const table = r.source === "bp" ? "event_forecasts" : "transactions";
-        // Re-marca por iteração: set_config(local=true) só dura na mesma transação SQL
-        try { await supabase.rpc("set_coala_match_source" as any, { source: "audit_ia" }); } catch { /* opcional */ }
         const { error } = await supabase.from(table).update({ category_id: r.chosen_id }).eq("id", r.id);
         if (error) throw error;
         ok++;
