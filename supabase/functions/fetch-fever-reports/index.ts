@@ -262,7 +262,7 @@ export default async function ({ page }) {
     }
 
     // Esperar redirect pós-login
-    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch((e) => {
+    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 5000 }).catch((e) => {
       log('no navigation after sign in: ' + (e && e.message));
     });
     log('post-signin url=' + page.url());
