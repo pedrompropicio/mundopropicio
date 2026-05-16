@@ -1,0 +1,37 @@
+-- ============================================================================
+-- Cron fever-refresh-token em LIVE
+-- ----------------------------------------------------------------------------
+-- Correr este SQL no SQL Editor do projeto Live (sfohvvlqccmmebvjgibx)
+-- APÓS o Publish do código novo. Agenda renovação automática 2×/dia do
+-- B2bToken Fever (Coala Festival 2026) usando a edge function refresh-fever-token.
+-- ============================================================================
+
+DO $$ BEGIN
+  PERFORM cron.unschedule('fever-refresh-token');
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'fever-refresh-token não estava agendado, continuar.';
+END $$;
+
+SELECT cron.schedule(
+  'fever-refresh-token',
+  '0 0,12 * * *',
+  $cron$
+  SELECT net.http_post(
+    url := 'https://sfohvvlqccmmebvjgibx.supabase.co/functions/v1/refresh-fever-token',
+    headers := jsonb_build_object(
+      'Content-Type','application/json',
+      'Authorization','Bearer ' || (
+        SELECT decrypted_secret FROM vault.decrypted_secrets
+        WHERE name = 'email_queue_service_role_key'
+      )
+    ),
+    body := jsonb_build_object(
+      'configId','53c82e46-8164-4dc2-a5da-e071a6ecad93',
+      'triggeredBy','cron-refresh'
+    )
+  );
+  $cron$
+);
+
+-- Verificação
+SELECT jobid, schedule, jobname, active FROM cron.job WHERE jobname = 'fever-refresh-token';
