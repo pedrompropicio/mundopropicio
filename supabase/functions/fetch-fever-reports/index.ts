@@ -394,7 +394,8 @@ export default async function ({ page }) {
       const all = Array.from(document.querySelectorAll('*'));
       const found = all.filter(el => {
         const t = (el.textContent || '').trim();
-        return t === 'Sales breakdown' || (t.includes('Sales breakdown') && t.length < 30);
+        return t === 'Detalhes de vendas' || t === 'Detalhamento de vendas' || t === 'Sales breakdown' ||
+               ((t.includes('Detalhes de vendas') || t.includes('Detalhamento de vendas') || t.includes('Sales breakdown')) && t.length < 30);
       });
       if (!found.length) return { found: false };
       return found.slice(0, 3).map(el => {
