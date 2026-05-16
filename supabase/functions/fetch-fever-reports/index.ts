@@ -56,7 +56,7 @@ export default async function ({ page }) {
 
   const logs = [];
   const log = (m) => { const s = '[' + Date.now() + '] ' + m; logs.push(s); try { console.log(s); } catch (_) {} };
-  log('VERSION_MARKER_2026_05_15_v17');
+  log('VERSION_MARKER_2026_05_15_v18');
 
   let lastScreenshot = null;
   const snap = async (label) => {
@@ -151,6 +151,17 @@ export default async function ({ page }) {
   };
 
   try {
+    // Emular iPhone (Pedro faz login com sucesso no celular)
+    await page.setViewport({
+      width: 390,
+      height: 844,
+      deviceScaleFactor: 2,
+      isMobile: true,
+      hasTouch: true,
+    });
+    await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1');
+    log('viewport set to iPhone mobile');
+
     // 1. LOGIN
     log('goto login');
     await page.goto('https://partners.feverup.com/login', { waitUntil: 'networkidle2', timeout: 45000 });
@@ -316,7 +327,7 @@ export default async function ({ page }) {
                     '&planId=' + args.planId + '&venueId=' + args.venueId;
     log('goto dashboard ' + dashUrl);
     await page.goto(dashUrl, { waitUntil: 'networkidle2', timeout: 60000 });
-    await sleep(2500);
+    await sleep(5000);
     await snap('dashboard');
 
     // DESCOBERTA: logar page text e tabs disponíveis (Fever em EN no Browserless)
