@@ -343,7 +343,7 @@ export default async function ({ page }) {
     const dashUrl = 'https://partners.feverup.com/plans/dashboard?cityId=' + args.cityId +
                     '&planId=' + args.planId + '&venueId=' + args.venueId;
     log('goto dashboard ' + dashUrl);
-    await page.goto(dashUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+    await page.goto(dashUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await sleep(3000);
     await snap('dashboard');
 
