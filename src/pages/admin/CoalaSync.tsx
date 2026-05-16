@@ -15,6 +15,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Loader2, Play, Plus, RefreshCw, AlertTriangle, CheckCircle2, Clock, Zap, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
+import { useHasFeature } from "@/hooks/useCompanyFeatures";
+import { FEATURES } from "@/lib/features";
+import { FeatureNotEnabledCard } from "@/components/FeatureNotEnabledCard";
 
 type Cfg = {
   id: string;
