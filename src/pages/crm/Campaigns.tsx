@@ -79,6 +79,7 @@ interface CampaignRow {
   linked_event_locked: boolean | null;
   currency: string | null;
   bid_strategy: string | null;
+  replaced_by_strategy_id: string | null; // Sprint 3a-1 — marca campanha substituída por redesign
 }
 
 interface InsightRow {
@@ -627,6 +628,8 @@ function CampaignTableRow({
   tourContext?: { master: EventRow; splits: EventRow[]; onReassigned: () => void };
 }) {
   const isPaused = (c.effective_status ?? c.status) === "PAUSED";
+  const isReplaced = c.replaced_by_strategy_id != null;
+  const navigate = useNavigate();
   const agg = useMemo(() => aggregate(insights), [insights]);
   const aggPrev = useMemo(() => aggregate(prevInsights), [prevInsights]);
   const cpcAvg = agg.clicks > 0 ? Math.round(agg.spendCents / agg.clicks) : null;
@@ -692,12 +695,20 @@ function CampaignTableRow({
     <tr
       className={cn(
         "border-b border-border/40 hover:bg-muted/40 transition-colors cursor-pointer",
-        isPaused && "opacity-60",
+        (isPaused || isReplaced) && "opacity-60",
       )}
       onClick={() => console.log("[campaign click]", c.external_campaign_id, c.name)}
     >
       <td className="py-2.5 px-3 max-w-[280px] font-medium text-sm">
         <div className="flex items-center gap-1.5 min-w-0">
+          {isReplaced && (
+            <Badge
+              variant="outline"
+              className="text-[9px] uppercase shrink-0 bg-cyan-500/10 text-cyan-300 border-cyan-500/30 px-1.5 py-0"
+            >
+              Substituída
+            </Badge>
+          )}
           {isPaused && (
             <Badge
               variant="secondary"
@@ -707,6 +718,19 @@ function CampaignTableRow({
             </Badge>
           )}
           <span className="truncate">{c.name}</span>
+          {isReplaced && c.replaced_by_strategy_id && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/audience/strategies/${c.replaced_by_strategy_id}`);
+              }}
+              className="text-[10px] text-cyan-400 hover:text-cyan-300 underline shrink-0"
+              title="Abrir nova strategy"
+            >
+              Ver nova strategy →
+            </button>
+          )}
           {onAnalyze && (
             <button
               onClick={(e) => {
@@ -790,7 +814,7 @@ function CampaignTableRow({
         </Tooltip>
       </td>
       <td className="py-2.5 px-3">
-        <Sparkline data={spark} className={isPaused ? "opacity-40" : undefined} />
+        <Sparkline data={spark} className={(isPaused || isReplaced) ? "opacity-40" : undefined} />
       </td>
       <td className="py-2.5 px-3" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-1.5">
@@ -798,6 +822,18 @@ function CampaignTableRow({
             const eff = c.effective_status ?? c.status ?? null;
             const isActive = eff === "ACTIVE";
             const isPaused = eff === "PAUSED";
+            if (isReplaced) {
+              return (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-[10px] text-cyan-300 border border-cyan-500/30 bg-cyan-500/10 rounded px-2 py-0.5 cursor-help">
+                      gerida por strategy
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Esta campanha foi substituída por uma nova strategy. Acção via "Ver nova strategy →" ao lado do nome.</TooltipContent>
+                </Tooltip>
+              );
+            }
             if (!isActive && !isPaused) {
               return (
                 <Tooltip>
@@ -856,7 +892,7 @@ function CampaignTableRow({
           >
             <Target className="h-3 w-3 mr-1" />Testar funil
           </Button>
-          {tourContext && (
+          {tourContext && !isReplaced && (
             <ReassignCampaignToSplit
               campaign={c}
               master={tourContext.master}
@@ -1323,7 +1359,7 @@ export default function CrmCampaigns() {
   const [syncing, setSyncing] = useState(false);
   const [secondsAgo, setSecondsAgo] = useState(0);
   const lastFetchRef = useRef<number>(Date.now());
-  const [statusFilter, setStatusFilter] = useState<"active" | "paused" | "all">("active");
+  const [statusFilter, setStatusFilter] = useState<"active" | "paused" | "all" | "replaced">("active");
 
   // Reactivate dialog (substitui window.confirm para activate; pause mantém confirm).
   const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
@@ -1862,14 +1898,18 @@ export default function CrmCampaigns() {
     return m;
   }, [events]);
 
-  // Filtro por status (sticky header): "active" (default), "paused" ou "all".
-  // Campanhas pausadas continuam visíveis no Dashboard quando filter !== "active".
+  // Filtro por status (sticky header): "active" (default), "paused", "all" ou "replaced".
+  // Substituídas (replaced_by_strategy_id != null) só aparecem em statusFilter='replaced' ou 'all'.
+  // Em 'active'/'paused' são excluídas (podem estar ACTIVE no modo delayed_7d/manual).
   const displayedCampaigns = useMemo(
-    () => (campaigns ?? []).filter((c) =>
-      statusFilter === "all" ? true
-      : statusFilter === "active" ? c.status === "ACTIVE"
-      : c.status === "PAUSED"
-    ),
+    () => (campaigns ?? []).filter((c) => {
+      const isReplaced = c.replaced_by_strategy_id != null;
+      if (statusFilter === "replaced") return isReplaced;
+      if (statusFilter === "all") return true;
+      if (isReplaced) return false;
+      if (statusFilter === "active") return c.status === "ACTIVE";
+      return c.status === "PAUSED";
+    }),
     [campaigns, statusFilter],
   );
 
@@ -2098,7 +2138,9 @@ export default function CrmCampaigns() {
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Última sync Meta: {lastSyncMeta ?? "—"} · campanhas: {campaigns?.length ?? 0}
-              {" "}({(campaigns ?? []).filter((c) => c.status === "ACTIVE").length} activas, {(campaigns ?? []).filter((c) => c.status === "PAUSED").length} pausadas)
+              {" "}({(campaigns ?? []).filter((c) => c.status === "ACTIVE" && c.replaced_by_strategy_id == null).length} activas,
+              {" "}{(campaigns ?? []).filter((c) => c.status === "PAUSED" && c.replaced_by_strategy_id == null).length} pausadas,
+              {" "}{(campaigns ?? []).filter((c) => c.replaced_by_strategy_id != null).length} substituídas)
               {" "}· contas: {adAccountsCount}
             </p>
           </div>
@@ -2175,6 +2217,7 @@ export default function CrmCampaigns() {
             { k: "active", l: "Activas" },
             { k: "paused", l: "Pausadas" },
             { k: "all", l: "Todas" },
+            { k: "replaced", l: "Substituídas" },
           ] as const).map((s) => (
             <Button
               key={s.k}

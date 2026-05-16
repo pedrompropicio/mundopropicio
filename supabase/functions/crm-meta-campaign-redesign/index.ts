@@ -72,12 +72,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
       roas_floor?: number;
       end_time?: string;
     };
+    // Sprint 3a-2 — opcionais (retrocompatível: chamada sem estes campos preserva comportamento).
+    inheritance_decisions?: {
+      inherit_creative_ids?: string[];
+      discard_creative_ids?: string[];
+      inherit_adset_ids?: string[];
+      discard_adset_ids?: string[];
+      new_creatives_to_generate?: Array<{ phase_id: string; angle: string; gap_tag: string; justification: string }>;
+      new_audiences_to_create?: Array<{ phase_id: string; type: string; description: string; gap_tag: string }>;
+    };
+    pause_original_mode?: "immediate" | "delayed_7d" | "manual";
   };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
   const campaignId = body.campaign_id;
   if (!campaignId) return json({ error: "missing_campaign_id" }, 400);
   const periodDays = Math.min(Math.max(body.period_days ?? 30, 7), 90);
   const ctIn = body.constraints ?? {};
+  const inh = body.inheritance_decisions ?? null;
+  const pauseOriginalMode: "immediate" | "delayed_7d" | "manual" =
+    body.pause_original_mode === "delayed_7d" || body.pause_original_mode === "manual"
+      ? body.pause_original_mode
+      : "immediate";
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
@@ -184,6 +199,47 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   }
 
+  // 4b) Cross-event context — peers do mesmo evento (Sprint 3a-2).
+  let crossEventContextText = "";
+  if (campaign.linked_event_id) {
+    const { data: peersRaw } = await (supabase as any)
+      .schema("crm").from("meta_campaign_snapshot")
+      .select("external_campaign_id, name, status, effective_status")
+      .eq("linked_event_id", campaign.linked_event_id)
+      .neq("external_campaign_id", campaignId)
+      .limit(5);
+    const peers = peersRaw ?? [];
+    if (peers.length > 0) {
+      const peerIds: string[] = peers.map((p: any) => p.external_campaign_id);
+      const { data: peerInsights } = await (supabase as any)
+        .schema("crm").from("meta_campaign_insights_daily")
+        .select("external_campaign_id, impressions, reach, clicks, spend_cents, purchases_count, purchases_value_cents, frequency")
+        .in("external_campaign_id", peerIds)
+        .gte("date_start", fromDate).lte("date_start", toDate);
+      const peerAggsMap = new Map<string, Agg>();
+      for (const id of peerIds) peerAggsMap.set(id, emptyAgg());
+      for (const r of peerInsights ?? []) {
+        const a = peerAggsMap.get(r.external_campaign_id);
+        if (!a) continue;
+        a.impressions += r.impressions ?? 0;
+        a.reach = Math.max(a.reach, r.reach ?? 0);
+        a.clicks += r.clicks ?? 0;
+        a.spendCents += r.spend_cents ?? 0;
+        a.purchases += r.purchases_count ?? 0;
+        a.purchasesValueCents += r.purchases_value_cents ?? 0;
+        if (r.frequency != null) { a.frequencySum += r.frequency; a.frequencyN++; }
+      }
+      const lines: string[] = [];
+      for (const p of peers) {
+        const a = peerAggsMap.get(p.external_campaign_id) ?? emptyAgg();
+        const m = metricsOf(a);
+        const status = p.effective_status ?? p.status ?? "?";
+        lines.push(`- "${p.name}" [${status}]: ROAS ${m.roas != null ? m.roas.toFixed(2) + "x" : "n/a"}, spend €${m.spend_eur.toFixed(2)}, ${m.purchases} compras`);
+      }
+      crossEventContextText = `\n== CONTEXTO CROSS-EVENT ==\nOutras campanhas do mesmo evento${eventCtx.name ? ` (${eventCtx.name})` : ""}:\n${lines.join("\n")}\n\nSe peers têm ROAS médio significativamente superior, identifica o que estão a fazer diferente e incorpora esse padrão no plano novo (audiences, ângulos criativos, distribuição de verba por fase). Cita explicitamente em \`redesign_rationale\` se aplicável.\n`;
+    }
+  }
+
   // 5) Resolve constraints efectivas
   const keepOriginal = ctIn.keep_original_budget !== false; // default true
   let effDailyCents: number | null = typeof ctIn.daily_budget_cents === "number" ? ctIn.daily_budget_cents : null;
@@ -210,6 +266,90 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // 6) Prompt
   const diagJsonStr = JSON.stringify(diagnosis.diagnosis_jsonb ?? {}).slice(0, 12000);
   const countries = ["PT", "BR"];
+
+  // 6a) Inheritance decisions text — só quando body.inheritance_decisions presente.
+  let inheritanceDecisionsText = "";
+  if (inh) {
+    const keepCreativeIds: string[] = inh.inherit_creative_ids ?? [];
+    const discardCreativeIds: string[] = inh.discard_creative_ids ?? [];
+    const keepAdsetIds: string[] = inh.inherit_adset_ids ?? [];
+    const discardAdsetIds: string[] = inh.discard_adset_ids ?? [];
+    const newCreatives = inh.new_creatives_to_generate ?? [];
+    const newAudiences = inh.new_audiences_to_create ?? [];
+
+    const keepCreativeDetails = keepCreativeIds.map((cid) => {
+      const found = inheritedCreatives.find((c) => c.meta_creative_id === cid);
+      return found
+        ? `  - ${cid}: "${found.library?.name ?? found.ad_name ?? "?"}"${found.library?.headline ? ` (hook: "${found.library.headline}")` : ""}`
+        : `  - ${cid}`;
+    }).join("\n");
+
+    let keepAdsetDetails = "";
+    if (keepAdsetIds.length > 0) {
+      const { data: keepAdsetsData } = await (supabase as any)
+        .schema("crm").from("meta_adset_snapshot")
+        .select("external_adset_id, name, optimization_goal, targeting")
+        .in("external_adset_id", keepAdsetIds);
+      keepAdsetDetails = (keepAdsetsData ?? []).map((a: any) => {
+        const t = a.targeting ?? {};
+        const countries = (t.geo_locations?.countries ?? []).slice(0, 3).join("/");
+        const age = `${t.age_min ?? "?"}-${t.age_max ?? "?"}`;
+        const interestArr = t.flexible_spec?.[0]?.interests ?? t.interests ?? [];
+        const interests = interestArr.slice(0, 2).map((i: any) => i.name).filter(Boolean).join(", ");
+        const customs = (t.custom_audiences ?? []).length;
+        const summary = [
+          countries && `geo: ${countries}`,
+          `age ${age}`,
+          interests && `interests: ${interests}`,
+          customs > 0 && `${customs} custom audience(s)`,
+        ].filter(Boolean).join(" · ");
+        return `  - ${a.external_adset_id}: "${a.name}" [${a.optimization_goal ?? "?"}] — ${summary || "broad"}`;
+      }).join("\n");
+    }
+
+    const discardCreativeLine = discardCreativeIds.join(", ") || "(nenhum)";
+    const discardAdsetLine = discardAdsetIds.join(", ") || "(nenhum)";
+
+    const newCreativeLines = newCreatives.length > 0
+      ? newCreatives.map((nc, i) =>
+          `  ${i + 1}. phase=${nc.phase_id} | angle=${nc.angle} | gap=${nc.gap_tag} | razão: ${nc.justification}`
+        ).join("\n")
+      : "  (nenhum)";
+
+    const newAudienceLines = newAudiences.length > 0
+      ? newAudiences.map((na, i) =>
+          `  ${i + 1}. phase=${na.phase_id} | type=${na.type} | gap=${na.gap_tag} | descrição: ${na.description}`
+        ).join("\n")
+      : "  (nenhuma)";
+
+    inheritanceDecisionsText = `\n== DECISÕES DE HERANÇA DO UTILIZADOR (HARD CONSTRAINTS) ==
+O utilizador já reviu o inventário desta campanha e decidiu o que herdar/descartar. Respeita EXACTAMENTE estas escolhas — NÃO inventes assets fora destas listas.
+
+Criativos a MANTER (usar existing_creative_id em ads, distribuir pelas fases):
+${keepCreativeDetails || "  (nenhum)"}
+
+Criativos a NÃO usar:
+${discardCreativeLine}
+
+Adsets cujo TARGETING deve ser preservado (recria adsets equivalentes nas novas campanhas, mantendo geo/age/interests/audiences):
+${keepAdsetDetails || "  (nenhum)"}
+
+Adsets a NÃO recriar (targeting falhou — evita padrões similares):
+${discardAdsetLine}
+
+Criativos NOVOS a gerar brief (utilizador aprovou estas lacunas — segue o angle especificado):
+${newCreativeLines}
+
+Audiences NOVAS a criar (utilizador aprovou):
+${newAudienceLines}
+
+REGRAS RÍGIDAS:
+- Cada ad de cada adset deve referenciar APENAS criativos das listas: inherit_creative_ids OU criativos novos cujo brief está acima
+- NÃO recries adsets com targeting similar aos descartados
+- Para cada novo creative_brief proposto, segue o angle e gap_tag indicados
+- Distribui os criativos herdados pelos adsets de forma sensata (cada fase deve ter pelo menos 1 ad)
+`;
+  }
 
   const inheritedBlock = inheritedCreatives.length > 0
     ? `\n== CRIATIVOS DISPONÍVEIS (REAPROVEITAR POR DEFEITO) ==
@@ -257,7 +397,8 @@ ${eventCtx.name ? `- Nome: ${eventCtx.name}
 == DIAGNÓSTICO ANTERIOR (severity=${diagnosis.severity}, score=${diagnosis.overall_score}) ==
 ${diagJsonStr}
 ${inheritedBlock}
-
+${crossEventContextText}
+${inheritanceDecisionsText}
 == META PRINCIPAL ==
 ROAS alvo BLENDED do evento: ${targetBlendedRoas.toFixed(1)}x (agregado entre TODAS as fases — não por campanha/adset individual).
 Avaliação por fase: fases REACH/AWARENESS/VIDEO_VIEWS terão ROAS individual baixo (esperado 0–2x); fases CONVERSIONS/SALES devem entregar ROAS >=${targetBlendedRoas.toFixed(1)}x para puxar o blended; retargeting deve entregar 10–20x.
@@ -448,6 +589,40 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
     console.log("[redesign] fallback: aplicado", fallbackId, "a todos os adsets vazios");
   }
 
+  // 7.0.1) Enforce inheritance_decisions (Sprint 3a-2): filtra ads para
+  //        usar SÓ criativos aprovados pelo wizard. Se algum adset ficou
+  //        sem ads, repreenche com os aprovados que existem na library.
+  if (inh) {
+    const allowedCreativeSet = new Set(inh.inherit_creative_ids ?? []);
+    let removedCount = 0;
+    for (const c of plan?.recommended_campaigns ?? []) {
+      for (const a of c?.adsets ?? []) {
+        if (!Array.isArray(a.ads)) continue;
+        const before = a.ads.length;
+        a.ads = a.ads.filter((ad: any) => {
+          if (typeof ad?.existing_creative_id === "string") {
+            return allowedCreativeSet.has(ad.existing_creative_id);
+          }
+          return true; // creative_brief (novo) passa
+        });
+        removedCount += (before - a.ads.length);
+      }
+    }
+    const approvedHeritageList = (inh.inherit_creative_ids ?? []).filter((cid) =>
+      inheritedCreatives.find((ic) => ic.meta_creative_id === cid)
+    );
+    if (approvedHeritageList.length > 0) {
+      for (const c of plan?.recommended_campaigns ?? []) {
+        for (const a of c?.adsets ?? []) {
+          if (!Array.isArray(a.ads) || a.ads.length === 0) {
+            a.ads = approvedHeritageList.map((cid) => ({ existing_creative_id: cid }));
+          }
+        }
+      }
+    }
+    if (removedCount > 0) console.log(`[redesign] inheritance_decisions enforce: ${removedCount} ad(s) com criativo não-aprovado filtrados`);
+  }
+
 
   // 7) Validar e enforce constraints (sobrescreve se IA desviou >5%)
   const constraintViolations: string[] = [];
@@ -484,6 +659,7 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
     roas_floor: effRoasFloor,
     end_time: effEndTime,
     violations_corrected: constraintViolations,
+    pause_original_mode: pauseOriginalMode, // duplicado em coluna dedicada, mantido aqui para leitura retrocompatível
   };
 
   // 8) Persistir nova strategy
@@ -515,6 +691,8 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       source_diagnosis_id: diagnosisId,
       redesign_rationale: rationale,
       applied_constraints: appliedConstraints,
+      pause_original_mode: pauseOriginalMode,
+      inheritance_decisions: inh ?? null,
       created_by: userId,
     })
     .select("id").single();
