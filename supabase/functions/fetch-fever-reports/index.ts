@@ -449,7 +449,7 @@ export default async function ({ page }) {
     await page.evaluate(() => {
       const el = document.querySelector('[data-claude-target="sales-tab"]');
       if (el) {
-        (el as any).scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+        el.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
       }
     });
     await sleep(1000);
@@ -479,11 +479,11 @@ export default async function ({ page }) {
     // Scroll para baixo da página para forçar lazy-load dos cards
     log('scrolling to bottom for lazy-load');
     await page.evaluate(() => {
-      window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' as any });
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' });
     });
     await sleep(2000);
     await page.evaluate(() => {
-      window.scrollTo({ top: 0, behavior: 'instant' as any });
+      window.scrollTo({ top: 0, behavior: 'instant' });
     });
     await sleep(1500);
     await snap('after-sales-breakdown-scrolled');
