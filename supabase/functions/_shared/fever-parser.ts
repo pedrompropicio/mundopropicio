@@ -210,10 +210,7 @@ export function parseFeverXlsxBuffers(salesBuf: ArrayBuffer, pricesBuf: ArrayBuf
       while (need > 0) {
         while (cursor < variants.length && (remaining.get(variants[cursor].key) || 0) <= 0) cursor++;
         if (cursor >= variants.length) {
-          const fb = variants[variants.length - 1];
-          sales.push({ purchaseDate: r.date, weekday: r.weekday, lotKey: fb.key, ticketType: fb.ticketType,
-            unitPrice: fb.unitPrice, quantity: need, totalValue: roundCents(need * fb.unitPrice) });
-          warnings.push(`Excedente ${need} bilhete(s) "${ticketType}" em ${r.date}`);
+          warnings.push(`Descartado ${need} bilhete(s) "${ticketType}" em ${r.date} — não corresponde a vendas confirmadas no relatório sales_per_ticket_type (provavelmente reservas pendentes / refunds posteriores)`);
           need = 0; break;
         }
         const lot = variants[cursor];
