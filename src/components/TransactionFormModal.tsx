@@ -1265,6 +1265,25 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         if (error) throw error;
         createdTxId = insertedTx?.id ?? null;
 
+        // 🔑 Escreve FK event_forecasts.transaction_id ↔ TX criada.
+        // Defesa universal: o trigger trg_enforce_tx_category_l2_match valida que a L3 escolhida
+        // pertence ao mesmo L2 do BP. Sem FK, a TX fica "órfã" (qualquer L3 aceite).
+        if (insertedTx?.id && selectedForecastId) {
+          const { error: fkErr } = await supabase
+            .from("event_forecasts")
+            .update({ transaction_id: insertedTx.id } as any)
+            .eq("id", selectedForecastId)
+            .is("transaction_id", null); // não sobrepor vínculo existente
+          if (fkErr) {
+            console.error("[BP FK link] failed", fkErr);
+            toast({
+              title: "TX criada, mas não foi possível vincular à linha BP",
+              description: "Pode vincular manualmente depois pela edição da linha do BP.",
+              variant: "destructive",
+            });
+          }
+        }
+
         // Audit: log creation
         if (insertedTx?.id) {
           const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
