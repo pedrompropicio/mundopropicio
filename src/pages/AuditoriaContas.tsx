@@ -56,7 +56,10 @@ interface AuditRow {
   chosen_id?: string | null;
   chosen_code?: string | null;
   chosen_name?: string | null;
-  status?: "pending" | "accepted" | "rejected" | "applied";
+  status?: "pending" | "accepted" | "rejected" | "applied" | "blocked";
+  // Frente C: TX vinculada a BP cuja sugestão violaria L2
+  blocked_reason?: string | null;
+  bp_l2_code?: string | null;
 }
 
 function buildLeafSet(cats: Category[]) {
