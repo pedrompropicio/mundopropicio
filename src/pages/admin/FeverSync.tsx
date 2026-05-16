@@ -52,6 +52,28 @@ export default function FeverSync() {
   const [selectedRun, setSelectedRun] = useState<Run | null>(null);
   const [credsModal, setCredsModal] = useState<Cfg | null>(null);
   const [credsForm, setCredsForm] = useState({ username: "", password: "" });
+  const [tokenModal, setTokenModal] = useState<Cfg | null>(null);
+  const [tokenInput, setTokenInput] = useState("");
+  const [tokenInfo, setTokenInfo] = useState<{ exp: number; user_email?: string; hoursRemaining: number } | null>(null);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+
+  function decodeToken(raw: string) {
+    setTokenError(null); setTokenInfo(null);
+    const t = raw.trim();
+    if (!t) { setTokenError("Cola o token primeiro."); return; }
+    const parts = t.split(".");
+    if (parts.length !== 3) { setTokenError("Não parece um JWT (≠3 segmentos)."); return; }
+    try {
+      let p = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      while (p.length % 4) p += "=";
+      const payload = JSON.parse(atob(p));
+      const now = Math.floor(Date.now() / 1000);
+      if (!payload?.exp) { setTokenError("Token sem campo exp."); return; }
+      const hoursRemaining = Math.round(((payload.exp - now) / 3600) * 10) / 10;
+      setTokenInfo({ exp: payload.exp, user_email: payload.user_email, hoursRemaining });
+      if (payload.exp <= now) setTokenError(`Token já expirou em ${new Date(payload.exp * 1000).toLocaleString("pt-PT")}.`);
+    } catch (e: any) { setTokenError(`Falha a descodificar: ${e?.message || e}`); }
+  }
 
   const cfgQ = useQuery({
     queryKey: ["fever-sync-config"],
