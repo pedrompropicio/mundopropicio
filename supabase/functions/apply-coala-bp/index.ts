@@ -1415,6 +1415,18 @@ Deno.serve(async (req) => {
         return (2 * inter) / (A.size + B.size);
       };
 
+      // Helper: devolve L2 id de uma categoria (L1→null, L2→self, L3→parent)
+      const catById = new Map<string, any>();
+      for (const c of (allCats || []) as any[]) catById.set(c.id, c);
+      const getL2Id = (catId: string | null | undefined): string | null => {
+        if (!catId) return null;
+        const cur = catById.get(catId);
+        if (!cur || !cur.parent_id) return null;
+        const parent = catById.get(cur.parent_id);
+        if (!parent) return null;
+        return parent.parent_id ? parent.id : cur.id;
+      };
+
       const resolveCat = (r: ParsedRow, supplierId: string | null): { catId: string; learned?: { ruleId: string; via: 'exact' | 'fuzzy'; sim?: number; confirmedCount: number } } => {
         const bk = baseDesc(r.description);
         const supN = r.supplier ? normTxt(r.supplier) : "";
@@ -1428,15 +1440,44 @@ Deno.serve(async (req) => {
           const hit = descBaseToCat.get(bk);
           if (hit) { preservedFromMap++; return { catId: hit }; }
         }
+        // Pré-resolver categoria do XLSX (centro de custo) para validação L2 (Frente D)
+        const xlsxCat = r.rawCenterCusto
+          ? allCats.find((c: any) => c.parent_id != null && norm(c.name) === norm(r.rawCenterCusto || ""))
+          : null;
+        const xlsxL2 = xlsxCat ? getL2Id(xlsxCat.id) : null;
+
         // 3) Learning table — match exacto por (supplier_id + descrição normalizada)
         if (supplierId) {
           const rules = learnedRulesBySupplier.get(supplierId);
           if (rules && rules.length > 0) {
             const descNorm = normTxt(r.description);
+            const tryRule = (rl: LearnedRule, via: 'exact' | 'fuzzy', sim?: number) => {
+              // Frente D: validar L2 contra CC do XLSX
+              if (xlsxL2) {
+                const ruleL2 = getL2Id(rl.category_id);
+                if (ruleL2 && ruleL2 !== xlsxL2) {
+                  rejectedLearningCount++;
+                  rejectedLearningMeta.push({
+                    row: r.rowNumber,
+                    description: r.description,
+                    supplier: r.supplier,
+                    ruleId: rl.id,
+                    ruleCategoryId: rl.category_id,
+                    ruleCategoryCode: catIdToCode.get(rl.category_id) ?? "",
+                    xlsxCategoryId: xlsxCat!.id,
+                    xlsxCategoryCode: catIdToCode.get(xlsxCat!.id) ?? "",
+                    reason: 'l2_mismatch',
+                  });
+                  return null;
+                }
+              }
+              if (via === 'exact') autoLearnedExact++; else autoLearnedFuzzy++;
+              return { catId: rl.category_id, learned: { ruleId: rl.id, via, sim, confirmedCount: rl.confirmed_count } };
+            };
             const exact = rules.find((rl) => rl.description_normalized === descNorm);
             if (exact) {
-              autoLearnedExact++;
-              return { catId: exact.category_id, learned: { ruleId: exact.id, via: 'exact', confirmedCount: exact.confirmed_count } };
+              const res = tryRule(exact, 'exact');
+              if (res) return res;
             }
             // 3b) Fuzzy ≥ 0.85
             let best: { rule: LearnedRule; sim: number } | null = null;
@@ -1445,16 +1486,13 @@ Deno.serve(async (req) => {
               if (sim >= 0.85 && (!best || sim > best.sim)) best = { rule: rl, sim };
             }
             if (best) {
-              autoLearnedFuzzy++;
-              return { catId: best.rule.category_id, learned: { ruleId: best.rule.id, via: 'fuzzy', sim: best.sim, confirmedCount: best.rule.confirmed_count } };
+              const res = tryRule(best.rule, 'fuzzy', best.sim);
+              if (res) return res;
             }
           }
         }
         // 4) Centro de custo do ficheiro → categoria
-        if (r.rawCenterCusto) {
-          const m = allCats.find((c: any) => c.parent_id != null && norm(c.name) === norm(r.rawCenterCusto || ""));
-          if (m) { fellbackToCC++; return { catId: m.id }; }
-        }
+        if (xlsxCat) { fellbackToCC++; return { catId: xlsxCat.id }; }
         // 5) Fallback "0.0.99 A Classificar"
         fellbackToFallback++;
         return { catId: fallback.id };
