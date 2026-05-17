@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Cron crm-pause-replaced-originals em LIVE
 -- ----------------------------------------------------------------------------
--- Correr este SQL no SQL Editor do projecto Live (ukpuhoynrqobqtzdbysp) APÓS
+-- Correr este SQL no SQL Editor do projecto Live (sfohvvlqccmmebvjgibx) APÓS
 -- o push do código novo (que cria a tabela meta_campaign_strategies com
 -- colunas pause_original_* e a edge function crm-cron-pause-replaced-originals).
 --
@@ -22,7 +22,7 @@ SELECT cron.schedule(
   '0 5 * * *',
   $cron$
   SELECT net.http_post(
-    url := 'https://ukpuhoynrqobqtzdbysp.supabase.co/functions/v1/crm-cron-pause-replaced-originals',
+    url := 'https://sfohvvlqccmmebvjgibx.supabase.co/functions/v1/crm-cron-pause-replaced-originals',
     headers := jsonb_build_object(
       'Content-Type','application/json',
       'Authorization','Bearer ' || (

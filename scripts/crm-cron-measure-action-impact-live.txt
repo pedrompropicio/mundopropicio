@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Cron crm-measure-action-impact em LIVE
 -- ----------------------------------------------------------------------------
--- Correr este SQL no SQL Editor do projeto Live (ukpuhoynrqobqtzdbysp)
+-- Correr este SQL no SQL Editor do projeto Live (sfohvvlqccmmebvjgibx)
 -- APÓS o push do código novo (que cria a tabela crm.meta_campaign_changes
 -- e deploys a edge function crm-measure-action-impact).
 --
@@ -21,7 +21,7 @@ SELECT cron.schedule(
   '0 4 * * *',
   $cron$
   SELECT net.http_post(
-    url := 'https://ukpuhoynrqobqtzdbysp.supabase.co/functions/v1/crm-measure-action-impact',
+    url := 'https://sfohvvlqccmmebvjgibx.supabase.co/functions/v1/crm-measure-action-impact',
     headers := jsonb_build_object(
       'Content-Type','application/json',
       'Authorization','Bearer ' || (

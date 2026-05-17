@@ -7,7 +7,7 @@
 ## 1. Plataforma Base
 
 ### 1.1 Lovable Cloud (Supabase)
-- **Project ref**: `ukpuhoynrqobqtzdbysp`
+- **Project ref**: `sfohvvlqccmmebvjgibx`
 - Auth (email/password, OAuth Google opcional, MFA TOTP)
 - PostgreSQL com RLS
 - Storage (8 buckets privados)
