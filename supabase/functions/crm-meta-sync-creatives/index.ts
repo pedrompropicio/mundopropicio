@@ -1,4 +1,4 @@
-// Force re-deploy 2026-05-17 16:26 UTC — Lovable não detectou auto-deploy
+// Force re-deploy 2026-05-17 — Lovable não detectou auto-deploy
 // inicial após push a2b2ed93 (Sprint Meta Creatives Sync v1).
 // crm-meta-sync-creatives (Sprint Meta Creatives Sync v1)
 // POST { connection_id, ad_account_id, mode?, max_creatives_per_run?, triggered_by? }
