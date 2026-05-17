@@ -13,7 +13,7 @@
 //   audience_gap
 //
 // Auth: user JWT (verify_jwt=true).
-// Deploy trigger: Sprint 3a-1 (re-push)
+// Deploy trigger: Sprint 3a-1 fix (column rename)
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
@@ -164,7 +164,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // ── 1) Campaign snapshot ─────────────────────────────────────────────
   const { data: campaign, error: campErr } = await (supabase as any)
     .schema("crm").from("meta_campaign_snapshot")
-    .select("external_campaign_id, name, status, effective_status, objective, currency, linked_event_id, ad_account_id, created_at")
+    .select("external_campaign_id, name, status, effective_status, objective, currency, linked_event_id, ad_account_id, start_time")
     .eq("external_campaign_id", campaignId)
     .maybeSingle();
   if (campErr || !campaign) return json({ error: "campaign_not_found", detail: campErr?.message }, 404);
@@ -180,8 +180,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const campAgg = emptyAgg();
   for (const r of campInsights ?? []) addRow(campAgg, r);
-  const daysRunning = campaign.created_at
-    ? Math.max(1, Math.round((Date.now() - new Date(campaign.created_at).getTime()) / 86400000))
+  const daysRunning = campaign.start_time
+    ? Math.max(1, Math.round((Date.now() - new Date(campaign.start_time).getTime()) / 86400000))
     : periodDays;
 
   const campaign_summary = {
@@ -202,7 +202,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // ── 3) Adsets + insights ─────────────────────────────────────────────
   const { data: adsetsRaw, error: asErr } = await (supabase as any)
     .schema("crm").from("meta_adset_snapshot")
-    .select("external_adset_id, name, optimization_goal, billing_event, targeting, created_at")
+    .select("external_adset_id, name, optimization_goal, billing_event, targeting, start_time")
     .eq("external_campaign_id", campaignId);
   if (asErr) return json({ error: "adsets_failed", detail: asErr.message }, 500);
   const adsets = adsetsRaw ?? [];
@@ -272,8 +272,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       verdict === "losing" ? "discard" :
       verdict === "saturated" ? "modify" : "inherit";
 
-    const daysActive = a.created_at
-      ? Math.max(1, Math.round((Date.now() - new Date(a.created_at).getTime()) / 86400000))
+    const daysActive = a.start_time
+      ? Math.max(1, Math.round((Date.now() - new Date(a.start_time).getTime()) / 86400000))
       : daysRunning;
 
     return {
