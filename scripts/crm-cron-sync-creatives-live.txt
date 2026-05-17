@@ -1,0 +1,66 @@
+-- ════════════════════════════════════════════════════════════════
+-- Cron crm-meta-sync-creatives em LIVE (Sprint Meta Creatives Sync v1)
+-- Correr este SQL no SQL Editor do projecto Live (sfohvvlqccmmebvjgibx)
+-- DEPOIS de:
+--   1. Aplicar migration 20260518000000_meta_creatives_sync_support.sql
+--   2. Edge function crm-meta-sync-creatives estar deployed
+-- ════════════════════════════════════════════════════════════════
+
+-- 0. Desagendar versão antiga se existir
+DO $$ BEGIN
+  PERFORM cron.unschedule('crm-meta-sync-creatives');
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'crm-meta-sync-creatives não estava agendado, continuar.';
+END $$;
+
+-- 1. Agendar cron diário às 06:00 UTC.
+-- Itera todas as connections Meta activas e dispara um HTTP POST
+-- ao crm-meta-sync-creatives por (connection, ad_account).
+SELECT cron.schedule(
+  'crm-meta-sync-creatives',
+  '0 6 * * *',
+  $cron$
+  DO $body$
+  DECLARE
+    v_conn RECORD;
+    v_response_id bigint;
+  BEGIN
+    FOR v_conn IN
+      SELECT
+        company_id,
+        id AS connection_id,
+        selected_ad_account_id AS ad_account_id
+      FROM crm.ad_platform_connections
+      WHERE platform = 'meta'
+        AND status = 'connected'
+        AND selected_ad_account_id IS NOT NULL
+    LOOP
+      SELECT net.http_post(
+        url := 'https://sfohvvlqccmmebvjgibx.supabase.co/functions/v1/crm-meta-sync-creatives',
+        headers := jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer ' || (
+            SELECT decrypted_secret FROM vault.decrypted_secrets
+            WHERE name = 'email_queue_service_role_key' LIMIT 1
+          )
+        ),
+        body := jsonb_build_object(
+          'connection_id', v_conn.connection_id,
+          'ad_account_id', v_conn.ad_account_id,
+          'mode', 'incremental',
+          'max_creatives_per_run', 200,
+          'triggered_by', 'cron-daily'
+        )
+      ) INTO v_response_id;
+
+      RAISE NOTICE 'Triggered sync-creatives for connection %, response id=%',
+        v_conn.connection_id, v_response_id;
+    END LOOP;
+  END $body$;
+  $cron$
+);
+
+-- 2. Verificação
+SELECT jobid, schedule, jobname, active
+FROM cron.job
+WHERE jobname = 'crm-meta-sync-creatives';
