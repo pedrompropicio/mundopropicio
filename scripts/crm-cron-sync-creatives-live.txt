@@ -32,7 +32,7 @@ SELECT cron.schedule(
         selected_ad_account_id AS ad_account_id
       FROM crm.ad_platform_connections
       WHERE platform = 'meta'
-        AND status = 'connected'
+        AND status IN ('active', 'connected')
         AND selected_ad_account_id IS NOT NULL
     LOOP
       SELECT net.http_post(
