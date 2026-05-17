@@ -511,6 +511,43 @@ export default function CrmStrategyView() {
 
   return (
     <div className="space-y-6">
+      {/* Sprint 3c-2.5 — Banner deploy_blocked (prioridade máxima) */}
+      {plan.automation_metadata?.deploy_blocked_reason && (
+        <Card className="p-4 border-red-500/40 bg-red-500/5">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center shrink-0">
+              <XCircle className="h-5 w-5 text-red-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm text-red-400">Plano não recomendado para deploy</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {plan.automation_metadata.deploy_blocked_reason}
+              </div>
+              <div className="text-xs text-muted-foreground mt-2">
+                Sugestão: reanalisar premissas (constraints de verba, ROAS floor, goal de receita) e regenerar antes de deployar.
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Sprint 3c-2.5 — Banner deploy_warning (não bloqueante, só se não há deploy_blocked) */}
+      {!plan.automation_metadata?.deploy_blocked_reason && plan.automation_metadata?.deploy_warning && (
+        <Card className="p-4 border-amber-500/40 bg-amber-500/5">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0">
+              <AlertCircle className="h-5 w-5 text-amber-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm text-amber-400">Aviso de deploy</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {plan.automation_metadata.deploy_warning}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {publishableDeployment && (
         <Card className="p-4 border-emerald-500/40 bg-gradient-to-r from-emerald-500/10 to-cyan-500/5">
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -630,11 +667,23 @@ export default function CrmStrategyView() {
       <Card className="p-5 border-cyan-500/30 bg-cyan-500/[0.03]">
         <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
           <div className="flex items-center gap-3">
-            <Badge className={cn("text-xs uppercase border", feasibilityStyles[summary.feasibility] ?? "bg-muted/40")}>
+            <Badge className={cn("text-xs uppercase border flex items-center gap-1", feasibilityStyles[summary.feasibility] ?? "bg-muted/40")}>
               Viabilidade: {summary.feasibility ?? "—"}
+              {summary.feasibility_capped_reason && (
+                <span title={summary.feasibility_capped_reason} className="cursor-help">
+                  <AlertCircle className="h-3 w-3 text-amber-400 inline" />
+                </span>
+              )}
             </Badge>
             {summary.confidence && (
-              <span className="text-xs text-muted-foreground">Confiança: {summary.confidence}</span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                Confiança: {summary.confidence}
+                {summary.confidence_capped_reason && (
+                  <span title={summary.confidence_capped_reason} className="cursor-help">
+                    <AlertCircle className="h-3 w-3 text-amber-400 inline" />
+                  </span>
+                )}
+              </span>
             )}
           </div>
         </div>
@@ -645,12 +694,72 @@ export default function CrmStrategyView() {
           <KPI label="Verba recomendada" value={fmtEur(summary.recommended_total_budget_eur)} />
           <KPI label="Compras esperadas" value={fmtNum(summary.expected_purchases)} />
           <KPI label="Receita esperada" value={fmtEur(summary.expected_revenue_eur)} />
-          <KPI label="ROAS esperado" value={summary.expected_overall_roas != null ? `${fmtNum(summary.expected_overall_roas)}x` : "—"} />
+          {(() => {
+            const va = (data as any).applied_constraints?.viability_analysis;
+            const currentR = va?.current_roas;
+            const expectedR = summary.expected_overall_roas;
+            return (
+              <div className="rounded border border-border p-3">
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">ROAS esperado</div>
+                <div className="text-base font-semibold">
+                  {expectedR != null ? `${fmtNum(expectedR)}x` : "—"}
+                </div>
+                {currentR != null && expectedR != null && (
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                    actual: {fmtNum(currentR)}x · gap: {va?.gap_severity ?? "—"}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
         {summary.expected_cpa_eur != null && (
           <div className="mt-3 text-xs text-muted-foreground">CPA esperado: <span className="text-foreground font-medium">{fmtEur(summary.expected_cpa_eur, 2)}</span></div>
         )}
       </Card>
+
+      {/* Sprint 3c-4 — Card de análise de orçamento (budget_recommendation) */}
+      {plan.budget_recommendation && (
+        <Card className="p-5 border-cyan-500/30 bg-cyan-500/[0.03]">
+          <div className="flex items-center gap-2 mb-3">
+            <Target className="h-4 w-4 text-cyan-400" />
+            <h2 className="text-base font-semibold">Análise de orçamento</h2>
+            <Badge variant="outline" className={cn(
+              "text-[10px] uppercase",
+              plan.budget_recommendation.adjustment_direction === "increase"
+                ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
+                : plan.budget_recommendation.adjustment_direction === "decrease"
+                ? "border-red-500/40 text-red-400 bg-red-500/10"
+                : "border-muted-foreground/40 text-muted-foreground bg-muted/20",
+            )}>
+              {plan.budget_recommendation.adjustment_direction === "increase"
+                ? "Aumentar"
+                : plan.budget_recommendation.adjustment_direction === "decrease"
+                ? "Reduzir"
+                : "Manter"}
+            </Badge>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+            <KPI label="Verba diária actual" value={fmtEur(plan.budget_recommendation.current_daily_eur, 2)} />
+            <KPI label="Verba diária sugerida" value={fmtEur(plan.budget_recommendation.suggested_daily_eur, 2)} />
+            <KPI label="Total actual projectado" value={fmtEur(plan.budget_recommendation.current_projected_total_eur)} />
+            <KPI label="Total sugerido" value={fmtEur(plan.budget_recommendation.suggested_total_eur)} />
+          </div>
+          {plan.budget_recommendation.adjustment_reason && (
+            <p className="text-sm text-muted-foreground">
+              {plan.budget_recommendation.adjustment_reason}
+            </p>
+          )}
+          {plan.budget_recommendation.floor_warning && (
+            <div className="mt-3 rounded border border-amber-500/30 bg-amber-500/5 p-2.5 text-xs">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
+                <span className="text-amber-400">{plan.budget_recommendation.floor_warning}</span>
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Criativos herdados (re-design) */}
       {Array.isArray(plan.inherited_creatives) && plan.inherited_creatives.length > 0 && (
@@ -755,7 +864,19 @@ export default function CrmStrategyView() {
                       <MiniStat label="CPM máx" value={p.target_kpis.cpm_eur_max != null ? fmtEur(p.target_kpis.cpm_eur_max, 2) : "—"} />
                       <MiniStat label="CTR mín" value={p.target_kpis.ctr_pct_min != null ? `${p.target_kpis.ctr_pct_min}%` : "—"} />
                       <MiniStat label="CPA máx" value={p.target_kpis.cpa_eur_max != null ? fmtEur(p.target_kpis.cpa_eur_max, 2) : "—"} />
-                      <MiniStat label="ROAS mín" value={p.target_kpis.roas_min != null ? `${p.target_kpis.roas_min}x` : "—"} />
+                      <div className="rounded bg-muted/30 px-2 py-1.5">
+                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                          ROAS mín
+                          {p.target_kpis._roas_min_overridden_reason && (
+                            <span title={p.target_kpis._roas_min_overridden_reason} className="cursor-help">
+                              <AlertCircle className="h-2.5 w-2.5 text-amber-400" />
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs font-medium">
+                          {p.target_kpis.roas_min != null ? `${p.target_kpis.roas_min}x` : "—"}
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -801,6 +922,86 @@ export default function CrmStrategyView() {
                       )}
                     </div>
                   )}
+
+                  {/* Sprint 3c-4 — Preview dos anúncios desta fase */}
+                  <div className="mt-4 border-t border-border pt-3">
+                    <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-3">
+                      <Sparkles className="h-3.5 w-3.5" /> Preview dos anúncios desta fase
+                    </div>
+                    {(() => {
+                      const phaseAds: Array<{
+                        creative: { type?: string | null; file_url?: string | null; name?: string | null };
+                        headline: string | null;
+                        primaryText: string | null;
+                        ctaType: string | null;
+                        isInherited: boolean;
+                        adsetName: string;
+                      }> = [];
+                      for (const camp of camps) {
+                        for (const adset of camp.adsets ?? []) {
+                          for (const ad of adset.ads ?? []) {
+                            if (typeof ad?.existing_creative_id === "string") {
+                              const inheritedCreative = (plan.inherited_creatives ?? [])
+                                .find((c: any) => c.meta_creative_id === ad.existing_creative_id);
+                              if (inheritedCreative) {
+                                phaseAds.push({
+                                  creative: {
+                                    type: inheritedCreative.type ?? null,
+                                    file_url: inheritedCreative.file_url ?? null,
+                                    name: inheritedCreative.name ?? null,
+                                  },
+                                  headline: inheritedCreative.headline ?? null,
+                                  primaryText: inheritedCreative.body ?? null,
+                                  ctaType: inheritedCreative.cta_type ?? null,
+                                  isInherited: true,
+                                  adsetName: adset.adset_name ?? "Adset",
+                                });
+                              }
+                            } else if (ad?.creative_brief && typeof ad.creative_brief === "object") {
+                              const cb = ad.creative_brief;
+                              phaseAds.push({
+                                creative: {
+                                  type: null,
+                                  file_url: null,
+                                  name: cb.primary_message ? String(cb.primary_message).slice(0, 50) : "Brief novo",
+                                },
+                                headline: cb.headline_suggestion ?? null,
+                                primaryText: cb.primary_text_suggestion ?? cb.primary_message ?? null,
+                                ctaType: cb.cta_suggestion ?? null,
+                                isInherited: false,
+                                adsetName: adset.adset_name ?? "Adset",
+                              });
+                            }
+                          }
+                        }
+                      }
+                      if (phaseAds.length === 0) {
+                        return (
+                          <p className="text-xs text-muted-foreground italic">
+                            Sem ads propostos para esta fase. IA vai gerar quando regenerares.
+                          </p>
+                        );
+                      }
+                      return (
+                        <div className="flex gap-3 overflow-x-auto pb-2">
+                          {phaseAds.map((ad, i) => (
+                            <div key={i} className="shrink-0">
+                              <AdMockup
+                                creative={ad.creative}
+                                headline={ad.headline}
+                                primaryText={ad.primaryText}
+                                ctaLabel={ctaLabel(ad.ctaType)}
+                                isInherited={ad.isInherited}
+                              />
+                              <div className="text-[10px] text-muted-foreground mt-1 max-w-[280px] truncate" title={ad.adsetName}>
+                                → {ad.adsetName}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
 
                   <div className="mt-4 border-t border-border pt-3">
                     <div className="flex items-center justify-between mb-2">
@@ -1322,6 +1523,88 @@ export default function CrmStrategyView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+// Sprint 3c-4 — CTA labels Meta Ads → PT
+const CTA_LABELS_PT: Record<string, string> = {
+  GET_TICKETS: "Reservar bilhete",
+  LEARN_MORE: "Saber mais",
+  SHOP_NOW: "Comprar agora",
+  SIGN_UP: "Inscrever-se",
+  CONTACT_US: "Contactar",
+  BOOK_TRAVEL: "Reservar",
+  DOWNLOAD: "Descarregar",
+  LISTEN_MUSIC: "Ouvir música",
+  WATCH_MORE: "Ver mais",
+};
+function ctaLabel(ctaType: string | null | undefined): string {
+  if (!ctaType) return "Saber mais";
+  return CTA_LABELS_PT[ctaType.toUpperCase()] ?? "Saber mais";
+}
+
+// Sprint 3c-4 — Mockup Instagram vertical (4:5) para preview de ads
+function AdMockup({
+  creative,
+  headline,
+  primaryText,
+  ctaLabel: ctaLabelText,
+  isInherited,
+}: {
+  creative: { type?: string | null; file_url?: string | null; name?: string | null };
+  headline: string | null;
+  primaryText: string | null;
+  ctaLabel: string;
+  isInherited: boolean;
+}) {
+  const fallbackHeadline = isInherited ? "(sem headline)" : "(headline em falta)";
+  const fallbackPrimary = isInherited ? "(sem primary text)" : "(primary text em falta)";
+  return (
+    <div className="rounded-lg border border-border bg-background overflow-hidden max-w-[280px]">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
+        <div className="h-7 w-7 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-semibold">mundopropicio</div>
+          <div className="text-[10px] text-muted-foreground">Sponsored · Patrocinado</div>
+        </div>
+      </div>
+      <div className="px-3 py-2 text-xs text-foreground/90 line-clamp-3">
+        {primaryText || fallbackPrimary}
+      </div>
+      <div className="aspect-[4/5] bg-muted overflow-hidden flex items-center justify-center">
+        {creative.file_url && creative.type === "video" ? (
+          <video src={creative.file_url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+        ) : creative.file_url ? (
+          <img src={creative.file_url} alt={creative.name ?? ""} className="h-full w-full object-cover" loading="lazy" />
+        ) : (
+          <Image2 className="h-8 w-8 text-muted-foreground" />
+        )}
+      </div>
+      <div className="px-3 py-2.5 border-t border-border bg-muted/20">
+        <div className="text-xs font-semibold text-foreground line-clamp-2 mb-2">
+          {headline || fallbackHeadline}
+        </div>
+        <button
+          type="button"
+          className="w-full bg-cyan-500 hover:bg-cyan-600 text-white text-xs font-semibold py-2 rounded transition-colors"
+        >
+          {ctaLabelText}
+        </button>
+      </div>
+      <div className="px-3 py-1.5 text-[10px] flex items-center justify-between border-t border-border bg-muted/10">
+        <span className={cn(
+          "uppercase tracking-wider font-medium",
+          isInherited ? "text-cyan-400" : "text-amber-400",
+        )}>
+          {isInherited ? "Reaproveitado" : "Brief novo"}
+        </span>
+        {creative.name && (
+          <span className="text-muted-foreground truncate max-w-[140px]" title={creative.name}>
+            {creative.name}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

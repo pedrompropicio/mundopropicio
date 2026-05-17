@@ -178,7 +178,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (inheritedIds.length > 0) {
     const { data: lib } = await (supabase as any)
       .schema("crm").from("meta_creatives")
-      .select("id, name, type, file_url, headline, body, meta_creative_id")
+      .select("id, name, type, file_url, headline, body, cta_type, link_url, meta_creative_id")
       .in("meta_creative_id", inheritedIds);
     for (const c of lib ?? []) {
       const slot = inheritedMap.get(c.meta_creative_id);
@@ -188,14 +188,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const inheritedCreatives = [...inheritedMap.values()];
 
   // 4) Evento + ticket avg
-  let eventCtx: { id?: string; name?: string; date?: string; daysUntil?: number | null; tickets_total?: number | null; location?: string | null } = {};
+  let eventCtx: { id?: string; name?: string; date?: string; daysUntil?: number | null; tickets_total?: number | null; location?: string | null; ticketing_url?: string | null } = {};
   if (campaign.linked_event_id) {
     const { data: e } = await supabase.from("events")
-      .select("id, name, date, location, tickets_total")
+      .select("id, name, date, location, tickets_total, ticketing_url")
       .eq("id", campaign.linked_event_id).maybeSingle();
     if (e) {
       const daysUntil = e.date ? Math.max(0, Math.round((new Date(e.date).getTime() - Date.now()) / 86400000)) : null;
-      eventCtx = { id: e.id, name: e.name, date: e.date, daysUntil, tickets_total: e.tickets_total, location: e.location };
+      eventCtx = { id: e.id, name: e.name, date: e.date, daysUntil, tickets_total: e.tickets_total, location: e.location, ticketing_url: (e as any).ticketing_url ?? null };
     }
   }
 
@@ -484,7 +484,8 @@ ${eventCtx.name ? `- Nome: ${eventCtx.name}
 - Data: ${eventCtx.date ?? "N/A"}
 - Dias até evento: ${eventCtx.daysUntil ?? "N/A"}
 - Local: ${eventCtx.location ?? "N/A"}
-- Capacidade: ${eventCtx.tickets_total ?? "N/A"}` : "(campanha sem evento vinculado)"}
+- Capacidade: ${eventCtx.tickets_total ?? "N/A"}
+- URL de bilheteira: ${eventCtx.ticketing_url ?? "(não definido)"}` : "(campanha sem evento vinculado)"}
 
 == DIAGNÓSTICO ANTERIOR (severity=${diagnosis.severity}, score=${diagnosis.overall_score}) ==
 ${diagJsonStr}
@@ -512,6 +513,7 @@ REGRAS:
 - Não inventes IDs Meta. Usa nomes humanos para audiences/criativos.
 - Sê crítico e directo no rationale.
 - ROAS BLENDED: em cada phase do output, preenche \`expected_blended_contribution\` (peso 0–1 desta fase no ROAS agregado do evento — soma de todas as fases deve aproximar-se de 1.0; fases de conversão e retargeting pesam mais que awareness). Não definas \`roas_min\` em \`target_kpis\` de fases REACH/VIDEO_VIEWS; usa 0 ou omite.
+- Creative briefs (ads NOVOS): quando propones \`creative_brief\` em qualquer ad, os campos \`headline_suggestion\`, \`primary_text_suggestion\` e \`cta_suggestion\` SÃO OBRIGATÓRIOS. Não basta \`primary_message\` abstracto — escreve a copy concreta como apareceria no anúncio final. \`headline_suggestion\` 30–50 chars; \`primary_text_suggestion\` 80–180 chars. \`cta_suggestion\` deve ser um valor Meta Ads válido (preferidos: GET_TICKETS para conversion phases, LEARN_MORE para awareness, SHOP_NOW se URL leva a checkout, SIGN_UP se leva a formulário). \`destination_url_hint\` é null por default — só preencher se o evento tiver ticketing_url conhecido ou se for óbvio do contexto.
 
 == FORMATO DE RESPOSTA ==
 APENAS JSON puro (sem markdown fences) com este schema EXATO:
@@ -578,7 +580,19 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
           "creative_type_recommended": "video",
           "ads": [
             { "existing_creative_id": "<meta_creative_id herdado>" },
-            { "creative_brief": { "primary_message": "...", "tone": "...", "must_include": ["..."], "avoid": ["..."] }, "creative_replacement_reason": "porquê substituir um criativo herdado" }
+            {
+              "creative_brief": {
+                "primary_message": "...",
+                "tone": "...",
+                "must_include": ["..."],
+                "avoid": ["..."],
+                "headline_suggestion": "<headline curta 30-50 chars em PT-BR>",
+                "primary_text_suggestion": "<primary text 80-180 chars em PT-BR>",
+                "cta_suggestion": "GET_TICKETS|LEARN_MORE|SHOP_NOW|SIGN_UP",
+                "destination_url_hint": "<URL ou null se não souber>"
+              },
+              "creative_replacement_reason": "porquê substituir um criativo herdado"
+            }
           ]
         }
       ]
@@ -782,6 +796,9 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
     type: c.library?.type ?? null,
     file_url: c.library?.file_url ?? null,
     headline: c.library?.headline ?? null,
+    body: c.library?.body ?? null,
+    cta_type: c.library?.cta_type ?? null,
+    link_url: c.library?.link_url ?? null,
   }));
   const validInheritedSet = new Set(inheritedCreatives.map((c) => c.meta_creative_id));
   let inheritedAdsCount = 0;
