@@ -508,6 +508,12 @@ Países alvo: ${countries.join(", ")}.${constraintsBlock}
 
 REGRAS:
 - **expected_overall_roas DEVE ser >= current_roas (${campMetrics.roas != null ? campMetrics.roas.toFixed(2) + "x" : "n/a"}).** Re-design existe para MELHORAR a campanha, não para degradar. Se a tua honest estimate é que o plano não consegue melhorar com os constraints actuais, NÃO proponhas o plano — usa feasibility='impossible' e redesign_rationale a explicar por que nenhum plano viável existe. Forçar números optimistas é inaceitável (Sprint 3c-2), mas propor degradação também é. A saída correcta é honestidade sobre impossibilidade.
+- **COERÊNCIA INTERNA OBRIGATÓRIA dos campos do summary** (Sprint 3c-4.5) — todos devem bater entre si dentro de 10% de tolerância:
+  * \`expected_revenue_eur ≈ expected_overall_roas × recommended_total_budget_eur\`
+  * \`recommended_total_budget_eur ≈ expected_cpa_eur × expected_purchases\`
+  Não inventes números aspiracionais para um campo enquanto mantens outros baseados na realidade. Se ROAS alvo é 8x, então \`recommended_total_budget × 8 = expected_revenue\`. Sem excepções.
+  Exemplo correcto: budget 11000€, ROAS alvo 8x → revenue 88000€, com purchases ≈ 88000 / ticket_avg ≈ 3520, CPA = 11000 / 3520 ≈ 3.13€.
+  Se a aritmética não bate, ajusta budget ou ROAS alvo. NÃO inventes. Plano com KPIs incoerentes será automaticamente marcado confidence='low'.
 - Learning Phase: cada adset OFFSITE_CONVERSIONS precisa ~50 conversões/7d.
 - Frequência: alertar se >5.
 - Não inventes IDs Meta. Usa nomes humanos para audiences/criativos.
@@ -760,6 +766,53 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
         });
       }
       console.log(`[redesign] concentration risks detected: ${concentrationRisks.length}`);
+    }
+  }
+
+  // FIX 5 (Sprint 3c-4.5) — Coerência interna dos KPIs do summary.
+  // Tolerância 10%. Se incoerente, força confidence='low' e regista warning.
+  // Caso descoberto Ivete F: budget=11100, revenue=11100, ROAS=8 (drift 87% no Check 1).
+  const sumKpi: any = plan?.summary;
+  if (sumKpi && typeof sumKpi === "object") {
+    const totalBudget = Number(sumKpi.recommended_total_budget_eur) || 0;
+    const expectedRevenue = Number(sumKpi.expected_revenue_eur) || 0;
+    const expectedRoasInternal = Number(sumKpi.expected_overall_roas) || 0;
+    const expectedPurchases = Number(sumKpi.expected_purchases) || 0;
+    const expectedCpa = Number(sumKpi.expected_cpa_eur) || 0;
+    const kpiIssues: string[] = [];
+
+    // Check 1: revenue ≈ roas × budget (tolerância 10%)
+    if (totalBudget > 0 && expectedRoasInternal > 0 && expectedRevenue > 0) {
+      const impliedRev = totalBudget * expectedRoasInternal;
+      const drift = Math.abs(expectedRevenue - impliedRev) / impliedRev;
+      if (drift > 0.10) {
+        kpiIssues.push(
+          `Receita €${expectedRevenue.toFixed(0)} inconsistente com ROAS ${expectedRoasInternal.toFixed(1)}x × Verba €${totalBudget.toFixed(0)} = €${impliedRev.toFixed(0)} (desvio ${(drift * 100).toFixed(0)}%)`,
+        );
+      }
+    }
+
+    // Check 2: cpa × purchases ≈ budget (tolerância 10%)
+    if (expectedCpa > 0 && expectedPurchases > 0 && totalBudget > 0) {
+      const impliedCost = expectedCpa * expectedPurchases;
+      const drift = Math.abs(totalBudget - impliedCost) / totalBudget;
+      if (drift > 0.10) {
+        kpiIssues.push(
+          `Verba €${totalBudget.toFixed(0)} inconsistente com CPA €${expectedCpa.toFixed(2)} × ${expectedPurchases} compras = €${impliedCost.toFixed(0)} (desvio ${(drift * 100).toFixed(0)}%)`,
+        );
+      }
+    }
+
+    if (kpiIssues.length > 0) {
+      sumKpi.kpi_coherence_warning = kpiIssues.join(" | ");
+      if (sumKpi.confidence !== "low") {
+        const prevConf = sumKpi.confidence;
+        sumKpi.confidence = "low";
+        sumKpi.confidence_capped_reason =
+          (sumKpi.confidence_capped_reason ? sumKpi.confidence_capped_reason + " | " : "") +
+          `Confiança rebaixada de ${prevConf} para low por incoerência interna nos KPIs: ${kpiIssues[0]}`;
+      }
+      console.warn(`[redesign] KPI incoherence detected:`, kpiIssues);
     }
   }
 

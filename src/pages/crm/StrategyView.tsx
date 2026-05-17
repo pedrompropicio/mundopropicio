@@ -761,6 +761,24 @@ export default function CrmStrategyView() {
         </Card>
       )}
 
+      {/* Sprint 3c-4.5 — Banner incoerência KPIs (FIX 5) */}
+      {summary.kpi_coherence_warning && (
+        <Card className="p-4 border-amber-500/40 bg-amber-500/5">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm text-amber-400">Incoerência detectada nos KPIs</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {summary.kpi_coherence_warning}
+              </div>
+              <div className="text-xs text-muted-foreground mt-2">
+                A confiança foi rebaixada automaticamente para low. Considera regenerar o plano.
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Criativos herdados (re-design) */}
       {Array.isArray(plan.inherited_creatives) && plan.inherited_creatives.length > 0 && (
         <Card className="p-5 border-cyan-500/30 bg-cyan-500/[0.04]">
