@@ -506,6 +506,7 @@ Desenha uma estratégia COMPLETA estruturada em fases (3-5), aplicando o diagnó
 Países alvo: ${countries.join(", ")}.${constraintsBlock}
 
 REGRAS:
+- **expected_overall_roas DEVE ser >= current_roas (${campMetrics.roas != null ? campMetrics.roas.toFixed(2) + "x" : "n/a"}).** Re-design existe para MELHORAR a campanha, não para degradar. Se a tua honest estimate é que o plano não consegue melhorar com os constraints actuais, NÃO proponhas o plano — usa feasibility='impossible' e redesign_rationale a explicar por que nenhum plano viável existe. Forçar números optimistas é inaceitável (Sprint 3c-2), mas propor degradação também é. A saída correcta é honestidade sobre impossibilidade.
 - Learning Phase: cada adset OFFSITE_CONVERSIONS precisa ~50 conversões/7d.
 - Frequência: alertar se >5.
 - Não inventes IDs Meta. Usa nomes humanos para audiences/criativos.
@@ -647,6 +648,106 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
   }
 
   const rationale: string = String(plan.redesign_rationale ?? "").slice(0, 4000);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Sprint 3c-2.5 — guardrails pós-parse. Ordem importa: FIX2 → FIX1 → FIX3 → FIX4.
+  // FIX1 pode forçar feasibility='impossible'; FIX3 só dispara se FIX1 não bloqueou.
+  // Os caps do Sprint 3c-2 (logo a seguir) operam sobre os valores já potencialmente ajustados.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // FIX 2 (Sprint 3c-2.5) — Forçar roas_min=0 em phases não-conversion.
+  // IA estava a herdar roas_min do constraint global em phases REACH/VIDEO_VIEWS,
+  // contrariando o prompt que pede 0 ou omitir.
+  const NON_CONVERSION_OBJECTIVES = new Set(["REACH", "BRAND_AWARENESS", "VIDEO_VIEWS", "TRAFFIC"]);
+  for (const phase of plan?.phases ?? []) {
+    const obj = String(phase?.objective ?? "").toUpperCase();
+    if (NON_CONVERSION_OBJECTIVES.has(obj) && phase?.target_kpis) {
+      if (typeof phase.target_kpis.roas_min === "number" && phase.target_kpis.roas_min > 0) {
+        const originalMin = phase.target_kpis.roas_min;
+        phase.target_kpis.roas_min = 0;
+        phase.target_kpis._roas_min_overridden_reason =
+          `Phase ${obj} não deve ter roas_min>0 (era ${originalMin}). Forçado para 0.`;
+      }
+    }
+  }
+
+  // FIX 1 (Sprint 3c-2.5) — Guardrail anti-degradação.
+  // Re-design existe para MELHORAR; se IA propõe expected_overall_roas < current_roas,
+  // bloqueia o plano como 'impossible' + ready_to_deploy=false.
+  // Só aplica quando current_roas > 0 (campanha sem compras: qualquer plano é melhoria).
+  if (plan && plan.summary && typeof plan.summary === "object") {
+    const currentRoasForCheck = viability.current_roas;
+    const expectedRoas = Number(plan.summary.expected_overall_roas ?? 0);
+    if (currentRoasForCheck > 0 && expectedRoas > 0 && expectedRoas < currentRoasForCheck) {
+      plan.summary.feasibility = "impossible";
+      plan.summary.confidence = "low";
+      plan.summary.feasibility_reason =
+        `Re-design incongruente: plano propõe expected_overall_roas ${expectedRoas.toFixed(2)}x, ` +
+        `inferior ao actual ${currentRoasForCheck.toFixed(2)}x. Re-design existe para MELHORAR. ` +
+        `Reavaliar premissas, ajustar constraints, ou aceitar que goal não é viável.`;
+      plan.summary.expected_roas_degradation_blocked = true;
+      plan.summary.expected_roas_degradation_reason =
+        `Bloqueado por guardrail server-side: ${expectedRoas.toFixed(2)}x < ${currentRoasForCheck.toFixed(2)}x.`;
+      plan.automation_metadata = plan.automation_metadata ?? {};
+      plan.automation_metadata.ready_to_deploy = false;
+      plan.automation_metadata.deploy_blocked_reason =
+        `Plano propõe degradação de ROAS (${expectedRoas.toFixed(2)}x < ${currentRoasForCheck.toFixed(2)}x actual). Não deployável.`;
+      console.warn(`[redesign] degradation blocked: expected ${expectedRoas.toFixed(2)}x < current ${currentRoasForCheck.toFixed(2)}x`);
+    }
+  }
+
+  // FIX 3 (Sprint 3c-2.5) — deploy_warning informativo (não bloqueante).
+  // Não duplicar quando FIX 1 já preencheu deploy_blocked_reason.
+  if (!plan?.automation_metadata?.deploy_blocked_reason) {
+    const feas = String(plan?.summary?.feasibility ?? "").toLowerCase();
+    const conf = String(plan?.summary?.confidence ?? "").toLowerCase();
+    if (feas === "low" || feas === "impossible" || conf === "low") {
+      plan.automation_metadata = plan.automation_metadata ?? {};
+      plan.automation_metadata.deploy_warning =
+        `Plano avaliado como feasibility=${feas}/confidence=${conf}. ` +
+        `Deploy é permitido mas considera revisar premissas ou tratar como experiência controlada.`;
+    }
+  }
+
+  // FIX 4 (Sprint 3c-2.5) — Detector de concentração de risco.
+  // Phase com contribuição >30% do blended mas <15% do budget = plano fragil.
+  const allPhasesForRisk: any[] = plan?.phases ?? [];
+  const totalDailyBudget = allPhasesForRisk.reduce(
+    (s: number, p: any) => s + (Number(p?.daily_budget_eur) || 0), 0,
+  );
+  if (totalDailyBudget > 0 && allPhasesForRisk.length > 0) {
+    const concentrationRisks: Array<{ phase_id: string; phase_name: string; contribution_pct: string; budget_share_pct: string; phase_daily_budget: number }> = [];
+    for (const p of allPhasesForRisk) {
+      const contribution = Number(p?.expected_blended_contribution) || 0;
+      const phaseBudget = Number(p?.daily_budget_eur) || 0;
+      const budgetShare = phaseBudget / totalDailyBudget;
+      if (contribution > 0.3 && budgetShare < 0.15) {
+        concentrationRisks.push({
+          phase_id: String(p?.id ?? ""),
+          phase_name: String(p?.name ?? p?.id ?? "?"),
+          contribution_pct: (contribution * 100).toFixed(0),
+          budget_share_pct: (budgetShare * 100).toFixed(1),
+          phase_daily_budget: phaseBudget,
+        });
+      }
+    }
+    if (concentrationRisks.length > 0) {
+      plan.risks_and_warnings = plan.risks_and_warnings ?? [];
+      for (const risk of concentrationRisks) {
+        plan.risks_and_warnings.push({
+          severity: "high",
+          title: `Concentração de risco em phase pequena: ${risk.phase_name}`,
+          description:
+            `Phase "${risk.phase_name}" tem contribuição esperada de ${risk.contribution_pct}% ` +
+            `do ROAS blended mas apenas ${risk.budget_share_pct}% do budget total ` +
+            `(€${risk.phase_daily_budget.toFixed(2)}/dia). Plano fragil — se esta phase ` +
+            `não entregar o leverage esperado, ROAS blended colapsa. Validar audiences ` +
+            `e criativos desta phase antes de deploy.`,
+        });
+      }
+      console.log(`[redesign] concentration risks detected: ${concentrationRisks.length}`);
+    }
+  }
 
   // 6c) Sprint 3c-2: enforcement de confidence/feasibility face ao gap_severity.
   // IA tem tendência a marcar confidence=high mesmo quando o gap é unrealistic.
