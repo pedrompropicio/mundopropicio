@@ -263,6 +263,98 @@ Deno.serve(async (req: Request): Promise<Response> => {
     ? `\n\n== CONSTRAINTS RÍGIDAS (NÃO NEGOCIÁVEIS) ==\nRespeita EXACTAMENTE os seguintes limites. Não inventes valores diferentes:\n${constraintLines.join("\n")}\n`
     : "";
 
+  // 5b) Análise de viabilidade (Sprint 3c-2) — calcula apenas, não prescreve.
+  // Métricas concretas para o prompt ancorar o juízo da IA na realidade.
+  const TICKET_AVG_FALLBACK_EUR = 25;
+  function analyzeViability() {
+    const targetRoas = targetBlendedRoas;
+    const currentRoas = campMetrics.roas ?? 0;
+    const eventGoalRevenue = (eventCtx.tickets_total ?? 0) * TICKET_AVG_FALLBACK_EUR;
+    const daysUntil = eventCtx.daysUntil ?? 60;
+    const currentDailySpend = (campAgg.spendCents / 100) / Math.max(1, periodDays);
+
+    const needPurchases = eventGoalRevenue > 0 ? Math.ceil(eventGoalRevenue / TICKET_AVG_FALLBACK_EUR) : null;
+    const currentPurchaseRate = campAgg.purchases / Math.max(1, periodDays);
+    const projectedPurchases = currentPurchaseRate * daysUntil;
+
+    const spendNeededForGoal = eventGoalRevenue > 0 ? eventGoalRevenue / targetRoas : null;
+    const dailySpendNeeded = spendNeededForGoal != null && daysUntil > 0 ? spendNeededForGoal / daysUntil : null;
+
+    const statisticalFloorSpend = 2000;
+    const statisticalFloorPurchases = 50;
+    const currentProjectedSpend = currentDailySpend * daysUntil;
+    const meetsStatFloor = currentProjectedSpend >= statisticalFloorSpend
+      || projectedPurchases >= statisticalFloorPurchases;
+
+    const roasGap = targetRoas > 0 ? targetRoas / Math.max(0.1, currentRoas) : null;
+    let gapSeverity: "comfortable" | "stretch" | "aggressive" | "unrealistic" = "comfortable";
+    if (roasGap != null) {
+      if (roasGap < 1.5) gapSeverity = "comfortable";
+      else if (roasGap < 2.5) gapSeverity = "stretch";
+      else if (roasGap < 4.0) gapSeverity = "aggressive";
+      else gapSeverity = "unrealistic";
+    }
+
+    return {
+      target_roas: targetRoas,
+      current_roas: currentRoas,
+      roas_gap_multiplier: roasGap,
+      gap_severity: gapSeverity,
+      event_goal_revenue_eur: eventGoalRevenue,
+      need_purchases: needPurchases,
+      projected_purchases_at_current_rate: Math.round(projectedPurchases),
+      current_daily_spend_eur: currentDailySpend,
+      projected_total_spend_eur: currentProjectedSpend,
+      daily_spend_needed_for_goal_eur: dailySpendNeeded,
+      days_until_event: daysUntil,
+      statistical_floor_spend_eur: statisticalFloorSpend,
+      statistical_floor_purchases: statisticalFloorPurchases,
+      meets_statistical_floor: meetsStatFloor,
+    };
+  }
+
+  const viability = analyzeViability();
+
+  const viabilityBlock = `
+== ANÁLISE DE VIABILIDADE DO BUDGET ACTUAL (CONTEXTO PARA O TEU JUÍZO) ==
+
+Métricas calculadas a partir dos dados reais:
+- ROAS actual: ${viability.current_roas.toFixed(2)}x | ROAS alvo: ${viability.target_roas.toFixed(1)}x
+- Gap ROAS: ${viability.roas_gap_multiplier != null ? viability.roas_gap_multiplier.toFixed(1) + "x" : "N/A"} (severity: **${viability.gap_severity}**)
+- Goal de receita do evento (estimado, ticket avg €${TICKET_AVG_FALLBACK_EUR}): €${viability.event_goal_revenue_eur.toFixed(0)}
+- Compras necessárias: ${viability.need_purchases ?? "N/A"}
+- Spend diário actual: €${viability.current_daily_spend_eur.toFixed(2)}/dia
+- Spend total projectado até evento (no ritmo actual): €${viability.projected_total_spend_eur.toFixed(0)}
+- Spend diário necessário para hit goal ao ROAS alvo: ${viability.daily_spend_needed_for_goal_eur != null ? "€" + viability.daily_spend_needed_for_goal_eur.toFixed(2) + "/dia" : "N/A"}
+- Compras projectadas no ritmo actual: ${viability.projected_purchases_at_current_rate}
+- Dias até evento: ${viability.days_until_event}
+
+Floor estatístico para validar a tese (mínimo absoluto para concluir algo):
+- ≥ €${viability.statistical_floor_spend_eur} spend acumulado OU ≥ ${viability.statistical_floor_purchases} compras agregadas
+- Cumpre actualmente: ${viability.meets_statistical_floor ? "SIM" : "NÃO"}
+
+INSTRUÇÕES DE USO DESTAS MÉTRICAS:
+
+1. **Não inventes números fora deste contexto.** Os teus expected_purchases / expected_revenue / recommended_total_budget devem ser COERENTES com a realidade actual. Se propões ROAS ${viability.target_roas.toFixed(1)}x quando actual é ${viability.current_roas.toFixed(2)}x, justifica especificamente como (que adsets pausar, que criativos escalar, etc.).
+
+2. **Calibra a viabilidade no gap_severity:**
+   - 'comfortable' (gap < 1.5x): feasibility=high, confidence=high é OK
+   - 'stretch' (1.5–2.5x): feasibility=high mas confidence=medium é o teto
+   - 'aggressive' (2.5–4x): feasibility=medium, confidence=medium ou low
+   - 'unrealistic' (>4x): feasibility=low ou impossible, confidence=low. Marca claramente em feasibility_reason que o gap é grande demais sem mudança operacional radical (criativos novos, audiences novas, etc.).
+
+3. **Budget analysis (NOVO — campo budget_recommendation):**
+   No JSON de output, preenche \`budget_recommendation\` com sugestão de ajuste (mais detalhes no schema). Regras:
+   - Se gap_severity='comfortable' e meets_floor=true: adjustment_direction='maintain' (sugestão = actual).
+   - Se gap_severity='stretch'/'aggressive' e meets_floor=true: pode sugerir 'increase' moderado (15-50%) ou 'maintain'. Reason explica.
+   - Se !meets_floor: SEMPRE sugerir 'increase' suficiente para chegar a statistical_floor_spend até à data do evento. floor_warning preenchido.
+   - Se gap_severity='unrealistic': sugerir reanalisar premissa (ex: reduzir goal_revenue, prolongar prazo, ou aceitar ROAS menor). adjustment_direction='maintain' e floor_warning explica.
+
+4. **Verba no plano não é prescrição autoritária — é sugestão informada.** O utilizador decide.
+
+5. **feasibility_reason DEVE citar números concretos do contexto acima.** Ex: "ROAS actual 1.89x vs alvo 8x = gap 4.2x (unrealistic). Sem recalibração criativa profunda e expansão de audience, target não é atingível mesmo com 5x mais spend."
+`;
+
   // 6) Prompt
   const diagJsonStr = JSON.stringify(diagnosis.diagnosis_jsonb ?? {}).slice(0, 12000);
   const countries = ["PT", "BR"];
@@ -399,6 +491,7 @@ ${diagJsonStr}
 ${inheritedBlock}
 ${crossEventContextText}
 ${inheritanceDecisionsText}
+${viabilityBlock}
 == META PRINCIPAL ==
 ROAS alvo BLENDED do evento: ${targetBlendedRoas.toFixed(1)}x (agregado entre TODAS as fases — não por campanha/adset individual).
 Avaliação por fase: fases REACH/AWARENESS/VIDEO_VIEWS terão ROAS individual baixo (esperado 0–2x); fases CONVERSIONS/SALES devem entregar ROAS >=${targetBlendedRoas.toFixed(1)}x para puxar o blended; retargeting deve entregar 10–20x.
@@ -426,13 +519,23 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
   "redesign_rationale": "3-6 frases em PT explicando porquê esta versão é diferente e melhor",
   "summary": {
     "feasibility": "high|medium|low|impossible",
-    "feasibility_reason": "1-2 frases",
+    "feasibility_reason": "1-2 frases citando números do contexto de viabilidade",
     "recommended_total_budget_eur": <number>,
     "expected_purchases": <number>,
     "expected_revenue_eur": <number>,
     "expected_overall_roas": <number>,
     "expected_cpa_eur": <number>,
     "confidence": "high|medium|low"
+  },
+  "budget_recommendation": {
+    "current_daily_eur": <number — do contexto ANÁLISE DE VIABILIDADE>,
+    "current_projected_total_eur": <number — do contexto>,
+    "suggested_daily_eur": <number — pode ser igual, mais, ou menos>,
+    "suggested_total_eur": <number>,
+    "adjustment_direction": "maintain|increase|decrease",
+    "adjustment_reason": "1-3 frases em PT explicando o porquê (cita gap_severity + meets_floor)",
+    "meets_statistical_floor": <boolean — copia do contexto>,
+    "floor_warning": "<string ou null — preencher se NÃO cumpre floor>"
   },
   "phases": [
     {
@@ -544,6 +647,30 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
   }
 
   const rationale: string = String(plan.redesign_rationale ?? "").slice(0, 4000);
+
+  // 6c) Sprint 3c-2: enforcement de confidence/feasibility face ao gap_severity.
+  // IA tem tendência a marcar confidence=high mesmo quando o gap é unrealistic.
+  // Caps aplicados aqui são guardrails — não substituem o juízo do prompt, garantem floor.
+  if (plan && typeof plan === "object" && plan.summary && typeof plan.summary === "object") {
+    const sev = viability.gap_severity;
+    const currentConfidence = String(plan.summary.confidence ?? "").toLowerCase();
+    const currentFeasibility = String(plan.summary.feasibility ?? "").toLowerCase();
+    const gapStr = viability.roas_gap_multiplier != null ? viability.roas_gap_multiplier.toFixed(1) + "x" : "n/a";
+
+    if (sev === "stretch" && currentConfidence === "high") {
+      plan.summary.confidence = "medium";
+      plan.summary.confidence_capped_reason = `IA propôs confidence=high mas gap ROAS ${gapStr} é stretch — capped para medium.`;
+    }
+    if ((sev === "aggressive" || sev === "unrealistic") &&
+        (currentConfidence === "high" || currentConfidence === "medium")) {
+      plan.summary.confidence = "low";
+      plan.summary.confidence_capped_reason = `IA propôs confidence=${currentConfidence} mas gap ROAS ${gapStr} é ${sev} — capped para low.`;
+    }
+    if (sev === "unrealistic" && currentFeasibility === "high") {
+      plan.summary.feasibility = "medium";
+      plan.summary.feasibility_capped_reason = `Gap unrealistic — feasibility capped de high para medium. Considera ajustar premissas (reduzir goal_revenue, prolongar prazo, ou aceitar ROAS menor).`;
+    }
+  }
 
   // 7.0) Anexar criativos herdados (mesmo que IA não tenha referenciado) + sanitizar ads
   plan.inherited_creatives = inheritedCreatives.map((c) => ({
@@ -660,6 +787,7 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
     end_time: effEndTime,
     violations_corrected: constraintViolations,
     pause_original_mode: pauseOriginalMode, // duplicado em coluna dedicada, mantido aqui para leitura retrocompatível
+    viability_analysis: viability, // Sprint 3c-2 — audit trail do contexto de viabilidade
   };
 
   // 8) Persistir nova strategy
@@ -706,6 +834,7 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
     strategy_id: inserted.id,
     generated_plan: plan,
     redesign_rationale: rationale,
+    viability_analysis: viability, // Sprint 3c-2 — frontend pode renderizar diferenças vs IA
     source: {
       campaign_id: campaign.external_campaign_id,
       campaign_name: campaign.name,

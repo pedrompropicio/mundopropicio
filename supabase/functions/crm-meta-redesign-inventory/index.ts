@@ -34,6 +34,25 @@ function json(body: unknown, status = 200): Response {
 }
 
 // ─── Constantes de classificação ──────────────────────────────────────────
+/**
+ * Scale factor proporcional ao tamanho da campanha (Sprint 3c-1).
+ * Thresholds absolutos (5000 imp, €50 spend) são certos para campanhas
+ * €500+ mas catastrophicamente errados para campanhas de €95 spend total.
+ * Sem isto: 13/13 criativos da Anitta v1 caíram em NEUTRAL.
+ *
+ * scaleFactor = clamp(campaign_spend_eur / 200, 0.15, 2.0)
+ *   €30 spend  → scale 0.15 (15% dos thresholds default)
+ *   €100 spend → scale 0.5
+ *   €200 spend → scale 1.0 (default)
+ *   €500 spend → scale 2.0 (cap)
+ *   €1500+ spend → scale 2.0 (cap)
+ */
+function computeScaleFactor(totalSpendEur: number): number {
+  if (!Number.isFinite(totalSpendEur) || totalSpendEur <= 0) return 1.0;
+  const raw = totalSpendEur / 200;
+  return Math.max(0.15, Math.min(2.0, raw));
+}
+
 const CREATIVE_THRESHOLDS = {
   WINNING_SCORE_MIN: 70,
   WINNING_ALT_SCORE_MIN: 60,
@@ -180,6 +199,34 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const campAgg = emptyAgg();
   for (const r of campInsights ?? []) addRow(campAgg, r);
+
+  // Sprint 3c-1: thresholds escalados pelo tamanho da campanha.
+  // ROAS escala sqrt (mais devagar que volume); imp + spend escalam linear.
+  // Floors absolutos garantem que campanhas mini ainda têm bar mínima.
+  const totalSpendEur = campAgg.spend_cents / 100;
+  const scale = computeScaleFactor(totalSpendEur);
+  const scaledCreativeT = {
+    WINNING_SCORE_MIN: CREATIVE_THRESHOLDS.WINNING_SCORE_MIN, // qualitativo
+    WINNING_ALT_SCORE_MIN: CREATIVE_THRESHOLDS.WINNING_ALT_SCORE_MIN,
+    WINNING_ALT_ROAS_MIN: Math.max(2, CREATIVE_THRESHOLDS.WINNING_ALT_ROAS_MIN * Math.sqrt(scale)),
+    WINNING_ALT_IMPRESSIONS_MIN: Math.round(CREATIVE_THRESHOLDS.WINNING_ALT_IMPRESSIONS_MIN * scale),
+    LOSING_SCORE_MAX: CREATIVE_THRESHOLDS.LOSING_SCORE_MAX,
+    LOSING_ROAS_MAX: CREATIVE_THRESHOLDS.LOSING_ROAS_MAX,
+    LOSING_SPEND_MIN_EUR: Math.max(10, CREATIVE_THRESHOLDS.LOSING_SPEND_MIN_EUR * scale),
+  };
+  const scaledAdsetT = {
+    CONVERSION_ROAS_WINNING: Math.max(1.5, ADSET_THRESHOLDS.CONVERSION_ROAS_WINNING * Math.sqrt(scale)),
+    AWARENESS_ROAS_WINNING: Math.max(0.5, ADSET_THRESHOLDS.AWARENESS_ROAS_WINNING * Math.sqrt(scale)),
+    RETARGETING_ROAS_WINNING: Math.max(3, ADSET_THRESHOLDS.RETARGETING_ROAS_WINNING * Math.sqrt(scale)),
+    WINNING_SPEND_MIN_EUR: Math.max(20, ADSET_THRESHOLDS.WINNING_SPEND_MIN_EUR * scale),
+    WINNING_FREQ_MAX: ADSET_THRESHOLDS.WINNING_FREQ_MAX, // freq não escala
+    LOSING_ROAS_MAX: ADSET_THRESHOLDS.LOSING_ROAS_MAX,
+    LOSING_SPEND_MIN_EUR: Math.max(30, ADSET_THRESHOLDS.LOSING_SPEND_MIN_EUR * scale),
+    SATURATED_FREQ_MIN: ADSET_THRESHOLDS.SATURATED_FREQ_MIN,
+    SATURATED_ROAS_DECAY_PCT_MIN: ADSET_THRESHOLDS.SATURATED_ROAS_DECAY_PCT_MIN,
+  };
+  console.log(`[inventory] scale=${scale.toFixed(2)} (spend_eur=${totalSpendEur.toFixed(2)}) — creative_imp_min=${scaledCreativeT.WINNING_ALT_IMPRESSIONS_MIN}, losing_spend_min=€${scaledCreativeT.LOSING_SPEND_MIN_EUR.toFixed(0)}`);
+
   const daysRunning = campaign.start_time
     ? Math.max(1, Math.round((Date.now() - new Date(campaign.start_time).getTime()) / 86400000))
     : periodDays;
@@ -247,22 +294,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const isRetargeting = RETARGETING_RE.test(a.name ?? "");
     const benchmark = isRetargeting
-      ? ADSET_THRESHOLDS.RETARGETING_ROAS_WINNING
-      : CONVERSION_GOALS.test(a.optimization_goal ?? "") ? ADSET_THRESHOLDS.CONVERSION_ROAS_WINNING
-      : AWARENESS_GOALS.test(a.optimization_goal ?? "") ? ADSET_THRESHOLDS.AWARENESS_ROAS_WINNING
+      ? scaledAdsetT.RETARGETING_ROAS_WINNING
+      : CONVERSION_GOALS.test(a.optimization_goal ?? "") ? scaledAdsetT.CONVERSION_ROAS_WINNING
+      : AWARENESS_GOALS.test(a.optimization_goal ?? "") ? scaledAdsetT.AWARENESS_ROAS_WINNING
       : 3;
 
     let verdict: "winning" | "neutral" | "losing" | "saturated";
     let reason: string;
-    if (roas != null && roas > benchmark && spendEur >= ADSET_THRESHOLDS.WINNING_SPEND_MIN_EUR && (freq ?? 0) < ADSET_THRESHOLDS.WINNING_FREQ_MAX) {
+    if (roas != null && roas > benchmark && spendEur >= scaledAdsetT.WINNING_SPEND_MIN_EUR && (freq ?? 0) < scaledAdsetT.WINNING_FREQ_MAX) {
       verdict = "winning";
-      reason = `ROAS ${roas.toFixed(2)}x > benchmark ${benchmark}x, spend €${spendEur.toFixed(0)}, freq ${(freq ?? 0).toFixed(2)} < 3.`;
-    } else if ((freq ?? 0) > ADSET_THRESHOLDS.SATURATED_FREQ_MIN && roasDecayPct != null && roasDecayPct < -ADSET_THRESHOLDS.SATURATED_ROAS_DECAY_PCT_MIN) {
+      reason = `ROAS ${roas.toFixed(2)}x > benchmark ${benchmark.toFixed(1)}x, spend €${spendEur.toFixed(0)} >= €${scaledAdsetT.WINNING_SPEND_MIN_EUR.toFixed(0)}, freq ${(freq ?? 0).toFixed(2)} < ${scaledAdsetT.WINNING_FREQ_MAX}.`;
+    } else if ((freq ?? 0) > scaledAdsetT.SATURATED_FREQ_MIN && roasDecayPct != null && roasDecayPct < -scaledAdsetT.SATURATED_ROAS_DECAY_PCT_MIN) {
       verdict = "saturated";
-      reason = `Frequency ${(freq ?? 0).toFixed(2)} > 5 e ROAS caiu ${(roasDecayPct * 100).toFixed(0)}% nos últimos 7d.`;
-    } else if (roas != null && roas < ADSET_THRESHOLDS.LOSING_ROAS_MAX && spendEur >= ADSET_THRESHOLDS.LOSING_SPEND_MIN_EUR) {
+      reason = `Frequency ${(freq ?? 0).toFixed(2)} > ${scaledAdsetT.SATURATED_FREQ_MIN} e ROAS caiu ${(roasDecayPct * 100).toFixed(0)}% nos últimos 7d.`;
+    } else if (roas != null && roas < scaledAdsetT.LOSING_ROAS_MAX && spendEur >= scaledAdsetT.LOSING_SPEND_MIN_EUR) {
       verdict = "losing";
-      reason = `ROAS ${roas.toFixed(2)}x < 2 com spend já em €${spendEur.toFixed(0)}.`;
+      reason = `ROAS ${roas.toFixed(2)}x < ${scaledAdsetT.LOSING_ROAS_MAX} com spend €${spendEur.toFixed(0)} >= €${scaledAdsetT.LOSING_SPEND_MIN_EUR.toFixed(0)}.`;
     } else {
       verdict = "neutral";
       reason = `ROAS ${roas != null ? roas.toFixed(2) + "x" : "n/a"}, spend €${spendEur.toFixed(0)}, freq ${(freq ?? 0).toFixed(2)}.`;
@@ -358,22 +405,37 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     let verdict: "winning" | "neutral" | "losing";
     let reason: string;
-    const winningPrimary = score != null && score >= CREATIVE_THRESHOLDS.WINNING_SCORE_MIN;
-    const winningAlt = score != null && score >= CREATIVE_THRESHOLDS.WINNING_ALT_SCORE_MIN
-      && roas != null && roas > CREATIVE_THRESHOLDS.WINNING_ALT_ROAS_MIN
-      && impressions >= CREATIVE_THRESHOLDS.WINNING_ALT_IMPRESSIONS_MIN;
-    const losingByScore = score != null && score < CREATIVE_THRESHOLDS.LOSING_SCORE_MAX;
-    const losingByPerf = roas != null && roas < CREATIVE_THRESHOLDS.LOSING_ROAS_MAX && spendEur >= CREATIVE_THRESHOLDS.LOSING_SPEND_MIN_EUR;
-    if (winningPrimary || winningAlt) {
+    const winningPrimary = score != null && score >= scaledCreativeT.WINNING_SCORE_MIN;
+    const winningAlt = score != null && score >= scaledCreativeT.WINNING_ALT_SCORE_MIN
+      && roas != null && roas > scaledCreativeT.WINNING_ALT_ROAS_MIN
+      && impressions >= scaledCreativeT.WINNING_ALT_IMPRESSIONS_MIN;
+    // Sprint 3c-1: fallback para criativos sem score IA. Exige 2× do ROAS
+    // benchmark scaled (compensa falta de signal qualitativo) + metade das
+    // impressões (com floor de 500 para evitar pure-noise).
+    const winningByPerf = score == null
+      && roas != null && roas > scaledCreativeT.WINNING_ALT_ROAS_MIN * 2
+      && impressions >= Math.max(500, scaledCreativeT.WINNING_ALT_IMPRESSIONS_MIN / 2);
+
+    const losingByScore = score != null && score < scaledCreativeT.LOSING_SCORE_MAX;
+    const losingByPerf = roas != null && roas < scaledCreativeT.LOSING_ROAS_MAX && spendEur >= scaledCreativeT.LOSING_SPEND_MIN_EUR;
+    // Sprint 3c-1: zero compras com spend significativo é losing mesmo sem score.
+    const losingByZero = score == null && roas != null && roas === 0
+      && spendEur >= scaledCreativeT.LOSING_SPEND_MIN_EUR * 0.5;
+
+    if (winningPrimary || winningAlt || winningByPerf) {
       verdict = "winning";
       reason = winningPrimary
-        ? `Score IA ${score}/100 >= 70.`
-        : `Score IA ${score}/100 + ROAS ${roas?.toFixed(2)}x com ${impressions} impressões.`;
-    } else if (losingByScore || losingByPerf) {
+        ? `Score IA ${score}/100 >= ${scaledCreativeT.WINNING_SCORE_MIN}.`
+        : winningAlt
+          ? `Score IA ${score}/100 + ROAS ${roas?.toFixed(2)}x com ${impressions} impressões.`
+          : `ROAS ${roas?.toFixed(2)}x (>2× benchmark scaled ${scaledCreativeT.WINNING_ALT_ROAS_MIN.toFixed(1)}x) com ${impressions} impressões (sem score IA).`;
+    } else if (losingByScore || losingByPerf || losingByZero) {
       verdict = "losing";
       reason = losingByScore
-        ? `Score IA ${score}/100 < 50.`
-        : `ROAS ${roas?.toFixed(2)}x < 1 com spend €${spendEur.toFixed(0)} já gasto.`;
+        ? `Score IA ${score}/100 < ${scaledCreativeT.LOSING_SCORE_MAX}.`
+        : losingByPerf
+          ? `ROAS ${roas?.toFixed(2)}x < ${scaledCreativeT.LOSING_ROAS_MAX} com spend €${spendEur.toFixed(0)} >= €${scaledCreativeT.LOSING_SPEND_MIN_EUR.toFixed(0)}.`
+          : `Zero compras com spend €${spendEur.toFixed(0)} (sem score IA).`;
     } else {
       verdict = "neutral";
       reason = `Score ${score ?? "—"}, ROAS ${roas != null ? roas.toFixed(2) + "x" : "n/a"}, spend €${spendEur.toFixed(0)}.`;
