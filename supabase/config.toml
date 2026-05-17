@@ -62,3 +62,7 @@ project_id = "sfohvvlqccmmebvjgibx"
   # Daily schedule em scripts/crm-cron-pause-replaced-originals-live.txt.
   [functions.crm-cron-pause-replaced-originals]
     verify_jwt = false
+  # crm-meta-sync-creatives: chamado por cron (service_role) e manualmente (user JWT).
+  # Auth é validada em código; manter false como nas functions Meta cron/UI equivalentes.
+  [functions.crm-meta-sync-creatives]
+    verify_jwt = false
