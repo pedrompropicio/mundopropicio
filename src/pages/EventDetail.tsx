@@ -104,7 +104,11 @@ function CopyFromSelector({ label, currentId, subEvents, onCopy }: {
 export default function EventDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAdmin, isManager, user } = useAuth();
+  const { isAdmin, isManager, user, hasPermission } = useAuth();
+  const canViewBP = isAdmin || isManager || hasPermission("view_bp");
+  const canViewSponsorship = isAdmin || isManager || hasPermission("view_sponsorship");
+  const canViewAB = isAdmin || isManager || hasPermission("view_ab");
+  const canViewSimulator = isAdmin || isManager || hasPermission("view_simulator");
   const { companyId } = useCompany();
   const queryClient = useQueryClient();
 
