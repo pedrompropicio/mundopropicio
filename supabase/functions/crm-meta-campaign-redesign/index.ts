@@ -13,6 +13,38 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const AI_MODEL = "google/gemini-2.5-flash";
 
+// ─────────────────────────────────────────────────────────────────────────
+// Tuning surface (Sprint redesign optimizer fix — caso Simone Mendes).
+// Calibração em produção; não criar config table na DB ainda (over-engineering para v1).
+// ─────────────────────────────────────────────────────────────────────────
+const TRAJECTORY_STRONG_UPTREND_RATIO = 1.5;
+const TRAJECTORY_UPTREND_RATIO = 1.15;
+const TRAJECTORY_DOWNTREND_RATIO = 0.85;
+const TRAJECTORY_STRONG_DOWNTREND_RATIO = 0.7;
+const NO_OP_TARGET_PROXIMITY = 0.9;         // A3: roas_7d >= target * 0.9 → skip
+const NO_OP_HORIZON_DAYS_THRESHOLD = 10;    // D3: days_until_event < 10 → skip (se !meets_floor)
+const HIGH_BUDGET_SHARE_THRESHOLD = 0.30;   // B1: phase com peso > 30% = warning relevante
+const KEYWORD_DIVERGENCE_TOLERANCE = 0.5;   // C2: claimed - expected > 0.5x = warning
+
+type Trajectory =
+  | "strong_uptrend"
+  | "uptrend"
+  | "stable"
+  | "downtrend"
+  | "strong_downtrend"
+  | "insufficient_data";
+
+type SkipReason =
+  | "unrealistic_gap"
+  | "insufficient_horizon"
+  | "ascending_trajectory_near_target";
+
+type ROASBuckets = {
+  roas_7d: number | null;
+  roas_28d: number | null;
+  roas_lifetime: number | null;
+};
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -38,6 +70,26 @@ type Agg = {
   frequencySum: number; frequencyN: number;
 };
 const emptyAgg = (): Agg => ({ impressions: 0, reach: 0, clicks: 0, spendCents: 0, purchases: 0, purchasesValueCents: 0, frequencySum: 0, frequencyN: 0 });
+
+function aggregateInto(target: Agg, r: any) {
+  target.impressions += r.impressions ?? 0;
+  target.reach = Math.max(target.reach, r.reach ?? 0);
+  target.clicks += r.clicks ?? 0;
+  target.spendCents += r.spend_cents ?? 0;
+  target.purchases += r.purchases_count ?? 0;
+  target.purchasesValueCents += r.purchases_value_cents ?? 0;
+  if (r.frequency != null) { target.frequencySum += r.frequency; target.frequencyN++; }
+}
+
+function classifyTrajectory(roas7d: number | null, roas28d: number | null): Trajectory {
+  if (roas7d == null || roas28d == null || roas28d <= 0) return "insufficient_data";
+  const ratio = roas7d / roas28d;
+  if (ratio >= TRAJECTORY_STRONG_UPTREND_RATIO) return "strong_uptrend";
+  if (ratio >= TRAJECTORY_UPTREND_RATIO) return "uptrend";
+  if (ratio >= TRAJECTORY_DOWNTREND_RATIO) return "stable";
+  if (ratio >= TRAJECTORY_STRONG_DOWNTREND_RATIO) return "downtrend";
+  return "strong_downtrend";
+}
 
 function metricsOf(a: Agg) {
   const ctr = a.impressions > 0 ? a.clicks / a.impressions : 0;
@@ -137,22 +189,39 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const since = new Date(today); since.setUTCDate(since.getUTCDate() - (periodDays - 1));
   const fromDate = since.toISOString().slice(0, 10);
 
-  const { data: campInsights } = await (supabase as any)
+  // A1 — 3 buckets (roas_7d, roas_28d, roas_lifetime) + janela legacy periodDays.
+  // Query única sem filtro de data, sliced em memória pelos cut-offs.
+  // Insights por campanha são pequenos (~365 rows/campanha max).
+  const { data: campInsightsLifetime } = await (supabase as any)
     .schema("crm").from("meta_campaign_insights_daily")
-    .select("impressions, reach, frequency, clicks, spend_cents, purchases_count, purchases_value_cents")
-    .eq("external_campaign_id", campaignId).gte("date_start", fromDate).lte("date_start", toDate);
+    .select("date_start, impressions, reach, frequency, clicks, spend_cents, purchases_count, purchases_value_cents")
+    .eq("external_campaign_id", campaignId)
+    .order("date_start", { ascending: false });
 
-  const campAgg = emptyAgg();
-  for (const r of campInsights ?? []) {
-    campAgg.impressions += r.impressions ?? 0;
-    campAgg.reach = Math.max(campAgg.reach, r.reach ?? 0);
-    campAgg.clicks += r.clicks ?? 0;
-    campAgg.spendCents += r.spend_cents ?? 0;
-    campAgg.purchases += r.purchases_count ?? 0;
-    campAgg.purchasesValueCents += r.purchases_value_cents ?? 0;
-    if (r.frequency != null) { campAgg.frequencySum += r.frequency; campAgg.frequencyN++; }
+  const cutoff7 = new Date(today); cutoff7.setUTCDate(cutoff7.getUTCDate() - 6);
+  const cutoff28 = new Date(today); cutoff28.setUTCDate(cutoff28.getUTCDate() - 27);
+  const cutoff7Str = cutoff7.toISOString().slice(0, 10);
+  const cutoff28Str = cutoff28.toISOString().slice(0, 10);
+
+  const campAgg = emptyAgg();      // legacy: janela periodDays — preservada para FIX 1 e métricas existentes
+  const last7Agg = emptyAgg();
+  const last28Agg = emptyAgg();
+  const lifetimeAgg = emptyAgg();
+
+  for (const r of campInsightsLifetime ?? []) {
+    const d = r.date_start as string;
+    aggregateInto(lifetimeAgg, r);
+    if (d >= cutoff28Str) aggregateInto(last28Agg, r);
+    if (d >= cutoff7Str) aggregateInto(last7Agg, r);
+    if (d >= fromDate && d <= toDate) aggregateInto(campAgg, r);
   }
+
   const campMetrics = metricsOf(campAgg);
+  const roasBuckets: ROASBuckets = {
+    roas_7d: metricsOf(last7Agg).roas,
+    roas_28d: metricsOf(last28Agg).roas,
+    roas_lifetime: metricsOf(lifetimeAgg).roas,
+  };
 
   const { data: adsets } = await (supabase as any)
     .schema("crm").from("meta_adset_snapshot")
@@ -266,9 +335,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // 5b) Análise de viabilidade (Sprint 3c-2) — calcula apenas, não prescreve.
   // Métricas concretas para o prompt ancorar o juízo da IA na realidade.
   const TICKET_AVG_FALLBACK_EUR = 25;
-  function analyzeViability() {
+  function analyzeViability(buckets: ROASBuckets) {
     const targetRoas = targetBlendedRoas;
     const currentRoas = campMetrics.roas ?? 0;
+    const trajectory = classifyTrajectory(buckets.roas_7d, buckets.roas_28d);
     const eventGoalRevenue = (eventCtx.tickets_total ?? 0) * TICKET_AVG_FALLBACK_EUR;
     const daysUntil = eventCtx.daysUntil ?? 60;
     const currentDailySpend = (campAgg.spendCents / 100) / Math.max(1, periodDays);
@@ -298,6 +368,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return {
       target_roas: targetRoas,
       current_roas: currentRoas,
+      roas_7d: buckets.roas_7d,
+      roas_28d: buckets.roas_28d,
+      roas_lifetime: buckets.roas_lifetime,
+      trajectory,
       roas_gap_multiplier: roasGap,
       gap_severity: gapSeverity,
       event_goal_revenue_eur: eventGoalRevenue,
@@ -313,7 +387,164 @@ Deno.serve(async (req: Request): Promise<Response> => {
     };
   }
 
-  const viability = analyzeViability();
+  const viability = analyzeViability(roasBuckets);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Fase 1 — Pré-checks early-abort (D1 + D3 + A3).
+  // Decide se vale a pena chamar o LLM. Devolve {reason, message} ou null.
+  // ─────────────────────────────────────────────────────────────────────────
+  function decideSkip(): { reason: SkipReason; message: string } | null {
+    // D1 — Gap unrealistic + sem budget para validar
+    if (viability.gap_severity === "unrealistic" && !viability.meets_statistical_floor) {
+      return {
+        reason: "unrealistic_gap",
+        message:
+          `ROAS actual ${viability.current_roas.toFixed(2)}x vs alvo ${viability.target_roas.toFixed(1)}x ` +
+          `(gap ${viability.roas_gap_multiplier?.toFixed(1) ?? "?"}x — unrealistic) e spend projectado ` +
+          `€${viability.projected_total_spend_eur.toFixed(0)} fica abaixo do floor estatístico ` +
+          `€${viability.statistical_floor_spend_eur}. Sem orçamento para validar qualquer optimização. ` +
+          `Recomenda-se: (1) prolongar prazo do evento, (2) aceitar ROAS menor como goal, ` +
+          `ou (3) aumentar verba substancialmente antes de tentar redesign.`,
+      };
+    }
+    // D3 — Horizon curto + sem floor estatístico
+    if (
+      viability.days_until_event < NO_OP_HORIZON_DAYS_THRESHOLD &&
+      !viability.meets_statistical_floor
+    ) {
+      return {
+        reason: "insufficient_horizon",
+        message:
+          `Faltam apenas ${viability.days_until_event} dias até ao evento e spend projectado ` +
+          `€${viability.projected_total_spend_eur.toFixed(0)} não chega ao floor estatístico ` +
+          `€${viability.statistical_floor_spend_eur}. Sem horizon nem volume para validar redesign — ` +
+          `manter campanha actual e monitorizar até ao fim.`,
+      };
+    }
+    // A3 — Trajectória ascendente perto do target (campanha em auto-melhoria)
+    if (
+      (viability.trajectory === "strong_uptrend" || viability.trajectory === "uptrend") &&
+      viability.roas_7d != null &&
+      viability.target_roas > 0 &&
+      viability.roas_7d >= viability.target_roas * NO_OP_TARGET_PROXIMITY
+    ) {
+      return {
+        reason: "ascending_trajectory_near_target",
+        message:
+          `Campanha em trajectória ${viability.trajectory} (ROAS 7d ${viability.roas_7d.toFixed(2)}x ` +
+          `vs ROAS 28d ${viability.roas_28d?.toFixed(2) ?? "?"}x) e ROAS recente já a ` +
+          `${((viability.roas_7d / viability.target_roas) * 100).toFixed(0)}% do alvo ${viability.target_roas.toFixed(1)}x. ` +
+          `Recomenda-se NÃO fazer redesign — monitorizar próximos 7 dias para confirmar curva. ` +
+          `Redesign agora arriscaria degradar uma campanha em auto-melhoria.`,
+      };
+    }
+    return null;
+  }
+
+  const skip = decideSkip();
+  if (skip) {
+    // Stub plan: mesma shape do output normal mas com phases vazias + flags de skip.
+    // Front renderiza graciosamente via skip_llm flag (assumido — não verificado).
+    const stubPlan = {
+      skip_llm: true,
+      skip_reason: skip.reason,
+      redesign_rationale: skip.message,
+      summary: {
+        feasibility: "impossible" as const,
+        feasibility_reason: skip.message,
+        recommended_total_budget_eur: 0,
+        expected_purchases: 0,
+        expected_revenue_eur: 0,
+        expected_overall_roas: viability.current_roas,
+        expected_cpa_eur: 0,
+        confidence: "low" as const,
+      },
+      phases: [] as any[],
+      recommended_campaigns: [] as any[],
+      risks_and_warnings: [] as any[],
+      inherited_creatives: inheritedCreatives.map((c) => ({
+        meta_creative_id: c.meta_creative_id,
+        ad_name: c.ad_name,
+        library_id: c.library?.id ?? null,
+        name: c.library?.name ?? c.ad_name ?? null,
+        type: c.library?.type ?? null,
+        file_url: c.library?.file_url ?? null,
+        headline: c.library?.headline ?? null,
+        body: c.library?.body ?? null,
+        cta_type: c.library?.cta_type ?? null,
+        link_url: c.library?.link_url ?? null,
+      })),
+      automation_metadata: {
+        ready_to_deploy: false,
+        deploy_blocked_reason: skip.message,
+        skip_reason: skip.reason,
+      },
+    };
+    const skipAppliedConstraints = {
+      keep_original_budget: keepOriginal,
+      daily_budget_cents: effDailyCents,
+      lifetime_budget_cents: effLifetimeCents,
+      roas_floor: effRoasFloor,
+      end_time: effEndTime,
+      violations_corrected: [] as string[],
+      pause_original_mode: pauseOriginalMode,
+      viability_analysis: viability,
+      skip_llm: true,
+      skip_reason: skip.reason,
+    };
+    const stubName = `Re-design (skip:${skip.reason}) — ${campaign.name}`.slice(0, 200);
+    const adAccountIdSkip = campaign.ad_account_id?.startsWith("act_")
+      ? campaign.ad_account_id
+      : `act_${campaign.ad_account_id}`;
+    const { data: skipInserted, error: skipInsErr } = await (supabase as any)
+      .schema("crm").from("meta_campaign_strategies")
+      .insert({
+        company_id: campaign.company_id,
+        connection_id: campaign.connection_id,
+        ad_account_id: adAccountIdSkip,
+        event_id: campaign.linked_event_id ?? null,
+        name: stubName,
+        goal_revenue_eur: 0,
+        ticket_avg_eur: null,
+        total_budget_eur: null,
+        target_roas: null,
+        days_until_event: eventCtx.daysUntil ?? null,
+        country_codes: ["PT", "BR"],
+        user_notes: `Re-design abortado (${skip.reason}) — campanha ${campaign.external_campaign_id}`,
+        detected_artist: null,
+        generated_plan: stubPlan,
+        generation_model: AI_MODEL,
+        generation_tokens_used: 0,
+        generated_at: new Date().toISOString(),
+        status: "generated",
+        source_campaign_id: campaign.external_campaign_id,
+        source_diagnosis_id: diagnosisId,
+        redesign_rationale: skip.message,
+        applied_constraints: skipAppliedConstraints,
+        pause_original_mode: pauseOriginalMode,
+        inheritance_decisions: inh ?? null,
+        created_by: userId,
+      })
+      .select("id").single();
+    if (skipInsErr || !skipInserted) {
+      console.error("[redesign] skip persist failed", skipInsErr);
+      return json({ error: "persist_failed", detail: skipInsErr?.message, plan: stubPlan }, 500);
+    }
+    console.log(`[redesign] early-abort skip: ${skip.reason}`);
+    return json({
+      strategy_id: skipInserted.id,
+      generated_plan: stubPlan,
+      redesign_rationale: skip.message,
+      viability_analysis: viability,
+      skip_llm: true,
+      skip_reason: skip.reason,
+      source: {
+        campaign_id: campaign.external_campaign_id,
+        campaign_name: campaign.name,
+        diagnosis_id: diagnosisId,
+      },
+    });
+  }
 
   const viabilityBlock = `
 == ANÁLISE DE VIABILIDADE DO BUDGET ACTUAL (CONTEXTO PARA O TEU JUÍZO) ==
@@ -496,6 +727,8 @@ ${viabilityBlock}
 == META PRINCIPAL ==
 ROAS alvo BLENDED do evento: ${targetBlendedRoas.toFixed(1)}x (agregado entre TODAS as fases — não por campanha/adset individual).
 Avaliação por fase: fases REACH/AWARENESS/VIDEO_VIEWS terão ROAS individual baixo (esperado 0–2x); fases CONVERSIONS/SALES devem entregar ROAS >=${targetBlendedRoas.toFixed(1)}x para puxar o blended; retargeting deve entregar 10–20x.
+ROAS floor é HARD CONSTRAINT: nenhuma phase com peso >${(HIGH_BUDGET_SHARE_THRESHOLD * 100).toFixed(0)}% do budget total pode propor target_kpis.roas_min inferior a ${targetBlendedRoas.toFixed(1)}x.
+Se não consegues atingir esse floor em phases com peso significativo, marca feasibility=medium/low e explica no redesign_rationale por que (não inflaciones números para forçar consistency).
 
 == O QUE PRECISO QUE FAÇAS ==
 Desenha uma estratégia COMPLETA estruturada em fases (3-5), aplicando o diagnóstico:
@@ -667,8 +900,6 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
     return json({ error: "ai_invalid_json", detail: content.slice(0, 200) }, 502);
   }
 
-  const rationale: string = String(plan.redesign_rationale ?? "").slice(0, 4000);
-
   // ─────────────────────────────────────────────────────────────────────────
   // Sprint 3c-2.5 — guardrails pós-parse. Ordem importa: FIX2 → FIX1 → FIX3 → FIX4.
   // FIX1 pode forçar feasibility='impossible'; FIX3 só dispara se FIX1 não bloqueou.
@@ -712,6 +943,13 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       plan.automation_metadata.ready_to_deploy = false;
       plan.automation_metadata.deploy_blocked_reason =
         `Plano propõe degradação de ROAS (${expectedRoas.toFixed(2)}x < ${currentRoasForCheck.toFixed(2)}x actual). Não deployável.`;
+      // C3 — substitui TODO o redesign_rationale do LLM por template determinístico.
+      // Perde nuance do LLM mas garante coerência entre texto e estado (impossible).
+      plan.redesign_rationale =
+        `Plano gerado projecta ROAS ${expectedRoas.toFixed(2)}x, inferior ao ROAS actual ${currentRoasForCheck.toFixed(2)}x. ` +
+        `Recomenda-se: (1) reavaliar o ROAS floor configurado, ` +
+        `(2) manter a campanha actual em observação, ou ` +
+        `(3) considerar pausar e redirigir budget para campanhas com maior alavanca.`;
       console.warn(`[redesign] degradation blocked: expected ${expectedRoas.toFixed(2)}x < current ${currentRoasForCheck.toFixed(2)}x`);
     }
   }
@@ -813,6 +1051,34 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
           `Confiança rebaixada de ${prevConf} para low por incoerência interna nos KPIs: ${kpiIssues[0]}`;
       }
       console.warn(`[redesign] KPI incoherence detected:`, kpiIssues);
+    }
+  }
+
+  // C2 (Sprint redesign optimizer fix) — Coerência texto vs números no redesign_rationale.
+  // Heurístico: detecta padrões "melhorar/atingir/chegar a Nx" e compara com expected_overall_roas.
+  // Pode dar falsos positivos em frases históricas/comparativas; é warning, não block.
+  {
+    const rationaleText = String(plan?.redesign_rationale ?? "");
+    const expectedRoasC2 = Number(plan?.summary?.expected_overall_roas) || 0;
+    if (rationaleText && expectedRoasC2 > 0) {
+      const KEYWORD_PATTERNS = /(?:melhor(?:ar|ia)?\s+para|atingir|chegar(?:\s+a)?|alcan[çc]ar|subir(?:\s+a)?|para)\s+(\d{1,2}(?:[.,]\d+)?)\s*x/gi;
+      let m: RegExpExecArray | null;
+      let maxClaimed = 0;
+      while ((m = KEYWORD_PATTERNS.exec(rationaleText)) !== null) {
+        const n = parseFloat(m[1].replace(",", "."));
+        if (!isNaN(n) && n > maxClaimed) maxClaimed = n;
+      }
+      if (maxClaimed > 0 && maxClaimed - expectedRoasC2 > KEYWORD_DIVERGENCE_TOLERANCE) {
+        plan.risks_and_warnings = plan.risks_and_warnings ?? [];
+        plan.risks_and_warnings.push({
+          severity: "medium",
+          title: "Incoerência texto/números no redesign_rationale",
+          description:
+            `Texto promete ${maxClaimed}x mas plano entrega ${expectedRoasC2.toFixed(2)}x ` +
+            `(tolerância configurada: ${KEYWORD_DIVERGENCE_TOLERANCE}x).`,
+        });
+        console.warn(`[redesign] C2 keyword divergence: claimed=${maxClaimed}x expected=${expectedRoasC2.toFixed(2)}x`);
+      }
     }
   }
 
@@ -943,12 +1209,39 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
     }
   }
   if (effRoasFloor != null) {
+    // B1 — antes da sobrescrita, computar peso de cada phase e flag warnings
+    // para phases relevantes (>30% peso) onde o LLM propôs roas_min < floor.
+    const totalDailyForB1 = (plan?.phases ?? []).reduce(
+      (s: number, p: any) => s + (Number(p?.daily_budget_eur) || 0), 0,
+    );
     for (const phase of plan?.phases ?? []) {
-      if (phase?.target_kpis && (phase.target_kpis.roas_min == null || phase.target_kpis.roas_min < effRoasFloor)) {
-        phase.target_kpis.roas_min = effRoasFloor;
+      if (!phase?.target_kpis) continue;
+      const originalMin = phase.target_kpis.roas_min;
+      const needsOverride = originalMin == null || originalMin < effRoasFloor;
+      if (!needsOverride) continue;
+      // B1 warning quando phase tem peso relevante e LLM propôs explicitamente abaixo do floor
+      if (typeof originalMin === "number" && totalDailyForB1 > 0) {
+        const phaseBudget = Number(phase?.daily_budget_eur) || 0;
+        const budgetShare = phaseBudget / totalDailyForB1;
+        if (budgetShare > HIGH_BUDGET_SHARE_THRESHOLD && originalMin < effRoasFloor) {
+          plan.risks_and_warnings = plan.risks_and_warnings ?? [];
+          plan.risks_and_warnings.push({
+            severity: "medium",
+            title: `Fase "${phase?.name ?? phase?.id ?? "?"}" com peso significativo não atinge floor`,
+            description:
+              `Fase com ${(budgetShare * 100).toFixed(0)}% do budget total propôs roas_min ` +
+              `${originalMin.toFixed(2)}x abaixo do floor configurado ${effRoasFloor.toFixed(2)}x. ` +
+              `Valor sobrescrito de ${originalMin.toFixed(2)}x para ${effRoasFloor.toFixed(2)}x — ` +
+              `verificar se floor é realista para esta fase.`,
+          });
+        }
       }
+      phase.target_kpis.roas_min = effRoasFloor;
     }
   }
+
+  // C3 captura o redesign_rationale FINAL (pode ter sido overwritten por FIX 1 com template determinístico).
+  const rationale: string = String(plan.redesign_rationale ?? "").slice(0, 4000);
 
   const appliedConstraints = {
     keep_original_budget: keepOriginal,
