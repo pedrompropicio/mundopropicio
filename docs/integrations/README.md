@@ -22,6 +22,7 @@ Resumo: o `INTEGRATIONS.md` da raiz responde "**que** integração existe"; esta
 |---|---|---|
 | [`lovable-mcp.md`](./lovable-mcp.md) | Lovable MCP (acesso programático Claude.ai/Claude Code → Lovable Cloud) | ✅ Operacional |
 | [`meta-ads.md`](./meta-ads.md) | Meta Ads (OAuth, Custom Audiences, Conversions API para MP Audience) | ⏳ Em construção |
+| [`meta-creatives-sync.md`](./meta-creatives-sync.md) | Meta Creatives Sync — Graph API → `crm.meta_creatives`, cron diário, herança em redesign de campanhas | ✅ v1 operacional |
 
 ## Páginas a criar conforme necessário
 

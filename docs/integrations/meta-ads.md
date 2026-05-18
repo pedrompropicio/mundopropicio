@@ -217,5 +217,6 @@ A edge function corre em Deno (Supabase). O SDK oficial da Meta é Node-only e n
 - `CLAUDE.md` (raiz) §10 — permissões e roles, incluindo `marketing_manager`.
 - `INTEGRATIONS.md` (raiz) — catálogo curto de integrações.
 - `lovable-mcp.md` — para inspeção/debug da DB durante implementação.
+- `meta-creatives-sync.md` — sub-integração que popula criativos sincronizados via Graph API (consumido pelo fluxo de re-design via `crm-meta-campaign-redesign`).
 - [Meta for Developers — Marketing API](https://developers.facebook.com/docs/marketing-apis) — versão Graph API pinada: `v19.0`.
 - [Meta Conversions API](https://developers.facebook.com/docs/marketing-api/conversions-api/).
