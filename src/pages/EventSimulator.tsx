@@ -878,11 +878,11 @@ export default function EventSimulator() {
 
   const beDaily = useMemo(
     () => buildDailyFromBreakdown(beSolution.breakdown ?? []),
-    [beSolution, lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, dailyTotals],
+    [beSolution, lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, dailyTotals, eventCourtesies],
   );
   const fcDaily = useMemo(
     () => buildDailyFromBreakdown(fcSolution.breakdown ?? []),
-    [fcSolution, lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, dailyTotals],
+    [fcSolution, lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, dailyTotals, eventCourtesies],
   );
   const beDailyTotals = beDaily.dailyTotals;
   const fcDailyTotals = fcDaily.dailyTotals;
