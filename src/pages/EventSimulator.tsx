@@ -814,6 +814,19 @@ export default function EventSimulator() {
 
     const courtesyMap = new Map<string, number>();
     simulatorSessions.forEach((s) => courtesyMap.set(`${s.day_index}|${s.zone_label}`, Number(s.courtesy_qty || 0)));
+    // Merge cortesias geridas em event_courtesies (idêntico ao caminho Real em
+    // `dailyAttendance`). Sem este merge, BE/Forecast perdiam as cortesias do
+    // recinto e o A&B do cenário ficava subdimensionado vs Real.
+    const dateToIdxFc = new Map<string, number>();
+    (lotSalesData.dates ?? []).forEach((d: any, i: number) => { if (d?.date) dateToIdxFc.set(d.date, i); });
+    for (const c of eventCourtesies) {
+      if (!c.date || !c.zone_name) continue;
+      const idx = dateToIdxFc.get(c.date);
+      if (idx == null) continue;
+      const k = `${idx}|${c.zone_name}`;
+      courtesyMap.set(k, (courtesyMap.get(k) ?? 0) + Number(c.quantity || 0));
+      zoneSet.set(c.zone_name, { name: c.zone_name });
+    }
 
     const expanded = expandLotSalesToDailyAttendance(
       [...lotSalesData.lotSales, ...syntheticSales],
@@ -865,11 +878,11 @@ export default function EventSimulator() {
 
   const beDaily = useMemo(
     () => buildDailyFromBreakdown(beSolution.breakdown ?? []),
-    [beSolution, lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, dailyTotals],
+    [beSolution, lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, dailyTotals, eventCourtesies],
   );
   const fcDaily = useMemo(
     () => buildDailyFromBreakdown(fcSolution.breakdown ?? []),
-    [fcSolution, lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, dailyTotals],
+    [fcSolution, lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, dailyTotals, eventCourtesies],
   );
   const beDailyTotals = beDaily.dailyTotals;
   const fcDailyTotals = fcDaily.dailyTotals;
