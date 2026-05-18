@@ -18,9 +18,12 @@ type: feature
 2. `profiles.company_id` se ainda tem membership lá;
 3. primeira empresa em `user_roles` ordenada por `created_at`.
 
-`set_active_company(uuid)`: aceita troca para qualquer empresa onde o caller tenha membership; platform_admin troca para qualquer ativa.
+`set_active_company(uuid)`: aceita troca para qualquer empresa onde o caller tenha membership; platform_admin troca para qualquer ativa. RAISE EXCEPTION se sem acesso.
 
 `has_role` / `has_permission`: tenant-aware — filtram por `current_company_id()` (mantêm `platform_admin` global).
+
+## RLS RESTRICTIVE em user_roles / user_permissions
+A política `company_isolation_user_roles` (e a irmã em `user_permissions`) permite SEMPRE `user_id = auth.uid()` além do escopo `current_company_id()`. Sem este OR, o user não vê as próprias memberships fora da empresa ativa → `useUserMemberships` devolve só 1 → CompanySwitcher oculto. Visualizar dados de OUTROS users continua escopado pela empresa ativa.
 
 ## UI
 - **`CompanySwitcher`** visível se `memberships.length ≥ 2` OU `isPlatformAdmin`. Lê de `useUserMemberships()` (view `user_companies`). Ao trocar, invalida toda a query cache.
