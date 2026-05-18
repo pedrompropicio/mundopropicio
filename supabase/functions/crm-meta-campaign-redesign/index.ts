@@ -25,6 +25,19 @@ const NO_OP_TARGET_PROXIMITY = 0.9;         // A3: roas_7d >= target * 0.9 → s
 const NO_OP_HORIZON_DAYS_THRESHOLD = 10;    // D3: days_until_event < 10 → skip (se !meets_floor)
 const HIGH_BUDGET_SHARE_THRESHOLD = 0.30;   // B1: phase com peso > 30% = warning relevante
 const KEYWORD_DIVERGENCE_TOLERANCE = 0.5;   // C2: claimed - expected > 0.5x = warning
+// E3 — Downtrend tuning. Arbitrário; calibrar empiricamente em produção.
+const TRAJECTORY_DOWNTREND_PROJECTION_RATIO_LIMIT = 2.0;
+// E3 — Keywords PT que indicam que o LLM justificou plano de recovery no rationale.
+// Se prompt mudar para EN no futuro, lista precisa de update.
+const TRAJECTORY_RECOVERY_KEYWORDS = [
+  "estancar",
+  "recuperar",
+  "reverter",
+  "pivot",
+  "nova estratégia",
+  "corrigir",
+  "ineficiência",
+];
 
 type Trajectory =
   | "strong_uptrend"
@@ -625,6 +638,48 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
   }
 
+  // E1 — Downtrend pre-LLM warning injection.
+  // Trajectórias descendentes NÃO fazem skip (diferente do A3 uptrend skip): queremos
+  // o LLM analisar — pode haver fix operacional que reverta. Mas pré-popula warnings
+  // que vão (a) ao prompt como contexto e (b) ao plan.risks_and_warnings pós-parse.
+  const isDowntrend =
+    viability.trajectory === "downtrend" || viability.trajectory === "strong_downtrend";
+  const downtrendDropPct =
+    isDowntrend && viability.roas_7d != null && viability.roas_28d != null && viability.roas_28d > 0
+      ? (1 - viability.roas_7d / viability.roas_28d) * 100
+      : null;
+  const downtrendPreWarnings: Array<{
+    type: string;
+    severity: "high" | "medium";
+    title: string;
+    description: string;
+  }> = isDowntrend && downtrendDropPct != null && viability.roas_7d != null && viability.roas_28d != null
+    ? [{
+        type: "trajectory_warning",
+        severity: viability.trajectory === "strong_downtrend" ? "high" : "medium",
+        title: "Queda recente no ROAS",
+        description:
+          `ROAS últimos 7 dias (${viability.roas_7d.toFixed(2)}x) caiu ${downtrendDropPct.toFixed(0)}% ` +
+          `face a últimos 28 dias (${viability.roas_28d.toFixed(2)}x). Investigar causa antes de validar redesign.`,
+      }]
+    : [];
+
+  // E2 — Downtrend prompt enhancement block.
+  // Só injectado quando isDowntrend. Vazio caso contrário (não polui o prompt).
+  const downtrendInstructionsBlock = isDowntrend && downtrendDropPct != null && viability.roas_7d != null && viability.roas_28d != null
+    ? `
+== TRAJECTÓRIA DESCENDENTE DETECTADA ==
+
+A campanha está em queda — ROAS últimos 7d é ${viability.roas_7d.toFixed(2)}x vs ROAS 28d ${viability.roas_28d.toFixed(2)}x (${downtrendDropPct.toFixed(0)}% de queda).
+
+REGRAS OBRIGATÓRIAS para este caso:
+1. Integra explicitamente a queda recente no campo \`redesign_rationale\` (não apenas problemas operacionais; aborda o padrão temporal).
+2. NÃO projectes \`expected_overall_roas\` superior a ${(viability.roas_7d * TRAJECTORY_DOWNTREND_PROJECTION_RATIO_LIMIT).toFixed(2)}x sem justificação explícita no rationale sobre como vais reverter a queda. Se projectares acima desse valor, explica concretamente que mudanças causam a recuperação (palavras como "estancar", "reverter", "corrigir ineficiência", "pivot", "nova estratégia").
+3. Marca \`feasibility\` como "medium" no mínimo — nunca "high" — porque há risco real de a queda continuar mesmo com redesign.
+4. Inclui em \`risks_and_warnings\` uma entrada específica sobre o downtrend (severidade "${viability.trajectory === "strong_downtrend" ? "high" : "medium"}").
+`
+    : "";
+
   const viabilityBlock = `
 == ANÁLISE DE VIABILIDADE DO BUDGET ACTUAL (CONTEXTO PARA O TEU JUÍZO) ==
 
@@ -803,6 +858,7 @@ ${inheritedBlock}
 ${crossEventContextText}
 ${inheritanceDecisionsText}
 ${viabilityBlock}
+${downtrendInstructionsBlock}
 == META PRINCIPAL ==
 ROAS alvo BLENDED do evento: ${targetBlendedRoas.toFixed(1)}x (agregado entre TODAS as fases — não por campanha/adset individual).
 Avaliação por fase: fases REACH/AWARENESS/VIDEO_VIEWS terão ROAS individual baixo (esperado 0–2x); fases CONVERSIONS/SALES devem entregar ROAS >=${targetBlendedRoas.toFixed(1)}x para puxar o blended; retargeting deve entregar 10–20x.
@@ -1183,6 +1239,94 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       plan.summary.feasibility = "medium";
       plan.summary.feasibility_capped_reason = `Gap unrealistic — feasibility capped de high para medium. Considera ajustar premissas (reduzir goal_revenue, prolongar prazo, ou aceitar ROAS menor).`;
     }
+  }
+
+  // FIX 7 / E3 — Downtrend post-LLM coherence (Sprint downtrend handling).
+  // Caso Ivete: LLM recebe trajectory=strong_downtrend mas não a integra na narrativa
+  // nem calibra a projecção (rationale silencia a queda, expected_overall_roas optimista).
+  // Aplicação:
+  //   7.1 — Merge pre-warnings de E1 com plan.risks_and_warnings (dedupe fuzzy por título)
+  //   7.2 — Detecta projecção overoptimistic (expected > roas_7d * limit) sem keywords recovery
+  //   7.3 — Soft warning quando LLM marca feasibility=high (preserva valor + audit trail)
+  const downtrendPostCheckFlags = { overoptimistic_added: false, feasibility_capped_warning: false };
+  if (isDowntrend && plan && typeof plan === "object") {
+    // 7.1 — Merge pre-warnings com dedupe fuzzy por título existente
+    plan.risks_and_warnings = plan.risks_and_warnings ?? [];
+    const existingTitles: string[] = (plan.risks_and_warnings as any[])
+      .map((w) => String(w?.title ?? "").toLowerCase());
+    for (const pre of downtrendPreWarnings) {
+      const isDuplicate = existingTitles.some(
+        (t) =>
+          t.startsWith("queda") ||
+          t.includes("trajectória descendente") ||
+          t.includes("trajetória descendente") ||
+          t.includes("downtrend"),
+      );
+      if (!isDuplicate) {
+        plan.risks_and_warnings.push({
+          severity: pre.severity,
+          title: pre.title,
+          description: pre.description,
+        });
+      }
+    }
+
+    // 7.2 — Detector de projecção overoptimistic sem justificação de recovery
+    if (viability.roas_7d != null && viability.roas_7d > 0 && plan.summary && typeof plan.summary === "object") {
+      const expected = Number(plan.summary.expected_overall_roas) || 0;
+      const ratioLimit = viability.roas_7d * TRAJECTORY_DOWNTREND_PROJECTION_RATIO_LIMIT;
+      if (expected > ratioLimit) {
+        const rationaleText = String(plan?.redesign_rationale ?? "").toLowerCase();
+        const hasJustification = TRAJECTORY_RECOVERY_KEYWORDS.some((kw) => rationaleText.includes(kw.toLowerCase()));
+        if (!hasJustification) {
+          plan.risks_and_warnings.push({
+            severity: "high",
+            title: "Projecção optimista sem justificação",
+            description:
+              `expected_overall_roas (${expected.toFixed(2)}x) é mais de ${TRAJECTORY_DOWNTREND_PROJECTION_RATIO_LIMIT}x ` +
+              `o ROAS recente (${viability.roas_7d.toFixed(2)}x), e o rationale não menciona explicitamente o plano ` +
+              `de reverter a queda. Reavaliar realismo.`,
+          });
+          downtrendPostCheckFlags.overoptimistic_added = true;
+        }
+      }
+    }
+
+    // 7.3 — Soft warning quando LLM marca feasibility=high em downtrend.
+    // NÃO altera o valor original: preserva o sinal do LLM (audit trail do disagreement
+    // entre modelo e validador determinístico). Adiciona warning explícito para o
+    // utilizador decidir. Discutido na review: hard override esconde o disagreement.
+    if (plan.summary && typeof plan.summary === "object") {
+      const currentFeas = String(plan.summary.feasibility ?? "").toLowerCase();
+      if (currentFeas === "high") {
+        plan.risks_and_warnings.push({
+          type: "feasibility_calibration",
+          severity: "high",
+          title: "Confiança 'high' face a trajectória descendente",
+          description:
+            `LLM marcou viabilidade=high mas campanha está em ${viability.trajectory} ` +
+            `(queda de ${downtrendDropPct != null ? downtrendDropPct.toFixed(0) : "?"}% face a 28d). ` +
+            `Reavaliar se as recomendações são suficientes para reverter a tendência observada.`,
+        });
+        plan.summary.feasibility_calibration_note =
+          "Trajectory descendente — confiança 'high' sinalizada como possivelmente excessiva " +
+          "(valor não foi alterado, ver risks_and_warnings)";
+        downtrendPostCheckFlags.feasibility_capped_warning = true;
+      }
+    }
+  }
+
+  // E4 — Logging defensivo do downtrend handling
+  if (isDowntrend) {
+    console.log("[redesign] downtrend_handling", {
+      trajectory: viability.trajectory,
+      roas_7d: viability.roas_7d,
+      roas_28d: viability.roas_28d,
+      drop_pct: downtrendDropPct != null ? Number(downtrendDropPct.toFixed(1)) : null,
+      pre_warnings_added: downtrendPreWarnings.length,
+      post_check_warning_added: downtrendPostCheckFlags.overoptimistic_added,
+      feasibility_capped_warning: downtrendPostCheckFlags.feasibility_capped_warning,
+    });
   }
 
   // 7.0) Anexar criativos herdados (mesmo que IA não tenha referenciado) + sanitizar ads
