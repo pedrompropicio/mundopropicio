@@ -104,7 +104,11 @@ function CopyFromSelector({ label, currentId, subEvents, onCopy }: {
 export default function EventDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAdmin, isManager, user } = useAuth();
+  const { isAdmin, isManager, user, hasPermission } = useAuth();
+  const canViewBP = isAdmin || isManager || hasPermission("view_bp");
+  const canViewSponsorship = isAdmin || isManager || hasPermission("view_sponsorship");
+  const canViewAB = isAdmin || isManager || hasPermission("view_ab");
+  const canViewSimulator = isAdmin || isManager || hasPermission("view_simulator");
   const { companyId } = useCompany();
   const queryClient = useQueryClient();
 
@@ -930,14 +934,14 @@ export default function EventDetail() {
         <TabsList>
           <TabsTrigger value="overview">Resumo</TabsTrigger>
           <TabsTrigger value="ticketing" className="flex items-center gap-1">Bilheteira <HelpTooltip text={helpTexts.eventTicketing} size={13} /></TabsTrigger>
-          <TabsTrigger value="sponsors">Patrocínios</TabsTrigger>
-          <TabsTrigger value="ab">A&B</TabsTrigger>
+          {canViewSponsorship && <TabsTrigger value="sponsors">Patrocínios</TabsTrigger>}
+          {canViewAB && <TabsTrigger value="ab">A&B</TabsTrigger>}
           {(isAdmin || isManager) && <TabsTrigger value="cache" className="flex items-center gap-1">Cachê <HelpTooltip text={helpTexts.eventCache} size={13} /></TabsTrigger>}
           {(isAdmin || isManager) && !event?.parent_event_id && !selectedSubEvent && <TabsTrigger value="partners" className="flex items-center gap-1">Sócios <HelpTooltip text={helpTexts.eventPartners} size={13} /></TabsTrigger>}
-          <TabsTrigger value="forecast" className="flex items-center gap-1">Business Plan <HelpTooltip text={helpTexts.eventForecast} size={13} /></TabsTrigger>
+          {canViewBP && <TabsTrigger value="forecast" className="flex items-center gap-1">Business Plan <HelpTooltip text={helpTexts.eventForecast} size={13} /></TabsTrigger>}
           {(isAdmin || isManager) && <TabsTrigger value="closing-costs" className="flex items-center gap-1">Overhead <HelpTooltip text={helpTexts.eventClosingTab} size={13} /></TabsTrigger>}
           {(isAdmin || isManager) && <TabsTrigger value="fecho" className="flex items-center gap-1">Fecho</TabsTrigger>}
-          <TabsTrigger value="simulador" className="flex items-center gap-1">Simulador</TabsTrigger>
+          {canViewSimulator && <TabsTrigger value="simulador" className="flex items-center gap-1">Simulador</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview">
