@@ -2427,8 +2427,8 @@ export default function CrmCampaigns() {
 
               return (
                 <>
-                  <div className={cn("rounded-lg border p-4 flex flex-col sm:flex-row sm:items-start gap-4", sevColor)}>
-                    <div className="flex items-start gap-4 flex-1 min-w-0">
+                  <div className={cn("rounded-lg border p-4 flex flex-col sm:flex-row sm:items-start sm:flex-wrap gap-4", sevColor)}>
+                    <div className="flex items-start gap-4 flex-1 min-w-0 sm:basis-full md:basis-0">
                       <div className="text-3xl font-bold tabular-nums">{Math.round(score)}</div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
