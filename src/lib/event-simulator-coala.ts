@@ -309,13 +309,18 @@ export function computeScenarioCosts(
     if (l.is_ab_passthrough) continue;
     if (scenario === "today") eventCosts += n(l.actual_amount ?? l.prior_year_amount);
     else if (scenario === "breakeven") {
-      // BE: assume custos = reais atuais (a alavanca é só receita de bilheteira).
-      // Fallback se a coluna BE estiver vazia: actual → prior → forecast.
+      // BE >= Real por linha: o BE pressupõe que as despesas já reconhecidas
+      // são piso mínimo (não se "des-gasta" o que já foi pago).
       const be = n(l.break_even_amount);
-      if (be > 0) eventCosts += be;
-      else eventCosts += n(l.actual_amount) || n(l.prior_year_amount) || n(l.forecast_amount);
+      const fallback = n(l.actual_amount) || n(l.prior_year_amount) || n(l.forecast_amount);
+      eventCosts += Math.max(n(l.actual_amount), be > 0 ? be : fallback);
     }
-    else eventCosts += n(l.forecast_amount);
+    else {
+      // Forecast >= Real por linha: idem — o Forecast é projecção FINAL,
+      // o realizado é piso. Se forecast_amount ficou desactualizado, garantimos
+      // monotonia.
+      eventCosts += Math.max(n(l.actual_amount), n(l.forecast_amount));
+    }
   }
   // Em "today" o A&B real é desconhecido → usa mesma fórmula proporcional ao público
   const abCost =
