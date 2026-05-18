@@ -91,11 +91,10 @@ export default function ExecutiveDashboard(props: Props) {
   }, [active, today, todayCosts, todayRes, todayKpis, breakeven, beCosts, beRes, beKpis, forecast, fcCosts, fcRes, fcKpis]);
 
   // -------- Break-even / forecast targets --------
-  // Unidade única: PRESENÇAS×DIA (1 Passe 2 dias = 2). Alinha o KPI grande, as
-  // barras BE/Forecast e a tabela "Público por dia". Fonte: attendanceQty +
-  // attendanceCourtesyQty já calculados em cada cenário.
-  const presOf = (rev: any) =>
-    Number(rev?.attendanceQty || 0) + Number(rev?.attendanceCourtesyQty || 0);
+  // Cards do trio Real/BE/Forecast mostram APENAS pagantes×dia (memo:
+  // simulator-public-unit.md). Cortesias entram só no A&B (per-capita) e no
+  // KPI grande "Presenças × dia" (calculado à parte com paying+courtesy).
+  const presOf = (rev: any) => Number(rev?.attendanceQty || 0);
   const todayPres = presOf(today);
   const beTargetQty = presOf(breakeven);
   const fcTargetQty = presOf(forecast);
