@@ -105,6 +105,41 @@ function metricsOf(a: Agg) {
   };
 }
 
+// Multi-day tour aware. master.events.date pode ser data de criação no Meta (errada
+// para turnês). Combina master + children (events.parent_event_id) + event_dates,
+// escolhe próxima futura (fallback: última se já passaram todas).
+type EffectiveEventDate = {
+  date: Date;
+  source: "master" | "child" | "event_dates";
+  is_future: boolean;
+};
+
+function resolveEffectiveEventDate(
+  masterDate: string | null | undefined,
+  children: Array<{ date: string | null }>,
+  eventDates: Array<{ date: string | null }>,
+): { effectiveMs: number | null; source: EffectiveEventDate["source"] | null; allDates: EffectiveEventDate[] } {
+  const nowMs = Date.now();
+  const collected: EffectiveEventDate[] = [];
+  const push = (d: string | null | undefined, source: EffectiveEventDate["source"]) => {
+    if (!d) return;
+    const t = new Date(d).getTime();
+    if (!Number.isFinite(t)) return;
+    collected.push({ date: new Date(t), source, is_future: t >= nowMs });
+  };
+  push(masterDate, "master");
+  for (const c of children) push(c.date, "child");
+  for (const ed of eventDates) push(ed.date, "event_dates");
+
+  if (collected.length === 0) return { effectiveMs: null, source: null, allDates: [] };
+
+  const futures = collected.filter(d => d.is_future);
+  const pick = futures.length > 0
+    ? futures.reduce((a, b) => (a.date.getTime() <= b.date.getTime() ? a : b))
+    : collected.reduce((a, b) => (a.date.getTime() >= b.date.getTime() ? a : b));
+  return { effectiveMs: pick.date.getTime(), source: pick.source, allDates: collected };
+}
+
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -257,14 +292,56 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const inheritedCreatives = [...inheritedMap.values()];
 
   // 4) Evento + ticket avg
-  let eventCtx: { id?: string; name?: string; date?: string; daysUntil?: number | null; tickets_total?: number | null; location?: string | null; ticketing_url?: string | null } = {};
+  // Multi-day tour aware: combina master + parent_event_id children + event_dates,
+  // escolhe próxima futura (fallback: última passada). Fix S — caso Simone Mendes
+  // onde master.date = data de criação no Meta e datas reais vivem nos children.
+  let eventCtx: {
+    id?: string; name?: string; date?: string;
+    daysUntil?: number | null;
+    tickets_total?: number | null; location?: string | null; ticketing_url?: string | null;
+    effectiveDate?: string | null; eventDateSource?: string | null;
+  } = {};
   if (campaign.linked_event_id) {
     const { data: e } = await supabase.from("events")
       .select("id, name, date, location, tickets_total, ticketing_url")
       .eq("id", campaign.linked_event_id).maybeSingle();
     if (e) {
-      const daysUntil = e.date ? Math.max(0, Math.round((new Date(e.date).getTime() - Date.now()) / 86400000)) : null;
-      eventCtx = { id: e.id, name: e.name, date: e.date, daysUntil, tickets_total: e.tickets_total, location: e.location, ticketing_url: (e as any).ticketing_url ?? null };
+      const [{ data: childrenRows }, { data: eventDatesRows }] = await Promise.all([
+        supabase.from("events").select("date").eq("parent_event_id", e.id),
+        supabase.from("event_dates").select("date").eq("event_id", e.id),
+      ]);
+      const resolved = resolveEffectiveEventDate(
+        (e as any).date ?? null,
+        (childrenRows ?? []) as Array<{ date: string | null }>,
+        (eventDatesRows ?? []) as Array<{ date: string | null }>,
+      );
+      const daysUntil = resolved.effectiveMs != null
+        ? Math.max(0, Math.round((resolved.effectiveMs - Date.now()) / 86400000))
+        : null;
+      const effectiveIso = resolved.effectiveMs != null
+        ? new Date(resolved.effectiveMs).toISOString().slice(0, 10)
+        : null;
+      console.log("[redesign] event_date_resolution", {
+        event_id: e.id,
+        master_date: (e as any).date ?? null,
+        n_children: childrenRows?.length ?? 0,
+        n_event_dates: eventDatesRows?.length ?? 0,
+        n_total: resolved.allDates.length,
+        n_future: resolved.allDates.filter(d => d.is_future).length,
+        effective_date: effectiveIso,
+        source: resolved.source,
+      });
+      eventCtx = {
+        id: e.id,
+        name: e.name,
+        date: e.date,
+        daysUntil,
+        tickets_total: e.tickets_total,
+        location: e.location,
+        ticketing_url: (e as any).ticketing_url ?? null,
+        effectiveDate: effectiveIso,
+        eventDateSource: resolved.source,
+      };
     }
   }
 
@@ -381,6 +458,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
       projected_total_spend_eur: currentProjectedSpend,
       daily_spend_needed_for_goal_eur: dailySpendNeeded,
       days_until_event: daysUntil,
+      effective_event_date: eventCtx.effectiveDate ?? null,
+      event_date_source: eventCtx.eventDateSource ?? null,
       statistical_floor_spend_eur: statisticalFloorSpend,
       statistical_floor_purchases: statisticalFloorPurchases,
       meets_statistical_floor: meetsStatFloor,
