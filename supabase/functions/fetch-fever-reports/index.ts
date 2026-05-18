@@ -79,27 +79,54 @@ Deno.serve(async (req) => {
   const debug: Record<string, any> = { version: VERSION };
 
   try {
-    // 1. B2bToken do Vault
+    // 1. B2bToken do Vault (com self-heal)
     if (!cfg.b2b_token_secret_name) {
       throw Object.assign(new Error("b2b_token_secret_name não definido no config"), { phase: "token_missing" });
     }
-    const { data: tokRpc, error: tokErr } = await admin.rpc("get_vault_secret" as any, { _name: cfg.b2b_token_secret_name });
-    const b2bToken = (typeof tokRpc === "string" ? tokRpc : "").trim();
-    if (tokErr || !b2bToken) {
-      throw Object.assign(new Error(`B2bToken não encontrado no Vault (${cfg.b2b_token_secret_name}). Vai a /admin/fever-sync → Token Fever.`), { phase: "token_missing" });
+
+    async function getValidB2bToken(attempt = 0): Promise<{ token: string; payload: any }> {
+      const { data: tokRpc, error: tokErr } = await admin.rpc("get_vault_secret" as any, { _name: cfg.b2b_token_secret_name });
+      const tk = (typeof tokRpc === "string" ? tokRpc : "").trim();
+      if (tokErr || !tk) {
+        throw Object.assign(new Error(`B2bToken não encontrado no Vault (${cfg.b2b_token_secret_name}). Vai a /admin/fever-sync → Token Fever.`), { phase: "token_missing" });
+      }
+      let pl: any;
+      try { pl = decodeJwtPayload(tk); }
+      catch (e: any) { throw Object.assign(new Error(`Token Vault inválido: ${e?.message || e}`), { phase: "token_invalid" }); }
+      const nowSec = Math.floor(Date.now() / 1000);
+      const expSec = pl?.exp || 0;
+      // Self-heal: expira em <5min OU já expirou → invocar refresh interno
+      if (expSec - nowSec < 300) {
+        if (attempt >= 1) {
+          throw Object.assign(
+            new Error(`B2bToken expirado em ${new Date(expSec * 1000).toISOString()} (refresh self-heal já tentado, ainda inválido).`),
+            { phase: "token_expired" },
+          );
+        }
+        console.log(`[fever-sync] token expira em ${expSec - nowSec}s — disparando refresh self-heal`);
+        const refreshResp = await fetch(`${SUPABASE_URL}/functions/v1/refresh-fever-token`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SERVICE_ROLE}`,
+          },
+          body: JSON.stringify({ configId: cfg.id, triggeredBy: "self-heal-from-sync" }),
+        });
+        if (!refreshResp.ok) {
+          const errText = (await refreshResp.text()).slice(0, 400);
+          throw Object.assign(
+            new Error(`Refresh self-heal falhou: HTTP ${refreshResp.status} ${errText}`),
+            { phase: "token_expired" },
+          );
+        }
+        await refreshResp.text().catch(() => null);
+        debug.self_heal_refresh = true;
+        return getValidB2bToken(attempt + 1);
+      }
+      return { token: tk, payload: pl };
     }
 
-    // 2. Validar exp
-    let payload: any;
-    try { payload = decodeJwtPayload(b2bToken); }
-    catch (e: any) { throw Object.assign(new Error(`Token Vault inválido: ${e?.message || e}`), { phase: "token_invalid" }); }
-    const now = Math.floor(Date.now() / 1000);
-    if (!payload?.exp || payload.exp <= now) {
-      throw Object.assign(
-        new Error(`B2bToken expirado em ${new Date((payload?.exp || 0) * 1000).toISOString()}. Renova em /admin/fever-sync → Token Fever.`),
-        { phase: "token_expired" },
-      );
-    }
+    const { token: b2bToken, payload } = await getValidB2bToken();
     debug.token_user = payload.user_email || null;
     debug.token_exp = new Date(payload.exp * 1000).toISOString();
 
