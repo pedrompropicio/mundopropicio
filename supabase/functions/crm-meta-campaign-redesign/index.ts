@@ -39,6 +39,18 @@ const TRAJECTORY_RECOVERY_KEYWORDS = [
   "ineficiência",
 ];
 
+// CP-CONSTS — Counter-proposals tuning (feature nova, v1).
+// Gera 1-3 sugestões determinísticas de mudança de constraints quando o plano sai
+// como feasibility=impossible. Sem chamada LLM extra.
+const COUNTER_PROPOSAL_BUDGET_ROUND_MULTIPLE_EUR = 5;
+const COUNTER_PROPOSAL_FLOOR_ROUND_INCREMENT = 0.5;
+const COUNTER_PROPOSAL_FLOOR_VS_LIFETIME_TRIGGER_RATIO = 1.2;
+const COUNTER_PROPOSAL_REALISTIC_FLOOR_MULTIPLIER = 1.1;
+const COUNTER_PROPOSAL_HYBRID_BUDGET_TRIGGER_MULTIPLIER = 5;
+const COUNTER_PROPOSAL_HYBRID_FLOOR_TRIGGER_REDUCTION = 0.30;
+const COUNTER_PROPOSAL_HYBRID_RATIO = 0.7;
+const COUNTER_PROPOSAL_MAX_BUDGET_CAP_VS_CURRENT = 20;
+
 type Trajectory =
   | "strong_uptrend"
   | "uptrend"
@@ -56,6 +68,22 @@ type ROASBuckets = {
   roas_7d: number | null;
   roas_28d: number | null;
   roas_lifetime: number | null;
+};
+
+// CP-TYPE — Output shape de cada counter-proposal. Backwards-compat opcional no plan.
+type CounterProposal = {
+  id: "increase_budget" | "reduce_roas_floor" | "hybrid_budget_and_floor";
+  type: "single_knob" | "multi_knob";
+  priority: 1 | 2 | 3;
+  label: string;
+  constraints_change: Record<string, { from: number; to: number }>;
+  rationale: string;
+  expected_outcome: {
+    feasibility_estimate: "medium" | "high";
+    rationale: string;
+  };
+  trade_offs: string[];
+  confidence: "high" | "medium" | "low";
 };
 
 const corsHeaders = {
@@ -102,6 +130,154 @@ function classifyTrajectory(roas7d: number | null, roas28d: number | null): Traj
   if (ratio >= TRAJECTORY_DOWNTREND_RATIO) return "stable";
   if (ratio >= TRAJECTORY_STRONG_DOWNTREND_RATIO) return "downtrend";
   return "strong_downtrend";
+}
+
+// CP-GEN — Counter-proposals generator (determinístico, sem LLM).
+// Disparado quando feasibility=impossible. Gera 1-3 sugestões accionáveis de
+// mudança de constraints (budget, floor, ou ambos), cada uma com rationale e trade-offs.
+function generateCounterProposals(args: {
+  viability: {
+    roas_lifetime: number | null;
+    days_until_event: number;
+  };
+  constraints: {
+    daily_budget_eur: number;
+    roas_floor: number;
+    end_date: string;
+  };
+  horizon_days: number;
+  statistical_floor_eur: number;
+  current_daily_total_eur: number;
+}): CounterProposal[] {
+  const proposals: CounterProposal[] = [];
+  const { viability, constraints, horizon_days, statistical_floor_eur, current_daily_total_eur } = args;
+  const round = (n: number) => Math.round(n);
+
+  // CP1 — Aumentar budget (single_knob). Dispara se total projectado < floor estatístico.
+  let p1ProposedDaily: number | null = null;
+  let p1Fires = false;
+  if (current_daily_total_eur < statistical_floor_eur && horizon_days > 0) {
+    const rawProposed = statistical_floor_eur / horizon_days;
+    let proposedDaily = Math.ceil(rawProposed / COUNTER_PROPOSAL_BUDGET_ROUND_MULTIPLE_EUR) * COUNTER_PROPOSAL_BUDGET_ROUND_MULTIPLE_EUR;
+    const cap = constraints.daily_budget_eur * COUNTER_PROPOSAL_MAX_BUDGET_CAP_VS_CURRENT;
+    proposedDaily = Math.min(proposedDaily, cap);
+    if (proposedDaily > constraints.daily_budget_eur) {
+      p1Fires = true;
+      p1ProposedDaily = proposedDaily;
+      const newTotal = proposedDaily * horizon_days;
+      const increasePct = round((newTotal / current_daily_total_eur - 1) * 100);
+      proposals.push({
+        id: "increase_budget",
+        type: "single_knob",
+        priority: 1,
+        label: `Aumentar verba diária para €${proposedDaily}`,
+        constraints_change: {
+          daily_budget_eur: { from: constraints.daily_budget_eur, to: proposedDaily },
+        },
+        rationale:
+          `Statistical floor (€${statistical_floor_eur}) requer €${proposedDaily}/dia em ${horizon_days} dias ` +
+          `para análise robusta. Plano actual com €${constraints.daily_budget_eur}/dia atinge apenas ` +
+          `€${round(current_daily_total_eur)} no horizonte total — insuficiente.`,
+        expected_outcome: {
+          feasibility_estimate: "medium",
+          rationale: "Budget atinge statistical floor, permitindo análise robusta e escala.",
+        },
+        trade_offs: [
+          `Investimento total aumenta de €${round(current_daily_total_eur)} para €${round(newTotal)} (+${increasePct}%)`,
+          "Não garante atingir ROAS floor — apenas permite avaliação correcta",
+        ],
+        confidence: "high",
+      });
+    }
+  }
+
+  // CP2 — Reduzir ROAS floor (single_knob). Dispara se floor >> roas_lifetime observado.
+  let p2ProposedFloor: number | null = null;
+  let p2Fires = false;
+  const lifetime = viability.roas_lifetime;
+  if (
+    lifetime != null && lifetime > 0 &&
+    constraints.roas_floor > lifetime * COUNTER_PROPOSAL_FLOOR_VS_LIFETIME_TRIGGER_RATIO
+  ) {
+    const rawProposed = lifetime * COUNTER_PROPOSAL_REALISTIC_FLOOR_MULTIPLIER;
+    const proposedFloor = Math.round(rawProposed / COUNTER_PROPOSAL_FLOOR_ROUND_INCREMENT) * COUNTER_PROPOSAL_FLOOR_ROUND_INCREMENT;
+    if (proposedFloor < constraints.roas_floor) {
+      p2Fires = true;
+      p2ProposedFloor = proposedFloor;
+      const currentGapPct = round((constraints.roas_floor / lifetime - 1) * 100);
+      const proposedGapPct = round((proposedFloor / lifetime - 1) * 100);
+      const revenueDropPct = round((1 - proposedFloor / constraints.roas_floor) * 100);
+      proposals.push({
+        id: "reduce_roas_floor",
+        type: "single_knob",
+        priority: 2,
+        label: `Reduzir ROAS floor para ${proposedFloor.toFixed(1)}x`,
+        constraints_change: {
+          roas_floor: { from: constraints.roas_floor, to: proposedFloor },
+        },
+        rationale:
+          `ROAS lifetime actual é ${lifetime.toFixed(2)}x. Floor de ${constraints.roas_floor}x é ${currentGapPct}% ` +
+          `acima do baseline observado — meta improvável sem mudança operacional drástica. Floor de ` +
+          `${proposedFloor.toFixed(1)}x é ${proposedGapPct}% acima, mais alinhado com performance histórica.`,
+        expected_outcome: {
+          feasibility_estimate: "medium",
+          rationale: "Floor realista alinhado com histórico — plano provavelmente viável sem aumentar verba.",
+        },
+        trade_offs: [
+          `Receita esperada cai ~${revenueDropPct}% para mesmo budget (ROAS alvo menor)`,
+          "Goal de receita absoluta precisa de ser reavaliado",
+        ],
+        confidence: "high",
+      });
+    }
+  }
+
+  // CP3 — Híbrido budget + floor (multi_knob). Dispara se ambos CP1+CP2 disparam E magnitudes superam thresholds.
+  if (p1Fires && p2Fires && p1ProposedDaily != null && p2ProposedFloor != null) {
+    const budgetRatio = p1ProposedDaily / constraints.daily_budget_eur;
+    const floorReductionPct = (constraints.roas_floor - p2ProposedFloor) / constraints.roas_floor;
+    if (
+      budgetRatio > COUNTER_PROPOSAL_HYBRID_BUDGET_TRIGGER_MULTIPLIER &&
+      floorReductionPct > COUNTER_PROPOSAL_HYBRID_FLOOR_TRIGGER_REDUCTION
+    ) {
+      let hybridBudget = constraints.daily_budget_eur +
+        (p1ProposedDaily - constraints.daily_budget_eur) * COUNTER_PROPOSAL_HYBRID_RATIO;
+      hybridBudget = Math.ceil(hybridBudget / COUNTER_PROPOSAL_BUDGET_ROUND_MULTIPLE_EUR) * COUNTER_PROPOSAL_BUDGET_ROUND_MULTIPLE_EUR;
+      let hybridFloor = constraints.roas_floor -
+        (constraints.roas_floor - p2ProposedFloor) * COUNTER_PROPOSAL_HYBRID_RATIO;
+      hybridFloor = Math.round(hybridFloor / COUNTER_PROPOSAL_FLOOR_ROUND_INCREMENT) * COUNTER_PROPOSAL_FLOOR_ROUND_INCREMENT;
+      const newTotal = hybridBudget * horizon_days;
+      const revenueDropPct = round((1 - hybridFloor / constraints.roas_floor) * 100);
+      proposals.push({
+        id: "hybrid_budget_and_floor",
+        type: "multi_knob",
+        priority: 3,
+        label: `Compromisso: €${hybridBudget}/dia + floor ${hybridFloor.toFixed(1)}x`,
+        constraints_change: {
+          daily_budget_eur: { from: constraints.daily_budget_eur, to: hybridBudget },
+          roas_floor: { from: constraints.roas_floor, to: hybridFloor },
+        },
+        rationale:
+          `Aumentar verba para €${p1ProposedDaily} sozinho ou reduzir floor para ${p2ProposedFloor.toFixed(1)}x ` +
+          `sozinho são mudanças grandes. Esta proposta combina ambos com intensidade moderada ` +
+          `(~${Math.round(COUNTER_PROPOSAL_HYBRID_RATIO * 100)}% do delta individual de cada): aumenta verba ` +
+          `parcialmente E aceita floor mais realista. Boa opção se queres validar a campanha sem committment ` +
+          `grande em nenhum eixo.`,
+        expected_outcome: {
+          feasibility_estimate: "medium",
+          rationale: "Compromisso equilibrado entre rigor de meta e investimento.",
+        },
+        trade_offs: [
+          `Investimento total: €${round(newTotal)} (vs €${round(current_daily_total_eur)} actual)`,
+          `Receita esperada cai ~${revenueDropPct}% face a meta original`,
+          "Nenhuma das mudanças individuais é tão drástica — preserva opcionalidade futura",
+        ],
+        confidence: "medium",
+      });
+    }
+  }
+
+  return proposals.sort((a, b) => a.priority - b.priority);
 }
 
 function metricsOf(a: Agg) {
@@ -1088,6 +1264,37 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       console.warn(`[redesign] degradation blocked: expected ${expectedRoas.toFixed(2)}x < current ${currentRoasForCheck.toFixed(2)}x`);
     }
   }
+
+  // CP-MAIN — Counter-proposals para planos impossible.
+  // Disparado tanto por LLM impossible directo como por FIX 1 server-side guardrail.
+  // Determinístico, sem chamada LLM. Output adicional em plan.counter_proposals.
+  if (plan?.summary?.feasibility === "impossible") {
+    const dailyBudgetEur = effDailyCents != null ? effDailyCents / 100 : null;
+    if (dailyBudgetEur != null && effRoasFloor != null && viability.days_until_event > 0) {
+      plan.counter_proposals = generateCounterProposals({
+        viability: {
+          roas_lifetime: viability.roas_lifetime,
+          days_until_event: viability.days_until_event,
+        },
+        constraints: {
+          daily_budget_eur: dailyBudgetEur,
+          roas_floor: effRoasFloor,
+          end_date: effEndTime ?? "",
+        },
+        horizon_days: viability.days_until_event,
+        statistical_floor_eur: viability.statistical_floor_spend_eur,
+        current_daily_total_eur: dailyBudgetEur * viability.days_until_event,
+      });
+    } else {
+      plan.counter_proposals = [];
+    }
+  } else {
+    plan.counter_proposals = [];
+  }
+  console.log("[redesign] counter_proposals", {
+    generated_count: plan.counter_proposals.length,
+    proposal_ids: plan.counter_proposals.map((p: any) => p.id),
+  });
 
   // FIX 3 (Sprint 3c-2.5) — deploy_warning informativo (não bloqueante).
   // Não duplicar quando FIX 1 já preencheu deploy_blocked_reason.
