@@ -1081,6 +1081,85 @@ export type Database = {
         }
         Relationships: []
       }
+      coala_ai_classification_suggestions: {
+        Row: {
+          ai_response_raw: Json
+          applied_at: string | null
+          applied_auto: boolean
+          applied_by: string | null
+          bp_l2_filter_applied: boolean | null
+          company_id: string
+          created_at: string
+          id: string
+          requested_at: string
+          requested_by: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          top_candidate_code: string | null
+          top_candidate_id: string | null
+          top_confidence: number | null
+          transaction_id: string
+        }
+        Insert: {
+          ai_response_raw: Json
+          applied_at?: string | null
+          applied_auto?: boolean
+          applied_by?: string | null
+          bp_l2_filter_applied?: boolean | null
+          company_id: string
+          created_at?: string
+          id?: string
+          requested_at?: string
+          requested_by?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          top_candidate_code?: string | null
+          top_candidate_id?: string | null
+          top_confidence?: number | null
+          transaction_id: string
+        }
+        Update: {
+          ai_response_raw?: Json
+          applied_at?: string | null
+          applied_auto?: boolean
+          applied_by?: string | null
+          bp_l2_filter_applied?: boolean | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          requested_at?: string
+          requested_by?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          top_candidate_code?: string | null
+          top_candidate_id?: string | null
+          top_confidence?: number | null
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coala_ai_classification_suggestions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coala_ai_classification_suggestions_top_candidate_id_fkey"
+            columns: ["top_candidate_id"]
+            isOneToOne: false
+            referencedRelation: "account_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coala_ai_classification_suggestions_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coala_import_runs: {
         Row: {
           applied_at: string | null
