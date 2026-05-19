@@ -144,12 +144,40 @@ export function EtapasTable({ frenteId, companyId, canEdit }: Props) {
   const [newEtapa, setNewEtapa] = useState(false);
   const [showDone, setShowDone] = useState(false);
 
+  const { data: frente } = useQuery({
+    queryKey: ["op-etapas-table-frente", frenteId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_frentes")
+        .select("id,type,event_id")
+        .eq("id", frenteId)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const frenteIsService = (frente as any)?.type === "service";
+
+  const { data: zones } = useQuery({
+    queryKey: ["op-etapas-table-zones", (frente as any)?.event_id],
+    enabled: !!(frente as any)?.event_id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_frentes")
+        .select("id,name")
+        .eq("event_id", (frente as any).event_id)
+        .eq("type", "zone")
+        .neq("status", "cancelled")
+        .order("name");
+      return data ?? [];
+    },
+  });
+
   const { data: etapas } = useQuery({
     queryKey: ["op-etapas-table", frenteId],
     queryFn: async () => {
       const { data } = await supabase
         .from("operacao_etapas")
-        .select("id,name,status,supplier_id,responsible_profile_id,planned_start,planned_end,display_order")
+        .select("id,name,status,supplier_id,responsible_profile_id,planned_start,planned_end,display_order,zone_id")
         .eq("frente_id", frenteId)
         .order("display_order");
       return data ?? [];
