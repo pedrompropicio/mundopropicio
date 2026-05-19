@@ -7,7 +7,7 @@ interface Props {
   value: number | string;
   subLabel?: React.ReactNode;
   icon?: LucideIcon;
-  tone?: "default" | "amber" | "red" | "green" | "blue";
+  tone?: "default" | "amber" | "red" | "green" | "blue" | "purple";
 }
 
 const TONE_BG: Record<NonNullable<Props["tone"]>, string> = {
