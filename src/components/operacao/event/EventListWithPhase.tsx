@@ -31,7 +31,7 @@ export default function EventListWithPhase() {
       const { data } = await supabase
         .from("events")
         .select("id,name,date,location,operacao_mode,status,company_id")
-        .neq("status", "cancelled")
+        .not("status", "in", "(cancelled,completed)")
         .order("date", { ascending: false })
         .limit(200);
       return data ?? [];
