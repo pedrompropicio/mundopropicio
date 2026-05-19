@@ -70,7 +70,11 @@ Edge function `send-staff-invite` recebe `{profile_id}`:
 
 ## Secrets requeridos
 
-- `LOVABLE_API_KEY` (já existe, gateway Twilio)
-- `TWILIO_API_KEY` (já existe)
-- `TWILIO_WHATSAPP_FROM` — opcional (default `+14155238886`, sandbox Twilio)
+- `TWILIO_ACCOUNT_SID` — começa por `AC...` (Twilio Console)
+- `TWILIO_AUTH_TOKEN` — auth token da conta
+- `TWILIO_WHATSAPP_FROM` — número remetente, com ou sem prefixo `whatsapp:` (ex: `whatsapp:+14155238886` no sandbox, ou WhatsApp Business aprovado)
 - `APP_URL` — opcional (default `https://mpgestaoeventos.com`)
+
+**Nota sandbox Twilio**: cada destinatário tem de fazer opt-in enviando `join <duas-palavras>` (palavras vêm da página do sandbox no Twilio Console) para o número do sandbox antes de receber mensagens. Em produção, com WhatsApp Business aprovado, o opt-in deixa de ser necessário.
+
+A integração já não usa o gateway Lovable nem `LOVABLE_API_KEY` / `TWILIO_API_KEY` — chama directamente a REST API da Twilio via helper partilhado em `supabase/functions/_shared/twilio.ts`.
