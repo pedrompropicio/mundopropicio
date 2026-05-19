@@ -126,14 +126,7 @@ function Row({
         )}
       </td>
       <td className="px-2 py-1 w-40">
-        <EtapaInlineCell
-          variant="select"
-          value={e.supplier_id ?? ""}
-          disabled={!canEdit}
-          placeholder="—"
-          options={[{ value: "", label: "—" }, ...suppliers.map((s) => ({ value: s.id, label: s.name }))]}
-          onSave={(v) => onUpdate(e.id, { supplier_id: v || null })}
-        />
+        <SuppliersCell etapaId={e.id} canEdit={canEdit} />
       </td>
       <td className="px-2 py-1 w-40">
         <EtapaInlineCell
