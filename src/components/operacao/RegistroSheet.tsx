@@ -17,6 +17,8 @@ interface Props {
   onClose: () => void;
   initialFrenteId?: string;
   initialEtapaId?: string;
+  initialKind?: "evolucao" | "observacao" | "punch" | "chamado";
+  eventFilterId?: string;
 }
 
 /**
@@ -25,12 +27,12 @@ interface Props {
  * - Se receber initialEtapaId, pré-seleccionado e Frente lida via etapa.
  * - Caso contrário pede Frente (e Etapa opcional).
  */
-export function RegistroSheet({ open, onClose, initialFrenteId, initialEtapaId }: Props) {
+export function RegistroSheet({ open, onClose, initialFrenteId, initialEtapaId, initialKind, eventFilterId }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [frenteId, setFrenteId] = useState<string>(initialFrenteId ?? "");
   const [etapaId, setEtapaId] = useState<string>(initialEtapaId ?? "");
-  const [kind, setKind] = useState("evolucao");
+  const [kind, setKind] = useState(initialKind ?? "evolucao");
   const [text, setText] = useState("");
   const [media, setMedia] = useState<CapturedMedia[]>([]);
   const [audio, setAudio] = useState<string | null>(null);
@@ -39,17 +41,19 @@ export function RegistroSheet({ open, onClose, initialFrenteId, initialEtapaId }
 
   // Frentes onde user está
   const { data: frentes } = useQuery({
-    queryKey: ["op-my-frentes-select", user?.id],
+    queryKey: ["op-my-frentes-select", user?.id, eventFilterId],
     enabled: !!user && open && !initialFrenteId,
     queryFn: async () => {
       const { data: team } = await supabase
         .from("operacao_frente_team").select("frente_id").eq("profile_id", user!.id).eq("active", true);
       const ids = Array.from(new Set((team ?? []).map((t: any) => t.frente_id)));
       if (ids.length === 0) return [];
-      const { data } = await supabase
+      let q = supabase
         .from("operacao_frentes")
         .select("id,name,color,event_id,company_id, events(name)")
-        .in("id", ids).order("display_order");
+        .in("id", ids);
+      if (eventFilterId) q = q.eq("event_id", eventFilterId);
+      const { data } = await q.order("display_order");
       return data ?? [];
     },
   });
@@ -142,7 +146,7 @@ export function RegistroSheet({ open, onClose, initialFrenteId, initialEtapaId }
             </div>
           )}
 
-          <RadioGroup value={kind} onValueChange={setKind} className="grid grid-cols-3 gap-2">
+          <RadioGroup value={kind} onValueChange={(v) => setKind(v as any)} className="grid grid-cols-3 gap-2">
             {[["evolucao", "Evolução"], ["observacao", "Observação"], ["punch", "Punch"]].map(([v, l]) => (
               <Label key={v} className="flex items-center gap-2 border rounded p-2 cursor-pointer">
                 <RadioGroupItem value={v} /> <span className="text-sm">{l}</span>

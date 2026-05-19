@@ -48,3 +48,17 @@ Helper `seed_operacao_frentes_default` cria zonas-padrão (todas com type defaul
 - `EditFrenteSheet`: renomear, mudar cor, conversão zone↔service, responsável, eliminar (avisa cascade se tem etapas). Acessível na fase Setup (ícone ✏️) e na fase Planeamento (menu •••).
 - `EventTeamSection` removido do `EventDetail` (Gestão) — substituído por aviso a apontar para o Hub.
 - Helper `src/lib/operacao-labels.ts` (`frenteLabel`) + varrimento "Frente" → "Zona/Serviço" em strings visíveis.
+
+## OP-5 — fase Evento Live Ops
+
+- `EventoPhase` substitui o placeholder na fase `evento`. Vista operacional, não analítica.
+- **KPIs compactos** (4 mini-cards): chamados abertos (vermelho se >0), etapas em curso, concluídas hoje, zonas com problemas.
+- **Feed de chamados** (`operacao_registros` com `kind='chamado'` e `status IN ('open','in_progress')`): barra cor da zona, nome zona + etapa, texto, "há X tempo" (date-fns pt), autor com avatar, contacto do lead (📞 `tel:` / 💬 `wa.me/` normalizado, ou "Sem contacto registado"). Acções inline: "Em curso" (status→in_progress + `acked_at`) e "Resolver" (status→resolved + `resolved_at`).
+- **Etapas em curso** num `Collapsible` agrupado por Zona/Serviço, com botão inline "Concluir".
+- **FAB Novo incidente** (Siren vermelho, bottom-right): abre `RegistroSheet` com `initialKind='chamado'` + `eventFilterId` para filtrar Zonas/Serviços do evento.
+- **Auto-refresh**: `refetchInterval: 30s` com `refetchIntervalInBackground: false`.
+- **Permissões**:
+  - Marcar em curso / resolver: admin, `manage_operacao_etapas`, `manage_operacao_frentes`, lead da zona ou autor do chamado.
+  - Marcar etapa concluída: requer `manage_operacao_*`.
+  - FAB incidente: admin, `open_chamado` ou `register_operacao`.
+- Link "Ver Dashboard analítico" mantido como secundário no topo direito.
