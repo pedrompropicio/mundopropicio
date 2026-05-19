@@ -13,7 +13,7 @@ import { PlanejamentoPhase } from "@/components/operacao/event/PlanejamentoPhase
 import { EventoPhase } from "@/components/operacao/event/EventoPhase";
 import { MontagemPhase } from "@/components/operacao/event/MontagemPhase";
 
-import { ArrowLeft, Users, ChevronRight, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Users, ChevronRight, CheckCircle2, BarChart3 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
