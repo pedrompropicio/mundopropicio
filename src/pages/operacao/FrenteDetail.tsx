@@ -258,6 +258,14 @@ export default function FrenteDetail() {
           currentLeadId={frente.current_lead_id}
         />
       )}
+
+      {newRegistroOpen && (
+        <RegistroSheet
+          open
+          initialFrenteId={id!}
+          onClose={() => setNewRegistroOpen(false)}
+        />
+      )}
     </div>
   );
 }
