@@ -12,9 +12,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Plus, GripVertical, ExternalLink, Archive } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { NewEtapaDialog } from "@/components/operacao/NewEtapaDialog";
+import { EtapaSuppliersPanel } from "@/components/operacao/suppliers/EtapaSuppliersPanel";
 import { EtapaInlineCell } from "./EtapaInlineCell";
 
 const STATUS_OPTS = [
@@ -29,6 +31,40 @@ interface Props {
   frenteId: string;
   companyId: string;
   canEdit: boolean;
+}
+
+function SuppliersCell({ etapaId, canEdit }: { etapaId: string; canEdit: boolean }) {
+  const { data } = useQuery({
+    queryKey: ["op-etapa-suppliers-cell", etapaId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_etapa_suppliers")
+        .select("id,role,supplier:suppliers(name)")
+        .eq("etapa_id", etapaId);
+      return data ?? [];
+    },
+  });
+  const rows = (data ?? []) as any[];
+  const principal = rows.find((r) => r.role === "principal");
+  const extras = rows.length - (principal ? 1 : 0);
+  const label = principal?.supplier?.name
+    ? `${principal.supplier.name}${extras > 0 ? ` +${extras}` : ""}`
+    : rows.length > 0
+      ? `${rows.length} fornecedor${rows.length > 1 ? "es" : ""}`
+      : null;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="text-xs text-left hover:underline truncate max-w-[140px]">
+          {label ?? <span className="text-muted-foreground italic">— Adicionar</span>}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-2" align="start">
+        <EtapaSuppliersPanel etapaId={etapaId} canEdit={canEdit} compact />
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 function Row({
