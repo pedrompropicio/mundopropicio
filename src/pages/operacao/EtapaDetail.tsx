@@ -28,14 +28,15 @@ export default function EtapaDetail() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [assigneeSheetOpen, setAssigneeSheetOpen] = useState(false);
 
-  const { data: etapa } = useQuery({
+  const { data: etapa, isLoading, error } = useQuery({
     queryKey: ["op-etapa", id],
     enabled: !!id,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("operacao_etapas")
-        .select("*, frente:operacao_frentes(id,name,color,current_lead_id,event_id,company_id,type), supplier:suppliers(name), responsible:profiles!operacao_etapas_responsible_profile_id_fkey(id, full_name), zone:operacao_frentes!operacao_etapas_zone_id_fkey(id,name,color)")
+        .select("*, frente:operacao_frentes!operacao_etapas_frente_id_fkey(id,name,color,current_lead_id,event_id,company_id,type), supplier:suppliers!operacao_etapas_supplier_id_fkey(name), responsible:profiles!operacao_etapas_responsible_profile_id_fkey(id, full_name), zone:operacao_frentes!operacao_etapas_zone_id_fkey(id,name,color)")
         .eq("id", id!).maybeSingle();
+      if (error) throw error;
       return data;
     },
   });
@@ -70,10 +71,16 @@ export default function EtapaDetail() {
     },
   });
 
-  if (!etapa) return <div className="p-6">A carregar...</div>;
+  // Hooks chamados sempre antes de early returns (Rules of Hooks)
+  const eventIdForDirector = (etapa as any)?.frente?.event_id;
+  const isDirectorOnly = useIsEventDirectorOnly(eventIdForDirector);
+  const [editOpen, setEditOpen] = useState(false);
+
+  if (isLoading) return <div className="p-6">A carregar...</div>;
+  if (error) return <div className="p-6 text-destructive">Erro ao carregar etapa: {(error as any)?.message ?? String(error)}</div>;
+  if (!etapa) return <div className="p-6 text-muted-foreground">Etapa não encontrada.</div>;
 
   const frente = (etapa as any).frente;
-  const isDirectorOnly = useIsEventDirectorOnly(frente?.event_id);
   const isLead = frente?.current_lead_id === user?.id;
   const isResponsible = etapa.responsible_profile_id === user?.id;
   const canChangeStatus = !isDirectorOnly && (isAdmin || hasPermission("manage_operacao_etapas") || isLead || isResponsible);
