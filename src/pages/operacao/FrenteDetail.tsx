@@ -114,15 +114,31 @@ export default function FrenteDetail() {
       <Link to="/operacao/equipa" className="inline-flex items-center text-sm text-muted-foreground">
         <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
       </Link>
-      <header className="flex items-center gap-3">
-        <div className="h-14 w-2 rounded-full" style={{ backgroundColor: frente.color ?? "#6b7280" }} />
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold truncate">{frente.name}</h1>
-          <p className="text-xs text-muted-foreground">
-            {(frente as any).events?.name} · Lead: {(frente as any).lead?.full_name ?? "—"}
-          </p>
+      <header className="space-y-2">
+        <div className="flex items-center gap-3">
+          <div className="h-14 w-2 rounded-full" style={{ backgroundColor: frente.color ?? "#6b7280" }} />
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-bold truncate">{frente.name}</h1>
+            <p className="text-xs text-muted-foreground">
+              {(frente as any).events?.name} · Lead: {(frente as any).lead?.full_name ?? "—"}
+            </p>
+          </div>
+          <OperacaoStatusBadge status={frente.status} kind="etapa" />
         </div>
-        <OperacaoStatusBadge status={frente.status} kind="etapa" />
+        {teamSummary && teamSummary.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setTeamSheetOpen(true)}
+            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <Users className="h-3.5 w-3.5" />
+            <span>
+              {teamSummary.filter((t: any) => t.role_in_frente === "lead" || t.role_in_frente === "auxiliary").length} na equipa
+              {teamSummary.filter((t: any) => t.role_in_frente === "observer").length > 0 &&
+                ` · ${teamSummary.filter((t: any) => t.role_in_frente === "observer").length} observers`}
+            </span>
+          </button>
+        )}
       </header>
 
       <Tabs defaultValue="registros">
