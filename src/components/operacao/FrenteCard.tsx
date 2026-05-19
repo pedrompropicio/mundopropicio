@@ -65,6 +65,7 @@ export function FrenteCard({ frente, counts, lastActivity, isLead }: Props) {
           <div className="flex-1 min-w-0 space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-semibold truncate">{frente.name}</h3>
+              <FrenteTypeBadge type={frente.type} />
               {isLead && (
                 <Badge variant="default" className="gap-1 h-5 text-[10px]">
                   <Crown className="h-3 w-3" /> LEAD
