@@ -105,6 +105,8 @@ import AcceptInvite from "./pages/operacao/AcceptInvite";
 import OperacaoHome from "./pages/operacao/OperacaoHome";
 import OperacaoDashboard from "./pages/operacao/Dashboard";
 import FrenteManage from "./pages/operacao/FrenteManage";
+import EventHub from "./pages/operacao/EventHub";
+
 
 import TrashPage from "./pages/Trash";
 import NotFound from "./pages/NotFound";
