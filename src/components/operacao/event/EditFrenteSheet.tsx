@@ -11,8 +11,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/hooks/use-toast";
 import { Trash2 } from "lucide-react";
 import { frenteLabel } from "@/lib/operacao-labels";
+import { NewProfileInlineDialog, NEW_PROFILE_SENTINEL } from "@/components/operacao/shared/NewProfileInlineDialog";
 
 const PALETTE = ["#ef4444","#f97316","#eab308","#22c55e","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#6b7280"];
+const ELIGIBLE_LEAD_ROLES = ["platform_admin", "admin", "manager", "producer"];
 
 export function EditFrenteSheet({
   frenteId, open, onClose, onChanged,
@@ -20,6 +22,7 @@ export function EditFrenteSheet({
   const qc = useQueryClient();
   const { isAdmin, hasPermission } = useAuth();
   const canManage = isAdmin || hasPermission("manage_operacao_frentes");
+  const canCreateProfile = isAdmin || hasPermission("manage_users");
 
   const { data: frente } = useQuery({
     queryKey: ["op-edit-frente", frenteId],
@@ -38,6 +41,7 @@ export function EditFrenteSheet({
   const [type, setType] = useState<"zone" | "service">("zone");
   const [leadId, setLeadId] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [showNewProfile, setShowNewProfile] = useState(false);
 
   useEffect(() => {
     if (!frente) return;
@@ -47,14 +51,36 @@ export function EditFrenteSheet({
     setLeadId(frente.current_lead_id ?? "");
   }, [frente?.id]);
 
+  // Profiles filtrados por roles elegíveis (admin/manager/producer)
   const { data: profiles } = useQuery({
     queryKey: ["op-edit-frente-profiles", frente?.company_id],
     enabled: !!frente?.company_id,
     queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("id,full_name").eq("company_id", frente!.company_id).is("archived_at", null).order("full_name");
+      const { data: roleRows } = await supabase
+        .from("user_roles")
+        .select("user_id, role")
+        .eq("company_id", frente!.company_id)
+        .in("role", ELIGIBLE_LEAD_ROLES as any);
+      const eligibleIds = Array.from(new Set((roleRows ?? []).map((r: any) => r.user_id)));
+      if (eligibleIds.length === 0) return [];
+      const { data } = await supabase
+        .from("profiles")
+        .select("id,full_name")
+        .eq("company_id", frente!.company_id)
+        .is("archived_at", null)
+        .in("id", eligibleIds)
+        .order("full_name");
       return data ?? [];
     },
   });
+
+  const leadFieldLabel = type === "service" ? "Produtor de Serviço" : "Produtor de Zona";
+
+  const handleLeadSelect = (v: string) => {
+    if (v === NEW_PROFILE_SENTINEL) { setShowNewProfile(true); return; }
+    if (v === "__none__") { setLeadId(""); return; }
+    setLeadId(v);
+  };
 
   const save = async () => {
     if (!frente || !name.trim()) return;
@@ -62,12 +88,38 @@ export function EditFrenteSheet({
     const { error } = await supabase.from("operacao_frentes").update({
       name: name.trim(), color, type, current_lead_id: leadId || null,
     }).eq("id", frente.id);
+    if (error) {
+      setSaving(false);
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    // Sincronizar operacao_frente_team: garantir linha lead permanente para o lead actual
+    if (leadId) {
+      const { data: existing } = await supabase
+        .from("operacao_frente_team")
+        .select("id")
+        .eq("frente_id", frente.id)
+        .eq("profile_id", leadId)
+        .maybeSingle();
+      if (existing?.id) {
+        await supabase.from("operacao_frente_team").update({
+          is_permanent_lead: true, active: true, role_in_frente: "lead",
+        }).eq("id", existing.id);
+      } else {
+        await supabase.from("operacao_frente_team").insert({
+          frente_id: frente.id, profile_id: leadId, company_id: frente.company_id,
+          role_in_frente: "lead", is_permanent_lead: true, active: true,
+        });
+      }
+    }
+
     setSaving(false);
-    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     toast({ title: "Atualizado" });
     qc.invalidateQueries({ queryKey: ["op-hub-frentes"] });
     qc.invalidateQueries({ queryKey: ["op-hub-setup-counts"] });
     qc.invalidateQueries({ queryKey: ["op-hub-planning"] });
+    qc.invalidateQueries({ queryKey: ["op-edit-frente", frente.id] });
     onChanged?.();
     onClose();
   };
@@ -128,16 +180,24 @@ export function EditFrenteSheet({
               </div>
             </div>
             <div>
-              <Label>Responsável</Label>
-              <Select value={leadId || "__none__"} onValueChange={(v) => setLeadId(v === "__none__" ? "" : v)} disabled={!canManage}>
-                <SelectTrigger><SelectValue placeholder="Sem responsável" /></SelectTrigger>
+              <Label>{leadFieldLabel}</Label>
+              <Select value={leadId || "__none__"} onValueChange={handleLeadSelect} disabled={!canManage}>
+                <SelectTrigger><SelectValue placeholder="Sem produtor responsável" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">— Sem responsável —</SelectItem>
+                  <SelectItem value="__none__">— Sem produtor responsável —</SelectItem>
                   {(profiles ?? []).map((p: any) => (
                     <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
                   ))}
+                  {canCreateProfile && (
+                    <SelectItem value={NEW_PROFILE_SENTINEL} className="text-primary font-medium">
+                      + Nova pessoa…
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
+              <p className="text-[11px] text-muted-foreground mt-1 italic">
+                Só admins, managers e producers podem ser produtores responsáveis.
+              </p>
             </div>
             <div className="flex gap-2 pt-3 border-t">
               <Button onClick={save} disabled={saving || !canManage || !name.trim()} className="flex-1">
@@ -150,6 +210,16 @@ export function EditFrenteSheet({
               )}
             </div>
           </div>
+        )}
+
+        {showNewProfile && frente && (
+          <NewProfileInlineDialog
+            companyId={frente.company_id}
+            defaultRole="producer"
+            invalidateKeys={[["op-edit-frente-profiles", frente.company_id]]}
+            onClose={() => setShowNewProfile(false)}
+            onCreated={(id) => { setLeadId(id); setShowNewProfile(false); }}
+          />
         )}
       </SheetContent>
     </Sheet>
