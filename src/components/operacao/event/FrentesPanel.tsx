@@ -13,8 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MapPin, Wrench, Plus, ChevronRight } from "lucide-react";
+import { MapPin, Wrench, Plus, ChevronRight, Pencil } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { EditFrenteSheet } from "@/components/operacao/event/EditFrenteSheet";
+
 
 const PALETTE = ["#ef4444","#f97316","#eab308","#22c55e","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#6b7280"];
 
@@ -29,6 +31,8 @@ export function FrentesPanel({
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [openAdd, setOpenAdd] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+
 
   const { data: frentes } = useQuery({
     queryKey: ["op-hub-frentes", eventId, type],
@@ -121,11 +125,27 @@ export function FrentesPanel({
                   {f.lead?.full_name ?? "Sem responsável"} · {counts?.[f.id] ?? 0} etapas
                 </p>
               </div>
+              {canManage && (
+                <Button
+                  variant="ghost" size="icon" className="h-7 w-7"
+                  onClick={(ev) => { ev.stopPropagation(); setEditId(f.id); }}
+                  title="Editar"
+                >
+                  <Pencil className="h-3 w-3" />
+                </Button>
+              )}
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </div>
           ))}
         </div>
       )}
+
+      <EditFrenteSheet
+        frenteId={editId}
+        open={!!editId}
+        onClose={() => setEditId(null)}
+      />
+
 
       {openAdd && (
         <AddFrenteInlineDialog

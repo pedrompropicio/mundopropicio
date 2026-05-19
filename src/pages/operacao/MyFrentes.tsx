@@ -107,7 +107,7 @@ export default function MyFrentes() {
   return (
     <div className="p-4 space-y-4 max-w-2xl mx-auto pb-24">
       <header className="flex items-end justify-between">
-        <h1 className="text-2xl font-bold">Minhas Frentes</h1>
+        <h1 className="text-2xl font-bold">Minhas Zonas/Serviços</h1>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Link to="/operacao/atividade" className="hover:text-foreground underline">Atividade</Link>
           <span>·</span>

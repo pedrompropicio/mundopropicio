@@ -113,7 +113,7 @@ export default function EtapaDetail() {
         </div>
       )}
       <Link to={`/operacao/frente/${frente.id}`} className="inline-flex items-center text-sm text-muted-foreground">
-        <ArrowLeft className="h-4 w-4 mr-1" /> Voltar à frente
+        <ArrowLeft className="h-4 w-4 mr-1" /> Voltar à Zona/Serviço
       </Link>
       <Card className="p-4 space-y-2">
         <div className="flex items-start gap-3">

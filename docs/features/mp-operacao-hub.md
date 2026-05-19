@@ -40,3 +40,11 @@ Helper `seed_operacao_frentes_default` cria zonas-padrão (todas com type defaul
 - `EtapaDetail` / `EtapasTable` (já têm fornecedores M:N do OP-0)
 - Cotações (descomissionadas em OP-2)
 - `EventTeamSection` original em `EventDetail` mantém-se (duplicação temporária — OP-1b descomissiona).
+
+## OP-1b — fase Planeamento funcional
+
+- `PlanejamentoPhase` substitui o placeholder: matriz Zonas/Serviços × Etapas, filtros de status (multi-select), criar etapa inline via `NewEtapaDialog`, click na etapa abre `EtapaDetail` (com fornecedores OP-0).
+- Sem números financeiros nesta vista (regra MP Operação ↔ MP Gestão).
+- `EditFrenteSheet`: renomear, mudar cor, conversão zone↔service, responsável, eliminar (avisa cascade se tem etapas). Acessível na fase Setup (ícone ✏️) e na fase Planeamento (menu •••).
+- `EventTeamSection` removido do `EventDetail` (Gestão) — substituído por aviso a apontar para o Hub.
+- Helper `src/lib/operacao-labels.ts` (`frenteLabel`) + varrimento "Frente" → "Zona/Serviço" em strings visíveis.

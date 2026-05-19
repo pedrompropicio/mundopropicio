@@ -161,8 +161,8 @@ export function EtapaAssigneeSheet({
           <SheetTitle>Responsáveis da etapa</SheetTitle>
           <SheetDescription>
             {canEdit
-              ? "Inclui membros da Frente e define o seu papel."
-              : "Só o líder da Frente pode atribuir responsáveis."}
+              ? "Inclui membros da Zona/Serviço e define o seu papel."
+              : "Só o líder da Zona/Serviço pode atribuir responsáveis."}
           </SheetDescription>
         </SheetHeader>
 

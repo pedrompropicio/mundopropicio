@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { PHASE_ORDER } from "@/components/operacao/event/PhaseBadge";
 import { EventTeamSection } from "@/components/operacao/event/EventTeamSection";
 import { FrentesPanel } from "@/components/operacao/event/FrentesPanel";
+import { PlanejamentoPhase } from "@/components/operacao/event/PlanejamentoPhase";
+
 import { ArrowLeft, BarChart3, Users, ChevronRight, CheckCircle2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -109,12 +111,14 @@ export default function EventHub() {
       )}
 
       {activePhase === "planning" && (
-        <PlaceholderPhase
-          title="Planeamento"
-          text="Em breve: matriz Zonas × Etapas + Pipeline de Fornecedores. Por enquanto, gere etapas dentro de cada Zona/Serviço."
+        <PlanejamentoPhase
           eventId={event.id}
+          companyId={event.company_id}
+          canManage={canManage}
+          onBackToSetup={() => setViewPhase("setup")}
         />
       )}
+
 
       {activePhase === "montagem" && (
         <PlaceholderPhase title="Montagem" text="Em breve: Gantt + acompanhamento no terreno." eventId={event.id} />

@@ -109,7 +109,7 @@ export default function FrenteManage() {
   if (!id) return <Navigate to="/operacao" replace />;
   if (isMobile || !canEdit) return null;
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">A carregar…</div>;
-  if (!frente) return <div className="p-6 text-sm text-muted-foreground">Frente não encontrada.</div>;
+  if (!frente) return <div className="p-6 text-sm text-muted-foreground">Zona/Serviço não encontrada.</div>;
 
   const companyId = (frente as any).company_id ?? (frente as any).events?.company_id;
 

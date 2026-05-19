@@ -62,7 +62,7 @@ export function EtapaAssigneeAvatars({
           <AvatarFallback>{initials(inheritedProfile.full_name)}</AvatarFallback>
         </Avatar>
         <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
-          {inheritedFrom === "responsible" ? "Responsável herdado" : "via Frente"}
+          {inheritedFrom === "responsible" ? "Responsável herdado" : "via Zona/Serviço"}
         </Badge>
       </button>
     );

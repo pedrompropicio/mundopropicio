@@ -76,7 +76,7 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
         active: true,
       });
     }
-    toast({ title: "Frente criada" });
+    toast({ title: type === "service" ? "Serviço criado" : "Zona criada" });
     qc.invalidateQueries({ queryKey: ["op-my-frentes"] });
     setSaving(false);
     onClose();
@@ -86,7 +86,7 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Nova frente</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Nova Zona/Serviço</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div>
             <Label>Evento *</Label>
@@ -144,7 +144,7 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
             </div>
           )}
           <Button onClick={submit} disabled={saving || !name.trim() || !eventId} className="w-full">
-            {saving ? "A criar..." : "Criar frente"}
+            {saving ? "A criar..." : (type === "service" ? "Criar Serviço" : "Criar Zona")}
           </Button>
         </div>
       </DialogContent>
