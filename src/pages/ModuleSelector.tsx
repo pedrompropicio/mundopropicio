@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Building2, TrendingUp, Users, LogOut, Radar } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { BrandedLogo } from "@/components/BrandedLogo";
+import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
 import { cn } from "@/lib/utils";
 
 interface ModuleCard {
@@ -27,6 +27,7 @@ interface ModuleCard {
 export default function ModuleSelector() {
   const navigate = useNavigate();
   const { user, role, signOut, hasPermission, isAdmin } = useAuth();
+  const { displayName } = useCompanyBranding();
 
   const fullName =
     (user?.user_metadata as any)?.full_name ||
@@ -120,18 +121,24 @@ export default function ModuleSelector() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="flex items-center justify-between px-6 lg:px-10 h-16 border-b border-border">
-        <BrandedLogo className="h-8 object-contain" />
-        <div className="flex items-center gap-4">
+      <header
+        className="flex items-center justify-between gap-3 px-4 sm:px-6 lg:px-10 h-16 border-b border-border"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
+        <div className="text-xs text-muted-foreground truncate">
+          Contexto: {displayName}
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
           <span className="text-sm text-muted-foreground hidden sm:inline">
             Olá, {firstName}
           </span>
           <button
             onClick={signOut}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            title="Sair"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded-md"
           >
             <LogOut className="h-4 w-4" />
-            Sair
+            <span className="hidden sm:inline">Sair</span>
           </button>
         </div>
       </header>
