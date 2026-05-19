@@ -156,95 +156,13 @@ export function FrentesPanel({
 
 
       {openAdd && (
-        <AddFrenteInlineDialog
-          eventId={eventId}
-          companyId={companyId}
-          type={type}
+        <NewFrenteDialog
           onClose={() => setOpenAdd(false)}
-          onCreated={() => qc.invalidateQueries({ queryKey: ["op-hub-frentes", eventId, type] })}
+          defaultEventId={eventId}
+          defaultType={type}
         />
       )}
     </Card>
   );
 }
 
-function AddFrenteInlineDialog({
-  eventId, companyId, type, onClose, onCreated,
-}: { eventId: string; companyId: string; type: "zone" | "service"; onClose: () => void; onCreated: () => void }) {
-  const [name, setName] = useState("");
-  const [color, setColor] = useState(PALETTE[5]);
-  const [leadId, setLeadId] = useState<string>("");
-  const [saving, setSaving] = useState(false);
-
-  const { data: profiles } = useQuery({
-    queryKey: ["op-hub-add-frente-profiles", companyId],
-    queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("id,full_name").eq("company_id", companyId).is("archived_at", null).order("full_name");
-      return data ?? [];
-    },
-  });
-
-  const submit = async () => {
-    if (!name.trim()) return;
-    setSaving(true);
-    const { data: created, error } = await supabase.from("operacao_frentes").insert({
-      event_id: eventId, company_id: companyId, name: name.trim(), color, type, status: "active",
-      current_lead_id: leadId || null,
-    }).select("id").single();
-    if (error || !created) {
-      setSaving(false);
-      toast({ title: "Erro", description: error?.message ?? "Falha", variant: "destructive" });
-      return;
-    }
-    if (leadId) {
-      await supabase.from("operacao_frente_team").insert({
-        frente_id: created.id, profile_id: leadId, company_id: companyId,
-        role_in_frente: "lead", is_permanent_lead: true, active: true,
-      });
-    }
-    toast({ title: `${type === "zone" ? "Zona" : "Serviço"} criada` });
-    setSaving(false);
-    onCreated();
-    onClose();
-  };
-
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Nova {type === "zone" ? "Zona" : "Serviço"}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div>
-            <Label>Nome *</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-          </div>
-          <div>
-            <Label>Cor</Label>
-            <div className="flex gap-2 flex-wrap mt-1">
-              {PALETTE.map((c) => (
-                <button key={c} type="button" onClick={() => setColor(c)}
-                  className={"h-7 w-7 rounded-full border-2 " + (color === c ? "border-foreground" : "border-transparent")}
-                  style={{ backgroundColor: c }} />
-              ))}
-            </div>
-          </div>
-          <div>
-            <Label>Responsável (opcional)</Label>
-            <Select value={leadId} onValueChange={setLeadId}>
-              <SelectTrigger><SelectValue placeholder="Sem responsável" /></SelectTrigger>
-              <SelectContent>
-                {(profiles ?? []).map((p: any) => (
-                  <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <Button onClick={submit} disabled={saving || !name.trim()} className="w-full">
-            {saving ? "A criar…" : "Criar"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
