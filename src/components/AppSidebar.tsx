@@ -33,6 +33,7 @@ import { PushNotificationToggle } from "@/components/PushNotificationToggle";
 import { useCoalaSyncBadge } from "@/hooks/useCoalaSyncBadge";
 import { useHasFeature } from "@/hooks/useCompanyFeatures";
 import { FEATURES } from "@/lib/features";
+import { useIsFieldStaffOnly } from "@/hooks/useIsFieldStaffOnly";
 
 export function AppSidebar() {
   const location = useLocation();
@@ -43,6 +44,7 @@ export function AppSidebar() {
   const hasCoala = useHasFeature(FEATURES.SYNC_COALA);
   const hasFever = useHasFeature(FEATURES.SYNC_FEVER);
   const hasHealth = useHasFeature(FEATURES.SYNC_HEALTH);
+  const fieldStaffOnly = useIsFieldStaffOnly();
 
   const navItems = [
     { to: "/erp", icon: LayoutDashboard, label: "Dashboard", show: true },
@@ -59,6 +61,7 @@ export function AppSidebar() {
     { to: "/reembolsos", icon: ReceiptText, label: "Reembolsos", show: hasPermission("manage_transactions") || isAdmin },
     { to: "/camarim", icon: ShoppingBag, label: "Camarim", show: hasPermission("manage_transactions") || hasPermission("camarim_team") || isAdmin },
     { to: "/operacao/equipa", icon: Radar, label: "Operação", show: hasPermission("view_operacao") || isAdmin },
+    { to: "/operacao/staff", icon: Radar, label: "Operação · Staff", show: hasPermission("manage_operacao_staff") || isAdmin },
     { to: "/relatorios", icon: BarChart3, label: "Relatórios", show: hasPermission("view_reports") || isAdmin },
     { to: "/admin/auditoria-contas", icon: ClipboardCheck, label: "Auditoria Contas", show: !isAdmin && isManager },
     { to: "/admin/sync-health", icon: Activity, label: "Sync Health", show: isAdmin && hasHealth },
@@ -72,7 +75,9 @@ export function AppSidebar() {
     <aside className="fixed left-0 top-14 z-40 flex h-[calc(100vh-3.5rem)] w-16 flex-col items-center border-r border-border bg-sidebar py-4 lg:w-56">
 
       <nav className="flex flex-1 flex-col gap-1 px-2 lg:px-3 w-full overflow-y-auto">
-        {navItems.filter((i: any) => i.show).map((item: any, idx) => {
+        {navItems
+          .filter((i: any) => i.show && (!fieldStaffOnly || i.to.startsWith("/operacao")))
+          .map((item: any, idx) => {
           // sections removed — flat list
           const isActive =
             item.to === "/erp"

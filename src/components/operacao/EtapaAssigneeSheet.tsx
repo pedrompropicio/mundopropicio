@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Crown } from "lucide-react";
+import { Crown, HardHat } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface Props {
@@ -24,6 +24,7 @@ interface Props {
 interface DraftRow {
   profile_id: string;
   full_name: string | null;
+  profile_type: string | null;
   role_in_frente: string;
   included: boolean;
   role: "owner" | "helper";
@@ -47,7 +48,7 @@ export function EtapaAssigneeSheet({
     queryFn: async () => {
       const { data } = await supabase
         .from("operacao_frente_team")
-        .select("profile_id, role_in_frente, active, profiles:profile_id(id, full_name)")
+        .select("profile_id, role_in_frente, active, profiles:profile_id(id, full_name, profile_type)")
         .eq("frente_id", frenteId)
         .eq("active", true);
       return data ?? [];
@@ -75,6 +76,7 @@ export function EtapaAssigneeSheet({
     const rows: DraftRow[] = team.map((t: any) => ({
       profile_id: t.profile_id,
       full_name: t.profiles?.full_name ?? null,
+      profile_type: t.profiles?.profile_type ?? null,
       role_in_frente: t.role_in_frente,
       included: existingMap.has(t.profile_id),
       role: existingMap.get(t.profile_id) ?? "helper",
@@ -181,6 +183,9 @@ export function EtapaAssigneeSheet({
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate flex items-center gap-1.5">
                   {r.full_name ?? "—"}
+                  {r.profile_type === "field_staff" && (
+                    <HardHat className="h-3 w-3 text-muted-foreground" />
+                  )}
                   {r.profile_id === frenteLeadId && (
                     <Crown className="h-3 w-3 text-amber-500 fill-amber-500" />
                   )}

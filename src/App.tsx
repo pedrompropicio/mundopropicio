@@ -100,6 +100,8 @@ import ChamadoNovo from "./pages/operacao/ChamadoNovo";
 import ChamadoDetail from "./pages/operacao/ChamadoDetail";
 import Atividade from "./pages/operacao/Atividade";
 import MinhasTarefas from "./pages/operacao/MinhasTarefas";
+import StaffList from "./pages/operacao/StaffList";
+import AcceptInvite from "./pages/operacao/AcceptInvite";
 
 import TrashPage from "./pages/Trash";
 import NotFound from "./pages/NotFound";
@@ -368,6 +370,7 @@ function ProtectedLayout() {
                 <Route path="equipa" element={<MyFrentes />} />
                 <Route path="atividade" element={<Atividade />} />
                 <Route path="minhas-tarefas" element={<MinhasTarefas />} />
+                <Route path="staff" element={<StaffList />} />
                 <Route path="frente/:id" element={<FrenteDetail />} />
                 <Route path="etapa/:id" element={<EtapaDetail />} />
                 <Route path="chamados" element={<MeusChamados />} />
@@ -470,6 +473,7 @@ function App() {
                   <Route path="/about" element={<LegalAbout />} />
                   <Route path="/unsubscribe" element={<Unsubscribe />} />
                   <Route path="/accept-invitation" element={<AcceptInvitation />} />
+                  <Route path="/operacao/accept-invite" element={<AcceptInvite />} />
                   <Route path="/camarim-equipa" element={<CamarimEquipa />} />
                   <Route path="/parceiro/*" element={<PartnerLayout />} />
                   <Route path="/audience" element={<AudienceLayout />}>

@@ -111,3 +111,10 @@ UI: `EtapaAssigneeSheet` (bottom-sheet com toggle + select owner/helper por memb
 ## Nova rota `/operacao/minhas-tarefas`
 
 Lista de etapas relevantes ao user, em 4 buckets: **Em curso · Pendentes · Bloqueadas · Concluídas hoje**. Regra de relevância: assignee (owner|helper) OU `responsible_profile_id=user` OU lead da Frente e etapa sem assignees. Cada item mostra papel do user na etapa (Owner/Helper/Responsável/via Frente). Link no topo de `MyFrentes`: `Atividade · Minhas tarefas`.
+
+## Rotas adicionadas (Patch 2A.3)
+- `/operacao/staff` (privada, requer `manage_operacao_staff`) — lista de Staff de Campo com filtros Ativos/Pendentes/Arquivados, criação via `NewStaffDialog` e reenvio de convite WhatsApp.
+- `/operacao/accept-invite?token=…` (pública) — full-screen card que valida o token, faz `setSession` e redireciona para `/operacao/equipa`.
+
+## Sidebar gating
+Hook `useIsFieldStaffOnly()` em `AppSidebar`: quando `profile_type='field_staff'` E sem roles além de `field_producer`, esconde todos os itens exceto `/operacao/*`.

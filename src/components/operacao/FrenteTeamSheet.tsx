@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Crown } from "lucide-react";
+import { Crown, HardHat } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -24,7 +24,7 @@ export function FrenteTeamSheet({ open, onClose, frenteId, currentLeadId }: Prop
     queryFn: async () => {
       const { data } = await supabase
         .from("operacao_frente_team")
-        .select("profile_id, role_in_frente, is_permanent_lead, active, profiles:profile_id(id, full_name)")
+        .select("profile_id, role_in_frente, is_permanent_lead, active, profiles:profile_id(id, full_name, profile_type)")
         .eq("frente_id", frenteId)
         .eq("active", true);
       return data ?? [];
@@ -64,6 +64,9 @@ export function FrenteTeamSheet({ open, onClose, frenteId, currentLeadId }: Prop
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate flex items-center gap-1.5">
                           {m.profiles?.full_name ?? "—"}
+                          {m.profiles?.profile_type === "field_staff" && (
+                            <HardHat className="h-3 w-3 text-muted-foreground" />
+                          )}
                           {m.profile_id === currentLeadId && (
                             <Crown className="h-3 w-3 text-amber-500 fill-amber-500" />
                           )}

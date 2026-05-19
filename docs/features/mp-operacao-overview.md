@@ -147,3 +147,7 @@ Detalhe operacional em `mp-operacao-mobile-flows.md`.
 ### Patch 2A.2 — Responsáveis de Etapa
 
 Nova tabela **`operacao_etapa_assignees`** (M:N, role `owner | helper`) adiciona atribuição multi-pessoa a `operacao_etapas`. Coluna legacy `responsible_profile_id` mantém-se como fallback. RLS: SELECT por `view_operacao` na mesma empresa; INSERT/UPDATE/DELETE por `manage_operacao_etapas` ou `current_lead` da Frente. Audit log via `log_table_change()`. Nova rota mobile `/operacao/minhas-tarefas` lista etapas relevantes ao user.
+
+### Patch 2A.3 — Staff de Campo
+
+Nova categoria `profiles.profile_type='field_staff'` para produtores temporários com login restrito à Operação. Onboarding por WhatsApp (Twilio): admin cria staff em `/operacao/staff`, app cria `auth.users` + profile + invite (token 14d) e envia link `/operacao/accept-invite?token=…`. Aceite cria role `field_producer` e devolve sessão. Sidebar mostra só `/operacao/*` para field_staff puros (hook `useIsFieldStaffOnly`). Detalhes em `mp-operacao-staff.md`.
