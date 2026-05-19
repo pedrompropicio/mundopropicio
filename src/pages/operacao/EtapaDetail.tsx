@@ -23,6 +23,7 @@ export default function EtapaDetail() {
   const { user, hasPermission, isAdmin } = useAuth();
   const qc = useQueryClient();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [assigneeSheetOpen, setAssigneeSheetOpen] = useState(false);
 
   const { data: etapa } = useQuery({
     queryKey: ["op-etapa", id],
