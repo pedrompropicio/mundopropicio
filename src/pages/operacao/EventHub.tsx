@@ -11,6 +11,7 @@ import { EventTeamSection } from "@/components/operacao/event/EventTeamSection";
 import { FrentesPanel } from "@/components/operacao/event/FrentesPanel";
 import { PlanejamentoPhase } from "@/components/operacao/event/PlanejamentoPhase";
 import { EventoPhase } from "@/components/operacao/event/EventoPhase";
+import { MontagemPhase } from "@/components/operacao/event/MontagemPhase";
 
 import { ArrowLeft, Users, ChevronRight, CheckCircle2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
