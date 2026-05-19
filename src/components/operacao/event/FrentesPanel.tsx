@@ -121,11 +121,27 @@ export function FrentesPanel({
                   {f.lead?.full_name ?? "Sem responsável"} · {counts?.[f.id] ?? 0} etapas
                 </p>
               </div>
+              {canManage && (
+                <Button
+                  variant="ghost" size="icon" className="h-7 w-7"
+                  onClick={(ev) => { ev.stopPropagation(); setEditId(f.id); }}
+                  title="Editar"
+                >
+                  <Pencil className="h-3 w-3" />
+                </Button>
+              )}
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
             </div>
           ))}
         </div>
       )}
+
+      <EditFrenteSheet
+        frenteId={editId}
+        open={!!editId}
+        onClose={() => setEditId(null)}
+      />
+
 
       {openAdd && (
         <AddFrenteInlineDialog
