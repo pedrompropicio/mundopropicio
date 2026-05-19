@@ -124,7 +124,7 @@ export default function FrenteDetail() {
           <div className="flex-1 min-w-0">
             <h1 className="text-xl font-bold truncate">{frente.name}</h1>
             <p className="text-xs text-muted-foreground">
-              {(frente as any).events?.name} · Lead: {(frente as any).lead?.full_name ?? "—"}
+              {(frente as any).events?.name} · Produtor: {(frente as any).lead?.full_name ?? "—"}
             </p>
           </div>
           <OperacaoStatusBadge status={frente.status} kind="etapa" />
