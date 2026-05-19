@@ -124,7 +124,9 @@ export function EtapaAssigneeSheet({
       }
 
       if (toInsert.length > 0) {
-        const { error } = await supabase.from("operacao_etapa_assignees").insert(toInsert);
+        const { error } = await supabase
+          .from("operacao_etapa_assignees")
+          .upsert(toInsert, { onConflict: "etapa_id,profile_id" });
         if (error) throw error;
       }
       for (const u of toUpdate) {
