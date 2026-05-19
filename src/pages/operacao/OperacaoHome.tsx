@@ -16,13 +16,11 @@ export default function OperacaoHome() {
   const { user, hasPermission, isAdmin } = useAuth();
   const { filters } = useOperacaoFilters();
   const canManageFrentes = isAdmin || hasPermission("manage_operacao_frentes");
-
-  if (isMobile) return <Navigate to="/operacao/equipa" replace />;
-  if (!(isAdmin || hasPermission("view_operacao"))) return <div className="p-6">Sem permissão.</div>;
+  const canView = isAdmin || hasPermission("view_operacao");
 
   const { data: frentes } = useQuery({
     queryKey: ["op-home-frentes", filters.event, filters.frentes.join(",")],
-    enabled: !!filters.event,
+    enabled: !!filters.event && !isMobile && canView,
     queryFn: async () => {
       let q = supabase
         .from("operacao_frentes")
