@@ -62,7 +62,7 @@ export default function ChamadoDetail() {
 
   return (
     <div className="p-4 max-w-2xl mx-auto space-y-4 pb-24">
-      <Link to="/operacao/chamados" className="inline-flex items-center text-sm text-muted-foreground">
+      <Link to="/operacao/meus-chamados" className="inline-flex items-center text-sm text-muted-foreground">
         <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
       </Link>
 
