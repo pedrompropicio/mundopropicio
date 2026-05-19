@@ -31,8 +31,38 @@ export default function EtapaDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("operacao_etapas")
-        .select("*, frente:operacao_frentes(id,name,color,current_lead_id,event_id,company_id), supplier:suppliers(name), responsible:profiles!operacao_etapas_responsible_profile_id_fkey(full_name)")
+        .select("*, frente:operacao_frentes(id,name,color,current_lead_id,event_id,company_id), supplier:suppliers(name), responsible:profiles!operacao_etapas_responsible_profile_id_fkey(id, full_name)")
         .eq("id", id!).maybeSingle();
+      return data;
+    },
+  });
+
+  const { data: assignees } = useQuery({
+    queryKey: ["op-etapa-assignees", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_etapa_assignees")
+        .select("profile_id, role, profiles:profile_id(id, full_name)")
+        .eq("etapa_id", id!);
+      return (data ?? []).map((a: any) => ({
+        profile_id: a.profile_id,
+        full_name: a.profiles?.full_name ?? null,
+        role: a.role as "owner" | "helper",
+      }));
+    },
+  });
+
+  const { data: frenteLead } = useQuery({
+    queryKey: ["op-frente-lead-profile", (etapa as any)?.frente?.current_lead_id],
+    enabled: !!(etapa as any)?.frente?.current_lead_id,
+    queryFn: async () => {
+      const leadId = (etapa as any).frente.current_lead_id;
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("id", leadId)
+        .maybeSingle();
       return data;
     },
   });
@@ -43,6 +73,22 @@ export default function EtapaDetail() {
   const isLead = frente?.current_lead_id === user?.id;
   const isResponsible = etapa.responsible_profile_id === user?.id;
   const canChangeStatus = isAdmin || hasPermission("manage_operacao_etapas") || isLead || isResponsible;
+  const canEditAssignees = isAdmin || hasPermission("manage_operacao_etapas") || isLead;
+
+  const inheritedProfile = (assignees ?? []).length > 0
+    ? null
+    : (etapa as any).responsible
+      ? { id: (etapa as any).responsible.id, full_name: (etapa as any).responsible.full_name }
+      : frenteLead
+        ? { id: frenteLead.id, full_name: frenteLead.full_name }
+        : null;
+  const inheritedFrom: "responsible" | "frente_lead" | null = (assignees ?? []).length > 0
+    ? null
+    : (etapa as any).responsible
+      ? "responsible"
+      : frenteLead
+        ? "frente_lead"
+        : null;
 
   const setStatus = async (newStatus: string, extra: Record<string, any> = {}) => {
     const { error } = await supabase
