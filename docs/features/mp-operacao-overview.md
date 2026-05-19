@@ -2,6 +2,17 @@
 
 Módulo de gestão operacional do evento (montagem, dia E, pós). Mobile-first PWA, inspirado no layout de Camarim/Equipa.
 
+## Filosofia: planejamento e documentação primeiro
+
+O produto **não é uma central de chamados de manutenção**. É um diário de obra / sistema de planejamento operacional. A hierarquia visual privilegia, por esta ordem:
+
+1. **Planejamento** — Frentes e Etapas que estruturam o trabalho
+2. **Documentação contínua** — Registos (foto/áudio/texto: evolução, observação, punch) construídos diariamente
+3. **Chamados** — feature lateral, importante mas pontual; só ganha proeminência em modo `evento` ou `post`
+
+O `operacao_mode` de cada evento (`planning` → `montagem` → `evento` → `post`) condiciona a UI: em planning/montagem os chamados raramente aparecem; em evento/post a tab e os contadores ficam sempre visíveis. Ver `docs/features/mp-operacao-mobile-flows.md` para a matriz completa.
+
+
 ## Modelo conceptual
 
 ```

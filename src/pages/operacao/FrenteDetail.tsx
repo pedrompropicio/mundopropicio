@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { OperacaoStatusBadge } from "@/components/operacao/OperacaoStatusBadge";
 import { PriorityBadge } from "@/components/operacao/PriorityBadge";
 import { RegistroFeed } from "@/components/operacao/RegistroFeed";
@@ -13,6 +14,7 @@ import { Plus, ChevronRight, ArrowLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { NewEtapaDialog } from "@/components/operacao/NewEtapaDialog";
+import { useOperacaoMode } from "@/hooks/useOperacaoMode";
 
 export default function FrenteDetail() {
   const { id } = useParams<{ id: string }>();
@@ -62,11 +64,15 @@ export default function FrenteDetail() {
 
   const isLead = frente?.current_lead_id === user?.id;
   const canManageEtapas = isAdmin || hasPermission("manage_operacao_etapas") || isLead;
+  const mode = useOperacaoMode(frente?.event_id);
+  const hasOpenChamados = (chamados ?? []).some((c: any) => c.status === "open" || c.status === "in_progress");
+  const showChamadosTab = mode === "evento" || mode === "post" || hasOpenChamados;
+  const openChamadosCount = (chamados ?? []).filter((c: any) => c.status === "open" || c.status === "in_progress").length;
 
   if (!frente) return <div className="p-6">A carregar...</div>;
 
   return (
-    <div className="p-4 max-w-2xl mx-auto space-y-4">
+    <div className="p-4 max-w-2xl mx-auto space-y-4 pb-24">
       <Link to="/operacao/equipa" className="inline-flex items-center text-sm text-muted-foreground">
         <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
       </Link>
@@ -81,12 +87,23 @@ export default function FrenteDetail() {
         <OperacaoStatusBadge status={frente.status} kind="etapa" />
       </header>
 
-      <Tabs defaultValue="etapas">
-        <TabsList className="grid grid-cols-3 w-full">
-          <TabsTrigger value="etapas">Etapas</TabsTrigger>
+      <Tabs defaultValue="registros">
+        <TabsList className={"grid w-full " + (showChamadosTab ? "grid-cols-3" : "grid-cols-2")}>
           <TabsTrigger value="registros">Registos</TabsTrigger>
-          <TabsTrigger value="chamados">Chamados</TabsTrigger>
+          <TabsTrigger value="etapas">Etapas</TabsTrigger>
+          {showChamadosTab && (
+            <TabsTrigger value="chamados" className="gap-1.5">
+              Chamados
+              {openChamadosCount > 0 && (
+                <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">{openChamadosCount}</Badge>
+              )}
+            </TabsTrigger>
+          )}
         </TabsList>
+
+        <TabsContent value="registros" className="mt-3">
+          <RegistroFeed filter={{ frente_id: id!, kindNot: "chamado" }} />
+        </TabsContent>
 
         <TabsContent value="etapas" className="space-y-2 mt-3">
           {canManageEtapas && (
@@ -111,35 +128,33 @@ export default function FrenteDetail() {
           ))}
         </TabsContent>
 
-        <TabsContent value="registros" className="mt-3">
-          <RegistroFeed filter={{ frente_id: id!, kindNot: "chamado" }} />
-        </TabsContent>
-
-        <TabsContent value="chamados" className="space-y-2 mt-3">
-          <Tabs value={chamadoStatus} onValueChange={setChamadoStatus}>
-            <TabsList className="grid grid-cols-4 w-full text-xs">
-              <TabsTrigger value="open">Abertos</TabsTrigger>
-              <TabsTrigger value="in_progress">Em curso</TabsTrigger>
-              <TabsTrigger value="resolved">Resolvidos</TabsTrigger>
-              <TabsTrigger value="closed">Fechados</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          {(chamados ?? []).length === 0 && <p className="text-sm text-muted-foreground p-4 text-center">Sem chamados.</p>}
-          {(chamados ?? []).map((c: any) => (
-            <Link key={c.id} to={`/operacao/chamado/${c.id}`}>
-              <Card className="p-3 space-y-1">
-                <div className="flex items-center gap-2">
-                  <PriorityBadge priority={c.priority} />
-                  <span className="text-xs text-muted-foreground ml-auto">
-                    {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: ptBR })}
-                  </span>
-                </div>
-                <p className="text-sm">{c.text}</p>
-                <p className="text-xs text-muted-foreground">por {c.author?.full_name}</p>
-              </Card>
-            </Link>
-          ))}
-        </TabsContent>
+        {showChamadosTab && (
+          <TabsContent value="chamados" className="space-y-2 mt-3">
+            <Tabs value={chamadoStatus} onValueChange={setChamadoStatus}>
+              <TabsList className="grid grid-cols-4 w-full text-xs">
+                <TabsTrigger value="open">Abertos</TabsTrigger>
+                <TabsTrigger value="in_progress">Em curso</TabsTrigger>
+                <TabsTrigger value="resolved">Resolvidos</TabsTrigger>
+                <TabsTrigger value="closed">Fechados</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            {(chamados ?? []).length === 0 && <p className="text-sm text-muted-foreground p-4 text-center">Sem chamados.</p>}
+            {(chamados ?? []).map((c: any) => (
+              <Link key={c.id} to={`/operacao/chamado/${c.id}`}>
+                <Card className="p-3 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <PriorityBadge priority={c.priority} />
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: ptBR })}
+                    </span>
+                  </div>
+                  <p className="text-sm">{c.text}</p>
+                  <p className="text-xs text-muted-foreground">por {c.author?.full_name}</p>
+                </Card>
+              </Link>
+            ))}
+          </TabsContent>
+        )}
       </Tabs>
 
       {newEtapaOpen && (

@@ -22,7 +22,7 @@ export function PriorityBadge({
       className={cn(
         "inline-flex items-center font-semibold rounded-md",
         s.bg, s.text,
-        size === "compact" ? "px-2 py-0.5 text-xs" : "px-4 py-1.5 text-sm uppercase tracking-wide",
+        size === "compact" ? "px-2 py-0.5 text-xs" : "px-2.5 py-1 text-xs uppercase tracking-wide",
         className,
       )}
     >
