@@ -12,6 +12,9 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const AI_MODEL = "google/gemini-2.5-flash";
+// TEMP — Temperature reduzida vs default 0.4 para baixar variância nos números do plano.
+// Não elimina (LLM é stochastic) — combinar com NA (anchored numbers, override pós-LLM).
+const TEMPERATURE_REDESIGN_LLM = 0.3;
 
 // ─────────────────────────────────────────────────────────────────────────
 // Tuning surface (Sprint redesign optimizer fix — caso Simone Mendes).
@@ -50,6 +53,27 @@ const COUNTER_PROPOSAL_HYBRID_BUDGET_TRIGGER_MULTIPLIER = 5;
 const COUNTER_PROPOSAL_HYBRID_FLOOR_TRIGGER_REDUCTION = 0.30;
 const COUNTER_PROPOSAL_HYBRID_RATIO = 0.7;
 const COUNTER_PROPOSAL_MAX_BUDGET_CAP_VS_CURRENT = 20;
+
+// NA-CONSTS — Anchored numbers tuning (v1 confiabilidade).
+// Spec usa "moderate" para a melhor classe de gap. Codebase produz comfortable/stretch/aggressive/unrealistic.
+// Aliases preservam a semântica do user spec mesmo quando o classifier produz nomes diferentes.
+const GAP_SEVERITY_FACTORS: Record<string, number> = {
+  comfortable: 1.25,
+  moderate: 1.25,
+  stretch: 1.10,
+  aggressive: 1.00,
+  unrealistic: 1.00,
+};
+const TRAJECTORY_PROJECTION_FACTORS: Record<string, number> = {
+  strong_uptrend: 1.10,
+  uptrend: 1.05,
+  stable: 1.00,
+  downtrend: 0.85,
+  strong_downtrend: 0.70,
+  insufficient_data: 1.00,
+};
+const ANCHORED_ROAS_CAP_VS_FLOOR = 1.20;
+const ANCHORED_AVG_TICKET_FALLBACK_EUR = 50;
 
 type Trajectory =
   | "strong_uptrend"
@@ -130,6 +154,170 @@ function classifyTrajectory(roas7d: number | null, roas28d: number | null): Traj
   if (ratio >= TRAJECTORY_DOWNTREND_RATIO) return "stable";
   if (ratio >= TRAJECTORY_STRONG_DOWNTREND_RATIO) return "downtrend";
   return "strong_downtrend";
+}
+
+// NA-GEN — Anchored numbers (determinístico). Substitui projecções LLM por
+// matemática auditável baseada em buckets ROAS observados + factors por
+// gap_severity e trajectory + cap defensivo vs floor.
+function computeAnchoredNumbers(args: {
+  viability: {
+    roas_7d: number | null;
+    roas_28d: number | null;
+    roas_lifetime: number | null;
+    gap_severity: string;
+    trajectory: string;
+  };
+  constraints: { daily_budget_eur: number | null; roas_floor: number; end_date: string };
+  horizon_days: number;
+  recommended_total_budget_eur: number;
+  actual_revenue_eur: number;
+  actual_purchases: number;
+}): {
+  expected_overall_roas: number;
+  expected_revenue_eur: number;
+  expected_purchases: number;
+  avg_ticket_eur: number;
+  number_lineage: {
+    baseline_roas: number;
+    baseline_components: { lifetime?: number; "28d"?: number; "7d"?: number; weights: Record<string, number> };
+    gap_severity: string;
+    gap_factor: number;
+    trajectory: string;
+    trajectory_factor: number;
+    raw_computed_roas: number;
+    capped_at: number | null;
+    final_roas: number;
+    avg_ticket_source: "actual" | "fallback";
+  };
+} {
+  const { viability, constraints, recommended_total_budget_eur, actual_revenue_eur, actual_purchases } = args;
+  const r = (n: number) => Math.round(n);
+
+  // STEP 1 — Baseline ROAS (weighted): 28d=0.5, lifetime=0.3, 7d=0.2.
+  const components: number[] = [];
+  const weights: number[] = [];
+  const componentDetails: { lifetime?: number; "28d"?: number; "7d"?: number; weights: Record<string, number> } = { weights: {} };
+  if (viability.roas_lifetime != null && viability.roas_lifetime > 0) {
+    components.push(viability.roas_lifetime); weights.push(0.3);
+    componentDetails.lifetime = viability.roas_lifetime;
+    componentDetails.weights.lifetime = 0.3;
+  }
+  if (viability.roas_28d != null && viability.roas_28d > 0) {
+    components.push(viability.roas_28d); weights.push(0.5);
+    componentDetails["28d"] = viability.roas_28d;
+    componentDetails.weights["28d"] = 0.5;
+  }
+  if (viability.roas_7d != null && viability.roas_7d > 0) {
+    components.push(viability.roas_7d); weights.push(0.2);
+    componentDetails["7d"] = viability.roas_7d;
+    componentDetails.weights["7d"] = 0.2;
+  }
+  let baseline_roas: number;
+  if (components.length === 0) {
+    baseline_roas = 1.0;
+  } else {
+    const totalWeight = weights.reduce((s, w) => s + w, 0);
+    baseline_roas = components.reduce((s, c, i) => s + c * weights[i], 0) / totalWeight;
+  }
+
+  // STEP 2-3 — Factors gap_severity + trajectory.
+  const gap_factor = GAP_SEVERITY_FACTORS[viability.gap_severity] ?? 1.00;
+  const trajectory_factor = TRAJECTORY_PROJECTION_FACTORS[viability.trajectory] ?? 1.00;
+
+  // STEP 4-5 — Computed + cap defensivo.
+  const raw_computed_roas = baseline_roas * gap_factor * trajectory_factor;
+  const max_allowed = constraints.roas_floor * ANCHORED_ROAS_CAP_VS_FLOOR;
+  const final_roas = Math.min(raw_computed_roas, max_allowed);
+  const capped_at = raw_computed_roas > max_allowed ? max_allowed : null;
+
+  // STEP 6 — Avg ticket (actual ou fallback).
+  let avg_ticket_eur: number;
+  let avg_ticket_source: "actual" | "fallback";
+  if (actual_purchases > 0 && actual_revenue_eur > 0) {
+    avg_ticket_eur = actual_revenue_eur / actual_purchases;
+    avg_ticket_source = "actual";
+  } else {
+    avg_ticket_eur = ANCHORED_AVG_TICKET_FALLBACK_EUR;
+    avg_ticket_source = "fallback";
+  }
+
+  // STEP 7-8 — Receita, compras, ROAS arredondado.
+  const expected_revenue_eur = r(final_roas * recommended_total_budget_eur);
+  const expected_purchases = avg_ticket_eur > 0 ? r(expected_revenue_eur / avg_ticket_eur) : 0;
+  const expected_overall_roas = Math.round(final_roas * 100) / 100;
+
+  return {
+    expected_overall_roas,
+    expected_revenue_eur,
+    expected_purchases,
+    avg_ticket_eur,
+    number_lineage: {
+      baseline_roas: Math.round(baseline_roas * 100) / 100,
+      baseline_components: componentDetails,
+      gap_severity: viability.gap_severity,
+      gap_factor,
+      trajectory: viability.trajectory,
+      trajectory_factor,
+      raw_computed_roas: Math.round(raw_computed_roas * 100) / 100,
+      capped_at,
+      final_roas: expected_overall_roas,
+      avg_ticket_source,
+    },
+  };
+}
+
+// CONF-GEN — Confidence determinístico baseado em horizon + statistical floor +
+// gap_severity + trajectory. Regras prioritárias: low force (qualquer crítico),
+// cap em medium (downtrend), promo a high (todos os requisitos OK).
+function computeAnchoredConfidence(args: {
+  viability: { gap_severity: string; trajectory: string };
+  horizon_days: number;
+  statistical_floor_met: boolean;
+  final_roas: number;
+  target_roas_floor: number;
+}): { confidence: "low" | "medium" | "high"; confidence_reasons: string[] } {
+  const { viability, horizon_days, statistical_floor_met } = args;
+  const reasons: string[] = [];
+  let confidence: "low" | "medium" | "high" = "medium";
+
+  // Downgrades força low (qualquer um destes).
+  if (!statistical_floor_met) {
+    confidence = "low";
+    reasons.push("Statistical floor não atingido");
+  }
+  if (horizon_days < 14) {
+    confidence = "low";
+    reasons.push(`Horizonte curto (${horizon_days}d < 14d)`);
+  }
+  if (viability.gap_severity === "unrealistic") {
+    confidence = "low";
+    reasons.push("Gap unrealistic — meta improvável mesmo com optimização");
+  }
+
+  // Cap em medium para downtrends.
+  if (viability.trajectory === "downtrend" || viability.trajectory === "strong_downtrend") {
+    if (confidence === "high") confidence = "medium";
+    reasons.push(`Trajectória ${viability.trajectory} — confidence cap em medium`);
+  }
+
+  // Promo a high — todos os requisitos. "moderate" mantido para compat com user spec; "comfortable" é o equivalente real do codebase.
+  const isFavourableGap = viability.gap_severity === "moderate" || viability.gap_severity === "comfortable";
+  const isFavourableTraj =
+    viability.trajectory === "stable" ||
+    viability.trajectory === "uptrend" ||
+    viability.trajectory === "strong_uptrend";
+  if (
+    confidence === "medium" &&
+    statistical_floor_met &&
+    horizon_days >= 60 &&
+    isFavourableGap &&
+    isFavourableTraj
+  ) {
+    confidence = "high";
+    reasons.push("Horizonte longo + gap moderate/comfortable + trajectory favorável");
+  }
+
+  return { confidence, confidence_reasons: reasons };
 }
 
 // CP-GEN — Counter-proposals generator (determinístico, sem LLM).
@@ -1181,7 +1369,8 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: AI_MODEL,
-      temperature: 0.4,
+      // TEMP — reduzida vs 0.4 anterior para baixar variância nos números do plano.
+      temperature: TEMPERATURE_REDESIGN_LLM,
       messages: [
         { role: "system", content: "És um especialista sênior em Meta Ads para eventos ao vivo. Respondes SEMPRE com JSON puro (sem fences) e em PT-BR." },
         { role: "user", content: prompt },
@@ -1209,6 +1398,58 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
   catch (e) {
     console.error("[redesign] parse error:", e, content.slice(0, 500));
     return json({ error: "ai_invalid_json", detail: content.slice(0, 200) }, 502);
+  }
+
+  // NA-POST / CONF-POST — Override autoritário pós-LLM (única passagem).
+  // LLM continua a gerar números livremente. Substituímos os 4 críticos do
+  // summary + confidence com matemática auditável aqui. C2 (rationale "atingir Nx"
+  // vs expected_roas) pode disparar warning — comportamento desejável: utilizador
+  // vê o disagreement explícito via number_lineage. Sem injection pre-LLM em v1.
+  if (plan && plan.summary && typeof plan.summary === "object") {
+    const lifetimeMetricsForAnchor = metricsOf(lifetimeAgg);
+    const estimatedBudgetFallback = Math.max(
+      viability.current_daily_spend_eur * viability.days_until_event,
+      viability.statistical_floor_spend_eur,
+    );
+    const recommendedBudgetFromLLM = Number(plan.summary.recommended_total_budget_eur) || estimatedBudgetFallback;
+    const anchoredPost = computeAnchoredNumbers({
+      viability: {
+        roas_7d: viability.roas_7d,
+        roas_28d: viability.roas_28d,
+        roas_lifetime: viability.roas_lifetime,
+        gap_severity: viability.gap_severity,
+        trajectory: viability.trajectory,
+      },
+      constraints: {
+        daily_budget_eur: effDailyCents != null ? effDailyCents / 100 : null,
+        roas_floor: targetBlendedRoas,
+        end_date: effEndTime ?? "",
+      },
+      horizon_days: viability.days_until_event,
+      recommended_total_budget_eur: recommendedBudgetFromLLM,
+      actual_revenue_eur: lifetimeMetricsForAnchor.revenue_eur,
+      actual_purchases: lifetimeMetricsForAnchor.purchases,
+    });
+    const confidencePost = computeAnchoredConfidence({
+      viability: { gap_severity: viability.gap_severity, trajectory: viability.trajectory },
+      horizon_days: viability.days_until_event,
+      statistical_floor_met: viability.meets_statistical_floor,
+      final_roas: anchoredPost.expected_overall_roas,
+      target_roas_floor: targetBlendedRoas,
+    });
+
+    plan.summary.expected_overall_roas = anchoredPost.expected_overall_roas;
+    plan.summary.expected_revenue_eur = anchoredPost.expected_revenue_eur;
+    plan.summary.expected_purchases = anchoredPost.expected_purchases;
+    plan.summary.expected_cpa_eur = anchoredPost.expected_purchases > 0
+      ? Math.round((recommendedBudgetFromLLM / anchoredPost.expected_purchases) * 100) / 100
+      : null;
+    plan.summary.confidence = confidencePost.confidence;
+    plan.summary.confidence_reasons = confidencePost.confidence_reasons;
+    plan.summary.number_lineage = anchoredPost.number_lineage;
+
+    console.log("[redesign] anchored_numbers", anchoredPost.number_lineage);
+    console.log("[redesign] anchored_confidence", confidencePost);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
