@@ -38,7 +38,7 @@ export function FrenteTeamSheet({ open, onClose, frenteId, currentLeadId }: Prop
 
   const labels: Record<string, string> = {
     lead: "Lead",
-    auxiliary: "Auxiliares",
+    auxiliary: "Staff",
     observer: "Observers",
   };
 

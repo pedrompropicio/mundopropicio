@@ -11,6 +11,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, GripVertical, ExternalLink, Archive } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { NewEtapaDialog } from "@/components/operacao/NewEtapaDialog";
@@ -31,11 +32,13 @@ interface Props {
 }
 
 function Row({
-  e, companyId, profiles, suppliers, canEdit, onUpdate, onArchive,
+  e, companyId, profiles, suppliers, zones, frenteIsService, canEdit, onUpdate, onArchive,
 }: {
   e: any; companyId: string;
   profiles: { id: string; full_name: string | null }[];
   suppliers: { id: string; name: string }[];
+  zones: { id: string; name: string }[];
+  frenteIsService: boolean;
   canEdit: boolean;
   onUpdate: (id: string, patch: Record<string, any>) => Promise<void>;
   onArchive: (id: string) => Promise<void>;
@@ -66,6 +69,25 @@ function Row({
           options={STATUS_OPTS}
           onSave={(v) => onUpdate(e.id, { status: v ?? "pending" })}
         />
+      </td>
+      <td className="px-2 py-1 w-36">
+        {frenteIsService ? (
+          <Select
+            value={e.zone_id ?? "__none__"}
+            disabled={!canEdit}
+            onValueChange={(v) => onUpdate(e.id, { zone_id: v === "__none__" ? null : v })}
+          >
+            <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">—</SelectItem>
+              {zones.map((z) => (
+                <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <span className="text-xs text-muted-foreground italic px-1">—</span>
+        )}
       </td>
       <td className="px-2 py-1 w-40">
         <EtapaInlineCell
@@ -122,12 +144,40 @@ export function EtapasTable({ frenteId, companyId, canEdit }: Props) {
   const [newEtapa, setNewEtapa] = useState(false);
   const [showDone, setShowDone] = useState(false);
 
+  const { data: frente } = useQuery({
+    queryKey: ["op-etapas-table-frente", frenteId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_frentes")
+        .select("id,type,event_id")
+        .eq("id", frenteId)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const frenteIsService = (frente as any)?.type === "service";
+
+  const { data: zones } = useQuery({
+    queryKey: ["op-etapas-table-zones", (frente as any)?.event_id],
+    enabled: !!(frente as any)?.event_id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_frentes")
+        .select("id,name")
+        .eq("event_id", (frente as any).event_id)
+        .eq("type", "zone")
+        .neq("status", "cancelled")
+        .order("name");
+      return data ?? [];
+    },
+  });
+
   const { data: etapas } = useQuery({
     queryKey: ["op-etapas-table", frenteId],
     queryFn: async () => {
       const { data } = await supabase
         .from("operacao_etapas")
-        .select("id,name,status,supplier_id,responsible_profile_id,planned_start,planned_end,display_order")
+        .select("id,name,status,supplier_id,responsible_profile_id,planned_start,planned_end,display_order,zone_id")
         .eq("frente_id", frenteId)
         .order("display_order");
       return data ?? [];
@@ -210,6 +260,7 @@ export function EtapasTable({ frenteId, companyId, canEdit }: Props) {
               <th className="w-8" />
               <th className="px-2 py-1.5 text-left">Nome</th>
               <th className="px-2 py-1.5 text-left">Status</th>
+              <th className="px-2 py-1.5 text-left">Zona</th>
               <th className="px-2 py-1.5 text-left">Fornecedor</th>
               <th className="px-2 py-1.5 text-left">Responsável</th>
               <th className="px-2 py-1.5 text-left">Início prev.</th>
@@ -221,7 +272,7 @@ export function EtapasTable({ frenteId, companyId, canEdit }: Props) {
             <SortableContext items={visible.map((e: any) => e.id)} strategy={verticalListSortingStrategy}>
               <tbody>
                 {visible.length === 0 && (
-                  <tr><td colSpan={8} className="text-center text-muted-foreground py-4">Sem etapas.</td></tr>
+                  <tr><td colSpan={9} className="text-center text-muted-foreground py-4">Sem etapas.</td></tr>
                 )}
                 {visible.map((e: any) => (
                   <Row
@@ -230,6 +281,8 @@ export function EtapasTable({ frenteId, companyId, canEdit }: Props) {
                     companyId={companyId}
                     profiles={profiles ?? []}
                     suppliers={suppliers ?? []}
+                    zones={zones ?? []}
+                    frenteIsService={frenteIsService}
                     canEdit={canEdit}
                     onUpdate={updateRow}
                     onArchive={archive}

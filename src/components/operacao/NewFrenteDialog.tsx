@@ -22,6 +22,7 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
   const [description, setDescription] = useState("");
   const [color, setColor] = useState(PALETTE[5]);
   const [leadId, setLeadId] = useState<string>("");
+  const [type, setType] = useState<"zone" | "service">("zone");
   const [saving, setSaving] = useState(false);
 
   // Eventos não-completed para escolher
@@ -57,6 +58,7 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
       name: name.trim(),
       description: description.trim() || null,
       color,
+      type,
       status: "active",
     }).select("id").single();
     if (error || !created) {
@@ -100,6 +102,19 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
           <div>
             <Label>Nome *</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+          </div>
+          <div>
+            <Label>Tipo *</Label>
+            <Select value={type} onValueChange={(v) => setType(v as "zone" | "service")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="zone">Zona</SelectItem>
+                <SelectItem value="service">Serviço</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Zona = setor físico (Tenda VIP, Backstage). Serviço = função transversal que pode atender várias zonas (Catering, Energia, Decoração).
+            </p>
           </div>
           <div>
             <Label>Descrição</Label>

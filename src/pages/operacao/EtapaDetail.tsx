@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIsEventDirectorOnly } from "@/hooks/useIsEventDirectorOnly";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -15,7 +16,8 @@ import { MediaCapture, type CapturedMedia } from "@/components/operacao/MediaCap
 import { AudioRecorder } from "@/components/operacao/AudioRecorder";
 import { EtapaAssigneeAvatars } from "@/components/operacao/EtapaAssigneeAvatars";
 import { EtapaAssigneeSheet } from "@/components/operacao/EtapaAssigneeSheet";
-import { Camera, Play, Ban, CheckCircle2, ArrowLeft } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Camera, Play, Ban, CheckCircle2, ArrowLeft, Eye } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 export default function EtapaDetail() {
@@ -31,7 +33,7 @@ export default function EtapaDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("operacao_etapas")
-        .select("*, frente:operacao_frentes(id,name,color,current_lead_id,event_id,company_id), supplier:suppliers(name), responsible:profiles!operacao_etapas_responsible_profile_id_fkey(id, full_name)")
+        .select("*, frente:operacao_frentes(id,name,color,current_lead_id,event_id,company_id,type), supplier:suppliers(name), responsible:profiles!operacao_etapas_responsible_profile_id_fkey(id, full_name), zone:operacao_frentes!operacao_etapas_zone_id_fkey(id,name,color)")
         .eq("id", id!).maybeSingle();
       return data;
     },
@@ -70,10 +72,13 @@ export default function EtapaDetail() {
   if (!etapa) return <div className="p-6">A carregar...</div>;
 
   const frente = (etapa as any).frente;
+  const isDirectorOnly = useIsEventDirectorOnly(frente?.event_id);
   const isLead = frente?.current_lead_id === user?.id;
   const isResponsible = etapa.responsible_profile_id === user?.id;
-  const canChangeStatus = isAdmin || hasPermission("manage_operacao_etapas") || isLead || isResponsible;
-  const canEditAssignees = isAdmin || hasPermission("manage_operacao_etapas") || isLead;
+  const canChangeStatus = !isDirectorOnly && (isAdmin || hasPermission("manage_operacao_etapas") || isLead || isResponsible);
+  const canEditAssignees = !isDirectorOnly && (isAdmin || hasPermission("manage_operacao_etapas") || isLead);
+  const zone = (etapa as any).zone;
+  const zoneApplies = zone && zone.id !== frente?.id;
 
   const inheritedProfile = (assignees ?? []).length > 0
     ? null
@@ -101,6 +106,11 @@ export default function EtapaDetail() {
 
   return (
     <div className="p-4 max-w-2xl mx-auto space-y-4 pb-24">
+      {isDirectorOnly && (
+        <div className="rounded-md border bg-muted/40 text-muted-foreground text-xs px-3 py-2 flex items-center gap-2">
+          <Eye className="h-3.5 w-3.5" /> Modo Diretor — só visualização
+        </div>
+      )}
       <Link to={`/operacao/frente/${frente.id}`} className="inline-flex items-center text-sm text-muted-foreground">
         <ArrowLeft className="h-4 w-4 mr-1" /> Voltar à frente
       </Link>
@@ -124,6 +134,7 @@ export default function EtapaDetail() {
         </div>
         <dl className="text-xs grid grid-cols-2 gap-1 pt-2">
           {etapa.escopo && <><dt className="text-muted-foreground">Escopo</dt><dd>{etapa.escopo}</dd></>}
+          {zoneApplies && <><dt className="text-muted-foreground">Zona que atende</dt><dd>{zone.name}</dd></>}
           {etapa.supplier?.name && <><dt className="text-muted-foreground">Fornecedor</dt><dd>{etapa.supplier.name}</dd></>}
           {etapa.planned_start && <><dt className="text-muted-foreground">Início prev.</dt><dd>{new Date(etapa.planned_start).toLocaleString("pt-PT")}</dd></>}
           {etapa.planned_end && <><dt className="text-muted-foreground">Fim prev.</dt><dd>{new Date(etapa.planned_end).toLocaleString("pt-PT")}</dd></>}
@@ -142,23 +153,39 @@ export default function EtapaDetail() {
         />
       )}
 
-      {canChangeStatus && (
-        <div className="grid grid-cols-3 gap-2">
-          <Button size="sm" variant="outline" disabled={etapa.status === "in_progress"} onClick={() => setStatus("in_progress", { actual_start: new Date().toISOString() })}>
-            <Play className="h-4 w-4 mr-1" /> Iniciar
-          </Button>
-          <Button size="sm" variant="outline" disabled={etapa.status === "blocked"} onClick={() => setStatus("blocked")}>
-            <Ban className="h-4 w-4 mr-1" /> Bloquear
-          </Button>
-          <Button size="sm" variant="outline" disabled={etapa.status === "done"} onClick={() => setStatus("done", { actual_end: new Date().toISOString() })}>
-            <CheckCircle2 className="h-4 w-4 mr-1" /> Concluir
-          </Button>
-        </div>
+      {(canChangeStatus || isDirectorOnly) && (
+        <TooltipProvider>
+          <div className="grid grid-cols-3 gap-2">
+            <Tooltip><TooltipTrigger asChild>
+              <span className="contents">
+                <Button size="sm" variant="outline" disabled={!canChangeStatus || etapa.status === "in_progress"} onClick={() => setStatus("in_progress", { actual_start: new Date().toISOString() })}>
+                  <Play className="h-4 w-4 mr-1" /> Iniciar
+                </Button>
+              </span>
+            </TooltipTrigger>{isDirectorOnly && <TooltipContent>Sem permissão para editar</TooltipContent>}</Tooltip>
+            <Tooltip><TooltipTrigger asChild>
+              <span className="contents">
+                <Button size="sm" variant="outline" disabled={!canChangeStatus || etapa.status === "blocked"} onClick={() => setStatus("blocked")}>
+                  <Ban className="h-4 w-4 mr-1" /> Bloquear
+                </Button>
+              </span>
+            </TooltipTrigger>{isDirectorOnly && <TooltipContent>Sem permissão para editar</TooltipContent>}</Tooltip>
+            <Tooltip><TooltipTrigger asChild>
+              <span className="contents">
+                <Button size="sm" variant="outline" disabled={!canChangeStatus || etapa.status === "done"} onClick={() => setStatus("done", { actual_end: new Date().toISOString() })}>
+                  <CheckCircle2 className="h-4 w-4 mr-1" /> Concluir
+                </Button>
+              </span>
+            </TooltipTrigger>{isDirectorOnly && <TooltipContent>Sem permissão para editar</TooltipContent>}</Tooltip>
+          </div>
+        </TooltipProvider>
       )}
 
-      <Button size="lg" className="w-full" onClick={() => setSheetOpen(true)}>
-        <Camera className="h-5 w-5 mr-2" /> Registar
-      </Button>
+      {!isDirectorOnly && (
+        <Button size="lg" className="w-full" onClick={() => setSheetOpen(true)}>
+          <Camera className="h-5 w-5 mr-2" /> Registar
+        </Button>
+      )}
 
       <RegistroFeed filter={{ etapa_id: id! }} />
 

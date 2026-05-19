@@ -27,6 +27,7 @@ import { formatDatePT } from "@/lib/utils";
 import { useCompany } from "@/hooks/useCompany";
 
 import { EventEditModal } from "@/components/EventEditModal";
+import { EventTeamSection } from "@/components/operacao/event/EventTeamSection";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { buildSessionCopyMap } from "@/lib/session-copy";
 import EventABTab from "@/components/EventABTab";
@@ -945,6 +946,11 @@ export default function EventDetail() {
         </TabsList>
 
         <TabsContent value="overview">
+          {event?.company_id && (
+            <div className="mb-4">
+              <EventTeamSection eventId={activeEventId} companyId={event.company_id} />
+            </div>
+          )}
           {/* Pie chart + transactions */}
           <div className="grid gap-6 lg:grid-cols-5">
             {pieData.length > 0 && (
