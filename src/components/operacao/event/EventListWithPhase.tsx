@@ -44,17 +44,28 @@ export default function EventListWithPhase() {
     queryKey: ["op-events-stats", ids.join(",")],
     enabled: ids.length > 0,
     queryFn: async () => {
-      const [{ data: etapas }, { data: chamados }] = await Promise.all([
-        supabase.from("operacao_etapas").select("id, frente_id, operacao_frentes!inner(event_id)").in("operacao_frentes.event_id" as any, ids),
-        supabase.from("operacao_registros").select("id, frente_id, status, kind, operacao_frentes!inner(event_id)").in("operacao_frentes.event_id" as any, ids).eq("kind", "chamado").in("status", ["open", "in_progress"]),
-      ]);
+      const { data: frentes } = await supabase
+        .from("operacao_frentes")
+        .select("id,event_id")
+        .in("event_id", ids);
+      const frenteIds = (frentes ?? []).map((f: any) => f.id);
+      const frenteToEvent: Record<string, string> = {};
+      (frentes ?? []).forEach((f: any) => { frenteToEvent[f.id] = f.event_id; });
+
       const out: Record<string, { etapas: number; chamados: number }> = {};
       for (const id of ids) out[id] = { etapas: 0, chamados: 0 };
-      (etapas ?? []).forEach((r: any) => { const eid = r.operacao_frentes?.event_id; if (eid && out[eid]) out[eid].etapas++; });
-      (chamados ?? []).forEach((r: any) => { const eid = r.operacao_frentes?.event_id; if (eid && out[eid]) out[eid].chamados++; });
+      if (frenteIds.length === 0) return out;
+
+      const [{ data: etapas }, { data: chamados }] = await Promise.all([
+        supabase.from("operacao_etapas").select("id,frente_id").in("frente_id", frenteIds),
+        supabase.from("operacao_registros").select("id,frente_id,status,kind").in("frente_id", frenteIds).eq("kind", "chamado").in("status", ["open", "in_progress"]),
+      ]);
+      (etapas ?? []).forEach((r: any) => { const eid = frenteToEvent[r.frente_id]; if (eid && out[eid]) out[eid].etapas++; });
+      (chamados ?? []).forEach((r: any) => { const eid = frenteToEvent[r.frente_id]; if (eid && out[eid]) out[eid].chamados++; });
       return out;
     },
   });
+
 
   const sorted = useMemo(() => {
     const list = [...(events ?? [])];
