@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { FrenteCard } from "@/components/operacao/FrenteCard";
+import { FrenteCard, type LastActivity } from "@/components/operacao/FrenteCard";
 import { PushNotificationToggle } from "@/components/PushNotificationToggle";
 import { Card } from "@/components/ui/card";
 import { Bell, X } from "lucide-react";
@@ -51,6 +51,7 @@ export default function MyFrentes() {
   });
 
   const frenteIds = useMemo(() => (frentes ?? []).map((f: any) => f.id), [frentes]);
+
   const { data: counts } = useQuery({
     queryKey: ["op-frentes-counts", frenteIds],
     enabled: frenteIds.length > 0,
@@ -74,13 +75,42 @@ export default function MyFrentes() {
     },
   });
 
+  // Última atividade (kind != chamado) por frente
+  const { data: lastActivityMap } = useQuery({
+    queryKey: ["op-frentes-last-activity", frenteIds],
+    enabled: frenteIds.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_registros")
+        .select("frente_id,kind,text,created_at,author:profiles!operacao_registros_author_profile_id_fkey(full_name)")
+        .in("frente_id", frenteIds)
+        .neq("kind", "chamado")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      const out: Record<string, LastActivity> = {};
+      for (const r of data ?? []) {
+        if (!out[(r as any).frente_id]) {
+          out[(r as any).frente_id] = {
+            kind: (r as any).kind,
+            text: (r as any).text,
+            created_at: (r as any).created_at,
+            author_name: (r as any).author?.full_name ?? null,
+          };
+        }
+      }
+      return out;
+    },
+  });
+
   if (!canView) return <div className="p-6">Sem permissão.</div>;
 
   return (
-    <div className="p-4 space-y-4 max-w-2xl mx-auto">
-      <header className="flex items-center justify-between">
+    <div className="p-4 space-y-4 max-w-2xl mx-auto pb-24">
+      <header className="flex items-end justify-between">
         <h1 className="text-2xl font-bold">Minhas Frentes</h1>
-        <Link to="/operacao/chamados" className="text-sm text-primary underline">Meus chamados</Link>
+        <Link to="/operacao/atividade" className="text-xs text-muted-foreground hover:text-foreground underline">
+          Atividade
+        </Link>
       </header>
 
       {showPushPrompt && (
@@ -109,6 +139,7 @@ export default function MyFrentes() {
             key={f.id}
             frente={f}
             counts={counts?.[f.id] ?? { etapas_pending: 0, etapas_in_progress: 0, etapas_done: 0, chamados_open: 0, chamados_in_progress: 0 }}
+            lastActivity={lastActivityMap?.[f.id] ?? null}
             isLead={f.current_lead_id === user?.id}
           />
         ))}
