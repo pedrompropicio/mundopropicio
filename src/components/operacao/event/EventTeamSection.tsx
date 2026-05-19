@@ -102,8 +102,8 @@ export function EventTeamSection({ eventId, companyId }: { eventId: string; comp
 }
 
 function AddMemberDialog({
-  eventId, companyId, role, onClose,
-}: { eventId: string; companyId: string; role: "director" | "general_producer"; onClose: () => void }) {
+  eventId, companyId, role, assignedProfileIds, onClose,
+}: { eventId: string; companyId: string; role: "director" | "general_producer"; assignedProfileIds: Set<string>; onClose: () => void }) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [profileId, setProfileId] = useState("");
@@ -118,6 +118,9 @@ function AddMemberDialog({
       return data ?? [];
     },
   });
+
+  const candidates = (profiles ?? []).filter((p: any) => !assignedProfileIds.has(p.id));
+  const roleLabel = role === "director" ? "Diretor" : "Produtor Geral";
 
   const { data: zones } = useQuery({
     queryKey: ["event-team-zones", eventId],
