@@ -153,7 +153,7 @@ export function QuickActionFab() {
 
       {pickFor && (
         <FrentePickerDialog
-          title={pickFor === "etapa" ? "Em que frente?" : "Frente do registo"}
+          title={pickFor === "etapa" ? "Em que Zona/Serviço?" : "Zona/Serviço do registo"}
           onClose={() => setPickFor(null)}
           onPick={(id) => {
             setPickedFrenteId(id);
