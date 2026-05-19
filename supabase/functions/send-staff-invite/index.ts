@@ -1,11 +1,11 @@
 // send-staff-invite — reenvia convite WhatsApp para um profile field_staff existente.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.0";
+import { sendWhatsApp } from "../_shared/twilio.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-const TWILIO_GATEWAY = "https://connector-gateway.lovable.dev/twilio";
 
 async function sendInviteWhatsApp(
   to: string, fullName: string, companyName: string, appUrl: string, token: string,
