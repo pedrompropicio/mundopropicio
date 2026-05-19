@@ -63,7 +63,7 @@ export default function ChamadoDetail() {
       <Card className="p-4 space-y-3">
         <div className="flex items-center gap-2">
           <PriorityBadge priority={c.priority} size="large" />
-          <OperacaoStatusBadge status={c.status} kind="chamado" className="ml-auto" />
+          <span className="ml-auto"><OperacaoStatusBadge status={c.status} kind="chamado" /></span>
         </div>
         <p className="text-base">{c.text}</p>
         <div className="text-xs text-muted-foreground space-y-0.5">
