@@ -17,6 +17,8 @@ interface Props {
   onClose: () => void;
   initialFrenteId?: string;
   initialEtapaId?: string;
+  initialKind?: "evolucao" | "observacao" | "punch" | "chamado";
+  eventFilterId?: string;
 }
 
 /**
