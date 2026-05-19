@@ -18,7 +18,7 @@ interface Props {
 
 const ROLES = [
   { value: "lead", label: "Lead" },
-  { value: "auxiliary", label: "Auxiliar" },
+  { value: "auxiliary", label: "Staff" },
   { value: "observer", label: "Observador" },
 ];
 
