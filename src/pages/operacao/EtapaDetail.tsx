@@ -129,6 +129,11 @@ export default function EtapaDetail() {
             <h1 className="text-lg font-bold">{etapa.name}</h1>
             <p className="text-xs text-muted-foreground">{frente?.name}</p>
           </div>
+          {canEditAssignees && (
+            <Button size="icon" variant="ghost" onClick={() => setEditOpen(true)} title="Editar etapa">
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
           <OperacaoStatusBadge status={etapa.status} />
         </div>
         <div className="pt-2 border-t flex items-center justify-between gap-2">
