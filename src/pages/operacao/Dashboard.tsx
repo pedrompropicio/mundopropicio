@@ -359,22 +359,30 @@ export default function Dashboard() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-            <KpiCard label="Etapas totais" value={totalEtapas} subLabel={`${donePct}% concluídas`} icon={ListChecks} />
-            <KpiCard label="Em curso" value={inProgress} icon={Play} tone="blue" />
-            <KpiCard label="Bloqueadas" value={blocked} icon={AlertTriangle} tone="amber" />
-            <KpiCard
-              label="Chamados abertos"
-              value={openCh.length}
-              subLabel={
-                <span className="flex gap-1.5">
-                  <span className="text-red-500">{byPrio.crit}c</span>
-                  <span className="text-orange-500">{byPrio.high}h</span>
-                  <span className="text-yellow-600">{byPrio.med}m</span>
-                  <span className="text-blue-500">{byPrio.low}b</span>
-                </span>
-              }
-              icon={Bell}
-            />
+            <Link to={`/operacao/etapas?event=${filters.event}`} className="block hover:opacity-90 transition">
+              <KpiCard label="Etapas totais" value={totalEtapas} subLabel={`${donePct}% concluídas`} icon={ListChecks} />
+            </Link>
+            <Link to={`/operacao/etapas?event=${filters.event}&status=in_progress`} className="block hover:opacity-90 transition">
+              <KpiCard label="Em curso" value={inProgress} icon={Play} tone="blue" />
+            </Link>
+            <Link to={`/operacao/etapas?event=${filters.event}&status=blocked`} className="block hover:opacity-90 transition">
+              <KpiCard label="Bloqueadas" value={blocked} icon={AlertTriangle} tone="amber" />
+            </Link>
+            <Link to={`/operacao/chamados?event=${filters.event}&status=open,in_progress`} className="block hover:opacity-90 transition">
+              <KpiCard
+                label="Chamados abertos"
+                value={openCh.length}
+                subLabel={
+                  <span className="flex gap-1.5">
+                    <span className="text-red-500">{byPrio.crit}c</span>
+                    <span className="text-orange-500">{byPrio.high}h</span>
+                    <span className="text-yellow-600">{byPrio.med}m</span>
+                    <span className="text-blue-500">{byPrio.low}b</span>
+                  </span>
+                }
+                icon={Bell}
+              />
+            </Link>
             <KpiCard label="Resolvidos no período" value={resolvedInPeriod} icon={CheckCircle2} tone="green" />
             <KpiCard label="SLA breaches" value={breaches} icon={ShieldAlert} tone="red" />
           </div>
@@ -426,12 +434,24 @@ export default function Dashboard() {
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 <UserX className="h-4 w-4" /> Cobertura de etapas
               </h3>
-              <Link to="/operacao/relatorios?tab=cobertura" className="text-xs text-muted-foreground hover:text-foreground">
+              <Link
+                to={filters.event
+                  ? `/operacao/etapas?event=${filters.event}&responsibility=sem_responsavel`
+                  : "/operacao/etapas"}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
                 Ver detalhes →
               </Link>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <KpiCard label="Sem responsável" value={semResponsavel} tone={semResponsavel > 0 ? "amber" : "default"} />
+              <Link
+                to={filters.event
+                  ? `/operacao/etapas?event=${filters.event}&responsibility=sem_responsavel`
+                  : "/operacao/etapas"}
+                className="block hover:opacity-90 transition"
+              >
+                <KpiCard label="Sem responsável" value={semResponsavel} tone={semResponsavel > 0 ? "amber" : "default"} />
+              </Link>
               <KpiCard label="Sem fornecedor" value={semFornecedor} tone={semFornecedor > 0 ? "amber" : "default"} />
               <KpiCard label="Sem datas" value={semDatas} tone={semDatas > 0 ? "amber" : "default"} />
               <KpiCard label="Total com gaps" value={comGaps} tone={comGaps > 0 ? "red" : "green"} subLabel={`de ${totalEtapas} etapas`} />
