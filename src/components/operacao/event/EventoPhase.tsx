@@ -239,6 +239,28 @@ export function EventoPhase({ eventId, companyId }: Props) {
 
   return (
     <div className="space-y-4 pb-24">
+      {/* Freshness banner */}
+      <div
+        className={cn(
+          "flex items-center gap-2 px-3 py-2 rounded-md border text-xs",
+          freshTone === "ok" && "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300",
+          freshTone === "stale" && "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300",
+          freshTone === "error" && "bg-destructive/10 border-destructive/40 text-destructive",
+        )}
+      >
+        <span className="h-2 w-2 rounded-full bg-current animate-pulse" />
+        <span className="flex-1">
+          {freshTone === "error"
+            ? "Erro de sincronização — toca para tentar novamente"
+            : freshTone === "stale"
+              ? `Atualizado há ${Math.round(ageSec / 60)}min — verifica ligação`
+              : `Live · Atualizado há ${ageSec}s`}
+        </span>
+        <Button size="sm" variant="ghost" className="h-6 px-2" onClick={refreshAll} title="Atualizar agora">
+          <RefreshCw className="h-3 w-3" />
+        </Button>
+      </div>
+
       {/* Top bar: link analítico */}
       <div className="flex justify-end">
         <Link to="/operacao/dashboard">
@@ -247,6 +269,7 @@ export function EventoPhase({ eventId, companyId }: Props) {
           </Button>
         </Link>
       </div>
+
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
