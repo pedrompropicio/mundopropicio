@@ -76,7 +76,7 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
         active: true,
       });
     }
-    toast({ title: "Frente criada" });
+    toast({ title: type === "service" ? "Serviço criado" : "Zona criada" });
     qc.invalidateQueries({ queryKey: ["op-my-frentes"] });
     setSaving(false);
     onClose();
