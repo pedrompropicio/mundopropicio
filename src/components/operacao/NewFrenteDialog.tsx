@@ -86,7 +86,7 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Nova frente</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Nova Zona/Serviço</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div>
             <Label>Evento *</Label>
