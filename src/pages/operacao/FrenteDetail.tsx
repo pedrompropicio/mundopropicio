@@ -166,20 +166,39 @@ export default function FrenteDetail() {
             </Button>
           )}
           {(etapas ?? []).length === 0 && <p className="text-sm text-muted-foreground p-4 text-center">Sem etapas.</p>}
-          {(etapas ?? []).map((e: any) => (
-            <Link key={e.id} to={`/operacao/etapa/${e.id}`}>
-              <Card className="p-3 flex items-center gap-3 active:scale-[0.99]">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{e.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {e.supplier?.name ?? "—"} {e.escopo ? `· ${e.escopo}` : ""}
-                  </p>
-                </div>
-                <OperacaoStatusBadge status={e.status} />
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </Card>
-            </Link>
-          ))}
+          {(etapas ?? []).map((e: any) => {
+            const list = assigneesByEtapa?.[e.id] ?? [];
+            const inheritedProfile = list.length === 0
+              ? (e.responsible_profile_id
+                  ? null /* nome não temos aqui, mostra iniciais via fallback */
+                  : frente.current_lead_id
+                    ? { id: frente.current_lead_id, full_name: (frente as any).lead?.full_name ?? null }
+                    : null)
+              : null;
+            const inheritedFrom: "responsible" | "frente_lead" | null = list.length === 0
+              ? (e.responsible_profile_id ? "responsible" : frente.current_lead_id ? "frente_lead" : null)
+              : null;
+            return (
+              <Link key={e.id} to={`/operacao/etapa/${e.id}`}>
+                <Card className="p-3 flex items-center gap-3 active:scale-[0.99]">
+                  <EtapaAssigneeAvatars
+                    size="sm"
+                    assignees={list}
+                    inheritedFrom={inheritedFrom}
+                    inheritedProfile={inheritedProfile}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{e.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {e.supplier?.name ?? "—"} {e.escopo ? `· ${e.escopo}` : ""}
+                    </p>
+                  </div>
+                  <OperacaoStatusBadge status={e.status} />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </Card>
+              </Link>
+            );
+          })}
         </TabsContent>
 
         {showChamadosTab && (
