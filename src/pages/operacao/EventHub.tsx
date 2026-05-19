@@ -80,7 +80,16 @@ export default function EventHub() {
             <h1 className="text-xl md:text-2xl font-bold leading-tight truncate">{event.name}</h1>
             <p className="text-xs text-muted-foreground">{fmtRange(event.date)} · {event.location || "—"}</p>
           </div>
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2.5 text-[11px] gap-1 mr-1"
+              onClick={() => navigate(`/operacao/dashboard?event=${event.id}`)}
+              title="Ver Dashboard analítico do evento"
+            >
+              <BarChart3 className="h-3 w-3" /> Dashboard
+            </Button>
             {PHASE_ORDER.map((p) => {
               const isActive = activePhase === p.key;
               const isCurrent = currentPhase === p.key;
