@@ -45,8 +45,15 @@ export function AppSidebar() {
   const hasFever = useHasFeature(FEATURES.SYNC_FEVER);
   const hasHealth = useHasFeature(FEATURES.SYNC_HEALTH);
   const fieldStaffOnly = useIsFieldStaffOnly();
+  const inOperacao = location.pathname.startsWith("/operacao");
 
-  const navItems = [
+  const operacaoItems = [
+    { to: "/operacao", icon: Radar, label: "Operação", show: hasPermission("view_operacao") || isAdmin },
+    { to: "/operacao/dashboard", icon: BarChart3, label: "↳ Dashboard", show: hasPermission("view_operacao") || isAdmin },
+    { to: "/operacao/staff", icon: Users, label: "↳ Staff", show: hasPermission("manage_operacao_staff") || isAdmin },
+  ];
+
+  const fullNavItems = [
     { to: "/erp", icon: LayoutDashboard, label: "Dashboard", show: true },
     { to: "/calendario", icon: CalendarDays, label: "Calendário", show: hasPermission("manage_calendar") || isAdmin },
     { to: "/eventos", icon: Calendar, label: "Eventos", show: hasPermission("manage_events") || hasPermission("view_events") || isAdmin },
@@ -76,7 +83,7 @@ export function AppSidebar() {
     <aside className="fixed left-0 top-14 z-40 flex h-[calc(100vh-3.5rem)] w-16 flex-col items-center border-r border-border bg-sidebar py-4 lg:w-56">
 
       <nav className="flex flex-1 flex-col gap-1 px-2 lg:px-3 w-full overflow-y-auto">
-        {navItems
+        {(inOperacao ? operacaoItems : fullNavItems)
           .filter((i: any) => i.show && (!fieldStaffOnly || i.to.startsWith("/operacao")))
           .map((item: any, idx) => {
           // sections removed — flat list
@@ -110,7 +117,7 @@ export function AppSidebar() {
       </nav>
 
       <div className="mt-auto w-full px-2 lg:px-3 space-y-1">
-        {isAdmin && (
+        {(isAdmin || inOperacao) && (
           <button
             onClick={() => navigate("/")}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
