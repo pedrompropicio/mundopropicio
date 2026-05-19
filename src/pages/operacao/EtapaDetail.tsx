@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIsEventDirectorOnly } from "@/hooks/useIsEventDirectorOnly";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -15,7 +16,8 @@ import { MediaCapture, type CapturedMedia } from "@/components/operacao/MediaCap
 import { AudioRecorder } from "@/components/operacao/AudioRecorder";
 import { EtapaAssigneeAvatars } from "@/components/operacao/EtapaAssigneeAvatars";
 import { EtapaAssigneeSheet } from "@/components/operacao/EtapaAssigneeSheet";
-import { Camera, Play, Ban, CheckCircle2, ArrowLeft } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Camera, Play, Ban, CheckCircle2, ArrowLeft, Eye } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 export default function EtapaDetail() {
