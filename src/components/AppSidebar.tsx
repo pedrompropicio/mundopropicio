@@ -24,6 +24,7 @@ import {
   Grid3x3,
   Cloud,
   Activity,
+  Radar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
