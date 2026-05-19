@@ -74,7 +74,7 @@ export function FrenteCardDesktop({
           </div>
           {isLead && (
             <Badge variant="default" className="gap-1 text-[10px] shrink-0">
-              <Crown className="h-3 w-3" /> LEAD
+              <Crown className="h-3 w-3" /> PRODUTOR
             </Badge>
           )}
         </div>
