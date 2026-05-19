@@ -5356,6 +5356,7 @@ export type Database = {
           email: string | null
           full_name: string
           id: string
+          phone: string | null
           updated_at: string
         }
         Insert: {
@@ -5365,6 +5366,7 @@ export type Database = {
           email?: string | null
           full_name?: string
           id: string
+          phone?: string | null
           updated_at?: string
         }
         Update: {
@@ -5374,6 +5376,7 @@ export type Database = {
           email?: string | null
           full_name?: string
           id?: string
+          phone?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -7974,6 +7977,7 @@ export type Database = {
         Args: { _row_company_id: string }
         Returns: boolean
       }
+      run_operacao_sla_escalator: { Args: never; Returns: Json }
       run_rls_isolation_test: {
         Args: never
         Returns: {

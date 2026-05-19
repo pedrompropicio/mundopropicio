@@ -1,0 +1,177 @@
+import { useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { OperacaoStatusBadge } from "@/components/operacao/OperacaoStatusBadge";
+import { RegistroFeed } from "@/components/operacao/RegistroFeed";
+import { MediaCapture, type CapturedMedia } from "@/components/operacao/MediaCapture";
+import { AudioRecorder } from "@/components/operacao/AudioRecorder";
+import { Camera, Play, Ban, CheckCircle2, ArrowLeft } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+
+export default function EtapaDetail() {
+  const { id } = useParams<{ id: string }>();
+  const { user, hasPermission, isAdmin } = useAuth();
+  const qc = useQueryClient();
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const { data: etapa } = useQuery({
+    queryKey: ["op-etapa", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_etapas")
+        .select("*, frente:operacao_frentes(id,name,color,current_lead_id,event_id,company_id), supplier:suppliers(name), responsible:profiles!operacao_etapas_responsible_profile_id_fkey(full_name)")
+        .eq("id", id!).maybeSingle();
+      return data;
+    },
+  });
+
+  if (!etapa) return <div className="p-6">A carregar...</div>;
+
+  const frente = (etapa as any).frente;
+  const isLead = frente?.current_lead_id === user?.id;
+  const isResponsible = etapa.responsible_profile_id === user?.id;
+  const canChangeStatus = isAdmin || hasPermission("manage_operacao_etapas") || isLead || isResponsible;
+
+  const setStatus = async (newStatus: string, extra: Record<string, any> = {}) => {
+    const { error } = await supabase
+      .from("operacao_etapas")
+      .update({ status: newStatus, ...extra })
+      .eq("id", id!);
+    if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
+    else { toast({ title: "Estado atualizado" }); qc.invalidateQueries({ queryKey: ["op-etapa", id] }); }
+  };
+
+  return (
+    <div className="p-4 max-w-2xl mx-auto space-y-4 pb-24">
+      <Link to={`/operacao/frente/${frente.id}`} className="inline-flex items-center text-sm text-muted-foreground">
+        <ArrowLeft className="h-4 w-4 mr-1" /> Voltar à frente
+      </Link>
+      <Card className="p-4 space-y-2">
+        <div className="flex items-start gap-3">
+          <div className="h-12 w-2 rounded-full" style={{ backgroundColor: frente?.color ?? "#6b7280" }} />
+          <div className="flex-1">
+            <h1 className="text-lg font-bold">{etapa.name}</h1>
+            <p className="text-xs text-muted-foreground">{frente?.name}</p>
+          </div>
+          <OperacaoStatusBadge status={etapa.status} />
+        </div>
+        <dl className="text-xs grid grid-cols-2 gap-1 pt-2">
+          {etapa.escopo && <><dt className="text-muted-foreground">Escopo</dt><dd>{etapa.escopo}</dd></>}
+          {etapa.supplier?.name && <><dt className="text-muted-foreground">Fornecedor</dt><dd>{etapa.supplier.name}</dd></>}
+          {etapa.responsible?.full_name && <><dt className="text-muted-foreground">Responsável</dt><dd>{etapa.responsible.full_name}</dd></>}
+          {etapa.planned_start && <><dt className="text-muted-foreground">Início prev.</dt><dd>{new Date(etapa.planned_start).toLocaleString("pt-PT")}</dd></>}
+          {etapa.planned_end && <><dt className="text-muted-foreground">Fim prev.</dt><dd>{new Date(etapa.planned_end).toLocaleString("pt-PT")}</dd></>}
+        </dl>
+      </Card>
+
+      {canChangeStatus && (
+        <div className="grid grid-cols-3 gap-2">
+          <Button size="sm" variant="outline" disabled={etapa.status === "in_progress"} onClick={() => setStatus("in_progress", { actual_start: new Date().toISOString() })}>
+            <Play className="h-4 w-4 mr-1" /> Iniciar
+          </Button>
+          <Button size="sm" variant="outline" disabled={etapa.status === "blocked"} onClick={() => setStatus("blocked")}>
+            <Ban className="h-4 w-4 mr-1" /> Bloquear
+          </Button>
+          <Button size="sm" variant="outline" disabled={etapa.status === "done"} onClick={() => setStatus("done", { actual_end: new Date().toISOString() })}>
+            <CheckCircle2 className="h-4 w-4 mr-1" /> Concluir
+          </Button>
+        </div>
+      )}
+
+      <Button size="lg" className="w-full" onClick={() => setSheetOpen(true)}>
+        <Camera className="h-5 w-5 mr-2" /> Registar
+      </Button>
+
+      <RegistroFeed filter={{ etapa_id: id! }} />
+
+      {sheetOpen && (
+        <RegistroSheet
+          open={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          etapaId={id!}
+          frenteId={frente.id}
+          eventId={frente.event_id}
+          companyId={frente.company_id}
+        />
+      )}
+    </div>
+  );
+}
+
+function RegistroSheet({
+  open, onClose, etapaId, frenteId, eventId, companyId,
+}: { open: boolean; onClose: () => void; etapaId: string; frenteId: string; eventId: string; companyId: string }) {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const [kind, setKind] = useState("evolucao");
+  const [text, setText] = useState("");
+  const [media, setMedia] = useState<CapturedMedia[]>([]);
+  const [audio, setAudio] = useState<string | null>(null);
+  const [registroId] = useState(() => crypto.randomUUID());
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    if (!user) return;
+    setSaving(true);
+    const { error } = await supabase.from("operacao_registros").insert({
+      id: registroId,
+      frente_id: frenteId,
+      etapa_id: etapaId,
+      author_profile_id: user.id,
+      company_id: companyId,
+      kind,
+      text: text.trim() || null,
+      audio_url: audio,
+      metadata: {},
+    });
+    if (error) { setSaving(false); toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
+    if (media.length > 0) {
+      await supabase.from("operacao_registro_media").insert(
+        media.map((m, i) => ({
+          registro_id: registroId,
+          company_id: companyId,
+          file_url: m.file_url,
+          thumbnail_url: m.thumbnail_url,
+          file_type: m.file_type,
+          sort_order: i,
+        })),
+      );
+    }
+    toast({ title: "Registo guardado" });
+    qc.invalidateQueries({ queryKey: ["op-registros"] });
+    setSaving(false);
+    onClose();
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
+        <SheetHeader><SheetTitle>Novo registo</SheetTitle></SheetHeader>
+        <div className="space-y-4 mt-4">
+          <RadioGroup value={kind} onValueChange={setKind} className="grid grid-cols-3 gap-2">
+            {[["evolucao","Evolução"],["observacao","Observação"],["punch","Punch"]].map(([v,l]) => (
+              <Label key={v} className="flex items-center gap-2 border rounded p-2 cursor-pointer">
+                <RadioGroupItem value={v} /> <span className="text-sm">{l}</span>
+              </Label>
+            ))}
+          </RadioGroup>
+          <Textarea placeholder="Descreve..." rows={3} value={text} onChange={(e) => setText(e.target.value)} />
+          <MediaCapture companyId={companyId} eventId={eventId} registroId={registroId} value={media} onChange={setMedia} />
+          <AudioRecorder companyId={companyId} eventId={eventId} registroId={registroId} value={audio} onChange={setAudio} />
+          <Button onClick={submit} disabled={saving} className="w-full" size="lg">
+            {saving ? "A guardar..." : "Guardar registo"}
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}

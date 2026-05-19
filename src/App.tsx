@@ -91,6 +91,13 @@ import UserActivityLog from "./pages/UserActivityLog";
 import Camarim from "./pages/Camarim";
 import CamarimSessionDetail from "./pages/CamarimSessionDetail";
 import CamarimEquipa from "./pages/CamarimEquipa";
+import OperacaoLayout from "./pages/operacao/OperacaoLayout";
+import MyFrentes from "./pages/operacao/MyFrentes";
+import FrenteDetail from "./pages/operacao/FrenteDetail";
+import EtapaDetail from "./pages/operacao/EtapaDetail";
+import MeusChamados from "./pages/operacao/MeusChamados";
+import ChamadoNovo from "./pages/operacao/ChamadoNovo";
+import ChamadoDetail from "./pages/operacao/ChamadoDetail";
 
 import TrashPage from "./pages/Trash";
 import NotFound from "./pages/NotFound";
@@ -354,6 +361,15 @@ function ProtectedLayout() {
               <Route path="/ajuda" element={<HelpCenter />} />
               <Route path="/camarim" element={<Camarim />} />
               <Route path="/camarim/:id" element={<CamarimSessionDetail />} />
+              <Route path="/operacao" element={<OperacaoLayout />}>
+                <Route index element={<Navigate to="/operacao/equipa" replace />} />
+                <Route path="equipa" element={<MyFrentes />} />
+                <Route path="frente/:id" element={<FrenteDetail />} />
+                <Route path="etapa/:id" element={<EtapaDetail />} />
+                <Route path="chamados" element={<MeusChamados />} />
+                <Route path="chamado/novo" element={<ChamadoNovo />} />
+                <Route path="chamado/:id" element={<ChamadoDetail />} />
+              </Route>
               <Route path="/relatorios" element={<Reports />}>
                 <Route index element={<Navigate to="/relatorios/dre" replace />} />
                 <Route path="dre" element={<ReportDREPage />} />

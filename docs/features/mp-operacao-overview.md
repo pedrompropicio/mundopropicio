@@ -111,3 +111,24 @@ Privado, signed URLs 1h. Policies:
 - **Batch 2 — UI core mobile**: lista de Frentes, feed de registros, formulário de chamado, captura de áudio/foto, menu rápido.
 - **Batch 3 — UI desktop**: painel de coordenação geral, kanban de Etapas, dashboard de SLA.
 - **Batch 4 — Extras v2**: relatório diário PDF, integração de WhatsApp completa em `send-push-notification`, transição automática `montagem→evento→post` por datas, transcrição de áudio.
+
+## Batch 2A — UI mobile entregue (2026-05-19)
+
+### Rotas adicionadas
+- `/operacao/equipa` — Minhas frentes
+- `/operacao/frente/:id` — Detalhe (tabs Etapas/Registos/Chamados)
+- `/operacao/etapa/:id` — Detalhe + bottom-sheet "Registar" (Evolução/Observação/Punch)
+- `/operacao/chamados` — Meus chamados (Abertos/Em curso/Resolvidos)
+- `/operacao/chamado/novo` — Form de abertura
+- `/operacao/chamado/:id` — Detalhe com ACK/Iniciar/Resolver + SLA visual
+
+### Componentes
+- `MediaCapture` (foto/vídeo), `AudioRecorder` (webm/opus)
+- `RegistroFeed`, `FrenteCard`, `PriorityBadge`, `OperacaoStatusBadge`, `NewEtapaDialog`
+
+### Backend
+- `profiles.phone` (text, nullable) — destino de WhatsApp
+- Edge `send-push-notification` v2: aceita `target: {type, ...}` + flag `whatsapp` (Twilio)
+- Cron `operacao-sla-escalator` (*/2 min) → função `run_operacao_sla_escalator()` resolve nível 1 (frente_team) e nível 2 (company_admins + WhatsApp p/ crit/high)
+
+Detalhe operacional em `mp-operacao-mobile-flows.md`.
