@@ -116,7 +116,7 @@ export function FrenteCardDesktop({
         <div className="flex items-center gap-1">
           {lead && (
             <span
-              title={`Lead: ${lead.full_name}`}
+              title={`Produtor: ${lead.full_name}`}
               className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-medium"
             >
               <Crown className="h-3 w-3" />
