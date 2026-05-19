@@ -159,9 +159,17 @@ export default function FrenteDetail() {
           )}
         </TabsList>
 
-        <TabsContent value="registros" className="mt-3">
+        <TabsContent value="registros" className="mt-3 space-y-2">
+          {canCreateRegisto && (
+            <div className="flex justify-end">
+              <Button size="sm" onClick={() => setNewRegistroOpen(true)}>
+                <Plus className="h-4 w-4 mr-1" /> Novo Registo
+              </Button>
+            </div>
+          )}
           <RegistroFeed filter={{ frente_id: id!, kindNot: "chamado" }} />
         </TabsContent>
+
 
         <TabsContent value="etapas" className="space-y-2 mt-3">
           {canManageEtapas && (
