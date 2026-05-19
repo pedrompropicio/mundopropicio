@@ -33,6 +33,7 @@ import { PushNotificationToggle } from "@/components/PushNotificationToggle";
 import { useCoalaSyncBadge } from "@/hooks/useCoalaSyncBadge";
 import { useHasFeature } from "@/hooks/useCompanyFeatures";
 import { FEATURES } from "@/lib/features";
+import { useIsFieldStaffOnly } from "@/hooks/useIsFieldStaffOnly";
 
 export function AppSidebar() {
   const location = useLocation();
@@ -43,6 +44,7 @@ export function AppSidebar() {
   const hasCoala = useHasFeature(FEATURES.SYNC_COALA);
   const hasFever = useHasFeature(FEATURES.SYNC_FEVER);
   const hasHealth = useHasFeature(FEATURES.SYNC_HEALTH);
+  const fieldStaffOnly = useIsFieldStaffOnly();
 
   const navItems = [
     { to: "/erp", icon: LayoutDashboard, label: "Dashboard", show: true },
