@@ -947,10 +947,12 @@ export default function EventDetail() {
 
         <TabsContent value="overview">
           {event?.company_id && (
-            <div className="mb-4">
-              <EventTeamSection eventId={activeEventId} companyId={event.company_id} />
+            <div className="mb-4 rounded-lg border border-dashed p-3 text-xs text-muted-foreground bg-muted/20">
+              💡 A equipa operacional do evento (Diretores, Produtores Gerais) agora é configurada em{" "}
+              <a href={`/operacao/${activeEventId}`} className="underline font-medium text-primary">MP Operação → Hub do Evento → fase Setup</a>.
             </div>
           )}
+
           {/* Pie chart + transactions */}
           <div className="grid gap-6 lg:grid-cols-5">
             {pieData.length > 0 && (
