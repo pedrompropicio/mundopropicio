@@ -10,6 +10,7 @@ import { PHASE_ORDER } from "@/components/operacao/event/PhaseBadge";
 import { EventTeamSection } from "@/components/operacao/event/EventTeamSection";
 import { FrentesPanel } from "@/components/operacao/event/FrentesPanel";
 import { PlanejamentoPhase } from "@/components/operacao/event/PlanejamentoPhase";
+import { EventoPhase } from "@/components/operacao/event/EventoPhase";
 
 import { ArrowLeft, BarChart3, Users, ChevronRight, CheckCircle2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
