@@ -90,6 +90,23 @@ export function QuickActionFab() {
   // Early return DEPOIS de todos os hooks
   if (hideFab) return null;
 
+  const pick = (a: Action) => {
+    setOpen(false);
+    if (a === "frente") return setAction("frente");
+    if (a === "etapa") {
+      if (ctx?.frenteId) { setPickedFrenteId(ctx.frenteId); setAction("etapa"); }
+      else setPickFor("etapa");
+      return;
+    }
+    if (a === "registro") {
+      if (ctx?.frenteId || ctx?.etapaId) { setAction("registro"); }
+      else setPickFor("registro");
+      return;
+    }
+    if (a === "chamado") return navigate("/operacao/chamado/novo");
+  };
+
+
 
   return (
     <>
