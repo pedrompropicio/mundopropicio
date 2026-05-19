@@ -100,6 +100,8 @@ import ChamadoNovo from "./pages/operacao/ChamadoNovo";
 import ChamadoDetail from "./pages/operacao/ChamadoDetail";
 import Atividade from "./pages/operacao/Atividade";
 import MinhasTarefas from "./pages/operacao/MinhasTarefas";
+import StaffList from "./pages/operacao/StaffList";
+import AcceptInvite from "./pages/operacao/AcceptInvite";
 
 import TrashPage from "./pages/Trash";
 import NotFound from "./pages/NotFound";
