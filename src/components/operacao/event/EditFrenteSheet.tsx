@@ -53,8 +53,9 @@ export function EditFrenteSheet({
   }, [frente?.id]);
 
   // Profiles filtrados por roles elegíveis (admin/manager/producer)
+  // + garante que o produtor atual (current_lead_id) aparece sempre, mesmo que role não seja elegível
   const { data: profiles } = useQuery({
-    queryKey: ["op-edit-frente-profiles", frente?.company_id],
+    queryKey: ["op-edit-frente-profiles", frente?.company_id, frente?.current_lead_id],
     enabled: !!frente?.company_id,
     queryFn: async () => {
       const { data: roleRows } = await supabase
@@ -62,14 +63,16 @@ export function EditFrenteSheet({
         .select("user_id, role")
         .eq("company_id", frente!.company_id)
         .in("role", ELIGIBLE_LEAD_ROLES as any);
-      const eligibleIds = Array.from(new Set((roleRows ?? []).map((r: any) => r.user_id)));
-      if (eligibleIds.length === 0) return [];
+      const eligibleIds = new Set((roleRows ?? []).map((r: any) => r.user_id));
+      if (frente?.current_lead_id) eligibleIds.add(frente.current_lead_id);
+      const ids = Array.from(eligibleIds);
+      if (ids.length === 0) return [];
       const { data } = await supabase
         .from("profiles")
         .select("id,full_name")
         .eq("company_id", frente!.company_id)
         .is("archived_at", null)
-        .in("id", eligibleIds)
+        .in("id", ids)
         .order("full_name");
       return data ?? [];
     },
