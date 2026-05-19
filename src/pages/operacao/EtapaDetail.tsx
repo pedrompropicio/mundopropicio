@@ -13,6 +13,8 @@ import { OperacaoStatusBadge } from "@/components/operacao/OperacaoStatusBadge";
 import { RegistroFeed } from "@/components/operacao/RegistroFeed";
 import { MediaCapture, type CapturedMedia } from "@/components/operacao/MediaCapture";
 import { AudioRecorder } from "@/components/operacao/AudioRecorder";
+import { EtapaAssigneeAvatars } from "@/components/operacao/EtapaAssigneeAvatars";
+import { EtapaAssigneeSheet } from "@/components/operacao/EtapaAssigneeSheet";
 import { Camera, Play, Ban, CheckCircle2, ArrowLeft } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
