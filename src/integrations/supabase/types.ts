@@ -4109,6 +4109,7 @@ export type Database = {
           last_sales_date: string | null
           location: string | null
           name: string
+          operacao_mode: string
           parent_event_id: string | null
           partner_calc_basis: string
           pl_mode: string
@@ -4135,6 +4136,7 @@ export type Database = {
           last_sales_date?: string | null
           location?: string | null
           name: string
+          operacao_mode?: string
           parent_event_id?: string | null
           partner_calc_basis?: string
           pl_mode?: string
@@ -4161,6 +4163,7 @@ export type Database = {
           last_sales_date?: string | null
           location?: string | null
           name?: string
+          operacao_mode?: string
           parent_event_id?: string | null
           partner_calc_basis?: string
           pl_mode?: string
@@ -4593,6 +4596,483 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      operacao_chamado_sla: {
+        Row: {
+          priority: string
+          sla_minutes: number
+        }
+        Insert: {
+          priority: string
+          sla_minutes: number
+        }
+        Update: {
+          priority?: string
+          sla_minutes?: number
+        }
+        Relationships: []
+      }
+      operacao_daily_reports: {
+        Row: {
+          company_id: string
+          event_id: string
+          generated_at: string
+          generated_by_profile_id: string | null
+          id: string
+          mode: string
+          pdf_url: string | null
+          report_date: string
+          summary_json: Json
+        }
+        Insert: {
+          company_id?: string
+          event_id: string
+          generated_at?: string
+          generated_by_profile_id?: string | null
+          id?: string
+          mode: string
+          pdf_url?: string | null
+          report_date: string
+          summary_json?: Json
+        }
+        Update: {
+          company_id?: string
+          event_id?: string
+          generated_at?: string
+          generated_by_profile_id?: string | null
+          id?: string
+          mode?: string
+          pdf_url?: string | null
+          report_date?: string
+          summary_json?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operacao_daily_reports_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacao_daily_reports_generated_by_profile_id_fkey"
+            columns: ["generated_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operacao_etapas: {
+        Row: {
+          actual_end: string | null
+          actual_start: string | null
+          category_id: string | null
+          company_id: string
+          created_at: string
+          display_order: number
+          escopo: string | null
+          forecast_id: string | null
+          frente_id: string
+          has_no_date: boolean
+          id: string
+          name: string
+          planned_end: string | null
+          planned_start: string | null
+          responsible_profile_id: string | null
+          status: string
+          supplier_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          actual_end?: string | null
+          actual_start?: string | null
+          category_id?: string | null
+          company_id?: string
+          created_at?: string
+          display_order?: number
+          escopo?: string | null
+          forecast_id?: string | null
+          frente_id: string
+          has_no_date?: boolean
+          id?: string
+          name: string
+          planned_end?: string | null
+          planned_start?: string | null
+          responsible_profile_id?: string | null
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actual_end?: string | null
+          actual_start?: string | null
+          category_id?: string | null
+          company_id?: string
+          created_at?: string
+          display_order?: number
+          escopo?: string | null
+          forecast_id?: string | null
+          frente_id?: string
+          has_no_date?: boolean
+          id?: string
+          name?: string
+          planned_end?: string | null
+          planned_start?: string | null
+          responsible_profile_id?: string | null
+          status?: string
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operacao_etapas_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "account_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacao_etapas_forecast_id_fkey"
+            columns: ["forecast_id"]
+            isOneToOne: false
+            referencedRelation: "event_forecasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacao_etapas_frente_id_fkey"
+            columns: ["frente_id"]
+            isOneToOne: false
+            referencedRelation: "operacao_frentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacao_etapas_responsible_profile_id_fkey"
+            columns: ["responsible_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacao_etapas_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operacao_frente_team: {
+        Row: {
+          active: boolean
+          assigned_at: string
+          assigned_by_profile_id: string | null
+          company_id: string
+          frente_id: string
+          id: string
+          is_permanent_lead: boolean
+          profile_id: string
+          role_in_frente: string
+        }
+        Insert: {
+          active?: boolean
+          assigned_at?: string
+          assigned_by_profile_id?: string | null
+          company_id?: string
+          frente_id: string
+          id?: string
+          is_permanent_lead?: boolean
+          profile_id: string
+          role_in_frente: string
+        }
+        Update: {
+          active?: boolean
+          assigned_at?: string
+          assigned_by_profile_id?: string | null
+          company_id?: string
+          frente_id?: string
+          id?: string
+          is_permanent_lead?: boolean
+          profile_id?: string
+          role_in_frente?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operacao_frente_team_assigned_by_profile_id_fkey"
+            columns: ["assigned_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacao_frente_team_frente_id_fkey"
+            columns: ["frente_id"]
+            isOneToOne: false
+            referencedRelation: "operacao_frentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacao_frente_team_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operacao_frentes: {
+        Row: {
+          color: string | null
+          company_id: string
+          created_at: string
+          current_lead_id: string | null
+          description: string | null
+          display_order: number
+          event_id: string
+          id: string
+          lead_handover_until: string | null
+          name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          company_id?: string
+          created_at?: string
+          current_lead_id?: string | null
+          description?: string | null
+          display_order?: number
+          event_id: string
+          id?: string
+          lead_handover_until?: string | null
+          name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          company_id?: string
+          created_at?: string
+          current_lead_id?: string | null
+          description?: string | null
+          display_order?: number
+          event_id?: string
+          id?: string
+          lead_handover_until?: string | null
+          name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operacao_frentes_current_lead_id_fkey"
+            columns: ["current_lead_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacao_frentes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operacao_mentions: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          mentioned_profile_id: string
+          notified_at: string | null
+          read_at: string | null
+          registro_id: string
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          mentioned_profile_id: string
+          notified_at?: string | null
+          read_at?: string | null
+          registro_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          mentioned_profile_id?: string
+          notified_at?: string | null
+          read_at?: string | null
+          registro_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operacao_mentions_mentioned_profile_id_fkey"
+            columns: ["mentioned_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacao_mentions_registro_id_fkey"
+            columns: ["registro_id"]
+            isOneToOne: false
+            referencedRelation: "operacao_registros"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operacao_registro_media: {
+        Row: {
+          company_id: string
+          created_at: string
+          file_type: string
+          file_url: string
+          id: string
+          registro_id: string
+          sort_order: number
+          thumbnail_url: string | null
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          file_type: string
+          file_url: string
+          id?: string
+          registro_id: string
+          sort_order?: number
+          thumbnail_url?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          file_type?: string
+          file_url?: string
+          id?: string
+          registro_id?: string
+          sort_order?: number
+          thumbnail_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operacao_registro_media_registro_id_fkey"
+            columns: ["registro_id"]
+            isOneToOne: false
+            referencedRelation: "operacao_registros"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operacao_registros: {
+        Row: {
+          acked_at: string | null
+          acked_by_profile_id: string | null
+          audio_url: string | null
+          author_profile_id: string
+          company_id: string
+          created_at: string
+          escalation_level: number
+          etapa_id: string | null
+          frente_id: string
+          id: string
+          kind: string
+          metadata: Json
+          priority: string | null
+          resolved_at: string | null
+          resolved_by_profile_id: string | null
+          sla_due_at: string | null
+          sla_half_at: string | null
+          status: string | null
+          text: string | null
+          transcribed_text: string | null
+          updated_at: string
+        }
+        Insert: {
+          acked_at?: string | null
+          acked_by_profile_id?: string | null
+          audio_url?: string | null
+          author_profile_id: string
+          company_id?: string
+          created_at?: string
+          escalation_level?: number
+          etapa_id?: string | null
+          frente_id: string
+          id?: string
+          kind: string
+          metadata?: Json
+          priority?: string | null
+          resolved_at?: string | null
+          resolved_by_profile_id?: string | null
+          sla_due_at?: string | null
+          sla_half_at?: string | null
+          status?: string | null
+          text?: string | null
+          transcribed_text?: string | null
+          updated_at?: string
+        }
+        Update: {
+          acked_at?: string | null
+          acked_by_profile_id?: string | null
+          audio_url?: string | null
+          author_profile_id?: string
+          company_id?: string
+          created_at?: string
+          escalation_level?: number
+          etapa_id?: string | null
+          frente_id?: string
+          id?: string
+          kind?: string
+          metadata?: Json
+          priority?: string | null
+          resolved_at?: string | null
+          resolved_by_profile_id?: string | null
+          sla_due_at?: string | null
+          sla_half_at?: string | null
+          status?: string | null
+          text?: string | null
+          transcribed_text?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operacao_registros_acked_by_profile_id_fkey"
+            columns: ["acked_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacao_registros_author_profile_id_fkey"
+            columns: ["author_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacao_registros_etapa_id_fkey"
+            columns: ["etapa_id"]
+            isOneToOne: false
+            referencedRelation: "operacao_etapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacao_registros_frente_id_fkey"
+            columns: ["frente_id"]
+            isOneToOne: false
+            referencedRelation: "operacao_frentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacao_registros_resolved_by_profile_id_fkey"
+            columns: ["resolved_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       partner_advance_expenses: {
         Row: {
@@ -7508,6 +7988,10 @@ export type Database = {
         Returns: Json
       }
       run_rls_legacy_audit_cron: { Args: never; Returns: Json }
+      seed_operacao_frentes_default: {
+        Args: { p_event_id: string }
+        Returns: number
+      }
       set_active_company: {
         Args: { target_company_id: string }
         Returns: string
@@ -7572,6 +8056,7 @@ export type Database = {
         | "viewer"
         | "partner"
         | "platform_admin"
+        | "field_producer"
       bp_formalidade:
         | "estimado"
         | "negociacao"
@@ -7733,6 +8218,7 @@ export const Constants = {
         "viewer",
         "partner",
         "platform_admin",
+        "field_producer",
       ],
       bp_formalidade: [
         "estimado",
