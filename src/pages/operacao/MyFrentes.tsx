@@ -112,6 +112,12 @@ export default function MyFrentes() {
           <Link to="/operacao/atividade" className="hover:text-foreground underline">Atividade</Link>
           <span>·</span>
           <Link to="/operacao/minhas-tarefas" className="hover:text-foreground underline">Minhas tarefas</Link>
+          {(isAdmin || hasPermission("manage_operacao_staff")) && (
+            <>
+              <span>·</span>
+              <Link to="/operacao/staff" className="hover:text-foreground underline">Staff</Link>
+            </>
+          )}
         </div>
       </header>
 
