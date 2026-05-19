@@ -473,6 +473,7 @@ function App() {
                   <Route path="/about" element={<LegalAbout />} />
                   <Route path="/unsubscribe" element={<Unsubscribe />} />
                   <Route path="/accept-invitation" element={<AcceptInvitation />} />
+                  <Route path="/operacao/accept-invite" element={<AcceptInvite />} />
                   <Route path="/camarim-equipa" element={<CamarimEquipa />} />
                   <Route path="/parceiro/*" element={<PartnerLayout />} />
                   <Route path="/audience" element={<AudienceLayout />}>
