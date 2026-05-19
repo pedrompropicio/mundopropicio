@@ -10,7 +10,7 @@ interface Props {
   onClose: () => void;
 }
 
-export function FrentePickerDialog({ title = "Escolhe a frente", onPick, onClose }: Props) {
+export function FrentePickerDialog({ title = "Escolhe a Zona/Serviço", onPick, onClose }: Props) {
   const { user } = useAuth();
   const { data: frentes } = useQuery({
     queryKey: ["op-picker-frentes", user?.id],
