@@ -113,14 +113,34 @@ export default function EtapaDetail() {
           </div>
           <OperacaoStatusBadge status={etapa.status} />
         </div>
+        <div className="pt-2 border-t flex items-center justify-between gap-2">
+          <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Responsáveis</span>
+          <EtapaAssigneeAvatars
+            assignees={assignees ?? []}
+            inheritedFrom={inheritedFrom}
+            inheritedProfile={inheritedProfile}
+            onClick={() => setAssigneeSheetOpen(true)}
+          />
+        </div>
         <dl className="text-xs grid grid-cols-2 gap-1 pt-2">
           {etapa.escopo && <><dt className="text-muted-foreground">Escopo</dt><dd>{etapa.escopo}</dd></>}
           {etapa.supplier?.name && <><dt className="text-muted-foreground">Fornecedor</dt><dd>{etapa.supplier.name}</dd></>}
-          {etapa.responsible?.full_name && <><dt className="text-muted-foreground">Responsável</dt><dd>{etapa.responsible.full_name}</dd></>}
           {etapa.planned_start && <><dt className="text-muted-foreground">Início prev.</dt><dd>{new Date(etapa.planned_start).toLocaleString("pt-PT")}</dd></>}
           {etapa.planned_end && <><dt className="text-muted-foreground">Fim prev.</dt><dd>{new Date(etapa.planned_end).toLocaleString("pt-PT")}</dd></>}
         </dl>
       </Card>
+
+      {assigneeSheetOpen && (
+        <EtapaAssigneeSheet
+          open={assigneeSheetOpen}
+          onClose={() => setAssigneeSheetOpen(false)}
+          etapaId={id!}
+          frenteId={frente.id}
+          companyId={frente.company_id}
+          frenteLeadId={frente.current_lead_id}
+          canEdit={canEditAssignees}
+        />
+      )}
 
       {canChangeStatus && (
         <div className="grid grid-cols-3 gap-2">
