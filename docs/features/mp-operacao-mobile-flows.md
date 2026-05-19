@@ -84,3 +84,30 @@ Cron `operacao-sla-escalator` (`*/2 * * * *`):
 - `NewEtapaDialog` / `NewFrenteDialog` / `FrentePickerDialog`
 - `RegistroSheet` — bottom-sheet universal de registo (substitui versão inline do EtapaDetail)
 - `QuickActionFab` — FAB com 4 ações
+
+## Responsáveis de Etapa (Patch 2A.2)
+
+**Modelo:** tabela `operacao_etapa_assignees` (M:N entre `operacao_etapas` e `profiles`) com role `owner | helper`. Unique `(etapa_id, profile_id)`. `responsible_profile_id` na etapa fica para compat e funciona como fallback.
+
+**Hierarquia de display** (em `EtapaAssigneeAvatars`):
+
+1. Há assignees → mostra avatares (owner com coroa primeiro, helpers depois, `+N` se >4)
+2. Sem assignees mas `responsible_profile_id` ≠ NULL → avatar do responsible + badge `Responsável herdado`
+3. Sem nada → avatar do `current_lead_id` da Frente em cinza + badge `via Frente`
+
+**Quem pode atribuir/desatribuir:**
+
+| Papel | Pode editar |
+|---|---|
+| admin / `manage_operacao_etapas` | sim |
+| current_lead da Frente | sim (mesmo sem perm) |
+| auxiliary / observer | sheet abre **read-only** |
+| platform_admin | sim |
+
+UI: `EtapaAssigneeSheet` (bottom-sheet com toggle + select owner/helper por membro da Frente). `FrenteTeamSheet` lista equipa por role (lead/auxiliares/observers) no header da Frente.
+
+**Lista de Etapas** (`FrenteDetail` tab Etapas): cada linha mostra `EtapaAssigneeAvatars` em variant `sm` à esquerda do nome.
+
+## Nova rota `/operacao/minhas-tarefas`
+
+Lista de etapas relevantes ao user, em 4 buckets: **Em curso · Pendentes · Bloqueadas · Concluídas hoje**. Regra de relevância: assignee (owner|helper) OU `responsible_profile_id=user` OU lead da Frente e etapa sem assignees. Cada item mostra papel do user na etapa (Owner/Helper/Responsável/via Frente). Link no topo de `MyFrentes`: `Atividade · Minhas tarefas`.
