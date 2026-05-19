@@ -29,9 +29,9 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
     queryKey: ["op-new-frente-events"],
     queryFn: async () => {
       const { data } = await supabase.from("events")
-        .select("id,name,start_date,status,company_id")
-        .in("status", ["planning", "confirmed", "active"])
-        .order("start_date", { ascending: false }).limit(50);
+        .select("id,name,date,status,company_id")
+        .in("status", ["planning", "active"])
+        .order("date", { ascending: false }).limit(50);
       return data ?? [];
     },
   });

@@ -49,9 +49,9 @@ export function useCurrentOperacaoMode(): OperacaoMode {
       if (eventIds.length === 0) return "planning" as OperacaoMode;
       const { data: events } = await supabase
         .from("events")
-        .select("id, operacao_mode, start_date")
+        .select("id, operacao_mode, date")
         .in("id", eventIds)
-        .order("start_date", { ascending: false })
+        .order("date", { ascending: false })
         .limit(1);
       return ((events?.[0] as any)?.operacao_mode ?? "planning") as OperacaoMode;
     },
