@@ -27,7 +27,7 @@ import { formatDatePT } from "@/lib/utils";
 import { useCompany } from "@/hooks/useCompany";
 
 import { EventEditModal } from "@/components/EventEditModal";
-import { EventTeamSection } from "@/components/operacao/event/EventTeamSection";
+
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { buildSessionCopyMap } from "@/lib/session-copy";
 import EventABTab from "@/components/EventABTab";
