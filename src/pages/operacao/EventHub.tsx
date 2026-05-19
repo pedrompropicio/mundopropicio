@@ -12,7 +12,7 @@ import { FrentesPanel } from "@/components/operacao/event/FrentesPanel";
 import { PlanejamentoPhase } from "@/components/operacao/event/PlanejamentoPhase";
 import { EventoPhase } from "@/components/operacao/event/EventoPhase";
 
-import { ArrowLeft, BarChart3, Users, ChevronRight, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Users, ChevronRight, CheckCircle2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
