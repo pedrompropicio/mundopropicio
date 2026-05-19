@@ -70,17 +70,16 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
       toast({ title: "Erro", description: error?.message ?? "Falha", variant: "destructive" });
       return;
     }
-    if (leadId) {
-      await supabase.from("operacao_frente_team").insert({
-        frente_id: created.id,
-        profile_id: leadId,
-        company_id: selectedEvent.company_id,
-        role_in_frente: "lead",
-        is_permanent_lead: true,
-        active: true,
-      });
+    const { error: leadErr } = await setFrenteLead({
+      frenteId: created.id,
+      profileId: leadId || null,
+      companyId: selectedEvent.company_id,
+    });
+    if (leadErr) {
+      toast({ title: "Frente criada, mas falhou ao atribuir produtor", description: leadErr, variant: "destructive" });
+    } else {
+      toast({ title: type === "service" ? "Serviço criado" : "Zona criada" });
     }
-    toast({ title: type === "service" ? "Serviço criado" : "Zona criada" });
     qc.invalidateQueries({ queryKey: ["op-my-frentes"] });
     setSaving(false);
     onClose();
