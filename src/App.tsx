@@ -102,6 +102,9 @@ import Atividade from "./pages/operacao/Atividade";
 import MinhasTarefas from "./pages/operacao/MinhasTarefas";
 import StaffList from "./pages/operacao/StaffList";
 import AcceptInvite from "./pages/operacao/AcceptInvite";
+import OperacaoHome from "./pages/operacao/OperacaoHome";
+import OperacaoDashboard from "./pages/operacao/Dashboard";
+import FrenteManage from "./pages/operacao/FrenteManage";
 
 import TrashPage from "./pages/Trash";
 import NotFound from "./pages/NotFound";
