@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Building2, TrendingUp, Users, LogOut, Radar } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { BrandedLogo } from "@/components/BrandedLogo";
+import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
 import { cn } from "@/lib/utils";
 
 interface ModuleCard {
