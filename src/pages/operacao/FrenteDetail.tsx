@@ -237,6 +237,15 @@ export default function FrenteDetail() {
           onClose={() => setNewEtapaOpen(false)}
         />
       )}
+
+      {teamSheetOpen && (
+        <FrenteTeamSheet
+          open={teamSheetOpen}
+          onClose={() => setTeamSheetOpen(false)}
+          frenteId={id!}
+          currentLeadId={frente.current_lead_id}
+        />
+      )}
     </div>
   );
 }
