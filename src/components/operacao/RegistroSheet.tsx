@@ -117,9 +117,9 @@ export function RegistroSheet({ open, onClose, initialFrenteId, initialEtapaId }
         <div className="space-y-4 mt-4">
           {!initialFrenteId && !initialEtapaId && (
             <div>
-              <Label>Frente *</Label>
+              <Label>Zona/Serviço *</Label>
               <Select value={frenteId} onValueChange={(v) => { setFrenteId(v); setEtapaId(""); }}>
-                <SelectTrigger><SelectValue placeholder="Escolhe a frente" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Escolhe a Zona/Serviço" /></SelectTrigger>
                 <SelectContent>
                   {(frentes ?? []).map((f: any) => (
                     <SelectItem key={f.id} value={f.id}>{f.name} — {f.events?.name}</SelectItem>
