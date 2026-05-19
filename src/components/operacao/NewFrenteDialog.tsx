@@ -22,6 +22,7 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
   const [description, setDescription] = useState("");
   const [color, setColor] = useState(PALETTE[5]);
   const [leadId, setLeadId] = useState<string>("");
+  const [type, setType] = useState<"zone" | "service">("zone");
   const [saving, setSaving] = useState(false);
 
   // Eventos não-completed para escolher
