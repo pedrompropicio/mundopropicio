@@ -214,8 +214,21 @@ Deno.serve(async (req) => {
 
     const actionLink = linkData.properties?.action_link || "";
     const actionUrl = new URL(actionLink);
-    const tokenHash = actionUrl.searchParams.get("token") || "";
+    const tokenHash = actionUrl.searchParams.get("token_hash") || actionUrl.searchParams.get("token") || "";
     const urlType = actionUrl.searchParams.get("type") || linkType;
+
+    if (!tokenHash) {
+      console.error("[resend-reset-email] Missing token hash in generated link", {
+        email,
+        linkType,
+        hasActionLink: Boolean(actionLink),
+      });
+      return new Response(JSON.stringify({ error: "Erro ao gerar link de definição de senha" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const setupUrl = `${siteUrl}/reset-password?token_hash=${encodeURIComponent(tokenHash)}&type=${urlType}`;
 
     // Render and send branded email
