@@ -13,8 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MapPin, Wrench, Plus, ChevronRight } from "lucide-react";
+import { MapPin, Wrench, Plus, ChevronRight, Pencil } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { EditFrenteSheet } from "@/components/operacao/event/EditFrenteSheet";
+
 
 const PALETTE = ["#ef4444","#f97316","#eab308","#22c55e","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#6b7280"];
 
