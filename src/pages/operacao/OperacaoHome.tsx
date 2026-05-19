@@ -62,7 +62,7 @@ export default function OperacaoHome() {
 
   const { data: teamMap } = useQuery({
     queryKey: ["op-home-team", ids],
-    enabled: ids.length > 0,
+    enabled: ids.length > 0 && !isMobile && canView,
     queryFn: async () => {
       const { data } = await supabase
         .from("operacao_frente_team")
