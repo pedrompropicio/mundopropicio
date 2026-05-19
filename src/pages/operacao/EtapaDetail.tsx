@@ -153,23 +153,39 @@ export default function EtapaDetail() {
         />
       )}
 
-      {canChangeStatus && (
-        <div className="grid grid-cols-3 gap-2">
-          <Button size="sm" variant="outline" disabled={etapa.status === "in_progress"} onClick={() => setStatus("in_progress", { actual_start: new Date().toISOString() })}>
-            <Play className="h-4 w-4 mr-1" /> Iniciar
-          </Button>
-          <Button size="sm" variant="outline" disabled={etapa.status === "blocked"} onClick={() => setStatus("blocked")}>
-            <Ban className="h-4 w-4 mr-1" /> Bloquear
-          </Button>
-          <Button size="sm" variant="outline" disabled={etapa.status === "done"} onClick={() => setStatus("done", { actual_end: new Date().toISOString() })}>
-            <CheckCircle2 className="h-4 w-4 mr-1" /> Concluir
-          </Button>
-        </div>
+      {(canChangeStatus || isDirectorOnly) && (
+        <TooltipProvider>
+          <div className="grid grid-cols-3 gap-2">
+            <Tooltip><TooltipTrigger asChild>
+              <span className="contents">
+                <Button size="sm" variant="outline" disabled={!canChangeStatus || etapa.status === "in_progress"} onClick={() => setStatus("in_progress", { actual_start: new Date().toISOString() })}>
+                  <Play className="h-4 w-4 mr-1" /> Iniciar
+                </Button>
+              </span>
+            </TooltipTrigger>{isDirectorOnly && <TooltipContent>Sem permissão para editar</TooltipContent>}</Tooltip>
+            <Tooltip><TooltipTrigger asChild>
+              <span className="contents">
+                <Button size="sm" variant="outline" disabled={!canChangeStatus || etapa.status === "blocked"} onClick={() => setStatus("blocked")}>
+                  <Ban className="h-4 w-4 mr-1" /> Bloquear
+                </Button>
+              </span>
+            </TooltipTrigger>{isDirectorOnly && <TooltipContent>Sem permissão para editar</TooltipContent>}</Tooltip>
+            <Tooltip><TooltipTrigger asChild>
+              <span className="contents">
+                <Button size="sm" variant="outline" disabled={!canChangeStatus || etapa.status === "done"} onClick={() => setStatus("done", { actual_end: new Date().toISOString() })}>
+                  <CheckCircle2 className="h-4 w-4 mr-1" /> Concluir
+                </Button>
+              </span>
+            </TooltipTrigger>{isDirectorOnly && <TooltipContent>Sem permissão para editar</TooltipContent>}</Tooltip>
+          </div>
+        </TooltipProvider>
       )}
 
-      <Button size="lg" className="w-full" onClick={() => setSheetOpen(true)}>
-        <Camera className="h-5 w-5 mr-2" /> Registar
-      </Button>
+      {!isDirectorOnly && (
+        <Button size="lg" className="w-full" onClick={() => setSheetOpen(true)}>
+          <Camera className="h-5 w-5 mr-2" /> Registar
+        </Button>
+      )}
 
       <RegistroFeed filter={{ etapa_id: id! }} />
 
