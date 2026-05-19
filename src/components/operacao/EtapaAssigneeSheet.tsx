@@ -207,8 +207,8 @@ export function EtapaAssigneeSheet({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="owner">Owner</SelectItem>
-                    <SelectItem value="helper">Helper</SelectItem>
+                    <SelectItem value="owner">Dono</SelectItem>
+                    <SelectItem value="helper">Auxiliar</SelectItem>
                   </SelectContent>
                 </Select>
               )}
