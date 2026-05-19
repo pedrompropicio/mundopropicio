@@ -31,6 +31,8 @@ export function FrentesPanel({
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [openAdd, setOpenAdd] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+
 
   const { data: frentes } = useQuery({
     queryKey: ["op-hub-frentes", eventId, type],
