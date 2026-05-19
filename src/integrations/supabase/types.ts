@@ -4800,6 +4800,82 @@ export type Database = {
           },
         ]
       }
+      operacao_etapa_suppliers: {
+        Row: {
+          company_id: string
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          contact_role: string | null
+          created_at: string
+          created_by: string | null
+          decided_amount: number | null
+          etapa_id: string
+          id: string
+          iva_rate: number | null
+          notes: string | null
+          role: string
+          supplier_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          contact_role?: string | null
+          created_at?: string
+          created_by?: string | null
+          decided_amount?: number | null
+          etapa_id: string
+          id?: string
+          iva_rate?: number | null
+          notes?: string | null
+          role?: string
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          contact_role?: string | null
+          created_at?: string
+          created_by?: string | null
+          decided_amount?: number | null
+          etapa_id?: string
+          id?: string
+          iva_rate?: number | null
+          notes?: string | null
+          role?: string
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operacao_etapa_suppliers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacao_etapa_suppliers_etapa_id_fkey"
+            columns: ["etapa_id"]
+            isOneToOne: false
+            referencedRelation: "operacao_etapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacao_etapa_suppliers_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operacao_etapas: {
         Row: {
           actual_end: string | null
