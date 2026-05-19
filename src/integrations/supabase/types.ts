@@ -3654,6 +3654,91 @@ export type Database = {
           },
         ]
       }
+      event_team_member_zones: {
+        Row: {
+          member_id: string
+          zone_id: string
+        }
+        Insert: {
+          member_id: string
+          zone_id: string
+        }
+        Update: {
+          member_id?: string
+          zone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_team_member_zones_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "event_team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_team_member_zones_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "operacao_frentes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_team_members: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          event_id: string
+          id: string
+          profile_id: string
+          role: string
+          scope: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          event_id: string
+          id?: string
+          profile_id: string
+          role: string
+          scope?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          event_id?: string
+          id?: string
+          profile_id?: string
+          role?: string
+          scope?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_team_members_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_team_members_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_team_members_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_ticket_lots: {
         Row: {
           applies_to_days: number
@@ -4735,6 +4820,7 @@ export type Database = {
           status: string
           supplier_id: string | null
           updated_at: string
+          zone_id: string | null
         }
         Insert: {
           actual_end?: string | null
@@ -4755,6 +4841,7 @@ export type Database = {
           status?: string
           supplier_id?: string | null
           updated_at?: string
+          zone_id?: string | null
         }
         Update: {
           actual_end?: string | null
@@ -4775,6 +4862,7 @@ export type Database = {
           status?: string
           supplier_id?: string | null
           updated_at?: string
+          zone_id?: string | null
         }
         Relationships: [
           {
@@ -4810,6 +4898,13 @@ export type Database = {
             columns: ["supplier_id"]
             isOneToOne: false
             referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacao_etapas_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "operacao_frentes"
             referencedColumns: ["id"]
           },
         ]
@@ -4885,6 +4980,7 @@ export type Database = {
           lead_handover_until: string | null
           name: string
           status: string
+          type: string
           updated_at: string
         }
         Insert: {
@@ -4899,6 +4995,7 @@ export type Database = {
           lead_handover_until?: string | null
           name: string
           status?: string
+          type?: string
           updated_at?: string
         }
         Update: {
@@ -4913,6 +5010,7 @@ export type Database = {
           lead_handover_until?: string | null
           name?: string
           status?: string
+          type?: string
           updated_at?: string
         }
         Relationships: [
@@ -7776,6 +7874,18 @@ export type Database = {
           warning: string
           window_days: number
         }[]
+      }
+      can_manage_event_operacao_full: {
+        Args: { _event_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_manage_operacao_etapa: {
+        Args: { _etapa_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_view_event_operacao: {
+        Args: { _event_id: string; _user_id: string }
+        Returns: boolean
       }
       cleanup_old_backups: {
         Args: never
