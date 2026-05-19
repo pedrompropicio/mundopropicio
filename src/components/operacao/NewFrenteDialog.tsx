@@ -104,6 +104,19 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
             <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </div>
           <div>
+            <Label>Tipo *</Label>
+            <Select value={type} onValueChange={(v) => setType(v as "zone" | "service")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="zone">Zona</SelectItem>
+                <SelectItem value="service">Serviço</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Zona = setor físico (Tenda VIP, Backstage). Serviço = função transversal que pode atender várias zonas (Catering, Energia, Decoração).
+            </p>
+          </div>
+          <div>
             <Label>Descrição</Label>
             <Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
