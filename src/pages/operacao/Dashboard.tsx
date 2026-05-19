@@ -125,6 +125,8 @@ export default function Dashboard() {
 
   const last10 = (chamados ?? []).slice(0, 10);
 
+  if (!canView) return <div className="p-6">Sem permissão.</div>;
+
   return (
     <div>
       <OperacaoFiltersBar />
