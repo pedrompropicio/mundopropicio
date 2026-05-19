@@ -26,7 +26,7 @@ interface ModuleCard {
 
 export default function ModuleSelector() {
   const navigate = useNavigate();
-  const { user, role, signOut } = useAuth();
+  const { user, role, signOut, hasPermission, isAdmin } = useAuth();
 
   const fullName =
     (user?.user_metadata as any)?.full_name ||
