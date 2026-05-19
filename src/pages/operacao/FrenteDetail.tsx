@@ -104,6 +104,8 @@ export default function FrenteDetail() {
 
   const isLead = frente?.current_lead_id === user?.id;
   const canManageEtapas = isAdmin || hasPermission("manage_operacao_etapas") || isLead;
+  const isInTeam = !!(teamSummary ?? []).find((t: any) => t.profile_id === user?.id);
+  const canCreateRegisto = isAdmin || hasPermission("register_operacao") || isLead || isInTeam;
   const mode = useOperacaoMode(frente?.event_id);
   const hasOpenChamados = (chamados ?? []).some((c: any) => c.status === "open" || c.status === "in_progress");
   const showChamadosTab = mode === "evento" || mode === "post" || hasOpenChamados;
