@@ -167,6 +167,20 @@ export default function FrenteManage() {
           </div>
 
           <div>
+            <Label className="text-xs">Tipo</Label>
+            <Select value={type} onValueChange={(v) => { setType(v as any); saveNow({ type: v }); }}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="zone">Zona</SelectItem>
+                <SelectItem value="service">Serviço</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Zona = setor físico. Serviço = função transversal.
+            </p>
+          </div>
+
+          <div>
             <Label className="text-xs">Estado</Label>
             <Select value={status} onValueChange={(v) => { setStatus(v); saveNow({ status: v }); }}>
               <SelectTrigger><SelectValue /></SelectTrigger>
