@@ -124,7 +124,7 @@ export default function EventHub() {
 
 
       {activePhase === "montagem" && (
-        <PlaceholderPhase title="Montagem" text="Em breve: Gantt + acompanhamento no terreno." eventId={event.id} />
+        <MontagemPhase eventId={event.id} />
       )}
 
       {activePhase === "evento" && (
