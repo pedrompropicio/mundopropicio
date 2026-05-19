@@ -6,7 +6,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useOperacaoFilters } from "@/hooks/useOperacaoFilters";
 import { OperacaoFiltersBar } from "@/components/operacao/desktop/OperacaoFiltersBar";
 import { KpiCard } from "@/components/operacao/desktop/KpiCard";
-import { Card } from "@/components/operacao/desktop/KpiCard";
 import { Card as UICard } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";

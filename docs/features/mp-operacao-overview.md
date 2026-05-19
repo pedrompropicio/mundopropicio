@@ -151,3 +151,7 @@ Nova tabela **`operacao_etapa_assignees`** (M:N, role `owner | helper`) adiciona
 ### Patch 2A.3 — Staff de Campo
 
 Nova categoria `profiles.profile_type='field_staff'` para produtores temporários com login restrito à Operação. Onboarding por WhatsApp (Twilio): admin cria staff em `/operacao/staff`, app cria `auth.users` + profile + invite (token 14d) e envia link `/operacao/accept-invite?token=…`. Aceite cria role `field_producer` e devolve sessão. Sidebar mostra só `/operacao/*` para field_staff puros (hook `useIsFieldStaffOnly`). Detalhes em `mp-operacao-staff.md`.
+
+### Batch 2B.1 — Desktop Gerencial
+
+Vista desktop adicionada sem tocar no mobile. Rotas novas: `/operacao` (root, `OperacaoHome` com tabs Frentes + Kanban Etapas), `/operacao/dashboard` (6 KPIs + 3 gráficos + últimos chamados), `/operacao/frente/:id/manage` (editor full-screen, desktop only). Filtros globais via URL search params (`event`, `frentes`, `status`, `kind`) com `useOperacaoFilters`. Drag-and-drop via `@dnd-kit/core` (Kanban) e `@dnd-kit/sortable` (`EtapasTable`). Detalhes em `mp-operacao-desktop.md`.

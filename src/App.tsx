@@ -102,6 +102,9 @@ import Atividade from "./pages/operacao/Atividade";
 import MinhasTarefas from "./pages/operacao/MinhasTarefas";
 import StaffList from "./pages/operacao/StaffList";
 import AcceptInvite from "./pages/operacao/AcceptInvite";
+import OperacaoHome from "./pages/operacao/OperacaoHome";
+import OperacaoDashboard from "./pages/operacao/Dashboard";
+import FrenteManage from "./pages/operacao/FrenteManage";
 
 import TrashPage from "./pages/Trash";
 import NotFound from "./pages/NotFound";
@@ -366,12 +369,14 @@ function ProtectedLayout() {
               <Route path="/camarim" element={<Camarim />} />
               <Route path="/camarim/:id" element={<CamarimSessionDetail />} />
               <Route path="/operacao" element={<OperacaoLayout />}>
-                <Route index element={<Navigate to="/operacao/equipa" replace />} />
+                <Route index element={<OperacaoHome />} />
+                <Route path="dashboard" element={<OperacaoDashboard />} />
                 <Route path="equipa" element={<MyFrentes />} />
                 <Route path="atividade" element={<Atividade />} />
                 <Route path="minhas-tarefas" element={<MinhasTarefas />} />
                 <Route path="staff" element={<StaffList />} />
                 <Route path="frente/:id" element={<FrenteDetail />} />
+                <Route path="frente/:id/manage" element={<FrenteManage />} />
                 <Route path="etapa/:id" element={<EtapaDetail />} />
                 <Route path="chamados" element={<MeusChamados />} />
                 <Route path="chamado/novo" element={<ChamadoNovo />} />
