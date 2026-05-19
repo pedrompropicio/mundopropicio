@@ -25,6 +25,8 @@ project_id = "sfohvvlqccmmebvjgibx"
     verify_jwt = false
   [functions.request-password-reset]
     verify_jwt = false
+  [functions.resend-reset-email]
+    verify_jwt = false
   [functions.send-push-notification]
     verify_jwt = true
   [functions.database-backup]
