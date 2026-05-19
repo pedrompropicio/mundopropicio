@@ -24,6 +24,7 @@ interface Props {
 interface DraftRow {
   profile_id: string;
   full_name: string | null;
+  profile_type: string | null;
   role_in_frente: string;
   included: boolean;
   role: "owner" | "helper";
