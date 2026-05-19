@@ -242,35 +242,36 @@ function RegistroSheet({
   const submit = async () => {
     if (!user) return;
     setSaving(true);
-    const { error } = await supabase.from("operacao_registros").insert({
-      id: registroId,
-      frente_id: frenteId,
-      etapa_id: etapaId,
-      author_profile_id: user.id,
-      company_id: companyId,
-      kind,
-      text: text.trim() || null,
-      audio_url: audio,
-      metadata: {},
+    // OP-10b: RPC atómica (registo + media numa única transação)
+    const { error } = await supabase.rpc("create_registro_with_media", {
+      p_registro: {
+        id: registroId,
+        frente_id: frenteId,
+        etapa_id: etapaId,
+        author_profile_id: user.id,
+        company_id: companyId,
+        kind,
+        text: text.trim() || null,
+        audio_url: audio,
+        metadata: {},
+      },
+      p_media: media.map((m, i) => ({
+        file_url: m.file_url,
+        thumbnail_url: m.thumbnail_url,
+        file_type: m.file_type,
+        sort_order: i,
+      })),
     });
-    if (error) { setSaving(false); toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-    if (media.length > 0) {
-      await supabase.from("operacao_registro_media").insert(
-        media.map((m, i) => ({
-          registro_id: registroId,
-          company_id: companyId,
-          file_url: m.file_url,
-          thumbnail_url: m.thumbnail_url,
-          file_type: m.file_type,
-          sort_order: i,
-        })),
-      );
+    setSaving(false);
+    if (error) {
+      toast({ title: "Erro a guardar registo", description: error.message, variant: "destructive" });
+      return;
     }
     toast({ title: "Registo guardado" });
     qc.invalidateQueries({ queryKey: ["op-registros"] });
-    setSaving(false);
     onClose();
   };
+
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
