@@ -12,8 +12,8 @@ import { PriorityBadge } from "@/components/operacao/PriorityBadge";
 import { OperacaoStatusBadge } from "@/components/operacao/OperacaoStatusBadge";
 import { RegistroFeed } from "@/components/operacao/RegistroFeed";
 import { MediaCapture, type CapturedMedia } from "@/components/operacao/MediaCapture";
-import { Check, Play, ArrowLeft, AlertCircle } from "lucide-react";
-import { formatDistanceToNow, differenceInMinutes } from "date-fns";
+import { Check, Play, ArrowLeft } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "@/hooks/use-toast";
 
@@ -38,7 +38,6 @@ export default function ChamadoDetail() {
   if (!c) return <div className="p-6">A carregar...</div>;
   const frente = (c as any).frente;
   const isLead = frente?.current_lead_id === user?.id;
-  const slaInfo = computeSLA(c.sla_due_at);
 
   const ack = async () => {
     const { error } = await supabase.from("operacao_registros")
@@ -54,6 +53,13 @@ export default function ChamadoDetail() {
     else { toast({ title: "Em curso" }); qc.invalidateQueries({ queryKey: ["op-chamado", id] }); }
   };
 
+  const openedAgo = formatDistanceToNow(new Date(c.created_at), { addSuffix: false, locale: ptBR });
+  const primaryAction =
+    c.status === "open" && isLead && !c.acked_at ? "ack"
+    : c.status === "in_progress" ? "resolver"
+    : c.status === "open" ? "iniciar"
+    : null;
+
   return (
     <div className="p-4 max-w-2xl mx-auto space-y-4 pb-24">
       <Link to="/operacao/chamados" className="inline-flex items-center text-sm text-muted-foreground">
@@ -61,24 +67,19 @@ export default function ChamadoDetail() {
       </Link>
 
       <Card className="p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <PriorityBadge priority={c.priority} size="large" />
-          <span className="ml-auto"><OperacaoStatusBadge status={c.status} kind="chamado" /></span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <PriorityBadge priority={c.priority} />
+          <OperacaoStatusBadge status={c.status} kind="chamado" />
         </div>
         <p className="text-base">{c.text}</p>
+        <p className="text-xs text-muted-foreground">
+          Aberto há {openedAgo} · por {(c as any).author?.full_name}
+        </p>
         <div className="text-xs text-muted-foreground space-y-0.5">
           <p>Frente: <Link to={`/operacao/frente/${frente?.id}`} className="text-primary underline">{frente?.name}</Link>
             {(c as any).etapa?.name && <> · Etapa: <Link to={`/operacao/etapa/${(c as any).etapa.id}`} className="text-primary underline">{(c as any).etapa.name}</Link></>}
           </p>
-          <p>por {(c as any).author?.full_name} · {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: ptBR })}</p>
         </div>
-
-        {/* SLA */}
-        {c.status !== "resolved" && c.status !== "closed" && slaInfo && (
-          <div className={"text-sm px-3 py-2 rounded font-medium flex items-center gap-2 " + slaInfo.cls}>
-            <AlertCircle className="h-4 w-4" /> {slaInfo.label}
-          </div>
-        )}
 
         {/* Timeline */}
         <div className="border-t pt-3 grid grid-cols-4 gap-1 text-[10px] text-center">
@@ -88,18 +89,25 @@ export default function ChamadoDetail() {
           <Step label="Resolvido" active={c.status === "resolved" || c.status === "closed"} />
         </div>
 
-        {/* Actions */}
-        <div className="grid grid-cols-1 gap-2 pt-2">
-          {!c.acked_at && isLead && c.status === "open" && (
-            <Button onClick={ack} size="lg" variant="default"><Check className="h-4 w-4 mr-2" /> ACK</Button>
-          )}
-          {c.status === "open" && (
-            <Button onClick={startWork} size="lg" variant="outline"><Play className="h-4 w-4 mr-2" /> Iniciar trabalho</Button>
-          )}
-          {(c.status === "open" || c.status === "in_progress") && (
-            <Button onClick={() => setResolveOpen(true)} size="lg" variant="default"><Check className="h-4 w-4 mr-2" /> Resolver</Button>
-          )}
-        </div>
+        {/* Actions — layout horizontal compacto */}
+        {(c.status === "open" || c.status === "in_progress") && (
+          <div className="flex gap-2 pt-1">
+            {!c.acked_at && isLead && c.status === "open" && (
+              <Button onClick={ack} size="sm" variant={primaryAction === "ack" ? "default" : "outline"} className="flex-1">
+                <Check className="h-4 w-4 mr-1" /> ACK
+              </Button>
+            )}
+            {c.status === "open" && (
+              <Button onClick={startWork} size="sm" variant={primaryAction === "iniciar" ? "default" : "outline"} className="flex-1">
+                <Play className="h-4 w-4 mr-1" /> Iniciar
+              </Button>
+            )}
+            <Button onClick={() => setResolveOpen(true)} size="sm"
+              variant={primaryAction === "resolver" ? "default" : "outline"} className="flex-1">
+              <Check className="h-4 w-4 mr-1" /> Resolver
+            </Button>
+          </div>
+        )}
       </Card>
 
       <h2 className="font-semibold text-sm">Atividade desta frente</h2>
@@ -120,14 +128,6 @@ function Step({ label, active }: { label: string; active?: boolean }) {
       <span className={active ? "text-foreground" : "text-muted-foreground"}>{label}</span>
     </div>
   );
-}
-
-function computeSLA(due: string | null): { label: string; cls: string } | null {
-  if (!due) return null;
-  const mins = differenceInMinutes(new Date(due), new Date());
-  if (mins > 60) return { label: `Vence em ${Math.round(mins / 60)}h`, cls: "bg-blue-500/10 text-blue-700 dark:text-blue-300" };
-  if (mins > 0) return { label: `Vence em ${mins}min`, cls: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-300" };
-  return { label: `Vencido há ${Math.abs(mins)}min`, cls: "bg-red-500/10 text-red-700 dark:text-red-400" };
 }
 
 function ResolveDialog({ chamadoId, frenteId, eventId, companyId, onClose }: { chamadoId: string; frenteId: string; eventId: string; companyId: string; onClose: () => void }) {
