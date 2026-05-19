@@ -95,8 +95,7 @@ export function FrentesPanel({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => seedTemplate("festival")}>Festival</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => seedTemplate("indoor")}>Show indoor</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => seedTemplate("conferencia")}>Conferência</DropdownMenuItem>
+                  {/* TODO: adicionar Indoor / Conferência quando templates forem implementados (seed_operacao_frentes_default só cobre festival) */}
                   <DropdownMenuItem onClick={() => seedTemplate("blank")}>Em branco</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
