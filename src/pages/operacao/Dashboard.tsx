@@ -33,6 +33,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function Dashboard() {
   const { hasPermission, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const { filters } = useOperacaoFilters();
   const [period, setPeriod] = useState("7d");
   const days = PERIODS.find((p) => p.id === period)?.days ?? 7;
