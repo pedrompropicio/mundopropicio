@@ -16,6 +16,7 @@ const TONE_BG: Record<NonNullable<Props["tone"]>, string> = {
   red: "bg-red-500/10 border-red-500/30",
   green: "bg-green-500/10 border-green-500/30",
   blue: "bg-blue-500/10 border-blue-500/30",
+  purple: "bg-purple-500/10 border-purple-500/30",
 };
 
 export function KpiCard({ label, value, subLabel, icon: Icon, tone = "default" }: Props) {
