@@ -11,6 +11,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, GripVertical, ExternalLink, Archive } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { NewEtapaDialog } from "@/components/operacao/NewEtapaDialog";
