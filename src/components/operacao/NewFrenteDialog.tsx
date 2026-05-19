@@ -27,6 +27,7 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
   const [leadId, setLeadId] = useState<string>("");
   const [type, setType] = useState<"zone" | "service">("zone");
   const [saving, setSaving] = useState(false);
+  const [showNewProfile, setShowNewProfile] = useState(false);
 
   // Eventos não-completed para escolher
   const { data: events } = useQuery({
