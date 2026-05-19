@@ -106,6 +106,11 @@ export default function EtapaDetail() {
 
   return (
     <div className="p-4 max-w-2xl mx-auto space-y-4 pb-24">
+      {isDirectorOnly && (
+        <div className="rounded-md border bg-muted/40 text-muted-foreground text-xs px-3 py-2 flex items-center gap-2">
+          <Eye className="h-3.5 w-3.5" /> Modo Diretor — só visualização
+        </div>
+      )}
       <Link to={`/operacao/frente/${frente.id}`} className="inline-flex items-center text-sm text-muted-foreground">
         <ArrowLeft className="h-4 w-4 mr-1" /> Voltar à frente
       </Link>
