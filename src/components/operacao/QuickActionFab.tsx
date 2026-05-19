@@ -118,7 +118,7 @@ export function QuickActionFab() {
         <SheetContent side="bottom" className="rounded-t-2xl">
           <SheetHeader><SheetTitle>Nova...</SheetTitle></SheetHeader>
           <div className="grid grid-cols-2 gap-3 mt-4">
-            <FabOption icon={LayoutGrid} label="Frente" hint="Planejar" disabled={!canFrente}
+            <FabOption icon={LayoutGrid} label="Zona/Serviço" hint="Planejar" disabled={!canFrente}
               onClick={() => pick("frente")} />
             <FabOption icon={ListChecks} label="Etapa" hint="Tarefa" disabled={!canEtapa}
               onClick={() => pick("etapa")} />
