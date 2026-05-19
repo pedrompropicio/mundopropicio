@@ -31,7 +31,7 @@ export default function EtapaDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("operacao_etapas")
-        .select("*, frente:operacao_frentes(id,name,color,current_lead_id,event_id,company_id), supplier:suppliers(name), responsible:profiles!operacao_etapas_responsible_profile_id_fkey(id, full_name)")
+        .select("*, frente:operacao_frentes(id,name,color,current_lead_id,event_id,company_id,type), supplier:suppliers(name), responsible:profiles!operacao_etapas_responsible_profile_id_fkey(id, full_name), zone:operacao_frentes!operacao_etapas_zone_id_fkey(id,name,color)")
         .eq("id", id!).maybeSingle();
       return data;
     },
