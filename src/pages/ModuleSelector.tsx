@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Building2, TrendingUp, Users, LogOut } from "lucide-react";
+import { Building2, TrendingUp, Users, LogOut, Radar } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { BrandedLogo } from "@/components/BrandedLogo";
 import { cn } from "@/lib/utils";
