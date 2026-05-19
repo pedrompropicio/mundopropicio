@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, type AppRole, ROLE_LABELS, ROLE_COLORS } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { ShieldCheck, User, UserPlus, Loader2, Trash2, MailCheck, Eye, Pencil, Briefcase, Settings2, Handshake, ArrowLeft, Megaphone } from "lucide-react";
+import { ShieldCheck, User, UserPlus, Loader2, Trash2, MailCheck, Eye, Pencil, Briefcase, Settings2, Handshake, ArrowLeft, Megaphone, HardHat } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import UserPermissionsModal from "@/components/UserPermissionsModal";
 import { logAudit, getAuditUser } from "@/lib/audit";
@@ -24,6 +24,7 @@ import {
 const ROLE_ICONS: Record<AppRole, React.ElementType> = {
   admin: ShieldCheck,
   manager: Briefcase,
+  producer: HardHat,
   editor: Pencil,
   viewer: Eye,
   user: User,
@@ -32,7 +33,7 @@ const ROLE_ICONS: Record<AppRole, React.ElementType> = {
   marketing_manager: Megaphone,
 };
 
-const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "editor", "viewer", "partner"];
+const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "producer", "editor", "viewer", "partner"];
 
 export default function UserManagement() {
   const { isAdmin, user } = useAuth();
@@ -76,7 +77,7 @@ export default function UserManagement() {
       if (pErr) throw pErr;
 
       const priority: Record<string, number> = {
-        platform_admin: 0, admin: 1, manager: 2, editor: 3, partner: 4, viewer: 5, user: 6,
+        platform_admin: 0, admin: 1, manager: 2, producer: 3, editor: 4, partner: 5, viewer: 6, user: 7,
       };
       const roleByUser = new Map<string, AppRole>();
       for (const row of companyRoles ?? []) {
@@ -296,6 +297,7 @@ export default function UserManagement() {
                   <p className="text-xs text-muted-foreground">
                     {r === "admin" && "Acesso total ao sistema"}
                     {r === "manager" && "Cria, edita, vê relatórios e saldos"}
+                    {r === "producer" && "Gere operação de eventos (sem acesso a Gestão/financeiro)"}
                     {r === "editor" && "Cria e edita, configurável por utilizador"}
                     {r === "viewer" && "Apenas visualização"}
                   </p>
