@@ -141,7 +141,13 @@ function AddMemberDialog({
     }).select("id").single();
     if (error || !inserted) {
       setSaving(false);
-      toast({ title: "Erro", description: error?.message ?? "Falha", variant: "destructive" });
+      const name = candidates.find((p: any) => p.id === profileId)?.full_name ?? "Pessoa";
+      if ((error as any)?.code === "23505" || error?.message?.includes("duplicate key")) {
+        toast({ title: "Já atribuído", description: `${name} já é ${roleLabel} neste evento.`, variant: "destructive" });
+        qc.invalidateQueries({ queryKey: ["event-team", eventId] });
+      } else {
+        toast({ title: "Erro", description: error?.message ?? "Falha", variant: "destructive" });
+      }
       return;
     }
     if (role === "general_producer" && scope === "zones" && zoneIds.length > 0) {
