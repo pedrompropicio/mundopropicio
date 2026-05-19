@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
     if (whatsapp === true) {
       const { data: settings } = await adminClient
         .from("system_reminder_settings").select("default_twilio_from").eq("id", 1).maybeSingle();
-      const from = (settings as any)?.default_twilio_from || "+14155238886";
+      const fromOverride = (settings as any)?.default_twilio_from || undefined;
 
       const { data: profiles } = await adminClient
         .from("profiles").select("id, phone, full_name").in("id", resolvedUserIds);
@@ -183,7 +183,7 @@ Deno.serve(async (req) => {
       for (const p of (profiles ?? []) as any[]) {
         if (!p.phone) continue;
         try {
-          await sendWhatsApp(p.phone, from, waBody);
+          await sendWhatsApp(p.phone, waBody, fromOverride);
           waSent++;
         } catch (err) {
           waFailed++;
