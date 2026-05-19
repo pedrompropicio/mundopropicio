@@ -207,14 +207,14 @@ export function EtapaAssigneeSheet({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="owner">Dono</SelectItem>
-                    <SelectItem value="helper">Auxiliar</SelectItem>
+                    <SelectItem value="owner">Produtor</SelectItem>
+                    <SelectItem value="helper">Staff</SelectItem>
                   </SelectContent>
                 </Select>
               )}
               {r.included && !canEdit && (
                 <Badge variant="secondary" className="text-[10px]">
-                  {r.role === "owner" ? "Dono" : "Auxiliar"}
+                  {r.role === "owner" ? "Produtor" : "Staff"}
                 </Badge>
               )}
               <Switch
@@ -234,8 +234,8 @@ export function EtapaAssigneeSheet({
           <div className="mt-4 flex items-center gap-2">
             <p className="text-[11px] text-muted-foreground flex-1">
               {ownerCount === 0
-                ? "Sem dono — fica responsável herdado"
-                : `${ownerCount} dono${ownerCount > 1 ? "s" : ""}`}
+                ? "Sem produtor — fica responsável herdado"
+                : `${ownerCount} produtor${ownerCount > 1 ? "es" : ""}`}
             </p>
             <Button variant="outline" onClick={onClose} disabled={saving}>
               Cancelar
