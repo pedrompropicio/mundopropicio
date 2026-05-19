@@ -22,3 +22,6 @@ Campo `events.operacao_mode`: `planning|montagem|evento|post`. Helper `seed_oper
 
 
 **Patch Twilio próprio (2026-05-19)**: edge functions deixaram de usar gateway Lovable (`connector-gateway.lovable.dev/twilio`). Helper partilhado `supabase/functions/_shared/twilio.ts` (`sendWhatsApp(to, body, fromOverride?)`) chama directamente `api.twilio.com/2010-04-01/Accounts/{SID}/Messages.json` com Basic Auth. Novos secrets: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`. Removida dependência de `LOVABLE_API_KEY`/`TWILIO_API_KEY` em create-staff, send-staff-invite, send-system-reminders, send-push-notification. Erros 401/403/429/400 trazem hints específicos. Em sandbox, destinatários precisam de opt-in `join <duas-palavras>`.
+
+
+**Batch 2B.1 (Desktop Gerencial, 2026-05-19)**: novas rotas `/operacao` (OperacaoHome — tabs Frentes/Kanban), `/operacao/dashboard` (KPIs+recharts), `/operacao/frente/:id/manage` (editor full-screen, desktop only, autosave on blur 800ms). Mobile redirect quando aplicável. Filtros globais via URL search params no hook `useOperacaoFilters` + `OperacaoFiltersBar`. Drag-and-drop via @dnd-kit/core (Kanban etapas com optimistic update) e @dnd-kit/sortable (EtapasTable display_order). Sidebar: "Operação" passa a apontar para `/operacao` (root); sub-itens "↳ Dashboard" e "↳ Staff" debaixo. Mobile (PWA) intacto.
