@@ -10,7 +10,7 @@ import { Card as UICard } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { PriorityBadge } from "@/components/operacao/PriorityBadge";
-import { ListChecks, Play, AlertTriangle, Bell, CheckCircle2, ShieldAlert, FileDown } from "lucide-react";
+import { ListChecks, Play, AlertTriangle, Bell, CheckCircle2, ShieldAlert, FileDown, ArrowLeft } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, CartesianGrid,
