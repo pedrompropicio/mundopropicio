@@ -1,0 +1,256 @@
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
+import {
+  DndContext, DragEndEvent, PointerSensor, useSensor, useSensors, closestCenter,
+} from "@dnd-kit/core";
+import {
+  SortableContext, arrayMove, useSortable, verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, GripVertical, ExternalLink, Archive } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { NewEtapaDialog } from "@/components/operacao/NewEtapaDialog";
+import { EtapaInlineCell } from "./EtapaInlineCell";
+
+const STATUS_OPTS = [
+  { value: "pending", label: "Pendente" },
+  { value: "in_progress", label: "Em curso" },
+  { value: "blocked", label: "Bloqueada" },
+  { value: "done", label: "Concluída" },
+  { value: "cancelled", label: "Cancelada" },
+];
+
+interface Props {
+  frenteId: string;
+  companyId: string;
+  canEdit: boolean;
+}
+
+function Row({
+  e, companyId, profiles, suppliers, canEdit, onUpdate, onArchive,
+}: {
+  e: any; companyId: string;
+  profiles: { id: string; full_name: string | null }[];
+  suppliers: { id: string; name: string }[];
+  canEdit: boolean;
+  onUpdate: (id: string, patch: Record<string, any>) => Promise<void>;
+  onArchive: (id: string) => Promise<void>;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: e.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+
+  return (
+    <tr ref={setNodeRef} style={style} className="border-b hover:bg-muted/30">
+      <td className="px-2 py-1 w-8">
+        <button {...attributes} {...listeners} disabled={!canEdit} className="cursor-grab disabled:opacity-30">
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </button>
+      </td>
+      <td className="px-2 py-1 min-w-[180px]">
+        <EtapaInlineCell
+          variant="text"
+          value={e.name}
+          disabled={!canEdit}
+          onSave={(v) => onUpdate(e.id, { name: v ?? "" })}
+        />
+      </td>
+      <td className="px-2 py-1 w-32">
+        <EtapaInlineCell
+          variant="select"
+          value={e.status}
+          disabled={!canEdit}
+          options={STATUS_OPTS}
+          onSave={(v) => onUpdate(e.id, { status: v ?? "pending" })}
+        />
+      </td>
+      <td className="px-2 py-1 w-40">
+        <EtapaInlineCell
+          variant="select"
+          value={e.supplier_id ?? ""}
+          disabled={!canEdit}
+          placeholder="—"
+          options={[{ value: "", label: "—" }, ...suppliers.map((s) => ({ value: s.id, label: s.name }))]}
+          onSave={(v) => onUpdate(e.id, { supplier_id: v || null })}
+        />
+      </td>
+      <td className="px-2 py-1 w-40">
+        <EtapaInlineCell
+          variant="select"
+          value={e.responsible_profile_id ?? ""}
+          disabled={!canEdit}
+          placeholder="—"
+          options={[{ value: "", label: "—" }, ...profiles.map((p) => ({ value: p.id, label: p.full_name ?? "?" }))]}
+          onSave={(v) => onUpdate(e.id, { responsible_profile_id: v || null })}
+        />
+      </td>
+      <td className="px-2 py-1 w-32">
+        <EtapaInlineCell
+          variant="date"
+          value={e.planned_start ?? ""}
+          disabled={!canEdit}
+          onSave={(v) => onUpdate(e.id, { planned_start: v || null })}
+        />
+      </td>
+      <td className="px-2 py-1 w-32">
+        <EtapaInlineCell
+          variant="date"
+          value={e.planned_end ?? ""}
+          disabled={!canEdit}
+          onSave={(v) => onUpdate(e.id, { planned_end: v || null })}
+        />
+      </td>
+      <td className="px-2 py-1 w-20 text-right">
+        <Button asChild size="icon" variant="ghost" className="h-7 w-7">
+          <Link to={`/operacao/etapa/${e.id}`}><ExternalLink className="h-3 w-3" /></Link>
+        </Button>
+        {canEdit && (
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onArchive(e.id)} title="Arquivar (cancelar)">
+            <Archive className="h-3 w-3" />
+          </Button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+export function EtapasTable({ frenteId, companyId, canEdit }: Props) {
+  const qc = useQueryClient();
+  const [newEtapa, setNewEtapa] = useState(false);
+  const [showDone, setShowDone] = useState(false);
+
+  const { data: etapas } = useQuery({
+    queryKey: ["op-etapas-table", frenteId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_etapas")
+        .select("id,name,status,supplier_id,responsible_profile_id,planned_start,planned_end,display_order")
+        .eq("frente_id", frenteId)
+        .order("display_order");
+      return data ?? [];
+    },
+  });
+
+  const { data: suppliers } = useQuery({
+    queryKey: ["op-suppliers-for-frente", companyId],
+    queryFn: async () => {
+      const { data } = await supabase.from("suppliers").select("id,name").order("name").limit(500);
+      return data ?? [];
+    },
+  });
+
+  const { data: profiles } = useQuery({
+    queryKey: ["op-profiles-for-frente", companyId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles").select("id,full_name")
+        .eq("company_id", companyId).is("archived_at", null).order("full_name");
+      return data ?? [];
+    },
+  });
+
+  const visible = useMemo(
+    () => (etapas ?? []).filter((e: any) => showDone ? true : e.status !== "done"),
+    [etapas, showDone],
+  );
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  const updateRow = async (id: string, patch: Record<string, any>) => {
+    const { error } = await supabase.from("operacao_etapas").update(patch as any).eq("id", id);
+    if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
+    else qc.invalidateQueries({ queryKey: ["op-etapas-table", frenteId] });
+  };
+
+  const archive = async (id: string) => {
+    await updateRow(id, { status: "cancelled" });
+  };
+
+  const onDragEnd = async (ev: DragEndEvent) => {
+    const { active, over } = ev;
+    if (!over || active.id === over.id) return;
+    const list = (etapas ?? []).slice();
+    const oldIdx = list.findIndex((x: any) => x.id === active.id);
+    const newIdx = list.findIndex((x: any) => x.id === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
+    const reordered = arrayMove(list, oldIdx, newIdx);
+
+    qc.setQueryData(["op-etapas-table", frenteId], reordered);
+
+    const updates = reordered.map((r: any, i) =>
+      supabase.from("operacao_etapas").update({ display_order: i }).eq("id", r.id),
+    );
+    await Promise.all(updates);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold">Etapas</h3>
+          <label className="text-xs text-muted-foreground flex items-center gap-1.5 cursor-pointer">
+            <Checkbox checked={showDone} onCheckedChange={(v) => setShowDone(!!v)} />
+            Mostrar concluídas
+          </label>
+        </div>
+        {canEdit && (
+          <Button size="sm" onClick={() => setNewEtapa(true)}>
+            <Plus className="h-3 w-3 mr-1" /> Nova Etapa
+          </Button>
+        )}
+      </div>
+
+      <div className="border rounded-lg overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="bg-muted/40 text-muted-foreground">
+            <tr>
+              <th className="w-8" />
+              <th className="px-2 py-1.5 text-left">Nome</th>
+              <th className="px-2 py-1.5 text-left">Status</th>
+              <th className="px-2 py-1.5 text-left">Fornecedor</th>
+              <th className="px-2 py-1.5 text-left">Responsável</th>
+              <th className="px-2 py-1.5 text-left">Início prev.</th>
+              <th className="px-2 py-1.5 text-left">Fim prev.</th>
+              <th />
+            </tr>
+          </thead>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <SortableContext items={visible.map((e: any) => e.id)} strategy={verticalListSortingStrategy}>
+              <tbody>
+                {visible.length === 0 && (
+                  <tr><td colSpan={8} className="text-center text-muted-foreground py-4">Sem etapas.</td></tr>
+                )}
+                {visible.map((e: any) => (
+                  <Row
+                    key={e.id}
+                    e={e}
+                    companyId={companyId}
+                    profiles={profiles ?? []}
+                    suppliers={suppliers ?? []}
+                    canEdit={canEdit}
+                    onUpdate={updateRow}
+                    onArchive={archive}
+                  />
+                ))}
+              </tbody>
+            </SortableContext>
+          </DndContext>
+        </table>
+      </div>
+
+      {newEtapa && (
+        <NewEtapaDialog
+          frenteId={frenteId}
+          companyId={companyId}
+          onClose={() => {
+            setNewEtapa(false);
+            qc.invalidateQueries({ queryKey: ["op-etapas-table", frenteId] });
+          }}
+        />
+      )}
+    </div>
+  );
+}
