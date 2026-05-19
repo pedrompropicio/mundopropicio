@@ -86,6 +86,12 @@ export default function StaffList() {
 
   return (
     <div className="p-4 pb-24 space-y-4">
+      <button
+        onClick={() => navigate(-1)}
+        className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+      >
+        <ArrowLeft className="h-3 w-3" /> Voltar
+      </button>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
