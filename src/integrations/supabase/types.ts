@@ -4109,6 +4109,7 @@ export type Database = {
           last_sales_date: string | null
           location: string | null
           name: string
+          operacao_mode: string
           parent_event_id: string | null
           partner_calc_basis: string
           pl_mode: string
@@ -4135,6 +4136,7 @@ export type Database = {
           last_sales_date?: string | null
           location?: string | null
           name: string
+          operacao_mode?: string
           parent_event_id?: string | null
           partner_calc_basis?: string
           pl_mode?: string
@@ -4161,6 +4163,7 @@ export type Database = {
           last_sales_date?: string | null
           location?: string | null
           name?: string
+          operacao_mode?: string
           parent_event_id?: string | null
           partner_calc_basis?: string
           pl_mode?: string
@@ -7572,6 +7575,7 @@ export type Database = {
         | "viewer"
         | "partner"
         | "platform_admin"
+        | "field_producer"
       bp_formalidade:
         | "estimado"
         | "negociacao"
@@ -7733,6 +7737,7 @@ export const Constants = {
         "viewer",
         "partner",
         "platform_admin",
+        "field_producer",
       ],
       bp_formalidade: [
         "estimado",
