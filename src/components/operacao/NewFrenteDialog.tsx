@@ -57,7 +57,7 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
       name: name.trim(),
       description: description.trim() || null,
       color,
-      status: "pending",
+      status: "active",
     }).select("id").single();
     if (error || !created) {
       setSaving(false);
