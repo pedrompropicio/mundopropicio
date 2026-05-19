@@ -290,7 +290,7 @@ export function EtapasTable({ frenteId, companyId, canEdit }: Props) {
               <th className="px-2 py-1.5 text-left">Nome</th>
               <th className="px-2 py-1.5 text-left">Status</th>
               <th className="px-2 py-1.5 text-left">Zona</th>
-              <th className="px-2 py-1.5 text-left">Fornecedor</th>
+              <th className="px-2 py-1.5 text-left">Fornecedores</th>
               <th className="px-2 py-1.5 text-left">Responsável</th>
               <th className="px-2 py-1.5 text-left">Início prev.</th>
               <th className="px-2 py-1.5 text-left">Fim prev.</th>
