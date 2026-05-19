@@ -126,13 +126,7 @@ export default function EventHub() {
       )}
 
       {activePhase === "evento" && (
-        <Card className="p-6 text-center space-y-3">
-          <h3 className="font-semibold">Evento — Live ops</h3>
-          <p className="text-sm text-muted-foreground">Em breve: Live ops dashboard.</p>
-          <Link to="/operacao/dashboard" className="inline-block">
-            <Button variant="outline" size="sm"><BarChart3 className="h-4 w-4 mr-1" /> Ver Dashboard actual</Button>
-          </Link>
-        </Card>
+        <EventoPhase eventId={event.id} companyId={event.company_id} />
       )}
 
       {activePhase === "post" && (
