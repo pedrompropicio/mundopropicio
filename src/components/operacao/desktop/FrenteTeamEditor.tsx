@@ -183,10 +183,9 @@ export function FrenteTeamEditor({ frenteId, companyId, canEdit }: Props) {
 
       {newStaffOpen && (
         <NewStaffDialog
+          open={newStaffOpen}
           onClose={() => setNewStaffOpen(false)}
-          onCreated={async (profileId: string) => {
-            await addMember(profileId);
-          }}
+          onCreated={(profileId: string) => { void addMember(profileId); }}
         />
       )}
     </div>
