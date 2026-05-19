@@ -49,9 +49,8 @@ export function AppSidebar() {
 
   const operacaoItems = [
     { to: "/operacao", icon: Radar, label: "Operação", show: hasPermission("view_operacao") || isAdmin },
-    { to: "/operacao/dashboard", icon: BarChart3, label: "↳ Dashboard", show: hasPermission("view_operacao") || isAdmin },
-    { to: "/operacao/staff", icon: Users, label: "↳ Staff", show: hasPermission("manage_operacao_staff") || isAdmin },
   ];
+
 
   const fullNavItems = [
     { to: "/erp", icon: LayoutDashboard, label: "Dashboard", show: true },
