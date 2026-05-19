@@ -187,9 +187,18 @@ Deno.serve(async (req) => {
 
     const fullName = profile?.full_name || "Utilizador";
 
-    // Generate direct link (bypasses Lovable/Supabase auth page)
+    // Generate direct link — usa "invite" (TTL 24h) se ainda não definiu senha,
+    // senão "recovery" (TTL 1h, comportamento normal de reset).
+    const { data: authUser } = await adminClient.auth.admin.getUserById(
+      // resolvemos pelo email — getUserByEmail não existe; fazemos via listUsers
+      // mas para evitar custo, usamos o id que conseguimos por profile lookup separado
+      // Fallback: se não conseguir, assume invite (mais permissivo no 1º acesso).
+      (await adminClient.from("profiles").select("id").eq("email", email).maybeSingle()).data?.id ?? "00000000-0000-0000-0000-000000000000",
+    );
+    const linkType: "invite" | "recovery" = authUser?.user?.last_sign_in_at ? "recovery" : "invite";
+
     const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
-      type: "recovery",
+      type: linkType,
       email,
       options: {
         redirectTo: `${siteUrl}/reset-password`,
@@ -220,7 +229,7 @@ Deno.serve(async (req) => {
     const unsubscribeToken = crypto.randomUUID();
 
     const { error: unsubscribeError } = await adminClient.from("email_unsubscribe_tokens").upsert(
-      { email, token: unsubscribeToken },
+      { email, token: unsubscribeToken, company_id: profile.company_id },
       { onConflict: "email" }
     );
 
