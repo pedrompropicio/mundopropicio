@@ -134,6 +134,7 @@ export default function EtapaDetail() {
         </div>
         <dl className="text-xs grid grid-cols-2 gap-1 pt-2">
           {etapa.escopo && <><dt className="text-muted-foreground">Escopo</dt><dd>{etapa.escopo}</dd></>}
+          {zoneApplies && <><dt className="text-muted-foreground">Zona que atende</dt><dd>{zone.name}</dd></>}
           {etapa.supplier?.name && <><dt className="text-muted-foreground">Fornecedor</dt><dd>{etapa.supplier.name}</dd></>}
           {etapa.planned_start && <><dt className="text-muted-foreground">Início prev.</dt><dd>{new Date(etapa.planned_start).toLocaleString("pt-PT")}</dd></>}
           {etapa.planned_end && <><dt className="text-muted-foreground">Fim prev.</dt><dd>{new Date(etapa.planned_end).toLocaleString("pt-PT")}</dd></>}
