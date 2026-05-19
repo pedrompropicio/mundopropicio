@@ -24,7 +24,7 @@ export function FrenteTeamSheet({ open, onClose, frenteId, currentLeadId }: Prop
     queryFn: async () => {
       const { data } = await supabase
         .from("operacao_frente_team")
-        .select("profile_id, role_in_frente, is_permanent_lead, active, profiles:profile_id(id, full_name)")
+        .select("profile_id, role_in_frente, is_permanent_lead, active, profiles:profile_id(id, full_name, profile_type)")
         .eq("frente_id", frenteId)
         .eq("active", true);
       return data ?? [];
