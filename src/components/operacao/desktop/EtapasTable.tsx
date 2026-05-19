@@ -31,11 +31,13 @@ interface Props {
 }
 
 function Row({
-  e, companyId, profiles, suppliers, canEdit, onUpdate, onArchive,
+  e, companyId, profiles, suppliers, zones, frenteIsService, canEdit, onUpdate, onArchive,
 }: {
   e: any; companyId: string;
   profiles: { id: string; full_name: string | null }[];
   suppliers: { id: string; name: string }[];
+  zones: { id: string; name: string }[];
+  frenteIsService: boolean;
   canEdit: boolean;
   onUpdate: (id: string, patch: Record<string, any>) => Promise<void>;
   onArchive: (id: string) => Promise<void>;
