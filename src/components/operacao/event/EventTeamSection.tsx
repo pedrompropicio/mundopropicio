@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, type AppRole, ROLE_LABELS } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,10 +9,18 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { UserPlus, Users, X, Crown, Eye } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { UserPlus, Users, MoreVertical, Crown, Eye, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+
+const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "producer", "editor", "viewer", "partner"];
+const NEW_PROFILE_SENTINEL = "__new__";
 
 function initials(n?: string | null) {
   if (!n) return "?";
@@ -22,8 +30,9 @@ function initials(n?: string | null) {
 export function EventTeamSection({ eventId, companyId }: { eventId: string; companyId: string }) {
   const { isAdmin, hasPermission } = useAuth();
   const qc = useQueryClient();
-  const canManage = isAdmin || hasPermission("manage_operacao_frentes");
+  const canManage = isAdmin || hasPermission("manage_operacao_frentes") || hasPermission("manage_operacao_etapas");
   const [addRole, setAddRole] = useState<"director" | "general_producer" | null>(null);
+  const [editMember, setEditMember] = useState<any | null>(null);
 
   const { data: members } = useQuery({
     queryKey: ["event-team", eventId],
@@ -36,11 +45,15 @@ export function EventTeamSection({ eventId, companyId }: { eventId: string; comp
     },
   });
 
-  const remove = async (id: string) => {
-    if (!confirm("Remover membro?")) return;
-    const { error } = await supabase.from("event_team_members").delete().eq("id", id);
+  const remove = async (m: any) => {
+    if (!confirm(`Remover ${m.profiles?.full_name ?? "membro"}?`)) return;
+    const { error } = await supabase.from("event_team_members").delete().eq("id", m.id);
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-    else { toast({ title: "Removido" }); qc.invalidateQueries({ queryKey: ["event-team", eventId] }); }
+    else {
+      toast({ title: "Removido" });
+      qc.invalidateQueries({ queryKey: ["event-team", eventId] });
+      qc.invalidateQueries({ queryKey: ["op-hub-setup-counts", eventId] });
+    }
   };
 
   return (
@@ -80,9 +93,21 @@ export function EventTeamSection({ eventId, companyId }: { eventId: string; comp
               {m.role === "director" ? <><Eye className="h-3 w-3" /> Diretor</> : <><Crown className="h-3 w-3" /> Produtor Geral</>}
             </Badge>
             {canManage && (
-              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => remove(m.id)}>
-                <X className="h-3 w-3" />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="icon" variant="ghost" className="h-7 w-7">
+                    <MoreVertical className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setEditMember(m)}>
+                    <Pencil className="h-3 w-3 mr-2" /> Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => remove(m)} className="text-destructive focus:text-destructive">
+                    <Trash2 className="h-3 w-3 mr-2" /> Remover
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
         ))}
@@ -97,6 +122,15 @@ export function EventTeamSection({ eventId, companyId }: { eventId: string; comp
           onClose={() => setAddRole(null)}
         />
       )}
+
+      {editMember && (
+        <EditMemberSheet
+          eventId={eventId}
+          member={editMember}
+          onClose={() => setEditMember(null)}
+          onRemoved={() => { setEditMember(null); }}
+        />
+      )}
     </Card>
   );
 }
@@ -104,12 +138,14 @@ export function EventTeamSection({ eventId, companyId }: { eventId: string; comp
 function AddMemberDialog({
   eventId, companyId, role, assignedProfileIds, onClose,
 }: { eventId: string; companyId: string; role: "director" | "general_producer"; assignedProfileIds: Set<string>; onClose: () => void }) {
-  const { user } = useAuth();
+  const { user, isAdmin, hasPermission } = useAuth();
   const qc = useQueryClient();
+  const canCreateProfile = isAdmin || hasPermission("manage_users");
   const [profileId, setProfileId] = useState("");
   const [scope, setScope] = useState<"full" | "zones">("full");
   const [zoneIds, setZoneIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [showNewProfile, setShowNewProfile] = useState(false);
 
   const { data: profiles } = useQuery({
     queryKey: ["event-team-profiles", companyId],
@@ -130,6 +166,14 @@ function AddMemberDialog({
       return data ?? [];
     },
   });
+
+  const handleSelect = (v: string) => {
+    if (v === NEW_PROFILE_SENTINEL) {
+      setShowNewProfile(true);
+      return;
+    }
+    setProfileId(v);
+  };
 
   const submit = async () => {
     if (!profileId || !user) return;
@@ -157,36 +201,262 @@ function AddMemberDialog({
     }
     toast({ title: "Membro adicionado" });
     qc.invalidateQueries({ queryKey: ["event-team", eventId] });
+    qc.invalidateQueries({ queryKey: ["op-hub-setup-counts", eventId] });
     setSaving(false);
     onClose();
+  };
+
+  return (
+    <>
+      <Dialog open onOpenChange={(o) => !o && onClose()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{role === "director" ? "Adicionar Diretor" : "Adicionar Produtor Geral"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Pessoa</Label>
+              <Select value={profileId} onValueChange={handleSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder={candidates.length === 0 ? `Todas as pessoas já são ${roleLabel}` : "Escolhe…"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {candidates.map((p: any) => (
+                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+                  ))}
+                  {canCreateProfile && (
+                    <SelectItem value={NEW_PROFILE_SENTINEL} className="text-primary font-medium">
+                      + Nova pessoa…
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              {candidates.length === 0 && !canCreateProfile && (
+                <p className="text-[11px] text-muted-foreground italic mt-1">
+                  Todas as pessoas já estão atribuídas como {roleLabel}.
+                </p>
+              )}
+            </div>
+            {role === "general_producer" && (
+              <>
+                <div>
+                  <Label>Escopo</Label>
+                  <RadioGroup value={scope} onValueChange={(v) => setScope(v as any)} className="space-y-1 mt-1">
+                    <Label className="flex items-center gap-2 border rounded p-2 cursor-pointer">
+                      <RadioGroupItem value="full" /> <span className="text-sm">Todo o evento</span>
+                    </Label>
+                    <Label className="flex items-center gap-2 border rounded p-2 cursor-pointer">
+                      <RadioGroupItem value="zones" /> <span className="text-sm">Zonas específicas</span>
+                    </Label>
+                  </RadioGroup>
+                </div>
+                {scope === "zones" && (
+                  <div>
+                    <Label>Zonas</Label>
+                    <div className="space-y-1 mt-1 max-h-48 overflow-y-auto border rounded p-2">
+                      {(zones ?? []).length === 0 && (
+                        <p className="text-xs text-muted-foreground italic">Sem zonas no evento.</p>
+                      )}
+                      {(zones ?? []).map((z: any) => (
+                        <label key={z.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                          <Checkbox
+                            checked={zoneIds.includes(z.id)}
+                            onCheckedChange={(c) => setZoneIds((p) => c ? [...p, z.id] : p.filter((x) => x !== z.id))}
+                          />
+                          {z.name}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+            <Button onClick={submit} disabled={saving || !profileId} className="w-full">
+              {saving ? "A guardar…" : "Adicionar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {showNewProfile && (
+        <NewProfileInlineDialog
+          companyId={companyId}
+          defaultRole={role === "director" ? "viewer" : "producer"}
+          onClose={() => setShowNewProfile(false)}
+          onCreated={(newProfileId) => {
+            setProfileId(newProfileId);
+            setShowNewProfile(false);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function NewProfileInlineDialog({
+  companyId, defaultRole, onClose, onCreated,
+}: { companyId: string; defaultRole: AppRole; onClose: () => void; onCreated: (id: string) => void }) {
+  const qc = useQueryClient();
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [role, setRole] = useState<AppRole>(defaultRole);
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    if (!fullName.trim() || !email.trim()) {
+      toast({ title: "Nome e email são obrigatórios", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-user", {
+        body: { email: email.trim(), full_name: fullName.trim(), role },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      // Resolver o profile id (created ou attached) por email
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("email", email.trim())
+        .maybeSingle();
+      if (!prof?.id) throw new Error("Perfil criado mas não encontrado");
+
+      if (phone.trim()) {
+        await supabase.from("profiles").update({ phone: phone.trim() }).eq("id", prof.id);
+      }
+
+      toast({
+        title: data?.status === "attached" ? "Pessoa adicionada à empresa" : "Pessoa criada",
+        description: data?.status === "created" ? "Email de definição de senha enviado." : undefined,
+      });
+      qc.invalidateQueries({ queryKey: ["event-team-profiles", companyId] });
+      qc.invalidateQueries({ queryKey: ["users-with-roles"] });
+      onCreated(prof.id);
+    } catch (err: any) {
+      toast({ title: "Erro a criar pessoa", description: err?.message ?? "Falha", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{role === "director" ? "Adicionar Diretor" : "Adicionar Produtor Geral"}</DialogTitle>
+          <DialogTitle>Nova pessoa</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div>
-            <Label>Pessoa</Label>
-            <Select value={profileId} onValueChange={setProfileId} disabled={candidates.length === 0}>
-              <SelectTrigger>
-                <SelectValue placeholder={candidates.length === 0 ? `Todas as pessoas já são ${roleLabel}` : "Escolhe…"} />
-              </SelectTrigger>
+            <Label>Nome completo *</Label>
+            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="João Silva" />
+          </div>
+          <div>
+            <Label>Email *</Label>
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@exemplo.com" />
+          </div>
+          <div>
+            <Label>Telefone</Label>
+            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+351 …" />
+          </div>
+          <div>
+            <Label>Nível de acesso</Label>
+            <Select value={role} onValueChange={(v) => setRole(v as AppRole)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {candidates.map((p: any) => (
-                  <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
+                {ASSIGNABLE_ROLES.map((r) => (
+                  <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {candidates.length === 0 && (
-              <p className="text-[11px] text-muted-foreground italic mt-1">
-                Todas as pessoas já estão atribuídas como {roleLabel}.
-              </p>
-            )}
           </div>
-          {role === "general_producer" && (
+          <Button onClick={submit} disabled={saving} className="w-full">
+            {saving && <Loader2 className="h-3 w-3 mr-2 animate-spin" />}
+            Criar e seleccionar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditMemberSheet({
+  eventId, member, onClose, onRemoved,
+}: { eventId: string; member: any; onClose: () => void; onRemoved: () => void }) {
+  const qc = useQueryClient();
+  const [scope, setScope] = useState<"full" | "zones">(member.scope === "zones" ? "zones" : "full");
+  const [zoneIds, setZoneIds] = useState<string[]>(
+    (member.zones ?? []).map((z: any) => z.zone_id).filter(Boolean),
+  );
+  const [saving, setSaving] = useState(false);
+
+  const { data: zones } = useQuery({
+    queryKey: ["event-team-zones", eventId],
+    enabled: member.role === "general_producer",
+    queryFn: async () => {
+      const { data } = await supabase.from("operacao_frentes").select("id,name").eq("event_id", eventId).eq("type", "zone").neq("status", "cancelled").order("name");
+      return data ?? [];
+    },
+  });
+
+  useEffect(() => {
+    setScope(member.scope === "zones" ? "zones" : "full");
+    setZoneIds((member.zones ?? []).map((z: any) => z.zone_id).filter(Boolean));
+  }, [member.id]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      if (member.role === "general_producer") {
+        const { error: uErr } = await supabase.from("event_team_members").update({ scope }).eq("id", member.id);
+        if (uErr) throw uErr;
+        await supabase.from("event_team_member_zones").delete().eq("member_id", member.id);
+        if (scope === "zones" && zoneIds.length > 0) {
+          const { error: zErr } = await supabase.from("event_team_member_zones").insert(
+            zoneIds.map((zid) => ({ member_id: member.id, zone_id: zid })),
+          );
+          if (zErr) throw zErr;
+        }
+      }
+      toast({ title: "Atualizado" });
+      qc.invalidateQueries({ queryKey: ["event-team", eventId] });
+      onClose();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err?.message ?? "Falha", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!confirm(`Remover ${member.profiles?.full_name ?? "membro"}?`)) return;
+    const { error } = await supabase.from("event_team_members").delete().eq("id", member.id);
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Removido" });
+    qc.invalidateQueries({ queryKey: ["event-team", eventId] });
+    qc.invalidateQueries({ queryKey: ["op-hub-setup-counts", eventId] });
+    onRemoved();
+  };
+
+  const isDirector = member.role === "director";
+
+  return (
+    <Sheet open onOpenChange={(o) => !o && onClose()}>
+      <SheetContent className="w-full sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle>{member.profiles?.full_name ?? "Membro"}</SheetTitle>
+        </SheetHeader>
+        <div className="space-y-4 mt-4">
+          <div className="text-xs text-muted-foreground">
+            Função: <Badge variant="outline" className="ml-1">{isDirector ? "Diretor" : "Produtor Geral"}</Badge>
+          </div>
+
+          {!isDirector && (
             <>
               <div>
                 <Label>Escopo</Label>
@@ -202,7 +472,7 @@ function AddMemberDialog({
               {scope === "zones" && (
                 <div>
                   <Label>Zonas</Label>
-                  <div className="space-y-1 mt-1 max-h-48 overflow-y-auto border rounded p-2">
+                  <div className="space-y-1 mt-1 max-h-64 overflow-y-auto border rounded p-2">
                     {(zones ?? []).length === 0 && (
                       <p className="text-xs text-muted-foreground italic">Sem zonas no evento.</p>
                     )}
@@ -220,11 +490,19 @@ function AddMemberDialog({
               )}
             </>
           )}
-          <Button onClick={submit} disabled={saving || !profileId} className="w-full">
-            {saving ? "A guardar…" : "Adicionar"}
-          </Button>
+
+          <div className="flex gap-2 pt-2 border-t">
+            {!isDirector && (
+              <Button onClick={save} disabled={saving} className="flex-1">
+                {saving && <Loader2 className="h-3 w-3 mr-2 animate-spin" />} Guardar
+              </Button>
+            )}
+            <Button onClick={remove} variant="destructive" className={isDirector ? "flex-1" : ""}>
+              <Trash2 className="h-3 w-3 mr-2" /> Remover
+            </Button>
+          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
