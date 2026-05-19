@@ -16,7 +16,8 @@ import { NewProfileInlineDialog, NEW_PROFILE_SENTINEL } from "@/components/opera
 const PALETTE = ["#ef4444","#f97316","#eab308","#22c55e","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#6b7280"];
 
 export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
-  const { user } = useAuth();
+  const { user, isAdmin, hasPermission } = useAuth();
+  const canCreateProfile = isAdmin || hasPermission("manage_users");
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [eventId, setEventId] = useState<string>("");
