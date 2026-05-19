@@ -135,13 +135,26 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
           </div>
           {selectedEvent && (
             <div>
-              <Label>Lead permanente (opcional)</Label>
-              <Select value={leadId} onValueChange={setLeadId}>
-                <SelectTrigger><SelectValue placeholder="Sem lead" /></SelectTrigger>
+              <Label>Produtor responsável (opcional)</Label>
+              <Select
+                value={leadId || "__none__"}
+                onValueChange={(v) => {
+                  if (v === NEW_PROFILE_SENTINEL) { setShowNewProfile(true); return; }
+                  if (v === "__none__") { setLeadId(""); return; }
+                  setLeadId(v);
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Sem produtor responsável" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__none__">— Sem produtor responsável —</SelectItem>
                   {(profiles ?? []).map((p: any) => (
                     <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
                   ))}
+                  {canCreateProfile && (
+                    <SelectItem value={NEW_PROFILE_SENTINEL} className="text-primary font-medium">
+                      + Nova pessoa…
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -151,6 +164,16 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
           </Button>
         </div>
       </DialogContent>
+
+      {showNewProfile && selectedEvent && (
+        <NewProfileInlineDialog
+          companyId={selectedEvent.company_id}
+          defaultRole="producer"
+          invalidateKeys={[["op-new-frente-profiles", selectedEvent.company_id]]}
+          onClose={() => setShowNewProfile(false)}
+          onCreated={(id) => { setLeadId(id); setShowNewProfile(false); }}
+        />
+      )}
     </Dialog>
   );
 }
