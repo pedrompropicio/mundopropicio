@@ -41,17 +41,19 @@ export function RegistroSheet({ open, onClose, initialFrenteId, initialEtapaId, 
 
   // Frentes onde user está
   const { data: frentes } = useQuery({
-    queryKey: ["op-my-frentes-select", user?.id],
+    queryKey: ["op-my-frentes-select", user?.id, eventFilterId],
     enabled: !!user && open && !initialFrenteId,
     queryFn: async () => {
       const { data: team } = await supabase
         .from("operacao_frente_team").select("frente_id").eq("profile_id", user!.id).eq("active", true);
       const ids = Array.from(new Set((team ?? []).map((t: any) => t.frente_id)));
       if (ids.length === 0) return [];
-      const { data } = await supabase
+      let q = supabase
         .from("operacao_frentes")
         .select("id,name,color,event_id,company_id, events(name)")
-        .in("id", ids).order("display_order");
+        .in("id", ids);
+      if (eventFilterId) q = q.eq("event_id", eventFilterId);
+      const { data } = await q.order("display_order");
       return data ?? [];
     },
   });
