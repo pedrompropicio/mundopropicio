@@ -62,3 +62,10 @@ Helper `seed_operacao_frentes_default` cria zonas-padrão (todas com type defaul
   - Marcar etapa concluída: requer `manage_operacao_*`.
   - FAB incidente: admin, `open_chamado` ou `register_operacao`.
 - Link "Ver Dashboard analítico" mantido como secundário no topo direito.
+
+## OP-8 — Produtor de Zona/Serviço (lead da frente)
+
+- Decisão: "Produtor de Zona/Serviço" = `operacao_frentes.current_lead_id` (lead da frente). Não há role novo em `event_team_members`.
+- `EditFrenteSheet`: campo passou a chamar-se **"Produtor de Zona"** / **"Produtor de Serviço"** (conforme `type`). Select filtra profiles da company a roles elegíveis (`admin`, `manager`, `producer`, `platform_admin`). Inclui opção **"+ Nova pessoa…"** (reutiliza `NewProfileInlineDialog` extraído para `src/components/operacao/shared/`). Default role da nova pessoa = `producer`. Ao guardar, sincroniza `operacao_frente_team` (linha lead permanente).
+- `FrentesPanel` (cartões Setup): quando a frente não tem lead, mostra "Sem produtor responsável · **+ atribuir**" (abre `EditFrenteSheet`).
+- `EventTeamSection`: hint clarifica que Diretores/Produtores Gerais supervisionam o evento; Produtores de Zona/Serviço são definidos dentro de cada frente.
