@@ -24,31 +24,19 @@ const KIND_OPTS: { value: string; label: string }[] = [
 ];
 
 export function OperacaoFiltersBar() {
-  const { user } = useAuth();
+  const { eventIds } = useScopedEventIds();
   const { filters, update, toggle, clear } = useOperacaoFilters();
 
-  // Events where user is in a frente team
   const { data: events } = useQuery({
-    queryKey: ["op-filter-events", user?.id],
-    enabled: !!user,
+    queryKey: ["op-filter-events", eventIds.join(",")],
+    enabled: eventIds.length > 0,
     queryFn: async () => {
-      const { data: teams } = await supabase
-        .from("operacao_frente_team")
-        .select("frente_id")
-        .eq("profile_id", user!.id).eq("active", true);
-      const frenteIds = Array.from(new Set((teams ?? []).map((t: any) => t.frente_id)));
-      if (frenteIds.length === 0) return [];
-      const { data: fr } = await supabase
-        .from("operacao_frentes")
-        .select("event_id, events(id,name,date,status)")
-        .in("id", frenteIds);
-      const eventMap = new Map<string, any>();
-      (fr ?? []).forEach((f: any) => {
-        if (f.events && !eventMap.has(f.events.id)) eventMap.set(f.events.id, f.events);
-      });
-      return Array.from(eventMap.values()).sort((a, b) =>
-        (b.date ?? "").localeCompare(a.date ?? ""),
-      );
+      const { data } = await supabase
+        .from("events")
+        .select("id,name,date,status")
+        .in("id", eventIds)
+        .order("date", { ascending: false });
+      return data ?? [];
     },
   });
 
