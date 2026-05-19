@@ -76,6 +76,7 @@ export function EtapaAssigneeSheet({
     const rows: DraftRow[] = team.map((t: any) => ({
       profile_id: t.profile_id,
       full_name: t.profiles?.full_name ?? null,
+      profile_type: t.profiles?.profile_type ?? null,
       role_in_frente: t.role_in_frente,
       included: existingMap.has(t.profile_id),
       role: existingMap.get(t.profile_id) ?? "helper",
