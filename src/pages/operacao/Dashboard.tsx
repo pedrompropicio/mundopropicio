@@ -77,7 +77,7 @@ export default function Dashboard() {
 
   const { data: registos } = useQuery({
     queryKey: ["dash-registos", ids, periodStart],
-    enabled: ids.length > 0,
+    enabled: ids.length > 0 && canView,
     queryFn: async () => {
       const { data } = await supabase
         .from("operacao_registros")
