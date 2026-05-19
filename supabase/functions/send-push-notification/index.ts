@@ -1,12 +1,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { sendWhatsApp } from "../_shared/twilio.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-const TWILIO_GATEWAY = "https://connector-gateway.lovable.dev/twilio";
 
 type Target =
   | { type: "users"; user_ids: string[] }
