@@ -45,28 +45,6 @@ async function resolveTargetUserIds(
   return fallbackUserIds ?? [];
 }
 
-async function sendWhatsApp(to: string, from: string, body: string) {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  const TWILIO_API_KEY = Deno.env.get("TWILIO_API_KEY");
-  if (!LOVABLE_API_KEY || !TWILIO_API_KEY) {
-    console.warn("Twilio not configured — skipping WhatsApp");
-    return null;
-  }
-  const fromW = from.startsWith("whatsapp:") ? from : `whatsapp:${from}`;
-  const toW = to.startsWith("whatsapp:") ? to : `whatsapp:${to}`;
-  const res = await fetch(`${TWILIO_GATEWAY}/Messages.json`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "X-Connection-Api-Key": TWILIO_API_KEY,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({ To: toW, From: fromW, Body: body }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(`Twilio ${res.status}: ${JSON.stringify(data)}`);
-  return data.sid;
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
