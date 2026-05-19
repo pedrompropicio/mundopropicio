@@ -137,8 +137,17 @@ export default function MyFrentes() {
 
       {isLoading && <div className="text-sm text-muted-foreground">A carregar...</div>}
       {frentes && frentes.length === 0 && (
-        <Card className="p-6 text-center text-muted-foreground">
-          Ainda não fazes parte de nenhuma Frente. Pede ao coordenador para te adicionar.
+        <Card className="text-center py-12 px-6">
+          <div className="text-4xl mb-3">👋</div>
+          <h3 className="font-medium mb-2">Ainda não fazes parte de nenhuma frente</h3>
+          <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+            O coordenador precisa de te adicionar a uma zona ou serviço. Confirma com ele que recebeste a atribuição.
+          </p>
+          <div className="flex flex-col gap-2 max-w-xs mx-auto">
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              🔄 Atualizar
+            </Button>
+          </div>
         </Card>
       )}
       <div className="space-y-2">

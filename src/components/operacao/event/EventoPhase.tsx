@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,7 @@ import { RegistroSheet } from "@/components/operacao/RegistroSheet";
 import { OperacaoStatusBadge } from "@/components/operacao/OperacaoStatusBadge";
 import {
   Bell, Play, CheckCircle2, AlertTriangle, Phone, MessageCircle,
-  BarChart3, ChevronDown, ChevronRight, MoreVertical, Siren,
+  BarChart3, ChevronDown, ChevronRight, MoreVertical, Siren, RefreshCw,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { pt } from "date-fns/locale";
@@ -43,7 +43,12 @@ export function EventoPhase({ eventId, companyId }: Props) {
     isAdmin || hasPermission("manage_operacao_etapas") || hasPermission("manage_operacao_frentes");
 
   // ---------- Frentes do evento (para mapear chamados) ----------
-  const { data: frentes } = useQuery({
+  const {
+    data: frentes,
+    error: frentesError,
+    dataUpdatedAt: frentesUpdated,
+    refetch: refetchFrentes,
+  } = useQuery({
     queryKey: ["op-evento-frentes", eventId],
     queryFn: async () => {
       const { data } = await supabase
@@ -62,7 +67,12 @@ export function EventoPhase({ eventId, companyId }: Props) {
   );
 
   // ---------- Chamados abertos ----------
-  const { data: chamados } = useQuery({
+  const {
+    data: chamados,
+    error: chamadosError,
+    dataUpdatedAt: chamadosUpdated,
+    refetch: refetchChamados,
+  } = useQuery({
     queryKey: ["op-evento-chamados", eventId, frenteIds],
     enabled: frenteIds.length > 0,
     refetchInterval: 30000,
@@ -116,7 +126,12 @@ export function EventoPhase({ eventId, companyId }: Props) {
     },
   });
 
-  const { data: etapasInProgress } = useQuery({
+  const {
+    data: etapasInProgress,
+    error: etapasError,
+    dataUpdatedAt: etapasUpdated,
+    refetch: refetchEtapas,
+  } = useQuery({
     queryKey: ["op-evento-etapas-progress", eventId, frenteIds],
     enabled: frenteIds.length > 0,
     refetchInterval: 30000,
@@ -132,7 +147,12 @@ export function EventoPhase({ eventId, companyId }: Props) {
     },
   });
 
-  const { data: kpiDoneToday } = useQuery({
+  const {
+    data: kpiDoneToday,
+    error: kpiError,
+    dataUpdatedAt: kpiUpdated,
+    refetch: refetchKpi,
+  } = useQuery({
     queryKey: ["op-evento-kpi-donetoday", eventId, frenteIds],
     enabled: frenteIds.length > 0,
     refetchInterval: 30000,
@@ -149,6 +169,24 @@ export function EventoPhase({ eventId, companyId }: Props) {
       return count ?? 0;
     },
   });
+
+  // ---------- Freshness banner state ----------
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(t);
+  }, []);
+  // Re-render tick para envelhecer o "atualizado há Xs"
+  const stamps = [chamadosUpdated, etapasUpdated, kpiUpdated, frentesUpdated].filter(Boolean) as number[];
+  const oldest = stamps.length ? Math.min(...stamps) : Date.now();
+  const ageSec = Math.max(0, Math.round((now - oldest) / 1000));
+  const hasError = !!(chamadosError || etapasError || kpiError || frentesError);
+  const freshTone: "ok" | "stale" | "error" = hasError ? "error" : ageSec > 60 ? "stale" : "ok";
+  const refreshAll = () => {
+    toast({ title: "A atualizar…" });
+    void Promise.all([refetchChamados(), refetchEtapas(), refetchKpi(), refetchFrentes()]);
+  };
+
 
   const openCount = (chamados ?? []).filter((c: any) => c.status === "open").length;
   const inProgressChamadoCount = (chamados ?? []).filter((c: any) => c.status === "in_progress").length;
@@ -201,6 +239,28 @@ export function EventoPhase({ eventId, companyId }: Props) {
 
   return (
     <div className="space-y-4 pb-24">
+      {/* Freshness banner */}
+      <div
+        className={cn(
+          "flex items-center gap-2 px-3 py-2 rounded-md border text-xs",
+          freshTone === "ok" && "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300",
+          freshTone === "stale" && "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300",
+          freshTone === "error" && "bg-destructive/10 border-destructive/40 text-destructive",
+        )}
+      >
+        <span className="h-2 w-2 rounded-full bg-current animate-pulse" />
+        <span className="flex-1">
+          {freshTone === "error"
+            ? "Erro de sincronização — toca para tentar novamente"
+            : freshTone === "stale"
+              ? `Atualizado há ${Math.round(ageSec / 60)}min — verifica ligação`
+              : `Live · Atualizado há ${ageSec}s`}
+        </span>
+        <Button size="sm" variant="ghost" className="h-6 px-2" onClick={refreshAll} title="Atualizar agora">
+          <RefreshCw className="h-3 w-3" />
+        </Button>
+      </div>
+
       {/* Top bar: link analítico */}
       <div className="flex justify-end">
         <Link to="/operacao/dashboard">
@@ -209,6 +269,7 @@ export function EventoPhase({ eventId, companyId }: Props) {
           </Button>
         </Link>
       </div>
+
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">

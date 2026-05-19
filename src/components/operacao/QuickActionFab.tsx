@@ -68,12 +68,26 @@ export function QuickActionFab() {
   const mode = ctxMode ?? fallbackMode;
   const chamadoDimmed = mode === "planning" || mode === "montagem";
 
+  const hideFab = location.pathname.includes("/chamado/novo");
+
+  // companyId p/ NewEtapaDialog — hook DEVE ser chamado sempre (Rules of Hooks).
+  // Filtramos resultado via `enabled`.
+  const { data: pickedFrenteCtx } = useQuery({
+    queryKey: ["fab-picked-frente", pickedFrenteId],
+    enabled: !!pickedFrenteId && !hideFab,
+    queryFn: async () => {
+      const { data } = await supabase.from("operacao_frentes")
+        .select("id,company_id").eq("id", pickedFrenteId!).maybeSingle();
+      return data;
+    },
+  });
+
   const canFrente = isAdmin || hasPermission("manage_operacao_frentes");
   const canEtapa = isAdmin || hasPermission("manage_operacao_etapas") || !!ctx?.isCurrentLeadAny;
   const canRegistro = isAdmin || hasPermission("register_operacao");
   const canChamado = isAdmin || hasPermission("open_chamado");
 
-  const hideFab = location.pathname.includes("/chamado/novo");
+  // Early return DEPOIS de todos os hooks
   if (hideFab) return null;
 
   const pick = (a: Action) => {
@@ -85,7 +99,6 @@ export function QuickActionFab() {
       return;
     }
     if (a === "registro") {
-      // dentro de etapa/frente -> abrir directo, senão pedir frente
       if (ctx?.frenteId || ctx?.etapaId) { setAction("registro"); }
       else setPickFor("registro");
       return;
@@ -93,16 +106,7 @@ export function QuickActionFab() {
     if (a === "chamado") return navigate("/operacao/chamado/novo");
   };
 
-  // companyId p/ NewEtapaDialog
-  const { data: pickedFrenteCtx } = useQuery({
-    queryKey: ["fab-picked-frente", pickedFrenteId],
-    enabled: !!pickedFrenteId,
-    queryFn: async () => {
-      const { data } = await supabase.from("operacao_frentes")
-        .select("id,company_id").eq("id", pickedFrenteId!).maybeSingle();
-      return data;
-    },
-  });
+
 
   return (
     <>

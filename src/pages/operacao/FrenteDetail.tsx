@@ -16,6 +16,7 @@ import { Plus, ChevronRight, ArrowLeft, Users } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { NewEtapaDialog } from "@/components/operacao/NewEtapaDialog";
+import { RegistroSheet } from "@/components/operacao/RegistroSheet";
 import { useOperacaoMode } from "@/hooks/useOperacaoMode";
 
 export default function FrenteDetail() {
@@ -24,6 +25,7 @@ export default function FrenteDetail() {
   const [chamadoStatus, setChamadoStatus] = useState<string>("open");
   const [newEtapaOpen, setNewEtapaOpen] = useState(false);
   const [teamSheetOpen, setTeamSheetOpen] = useState(false);
+  const [newRegistroOpen, setNewRegistroOpen] = useState(false);
 
   const { data: frente } = useQuery({
     queryKey: ["op-frente", id],
@@ -102,6 +104,8 @@ export default function FrenteDetail() {
 
   const isLead = frente?.current_lead_id === user?.id;
   const canManageEtapas = isAdmin || hasPermission("manage_operacao_etapas") || isLead;
+  const isInTeam = !!(teamSummary ?? []).find((t: any) => t.profile_id === user?.id);
+  const canCreateRegisto = isAdmin || hasPermission("register_operacao") || isLead || isInTeam;
   const mode = useOperacaoMode(frente?.event_id);
   const hasOpenChamados = (chamados ?? []).some((c: any) => c.status === "open" || c.status === "in_progress");
   const showChamadosTab = mode === "evento" || mode === "post" || hasOpenChamados;
@@ -155,9 +159,17 @@ export default function FrenteDetail() {
           )}
         </TabsList>
 
-        <TabsContent value="registros" className="mt-3">
+        <TabsContent value="registros" className="mt-3 space-y-2">
+          {canCreateRegisto && (
+            <div className="flex justify-end">
+              <Button size="sm" onClick={() => setNewRegistroOpen(true)}>
+                <Plus className="h-4 w-4 mr-1" /> Novo Registo
+              </Button>
+            </div>
+          )}
           <RegistroFeed filter={{ frente_id: id!, kindNot: "chamado" }} />
         </TabsContent>
+
 
         <TabsContent value="etapas" className="space-y-2 mt-3">
           {canManageEtapas && (
@@ -244,6 +256,14 @@ export default function FrenteDetail() {
           onClose={() => setTeamSheetOpen(false)}
           frenteId={id!}
           currentLeadId={frente.current_lead_id}
+        />
+      )}
+
+      {newRegistroOpen && (
+        <RegistroSheet
+          open
+          initialFrenteId={id!}
+          onClose={() => setNewRegistroOpen(false)}
         />
       )}
     </div>
