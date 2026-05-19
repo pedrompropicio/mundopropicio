@@ -305,7 +305,7 @@ Deno.serve(async (req) => {
     // ── Generate password recovery link + send branded invite email
     const siteUrl = "https://mpgestaoeventos.com";
     const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
-      type: "recovery",
+      type: "invite",
       email: normalizedEmail,
       options: { redirectTo: `${siteUrl}/reset-password` },
     });
