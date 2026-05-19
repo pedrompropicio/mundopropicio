@@ -160,7 +160,7 @@ export function EtapasTable({ frenteId, companyId, canEdit }: Props) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const updateRow = async (id: string, patch: Record<string, any>) => {
-    const { error } = await supabase.from("operacao_etapas").update(patch).eq("id", id);
+    const { error } = await supabase.from("operacao_etapas").update(patch as any).eq("id", id);
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
     else qc.invalidateQueries({ queryKey: ["op-etapas-table", frenteId] });
   };
