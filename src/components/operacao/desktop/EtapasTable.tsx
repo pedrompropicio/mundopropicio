@@ -69,6 +69,25 @@ function Row({
           onSave={(v) => onUpdate(e.id, { status: v ?? "pending" })}
         />
       </td>
+      <td className="px-2 py-1 w-36">
+        {frenteIsService ? (
+          <Select
+            value={e.zone_id ?? "__none__"}
+            disabled={!canEdit}
+            onValueChange={(v) => onUpdate(e.id, { zone_id: v === "__none__" ? null : v })}
+          >
+            <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="—" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">—</SelectItem>
+              {zones.map((z) => (
+                <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <span className="text-xs text-muted-foreground italic px-1">—</span>
+        )}
+      </td>
       <td className="px-2 py-1 w-40">
         <EtapaInlineCell
           variant="select"
