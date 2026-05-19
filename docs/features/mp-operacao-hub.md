@@ -69,3 +69,9 @@ Helper `seed_operacao_frentes_default` cria zonas-padrão (todas com type defaul
 - `EditFrenteSheet`: campo passou a chamar-se **"Produtor de Zona"** / **"Produtor de Serviço"** (conforme `type`). Select filtra profiles da company a roles elegíveis (`admin`, `manager`, `producer`, `platform_admin`). Inclui opção **"+ Nova pessoa…"** (reutiliza `NewProfileInlineDialog` extraído para `src/components/operacao/shared/`). Default role da nova pessoa = `producer`. Ao guardar, sincroniza `operacao_frente_team` (linha lead permanente).
 - `FrentesPanel` (cartões Setup): quando a frente não tem lead, mostra "Sem produtor responsável · **+ atribuir**" (abre `EditFrenteSheet`).
 - `EventTeamSection`: hint clarifica que Diretores/Produtores Gerais supervisionam o evento; Produtores de Zona/Serviço são definidos dentro de cada frente.
+
+## OP-9a — Bug fix EtapaDetail + edição de etapas
+
+- **Bug "A carregar..." infinito** em `EtapaDetail`: causa = embed `frente:operacao_frentes(...)` ambíguo (a tabela `operacao_etapas` tem dois FK para `operacao_frentes`: `frente_id` e `zone_id`). PostgREST devolvia erro e o componente só verificava `if (!etapa)`. Fix: disambiguar com `frente:operacao_frentes!operacao_etapas_frente_id_fkey(...)`, tratar `isLoading`/`error` explicitamente, e mover `useIsEventDirectorOnly` para antes do early return (Rules of Hooks).
+- **`NewEtapaDialog`** agora inclui Data início, Data limite (validação `end ≥ start`), Responsável (select de profiles elegíveis + "+ Nova pessoa…"), Fornecedor (com bloco de contactos 📞/📧 read-only); fornecedor escolhido também é inserido em `operacao_etapa_suppliers` (M:N) como `role='principal'` além de preencher o legacy `supplier_id`.
+- **`EditEtapaSheet`** (novo): permite editar nome, escopo, zona-que-atende, datas, responsável (com inline new), fornecedor e eliminar a etapa. Acessível via botão ✏️ no header do `EtapaDetail` (admin / `manage_operacao_etapas` / lead da frente).

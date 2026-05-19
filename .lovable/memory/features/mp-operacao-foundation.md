@@ -41,3 +41,8 @@ Campo `events.operacao_mode`: `planning|montagem|evento|post`. Helper `seed_oper
 
 
 **OP-8 (2026-05-19)**: Produtor de Zona/Serviço = `operacao_frentes.current_lead_id` (lead da frente, sem novo role em `event_team_members`). `EditFrenteSheet` ganhou label dinâmico ("Produtor de Zona" vs "Produtor de Serviço"), filtra select por roles elegíveis (admin/manager/producer via `user_roles`), opção "+ Nova pessoa…" reutilizando `NewProfileInlineDialog` extraído para `src/components/operacao/shared/NewProfileInlineDialog.tsx` (default role=`producer`). Ao guardar lead, sincroniza `operacao_frente_team` (linha lead permanente). `FrentesPanel` mostra "Sem produtor responsável · + atribuir" quando vazio. `EventTeamSection` ganhou hint a clarificar que produtores de zona/serviço são definidos dentro da frente.
+
+## OP-9a (2026-05-19)
+- Fix bug "A carregar..." em EtapaDetail: embed PostgREST ambíguo (2 FK p/ operacao_frentes) → usar `!operacao_etapas_frente_id_fkey` explícito; tratar `isLoading`/`error`; `useIsEventDirectorOnly` antes do early return.
+- NewEtapaDialog ganha datas, responsável (+inline), fornecedor (com contactos read-only); insere também em `operacao_etapa_suppliers` role='principal'.
+- Novo `EditEtapaSheet` (ícone ✏️ no header de EtapaDetail) com Remover destructive.
