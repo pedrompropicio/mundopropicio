@@ -68,9 +68,12 @@ export function FrenteCardDesktop({
       <div className="h-1.5" style={{ backgroundColor: frente.color ?? "#6b7280" }} />
       <div className="p-4 flex-1 flex flex-col gap-3">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="font-semibold text-lg leading-tight">{frente.name}</h3>
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <h3 className="font-semibold text-lg leading-tight truncate">{frente.name}</h3>
+            <FrenteTypeBadge type={frente.type} />
+          </div>
           {isLead && (
-            <Badge variant="default" className="gap-1 text-[10px]">
+            <Badge variant="default" className="gap-1 text-[10px] shrink-0">
               <Crown className="h-3 w-3" /> LEAD
             </Badge>
           )}
