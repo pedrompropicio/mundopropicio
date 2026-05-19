@@ -234,8 +234,8 @@ export function EtapaAssigneeSheet({
           <div className="mt-4 flex items-center gap-2">
             <p className="text-[11px] text-muted-foreground flex-1">
               {ownerCount === 0
-                ? "Sem dono — fica responsável herdado"
-                : `${ownerCount} dono${ownerCount > 1 ? "s" : ""}`}
+                ? "Sem produtor — fica responsável herdado"
+                : `${ownerCount} produtor${ownerCount > 1 ? "es" : ""}`}
             </p>
             <Button variant="outline" onClick={onClose} disabled={saving}>
               Cancelar
