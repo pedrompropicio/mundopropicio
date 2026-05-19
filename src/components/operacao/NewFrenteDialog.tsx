@@ -10,11 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
+import { setFrenteLead } from "@/lib/operacao-frente-lead";
+import { NewProfileInlineDialog, NEW_PROFILE_SENTINEL } from "@/components/operacao/shared/NewProfileInlineDialog";
 
 const PALETTE = ["#ef4444","#f97316","#eab308","#22c55e","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#6b7280"];
 
 export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
-  const { user } = useAuth();
+  const { user, isAdmin, hasPermission } = useAuth();
+  const canCreateProfile = isAdmin || hasPermission("manage_users");
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [eventId, setEventId] = useState<string>("");
@@ -24,6 +27,7 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
   const [leadId, setLeadId] = useState<string>("");
   const [type, setType] = useState<"zone" | "service">("zone");
   const [saving, setSaving] = useState(false);
+  const [showNewProfile, setShowNewProfile] = useState(false);
 
   // Eventos não-completed para escolher
   const { data: events } = useQuery({
@@ -66,17 +70,16 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
       toast({ title: "Erro", description: error?.message ?? "Falha", variant: "destructive" });
       return;
     }
-    if (leadId) {
-      await supabase.from("operacao_frente_team").insert({
-        frente_id: created.id,
-        profile_id: leadId,
-        company_id: selectedEvent.company_id,
-        role_in_frente: "lead",
-        is_permanent_lead: true,
-        active: true,
-      });
+    const { error: leadErr } = await setFrenteLead({
+      frenteId: created.id,
+      profileId: leadId || null,
+      companyId: selectedEvent.company_id,
+    });
+    if (leadErr) {
+      toast({ title: "Frente criada, mas falhou ao atribuir produtor", description: leadErr, variant: "destructive" });
+    } else {
+      toast({ title: type === "service" ? "Serviço criado" : "Zona criada" });
     }
-    toast({ title: type === "service" ? "Serviço criado" : "Zona criada" });
     qc.invalidateQueries({ queryKey: ["op-my-frentes"] });
     setSaving(false);
     onClose();
@@ -132,13 +135,26 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
           </div>
           {selectedEvent && (
             <div>
-              <Label>Lead permanente (opcional)</Label>
-              <Select value={leadId} onValueChange={setLeadId}>
-                <SelectTrigger><SelectValue placeholder="Sem lead" /></SelectTrigger>
+              <Label>Produtor responsável (opcional)</Label>
+              <Select
+                value={leadId || "__none__"}
+                onValueChange={(v) => {
+                  if (v === NEW_PROFILE_SENTINEL) { setShowNewProfile(true); return; }
+                  if (v === "__none__") { setLeadId(""); return; }
+                  setLeadId(v);
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Sem produtor responsável" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__none__">— Sem produtor responsável —</SelectItem>
                   {(profiles ?? []).map((p: any) => (
                     <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
                   ))}
+                  {canCreateProfile && (
+                    <SelectItem value={NEW_PROFILE_SENTINEL} className="text-primary font-medium">
+                      + Nova pessoa…
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -148,6 +164,16 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
           </Button>
         </div>
       </DialogContent>
+
+      {showNewProfile && selectedEvent && (
+        <NewProfileInlineDialog
+          companyId={selectedEvent.company_id}
+          defaultRole="producer"
+          invalidateKeys={[["op-new-frente-profiles", selectedEvent.company_id]]}
+          onClose={() => setShowNewProfile(false)}
+          onCreated={(id) => { setLeadId(id); setShowNewProfile(false); }}
+        />
+      )}
     </Dialog>
   );
 }
