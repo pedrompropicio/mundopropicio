@@ -1,11 +1,12 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, HardHat, Send, Archive, ArchiveRestore } from "lucide-react";
+import { Plus, HardHat, Send, Archive, ArchiveRestore, ArrowLeft } from "lucide-react";
 import { NewStaffDialog } from "@/components/operacao/NewStaffDialog";
 import { toast } from "@/hooks/use-toast";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +20,7 @@ type Filter = "active" | "pending" | "archived";
 
 export default function StaffList() {
   const { hasPermission, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const canManage = isAdmin || hasPermission("manage_operacao_staff");
   const [showNew, setShowNew] = useState(false);
@@ -84,6 +86,12 @@ export default function StaffList() {
 
   return (
     <div className="p-4 pb-24 space-y-4">
+      <button
+        onClick={() => navigate(-1)}
+        className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+      >
+        <ArrowLeft className="h-3 w-3" /> Voltar
+      </button>
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">

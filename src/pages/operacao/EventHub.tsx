@@ -51,7 +51,9 @@ export default function EventHub() {
     if (!canManagePhase || !event) return;
     // simple guard for advanced phases
     if ((next === "montagem" || next === "evento") && !confirm(`Avançar evento para fase "${next.toUpperCase()}"?`)) return;
-    const { error } = await supabase.from("events").update({ operacao_mode: next }).eq("id", event.id);
+    // setup → NULL no DB (CHECK constraint só aceita planning|montagem|evento|post)
+    const dbValue = next === "setup" ? null : next;
+    const { error } = await supabase.from("events").update({ operacao_mode: dbValue }).eq("id", event.id);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     toast({ title: "Fase actualizada" });
     setViewPhase(null);

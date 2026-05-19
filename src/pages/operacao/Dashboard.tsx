@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Navigate, Link } from "react-router-dom";
+import { Navigate, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,7 +10,7 @@ import { Card as UICard } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { PriorityBadge } from "@/components/operacao/PriorityBadge";
-import { ListChecks, Play, AlertTriangle, Bell, CheckCircle2, ShieldAlert, FileDown } from "lucide-react";
+import { ListChecks, Play, AlertTriangle, Bell, CheckCircle2, ShieldAlert, FileDown, ArrowLeft } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, CartesianGrid,
@@ -33,6 +33,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function Dashboard() {
   const { hasPermission, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const { filters } = useOperacaoFilters();
   const [period, setPeriod] = useState("7d");
   const days = PERIODS.find((p) => p.id === period)?.days ?? 7;
@@ -129,6 +130,12 @@ export default function Dashboard() {
 
   return (
     <div>
+      <button
+        onClick={() => navigate(-1)}
+        className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-3"
+      >
+        <ArrowLeft className="h-3 w-3" /> Voltar
+      </button>
       <OperacaoFiltersBar />
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-1">
