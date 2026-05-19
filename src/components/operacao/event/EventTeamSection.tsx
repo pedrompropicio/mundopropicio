@@ -280,6 +280,7 @@ function AddMemberDialog({
         <NewProfileInlineDialog
           companyId={companyId}
           defaultRole={role === "director" ? "viewer" : "producer"}
+          invalidateKeys={[["event-team-profiles", companyId]]}
           onClose={() => setShowNewProfile(false)}
           onCreated={(newProfileId) => {
             setProfileId(newProfileId);
