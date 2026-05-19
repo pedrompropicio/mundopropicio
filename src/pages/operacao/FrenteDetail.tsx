@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { OperacaoStatusBadge } from "@/components/operacao/OperacaoStatusBadge";
 import { PriorityBadge } from "@/components/operacao/PriorityBadge";
 import { RegistroFeed } from "@/components/operacao/RegistroFeed";
@@ -13,6 +14,7 @@ import { Plus, ChevronRight, ArrowLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { NewEtapaDialog } from "@/components/operacao/NewEtapaDialog";
+import { useOperacaoMode } from "@/hooks/useOperacaoMode";
 
 export default function FrenteDetail() {
   const { id } = useParams<{ id: string }>();
