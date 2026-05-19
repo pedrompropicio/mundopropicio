@@ -167,8 +167,6 @@ export default function EtapaDetail() {
         />
       )}
 
-      <EtapaSuppliersPanel etapaId={id!} canEdit={canEditAssignees} />
-
       {(canChangeStatus || isDirectorOnly) && (
         <TooltipProvider>
           <div className="grid grid-cols-3 gap-2">
@@ -202,6 +200,11 @@ export default function EtapaDetail() {
           <Camera className="h-5 w-5 mr-2" /> Registar
         </Button>
       )}
+
+      <div className="border-t pt-4">
+        <EtapaSuppliersPanel etapaId={id!} canEdit={canEditAssignees} />
+      </div>
+
 
       <RegistroFeed filter={{ etapa_id: id! }} />
 
