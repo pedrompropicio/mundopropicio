@@ -6,6 +6,7 @@ import { Crown, AlertCircle, HardHat, ArrowRight, Settings } from "lucide-react"
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useOperacaoMode } from "@/hooks/useOperacaoMode";
+import { FrenteTypeBadge } from "@/components/operacao/FrenteTypeBadge";
 
 export interface FrenteCardDesktopData {
   id: string;
@@ -14,6 +15,7 @@ export interface FrenteCardDesktopData {
   status: string;
   current_lead_id: string | null;
   event_id?: string | null;
+  type?: string | null;
 }
 
 export interface TeamMember {
