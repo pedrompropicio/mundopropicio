@@ -144,7 +144,7 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
             </div>
           )}
           <Button onClick={submit} disabled={saving || !name.trim() || !eventId} className="w-full">
-            {saving ? "A criar..." : "Criar frente"}
+            {saving ? "A criar..." : (type === "service" ? "Criar Serviço" : "Criar Zona")}
           </Button>
         </div>
       </DialogContent>
