@@ -72,10 +72,13 @@ export default function EtapaDetail() {
   if (!etapa) return <div className="p-6">A carregar...</div>;
 
   const frente = (etapa as any).frente;
+  const isDirectorOnly = useIsEventDirectorOnly(frente?.event_id);
   const isLead = frente?.current_lead_id === user?.id;
   const isResponsible = etapa.responsible_profile_id === user?.id;
-  const canChangeStatus = isAdmin || hasPermission("manage_operacao_etapas") || isLead || isResponsible;
-  const canEditAssignees = isAdmin || hasPermission("manage_operacao_etapas") || isLead;
+  const canChangeStatus = !isDirectorOnly && (isAdmin || hasPermission("manage_operacao_etapas") || isLead || isResponsible);
+  const canEditAssignees = !isDirectorOnly && (isAdmin || hasPermission("manage_operacao_etapas") || isLead);
+  const zone = (etapa as any).zone;
+  const zoneApplies = zone && zone.id !== frente?.id;
 
   const inheritedProfile = (assignees ?? []).length > 0
     ? null
