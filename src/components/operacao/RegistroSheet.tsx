@@ -27,12 +27,12 @@ interface Props {
  * - Se receber initialEtapaId, pré-seleccionado e Frente lida via etapa.
  * - Caso contrário pede Frente (e Etapa opcional).
  */
-export function RegistroSheet({ open, onClose, initialFrenteId, initialEtapaId }: Props) {
+export function RegistroSheet({ open, onClose, initialFrenteId, initialEtapaId, initialKind, eventFilterId }: Props) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [frenteId, setFrenteId] = useState<string>(initialFrenteId ?? "");
   const [etapaId, setEtapaId] = useState<string>(initialEtapaId ?? "");
-  const [kind, setKind] = useState("evolucao");
+  const [kind, setKind] = useState(initialKind ?? "evolucao");
   const [text, setText] = useState("");
   const [media, setMedia] = useState<CapturedMedia[]>([]);
   const [audio, setAudio] = useState<string | null>(null);
