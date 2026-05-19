@@ -1,12 +1,12 @@
 // create-staff — cria field_staff (auth.users + profile + invite) e envia WhatsApp.
 // Requer JWT do caller com permissão manage_operacao_staff.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.0";
+import { sendWhatsApp } from "../_shared/twilio.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-const TWILIO_GATEWAY = "https://connector-gateway.lovable.dev/twilio";
 
 interface Body { full_name: string; phone: string; email?: string }
 
