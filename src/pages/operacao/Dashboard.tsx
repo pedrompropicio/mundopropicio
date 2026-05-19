@@ -38,11 +38,11 @@ export default function Dashboard() {
   const days = PERIODS.find((p) => p.id === period)?.days ?? 7;
   const periodStart = useMemo(() => startOfDay(subDays(new Date(), days - 1)).toISOString(), [days]);
 
-  if (!(isAdmin || hasPermission("view_operacao"))) return <div className="p-6">Sem permissão.</div>;
+  const canView = isAdmin || hasPermission("view_operacao");
 
   const { data: frentes } = useQuery({
     queryKey: ["dash-frentes", filters.event, filters.frentes.join(",")],
-    enabled: !!filters.event,
+    enabled: !!filters.event && canView,
     queryFn: async () => {
       let q = supabase.from("operacao_frentes").select("id,name,color,status").eq("event_id", filters.event!).neq("status", "cancelled");
       const { data } = await q;
@@ -56,7 +56,7 @@ export default function Dashboard() {
 
   const { data: etapas } = useQuery({
     queryKey: ["dash-etapas", ids],
-    enabled: ids.length > 0,
+    enabled: ids.length > 0 && canView,
     queryFn: async () => {
       const { data } = await supabase.from("operacao_etapas").select("id,frente_id,status").in("frente_id", ids);
       return data ?? [];
