@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
       }
 
       const to = r.whatsapp_recipient || settings?.default_whatsapp_recipient;
-      const from = r.twilio_from || settings?.default_twilio_from || "+14155238886";
+      const fromOverride = r.twilio_from || settings?.default_twilio_from || undefined;
       if (!to) {
         log.push({ key: r.key, skipped: "no_recipient_configured" });
         continue;
@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       const body = `🔔 *${r.title}*\n\n${r.message}${r.link_url ? `\n\n${r.link_url}` : ""}`;
 
       try {
-        const sid = await sendWhatsApp(to, from, body);
+        const { sid } = await sendWhatsApp(to, body, fromOverride);
         await supabase.from("system_reminders").update({
           last_sent_at: new Date().toISOString(),
           send_count: (r.send_count ?? 0) + 1,
