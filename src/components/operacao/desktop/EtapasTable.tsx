@@ -260,6 +260,7 @@ export function EtapasTable({ frenteId, companyId, canEdit }: Props) {
               <th className="w-8" />
               <th className="px-2 py-1.5 text-left">Nome</th>
               <th className="px-2 py-1.5 text-left">Status</th>
+              <th className="px-2 py-1.5 text-left">Zona</th>
               <th className="px-2 py-1.5 text-left">Fornecedor</th>
               <th className="px-2 py-1.5 text-left">Responsável</th>
               <th className="px-2 py-1.5 text-left">Início prev.</th>
@@ -271,7 +272,7 @@ export function EtapasTable({ frenteId, companyId, canEdit }: Props) {
             <SortableContext items={visible.map((e: any) => e.id)} strategy={verticalListSortingStrategy}>
               <tbody>
                 {visible.length === 0 && (
-                  <tr><td colSpan={8} className="text-center text-muted-foreground py-4">Sem etapas.</td></tr>
+                  <tr><td colSpan={9} className="text-center text-muted-foreground py-4">Sem etapas.</td></tr>
                 )}
                 {visible.map((e: any) => (
                   <Row
@@ -280,6 +281,8 @@ export function EtapasTable({ frenteId, companyId, canEdit }: Props) {
                     companyId={companyId}
                     profiles={profiles ?? []}
                     suppliers={suppliers ?? []}
+                    zones={zones ?? []}
+                    frenteIsService={frenteIsService}
                     canEdit={canEdit}
                     onUpdate={updateRow}
                     onArchive={archive}
