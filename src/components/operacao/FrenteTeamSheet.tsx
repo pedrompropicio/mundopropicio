@@ -46,7 +46,7 @@ export function FrenteTeamSheet({ open, onClose, frenteId, currentLeadId }: Prop
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent side="bottom" className="h-[70vh] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Equipa da Frente</SheetTitle>
+          <SheetTitle>Equipa da Zona/Serviço</SheetTitle>
         </SheetHeader>
         <div className="mt-4 space-y-4">
           {(["lead", "auxiliary", "observer"] as const).map((g) =>
