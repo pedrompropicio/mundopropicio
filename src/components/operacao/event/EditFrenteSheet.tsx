@@ -86,7 +86,7 @@ export function EditFrenteSheet({
     if (!frente || !name.trim()) return;
     setSaving(true);
     const { error } = await supabase.from("operacao_frentes").update({
-      name: name.trim(), color, type, current_lead_id: leadId || null,
+      name: name.trim(), color, type,
     }).eq("id", frente.id);
     if (error) {
       setSaving(false);
@@ -94,24 +94,16 @@ export function EditFrenteSheet({
       return;
     }
 
-    // Sincronizar operacao_frente_team: garantir linha lead permanente para o lead actual
-    if (leadId) {
-      const { data: existing } = await supabase
-        .from("operacao_frente_team")
-        .select("id")
-        .eq("frente_id", frente.id)
-        .eq("profile_id", leadId)
-        .maybeSingle();
-      if (existing?.id) {
-        await supabase.from("operacao_frente_team").update({
-          is_permanent_lead: true, active: true, role_in_frente: "lead",
-        }).eq("id", existing.id);
-      } else {
-        await supabase.from("operacao_frente_team").insert({
-          frente_id: frente.id, profile_id: leadId, company_id: frente.company_id,
-          role_in_frente: "lead", is_permanent_lead: true, active: true,
-        });
-      }
+    const { setFrenteLead } = await import("@/lib/operacao-frente-lead");
+    const { error: leadErr } = await setFrenteLead({
+      frenteId: frente.id,
+      profileId: leadId || null,
+      companyId: frente.company_id,
+    });
+    if (leadErr) {
+      setSaving(false);
+      toast({ title: "Erro a atribuir produtor", description: leadErr, variant: "destructive" });
+      return;
     }
 
     setSaving(false);
