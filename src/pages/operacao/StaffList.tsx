@@ -20,6 +20,7 @@ type Filter = "active" | "pending" | "archived";
 
 export default function StaffList() {
   const { hasPermission, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const canManage = isAdmin || hasPermission("manage_operacao_staff");
   const [showNew, setShowNew] = useState(false);
