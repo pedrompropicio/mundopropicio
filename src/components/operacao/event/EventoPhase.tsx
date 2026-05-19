@@ -67,7 +67,12 @@ export function EventoPhase({ eventId, companyId }: Props) {
   );
 
   // ---------- Chamados abertos ----------
-  const { data: chamados } = useQuery({
+  const {
+    data: chamados,
+    error: chamadosError,
+    dataUpdatedAt: chamadosUpdated,
+    refetch: refetchChamados,
+  } = useQuery({
     queryKey: ["op-evento-chamados", eventId, frenteIds],
     enabled: frenteIds.length > 0,
     refetchInterval: 30000,
@@ -121,7 +126,12 @@ export function EventoPhase({ eventId, companyId }: Props) {
     },
   });
 
-  const { data: etapasInProgress } = useQuery({
+  const {
+    data: etapasInProgress,
+    error: etapasError,
+    dataUpdatedAt: etapasUpdated,
+    refetch: refetchEtapas,
+  } = useQuery({
     queryKey: ["op-evento-etapas-progress", eventId, frenteIds],
     enabled: frenteIds.length > 0,
     refetchInterval: 30000,
@@ -137,7 +147,12 @@ export function EventoPhase({ eventId, companyId }: Props) {
     },
   });
 
-  const { data: kpiDoneToday } = useQuery({
+  const {
+    data: kpiDoneToday,
+    error: kpiError,
+    dataUpdatedAt: kpiUpdated,
+    refetch: refetchKpi,
+  } = useQuery({
     queryKey: ["op-evento-kpi-donetoday", eventId, frenteIds],
     enabled: frenteIds.length > 0,
     refetchInterval: 30000,
@@ -154,6 +169,24 @@ export function EventoPhase({ eventId, companyId }: Props) {
       return count ?? 0;
     },
   });
+
+  // ---------- Freshness banner state ----------
+  const [now, setNow] = useState(Date.now());
+  useMemo(() => {
+    const t = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(t);
+  }, []);
+  // Re-render tick para envelhecer o "atualizado há Xs"
+  const stamps = [chamadosUpdated, etapasUpdated, kpiUpdated, frentesUpdated].filter(Boolean) as number[];
+  const oldest = stamps.length ? Math.min(...stamps) : Date.now();
+  const ageSec = Math.max(0, Math.round((now - oldest) / 1000));
+  const hasError = !!(chamadosError || etapasError || kpiError || frentesError);
+  const freshTone: "ok" | "stale" | "error" = hasError ? "error" : ageSec > 60 ? "stale" : "ok";
+  const refreshAll = () => {
+    toast({ title: "A atualizar…" });
+    void Promise.all([refetchChamados(), refetchEtapas(), refetchKpi(), refetchFrentes()]);
+  };
+
 
   const openCount = (chamados ?? []).filter((c: any) => c.status === "open").length;
   const inProgressChamadoCount = (chamados ?? []).filter((c: any) => c.status === "in_progress").length;
