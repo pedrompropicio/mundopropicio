@@ -1,12 +1,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { sendWhatsApp } from "../_shared/twilio.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-const TWILIO_GATEWAY = "https://connector-gateway.lovable.dev/twilio";
 
 type Target =
   | { type: "users"; user_ids: string[] }
@@ -46,28 +45,6 @@ async function resolveTargetUserIds(
   return fallbackUserIds ?? [];
 }
 
-async function sendWhatsApp(to: string, from: string, body: string) {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  const TWILIO_API_KEY = Deno.env.get("TWILIO_API_KEY");
-  if (!LOVABLE_API_KEY || !TWILIO_API_KEY) {
-    console.warn("Twilio not configured — skipping WhatsApp");
-    return null;
-  }
-  const fromW = from.startsWith("whatsapp:") ? from : `whatsapp:${from}`;
-  const toW = to.startsWith("whatsapp:") ? to : `whatsapp:${to}`;
-  const res = await fetch(`${TWILIO_GATEWAY}/Messages.json`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "X-Connection-Api-Key": TWILIO_API_KEY,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({ To: toW, From: fromW, Body: body }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(`Twilio ${res.status}: ${JSON.stringify(data)}`);
-  return data.sid;
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -198,7 +175,7 @@ Deno.serve(async (req) => {
     if (whatsapp === true) {
       const { data: settings } = await adminClient
         .from("system_reminder_settings").select("default_twilio_from").eq("id", 1).maybeSingle();
-      const from = (settings as any)?.default_twilio_from || "+14155238886";
+      const fromOverride = (settings as any)?.default_twilio_from || undefined;
 
       const { data: profiles } = await adminClient
         .from("profiles").select("id, phone, full_name").in("id", resolvedUserIds);
@@ -206,7 +183,7 @@ Deno.serve(async (req) => {
       for (const p of (profiles ?? []) as any[]) {
         if (!p.phone) continue;
         try {
-          await sendWhatsApp(p.phone, from, waBody);
+          await sendWhatsApp(p.phone, waBody, fromOverride);
           waSent++;
         } catch (err) {
           waFailed++;

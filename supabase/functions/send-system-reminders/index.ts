@@ -1,13 +1,12 @@
 // Sends WhatsApp reminders for due system_reminders rows.
 // Triggered daily by pg_cron at 09:00 Lisbon (08:00 UTC summer / 09:00 UTC winter).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { sendWhatsApp } from "../_shared/twilio.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-const TWILIO_GATEWAY = "https://connector-gateway.lovable.dev/twilio";
 
 function todayLisbon(): string {
   const fmt = new Intl.DateTimeFormat("en-CA", {
@@ -15,29 +14,6 @@ function todayLisbon(): string {
     year: "numeric", month: "2-digit", day: "2-digit",
   });
   return fmt.format(new Date()); // YYYY-MM-DD
-}
-
-async function sendWhatsApp(to: string, from: string, body: string) {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  const TWILIO_API_KEY = Deno.env.get("TWILIO_API_KEY");
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY missing");
-  if (!TWILIO_API_KEY) throw new Error("TWILIO_API_KEY missing");
-
-  const fromW = from.startsWith("whatsapp:") ? from : `whatsapp:${from}`;
-  const toW = to.startsWith("whatsapp:") ? to : `whatsapp:${to}`;
-
-  const res = await fetch(`${TWILIO_GATEWAY}/Messages.json`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "X-Connection-Api-Key": TWILIO_API_KEY,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({ To: toW, From: fromW, Body: body }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(`Twilio ${res.status}: ${JSON.stringify(data)}`);
-  return data.sid;
 }
 
 Deno.serve(async (req) => {
@@ -81,7 +57,7 @@ Deno.serve(async (req) => {
       }
 
       const to = r.whatsapp_recipient || settings?.default_whatsapp_recipient;
-      const from = r.twilio_from || settings?.default_twilio_from || "+14155238886";
+      const fromOverride = r.twilio_from || settings?.default_twilio_from || undefined;
       if (!to) {
         log.push({ key: r.key, skipped: "no_recipient_configured" });
         continue;
@@ -90,7 +66,7 @@ Deno.serve(async (req) => {
       const body = `🔔 *${r.title}*\n\n${r.message}${r.link_url ? `\n\n${r.link_url}` : ""}`;
 
       try {
-        const sid = await sendWhatsApp(to, from, body);
+        const { sid } = await sendWhatsApp(to, body, fromOverride);
         await supabase.from("system_reminders").update({
           last_sent_at: new Date().toISOString(),
           send_count: (r.send_count ?? 0) + 1,
