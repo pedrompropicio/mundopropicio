@@ -43,7 +43,12 @@ export function EventoPhase({ eventId, companyId }: Props) {
     isAdmin || hasPermission("manage_operacao_etapas") || hasPermission("manage_operacao_frentes");
 
   // ---------- Frentes do evento (para mapear chamados) ----------
-  const { data: frentes } = useQuery({
+  const {
+    data: frentes,
+    error: frentesError,
+    dataUpdatedAt: frentesUpdated,
+    refetch: refetchFrentes,
+  } = useQuery({
     queryKey: ["op-evento-frentes", eventId],
     queryFn: async () => {
       const { data } = await supabase
