@@ -1,0 +1,1 @@
+ALTER TABLE public.events ALTER COLUMN operacao_mode DROP NOT NULL;
