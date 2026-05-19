@@ -95,7 +95,7 @@ export function EditFrenteSheet({
       return;
     }
 
-    const { setFrenteLead } = await import("@/lib/operacao-frente-lead");
+    // (helper já importado no topo do ficheiro)
     const { error: leadErr } = await setFrenteLead({
       frenteId: frente.id,
       profileId: leadId || null,
