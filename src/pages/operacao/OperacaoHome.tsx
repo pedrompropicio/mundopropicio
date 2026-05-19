@@ -39,7 +39,7 @@ export default function OperacaoHome() {
 
   const { data: counts } = useQuery({
     queryKey: ["op-home-counts", ids],
-    enabled: ids.length > 0,
+    enabled: ids.length > 0 && !isMobile && canView,
     queryFn: async () => {
       const [{ data: etapas }, { data: regs }] = await Promise.all([
         supabase.from("operacao_etapas").select("frente_id,status").in("frente_id", ids),
