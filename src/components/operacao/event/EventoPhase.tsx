@@ -14,7 +14,7 @@ import { RegistroSheet } from "@/components/operacao/RegistroSheet";
 import { OperacaoStatusBadge } from "@/components/operacao/OperacaoStatusBadge";
 import {
   Bell, Play, CheckCircle2, AlertTriangle, Phone, MessageCircle,
-  BarChart3, ChevronDown, ChevronRight, MoreVertical, Siren,
+  BarChart3, ChevronDown, ChevronRight, MoreVertical, Siren, RefreshCw,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { pt } from "date-fns/locale";
