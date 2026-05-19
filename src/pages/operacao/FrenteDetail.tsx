@@ -16,6 +16,7 @@ import { Plus, ChevronRight, ArrowLeft, Users } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { NewEtapaDialog } from "@/components/operacao/NewEtapaDialog";
+import { RegistroSheet } from "@/components/operacao/RegistroSheet";
 import { useOperacaoMode } from "@/hooks/useOperacaoMode";
 
 export default function FrenteDetail() {
