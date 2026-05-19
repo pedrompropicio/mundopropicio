@@ -96,7 +96,7 @@ export default function FrenteManage() {
   const saveNow = async (patch: Record<string, any>) => {
     if (!id) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    const { error } = await supabase.from("operacao_frentes").update(patch).eq("id", id);
+    const { error } = await supabase.from("operacao_frentes").update(patch as any).eq("id", id);
     if (error) toast({ title: "Erro a guardar", description: error.message, variant: "destructive" });
     else {
       qc.invalidateQueries({ queryKey: ["op-frente-manage", id] });
