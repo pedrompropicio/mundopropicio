@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth, type AppRole, ROLE_LABELS } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,9 +18,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { UserPlus, Users, MoreVertical, Crown, Eye, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-
-const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "producer", "editor", "viewer", "partner"];
-const NEW_PROFILE_SENTINEL = "__new__";
+import { NewProfileInlineDialog, NEW_PROFILE_SENTINEL } from "@/components/operacao/shared/NewProfileInlineDialog";
 
 function initials(n?: string | null) {
   if (!n) return "?";
@@ -73,6 +71,10 @@ export function EventTeamSection({ eventId, companyId }: { eventId: string; comp
           </div>
         )}
       </div>
+
+      <p className="text-[11px] text-muted-foreground italic mb-2">
+        Diretores e Produtores Gerais supervisionam o evento. Produtores de Zona/Serviço são definidos dentro de cada zona/serviço.
+      </p>
 
       <div className="space-y-1.5">
         {(members ?? []).length === 0 && (
@@ -282,6 +284,7 @@ function AddMemberDialog({
         <NewProfileInlineDialog
           companyId={companyId}
           defaultRole={role === "director" ? "viewer" : "producer"}
+          invalidateKeys={[["event-team-profiles", companyId]]}
           onClose={() => setShowNewProfile(false)}
           onCreated={(newProfileId) => {
             setProfileId(newProfileId);
@@ -293,94 +296,6 @@ function AddMemberDialog({
   );
 }
 
-function NewProfileInlineDialog({
-  companyId, defaultRole, onClose, onCreated,
-}: { companyId: string; defaultRole: AppRole; onClose: () => void; onCreated: (id: string) => void }) {
-  const qc = useQueryClient();
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<AppRole>(defaultRole);
-  const [saving, setSaving] = useState(false);
-
-  const submit = async () => {
-    if (!fullName.trim() || !email.trim()) {
-      toast({ title: "Nome e email são obrigatórios", variant: "destructive" });
-      return;
-    }
-    setSaving(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("create-user", {
-        body: { email: email.trim(), full_name: fullName.trim(), role },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      // Resolver o profile id (created ou attached) por email
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("email", email.trim())
-        .maybeSingle();
-      if (!prof?.id) throw new Error("Perfil criado mas não encontrado");
-
-      if (phone.trim()) {
-        await supabase.from("profiles").update({ phone: phone.trim() }).eq("id", prof.id);
-      }
-
-      toast({
-        title: data?.status === "attached" ? "Pessoa adicionada à empresa" : "Pessoa criada",
-        description: data?.status === "created" ? "Email de definição de senha enviado." : undefined,
-      });
-      qc.invalidateQueries({ queryKey: ["event-team-profiles", companyId] });
-      qc.invalidateQueries({ queryKey: ["users-with-roles"] });
-      onCreated(prof.id);
-    } catch (err: any) {
-      toast({ title: "Erro a criar pessoa", description: err?.message ?? "Falha", variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Nova pessoa</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div>
-            <Label>Nome completo *</Label>
-            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="João Silva" />
-          </div>
-          <div>
-            <Label>Email *</Label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@exemplo.com" />
-          </div>
-          <div>
-            <Label>Telefone</Label>
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+351 …" />
-          </div>
-          <div>
-            <Label>Nível de acesso</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as AppRole)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {ASSIGNABLE_ROLES.map((r) => (
-                  <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <Button onClick={submit} disabled={saving} className="w-full">
-            {saving && <Loader2 className="h-3 w-3 mr-2 animate-spin" />}
-            Criar e seleccionar
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function EditMemberSheet({
   eventId, member, onClose, onRemoved,
