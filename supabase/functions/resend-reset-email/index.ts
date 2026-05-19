@@ -215,8 +215,8 @@ Deno.serve(async (req) => {
     const actionLink = linkData.properties?.action_link || "";
     const actionUrl = new URL(actionLink);
     const tokenHash = actionUrl.searchParams.get("token") || "";
-    const linkType = actionUrl.searchParams.get("type") || "recovery";
-    const setupUrl = `${siteUrl}/reset-password?token_hash=${encodeURIComponent(tokenHash)}&type=${linkType}`;
+    const urlType = actionUrl.searchParams.get("type") || linkType;
+    const setupUrl = `${siteUrl}/reset-password?token_hash=${encodeURIComponent(tokenHash)}&type=${urlType}`;
 
     // Render and send branded email
     const siteName = "MP Gestão de Eventos";
