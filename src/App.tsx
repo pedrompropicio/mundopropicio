@@ -99,6 +99,7 @@ import MeusChamados from "./pages/operacao/MeusChamados";
 import ChamadoNovo from "./pages/operacao/ChamadoNovo";
 import ChamadoDetail from "./pages/operacao/ChamadoDetail";
 import Atividade from "./pages/operacao/Atividade";
+import MinhasTarefas from "./pages/operacao/MinhasTarefas";
 
 import TrashPage from "./pages/Trash";
 import NotFound from "./pages/NotFound";
@@ -366,6 +367,7 @@ function ProtectedLayout() {
                 <Route index element={<Navigate to="/operacao/equipa" replace />} />
                 <Route path="equipa" element={<MyFrentes />} />
                 <Route path="atividade" element={<Atividade />} />
+                <Route path="minhas-tarefas" element={<MinhasTarefas />} />
                 <Route path="frente/:id" element={<FrenteDetail />} />
                 <Route path="etapa/:id" element={<EtapaDetail />} />
                 <Route path="chamados" element={<MeusChamados />} />
