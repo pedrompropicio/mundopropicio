@@ -72,6 +72,10 @@ export function EventTeamSection({ eventId, companyId }: { eventId: string; comp
         )}
       </div>
 
+      <p className="text-[11px] text-muted-foreground italic mb-2">
+        Diretores e Produtores Gerais supervisionam o evento. Produtores de Zona/Serviço são definidos dentro de cada zona/serviço.
+      </p>
+
       <div className="space-y-1.5">
         {(members ?? []).length === 0 && (
           <p className="text-xs text-muted-foreground italic">Sem membros atribuídos.</p>
