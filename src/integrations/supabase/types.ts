@@ -8003,6 +8003,10 @@ export type Database = {
         }
         Returns: string
       }
+      create_registro_with_media: {
+        Args: { p_media?: Json; p_registro: Json }
+        Returns: string
+      }
       create_scenario_draft: {
         Args: {
           _description?: string
