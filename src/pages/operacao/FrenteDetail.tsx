@@ -25,6 +25,7 @@ export default function FrenteDetail() {
   const [chamadoStatus, setChamadoStatus] = useState<string>("open");
   const [newEtapaOpen, setNewEtapaOpen] = useState(false);
   const [teamSheetOpen, setTeamSheetOpen] = useState(false);
+  const [newRegistroOpen, setNewRegistroOpen] = useState(false);
 
   const { data: frente } = useQuery({
     queryKey: ["op-frente", id],
