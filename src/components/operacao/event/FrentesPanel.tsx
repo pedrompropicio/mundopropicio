@@ -121,9 +121,25 @@ export function FrentesPanel({
               </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{f.name}</p>
-                <p className="text-[11px] text-muted-foreground truncate">
-                  {f.lead?.full_name ?? "Sem responsável"} · {counts?.[f.id] ?? 0} etapas
-                </p>
+                {f.lead?.full_name ? (
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {f.lead.full_name} · {counts?.[f.id] ?? 0} etapas
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground truncate italic">
+                    Sem produtor responsável
+                    {canManage && (
+                      <button
+                        type="button"
+                        className="ml-2 not-italic text-primary hover:underline"
+                        onClick={(ev) => { ev.stopPropagation(); setEditId(f.id); }}
+                      >
+                        + atribuir
+                      </button>
+                    )}
+                    {" · "}{counts?.[f.id] ?? 0} etapas
+                  </p>
+                )}
               </div>
               {canManage && (
                 <Button
