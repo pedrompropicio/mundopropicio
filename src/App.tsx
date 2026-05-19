@@ -91,6 +91,13 @@ import UserActivityLog from "./pages/UserActivityLog";
 import Camarim from "./pages/Camarim";
 import CamarimSessionDetail from "./pages/CamarimSessionDetail";
 import CamarimEquipa from "./pages/CamarimEquipa";
+import OperacaoLayout from "./pages/operacao/OperacaoLayout";
+import MyFrentes from "./pages/operacao/MyFrentes";
+import FrenteDetail from "./pages/operacao/FrenteDetail";
+import EtapaDetail from "./pages/operacao/EtapaDetail";
+import MeusChamados from "./pages/operacao/MeusChamados";
+import ChamadoNovo from "./pages/operacao/ChamadoNovo";
+import ChamadoDetail from "./pages/operacao/ChamadoDetail";
 
 import TrashPage from "./pages/Trash";
 import NotFound from "./pages/NotFound";
