@@ -83,7 +83,7 @@ export default function FrenteManage() {
     if (!id) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
-      const { error } = await supabase.from("operacao_frentes").update(patch).eq("id", id);
+      const { error } = await supabase.from("operacao_frentes").update(patch as any).eq("id", id);
       if (error) {
         toast({ title: "Erro a guardar", description: error.message, variant: "destructive" });
       } else {
