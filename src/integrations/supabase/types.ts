@@ -4663,6 +4663,58 @@ export type Database = {
           },
         ]
       }
+      operacao_etapa_assignees: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by_profile_id: string | null
+          etapa_id: string
+          id: string
+          profile_id: string
+          role: string
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          created_by_profile_id?: string | null
+          etapa_id: string
+          id?: string
+          profile_id: string
+          role?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by_profile_id?: string | null
+          etapa_id?: string
+          id?: string
+          profile_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operacao_etapa_assignees_created_by_profile_id_fkey"
+            columns: ["created_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacao_etapa_assignees_etapa_id_fkey"
+            columns: ["etapa_id"]
+            isOneToOne: false
+            referencedRelation: "operacao_etapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacao_etapa_assignees_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operacao_etapas: {
         Row: {
           actual_end: string | null
