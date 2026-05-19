@@ -16,6 +16,7 @@ import { MediaCapture, type CapturedMedia } from "@/components/operacao/MediaCap
 import { AudioRecorder } from "@/components/operacao/AudioRecorder";
 import { EtapaAssigneeAvatars } from "@/components/operacao/EtapaAssigneeAvatars";
 import { EtapaAssigneeSheet } from "@/components/operacao/EtapaAssigneeSheet";
+import { EtapaSuppliersPanel } from "@/components/operacao/suppliers/EtapaSuppliersPanel";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Camera, Play, Ban, CheckCircle2, ArrowLeft, Eye } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
@@ -152,6 +153,8 @@ export default function EtapaDetail() {
           canEdit={canEditAssignees}
         />
       )}
+
+      <EtapaSuppliersPanel etapaId={id!} canEdit={canEditAssignees} />
 
       {(canChangeStatus || isDirectorOnly) && (
         <TooltipProvider>
