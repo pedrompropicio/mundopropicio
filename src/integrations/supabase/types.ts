@@ -5126,6 +5126,63 @@ export type Database = {
           },
         ]
       }
+      operacao_staff_invites: {
+        Row: {
+          accepted_at: string | null
+          company_id: string
+          created_at: string
+          created_by_profile_id: string | null
+          expires_at: string
+          id: string
+          profile_id: string
+          send_count: number
+          sent_at: string | null
+          status: string
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          company_id?: string
+          created_at?: string
+          created_by_profile_id?: string | null
+          expires_at?: string
+          id?: string
+          profile_id: string
+          send_count?: number
+          sent_at?: string | null
+          status?: string
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          company_id?: string
+          created_at?: string
+          created_by_profile_id?: string | null
+          expires_at?: string
+          id?: string
+          profile_id?: string
+          send_count?: number
+          sent_at?: string | null
+          status?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operacao_staff_invites_created_by_profile_id_fkey"
+            columns: ["created_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operacao_staff_invites_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_advance_expenses: {
         Row: {
           company_id: string
@@ -5403,32 +5460,38 @@ export type Database = {
       profiles: {
         Row: {
           active_company_id: string | null
+          archived_at: string | null
           company_id: string | null
           created_at: string
           email: string | null
           full_name: string
           id: string
           phone: string | null
+          profile_type: string
           updated_at: string
         }
         Insert: {
           active_company_id?: string | null
+          archived_at?: string | null
           company_id?: string | null
           created_at?: string
           email?: string | null
           full_name?: string
           id: string
           phone?: string | null
+          profile_type?: string
           updated_at?: string
         }
         Update: {
           active_company_id?: string | null
+          archived_at?: string | null
           company_id?: string | null
           created_at?: string
           email?: string | null
           full_name?: string
           id?: string
           phone?: string | null
+          profile_type?: string
           updated_at?: string
         }
         Relationships: [
