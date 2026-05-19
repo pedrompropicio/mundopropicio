@@ -68,7 +68,7 @@ export function FrenteCard({ frente, counts, lastActivity, isLead }: Props) {
               <FrenteTypeBadge type={frente.type} />
               {isLead && (
                 <Badge variant="default" className="gap-1 h-5 text-[10px]">
-                  <Crown className="h-3 w-3" /> LEAD
+                  <Crown className="h-3 w-3" /> PRODUTOR
                 </Badge>
               )}
             </div>
