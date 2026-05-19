@@ -170,14 +170,21 @@ function AddMemberDialog({
         <div className="space-y-3">
           <div>
             <Label>Pessoa</Label>
-            <Select value={profileId} onValueChange={setProfileId}>
-              <SelectTrigger><SelectValue placeholder="Escolhe…" /></SelectTrigger>
+            <Select value={profileId} onValueChange={setProfileId} disabled={candidates.length === 0}>
+              <SelectTrigger>
+                <SelectValue placeholder={candidates.length === 0 ? `Todas as pessoas já são ${roleLabel}` : "Escolhe…"} />
+              </SelectTrigger>
               <SelectContent>
-                {(profiles ?? []).map((p: any) => (
+                {candidates.map((p: any) => (
                   <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {candidates.length === 0 && (
+              <p className="text-[11px] text-muted-foreground italic mt-1">
+                Todas as pessoas já estão atribuídas como {roleLabel}.
+              </p>
+            )}
           </div>
           {role === "general_producer" && (
             <>
