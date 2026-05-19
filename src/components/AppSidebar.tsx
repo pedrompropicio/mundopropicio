@@ -49,9 +49,8 @@ export function AppSidebar() {
 
   const operacaoItems = [
     { to: "/operacao", icon: Radar, label: "Operação", show: hasPermission("view_operacao") || isAdmin },
-    { to: "/operacao/dashboard", icon: BarChart3, label: "↳ Dashboard", show: hasPermission("view_operacao") || isAdmin },
-    { to: "/operacao/staff", icon: Users, label: "↳ Staff", show: hasPermission("manage_operacao_staff") || isAdmin },
   ];
+
 
   const fullNavItems = [
     { to: "/erp", icon: LayoutDashboard, label: "Dashboard", show: true },
@@ -68,8 +67,6 @@ export function AppSidebar() {
     { to: "/reembolsos", icon: ReceiptText, label: "Reembolsos", show: hasPermission("manage_transactions") || isAdmin },
     { to: "/camarim", icon: ShoppingBag, label: "Camarim", show: hasPermission("manage_transactions") || hasPermission("camarim_team") || isAdmin },
     { to: "/operacao", icon: Radar, label: "Operação", show: hasPermission("view_operacao") || isAdmin },
-    { to: "/operacao/dashboard", icon: BarChart3, label: "↳ Dashboard", show: hasPermission("view_operacao") || isAdmin },
-    { to: "/operacao/staff", icon: Radar, label: "↳ Staff", show: hasPermission("manage_operacao_staff") || isAdmin },
     { to: "/relatorios", icon: BarChart3, label: "Relatórios", show: hasPermission("view_reports") || isAdmin },
     { to: "/admin/auditoria-contas", icon: ClipboardCheck, label: "Auditoria Contas", show: !isAdmin && isManager },
     { to: "/admin/sync-health", icon: Activity, label: "Sync Health", show: isAdmin && hasHealth },

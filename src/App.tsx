@@ -105,6 +105,8 @@ import AcceptInvite from "./pages/operacao/AcceptInvite";
 import OperacaoHome from "./pages/operacao/OperacaoHome";
 import OperacaoDashboard from "./pages/operacao/Dashboard";
 import FrenteManage from "./pages/operacao/FrenteManage";
+import EventHub from "./pages/operacao/EventHub";
+
 
 import TrashPage from "./pages/Trash";
 import NotFound from "./pages/NotFound";
@@ -370,7 +372,9 @@ function ProtectedLayout() {
               <Route path="/camarim/:id" element={<CamarimSessionDetail />} />
               <Route path="/operacao" element={<OperacaoLayout />}>
                 <Route index element={<OperacaoHome />} />
+                <Route path=":eventId" element={<EventHub />} />
                 <Route path="dashboard" element={<OperacaoDashboard />} />
+
                 <Route path="equipa" element={<MyFrentes />} />
                 <Route path="atividade" element={<Atividade />} />
                 <Route path="minhas-tarefas" element={<MinhasTarefas />} />
