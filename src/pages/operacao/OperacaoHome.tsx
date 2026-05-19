@@ -103,6 +103,9 @@ export default function OperacaoHome() {
     },
   });
 
+  if (isMobile) return <Navigate to="/operacao/equipa" replace />;
+  if (!canView) return <div className="p-6">Sem permissão.</div>;
+
   return (
     <div>
       <OperacaoFiltersBar />
