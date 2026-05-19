@@ -130,6 +130,12 @@ export default function Dashboard() {
 
   return (
     <div>
+      <button
+        onClick={() => navigate(-1)}
+        className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-3"
+      >
+        <ArrowLeft className="h-3 w-3" /> Voltar
+      </button>
       <OperacaoFiltersBar />
       <div className="flex items-center justify-between mb-4">
         <div className="flex gap-1">
