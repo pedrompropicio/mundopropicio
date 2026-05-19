@@ -65,6 +65,41 @@ export default function FrenteDetail() {
     },
   });
 
+  const etapaIds = (etapas ?? []).map((e: any) => e.id);
+  const { data: assigneesByEtapa } = useQuery({
+    queryKey: ["op-etapa-assignees-list", id, etapaIds.join(",")],
+    enabled: etapaIds.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_etapa_assignees")
+        .select("etapa_id, profile_id, role, profiles:profile_id(full_name)")
+        .in("etapa_id", etapaIds);
+      const map: Record<string, { profile_id: string; full_name: string | null; role: "owner" | "helper" }[]> = {};
+      (data ?? []).forEach((a: any) => {
+        if (!map[a.etapa_id]) map[a.etapa_id] = [];
+        map[a.etapa_id].push({
+          profile_id: a.profile_id,
+          full_name: a.profiles?.full_name ?? null,
+          role: a.role,
+        });
+      });
+      return map;
+    },
+  });
+
+  const { data: teamSummary } = useQuery({
+    queryKey: ["op-frente-team-summary", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_frente_team")
+        .select("profile_id, role_in_frente, profiles:profile_id(full_name)")
+        .eq("frente_id", id!)
+        .eq("active", true);
+      return data ?? [];
+    },
+  });
+
   const isLead = frente?.current_lead_id === user?.id;
   const canManageEtapas = isAdmin || hasPermission("manage_operacao_etapas") || isLead;
   const mode = useOperacaoMode(frente?.event_id);
