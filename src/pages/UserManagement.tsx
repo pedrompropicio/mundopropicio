@@ -178,7 +178,10 @@ export default function UserManagement() {
 
   const resendResetMutation = useMutation({
     mutationFn: async ({ email }: { email: string }) => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) {
+        throw new Error("Sessão expirada. Faça login novamente antes de reenviar o email.");
+      }
       if (!session?.access_token) {
         throw new Error("Sessão expirada. Faça login novamente antes de reenviar o email.");
       }
@@ -189,7 +192,14 @@ export default function UserManagement() {
           Authorization: `Bearer ${session.access_token}`,
         },
       });
-      if (error) throw error;
+      if (error) {
+        const context = (error as any).context;
+        if (context?.json) {
+          const payload = await context.json().catch(() => null);
+          if (payload?.error) throw new Error(payload.error);
+        }
+        throw error;
+      }
       if (data?.error) throw new Error(data.error);
       return data;
     },

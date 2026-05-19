@@ -5,7 +5,7 @@ import { renderAsync } from "npm:@react-email/components@0.0.22";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const ResetEmail = ({
@@ -187,15 +187,9 @@ Deno.serve(async (req) => {
 
     const fullName = profile?.full_name || "Utilizador";
 
-    // Generate direct link — usa "invite" (TTL 24h) se ainda não definiu senha,
-    // senão "recovery" (TTL 1h, comportamento normal de reset).
-    const { data: authUser } = await adminClient.auth.admin.getUserById(
-      // resolvemos pelo email — getUserByEmail não existe; fazemos via listUsers
-      // mas para evitar custo, usamos o id que conseguimos por profile lookup separado
-      // Fallback: se não conseguir, assume invite (mais permissivo no 1º acesso).
-      (await adminClient.from("profiles").select("id").eq("email", email).maybeSingle()).data?.id ?? "00000000-0000-0000-0000-000000000000",
-    );
-    const linkType: "invite" | "recovery" = authUser?.user?.last_sign_in_at ? "recovery" : "invite";
+    // For existing accounts, always use recovery. Re-sending an invite to an
+    // already-created auth user fails with "user already registered".
+    const linkType = "recovery";
 
     const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
       type: linkType,
@@ -214,7 +208,12 @@ Deno.serve(async (req) => {
 
     const actionLink = linkData.properties?.action_link || "";
     const actionUrl = new URL(actionLink);
-    const tokenHash = actionUrl.searchParams.get("token_hash") || actionUrl.searchParams.get("token") || "";
+    const tokenHash =
+      actionUrl.searchParams.get("token_hash") ||
+      actionUrl.searchParams.get("token") ||
+      (linkData.properties as any)?.hashed_token ||
+      (linkData.properties as any)?.token_hash ||
+      "";
     const urlType = actionUrl.searchParams.get("type") || linkType;
 
     if (!tokenHash) {
