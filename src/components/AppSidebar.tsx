@@ -25,6 +25,9 @@ import {
   Cloud,
   Activity,
   Radar,
+  ListChecks,
+  Bell,
+  Phone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -47,8 +50,29 @@ export function AppSidebar() {
   const fieldStaffOnly = useIsFieldStaffOnly();
   const inOperacao = location.pathname.startsWith("/operacao");
 
-  const operacaoItems = [
-    { to: "/operacao", icon: Radar, label: "Operação", show: hasPermission("view_operacao") || isAdmin },
+  const operacaoItems: Array<
+    { to: string; icon: any; label: string; show: boolean } | { divider: true; key: string }
+  > = [
+    { to: "/operacao/dashboard",      icon: LayoutDashboard, label: "Dashboard",
+      show: hasPermission("view_operacao") || isAdmin },
+    { to: "/operacao/etapas",         icon: ListChecks,      label: "Etapas",
+      show: hasPermission("view_operacao") || isAdmin },
+    { to: "/operacao/zonas",          icon: Grid3x3,         label: "Zonas / Serviços",
+      show: hasPermission("view_operacao") || isAdmin },
+    { to: "/operacao/chamados",       icon: Bell,            label: "Chamados",
+      show: hasPermission("view_operacao") || isAdmin },
+    { divider: true, key: "personal" },
+    { to: "/operacao",                icon: Calendar,        label: "Eventos",
+      show: hasPermission("view_operacao") || isAdmin },
+    { to: "/operacao/minhas-tarefas", icon: ClipboardCheck,  label: "Minhas Tarefas",
+      show: hasPermission("view_operacao") || isAdmin },
+    { to: "/operacao/meus-chamados",  icon: Phone,           label: "Meus Chamados",
+      show: hasPermission("view_operacao") || isAdmin },
+    { to: "/operacao/atividade",      icon: Activity,        label: "Atividade",
+      show: hasPermission("view_operacao") || isAdmin },
+    { divider: true, key: "admin" },
+    { to: "/operacao/staff",          icon: Users,           label: "Staff",
+      show: hasPermission("manage_operacao_staff") || isAdmin },
   ];
 
 
@@ -81,13 +105,17 @@ export function AppSidebar() {
 
       <nav className="flex flex-1 flex-col gap-1 px-2 lg:px-3 w-full overflow-y-auto">
         {(inOperacao ? operacaoItems : fullNavItems)
-          .filter((i: any) => i.show && (!fieldStaffOnly || i.to.startsWith("/operacao")))
-          .map((item: any, idx) => {
-          // sections removed — flat list
+          .filter((i: any) => i.divider || (i.show && (!fieldStaffOnly || i.to.startsWith("/operacao"))))
+          .map((item: any) => {
+          if (item.divider) {
+            return <hr key={item.key} className="my-2 border-border opacity-60" />;
+          }
           const isActive =
             item.to === "/erp"
               ? location.pathname === "/erp" || location.pathname === "/"
-              : location.pathname.startsWith(item.to);
+              : item.to === "/operacao"
+                ? location.pathname === "/operacao"
+                : location.pathname.startsWith(item.to);
           return (
             <RouterNavLink
               key={item.to}

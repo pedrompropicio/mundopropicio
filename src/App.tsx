@@ -96,6 +96,9 @@ import MyFrentes from "./pages/operacao/MyFrentes";
 import FrenteDetail from "./pages/operacao/FrenteDetail";
 import EtapaDetail from "./pages/operacao/EtapaDetail";
 import MeusChamados from "./pages/operacao/MeusChamados";
+import EtapasList from "./pages/operacao/EtapasList";
+import ZonasList from "./pages/operacao/ZonasList";
+import ChamadosList from "./pages/operacao/ChamadosList";
 import ChamadoNovo from "./pages/operacao/ChamadoNovo";
 import ChamadoDetail from "./pages/operacao/ChamadoDetail";
 import Atividade from "./pages/operacao/Atividade";
@@ -382,7 +385,10 @@ function ProtectedLayout() {
                 <Route path="frente/:id" element={<FrenteDetail />} />
                 <Route path="frente/:id/manage" element={<FrenteManage />} />
                 <Route path="etapa/:id" element={<EtapaDetail />} />
-                <Route path="chamados" element={<MeusChamados />} />
+                <Route path="etapas" element={<EtapasList />} />
+                <Route path="zonas" element={<ZonasList />} />
+                <Route path="chamados" element={<ChamadosList />} />
+                <Route path="meus-chamados" element={<MeusChamados />} />
                 <Route path="chamado/novo" element={<ChamadoNovo />} />
                 <Route path="chamado/:id" element={<ChamadoDetail />} />
               </Route>
