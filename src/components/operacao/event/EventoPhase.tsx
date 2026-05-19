@@ -172,7 +172,7 @@ export function EventoPhase({ eventId, companyId }: Props) {
 
   // ---------- Freshness banner state ----------
   const [now, setNow] = useState(Date.now());
-  useMemo(() => {
+  useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 5000);
     return () => clearInterval(t);
   }, []);
