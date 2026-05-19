@@ -352,7 +352,7 @@ export function EventoPhase({ eventId, companyId }: Props) {
                             <AvatarFallback className="text-[10px]">{initials(lead?.full_name)}</AvatarFallback>
                           </Avatar>
                           <span className="text-muted-foreground">
-                            Lead: <span className="text-foreground">{lead?.full_name ?? "Sem lead"}</span>
+                            Produtor: <span className="text-foreground">{lead?.full_name ?? "Sem produtor"}</span>
                           </span>
                           {leadPhone ? (
                             <div className="flex gap-1 ml-auto">
