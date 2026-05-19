@@ -147,7 +147,7 @@ export default function ModuleSelector() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6 mt-12">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
             {cards.map((card) => {
               const Icon = card.icon;
               const clickable = card.enabled;
