@@ -18,9 +18,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { UserPlus, Users, MoreVertical, Crown, Eye, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-
-const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "producer", "editor", "viewer", "partner"];
-const NEW_PROFILE_SENTINEL = "__new__";
+import { NewProfileInlineDialog, NEW_PROFILE_SENTINEL } from "@/components/operacao/shared/NewProfileInlineDialog";
 
 function initials(n?: string | null) {
   if (!n) return "?";
