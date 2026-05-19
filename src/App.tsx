@@ -370,6 +370,7 @@ function ProtectedLayout() {
                 <Route path="equipa" element={<MyFrentes />} />
                 <Route path="atividade" element={<Atividade />} />
                 <Route path="minhas-tarefas" element={<MinhasTarefas />} />
+                <Route path="staff" element={<StaffList />} />
                 <Route path="frente/:id" element={<FrenteDetail />} />
                 <Route path="etapa/:id" element={<EtapaDetail />} />
                 <Route path="chamados" element={<MeusChamados />} />
