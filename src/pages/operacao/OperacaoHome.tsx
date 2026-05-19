@@ -84,7 +84,7 @@ export default function OperacaoHome() {
 
   const { data: lastActMap } = useQuery({
     queryKey: ["op-home-lastact", ids],
-    enabled: ids.length > 0,
+    enabled: ids.length > 0 && !isMobile && canView,
     queryFn: async () => {
       const { data } = await supabase
         .from("operacao_registros")
