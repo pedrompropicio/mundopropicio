@@ -1,0 +1,154 @@
+import { useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { OperacaoStatusBadge } from "@/components/operacao/OperacaoStatusBadge";
+import { PriorityBadge } from "@/components/operacao/PriorityBadge";
+import { RegistroFeed } from "@/components/operacao/RegistroFeed";
+import { Plus, ChevronRight, ArrowLeft } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { NewEtapaDialog } from "@/components/operacao/NewEtapaDialog";
+
+export default function FrenteDetail() {
+  const { id } = useParams<{ id: string }>();
+  const { user, hasPermission, isAdmin } = useAuth();
+  const [chamadoStatus, setChamadoStatus] = useState<string>("open");
+  const [newEtapaOpen, setNewEtapaOpen] = useState(false);
+
+  const { data: frente } = useQuery({
+    queryKey: ["op-frente", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_frentes")
+        .select("*, lead:profiles!operacao_frentes_current_lead_id_fkey(id,full_name), events(name)")
+        .eq("id", id!).maybeSingle();
+      return data;
+    },
+  });
+
+  const { data: etapas } = useQuery({
+    queryKey: ["op-etapas", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_etapas")
+        .select("*, supplier:suppliers(name)")
+        .eq("frente_id", id!)
+        .order("display_order");
+      return data ?? [];
+    },
+  });
+
+  const { data: chamados } = useQuery({
+    queryKey: ["op-chamados", id, chamadoStatus],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_registros")
+        .select("*, author:profiles!operacao_registros_author_profile_id_fkey(full_name)")
+        .eq("frente_id", id!)
+        .eq("kind", "chamado")
+        .eq("status", chamadoStatus)
+        .order("created_at", { ascending: false });
+      return data ?? [];
+    },
+  });
+
+  const isLead = frente?.current_lead_id === user?.id;
+  const canManageEtapas = isAdmin || hasPermission("manage_operacao_etapas") || isLead;
+
+  if (!frente) return <div className="p-6">A carregar...</div>;
+
+  return (
+    <div className="p-4 max-w-2xl mx-auto space-y-4">
+      <Link to="/operacao/equipa" className="inline-flex items-center text-sm text-muted-foreground">
+        <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
+      </Link>
+      <header className="flex items-center gap-3">
+        <div className="h-14 w-2 rounded-full" style={{ backgroundColor: frente.color ?? "#6b7280" }} />
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl font-bold truncate">{frente.name}</h1>
+          <p className="text-xs text-muted-foreground">
+            {(frente as any).events?.name} · Lead: {(frente as any).lead?.full_name ?? "—"}
+          </p>
+        </div>
+        <OperacaoStatusBadge status={frente.status} kind="etapa" />
+      </header>
+
+      <Tabs defaultValue="etapas">
+        <TabsList className="grid grid-cols-3 w-full">
+          <TabsTrigger value="etapas">Etapas</TabsTrigger>
+          <TabsTrigger value="registros">Registos</TabsTrigger>
+          <TabsTrigger value="chamados">Chamados</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="etapas" className="space-y-2 mt-3">
+          {canManageEtapas && (
+            <Button onClick={() => setNewEtapaOpen(true)} className="w-full" size="sm">
+              <Plus className="h-4 w-4 mr-2" /> Nova etapa
+            </Button>
+          )}
+          {(etapas ?? []).length === 0 && <p className="text-sm text-muted-foreground p-4 text-center">Sem etapas.</p>}
+          {(etapas ?? []).map((e: any) => (
+            <Link key={e.id} to={`/operacao/etapa/${e.id}`}>
+              <Card className="p-3 flex items-center gap-3 active:scale-[0.99]">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{e.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {e.supplier?.name ?? "—"} {e.escopo ? `· ${e.escopo}` : ""}
+                  </p>
+                </div>
+                <OperacaoStatusBadge status={e.status} />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </Card>
+            </Link>
+          ))}
+        </TabsContent>
+
+        <TabsContent value="registros" className="mt-3">
+          <RegistroFeed filter={{ frente_id: id!, kindNot: "chamado" }} />
+        </TabsContent>
+
+        <TabsContent value="chamados" className="space-y-2 mt-3">
+          <Tabs value={chamadoStatus} onValueChange={setChamadoStatus}>
+            <TabsList className="grid grid-cols-4 w-full text-xs">
+              <TabsTrigger value="open">Abertos</TabsTrigger>
+              <TabsTrigger value="in_progress">Em curso</TabsTrigger>
+              <TabsTrigger value="resolved">Resolvidos</TabsTrigger>
+              <TabsTrigger value="closed">Fechados</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          {(chamados ?? []).length === 0 && <p className="text-sm text-muted-foreground p-4 text-center">Sem chamados.</p>}
+          {(chamados ?? []).map((c: any) => (
+            <Link key={c.id} to={`/operacao/chamado/${c.id}`}>
+              <Card className="p-3 space-y-1">
+                <div className="flex items-center gap-2">
+                  <PriorityBadge priority={c.priority} />
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: ptBR })}
+                  </span>
+                </div>
+                <p className="text-sm">{c.text}</p>
+                <p className="text-xs text-muted-foreground">por {c.author?.full_name}</p>
+              </Card>
+            </Link>
+          ))}
+        </TabsContent>
+      </Tabs>
+
+      {newEtapaOpen && (
+        <NewEtapaDialog
+          frenteId={id!}
+          companyId={frente.company_id}
+          onClose={() => setNewEtapaOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
