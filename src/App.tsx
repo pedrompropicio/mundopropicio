@@ -98,6 +98,7 @@ import EtapaDetail from "./pages/operacao/EtapaDetail";
 import MeusChamados from "./pages/operacao/MeusChamados";
 import ChamadoNovo from "./pages/operacao/ChamadoNovo";
 import ChamadoDetail from "./pages/operacao/ChamadoDetail";
+import Atividade from "./pages/operacao/Atividade";
 
 import TrashPage from "./pages/Trash";
 import NotFound from "./pages/NotFound";
@@ -364,6 +365,7 @@ function ProtectedLayout() {
               <Route path="/operacao" element={<OperacaoLayout />}>
                 <Route index element={<Navigate to="/operacao/equipa" replace />} />
                 <Route path="equipa" element={<MyFrentes />} />
+                <Route path="atividade" element={<Atividade />} />
                 <Route path="frente/:id" element={<FrenteDetail />} />
                 <Route path="etapa/:id" element={<EtapaDetail />} />
                 <Route path="chamados" element={<MeusChamados />} />
