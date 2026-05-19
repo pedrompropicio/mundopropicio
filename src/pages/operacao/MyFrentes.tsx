@@ -108,9 +108,11 @@ export default function MyFrentes() {
     <div className="p-4 space-y-4 max-w-2xl mx-auto pb-24">
       <header className="flex items-end justify-between">
         <h1 className="text-2xl font-bold">Minhas Frentes</h1>
-        <Link to="/operacao/atividade" className="text-xs text-muted-foreground hover:text-foreground underline">
-          Atividade
-        </Link>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Link to="/operacao/atividade" className="hover:text-foreground underline">Atividade</Link>
+          <span>·</span>
+          <Link to="/operacao/minhas-tarefas" className="hover:text-foreground underline">Minhas tarefas</Link>
+        </div>
       </header>
 
       {showPushPrompt && (

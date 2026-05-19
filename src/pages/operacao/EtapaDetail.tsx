@@ -13,6 +13,8 @@ import { OperacaoStatusBadge } from "@/components/operacao/OperacaoStatusBadge";
 import { RegistroFeed } from "@/components/operacao/RegistroFeed";
 import { MediaCapture, type CapturedMedia } from "@/components/operacao/MediaCapture";
 import { AudioRecorder } from "@/components/operacao/AudioRecorder";
+import { EtapaAssigneeAvatars } from "@/components/operacao/EtapaAssigneeAvatars";
+import { EtapaAssigneeSheet } from "@/components/operacao/EtapaAssigneeSheet";
 import { Camera, Play, Ban, CheckCircle2, ArrowLeft } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
@@ -21,6 +23,7 @@ export default function EtapaDetail() {
   const { user, hasPermission, isAdmin } = useAuth();
   const qc = useQueryClient();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [assigneeSheetOpen, setAssigneeSheetOpen] = useState(false);
 
   const { data: etapa } = useQuery({
     queryKey: ["op-etapa", id],
@@ -28,8 +31,38 @@ export default function EtapaDetail() {
     queryFn: async () => {
       const { data } = await supabase
         .from("operacao_etapas")
-        .select("*, frente:operacao_frentes(id,name,color,current_lead_id,event_id,company_id), supplier:suppliers(name), responsible:profiles!operacao_etapas_responsible_profile_id_fkey(full_name)")
+        .select("*, frente:operacao_frentes(id,name,color,current_lead_id,event_id,company_id), supplier:suppliers(name), responsible:profiles!operacao_etapas_responsible_profile_id_fkey(id, full_name)")
         .eq("id", id!).maybeSingle();
+      return data;
+    },
+  });
+
+  const { data: assignees } = useQuery({
+    queryKey: ["op-etapa-assignees", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_etapa_assignees")
+        .select("profile_id, role, profiles:profile_id(id, full_name)")
+        .eq("etapa_id", id!);
+      return (data ?? []).map((a: any) => ({
+        profile_id: a.profile_id,
+        full_name: a.profiles?.full_name ?? null,
+        role: a.role as "owner" | "helper",
+      }));
+    },
+  });
+
+  const { data: frenteLead } = useQuery({
+    queryKey: ["op-frente-lead-profile", (etapa as any)?.frente?.current_lead_id],
+    enabled: !!(etapa as any)?.frente?.current_lead_id,
+    queryFn: async () => {
+      const leadId = (etapa as any).frente.current_lead_id;
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("id", leadId)
+        .maybeSingle();
       return data;
     },
   });
@@ -40,6 +73,22 @@ export default function EtapaDetail() {
   const isLead = frente?.current_lead_id === user?.id;
   const isResponsible = etapa.responsible_profile_id === user?.id;
   const canChangeStatus = isAdmin || hasPermission("manage_operacao_etapas") || isLead || isResponsible;
+  const canEditAssignees = isAdmin || hasPermission("manage_operacao_etapas") || isLead;
+
+  const inheritedProfile = (assignees ?? []).length > 0
+    ? null
+    : (etapa as any).responsible
+      ? { id: (etapa as any).responsible.id, full_name: (etapa as any).responsible.full_name }
+      : frenteLead
+        ? { id: frenteLead.id, full_name: frenteLead.full_name }
+        : null;
+  const inheritedFrom: "responsible" | "frente_lead" | null = (assignees ?? []).length > 0
+    ? null
+    : (etapa as any).responsible
+      ? "responsible"
+      : frenteLead
+        ? "frente_lead"
+        : null;
 
   const setStatus = async (newStatus: string, extra: Record<string, any> = {}) => {
     const { error } = await supabase
@@ -64,14 +113,34 @@ export default function EtapaDetail() {
           </div>
           <OperacaoStatusBadge status={etapa.status} />
         </div>
+        <div className="pt-2 border-t flex items-center justify-between gap-2">
+          <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Responsáveis</span>
+          <EtapaAssigneeAvatars
+            assignees={assignees ?? []}
+            inheritedFrom={inheritedFrom}
+            inheritedProfile={inheritedProfile}
+            onClick={() => setAssigneeSheetOpen(true)}
+          />
+        </div>
         <dl className="text-xs grid grid-cols-2 gap-1 pt-2">
           {etapa.escopo && <><dt className="text-muted-foreground">Escopo</dt><dd>{etapa.escopo}</dd></>}
           {etapa.supplier?.name && <><dt className="text-muted-foreground">Fornecedor</dt><dd>{etapa.supplier.name}</dd></>}
-          {etapa.responsible?.full_name && <><dt className="text-muted-foreground">Responsável</dt><dd>{etapa.responsible.full_name}</dd></>}
           {etapa.planned_start && <><dt className="text-muted-foreground">Início prev.</dt><dd>{new Date(etapa.planned_start).toLocaleString("pt-PT")}</dd></>}
           {etapa.planned_end && <><dt className="text-muted-foreground">Fim prev.</dt><dd>{new Date(etapa.planned_end).toLocaleString("pt-PT")}</dd></>}
         </dl>
       </Card>
+
+      {assigneeSheetOpen && (
+        <EtapaAssigneeSheet
+          open={assigneeSheetOpen}
+          onClose={() => setAssigneeSheetOpen(false)}
+          etapaId={id!}
+          frenteId={frente.id}
+          companyId={frente.company_id}
+          frenteLeadId={frente.current_lead_id}
+          canEdit={canEditAssignees}
+        />
+      )}
 
       {canChangeStatus && (
         <div className="grid grid-cols-3 gap-2">

@@ -10,7 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { OperacaoStatusBadge } from "@/components/operacao/OperacaoStatusBadge";
 import { PriorityBadge } from "@/components/operacao/PriorityBadge";
 import { RegistroFeed } from "@/components/operacao/RegistroFeed";
-import { Plus, ChevronRight, ArrowLeft } from "lucide-react";
+import { EtapaAssigneeAvatars } from "@/components/operacao/EtapaAssigneeAvatars";
+import { FrenteTeamSheet } from "@/components/operacao/FrenteTeamSheet";
+import { Plus, ChevronRight, ArrowLeft, Users } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { NewEtapaDialog } from "@/components/operacao/NewEtapaDialog";
@@ -21,6 +23,7 @@ export default function FrenteDetail() {
   const { user, hasPermission, isAdmin } = useAuth();
   const [chamadoStatus, setChamadoStatus] = useState<string>("open");
   const [newEtapaOpen, setNewEtapaOpen] = useState(false);
+  const [teamSheetOpen, setTeamSheetOpen] = useState(false);
 
   const { data: frente } = useQuery({
     queryKey: ["op-frente", id],
@@ -62,6 +65,41 @@ export default function FrenteDetail() {
     },
   });
 
+  const etapaIds = (etapas ?? []).map((e: any) => e.id);
+  const { data: assigneesByEtapa } = useQuery({
+    queryKey: ["op-etapa-assignees-list", id, etapaIds.join(",")],
+    enabled: etapaIds.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_etapa_assignees")
+        .select("etapa_id, profile_id, role, profiles:profile_id(full_name)")
+        .in("etapa_id", etapaIds);
+      const map: Record<string, { profile_id: string; full_name: string | null; role: "owner" | "helper" }[]> = {};
+      (data ?? []).forEach((a: any) => {
+        if (!map[a.etapa_id]) map[a.etapa_id] = [];
+        map[a.etapa_id].push({
+          profile_id: a.profile_id,
+          full_name: a.profiles?.full_name ?? null,
+          role: a.role,
+        });
+      });
+      return map;
+    },
+  });
+
+  const { data: teamSummary } = useQuery({
+    queryKey: ["op-frente-team-summary", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_frente_team")
+        .select("profile_id, role_in_frente, profiles:profile_id(full_name)")
+        .eq("frente_id", id!)
+        .eq("active", true);
+      return data ?? [];
+    },
+  });
+
   const isLead = frente?.current_lead_id === user?.id;
   const canManageEtapas = isAdmin || hasPermission("manage_operacao_etapas") || isLead;
   const mode = useOperacaoMode(frente?.event_id);
@@ -76,15 +114,31 @@ export default function FrenteDetail() {
       <Link to="/operacao/equipa" className="inline-flex items-center text-sm text-muted-foreground">
         <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
       </Link>
-      <header className="flex items-center gap-3">
-        <div className="h-14 w-2 rounded-full" style={{ backgroundColor: frente.color ?? "#6b7280" }} />
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold truncate">{frente.name}</h1>
-          <p className="text-xs text-muted-foreground">
-            {(frente as any).events?.name} · Lead: {(frente as any).lead?.full_name ?? "—"}
-          </p>
+      <header className="space-y-2">
+        <div className="flex items-center gap-3">
+          <div className="h-14 w-2 rounded-full" style={{ backgroundColor: frente.color ?? "#6b7280" }} />
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-bold truncate">{frente.name}</h1>
+            <p className="text-xs text-muted-foreground">
+              {(frente as any).events?.name} · Lead: {(frente as any).lead?.full_name ?? "—"}
+            </p>
+          </div>
+          <OperacaoStatusBadge status={frente.status} kind="etapa" />
         </div>
-        <OperacaoStatusBadge status={frente.status} kind="etapa" />
+        {teamSummary && teamSummary.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setTeamSheetOpen(true)}
+            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <Users className="h-3.5 w-3.5" />
+            <span>
+              {teamSummary.filter((t: any) => t.role_in_frente === "lead" || t.role_in_frente === "auxiliary").length} na equipa
+              {teamSummary.filter((t: any) => t.role_in_frente === "observer").length > 0 &&
+                ` · ${teamSummary.filter((t: any) => t.role_in_frente === "observer").length} observers`}
+            </span>
+          </button>
+        )}
       </header>
 
       <Tabs defaultValue="registros">
@@ -112,20 +166,39 @@ export default function FrenteDetail() {
             </Button>
           )}
           {(etapas ?? []).length === 0 && <p className="text-sm text-muted-foreground p-4 text-center">Sem etapas.</p>}
-          {(etapas ?? []).map((e: any) => (
-            <Link key={e.id} to={`/operacao/etapa/${e.id}`}>
-              <Card className="p-3 flex items-center gap-3 active:scale-[0.99]">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{e.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {e.supplier?.name ?? "—"} {e.escopo ? `· ${e.escopo}` : ""}
-                  </p>
-                </div>
-                <OperacaoStatusBadge status={e.status} />
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </Card>
-            </Link>
-          ))}
+          {(etapas ?? []).map((e: any) => {
+            const list = assigneesByEtapa?.[e.id] ?? [];
+            const inheritedProfile = list.length === 0
+              ? (e.responsible_profile_id
+                  ? null /* nome não temos aqui, mostra iniciais via fallback */
+                  : frente.current_lead_id
+                    ? { id: frente.current_lead_id, full_name: (frente as any).lead?.full_name ?? null }
+                    : null)
+              : null;
+            const inheritedFrom: "responsible" | "frente_lead" | null = list.length === 0
+              ? (e.responsible_profile_id ? "responsible" : frente.current_lead_id ? "frente_lead" : null)
+              : null;
+            return (
+              <Link key={e.id} to={`/operacao/etapa/${e.id}`}>
+                <Card className="p-3 flex items-center gap-3 active:scale-[0.99]">
+                  <EtapaAssigneeAvatars
+                    size="sm"
+                    assignees={list}
+                    inheritedFrom={inheritedFrom}
+                    inheritedProfile={inheritedProfile}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{e.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {e.supplier?.name ?? "—"} {e.escopo ? `· ${e.escopo}` : ""}
+                    </p>
+                  </div>
+                  <OperacaoStatusBadge status={e.status} />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </Card>
+              </Link>
+            );
+          })}
         </TabsContent>
 
         {showChamadosTab && (
@@ -162,6 +235,15 @@ export default function FrenteDetail() {
           frenteId={id!}
           companyId={frente.company_id}
           onClose={() => setNewEtapaOpen(false)}
+        />
+      )}
+
+      {teamSheetOpen && (
+        <FrenteTeamSheet
+          open={teamSheetOpen}
+          onClose={() => setTeamSheetOpen(false)}
+          frenteId={id!}
+          currentLeadId={frente.current_lead_id}
         />
       )}
     </div>

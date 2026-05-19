@@ -143,3 +143,7 @@ Privado, signed URLs 1h. Policies:
 - Cron `operacao-sla-escalator` (*/2 min) → função `run_operacao_sla_escalator()` resolve nível 1 (frente_team) e nível 2 (company_admins + WhatsApp p/ crit/high)
 
 Detalhe operacional em `mp-operacao-mobile-flows.md`.
+
+### Patch 2A.2 — Responsáveis de Etapa
+
+Nova tabela **`operacao_etapa_assignees`** (M:N, role `owner | helper`) adiciona atribuição multi-pessoa a `operacao_etapas`. Coluna legacy `responsible_profile_id` mantém-se como fallback. RLS: SELECT por `view_operacao` na mesma empresa; INSERT/UPDATE/DELETE por `manage_operacao_etapas` ou `current_lead` da Frente. Audit log via `log_table_change()`. Nova rota mobile `/operacao/minhas-tarefas` lista etapas relevantes ao user.
