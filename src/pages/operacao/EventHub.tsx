@@ -109,12 +109,14 @@ export default function EventHub() {
       )}
 
       {activePhase === "planning" && (
-        <PlaceholderPhase
-          title="Planeamento"
-          text="Em breve: matriz Zonas × Etapas + Pipeline de Fornecedores. Por enquanto, gere etapas dentro de cada Zona/Serviço."
+        <PlanejamentoPhase
           eventId={event.id}
+          companyId={event.company_id}
+          canManage={canManage}
+          onBackToSetup={() => setViewPhase("setup")}
         />
       )}
+
 
       {activePhase === "montagem" && (
         <PlaceholderPhase title="Montagem" text="Em breve: Gantt + acompanhamento no terreno." eventId={event.id} />
