@@ -214,7 +214,7 @@ export function EtapaAssigneeSheet({
               )}
               {r.included && !canEdit && (
                 <Badge variant="secondary" className="text-[10px]">
-                  {r.role === "owner" ? "Owner" : "Helper"}
+                  {r.role === "owner" ? "Dono" : "Auxiliar"}
                 </Badge>
               )}
               <Switch
