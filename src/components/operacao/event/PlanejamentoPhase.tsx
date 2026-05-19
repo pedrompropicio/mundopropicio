@@ -220,7 +220,7 @@ function Section({
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-sm truncate">{f.name}</p>
                   <p className="text-[11px] text-muted-foreground truncate">
-                    {f.lead?.full_name ? `Lead: ${f.lead.full_name}` : "Sem responsável"} · {total} etapas
+                    {f.lead?.full_name ? `Produtor: ${f.lead.full_name}` : "Sem produtor"} · {total} etapas
                   </p>
                 </div>
                 {canManage && (
