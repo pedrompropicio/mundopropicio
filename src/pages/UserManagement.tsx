@@ -297,6 +297,7 @@ export default function UserManagement() {
                   <p className="text-xs text-muted-foreground">
                     {r === "admin" && "Acesso total ao sistema"}
                     {r === "manager" && "Cria, edita, vê relatórios e saldos"}
+                    {r === "producer" && "Gere operação de eventos (sem acesso a Gestão/financeiro)"}
                     {r === "editor" && "Cria e edita, configurável por utilizador"}
                     {r === "viewer" && "Apenas visualização"}
                   </p>
