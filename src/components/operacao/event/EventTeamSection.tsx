@@ -93,6 +93,7 @@ export function EventTeamSection({ eventId, companyId }: { eventId: string; comp
           eventId={eventId}
           companyId={companyId}
           role={addRole}
+          assignedProfileIds={new Set((members ?? []).filter((m: any) => m.role === addRole).map((m: any) => m.profile_id))}
           onClose={() => setAddRole(null)}
         />
       )}
@@ -101,8 +102,8 @@ export function EventTeamSection({ eventId, companyId }: { eventId: string; comp
 }
 
 function AddMemberDialog({
-  eventId, companyId, role, onClose,
-}: { eventId: string; companyId: string; role: "director" | "general_producer"; onClose: () => void }) {
+  eventId, companyId, role, assignedProfileIds, onClose,
+}: { eventId: string; companyId: string; role: "director" | "general_producer"; assignedProfileIds: Set<string>; onClose: () => void }) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [profileId, setProfileId] = useState("");
@@ -117,6 +118,9 @@ function AddMemberDialog({
       return data ?? [];
     },
   });
+
+  const candidates = (profiles ?? []).filter((p: any) => !assignedProfileIds.has(p.id));
+  const roleLabel = role === "director" ? "Diretor" : "Produtor Geral";
 
   const { data: zones } = useQuery({
     queryKey: ["event-team-zones", eventId],
@@ -137,7 +141,13 @@ function AddMemberDialog({
     }).select("id").single();
     if (error || !inserted) {
       setSaving(false);
-      toast({ title: "Erro", description: error?.message ?? "Falha", variant: "destructive" });
+      const name = candidates.find((p: any) => p.id === profileId)?.full_name ?? "Pessoa";
+      if ((error as any)?.code === "23505" || error?.message?.includes("duplicate key")) {
+        toast({ title: "Já atribuído", description: `${name} já é ${roleLabel} neste evento.`, variant: "destructive" });
+        qc.invalidateQueries({ queryKey: ["event-team", eventId] });
+      } else {
+        toast({ title: "Erro", description: error?.message ?? "Falha", variant: "destructive" });
+      }
       return;
     }
     if (role === "general_producer" && scope === "zones" && zoneIds.length > 0) {
@@ -160,14 +170,21 @@ function AddMemberDialog({
         <div className="space-y-3">
           <div>
             <Label>Pessoa</Label>
-            <Select value={profileId} onValueChange={setProfileId}>
-              <SelectTrigger><SelectValue placeholder="Escolhe…" /></SelectTrigger>
+            <Select value={profileId} onValueChange={setProfileId} disabled={candidates.length === 0}>
+              <SelectTrigger>
+                <SelectValue placeholder={candidates.length === 0 ? `Todas as pessoas já são ${roleLabel}` : "Escolhe…"} />
+              </SelectTrigger>
               <SelectContent>
-                {(profiles ?? []).map((p: any) => (
+                {candidates.map((p: any) => (
                   <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {candidates.length === 0 && (
+              <p className="text-[11px] text-muted-foreground italic mt-1">
+                Todas as pessoas já estão atribuídas como {roleLabel}.
+              </p>
+            )}
           </div>
           {role === "general_producer" && (
             <>
