@@ -56,7 +56,7 @@ export default function FrenteManage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("operacao_frentes")
-        .select("id,name,description,color,status,event_id,company_id, events:event_id(id,name,company_id)")
+        .select("id,name,description,color,status,type,event_id,company_id, events:event_id(id,name,company_id)")
         .eq("id", id!)
         .single();
       if (error) throw error;
@@ -68,6 +68,7 @@ export default function FrenteManage() {
   const [description, setDescription] = useState("");
   const [color, setColor] = useState(PALETTE[5]);
   const [status, setStatus] = useState("active");
+  const [type, setType] = useState<"zone" | "service">("zone");
 
   useEffect(() => {
     if (!frente) return;
@@ -75,6 +76,7 @@ export default function FrenteManage() {
     setDescription(frente.description ?? "");
     setColor(frente.color ?? PALETTE[5]);
     setStatus(frente.status ?? "active");
+    setType(((frente as any).type ?? "zone") as "zone" | "service");
   }, [frente]);
 
   // Debounced autosave on blur
