@@ -93,6 +93,7 @@ export function EventTeamSection({ eventId, companyId }: { eventId: string; comp
           eventId={eventId}
           companyId={companyId}
           role={addRole}
+          assignedProfileIds={new Set((members ?? []).filter((m: any) => m.role === addRole).map((m: any) => m.profile_id))}
           onClose={() => setAddRole(null)}
         />
       )}
