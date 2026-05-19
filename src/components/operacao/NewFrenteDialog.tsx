@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,24 +15,41 @@ import { NewProfileInlineDialog, NEW_PROFILE_SENTINEL } from "@/components/opera
 
 const PALETTE = ["#ef4444","#f97316","#eab308","#22c55e","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#6b7280"];
 
-export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
+export function NewFrenteDialog({
+  onClose,
+  defaultEventId,
+  defaultType,
+}: {
+  onClose: () => void;
+  defaultEventId?: string;
+  defaultType?: "zone" | "service";
+}) {
   const { user, isAdmin, hasPermission } = useAuth();
   const canCreateProfile = isAdmin || hasPermission("manage_users");
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [eventId, setEventId] = useState<string>("");
+  const [eventId, setEventId] = useState<string>(defaultEventId ?? "");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState(PALETTE[5]);
   const [leadId, setLeadId] = useState<string>("");
-  const [type, setType] = useState<"zone" | "service">("zone");
+  const [type, setType] = useState<"zone" | "service">(defaultType ?? "zone");
   const [saving, setSaving] = useState(false);
   const [showNewProfile, setShowNewProfile] = useState(false);
 
-  // Eventos não-completed para escolher
+  const hideEventSelect = !!defaultEventId;
+  const hideTypeSelect = !!defaultType;
+
+  // Eventos não-completed para escolher (skip se já temos contexto)
   const { data: events } = useQuery({
-    queryKey: ["op-new-frente-events"],
+    queryKey: ["op-new-frente-events", defaultEventId ?? "all"],
     queryFn: async () => {
+      if (defaultEventId) {
+        const { data } = await supabase.from("events")
+          .select("id,name,date,status,company_id")
+          .eq("id", defaultEventId).limit(1);
+        return data ?? [];
+      }
       const { data } = await supabase.from("events")
         .select("id,name,date,status,company_id")
         .in("status", ["planning", "active"])
@@ -81,44 +98,58 @@ export function NewFrenteDialog({ onClose }: { onClose: () => void }) {
       toast({ title: type === "service" ? "Serviço criado" : "Zona criada" });
     }
     qc.invalidateQueries({ queryKey: ["op-my-frentes"] });
+    qc.invalidateQueries({ queryKey: ["op-hub-frentes", eventId, type] });
     setSaving(false);
     onClose();
-    navigate(`/operacao/frente/${created.id}`);
+    if (!hideEventSelect) navigate(`/operacao/frente/${created.id}`);
   };
+
+  const titleLabel = hideTypeSelect
+    ? (type === "service" ? "Novo Serviço" : "Nova Zona")
+    : "Nova Zona/Serviço";
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Nova Zona/Serviço</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{titleLabel}</DialogTitle></DialogHeader>
         <div className="space-y-3">
-          <div>
-            <Label>Evento *</Label>
-            <Select value={eventId} onValueChange={setEventId}>
-              <SelectTrigger><SelectValue placeholder="Escolhe o evento" /></SelectTrigger>
-              <SelectContent>
-                {(events ?? []).map((e: any) => (
-                  <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {hideEventSelect && selectedEvent && (
+            <p className="text-xs text-muted-foreground">
+              {titleLabel} para <span className="font-medium text-foreground">{selectedEvent.name}</span>
+            </p>
+          )}
+          {!hideEventSelect && (
+            <div>
+              <Label>Evento *</Label>
+              <Select value={eventId} onValueChange={setEventId}>
+                <SelectTrigger><SelectValue placeholder="Escolhe o evento" /></SelectTrigger>
+                <SelectContent>
+                  {(events ?? []).map((e: any) => (
+                    <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div>
             <Label>Nome *</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </div>
-          <div>
-            <Label>Tipo *</Label>
-            <Select value={type} onValueChange={(v) => setType(v as "zone" | "service")}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="zone">Zona</SelectItem>
-                <SelectItem value="service">Serviço</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-[11px] text-muted-foreground mt-1">
-              Zona = setor físico (Tenda VIP, Backstage). Serviço = função transversal que pode atender várias zonas (Catering, Energia, Decoração).
-            </p>
-          </div>
+          {!hideTypeSelect && (
+            <div>
+              <Label>Tipo *</Label>
+              <Select value={type} onValueChange={(v) => setType(v as "zone" | "service")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="zone">Zona</SelectItem>
+                  <SelectItem value="service">Serviço</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Zona = setor físico (Tenda VIP, Backstage). Serviço = função transversal que pode atender várias zonas (Catering, Energia, Decoração).
+              </p>
+            </div>
+          )}
           <div>
             <Label>Descrição</Label>
             <Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
