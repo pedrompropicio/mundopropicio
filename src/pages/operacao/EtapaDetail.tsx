@@ -214,6 +214,14 @@ export default function EtapaDetail() {
           companyId={frente.company_id}
         />
       )}
+
+      {editOpen && (
+        <EditEtapaSheet
+          etapaId={id!}
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+        />
+      )}
     </div>
   );
 }
