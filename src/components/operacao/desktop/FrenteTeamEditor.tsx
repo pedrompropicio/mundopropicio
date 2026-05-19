@@ -78,8 +78,8 @@ export function FrenteTeamEditor({ frenteId, companyId, canEdit }: Props) {
     else { toast({ title: "Membro adicionado" }); invalidate(); }
   };
 
-  const updateRow = async (id: string, patch: Record<string, any>) => {
-    const { error } = await supabase.from("operacao_frente_team").update(patch).eq("id", id);
+  const updateRow = async (id: string, patch: { role_in_frente?: string; is_permanent_lead?: boolean }) => {
+    const { error } = await supabase.from("operacao_frente_team").update(patch as any).eq("id", id);
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
     else invalidate();
   };
