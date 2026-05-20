@@ -93,8 +93,8 @@ export function ReportScenarioSelector({
               A visualizar o cenário{" "}
               <strong>
                 {selectedScenario.scenario_label ?? `v${selectedScenario.version_number}`}
-              </strong>{" "}
-              (v{selectedScenario.version_number}). Os valores não refletem o BP em produção —
+              </strong>
+              . Os valores não refletem o BP em produção —
               servem apenas para análise de planeamento.
             </div>
           </div>
