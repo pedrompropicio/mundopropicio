@@ -42,7 +42,7 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
       .limit(1),
     supabase.from("event_simulator_inputs").select("*").eq("event_id", eventId),
     supabase.from("event_forecasts").select("id, category_id, amount, type, status, transaction_id")
-      .eq("event_id", eventId).eq("status", "approved").eq("type", "expense"),
+      .eq("event_id", eventId).eq("status", "approved").eq("type", "expense").is("version_id", null),
     supabase.from("account_categories").select("id, code, name, company_id").eq("is_active", true),
     supabase.from("event_simulator_cost_lines").select("*").eq("event_id", eventId),
   ]);
@@ -299,7 +299,8 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
     .select("amount, category_id")
     .eq("event_id", eventId)
     .eq("type", "income")
-    .eq("status", "approved");
+    .eq("status", "approved")
+    .is("version_id", null);
   // l3 abaixo de 1.2 (default; o utilizador pode customizar via sponsor_category_l2_id)
   const sponsorL3Ids = new Set(l3.filter((c) => c.code.startsWith("1.2.")).map((c) => c.id));
   const sponsorsTotal = ((allFcRevenue ?? []) as any[])

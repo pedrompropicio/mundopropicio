@@ -134,7 +134,8 @@ Deno.serve(async (req) => {
     const { data: bpLinks } = await admin
       .from("event_forecasts")
       .select("transaction_id, category_id, description")
-      .in("transaction_id", txIds);
+      .in("transaction_id", txIds)
+      .is("version_id", null);
     const bpByTx = new Map((bpLinks ?? []).map((b: any) => [b.transaction_id, b]));
 
     const results: any[] = [];

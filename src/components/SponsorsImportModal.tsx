@@ -167,7 +167,8 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
         .from("event_forecasts")
         .select("id, description, amount, type, transaction_id, is_transitory")
         .eq("event_id", eventId)
-        .eq("category_id", SPONSORS_CATEGORY_ID);
+        .eq("category_id", SPONSORS_CATEGORY_ID)
+        .is("version_id", null);
       if (fcErr) throw fcErr;
       const fcByName: Record<string, any> = {};
       for (const f of existingForecasts || []) {
@@ -311,7 +312,8 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
         .select("transaction_id")
         .eq("event_id", eventId)
         .eq("category_id", SPONSORS_CATEGORY_ID)
-        .not("transaction_id", "is", null);
+        .not("transaction_id", "is", null)
+        .is("version_id", null);
       const linkedTxIds = new Set(((existingFcAfter ?? []) as any[]).map((f) => f.transaction_id));
       for (const t of (orphanTx ?? []) as any[]) {
         if (linkedTxIds.has(t.id)) continue;

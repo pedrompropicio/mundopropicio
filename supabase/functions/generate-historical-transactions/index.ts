@@ -160,7 +160,8 @@ Deno.serve(async (req) => {
       .select("*")
       .eq("event_id", event_id)
       .eq("status", "approved")
-      .is("transaction_id", null);
+      .is("transaction_id", null)
+      .is("version_id", null);
 
     // Strict rule (matches client bulk logic): only forecasts pre-validated by
     // the caller as having no matching real transaction. If the caller does
