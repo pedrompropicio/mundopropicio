@@ -1202,7 +1202,7 @@ export default function EventSimulator() {
             eventName={event?.name ?? ""}
             eventId={eventId}
             today={todayAB} todayCosts={todayCosts} todayRes={todayRes} todayKpis={todayKpis}
-            breakeven={beAB} beCosts={beCosts} beRes={beRes} beKpis={beKpis}
+            breakeven={beRev} beCosts={beCosts} beRes={beRes} beKpis={beKpis}
             forecast={fcAB} fcCosts={fcCosts} fcRes={fcRes} fcKpis={fcKpis}
             costLines={visibleCosts}
             dailyTotals={dailyTotals}
