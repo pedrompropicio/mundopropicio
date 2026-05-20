@@ -61,6 +61,8 @@ export function AppSidebar() {
       show: hasPermission("view_operacao") || isAdmin },
     { to: "/operacao/chamados",       icon: Bell,            label: "Chamados",
       show: hasPermission("view_operacao") || isAdmin },
+    { to: "/operacao/pessoas",        icon: Users,           label: "Pessoas",
+      show: hasPermission("view_operacao") || isAdmin },
     { divider: true, key: "personal" },
     { to: "/operacao",                icon: Calendar,        label: "Eventos",
       show: hasPermission("view_operacao") || isAdmin },
