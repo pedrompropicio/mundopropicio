@@ -111,9 +111,12 @@ function buildPL(
   relevantEventIds: string[] = [eventId],
   cacheExtras: any[] = [],
   typeFilter: PLTypeFilter = "both",
-  level: AccountLevel = 2
+  level: AccountLevel = 2,
+  includeOverhead: boolean = false,
+  events: any[] = []
 ): PLLine[] {
   const lookup = buildCategoryLookup(categories);
+  const eventNameById = new Map<string, string>(events.map((e: any) => [e.id, e.name]));
 
   // Calculate ticket lot revenue for this event
   // Prices include IVA ("por dentro") — extract net values
