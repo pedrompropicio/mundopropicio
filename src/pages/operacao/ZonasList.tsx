@@ -8,7 +8,10 @@ import { useScopedEventIds } from "@/hooks/useScopedEventIds";
 import { OperacaoListShell } from "@/components/operacao/list/OperacaoListShell";
 import { ZonasFiltersBar } from "@/components/operacao/list/ZonasFiltersBar";
 import { ZonaCard, type ZonaCardData } from "@/components/operacao/list/ZonaCard";
+import { GanttZonasView, type GanttFrente } from "@/components/operacao/list/GanttZonasView";
 import { EditFrenteSheet } from "@/components/operacao/event/EditFrenteSheet";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card } from "@/components/ui/card";
 
 const PAGE_SIZE = 50;
 
@@ -29,10 +32,18 @@ export default function ZonasList() {
   const canEdit = isAdmin || hasPermission("manage_operacao_frentes");
   const { filters, page, setPage } = useOperacaoListFilters("zonas");
   const { eventIds: scopedEventIds, isLoading: loadingScope } = useScopedEventIds();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const typeFilter = params.get("type"); // "zone" | "service" | null
+  const view = params.get("view") === "gantt" ? "gantt" : "cards";
   const [editingFrenteId, setEditingFrenteId] = useState<string | null>(null);
   const [accumulated, setAccumulated] = useState<ZonaCardData[]>([]);
+
+  const setView = (v: "cards" | "gantt") => {
+    const next = new URLSearchParams(params);
+    if (v === "cards") next.delete("view");
+    else next.set("view", v);
+    setParams(next, { replace: true });
+  };
 
   const targetEventIds = useMemo(
     () => (filters.event ? [filters.event] : scopedEventIds),
@@ -156,8 +167,39 @@ export default function ZonasList() {
   }, [pageData, page]);
 
   const total = pageData?.count ?? null;
-  const hasMore = total !== null && accumulated.length < total;
+  const hasMore = view === "cards" && total !== null && accumulated.length < total;
   const noScope = !filters.event && scopedEventIds.length === 0 && !loadingScope;
+
+  // Para Gantt: precisamos do event.date (limite direito) — vai vir nos eventos accumulados
+  const eventDateMax = useMemo(() => {
+    if (!filters.event) return null;
+    const f = accumulated.find((z) => z.event?.id === filters.event);
+    return f?.event?.date ?? null;
+  }, [filters.event, accumulated]);
+
+  const frentesById = useMemo(() => {
+    const m = new Map<string, GanttFrente>();
+    accumulated.forEach((z) => m.set(z.id, { id: z.id, name: z.name, color: z.color }));
+    return m;
+  }, [accumulated]);
+
+  const scopedFrenteIds = useMemo(() => accumulated.map((z) => z.id), [accumulated]);
+
+  const filtersBarNode = (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <Tabs value={view} onValueChange={(v) => setView(v as "cards" | "gantt")}>
+          <TabsList className="h-8">
+            <TabsTrigger value="cards" className="text-xs h-6">Cards</TabsTrigger>
+            <TabsTrigger value="gantt" className="text-xs h-6">Gantt</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+      <ZonasFiltersBar />
+    </div>
+  );
+
+  const ganttNeedsEvent = view === "gantt" && !filters.event;
 
   return (
     <>
@@ -165,7 +207,7 @@ export default function ZonasList() {
         title="Zonas / Serviços"
         subtitle="Vista cross-evento de zonas e serviços operacionais"
         scope="zonas"
-        filtersBar={<ZonasFiltersBar />}
+        filtersBar={filtersBarNode}
         refreshButton
         onRefresh={() => {
           setPage(0);
@@ -173,7 +215,7 @@ export default function ZonasList() {
         }}
         isFetching={isFetching}
         lastUpdatedAt={dataUpdatedAt}
-        total={total}
+        total={view === "cards" ? total : null}
         page={page}
         pageSize={PAGE_SIZE}
         onLoadMore={() => setPage(page + 1)}
@@ -182,7 +224,7 @@ export default function ZonasList() {
         isError={isError}
         errorMessage={(error as any)?.message}
         onRetry={() => refetch()}
-        isEmpty={!isLoading && accumulated.length === 0}
+        isEmpty={!isLoading && !ganttNeedsEvent && accumulated.length === 0}
         emptyTitle={noScope ? "Sem eventos acessíveis" : "Sem zonas / serviços"}
         emptyMessage={
           noScope
@@ -190,18 +232,34 @@ export default function ZonasList() {
             : "Cria zonas e serviços no Hub do Evento."
         }
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-3">
-          {accumulated.map((z) => (
-            <ZonaCard
-              key={z.id}
-              zona={z}
-              showEventBadge={scopedEventIds.length > 1 && !filters.event}
-              onClick={() => navigate(`/operacao/frente/${z.id}`)}
-              onEdit={() => setEditingFrenteId(z.id)}
-              canEdit={canEdit}
-            />
-          ))}
-        </div>
+        {ganttNeedsEvent ? (
+          <Card className="p-10 text-center space-y-2">
+            <h3 className="font-medium">Escolhe um evento</h3>
+            <p className="text-sm text-muted-foreground">
+              A vista Gantt mostra etapas de um único evento de cada vez.
+            </p>
+          </Card>
+        ) : view === "gantt" ? (
+          <GanttZonasView
+            scopedFrenteIds={scopedFrenteIds}
+            frentesById={frentesById}
+            eventDateMax={eventDateMax}
+            onEtapaClick={(id) => navigate(`/operacao/etapa/${id}`)}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-3">
+            {accumulated.map((z) => (
+              <ZonaCard
+                key={z.id}
+                zona={z}
+                showEventBadge={scopedEventIds.length > 1 && !filters.event}
+                onClick={() => navigate(`/operacao/frente/${z.id}`)}
+                onEdit={() => setEditingFrenteId(z.id)}
+                canEdit={canEdit}
+              />
+            ))}
+          </div>
+        )}
       </OperacaoListShell>
 
       <EditFrenteSheet
