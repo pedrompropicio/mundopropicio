@@ -151,7 +151,7 @@ export function NewEtapaDialog({ frenteId, companyId, onClose }: { frenteId: str
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Nova etapa</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div>
