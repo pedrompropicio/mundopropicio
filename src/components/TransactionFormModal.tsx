@@ -1522,6 +1522,28 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const proceedWithCreate = async () => {
     setShowDuplicateConfirm(false);
     setShowProrationConfirm(false);
+    // Validação de parcelamento (Fase 1.5)
+    if (useInstallments) {
+      if (form.type === "income") {
+        toast({ title: "Parcelamento indisponível", description: "Nesta fase, parcelamento só está disponível para despesas.", variant: "destructive" });
+        return;
+      }
+      if (isSplit) {
+        toast({ title: "Parcelamento indisponível", description: "Parcelamento não é compatível com rateio entre eventos nesta fase.", variant: "destructive" });
+        return;
+      }
+      if (autoMarkPaid || isPaidByPartner || isPartnerExtra || form.is_reimbursement) {
+        toast({ title: "Parcelamento indisponível", description: "Parcelamento não é compatível com este fluxo (auto-liquidada, pago por sócio, extra do sócio ou reembolso).", variant: "destructive" });
+        return;
+      }
+      const { validateInstallments } = await import("@/components/TransactionInstallmentsEditor");
+      const grossTotal = +(parseFloat(form.amount || "0") * (1 + Number(form.iva_rate || 0) / 100)).toFixed(2);
+      const err = validateInstallments(installmentRows, grossTotal);
+      if (err) {
+        toast({ title: "Cronograma inválido", description: err, variant: "destructive" });
+        return;
+      }
+    }
     // Multi-IVA split path: create N sibling transactions sharing invoice_ref + invoice_group_id.
     if (pendingIvaSplit && pendingIvaSplit.length >= 2 && !isSplit) {
       const sharedInvoiceRef =
