@@ -133,6 +133,14 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [selectedForecastId, setSelectedForecastId] = useState<string | null>(null);
   const [plOverride, setPlOverride] = useState(false);
   const [isSplit, setIsSplit] = useState(false);
+  // ── Parcelamento (Fase 1) ─────────────────────────────────────
+  // Toggle "Pagar em parcelas". Quando ON, ao gravar TX, cria N rows em
+  // transaction_payments (status='planned' + scheduled_date). O trigger DB
+  // sync_paid_amount_from_payments cuida de paid_amount/status conforme
+  // as parcelas vão sendo marcadas como pagas.
+  const [useInstallments, setUseInstallments] = useState(false);
+  const [installments, setInstallments] = useState<Array<{ amount: number; date: string; description: string }>>([]);
+  const [showInstModal, setShowInstModal] = useState(false);
   const [splitEntries, setSplitEntries] = useState<SplitEntry[]>([]);
   const [splitMethod, setSplitMethod] = useState<"equal" | "custom">("equal");
   const [splitInputMode, setSplitInputMode] = useState<SplitInputMode>("percentage");
