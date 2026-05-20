@@ -464,7 +464,8 @@ export function exportPLToExcel(
   ticketZones: any[] = [], ticketLots: any[] = [], ticketSales: any[] = [], mode: PLMode = "comparison",
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
   _auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2,
-  companyDisplayName: string = "MP Gestão Eventos"
+  companyDisplayName: string = "MP Gestão Eventos",
+  includeOverhead: boolean = false
 ) {
   void companyDisplayName;
   const wb = XLSX.utils.book_new();
