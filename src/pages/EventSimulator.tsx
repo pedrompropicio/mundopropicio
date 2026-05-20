@@ -994,12 +994,28 @@ export default function EventSimulator() {
     return (Number(r.receitaBebidas || 0) + Number(r.receitaAlimentos || 0) - Number(r.custoTotal || 0)) / pub;
   }, [abModule, todayAttendance]);
 
+  const beBaseResult = useMemo(() => {
+    const baseRev = computeScenarioRevenue(calcSessions, calcCfg, "breakeven", undefined, undefined, todayAttendance);
+    const basePub = Number(todayAttendance.payingAttendance || 0) + Number(todayAttendance.courtesyAttendance || 0);
+    const baseAB = abModule.hasConfig && abModule.totals
+      ? { ...baseRev, ...scaleABFromReal(baseRev, todayAB, abModule.totals.real.receitaBebidas, abModule.totals.real.receitaAlimentos, basePub) }
+      : baseRev;
+    const baseCosts = computeScenarioCosts(calcCosts, baseAB, calcCfg, "breakeven");
+    const finalCosts = abModule.hasConfig && abModule.totals
+      ? (() => {
+          const ab = scaleABCostFromReal(abModule.totals.real.custoTotal, todayAB, baseAB, basePub);
+          return { ...baseCosts, abCost: ab, totalCost: baseCosts.eventCosts + ab + baseCosts.souvenirCost };
+        })()
+      : baseCosts;
+    return computeScenarioResult(baseAB, finalCosts).general;
+  }, [calcSessions, calcCfg, todayAttendance, todayAB, calcCosts, abModule]);
+
   const beSolution = useMemo(
     () => solveBreakEven(
       calcSessions, calcCosts, calcCfg, beLotInfo,
-      abMarginPerPubReal !== undefined ? { abMarginPerPub: abMarginPerPubReal } : undefined,
+      { baseResult: beBaseResult, ...(abMarginPerPubReal !== undefined ? { abMarginPerPub: abMarginPerPubReal } : {}) },
     ),
-    [calcSessions, calcCosts, calcCfg, beLotInfo, abMarginPerPubReal],
+    [calcSessions, calcCosts, calcCfg, beLotInfo, beBaseResult, abMarginPerPubReal],
   );
 
   const beDaily = useMemo(
