@@ -474,6 +474,7 @@ export default function ReportPL() {
   const [mode, setMode] = useState<PLMode>("forecast");
   const [typeFilter, setTypeFilter] = useState<PLTypeFilter>("both");
   const [accountLevel, setAccountLevel] = useState<AccountLevel>(2);
+  const [includeOverhead, setIncludeOverhead] = useState(false);
   const [showPdfDialog, setShowPdfDialog] = useState(false);
   const [scenarioVersionId, setScenarioVersionId] = useState<string | null>(null);
   const { logoUrl, displayName } = useCompanyBranding();
