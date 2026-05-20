@@ -57,6 +57,7 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
     account_id: "",
   });
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [markInstallment, setMarkInstallment] = useState<any | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["payment-timeline", txId],
