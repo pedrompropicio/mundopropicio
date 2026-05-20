@@ -292,12 +292,36 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
     };
   }, [todayRev, abModule]);
 
+  // Pass 2 do solver BE (Option B deep refactor, 2026-05-20):
+  // injecta abMarginPerPub derivado de totals.real do módulo A&B canónico.
+  const abMarginPerPubReal = useMemo(() => {
+    if (!abModule.hasConfig || !abModule.totals) return undefined;
+    const r = abModule.totals.real;
+    const pub = Number(realRev.attendanceQty || 0) + Number(realRev.attendanceCourtesyQty || 0);
+    if (pub <= 0) return undefined;
+    return (Number(r.receitaBebidas || 0) + Number(r.receitaAlimentos || 0) - Number(r.custoTotal || 0)) / pub;
+  }, [abModule, realRev]);
+
+  const beSolution = useMemo(
+    () => solveBreakEven(
+      calcSessions, calcCosts, calcCfg, beLotInfo,
+      abMarginPerPubReal !== undefined ? { abMarginPerPub: abMarginPerPubReal } : undefined,
+    ),
+    [calcSessions, calcCosts, calcCfg, beLotInfo, abMarginPerPubReal],
+  );
+
+  const beRev = useMemo(
+    () => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolution.qtyByKey, beSolution.revenueByKey),
+    [calcSessions, calcCfg, beSolution],
+  );
+
   const beRevAB = useMemo(() => {
     if (!abModule.hasConfig || !abModule.totals) return beRev;
     const real = abModule.totals.real;
     const scaled = scaleABFromReal(beRev, realRev, real.receitaBebidas, real.receitaAlimentos);
     return { ...beRev, ...scaled };
   }, [beRev, realRev, abModule]);
+
 
   const fcRevAB = useMemo(() => {
     if (!abModule.hasConfig || !abModule.totals) return fcRev;
