@@ -156,6 +156,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
         formula_type: "fixed",
         formula_value: amt,
         master_forecast_id: bpForecastId || null,
+        version_id: selectedVersionId || null,
       };
       let costId = editingId;
       if (editingId) {
