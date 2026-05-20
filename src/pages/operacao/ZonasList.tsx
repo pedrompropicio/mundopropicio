@@ -9,9 +9,12 @@ import { OperacaoListShell } from "@/components/operacao/list/OperacaoListShell"
 import { ZonasFiltersBar } from "@/components/operacao/list/ZonasFiltersBar";
 import { ZonaCard, type ZonaCardData } from "@/components/operacao/list/ZonaCard";
 import { GanttZonasView, type GanttFrente } from "@/components/operacao/list/GanttZonasView";
+import { ZonasListaView } from "@/components/operacao/list/ZonasListaView";
+import { ZonasMultiSelector } from "@/components/operacao/list/ZonasMultiSelector";
 import { EditFrenteSheet } from "@/components/operacao/event/EditFrenteSheet";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
+
 
 const PAGE_SIZE = 50;
 
@@ -34,16 +37,36 @@ export default function ZonasList() {
   const { eventIds: scopedEventIds, isLoading: loadingScope } = useScopedEventIds();
   const [params, setParams] = useSearchParams();
   const typeFilter = params.get("type"); // "zone" | "service" | null
-  const view = params.get("view") === "gantt" ? "gantt" : "cards";
+  const view =
+    params.get("view") === "gantt"
+      ? "gantt"
+      : params.get("view") === "lista"
+      ? "lista"
+      : "cards";
+  const selectedZonaIds = useMemo(() => {
+    const raw = params.get("zonas");
+    if (!raw) return [] as string[];
+    return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  }, [params]);
   const [editingFrenteId, setEditingFrenteId] = useState<string | null>(null);
   const [accumulated, setAccumulated] = useState<ZonaCardData[]>([]);
 
-  const setView = (v: "cards" | "gantt") => {
+  const setView = (v: "cards" | "gantt" | "lista") => {
     const next = new URLSearchParams(params);
     if (v === "cards") next.delete("view");
     else next.set("view", v);
+    // limpar selecção de zonas ao sair da Lista
+    if (v !== "lista") next.delete("zonas");
     setParams(next, { replace: true });
   };
+
+  const setSelectedZonaIdsToUrl = (ids: string[]) => {
+    const next = new URLSearchParams(params);
+    if (ids.length === 0) next.delete("zonas");
+    else next.set("zonas", ids.join(","));
+    setParams(next, { replace: true });
+  };
+
 
   const targetEventIds = useMemo(
     () => (filters.event ? [filters.event] : scopedEventIds),
@@ -187,19 +210,38 @@ export default function ZonasList() {
 
   const filtersBarNode = (
     <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <Tabs value={view} onValueChange={(v) => setView(v as "cards" | "gantt")}>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <Tabs
+          value={view}
+          onValueChange={(v) => setView(v as "cards" | "gantt" | "lista")}
+        >
           <TabsList className="h-8">
             <TabsTrigger value="cards" className="text-xs h-6">Cards</TabsTrigger>
             <TabsTrigger value="gantt" className="text-xs h-6">Gantt</TabsTrigger>
+            <TabsTrigger value="lista" className="text-xs h-6">Lista</TabsTrigger>
           </TabsList>
         </Tabs>
+        {view === "lista" && filters.event && accumulated.length > 0 && (
+          <ZonasMultiSelector
+            zonas={accumulated.map((z) => ({
+              id: z.id,
+              name: z.name,
+              color: z.color,
+              type: z.type,
+            }))}
+            selectedIds={selectedZonaIds}
+            onChange={setSelectedZonaIdsToUrl}
+          />
+        )}
       </div>
       <ZonasFiltersBar />
     </div>
   );
 
   const ganttNeedsEvent = view === "gantt" && !filters.event;
+  const listaNeedsEvent = view === "lista" && !filters.event;
+  const needsEvent = ganttNeedsEvent || listaNeedsEvent;
+
 
   return (
     <>
@@ -224,7 +266,7 @@ export default function ZonasList() {
         isError={isError}
         errorMessage={(error as any)?.message}
         onRetry={() => refetch()}
-        isEmpty={!isLoading && !ganttNeedsEvent && accumulated.length === 0}
+        isEmpty={!isLoading && !needsEvent && accumulated.length === 0}
         emptyTitle={noScope ? "Sem eventos acessíveis" : "Sem zonas / serviços"}
         emptyMessage={
           noScope
@@ -232,11 +274,13 @@ export default function ZonasList() {
             : "Cria zonas e serviços no Hub do Evento."
         }
       >
-        {ganttNeedsEvent ? (
+        {needsEvent ? (
           <Card className="p-10 text-center space-y-2">
             <h3 className="font-medium">Escolhe um evento</h3>
             <p className="text-sm text-muted-foreground">
-              A vista Gantt mostra etapas de um único evento de cada vez.
+              {view === "gantt"
+                ? "A vista Gantt mostra etapas de um único evento de cada vez."
+                : "A vista Lista mostra zonas / serviços de um único evento de cada vez."}
             </p>
           </Card>
         ) : view === "gantt" ? (
@@ -244,6 +288,13 @@ export default function ZonasList() {
             scopedFrenteIds={scopedFrenteIds}
             frentesById={frentesById}
             eventDateMax={eventDateMax}
+            onEtapaClick={(id) => navigate(`/operacao/etapa/${id}`)}
+          />
+        ) : view === "lista" ? (
+          <ZonasListaView
+            scopedFrenteIds={scopedFrenteIds}
+            frentesById={frentesById}
+            selectedFrenteIds={selectedZonaIds}
             onEtapaClick={(id) => navigate(`/operacao/etapa/${id}`)}
           />
         ) : (
@@ -261,6 +312,7 @@ export default function ZonasList() {
           </div>
         )}
       </OperacaoListShell>
+
 
       <EditFrenteSheet
         frenteId={editingFrenteId}
