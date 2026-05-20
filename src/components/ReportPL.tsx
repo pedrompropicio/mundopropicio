@@ -801,6 +801,7 @@ export default function ReportPL() {
     return v.scenario_label ?? `v${v.version_number}`;
   }, [scenarioVersionId, anchorVersions]);
 
+  const effectiveScenarioName = showScenarioName ? scenarioName : null;
 
   return (
     <div className="space-y-6">
@@ -811,6 +812,23 @@ export default function ReportPL() {
         onChange={setScenarioVersionId}
         includeUnpinnedScenarios
       />
+      {scenarioVersionId && scenarioName && (
+        <div className="glass rounded-xl px-4 py-2 flex items-center gap-2 text-xs">
+          <input
+            id="show-scenario-name"
+            type="checkbox"
+            className="h-4 w-4 accent-primary"
+            checked={showScenarioName}
+            onChange={(e) => setShowScenarioName(e.target.checked)}
+          />
+          <label htmlFor="show-scenario-name" className="cursor-pointer select-none">
+            Mostrar nome do cenário no relatório
+            <span className="ml-2 text-muted-foreground">
+              ({showScenarioName ? `título incluirá "Cenário ${scenarioName}"` : "título limpo, sem menção ao cenário"})
+            </span>
+          </label>
+        </div>
+      )}
       {/* Mode selector + Event selector */}
       <div className="glass rounded-xl p-4 space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
