@@ -792,6 +792,15 @@ export default function ReportPL() {
     return evt?.parent_event_id ?? id;
   }, [selectedEventIds, events]);
 
+  const { data: anchorVersions = [] } = useBPVersions(scenarioAnchorEventId);
+  const scenarioName = useMemo(() => {
+    if (!scenarioVersionId) return null;
+    const v = (anchorVersions as any[]).find((x: any) => x.id === scenarioVersionId);
+    if (!v) return null;
+    return v.scenario_label ?? `v${v.version_number}`;
+  }, [scenarioVersionId, anchorVersions]);
+
+
   return (
     <div className="space-y-6">
       <ReportScenarioSelector
