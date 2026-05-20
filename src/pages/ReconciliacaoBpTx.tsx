@@ -144,7 +144,8 @@ export default function ReconciliacaoBpTx() {
         .from("event_forecasts")
         .select("id, description, amount, category_id, event_id, type, transaction_id")
         .eq("company_id", companyId!)
-        .in("event_id", eventIds);
+        .in("event_id", eventIds)
+        .is("version_id", null);
       if (error) throw error;
       return (data ?? []) as Forecast[];
     },
