@@ -926,7 +926,7 @@ export default function ReportPL() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, [], typeFilter, accountLevel, logoDataUrl, displayName, includeOverhead);
+                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, [], typeFilter, accountLevel, logoDataUrl, displayName, includeOverhead, scenarioName);
                 setShowPdfDialog(false);
               }}
             >
