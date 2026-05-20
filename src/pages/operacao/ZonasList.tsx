@@ -266,7 +266,7 @@ export default function ZonasList() {
         isError={isError}
         errorMessage={(error as any)?.message}
         onRetry={() => refetch()}
-        isEmpty={!isLoading && !ganttNeedsEvent && accumulated.length === 0}
+        isEmpty={!isLoading && !needsEvent && accumulated.length === 0}
         emptyTitle={noScope ? "Sem eventos acessíveis" : "Sem zonas / serviços"}
         emptyMessage={
           noScope
@@ -274,11 +274,13 @@ export default function ZonasList() {
             : "Cria zonas e serviços no Hub do Evento."
         }
       >
-        {ganttNeedsEvent ? (
+        {needsEvent ? (
           <Card className="p-10 text-center space-y-2">
             <h3 className="font-medium">Escolhe um evento</h3>
             <p className="text-sm text-muted-foreground">
-              A vista Gantt mostra etapas de um único evento de cada vez.
+              {view === "gantt"
+                ? "A vista Gantt mostra etapas de um único evento de cada vez."
+                : "A vista Lista mostra zonas / serviços de um único evento de cada vez."}
             </p>
           </Card>
         ) : view === "gantt" ? (
@@ -286,6 +288,13 @@ export default function ZonasList() {
             scopedFrenteIds={scopedFrenteIds}
             frentesById={frentesById}
             eventDateMax={eventDateMax}
+            onEtapaClick={(id) => navigate(`/operacao/etapa/${id}`)}
+          />
+        ) : view === "lista" ? (
+          <ZonasListaView
+            scopedFrenteIds={scopedFrenteIds}
+            frentesById={frentesById}
+            selectedFrenteIds={selectedZonaIds}
             onEtapaClick={(id) => navigate(`/operacao/etapa/${id}`)}
           />
         ) : (
@@ -303,6 +312,7 @@ export default function ZonasList() {
           </div>
         )}
       </OperacaoListShell>
+
 
       <EditFrenteSheet
         frenteId={editingFrenteId}
