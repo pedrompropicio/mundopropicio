@@ -159,7 +159,8 @@ Deno.serve(async (req) => {
     const { data: existingFcs } = await admin
       .from("event_forecasts")
       .select("id, category_id, description, amount, transaction_id, type")
-      .eq("event_id", eventId);
+      .eq("event_id", eventId)
+      .is("version_id", null);
     const { data: existingTxs } = await admin
       .from("transactions")
       .select("id, category_id, supplier_id, description, amount, payment_date, invoice_ref")
