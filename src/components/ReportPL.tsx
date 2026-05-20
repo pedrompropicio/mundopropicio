@@ -194,11 +194,39 @@ function buildPL(
     overrideByCatName[catName].notes.push(t.pl_override_note);
   });
 
-  // Rateios de overhead (is_overhead) são tratados em secção separada — não impactam o resultado da empresa.
-  const fInc = forecasts.filter((f) => f.type === "income" && !f.is_overhead);
-  const fExp = forecasts.filter((f) => f.type === "expense" && !f.is_overhead);
+  // Overhead (is_overhead): incluído quando o toggle "Com Overhead" está ON.
+  // Quando OFF, mantém o comportamento histórico (overhead fora do resultado da empresa).
+  const fInc = forecasts.filter((f) => f.type === "income" && (includeOverhead || !f.is_overhead));
+  const fExp = forecasts.filter((f) => f.type === "expense" && (includeOverhead || !f.is_overhead));
   const tInc = transactions.filter((t) => t.type === "income" && !t.is_transitory && !t.exclude_from_result);
   const tExp = transactions.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result);
+
+  // Mapas detailName -> flags de overhead, usados para decorar as linhas com badges.
+  const overheadByDetail = new Map<string, { hasOverhead: boolean; viaMaster: boolean; viaMasterEventName?: string }>();
+  if (includeOverhead) {
+    const resolveDetailName = (catId: string | null | undefined) => {
+      if (!catId) return "Sem categoria";
+      const info = lookup[catId];
+      if (!info) return "Sem categoria";
+      if (level === 1) return info.l2Name ?? info.name;
+      if (level === 3) return info.name;
+      return info.name;
+    };
+    for (const f of forecasts) {
+      if (!f.is_overhead) continue;
+      const dn = resolveDetailName(f.category_id);
+      const cur = overheadByDetail.get(dn) ?? { hasOverhead: false, viaMaster: false };
+      cur.hasOverhead = true;
+      if (f._overhead_via_master) {
+        cur.viaMaster = true;
+        const masterId = f._master_event_id;
+        if (masterId && !cur.viaMasterEventName) {
+          cur.viaMasterEventName = eventNameById.get(masterId);
+        }
+      }
+      overheadByDetail.set(dn, cur);
+    }
+  }
 
   const fIncGroups = aggregateByHierarchy(fInc, lookup, level);
   const fExpGroups = aggregateByHierarchy(fExp, lookup, level);
