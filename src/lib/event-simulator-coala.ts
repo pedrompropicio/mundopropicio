@@ -811,11 +811,6 @@ export function solveBreakEven(
   const map: Record<string, number> = { ...baseMap };
   const revMap: Record<string, number> = { ...baseRevByKey };
   let totalExtra = 0;
-  const isPassMultiDayDeficit = (idxs: number[]): boolean => {
-    if (idxs.length <= 1) return false;
-    const qtys = idxs.map((i) => sessionTodayQty(sessions[i]));
-    return qtys.every((q) => q === qtys[0]);
-  };
   const breakdown: BreakEvenBreakdownItem[] = slots.map((sl) => {
     const groupIdxs = groupIndexes.get(logicalZoneGroup(sessions[sl.idx].zone_label)) ?? [sl.idx];
     const anchorIdx = groupIdxs[0];
@@ -825,10 +820,10 @@ export function solveBreakEven(
     let myExtra = 0;
     let myExtraRevenue = 0;
     if (anchorSlot?.extra > 0) {
-      if (sl.idx === anchorIdx && isPassMultiDayDeficit(groupIdxs)) {
+      if (sl.idx === anchorIdx && isPassLikeMultiDayGroup(sessions, groupIdxs)) {
         myExtra = anchorSlot.extra;
         myExtraRevenue = anchorSlot.extraRevenue;
-      } else if (!isPassMultiDayDeficit(groupIdxs)) {
+      } else if (!isPassLikeMultiDayGroup(sessions, groupIdxs)) {
         const totalReal = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
         const share = totalReal > 0 ? real / totalReal : (sl.idx === anchorIdx ? 1 : 0);
         myExtra = anchorSlot.extra * share;
