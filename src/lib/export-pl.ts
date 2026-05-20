@@ -136,11 +136,16 @@ function buildPLForExport(
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
   relevantEventIds: string[] = [eventId],
   typeFilter: PLTypeFilter = "both",
-  level: AccountLevel = 2
+  level: AccountLevel = 2,
+  includeOverhead: boolean = false
 ): PLLine[] {
   const showIncome = typeFilter === "income" || typeFilter === "both";
   const showExpense = typeFilter === "expense" || typeFilter === "both";
   const lookup = buildCategoryLookup(categories);
+  // Aplica o toggle "Com/Sem Overhead" ao input. Quando OFF, despreza linhas is_overhead.
+  if (!includeOverhead) {
+    forecasts = forecasts.filter((f: any) => !f.is_overhead);
+  }
 
   const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
   let ticketForecastNet = 0;
