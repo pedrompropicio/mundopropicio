@@ -16,11 +16,12 @@ import {
   X as XIcon,
 } from "lucide-react";
 import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsListModal";
+import { MarkInstallmentPaidModal } from "@/components/MarkInstallmentPaidModal";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Clock, Ban } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface Props {
@@ -56,6 +57,7 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
     account_id: "",
   });
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [markInstallment, setMarkInstallment] = useState<any | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["payment-timeline", txId],
@@ -69,8 +71,9 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
       ] = await Promise.all([
         supabase
           .from("transaction_payments" as any)
-          .select("id, amount, payment_date, payment_method, account_id, invoice_ref, financial_accounts:account_id(name)")
+          .select("id, amount, payment_date, scheduled_date, status, payment_method, account_id, invoice_ref, financial_accounts:account_id(name)")
           .eq("transaction_id", txId)
+          .order("scheduled_date", { ascending: true, nullsFirst: false })
           .order("payment_date", { ascending: true }),
         supabase
           .from("payment_list_items")
@@ -202,6 +205,24 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
     },
   });
 
+  const cancelInstallmentMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("transaction_payments" as any)
+        .update({ status: "cancelled" } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payment-timeline", txId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast({ title: "Parcela cancelada" });
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+  });
+
+
+
   function startDirectEdit() {
     const [y, m, d] = (transaction.payment_date ?? "").split("-").map(Number);
     setDirectForm({
@@ -220,7 +241,13 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
     );
   }
 
-  const payments = data?.payments ?? [];
+  const allPayments = data?.payments ?? [];
+  const paidPayments = allPayments.filter((p: any) => p.status === "paid" || !p.status);
+  const plannedPayments = allPayments.filter((p: any) => p.status === "planned");
+  const cancelledPayments = allPayments.filter((p: any) => p.status === "cancelled");
+  const hasSchedule = plannedPayments.length > 0 || cancelledPayments.length > 0 ||
+    allPayments.some((p: any) => p.scheduled_date);
+  const payments = paidPayments;
   const paymentListItems = data?.paymentListItems ?? [];
   const reimbursementItems = data?.reimbursementItems ?? [];
   const creditUsages = data?.creditUsages ?? [];
@@ -229,9 +256,10 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
   const totalPaid = payments.reduce((s, p) => s + Number(p.amount), 0);
   const totalCredit = creditUsages.reduce((s, c) => s + Number(c.amount), 0);
   const openBalance = Math.max(0, totalWithIva - totalPaid - totalCredit);
+  const totalPlanned = plannedPayments.reduce((s, p) => s + Number(p.amount), 0);
 
   const hasAny =
-    payments.length > 0 ||
+    allPayments.length > 0 ||
     paymentListItems.length > 0 ||
     reimbursementItems.length > 0 ||
     creditUsages.length > 0 ||
@@ -275,6 +303,65 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Cronograma de parcelas (planned + cancelled) */}
+      {hasSchedule && (
+        <Section
+          icon={<Clock className="h-3.5 w-3.5" />}
+          title={`Cronograma de parcelas (${plannedPayments.length} agendada${plannedPayments.length === 1 ? "" : "s"}${cancelledPayments.length > 0 ? ` · ${cancelledPayments.length} cancelada${cancelledPayments.length === 1 ? "" : "s"}` : ""})`}
+        >
+          <ul className="divide-y divide-border/40">
+            {[...plannedPayments, ...cancelledPayments].map((p: any, i: number) => {
+              const isPlanned = p.status === "planned";
+              const isCancelled = p.status === "cancelled";
+              return (
+                <li key={p.id} className="flex items-center justify-between py-1.5 text-xs gap-2">
+                  <div className={`flex items-center gap-2 min-w-0 ${isCancelled ? "line-through opacity-60" : ""}`}>
+                    <span className="font-medium text-muted-foreground">#{i + 1}</span>
+                    <span>{p.scheduled_date ? formatDatePT(p.scheduled_date) : "—"}</span>
+                    {isPlanned && (
+                      <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] text-warning">⏳ Planeada</span>
+                    )}
+                    {isCancelled && (
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">❌ Cancelada</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-mono font-semibold">{formatCurrency(Number(p.amount))}</span>
+                    {isAdmin && isPlanned && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setMarkInstallment(p)}
+                          className="rounded px-1.5 py-0.5 text-[10px] text-success hover:bg-success/10"
+                          title="Marcar como paga"
+                        >
+                          ✅ Pagar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm("Cancelar esta parcela?")) cancelInstallmentMutation.mutate(p.id);
+                          }}
+                          className="rounded px-1.5 py-0.5 text-[10px] text-destructive hover:bg-destructive/10"
+                          title="Cancelar parcela"
+                        >
+                          <Ban className="h-3 w-3 inline" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          {plannedPayments.length > 0 && (
+            <div className="mt-1 border-t border-border/40 pt-1 text-[10px] text-muted-foreground text-right">
+              Soma planeada: <span className="font-mono font-semibold">{formatCurrency(totalPlanned)}</span>
+            </div>
+          )}
+        </Section>
+      )}
 
       {/* Parcelas */}
       {payments.length > 0 && (
@@ -517,6 +604,13 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
           onClose={() => setShowPaymentsModal(false)}
         />
       )}
+
+      <MarkInstallmentPaidModal
+        open={!!markInstallment}
+        onOpenChange={(v) => { if (!v) setMarkInstallment(null); }}
+        installment={markInstallment}
+        transactionId={txId}
+      />
     </div>
   );
 }

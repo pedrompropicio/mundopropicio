@@ -27,6 +27,7 @@ import { extractJpegFromDng, isDngFile } from "@/lib/dng-extract-preview";
 import { pdfFirstPageToJpeg } from "@/lib/pdf-first-page-to-jpeg";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { getL2Id } from "@/lib/bp-category-constraint";
+import { TransactionInstallmentsEditor, type PlannedInstallment } from "@/components/TransactionInstallmentsEditor";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
@@ -177,6 +178,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [attachAfterCreateFile, setAttachAfterCreateFile] = useState<File | null>(null);
   // Em IVA misto, guardamos o file para anexar a TODAS as transações irmãs.
   const [attachIvaSplitFile, setAttachIvaSplitFile] = useState<File | null>(null);
+  // ===== Parcelamento (Fase 1.5) =====
+  const [useInstallments, setUseInstallments] = useState(false);
+  const [installmentRows, setInstallmentRows] = useState<PlannedInstallment[]>([]);
+  const [installmentWizard, setInstallmentWizard] = useState<{ count: number; firstDate: string; interval: "weekly" | "biweekly" | "monthly" }>({
+    count: 2, firstDate: "", interval: "monthly",
+  });
   const queryClient = useQueryClient();
 
   /**
@@ -1212,9 +1219,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         const accountId = data.is_reimbursement || isPaidByPartner ? null : (data.account_id || null);
         // Pago por Sócio: já fica liquidado, sem conta financeira da empresa.
         // Usa partnerPaidDate (data em que o sócio pagou) como payment_date.
-        const partnerStatus = isPaidByPartner ? "paid" : (autoMarkPaid ? "paid" : (autoApproved ? "approved" : "pending"));
-        const partnerPaidAmount = isPaidByPartner ? parseFloat(data.amount) : (autoMarkPaid ? parseFloat(data.amount) : 0);
-        const partnerPaymentDate = isPaidByPartner ? (partnerPaidDate || data.date) : (autoMarkPaid ? data.date : null);
+        const partnerStatus = useInstallments ? (autoApproved ? "approved" : "pending") : (isPaidByPartner ? "paid" : (autoMarkPaid ? "paid" : (autoApproved ? "approved" : "pending")));
+        const partnerPaidAmount = useInstallments ? 0 : (isPaidByPartner ? parseFloat(data.amount) : (autoMarkPaid ? parseFloat(data.amount) : 0));
+        const partnerPaymentDate = useInstallments ? null : (isPaidByPartner ? (partnerPaidDate || data.date) : (autoMarkPaid ? data.date : null));
 
         // Split parcial do Extra do Sócio: a fatura principal fica NORMAL pelo total
         // e cria-se uma irmã transitória pelo valor parcial vinculada via invoice_group_id.
@@ -1306,7 +1313,28 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           }
         }
 
+        // ===== Parcelamento (Fase 1.5) =====
+        // Cria N rows planned em transaction_payments. Trigger DB recalcula paid_amount/status/payment_date.
+        if (useInstallments && insertedTx?.id && installmentRows.length >= 2) {
+          const callerName = user?.email ?? "sistema";
+          const rows = installmentRows.map((r) => ({
+            transaction_id: insertedTx.id,
+            amount: r.amount,
+            scheduled_date: r.scheduled_date,
+            payment_date: r.scheduled_date, // NOT NULL fallback; trigger ignora planned
+            status: "planned" as const,
+            payment_method: data.payment_method || "transfer",
+            account_id: null,
+            withholding_amount: 0,
+            credit_amount: 0,
+            created_by: callerName,
+          }));
+          const { error: instErr } = await supabase.from("transaction_payments" as any).insert(rows as any);
+          if (instErr) throw instErr;
+        }
+
         // Link to Master forecast if user chose "master" in reinforcement dialog
+
         if (reinforcementChoice === "master" && insertedTx?.id && data.event_id && data.category_id) {
           const masterForecast = masterDetection.getMasterForecastForCategory(data.category_id);
           if (masterForecast) {
@@ -1495,6 +1523,28 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const proceedWithCreate = async () => {
     setShowDuplicateConfirm(false);
     setShowProrationConfirm(false);
+    // Validação de parcelamento (Fase 1.5)
+    if (useInstallments) {
+      if (form.type === "income") {
+        toast({ title: "Parcelamento indisponível", description: "Nesta fase, parcelamento só está disponível para despesas.", variant: "destructive" });
+        return;
+      }
+      if (isSplit) {
+        toast({ title: "Parcelamento indisponível", description: "Parcelamento não é compatível com rateio entre eventos nesta fase.", variant: "destructive" });
+        return;
+      }
+      if (autoMarkPaid || isPaidByPartner || isPartnerExtra || form.is_reimbursement) {
+        toast({ title: "Parcelamento indisponível", description: "Parcelamento não é compatível com este fluxo (auto-liquidada, pago por sócio, extra do sócio ou reembolso).", variant: "destructive" });
+        return;
+      }
+      const { validateInstallments } = await import("@/components/TransactionInstallmentsEditor");
+      const grossTotal = +(parseFloat(form.amount || "0") * (1 + Number(form.iva_rate || 0) / 100)).toFixed(2);
+      const err = validateInstallments(installmentRows, grossTotal);
+      if (err) {
+        toast({ title: "Cronograma inválido", description: err, variant: "destructive" });
+        return;
+      }
+    }
     // Multi-IVA split path: create N sibling transactions sharing invoice_ref + invoice_group_id.
     if (pendingIvaSplit && pendingIvaSplit.length >= 2 && !isSplit) {
       const sharedInvoiceRef =
@@ -3178,6 +3228,49 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               </div>
             )}
           </div>
+
+          {/* ===== Parcelamento (Fase 1.5) ===== */}
+          {form.type === "expense" && !isSplit && !autoMarkPaid && !isPaidByPartner && !isPartnerExtra && !form.is_reimbursement && parseFloat(form.amount || "0") > 0 && (() => {
+            const grossTotal = +(parseFloat(form.amount || "0") * (1 + Number(form.iva_rate || 0) / 100)).toFixed(2);
+            return (
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm cursor-pointer hover:bg-secondary/60">
+                  <input
+                    type="checkbox"
+                    checked={useInstallments}
+                    onChange={(e) => {
+                      const v = e.target.checked;
+                      setUseInstallments(v);
+                      if (v && installmentRows.length === 0) {
+                        setInstallmentWizard((w) => ({
+                          ...w,
+                          firstDate: w.firstDate || parseDueDateForDb(form.due_date) || form.date,
+                        }));
+                      }
+                    }}
+                  />
+                  <span className="font-medium">Pagar em parcelas</span>
+                  <span className="text-xs text-muted-foreground">
+                    (1 transação fiscal · N pagamentos planeados; total = {grossTotal.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })})
+                  </span>
+                </label>
+                {useInstallments && (
+                  <TransactionInstallmentsEditor
+                    grossTotal={grossTotal}
+                    defaultFirstDate={parseDueDateForDb(form.due_date) || form.date}
+                    installments={installmentRows}
+                    onChange={setInstallmentRows}
+                    count={installmentWizard.count}
+                    firstDate={installmentWizard.firstDate}
+                    interval={installmentWizard.interval}
+                    onWizardChange={setInstallmentWizard}
+                  />
+                )}
+              </div>
+            );
+          })()}
+
+
 
           {!showProrationConfirm && !showDuplicateConfirm && (
             <div className="flex gap-2">
