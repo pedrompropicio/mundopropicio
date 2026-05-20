@@ -1670,7 +1670,7 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 
 // Workaround UI para criativos sem file_url (parser MCS v1 limitado)
 function MissingPreviewActions({ metaCreativeId, compact = false }: { metaCreativeId: string; compact?: boolean }) {
-  const copy = async (e: React.MouseEvent) => {
+  const copy = async (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     try {
       await navigator.clipboard.writeText(metaCreativeId);
