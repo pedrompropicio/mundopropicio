@@ -470,15 +470,18 @@ export function exportPLToExcel(
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
   _auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2,
   companyDisplayName: string = "MP Gestão Eventos",
-  includeOverhead: boolean = false
+  includeOverhead: boolean = false,
+  scenarioName: string | null = null
 ) {
   void companyDisplayName;
   const wb = XLSX.utils.book_new();
   const isComparison = mode === "comparison";
   const hierarchy = buildEventHierarchyMaps(allEvents);
 
+  const baseTitle = isComparison ? "RELATÓRIO BUSINESS PLAN - PREVISÃO vs REALIZADO" : "RELATÓRIO BUSINESS PLAN - PREVISÃO";
+  const titleWithScenario = scenarioName ? `${baseTitle} — CENÁRIO ${scenarioName.toUpperCase()}` : baseTitle;
   const summaryRows: any[][] = [
-    [isComparison ? "RELATÓRIO BUSINESS PLAN - PREVISÃO vs REALIZADO" : "RELATÓRIO BUSINESS PLAN - PREVISÃO"],
+    [titleWithScenario],
     [],
     isComparison
       ? ["Evento", "Receita Prev.", "Receita Real", "Despesa Prev.", "Despesa Real", "Resultado Prev.", "Resultado Real", "Variação"]
@@ -612,7 +615,8 @@ export function exportPLToPDF(
   auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2,
   companyLogoDataUrl: string | null = null,
   companyDisplayName: string = "MP Gestão Eventos",
-  includeOverhead: boolean = false
+  includeOverhead: boolean = false,
+  scenarioName: string | null = null
 ) {
   const doc = new jsPDF({ orientation: "landscape" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -677,7 +681,8 @@ export function exportPLToPDF(
   const levelLabel = ` · Nível ${accountLevel}`;
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.text(isComparison ? "Relatório Business Plan — Previsão vs Realizado" : "Relatório Business Plan — Previsão", marginLeft, y);
+  const baseTitle = isComparison ? "Relatório Business Plan — Previsão vs Realizado" : "Relatório Business Plan — Previsão";
+  doc.text(scenarioName ? `${baseTitle} — Cenário ${scenarioName}` : baseTitle, marginLeft, y);
   y += 7;
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");

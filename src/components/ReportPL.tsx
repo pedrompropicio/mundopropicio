@@ -27,6 +27,7 @@ import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from 
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { ReportScenarioSelector } from "@/components/reports/ReportScenarioSelector";
 import { useScenarioForecasts } from "@/hooks/useScenarioForecasts";
+import { useBPVersions } from "@/hooks/useBPVersions";
 import { buildAbsorptionMap } from "@/lib/admin-cost-allocation";
 
 export type PLMode = "forecast" | "comparison";
@@ -791,6 +792,15 @@ export default function ReportPL() {
     return evt?.parent_event_id ?? id;
   }, [selectedEventIds, events]);
 
+  const { data: anchorVersions = [] } = useBPVersions(scenarioAnchorEventId);
+  const scenarioName = useMemo(() => {
+    if (!scenarioVersionId) return null;
+    const v = (anchorVersions as any[]).find((x: any) => x.id === scenarioVersionId);
+    if (!v) return null;
+    return v.scenario_label ?? `v${v.version_number}`;
+  }, [scenarioVersionId, anchorVersions]);
+
+
   return (
     <div className="space-y-6">
       <ReportScenarioSelector
@@ -798,6 +808,7 @@ export default function ReportPL() {
         isMultiEvent={selectedEventIds.length > 1}
         value={scenarioVersionId}
         onChange={setScenarioVersionId}
+        includeUnpinnedScenarios
       />
       {/* Mode selector + Event selector */}
       <div className="glass rounded-xl p-4 space-y-4">
@@ -888,7 +899,7 @@ export default function ReportPL() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => exportPLToExcel(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, undefined, typeFilter, accountLevel, displayName, includeOverhead)}
+          onClick={() => exportPLToExcel(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, undefined, typeFilter, accountLevel, displayName, includeOverhead, scenarioName)}
           disabled={activeEvents.length === 0}
         >
           <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
@@ -915,7 +926,7 @@ export default function ReportPL() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, [], typeFilter, accountLevel, logoDataUrl, displayName, includeOverhead);
+                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, [], typeFilter, accountLevel, logoDataUrl, displayName, includeOverhead, scenarioName);
                 setShowPdfDialog(false);
               }}
             >
@@ -923,7 +934,7 @@ export default function ReportPL() {
             </AlertDialogAction>
             <AlertDialogAction
               onClick={() => {
-                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, forecastAuditLogs, typeFilter, accountLevel, logoDataUrl, displayName, includeOverhead);
+                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, forecastAuditLogs, typeFilter, accountLevel, logoDataUrl, displayName, includeOverhead, scenarioName);
                 setShowPdfDialog(false);
               }}
               className="bg-primary"
