@@ -67,7 +67,54 @@ Bloqueia se `SUM(planned + paid)` exceder `gross + 0.01`. Não conta `cancelled`
 ## Roadmap
 
 - **Fase 1** ✅ Schema + triggers + 8 cenários validados (commit `57f35806…`, fix bug C7 a 2026-05-20)
-- **Fase 1.5** ⏳ Frente B (UI): toggle "Pagar em parcelas" no `TransactionFormModal` + secção parcelas planeadas no `PaymentTimeline` com "Marcar como paga"
+- **Fase 1.5** ✅ Frente B (UI) — toggle "Pagar em parcelas" no `TransactionFormModal` + secção "Cronograma de parcelas" no `PaymentTimeline` com botões "Pagar" e "Cancelar" por parcela
+
+## UI (Fase 1.5)
+
+### `TransactionFormModal` — toggle "Pagar em parcelas"
+
+Aparece **só quando** todas as condições são verdade: `type='expense'`, `!isSplit`, `!autoMarkPaid`, `!isPaidByPartner`, `!isPartnerExtra`, `!is_reimbursement`, `amount > 0`. Inserido logo abaixo dos campos Data Lançamento / Data Vcto.
+
+Quando ON, renderiza `TransactionInstallmentsEditor`:
+- Inputs: Nº parcelas (min 2, default 2), 1ª data (default = due_date ou date), Intervalo (semanal/quinzenal/mensal)
+- Botão **Distribuir igualmente** — divide gross em N e propaga datas
+- Tabela editável (data + valor por linha), com **Adicionar**, **Δ na última** (ajusta a última à diferença) e remover
+- Banner vermelho se `SUM(parcelas) ≠ gross` (tolerância 0,01 €)
+
+Ao submeter:
+1. INSERT da TX como hoje, mas **força** `status` a `pending/approved` (autoApproved da regra BP normal), `paid_amount=0`, `payment_date=null` — ignora `autoMarkPaid` quando `useInstallments`.
+2. BATCH INSERT em `transaction_payments` com N rows: `status='planned'`, `scheduled_date`, `payment_date=scheduled_date` (NOT NULL fallback — trigger ignora `planned`), `payment_method` herdado, `account_id=null`, `withholding=0`, `credit=0`.
+3. Trigger `trg_sync_paid_amount_from_payments` mantém TX em `pending/0` (nenhuma parcela `paid`).
+
+Bloqueios validados em `proceedWithCreate` (toast destrutivo):
+- Receita
+- Split entre eventos (rateio Master)
+- `autoMarkPaid` (fluxo "Nova despesa liquidada"), Pago por Sócio, Extra do Sócio, Reembolso
+
+### `PaymentTimeline` — secção "Cronograma de parcelas"
+
+Query agora carrega `status, scheduled_date`. Linhas separadas por `status`:
+- **planned** → secção nova "Cronograma" (badge ⏳ amarelo, botões "✅ Pagar" e "❌ Cancelar" se `isAdmin`)
+- **cancelled** → mesma secção, riscado/cinza
+- **paid** (ou `status` legado nulo) → secção existente "Parcelas pagas"
+
+**MarkInstallmentPaidModal** — pequeno: data efetiva (default=`scheduled_date`), conta financeira (obrigatória), método, retenção/crédito opcionais. UPDATE em `transaction_payments` → trigger DB recalcula `paid_amount/status/payment_date` da TX.
+
+**Cancelar** → `UPDATE status='cancelled'` (com `confirm()` JS). Trigger não conta cancelled na validação nem no `paid_amount`.
+
+### Ficheiros (Fase 1.5)
+
+- novo: `src/components/TransactionInstallmentsEditor.tsx` (+ helper `validateInstallments`)
+- novo: `src/components/MarkInstallmentPaidModal.tsx`
+- edit: `src/components/TransactionFormModal.tsx` (state, render, validação, batch insert pós-TX)
+- edit: `src/components/PaymentTimeline.tsx` (query, secção Cronograma, cancel mutation, mount do modal)
+
+### Limitações conhecidas
+
+- Não permite **dividir** uma parcela existente (Fase 3)
+- Não permite renegociar valor total da TX após existirem parcelas pagas (UX bloqueia via fluxos existentes; alteração ao `amount` reflete-se imediatamente na validação do trigger — se exceder o `gross` o INSERT falha)
+- Aprovação continua por TX inteira via `payment_lists` (não por parcela)
+- Reuso do `ScheduleInstallmentsModal` existente: **parcial** — partilhámos só os helpers `distributeEvenly` e `addByInterval`; UI é inline (não modal) para evitar passar contexto de "forecast" inexistente
 - **Fase 2** ⏳ Cashflow / `ReportForecastPayables` a ler `scheduled_date` em vez de `due_date` agregado
 - **Fase 3** (futuro) Dividir parcela, renegociação avançada, aprovação por parcela
 
