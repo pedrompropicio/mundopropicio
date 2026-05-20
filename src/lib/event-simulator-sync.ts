@@ -299,7 +299,8 @@ export async function syncSimulatorFromSources(eventId: string): Promise<SyncRep
     .select("amount, category_id")
     .eq("event_id", eventId)
     .eq("type", "income")
-    .eq("status", "approved");
+    .eq("status", "approved")
+    .is("version_id", null);
   // l3 abaixo de 1.2 (default; o utilizador pode customizar via sponsor_category_l2_id)
   const sponsorL3Ids = new Set(l3.filter((c) => c.code.startsWith("1.2.")).map((c) => c.id));
   const sponsorsTotal = ((allFcRevenue ?? []) as any[])
