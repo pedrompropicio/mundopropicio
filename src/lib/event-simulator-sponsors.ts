@@ -50,7 +50,8 @@ export async function loadSponsors(
     .eq("event_id", eventId)
     .eq("type", "income")
     .eq("status", "approved")
-    .in("category_id", l3Ids);
+    .in("category_id", l3Ids)
+    .is("version_id", null);
 
   const forecasts = (forecastsRaw ?? []) as Array<{
     id: string; description: string | null; amount: number;
