@@ -3228,6 +3228,51 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             )}
           </div>
 
+          {/* ===== Parcelamento (Fase 1.5) ===== */}
+          {form.type === "expense" && !isSplit && !autoMarkPaid && !isPaidByPartner && !isPartnerExtra && !form.is_reimbursement && parseFloat(form.amount || "0") > 0 && (() => {
+            const grossTotal = +(parseFloat(form.amount || "0") * (1 + Number(form.iva_rate || 0) / 100)).toFixed(2);
+            const EditorMod = require("@/components/TransactionInstallmentsEditor");
+            const Editor = EditorMod.TransactionInstallmentsEditor;
+            return (
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-sm cursor-pointer hover:bg-secondary/60">
+                  <input
+                    type="checkbox"
+                    checked={useInstallments}
+                    onChange={(e) => {
+                      const v = e.target.checked;
+                      setUseInstallments(v);
+                      if (v && installmentRows.length === 0) {
+                        setInstallmentWizard((w) => ({
+                          ...w,
+                          firstDate: w.firstDate || parseDueDateForDb(form.due_date) || form.date,
+                        }));
+                      }
+                    }}
+                  />
+                  <span className="font-medium">Pagar em parcelas</span>
+                  <span className="text-xs text-muted-foreground">
+                    (1 transação fiscal · N pagamentos planeados; total = {grossTotal.toLocaleString("pt-PT", { style: "currency", currency: "EUR" })})
+                  </span>
+                </label>
+                {useInstallments && (
+                  <Editor
+                    grossTotal={grossTotal}
+                    defaultFirstDate={parseDueDateForDb(form.due_date) || form.date}
+                    installments={installmentRows}
+                    onChange={setInstallmentRows}
+                    count={installmentWizard.count}
+                    firstDate={installmentWizard.firstDate}
+                    interval={installmentWizard.interval}
+                    onWizardChange={setInstallmentWizard}
+                  />
+                )}
+              </div>
+            );
+          })()}
+
+
+
           {!showProrationConfirm && !showDuplicateConfirm && (
             <div className="flex gap-2">
               <label
