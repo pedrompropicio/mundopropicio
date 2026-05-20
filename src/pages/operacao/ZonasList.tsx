@@ -9,9 +9,12 @@ import { OperacaoListShell } from "@/components/operacao/list/OperacaoListShell"
 import { ZonasFiltersBar } from "@/components/operacao/list/ZonasFiltersBar";
 import { ZonaCard, type ZonaCardData } from "@/components/operacao/list/ZonaCard";
 import { GanttZonasView, type GanttFrente } from "@/components/operacao/list/GanttZonasView";
+import { ZonasListaView } from "@/components/operacao/list/ZonasListaView";
+import { ZonasMultiSelector } from "@/components/operacao/list/ZonasMultiSelector";
 import { EditFrenteSheet } from "@/components/operacao/event/EditFrenteSheet";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
+
 
 const PAGE_SIZE = 50;
 
