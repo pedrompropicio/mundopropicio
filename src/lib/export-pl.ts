@@ -842,8 +842,8 @@ export function exportPLToPDF(
   let gFInc = 0, gFExp = 0, gTInc = 0, gTExp = 0;
   eventsToExport.forEach((evt) => {
     const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
-    let evtFInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
-    const evtFExpBase = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    let evtFInc = evtF.filter((f: any) => f.type === "income" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const evtFExpBase = evtF.filter((f: any) => f.type === "expense" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
     const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
     const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
     let ticketActualRevNet = 0;
