@@ -384,7 +384,7 @@ export default function Dashboard() {
               />
             </Link>
             <KpiCard label="Resolvidos no período" value={resolvedInPeriod} icon={CheckCircle2} tone="green" />
-            <KpiCard label="SLA breaches" value={breaches} icon={ShieldAlert} tone="red" />
+            <KpiCard label="Atrasados" value={breaches} icon={ShieldAlert} tone="red" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
