@@ -175,7 +175,7 @@ export function EditEtapaSheet({
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
         <SheetHeader><SheetTitle>Editar etapa</SheetTitle></SheetHeader>
         {!etapa ? (
           <p className="text-sm text-muted-foreground mt-4">A carregar…</p>
