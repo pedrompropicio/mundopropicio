@@ -965,7 +965,7 @@ export default function ReportPL() {
           const { evtF, evtT } = getEffectiveData(evt.id);
           const evtTicketEventIds = getTicketEventIds(evt.id);
           const evtTicketZones = ticketZones.filter((z: any) => evtTicketEventIds.includes(z.event_id));
-          const pl = isOpen ? buildPL(evtF, evtT, categories, evtTicketZones, ticketLots, ticketSales, evt.id, allCacheConfigs, allCacheDeductions, evtTicketEventIds, allCacheExtras, typeFilter, accountLevel) : [];
+          const pl = isOpen ? buildPL(evtF, evtT, categories, evtTicketZones, ticketLots, ticketSales, evt.id, allCacheConfigs, allCacheDeductions, evtTicketEventIds, allCacheExtras, typeFilter, accountLevel, includeOverhead, events) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">
