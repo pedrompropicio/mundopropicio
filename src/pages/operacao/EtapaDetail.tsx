@@ -278,7 +278,7 @@ function RegistroSheet({
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
+      <SheetContent side="bottom" className="h-[90vh] overflow-y-auto sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:max-w-2xl sm:w-full sm:rounded-t-xl">
         <SheetHeader><SheetTitle>Novo registo</SheetTitle></SheetHeader>
         <div className="space-y-4 mt-4">
           <RadioGroup value={kind} onValueChange={setKind} className="grid grid-cols-3 gap-2">
