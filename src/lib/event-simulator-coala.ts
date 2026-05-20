@@ -875,15 +875,16 @@ export function solveForecast(
   // o sync depositou as vendas reais (ex: sábado).
   const groupIndexes = new Map<string, number[]>();
   sessions.forEach((s, i) => {
-    const arr = groupIndexes.get(s.zone_label) ?? [];
+    const groupKey = logicalZoneGroup(s.zone_label);
+    const arr = groupIndexes.get(groupKey) ?? [];
     arr.push(i);
-    groupIndexes.set(s.zone_label, arr);
+    groupIndexes.set(groupKey, arr);
   });
 
   for (const s of sessions) {
     const key = `${s.day_index}-${s.zone_label}`;
     const info = lotInfoByKey?.[key] ?? lotInfoByKey?.[s.zone_label];
-    const groupIdxs = groupIndexes.get(s.zone_label) ?? [];
+    const groupIdxs = groupIndexes.get(logicalZoneGroup(s.zone_label)) ?? [];
     const isAnchor = groupIdxs[0] === sessions.indexOf(s);
     const realQty = sessionTodayQty(s);
     const realRev = sessionTodayRevenue(s);
