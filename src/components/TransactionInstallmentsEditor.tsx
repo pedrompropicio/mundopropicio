@@ -95,7 +95,7 @@ export function TransactionInstallmentsEditor({
 
   return (
     <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
         <div className="space-y-1">
           <Label className="text-xs">Nº parcelas</Label>
           <Input
@@ -147,11 +147,12 @@ export function TransactionInstallmentsEditor({
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-end">
-          <Button type="button" variant="secondary" size="sm" onClick={distribute} className="w-full h-9">
-            <Wand2 className="h-3.5 w-3.5 mr-1.5" /> Distribuir igualmente
-          </Button>
-        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <Button type="button" variant="secondary" size="sm" onClick={distribute} className="h-9">
+          <Wand2 className="h-3.5 w-3.5 mr-1.5" /> Distribuir igualmente
+        </Button>
       </div>
 
       {installments.length > 0 && (
@@ -217,7 +218,7 @@ export function TransactionInstallmentsEditor({
           </Button>
           {installments.length > 0 && (
             <Button type="button" variant="ghost" size="sm" onClick={applyDeltaToLast}>
-              Δ na última
+              Ajustar última
             </Button>
           )}
         </div>
@@ -239,7 +240,7 @@ export function TransactionInstallmentsEditor({
 
       {installments.length > 0 && Math.abs(diff) > 0.01 && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          A soma das parcelas tem de ser igual ao total (tolerância 0,01 €). Usa <strong>Distribuir igualmente</strong> ou <strong>Δ na última</strong>.
+          A soma das parcelas tem de ser igual ao total (tolerância 0,01 €). Usa <strong>Distribuir igualmente</strong> ou <strong>Ajustar última</strong>.
         </div>
       )}
       {installments.length < 2 && (
