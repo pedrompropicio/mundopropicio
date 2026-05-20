@@ -615,7 +615,8 @@ export function exportPLToPDF(
   auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2,
   companyLogoDataUrl: string | null = null,
   companyDisplayName: string = "MP Gestão Eventos",
-  includeOverhead: boolean = false
+  includeOverhead: boolean = false,
+  scenarioName: string | null = null
 ) {
   const doc = new jsPDF({ orientation: "landscape" });
   const pageWidth = doc.internal.pageSize.getWidth();
