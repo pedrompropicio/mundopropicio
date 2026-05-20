@@ -167,7 +167,8 @@ export function SponsorsImportModal({ open, onOpenChange, eventId, eventName, ev
         .from("event_forecasts")
         .select("id, description, amount, type, transaction_id, is_transitory")
         .eq("event_id", eventId)
-        .eq("category_id", SPONSORS_CATEGORY_ID);
+        .eq("category_id", SPONSORS_CATEGORY_ID)
+        .is("version_id", null);
       if (fcErr) throw fcErr;
       const fcByName: Record<string, any> = {};
       for (const f of existingForecasts || []) {
