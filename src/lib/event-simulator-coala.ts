@@ -672,16 +672,17 @@ export function solveBreakEven(
   // o peso do dia em que as vendas reais ficaram concentradas.
   const groupIndexes = new Map<string, number[]>();
   sessions.forEach((s, i) => {
-    const arr = groupIndexes.get(s.zone_label) ?? [];
+    const groupKey = logicalZoneGroup(s.zone_label);
+    const arr = groupIndexes.get(groupKey) ?? [];
     arr.push(i);
-    groupIndexes.set(s.zone_label, arr);
+    groupIndexes.set(groupKey, arr);
   });
 
   const slots: Slot[] = sessions.map((s, idx) => {
     const key = `${s.day_index}-${s.zone_label}`;
     // Tenta a chave composta E também só pelo nome da zona (UI passa indexado por zona).
     const info = lotInfoByKey?.[key] ?? lotInfoByKey?.[s.zone_label];
-    const groupIdxs = groupIndexes.get(s.zone_label) ?? [idx];
+    const groupIdxs = groupIndexes.get(logicalZoneGroup(s.zone_label)) ?? [idx];
     const isAnchor = groupIdxs[0] === idx;
     // realQty agregado por zona (todas as duplicatas) para evitar viés
     // no dia em que o sync concentrou as vendas reais.
