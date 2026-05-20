@@ -681,7 +681,8 @@ export function exportPLToPDF(
   const levelLabel = ` · Nível ${accountLevel}`;
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.text(isComparison ? "Relatório Business Plan — Previsão vs Realizado" : "Relatório Business Plan — Previsão", marginLeft, y);
+  const baseTitle = isComparison ? "Relatório Business Plan — Previsão vs Realizado" : "Relatório Business Plan — Previsão";
+  doc.text(scenarioName ? `${baseTitle} — Cenário ${scenarioName}` : baseTitle, marginLeft, y);
   y += 7;
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
