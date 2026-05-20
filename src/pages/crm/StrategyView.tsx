@@ -800,20 +800,32 @@ export default function CrmStrategyView() {
               for (const phase of plan?.phases ?? []) {
                 if (inheritedByPhase.get(phase.id)?.has(c.meta_creative_id)) phasesUsing.push(phase.name);
               }
+              const hasPreview = !!c.file_url;
               return (
-                <div key={c.meta_creative_id} className="flex gap-3 rounded border border-border bg-background/50 p-2">
+                <div
+                  key={c.meta_creative_id}
+                  className={cn(
+                    "flex gap-3 rounded border p-2",
+                    hasPreview
+                      ? "border-border bg-background/50"
+                      : "border-amber-500/30 bg-amber-500/5",
+                  )}
+                >
                   <div className="h-14 w-14 rounded bg-muted/50 border border-border overflow-hidden shrink-0 flex items-center justify-center">
                     {c.file_url && c.type !== "video" ? (
                       <img src={c.file_url} alt={c.name ?? ""} className="h-full w-full object-cover" loading="lazy" />
                     ) : c.file_url && c.type === "video" ? (
                       <video src={c.file_url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
                     ) : (
-                      <Image2 className="h-5 w-5 text-muted-foreground" />
+                      <Image2 className="h-5 w-5 text-amber-400/70" />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-medium truncate">{c.name ?? c.ad_name ?? "Sem nome"}</div>
                     <div className="text-[10px] text-muted-foreground font-mono truncate">{c.meta_creative_id}</div>
+                    {!hasPreview && (
+                      <MissingPreviewActions metaCreativeId={c.meta_creative_id} compact />
+                    )}
                     {phasesUsing.length > 0 ? (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {phasesUsing.map((pn) => (
@@ -828,6 +840,7 @@ export default function CrmStrategyView() {
                   </div>
                 </div>
               );
+
             })}
           </div>
         </Card>
