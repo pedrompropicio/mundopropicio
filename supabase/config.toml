@@ -1,72 +1,22 @@
-project_id = "sfohvvlqccmmebvjgibx"
+project_id = "ukpuhoynrqobqtzdbysp"
 
-[functions]
-  [functions.accept-invitation]
-    verify_jwt = false
-  [functions.accept-staff-invite]
-    verify_jwt = false
-  [functions.create-staff]
-    verify_jwt = true
-  [functions.send-staff-invite]
-    verify_jwt = true
-  [functions.auth-email-hook]
-    verify_jwt = false
-  [functions.process-email-queue]
-    verify_jwt = true
-  [functions.send-transactional-email]
-    verify_jwt = true
-  # preview-transactional-email: gated por LOVABLE_API_KEY (não é JWT Supabase).
-  # NÃO mudar para true — quebra o caller (backend Go da Lovable).
-  [functions.preview-transactional-email]
-    verify_jwt = false
-  [functions.handle-email-unsubscribe]
-    verify_jwt = false
-  [functions.handle-email-suppression]
-    verify_jwt = false
-  [functions.request-password-reset]
-    verify_jwt = false
-  [functions.resend-reset-email]
-    verify_jwt = false
-  [functions.send-push-notification]
-    verify_jwt = true
-  [functions.database-backup]
-    verify_jwt = true
-  [functions.database-restore]
-    verify_jwt = true
-  [functions.selective-restore]
-    verify_jwt = true
-  [functions.surgical-restore]
-    verify_jwt = true
-  [functions.crm-meta-oauth-callback]
-    verify_jwt = false
-  [functions.crm-meta-funnel-test-run]
-    verify_jwt = false
-  [functions.crm-meta-funnel-test-status]
-    verify_jwt = false
-  [functions.crm-meta-extract-landing-urls]
-    verify_jwt = false
-  # fetch-fever-reports: pode ser chamado por cron (sem JWT user) ou pela UI (JWT).
-  # Mantemos verify_jwt=false e o caller passa configId/mode no body.
-  [functions.fetch-fever-reports]
-    verify_jwt = false
-  [functions.update-fever-credentials]
-    verify_jwt = false
-  [functions.update-fever-b2b-token]
-    verify_jwt = false
-  # refresh-fever-token: chamado por cron (service_role) e UI (user JWT).
-  # Auth é validada em código (service_role bypass + role check).
-  [functions.refresh-fever-token]
-    verify_jwt = false
-  # crm-measure-action-impact: cron-only (D+7 impact measurement).
-  # Rejeita tudo excepto service_role. Daily schedule em
-  # scripts/crm-cron-measure-action-impact-live.txt (aplicar manualmente).
-  [functions.crm-measure-action-impact]
-    verify_jwt = false
-  # crm-meta-redesign-inventory: chamado pelo wizard 3b (UI/user JWT).
-  [functions.crm-meta-redesign-inventory]
-    verify_jwt = true
-  # crm-cron-pause-replaced-originals: cron-only (executa pauses delayed_7d
-  # depois do A/B window expirar). Rejeita tudo excepto service_role.
-  # Daily schedule em scripts/crm-cron-pause-replaced-originals-live.txt.
-  [functions.crm-cron-pause-replaced-originals]
-    verify_jwt = false
+[functions.database-backup]
+verify_jwt = true
+
+[functions.database-restore]
+verify_jwt = true
+
+[functions.selective-restore]
+verify_jwt = true
+
+[functions.surgical-restore]
+verify_jwt = true
+
+[functions.send-push-notification]
+verify_jwt = true
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.whatsapp-dispatcher]
+verify_jwt = false
