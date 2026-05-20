@@ -50,6 +50,20 @@ export function sortByHierarchicalCode<T>(items: T[], getCode: (item: T) => stri
 }
 
 /**
+ * Como compareHierarchicalCodes, mas força quaisquer codes do Grupo 0
+ * (ex.: "0.0.99 A Classificar") para o fim da lista — para relatórios
+ * em que a categoria "não-classificado" deve aparecer no final.
+ */
+export function compareReportCodesUnclassifiedLast(a?: string | null, b?: string | null) {
+  const isUnclassified = (c?: string | null) => !!c && c.trim().startsWith("0.");
+  const aU = isUnclassified(a);
+  const bU = isUnclassified(b);
+  if (aU && !bU) return 1;
+  if (!aU && bU) return -1;
+  return compareHierarchicalCodes(a, b);
+}
+
+/**
  * Calcula o valor total com IVA, arredondado ao cêntimo mais próximo
  * conforme Artigo 18.º do CIVA (Portugal).
  */
