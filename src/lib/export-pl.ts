@@ -548,12 +548,15 @@ export function exportPLToExcel(
     summaryRows.push(["TOTAL", gFInc, gFExp, gFInc - gFExp]);
   }
 
-  const summaryWs = XLSX.utils.aoa_to_sheet(summaryRows);
-  summaryWs["!cols"] = isComparison
-    ? [{ wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }]
-    : [{ wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
-  applyPTNumberFormat(summaryWs);
-  XLSX.utils.book_append_sheet(wb, summaryWs, "Resumo");
+  // Folha "Resumo" só faz sentido em "Ambos" (Receita+Despesa+Resultado)
+  if (typeFilter === "both") {
+    const summaryWs = XLSX.utils.aoa_to_sheet(summaryRows);
+    summaryWs["!cols"] = isComparison
+      ? [{ wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }]
+      : [{ wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 16 }];
+    applyPTNumberFormat(summaryWs);
+    XLSX.utils.book_append_sheet(wb, summaryWs, "Resumo");
+  }
 
   eventsToExport.forEach((evt) => {
     const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
