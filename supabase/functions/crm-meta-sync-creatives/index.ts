@@ -54,30 +54,73 @@ function isServiceRoleJWT(authHeader: string): boolean {
 }
 
 // Graph API fields. Pedimos tudo o que o parser pode usar; campos opcionais
-// chegam como undefined sem erro.
+// chegam como undefined sem erro. v2 adiciona asset_feed_spec + product_set_id
+// para DPA, e expande object_story_spec implicitamente (Graph retorna sub-objects).
 const CREATIVE_FIELDS = [
   "id", "name", "body", "title", "object_story_spec",
   "image_url", "video_id", "thumbnail_url", "call_to_action_type",
   "object_type", "image_hash",
+  "asset_feed_spec", "product_set_id",
 ].join(",");
 
 interface ParsedCreative {
-  type: "image" | "video" | "banner" | "unknown";
+  type: "image" | "video" | "banner" | "carousel" | "dpa" | "unknown";
   headline: string | null;
   body: string | null;
   cta_type: string | null;
   link_url: string | null;
-  thumbnail_url: string | null;
+  // URL do asset principal (image_url do video, picture do link, etc).
+  // Renomeado de thumbnail_url em v2: o INSERT mapeia directo para crm.meta_creatives.file_url.
+  file_url: string | null;
   video_id: string | null;
-  image_hash: string | null; // preparado para v2 thumbnail resolution
+  image_hash: string | null; // preparado para v2 image_hash batch resolution
 }
 
-// Parser do object_story_spec. v1 cobre 3 shapes: video_data, link_data,
-// image_data. template_data (carousels) e asset_feed_spec (AAA) caem
-// no fallback "unknown" com warning log.
+// Parser do object_story_spec. v2 cobre 5 shapes em ordem de especificidade:
+// 1) carousel (link_data.child_attachments OU template_data.child_attachments)
+// 2) dpa (asset_feed_spec + product_set_id)
+// 3) video_data
+// 4) link_data (sem child_attachments)
+// 5) image_data
+// Fallback "unknown" cai aqui só se nenhum match — top-level thumbnail/image_url
+// como último recurso. Ordem importa: carousels têm link_data embutido, queremos
+// detectar tipo "rico" antes do banner simples.
 function parseCreativeFields(creative: any): ParsedCreative {
   const spec = creative?.object_story_spec ?? {};
 
+  // 1. Carousel — child_attachments em link_data ou template_data
+  const childAttachments = spec.link_data?.child_attachments ?? spec.template_data?.child_attachments;
+  if (Array.isArray(childAttachments) && childAttachments.length > 0) {
+    const first = childAttachments[0] ?? {};
+    return {
+      type: "carousel",
+      headline: first.name ?? null,
+      body: first.description ?? null,
+      cta_type: first.call_to_action?.type ?? spec.link_data?.call_to_action?.type ?? null,
+      link_url: first.link ?? spec.link_data?.link ?? null,
+      file_url: first.image_url ?? first.picture ?? null,
+      video_id: null,
+      image_hash: first.image_hash ?? null,
+    };
+  }
+
+  // 2. DPA — asset_feed_spec + product_set_id (top-level ou template_data)
+  const productSetId = creative?.product_set_id ?? spec.template_data?.product_set_id;
+  if (creative?.asset_feed_spec && productSetId) {
+    const afs = creative.asset_feed_spec;
+    return {
+      type: "dpa",
+      headline: afs.titles?.[0]?.text ?? null,
+      body: afs.bodies?.[0]?.text ?? null,
+      cta_type: afs.call_to_action_types?.[0] ?? null,
+      link_url: afs.link_urls?.[0]?.website_url ?? null,
+      file_url: afs.images?.[0]?.url ?? null,
+      video_id: null,
+      image_hash: afs.images?.[0]?.hash ?? null,
+    };
+  }
+
+  // 3. Video
   if (spec.video_data) {
     return {
       type: "video",
@@ -85,11 +128,13 @@ function parseCreativeFields(creative: any): ParsedCreative {
       body: spec.video_data.message ?? null,
       cta_type: spec.video_data.call_to_action?.type ?? null,
       link_url: spec.video_data.call_to_action?.value?.link ?? null,
-      thumbnail_url: spec.video_data.image_url ?? creative.thumbnail_url ?? null,
+      file_url: spec.video_data.image_url ?? creative.thumbnail_url ?? null,
       video_id: spec.video_data.video_id ?? creative.video_id ?? null,
       image_hash: null,
     };
   }
+
+  // 4. Link (banner — sem child_attachments, já filtrados acima)
   if (spec.link_data) {
     return {
       type: "banner",
@@ -97,11 +142,13 @@ function parseCreativeFields(creative: any): ParsedCreative {
       body: spec.link_data.message ?? null,
       cta_type: spec.link_data.call_to_action?.type ?? null,
       link_url: spec.link_data.call_to_action?.value?.link ?? spec.link_data.link ?? null,
-      thumbnail_url: spec.link_data.picture ?? null,
+      file_url: spec.link_data.picture ?? null,
       video_id: null,
       image_hash: spec.link_data.image_hash ?? null,
     };
   }
+
+  // 5. Image
   if (spec.image_data) {
     return {
       type: "image",
@@ -109,18 +156,18 @@ function parseCreativeFields(creative: any): ParsedCreative {
       body: spec.image_data.message ?? null,
       cta_type: spec.image_data.call_to_action?.type ?? null,
       link_url: spec.image_data.call_to_action?.value?.link ?? null,
-      thumbnail_url: null,
+      file_url: null, // resolvido via image_hash batch (post-parser)
       video_id: null,
       image_hash: spec.image_data.image_hash ?? null,
     };
   }
 
-  // Fallback — sem object_story_spec ou shape não coberto (template_data, asset_feed_spec, etc).
+  // Fallback — shape sem object_story_spec ou shape exótico
   console.warn(
     `[meta-sync-creatives] Unknown shape for creative ${creative?.id}. ` +
     `Has object_story_spec: ${!!creative?.object_story_spec}. ` +
     `Keys: ${creative?.object_story_spec ? Object.keys(creative.object_story_spec).join(",") : "none"}. ` +
-    `v1 cobre image_data/video_data/link_data. Considerar v2 para template_data/asset_feed_spec.`,
+    `v2 cobre carousel/dpa/video/banner/image. Shape exótico fica em fallback.`,
   );
   return {
     type: creative?.video_id ? "video" : "unknown",
@@ -128,7 +175,7 @@ function parseCreativeFields(creative: any): ParsedCreative {
     body: creative?.body ?? null,
     cta_type: creative?.call_to_action_type ?? null,
     link_url: null,
-    thumbnail_url: creative?.thumbnail_url ?? null,
+    file_url: creative?.thumbnail_url ?? creative?.image_url ?? null,
     video_id: creative?.video_id ?? null,
     image_hash: creative?.image_hash ?? null,
   };
@@ -165,6 +212,77 @@ async function batchFetchCreatives(ids: string[], accessToken: string): Promise<
   return out;
 }
 
+// v2: resolve thumbnail URL de um video_id via Graph API. Fallback quando o
+// branch video_data não capturou file_url directamente. Retry 1x em 429/500,
+// retorna null em falha (não bloqueia o sync).
+async function resolveVideoThumbnail(videoId: string, accessToken: string): Promise<string | null> {
+  const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${videoId}`);
+  url.searchParams.set("fields", "picture,thumbnails");
+  url.searchParams.set("access_token", accessToken);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const r = await fetch(url.toString());
+      if (r.status === 429 || r.status >= 500) {
+        if (attempt === 0) continue;
+        console.warn(`[meta-sync-creatives][v2] resolveVideoThumbnail ${videoId} status=${r.status} after retry`);
+        return null;
+      }
+      const j = await r.json();
+      if (!r.ok || j.error) {
+        console.warn(`[meta-sync-creatives][v2] resolveVideoThumbnail ${videoId} err:`, j.error?.message ?? r.status);
+        return null;
+      }
+      return j.picture ?? j.thumbnails?.data?.[0]?.uri ?? null;
+    } catch (e) {
+      if (attempt === 0) continue;
+      console.warn(`[meta-sync-creatives][v2] resolveVideoThumbnail ${videoId} threw:`, (e as Error).message);
+      return null;
+    }
+  }
+  return null;
+}
+
+// v2: batch resolve image_hash → URL via Graph API (chunks de 10).
+// Endpoint /act_{id}/adimages?hashes=[...]. Retry 1x por chunk em 429/500.
+// Retorna Map vazio se input vazio. Hashes sem match silenciosos (ausentes do map).
+async function resolveImageHashes(adAccountId: string, hashes: string[], accessToken: string): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (hashes.length === 0) return out;
+  const CHUNK = 10;
+  for (let i = 0; i < hashes.length; i += CHUNK) {
+    const slice = hashes.slice(i, i + CHUNK);
+    const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${adAccountId}/adimages`);
+    url.searchParams.set("hashes", JSON.stringify(slice));
+    url.searchParams.set("fields", "hash,url,permalink_url");
+    url.searchParams.set("access_token", accessToken);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const r = await fetch(url.toString());
+        if (r.status === 429 || r.status >= 500) {
+          if (attempt === 0) continue;
+          console.warn(`[meta-sync-creatives][v2] resolveImageHashes batch ${i / CHUNK + 1} status=${r.status} after retry`);
+          break;
+        }
+        const j = await r.json();
+        if (!r.ok || j.error) {
+          console.warn(`[meta-sync-creatives][v2] resolveImageHashes batch ${i / CHUNK + 1} err:`, j.error?.message ?? r.status);
+          break;
+        }
+        for (const item of (j.data ?? [])) {
+          const resolved = item.url ?? item.permalink_url;
+          if (item.hash && resolved) out.set(item.hash, resolved);
+        }
+        break;
+      } catch (e) {
+        if (attempt === 0) continue;
+        console.warn(`[meta-sync-creatives][v2] resolveImageHashes batch ${i / CHUNK + 1} threw:`, (e as Error).message);
+        break;
+      }
+    }
+  }
+  return out;
+}
+
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -180,6 +298,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     mode?: "incremental" | "full";
     max_creatives_per_run?: number;
     triggered_by?: string;
+    force_resync?: boolean;
   };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
 
@@ -190,6 +309,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const mode: "incremental" | "full" = body?.mode === "full" ? "full" : "incremental";
   const maxRun = Math.min(Math.max(body?.max_creatives_per_run ?? 200, 1), 2000);
   const triggeredBy = body?.triggered_by ?? (isServiceRole ? "service_role" : "user");
+
+  // v2: force_resync requer service_role JWT. Skipa set-diff E faz UPSERT real
+  // (ignoreDuplicates=false), re-escrevendo rows existentes com parsers v2.
+  // Bloqueia user JWT para evitar dispar accidental via UI.
+  const forceResync = body?.force_resync === true;
+  if (forceResync && !isServiceRole) {
+    return json({
+      error: "force_resync_requires_service_role",
+      hint: "Call this endpoint via Supabase Edge Function invocation with service_role key, not user JWT.",
+    }, 403);
+  }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
@@ -218,7 +348,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     access_token: string; company_id: string;
   };
 
-  console.log(`[meta-sync-creatives] start company=${companyId} acct=${adAccountId} mode=${mode} max=${maxRun} triggered_by=${triggeredBy}`);
+  console.log(`[meta-sync-creatives] start company=${companyId} acct=${adAccountId} mode=${mode} max=${maxRun} triggered_by=${triggeredBy} force_resync=${forceResync}`);
+  if (forceResync) {
+    console.log("[meta-sync-creatives][v2] force_resync_mode", { enabled: true });
+  }
 
   // ── 1) Identificar creative IDs a sincronizar ─────────────────────────
   // Step A: distinct meta_creative_id em meta_ad_snapshot.
@@ -237,8 +370,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const allSnapIds = Array.from(new Set((snapRows ?? []).map((r: any) => r.meta_creative_id as string).filter(Boolean)));
 
   // Step B: existentes em meta_creatives para esta company.
+  // v2: force_resync skipa o set-diff (processa TODOS os IDs do snapshot).
   let existingIds = new Set<string>();
-  if (mode === "incremental" && allSnapIds.length > 0) {
+  if (mode === "incremental" && !forceResync && allSnapIds.length > 0) {
     const { data: existing } = await (supabase as any)
       .schema("crm")
       .from("meta_creatives")
@@ -248,6 +382,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     existingIds = new Set((existing ?? []).map((r: any) => r.meta_creative_id as string).filter(Boolean));
   }
   // mode='full' force re-sync de tudo (mas com onConflict do nothing, existing rows não mudam).
+  // force_resync='true' faz UPSERT real (ignoreDuplicates=false na fase 4).
 
   const missingIds = allSnapIds.filter((id) => !existingIds.has(id));
   const idsToFetch = missingIds.slice(0, maxRun);
@@ -274,14 +409,52 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const fetched = await batchFetchCreatives(idsToFetch, accessToken);
   console.log(`[meta-sync-creatives] fetched ${fetched.size}/${idsToFetch.length} from Graph`);
 
-  // ── 3) Parse + construct rows ─────────────────────────────────────────
+  // ── 3) Parse + construct rows (+ v2 stats tracking) ──────────────────
   const nowIso = new Date().toISOString();
   const rows: any[] = [];
   let skipped = 0;
+
+  // v2: stats tracking incrementado ao longo da pipeline.
+  const stats = {
+    total_processed: 0,
+    by_type: { video: 0, carousel: 0, dpa: 0, link: 0, image: 0, unknown: 0 },
+    file_url_resolved_direct: 0,
+    file_url_resolved_via_video_thumbnail: 0,
+    file_url_resolved_via_hash: 0,
+    file_url_still_null: 0,
+    meta_api_calls: { video_thumbnail_count: 0, adimages_batch_count: 0 },
+    errors: [] as { meta_creative_id: string; error_msg: string }[],
+  };
+
   for (const cid of idsToFetch) {
     const creative = fetched.get(cid);
     if (!creative) { skipped++; continue; }
     const parsed = parseCreativeFields(creative);
+
+    stats.total_processed++;
+    // Map type → by_type key ("banner" do parser → "link" no stats).
+    const typeKey = parsed.type === "banner" ? "link" : parsed.type;
+    if (typeKey in stats.by_type) (stats.by_type as any)[typeKey]++;
+
+    if (parsed.file_url !== null) stats.file_url_resolved_direct++;
+
+    // v2: video thumbnail fallback — gating: só chama API se parser não capturou.
+    // Defesa em depth para vídeos onde Meta não retorna image_url/thumbnail_url no spec.
+    if (parsed.type === "video" && parsed.file_url === null && parsed.video_id) {
+      stats.meta_api_calls.video_thumbnail_count++;
+      try {
+        const resolved = await resolveVideoThumbnail(parsed.video_id, accessToken);
+        if (resolved) {
+          parsed.file_url = resolved;
+          stats.file_url_resolved_via_video_thumbnail++;
+        }
+      } catch (e) {
+        if (stats.errors.length < 10) {
+          stats.errors.push({ meta_creative_id: cid, error_msg: `video_thumbnail: ${(e as Error).message}` });
+        }
+      }
+    }
+
     rows.push({
       company_id: companyId,
       meta_creative_id: cid,
@@ -292,9 +465,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
       cta_type: parsed.cta_type,
       link_url: parsed.link_url,
       meta_image_hash: parsed.image_hash,
-      // v1: campos null (sem upload manual)
+      // v2: file_url vem do parser (video_data.image_url, link_data.picture, carousel child, dpa images[0], etc).
+      // Para image_data e qualquer outro com hash mas sem file_url, batch resolve abaixo.
       storage_path: null,
-      file_url: null,
+      file_url: parsed.file_url ?? null,
       file_mime_type: null,
       file_size_bytes: null,
       width: null,
@@ -306,9 +480,36 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
   }
 
-  // ── 4) INSERT ON CONFLICT DO NOTHING em chunks ───────────────────────
-  // ignoreDuplicates: true preserva rows existentes (uploads UI manuais).
-  // v2 fará passo separado para enriquecer rows existentes com campos vazios.
+  // ── 3b) v2: batch resolve image_hash → URL para rows ainda sem file_url ──
+  // Só chama API para hashes onde file_url ficou null depois dos passos 1-5
+  // (evita chamadas desnecessárias para criativos já resolvidos directamente).
+  const rowsNeedingHash = rows.filter((r) => r.file_url === null && r.meta_image_hash);
+  const hashesToResolve = Array.from(new Set(rowsNeedingHash.map((r) => r.meta_image_hash as string)));
+  if (hashesToResolve.length > 0) {
+    stats.meta_api_calls.adimages_batch_count = Math.ceil(hashesToResolve.length / 10);
+    try {
+      const resolvedMap = await resolveImageHashes(adAccountId, hashesToResolve, accessToken);
+      for (const row of rowsNeedingHash) {
+        const resolved = resolvedMap.get(row.meta_image_hash);
+        if (resolved) {
+          row.file_url = resolved;
+          stats.file_url_resolved_via_hash++;
+        }
+      }
+    } catch (e) {
+      if (stats.errors.length < 10) {
+        stats.errors.push({ meta_creative_id: "<batch>", error_msg: `image_hash_batch: ${(e as Error).message}` });
+      }
+    }
+  }
+
+  // Contagem final de rows que continuam sem file_url (irreparáveis nesta sync).
+  stats.file_url_still_null = rows.filter((r) => r.file_url === null).length;
+
+  // ── 4) UPSERT em chunks ──────────────────────────────────────────────
+  // v2: ignoreDuplicates=!forceResync. Default (force_resync=false) preserva
+  // rows existentes (uploads UI manuais, runs anteriores). force_resync=true
+  // re-escreve rows existentes com parsers v2 (recoveryde 805 órfãos).
   let insertedCount = 0;
   if (rows.length > 0) {
     const CHUNK = 500;
@@ -319,7 +520,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const { data: inserted, error: upErr } = await (supabase as any)
         .schema("crm")
         .from("meta_creatives")
-        .upsert(slice, { onConflict: "company_id,meta_creative_id", ignoreDuplicates: true })
+        .upsert(slice, { onConflict: "company_id,meta_creative_id", ignoreDuplicates: !forceResync })
         .select("id");
       if (upErr) {
         console.error(`[meta-sync-creatives] upsert chunk ${idx}/${chunks} failed:`, upErr);
@@ -347,14 +548,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
   });
 
   console.log(`[meta-sync-creatives] done: inserted=${insertedCount} skipped=${skipped} remaining=${remainingToSync}`);
+  console.log("[meta-sync-creatives][v2] parse_stats", {
+    ...stats,
+    mode: forceResync ? "force_resync" : mode,
+  });
 
   return json({
     synced_count: insertedCount,
     skipped_count: skipped,
     ad_account_id: adAccountId,
     mode,
+    force_resync: forceResync,
     remaining_to_sync: remainingToSync,
     triggered_by: triggeredBy,
     backlog_snapshot: { snap_distinct: allSnapIds.length, existing: existingIds.size, missing: missingIds.length, fetched: idsToFetch.length },
+    parse_stats: stats,
   });
 });
