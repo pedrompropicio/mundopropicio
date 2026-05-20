@@ -390,6 +390,8 @@ function ProtectedLayout() {
                 <Route path="etapas" element={<EtapasList />} />
                 <Route path="zonas" element={<ZonasList />} />
                 <Route path="chamados" element={<ChamadosList />} />
+                <Route path="pessoas" element={<PessoasList />} />
+                <Route path="pessoa/:id" element={<PessoaDetail />} />
                 <Route path="meus-chamados" element={<MeusChamados />} />
                 <Route path="chamado/novo" element={<ChamadoNovo />} />
                 <Route path="chamado/:id" element={<ChamadoDetail />} />
