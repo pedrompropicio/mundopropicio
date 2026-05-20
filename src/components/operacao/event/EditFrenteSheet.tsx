@@ -142,7 +142,7 @@ export function EditFrenteSheet({
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Editar {frenteLabel(frente?.type)}</SheetTitle>
         </SheetHeader>
