@@ -108,6 +108,7 @@ import PessoasList from "./pages/operacao/PessoasList";
 import PessoaDetail from "./pages/operacao/PessoaDetail";
 import AcceptInvite from "./pages/operacao/AcceptInvite";
 import OperacaoHome from "./pages/operacao/OperacaoHome";
+import CampoView from "./pages/operacao/CampoView";
 import OperacaoDashboard from "./pages/operacao/Dashboard";
 import FrenteManage from "./pages/operacao/FrenteManage";
 import EventHub from "./pages/operacao/EventHub";
