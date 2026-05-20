@@ -800,20 +800,32 @@ export default function CrmStrategyView() {
               for (const phase of plan?.phases ?? []) {
                 if (inheritedByPhase.get(phase.id)?.has(c.meta_creative_id)) phasesUsing.push(phase.name);
               }
+              const hasPreview = !!c.file_url;
               return (
-                <div key={c.meta_creative_id} className="flex gap-3 rounded border border-border bg-background/50 p-2">
+                <div
+                  key={c.meta_creative_id}
+                  className={cn(
+                    "flex gap-3 rounded border p-2",
+                    hasPreview
+                      ? "border-border bg-background/50"
+                      : "border-amber-500/30 bg-amber-500/5",
+                  )}
+                >
                   <div className="h-14 w-14 rounded bg-muted/50 border border-border overflow-hidden shrink-0 flex items-center justify-center">
                     {c.file_url && c.type !== "video" ? (
                       <img src={c.file_url} alt={c.name ?? ""} className="h-full w-full object-cover" loading="lazy" />
                     ) : c.file_url && c.type === "video" ? (
                       <video src={c.file_url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
                     ) : (
-                      <Image2 className="h-5 w-5 text-muted-foreground" />
+                      <Image2 className="h-5 w-5 text-amber-400/70" />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-medium truncate">{c.name ?? c.ad_name ?? "Sem nome"}</div>
                     <div className="text-[10px] text-muted-foreground font-mono truncate">{c.meta_creative_id}</div>
+                    {!hasPreview && (
+                      <MissingPreviewActions metaCreativeId={c.meta_creative_id} compact />
+                    )}
                     {phasesUsing.length > 0 ? (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {phasesUsing.map((pn) => (
@@ -828,6 +840,7 @@ export default function CrmStrategyView() {
                   </div>
                 </div>
               );
+
             })}
           </div>
         </Card>
@@ -948,7 +961,8 @@ export default function CrmStrategyView() {
                     </div>
                     {(() => {
                       const phaseAds: Array<{
-                        creative: { type?: string | null; file_url?: string | null; name?: string | null };
+                        creative: { type?: string | null; file_url?: string | null; name?: string | null; meta_creative_id?: string | null };
+
                         headline: string | null;
                         primaryText: string | null;
                         ctaType: string | null;
@@ -967,7 +981,9 @@ export default function CrmStrategyView() {
                                     type: inheritedCreative.type ?? null,
                                     file_url: inheritedCreative.file_url ?? null,
                                     name: inheritedCreative.name ?? null,
+                                    meta_creative_id: inheritedCreative.meta_creative_id ?? null,
                                   },
+
                                   headline: inheritedCreative.headline ?? null,
                                   primaryText: inheritedCreative.body ?? null,
                                   ctaType: inheritedCreative.cta_type ?? null,
@@ -1570,7 +1586,7 @@ function AdMockup({
   ctaLabel: ctaLabelText,
   isInherited,
 }: {
-  creative: { type?: string | null; file_url?: string | null; name?: string | null };
+  creative: { type?: string | null; file_url?: string | null; name?: string | null; meta_creative_id?: string | null };
   headline: string | null;
   primaryText: string | null;
   ctaLabel: string;
@@ -1578,8 +1594,12 @@ function AdMockup({
 }) {
   const fallbackHeadline = isInherited ? "(sem headline)" : "(headline em falta)";
   const fallbackPrimary = isInherited ? "(sem primary text)" : "(primary text em falta)";
+  const hasPreview = !!creative.file_url;
   return (
-    <div className="rounded-lg border border-border bg-background overflow-hidden max-w-[280px]">
+    <div className={cn(
+      "rounded-lg border bg-background overflow-hidden max-w-[280px]",
+      hasPreview ? "border-border" : "border-amber-500/30",
+    )}>
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
         <div className="h-7 w-7 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 shrink-0" />
         <div className="min-w-0 flex-1">
@@ -1590,15 +1610,19 @@ function AdMockup({
       <div className="px-3 py-2 text-xs text-foreground/90 line-clamp-3">
         {primaryText || fallbackPrimary}
       </div>
-      <div className="aspect-[4/5] bg-muted overflow-hidden flex items-center justify-center">
+      <div className={cn(
+        "aspect-[4/5] overflow-hidden flex items-center justify-center",
+        hasPreview ? "bg-muted" : "bg-amber-500/5",
+      )}>
         {creative.file_url && creative.type === "video" ? (
           <video src={creative.file_url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
         ) : creative.file_url ? (
           <img src={creative.file_url} alt={creative.name ?? ""} className="h-full w-full object-cover" loading="lazy" />
         ) : (
-          <Image2 className="h-8 w-8 text-muted-foreground" />
+          <MissingPreviewBlock metaCreativeId={creative.meta_creative_id ?? null} />
         )}
       </div>
+
       <div className="px-3 py-2.5 border-t border-border bg-muted/20">
         <div className="text-xs font-semibold text-foreground line-clamp-2 mb-2">
           {headline || fallbackHeadline}
@@ -1640,6 +1664,56 @@ function MiniStat({ label, value }: { label: string; value: string }) {
     <div className="rounded bg-muted/30 px-2 py-1.5">
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="text-xs font-medium">{value}</div>
+    </div>
+  );
+}
+
+// Workaround UI para criativos sem file_url (parser MCS v1 limitado)
+function MissingPreviewActions({ metaCreativeId, compact = false }: { metaCreativeId: string; compact?: boolean }) {
+  const copy = async (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(metaCreativeId);
+      toast.success("ID copiado");
+    } catch {
+      toast.error("Não foi possível copiar");
+    }
+  };
+  return (
+    <div className={cn("flex items-center gap-1.5 flex-wrap", compact ? "mt-1" : "mt-2")}>
+      <button
+        type="button"
+        onClick={copy}
+        className="inline-flex items-center gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-300 hover:bg-amber-500/20"
+      >
+        <Copy className="h-2.5 w-2.5" /> Copiar ID
+      </button>
+      <a
+        href="https://business.facebook.com/ads/manager"
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="inline-flex items-center gap-1 text-[10px] text-cyan-400 hover:text-cyan-300 hover:underline"
+      >
+        Abrir no Meta Ads Manager <ExternalLink className="h-2.5 w-2.5" />
+      </a>
+    </div>
+  );
+}
+
+function MissingPreviewBlock({ metaCreativeId }: { metaCreativeId: string | null }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 p-3 text-center w-full h-full">
+      <Image2 className="h-6 w-6 text-amber-400/70" />
+      <div className="text-[10px] text-muted-foreground">Sem preview disponível</div>
+      {metaCreativeId && (
+        <>
+          <div className="text-[10px] font-mono text-foreground/80 break-all max-w-full px-1">
+            {metaCreativeId}
+          </div>
+          <MissingPreviewActions metaCreativeId={metaCreativeId} />
+        </>
+      )}
     </div>
   );
 }
