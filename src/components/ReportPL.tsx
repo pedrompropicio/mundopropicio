@@ -727,8 +727,8 @@ export default function ReportPL() {
 
   const eventSummaries = activeEvents.map((e) => {
     const { evtF, evtT } = getEffectiveData(e.id);
-    const fInc = evtF.filter((f: any) => f.type === "income" && !f.is_overhead).reduce((s: number, f: any) => s + Number(f.amount), 0);
-    const fExp = evtF.filter((f: any) => f.type === "expense" && !f.is_overhead).reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const fInc = evtF.filter((f: any) => f.type === "income" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const fExp = evtF.filter((f: any) => f.type === "expense" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
     const tInc = evtT.filter((t: any) => t.type === "income" && !t.is_transitory && !t.exclude_from_result).reduce((s: number, t: any) => s + Number(t.amount), 0);
     const tExp = evtT.filter((t: any) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result).reduce((s: number, t: any) => s + Number(t.amount), 0);
     const ticketEventIds = getTicketEventIds(e.id);
