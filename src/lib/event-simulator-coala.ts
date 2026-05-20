@@ -562,22 +562,50 @@ export function solveBreakEven(
     const removedByZone = new Map<number, ZoneRm>();
     zones.forEach((z) => removedByZone.set(z.idx, z));
 
+    // Heurística passe vs bilhete-dia (alinhada com useCitySimulator):
+    // se a mesma zone_label aparece em >1 dia com `sessionTodayQty` idêntica,
+    // tratamos como passe multi-dia → mantém anchor. Caso contrário (bilhete-dia,
+    // típico de festival com vendas independentes por dia), distribui a remoção
+    // do anchor pelos restantes dias proporcionalmente ao Real de cada dia.
+    const isPassMultiDay = (idxs: number[]): boolean => {
+      if (idxs.length <= 1) return false;
+      const qtys = idxs.map((i) => sessionTodayQty(sessions[i]));
+      return qtys.every((q) => q === qtys[0]);
+    };
+
     const breakdown: BreakEvenBreakdownItem[] = sessions.map((s, idx) => {
       const key = `${s.day_index}-${s.zone_label}`;
-      const z = removedByZone.get(idx);
+      const groupIdxs = groupIndexes.get(s.zone_label) ?? [idx];
+      const anchorIdx = groupIdxs[0];
+      const z = removedByZone.get(anchorIdx);
       const real = sessionTodayQty(s);
       const realRev = sessionTodayRevenue(s);
-      if (z) {
-        map[key] = real - z.removed;
-        revMap[key] = realRev - z.removedRevenue;
-        totalRemoved += z.removed;
+      let myRemoved = 0;
+      let myRemovedRev = 0;
+      if (z && z.removed > 0) {
+        if (idx === anchorIdx && isPassMultiDay(groupIdxs)) {
+          // passe multi-dia: anchor leva tudo
+          myRemoved = z.removed;
+          myRemovedRev = z.removedRevenue;
+        } else if (!isPassMultiDay(groupIdxs)) {
+          // bilhete-dia: pro-rata pelo real vendido em cada dia
+          const totalReal = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
+          const share = totalReal > 0 ? real / totalReal : (idx === anchorIdx ? 1 : 0);
+          myRemoved = z.removed * share;
+          myRemovedRev = z.removedRevenue * share;
+        }
+      }
+      if (myRemoved > 0) {
+        map[key] = real - myRemoved;
+        revMap[key] = realRev - myRemovedRev;
+        totalRemoved += myRemoved;
       }
       return {
         key,
         zone_label: s.zone_label,
         day_index: s.day_index,
         current_qty: real,
-        extra_qty: z ? -z.removed : 0,
+        extra_qty: myRemoved > 0 ? -myRemoved : 0,
         capacity_left: 0,
         marginal_price: z?.lastPrice ?? 0,
         velocity: z?.velocity ?? 0,
