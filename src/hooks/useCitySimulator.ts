@@ -302,12 +302,27 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
     return (Number(r.receitaBebidas || 0) + Number(r.receitaAlimentos || 0) - Number(r.custoTotal || 0)) / pub;
   }, [abModule, realRev]);
 
+  const beBaseResult = useMemo(() => {
+    const baseRev = computeScenarioRevenue(calcSessions, calcCfg, "breakeven");
+    const baseAB = abModule.hasConfig && abModule.totals
+      ? { ...baseRev, ...scaleABFromReal(baseRev, realRev, abModule.totals.real.receitaBebidas, abModule.totals.real.receitaAlimentos) }
+      : baseRev;
+    const baseCosts = computeScenarioCosts(calcCosts, baseAB, calcCfg, "breakeven");
+    const finalCosts = abModule.hasConfig && abModule.totals
+      ? (() => {
+          const ab = scaleABCostFromReal(abModule.totals.real.custoTotal, realRev, baseAB);
+          return { ...baseCosts, abCost: ab, totalCost: baseCosts.eventCosts + ab + baseCosts.souvenirCost };
+        })()
+      : baseCosts;
+    return computeScenarioResult(baseAB, finalCosts).general;
+  }, [calcSessions, calcCfg, realRev, calcCosts, abModule]);
+
   const beSolution = useMemo(
     () => solveBreakEven(
       calcSessions, calcCosts, calcCfg, beLotInfo,
-      abMarginPerPubReal !== undefined ? { abMarginPerPub: abMarginPerPubReal } : undefined,
+      { baseResult: beBaseResult, ...(abMarginPerPubReal !== undefined ? { abMarginPerPub: abMarginPerPubReal } : {}) },
     ),
-    [calcSessions, calcCosts, calcCfg, beLotInfo, abMarginPerPubReal],
+    [calcSessions, calcCosts, calcCfg, beLotInfo, beBaseResult, abMarginPerPubReal],
   );
 
   const beRev = useMemo(
