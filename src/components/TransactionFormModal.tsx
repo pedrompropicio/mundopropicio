@@ -1312,7 +1312,28 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           }
         }
 
+        // ===== Parcelamento (Fase 1.5) =====
+        // Cria N rows planned em transaction_payments. Trigger DB recalcula paid_amount/status/payment_date.
+        if (useInstallments && insertedTx?.id && installmentRows.length >= 2) {
+          const callerName = user?.email ?? "sistema";
+          const rows = installmentRows.map((r) => ({
+            transaction_id: insertedTx.id,
+            amount: r.amount,
+            scheduled_date: r.scheduled_date,
+            payment_date: r.scheduled_date, // NOT NULL fallback; trigger ignora planned
+            status: "planned" as const,
+            payment_method: data.payment_method || "transfer",
+            account_id: null,
+            withholding_amount: 0,
+            credit_amount: 0,
+            created_by: callerName,
+          }));
+          const { error: instErr } = await supabase.from("transaction_payments" as any).insert(rows as any);
+          if (instErr) throw instErr;
+        }
+
         // Link to Master forecast if user chose "master" in reinforcement dialog
+
         if (reinforcementChoice === "master" && insertedTx?.id && data.event_id && data.category_id) {
           const masterForecast = masterDetection.getMasterForecastForCategory(data.category_id);
           if (masterForecast) {
