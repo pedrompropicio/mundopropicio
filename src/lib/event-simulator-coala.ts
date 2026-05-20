@@ -164,6 +164,15 @@ export function sessionTodayRevenue(s: CoalaSession): number {
   return sessionNetRevenue(s);
 }
 
+function logicalZoneGroup(label: string): string {
+  return (label || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+[—-]\s*(sabado|domingo|segunda(?:-feira)?|terca(?:-feira)?|quarta(?:-feira)?|quinta(?:-feira)?|sexta(?:-feira)?)\s*$/i, "")
+    .trim();
+}
+
 /** Break-Even por sessão: distribuição proporcional do break-even global é tratada externamente.
  *  Esta função devolve só a quantidade adicional ao Real para atingir o forecast. */
 export function sessionForecastQty(s: CoalaSession): number {
