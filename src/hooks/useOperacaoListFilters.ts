@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useOperacaoFilters, type OperacaoFilters } from "./useOperacaoFilters";
 
-export type ListScope = "zonas" | "etapas" | "chamados";
+export type ListScope = "zonas" | "etapas" | "chamados" | "pessoas";
 export type SortDir = "asc" | "desc";
 export type Responsibility = "meus" | "sem_responsavel" | "todos";
 
