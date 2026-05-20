@@ -125,7 +125,8 @@ export default function ReconciliacaoBpTx() {
       const { data: linked, error: e2 } = await supabase
         .from("event_forecasts")
         .select("transaction_id")
-        .in("transaction_id", txs.map((t) => t.id));
+        .in("transaction_id", txs.map((t) => t.id))
+        .is("version_id", null);
       if (e2) throw e2;
       const linkedSet = new Set((linked ?? []).map((r: any) => r.transaction_id));
       return txs.filter((t) => !linkedSet.has(t.id));
