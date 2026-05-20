@@ -54,8 +54,8 @@ export function ReportScenarioSelector({
 
   const selectValue = value ?? ACTIVE_VALUE;
   const formatLabel = (v: BPVersionRow) => {
-    const label = v.scenario_label ?? `v${v.version_number}`;
-    return `${label} · v${v.version_number}`;
+    // Cenários nomeados mostram só o label; sem label cai no fallback técnico v{N}.
+    return v.scenario_label ?? `v${v.version_number}`;
   };
 
   return (
@@ -93,8 +93,8 @@ export function ReportScenarioSelector({
               A visualizar o cenário{" "}
               <strong>
                 {selectedScenario.scenario_label ?? `v${selectedScenario.version_number}`}
-              </strong>{" "}
-              (v{selectedScenario.version_number}). Os valores não refletem o BP em produção —
+              </strong>
+              . Os valores não refletem o BP em produção —
               servem apenas para análise de planeamento.
             </div>
           </div>
