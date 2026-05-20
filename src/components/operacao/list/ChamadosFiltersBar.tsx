@@ -159,7 +159,7 @@ export function ChamadosFiltersBar() {
           onClick={toggleBreaches}
         >
           <AlertTriangle className="h-3.5 w-3.5 mr-1" />
-          Só breaches
+          Atrasados
         </Button>
 
         {hasAnyFilter && (
