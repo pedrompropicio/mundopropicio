@@ -593,7 +593,11 @@ export default function EventSimulator() {
     [calcSessions, calcCfg, beLotInfo, eventDate, localCfg?.forecast_final_accel, localCfg?.forecast_final_window_days],
   );
 
-  const beSolution = useMemo(
+  // Pass 1 do solver BE: sem override de A&B. Usado APENAS para alimentar
+  // o módulo A&B canónico (abParticipants) e obter o per-capita real.
+  // O `beSolution` definitivo é re-solvido mais abaixo, depois de abModule,
+  // com `economics.abMarginPerPub` derivado das totals.real do módulo.
+  const beSolutionDraft = useMemo(
     () => solveBreakEven(calcSessions, calcCosts, calcCfg, beLotInfo),
     [calcSessions, calcCosts, calcCfg, beLotInfo],
   );
@@ -606,8 +610,9 @@ export default function EventSimulator() {
 
 
   const ivaTable = useMemo(() => computeIvaTable(calcSessions), [calcSessions]);
-  const ivaTableBe = useMemo(() => computeIvaTable(calcSessions, beSolution.revenueByKey), [calcSessions, beSolution]);
   const ivaTableFc = useMemo(() => computeIvaTable(calcSessions, fcSolution.revenueByKey), [calcSessions, fcSolution]);
+  // ivaTableBe definido mais à frente, depois do beSolution final (com override A&B).
+
 
   // ----- Exportações XLSX/PDF (layout idêntico ao Excel de referência) -----
   const buildExportData = (): SimulatorExportData => {
@@ -876,15 +881,15 @@ export default function EventSimulator() {
     return { dailyTotals: Array.from(byDay.entries()).sort((a, b) => a[0] - b[0]), expanded };
   };
 
-  const beDaily = useMemo(
-    () => buildDailyFromBreakdown(beSolution.breakdown ?? []),
-    [beSolution, lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, dailyTotals, eventCourtesies],
+  const beDailyDraft = useMemo(
+    () => buildDailyFromBreakdown(beSolutionDraft.breakdown ?? []),
+    [beSolutionDraft, lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, dailyTotals, eventCourtesies],
   );
   const fcDaily = useMemo(
     () => buildDailyFromBreakdown(fcSolution.breakdown ?? []),
     [fcSolution, lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, dailyTotals, eventCourtesies],
   );
-  const beDailyTotals = beDaily.dailyTotals;
+  const beDailyTotalsDraft = beDailyDraft.dailyTotals;
   const fcDailyTotals = fcDaily.dailyTotals;
 
   // ── Attendance × dia (combos expandidos) por cenário.
@@ -899,10 +904,10 @@ export default function EventSimulator() {
     const s = sumDaily(dailyTotals);
     return { payingAttendance: s.paying, courtesyAttendance: s.courtesy };
   }, [dailyTotals]);
-  const beAttendance = useMemo(() => {
-    const s = sumDaily(beDailyTotals);
+  const beAttendanceDraft = useMemo(() => {
+    const s = sumDaily(beDailyTotalsDraft);
     return { payingAttendance: s.paying, courtesyAttendance: s.courtesy };
-  }, [beDailyTotals]);
+  }, [beDailyTotalsDraft]);
   const fcAttendance = useMemo(() => {
     const s = sumDaily(fcDailyTotals);
     return { payingAttendance: s.paying, courtesyAttendance: s.courtesy };
@@ -914,10 +919,11 @@ export default function EventSimulator() {
     () => computeScenarioRevenue(calcSessions, calcCfg, "today", undefined, undefined, todayAttendance),
     [calcSessions, calcCfg, todayAttendance],
   );
-  const breakevenV2 = useMemo(
-    () => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolution.qtyByKey, beSolution.revenueByKey, beAttendance),
-    [calcSessions, calcCfg, beSolution, beAttendance],
+  const breakevenV2Draft = useMemo(
+    () => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolutionDraft.qtyByKey, beSolutionDraft.revenueByKey, beAttendanceDraft),
+    [calcSessions, calcCfg, beSolutionDraft, beAttendanceDraft],
   );
+
   const forecastV2 = useMemo(
     () => computeScenarioRevenue(calcSessions, calcCfg, "forecast", fcSolution.qtyByKey, fcSolution.revenueByKey, fcAttendance),
     [calcSessions, calcCfg, fcSolution, fcAttendance],
@@ -943,10 +949,10 @@ export default function EventSimulator() {
     };
     return {
       real: sumByZone(dailyAttendance),
-      breakeven: sumByZone(beDaily.expanded.length ? beDaily.expanded : dailyAttendance),
+      breakeven: sumByZone(beDailyDraft.expanded.length ? beDailyDraft.expanded : dailyAttendance),
       forecast: sumByZone(fcDaily.expanded.length ? fcDaily.expanded : dailyAttendance),
     };
-  }, [dailyAttendance, beDaily, fcDaily]);
+  }, [dailyAttendance, beDailyDraft, fcDaily]);
 
   const abModule = useEventABScenarios(event?.id, abParticipants);
 
@@ -977,14 +983,50 @@ export default function EventSimulator() {
   // do módulo A&B). Antes somávamos `solution.qtyByKey` (bilhetes únicos), o que
   // misturava unidades com o numerador (`realDrink/realPresenças`) e fazia o A&B
   // BE/Forecast ficar subdimensionado em eventos com combos multi-dia.
+  // ──────────────────────────────────────────────────────────────────────
+  // PASS 2 do solver Break Even (Option B deep refactor, 2026-05-20):
+  // Re-solve `solveBreakEven` injectando `abMarginPerPub` derivado das
+  // totals.real do módulo A&B canónico do evento (per-capita real). Antes
+  // o solver usava margem teórica de `cfg.ab_*_avg_ticket*(1-passthrough)`,
+  // o que divergia da margem efectivamente aplicada nos cards (escalada do
+  // módulo A&B). A divergência criava um "gap" residual de Receita−Custo
+  // ≠ Resultado de até ~43k€ que era escondido com uma correcção display-side.
+  // Com `economics.abMarginPerPub` alinhado, o solver fecha a 0 na origem.
+  // ──────────────────────────────────────────────────────────────────────
+  const abMarginPerPubReal = useMemo(() => {
+    if (!abModule.hasConfig || !abModule.totals) return undefined;
+    const r = abModule.totals.real;
+    const pub = Number(todayAttendance.payingAttendance || 0) + Number(todayAttendance.courtesyAttendance || 0);
+    if (pub <= 0) return undefined;
+    return (Number(r.receitaBebidas || 0) + Number(r.receitaAlimentos || 0) - Number(r.custoTotal || 0)) / pub;
+  }, [abModule, todayAttendance]);
+
+  const beSolution = useMemo(
+    () => solveBreakEven(
+      calcSessions, calcCosts, calcCfg, beLotInfo,
+      abMarginPerPubReal !== undefined ? { abMarginPerPub: abMarginPerPubReal } : undefined,
+    ),
+    [calcSessions, calcCosts, calcCfg, beLotInfo, abMarginPerPubReal],
+  );
+
+  const beDaily = useMemo(
+    () => buildDailyFromBreakdown(beSolution.breakdown ?? []),
+    [beSolution, lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, dailyTotals, eventCourtesies],
+  );
+  const beDailyTotals = beDaily.dailyTotals;
+  const beAttendance = useMemo(() => {
+    const s = sumDaily(beDailyTotals);
+    return { payingAttendance: s.paying, courtesyAttendance: s.courtesy };
+  }, [beDailyTotals]);
+  const breakevenV2 = useMemo(
+    () => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolution.qtyByKey, beSolution.revenueByKey, beAttendance),
+    [calcSessions, calcCfg, beSolution, beAttendance],
+  );
   const bePubProjected = useMemo(
     () => Number(beAttendance?.payingAttendance || 0) + Number(beAttendance?.courtesyAttendance || 0),
     [beAttendance],
   );
-  const fcPubProjected = useMemo(
-    () => Number(fcAttendance?.payingAttendance || 0) + Number(fcAttendance?.courtesyAttendance || 0),
-    [fcAttendance],
-  );
+  const ivaTableBe = useMemo(() => computeIvaTable(calcSessions, beSolution.revenueByKey), [calcSessions, beSolution]);
 
   const beAB = useMemo(() => {
     if (!abModule.hasConfig || !abModule.totals) return breakevenV2;
@@ -992,6 +1034,12 @@ export default function EventSimulator() {
     const scaled = scaleABFromReal(breakevenV2, todayAB, real.receitaBebidas, real.receitaAlimentos, bePubProjected);
     return { ...breakevenV2, ...scaled };
   }, [breakevenV2, todayAB, abModule, bePubProjected]);
+
+
+  const fcPubProjected = useMemo(
+    () => Number(fcAttendance?.payingAttendance || 0) + Number(fcAttendance?.courtesyAttendance || 0),
+    [fcAttendance],
+  );
 
   const fcAB = useMemo(() => {
     if (!abModule.hasConfig || !abModule.totals) return forecastV2;
@@ -1027,19 +1075,12 @@ export default function EventSimulator() {
   }, [calcCosts, fcAB, todayAB, calcCfg, abModule, fcPubProjected]);
 
   const todayRev = todayAB;
-  const rawBeRev = beAB;
-  const rawBeRes = useMemo(() => computeScenarioResult(rawBeRev, beCosts), [rawBeRev, beCosts]);
-  const beRev = useMemo(() => {
-    if (beSolution.mode === "surplus" && rawBeRes.general > 0.5) {
-      return {
-        ...rawBeRev,
-        ticketsRevenue: rawBeRev.ticketsRevenue - rawBeRes.general,
-        totalRevenue: rawBeRev.totalRevenue - rawBeRes.general,
-      };
-    }
-    return rawBeRev;
-  }, [rawBeRev, rawBeRes.general, beSolution.mode]);
+  // Option B deep (2026-05-20): com `abMarginPerPub` alinhado no solver,
+  // `Receita − Custo = Resultado` fecha a ~0 na origem. A correcção residual
+  // display-side (rawBeRev → ticketsRevenue -= general) foi removida.
+  const beRev = beAB;
   const fcRev = fcAB;
+
 
   const todayRes = useMemo(() => computeScenarioResult(todayRev, todayCosts), [todayRev, todayCosts]);
   const beRes = useMemo(() => computeScenarioResult(beRev, beCosts), [beRev, beCosts]);

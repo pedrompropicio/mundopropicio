@@ -210,7 +210,10 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
     [rawCostLines],
   );
 
-  const beSolution = useMemo(
+  // Pass 1 do solver BE: sem override A&B. Usado APENAS para alimentar
+  // o módulo A&B canónico. O `beSolution` final (com `economics.abMarginPerPub`)
+  // é re-solvido mais abaixo — Option B deep refactor (2026-05-20).
+  const beSolutionDraft = useMemo(
     () => solveBreakEven(calcSessions, calcCosts, calcCfg, beLotInfo),
     [calcSessions, calcCosts, calcCfg, beLotInfo],
   );
@@ -227,14 +230,11 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
     () => computeScenarioRevenue(calcSessions, calcCfg, "today"),
     [calcSessions, calcCfg],
   );
-  const beRev = useMemo(
-    () => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolution.qtyByKey, beSolution.revenueByKey),
-    [calcSessions, calcCfg, beSolution],
-  );
   const fcRev = useMemo(
     () => computeScenarioRevenue(calcSessions, calcCfg, "forecast", fcSolution.qtyByKey, fcSolution.revenueByKey),
     [calcSessions, calcCfg, fcSolution],
   );
+
 
   // A&B canónico
   // NOTA: para zonas com várias entradas no mesmo zone_label (ex.: passes
@@ -250,8 +250,9 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
       const zoneKey = (s.zone_label || "").toLowerCase();
       const courtesy = Number(s.courtesy_qty) || 0;
       const realQty = (Number(s.real_sales_qty) || 0) + courtesy;
-      const beQty = (beSolution.qtyByKey?.[key] ?? (Number(s.real_sales_qty) || 0)) + courtesy;
+      const beQty = (beSolutionDraft.qtyByKey?.[key] ?? (Number(s.real_sales_qty) || 0)) + courtesy;
       const fcQty = (fcSolution.qtyByKey?.[key] ?? (Number(s.real_sales_qty) || 0)) + courtesy;
+
       (realByZoneDay[zoneKey] ??= {})[s.day_index] = (realByZoneDay[zoneKey][s.day_index] ?? 0) + realQty;
       (beByZoneDay[zoneKey]   ??= {})[s.day_index] = (beByZoneDay[zoneKey][s.day_index]   ?? 0) + beQty;
       (fcByZoneDay[zoneKey]   ??= {})[s.day_index] = (fcByZoneDay[zoneKey][s.day_index]   ?? 0) + fcQty;
@@ -270,7 +271,7 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
       return out;
     };
     return { real: toMap(realByZoneDay), breakeven: toMap(beByZoneDay), forecast: toMap(fcByZoneDay) };
-  }, [calcSessions, beSolution, fcSolution]);
+  }, [calcSessions, beSolutionDraft, fcSolution]);
 
   const abModule = useEventABScenarios(eventId, abParticipants);
 
@@ -291,12 +292,36 @@ export function useCitySimulator(eventId: string | undefined): CitySimulatorData
     };
   }, [todayRev, abModule]);
 
+  // Pass 2 do solver BE (Option B deep refactor, 2026-05-20):
+  // injecta abMarginPerPub derivado de totals.real do módulo A&B canónico.
+  const abMarginPerPubReal = useMemo(() => {
+    if (!abModule.hasConfig || !abModule.totals) return undefined;
+    const r = abModule.totals.real;
+    const pub = Number(realRev.attendanceQty || 0) + Number(realRev.attendanceCourtesyQty || 0);
+    if (pub <= 0) return undefined;
+    return (Number(r.receitaBebidas || 0) + Number(r.receitaAlimentos || 0) - Number(r.custoTotal || 0)) / pub;
+  }, [abModule, realRev]);
+
+  const beSolution = useMemo(
+    () => solveBreakEven(
+      calcSessions, calcCosts, calcCfg, beLotInfo,
+      abMarginPerPubReal !== undefined ? { abMarginPerPub: abMarginPerPubReal } : undefined,
+    ),
+    [calcSessions, calcCosts, calcCfg, beLotInfo, abMarginPerPubReal],
+  );
+
+  const beRev = useMemo(
+    () => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolution.qtyByKey, beSolution.revenueByKey),
+    [calcSessions, calcCfg, beSolution],
+  );
+
   const beRevAB = useMemo(() => {
     if (!abModule.hasConfig || !abModule.totals) return beRev;
     const real = abModule.totals.real;
     const scaled = scaleABFromReal(beRev, realRev, real.receitaBebidas, real.receitaAlimentos);
     return { ...beRev, ...scaled };
   }, [beRev, realRev, abModule]);
+
 
   const fcRevAB = useMemo(() => {
     if (!abModule.hasConfig || !abModule.totals) return fcRev;
