@@ -593,7 +593,11 @@ export default function EventSimulator() {
     [calcSessions, calcCfg, beLotInfo, eventDate, localCfg?.forecast_final_accel, localCfg?.forecast_final_window_days],
   );
 
-  const beSolution = useMemo(
+  // Pass 1 do solver BE: sem override de A&B. Usado APENAS para alimentar
+  // o módulo A&B canónico (abParticipants) e obter o per-capita real.
+  // O `beSolution` definitivo é re-solvido mais abaixo, depois de abModule,
+  // com `economics.abMarginPerPub` derivado das totals.real do módulo.
+  const beSolutionDraft = useMemo(
     () => solveBreakEven(calcSessions, calcCosts, calcCfg, beLotInfo),
     [calcSessions, calcCosts, calcCfg, beLotInfo],
   );
@@ -606,8 +610,9 @@ export default function EventSimulator() {
 
 
   const ivaTable = useMemo(() => computeIvaTable(calcSessions), [calcSessions]);
-  const ivaTableBe = useMemo(() => computeIvaTable(calcSessions, beSolution.revenueByKey), [calcSessions, beSolution]);
   const ivaTableFc = useMemo(() => computeIvaTable(calcSessions, fcSolution.revenueByKey), [calcSessions, fcSolution]);
+  // ivaTableBe definido mais à frente, depois do beSolution final (com override A&B).
+
 
   // ----- Exportações XLSX/PDF (layout idêntico ao Excel de referência) -----
   const buildExportData = (): SimulatorExportData => {
@@ -876,15 +881,15 @@ export default function EventSimulator() {
     return { dailyTotals: Array.from(byDay.entries()).sort((a, b) => a[0] - b[0]), expanded };
   };
 
-  const beDaily = useMemo(
-    () => buildDailyFromBreakdown(beSolution.breakdown ?? []),
-    [beSolution, lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, dailyTotals, eventCourtesies],
+  const beDailyDraft = useMemo(
+    () => buildDailyFromBreakdown(beSolutionDraft.breakdown ?? []),
+    [beSolutionDraft, lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, dailyTotals, eventCourtesies],
   );
   const fcDaily = useMemo(
     () => buildDailyFromBreakdown(fcSolution.breakdown ?? []),
     [fcSolution, lotSalesData, simulatorSessions, localCfg?.combo_lot_keywords, dailyTotals, eventCourtesies],
   );
-  const beDailyTotals = beDaily.dailyTotals;
+  const beDailyTotalsDraft = beDailyDraft.dailyTotals;
   const fcDailyTotals = fcDaily.dailyTotals;
 
   // ── Attendance × dia (combos expandidos) por cenário.
@@ -899,10 +904,10 @@ export default function EventSimulator() {
     const s = sumDaily(dailyTotals);
     return { payingAttendance: s.paying, courtesyAttendance: s.courtesy };
   }, [dailyTotals]);
-  const beAttendance = useMemo(() => {
-    const s = sumDaily(beDailyTotals);
+  const beAttendanceDraft = useMemo(() => {
+    const s = sumDaily(beDailyTotalsDraft);
     return { payingAttendance: s.paying, courtesyAttendance: s.courtesy };
-  }, [beDailyTotals]);
+  }, [beDailyTotalsDraft]);
   const fcAttendance = useMemo(() => {
     const s = sumDaily(fcDailyTotals);
     return { payingAttendance: s.paying, courtesyAttendance: s.courtesy };
@@ -914,10 +919,11 @@ export default function EventSimulator() {
     () => computeScenarioRevenue(calcSessions, calcCfg, "today", undefined, undefined, todayAttendance),
     [calcSessions, calcCfg, todayAttendance],
   );
-  const breakevenV2 = useMemo(
-    () => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolution.qtyByKey, beSolution.revenueByKey, beAttendance),
-    [calcSessions, calcCfg, beSolution, beAttendance],
+  const breakevenV2Draft = useMemo(
+    () => computeScenarioRevenue(calcSessions, calcCfg, "breakeven", beSolutionDraft.qtyByKey, beSolutionDraft.revenueByKey, beAttendanceDraft),
+    [calcSessions, calcCfg, beSolutionDraft, beAttendanceDraft],
   );
+
   const forecastV2 = useMemo(
     () => computeScenarioRevenue(calcSessions, calcCfg, "forecast", fcSolution.qtyByKey, fcSolution.revenueByKey, fcAttendance),
     [calcSessions, calcCfg, fcSolution, fcAttendance],
@@ -943,10 +949,10 @@ export default function EventSimulator() {
     };
     return {
       real: sumByZone(dailyAttendance),
-      breakeven: sumByZone(beDaily.expanded.length ? beDaily.expanded : dailyAttendance),
+      breakeven: sumByZone(beDailyDraft.expanded.length ? beDailyDraft.expanded : dailyAttendance),
       forecast: sumByZone(fcDaily.expanded.length ? fcDaily.expanded : dailyAttendance),
     };
-  }, [dailyAttendance, beDaily, fcDaily]);
+  }, [dailyAttendance, beDailyDraft, fcDaily]);
 
   const abModule = useEventABScenarios(event?.id, abParticipants);
 
