@@ -39,25 +39,30 @@ A margem só fecha em ~0 se `beAttendance` propagar a redução. Por isso
 - mode=`exact`: badge "Já no break-even".
 - mode=`deficit`: chip âmbar.
 
-## ExecutiveDashboard — consistência Receita/Custo/Resultado (v4, 2026-05-20)
+## ExecutiveDashboard — consistência Receita/Custo/Resultado (v5, 2026-05-20)
 
-O dashboard passa a receber `breakeven={beRev}` (com a correção residual já
-aplicada) em vez de `breakeven={beAB}` (sem correção). Antes, Pedro via:
+**Option B deep refactor aplicado.** O solver `solveBreakEven` agora recebe
+`economics.abMarginPerPub` derivado dinamicamente de `abModule.totals.real`:
 
-- Receita 1.341.087 €, Custo 1.297.422 €, Resultado 0 € → gap visível de
-  43.665 € inexplicado.
+```ts
+abMarginPerPubReal =
+  (real.receitaBebidas + real.receitaAlimentos − real.custoTotal) / publicReal
+```
 
-Causa: `beRev` aplica `ticketsRevenue = rawBeRev.ticketsRevenue −
-rawBeRes.general` (correção residual para forçar Resultado=0), mas o dashboard
-estava a renderizar `beAB` (não-corrigido). Fix: `breakeven={beRev}` na linha
-~1205 de `EventSimulator.tsx`. Agora Receita = Custo quando Resultado = 0.
+Aplicado via two-pass em `EventSimulator.tsx` e `useCitySimulator.ts`:
 
-### Deferido (Option B profundo)
-Aliar `abMarginPerPub` do módulo A&B ao solver via `economics` (parâmetro já
-existe na assinatura) eliminaria a necessidade da correção residual na origem.
-Requer refactor de ordem de declaração entre `beSolution` (linha 596) e
-`abModule` (linha 951) — adiado por scope. A correção display-side acima é
-**equivalente** em garantia "Receita − Custo = Resultado ao cêntimo".
+1. **Pass 1** (`beSolutionDraft`): solveBreakEven sem override → alimenta
+   `abParticipants` → `useEventABScenarios` → `abModule.totals.real`.
+2. **abMarginPerPubReal**: calculado a partir das totals.real.
+3. **Pass 2** (`beSolution` final): re-solve com `economics.abMarginPerPub`
+   alinhado ao per-capita real. Todas as derivações downstream
+   (beDaily, beAttendance, breakevenV2, beAB, beCosts, ivaTableBe,
+   BreakEvenSummary, ExecutiveDashboard) usam o `beSolution` final.
+4. **Correção residual REMOVIDA**: `beRev = beAB` directo (sem subtrair
+   `rawBeRes.general` ao `ticketsRevenue`).
+
+Resultado: `Receita − Custo = Resultado` fecha ao cêntimo NA ORIGEM,
+sem mascaramento display-side. Coala 2026 deixa de mostrar gap visível.
 
 ## Histórico
 - v1 (2026-05-10): solver inverso por ondas, margin = price.
@@ -65,3 +70,6 @@ Requer refactor de ordem de declaração entre `beSolution` (linha 596) e
 - v3 (2026-05-10): correção residual ao `ticketsRevenue` do BE.
 - v4 (2026-05-20): heurística passe vs bilhete-dia no solver surplus +
   dashboard passa `beRev` (não `beAB`) para evitar inconsistência visual.
+- v5 (2026-05-20): Option B deep — `abMarginPerPub` injectado no solver
+  via two-pass; correção residual eliminada.
+
