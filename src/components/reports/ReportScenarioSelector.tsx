@@ -19,12 +19,14 @@ interface Props {
   value: string | null;
   onChange: (versionId: string | null) => void;
   className?: string;
+  /** Quando true, inclui também cenários não fixados (drafts). Default: só fixados. */
+  includeUnpinnedScenarios?: boolean;
 }
 
 /**
  * Seletor de versão do BP para relatórios estratégicos.
- * - Lista a versão Ativa + cenários fixados (is_pinned_scenario)
- * - Só visível quando 1 evento está selecionado
+ * - Lista a versão Ativa + cenários (fixados por default; drafts se includeUnpinnedScenarios)
+ * - Só visível quando 1 evento está selecionado e existirem cenários
  * - Mostra banner amarelo + badge quando o utilizador escolhe um cenário
  */
 export function ReportScenarioSelector({
@@ -33,22 +35,24 @@ export function ReportScenarioSelector({
   value,
   onChange,
   className,
+  includeUnpinnedScenarios = false,
 }: Props) {
   const { data: versions = [] } = useBPVersions(eventId ?? null);
 
-  const pinnedScenarios = useMemo<BPVersionRow[]>(
+  const scenarios = useMemo<BPVersionRow[]>(
     () =>
       versions
-        .filter((v) => v.is_pinned_scenario && v.state !== "archived")
+        .filter((v) => v.state !== "archived" && v.state !== "active")
+        .filter((v) => includeUnpinnedScenarios || v.is_pinned_scenario)
         .sort((a, b) => (b.version_number ?? 0) - (a.version_number ?? 0)),
-    [versions],
+    [versions, includeUnpinnedScenarios],
   );
 
   const activeVersion = versions.find((v) => v.state === "active") ?? null;
   const selectedScenario = value ? versions.find((v) => v.id === value) ?? null : null;
 
-  // Hide when multi-evento OR sem cenários fixados
-  if (isMultiEvent || !eventId || pinnedScenarios.length === 0) {
+  // Hide when multi-evento OR sem cenários disponíveis
+  if (isMultiEvent || !eventId || scenarios.length === 0) {
     return null;
   }
 
@@ -77,7 +81,7 @@ export function ReportScenarioSelector({
               <SelectItem value={ACTIVE_VALUE}>
                 Versão Ativa{activeVersion ? ` · v${activeVersion.version_number}` : ""}
               </SelectItem>
-              {pinnedScenarios.map((v) => (
+              {scenarios.map((v) => (
                 <SelectItem key={v.id} value={v.id}>
                   Cenário · {formatLabel(v)}
                 </SelectItem>
