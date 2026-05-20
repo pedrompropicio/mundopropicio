@@ -95,7 +95,7 @@ export function TransactionInstallmentsEditor({
 
   return (
     <div className="space-y-3 rounded-lg border border-border bg-secondary/30 p-3">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
         <div className="space-y-1">
           <Label className="text-xs">Nº parcelas</Label>
           <Input
@@ -147,11 +147,12 @@ export function TransactionInstallmentsEditor({
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-end">
-          <Button type="button" variant="secondary" size="sm" onClick={distribute} className="w-full h-9">
-            <Wand2 className="h-3.5 w-3.5 mr-1.5" /> Distribuir igualmente
-          </Button>
-        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <Button type="button" variant="secondary" size="sm" onClick={distribute} className="h-9">
+          <Wand2 className="h-3.5 w-3.5 mr-1.5" /> Distribuir igualmente
+        </Button>
       </div>
 
       {installments.length > 0 && (
