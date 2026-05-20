@@ -16,11 +16,12 @@ import {
   X as XIcon,
 } from "lucide-react";
 import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsListModal";
+import { MarkInstallmentPaidModal } from "@/components/MarkInstallmentPaidModal";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Clock, Ban } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface Props {
