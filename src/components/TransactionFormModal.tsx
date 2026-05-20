@@ -3255,7 +3255,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                   </span>
                 </label>
                 {useInstallments && (
-                  <Editor
+                  <TransactionInstallmentsEditor
                     grossTotal={grossTotal}
                     defaultFirstDate={parseDueDateForDb(form.due_date) || form.date}
                     installments={installmentRows}
