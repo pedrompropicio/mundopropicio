@@ -104,3 +104,7 @@ Evento (multi-select por dropdown), data desde/até. Contadores no header + bot�
 
 - `CacheTransactionModal.tsx`, `Quotations.tsx`, `RecurringTransactions.tsx`, `FinancialOperationsTab.tsx`: criação direta sem painel BP visual. TX nasce órfã. Replicar `selectedForecastId` se um dia precisarem.
 - `EventForecast.tsx` (bulk gerar TX): já correto.
+
+## Cronograma de parcelas
+
+TX com cronograma (rows em `transaction_payments` com `scheduled_date` ou `status IN ('planned','cancelled')`) continua a ser **1 TX = 1 FK para BP**. A FK `event_forecasts.transaction_id` aponta para a TX-mãe, não para parcelas individuais. Ver `transaction-installments.md`.
