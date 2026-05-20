@@ -123,6 +123,8 @@ import RlsLegacyAudit from "./pages/admin/RlsLegacyAudit";
 import CoalaSync from "./pages/admin/CoalaSync";
 import FeverSync from "./pages/admin/FeverSync";
 import SyncHealth from "./pages/admin/SyncHealth";
+import Notifications from "./pages/admin/Notifications";
+import UserSettings from "./pages/UserSettings";
 import CrmConnections from "./pages/crm/Connections";
 import CrmCampaigns from "./pages/crm/Campaigns";
 import CrmPixels from "./pages/crm/Pixels";
