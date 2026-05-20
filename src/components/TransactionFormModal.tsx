@@ -177,6 +177,12 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [attachAfterCreateFile, setAttachAfterCreateFile] = useState<File | null>(null);
   // Em IVA misto, guardamos o file para anexar a TODAS as transações irmãs.
   const [attachIvaSplitFile, setAttachIvaSplitFile] = useState<File | null>(null);
+  // ===== Parcelamento (Fase 1.5) =====
+  const [useInstallments, setUseInstallments] = useState(false);
+  const [installmentRows, setInstallmentRows] = useState<import("@/components/TransactionInstallmentsEditor").PlannedInstallment[]>([]);
+  const [installmentWizard, setInstallmentWizard] = useState<{ count: number; firstDate: string; interval: "weekly" | "biweekly" | "monthly" }>({
+    count: 2, firstDate: "", interval: "monthly",
+  });
   const queryClient = useQueryClient();
 
   /**
