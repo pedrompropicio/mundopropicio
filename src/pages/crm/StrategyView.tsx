@@ -1618,15 +1618,16 @@ function AdMockup({
         {primaryText || fallbackPrimary}
       </div>
       <div className={cn(
-        "aspect-[4/5] overflow-hidden flex items-center justify-center",
+        "relative aspect-[4/5] overflow-hidden flex items-center justify-center",
         hasPreview ? "bg-muted" : "bg-amber-500/5",
       )}>
-        {creative.file_url && creative.type === "video" ? (
-          <video src={creative.file_url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
-        ) : creative.file_url ? (
+        {creative.file_url ? (
           <img src={creative.file_url} alt={creative.name ?? ""} className="h-full w-full object-cover" loading="lazy" />
         ) : (
           <MissingPreviewBlock metaCreativeId={creative.meta_creative_id ?? null} />
+        )}
+        {creative.file_url && creative.type === "video" && (
+          <PlayCircle className="absolute bottom-2 right-2 h-6 w-6 text-white drop-shadow bg-black/50 rounded-full" />
         )}
       </div>
 
