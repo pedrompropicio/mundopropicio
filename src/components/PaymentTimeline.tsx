@@ -604,6 +604,13 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
           onClose={() => setShowPaymentsModal(false)}
         />
       )}
+
+      <MarkInstallmentPaidModal
+        open={!!markInstallment}
+        onOpenChange={(v) => { if (!v) setMarkInstallment(null); }}
+        installment={markInstallment}
+        transactionId={txId}
+      />
     </div>
   );
 }
