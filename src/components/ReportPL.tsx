@@ -1073,6 +1073,23 @@ export default function ReportPL() {
                                       </code>
                                     )}
                                     {line.label}
+                                    {line.hasOverhead && (
+                                      <Badge variant="outline" className="text-[10px] gap-0.5 px-1 py-0 text-warning border-warning">
+                                        Overhead
+                                      </Badge>
+                                    )}
+                                    {line.viaMaster && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Badge variant="outline" className="text-[10px] gap-0.5 px-1 py-0 border-primary/40 text-primary">
+                                            via Master
+                                          </Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          Fatia virtual do BP do Master{line.viaMasterEventName ? ` "${line.viaMasterEventName}"` : ""}, rateada ÷N pelos splits.
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
                                     {hasOverride && (
                                       <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning" title={line.overrideNote}>
                                         <AlertTriangle className="h-2.5 w-2.5" />
