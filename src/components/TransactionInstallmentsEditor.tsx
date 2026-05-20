@@ -218,7 +218,7 @@ export function TransactionInstallmentsEditor({
           </Button>
           {installments.length > 0 && (
             <Button type="button" variant="ghost" size="sm" onClick={applyDeltaToLast}>
-              Δ na última
+              Ajustar última
             </Button>
           )}
         </div>
