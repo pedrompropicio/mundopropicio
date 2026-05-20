@@ -119,7 +119,7 @@ export function QuickActionFab() {
       </Button>
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="bottom" className="rounded-t-2xl">
+        <SheetContent side="bottom" className="rounded-t-2xl sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:max-w-md sm:w-full">
           <SheetHeader><SheetTitle>Nova...</SheetTitle></SheetHeader>
           <div className="grid grid-cols-2 gap-3 mt-4">
             <FabOption icon={LayoutGrid} label="Zona/Serviço" hint="Planejar" disabled={!canFrente}
