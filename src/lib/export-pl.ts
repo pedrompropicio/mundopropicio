@@ -470,15 +470,18 @@ export function exportPLToExcel(
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
   _auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2,
   companyDisplayName: string = "MP Gestão Eventos",
-  includeOverhead: boolean = false
+  includeOverhead: boolean = false,
+  scenarioName: string | null = null
 ) {
   void companyDisplayName;
   const wb = XLSX.utils.book_new();
   const isComparison = mode === "comparison";
   const hierarchy = buildEventHierarchyMaps(allEvents);
 
+  const baseTitle = isComparison ? "RELATÓRIO BUSINESS PLAN - PREVISÃO vs REALIZADO" : "RELATÓRIO BUSINESS PLAN - PREVISÃO";
+  const titleWithScenario = scenarioName ? `${baseTitle} — CENÁRIO ${scenarioName.toUpperCase()}` : baseTitle;
   const summaryRows: any[][] = [
-    [isComparison ? "RELATÓRIO BUSINESS PLAN - PREVISÃO vs REALIZADO" : "RELATÓRIO BUSINESS PLAN - PREVISÃO"],
+    [titleWithScenario],
     [],
     isComparison
       ? ["Evento", "Receita Prev.", "Receita Real", "Despesa Prev.", "Despesa Real", "Resultado Prev.", "Resultado Real", "Variação"]
