@@ -54,8 +54,8 @@ export function ReportScenarioSelector({
 
   const selectValue = value ?? ACTIVE_VALUE;
   const formatLabel = (v: BPVersionRow) => {
-    const label = v.scenario_label ?? `v${v.version_number}`;
-    return `${label} · v${v.version_number}`;
+    // Cenários nomeados mostram só o label; sem label cai no fallback técnico v{N}.
+    return v.scenario_label ?? `v${v.version_number}`;
   };
 
   return (
