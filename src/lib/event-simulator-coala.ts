@@ -165,12 +165,27 @@ export function sessionTodayRevenue(s: CoalaSession): number {
 }
 
 function logicalZoneGroup(label: string): string {
+  const dayPattern = "sabado|domingo|segunda(?:-feira)?|terca(?:-feira)?|quarta(?:-feira)?|quinta(?:-feira)?|sexta(?:-feira)?";
   return (label || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/\s+[—-]\s*(sabado|domingo|segunda(?:-feira)?|terca(?:-feira)?|quarta(?:-feira)?|quinta(?:-feira)?|sexta(?:-feira)?)\s*$/i, "")
+    .replace(new RegExp(`^\\s*(?:${dayPattern})\\s*(?:[—\\-:|/]\\s*)`, "i"), "")
+    .replace(new RegExp(`\\s*(?:[—\\-:|/]\\s*)?(?:${dayPattern})\\s*$`, "i"), "")
+    .replace(/\s*\((?:sabado|domingo|segunda(?:-feira)?|terca(?:-feira)?|quarta(?:-feira)?|quinta(?:-feira)?|sexta(?:-feira)?)\)\s*$/i, "")
     .trim();
+}
+
+function isPassLikeMultiDayGroup(sessions: CoalaSession[], idxs: number[]): boolean {
+  if (idxs.length <= 1) return false;
+  const qtyByDay = new Map<number, number>();
+  idxs.forEach((i) => {
+    const s = sessions[i];
+    qtyByDay.set(s.day_index, (qtyByDay.get(s.day_index) ?? 0) + sessionTodayQty(s));
+  });
+  const qtys = Array.from(qtyByDay.values());
+  if (qtys.length <= 1) return false;
+  return qtys.every((q) => Math.abs(q - qtys[0]) <= 0.0001);
 }
 
 /** Break-Even por sessão: distribuição proporcional do break-even global é tratada externamente.
