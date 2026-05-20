@@ -834,6 +834,16 @@ export default function ReportPL() {
               </SelectContent>
             </Select>
           </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Overhead</label>
+            <Select value={includeOverhead ? "with" : "without"} onValueChange={(v) => setIncludeOverhead(v === "with")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="without">Sem overhead</SelectItem>
+                <SelectItem value="with">Com overhead</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="border-t border-border/30 pt-3 space-y-3">
           <div className="flex items-center justify-between">
