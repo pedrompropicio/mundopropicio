@@ -839,139 +839,143 @@ export function exportPLToPDF(
     y += 8;
   });
 
-  doc.addPage();
-  y = 14;
+  // Resumo Geral só em "Ambos" — Resultado não faz sentido com apenas 1 lado
+  if (typeFilter === "both") {
+    doc.addPage();
+    y = 14;
 
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "bold");
-  doc.text("Resumo Geral", marginLeft, y);
-  y += 10;
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Resumo Geral", marginLeft, y);
+    y += 10;
 
-  let gFInc = 0, gFExp = 0, gTInc = 0, gTExp = 0;
-  eventsToExport.forEach((evt) => {
-    const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
-    let evtFInc = evtF.filter((f: any) => f.type === "income" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
-    const evtFExpBase = evtF.filter((f: any) => f.type === "expense" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
-    const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
-    const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
-    let ticketActualRevNet = 0;
-    let ticketForecastNet = 0;
-    let ticketForecastGross = 0;
-    evtZones.forEach((zone: any) => {
-      const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
-      zoneLots.forEach((lot: any) => {
-        const ivaRate = Number(lot.iva_rate ?? 6);
-        const netPrice = Number(lot.price) / (1 + ivaRate / 100);
-        const lotForecastNet = netPrice * Number(lot.quantity);
-        evtFInc += lotForecastNet;
-        ticketForecastNet += lotForecastNet;
-        ticketForecastGross += Number(lot.price) * Number(lot.quantity);
-        const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
-        ticketActualRevNet += lotSales.reduce((sum: number, sl: any) => {
-          const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
-          return sum + Number(sl.quantity) * saleNet;
-        }, 0);
+    let gFInc = 0, gFExp = 0, gTInc = 0, gTExp = 0;
+    eventsToExport.forEach((evt) => {
+      const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
+      let evtFInc = evtF.filter((f: any) => f.type === "income" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
+      const evtFExpBase = evtF.filter((f: any) => f.type === "expense" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
+      const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
+      const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
+      let ticketActualRevNet = 0;
+      let ticketForecastNet = 0;
+      let ticketForecastGross = 0;
+      evtZones.forEach((zone: any) => {
+        const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
+        zoneLots.forEach((lot: any) => {
+          const ivaRate = Number(lot.iva_rate ?? 6);
+          const netPrice = Number(lot.price) / (1 + ivaRate / 100);
+          const lotForecastNet = netPrice * Number(lot.quantity);
+          evtFInc += lotForecastNet;
+          ticketForecastNet += lotForecastNet;
+          ticketForecastGross += Number(lot.price) * Number(lot.quantity);
+          const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
+          ticketActualRevNet += lotSales.reduce((sum: number, sl: any) => {
+            const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
+            return sum + Number(sl.quantity) * saleNet;
+          }, 0);
+        });
       });
+      const totalCache = calculateCacheLinesForPL(
+        cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id)),
+        cacheDeductions,
+        ticketForecastNet,
+        evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
+        ticketForecastGross
+      ).reduce((sum, line) => sum + line.amount, 0);
+      gFInc += evtFInc;
+      gFExp += evtFExpBase + totalCache;
+      gTInc += evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0) + ticketActualRevNet;
+      gTExp += evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
     });
-    const totalCache = calculateCacheLinesForPL(
-      cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id)),
-      cacheDeductions,
-      ticketForecastNet,
-      evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
-      ticketForecastGross
-    ).reduce((sum, line) => sum + line.amount, 0);
-    gFInc += evtFInc;
-    gFExp += evtFExpBase + totalCache;
-    gTInc += evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0) + ticketActualRevNet;
-    gTExp += evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
-  });
 
-  const numSumCols = isComparison ? 5 : 4;
-  const sumColW = contentWidth / numSumCols;
-  doc.setFillColor(30, 30, 40);
-  doc.rect(marginLeft, y, contentWidth, 8, "F");
-  doc.setFontSize(8);
-  doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
-  doc.text("Evento", marginLeft + 2, y + 5.5);
-  doc.text("Receitas Prev.", marginLeft + sumColW * 2 - 2, y + 5.5, { align: "right" });
-  doc.text("Despesas Prev.", marginLeft + sumColW * 3 - 2, y + 5.5, { align: "right" });
-  doc.text("Resultado Prev.", marginLeft + sumColW * 4 - 2, y + 5.5, { align: "right" });
-  if (isComparison) {
-    doc.text("Resultado Real", marginLeft + sumColW * 5 - 2, y + 5.5, { align: "right" });
-  }
-  doc.setTextColor(0, 0, 0);
-  y += 10;
-
-  eventsToExport.forEach((evt) => {
-    const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
-    let evtFInc = evtF.filter((f: any) => f.type === "income" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
-    const evtFExpBase = evtF.filter((f: any) => f.type === "expense" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
-    const evtTInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
-    const evtTExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
-    const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
-    const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
-    let ticketActualNet = 0;
-    let ticketForecastNet = 0;
-    let ticketForecastGross2 = 0;
-    evtZones.forEach((zone: any) => {
-      const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
-      zoneLots.forEach((lot: any) => {
-        const ivaRate = Number(lot.iva_rate ?? 6);
-        const netPrice = Number(lot.price) / (1 + ivaRate / 100);
-        const lotForecastNet = netPrice * Number(lot.quantity);
-        evtFInc += lotForecastNet;
-        ticketForecastNet += lotForecastNet;
-        ticketForecastGross2 += Number(lot.price) * Number(lot.quantity);
-        const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
-        ticketActualNet += lotSales.reduce((sum: number, sl: any) => {
-          const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
-          return sum + Number(sl.quantity) * saleNet;
-        }, 0);
-      });
-    });
-    const evtFExp = evtFExpBase + calculateCacheLinesForPL(
-      cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id)),
-      cacheDeductions,
-      ticketForecastNet,
-      evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
-      ticketForecastGross2
-    ).reduce((sum, line) => sum + line.amount, 0);
-    const fResult = evtFInc - evtFExp;
-    const tResult = (evtTInc + ticketActualNet) - evtTExp;
-
-    doc.setFont("helvetica", "normal");
+    const numSumCols = isComparison ? 5 : 4;
+    const sumColW = contentWidth / numSumCols;
+    doc.setFillColor(30, 30, 40);
+    doc.rect(marginLeft, y, contentWidth, 8, "F");
     doc.setFontSize(8);
-    doc.text(evt.name, marginLeft + 2, y + 4);
-    doc.text(fmtVal(evtFInc), marginLeft + sumColW * 2 - 2, y + 4, { align: "right" });
-    doc.text(fmtVal(evtFExp), marginLeft + sumColW * 3 - 2, y + 4, { align: "right" });
-    doc.setTextColor(fResult >= 0 ? 34 : 200, fResult >= 0 ? 139 : 50, fResult >= 0 ? 34 : 50);
-    doc.text(fmtVal(fResult), marginLeft + sumColW * 4 - 2, y + 4, { align: "right" });
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.text("Evento", marginLeft + 2, y + 5.5);
+    doc.text("Receitas Prev.", marginLeft + sumColW * 2 - 2, y + 5.5, { align: "right" });
+    doc.text("Despesas Prev.", marginLeft + sumColW * 3 - 2, y + 5.5, { align: "right" });
+    doc.text("Resultado Prev.", marginLeft + sumColW * 4 - 2, y + 5.5, { align: "right" });
     if (isComparison) {
-      doc.setTextColor(tResult >= 0 ? 34 : 200, tResult >= 0 ? 139 : 50, tResult >= 0 ? 34 : 50);
-      doc.text(fmtVal(tResult), marginLeft + sumColW * 5 - 2, y + 4, { align: "right" });
+      doc.text("Resultado Real", marginLeft + sumColW * 5 - 2, y + 5.5, { align: "right" });
     }
     doc.setTextColor(0, 0, 0);
-    y += 7;
-  });
+    y += 10;
 
-  y += 2;
-  doc.setFillColor(230, 240, 255);
-  doc.rect(marginLeft, y - 1, contentWidth, 9, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.text("TOTAL", marginLeft + 2, y + 5);
-  doc.text(fmtVal(gFInc), marginLeft + sumColW * 2 - 2, y + 5, { align: "right" });
-  doc.text(fmtVal(gFExp), marginLeft + sumColW * 3 - 2, y + 5, { align: "right" });
-  const gFRes = gFInc - gFExp;
-  doc.setTextColor(gFRes >= 0 ? 34 : 200, gFRes >= 0 ? 139 : 50, gFRes >= 0 ? 34 : 50);
-  doc.text(fmtVal(gFRes), marginLeft + sumColW * 4 - 2, y + 5, { align: "right" });
-  if (isComparison) {
-    const gTRes = gTInc - gTExp;
-    doc.setTextColor(gTRes >= 0 ? 34 : 200, gTRes >= 0 ? 139 : 50, gTRes >= 0 ? 34 : 50);
-    doc.text(fmtVal(gTRes), marginLeft + sumColW * 5 - 2, y + 5, { align: "right" });
+    eventsToExport.forEach((evt) => {
+      const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
+      let evtFInc = evtF.filter((f: any) => f.type === "income" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
+      const evtFExpBase = evtF.filter((f: any) => f.type === "expense" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
+      const evtTInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
+      const evtTExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
+      const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
+      const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
+      let ticketActualNet = 0;
+      let ticketForecastNet = 0;
+      let ticketForecastGross2 = 0;
+      evtZones.forEach((zone: any) => {
+        const zoneLots = ticketLots.filter((l: any) => l.zone_id === zone.id);
+        zoneLots.forEach((lot: any) => {
+          const ivaRate = Number(lot.iva_rate ?? 6);
+          const netPrice = Number(lot.price) / (1 + ivaRate / 100);
+          const lotForecastNet = netPrice * Number(lot.quantity);
+          evtFInc += lotForecastNet;
+          ticketForecastNet += lotForecastNet;
+          ticketForecastGross2 += Number(lot.price) * Number(lot.quantity);
+          const lotSales = ticketSales.filter((s: any) => s.lot_id === lot.id);
+          ticketActualNet += lotSales.reduce((sum: number, sl: any) => {
+            const saleNet = Number(sl.unit_price) / (1 + ivaRate / 100);
+            return sum + Number(sl.quantity) * saleNet;
+          }, 0);
+        });
+      });
+      const evtFExp = evtFExpBase + calculateCacheLinesForPL(
+        cacheConfigs.filter((c) => relevantEventIds.includes(c.event_id)),
+        cacheDeductions,
+        ticketForecastNet,
+        evtF.map((f: any) => ({ type: f.type, category_id: f.category_id, amount: Number(f.amount) })),
+        ticketForecastGross2
+      ).reduce((sum, line) => sum + line.amount, 0);
+      const fResult = evtFInc - evtFExp;
+      const tResult = (evtTInc + ticketActualNet) - evtTExp;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.text(evt.name, marginLeft + 2, y + 4);
+      doc.text(fmtVal(evtFInc), marginLeft + sumColW * 2 - 2, y + 4, { align: "right" });
+      doc.text(fmtVal(evtFExp), marginLeft + sumColW * 3 - 2, y + 4, { align: "right" });
+      doc.setTextColor(fResult >= 0 ? 34 : 200, fResult >= 0 ? 139 : 50, fResult >= 0 ? 34 : 50);
+      doc.text(fmtVal(fResult), marginLeft + sumColW * 4 - 2, y + 4, { align: "right" });
+      if (isComparison) {
+        doc.setTextColor(tResult >= 0 ? 34 : 200, tResult >= 0 ? 139 : 50, tResult >= 0 ? 34 : 50);
+        doc.text(fmtVal(tResult), marginLeft + sumColW * 5 - 2, y + 4, { align: "right" });
+      }
+      doc.setTextColor(0, 0, 0);
+      y += 7;
+    });
+
+    y += 2;
+    doc.setFillColor(230, 240, 255);
+    doc.rect(marginLeft, y - 1, contentWidth, 9, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text("TOTAL", marginLeft + 2, y + 5);
+    doc.text(fmtVal(gFInc), marginLeft + sumColW * 2 - 2, y + 5, { align: "right" });
+    doc.text(fmtVal(gFExp), marginLeft + sumColW * 3 - 2, y + 5, { align: "right" });
+    const gFRes = gFInc - gFExp;
+    doc.setTextColor(gFRes >= 0 ? 34 : 200, gFRes >= 0 ? 139 : 50, gFRes >= 0 ? 34 : 50);
+    doc.text(fmtVal(gFRes), marginLeft + sumColW * 4 - 2, y + 5, { align: "right" });
+    if (isComparison) {
+      const gTRes = gTInc - gTExp;
+      doc.setTextColor(gTRes >= 0 ? 34 : 200, gTRes >= 0 ? 139 : 50, gTRes >= 0 ? 34 : 50);
+      doc.text(fmtVal(gTRes), marginLeft + sumColW * 5 - 2, y + 5, { align: "right" });
+    }
+    doc.setTextColor(0, 0, 0);
   }
-  doc.setTextColor(0, 0, 0);
+
 
   const totalPages = doc.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
