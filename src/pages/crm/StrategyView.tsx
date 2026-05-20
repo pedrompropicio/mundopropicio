@@ -980,7 +980,9 @@ export default function CrmStrategyView() {
                                     type: inheritedCreative.type ?? null,
                                     file_url: inheritedCreative.file_url ?? null,
                                     name: inheritedCreative.name ?? null,
+                                    meta_creative_id: inheritedCreative.meta_creative_id ?? null,
                                   },
+
                                   headline: inheritedCreative.headline ?? null,
                                   primaryText: inheritedCreative.body ?? null,
                                   ctaType: inheritedCreative.cta_type ?? null,
