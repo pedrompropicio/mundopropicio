@@ -304,6 +304,65 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
         </div>
       </div>
 
+      {/* Cronograma de parcelas (planned + cancelled) */}
+      {hasSchedule && (
+        <Section
+          icon={<Clock className="h-3.5 w-3.5" />}
+          title={`Cronograma de parcelas (${plannedPayments.length} agendada${plannedPayments.length === 1 ? "" : "s"}${cancelledPayments.length > 0 ? ` · ${cancelledPayments.length} cancelada${cancelledPayments.length === 1 ? "" : "s"}` : ""})`}
+        >
+          <ul className="divide-y divide-border/40">
+            {[...plannedPayments, ...cancelledPayments].map((p: any, i: number) => {
+              const isPlanned = p.status === "planned";
+              const isCancelled = p.status === "cancelled";
+              return (
+                <li key={p.id} className="flex items-center justify-between py-1.5 text-xs gap-2">
+                  <div className={`flex items-center gap-2 min-w-0 ${isCancelled ? "line-through opacity-60" : ""}`}>
+                    <span className="font-medium text-muted-foreground">#{i + 1}</span>
+                    <span>{p.scheduled_date ? formatDatePT(p.scheduled_date) : "—"}</span>
+                    {isPlanned && (
+                      <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] text-warning">⏳ Planeada</span>
+                    )}
+                    {isCancelled && (
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">❌ Cancelada</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-mono font-semibold">{formatCurrency(Number(p.amount))}</span>
+                    {isAdmin && isPlanned && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setMarkInstallment(p)}
+                          className="rounded px-1.5 py-0.5 text-[10px] text-success hover:bg-success/10"
+                          title="Marcar como paga"
+                        >
+                          ✅ Pagar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm("Cancelar esta parcela?")) cancelInstallmentMutation.mutate(p.id);
+                          }}
+                          className="rounded px-1.5 py-0.5 text-[10px] text-destructive hover:bg-destructive/10"
+                          title="Cancelar parcela"
+                        >
+                          <Ban className="h-3 w-3 inline" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          {plannedPayments.length > 0 && (
+            <div className="mt-1 border-t border-border/40 pt-1 text-[10px] text-muted-foreground text-right">
+              Soma planeada: <span className="font-mono font-semibold">{formatCurrency(totalPlanned)}</span>
+            </div>
+          )}
+        </Section>
+      )}
+
       {/* Parcelas */}
       {payments.length > 0 && (
         <Section
