@@ -478,6 +478,7 @@ export default function ReportPL() {
   const [includeOverhead, setIncludeOverhead] = useState(false);
   const [showPdfDialog, setShowPdfDialog] = useState(false);
   const [scenarioVersionId, setScenarioVersionId] = useState<string | null>(null);
+  const [showScenarioName, setShowScenarioName] = useState(true);
   const { logoUrl, displayName } = useCompanyBranding();
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
 
