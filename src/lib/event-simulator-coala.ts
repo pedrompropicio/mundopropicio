@@ -164,6 +164,15 @@ export function sessionTodayRevenue(s: CoalaSession): number {
   return sessionNetRevenue(s);
 }
 
+function logicalZoneGroup(label: string): string {
+  return (label || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+[—-]\s*(sabado|domingo|segunda(?:-feira)?|terca(?:-feira)?|quarta(?:-feira)?|quinta(?:-feira)?|sexta(?:-feira)?)\s*$/i, "")
+    .trim();
+}
+
 /** Break-Even por sessão: distribuição proporcional do break-even global é tratada externamente.
  *  Esta função devolve só a quantidade adicional ao Real para atingir o forecast. */
 export function sessionForecastQty(s: CoalaSession): number {
@@ -475,9 +484,10 @@ export function solveBreakEven(
     // Agrupa por zona para tratar combos (mesmo que modo deficit).
     const groupIndexes = new Map<string, number[]>();
     sessions.forEach((s, i) => {
-      const arr = groupIndexes.get(s.zone_label) ?? [];
+      const groupKey = logicalZoneGroup(s.zone_label);
+      const arr = groupIndexes.get(groupKey) ?? [];
       arr.push(i);
-      groupIndexes.set(s.zone_label, arr);
+      groupIndexes.set(groupKey, arr);
     });
 
     type ZoneRm = {
@@ -493,7 +503,7 @@ export function solveBreakEven(
 
     const zones: ZoneRm[] = [];
     sessions.forEach((s, idx) => {
-      const groupIdxs = groupIndexes.get(s.zone_label) ?? [idx];
+      const groupIdxs = groupIndexes.get(logicalZoneGroup(s.zone_label)) ?? [idx];
       if (groupIdxs[0] !== idx) return; // só anchor representa a zona
       const realQtyZone = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
       if (realQtyZone <= 0) return;
@@ -575,7 +585,7 @@ export function solveBreakEven(
 
     const breakdown: BreakEvenBreakdownItem[] = sessions.map((s, idx) => {
       const key = `${s.day_index}-${s.zone_label}`;
-      const groupIdxs = groupIndexes.get(s.zone_label) ?? [idx];
+      const groupIdxs = groupIndexes.get(logicalZoneGroup(s.zone_label)) ?? [idx];
       const anchorIdx = groupIdxs[0];
       const z = removedByZone.get(anchorIdx);
       const real = sessionTodayQty(s);
@@ -662,16 +672,17 @@ export function solveBreakEven(
   // o peso do dia em que as vendas reais ficaram concentradas.
   const groupIndexes = new Map<string, number[]>();
   sessions.forEach((s, i) => {
-    const arr = groupIndexes.get(s.zone_label) ?? [];
+    const groupKey = logicalZoneGroup(s.zone_label);
+    const arr = groupIndexes.get(groupKey) ?? [];
     arr.push(i);
-    groupIndexes.set(s.zone_label, arr);
+    groupIndexes.set(groupKey, arr);
   });
 
   const slots: Slot[] = sessions.map((s, idx) => {
     const key = `${s.day_index}-${s.zone_label}`;
     // Tenta a chave composta E também só pelo nome da zona (UI passa indexado por zona).
     const info = lotInfoByKey?.[key] ?? lotInfoByKey?.[s.zone_label];
-    const groupIdxs = groupIndexes.get(s.zone_label) ?? [idx];
+    const groupIdxs = groupIndexes.get(logicalZoneGroup(s.zone_label)) ?? [idx];
     const isAnchor = groupIdxs[0] === idx;
     // realQty agregado por zona (todas as duplicatas) para evitar viés
     // no dia em que o sync concentrou as vendas reais.
@@ -791,19 +802,42 @@ export function solveBreakEven(
   const map: Record<string, number> = { ...baseMap };
   const revMap: Record<string, number> = { ...baseRevByKey };
   let totalExtra = 0;
+  const isPassMultiDayDeficit = (idxs: number[]): boolean => {
+    if (idxs.length <= 1) return false;
+    const qtys = idxs.map((i) => sessionTodayQty(sessions[i]));
+    return qtys.every((q) => q === qtys[0]);
+  };
   const breakdown: BreakEvenBreakdownItem[] = slots.map((sl) => {
-    map[sl.key] = sessionTodayQty(sessions[sl.idx]) + sl.extra;
-    revMap[sl.key] = sessionTodayRevenue(sessions[sl.idx]) + sl.extraRevenue;
-    totalExtra += sl.extra;
+    const groupIdxs = groupIndexes.get(logicalZoneGroup(sessions[sl.idx].zone_label)) ?? [sl.idx];
+    const anchorIdx = groupIdxs[0];
+    const anchorSlot = slots[anchorIdx];
+    const real = sessionTodayQty(sessions[sl.idx]);
+    const realRev = sessionTodayRevenue(sessions[sl.idx]);
+    let myExtra = 0;
+    let myExtraRevenue = 0;
+    if (anchorSlot?.extra > 0) {
+      if (sl.idx === anchorIdx && isPassMultiDayDeficit(groupIdxs)) {
+        myExtra = anchorSlot.extra;
+        myExtraRevenue = anchorSlot.extraRevenue;
+      } else if (!isPassMultiDayDeficit(groupIdxs)) {
+        const totalReal = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
+        const share = totalReal > 0 ? real / totalReal : (sl.idx === anchorIdx ? 1 : 0);
+        myExtra = anchorSlot.extra * share;
+        myExtraRevenue = anchorSlot.extraRevenue * share;
+      }
+    }
+    map[sl.key] = real + myExtra;
+    revMap[sl.key] = realRev + myExtraRevenue;
+    totalExtra += myExtra;
     return {
       key: sl.key,
       zone_label: sessions[sl.idx].zone_label,
       day_index: sessions[sl.idx].day_index,
-      current_qty: sessionTodayQty(sessions[sl.idx]),
-      extra_qty: sl.extra,
+      current_qty: real,
+      extra_qty: myExtra,
       capacity_left: Number.isFinite(sl.capLeft) ? sl.capLeft : 0,
-      marginal_price: sl.margPrice,
-      velocity: sl.velocity,
+      marginal_price: anchorSlot?.margPrice ?? sl.margPrice,
+      velocity: anchorSlot?.velocity ?? sl.velocity,
       reason: sl.reason,
     };
   });
@@ -864,9 +898,10 @@ export function solveForecast(
   // o sync depositou as vendas reais (ex: sábado).
   const groupIndexes = new Map<string, number[]>();
   sessions.forEach((s, i) => {
-    const arr = groupIndexes.get(s.zone_label) ?? [];
+    const groupKey = logicalZoneGroup(s.zone_label);
+    const arr = groupIndexes.get(groupKey) ?? [];
     arr.push(i);
-    groupIndexes.set(s.zone_label, arr);
+    groupIndexes.set(groupKey, arr);
   });
 
   for (const s of sessions) {

@@ -72,4 +72,10 @@ sem mascaramento display-side. Coala 2026 deixa de mostrar gap visível.
   dashboard passa `beRev` (não `beAB`) para evitar inconsistência visual.
 - v5 (2026-05-20): Option B deep — `abMarginPerPub` injectado no solver
   via two-pass; correção residual eliminada.
+- v6 (2026-05-20): fix B+B completo — grouping do solver passa a usar
+  `logicalZoneGroup` para juntar zonas irmãs com sufixo de dia (ex. “Relvado
+  — Sábado/Domingo”); `buildDailyFromBreakdown` aplica remoções por
+  `zone_label + day_index`, sem re-agregar por zona. Isto garante que Domingo
+  também recebe redução proporcional no Coala 2026 e que o solver usa
+  `{ baseResult, abMarginPerPub }` no mesmo modelo do dashboard.
 
