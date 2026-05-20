@@ -44,7 +44,7 @@ export function FrenteTeamSheet({ open, onClose, frenteId, currentLeadId }: Prop
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="bottom" className="h-[70vh] overflow-y-auto">
+      <SheetContent side="bottom" className="h-[70vh] overflow-y-auto sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:max-w-3xl sm:w-full sm:rounded-t-xl">
         <SheetHeader>
           <SheetTitle>Equipa da Zona/Serviço</SheetTitle>
         </SheetHeader>
