@@ -908,76 +908,117 @@ export function solveForecast(
     groupIndexes.set(groupKey, arr);
   });
 
-  for (const s of sessions) {
-    const key = `${s.day_index}-${s.zone_label}`;
-    const info = lotInfoByKey?.[key] ?? lotInfoByKey?.[s.zone_label];
-    const groupIdxs = groupIndexes.get(logicalZoneGroup(s.zone_label)) ?? [];
-    const isAnchor = groupIdxs[0] === sessions.indexOf(s);
-    const realQty = sessionTodayQty(s);
-    const realRev = sessionTodayRevenue(s);
-    const realQtyZone = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
-    const courtesy = n(s.courtesy_qty);
-    const manualFloor = Math.max(0, n(s.forecast_qty) - courtesy);
+  // Primeiro passo: calcula projeção a nível de ZONA (uma vez por grupo).
+  // Depois distribuímos ÷N pelas sessões do grupo para evitar que o forecast
+  // de um passe combo apareça inflado num único dia (o anchor) e zerado
+  // nos restantes.
+  type GroupProjection = {
+    projectedQtyZone: number;
+    extraRevenueZone: number;
+    recentVelocity: number;
+    capLeft: number;
+    cappedByCapacity: boolean;
+    manualUsed: boolean;
+  };
+  const groupProjection = new Map<string, GroupProjection>();
+
+  for (const [groupKey, idxs] of groupIndexes.entries()) {
+    const anchor = sessions[idxs[0]];
+    const key = `${anchor.day_index}-${anchor.zone_label}`;
+    const info = lotInfoByKey?.[key] ?? lotInfoByKey?.[anchor.zone_label];
+    const realQtyZone = idxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
+    const courtesyZone = idxs.reduce((a, i) => a + n(sessions[i].courtesy_qty), 0);
+    const manualFloorZone = Math.max(
+      0,
+      idxs.reduce((a, i) => a + n(sessions[i].forecast_qty), 0) - courtesyZone,
+    );
 
     const hasCapacity = (info?.capacity ?? 0) > 0;
     if (hasCapacity) hasCapacityPlan = true;
-    // Capacidade da zona é única — só o anchor "abre" a capacidade.
-    const capLeft = isAnchor
-      ? (hasCapacity ? Math.max(0, info!.capacity - realQtyZone) : Number.POSITIVE_INFINITY)
-      : 0;
+    const capLeft = hasCapacity
+      ? Math.max(0, info!.capacity - realQtyZone)
+      : Number.POSITIVE_INFINITY;
 
     const daysSelling = Math.max(1, info?.days_selling ?? 1);
-    // Para histórico de 1 dia (importação Fever em batch) usamos uma janela
-    // mínima de 30 dias — caso contrário a velocidade fica artificialmente
-    // alta (todas as vendas num único dia) e o forecast explode.
     const velocityWindow = daysSelling > 1 ? daysSelling : Math.max(30, FORECAST_RECENT_WINDOW_DAYS);
-    // Velocidade da ZONA (todas as duplicatas), atribuída ao anchor.
-    const recentVelocity = isAnchor ? realQtyZone / velocityWindow : 0;
+    const recentVelocity = realQtyZone / velocityWindow;
 
     const baseProjection = recentVelocity * baseWindow;
     const finalProjection = recentVelocity * finalAccel * finalWindow;
-    let projectedQty = Math.round(baseProjection + finalProjection);
+    let projectedQtyZone = Math.round(baseProjection + finalProjection);
 
     let cappedByCapacity = false;
-    if (Number.isFinite(capLeft) && projectedQty > capLeft) {
-      projectedQty = Math.floor(capLeft);
+    if (Number.isFinite(capLeft) && projectedQtyZone > capLeft) {
+      projectedQtyZone = Math.floor(capLeft);
       cappedByCapacity = true;
     }
 
     let manualUsed = false;
-    if (manualFloor > realQty) {
-      const manualExtra = manualFloor - realQty;
+    if (manualFloorZone > realQtyZone) {
+      const manualExtra = manualFloorZone - realQtyZone;
       const cappedManual = Number.isFinite(capLeft) ? Math.min(manualExtra, Math.floor(capLeft)) : manualExtra;
-      if (cappedManual > projectedQty) {
-        projectedQty = cappedManual;
+      if (cappedManual > projectedQtyZone) {
+        projectedQtyZone = cappedManual;
         manualUsed = true;
       }
     }
 
-    let extraRevenue = 0;
-    let remaining = projectedQty;
+    let extraRevenueZone = 0;
+    let remaining = projectedQtyZone;
     const lots = (info?.lots ?? []).slice().sort((a, b) => a.lot_number - b.lot_number);
     const lotsRemaining = lots.map((l) => ({
       price: n(l.price),
       left: Math.max(0, n(l.quantity) - n(l.sold)),
     }));
     const lastDefinedPrice = lots.length ? n(lots[lots.length - 1].price) : 0;
-    const fallbackPrice = lastDefinedPrice || sessionAvgTicket(s);
+    const fallbackPrice = lastDefinedPrice || sessionAvgTicket(anchor);
 
     while (remaining > 0) {
       const lot = lotsRemaining.find((l) => l.left > 0);
       const price = lot?.price ?? fallbackPrice;
       if (price <= 0) break;
       const take = lot ? Math.min(remaining, lot.left) : remaining;
-      extraRevenue += take * price;
+      extraRevenueZone += take * price;
       if (lot) lot.left -= take;
       remaining -= take;
       if (!lot) break;
     }
 
+    groupProjection.set(groupKey, {
+      projectedQtyZone,
+      extraRevenueZone,
+      recentVelocity,
+      capLeft,
+      cappedByCapacity,
+      manualUsed,
+    });
+  }
+
+  // Segundo passo: distribui ÷N entre as sessões do grupo.
+  for (const s of sessions) {
+    const key = `${s.day_index}-${s.zone_label}`;
+    const groupKey = logicalZoneGroup(s.zone_label);
+    const idxs = groupIndexes.get(groupKey) ?? [];
+    const groupSize = Math.max(1, idxs.length);
+    const positionInGroup = idxs.indexOf(sessions.indexOf(s));
+    const isLastInGroup = positionInGroup === groupSize - 1;
+    const gp = groupProjection.get(groupKey)!;
+
+    const realQty = sessionTodayQty(s);
+    const realRev = sessionTodayRevenue(s);
+
+    // Distribuição ÷N, com o resto a cair na última sessão para não perder
+    // unidades por arredondamento.
+    const baseShareQty = Math.floor(gp.projectedQtyZone / groupSize);
+    const remainderQty = gp.projectedQtyZone - baseShareQty * groupSize;
+    const projectedQty = isLastInGroup ? baseShareQty + remainderQty : baseShareQty;
+    const extraRevenue = isLastInGroup
+      ? gp.extraRevenueZone - (gp.extraRevenueZone / groupSize) * (groupSize - 1)
+      : gp.extraRevenueZone / groupSize;
+
     let reason: ForecastBreakdownItem["reason"] = "ok";
-    if (recentVelocity <= 0 && !manualUsed) reason = "no_velocity";
-    else if (cappedByCapacity && capLeft <= 0) reason = "capacity_full";
+    if (gp.recentVelocity <= 0 && !gp.manualUsed) reason = "no_velocity";
+    else if (gp.cappedByCapacity && gp.capLeft <= 0) reason = "capacity_full";
 
     qtyByKey[key] = realQty + projectedQty;
     revenueByKey[key] = realRev + extraRevenue;
@@ -989,11 +1030,13 @@ export function solveForecast(
       current_qty: realQty,
       projected_qty: projectedQty,
       forecast_qty: realQty + projectedQty,
-      capacity_left: Number.isFinite(capLeft) ? Math.max(0, capLeft - projectedQty) : Number.POSITIVE_INFINITY,
-      recent_velocity: recentVelocity,
+      capacity_left: Number.isFinite(gp.capLeft)
+        ? Math.max(0, gp.capLeft - gp.projectedQtyZone) / groupSize
+        : Number.POSITIVE_INFINITY,
+      recent_velocity: gp.recentVelocity / groupSize,
       days_to_event: daysToEvent,
-      capped_by_capacity: cappedByCapacity,
-      manual_floor_used: manualUsed,
+      capped_by_capacity: gp.cappedByCapacity,
+      manual_floor_used: gp.manualUsed,
       reason,
     });
   }
