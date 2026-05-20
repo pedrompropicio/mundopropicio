@@ -911,7 +911,7 @@ export function solveForecast(
   for (const s of sessions) {
     const key = `${s.day_index}-${s.zone_label}`;
     const info = lotInfoByKey?.[key] ?? lotInfoByKey?.[s.zone_label];
-    const groupIdxs = groupIndexes.get(s.zone_label) ?? [];
+    const groupIdxs = groupIndexes.get(logicalZoneGroup(s.zone_label)) ?? [];
     const isAnchor = groupIdxs[0] === sessions.indexOf(s);
     const realQty = sessionTodayQty(s);
     const realRev = sessionTodayRevenue(s);
