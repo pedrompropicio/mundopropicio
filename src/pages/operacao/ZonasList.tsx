@@ -210,19 +210,38 @@ export default function ZonasList() {
 
   const filtersBarNode = (
     <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <Tabs value={view} onValueChange={(v) => setView(v as "cards" | "gantt")}>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <Tabs
+          value={view}
+          onValueChange={(v) => setView(v as "cards" | "gantt" | "lista")}
+        >
           <TabsList className="h-8">
             <TabsTrigger value="cards" className="text-xs h-6">Cards</TabsTrigger>
             <TabsTrigger value="gantt" className="text-xs h-6">Gantt</TabsTrigger>
+            <TabsTrigger value="lista" className="text-xs h-6">Lista</TabsTrigger>
           </TabsList>
         </Tabs>
+        {view === "lista" && filters.event && accumulated.length > 0 && (
+          <ZonasMultiSelector
+            zonas={accumulated.map((z) => ({
+              id: z.id,
+              name: z.name,
+              color: z.color,
+              type: z.type,
+            }))}
+            selectedIds={selectedZonaIds}
+            onChange={setSelectedZonaIdsToUrl}
+          />
+        )}
       </div>
       <ZonasFiltersBar />
     </div>
   );
 
   const ganttNeedsEvent = view === "gantt" && !filters.event;
+  const listaNeedsEvent = view === "lista" && !filters.event;
+  const needsEvent = ganttNeedsEvent || listaNeedsEvent;
+
 
   return (
     <>
