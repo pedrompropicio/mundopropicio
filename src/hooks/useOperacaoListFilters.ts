@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useOperacaoFilters, type OperacaoFilters } from "./useOperacaoFilters";
 
-export type ListScope = "zonas" | "etapas" | "chamados";
+export type ListScope = "zonas" | "etapas" | "chamados" | "pessoas";
 export type SortDir = "asc" | "desc";
 export type Responsibility = "meus" | "sem_responsavel" | "todos";
 
@@ -19,6 +19,7 @@ const DEFAULTS: Record<ListScope, Required<Pick<OperacaoListExtras, "sort_by" | 
   zonas: { sort_by: "display_order", sort_dir: "asc" },
   etapas: { sort_by: "planned_start", sort_dir: "asc" },
   chamados: { sort_by: "created_at", sort_dir: "desc" },
+  pessoas: { sort_by: "name", sort_dir: "asc" },
 };
 
 const EXTRA_KEYS = ["responsibility", "sort_by", "sort_dir", "page"] as const;
