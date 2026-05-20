@@ -219,6 +219,9 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
       toast({ title: "Parcela cancelada" });
     },
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+  });
+
+
 
   function startDirectEdit() {
     const [y, m, d] = (transaction.payment_date ?? "").split("-").map(Number);
