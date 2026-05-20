@@ -222,7 +222,13 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
     );
   }
 
-  const payments = data?.payments ?? [];
+  const allPayments = data?.payments ?? [];
+  const paidPayments = allPayments.filter((p: any) => p.status === "paid" || !p.status);
+  const plannedPayments = allPayments.filter((p: any) => p.status === "planned");
+  const cancelledPayments = allPayments.filter((p: any) => p.status === "cancelled");
+  const hasSchedule = plannedPayments.length > 0 || cancelledPayments.length > 0 ||
+    allPayments.some((p: any) => p.scheduled_date);
+  const payments = paidPayments;
   const paymentListItems = data?.paymentListItems ?? [];
   const reimbursementItems = data?.reimbursementItems ?? [];
   const creditUsages = data?.creditUsages ?? [];
@@ -231,9 +237,10 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
   const totalPaid = payments.reduce((s, p) => s + Number(p.amount), 0);
   const totalCredit = creditUsages.reduce((s, c) => s + Number(c.amount), 0);
   const openBalance = Math.max(0, totalWithIva - totalPaid - totalCredit);
+  const totalPlanned = plannedPayments.reduce((s, p) => s + Number(p.amount), 0);
 
   const hasAny =
-    payments.length > 0 ||
+    allPayments.length > 0 ||
     paymentListItems.length > 0 ||
     reimbursementItems.length > 0 ||
     creditUsages.length > 0 ||
