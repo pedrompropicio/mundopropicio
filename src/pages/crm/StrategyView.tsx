@@ -16,7 +16,7 @@ import {
   AlertTriangle, Sparkles, ChevronDown, ChevronUp, Pencil, RefreshCw, FileDown, Trash2, Zap,
   Plus, X as XIcon, ImageIcon as Image2,
   Rocket, ExternalLink, CheckCircle2, XCircle, AlertCircle, Clock,
-  Play, Pause, PowerOff,
+  Play, Pause, PowerOff, PlayCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
