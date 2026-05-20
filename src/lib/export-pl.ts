@@ -690,7 +690,7 @@ export function exportPLToPDF(
     const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     if (evtF.length === 0 && evtT.length === 0) return;
     const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
-    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds, typeFilter, accountLevel);
+    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds, typeFilter, accountLevel, includeOverhead);
 
     if (evtIdx > 0) {
       doc.addPage();
