@@ -64,11 +64,8 @@ export function ScenarioDraftsList({ eventId, canManage, isMaster, isSplit }: Pr
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-medium truncate">
-                    {d.scenario_label ?? "Cenário sem nome"}
+                    {d.scenario_label ?? `Cenário v${d.version_number}`}
                   </span>
-                  <Badge variant="secondary" className="text-[10px]">
-                    v{d.version_number}
-                  </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground truncate">
                   Criado {dateLabel} por {d.created_by_label ?? "—"}
