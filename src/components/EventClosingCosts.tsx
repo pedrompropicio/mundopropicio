@@ -29,6 +29,7 @@ interface Props {
  */
 export function EventClosingCosts({ eventId, eventStatus }: Props) {
   const queryClient = useQueryClient();
+  const { selectedVersionId, isScenarioMode } = useEventScenario();
   const isEventLocked = eventStatus === "completed";
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -42,16 +43,17 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const { data: costs = [], isLoading } = useQuery({
-    queryKey: ["event-overhead-forecasts", eventId],
+    queryKey: ["event-overhead-forecasts", eventId, selectedVersionId ?? "active"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("event_forecasts")
         .select("*, account_categories(code, name, type), master:master_forecast_id(id, description, amount, account_categories(code, name))")
         .eq("event_id", eventId)
-        .eq("is_overhead", true)
-        .is("version_id", null)
-        .order("type")
-        .order("created_at");
+        .eq("is_overhead", true);
+      query = selectedVersionId
+        ? query.eq("version_id", selectedVersionId)
+        : query.is("version_id", null);
+      const { data, error } = await query.order("type").order("created_at");
       if (error) throw error;
       return data;
     },
