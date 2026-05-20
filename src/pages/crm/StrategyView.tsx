@@ -16,7 +16,7 @@ import {
   AlertTriangle, Sparkles, ChevronDown, ChevronUp, Pencil, RefreshCw, FileDown, Trash2, Zap,
   Plus, X as XIcon, ImageIcon as Image2,
   Rocket, ExternalLink, CheckCircle2, XCircle, AlertCircle, Clock,
-  Play, Pause, PowerOff,
+  Play, Pause, PowerOff, PlayCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -811,13 +811,14 @@ export default function CrmStrategyView() {
                       : "border-amber-500/30 bg-amber-500/5",
                   )}
                 >
-                  <div className="h-14 w-14 rounded bg-muted/50 border border-border overflow-hidden shrink-0 flex items-center justify-center">
-                    {c.file_url && c.type !== "video" ? (
+                  <div className="relative h-14 w-14 rounded bg-muted/50 border border-border overflow-hidden shrink-0 flex items-center justify-center">
+                    {c.file_url ? (
                       <img src={c.file_url} alt={c.name ?? ""} className="h-full w-full object-cover" loading="lazy" />
-                    ) : c.file_url && c.type === "video" ? (
-                      <video src={c.file_url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
                     ) : (
                       <Image2 className="h-5 w-5 text-amber-400/70" />
+                    )}
+                    {c.file_url && c.type === "video" && (
+                      <PlayCircle className="absolute bottom-0.5 right-0.5 h-4 w-4 text-white drop-shadow bg-black/50 rounded-full" />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -1066,11 +1067,14 @@ export default function CrmStrategyView() {
                           if (!c) return null;
                           return (
                             <div key={assoc.id} className="group relative rounded border border-border bg-muted/30 overflow-hidden w-24">
-                              <div className="aspect-square bg-muted overflow-hidden">
-                                {c.type === "video" ? (
-                                  <video src={c.file_url} className="w-full h-full object-cover" muted playsInline />
-                                ) : (
+                              <div className="relative aspect-square bg-muted overflow-hidden">
+                                {c.file_url ? (
                                   <img src={c.file_url} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
+                                ) : (
+                                  <Image2 className="w-5 h-5 text-muted-foreground m-auto mt-6" />
+                                )}
+                                {c.file_url && c.type === "video" && (
+                                  <PlayCircle className="absolute bottom-1 right-1 h-4 w-4 text-white drop-shadow bg-black/50 rounded-full" />
                                 )}
                               </div>
                               <div className="px-1.5 py-1 text-[10px] truncate" title={c.name}>{c.name}</div>
@@ -1490,11 +1494,14 @@ export default function CrmStrategyView() {
                           selected ? "border-cyan-400 ring-2 ring-cyan-400/40" : "border-border hover:border-cyan-500/50"
                         )}
                       >
-                        <div className="aspect-square bg-muted overflow-hidden">
-                          {c.type === "video" ? (
-                            <video src={c.file_url} className="w-full h-full object-cover" muted playsInline />
-                          ) : (
+                        <div className="relative aspect-square bg-muted overflow-hidden">
+                          {c.file_url ? (
                             <img src={c.file_url} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
+                          ) : (
+                            <Image2 className="w-5 h-5 text-muted-foreground m-auto mt-6" />
+                          )}
+                          {c.file_url && c.type === "video" && (
+                            <PlayCircle className="absolute bottom-1 right-1 h-4 w-4 text-white drop-shadow bg-black/50 rounded-full" />
                           )}
                         </div>
                         <div className="px-2 py-1.5">
@@ -1611,15 +1618,16 @@ function AdMockup({
         {primaryText || fallbackPrimary}
       </div>
       <div className={cn(
-        "aspect-[4/5] overflow-hidden flex items-center justify-center",
+        "relative aspect-[4/5] overflow-hidden flex items-center justify-center",
         hasPreview ? "bg-muted" : "bg-amber-500/5",
       )}>
-        {creative.file_url && creative.type === "video" ? (
-          <video src={creative.file_url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
-        ) : creative.file_url ? (
+        {creative.file_url ? (
           <img src={creative.file_url} alt={creative.name ?? ""} className="h-full w-full object-cover" loading="lazy" />
         ) : (
           <MissingPreviewBlock metaCreativeId={creative.meta_creative_id ?? null} />
+        )}
+        {creative.file_url && creative.type === "video" && (
+          <PlayCircle className="absolute bottom-2 right-2 h-6 w-6 text-white drop-shadow bg-black/50 rounded-full" />
         )}
       </div>
 
