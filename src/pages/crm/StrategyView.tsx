@@ -961,7 +961,8 @@ export default function CrmStrategyView() {
                     </div>
                     {(() => {
                       const phaseAds: Array<{
-                        creative: { type?: string | null; file_url?: string | null; name?: string | null };
+                        creative: { type?: string | null; file_url?: string | null; name?: string | null; meta_creative_id?: string | null };
+
                         headline: string | null;
                         primaryText: string | null;
                         ctaType: string | null;
