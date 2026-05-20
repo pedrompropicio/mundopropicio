@@ -180,7 +180,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const [attachIvaSplitFile, setAttachIvaSplitFile] = useState<File | null>(null);
   // ===== Parcelamento (Fase 1.5) =====
   const [useInstallments, setUseInstallments] = useState(false);
-  const [installmentRows, setInstallmentRows] = useState<import("@/components/TransactionInstallmentsEditor").PlannedInstallment[]>([]);
+  const [installmentRows, setInstallmentRows] = useState<PlannedInstallment[]>([]);
   const [installmentWizard, setInstallmentWizard] = useState<{ count: number; firstDate: string; interval: "weekly" | "biweekly" | "monthly" }>({
     count: 2, firstDate: "", interval: "monthly",
   });
