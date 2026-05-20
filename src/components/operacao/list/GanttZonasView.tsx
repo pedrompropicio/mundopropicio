@@ -334,36 +334,61 @@ export function GanttZonasView({ scopedFrenteIds, frentesById, eventDateMax, onE
         </div>
 
         {withoutDates.length > 0 && (
-          <div className="mx-3 mb-3 rounded-md border bg-card">
-            <div className="px-3 py-2 border-b flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase">
+          <div className="mx-3 mb-3 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase px-1">
               <CalendarOff className="h-3.5 w-3.5" />
               Etapas sem datas ({withoutDates.length})
             </div>
-            <div className="divide-y">
-              {withoutDates.map((e) => {
-                const f = frentesById.get(e.frente_id);
-                const c = STATUS_BAR[e.status] ?? STATUS_BAR.pending;
+            {(() => {
+              const groupedNoDates = new Map<string, EtapaRow[]>();
+              withoutDates.forEach((e) => {
+                const list = groupedNoDates.get(e.frente_id) ?? [];
+                list.push(e);
+                groupedNoDates.set(e.frente_id, list);
+              });
+              const sortedGroups = Array.from(groupedNoDates.entries()).sort(([aId], [bId]) => {
+                const fa = frentesById.get(aId);
+                const fb = frentesById.get(bId);
+                return (fa?.name ?? "").localeCompare(fb?.name ?? "", "pt-PT");
+              });
+              return sortedGroups.map(([frenteId, list]) => {
+                const f = frentesById.get(frenteId);
                 return (
-                  <button
-                    key={e.id}
-                    onClick={() => onEtapaClick(e.id)}
-                    className="w-full px-3 py-2 text-left text-xs hover:bg-muted/40 flex items-center gap-2"
-                  >
-                    <span
-                      className="h-2 w-2 rounded-full shrink-0"
-                      style={{ backgroundColor: f?.color ?? "#6b7280" }}
-                    />
-                    <span className="font-medium truncate flex-1">{e.name}</span>
-                    <span className="text-[10px] text-muted-foreground truncate">{f?.name ?? "—"}</span>
-                    <span className={cn("text-[10px] px-1.5 py-0.5 rounded", c.bg, c.text)}>
-                      {c.label}
-                    </span>
-                  </button>
+                  <div key={frenteId} className="rounded-md border bg-card overflow-hidden">
+                    <div className="px-3 py-2 bg-muted/40 border-b flex items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: f?.color ?? "#6b7280" }}
+                      />
+                      <span className="text-xs font-semibold truncate">{f?.name ?? "—"}</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground shrink-0">
+                        {list.length} {list.length === 1 ? "etapa" : "etapas"}
+                      </span>
+                    </div>
+                    <div className="divide-y">
+                      {list.map((e) => {
+                        const c = STATUS_BAR[e.status] ?? STATUS_BAR.pending;
+                        return (
+                          <button
+                            key={e.id}
+                            onClick={() => onEtapaClick(e.id)}
+                            className="w-full px-3 py-2.5 text-left hover:bg-muted/40 flex items-center gap-2 min-h-[44px]"
+                          >
+                            <span className="font-medium text-sm flex-1 truncate">{e.name}</span>
+                            <span className={cn("text-[10px] px-1.5 py-0.5 rounded shrink-0", c.bg, c.text)}>
+                              {c.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
-              })}
-            </div>
+              });
+            })()}
           </div>
         )}
+
       </div>
     </TooltipProvider>
   );
