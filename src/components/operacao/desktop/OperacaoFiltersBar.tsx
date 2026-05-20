@@ -19,7 +19,7 @@ const STATUS_OPTS: { value: string; label: string }[] = [
 const KIND_OPTS: { value: string; label: string }[] = [
   { value: "evolucao", label: "Evolução" },
   { value: "observacao", label: "Observação" },
-  { value: "punch", label: "Punch" },
+  { value: "punch", label: "Pendência" },
   { value: "chamado", label: "Chamado" },
 ];
 
