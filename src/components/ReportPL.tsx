@@ -683,7 +683,14 @@ export default function ReportPL() {
       const siblingCount = subCountByParent[parentId] || 1;
       const parentF = forecasts
         .filter((f: any) => f.event_id === parentId)
-        .map((f: any) => ({ ...f, amount: Number(f.amount) / siblingCount }));
+        .map((f: any) => ({
+          ...f,
+          amount: Number(f.amount) / siblingCount,
+          // Marca fatias prorateadas vindas do BP do Master para badge "via Master".
+          // Aplicável apenas a overhead — outras linhas de Master continuam tratadas
+          // como rateios de despesa normal.
+          ...(f.is_overhead ? { _overhead_via_master: true, _master_event_id: parentId, _split_share: 1 / siblingCount } : {}),
+        }));
       const parentT = transactions
         .filter((t: any) => t.event_id === parentId)
         .map((t: any) => ({ ...t, amount: Number(t.amount) / siblingCount }));
