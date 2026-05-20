@@ -1,6 +1,6 @@
 ---
 name: Transaction installments (Modelo B)
-description: Parcelamento de transações — 1 TX fiscal + N rows em transaction_payments com scheduled_date e status (planned/paid/cancelled); triggers sincronizam paid_amount/status/payment_date da TX
+description: Parcelamento de transações — 1 TX fiscal + N rows em transaction_payments com scheduled_date e status (planned/paid/cancelled); triggers DB sincronizam paid_amount/status/payment_date; UI no TransactionFormModal (toggle "Pagar em parcelas") e PaymentTimeline (secção Cronograma com "Marcar como paga" / "Cancelar")
 type: feature
 ---
 
