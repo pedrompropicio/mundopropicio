@@ -672,10 +672,9 @@ export function solveBreakEven(
   // o peso do dia em que as vendas reais ficaram concentradas.
   const groupIndexes = new Map<string, number[]>();
   sessions.forEach((s, i) => {
-    const groupKey = logicalZoneGroup(s.zone_label);
-    const arr = groupIndexes.get(groupKey) ?? [];
+    const arr = groupIndexes.get(s.zone_label) ?? [];
     arr.push(i);
-    groupIndexes.set(groupKey, arr);
+    groupIndexes.set(s.zone_label, arr);
   });
 
   const slots: Slot[] = sessions.map((s, idx) => {
@@ -884,7 +883,7 @@ export function solveForecast(
   for (const s of sessions) {
     const key = `${s.day_index}-${s.zone_label}`;
     const info = lotInfoByKey?.[key] ?? lotInfoByKey?.[s.zone_label];
-    const groupIdxs = groupIndexes.get(logicalZoneGroup(s.zone_label)) ?? [];
+    const groupIdxs = groupIndexes.get(s.zone_label) ?? [];
     const isAnchor = groupIdxs[0] === sessions.indexOf(s);
     const realQty = sessionTodayQty(s);
     const realRev = sessionTodayRevenue(s);
