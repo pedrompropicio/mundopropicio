@@ -798,6 +798,7 @@ export default function ReportPL() {
         isMultiEvent={selectedEventIds.length > 1}
         value={scenarioVersionId}
         onChange={setScenarioVersionId}
+        includeUnpinnedScenarios
       />
       {/* Mode selector + Event selector */}
       <div className="glass rounded-xl p-4 space-y-4">
