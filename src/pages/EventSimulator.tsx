@@ -842,35 +842,28 @@ export default function EventSimulator() {
       courtesyMap,
     );
 
-    // Aplica remoções (extra_qty<0 do solver SURPLUS) na entrada âncora da
-    // zona. Isto garante que `beAttendance` reflete o público reduzido e que
-    // A&B/KPIs descem proporcionalmente — alinhado com a margem que o solver
-    // usa (price + abMarginPerPub).
-    const removalsByZone = new Map<string, { qty: number; anchorDay: number }>();
+    // Aplica remoções (extra_qty<0 do solver SURPLUS) por zona E por dia.
+    // Importante: não agregar por zona, porque em bilhete-dia o solver já
+    // distribui a redução proporcionalmente por day_index. Agregar novamente
+    // concentrava tudo no primeiro dia (bug Coala 2026: domingo ficava igual).
     breakdown.forEach((b) => {
       const e = Number(b.projected_qty ?? b.extra_qty ?? 0);
-      if (Number.isFinite(e) && e < 0) {
-        const cur = removalsByZone.get(b.zone_label);
-        if (cur) cur.qty += -e;
-        else removalsByZone.set(b.zone_label, { qty: -e, anchorDay: b.day_index });
+      if (!Number.isFinite(e) || e >= 0) return;
+      let left = -e;
+      const sameDay = expanded
+        .filter((r) => r.zone_label === b.zone_label && r.day_index === b.day_index && r.paying > 0)
+        .sort((a, b) => b.paying - a.paying);
+      const fallback = expanded
+        .filter((r) => r.zone_label === b.zone_label && r.day_index !== b.day_index && r.paying > 0)
+        .sort((a, b) => a.day_index - b.day_index);
+      for (const r of [...sameDay, ...fallback]) {
+        if (left <= 0) break;
+        const cut = Math.min(left, r.paying);
+        r.paying -= cut;
+        r.total -= cut;
+        left -= cut;
       }
     });
-    if (removalsByZone.size) {
-      removalsByZone.forEach((rem, zone) => {
-        let left = rem.qty;
-        // tenta primeiro a entrada âncora; se insuficiente, varre outras
-        const candidates = expanded
-          .filter((r) => r.zone_label === zone && r.paying > 0)
-          .sort((a, b) => (a.day_index === rem.anchorDay ? -1 : b.day_index === rem.anchorDay ? 1 : a.day_index - b.day_index));
-        for (const r of candidates) {
-          if (left <= 0) break;
-          const cut = Math.min(left, r.paying);
-          r.paying -= cut;
-          r.total -= cut;
-          left -= cut;
-        }
-      });
-    }
 
     const byDay = new Map<number, { paying: number; courtesy: number; total: number; date: string | null }>();
     for (const r of expanded) {
