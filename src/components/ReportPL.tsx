@@ -478,6 +478,7 @@ export default function ReportPL() {
   const [includeOverhead, setIncludeOverhead] = useState(false);
   const [showPdfDialog, setShowPdfDialog] = useState(false);
   const [scenarioVersionId, setScenarioVersionId] = useState<string | null>(null);
+  const [showScenarioName, setShowScenarioName] = useState(true);
   const { logoUrl, displayName } = useCompanyBranding();
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
 
@@ -800,6 +801,7 @@ export default function ReportPL() {
     return v.scenario_label ?? `v${v.version_number}`;
   }, [scenarioVersionId, anchorVersions]);
 
+  const effectiveScenarioName = showScenarioName ? scenarioName : null;
 
   return (
     <div className="space-y-6">
@@ -810,6 +812,23 @@ export default function ReportPL() {
         onChange={setScenarioVersionId}
         includeUnpinnedScenarios
       />
+      {scenarioVersionId && scenarioName && (
+        <div className="glass rounded-xl px-4 py-2 flex items-center gap-2 text-xs">
+          <input
+            id="show-scenario-name"
+            type="checkbox"
+            className="h-4 w-4 accent-primary"
+            checked={showScenarioName}
+            onChange={(e) => setShowScenarioName(e.target.checked)}
+          />
+          <label htmlFor="show-scenario-name" className="cursor-pointer select-none">
+            Mostrar nome do cenário no relatório
+            <span className="ml-2 text-muted-foreground">
+              ({showScenarioName ? `título incluirá "Cenário ${scenarioName}"` : "título limpo, sem menção ao cenário"})
+            </span>
+          </label>
+        </div>
+      )}
       {/* Mode selector + Event selector */}
       <div className="glass rounded-xl p-4 space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -899,7 +918,7 @@ export default function ReportPL() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => exportPLToExcel(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, undefined, typeFilter, accountLevel, displayName, includeOverhead, scenarioName)}
+          onClick={() => exportPLToExcel(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, undefined, typeFilter, accountLevel, displayName, includeOverhead, effectiveScenarioName)}
           disabled={activeEvents.length === 0}
         >
           <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
@@ -926,7 +945,7 @@ export default function ReportPL() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, [], typeFilter, accountLevel, logoDataUrl, displayName, includeOverhead, scenarioName);
+                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, [], typeFilter, accountLevel, logoDataUrl, displayName, includeOverhead, effectiveScenarioName);
                 setShowPdfDialog(false);
               }}
             >
@@ -934,7 +953,7 @@ export default function ReportPL() {
             </AlertDialogAction>
             <AlertDialogAction
               onClick={() => {
-                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, forecastAuditLogs, typeFilter, accountLevel, logoDataUrl, displayName, includeOverhead, scenarioName);
+                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, forecastAuditLogs, typeFilter, accountLevel, logoDataUrl, displayName, includeOverhead, effectiveScenarioName);
                 setShowPdfDialog(false);
               }}
               className="bg-primary"
@@ -945,29 +964,32 @@ export default function ReportPL() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Global summary cards */}
-      <div className={`grid gap-4 sm:grid-cols-2 ${mode === "comparison" ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
-        <div className="glass rounded-xl p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Receitas Previstas</p>
-          <p className="mt-1 text-lg font-bold text-muted-foreground">{formatCurrency(gFInc)}</p>
-        </div>
-        {mode === "comparison" && (
+      {/* Global summary cards — apenas em modo "Ambos" (sem sentido para só receitas ou só despesas) */}
+      {typeFilter === "both" && (
+        <div className={`grid gap-4 sm:grid-cols-2 ${mode === "comparison" ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
           <div className="glass rounded-xl p-4">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Receitas Reais</p>
-            <p className="mt-1 text-lg font-bold text-success">{formatCurrency(gTInc)}</p>
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Receitas Previstas</p>
+            <p className="mt-1 text-lg font-bold text-muted-foreground">{formatCurrency(gFInc)}</p>
           </div>
-        )}
-        <div className="glass rounded-xl p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resultado Previsto</p>
-          <p className={`mt-1 text-lg font-bold ${gFResult >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(gFResult)}</p>
-        </div>
-        {mode === "comparison" && (
+          {mode === "comparison" && (
+            <div className="glass rounded-xl p-4">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Receitas Reais</p>
+              <p className="mt-1 text-lg font-bold text-success">{formatCurrency(gTInc)}</p>
+            </div>
+          )}
           <div className="glass rounded-xl p-4">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resultado Real</p>
-            <p className={`mt-1 text-lg font-bold ${gTResult >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(gTResult)}</p>
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resultado Previsto</p>
+            <p className={`mt-1 text-lg font-bold ${gFResult >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(gFResult)}</p>
           </div>
-        )}
-      </div>
+          {mode === "comparison" && (
+            <div className="glass rounded-xl p-4">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resultado Real</p>
+              <p className={`mt-1 text-lg font-bold ${gTResult >= 0 ? "text-success" : "text-destructive"}`}>{formatCurrency(gTResult)}</p>
+            </div>
+          )}
+        </div>
+      )}
+
 
       {/* Per-event expandable */}
       <div className="space-y-3">
