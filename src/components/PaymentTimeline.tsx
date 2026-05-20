@@ -205,6 +205,21 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
     },
   });
 
+  const cancelInstallmentMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("transaction_payments" as any)
+        .update({ status: "cancelled" } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payment-timeline", txId] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast({ title: "Parcela cancelada" });
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+
   function startDirectEdit() {
     const [y, m, d] = (transaction.payment_date ?? "").split("-").map(Number);
     setDirectForm({
