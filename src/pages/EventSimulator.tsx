@@ -1036,6 +1036,11 @@ export default function EventSimulator() {
   }, [breakevenV2, todayAB, abModule, bePubProjected]);
 
 
+  const fcPubProjected = useMemo(
+    () => Number(fcAttendance?.payingAttendance || 0) + Number(fcAttendance?.courtesyAttendance || 0),
+    [fcAttendance],
+  );
+
   const fcAB = useMemo(() => {
     if (!abModule.hasConfig || !abModule.totals) return forecastV2;
     const real = abModule.totals.real;
@@ -1070,19 +1075,12 @@ export default function EventSimulator() {
   }, [calcCosts, fcAB, todayAB, calcCfg, abModule, fcPubProjected]);
 
   const todayRev = todayAB;
-  const rawBeRev = beAB;
-  const rawBeRes = useMemo(() => computeScenarioResult(rawBeRev, beCosts), [rawBeRev, beCosts]);
-  const beRev = useMemo(() => {
-    if (beSolution.mode === "surplus" && rawBeRes.general > 0.5) {
-      return {
-        ...rawBeRev,
-        ticketsRevenue: rawBeRev.ticketsRevenue - rawBeRes.general,
-        totalRevenue: rawBeRev.totalRevenue - rawBeRes.general,
-      };
-    }
-    return rawBeRev;
-  }, [rawBeRev, rawBeRes.general, beSolution.mode]);
+  // Option B deep (2026-05-20): com `abMarginPerPub` alinhado no solver,
+  // `Receita − Custo = Resultado` fecha a ~0 na origem. A correcção residual
+  // display-side (rawBeRev → ticketsRevenue -= general) foi removida.
+  const beRev = beAB;
   const fcRev = fcAB;
+
 
   const todayRes = useMemo(() => computeScenarioResult(todayRev, todayCosts), [todayRev, todayCosts]);
   const beRes = useMemo(() => computeScenarioResult(beRev, beCosts), [beRev, beCosts]);
