@@ -1494,11 +1494,14 @@ export default function CrmStrategyView() {
                           selected ? "border-cyan-400 ring-2 ring-cyan-400/40" : "border-border hover:border-cyan-500/50"
                         )}
                       >
-                        <div className="aspect-square bg-muted overflow-hidden">
-                          {c.type === "video" ? (
-                            <video src={c.file_url} className="w-full h-full object-cover" muted playsInline />
-                          ) : (
+                        <div className="relative aspect-square bg-muted overflow-hidden">
+                          {c.file_url ? (
                             <img src={c.file_url} alt={c.name} className="w-full h-full object-cover" loading="lazy" />
+                          ) : (
+                            <Image2 className="w-5 h-5 text-muted-foreground m-auto mt-6" />
+                          )}
+                          {c.file_url && c.type === "video" && (
+                            <PlayCircle className="absolute bottom-1 right-1 h-4 w-4 text-white drop-shadow bg-black/50 rounded-full" />
                           )}
                         </div>
                         <div className="px-2 py-1.5">
