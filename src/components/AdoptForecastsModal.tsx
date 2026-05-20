@@ -334,7 +334,8 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
           .from("event_forecasts")
           .select("id, event_id, transaction_id") as any)
           .eq("master_forecast_id", masterForecastId)
-          .in("event_id", subEventIds);
+          .in("event_id", subEventIds)
+          .is("version_id", null);
         if (splitErr) throw splitErr;
 
         // Mapa de splits livres (sem transaction_id) por sub-evento
