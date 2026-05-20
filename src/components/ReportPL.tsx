@@ -59,6 +59,9 @@ interface PLLine {
   viaMaster?: boolean;
   /** Nome do evento Master de origem (quando viaMaster=true). */
   viaMasterEventName?: string;
+}
+
+
 
 function plLine(base: Omit<PLLine, 'forecastIva' | 'forecastTotal' | 'actualIva' | 'actualTotal'> & { forecastIva?: number; forecastTotal?: number; actualIva?: number; actualTotal?: number }): PLLine {
   return {
