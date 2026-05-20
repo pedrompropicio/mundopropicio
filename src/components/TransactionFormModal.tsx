@@ -27,6 +27,7 @@ import { extractJpegFromDng, isDngFile } from "@/lib/dng-extract-preview";
 import { pdfFirstPageToJpeg } from "@/lib/pdf-first-page-to-jpeg";
 import { uploadToCompanyBucket } from "@/lib/storage";
 import { getL2Id } from "@/lib/bp-category-constraint";
+import { TransactionInstallmentsEditor, type PlannedInstallment } from "@/components/TransactionInstallmentsEditor";
 
 type PaymentMethod = "transfer" | "service_payment" | "state_payment";
 
