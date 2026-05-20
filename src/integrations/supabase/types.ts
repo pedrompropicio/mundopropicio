@@ -7425,6 +7425,8 @@ export type Database = {
           payment_entity: string | null
           payment_method: string
           payment_reference: string | null
+          scheduled_date: string | null
+          status: string
           transaction_id: string
           updated_at: string
           withholding_amount: number
@@ -7443,6 +7445,8 @@ export type Database = {
           payment_entity?: string | null
           payment_method?: string
           payment_reference?: string | null
+          scheduled_date?: string | null
+          status?: string
           transaction_id: string
           updated_at?: string
           withholding_amount?: number
@@ -7461,6 +7465,8 @@ export type Database = {
           payment_entity?: string | null
           payment_method?: string
           payment_reference?: string | null
+          scheduled_date?: string | null
+          status?: string
           transaction_id?: string
           updated_at?: string
           withholding_amount?: number
@@ -8571,6 +8577,10 @@ export type Database = {
           suite: string
           test_name: string
         }[]
+      }
+      tx_has_installment_schedule: {
+        Args: { _tx_id: string }
+        Returns: boolean
       }
       unarchive_bp_version: {
         Args: {
