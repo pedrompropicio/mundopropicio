@@ -344,12 +344,21 @@ function buildPL(
   const lines: PLLine[] = [];
   let ticketLinesInserted = false;
 
-  // Helper to enrich a detail line with override info
+  // Helper to enrich a detail line with override + overhead info
   const enrichWithOverride = (line: PLLine, detailName: string): PLLine => {
     const ov = overrideByCatName[detailName];
-    const enriched = { ...line, categoryName: detailName };
+    let enriched: PLLine = { ...line, categoryName: detailName };
     if (ov) {
-      return { ...enriched, overrideCount: ov.count, overrideNote: ov.notes.join("; ") };
+      enriched = { ...enriched, overrideCount: ov.count, overrideNote: ov.notes.join("; ") };
+    }
+    const oh = overheadByDetail.get(detailName);
+    if (oh) {
+      enriched = {
+        ...enriched,
+        hasOverhead: oh.hasOverhead,
+        viaMaster: oh.viaMaster,
+        viaMasterEventName: oh.viaMasterEventName,
+      };
     }
     return enriched;
   };
