@@ -110,7 +110,7 @@ export function NewFrenteDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{titleLabel}</DialogTitle></DialogHeader>
         <div className="space-y-3">
           {hideEventSelect && selectedEvent && (

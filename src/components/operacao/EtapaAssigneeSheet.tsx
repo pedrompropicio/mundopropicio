@@ -158,7 +158,7 @@ export function EtapaAssigneeSheet({
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+      <SheetContent side="bottom" className="h-[85vh] overflow-y-auto sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:max-w-xl sm:w-full sm:rounded-t-xl">
         <SheetHeader>
           <SheetTitle>Responsáveis da etapa</SheetTitle>
           <SheetDescription>
