@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/mock-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChevronDown, ChevronRight, FileText, FileSpreadsheet, BarChart3, AlertTriangle, History } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -51,7 +53,15 @@ interface PLLine {
   overrideCount?: number;
   overrideNote?: string;
   categoryName?: string;
+  /** Detail line contém ao menos uma rubrica is_overhead (em qualquer evento). */
+  hasOverhead?: boolean;
+  /** Detail line contém fatia virtual prorateada vinda do BP do Master. */
+  viaMaster?: boolean;
+  /** Nome do evento Master de origem (quando viaMaster=true). */
+  viaMasterEventName?: string;
 }
+
+
 
 function plLine(base: Omit<PLLine, 'forecastIva' | 'forecastTotal' | 'actualIva' | 'actualTotal'> & { forecastIva?: number; forecastTotal?: number; actualIva?: number; actualTotal?: number }): PLLine {
   return {
@@ -101,9 +111,12 @@ function buildPL(
   relevantEventIds: string[] = [eventId],
   cacheExtras: any[] = [],
   typeFilter: PLTypeFilter = "both",
-  level: AccountLevel = 2
+  level: AccountLevel = 2,
+  includeOverhead: boolean = false,
+  events: any[] = []
 ): PLLine[] {
   const lookup = buildCategoryLookup(categories);
+  const eventNameById = new Map<string, string>(events.map((e: any) => [e.id, e.name]));
 
   // Calculate ticket lot revenue for this event
   // Prices include IVA ("por dentro") — extract net values
@@ -181,11 +194,39 @@ function buildPL(
     overrideByCatName[catName].notes.push(t.pl_override_note);
   });
 
-  // Rateios de overhead (is_overhead) são tratados em secção separada — não impactam o resultado da empresa.
-  const fInc = forecasts.filter((f) => f.type === "income" && !f.is_overhead);
-  const fExp = forecasts.filter((f) => f.type === "expense" && !f.is_overhead);
+  // Overhead (is_overhead): incluído quando o toggle "Com Overhead" está ON.
+  // Quando OFF, mantém o comportamento histórico (overhead fora do resultado da empresa).
+  const fInc = forecasts.filter((f) => f.type === "income" && (includeOverhead || !f.is_overhead));
+  const fExp = forecasts.filter((f) => f.type === "expense" && (includeOverhead || !f.is_overhead));
   const tInc = transactions.filter((t) => t.type === "income" && !t.is_transitory && !t.exclude_from_result);
   const tExp = transactions.filter((t) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result);
+
+  // Mapas detailName -> flags de overhead, usados para decorar as linhas com badges.
+  const overheadByDetail = new Map<string, { hasOverhead: boolean; viaMaster: boolean; viaMasterEventName?: string }>();
+  if (includeOverhead) {
+    const resolveDetailName = (catId: string | null | undefined) => {
+      if (!catId) return "Sem categoria";
+      const info = lookup[catId];
+      if (!info) return "Sem categoria";
+      if (level === 1) return info.l2Name ?? info.name;
+      if (level === 3) return info.name;
+      return info.name;
+    };
+    for (const f of forecasts) {
+      if (!f.is_overhead) continue;
+      const dn = resolveDetailName(f.category_id);
+      const cur = overheadByDetail.get(dn) ?? { hasOverhead: false, viaMaster: false };
+      cur.hasOverhead = true;
+      if (f._overhead_via_master) {
+        cur.viaMaster = true;
+        const masterId = f._master_event_id;
+        if (masterId && !cur.viaMasterEventName) {
+          cur.viaMasterEventName = eventNameById.get(masterId);
+        }
+      }
+      overheadByDetail.set(dn, cur);
+    }
+  }
 
   const fIncGroups = aggregateByHierarchy(fInc, lookup, level);
   const fExpGroups = aggregateByHierarchy(fExp, lookup, level);
@@ -303,12 +344,21 @@ function buildPL(
   const lines: PLLine[] = [];
   let ticketLinesInserted = false;
 
-  // Helper to enrich a detail line with override info
+  // Helper to enrich a detail line with override + overhead info
   const enrichWithOverride = (line: PLLine, detailName: string): PLLine => {
     const ov = overrideByCatName[detailName];
-    const enriched = { ...line, categoryName: detailName };
+    let enriched: PLLine = { ...line, categoryName: detailName };
     if (ov) {
-      return { ...enriched, overrideCount: ov.count, overrideNote: ov.notes.join("; ") };
+      enriched = { ...enriched, overrideCount: ov.count, overrideNote: ov.notes.join("; ") };
+    }
+    const oh = overheadByDetail.get(detailName);
+    if (oh) {
+      enriched = {
+        ...enriched,
+        hasOverhead: oh.hasOverhead,
+        viaMaster: oh.viaMaster,
+        viaMasterEventName: oh.viaMasterEventName,
+      };
     }
     return enriched;
   };
@@ -424,6 +474,7 @@ export default function ReportPL() {
   const [mode, setMode] = useState<PLMode>("forecast");
   const [typeFilter, setTypeFilter] = useState<PLTypeFilter>("both");
   const [accountLevel, setAccountLevel] = useState<AccountLevel>(2);
+  const [includeOverhead, setIncludeOverhead] = useState(false);
   const [showPdfDialog, setShowPdfDialog] = useState(false);
   const [scenarioVersionId, setScenarioVersionId] = useState<string | null>(null);
   const { logoUrl, displayName } = useCompanyBranding();
@@ -632,7 +683,14 @@ export default function ReportPL() {
       const siblingCount = subCountByParent[parentId] || 1;
       const parentF = forecasts
         .filter((f: any) => f.event_id === parentId)
-        .map((f: any) => ({ ...f, amount: Number(f.amount) / siblingCount }));
+        .map((f: any) => ({
+          ...f,
+          amount: Number(f.amount) / siblingCount,
+          // Marca fatias prorateadas vindas do BP do Master para badge "via Master".
+          // Aplicável apenas a overhead — outras linhas de Master continuam tratadas
+          // como rateios de despesa normal.
+          ...(f.is_overhead ? { _overhead_via_master: true, _master_event_id: parentId, _split_share: 1 / siblingCount } : {}),
+        }));
       const parentT = transactions
         .filter((t: any) => t.event_id === parentId)
         .map((t: any) => ({ ...t, amount: Number(t.amount) / siblingCount }));
@@ -669,8 +727,8 @@ export default function ReportPL() {
 
   const eventSummaries = activeEvents.map((e) => {
     const { evtF, evtT } = getEffectiveData(e.id);
-    const fInc = evtF.filter((f: any) => f.type === "income" && !f.is_overhead).reduce((s: number, f: any) => s + Number(f.amount), 0);
-    const fExp = evtF.filter((f: any) => f.type === "expense" && !f.is_overhead).reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const fInc = evtF.filter((f: any) => f.type === "income" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const fExp = evtF.filter((f: any) => f.type === "expense" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
     const tInc = evtT.filter((t: any) => t.type === "income" && !t.is_transitory && !t.exclude_from_result).reduce((s: number, t: any) => s + Number(t.amount), 0);
     const tExp = evtT.filter((t: any) => t.type === "expense" && !t.is_transitory && !t.exclude_from_result).reduce((s: number, t: any) => s + Number(t.amount), 0);
     const ticketEventIds = getTicketEventIds(e.id);
@@ -743,7 +801,7 @@ export default function ReportPL() {
       />
       {/* Mode selector + Event selector */}
       <div className="glass rounded-xl p-4 space-y-4">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-muted-foreground">Tipo de Relatório</label>
             <Select value={mode} onValueChange={(v) => setMode(v as PLMode)}>
@@ -773,6 +831,16 @@ export default function ReportPL() {
                 <SelectItem value="1">Nível 1 — Macro</SelectItem>
                 <SelectItem value="2">Nível 2 — Grupo (default)</SelectItem>
                 <SelectItem value="3">Nível 3 — Detalhe completo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Overhead</label>
+            <Select value={includeOverhead ? "with" : "without"} onValueChange={(v) => setIncludeOverhead(v === "with")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="without">Sem overhead</SelectItem>
+                <SelectItem value="with">Com overhead</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -820,7 +888,7 @@ export default function ReportPL() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => exportPLToExcel(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, undefined, typeFilter, accountLevel, displayName)}
+          onClick={() => exportPLToExcel(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, undefined, typeFilter, accountLevel, displayName, includeOverhead)}
           disabled={activeEvents.length === 0}
         >
           <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
@@ -847,7 +915,7 @@ export default function ReportPL() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, [], typeFilter, accountLevel, logoDataUrl, displayName);
+                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, [], typeFilter, accountLevel, logoDataUrl, displayName, includeOverhead);
                 setShowPdfDialog(false);
               }}
             >
@@ -855,7 +923,7 @@ export default function ReportPL() {
             </AlertDialogAction>
             <AlertDialogAction
               onClick={() => {
-                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, forecastAuditLogs, typeFilter, accountLevel, logoDataUrl, displayName);
+                exportPLToPDF(activeEvents, events, forecasts, transactions, categories, ticketZones, ticketLots, ticketSales, mode, allCacheConfigs, allCacheDeductions, forecastAuditLogs, typeFilter, accountLevel, logoDataUrl, displayName, includeOverhead);
                 setShowPdfDialog(false);
               }}
               className="bg-primary"
@@ -897,7 +965,7 @@ export default function ReportPL() {
           const { evtF, evtT } = getEffectiveData(evt.id);
           const evtTicketEventIds = getTicketEventIds(evt.id);
           const evtTicketZones = ticketZones.filter((z: any) => evtTicketEventIds.includes(z.event_id));
-          const pl = isOpen ? buildPL(evtF, evtT, categories, evtTicketZones, ticketLots, ticketSales, evt.id, allCacheConfigs, allCacheDeductions, evtTicketEventIds, allCacheExtras, typeFilter, accountLevel) : [];
+          const pl = isOpen ? buildPL(evtF, evtT, categories, evtTicketZones, ticketLots, ticketSales, evt.id, allCacheConfigs, allCacheDeductions, evtTicketEventIds, allCacheExtras, typeFilter, accountLevel, includeOverhead, events) : [];
 
           return (
             <div key={evt.id} className="glass rounded-xl overflow-hidden">
@@ -1005,6 +1073,23 @@ export default function ReportPL() {
                                       </code>
                                     )}
                                     {line.label}
+                                    {line.hasOverhead && (
+                                      <Badge variant="outline" className="text-[10px] gap-0.5 px-1 py-0 text-warning border-warning">
+                                        Overhead
+                                      </Badge>
+                                    )}
+                                    {line.viaMaster && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Badge variant="outline" className="text-[10px] gap-0.5 px-1 py-0 border-primary/40 text-primary">
+                                            via Master
+                                          </Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          Fatia virtual do BP do Master{line.viaMasterEventName ? ` "${line.viaMasterEventName}"` : ""}, rateada ÷N pelos splits.
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
                                     {hasOverride && (
                                       <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning" title={line.overrideNote}>
                                         <AlertTriangle className="h-2.5 w-2.5" />

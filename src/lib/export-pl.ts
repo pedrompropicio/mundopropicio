@@ -136,11 +136,16 @@ function buildPLForExport(
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
   relevantEventIds: string[] = [eventId],
   typeFilter: PLTypeFilter = "both",
-  level: AccountLevel = 2
+  level: AccountLevel = 2,
+  includeOverhead: boolean = false
 ): PLLine[] {
   const showIncome = typeFilter === "income" || typeFilter === "both";
   const showExpense = typeFilter === "expense" || typeFilter === "both";
   const lookup = buildCategoryLookup(categories);
+  // Aplica o toggle "Com/Sem Overhead" ao input. Quando OFF, despreza linhas is_overhead.
+  if (!includeOverhead) {
+    forecasts = forecasts.filter((f: any) => !f.is_overhead);
+  }
 
   const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
   let ticketForecastNet = 0;
@@ -464,7 +469,8 @@ export function exportPLToExcel(
   ticketZones: any[] = [], ticketLots: any[] = [], ticketSales: any[] = [], mode: PLMode = "comparison",
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
   _auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2,
-  companyDisplayName: string = "MP Gestão Eventos"
+  companyDisplayName: string = "MP Gestão Eventos",
+  includeOverhead: boolean = false
 ) {
   void companyDisplayName;
   const wb = XLSX.utils.book_new();
@@ -483,8 +489,8 @@ export function exportPLToExcel(
 
   eventsToExport.forEach((evt) => {
     const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
-    let fInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
-    const fExpBase = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    let fInc = evtF.filter((f: any) => f.type === "income" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const fExpBase = evtF.filter((f: any) => f.type === "expense" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
     const tInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const tExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
@@ -550,7 +556,7 @@ export function exportPLToExcel(
     const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     if (evtF.length === 0 && evtT.length === 0) return;
     const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
-    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds, typeFilter, accountLevel);
+    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds, typeFilter, accountLevel, includeOverhead);
     const rows: any[][] = [
       [`Business Plan - ${evt.name}`],
       [],
@@ -605,7 +611,8 @@ export function exportPLToPDF(
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
   auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2,
   companyLogoDataUrl: string | null = null,
-  companyDisplayName: string = "MP Gestão Eventos"
+  companyDisplayName: string = "MP Gestão Eventos",
+  includeOverhead: boolean = false
 ) {
   const doc = new jsPDF({ orientation: "landscape" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -683,7 +690,7 @@ export function exportPLToPDF(
     const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
     if (evtF.length === 0 && evtT.length === 0) return;
     const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
-    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds, typeFilter, accountLevel);
+    const plLines = buildPLForExport(evtF, evtT, categories, ticketZones, ticketLots, ticketSales, evt.id, cacheConfigs, cacheDeductions, relevantEventIds, typeFilter, accountLevel, includeOverhead);
 
     if (evtIdx > 0) {
       doc.addPage();
@@ -835,8 +842,8 @@ export function exportPLToPDF(
   let gFInc = 0, gFExp = 0, gTInc = 0, gTExp = 0;
   eventsToExport.forEach((evt) => {
     const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
-    let evtFInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
-    const evtFExpBase = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    let evtFInc = evtF.filter((f: any) => f.type === "income" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const evtFExpBase = evtF.filter((f: any) => f.type === "expense" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
     const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
     const evtZones = ticketZones.filter((z: any) => relevantEventIds.includes(z.event_id));
     let ticketActualRevNet = 0;
@@ -890,8 +897,8 @@ export function exportPLToPDF(
 
   eventsToExport.forEach((evt) => {
     const { evtF, evtT } = getEffectiveExportData(evt.id, forecasts, transactions, hierarchy);
-    let evtFInc = evtF.filter((f: any) => f.type === "income").reduce((s: number, f: any) => s + Number(f.amount), 0);
-    const evtFExpBase = evtF.filter((f: any) => f.type === "expense").reduce((s: number, f: any) => s + Number(f.amount), 0);
+    let evtFInc = evtF.filter((f: any) => f.type === "income" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
+    const evtFExpBase = evtF.filter((f: any) => f.type === "expense" && (includeOverhead || !f.is_overhead)).reduce((s: number, f: any) => s + Number(f.amount), 0);
     const evtTInc = evtT.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const evtTExp = evtT.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + Number(t.amount), 0);
     const relevantEventIds = getRelevantExportEventIds(evt.id, hierarchy);
