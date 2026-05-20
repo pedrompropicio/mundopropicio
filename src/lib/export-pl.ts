@@ -606,7 +606,8 @@ export function exportPLToPDF(
   cacheConfigs: CacheConfig[] = [], cacheDeductions: CacheDeduction[] = [],
   auditLogs: any[] = [], typeFilter: PLTypeFilter = "both", accountLevel: AccountLevel = 2,
   companyLogoDataUrl: string | null = null,
-  companyDisplayName: string = "MP Gestão Eventos"
+  companyDisplayName: string = "MP Gestão Eventos",
+  includeOverhead: boolean = false
 ) {
   const doc = new jsPDF({ orientation: "landscape" });
   const pageWidth = doc.internal.pageSize.getWidth();
