@@ -152,7 +152,7 @@ export function RegistroSheet({ open, onClose, initialFrenteId, initialEtapaId, 
           )}
 
           <RadioGroup value={kind} onValueChange={(v) => setKind(v as any)} className="grid grid-cols-3 gap-2">
-            {[["evolucao", "Evolução"], ["observacao", "Observação"], ["punch", "Punch"]].map(([v, l]) => (
+            {[["evolucao", "Evolução"], ["observacao", "Observação"], ["punch", "Pendência"]].map(([v, l]) => (
               <Label key={v} className="flex items-center gap-2 border rounded p-2 cursor-pointer">
                 <RadioGroupItem value={v} /> <span className="text-sm">{l}</span>
               </Label>
