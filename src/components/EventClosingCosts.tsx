@@ -80,17 +80,19 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
 
   // BP existente (local + Master, se houver) — para detetar conflito de categoria
   const { data: existingBpCategoryIds = [] } = useQuery({
-    queryKey: ["bp-categories-for-overhead-check", eventId, eventInfo?.parent_event_id],
+    queryKey: ["bp-categories-for-overhead-check", eventId, eventInfo?.parent_event_id, selectedVersionId ?? "active"],
     enabled: !!eventInfo,
     queryFn: async () => {
       const ids = [eventId];
       if (eventInfo?.parent_event_id) ids.push(eventInfo.parent_event_id);
-      const { data, error } = await supabase
+      let q = supabase
         .from("event_forecasts")
         .select("category_id, event_id")
         .in("event_id", ids)
         .eq("is_overhead", false)
-        .not("category_id", "is", null).is("version_id", null);
+        .not("category_id", "is", null);
+      q = selectedVersionId ? q.eq("version_id", selectedVersionId) : q.is("version_id", null);
+      const { data, error } = await q;
       if (error) throw error;
       return (data || []).map((r: any) => ({ category_id: r.category_id, scope: r.event_id === eventId ? "local" : "master" }));
     },
@@ -99,19 +101,18 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
   // Linhas de previsão de Overhead disponíveis no BP (deste evento + Master, se houver)
   // para vincular a despesa overhead a uma linha de planeamento existente.
   const { data: bpOverheadForecasts = [] } = useQuery({
-    queryKey: ["bp-overhead-forecasts-for-link", eventId, eventInfo?.parent_event_id],
+    queryKey: ["bp-overhead-forecasts-for-link", eventId, eventInfo?.parent_event_id, selectedVersionId ?? "active"],
     enabled: !!eventInfo,
     queryFn: async () => {
       const ids = [eventId];
       if (eventInfo?.parent_event_id) ids.push(eventInfo.parent_event_id);
-      const { data, error } = await supabase
+      let q = supabase
         .from("event_forecasts")
         .select("id, event_id, type, description, amount, iva_rate, account_categories(code, name)")
         .in("event_id", ids)
-        .eq("is_overhead", true)
-        .is("version_id", null)
-        .order("type")
-        .order("description");
+        .eq("is_overhead", true);
+      q = selectedVersionId ? q.eq("version_id", selectedVersionId) : q.is("version_id", null);
+      const { data, error } = await q.order("type").order("description");
       if (error) throw error;
       return (data || []).map((r: any) => ({
         ...r,
