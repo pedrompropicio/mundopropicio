@@ -5,7 +5,7 @@ import { formatCurrency } from "@/lib/mock-data";
 import type { PLMode, PLTypeFilter } from "@/components/ReportPL";
 import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup, type AccountLevel } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
-import { compareHierarchicalCodes, compareReportCodesUnclassifiedLast } from "@/lib/utils";
+import { compareReportCodesUnclassifiedLast } from "@/lib/utils";
 import { applyPTNumberFormat } from "@/lib/excel-format";
 
 interface PLLine {

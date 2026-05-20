@@ -24,7 +24,7 @@ import { exportPLToPDF, exportPLToExcel } from "@/lib/export-pl";
 import { useCompanyBranding } from "@/contexts/CompanyBrandingContext";
 import { buildCategoryLookup, aggregateByHierarchy, type AggregatedGroup, type AccountLevel } from "@/lib/category-hierarchy";
 import { calculateCacheLinesForPL, type CacheConfig, type CacheDeduction } from "@/lib/cache-pl-helper";
-import { compareHierarchicalCodes, compareReportCodesUnclassifiedLast } from "@/lib/utils";
+import { compareReportCodesUnclassifiedLast } from "@/lib/utils";
 import { ReportScenarioSelector } from "@/components/reports/ReportScenarioSelector";
 import { useScenarioForecasts } from "@/hooks/useScenarioForecasts";
 import { useBPVersions } from "@/hooks/useBPVersions";
