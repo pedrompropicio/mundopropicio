@@ -1667,3 +1667,53 @@ function MiniStat({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+// Workaround UI para criativos sem file_url (parser MCS v1 limitado)
+function MissingPreviewActions({ metaCreativeId, compact = false }: { metaCreativeId: string; compact?: boolean }) {
+  const copy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(metaCreativeId);
+      toast.success("ID copiado");
+    } catch {
+      toast.error("Não foi possível copiar");
+    }
+  };
+  return (
+    <div className={cn("flex items-center gap-1.5 flex-wrap", compact ? "mt-1" : "mt-2")}>
+      <button
+        type="button"
+        onClick={copy}
+        className="inline-flex items-center gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-300 hover:bg-amber-500/20"
+      >
+        <Copy className="h-2.5 w-2.5" /> Copiar ID
+      </button>
+      <a
+        href="https://business.facebook.com/ads/manager"
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="inline-flex items-center gap-1 text-[10px] text-cyan-400 hover:text-cyan-300 hover:underline"
+      >
+        Abrir no Meta Ads Manager <ExternalLink className="h-2.5 w-2.5" />
+      </a>
+    </div>
+  );
+}
+
+function MissingPreviewBlock({ metaCreativeId }: { metaCreativeId: string | null }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 p-3 text-center w-full h-full">
+      <Image2 className="h-6 w-6 text-amber-400/70" />
+      <div className="text-[10px] text-muted-foreground">Sem preview disponível</div>
+      {metaCreativeId && (
+        <>
+          <div className="text-[10px] font-mono text-foreground/80 break-all max-w-full px-1">
+            {metaCreativeId}
+          </div>
+          <MissingPreviewActions metaCreativeId={metaCreativeId} />
+        </>
+      )}
+    </div>
+  );
+}
