@@ -1610,7 +1610,8 @@ Deno.serve(async (req) => {
       const { data: insertedFcs, error: sumFcErr } = await admin
         .from("event_forecasts")
         .select("amount, category_id")
-        .eq("event_id", eventId);
+        .eq("event_id", eventId)
+        .is("version_id", null);
       if (sumFcErr) {
         return json({ error: `Reconciliação BP falhou: ${sumFcErr.message}` }, 500);
       }
