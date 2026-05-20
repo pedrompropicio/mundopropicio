@@ -78,4 +78,8 @@ sem mascaramento display-side. Coala 2026 deixa de mostrar gap visível.
   `zone_label + day_index`, sem re-agregar por zona. Isto garante que Domingo
   também recebe redução proporcional no Coala 2026 e que o solver usa
   `{ baseResult, abMarginPerPub }` no mesmo modelo do dashboard.
+- v7 (2026-05-20): `logicalZoneGroup` cobre também labels com dia no prefixo
+  (`Sábado — Relvado`) e separadores `—`, `-`, `:`, `|`, `/`; heurística de
+  passe passou para helper único com tolerância decimal. Bilhete-dia só ancora
+  se as quantidades por dia forem idênticas; caso contrário distribui pro-rata.
 

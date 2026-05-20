@@ -165,12 +165,27 @@ export function sessionTodayRevenue(s: CoalaSession): number {
 }
 
 function logicalZoneGroup(label: string): string {
+  const dayPattern = "sabado|domingo|segunda(?:-feira)?|terca(?:-feira)?|quarta(?:-feira)?|quinta(?:-feira)?|sexta(?:-feira)?";
   return (label || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/\s+[—-]\s*(sabado|domingo|segunda(?:-feira)?|terca(?:-feira)?|quarta(?:-feira)?|quinta(?:-feira)?|sexta(?:-feira)?)\s*$/i, "")
+    .replace(new RegExp(`^\\s*(?:${dayPattern})\\s*(?:[—\\-:|/]\\s*)`, "i"), "")
+    .replace(new RegExp(`\\s*(?:[—\\-:|/]\\s*)?(?:${dayPattern})\\s*$`, "i"), "")
+    .replace(/\s*\((?:sabado|domingo|segunda(?:-feira)?|terca(?:-feira)?|quarta(?:-feira)?|quinta(?:-feira)?|sexta(?:-feira)?)\)\s*$/i, "")
     .trim();
+}
+
+function isPassLikeMultiDayGroup(sessions: CoalaSession[], idxs: number[]): boolean {
+  if (idxs.length <= 1) return false;
+  const qtyByDay = new Map<number, number>();
+  idxs.forEach((i) => {
+    const s = sessions[i];
+    qtyByDay.set(s.day_index, (qtyByDay.get(s.day_index) ?? 0) + sessionTodayQty(s));
+  });
+  const qtys = Array.from(qtyByDay.values());
+  if (qtys.length <= 1) return false;
+  return qtys.every((q) => Math.abs(q - qtys[0]) <= 0.0001);
 }
 
 /** Break-Even por sessão: distribuição proporcional do break-even global é tratada externamente.
@@ -577,12 +592,6 @@ export function solveBreakEven(
     // tratamos como passe multi-dia → mantém anchor. Caso contrário (bilhete-dia,
     // típico de festival com vendas independentes por dia), distribui a remoção
     // do anchor pelos restantes dias proporcionalmente ao Real de cada dia.
-    const isPassMultiDay = (idxs: number[]): boolean => {
-      if (idxs.length <= 1) return false;
-      const qtys = idxs.map((i) => sessionTodayQty(sessions[i]));
-      return qtys.every((q) => q === qtys[0]);
-    };
-
     const breakdown: BreakEvenBreakdownItem[] = sessions.map((s, idx) => {
       const key = `${s.day_index}-${s.zone_label}`;
       const groupIdxs = groupIndexes.get(logicalZoneGroup(s.zone_label)) ?? [idx];
@@ -593,11 +602,11 @@ export function solveBreakEven(
       let myRemoved = 0;
       let myRemovedRev = 0;
       if (z && z.removed > 0) {
-        if (idx === anchorIdx && isPassMultiDay(groupIdxs)) {
+        if (idx === anchorIdx && isPassLikeMultiDayGroup(sessions, groupIdxs)) {
           // passe multi-dia: anchor leva tudo
           myRemoved = z.removed;
           myRemovedRev = z.removedRevenue;
-        } else if (!isPassMultiDay(groupIdxs)) {
+        } else if (!isPassLikeMultiDayGroup(sessions, groupIdxs)) {
           // bilhete-dia: pro-rata pelo real vendido em cada dia
           const totalReal = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
           const share = totalReal > 0 ? real / totalReal : (idx === anchorIdx ? 1 : 0);
@@ -802,11 +811,6 @@ export function solveBreakEven(
   const map: Record<string, number> = { ...baseMap };
   const revMap: Record<string, number> = { ...baseRevByKey };
   let totalExtra = 0;
-  const isPassMultiDayDeficit = (idxs: number[]): boolean => {
-    if (idxs.length <= 1) return false;
-    const qtys = idxs.map((i) => sessionTodayQty(sessions[i]));
-    return qtys.every((q) => q === qtys[0]);
-  };
   const breakdown: BreakEvenBreakdownItem[] = slots.map((sl) => {
     const groupIdxs = groupIndexes.get(logicalZoneGroup(sessions[sl.idx].zone_label)) ?? [sl.idx];
     const anchorIdx = groupIdxs[0];
@@ -816,10 +820,10 @@ export function solveBreakEven(
     let myExtra = 0;
     let myExtraRevenue = 0;
     if (anchorSlot?.extra > 0) {
-      if (sl.idx === anchorIdx && isPassMultiDayDeficit(groupIdxs)) {
+      if (sl.idx === anchorIdx && isPassLikeMultiDayGroup(sessions, groupIdxs)) {
         myExtra = anchorSlot.extra;
         myExtraRevenue = anchorSlot.extraRevenue;
-      } else if (!isPassMultiDayDeficit(groupIdxs)) {
+      } else if (!isPassLikeMultiDayGroup(sessions, groupIdxs)) {
         const totalReal = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
         const share = totalReal > 0 ? real / totalReal : (sl.idx === anchorIdx ? 1 : 0);
         myExtra = anchorSlot.extra * share;
