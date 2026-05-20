@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Trash2, Plus, Pencil, X, Check, Paperclip, FileText, ExternalLink, Info, TrendingUp, TrendingDown, AlertTriangle, Link2, Unlink } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { useEventScenario } from "@/contexts/EventScenarioContext";
 
 interface Props {
   eventId: string;
