@@ -69,7 +69,7 @@ function mergeGroupsExport(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[
       tIva: tg?.totalIva ?? 0,
       details,
     };
-  }).sort((a, b) => compareHierarchicalCodes(a.groupCode, b.groupCode));
+  }).sort((a, b) => compareReportCodesUnclassifiedLast(a.groupCode, b.groupCode));
 }
 
 interface ExportHierarchyMaps {

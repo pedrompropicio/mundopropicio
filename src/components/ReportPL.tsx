@@ -94,7 +94,7 @@ function mergeGroups(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[]): { 
       fIva: fDetailMap[dn]?.iva ?? 0,
       tBase: tDetailMap[dn]?.base ?? 0,
       tIva: tDetailMap[dn]?.iva ?? 0,
-    })).sort((a, b) => compareHierarchicalCodes(a.code, b.code));
+    })).sort((a, b) => compareReportCodesUnclassifiedLast(a.code, b.code));
 
     return {
       groupName: name, groupCode: code,
@@ -102,7 +102,7 @@ function mergeGroups(fGroups: AggregatedGroup[], tGroups: AggregatedGroup[]): { 
       tBase: tg?.totalBase ?? 0, tIva: tg?.totalIva ?? 0,
       details,
     };
-  }).sort((a, b) => compareHierarchicalCodes(a.groupCode, b.groupCode));
+  }).sort((a, b) => compareReportCodesUnclassifiedLast(a.groupCode, b.groupCode));
 }
 
 function buildPL(
