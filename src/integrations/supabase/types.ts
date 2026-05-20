@@ -4682,6 +4682,234 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_log: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          payload: Json | null
+          queue_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          payload?: Json | null
+          queue_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json | null
+          queue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_log_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "notification_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_optin: {
+        Row: {
+          created_at: string
+          id: string
+          ip_address: string | null
+          notes: string | null
+          opted_in_at: string | null
+          opted_out_at: string | null
+          phone_number: string
+          profile_id: string
+          source: string | null
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          notes?: string | null
+          opted_in_at?: string | null
+          opted_out_at?: string | null
+          phone_number: string
+          profile_id: string
+          source?: string | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          notes?: string | null
+          opted_in_at?: string | null
+          opted_out_at?: string | null
+          phone_number?: string
+          profile_id?: string
+          source?: string | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_optin_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_queue: {
+        Row: {
+          attempts: number
+          company_id: string
+          context_id: string | null
+          context_type: string | null
+          created_at: string
+          delivered_at: string | null
+          event_id: string | null
+          failed_at: string | null
+          id: string
+          last_error: string | null
+          meta_message_id: string | null
+          params: Json
+          read_at: string | null
+          recipient_phone: string
+          recipient_profile_id: string
+          scheduled_at: string
+          sent_at: string | null
+          status: string
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          company_id: string
+          context_id?: string | null
+          context_type?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          event_id?: string | null
+          failed_at?: string | null
+          id?: string
+          last_error?: string | null
+          meta_message_id?: string | null
+          params?: Json
+          read_at?: string | null
+          recipient_phone: string
+          recipient_profile_id: string
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          company_id?: string
+          context_id?: string | null
+          context_type?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          event_id?: string | null
+          failed_at?: string | null
+          id?: string
+          last_error?: string | null
+          meta_message_id?: string | null
+          params?: Json
+          read_at?: string | null
+          recipient_phone?: string
+          recipient_profile_id?: string
+          scheduled_at?: string
+          sent_at?: string | null
+          status?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_queue_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_queue_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_queue_recipient_profile_id_fkey"
+            columns: ["recipient_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_queue_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "notification_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_templates: {
+        Row: {
+          body_text: string
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          language_code: string
+          meta_template_id: string | null
+          meta_template_name: string
+          param_count: number
+          param_schema: Json
+          status: string
+          template_name: string
+          updated_at: string
+        }
+        Insert: {
+          body_text: string
+          category: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          language_code?: string
+          meta_template_id?: string | null
+          meta_template_name: string
+          param_count?: number
+          param_schema?: Json
+          status?: string
+          template_name: string
+          updated_at?: string
+        }
+        Update: {
+          body_text?: string
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          language_code?: string
+          meta_template_id?: string | null
+          meta_template_name?: string
+          param_count?: number
+          param_schema?: Json
+          status?: string
+          template_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       operacao_chamado_sla: {
         Row: {
           priority: string
@@ -5643,6 +5871,7 @@ export type Database = {
           phone: string | null
           profile_type: string
           updated_at: string
+          whatsapp_phone: string | null
         }
         Insert: {
           active_company_id?: string | null
@@ -5655,6 +5884,7 @@ export type Database = {
           phone?: string | null
           profile_type?: string
           updated_at?: string
+          whatsapp_phone?: string | null
         }
         Update: {
           active_company_id?: string | null
@@ -5667,6 +5897,7 @@ export type Database = {
           phone?: string | null
           profile_type?: string
           updated_at?: string
+          whatsapp_phone?: string | null
         }
         Relationships: [
           {
@@ -8086,6 +8317,17 @@ export type Database = {
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
+      }
+      enqueue_whatsapp_notification: {
+        Args: {
+          p_context_id?: string
+          p_context_type?: string
+          p_event_id?: string
+          p_params: Json
+          p_recipient_profile_id: string
+          p_template_name: string
+        }
+        Returns: string
       }
       find_admin_absorbing_events: {
         Args: { p_company_id: string; p_date: string }
