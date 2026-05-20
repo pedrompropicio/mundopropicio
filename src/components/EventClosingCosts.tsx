@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Trash2, Plus, Pencil, X, Check, Paperclip, FileText, ExternalLink, Info, TrendingUp, TrendingDown, AlertTriangle, Link2, Unlink } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { useEventScenario } from "@/contexts/EventScenarioContext";
 
 interface Props {
   eventId: string;
@@ -28,6 +29,7 @@ interface Props {
  */
 export function EventClosingCosts({ eventId, eventStatus }: Props) {
   const queryClient = useQueryClient();
+  const { selectedVersionId, isScenarioMode } = useEventScenario();
   const isEventLocked = eventStatus === "completed";
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -41,16 +43,17 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const { data: costs = [], isLoading } = useQuery({
-    queryKey: ["event-overhead-forecasts", eventId],
+    queryKey: ["event-overhead-forecasts", eventId, selectedVersionId ?? "active"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("event_forecasts")
         .select("*, account_categories(code, name, type), master:master_forecast_id(id, description, amount, account_categories(code, name))")
         .eq("event_id", eventId)
-        .eq("is_overhead", true)
-        .is("version_id", null)
-        .order("type")
-        .order("created_at");
+        .eq("is_overhead", true);
+      query = selectedVersionId
+        ? query.eq("version_id", selectedVersionId)
+        : query.is("version_id", null);
+      const { data, error } = await query.order("type").order("created_at");
       if (error) throw error;
       return data;
     },
@@ -77,17 +80,19 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
 
   // BP existente (local + Master, se houver) — para detetar conflito de categoria
   const { data: existingBpCategoryIds = [] } = useQuery({
-    queryKey: ["bp-categories-for-overhead-check", eventId, eventInfo?.parent_event_id],
+    queryKey: ["bp-categories-for-overhead-check", eventId, eventInfo?.parent_event_id, selectedVersionId ?? "active"],
     enabled: !!eventInfo,
     queryFn: async () => {
       const ids = [eventId];
       if (eventInfo?.parent_event_id) ids.push(eventInfo.parent_event_id);
-      const { data, error } = await supabase
+      let q = supabase
         .from("event_forecasts")
         .select("category_id, event_id")
         .in("event_id", ids)
         .eq("is_overhead", false)
-        .not("category_id", "is", null).is("version_id", null);
+        .not("category_id", "is", null);
+      q = selectedVersionId ? q.eq("version_id", selectedVersionId) : q.is("version_id", null);
+      const { data, error } = await q;
       if (error) throw error;
       return (data || []).map((r: any) => ({ category_id: r.category_id, scope: r.event_id === eventId ? "local" : "master" }));
     },
@@ -96,19 +101,18 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
   // Linhas de previsão de Overhead disponíveis no BP (deste evento + Master, se houver)
   // para vincular a despesa overhead a uma linha de planeamento existente.
   const { data: bpOverheadForecasts = [] } = useQuery({
-    queryKey: ["bp-overhead-forecasts-for-link", eventId, eventInfo?.parent_event_id],
+    queryKey: ["bp-overhead-forecasts-for-link", eventId, eventInfo?.parent_event_id, selectedVersionId ?? "active"],
     enabled: !!eventInfo,
     queryFn: async () => {
       const ids = [eventId];
       if (eventInfo?.parent_event_id) ids.push(eventInfo.parent_event_id);
-      const { data, error } = await supabase
+      let q = supabase
         .from("event_forecasts")
         .select("id, event_id, type, description, amount, iva_rate, account_categories(code, name)")
         .in("event_id", ids)
-        .eq("is_overhead", true)
-        .is("version_id", null)
-        .order("type")
-        .order("description");
+        .eq("is_overhead", true);
+      q = selectedVersionId ? q.eq("version_id", selectedVersionId) : q.is("version_id", null);
+      const { data, error } = await q.order("type").order("description");
       if (error) throw error;
       return (data || []).map((r: any) => ({
         ...r,
@@ -152,6 +156,7 @@ export function EventClosingCosts({ eventId, eventStatus }: Props) {
         formula_type: "fixed",
         formula_value: amt,
         master_forecast_id: bpForecastId || null,
+        version_id: selectedVersionId || null,
       };
       let costId = editingId;
       if (editingId) {
