@@ -811,13 +811,14 @@ export default function CrmStrategyView() {
                       : "border-amber-500/30 bg-amber-500/5",
                   )}
                 >
-                  <div className="h-14 w-14 rounded bg-muted/50 border border-border overflow-hidden shrink-0 flex items-center justify-center">
-                    {c.file_url && c.type !== "video" ? (
+                  <div className="relative h-14 w-14 rounded bg-muted/50 border border-border overflow-hidden shrink-0 flex items-center justify-center">
+                    {c.file_url ? (
                       <img src={c.file_url} alt={c.name ?? ""} className="h-full w-full object-cover" loading="lazy" />
-                    ) : c.file_url && c.type === "video" ? (
-                      <video src={c.file_url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
                     ) : (
                       <Image2 className="h-5 w-5 text-amber-400/70" />
+                    )}
+                    {c.file_url && c.type === "video" && (
+                      <PlayCircle className="absolute bottom-0.5 right-0.5 h-4 w-4 text-white drop-shadow bg-black/50 rounded-full" />
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
