@@ -37,16 +37,36 @@ export default function ZonasList() {
   const { eventIds: scopedEventIds, isLoading: loadingScope } = useScopedEventIds();
   const [params, setParams] = useSearchParams();
   const typeFilter = params.get("type"); // "zone" | "service" | null
-  const view = params.get("view") === "gantt" ? "gantt" : "cards";
+  const view =
+    params.get("view") === "gantt"
+      ? "gantt"
+      : params.get("view") === "lista"
+      ? "lista"
+      : "cards";
+  const selectedZonaIds = useMemo(() => {
+    const raw = params.get("zonas");
+    if (!raw) return [] as string[];
+    return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  }, [params]);
   const [editingFrenteId, setEditingFrenteId] = useState<string | null>(null);
   const [accumulated, setAccumulated] = useState<ZonaCardData[]>([]);
 
-  const setView = (v: "cards" | "gantt") => {
+  const setView = (v: "cards" | "gantt" | "lista") => {
     const next = new URLSearchParams(params);
     if (v === "cards") next.delete("view");
     else next.set("view", v);
+    // limpar selecção de zonas ao sair da Lista
+    if (v !== "lista") next.delete("zonas");
     setParams(next, { replace: true });
   };
+
+  const setSelectedZonaIdsToUrl = (ids: string[]) => {
+    const next = new URLSearchParams(params);
+    if (ids.length === 0) next.delete("zonas");
+    else next.set("zonas", ids.join(","));
+    setParams(next, { replace: true });
+  };
+
 
   const targetEventIds = useMemo(
     () => (filters.event ? [filters.event] : scopedEventIds),
