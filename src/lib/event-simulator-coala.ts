@@ -802,19 +802,42 @@ export function solveBreakEven(
   const map: Record<string, number> = { ...baseMap };
   const revMap: Record<string, number> = { ...baseRevByKey };
   let totalExtra = 0;
+  const isPassMultiDayDeficit = (idxs: number[]): boolean => {
+    if (idxs.length <= 1) return false;
+    const qtys = idxs.map((i) => sessionTodayQty(sessions[i]));
+    return qtys.every((q) => q === qtys[0]);
+  };
   const breakdown: BreakEvenBreakdownItem[] = slots.map((sl) => {
-    map[sl.key] = sessionTodayQty(sessions[sl.idx]) + sl.extra;
-    revMap[sl.key] = sessionTodayRevenue(sessions[sl.idx]) + sl.extraRevenue;
-    totalExtra += sl.extra;
+    const groupIdxs = groupIndexes.get(logicalZoneGroup(sessions[sl.idx].zone_label)) ?? [sl.idx];
+    const anchorIdx = groupIdxs[0];
+    const anchorSlot = slots[anchorIdx];
+    const real = sessionTodayQty(sessions[sl.idx]);
+    const realRev = sessionTodayRevenue(sessions[sl.idx]);
+    let myExtra = 0;
+    let myExtraRevenue = 0;
+    if (anchorSlot?.extra > 0) {
+      if (sl.idx === anchorIdx && isPassMultiDayDeficit(groupIdxs)) {
+        myExtra = anchorSlot.extra;
+        myExtraRevenue = anchorSlot.extraRevenue;
+      } else if (!isPassMultiDayDeficit(groupIdxs)) {
+        const totalReal = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
+        const share = totalReal > 0 ? real / totalReal : (sl.idx === anchorIdx ? 1 : 0);
+        myExtra = anchorSlot.extra * share;
+        myExtraRevenue = anchorSlot.extraRevenue * share;
+      }
+    }
+    map[sl.key] = real + myExtra;
+    revMap[sl.key] = realRev + myExtraRevenue;
+    totalExtra += myExtra;
     return {
       key: sl.key,
       zone_label: sessions[sl.idx].zone_label,
       day_index: sessions[sl.idx].day_index,
-      current_qty: sessionTodayQty(sessions[sl.idx]),
-      extra_qty: sl.extra,
+      current_qty: real,
+      extra_qty: myExtra,
       capacity_left: Number.isFinite(sl.capLeft) ? sl.capLeft : 0,
-      marginal_price: sl.margPrice,
-      velocity: sl.velocity,
+      marginal_price: anchorSlot?.margPrice ?? sl.margPrice,
+      velocity: anchorSlot?.velocity ?? sl.velocity,
       reason: sl.reason,
     };
   });
