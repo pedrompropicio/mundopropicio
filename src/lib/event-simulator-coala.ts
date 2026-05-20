@@ -484,9 +484,10 @@ export function solveBreakEven(
     // Agrupa por zona para tratar combos (mesmo que modo deficit).
     const groupIndexes = new Map<string, number[]>();
     sessions.forEach((s, i) => {
-      const arr = groupIndexes.get(s.zone_label) ?? [];
+      const groupKey = logicalZoneGroup(s.zone_label);
+      const arr = groupIndexes.get(groupKey) ?? [];
       arr.push(i);
-      groupIndexes.set(s.zone_label, arr);
+      groupIndexes.set(groupKey, arr);
     });
 
     type ZoneRm = {
@@ -502,7 +503,7 @@ export function solveBreakEven(
 
     const zones: ZoneRm[] = [];
     sessions.forEach((s, idx) => {
-      const groupIdxs = groupIndexes.get(s.zone_label) ?? [idx];
+      const groupIdxs = groupIndexes.get(logicalZoneGroup(s.zone_label)) ?? [idx];
       if (groupIdxs[0] !== idx) return; // só anchor representa a zona
       const realQtyZone = groupIdxs.reduce((a, i) => a + sessionTodayQty(sessions[i]), 0);
       if (realQtyZone <= 0) return;
@@ -584,7 +585,7 @@ export function solveBreakEven(
 
     const breakdown: BreakEvenBreakdownItem[] = sessions.map((s, idx) => {
       const key = `${s.day_index}-${s.zone_label}`;
-      const groupIdxs = groupIndexes.get(s.zone_label) ?? [idx];
+      const groupIdxs = groupIndexes.get(logicalZoneGroup(s.zone_label)) ?? [idx];
       const anchorIdx = groupIdxs[0];
       const z = removedByZone.get(anchorIdx);
       const real = sessionTodayQty(s);
