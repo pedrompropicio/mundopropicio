@@ -116,7 +116,7 @@ export function PromoteScenarioDialog({
             <Sparkles className="h-5 w-5 text-primary shrink-0" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold">
-                v{scenario.version_number} — {scenario.scenario_label}
+                {scenario.scenario_label ?? `v${scenario.version_number}`}
               </div>
               {scenario.description && (
                 <div className="text-xs text-muted-foreground truncate">{scenario.description}</div>
