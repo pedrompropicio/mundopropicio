@@ -97,7 +97,8 @@ export function AdoptForecastsModal({ open, onOpenChange, masterEventId, childEv
         .select("*, account_categories(code, name)") as any)
         .in("event_id", childEventIds)
         .is("master_forecast_id", null)
-        .eq("type", "expense");
+        .eq("type", "expense")
+        .is("version_id", null);
       if (error) throw error;
       return (data ?? []) as any[];
     },
