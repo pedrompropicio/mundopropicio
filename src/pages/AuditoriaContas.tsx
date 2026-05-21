@@ -362,6 +362,7 @@ function RowDetailPanel({
 function AnaliseIATab() {
   const qc = useQueryClient();
   const [eventId, setEventId] = useState<string>("");
+  const [versionId, setVersionId] = useState<string | null>(null); // null = Versão Ativa
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [running, setRunning] = useState(false);
   const [filter, setFilter] = useState<"all" | "diff" | "missing">("diff");
@@ -369,6 +370,7 @@ function AnaliseIATab() {
   const [applying, setApplying] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+
 
   const { data: events = [] } = useQuery({
     queryKey: ["audit-events"],
