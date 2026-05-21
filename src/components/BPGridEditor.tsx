@@ -693,8 +693,8 @@ export default function BPGridEditor({
 
       {/* Pending inserts (rendered below the virtualized list, not virtualized) */}
       {pendingInserts.length > 0 && (
-        <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-2">
-          <div className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
+        <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 py-2">
+          <div className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-primary">
             Novas linhas ({pendingInserts.length}) — guardar para confirmar
           </div>
           {pendingInserts.map((p) => {
