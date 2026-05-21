@@ -14,7 +14,9 @@
  * Phase A.2 (later): matrix paste, full inline validations, INSERT/DELETE in bulk.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useBlocker } from "react-router-dom";
+// NOTE: useBlocker requires a data router (createBrowserRouter). This app uses
+// the classic <BrowserRouter>, so importing/using it throws and white-screens
+// the page (notably visible on mobile iOS). We rely on beforeunload only.
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Save, Lock, AlertTriangle, Undo2 } from "lucide-react";
@@ -170,13 +172,7 @@ export default function BPGridEditor({
   }, [hasDirty, saveMutation]);
 
   // G7: block navigation when there are unsaved edits
-  useBlocker(({ currentLocation, nextLocation }) => {
-    if (!hasDirty) return false;
-    if (currentLocation.pathname === nextLocation.pathname) return false;
-    return !window.confirm(
-      `Tens ${dirtyCount} alteração(ões) por guardar. Sair sem guardar?`,
-    );
-  });
+  // G7: navigation block via beforeunload (see note at top about useBlocker).
 
   // Block window unload too (closing tab / refresh)
   useEffect(() => {
