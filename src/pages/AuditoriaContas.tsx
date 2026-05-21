@@ -402,7 +402,7 @@ function AnaliseIATab() {
         .from("bp_versions")
         .select("id, version_number, scenario_label, state, created_at, is_pinned_scenario")
         .eq("event_id", eventId)
-        .eq("state", "draft")
+        .in("state", ["working_draft", "draft"])
         .order("is_pinned_scenario", { ascending: false })
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -777,7 +777,7 @@ function AnaliseIATab() {
               <SelectItem value="__active__">Versão Ativa (default)</SelectItem>
               {scenarios.map((s: any) => (
                 <SelectItem key={s.id} value={s.id}>
-                  {s.is_pinned_scenario ? "📌 " : ""}Cenário v{s.version_number}{s.scenario_label ? ` — ${s.scenario_label}` : ""}
+                  {s.is_pinned_scenario ? "📌 " : ""}{s.scenario_label ? `${s.scenario_label} (v${s.version_number})` : `Cenário v${s.version_number}`}
                 </SelectItem>
               ))}
               {eventId && scenarios.length === 0 && (
