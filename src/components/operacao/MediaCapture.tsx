@@ -89,31 +89,50 @@ export function MediaCapture({ companyId, eventId, registroId, onChange, value }
       onChange(next);
     } finally {
       setUploading(false);
-      if (inputRef.current) inputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
+      if (galleryInputRef.current) galleryInputRef.current.value = "";
     }
   };
 
   return (
     <div className="space-y-2">
       <input
-        ref={inputRef}
+        ref={cameraInputRef}
         type="file"
         accept="image/*,video/*"
         capture="environment"
+        className="hidden"
+        onChange={(e) => upload(e.target.files)}
+      />
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*,video/*"
         multiple
         className="hidden"
         onChange={(e) => upload(e.target.files)}
       />
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full"
-        onClick={() => inputRef.current?.click()}
-        disabled={uploading}
-      >
-        {uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Camera className="h-4 w-4 mr-2" />}
-        {uploading ? "A enviar..." : "Foto ou vídeo"}
-      </Button>
+      <div className="grid grid-cols-2 gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => cameraInputRef.current?.click()}
+          disabled={uploading}
+        >
+          {uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Camera className="h-4 w-4 mr-2" />}
+          Câmera
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => galleryInputRef.current?.click()}
+          disabled={uploading}
+        >
+          {uploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ImagePlus className="h-4 w-4 mr-2" />}
+          Galeria
+        </Button>
+      </div>
+
       {value.length > 0 && (
         <div className="grid grid-cols-3 gap-2">
           {value.map((m, i) => (
