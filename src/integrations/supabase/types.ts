@@ -8209,6 +8209,10 @@ export type Database = {
           value: number
         }[]
       }
+      batch_update_event_forecasts: {
+        Args: { _edits?: Json; _event_id: string; _version_id?: string }
+        Returns: Json
+      }
       bp_version_linked_tx_count: {
         Args: { _event_id: string }
         Returns: number
