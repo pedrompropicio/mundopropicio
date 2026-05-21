@@ -16,8 +16,114 @@ import {
   AlertTriangle, Sparkles, ChevronDown, ChevronUp, Pencil, RefreshCw, FileDown, Trash2, Zap,
   Plus, X as XIcon, ImageIcon as Image2,
   Rocket, ExternalLink, CheckCircle2, XCircle, AlertCircle, Clock,
-  Play, Pause, PowerOff, PlayCircle,
+  Play, Pause, PowerOff, PlayCircle, ArrowRight, Wrench,
 } from "lucide-react";
+
+type CounterProposal = {
+  id?: string;
+  type?: "single_knob" | "multi_knob" | string;
+  priority?: number;
+  label?: string;
+  constraints_change?: Record<string, { from?: number; to?: number } | undefined>;
+  rationale?: string;
+  expected_outcome?: { feasibility_estimate?: string; rationale?: string };
+  trade_offs?: string[];
+  confidence?: "high" | "medium" | "low" | string;
+};
+
+const KNOB_LABELS: Record<string, { label: string; format: (n: number | undefined) => string }> = {
+  daily_budget_eur: {
+    label: "Verba diária",
+    format: (n) => (n == null || isNaN(Number(n)) ? "—" : `€${Number(n).toLocaleString("pt-PT", { maximumFractionDigits: 0 })}`),
+  },
+  roas_floor: {
+    label: "ROAS floor",
+    format: (n) => (n == null || isNaN(Number(n)) ? "—" : `${Number(n).toFixed(1)}x`),
+  },
+};
+
+const FEASIBILITY_BADGE: Record<string, string> = {
+  high: "bg-emerald-500/15 text-emerald-300 border-emerald-500/40",
+  medium: "bg-blue-500/15 text-blue-300 border-blue-500/40",
+  low: "bg-amber-500/15 text-amber-300 border-amber-500/40",
+};
+
+function CounterProposalCard({ proposal }: { proposal: CounterProposal }) {
+  const knobs = Object.entries(proposal.constraints_change ?? {}).filter(([, v]) => v && (v.from != null || v.to != null));
+  return (
+    <Card className="p-4 border-blue-500/30 bg-blue-500/5 flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="font-semibold text-sm leading-snug">{proposal.label ?? "Sugestão"}</div>
+        <Badge variant="outline" className="text-[10px] uppercase shrink-0">
+          {proposal.type === "multi_knob" ? "multi" : "single"}
+        </Badge>
+      </div>
+
+      {knobs.length > 0 && (
+        <div className="rounded-md border border-blue-500/20 bg-background/40 p-2.5 space-y-1.5">
+          {knobs.map(([key, change]) => {
+            const meta = KNOB_LABELS[key] ?? { label: key, format: (n: number | undefined) => (n == null ? "—" : String(n)) };
+            return (
+              <div key={key} className="flex items-center gap-2 text-xs">
+                <span className="text-muted-foreground w-24 shrink-0">{meta.label}</span>
+                <span className="text-muted-foreground tabular-nums">{meta.format(change?.from)}</span>
+                <ArrowRight className="h-3 w-3 text-blue-400 shrink-0" />
+                <span className="font-semibold text-primary tabular-nums">{meta.format(change?.to)}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {proposal.rationale && (
+        <p className="text-sm text-muted-foreground leading-relaxed">{proposal.rationale}</p>
+      )}
+
+      {proposal.expected_outcome && (
+        <div className="rounded-md border border-border/60 bg-muted/20 p-2.5 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Resultado esperado</span>
+            {proposal.expected_outcome.feasibility_estimate && (
+              <Badge
+                variant="outline"
+                className={cn("text-[10px] uppercase border", FEASIBILITY_BADGE[proposal.expected_outcome.feasibility_estimate] ?? "bg-muted/40")}
+              >
+                Viabilidade: {proposal.expected_outcome.feasibility_estimate}
+              </Badge>
+            )}
+          </div>
+          {proposal.expected_outcome.rationale && (
+            <p className="text-xs text-foreground/80">{proposal.expected_outcome.rationale}</p>
+          )}
+        </div>
+      )}
+
+      {proposal.trade_offs && proposal.trade_offs.length > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Trade-offs</div>
+          <ul className="list-disc list-inside space-y-0.5 text-xs text-muted-foreground">
+            {proposal.trade_offs.map((t, i) => (
+              <li key={i}>{t}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="pt-1 mt-auto">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled
+          className="w-full border-blue-500/30 text-blue-300"
+          title="Funcionalidade em breve — copia os valores e ajusta no wizard de redesign"
+        >
+          <Sparkles className="h-4 w-4 mr-1.5" />
+          Aplicar e regenerar
+        </Button>
+      </div>
+    </Card>
+  );
+}
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { statusLabel, STRATEGY_STATUS_OPTIONS } from "@/lib/strategy-status";
@@ -530,6 +636,29 @@ export default function CrmStrategyView() {
           </div>
         </Card>
       )}
+
+      {/* Counter-proposals — alternativas quando plano é impossible */}
+      {Array.isArray((summary as any).counter_proposals) && (summary as any).counter_proposals.length > 0 && (
+        <div className="space-y-3">
+          <div>
+            <h3 className="text-base font-semibold mb-1 flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-blue-400" />
+              Como tornar este plano viável
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Sugestões automáticas baseadas em matemática auditável. Aplica uma e regenera o plano.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {([...((summary as any).counter_proposals as CounterProposal[])]
+              .sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99))
+            ).map((p, i) => (
+              <CounterProposalCard key={p.id ?? i} proposal={p} />
+            ))}
+          </div>
+        </div>
+      )}
+
 
       {/* Sprint 3c-2.5 — Banner deploy_warning (não bloqueante, só se não há deploy_blocked) */}
       {!plan.automation_metadata?.deploy_blocked_reason && plan.automation_metadata?.deploy_warning && (
