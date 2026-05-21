@@ -92,7 +92,6 @@ import Camarim from "./pages/Camarim";
 import CamarimSessionDetail from "./pages/CamarimSessionDetail";
 import CamarimEquipa from "./pages/CamarimEquipa";
 import OperacaoLayout from "./pages/operacao/OperacaoLayout";
-import MyFrentes from "./pages/operacao/MyFrentes";
 import FrenteDetail from "./pages/operacao/FrenteDetail";
 import EtapaDetail from "./pages/operacao/EtapaDetail";
 import MeusChamados from "./pages/operacao/MeusChamados";
@@ -104,8 +103,8 @@ import ChamadoDetail from "./pages/operacao/ChamadoDetail";
 import Atividade from "./pages/operacao/Atividade";
 import MinhasTarefas from "./pages/operacao/MinhasTarefas";
 import StaffList from "./pages/operacao/StaffList";
-import PessoasList from "./pages/operacao/PessoasList";
 import PessoaDetail from "./pages/operacao/PessoaDetail";
+import EquipaView from "./pages/operacao/EquipaView";
 import AcceptInvite from "./pages/operacao/AcceptInvite";
 import OperacaoHome from "./pages/operacao/OperacaoHome";
 import CampoView from "./pages/operacao/CampoView";
@@ -384,7 +383,8 @@ function ProtectedLayout() {
                 <Route path="campo" element={<CampoView />} />
                 <Route path="dashboard" element={<OperacaoDashboard />} />
 
-                <Route path="equipa" element={<MyFrentes />} />
+                <Route path="equipa" element={<EquipaView />} />
+                <Route path="equipa/pessoa/:id" element={<PessoaDetail />} />
                 <Route path="atividade" element={<Atividade />} />
                 <Route path="minhas-tarefas" element={<MinhasTarefas />} />
                 <Route path="staff" element={<StaffList />} />
@@ -394,8 +394,9 @@ function ProtectedLayout() {
                 <Route path="etapas" element={<EtapasList />} />
                 <Route path="zonas" element={<ZonasList />} />
                 <Route path="chamados" element={<ChamadosList />} />
-                <Route path="pessoas" element={<PessoasList />} />
-                <Route path="pessoa/:id" element={<PessoaDetail />} />
+                {/* Redirects da rota antiga "Pessoas" */}
+                <Route path="pessoas" element={<Navigate to="/operacao/equipa" replace />} />
+                <Route path="pessoa/:id" element={<Navigate to="/operacao/equipa" replace />} />
                 <Route path="meus-chamados" element={<MeusChamados />} />
                 <Route path="chamado/novo" element={<ChamadoNovo />} />
                 <Route path="chamado/:id" element={<ChamadoDetail />} />
