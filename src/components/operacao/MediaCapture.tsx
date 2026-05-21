@@ -59,6 +59,16 @@ export function MediaCapture({ companyId, eventId, registroId, onChange, value }
 
   const upload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
+
+    // Check session antes de tentar uploadar
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast.error("Sessão expirada", {
+        description: "Faz login novamente e tenta de novo.",
+      });
+      return;
+    }
+
     setUploading(true);
     const next: CapturedMedia[] = [...value];
     try {
@@ -71,7 +81,13 @@ export function MediaCapture({ companyId, eventId, registroId, onChange, value }
           .from("operacao-media")
           .upload(path, file, { contentType: file.type, upsert: false });
         if (upErr) {
-          console.error("Storage upload failed:", upErr, { path, type: file.type, size: file.size });
+          console.error("Storage upload failed:", upErr, {
+            path,
+            type: file.type,
+            size: file.size,
+            userId: session.user.id,
+            hasSession: !!session,
+          });
           toast.error("Erro ao enviar foto", {
             description: upErr.message || "Verifica permissões e tenta de novo.",
           });
