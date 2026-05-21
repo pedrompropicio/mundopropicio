@@ -393,6 +393,24 @@ function AnaliseIATab() {
     },
   });
 
+  // Cenários (drafts) do evento selecionado — para auditar uma versão em desenvolvimento
+  const { data: scenarios = [] } = useQuery({
+    queryKey: ["audit-bp-scenarios", eventId],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bp_versions")
+        .select("id, version_number, scenario_label, state, created_at, is_pinned_scenario")
+        .eq("event_id", eventId)
+        .eq("state", "draft")
+        .order("is_pinned_scenario", { ascending: false })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+
   const leafSet = useMemo(() => buildLeafSet(categories), [categories]);
 
   const leafCats = useMemo(() => {
