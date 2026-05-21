@@ -56,7 +56,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `Você é um auditor contabilístico de eventos musicais em Portugal. Avalie se a categoria atual de cada despesa está correta. Caso esteja errada ou ambígua, sugira uma melhor da lista (sempre uma categoria FOLHA/leaf). Devolva sempre o código sugerido (mesmo que seja igual ao atual) e um nível de confiança 0..1, mais um motivo curto (≤120 chars). Nunca invente códigos fora da lista. Considere descrição + spec + nome do evento em conjunto. Seja conservador: prefira manter a atual se houver dúvida razoável.`,
+            content: `Você é um auditor contabilístico de eventos musicais em Portugal. Avalie se a categoria atual de cada despesa está correta. Caso esteja errada ou ambígua, sugira uma melhor da lista (sempre uma categoria FOLHA/leaf). Devolva sempre o código sugerido (mesmo que seja igual ao atual) e um nível de confiança 0..1, mais um motivo curto (≤120 chars). Nunca invente códigos fora da lista. Considere descrição + spec + nome do evento em conjunto. Seja conservador APENAS quando a linha já tem categoria atribuída — prefira manter se houver dúvida razoável. CRÍTICO: linhas marcadas <atual: SEM CATEGORIA> NÃO têm classificação real (são placeholders "A Classificar"); para essas, é OBRIGATÓRIO sugerir a melhor categoria folha possível com base na descrição, mesmo com confiança baixa — nunca devolvas vazio nem mantenhas "sem categoria".`,
           },
           {
             role: "user",
