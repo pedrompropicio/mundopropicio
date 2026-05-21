@@ -167,6 +167,7 @@ export default function CrmStrategyView() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [viewTab, setViewTab] = useState<"original" | "alternative">("original");
   const [expandedCampaigns, setExpandedCampaigns] = useState<Record<string, boolean>>({});
   const [actionLoading, setActionLoading] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -600,12 +601,23 @@ export default function CrmStrategyView() {
   if (!data) return <Card className="p-4">Estratégia não encontrada.</Card>;
   if (!plan) return <Card className="p-4 border-amber-500/40 bg-amber-500/5">Esta estratégia ainda não tem plano gerado.</Card>;
 
-  const summary = plan.summary ?? {};
-  const phases: any[] = plan.phases ?? [];
-  const scaling: any[] = plan.scaling_rules ?? [];
-  const kpis = plan.kpis_global ?? {};
-  const risks: any[] = plan.risks_and_warnings ?? [];
-  const brief = plan.creative_brief ?? {};
+  const alternativePlan =
+    plan?.alternative_plan && typeof plan.alternative_plan === "object" && !Array.isArray(plan.alternative_plan)
+      ? plan.alternative_plan
+      : null;
+  const hasAlternative = !!alternativePlan && plan?.summary?.feasibility === "impossible";
+  const activeView: "original" | "alternative" = hasAlternative && viewTab === "alternative" ? "alternative" : "original";
+  const viewedPlan: any = activeView === "alternative" ? alternativePlan : plan;
+  const appliedCp = alternativePlan?.applied_counter_proposal ?? null;
+  const appliedCpSummary: string | undefined = alternativePlan?.applied_counter_proposal_summary;
+  const altFeasibility: string = alternativePlan?.summary?.feasibility ?? "medium";
+
+  const summary = viewedPlan.summary ?? {};
+  const phases: any[] = viewedPlan.phases ?? [];
+  const scaling: any[] = viewedPlan.scaling_rules ?? [];
+  const kpis = viewedPlan.kpis_global ?? {};
+  const risks: any[] = viewedPlan.risks_and_warnings ?? [];
+  const brief = viewedPlan.creative_brief ?? {};
 
   // Deployment com sucesso e ainda pausado → banner "Publicar agora"
   const publishableDeployment = (deployments ?? []).find(
@@ -617,8 +629,86 @@ export default function CrmStrategyView() {
 
   return (
     <div className="space-y-6">
+      {hasAlternative && (
+        <div className="flex flex-col sm:flex-row gap-2 rounded-lg border border-border bg-card/40 p-1">
+          <button
+            type="button"
+            onClick={() => setViewTab("original")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm transition",
+              viewTab === "original"
+                ? "bg-red-500/15 border border-red-500/40 text-red-300 font-medium"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Plano original
+            <Badge variant="outline" className="text-[9px] uppercase border-red-500/50 bg-red-500/10 text-red-300">
+              Impossible
+            </Badge>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewTab("alternative")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm transition",
+              viewTab === "alternative"
+                ? "bg-blue-500/15 border border-blue-500/40 text-blue-200 font-medium"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Plano alternativo (viável)
+            <Badge
+              variant="outline"
+              className={cn("text-[9px] uppercase border", FEASIBILITY_BADGE[altFeasibility] ?? "bg-muted/40")}
+            >
+              {altFeasibility}
+            </Badge>
+          </button>
+        </div>
+      )}
+
+      {hasAlternative && activeView === "alternative" && (
+        <Card className="p-4 border-blue-500/30 bg-blue-500/5">
+          <div className="flex items-start gap-3">
+            <div className="h-9 w-9 rounded-full bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shrink-0">
+              <Wrench className="h-4 w-4 text-blue-300" />
+            </div>
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="text-sm">
+                Este plano alternativo aplica automaticamente a sugestão:{" "}
+                <span className="font-semibold text-foreground">
+                  {appliedCpSummary ?? appliedCp?.label ?? "ajuste de constraints"}
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                O plano original ficou impossível com as constraints originais. Este é o plano viável mais próximo, com 1 mudança aplicada.
+              </div>
+              {appliedCp?.constraints_change && (
+                <div className="rounded-md border border-blue-500/20 bg-background/40 p-2.5 space-y-1.5">
+                  {Object.entries(appliedCp.constraints_change as Record<string, { from?: number; to?: number } | undefined>)
+                    .filter(([, v]) => v && (v.from != null || v.to != null))
+                    .map(([key, change]) => {
+                      const meta =
+                        KNOB_LABELS[key] ?? { label: key, format: (n: number | undefined) => (n == null ? "—" : String(n)) };
+                      return (
+                        <div key={key} className="flex items-center gap-2 text-xs">
+                          <span className="text-muted-foreground w-24 shrink-0">{meta.label}</span>
+                          <span className="text-muted-foreground tabular-nums">{meta.format(change?.from)}</span>
+                          <ArrowRight className="h-3 w-3 text-blue-400 shrink-0" />
+                          <span className="font-semibold text-primary tabular-nums">{meta.format(change?.to)}</span>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Sprint 3c-2.5 — Banner deploy_blocked (prioridade máxima) */}
-      {plan.automation_metadata?.deploy_blocked_reason && (
+      {viewedPlan.automation_metadata?.deploy_blocked_reason && (
         <Card className="p-4 border-red-500/40 bg-red-500/5">
           <div className="flex items-start gap-3">
             <div className="h-10 w-10 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center shrink-0">
@@ -627,7 +717,7 @@ export default function CrmStrategyView() {
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-sm text-red-400">Plano não recomendado para deploy</div>
               <div className="text-xs text-muted-foreground mt-1">
-                {plan.automation_metadata.deploy_blocked_reason}
+                {viewedPlan.automation_metadata.deploy_blocked_reason}
               </div>
               <div className="text-xs text-muted-foreground mt-2">
                 Sugestão: reanalisar premissas (constraints de verba, ROAS floor, goal de receita) e regenerar antes de deployar.
@@ -637,8 +727,8 @@ export default function CrmStrategyView() {
         </Card>
       )}
 
-      {/* Counter-proposals — alternativas quando plano é impossible */}
-      {Array.isArray((summary as any).counter_proposals) && (summary as any).counter_proposals.length > 0 && (
+      {/* Counter-proposals — só no plano original */}
+      {activeView === "original" && Array.isArray((summary as any).counter_proposals) && (summary as any).counter_proposals.length > 0 && (
         <div className="space-y-3">
           <div>
             <h3 className="text-base font-semibold mb-1 flex items-center gap-2">
@@ -661,7 +751,7 @@ export default function CrmStrategyView() {
 
 
       {/* Sprint 3c-2.5 — Banner deploy_warning (não bloqueante, só se não há deploy_blocked) */}
-      {!plan.automation_metadata?.deploy_blocked_reason && plan.automation_metadata?.deploy_warning && (
+      {!viewedPlan.automation_metadata?.deploy_blocked_reason && viewedPlan.automation_metadata?.deploy_warning && (
         <Card className="p-4 border-amber-500/40 bg-amber-500/5">
           <div className="flex items-start gap-3">
             <div className="h-10 w-10 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0">
@@ -670,7 +760,7 @@ export default function CrmStrategyView() {
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-sm text-amber-400">Aviso de deploy</div>
               <div className="text-xs text-muted-foreground mt-1">
-                {plan.automation_metadata.deploy_warning}
+                {viewedPlan.automation_metadata.deploy_warning}
               </div>
             </div>
           </div>
@@ -775,7 +865,13 @@ export default function CrmStrategyView() {
             <Copy className="h-4 w-4 mr-1.5" /> {copied ? "Copiado!" : "Copiar JSON"}
           </Button>
           {data.status === "generated" && (
-            <Button onClick={handleApprove} disabled={actionLoading} className="bg-emerald-500 hover:bg-emerald-600 text-white" size="sm">
+            <Button
+              onClick={handleApprove}
+              disabled={actionLoading || activeView === "alternative"}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white"
+              size="sm"
+              title={activeView === "alternative" ? "Aprovação do plano alternativo disponível em v1.1" : undefined}
+            >
               <Check className="h-4 w-4 mr-1.5" /> Aprovar
             </Button>
           )}
@@ -848,42 +944,42 @@ export default function CrmStrategyView() {
       </Card>
 
       {/* Sprint 3c-4 — Card de análise de orçamento (budget_recommendation) */}
-      {plan.budget_recommendation && (
+      {viewedPlan.budget_recommendation && (
         <Card className="p-5 border-cyan-500/30 bg-cyan-500/[0.03]">
           <div className="flex items-center gap-2 mb-3">
             <Target className="h-4 w-4 text-cyan-400" />
             <h2 className="text-base font-semibold">Análise de orçamento</h2>
             <Badge variant="outline" className={cn(
               "text-[10px] uppercase",
-              plan.budget_recommendation.adjustment_direction === "increase"
+              viewedPlan.budget_recommendation.adjustment_direction === "increase"
                 ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
-                : plan.budget_recommendation.adjustment_direction === "decrease"
+                : viewedPlan.budget_recommendation.adjustment_direction === "decrease"
                 ? "border-red-500/40 text-red-400 bg-red-500/10"
                 : "border-muted-foreground/40 text-muted-foreground bg-muted/20",
             )}>
-              {plan.budget_recommendation.adjustment_direction === "increase"
+              {viewedPlan.budget_recommendation.adjustment_direction === "increase"
                 ? "Aumentar"
-                : plan.budget_recommendation.adjustment_direction === "decrease"
+                : viewedPlan.budget_recommendation.adjustment_direction === "decrease"
                 ? "Reduzir"
                 : "Manter"}
             </Badge>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-            <KPI label="Verba diária actual" value={fmtEur(plan.budget_recommendation.current_daily_eur, 2)} />
-            <KPI label="Verba diária sugerida" value={fmtEur(plan.budget_recommendation.suggested_daily_eur, 2)} />
-            <KPI label="Total actual projectado" value={fmtEur(plan.budget_recommendation.current_projected_total_eur)} />
-            <KPI label="Total sugerido" value={fmtEur(plan.budget_recommendation.suggested_total_eur)} />
+            <KPI label="Verba diária actual" value={fmtEur(viewedPlan.budget_recommendation.current_daily_eur, 2)} />
+            <KPI label="Verba diária sugerida" value={fmtEur(viewedPlan.budget_recommendation.suggested_daily_eur, 2)} />
+            <KPI label="Total actual projectado" value={fmtEur(viewedPlan.budget_recommendation.current_projected_total_eur)} />
+            <KPI label="Total sugerido" value={fmtEur(viewedPlan.budget_recommendation.suggested_total_eur)} />
           </div>
-          {plan.budget_recommendation.adjustment_reason && (
+          {viewedPlan.budget_recommendation.adjustment_reason && (
             <p className="text-sm text-muted-foreground">
-              {plan.budget_recommendation.adjustment_reason}
+              {viewedPlan.budget_recommendation.adjustment_reason}
             </p>
           )}
-          {plan.budget_recommendation.floor_warning && (
+          {viewedPlan.budget_recommendation.floor_warning && (
             <div className="mt-3 rounded border border-amber-500/30 bg-amber-500/5 p-2.5 text-xs">
               <div className="flex items-start gap-2">
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
-                <span className="text-amber-400">{plan.budget_recommendation.floor_warning}</span>
+                <span className="text-amber-400">{viewedPlan.budget_recommendation.floor_warning}</span>
               </div>
             </div>
           )}
@@ -909,14 +1005,14 @@ export default function CrmStrategyView() {
       )}
 
       {/* Criativos herdados (re-design) */}
-      {Array.isArray(plan.inherited_creatives) && plan.inherited_creatives.length > 0 && (
+      {Array.isArray(viewedPlan.inherited_creatives) && viewedPlan.inherited_creatives.length > 0 && (
         <Card className="p-5 border-cyan-500/30 bg-cyan-500/[0.04]">
           <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
             <div className="flex items-center gap-2">
               <Image2 className="h-4 w-4 text-cyan-400" />
               <h2 className="text-base font-semibold">Criativos reaproveitados da campanha original</h2>
               <Badge className="bg-cyan-500/15 text-cyan-300 border-cyan-500/40 text-[10px] uppercase">
-                {inheritedTotal}/{plan.inherited_creatives.length} usados no plano
+                {inheritedTotal}/{viewedPlan.inherited_creatives.length} usados no plano
               </Badge>
             </div>
             <div className="text-[11px] text-muted-foreground">
@@ -924,7 +1020,7 @@ export default function CrmStrategyView() {
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {plan.inherited_creatives.map((c: any) => {
+            {viewedPlan.inherited_creatives.map((c: any) => {
               const phasesUsing: string[] = [];
               for (const phase of plan?.phases ?? []) {
                 if (inheritedByPhase.get(phase.id)?.has(c.meta_creative_id)) phasesUsing.push(phase.name);
@@ -1103,7 +1199,7 @@ export default function CrmStrategyView() {
                         for (const adset of camp.adsets ?? []) {
                           for (const ad of adset.ads ?? []) {
                             if (typeof ad?.existing_creative_id === "string") {
-                              const inheritedCreative = (plan.inherited_creatives ?? [])
+                              const inheritedCreative = (viewedPlan.inherited_creatives ?? [])
                                 .find((c: any) => c.meta_creative_id === ad.existing_creative_id);
                               if (inheritedCreative) {
                                 phaseAds.push({
@@ -1385,11 +1481,11 @@ export default function CrmStrategyView() {
           </Button>
         </div>
 
-        {plan.automation_metadata?.requires_manual_setup?.length > 0 && (
+        {viewedPlan.automation_metadata?.requires_manual_setup?.length > 0 && (
           <div className="mt-4 text-xs text-muted-foreground">
             <strong className="text-foreground">Antes de deployar, garante que existe no Business Manager:</strong>
             <ul className="list-disc list-inside mt-1.5 space-y-0.5">
-              {plan.automation_metadata.requires_manual_setup.map((item: string, i: number) => (
+              {viewedPlan.automation_metadata.requires_manual_setup.map((item: string, i: number) => (
                 <li key={i}>{item}</li>
               ))}
             </ul>
