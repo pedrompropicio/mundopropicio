@@ -1,0 +1,1 @@
+DELETE FROM auth.users WHERE email IN ('teste.bulk1@example.com', 'teste.bulk2@example.com');
