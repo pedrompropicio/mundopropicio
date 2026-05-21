@@ -755,13 +755,38 @@ function AnaliseIATab() {
       <div className="glass rounded-xl p-4 flex flex-col sm:flex-row gap-3 sm:items-end">
         <div className="flex-1 min-w-0">
           <label className="text-xs uppercase tracking-wider text-muted-foreground block mb-1.5">Evento</label>
-          <Select value={eventId} onValueChange={setEventId}>
+          <Select value={eventId} onValueChange={(v) => { setEventId(v); setVersionId(null); setRows([]); }}>
             <SelectTrigger><SelectValue placeholder="Seleciona evento (Master inclui subs)" /></SelectTrigger>
             <SelectContent className="max-h-80">
               {eventOptions.map((o) => <SelectItem key={o.id} value={o.id}>{o.label}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
+        <div className="w-full sm:w-[260px]">
+          <label className="text-xs uppercase tracking-wider text-muted-foreground block mb-1.5 flex items-center gap-1.5">
+            Versão
+            <HelpTooltip content="Por defeito audita a Versão Ativa. Podes auditar um cenário em desenvolvimento — nesse modo só são analisadas linhas do BP do cenário (transações não têm versão e ficam de fora)." />
+          </label>
+          <Select
+            value={versionId ?? "__active__"}
+            onValueChange={(v) => { setVersionId(v === "__active__" ? null : v); setRows([]); }}
+            disabled={!eventId}
+          >
+            <SelectTrigger><SelectValue placeholder="Versão Ativa" /></SelectTrigger>
+            <SelectContent className="max-h-80">
+              <SelectItem value="__active__">Versão Ativa (default)</SelectItem>
+              {scenarios.map((s: any) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.is_pinned_scenario ? "📌 " : ""}Cenário v{s.version_number}{s.scenario_label ? ` — ${s.scenario_label}` : ""}
+                </SelectItem>
+              ))}
+              {eventId && scenarios.length === 0 && (
+                <div className="px-2 py-1.5 text-xs text-muted-foreground">Sem cenários draft neste evento</div>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
         <Button onClick={handleRun} disabled={running || !eventId} className="gap-2">
           {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           {running ? "A analisar…" : "Analisar com IA"}
