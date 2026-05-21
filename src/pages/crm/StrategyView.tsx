@@ -751,7 +751,7 @@ export default function CrmStrategyView() {
 
 
       {/* Sprint 3c-2.5 — Banner deploy_warning (não bloqueante, só se não há deploy_blocked) */}
-      {!plan.automation_metadata?.deploy_blocked_reason && plan.automation_metadata?.deploy_warning && (
+      {!viewedPlan.automation_metadata?.deploy_blocked_reason && viewedPlan.automation_metadata?.deploy_warning && (
         <Card className="p-4 border-amber-500/40 bg-amber-500/5">
           <div className="flex items-start gap-3">
             <div className="h-10 w-10 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0">
@@ -760,7 +760,7 @@ export default function CrmStrategyView() {
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-sm text-amber-400">Aviso de deploy</div>
               <div className="text-xs text-muted-foreground mt-1">
-                {plan.automation_metadata.deploy_warning}
+                {viewedPlan.automation_metadata.deploy_warning}
               </div>
             </div>
           </div>
@@ -938,42 +938,42 @@ export default function CrmStrategyView() {
       </Card>
 
       {/* Sprint 3c-4 — Card de análise de orçamento (budget_recommendation) */}
-      {plan.budget_recommendation && (
+      {viewedPlan.budget_recommendation && (
         <Card className="p-5 border-cyan-500/30 bg-cyan-500/[0.03]">
           <div className="flex items-center gap-2 mb-3">
             <Target className="h-4 w-4 text-cyan-400" />
             <h2 className="text-base font-semibold">Análise de orçamento</h2>
             <Badge variant="outline" className={cn(
               "text-[10px] uppercase",
-              plan.budget_recommendation.adjustment_direction === "increase"
+              viewedPlan.budget_recommendation.adjustment_direction === "increase"
                 ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
-                : plan.budget_recommendation.adjustment_direction === "decrease"
+                : viewedPlan.budget_recommendation.adjustment_direction === "decrease"
                 ? "border-red-500/40 text-red-400 bg-red-500/10"
                 : "border-muted-foreground/40 text-muted-foreground bg-muted/20",
             )}>
-              {plan.budget_recommendation.adjustment_direction === "increase"
+              {viewedPlan.budget_recommendation.adjustment_direction === "increase"
                 ? "Aumentar"
-                : plan.budget_recommendation.adjustment_direction === "decrease"
+                : viewedPlan.budget_recommendation.adjustment_direction === "decrease"
                 ? "Reduzir"
                 : "Manter"}
             </Badge>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-            <KPI label="Verba diária actual" value={fmtEur(plan.budget_recommendation.current_daily_eur, 2)} />
-            <KPI label="Verba diária sugerida" value={fmtEur(plan.budget_recommendation.suggested_daily_eur, 2)} />
-            <KPI label="Total actual projectado" value={fmtEur(plan.budget_recommendation.current_projected_total_eur)} />
-            <KPI label="Total sugerido" value={fmtEur(plan.budget_recommendation.suggested_total_eur)} />
+            <KPI label="Verba diária actual" value={fmtEur(viewedPlan.budget_recommendation.current_daily_eur, 2)} />
+            <KPI label="Verba diária sugerida" value={fmtEur(viewedPlan.budget_recommendation.suggested_daily_eur, 2)} />
+            <KPI label="Total actual projectado" value={fmtEur(viewedPlan.budget_recommendation.current_projected_total_eur)} />
+            <KPI label="Total sugerido" value={fmtEur(viewedPlan.budget_recommendation.suggested_total_eur)} />
           </div>
-          {plan.budget_recommendation.adjustment_reason && (
+          {viewedPlan.budget_recommendation.adjustment_reason && (
             <p className="text-sm text-muted-foreground">
-              {plan.budget_recommendation.adjustment_reason}
+              {viewedPlan.budget_recommendation.adjustment_reason}
             </p>
           )}
-          {plan.budget_recommendation.floor_warning && (
+          {viewedPlan.budget_recommendation.floor_warning && (
             <div className="mt-3 rounded border border-amber-500/30 bg-amber-500/5 p-2.5 text-xs">
               <div className="flex items-start gap-2">
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
-                <span className="text-amber-400">{plan.budget_recommendation.floor_warning}</span>
+                <span className="text-amber-400">{viewedPlan.budget_recommendation.floor_warning}</span>
               </div>
             </div>
           )}
@@ -999,14 +999,14 @@ export default function CrmStrategyView() {
       )}
 
       {/* Criativos herdados (re-design) */}
-      {Array.isArray(plan.inherited_creatives) && plan.inherited_creatives.length > 0 && (
+      {Array.isArray(viewedPlan.inherited_creatives) && viewedPlan.inherited_creatives.length > 0 && (
         <Card className="p-5 border-cyan-500/30 bg-cyan-500/[0.04]">
           <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
             <div className="flex items-center gap-2">
               <Image2 className="h-4 w-4 text-cyan-400" />
               <h2 className="text-base font-semibold">Criativos reaproveitados da campanha original</h2>
               <Badge className="bg-cyan-500/15 text-cyan-300 border-cyan-500/40 text-[10px] uppercase">
-                {inheritedTotal}/{plan.inherited_creatives.length} usados no plano
+                {inheritedTotal}/{viewedPlan.inherited_creatives.length} usados no plano
               </Badge>
             </div>
             <div className="text-[11px] text-muted-foreground">
@@ -1014,7 +1014,7 @@ export default function CrmStrategyView() {
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {plan.inherited_creatives.map((c: any) => {
+            {viewedPlan.inherited_creatives.map((c: any) => {
               const phasesUsing: string[] = [];
               for (const phase of plan?.phases ?? []) {
                 if (inheritedByPhase.get(phase.id)?.has(c.meta_creative_id)) phasesUsing.push(phase.name);
@@ -1193,7 +1193,7 @@ export default function CrmStrategyView() {
                         for (const adset of camp.adsets ?? []) {
                           for (const ad of adset.ads ?? []) {
                             if (typeof ad?.existing_creative_id === "string") {
-                              const inheritedCreative = (plan.inherited_creatives ?? [])
+                              const inheritedCreative = (viewedPlan.inherited_creatives ?? [])
                                 .find((c: any) => c.meta_creative_id === ad.existing_creative_id);
                               if (inheritedCreative) {
                                 phaseAds.push({
@@ -1475,11 +1475,11 @@ export default function CrmStrategyView() {
           </Button>
         </div>
 
-        {plan.automation_metadata?.requires_manual_setup?.length > 0 && (
+        {viewedPlan.automation_metadata?.requires_manual_setup?.length > 0 && (
           <div className="mt-4 text-xs text-muted-foreground">
             <strong className="text-foreground">Antes de deployar, garante que existe no Business Manager:</strong>
             <ul className="list-disc list-inside mt-1.5 space-y-0.5">
-              {plan.automation_metadata.requires_manual_setup.map((item: string, i: number) => (
+              {viewedPlan.automation_metadata.requires_manual_setup.map((item: string, i: number) => (
                 <li key={i}>{item}</li>
               ))}
             </ul>
