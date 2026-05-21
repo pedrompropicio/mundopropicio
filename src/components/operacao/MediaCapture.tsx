@@ -50,8 +50,10 @@ function dataUrlToBlob(dataUrl: string): Blob {
 }
 
 export function MediaCapture({ companyId, eventId, registroId, onChange, value }: Props) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+
 
   const upload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
