@@ -163,30 +163,34 @@ function RowDetailPanel({
   row,
   eventId,
   eventIds,
+  versionId,
   categories,
   eventLabelMap,
 }: {
   row: AuditRow;
   eventId: string;
   eventIds: string[];
+  versionId: string | null;
   categories: Category[];
   eventLabelMap: Map<string, string>;
 }) {
-  // Lazy-load: full BP for the event scope (Master + Splits) — fetched once per eventId, cached.
+  // Lazy-load: full BP for the event scope (Master + Splits) — fetched once per eventId+version, cached.
   const { data: bpRows = [], isLoading } = useQuery({
-    queryKey: ["audit-row-detail-bp-full", eventId, eventIds.join(",")],
+    queryKey: ["audit-row-detail-bp-full", eventId, eventIds.join(","), versionId ?? "active"],
     enabled: !!eventId && eventIds.length > 0,
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("event_forecasts")
         .select("id, description, specification, category_id, event_id, type, amount, iva_rate, status, formalidade, notes, is_overhead, is_transitory, exclude_from_result")
-        .in("event_id", eventIds)
-        .is("version_id", null);
+        .in("event_id", eventIds);
+      q = versionId ? q.eq("version_id", versionId) : q.is("version_id", null);
+      const { data, error } = await q;
       if (error) throw error;
       return data || [];
     },
   });
+
 
   const catMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
 
@@ -358,6 +362,7 @@ function RowDetailPanel({
 function AnaliseIATab() {
   const qc = useQueryClient();
   const [eventId, setEventId] = useState<string>("");
+  const [versionId, setVersionId] = useState<string | null>(null); // null = Versão Ativa
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [running, setRunning] = useState(false);
   const [filter, setFilter] = useState<"all" | "diff" | "missing">("diff");
@@ -365,6 +370,7 @@ function AnaliseIATab() {
   const [applying, setApplying] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+
 
   const { data: events = [] } = useQuery({
     queryKey: ["audit-events"],
@@ -386,6 +392,24 @@ function AnaliseIATab() {
       return data as Category[];
     },
   });
+
+  // Cenários (drafts) do evento selecionado — para auditar uma versão em desenvolvimento
+  const { data: scenarios = [] } = useQuery({
+    queryKey: ["audit-bp-scenarios", eventId],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bp_versions")
+        .select("id, version_number, scenario_label, state, created_at, is_pinned_scenario")
+        .eq("event_id", eventId)
+        .eq("state", "draft")
+        .order("is_pinned_scenario", { ascending: false })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
 
   const leafSet = useMemo(() => buildLeafSet(categories), [categories]);
 
@@ -438,47 +462,57 @@ function AnaliseIATab() {
     setRunning(true);
     setRows([]);
     try {
-      // Determine event scope (master => include subs)
+      // Determine event scope (master => include subs). Em modo Cenário, restringimos ao próprio evento.
       const sel = events.find((e) => e.id === eventId);
       const isMaster = sel && !sel.parent_event_id;
-      const subIds = isMaster ? events.filter((e) => e.parent_event_id === eventId).map((e) => e.id) : [];
+      const subIds = isMaster && !versionId
+        ? events.filter((e) => e.parent_event_id === eventId).map((e) => e.id)
+        : [];
       const eventIds = [eventId, ...subIds];
 
       const eventLabelMap = new Map<string, string>(events.map((e) => [e.id, e.name]));
 
-      // Fetch BP forecasts (expense)
-      const { data: bps, error: bpErr } = await supabase
+      // Fetch BP forecasts (expense) — Ativa OU cenário
+      let bpQ = supabase
         .from("event_forecasts")
         .select("id, description, specification, category_id, event_id, type, amount, iva_rate, currency, status, formalidade, notes, formula_type, formula_value, is_overhead, is_transitory, exclude_from_result")
         .in("event_id", eventIds)
-        .eq("type", "expense").is("version_id", null);
+        .eq("type", "expense");
+      bpQ = versionId ? bpQ.eq("version_id", versionId) : bpQ.is("version_id", null);
+      const { data: bps, error: bpErr } = await bpQ;
       if (bpErr) throw bpErr;
 
-      // Fetch transactions (expense)
-      const { data: txs, error: txErr } = await supabase
-        .from("transactions")
-        .select("id, description, category_id, event_id, type, amount, iva_rate, currency, status, payment_date, due_date, is_transitory, exclude_from_result")
-        .in("event_id", eventIds)
-        .eq("type", "expense");
-      if (txErr) throw txErr;
-
-      // Frente C: identificar TXs vinculadas a BP (para validação L2 pré-batch)
-      const txIds = (txs || []).map((t: any) => t.id);
+      // Transactions não têm versão — só carregar em modo Ativa
+      let txs: any[] = [];
       const txToBpCatMap = new Map<string, string>(); // tx_id → bp.category_id
-      if (txIds.length > 0) {
-        const CHUNK = 500;
-        for (let i = 0; i < txIds.length; i += CHUNK) {
-          const slice = txIds.slice(i, i + CHUNK);
-          const { data: links } = await supabase
-            .from("event_forecasts")
-            .select("transaction_id, category_id")
-            .in("transaction_id", slice)
-            .is("version_id", null);
-          (links || []).forEach((l: any) => {
-            if (l.transaction_id && l.category_id) txToBpCatMap.set(l.transaction_id, l.category_id);
-          });
+      if (!versionId) {
+        const { data: txData, error: txErr } = await supabase
+          .from("transactions")
+          .select("id, description, category_id, event_id, type, amount, iva_rate, currency, status, payment_date, due_date, is_transitory, exclude_from_result")
+          .in("event_id", eventIds)
+          .eq("type", "expense");
+        if (txErr) throw txErr;
+        txs = txData || [];
+
+        // Frente C: identificar TXs vinculadas a BP (para validação L2 pré-batch)
+        const txIds = txs.map((t: any) => t.id);
+        if (txIds.length > 0) {
+          const CHUNK = 500;
+          for (let i = 0; i < txIds.length; i += CHUNK) {
+            const slice = txIds.slice(i, i + CHUNK);
+            const { data: links } = await supabase
+              .from("event_forecasts")
+              .select("transaction_id, category_id")
+              .in("transaction_id", slice)
+              .is("version_id", null);
+
+            (links || []).forEach((l: any) => {
+              if (l.transaction_id && l.category_id) txToBpCatMap.set(l.transaction_id, l.category_id);
+            });
+          }
         }
       }
+
       const catMapLocal = new Map(categories.map((c) => [c.id, c]));
       const getL2IdLocal = (catId: string | null | undefined): string | null => {
         if (!catId) return null;
@@ -721,18 +755,54 @@ function AnaliseIATab() {
       <div className="glass rounded-xl p-4 flex flex-col sm:flex-row gap-3 sm:items-end">
         <div className="flex-1 min-w-0">
           <label className="text-xs uppercase tracking-wider text-muted-foreground block mb-1.5">Evento</label>
-          <Select value={eventId} onValueChange={setEventId}>
+          <Select value={eventId} onValueChange={(v) => { setEventId(v); setVersionId(null); setRows([]); }}>
             <SelectTrigger><SelectValue placeholder="Seleciona evento (Master inclui subs)" /></SelectTrigger>
             <SelectContent className="max-h-80">
               {eventOptions.map((o) => <SelectItem key={o.id} value={o.id}>{o.label}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
+        <div className="w-full sm:w-[260px]">
+          <label className="text-xs uppercase tracking-wider text-muted-foreground block mb-1.5 flex items-center gap-1.5">
+            Versão
+            <HelpTooltip text="Por defeito audita a Versão Ativa. Podes auditar um cenário em desenvolvimento — nesse modo só são analisadas linhas do BP do cenário (transações não têm versão e ficam de fora)." />
+          </label>
+          <Select
+            value={versionId ?? "__active__"}
+            onValueChange={(v) => { setVersionId(v === "__active__" ? null : v); setRows([]); }}
+            disabled={!eventId}
+          >
+            <SelectTrigger><SelectValue placeholder="Versão Ativa" /></SelectTrigger>
+            <SelectContent className="max-h-80">
+              <SelectItem value="__active__">Versão Ativa (default)</SelectItem>
+              {scenarios.map((s: any) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.is_pinned_scenario ? "📌 " : ""}Cenário v{s.version_number}{s.scenario_label ? ` — ${s.scenario_label}` : ""}
+                </SelectItem>
+              ))}
+              {eventId && scenarios.length === 0 && (
+                <div className="px-2 py-1.5 text-xs text-muted-foreground">Sem cenários draft neste evento</div>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
         <Button onClick={handleRun} disabled={running || !eventId} className="gap-2">
           {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           {running ? "A analisar…" : "Analisar com IA"}
         </Button>
       </div>
+
+      {versionId && (
+        <div className="rounded-lg border border-warning/40 bg-warning/10 text-warning text-xs px-3 py-2 flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+          <div>
+            A auditar um <strong>cenário draft</strong>. Alterações ficam isoladas nesta versão — não afetam a Versão Ativa nem outros cenários. Transações ficam fora (não têm versão).
+          </div>
+        </div>
+      )}
+
+
 
       {rows.length > 0 && (
         <>
@@ -915,7 +985,7 @@ function AnaliseIATab() {
                     {isExpanded && (
                       <tr key={`${rowKey}-detail`} className="bg-secondary/10">
                         <td colSpan={9} className="px-6 py-3">
-                          <RowDetailPanel row={r} eventId={eventId} eventIds={scopedEventIds} categories={categories} eventLabelMap={eventLabelMap} />
+                          <RowDetailPanel row={r} eventId={eventId} eventIds={scopedEventIds} versionId={versionId} categories={categories} eventLabelMap={eventLabelMap} />
                         </td>
                       </tr>
                     )}
