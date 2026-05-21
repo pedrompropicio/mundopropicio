@@ -94,8 +94,7 @@ export default function Onboarding() {
         body: { token, password },
       });
       if (error) {
-        const status = (error as any)?.context?.response?.status;
-        const body = await (error as any)?.context?.response?.json?.().catch(() => null);
+        const { status, body } = await parseFnError(error);
         if (status === 410 || body?.error === "token_consumed") {
           setPhase("consumed");
           return;
