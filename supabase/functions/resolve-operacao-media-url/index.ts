@@ -39,7 +39,8 @@ Deno.serve(async (req) => {
 
     const admin = createClient(url, serviceKey);
     const { data: object } = await admin
-      .from("storage.objects")
+      .schema("storage")
+      .from("objects")
       .select("owner")
       .eq("bucket_id", "operacao-media")
       .eq("name", path)
