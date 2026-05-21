@@ -54,6 +54,15 @@ const COUNTER_PROPOSAL_HYBRID_FLOOR_TRIGGER_REDUCTION = 0.30;
 const COUNTER_PROPOSAL_HYBRID_RATIO = 0.7;
 const COUNTER_PROPOSAL_MAX_BUDGET_CAP_VS_CURRENT = 20;
 
+// PAS-CONSTS — Plano Alternativo Sugerido.
+// Quando feasibility=impossible E counter_proposals tem entries, faz fetch interno
+// recursivo com constraints da CP priority 1 aplicadas; resultado anexado em
+// plan.alternative_plan. PAS_RECURSION_GUARD_FIELD evita loop infinito: alt run
+// (com este campo=true no body) NÃO gera outro alt — guard binário, profundidade
+// máxima implícita = 1.
+const PAS_RECURSION_GUARD_FIELD = "_is_alternative";
+const PAS_INHERITED_CREATIVES_MAX_BYTES = 500 * 1024;
+
 // NA-CONSTS — Anchored numbers tuning (v1 confiabilidade).
 // Spec usa "moderate" para a melhor classe de gap. Codebase produz comfortable/stretch/aggressive/unrealistic.
 // Aliases preservam a semântica do user spec mesmo quando o classifier produz nomes diferentes.
@@ -546,6 +555,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       new_audiences_to_create?: Array<{ phase_id: string; type: string; description: string; gap_tag: string }>;
     };
     pause_original_mode?: "immediate" | "delayed_7d" | "manual";
+    // PAS — flags internas para chamada recursiva auto-gerada (não documentado em API pública).
+    [PAS_RECURSION_GUARD_FIELD]?: boolean;
+    _pas_source_proposal_id?: string;
   };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
   const campaignId = body.campaign_id;
@@ -1537,6 +1549,109 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
     proposal_ids: plan.counter_proposals.map((p: any) => p.id),
   });
 
+  // PAS-MAIN — Plano Alternativo Sugerido (auto-generated).
+  // Quando o plano principal é impossible mas há CPs, faz fetch interno recursivo
+  // com a CP priority 1 aplicada. Resultado anexado em plan.alternative_plan.
+  // Guard via PAS_RECURSION_GUARD_FIELD evita loop infinito. Falha graciosa: se a
+  // chamada interna falhar, o plano principal volta normalmente sem alternative_plan.
+  // Custo: 2 chamadas LLM por redesign impossible (+30-60s latência).
+  const isAlternativeRun = body?.[PAS_RECURSION_GUARD_FIELD] === true;
+  if (
+    plan?.summary?.feasibility === "impossible"
+    && Array.isArray(plan.counter_proposals)
+    && plan.counter_proposals.length > 0
+    && !isAlternativeRun
+  ) {
+    try {
+      const topProposal = [...plan.counter_proposals]
+        .sort((a: any, b: any) => (a.priority ?? 99) - (b.priority ?? 99))[0];
+
+      // CP emite daily_budget_eur (EUR); body usa daily_budget_cents (cents). Converter.
+      // roas_floor: unidade 1:1. CPs nunca emitem end_date/end_time.
+      const newConstraints: any = { ...(body.constraints ?? {}) };
+      for (const [k, change] of Object.entries(topProposal.constraints_change ?? {})) {
+        const ch = change as { from?: number; to?: number } | undefined;
+        if (!ch || typeof ch !== "object" || ch.to == null) continue;
+        if (k === "daily_budget_eur") newConstraints.daily_budget_cents = Math.round(ch.to * 100);
+        else if (k === "roas_floor") newConstraints.roas_floor = ch.to;
+      }
+
+      const altBody = {
+        ...body,
+        constraints: newConstraints,
+        [PAS_RECURSION_GUARD_FIELD]: true,
+        _pas_source_proposal_id: topProposal.id,
+      };
+
+      console.log("[redesign] PAS_starting", {
+        source_proposal_id: topProposal.id,
+        source_proposal_priority: topProposal.priority,
+        constraints_changing: Object.keys(topProposal.constraints_change ?? {}),
+      });
+
+      const altResp = await fetch(req.url, {
+        method: "POST",
+        headers: {
+          "Authorization": req.headers.get("Authorization") ?? "",
+          "Content-Type": "application/json",
+          "apikey": req.headers.get("apikey") ?? "",
+        },
+        body: JSON.stringify(altBody),
+      });
+
+      if (altResp.ok) {
+        const altData = await altResp.json();
+        const altPlan = altData?.generated_plan ?? null;
+        if (altPlan && typeof altPlan === "object") {
+          // Defensive strip: inherited_creatives típico <100KB, mas se algum corner
+          // case empurrar >500KB, descarta (alt usa os mesmos do plano principal).
+          const icSize = JSON.stringify(altPlan.inherited_creatives ?? []).length;
+          const icStripped = icSize > PAS_INHERITED_CREATIVES_MAX_BYTES;
+          if (icStripped) {
+            delete altPlan.inherited_creatives;
+            altPlan.inherited_creatives_omitted = true;
+          }
+          // Defesa em profundidade: garante que alt nunca tem alternative_plan recursivo.
+          delete altPlan.alternative_plan;
+          // alt.counter_proposals preservado intacto (útil se alt sair stretch/moderate).
+
+          plan.alternative_plan = {
+            ...altPlan,
+            applied_counter_proposal: {
+              id: topProposal.id,
+              label: topProposal.label,
+              priority: topProposal.priority,
+              constraints_change: topProposal.constraints_change,
+            },
+            applied_counter_proposal_summary: topProposal.label,
+            is_counter_proposal_alternative: true,
+          };
+
+          console.log("[redesign] PAS_completed", {
+            source_proposal_id: topProposal.id,
+            alt_feasibility: altPlan?.summary?.feasibility ?? "unknown",
+            alt_expected_roas: altPlan?.summary?.expected_overall_roas ?? null,
+            alt_expected_revenue: altPlan?.summary?.expected_revenue_eur ?? null,
+            alt_has_counter_proposals: Array.isArray(altPlan.counter_proposals) && altPlan.counter_proposals.length > 0,
+            inherited_creatives_stripped: icStripped,
+          });
+        } else {
+          console.warn("[redesign] PAS_empty_plan", { source_proposal_id: topProposal.id });
+        }
+      } else {
+        const errText = await altResp.text().catch(() => "");
+        console.warn("[redesign] PAS_http_error", {
+          status: altResp.status,
+          body_excerpt: errText.slice(0, 200),
+        });
+      }
+    } catch (err) {
+      console.warn("[redesign] PAS_exception", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   // FIX 3 (Sprint 3c-2.5) — deploy_warning informativo (não bloqueante).
   // Não duplicar quando FIX 1 já preencheu deploy_blocked_reason.
   if (!plan?.automation_metadata?.deploy_blocked_reason) {
@@ -1924,6 +2039,26 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
     pause_original_mode: pauseOriginalMode, // duplicado em coluna dedicada, mantido aqui para leitura retrocompatível
     viability_analysis: viability, // Sprint 3c-2 — audit trail do contexto de viabilidade
   };
+
+  // PAS-SKIP-PERSIST — alternativa não vai para a UI nem para meta_campaign_strategies.
+  // Volta apenas o generated_plan para o caller (o run principal) anexar como alternative_plan.
+  // Evita row órfão em DB e duplicação de ticket_avg/source_diagnosis_id.
+  if (body[PAS_RECURSION_GUARD_FIELD] === true) {
+    console.log("[redesign] PAS_alternative_run_skip_persist", {
+      source_proposal_id: body._pas_source_proposal_id ?? null,
+      feasibility: plan?.summary?.feasibility ?? null,
+      expected_overall_roas: plan?.summary?.expected_overall_roas ?? null,
+    });
+    return json({
+      generated_plan: plan,
+      viability_analysis: viability,
+      source: {
+        campaign_id: campaign.external_campaign_id,
+        campaign_name: campaign.name,
+        diagnosis_id: diagnosisId,
+      },
+    });
+  }
 
   // 8) Persistir nova strategy
   const stratName = `Re-design — ${campaign.name}`.slice(0, 200);
