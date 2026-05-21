@@ -462,42 +462,50 @@ function AnaliseIATab() {
     setRunning(true);
     setRows([]);
     try {
-      // Determine event scope (master => include subs)
+      // Determine event scope (master => include subs). Em modo Cenário, restringimos ao próprio evento.
       const sel = events.find((e) => e.id === eventId);
       const isMaster = sel && !sel.parent_event_id;
-      const subIds = isMaster ? events.filter((e) => e.parent_event_id === eventId).map((e) => e.id) : [];
+      const subIds = isMaster && !versionId
+        ? events.filter((e) => e.parent_event_id === eventId).map((e) => e.id)
+        : [];
       const eventIds = [eventId, ...subIds];
 
       const eventLabelMap = new Map<string, string>(events.map((e) => [e.id, e.name]));
 
-      // Fetch BP forecasts (expense)
-      const { data: bps, error: bpErr } = await supabase
+      // Fetch BP forecasts (expense) — Ativa OU cenário
+      let bpQ = supabase
         .from("event_forecasts")
         .select("id, description, specification, category_id, event_id, type, amount, iva_rate, currency, status, formalidade, notes, formula_type, formula_value, is_overhead, is_transitory, exclude_from_result")
         .in("event_id", eventIds)
-        .eq("type", "expense").is("version_id", null);
+        .eq("type", "expense");
+      bpQ = versionId ? bpQ.eq("version_id", versionId) : bpQ.is("version_id", null);
+      const { data: bps, error: bpErr } = await bpQ;
       if (bpErr) throw bpErr;
 
-      // Fetch transactions (expense)
-      const { data: txs, error: txErr } = await supabase
-        .from("transactions")
-        .select("id, description, category_id, event_id, type, amount, iva_rate, currency, status, payment_date, due_date, is_transitory, exclude_from_result")
-        .in("event_id", eventIds)
-        .eq("type", "expense");
-      if (txErr) throw txErr;
-
-      // Frente C: identificar TXs vinculadas a BP (para validação L2 pré-batch)
-      const txIds = (txs || []).map((t: any) => t.id);
+      // Transactions não têm versão — só carregar em modo Ativa
+      let txs: any[] = [];
       const txToBpCatMap = new Map<string, string>(); // tx_id → bp.category_id
-      if (txIds.length > 0) {
-        const CHUNK = 500;
-        for (let i = 0; i < txIds.length; i += CHUNK) {
-          const slice = txIds.slice(i, i + CHUNK);
-          const { data: links } = await supabase
-            .from("event_forecasts")
-            .select("transaction_id, category_id")
-            .in("transaction_id", slice)
-            .is("version_id", null);
+      if (!versionId) {
+        const { data: txData, error: txErr } = await supabase
+          .from("transactions")
+          .select("id, description, category_id, event_id, type, amount, iva_rate, currency, status, payment_date, due_date, is_transitory, exclude_from_result")
+          .in("event_id", eventIds)
+          .eq("type", "expense");
+        if (txErr) throw txErr;
+        txs = txData || [];
+
+        // Frente C: identificar TXs vinculadas a BP (para validação L2 pré-batch)
+        const txIds = txs.map((t: any) => t.id);
+        if (txIds.length > 0) {
+          const CHUNK = 500;
+          for (let i = 0; i < txIds.length; i += CHUNK) {
+            const slice = txIds.slice(i, i + CHUNK);
+            const { data: links } = await supabase
+              .from("event_forecasts")
+              .select("transaction_id, category_id")
+              .in("transaction_id", slice)
+              .is("version_id", null);
+
           (links || []).forEach((l: any) => {
             if (l.transaction_id && l.category_id) txToBpCatMap.set(l.transaction_id, l.category_id);
           });
