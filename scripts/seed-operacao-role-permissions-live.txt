@@ -1,7 +1,30 @@
--- LIVE: seed role_permissions for Operação (idempotent)
--- Fix: pré-visualizações de fotos/vídeos no módulo Operação apareciam
--- como "Pré-visualização indisponível" porque has_permission(uid,'view_operacao')
--- devolvia false (tabela role_permissions sem linhas para operacao em Live).
+-- LIVE: corrigir permissões e pré-visualização de media da Operação (idempotente)
+-- Fix: imagens/vídeos/áudios ficavam sem pré-visualização porque o bucket privado
+-- dependia só de has_permission(uid,'view_operacao'), mas Live não tinha permissões
+-- de Operação semeadas e platform_admin podia estar noutra empresa ativa.
+DROP POLICY IF EXISTS "operacao_media_select" ON storage.objects;
+
+CREATE POLICY "operacao_media_select"
+ON storage.objects
+FOR SELECT
+TO authenticated
+USING (
+  bucket_id = 'operacao-media'
+  AND (
+    public.is_platform_admin(auth.uid())
+    OR public.has_role(auth.uid(), 'admin'::public.app_role)
+    OR public.has_role(auth.uid(), 'manager'::public.app_role)
+    OR public.has_permission(auth.uid(), 'view_operacao')
+    OR EXISTS (
+      SELECT 1
+      FROM public.operacao_registros r
+      WHERE r.company_id::text = (storage.foldername(name))[1]
+        AND r.id::text = (storage.foldername(name))[3]
+        AND public.can_view_event_operacao(((storage.foldername(name))[2])::uuid, auth.uid())
+    )
+  )
+);
+
 INSERT INTO public.role_permissions (role, permission) VALUES
   ('admin'::app_role,'view_operacao'),
   ('admin'::app_role,'register_operacao'),
@@ -22,7 +45,12 @@ INSERT INTO public.role_permissions (role, permission) VALUES
   ('producer'::app_role,'register_operacao'),
   ('producer'::app_role,'manage_operacao_frentes'),
   ('producer'::app_role,'manage_operacao_etapas'),
-  ('producer'::app_role,'manage_operacao_staff')
+  ('producer'::app_role,'manage_operacao_staff'),
+  ('platform_admin'::app_role,'view_operacao'),
+  ('platform_admin'::app_role,'register_operacao'),
+  ('platform_admin'::app_role,'manage_operacao_frentes'),
+  ('platform_admin'::app_role,'manage_operacao_etapas'),
+  ('platform_admin'::app_role,'manage_operacao_staff')
 ON CONFLICT (role, permission) DO NOTHING;
 
 -- Verificação:

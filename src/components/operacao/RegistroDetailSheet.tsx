@@ -24,6 +24,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Pencil, Trash2, Loader2, ExternalLink } from "lucide-react";
 import { PriorityBadge } from "./PriorityBadge";
+import { resolveOperacaoMediaUrl } from "@/lib/operacao-media";
 
 interface Props {
   open: boolean;
@@ -283,16 +284,14 @@ function DetailMediaThumb({ m }: { m: any }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     const p = m.thumbnail_url ?? m.file_url;
-    supabase.storage
-      .from("operacao-media")
-      .createSignedUrl(p, 3600)
-      .then(({ data }) => data?.signedUrl && setUrl(data.signedUrl));
+    resolveOperacaoMediaUrl({ path: p, mediaId: m.id, registroId: m.registro_id })
+      .then((signedUrl) => signedUrl && setUrl(signedUrl));
   }, [m]);
   const handleOpen = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!full) {
-      const { data } = await supabase.storage.from("operacao-media").createSignedUrl(m.file_url, 3600);
-      if (data?.signedUrl) setFull(data.signedUrl);
+      const signedUrl = await resolveOperacaoMediaUrl({ path: m.file_url, mediaId: m.id, registroId: m.registro_id });
+      if (signedUrl) setFull(signedUrl);
     }
     setOpen(true);
   };
@@ -331,10 +330,7 @@ function DetailMediaThumb({ m }: { m: any }) {
 function DetailAudio({ path }: { path: string }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
-    supabase.storage
-      .from("operacao-media")
-      .createSignedUrl(path, 3600)
-      .then(({ data }) => data?.signedUrl && setUrl(data.signedUrl));
+    resolveOperacaoMediaUrl({ path }).then((signedUrl) => signedUrl && setUrl(signedUrl));
   }, [path]);
   if (!url) return null;
   return <audio controls src={url} className="w-full" onClick={(e) => e.stopPropagation()} />;

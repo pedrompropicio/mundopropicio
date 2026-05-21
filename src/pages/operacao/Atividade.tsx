@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Activity, MessageSquare, Clipboard, ArrowLeft } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { resolveOperacaoMediaUrl } from "@/lib/operacao-media";
 
 type Period = "today" | "week" | "all";
 
@@ -141,8 +142,7 @@ function MediaThumb({ m }: { m: any }) {
     queryKey: ["op-atividade-thumb", m.id],
     queryFn: async () => {
       const p = m.thumbnail_url ?? m.file_url;
-      const { data } = await supabase.storage.from("operacao-media").createSignedUrl(p, 3600);
-      return data?.signedUrl ?? null;
+      return resolveOperacaoMediaUrl({ path: p, mediaId: m.id, registroId: m.registro_id });
     },
   });
   return (
