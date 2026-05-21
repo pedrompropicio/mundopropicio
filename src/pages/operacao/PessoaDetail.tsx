@@ -40,7 +40,7 @@ export default function PessoaDetail() {
       // 1) profile
       const { data: profile, error: pErr } = await supabase
         .from("profiles")
-        .select("id, full_name, email, profile_type, avatar_url")
+        .select("id, full_name, email, profile_type")
         .eq("id", id!)
         .maybeSingle();
       if (pErr) throw pErr;

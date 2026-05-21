@@ -108,7 +108,7 @@ export function EquipaEventoTab({ eventId }: Props) {
       if (profileIds.size > 0) {
         const { data: profs, error: pErr } = await supabase
           .from("profiles")
-          .select("id, full_name, email, profile_type, avatar_url")
+          .select("id, full_name, email, profile_type")
           .in("id", Array.from(profileIds));
         if (pErr) throw pErr;
         (profs ?? []).forEach((p: any) => profilesById.set(p.id, p));
