@@ -629,18 +629,6 @@ export default function CrmStrategyView() {
 
   return (
     <div className="space-y-6">
-      {/* Sprint 3c-2.5 — Banner deploy_blocked (prioridade máxima) */}
-      {plan.automation_metadata?.deploy_blocked_reason && (
-        <Card className="p-4 border-red-500/40 bg-red-500/5">
-          <div className="flex items-start gap-3">
-            <div className="h-10 w-10 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center shrink-0">
-              <XCircle className="h-5 w-5 text-red-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-sm text-red-400">Plano não recomendado para deploy</div>
-              <div className="text-xs text-muted-foreground mt-1">
-  return (
-    <div className="space-y-6">
       {hasAlternative && (
         <div className="flex flex-col sm:flex-row gap-2 rounded-lg border border-border bg-card/40 p-1">
           <button
