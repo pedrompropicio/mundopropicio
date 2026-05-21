@@ -2,7 +2,7 @@
   "name": "MP Gestão Eventos",
   "short_name": "MP Gestão",
   "description": "Gestão financeira para empresas de eventos, concertos e festivais.",
-  "start_url": "/camarim-equipa",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
@@ -24,6 +24,13 @@
     }
   ],
   "shortcuts": [
+    {
+      "name": "MP Operação",
+      "short_name": "Operação",
+      "description": "Frentes, etapas, registos e chamados do evento",
+      "url": "/operacao",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
+    },
     {
       "name": "Camarim — Equipa",
       "short_name": "Camarim",
