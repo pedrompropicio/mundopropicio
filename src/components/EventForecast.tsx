@@ -13,6 +13,9 @@ import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock,
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import BPNotesAttachmentsModal from "@/components/BPNotesAttachmentsModal";
+import BPGridEditor from "@/components/BPGridEditor";
+import { Table2, LayoutList } from "lucide-react";
+
 import { StickyNote } from "lucide-react";
 import { BPVersionCard } from "@/components/bp-versions/BPVersionCard";
 import { BPScenarioSelector } from "@/components/bp-versions/BPScenarioSelector";
@@ -187,6 +190,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   // Cenário ativo na vista (null = versão Ativa). Sincronizado entre BP/Bilheteira/Cachê
   // através do EventScenarioContext (provider em EventDetail).
   const { selectedVersionId, setSelectedVersionId, isScenarioMode } = useEventScenario();
+  // Phase A.1: toggle entre vista Agrupada (atual) e Grelha (editor tipo planilha).
+  const [forecastsViewMode, setForecastsViewMode] = useState<"grouped" | "grid">("grouped");
+
   const queryClient = useQueryClient();
   const { isAdmin: rawIsAdmin, isManager: rawIsManager, user, hasPermission } = useAuth();
   // forceReadOnly disables all admin/manager UI affordances so the same
