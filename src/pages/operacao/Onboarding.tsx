@@ -8,6 +8,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
+async function parseFnError(error: any): Promise<{ status: number | undefined; body: any }> {
+  // supabase-js v2: error.context é a Response (algumas versões antigas embrulhavam em { response })
+  const ctx = error?.context;
+  const res: Response | undefined = ctx?.clone ? ctx : ctx?.response;
+  const status = res?.status ?? ctx?.status;
+  let body: any = null;
+  if (res?.clone) {
+    try { body = await res.clone().json(); } catch { body = null; }
+  }
+  return { status, body };
+}
 
 type Phase = "loading" | "ready" | "submitting" | "consumed" | "invalid" | "error";
 
@@ -45,9 +56,7 @@ export default function Onboarding() {
       try {
         const { data, error } = await supabase.functions.invoke("onboarding-preview", { body: { token } });
         if (error) {
-          // Supabase devolve FunctionsHttpError com context.response
-          const status = (error as any)?.context?.response?.status;
-          const body = await (error as any)?.context?.response?.json?.().catch(() => null);
+          const { status, body } = await parseFnError(error);
           if (status === 410 || body?.error === "token_consumed") {
             setPhase("consumed");
             return;
@@ -57,7 +66,7 @@ export default function Onboarding() {
             setErrorMsg("Link não encontrado. Pede um novo link a quem te convidou.");
             return;
           }
-          throw new Error(body?.error ?? error.message);
+          throw new Error(body?.message ?? body?.error ?? error.message);
         }
         const d = data as { full_name: string; email_masked: string; company: { display_name: string | null; logo_url: string | null } | null };
         setFullName(d.full_name ?? "");
@@ -85,8 +94,7 @@ export default function Onboarding() {
         body: { token, password },
       });
       if (error) {
-        const status = (error as any)?.context?.response?.status;
-        const body = await (error as any)?.context?.response?.json?.().catch(() => null);
+        const { status, body } = await parseFnError(error);
         if (status === 410 || body?.error === "token_consumed") {
           setPhase("consumed");
           return;
