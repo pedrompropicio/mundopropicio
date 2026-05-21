@@ -12,6 +12,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock, Link2, Check, X, Ticket, Music, Copy, Layers, History, Upload, ChevronDown, ChevronRight, Pencil, Search, Users, UserPlus, Filter, FileText, ArrowDownRight, ArrowUpRight, AlertTriangle, FileArchive, Paperclip, Sparkles, CalendarPlus } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
+import BPNotesAttachmentsModal from "@/components/BPNotesAttachmentsModal";
+import { StickyNote } from "lucide-react";
 import { BPVersionCard } from "@/components/bp-versions/BPVersionCard";
 import { BPScenarioSelector } from "@/components/bp-versions/BPScenarioSelector";
 import { useEventScenario } from "@/contexts/EventScenarioContext";
@@ -2801,6 +2803,27 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   const [auditTransactionId, setAuditTransactionId] = useState<string | null>(null);
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
+  const [showNotesAttachments, setShowNotesAttachments] = useState(false);
+
+  // Count of native uploads for this BP line (event_forecast_attachments).
+  const { data: uploadCount = 0 } = useQuery({
+    queryKey: ["event_forecast_attachments_counts", item.id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("event_forecast_attachments" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("forecast_id", item.id);
+      return count ?? 0;
+    },
+    enabled: !item._readonly && !item._prorated && !item._overhead_via_master,
+    staleTime: 60_000,
+  });
+
+  const refLinkCount = Array.isArray(item.attachment_refs)
+    ? (item.attachment_refs as any[]).filter((r) => r && typeof r.url === "string").length
+    : 0;
+  const hasNotes = !!(item.notes && String(item.notes).trim().length > 0);
+  const totalAttachments = uploadCount + refLinkCount;
 
   const togglePartner = async (partnerId: string) => {
     if (!queryClient || !eventId) return;
@@ -3089,6 +3112,23 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                   >
                     <AlertTriangle className="h-2.5 w-2.5" /> Sem TX
                   </span>
+                )}
+                {!item._readonly && !item._prorated && !item._overhead_via_master && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setShowNotesAttachments(true); }}
+                    className="ml-2 inline-flex items-center gap-1 rounded-md border border-border/60 bg-background/60 px-1.5 py-0.5 align-middle text-[10px] text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
+                    title={
+                      `Observações e anexos${hasNotes ? " · com observação" : ""}` +
+                      (totalAttachments > 0 ? ` · ${uploadCount} documento(s) + ${refLinkCount} link(s)` : "")
+                    }
+                  >
+                    {hasNotes && <StickyNote className="h-2.5 w-2.5 text-warning" />}
+                    <Paperclip className="h-2.5 w-2.5" />
+                    {totalAttachments > 0 && (
+                      <span className="font-semibold text-foreground">{totalAttachments}</span>
+                    )}
+                  </button>
                 )}
               </p>
               {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
@@ -3456,6 +3496,13 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
         <TransactionAuditModal
           transactionId={auditTransactionId}
           onClose={() => setAuditTransactionId(null)}
+        />
+      )}
+      {showNotesAttachments && (
+        <BPNotesAttachmentsModal
+          open={showNotesAttachments}
+          onOpenChange={setShowNotesAttachments}
+          forecast={item}
         />
       )}
     </>

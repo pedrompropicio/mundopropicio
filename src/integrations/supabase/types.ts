@@ -2689,6 +2689,50 @@ export type Database = {
           },
         ]
       }
+      event_forecast_attachments: {
+        Row: {
+          company_id: string
+          created_at: string
+          file_name: string
+          forecast_id: string
+          id: string
+          mime_type: string | null
+          size_bytes: number
+          storage_path: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          file_name: string
+          forecast_id: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number
+          storage_path: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          file_name?: string
+          forecast_id?: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number
+          storage_path?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_forecast_attachments_forecast_id_fkey"
+            columns: ["forecast_id"]
+            isOneToOne: false
+            referencedRelation: "event_forecasts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_forecast_formalidade_log: {
         Row: {
           auto_suggested: boolean
