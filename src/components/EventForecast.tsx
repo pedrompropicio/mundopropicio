@@ -3498,6 +3498,13 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
           onClose={() => setAuditTransactionId(null)}
         />
       )}
+      {showNotesAttachments && (
+        <BPNotesAttachmentsModal
+          open={showNotesAttachments}
+          onOpenChange={setShowNotesAttachments}
+          forecast={item}
+        />
+      )}
     </>
   );
 }
