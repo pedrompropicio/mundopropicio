@@ -123,7 +123,17 @@ export default function Onboarding() {
       }}
     >
       <div className="w-full max-w-sm space-y-6">
-        <img src={logoMP} alt="MP Gestão Eventos" className="h-9 mx-auto object-contain opacity-80" />
+        {company?.logo_url ? (
+          <img
+            src={company.logo_url}
+            alt={company.display_name ?? ""}
+            className="h-12 mx-auto object-contain"
+          />
+        ) : (
+          <p className="text-center text-lg font-semibold text-muted-foreground">
+            {company?.display_name ?? "MP Gestão Eventos"}
+          </p>
+        )}
 
         {phase === "loading" && (
           <div className="text-center space-y-3 py-8">
