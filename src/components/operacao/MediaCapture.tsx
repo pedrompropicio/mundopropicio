@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Camera, X, Loader2, ImagePlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
 
 
 export interface CapturedMedia {
@@ -68,7 +70,13 @@ export function MediaCapture({ companyId, eventId, registroId, onChange, value }
         const { error: upErr } = await supabase.storage
           .from("operacao-media")
           .upload(path, file, { contentType: file.type, upsert: false });
-        if (upErr) { console.error(upErr); continue; }
+        if (upErr) {
+          console.error("Storage upload failed:", upErr, { path, type: file.type, size: file.size });
+          toast.error("Erro ao enviar foto", {
+            description: upErr.message || "Verifica permissões e tenta de novo.",
+          });
+          continue;
+        }
 
         let thumbPath: string | null = null;
         if (isVideo) {
