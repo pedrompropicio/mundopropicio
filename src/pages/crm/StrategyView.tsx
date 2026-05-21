@@ -865,7 +865,13 @@ export default function CrmStrategyView() {
             <Copy className="h-4 w-4 mr-1.5" /> {copied ? "Copiado!" : "Copiar JSON"}
           </Button>
           {data.status === "generated" && (
-            <Button onClick={handleApprove} disabled={actionLoading} className="bg-emerald-500 hover:bg-emerald-600 text-white" size="sm">
+            <Button
+              onClick={handleApprove}
+              disabled={actionLoading || activeView === "alternative"}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white"
+              size="sm"
+              title={activeView === "alternative" ? "Aprovação do plano alternativo disponível em v1.1" : undefined}
+            >
               <Check className="h-4 w-4 mr-1.5" /> Aprovar
             </Button>
           )}
