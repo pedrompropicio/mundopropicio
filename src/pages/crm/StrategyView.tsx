@@ -639,7 +639,97 @@ export default function CrmStrategyView() {
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-sm text-red-400">Plano não recomendado para deploy</div>
               <div className="text-xs text-muted-foreground mt-1">
-                {plan.automation_metadata.deploy_blocked_reason}
+  return (
+    <div className="space-y-6">
+      {hasAlternative && (
+        <div className="flex flex-col sm:flex-row gap-2 rounded-lg border border-border bg-card/40 p-1">
+          <button
+            type="button"
+            onClick={() => setViewTab("original")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm transition",
+              viewTab === "original"
+                ? "bg-red-500/15 border border-red-500/40 text-red-300 font-medium"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Plano original
+            <Badge variant="outline" className="text-[9px] uppercase border-red-500/50 bg-red-500/10 text-red-300">
+              Impossible
+            </Badge>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewTab("alternative")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm transition",
+              viewTab === "alternative"
+                ? "bg-blue-500/15 border border-blue-500/40 text-blue-200 font-medium"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Plano alternativo (viável)
+            <Badge
+              variant="outline"
+              className={cn("text-[9px] uppercase border", FEASIBILITY_BADGE[altFeasibility] ?? "bg-muted/40")}
+            >
+              {altFeasibility}
+            </Badge>
+          </button>
+        </div>
+      )}
+
+      {hasAlternative && activeView === "alternative" && (
+        <Card className="p-4 border-blue-500/30 bg-blue-500/5">
+          <div className="flex items-start gap-3">
+            <div className="h-9 w-9 rounded-full bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shrink-0">
+              <Wrench className="h-4 w-4 text-blue-300" />
+            </div>
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="text-sm">
+                Este plano alternativo aplica automaticamente a sugestão:{" "}
+                <span className="font-semibold text-foreground">
+                  {appliedCpSummary ?? appliedCp?.label ?? "ajuste de constraints"}
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                O plano original ficou impossível com as constraints originais. Este é o plano viável mais próximo, com 1 mudança aplicada.
+              </div>
+              {appliedCp?.constraints_change && (
+                <div className="rounded-md border border-blue-500/20 bg-background/40 p-2.5 space-y-1.5">
+                  {Object.entries(appliedCp.constraints_change as Record<string, { from?: number; to?: number } | undefined>)
+                    .filter(([, v]) => v && (v.from != null || v.to != null))
+                    .map(([key, change]) => {
+                      const meta =
+                        KNOB_LABELS[key] ?? { label: key, format: (n: number | undefined) => (n == null ? "—" : String(n)) };
+                      return (
+                        <div key={key} className="flex items-center gap-2 text-xs">
+                          <span className="text-muted-foreground w-24 shrink-0">{meta.label}</span>
+                          <span className="text-muted-foreground tabular-nums">{meta.format(change?.from)}</span>
+                          <ArrowRight className="h-3 w-3 text-blue-400 shrink-0" />
+                          <span className="font-semibold text-primary tabular-nums">{meta.format(change?.to)}</span>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Sprint 3c-2.5 — Banner deploy_blocked (prioridade máxima) */}
+      {viewedPlan.automation_metadata?.deploy_blocked_reason && (
+        <Card className="p-4 border-red-500/40 bg-red-500/5">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center shrink-0">
+              <XCircle className="h-5 w-5 text-red-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm text-red-400">Plano não recomendado para deploy</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {viewedPlan.automation_metadata.deploy_blocked_reason}
               </div>
               <div className="text-xs text-muted-foreground mt-2">
                 Sugestão: reanalisar premissas (constraints de verba, ROAS floor, goal de receita) e regenerar antes de deployar.
@@ -649,8 +739,8 @@ export default function CrmStrategyView() {
         </Card>
       )}
 
-      {/* Counter-proposals — alternativas quando plano é impossible */}
-      {Array.isArray((summary as any).counter_proposals) && (summary as any).counter_proposals.length > 0 && (
+      {/* Counter-proposals — só no plano original */}
+      {activeView === "original" && Array.isArray((summary as any).counter_proposals) && (summary as any).counter_proposals.length > 0 && (
         <div className="space-y-3">
           <div>
             <h3 className="text-base font-semibold mb-1 flex items-center gap-2">
