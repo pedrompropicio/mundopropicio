@@ -59,8 +59,8 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
         .select(`
           *,
           author:profiles!operacao_registros_author_profile_id_fkey(id,full_name),
-          etapa:operacao_etapas(id,nome),
-          frente:operacao_frentes(id,nome)
+          etapa:operacao_etapas(id,name),
+          frente:operacao_frentes(id,name)
         `)
         .eq("id", registroId!)
         .maybeSingle();
@@ -206,7 +206,7 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
                   <div className="border-t pt-3 space-y-1 text-xs text-muted-foreground">
                     {registro.frente && (
                       <div>
-                        <span className="font-medium">Frente:</span> {registro.frente.nome}
+                        <span className="font-medium">Frente:</span> {registro.frente.name}
                       </div>
                     )}
                     {registro.etapa && (
@@ -217,7 +217,7 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
                           onClick={onClose}
                           className="text-primary inline-flex items-center gap-1 hover:underline"
                         >
-                          {registro.etapa.nome} <ExternalLink className="h-3 w-3" />
+                          {registro.etapa.name} <ExternalLink className="h-3 w-3" />
                         </Link>
                       </div>
                     )}
