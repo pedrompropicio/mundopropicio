@@ -13,6 +13,9 @@ import { Plus, TrendingUp, TrendingDown, BarChart3, Trash2, CheckCircle2, Clock,
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ForecastEditModal } from "@/components/ForecastEditModal";
 import BPNotesAttachmentsModal from "@/components/BPNotesAttachmentsModal";
+import BPGridEditor from "@/components/BPGridEditor";
+import { Table2, LayoutList } from "lucide-react";
+
 import { StickyNote } from "lucide-react";
 import { BPVersionCard } from "@/components/bp-versions/BPVersionCard";
 import { BPScenarioSelector } from "@/components/bp-versions/BPScenarioSelector";
@@ -187,6 +190,9 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
   // Cenário ativo na vista (null = versão Ativa). Sincronizado entre BP/Bilheteira/Cachê
   // através do EventScenarioContext (provider em EventDetail).
   const { selectedVersionId, setSelectedVersionId, isScenarioMode } = useEventScenario();
+  // Phase A.1: toggle entre vista Agrupada (atual) e Grelha (editor tipo planilha).
+  const [forecastsViewMode, setForecastsViewMode] = useState<"grouped" | "grid">("grouped");
+
   const queryClient = useQueryClient();
   const { isAdmin: rawIsAdmin, isManager: rawIsManager, user, hasPermission } = useAuth();
   // forceReadOnly disables all admin/manager UI affordances so the same
@@ -2109,7 +2115,49 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           {isLoading ? (
             <p className="py-8 text-center text-muted-foreground">A carregar…</p>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4">
+              {/* Toggle Agrupada ↔ Grelha (Fase A.1 — apenas edição em massa) */}
+              <div className="flex items-center justify-end">
+                <div className="inline-flex rounded-md border border-border/60 bg-background/60 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setForecastsViewMode("grouped")}
+                    className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
+                      forecastsViewMode === "grouped"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <LayoutList className="h-3.5 w-3.5" />
+                    Agrupada
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForecastsViewMode("grid")}
+                    className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
+                      forecastsViewMode === "grid"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    title="Editor em grelha — edição em massa (Fase A.1)"
+                  >
+                    <Table2 className="h-3.5 w-3.5" />
+                    Grelha
+                  </button>
+                </div>
+              </div>
+
+              {forecastsViewMode === "grid" ? (
+                <BPGridEditor
+                  eventId={eventId}
+                  forecasts={forecasts}
+                  categories={categories as any}
+                  canEditBP={canEditBP}
+                  selectedVersionId={selectedVersionId}
+                />
+              ) : (
+                <div className="space-y-6">
+
               {/* Income section */}
               {!expenseOnly && typeFilter !== "expense" && <div className="glass rounded-xl p-5">
                 <div className="flex items-center justify-between mb-3">
@@ -2552,8 +2600,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 </div>
               )}
             </div>
+              )}
+            </div>
           )}
         </TabsContent>
+
 
         <TabsContent value="comparison">
           <div className="mb-3 flex items-center justify-end gap-2">
