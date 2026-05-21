@@ -163,30 +163,34 @@ function RowDetailPanel({
   row,
   eventId,
   eventIds,
+  versionId,
   categories,
   eventLabelMap,
 }: {
   row: AuditRow;
   eventId: string;
   eventIds: string[];
+  versionId: string | null;
   categories: Category[];
   eventLabelMap: Map<string, string>;
 }) {
-  // Lazy-load: full BP for the event scope (Master + Splits) — fetched once per eventId, cached.
+  // Lazy-load: full BP for the event scope (Master + Splits) — fetched once per eventId+version, cached.
   const { data: bpRows = [], isLoading } = useQuery({
-    queryKey: ["audit-row-detail-bp-full", eventId, eventIds.join(",")],
+    queryKey: ["audit-row-detail-bp-full", eventId, eventIds.join(","), versionId ?? "active"],
     enabled: !!eventId && eventIds.length > 0,
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("event_forecasts")
         .select("id, description, specification, category_id, event_id, type, amount, iva_rate, status, formalidade, notes, is_overhead, is_transitory, exclude_from_result")
-        .in("event_id", eventIds)
-        .is("version_id", null);
+        .in("event_id", eventIds);
+      q = versionId ? q.eq("version_id", versionId) : q.is("version_id", null);
+      const { data, error } = await q;
       if (error) throw error;
       return data || [];
     },
   });
+
 
   const catMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
 
