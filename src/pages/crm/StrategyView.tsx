@@ -167,6 +167,7 @@ export default function CrmStrategyView() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [viewTab, setViewTab] = useState<"original" | "alternative">("original");
   const [expandedCampaigns, setExpandedCampaigns] = useState<Record<string, boolean>>({});
   const [actionLoading, setActionLoading] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
