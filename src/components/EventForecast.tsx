@@ -2600,8 +2600,11 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 </div>
               )}
             </div>
+              )}
+            </div>
           )}
         </TabsContent>
+
 
         <TabsContent value="comparison">
           <div className="mb-3 flex items-center justify-end gap-2">
