@@ -36,8 +36,22 @@ export function RegistroSheet({ open, onClose, initialFrenteId, initialEtapaId, 
   const [text, setText] = useState("");
   const [media, setMedia] = useState<CapturedMedia[]>([]);
   const [audio, setAudio] = useState<string | null>(null);
-  const [registroId] = useState(() => crypto.randomUUID());
+  const [registroId, setRegistroId] = useState(() => crypto.randomUUID());
   const [saving, setSaving] = useState(false);
+
+  // Reset do formulário sempre que o sheet abre — evita registroId/media/áudio
+  // velhos de uma submissão anterior misturarem-se com o novo registo.
+  useEffect(() => {
+    if (!open) return;
+    setRegistroId(crypto.randomUUID());
+    setText("");
+    setMedia([]);
+    setAudio(null);
+    setKind(initialKind ?? "evolucao");
+    setFrenteId(initialFrenteId ?? "");
+    setEtapaId(initialEtapaId ?? "");
+  }, [open, initialKind, initialFrenteId, initialEtapaId]);
+
 
   // Frentes onde user está
   const { data: frentes } = useQuery({
