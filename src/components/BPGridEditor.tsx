@@ -172,13 +172,7 @@ export default function BPGridEditor({
   }, [hasDirty, saveMutation]);
 
   // G7: block navigation when there are unsaved edits
-  useBlocker(({ currentLocation, nextLocation }) => {
-    if (!hasDirty) return false;
-    if (currentLocation.pathname === nextLocation.pathname) return false;
-    return !window.confirm(
-      `Tens ${dirtyCount} alteração(ões) por guardar. Sair sem guardar?`,
-    );
-  });
+  // G7: navigation block via beforeunload (see note at top about useBlocker).
 
   // Block window unload too (closing tab / refresh)
   useEffect(() => {
