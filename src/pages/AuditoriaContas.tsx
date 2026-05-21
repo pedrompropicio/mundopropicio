@@ -793,6 +793,17 @@ function AnaliseIATab() {
         </Button>
       </div>
 
+      {versionId && (
+        <div className="rounded-lg border border-warning/40 bg-warning/10 text-warning text-xs px-3 py-2 flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+          <div>
+            A auditar um <strong>cenário draft</strong>. Alterações ficam isoladas nesta versão — não afetam a Versão Ativa nem outros cenários. Transações ficam fora (não têm versão).
+          </div>
+        </div>
+      )}
+
+
+
       {rows.length > 0 && (
         <>
           <div className="flex flex-wrap gap-3 items-center justify-between">
