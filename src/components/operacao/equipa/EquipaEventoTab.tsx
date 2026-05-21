@@ -124,6 +124,55 @@ export function EquipaEventoTab({ eventId }: Props) {
     },
   });
 
+  // HOOKS PRIMEIRO — sempre executados, mesmo durante loading/erro
+  const frenteById = useMemo(() => {
+    return new Map((data?.frentes ?? []).map((f: any) => [f.id, f]));
+  }, [data?.frentes]);
+
+  const staffPorFrente = useMemo(() => {
+    const map = new Map<string, Array<{ profileId: string; role: string }>>();
+    if (!data) return map;
+    data.teamMembers.forEach((t: any) => {
+      const frente: any = frenteById.get(t.frente_id);
+      if (!frente) return;
+      const isLead =
+        t.is_permanent_lead === true ||
+        t.role_in_frente === "lead" ||
+        frente.current_lead_id === t.profile_id;
+      if (isLead) return;
+      const arr = map.get(t.frente_id) ?? [];
+      arr.push({ profileId: t.profile_id, role: t.role_in_frente });
+      map.set(t.frente_id, arr);
+    });
+    return map;
+  }, [data, frenteById]);
+
+  type EtapaItem = {
+    etapa: any;
+    pessoas: Array<{ profileId: string; role: string }>;
+  };
+  const etapasComResponsaveis: EtapaItem[] = useMemo(() => {
+    if (!data) return [];
+    const assigneesByEtapa = new Map<string, Array<{ profileId: string; role: string }>>();
+    data.assignees.forEach((a: any) => {
+      const arr = assigneesByEtapa.get(a.etapa_id) ?? [];
+      arr.push({ profileId: a.profile_id, role: a.role });
+      assigneesByEtapa.set(a.etapa_id, arr);
+    });
+    return data.etapas
+      .map((e: any) => {
+        const pessoas = assigneesByEtapa.get(e.id) ?? [];
+        if (e.responsible_profile_id) {
+          if (!pessoas.some((p) => p.profileId === e.responsible_profile_id)) {
+            pessoas.unshift({ profileId: e.responsible_profile_id, role: "owner" });
+          }
+        }
+        return { etapa: e, pessoas };
+      })
+      .filter((it) => it.pessoas.length > 0);
+  }, [data]);
+
+  // EARLY RETURNS — depois de todos os hooks
   if (isLoading) {
     return (
       <div className="space-y-3 p-3">
@@ -134,7 +183,7 @@ export function EquipaEventoTab({ eventId }: Props) {
     );
   }
 
-  if (isError) {
+  if (isError || !data) {
     return (
       <Alert variant="destructive" className="m-3">
         <AlertTriangle className="h-4 w-4" />
@@ -144,9 +193,7 @@ export function EquipaEventoTab({ eventId }: Props) {
     );
   }
 
-  const { evtTeam, frentes, teamMembers, etapas, assignees, profilesById } = data!;
-
-  const frenteById = new Map(frentes.map((f: any) => [f.id, f]));
+  const { evtTeam, frentes, profilesById } = data;
 
   const onClickPessoa = (profileId: string) => {
     navigate(`/operacao/equipa/pessoa/${profileId}?event=${eventId}`);
@@ -165,51 +212,6 @@ export function EquipaEventoTab({ eventId }: Props) {
     leadId: f.current_lead_id as string | null,
     leadProfile: f.current_lead_id ? profilesById.get(f.current_lead_id) : undefined,
   }));
-
-  // Secção 3 ------------------------------------------------------------
-  // Group team members per frente excluindo leads (current_lead_id ou is_permanent_lead)
-  const staffPorFrente = useMemo(() => {
-    const map = new Map<string, Array<{ profileId: string; role: string }>>();
-    teamMembers.forEach((t: any) => {
-      const frente: any = frenteById.get(t.frente_id);
-      if (!frente) return;
-      const isLead =
-        t.is_permanent_lead === true ||
-        t.role_in_frente === "lead" ||
-        frente.current_lead_id === t.profile_id;
-      if (isLead) return;
-      const arr = map.get(t.frente_id) ?? [];
-      arr.push({ profileId: t.profile_id, role: t.role_in_frente });
-      map.set(t.frente_id, arr);
-    });
-    return map;
-  }, [teamMembers, frenteById]);
-
-  // Secção 4 ------------------------------------------------------------
-  // Etapas com responsável (responsible_profile_id OU assignees)
-  type EtapaItem = {
-    etapa: any;
-    pessoas: Array<{ profileId: string; role: string }>;
-  };
-  const etapasComResponsaveis: EtapaItem[] = useMemo(() => {
-    const assigneesByEtapa = new Map<string, Array<{ profileId: string; role: string }>>();
-    assignees.forEach((a: any) => {
-      const arr = assigneesByEtapa.get(a.etapa_id) ?? [];
-      arr.push({ profileId: a.profile_id, role: a.role });
-      assigneesByEtapa.set(a.etapa_id, arr);
-    });
-    return etapas
-      .map((e: any) => {
-        const pessoas = assigneesByEtapa.get(e.id) ?? [];
-        if (e.responsible_profile_id) {
-          if (!pessoas.some((p) => p.profileId === e.responsible_profile_id)) {
-            pessoas.unshift({ profileId: e.responsible_profile_id, role: "owner" });
-          }
-        }
-        return { etapa: e, pessoas };
-      })
-      .filter((it) => it.pessoas.length > 0);
-  }, [etapas, assignees]);
 
   return (
     <div className="space-y-6 p-3">
