@@ -92,7 +92,6 @@ import Camarim from "./pages/Camarim";
 import CamarimSessionDetail from "./pages/CamarimSessionDetail";
 import CamarimEquipa from "./pages/CamarimEquipa";
 import OperacaoLayout from "./pages/operacao/OperacaoLayout";
-import MyFrentes from "./pages/operacao/MyFrentes";
 import FrenteDetail from "./pages/operacao/FrenteDetail";
 import EtapaDetail from "./pages/operacao/EtapaDetail";
 import MeusChamados from "./pages/operacao/MeusChamados";
