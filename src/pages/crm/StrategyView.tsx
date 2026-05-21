@@ -601,12 +601,23 @@ export default function CrmStrategyView() {
   if (!data) return <Card className="p-4">Estratégia não encontrada.</Card>;
   if (!plan) return <Card className="p-4 border-amber-500/40 bg-amber-500/5">Esta estratégia ainda não tem plano gerado.</Card>;
 
-  const summary = plan.summary ?? {};
-  const phases: any[] = plan.phases ?? [];
-  const scaling: any[] = plan.scaling_rules ?? [];
-  const kpis = plan.kpis_global ?? {};
-  const risks: any[] = plan.risks_and_warnings ?? [];
-  const brief = plan.creative_brief ?? {};
+  const alternativePlan =
+    plan?.alternative_plan && typeof plan.alternative_plan === "object" && !Array.isArray(plan.alternative_plan)
+      ? plan.alternative_plan
+      : null;
+  const hasAlternative = !!alternativePlan && plan?.summary?.feasibility === "impossible";
+  const activeView: "original" | "alternative" = hasAlternative && viewTab === "alternative" ? "alternative" : "original";
+  const viewedPlan: any = activeView === "alternative" ? alternativePlan : plan;
+  const appliedCp = alternativePlan?.applied_counter_proposal ?? null;
+  const appliedCpSummary: string | undefined = alternativePlan?.applied_counter_proposal_summary;
+  const altFeasibility: string = alternativePlan?.summary?.feasibility ?? "medium";
+
+  const summary = viewedPlan.summary ?? {};
+  const phases: any[] = viewedPlan.phases ?? [];
+  const scaling: any[] = viewedPlan.scaling_rules ?? [];
+  const kpis = viewedPlan.kpis_global ?? {};
+  const risks: any[] = viewedPlan.risks_and_warnings ?? [];
+  const brief = viewedPlan.creative_brief ?? {};
 
   // Deployment com sucesso e ainda pausado → banner "Publicar agora"
   const publishableDeployment = (deployments ?? []).find(
