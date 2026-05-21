@@ -777,7 +777,7 @@ function AnaliseIATab() {
               <SelectItem value="__active__">Versão Ativa (default)</SelectItem>
               {scenarios.map((s: any) => (
                 <SelectItem key={s.id} value={s.id}>
-                  {s.is_pinned_scenario ? "📌 " : ""}Cenário v{s.version_number}{s.scenario_label ? ` — ${s.scenario_label}` : ""}
+                  {s.is_pinned_scenario ? "📌 " : ""}{s.scenario_label ? `${s.scenario_label} (v${s.version_number})` : `Cenário v${s.version_number}`}
                 </SelectItem>
               ))}
               {eventId && scenarios.length === 0 && (
