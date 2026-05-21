@@ -33,7 +33,6 @@ type ProfileLite = {
   full_name: string | null;
   email: string | null;
   profile_type: string | null;
-  avatar_url: string | null;
 };
 
 export function EquipaEventoTab({ eventId }: Props) {
