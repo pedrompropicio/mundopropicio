@@ -151,10 +151,32 @@ function MediaThumb({ m }: { m: any }) {
   const [url, setUrl] = useState<string | null>(null);
   const [full, setFull] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
+    let cancelled = false;
     const p = m.thumbnail_url ?? m.file_url;
+    if (!p) { setError("sem ficheiro"); return; }
     supabase.storage.from("operacao-media").createSignedUrl(p, 3600)
-      .then(({ data }) => data?.signedUrl && setUrl(data.signedUrl));
+      .then(({ data, error: e }) => {
+        if (cancelled) return;
+        if (e || !data?.signedUrl) {
+          console.error("[MediaThumb] signed url failed", { path: p, error: e });
+          // Fallback: try file_url if we were using thumbnail_url
+          if (m.thumbnail_url && m.file_type !== "video") {
+            supabase.storage.from("operacao-media").createSignedUrl(m.file_url, 3600)
+              .then(({ data: d2, error: e2 }) => {
+                if (cancelled) return;
+                if (d2?.signedUrl) setUrl(d2.signedUrl);
+                else setError(e2?.message ?? "falhou");
+              });
+          } else {
+            setError(e?.message ?? "falhou");
+          }
+          return;
+        }
+        setUrl(data.signedUrl);
+      });
+    return () => { cancelled = true; };
   }, [m]);
   const handleOpen = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -167,7 +189,20 @@ function MediaThumb({ m }: { m: any }) {
   return (
     <>
       <button type="button" onClick={handleOpen} className="relative aspect-square rounded overflow-hidden bg-muted">
-        {url ? <img src={url} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full animate-pulse" />}
+        {url ? (
+          <img
+            src={url}
+            alt=""
+            className="w-full h-full object-cover"
+            onError={() => { console.error("[MediaThumb] img load failed", url); setError("não carregou"); setUrl(null); }}
+          />
+        ) : error ? (
+          <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground p-1 text-center">
+            Pré-visualização indisponível
+          </div>
+        ) : (
+          <div className="w-full h-full animate-pulse" />
+        )}
         {m.file_type === "video" && (
           <span className="absolute bottom-0.5 left-0.5 text-[9px] bg-black/60 text-white px-1 rounded">▶</span>
         )}
