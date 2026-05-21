@@ -293,26 +293,38 @@ export default function BPGridEditor({
       const ids = Array.from(selected);
       if (ids.length === 0) return { deleted: 0 };
 
-      // Check for any linked transactions
-      const { data: txLinks } = await supabase
-        .from("transactions")
-        .select("id, forecast_id, status, description")
-        .in("forecast_id", ids);
+      // Find linked transactions via event_forecasts.transaction_id (forward link).
+      // A category-bound BP line can have multiple physical transactions sharing the same
+      // category_id+event_id; we only block on the directly back-linked transaction(s).
+      const { data: forecastRows } = (await supabase
+        .from("event_forecasts")
+        .select("id, transaction_id")
+        .in("id", ids)) as { data: Array<{ id: string; transaction_id: string | null }> | null };
 
-      const blocking = (txLinks ?? []).filter((t: any) => t.status === "paid");
-      if (blocking.length > 0) {
-        throw new Error(
-          `${blocking.length} transação(ões) já liquidada(s) impedem a eliminação. Estorne primeiro.`,
-        );
-      }
+      const linkedTxIds = (forecastRows ?? [])
+        .map((f) => f.transaction_id)
+        .filter((x): x is string => !!x);
 
-      // Cascade-delete non-paid linked transactions
-      for (const tx of txLinks ?? []) {
-        await deleteTransactionCascade({
-          transactionId: tx.id,
-          user,
-          auditReason: "Eliminada via grelha BP",
-        });
+      let blockingCount = 0;
+      if (linkedTxIds.length > 0) {
+        const { data: txRows } = (await supabase
+          .from("transactions")
+          .select("id, status")
+          .in("id", linkedTxIds)) as { data: Array<{ id: string; status: string }> | null };
+        blockingCount = (txRows ?? []).filter((t) => t.status === "paid").length;
+        if (blockingCount > 0) {
+          throw new Error(
+            `${blockingCount} transação(ões) já liquidada(s) impedem a eliminação. Estorne primeiro.`,
+          );
+        }
+        // Cascade-delete non-paid linked transactions
+        for (const tx of txRows ?? []) {
+          await deleteTransactionCascade({
+            transactionId: tx.id,
+            user,
+            auditReason: "Eliminada via grelha BP",
+          });
+        }
       }
 
       // Move each forecast to trash + delete
