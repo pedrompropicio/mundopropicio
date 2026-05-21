@@ -3113,6 +3113,23 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
                     <AlertTriangle className="h-2.5 w-2.5" /> Sem TX
                   </span>
                 )}
+                {!item._readonly && !item._prorated && !item._overhead_via_master && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setShowNotesAttachments(true); }}
+                    className="ml-2 inline-flex items-center gap-1 rounded-md border border-border/60 bg-background/60 px-1.5 py-0.5 align-middle text-[10px] text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors"
+                    title={
+                      `Observações e anexos${hasNotes ? " · com observação" : ""}` +
+                      (totalAttachments > 0 ? ` · ${uploadCount} documento(s) + ${refLinkCount} link(s)` : "")
+                    }
+                  >
+                    {hasNotes && <StickyNote className="h-2.5 w-2.5 text-warning" />}
+                    <Paperclip className="h-2.5 w-2.5" />
+                    {totalAttachments > 0 && (
+                      <span className="font-semibold text-foreground">{totalAttachments}</span>
+                    )}
+                  </button>
+                )}
               </p>
               {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
               {hasMatchingTx && (
