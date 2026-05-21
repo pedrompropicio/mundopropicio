@@ -571,14 +571,25 @@ function AnaliseIATab() {
       const BATCH = 20;
       const allMatches: (AuditMatch & { rowIndex: number })[] = [];
 
+      const isPlaceholderCat = (code: string | null, name: string | null) => {
+        const c = (code || "").trim();
+        const n = (name || "").toLowerCase();
+        return c.startsWith("0.0.99") || n.includes("classificar");
+      };
+
       async function callBatch(slice: typeof merged, baseIndex: number, attempt = 0): Promise<void> {
         const { data, error } = await supabase.functions.invoke("audit-categories", {
           body: {
-            rows: slice.map((r) => ({
-              source: r.source, id: r.id, description: r.description, specification: r.specification,
-              current_category_code: r.current_category_code, current_category_name: r.current_category_name,
-              event_label: r.event_label,
-            })),
+            rows: slice.map((r) => {
+              const placeholder = isPlaceholderCat(r.current_category_code, r.current_category_name);
+              return {
+                source: r.source, id: r.id, description: r.description, specification: r.specification,
+                // Tratar "A Classificar" / 0.0.99 como SEM CATEGORIA para forçar sugestão real
+                current_category_code: placeholder ? null : r.current_category_code,
+                current_category_name: placeholder ? null : r.current_category_name,
+                event_label: r.event_label,
+              };
+            }),
             categories: leafCats.map((c) => ({ id: c.id, code: c.code, name: c.name })),
           },
         });
