@@ -33,6 +33,7 @@ export type Bucket =
   | "cache-extra-documents"
   | "camarim-documents"
   | "closing-cost-documents"
+  | "event-forecast-attachments"
   | "implementation-files"
   | "import-reports"
   | "partner-extra-documents"
