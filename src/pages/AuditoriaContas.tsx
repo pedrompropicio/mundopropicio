@@ -506,11 +506,13 @@ function AnaliseIATab() {
               .in("transaction_id", slice)
               .is("version_id", null);
 
-          (links || []).forEach((l: any) => {
-            if (l.transaction_id && l.category_id) txToBpCatMap.set(l.transaction_id, l.category_id);
-          });
+            (links || []).forEach((l: any) => {
+              if (l.transaction_id && l.category_id) txToBpCatMap.set(l.transaction_id, l.category_id);
+            });
+          }
         }
       }
+
       const catMapLocal = new Map(categories.map((c) => [c.id, c]));
       const getL2IdLocal = (catId: string | null | undefined): string | null => {
         if (!catId) return null;
