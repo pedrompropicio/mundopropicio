@@ -2115,7 +2115,49 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
           {isLoading ? (
             <p className="py-8 text-center text-muted-foreground">A carregar…</p>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4">
+              {/* Toggle Agrupada ↔ Grelha (Fase A.1 — apenas edição em massa) */}
+              <div className="flex items-center justify-end">
+                <div className="inline-flex rounded-md border border-border/60 bg-background/60 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setForecastsViewMode("grouped")}
+                    className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
+                      forecastsViewMode === "grouped"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <LayoutList className="h-3.5 w-3.5" />
+                    Agrupada
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForecastsViewMode("grid")}
+                    className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
+                      forecastsViewMode === "grid"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    title="Editor em grelha — edição em massa (Fase A.1)"
+                  >
+                    <Table2 className="h-3.5 w-3.5" />
+                    Grelha
+                  </button>
+                </div>
+              </div>
+
+              {forecastsViewMode === "grid" ? (
+                <BPGridEditor
+                  eventId={eventId}
+                  forecasts={forecasts}
+                  categories={categories as any}
+                  canEditBP={canEditBP}
+                  selectedVersionId={selectedVersionId}
+                />
+              ) : (
+                <div className="space-y-6">
+
               {/* Income section */}
               {!expenseOnly && typeFilter !== "expense" && <div className="glass rounded-xl p-5">
                 <div className="flex items-center justify-between mb-3">
