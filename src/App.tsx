@@ -106,6 +106,7 @@ import StaffList from "./pages/operacao/StaffList";
 import PessoaDetail from "./pages/operacao/PessoaDetail";
 import EquipaView from "./pages/operacao/EquipaView";
 import AcceptInvite from "./pages/operacao/AcceptInvite";
+import OperacaoOnboarding from "./pages/operacao/Onboarding";
 import OperacaoHome from "./pages/operacao/OperacaoHome";
 import CampoView from "./pages/operacao/CampoView";
 import OperacaoDashboard from "./pages/operacao/Dashboard";
@@ -500,6 +501,7 @@ function App() {
                   <Route path="/unsubscribe" element={<Unsubscribe />} />
                   <Route path="/accept-invitation" element={<AcceptInvitation />} />
                   <Route path="/operacao/accept-invite" element={<AcceptInvite />} />
+                  <Route path="/operacao/onboarding" element={<OperacaoOnboarding />} />
                   <Route path="/camarim-equipa" element={<CamarimEquipa />} />
                   <Route path="/parceiro/*" element={<PartnerLayout />} />
                   <Route path="/audience" element={<AudienceLayout />}>

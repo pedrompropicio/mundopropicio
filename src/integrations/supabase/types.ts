@@ -5910,8 +5910,11 @@ export type Database = {
           company_id: string | null
           created_at: string
           email: string | null
+          first_access_consumed_at: string | null
+          first_access_token: string | null
           full_name: string
           id: string
+          is_operacao_only: boolean
           phone: string | null
           profile_type: string
           updated_at: string
@@ -5923,8 +5926,11 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           email?: string | null
+          first_access_consumed_at?: string | null
+          first_access_token?: string | null
           full_name?: string
           id: string
+          is_operacao_only?: boolean
           phone?: string | null
           profile_type?: string
           updated_at?: string
@@ -5936,8 +5942,11 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           email?: string | null
+          first_access_consumed_at?: string | null
+          first_access_token?: string | null
           full_name?: string
           id?: string
+          is_operacao_only?: boolean
           phone?: string | null
           profile_type?: string
           updated_at?: string
