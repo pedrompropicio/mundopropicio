@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Camera, X, Loader2, ImagePlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -161,7 +161,7 @@ export function MediaCapture({ companyId, eventId, registroId, onChange, value }
         <div className="grid grid-cols-3 gap-2">
           {value.map((m, i) => (
             <MediaThumb
-              key={i}
+              key={m.file_url}
               media={m}
               onRemove={() => onChange(value.filter((_, j) => j !== i))}
             />
@@ -174,12 +174,14 @@ export function MediaCapture({ companyId, eventId, registroId, onChange, value }
 
 function MediaThumb({ media, onRemove }: { media: CapturedMedia; onRemove: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
-  const path = media.thumbnail_url ?? media.file_url;
-  if (!url) {
+  useEffect(() => {
+    let cancelled = false;
+    const path = media.thumbnail_url ?? media.file_url;
     supabase.storage.from("operacao-media").createSignedUrl(path, 3600).then(({ data }) => {
-      if (data?.signedUrl) setUrl(data.signedUrl);
+      if (!cancelled && data?.signedUrl) setUrl(data.signedUrl);
     });
-  }
+    return () => { cancelled = true; };
+  }, [media.file_url, media.thumbnail_url]);
   return (
     <div className="relative aspect-square rounded overflow-hidden bg-muted">
       {url ? (
