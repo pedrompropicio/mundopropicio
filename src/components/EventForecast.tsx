@@ -2801,6 +2801,27 @@ function ForecastRow({ item, colorClass, isExpense, onEdit, onDelete, onApprove,
   const [auditTransactionId, setAuditTransactionId] = useState<string | null>(null);
   const isDraft = item.status === "draft";
   const isApproved = item.status === "approved";
+  const [showNotesAttachments, setShowNotesAttachments] = useState(false);
+
+  // Count of native uploads for this BP line (event_forecast_attachments).
+  const { data: uploadCount = 0 } = useQuery({
+    queryKey: ["event_forecast_attachments_counts", item.id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("event_forecast_attachments" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("forecast_id", item.id);
+      return count ?? 0;
+    },
+    enabled: !item._readonly && !item._prorated && !item._overhead_via_master,
+    staleTime: 60_000,
+  });
+
+  const refLinkCount = Array.isArray(item.attachment_refs)
+    ? (item.attachment_refs as any[]).filter((r) => r && typeof r.url === "string").length
+    : 0;
+  const hasNotes = !!(item.notes && String(item.notes).trim().length > 0);
+  const totalAttachments = uploadCount + refLinkCount;
 
   const togglePartner = async (partnerId: string) => {
     if (!queryClient || !eventId) return;
