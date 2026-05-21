@@ -14,7 +14,9 @@
  * Phase A.2 (later): matrix paste, full inline validations, INSERT/DELETE in bulk.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useBlocker } from "react-router-dom";
+// NOTE: useBlocker requires a data router (createBrowserRouter). This app uses
+// the classic <BrowserRouter>, so importing/using it throws and white-screens
+// the page (notably visible on mobile iOS). We rely on beforeunload only.
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Save, Lock, AlertTriangle, Undo2 } from "lucide-react";
