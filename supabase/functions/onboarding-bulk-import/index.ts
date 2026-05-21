@@ -47,25 +47,29 @@ Deno.serve(async (req) => {
     if (!authHeader.startsWith("Bearer ")) return json(401, { error: "unauthorized" });
     const jwt = authHeader.slice(7);
 
-    const anonClient = createClient(url, anonKey);
-    const { data: claimsData, error: claimsErr } = await anonClient.auth.getClaims(jwt);
-    if (claimsErr || !claimsData?.claims) return json(401, { error: "unauthorized" });
-    const callerId = claimsData.claims.sub as string;
-
     const admin = createClient(url, serviceKey);
 
-    // Authorization: platform_admin OR admin/manager role
-    const { data: isPlatform } = await admin.rpc("is_platform_admin", { _user_id: callerId });
-    let allowed = !!isPlatform;
-    if (!allowed) {
-      const { data: roleRows } = await admin
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", callerId)
-        .in("role", ["admin", "manager"]);
-      allowed = (roleRows ?? []).length > 0;
+    if (jwt === serviceKey) {
+      console.log("[bulk-import] service_role bypass active");
+    } else {
+      const anonClient = createClient(url, anonKey);
+      const { data: claimsData, error: claimsErr } = await anonClient.auth.getClaims(jwt);
+      if (claimsErr || !claimsData?.claims) return json(401, { error: "unauthorized" });
+      const callerId = claimsData.claims.sub as string;
+
+      // Authorization: platform_admin OR admin/manager role
+      const { data: isPlatform } = await admin.rpc("is_platform_admin", { _user_id: callerId });
+      let allowed = !!isPlatform;
+      if (!allowed) {
+        const { data: roleRows } = await admin
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", callerId)
+          .in("role", ["admin", "manager"]);
+        allowed = (roleRows ?? []).length > 0;
+      }
+      if (!allowed) return json(403, { error: "forbidden" });
     }
-    if (!allowed) return json(403, { error: "forbidden" });
 
     const body = await req.json().catch(() => ({}));
     const company_id = body?.company_id;
