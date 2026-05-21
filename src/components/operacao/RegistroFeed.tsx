@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { resolveOperacaoMediaUrl } from "@/lib/operacao-media";
 
 type Filter = { frente_id?: string; etapa_id?: string; kindNot?: string; kind?: string };
 
@@ -156,33 +157,33 @@ function MediaThumb({ m }: { m: any }) {
     let cancelled = false;
     const p = m.thumbnail_url ?? m.file_url;
     if (!p) { setError("sem ficheiro"); return; }
-    supabase.storage.from("operacao-media").createSignedUrl(p, 3600)
-      .then(({ data, error: e }) => {
+    resolveOperacaoMediaUrl({ path: p, mediaId: m.id, registroId: m.registro_id })
+      .then((signedUrl) => {
         if (cancelled) return;
-        if (e || !data?.signedUrl) {
-          console.error("[MediaThumb] signed url failed", { path: p, error: e });
+        if (!signedUrl) {
+          console.error("[MediaThumb] signed url failed", { path: p });
           // Fallback: try file_url if we were using thumbnail_url
           if (m.thumbnail_url && m.file_type !== "video") {
-            supabase.storage.from("operacao-media").createSignedUrl(m.file_url, 3600)
-              .then(({ data: d2, error: e2 }) => {
+            resolveOperacaoMediaUrl({ path: m.file_url, mediaId: m.id, registroId: m.registro_id })
+              .then((fallbackUrl) => {
                 if (cancelled) return;
-                if (d2?.signedUrl) setUrl(d2.signedUrl);
-                else setError(e2?.message ?? "falhou");
+                if (fallbackUrl) setUrl(fallbackUrl);
+                else setError("falhou");
               });
           } else {
-            setError(e?.message ?? "falhou");
+            setError("falhou");
           }
           return;
         }
-        setUrl(data.signedUrl);
+        setUrl(signedUrl);
       });
     return () => { cancelled = true; };
   }, [m]);
   const handleOpen = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!full) {
-      const { data } = await supabase.storage.from("operacao-media").createSignedUrl(m.file_url, 3600);
-      if (data?.signedUrl) setFull(data.signedUrl);
+      const signedUrl = await resolveOperacaoMediaUrl({ path: m.file_url, mediaId: m.id, registroId: m.registro_id });
+      if (signedUrl) setFull(signedUrl);
     }
     setOpen(true);
   };
@@ -223,8 +224,7 @@ function MediaThumb({ m }: { m: any }) {
 function AudioPlayer({ path }: { path: string }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
-    supabase.storage.from("operacao-media").createSignedUrl(path, 3600)
-      .then(({ data }) => data?.signedUrl && setUrl(data.signedUrl));
+    resolveOperacaoMediaUrl({ path }).then((signedUrl) => signedUrl && setUrl(signedUrl));
   }, [path]);
   if (!url) return null;
   return <audio controls src={url} className="mt-2 w-full h-8" onClick={(e) => e.stopPropagation()} />;

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Camera, X, Loader2, ImagePlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveOperacaoMediaUrl } from "@/lib/operacao-media";
 import { toast } from "sonner";
 
 
@@ -177,8 +178,8 @@ function MediaThumb({ media, onRemove }: { media: CapturedMedia; onRemove: () =>
   useEffect(() => {
     let cancelled = false;
     const path = media.thumbnail_url ?? media.file_url;
-    supabase.storage.from("operacao-media").createSignedUrl(path, 3600).then(({ data }) => {
-      if (!cancelled && data?.signedUrl) setUrl(data.signedUrl);
+    resolveOperacaoMediaUrl({ path, registroId: media.file_url.split("/")[2] }).then((signedUrl) => {
+      if (!cancelled && signedUrl) setUrl(signedUrl);
     });
     return () => { cancelled = true; };
   }, [media.file_url, media.thumbnail_url]);
