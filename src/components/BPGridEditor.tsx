@@ -322,11 +322,12 @@ export default function BPGridEditor({
                 <div>
                   <SearchableSelect
                     value={currentVal("category_id", row.category_id ?? "")}
-                    onChange={(v: string) => updateField(row.id, "category_id", v || null, row.category_id)}
+                    onValueChange={(v: string) => updateField(row.id, "category_id", v || null, row.category_id)}
                     options={opts}
                     placeholder="Selecionar L3…"
                     disabled={lock.locked}
                   />
+
                 </div>
                 <div>
                   <input
