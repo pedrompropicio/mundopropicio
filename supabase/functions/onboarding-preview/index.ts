@@ -1,4 +1,4 @@
-// onboarding-preview — público. Lê token e devolve nome + email mascarado.
+// onboarding-preview — público. Lê token e devolve nome + email mascarado + branding da empresa.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.0";
 
 const corsHeaders = {
@@ -41,16 +41,32 @@ Deno.serve(async (req) => {
 
     const { data: profile } = await admin
       .from("profiles")
-      .select("full_name, email, first_access_consumed_at")
+      .select("full_name, email, first_access_consumed_at, company_id")
       .eq("first_access_token", token)
       .maybeSingle();
 
     if (!profile) return json(404, { error: "invalid_token" });
     if (profile.first_access_consumed_at) return json(410, { error: "token_consumed" });
 
+    let company: { display_name: string | null; logo_url: string | null } | null = null;
+    if (profile.company_id) {
+      const { data: c } = await admin
+        .from("companies")
+        .select("display_name, legal_name, logo_url")
+        .eq("id", profile.company_id)
+        .maybeSingle();
+      if (c) {
+        company = {
+          display_name: c.display_name ?? c.legal_name ?? null,
+          logo_url: c.logo_url ?? null,
+        };
+      }
+    }
+
     return json(200, {
       full_name: profile.full_name,
       email_masked: maskEmail(profile.email),
+      company,
     });
   } catch (e) {
     console.error("onboarding-preview error", e);

@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import logoMP from "@/assets/logo-horizontal.png";
+
 
 type Phase = "loading" | "ready" | "submitting" | "consumed" | "invalid" | "error";
 
@@ -29,6 +29,7 @@ export default function Onboarding() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [fullName, setFullName] = useState("");
   const [emailMasked, setEmailMasked] = useState("");
+  const [company, setCompany] = useState<{ display_name: string | null; logo_url: string | null } | null>(null);
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -58,9 +59,10 @@ export default function Onboarding() {
           }
           throw new Error(body?.error ?? error.message);
         }
-        const d = data as { full_name: string; email_masked: string };
+        const d = data as { full_name: string; email_masked: string; company: { display_name: string | null; logo_url: string | null } | null };
         setFullName(d.full_name ?? "");
         setEmailMasked(d.email_masked ?? "");
+        setCompany(d.company ?? null);
         setPhase("ready");
       } catch (e: any) {
         setPhase("error");
@@ -94,7 +96,12 @@ export default function Onboarding() {
           setPhase("ready");
           return;
         }
-        throw new Error(body?.error ?? error.message);
+        if (status === 422 || body?.error === "weak_password") {
+          toast.error(body?.message ?? "Password demasiado fraca. Escolhe outra.");
+          setPhase("ready");
+          return;
+        }
+        throw new Error(body?.message ?? body?.error ?? error.message);
       }
       const { access_token, refresh_token, redirect_to } = data as any;
       const { error: sErr } = await supabase.auth.setSession({ access_token, refresh_token });
@@ -116,7 +123,17 @@ export default function Onboarding() {
       }}
     >
       <div className="w-full max-w-sm space-y-6">
-        <img src={logoMP} alt="MP Gestão Eventos" className="h-9 mx-auto object-contain opacity-80" />
+        {company?.logo_url ? (
+          <img
+            src={company.logo_url}
+            alt={company.display_name ?? ""}
+            className="h-12 mx-auto object-contain"
+          />
+        ) : (
+          <p className="text-center text-lg font-semibold text-muted-foreground">
+            {company?.display_name ?? "MP Gestão Eventos"}
+          </p>
+        )}
 
         {phase === "loading" && (
           <div className="text-center space-y-3 py-8">

@@ -60,6 +60,16 @@ Deno.serve(async (req) => {
     });
     if (updErr) {
       console.error("auth update failed", updErr);
+      const code = (updErr as any)?.code;
+      if (code === "weak_password" || (updErr as any)?.status === 422) {
+        // Liberta o rate-limit para o user poder tentar outra password de imediato
+        attempts.delete(token);
+        return json(422, {
+          error: "weak_password",
+          message:
+            "Esta password é demasiado fraca ou apareceu em fugas de dados conhecidas. Escolhe outra (idealmente com 12+ caracteres, misturando letras, números e símbolos).",
+        });
+      }
       return json(500, { error: `auth_update_failed: ${updErr.message}` });
     }
 
