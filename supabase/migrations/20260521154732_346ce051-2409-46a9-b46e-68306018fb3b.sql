@@ -1,0 +1,22 @@
+INSERT INTO public.role_permissions (role, permission) VALUES
+  ('admin'::app_role,'view_operacao'),
+  ('admin'::app_role,'register_operacao'),
+  ('admin'::app_role,'manage_operacao_frentes'),
+  ('admin'::app_role,'manage_operacao_etapas'),
+  ('admin'::app_role,'manage_operacao_staff'),
+  ('manager'::app_role,'view_operacao'),
+  ('manager'::app_role,'register_operacao'),
+  ('manager'::app_role,'manage_operacao_frentes'),
+  ('manager'::app_role,'manage_operacao_etapas'),
+  ('manager'::app_role,'manage_operacao_staff'),
+  ('editor'::app_role,'view_operacao'),
+  ('editor'::app_role,'register_operacao'),
+  ('viewer'::app_role,'view_operacao'),
+  ('field_producer'::app_role,'view_operacao'),
+  ('field_producer'::app_role,'register_operacao'),
+  ('producer'::app_role,'view_operacao'),
+  ('producer'::app_role,'register_operacao'),
+  ('producer'::app_role,'manage_operacao_frentes'),
+  ('producer'::app_role,'manage_operacao_etapas'),
+  ('producer'::app_role,'manage_operacao_staff')
+ON CONFLICT (role, permission) DO NOTHING;
