@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, Square, Loader2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveOperacaoMediaUrl } from "@/lib/operacao-media";
 
 interface Props {
   companyId: string;
@@ -22,8 +23,8 @@ export function AudioRecorder({ companyId, eventId, registroId, value, onChange 
 
   useEffect(() => {
     if (!value) { setPreviewUrl(null); return; }
-    supabase.storage.from("operacao-media").createSignedUrl(value, 3600).then(({ data }) => {
-      if (data?.signedUrl) setPreviewUrl(data.signedUrl);
+    resolveOperacaoMediaUrl({ path: value, registroId }).then((signedUrl) => {
+      if (signedUrl) setPreviewUrl(signedUrl);
     });
   }, [value]);
 
