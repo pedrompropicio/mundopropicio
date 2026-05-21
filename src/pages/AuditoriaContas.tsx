@@ -765,7 +765,7 @@ function AnaliseIATab() {
         <div className="w-full sm:w-[260px]">
           <label className="text-xs uppercase tracking-wider text-muted-foreground block mb-1.5 flex items-center gap-1.5">
             Versão
-            <HelpTooltip content="Por defeito audita a Versão Ativa. Podes auditar um cenário em desenvolvimento — nesse modo só são analisadas linhas do BP do cenário (transações não têm versão e ficam de fora)." />
+            <HelpTooltip text="Por defeito audita a Versão Ativa. Podes auditar um cenário em desenvolvimento — nesse modo só são analisadas linhas do BP do cenário (transações não têm versão e ficam de fora)." />
           </label>
           <Select
             value={versionId ?? "__active__"}
