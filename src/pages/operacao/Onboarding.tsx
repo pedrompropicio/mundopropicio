@@ -71,7 +71,8 @@ export default function Onboarding() {
 
   const strength = useMemo(() => scorePassword(password), [password]);
   const passwordsMatch = password.length > 0 && password === confirm;
-  const canSubmit = password.length >= 8 && passwordsMatch && phase === "ready";
+  const submitting = phase === "submitting";
+  const canSubmit = password.length >= 8 && passwordsMatch && !submitting;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -220,8 +221,8 @@ export default function Onboarding() {
               </label>
             </div>
 
-            <Button type="submit" disabled={!canSubmit || phase === "submitting"} className="w-full h-12 text-base">
-              {phase === "submitting" ? (
+            <Button type="submit" disabled={!canSubmit} className="w-full h-12 text-base">
+              {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   A activar…
