@@ -637,6 +637,29 @@ export default function CrmStrategyView() {
         </Card>
       )}
 
+      {/* Counter-proposals — alternativas quando plano é impossible */}
+      {Array.isArray((summary as any).counter_proposals) && (summary as any).counter_proposals.length > 0 && (
+        <div className="space-y-3">
+          <div>
+            <h3 className="text-base font-semibold mb-1 flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-blue-400" />
+              Como tornar este plano viável
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Sugestões automáticas baseadas em matemática auditável. Aplica uma e regenera o plano.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {([...((summary as any).counter_proposals as CounterProposal[])]
+              .sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99))
+            ).map((p, i) => (
+              <CounterProposalCard key={p.id ?? i} proposal={p} />
+            ))}
+          </div>
+        </div>
+      )}
+
+
       {/* Sprint 3c-2.5 — Banner deploy_warning (não bloqueante, só se não há deploy_blocked) */}
       {!plan.automation_metadata?.deploy_blocked_reason && plan.automation_metadata?.deploy_warning && (
         <Card className="p-4 border-amber-500/40 bg-amber-500/5">
