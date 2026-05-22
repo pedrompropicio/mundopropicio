@@ -174,22 +174,22 @@ export default function EtapaDetail() {
           <div className="grid grid-cols-3 gap-2">
             <Tooltip><TooltipTrigger asChild>
               <span className="contents">
-                <Button size="sm" variant="outline" disabled={!canChangeStatus || etapa.status === "in_progress"} onClick={() => setStatus("in_progress", { actual_start: new Date().toISOString() })}>
-                  <Play className="h-4 w-4 mr-1" /> Iniciar
+                <Button size="sm" variant="outline" className="w-full justify-center px-2 min-w-0" disabled={!canChangeStatus || etapa.status === "in_progress"} onClick={() => setStatus("in_progress", { actual_start: new Date().toISOString() })}>
+                  <Play className="h-4 w-4 mr-1 shrink-0" /> <span className="truncate">Iniciar</span>
                 </Button>
               </span>
             </TooltipTrigger>{isDirectorOnly && <TooltipContent>Sem permissão para editar</TooltipContent>}</Tooltip>
             <Tooltip><TooltipTrigger asChild>
               <span className="contents">
-                <Button size="sm" variant="outline" disabled={!canChangeStatus || etapa.status === "blocked"} onClick={() => setStatus("blocked")}>
-                  <Ban className="h-4 w-4 mr-1" /> Bloquear
+                <Button size="sm" variant="outline" className="w-full justify-center px-2 min-w-0" disabled={!canChangeStatus || etapa.status === "blocked"} onClick={() => setStatus("blocked")}>
+                  <Ban className="h-4 w-4 mr-1 shrink-0" /> <span className="truncate">Bloquear</span>
                 </Button>
               </span>
             </TooltipTrigger>{isDirectorOnly && <TooltipContent>Sem permissão para editar</TooltipContent>}</Tooltip>
             <Tooltip><TooltipTrigger asChild>
               <span className="contents">
-                <Button size="sm" variant="outline" disabled={!canChangeStatus || etapa.status === "done"} onClick={() => setStatus("done", { actual_end: new Date().toISOString() })}>
-                  <CheckCircle2 className="h-4 w-4 mr-1" /> Concluir
+                <Button size="sm" variant="outline" className="w-full justify-center px-2 min-w-0" disabled={!canChangeStatus || etapa.status === "done"} onClick={() => setStatus("done", { actual_end: new Date().toISOString() })}>
+                  <CheckCircle2 className="h-4 w-4 mr-1 shrink-0" /> <span className="truncate">Concluir</span>
                 </Button>
               </span>
             </TooltipTrigger>{isDirectorOnly && <TooltipContent>Sem permissão para editar</TooltipContent>}</Tooltip>
