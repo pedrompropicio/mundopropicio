@@ -87,7 +87,7 @@ export function PessoasListTab({ eventId }: Props) {
       if (ids.length > 0) {
         const { data: tRows } = await supabase
           .from("operacao_frente_team")
-          .select("profile_id, role_in_frente, operacao_frentes!inner(type, status)")
+          .select("profile_id, role_in_frente, operacao_frentes!inner(type, status, name)")
           .in("profile_id", ids)
           .eq("role_in_frente", "lead")
           .eq("active", true);
@@ -98,8 +98,16 @@ export function PessoasListTab({ eventId }: Props) {
 
       return (profiles ?? []).map((p: any) => {
         const mine = teamRows.filter((r) => r.profile_id === p.id);
-        const zoneCount = mine.filter((r) => r.operacao_frentes?.type === "zone").length;
-        const serviceCount = mine.filter((r) => r.operacao_frentes?.type === "service").length;
+        const zones = mine
+          .filter((r) => r.operacao_frentes?.type === "zone")
+          .map((r) => r.operacao_frentes?.name as string)
+          .filter(Boolean)
+          .sort();
+        const services = mine
+          .filter((r) => r.operacao_frentes?.type === "service")
+          .map((r) => r.operacao_frentes?.name as string)
+          .filter(Boolean)
+          .sort();
         return {
           id: p.id,
           full_name: p.full_name,
@@ -107,8 +115,8 @@ export function PessoasListTab({ eventId }: Props) {
           phone: p.phone,
           profile_type: p.profile_type,
           archived_at: p.archived_at,
-          zoneCount,
-          serviceCount,
+          zones,
+          services,
         };
       });
     },
