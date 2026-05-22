@@ -128,11 +128,12 @@ async function attachUserToCompany(
   role: string,
   fullName: string,
   email: string,
+  isOperacaoOnly: boolean = false,
 ) {
   // 1) Profile: only insert if missing — never overwrite another company's primary.
   const { data: existingProfile } = await adminClient
     .from("profiles")
-    .select("id")
+    .select("id, is_operacao_only")
     .eq("id", userId)
     .maybeSingle();
 
@@ -142,8 +143,12 @@ async function attachUserToCompany(
       full_name: fullName,
       email,
       company_id: companyId,
+      is_operacao_only: isOperacaoOnly,
     });
     if (pErr) throw new Error(`Erro ao criar perfil: ${pErr.message}`);
+  } else if (isOperacaoOnly && existingProfile.is_operacao_only !== true) {
+    // Caller pediu operação-only e perfil existente ainda não está marcado.
+    await adminClient.from("profiles").update({ is_operacao_only: true }).eq("id", userId);
   }
 
   // 2) Insert user_role for (user, company, role) — UNIQUE permite N empresas.
