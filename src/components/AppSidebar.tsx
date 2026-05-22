@@ -72,9 +72,6 @@ export function AppSidebar() {
       show: hasPermission("view_operacao") || isAdmin },
     { to: "/operacao/atividade",      icon: Activity,        label: "Atividade",
       show: hasPermission("view_operacao") || isAdmin },
-    { divider: true, key: "admin" },
-    { to: "/operacao/staff",          icon: Users,           label: "Staff",
-      show: hasPermission("manage_operacao_staff") || isAdmin },
   ];
 
 
