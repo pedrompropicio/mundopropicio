@@ -254,19 +254,22 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
     doc.setTextColor(0);
     y += 22;
 
-    // Group by frente type: zone first, then service
-    const renderGroup = async (typeLabel: string, frenteType: "zone" | "service") => {
+    // Group by frente type: zone first, then service, then anything else
+    const renderGroup = async (
+      typeLabel: string,
+      predicate: (f: any) => boolean
+    ) => {
       const groupFrentes = frentes
-        .filter((f) => f.type === frenteType)
+        .filter(predicate)
         .filter((f) => phaseEtapas.some((e) => e.frente_id === f.id));
       if (!groupFrentes.length) return;
 
-      ensureSpace(28);
+      ensureSpace(40);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(80);
       doc.text(typeLabel.toUpperCase(), margin, y);
-      y += 14;
+      y += 16;
       doc.setTextColor(0);
 
       for (const f of groupFrentes) {
@@ -277,26 +280,26 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
     };
 
     const renderFrente = async (f: any, items: any[]) => {
-      ensureSpace(40);
+      ensureSpace(50);
       // Frente header
       const [fr, fg, fb] = f.color ? hexToRgb(f.color) : [99, 102, 241];
       doc.setFillColor(fr, fg, fb);
       doc.rect(margin, y, 4, 14, "F");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
+      const nameWidth = doc.getTextWidth(f.name);
       doc.text(f.name, margin + 10, y + 11);
       const leadName = f.current_lead_id ? profilesById.get(f.current_lead_id) : null;
       if (leadName) {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
         doc.setTextColor(120);
-        doc.text(`· ${leadName}`, margin + 10 + doc.getTextWidth(f.name) + 4, y + 11);
+        doc.text(`· ${leadName}`, margin + 10 + nameWidth + 6, y + 11);
         doc.setTextColor(0);
       }
-      y += 18;
+      y += 22;
 
       if (opts.detail === "compact") {
-        // single table
         autoTable(doc, {
           startY: y,
           head: [["Etapa", "Status", "Datas", "Responsável"]],
@@ -310,26 +313,27 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
           headStyles: { fillColor: [241, 245, 249], textColor: 0 },
           margin: { left: margin + 8, right: margin },
         });
-        y = (doc as any).lastAutoTable.finalY + 10;
+        y = (doc as any).lastAutoTable.finalY + 12;
         return;
       }
 
       // medium / full
       for (const e of items) {
-        ensureSpace(40);
+        ensureSpace(50);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(10);
         doc.text(`• ${e.name}`, margin + 12, y);
+        y += 13;
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
-        doc.setTextColor(100);
+        doc.setTextColor(110);
         doc.text(
-          `${STATUS_LABEL[e.status] ?? e.status} · ${fmtRange(e.planned_start, e.planned_end)}`,
-          margin + 12,
-          y + 12
+          `${STATUS_LABEL[e.status] ?? e.status}  ·  ${fmtRange(e.planned_start, e.planned_end)}`,
+          margin + 16,
+          y
         );
         doc.setTextColor(0);
-        y += 22;
+        y += 13;
 
         const meta: string[] = [];
         if (e.responsible_profile_id) {
@@ -342,13 +346,13 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
         }
         if (e.escopo) meta.push(`Escopo: ${e.escopo}`);
         if (meta.length) {
-          ensureSpace(14 * meta.length);
           doc.setFontSize(9);
-          meta.forEach((m) => {
-            const lines = doc.splitTextToSize(m, pageW - margin * 2 - 16);
+          for (const m of meta) {
+            const lines = doc.splitTextToSize(m, pageW - margin * 2 - 18);
+            ensureSpace(11 * lines.length + 2);
             doc.text(lines, margin + 16, y);
             y += 11 * lines.length;
-          });
+          }
           y += 4;
         }
 
@@ -356,12 +360,12 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
         if (opts.detail === "full") {
           const regs = registrosByEtapa.get(e.id) ?? [];
           if (regs.length) {
-            ensureSpace(14);
+            ensureSpace(16);
             doc.setFontSize(9);
             doc.setTextColor(80);
             doc.text("Registos:", margin + 16, y);
             doc.setTextColor(0);
-            y += 12;
+            y += 13;
             for (const r of regs) {
               const author = profilesById.get(r.author_profile_id) ?? "—";
               const when = new Date(r.created_at).toLocaleString("pt-PT", {
@@ -373,41 +377,54 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
               const text = r.text ?? r.transcribed_text ?? "(sem texto)";
               const head = `${when} · ${author}`;
               const lines = doc.splitTextToSize(text, pageW - margin * 2 - 24);
-              ensureSpace(11 + 11 * lines.length + 6);
+              ensureSpace(12 + 11 * lines.length + 6);
               doc.setFontSize(8);
               doc.setTextColor(120);
               doc.text(head, margin + 20, y);
-              y += 10;
+              y += 11;
               doc.setTextColor(0);
               doc.setFontSize(9);
               doc.text(lines, margin + 20, y);
               y += 11 * lines.length + 4;
 
+              // Photos — side by side (2 per row)
               if (opts.includePhotos && r.media?.length) {
+                const colW = (pageW - margin * 2 - 24 - 10) / 2;
+                const loaded: { data: string; w: number; h: number }[] = [];
                 for (const m of r.media as any[]) {
                   const img = await imageUrlToDataUrl(m.file_url);
-                  if (!img) continue;
-                  const targetW = 180;
-                  const targetH = (img.h / img.w) * targetW;
-                  ensureSpace(targetH + 8);
+                  if (img) loaded.push(img);
+                }
+                for (let i = 0; i < loaded.length; i += 2) {
+                  const a = loaded[i];
+                  const b = loaded[i + 1];
+                  const aH = (a.h / a.w) * colW;
+                  const bH = b ? (b.h / b.w) * colW : 0;
+                  const rowH = Math.max(aH, bH);
+                  ensureSpace(rowH + 8);
                   try {
-                    doc.addImage(img.data, "JPEG", margin + 20, y, targetW, targetH);
+                    doc.addImage(a.data, "JPEG", margin + 20, y, colW, aH);
+                    if (b) {
+                      doc.addImage(b.data, "JPEG", margin + 20 + colW + 10, y, colW, bH);
+                    }
                   } catch {
                     /* skip */
                   }
-                  y += targetH + 8;
+                  y += rowH + 8;
                 }
               }
             }
             y += 4;
           }
         }
+        y += 4;
       }
-      y += 6;
+      y += 8;
     };
 
-    await renderGroup("Zonas Físicas", "zone");
-    await renderGroup("Serviços Transversais", "service");
+    await renderGroup("Zonas Físicas", (f) => f.type === "zone");
+    await renderGroup("Serviços Transversais", (f) => f.type === "service");
+    await renderGroup("Outras frentes", (f) => f.type !== "zone" && f.type !== "service");
   }
 
   doc.save(`relatorio-operacional-${(event.name ?? "evento").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.pdf`);
