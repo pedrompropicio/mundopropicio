@@ -23,6 +23,7 @@ import { useOperacaoMode } from "@/hooks/useOperacaoMode";
 
 export default function FrenteDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { user, hasPermission, isAdmin } = useAuth();
   const [chamadoStatus, setChamadoStatus] = useState<string>("open");
   const [newEtapaOpen, setNewEtapaOpen] = useState(false);
