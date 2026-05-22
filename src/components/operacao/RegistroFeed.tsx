@@ -103,7 +103,7 @@ export function RegistroFeed({ filter, pageSize = 20 }: { filter: Filter; pageSi
           const Icon = KIND_ICON[r.kind] ?? MessageSquare;
           const ms = (medias ?? []).filter((m: any) => m.registro_id === r.id);
           const canEdit = user?.id === r.author_profile_id || isAdmin || isManager;
-          const canDelete = isAdmin || isManager;
+          const canDelete = user?.id === r.author_profile_id || isAdmin || isManager;
           return (
             <div
               key={r.id}
