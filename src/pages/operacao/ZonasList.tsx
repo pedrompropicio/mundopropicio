@@ -177,18 +177,29 @@ export default function ZonasList() {
         });
       });
 
-      const rows: ZonaCardData[] = frentes.map((f) => ({
-        id: f.id,
-        name: f.name,
-        type: f.type,
-        color: f.color,
-        status: f.status,
-        event: f.event ?? null,
-        lead: f.lead ?? null,
-        current_lead_id: f.lead?.id ?? null,
-        leads: leadsByFrente[f.id] ?? [],
-        counts: countsByFrente[f.id] ?? emptyCounts(),
-      }));
+      const rows: ZonaCardData[] = frentes.map((f) => {
+        const teamLeads = leadsByFrente[f.id] ?? [];
+        // Fallback: se não há team rows mas existe current_lead_id, usa-o
+        const leads =
+          teamLeads.length > 0
+            ? teamLeads
+            : f.lead
+            ? [{ profile_id: f.lead.id, full_name: f.lead.full_name }]
+            : [];
+        return {
+          id: f.id,
+          name: f.name,
+          type: f.type,
+          color: f.color,
+          status: f.status,
+          event: f.event ?? null,
+          lead: f.lead ?? null,
+          current_lead_id: f.lead?.id ?? null,
+          leads,
+          counts: countsByFrente[f.id] ?? emptyCounts(),
+        };
+      });
+
 
       return { rows, count: count ?? 0 };
     },
