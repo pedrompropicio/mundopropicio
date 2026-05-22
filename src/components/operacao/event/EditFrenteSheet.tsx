@@ -47,22 +47,36 @@ export function EditFrenteSheet({
   const [name, setName] = useState("");
   const [color, setColor] = useState(PALETTE[5]);
   const [type, setType] = useState<"zone" | "service">("zone");
-  const [leadId, setLeadId] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [showNewProfile, setShowNewProfile] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState("");
 
   useEffect(() => {
     if (!frente) return;
     setName(frente.name ?? "");
     setColor(frente.color ?? PALETTE[5]);
     setType((frente.type as any) === "service" ? "service" : "zone");
-    setLeadId(frente.current_lead_id ?? "");
   }, [frente?.id]);
 
-  // Profiles filtrados por roles elegíveis (admin/manager/producer)
-  // + garante que o produtor atual (current_lead_id) aparece sempre, mesmo que role não seja elegível
+  // Equipa actual de leads (multi-produtor)
+  const { data: leads } = useQuery({
+    queryKey: ["op-edit-frente-leads", frenteId],
+    enabled: !!frenteId && open,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_frente_team")
+        .select("profile_id, role_in_frente, is_permanent_lead, active, profiles:profile_id(id,full_name)")
+        .eq("frente_id", frenteId!)
+        .eq("role_in_frente", "lead")
+        .eq("active", true);
+      return data ?? [];
+    },
+  });
+
+  // Profiles candidatos (roles elegíveis)
   const { data: profiles } = useQuery({
-    queryKey: ["op-edit-frente-profiles", frente?.company_id, frente?.current_lead_id],
+    queryKey: ["op-edit-frente-profiles", frente?.company_id],
     enabled: !!frente?.company_id,
     queryFn: async () => {
       const { data: roleRows } = await supabase
@@ -71,7 +85,6 @@ export function EditFrenteSheet({
         .eq("company_id", frente!.company_id)
         .in("role", ELIGIBLE_LEAD_ROLES as any);
       const eligibleIds = new Set((roleRows ?? []).map((r: any) => r.user_id));
-      if (frente?.current_lead_id) eligibleIds.add(frente.current_lead_id);
       const ids = Array.from(eligibleIds);
       if (ids.length === 0) return [];
       const { data } = await supabase
@@ -85,12 +98,40 @@ export function EditFrenteSheet({
     },
   });
 
-  const leadFieldLabel = type === "service" ? "Produtor de Serviço" : "Produtor de Zona";
+  const leadIds = new Set((leads ?? []).map((l: any) => l.profile_id));
+  const candidates = (profiles ?? [])
+    .filter((p: any) => !leadIds.has(p.id))
+    .filter((p: any) => pickerSearch ? (p.full_name ?? "").toLowerCase().includes(pickerSearch.toLowerCase()) : true);
 
-  const handleLeadSelect = (v: string) => {
-    if (v === NEW_PROFILE_SENTINEL) { setShowNewProfile(true); return; }
-    if (v === "__none__") { setLeadId(""); return; }
-    setLeadId(v);
+  const leadFieldLabel = type === "service" ? "Produtores de Serviço" : "Produtores de Zona";
+
+  const invalidateLeads = () => {
+    qc.invalidateQueries({ queryKey: ["op-edit-frente-leads", frenteId] });
+    qc.invalidateQueries({ queryKey: ["op-edit-frente", frenteId] });
+    qc.invalidateQueries({ queryKey: ["op-hub-frentes"] });
+  };
+
+  const handleAdd = async (profileId: string) => {
+    if (!frente) return;
+    const { error } = await addFrenteLead({ frenteId: frente.id, profileId, companyId: frente.company_id });
+    if (error) return toast({ title: "Erro", description: error, variant: "destructive" });
+    invalidateLeads();
+    setPickerOpen(false);
+    setPickerSearch("");
+  };
+
+  const handleRemove = async (profileId: string) => {
+    if (!frente) return;
+    const { error } = await removeFrenteLead({ frenteId: frente.id, profileId });
+    if (error) return toast({ title: "Erro", description: error, variant: "destructive" });
+    invalidateLeads();
+  };
+
+  const handleSetPrimary = async (profileId: string) => {
+    if (!frente) return;
+    const { error } = await setPrimaryLead({ frenteId: frente.id, profileId });
+    if (error) return toast({ title: "Erro", description: error, variant: "destructive" });
+    invalidateLeads();
   };
 
   const save = async () => {
@@ -99,25 +140,11 @@ export function EditFrenteSheet({
     const { error } = await supabase.from("operacao_frentes").update({
       name: name.trim(), color, type,
     }).eq("id", frente.id);
+    setSaving(false);
     if (error) {
-      setSaving(false);
       toast({ title: "Erro", description: error.message, variant: "destructive" });
       return;
     }
-
-    // (helper já importado no topo do ficheiro)
-    const { error: leadErr } = await setFrenteLead({
-      frenteId: frente.id,
-      profileId: leadId || null,
-      companyId: frente.company_id,
-    });
-    if (leadErr) {
-      setSaving(false);
-      toast({ title: "Erro a atribuir produtor", description: leadErr, variant: "destructive" });
-      return;
-    }
-
-    setSaving(false);
     toast({ title: "Atualizado" });
     qc.invalidateQueries({ queryKey: ["op-hub-frentes"] });
     qc.invalidateQueries({ queryKey: ["op-hub-setup-counts"] });
@@ -126,6 +153,7 @@ export function EditFrenteSheet({
     onChanged?.();
     onClose();
   };
+
 
   const remove = async () => {
     if (!frente) return;
