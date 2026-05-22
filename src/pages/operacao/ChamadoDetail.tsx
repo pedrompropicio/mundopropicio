@@ -39,7 +39,7 @@ export default function ChamadoDetail() {
 
   if (!c) return <div className="p-6">A carregar...</div>;
   const frente = (c as any).frente;
-  const isLead = frente?.current_lead_id === user?.id;
+  const isLead = frente?.current_lead_id === user?.id || (frente?.id && leadFrenteIdSet.has(frente.id));
 
   const ack = async () => {
     const { error } = await supabase.from("operacao_registros")
