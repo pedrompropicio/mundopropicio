@@ -243,6 +243,8 @@ function RegistroSheet({
   const [audio, setAudio] = useState<string | null>(null);
   const [registroId] = useState(() => crypto.randomUUID());
   const [saving, setSaving] = useState(false);
+  const [mediaBusy, setMediaBusy] = useState(false);
+  const [audioBusy, setAudioBusy] = useState(false);
 
   const submit = async () => {
     if (!user) return;
@@ -291,10 +293,10 @@ function RegistroSheet({
             ))}
           </RadioGroup>
           <Textarea placeholder="Descreve..." rows={3} value={text} onChange={(e) => setText(e.target.value)} />
-          <MediaCapture companyId={companyId} eventId={eventId} registroId={registroId} value={media} onChange={setMedia} />
-          <AudioRecorder companyId={companyId} eventId={eventId} registroId={registroId} value={audio} onChange={setAudio} />
-          <Button onClick={submit} disabled={saving} className="w-full" size="lg">
-            {saving ? "A guardar..." : "Guardar registo"}
+          <MediaCapture companyId={companyId} eventId={eventId} registroId={registroId} value={media} onChange={setMedia} onBusyChange={setMediaBusy} />
+          <AudioRecorder companyId={companyId} eventId={eventId} registroId={registroId} value={audio} onChange={setAudio} onBusyChange={setAudioBusy} />
+          <Button onClick={submit} disabled={saving || mediaBusy || audioBusy} className="w-full" size="lg">
+            {saving ? "A guardar..." : mediaBusy || audioBusy ? "A enviar anexos..." : "Guardar registo"}
           </Button>
         </div>
       </SheetContent>

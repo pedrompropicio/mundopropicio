@@ -38,6 +38,8 @@ export function RegistroSheet({ open, onClose, initialFrenteId, initialEtapaId, 
   const [audio, setAudio] = useState<string | null>(null);
   const [registroId, setRegistroId] = useState(() => crypto.randomUUID());
   const [saving, setSaving] = useState(false);
+  const [mediaBusy, setMediaBusy] = useState(false);
+  const [audioBusy, setAudioBusy] = useState(false);
 
   // Reset do formulário sempre que o sheet abre — evita registroId/media/áudio
   // velhos de uma submissão anterior misturarem-se com o novo registo.
@@ -176,13 +178,13 @@ export function RegistroSheet({ open, onClose, initialFrenteId, initialEtapaId, 
           {frenteCtx && (
             <>
               <MediaCapture companyId={frenteCtx.company_id} eventId={frenteCtx.event_id}
-                registroId={registroId} value={media} onChange={setMedia} />
+                registroId={registroId} value={media} onChange={setMedia} onBusyChange={setMediaBusy} />
               <AudioRecorder companyId={frenteCtx.company_id} eventId={frenteCtx.event_id}
-                registroId={registroId} value={audio} onChange={setAudio} />
+                registroId={registroId} value={audio} onChange={setAudio} onBusyChange={setAudioBusy} />
             </>
           )}
-          <Button onClick={submit} disabled={saving || !frenteId} className="w-full" size="lg">
-            {saving ? "A guardar..." : "Guardar registo"}
+          <Button onClick={submit} disabled={saving || !frenteId || mediaBusy || audioBusy} className="w-full" size="lg">
+            {saving ? "A guardar..." : mediaBusy || audioBusy ? "A enviar anexos..." : "Guardar registo"}
           </Button>
         </div>
       </SheetContent>

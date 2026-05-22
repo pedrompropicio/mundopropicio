@@ -24,6 +24,8 @@ export default function ChamadoNovo() {
   const [media, setMedia] = useState<CapturedMedia[]>([]);
   const [audio, setAudio] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [mediaBusy, setMediaBusy] = useState(false);
+  const [audioBusy, setAudioBusy] = useState(false);
 
   // Frentes onde o user participa (visíveis)
   const { data: frentes } = useQuery({

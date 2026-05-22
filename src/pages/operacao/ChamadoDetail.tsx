@@ -139,6 +139,7 @@ function ResolveDialog({ chamadoId, frenteId, eventId, companyId, onClose }: { c
   const [registroId] = useState(() => crypto.randomUUID());
   const [media, setMedia] = useState<CapturedMedia[]>([]);
   const [saving, setSaving] = useState(false);
+  const [mediaBusy, setMediaBusy] = useState(false);
 
   const submit = async () => {
     if (!user || !text.trim()) return;
