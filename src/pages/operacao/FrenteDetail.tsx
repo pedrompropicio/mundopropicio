@@ -309,6 +309,16 @@ export default function FrenteDetail() {
           onClose={() => setNewRegistroOpen(false)}
         />
       )}
+
+      <EditFrenteSheet
+        frenteId={editFrenteOpen ? id! : null}
+        open={editFrenteOpen}
+        onClose={() => setEditFrenteOpen(false)}
+        onChanged={() => {
+          queryClient.invalidateQueries({ queryKey: ["op-frente", id] });
+          queryClient.invalidateQueries({ queryKey: ["op-frente-team-summary", id] });
+        }}
+      />
     </div>
   );
 }
