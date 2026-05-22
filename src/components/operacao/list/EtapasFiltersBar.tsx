@@ -1,12 +1,11 @@
-import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOperacaoListFilters, type Responsibility, type SortDir } from "@/hooks/useOperacaoListFilters";
-import { useScopedEventIds } from "@/hooks/useScopedEventIds";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Filter, X, ArrowUpDown } from "lucide-react";
+
 
 const STATUS_OPTS = [
   { value: "pending", label: "Pendente" },
