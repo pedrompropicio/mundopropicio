@@ -92,6 +92,15 @@ export default function EventHub() {
             >
               <BarChart3 className="h-3 w-3" /> Dashboard
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2.5 text-[11px] gap-1 mr-1"
+              onClick={() => setReportOpen(true)}
+              title="Exportar PDF de etapas por Zona/Serviço"
+            >
+              <FileDown className="h-3 w-3" /> PDF
+            </Button>
             {PHASE_ORDER.map((p) => {
               const isActive = activePhase === p.key;
               const isCurrent = currentPhase === p.key;
