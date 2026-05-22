@@ -165,6 +165,13 @@ export default function FrenteDetail() {
           </div>
           <OperacaoStatusBadge status={frente.status} kind="etapa" />
         </div>
+        {canManageFrente && (
+          <div className="flex justify-end">
+            <Button size="sm" variant="outline" onClick={() => setEditFrenteOpen(true)}>
+              <UserCog className="h-4 w-4 mr-1.5" /> Gerir produtores
+            </Button>
+          </div>
+        )}
         {teamSummary && teamSummary.length > 0 && (
           <button
             type="button"
