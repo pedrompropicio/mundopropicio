@@ -128,11 +128,12 @@ async function attachUserToCompany(
   role: string,
   fullName: string,
   email: string,
+  isOperacaoOnly: boolean = false,
 ) {
   // 1) Profile: only insert if missing — never overwrite another company's primary.
   const { data: existingProfile } = await adminClient
     .from("profiles")
-    .select("id")
+    .select("id, is_operacao_only")
     .eq("id", userId)
     .maybeSingle();
 
@@ -142,8 +143,12 @@ async function attachUserToCompany(
       full_name: fullName,
       email,
       company_id: companyId,
+      is_operacao_only: isOperacaoOnly,
     });
     if (pErr) throw new Error(`Erro ao criar perfil: ${pErr.message}`);
+  } else if (isOperacaoOnly && existingProfile.is_operacao_only !== true) {
+    // Caller pediu operação-only e perfil existente ainda não está marcado.
+    await adminClient.from("profiles").update({ is_operacao_only: true }).eq("id", userId);
   }
 
   // 2) Insert user_role for (user, company, role) — UNIQUE permite N empresas.
@@ -206,12 +211,13 @@ Deno.serve(async (req) => {
     const normalizedFullName = String(body.full_name ?? "").trim();
     const dryRun = body.dry_run === true;
     const role = body.role;
+    const isOperacaoOnly = body.is_operacao_only === true;
 
     if (!normalizedEmail || (!dryRun && !normalizedFullName)) {
       return respond({ error: "Email e nome são obrigatórios." });
     }
 
-    const validRoles = ["admin", "manager", "editor", "viewer", "user", "partner"];
+    const validRoles = ["admin", "manager", "producer", "editor", "viewer", "user", "partner"];
     const targetRole = validRoles.includes(role) ? role : "user";
 
     // ── Pre-check: existe em auth.users?
@@ -250,6 +256,7 @@ Deno.serve(async (req) => {
           targetRole,
           existingAuthUser.user_metadata?.full_name ?? normalizedFullName,
           normalizedEmail,
+          isOperacaoOnly,
         );
       } catch (e) {
         return respond({ error: e instanceof Error ? e.message : "Erro ao associar utilizador." });
@@ -280,6 +287,11 @@ Deno.serve(async (req) => {
 
     const userId = newUser.user?.id;
     if (!userId) return respond({ error: "Não foi possível preparar a conta do utilizador." });
+
+    if (isOperacaoOnly) {
+      await adminClient.from("profiles").update({ is_operacao_only: true }).eq("id", userId);
+    }
+
 
     // handle_new_user trigger já cria profile + user_roles (role 'user' na company);
     // garantir que a role correta fica registada na empresa ativa.

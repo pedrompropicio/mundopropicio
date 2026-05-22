@@ -88,6 +88,7 @@ Deno.serve(async (req) => {
       email: finalEmail,
       company_id: companyId,
       profile_type: "field_staff",
+      is_operacao_only: true,
     }, { onConflict: "id" });
 
     // 3) Criar invite

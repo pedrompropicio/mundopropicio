@@ -163,3 +163,73 @@ export async function setPrimaryLead({
   if (error) return { error: error.message };
   return {};
 }
+
+
+/**
+ * Associa um perfil a uma frente como AUXILIAR (role_in_frente='auxiliary').
+ * Idempotente: se já existir row, rebaixa para auxiliar (mantém active=true).
+ */
+export async function addFrenteAuxiliary({
+  frenteId, profileId, companyId,
+}: {
+  frenteId: string;
+  profileId: string;
+  companyId: string;
+}): Promise<{ error?: string }> {
+  const { data: existing } = await supabase
+    .from("operacao_frente_team")
+    .select("id, role_in_frente, is_permanent_lead")
+    .eq("frente_id", frenteId)
+    .eq("profile_id", profileId)
+    .maybeSingle();
+
+  if (existing?.id) {
+    // Se era lead primário, ao rebaixar precisa libertar current_lead_id também
+    const { data: frente } = await supabase
+      .from("operacao_frentes")
+      .select("current_lead_id")
+      .eq("id", frenteId)
+      .maybeSingle();
+    const wasPrimary = frente?.current_lead_id === profileId;
+    const { error } = await supabase
+      .from("operacao_frente_team")
+      .update({ role_in_frente: "auxiliary", is_permanent_lead: false, active: true })
+      .eq("id", existing.id);
+    if (error) return { error: error.message };
+    if (wasPrimary) {
+      await supabase.from("operacao_frentes").update({ current_lead_id: null }).eq("id", frenteId);
+    }
+    return {};
+  }
+
+  const { error } = await supabase.from("operacao_frente_team").insert({
+    frente_id: frenteId,
+    profile_id: profileId,
+    company_id: companyId,
+    role_in_frente: "auxiliary",
+    is_permanent_lead: false,
+    active: true,
+  });
+  if (error) return { error: error.message };
+  return {};
+}
+
+/**
+ * Remove totalmente um auxiliar da frente (DELETE).
+ */
+export async function removeFrenteAuxiliary({
+  frenteId, profileId,
+}: {
+  frenteId: string;
+  profileId: string;
+}): Promise<{ error?: string }> {
+  const { error } = await supabase
+    .from("operacao_frente_team")
+    .delete()
+    .eq("frente_id", frenteId)
+    .eq("profile_id", profileId)
+    .eq("role_in_frente", "auxiliary");
+  if (error) return { error: error.message };
+  return {};
+}
+
