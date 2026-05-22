@@ -179,9 +179,14 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
     (e) => opts.phases.includes(e._phase) && opts.statuses.includes(e.status)
   );
 
-  // Load registos for all visible etapas (full mode)
-  const registrosByEtapa =
-    opts.detail === "full" ? await fetchRegistros(enriched.map((e) => e.id)) : new Map<string, any[]>();
+  // Load registos for all visible etapas + frente-level orphan registos (full mode)
+  const { byEtapa: registrosByEtapa, byFrente: registrosByFrente } =
+    opts.detail === "full"
+      ? await fetchRegistros({
+          etapaIds: enriched.map((e) => e.id),
+          frenteIds: frentes.map((f) => f.id),
+        })
+      : { byEtapa: new Map<string, any[]>(), byFrente: new Map<string, any[]>() };
 
   // ---------- PDF ----------
   const doc = new jsPDF({ unit: "pt", format: "a4" });
