@@ -14,45 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      _coala_debug2: {
-        Row: {
-          id: string | null
-          info: string | null
-          kind: string | null
-        }
-        Insert: {
-          id?: string | null
-          info?: string | null
-          kind?: string | null
-        }
-        Update: {
-          id?: string | null
-          info?: string | null
-          kind?: string | null
-        }
-        Relationships: []
-      }
-      _coala_partner_debug: {
-        Row: {
-          event_id: string | null
-          partner_row_id: string | null
-          supplier_id: string | null
-          supplier_name: string | null
-        }
-        Insert: {
-          event_id?: string | null
-          partner_row_id?: string | null
-          supplier_id?: string | null
-          supplier_name?: string | null
-        }
-        Update: {
-          event_id?: string | null
-          partner_row_id?: string | null
-          supplier_id?: string | null
-          supplier_name?: string | null
-        }
-        Relationships: []
-      }
       account_categories: {
         Row: {
           allocate_to_active_event: boolean
