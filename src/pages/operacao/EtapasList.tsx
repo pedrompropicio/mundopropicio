@@ -8,6 +8,8 @@ import { useScopedEventIds } from "@/hooks/useScopedEventIds";
 import { OperacaoListShell } from "@/components/operacao/list/OperacaoListShell";
 import { EtapasFiltersBar } from "@/components/operacao/list/EtapasFiltersBar";
 import { EtapaListRow, type EtapaListRowData } from "@/components/operacao/list/EtapaListRow";
+import { ChevronDown, ChevronRight, MapPin, Wrench } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 50;
 
