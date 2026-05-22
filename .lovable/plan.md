@@ -1,91 +1,82 @@
-# Plano — Operação: evento ativo + UX cadastros/registos + permissões
 
-## 1. Seletor global de Evento Operação
+## Regras e fluxos atuais das fases (correção)
 
-Um seletor fixo no header do shell de Operação (igual ao "empresa ativa" do admin), que se aplica a Dashboard, Etapas, Zonas/Serviços, Chamados, Equipa.
+A **fase é do evento**, não da etapa. O evento percorre 4 estados em `events.operacao_mode`:
 
-- Novo contexto `OperacaoEventContext` com `activeEventId`, `setActiveEventId`, lista `availableEvents` (vinda de `useScopedEventIds`).
-- Persistência: `localStorage` por user (`op.activeEventId.<userId>`).
-- Auto-selecção: se houver só 1 evento visível, escolhe-o sozinho; se nenhum, mostra estado vazio "Sem eventos acessíveis".
-- Componente `OperacaoEventSwitcher` no header (combobox com search), aparece em todas as rotas `/operacao/*` exceto `/operacao/accept-invite` e `/operacao/staff`.
-- Refactor: páginas Etapas/Zonas/Chamados/Equipa/Dashboard deixam de ler `?event=` do URL; passam a ler do contexto. Mantemos compat ao redirecionar `?event=X` para `setActiveEventId(X)` uma vez. Filtros remanescentes (status, frentes, etc.) continuam no URL.
-
-## 2. Reordenação da sidebar Operação
-
-Ordem nova (registos em cima → cadastros em baixo):
-
-```text
-REGISTOS
-  Dashboard
-  Etapas
-  Chamados
-  Atividade
-  Minhas Tarefas
-  Meus Chamados
-CADASTROS
-  Zonas / Serviços
-  Equipa
+```
+SETUP → PLANEAMENTO → MONTAGEM → EVENTO
 ```
 
-- 2 secções com label (`SidebarGroupLabel`).
-- Para field-staff puros mantém só a parte de Registos visível (sem Cadastros), porque eles não criam nada.
+- Transição é **manual** (botão no header do EventHub), com confirmação para Montagem/Evento.
+- Cada fase tem uma vista própria; só **PLANEAMENTO** já lista frentes+etapas. Setup serve para criar zonas/serviços.
+- Não há bloqueios automáticos entre fases. Etapas (`operacao_etapas`) têm apenas `status` (pending, in_progress, blocked, done, cancelled) e datas (`planned_start`, `planned_end`).
+- "Filtrar por fase" no PDF será portanto **heurístico por data**, relativo às datas do evento:
+  - **Setup** — etapas sem data ou >14 dias antes do evento
+  - **Planeamento** — entre 14 e 2 dias antes
+  - **Montagem** — 1 dia antes até abertura
+  - **Evento** — entre `event.start_date` e `end_date`
 
-## 3. Editar + Excluir
+## Nova feature: PDF "Relatório Operacional"
 
-Padrão consistente: menu ⋯ com **Editar** e **Excluir** (Excluir abre `AlertDialog` de confirmação, faz soft-delete via Trash 30d).
+### Acesso
+- Botão **"Exportar PDF"** no header da fase **Planeamento** (e replicado em Montagem/Evento) dentro do EventHub.
+- Abre um diálogo `OperationalReportDialog` com as opções.
 
-| Entidade | Estado actual | Acção |
-|---|---|---|
-| Zonas/Serviços (ZonaCard) | Editar OK, falta Excluir | Adicionar item Excluir gated por `canManageZonas` |
-| Etapas (cards na lista e Gantt) | Editar via sheet, sem Excluir | Adicionar Editar+Excluir no menu ⋯ do card e linha da lista |
-| Equipa do Evento (`/operacao/equipa`) | Hoje read-only, remover só no Hub | Adicionar ⋯ Editar papel / Remover na própria página |
-| Chamados (ChamadoCard) | Sem ⋯ | Adicionar ⋯ Editar (abre Sheet) + Fechar/Excluir |
+### Opções no diálogo
+1. **Fases** (multi-checkbox) — Setup / Planeamento / Montagem / Evento. Default: todas marcadas.
+2. **Status a incluir** (multi-checkbox) — Pendente / Em curso / Bloqueada / Concluída / Cancelada. Default: tudo exceto Cancelada.
+3. **Nível de detalhe** (radio):
+   - **Compacto** — 1 linha por etapa (nome · status · datas · responsável).
+   - **Médio** — + descrição/escopo, fornecedor vinculado, lista de assignees.
+   - **Completo** — + registos (notas e fotos) cronológicos com observação por registo.
+4. **Incluir registos fotográficos** (switch, só ativo nos modos Médio/Completo) — embute fotos em miniatura (`max 600px`) abaixo de cada etapa, com a observação do registo.
 
-Excluir Zona com etapas: confirmação extra "X etapas serão arquivadas". Excluir Etapa concluída: bloqueado (só admin) — alinha com regras existentes.
+### Layout do PDF
+- **Capa**: nome do evento + cidade + datas + logo da empresa + data/hora de geração + filtros aplicados.
+- **Sumário executivo** (1 página): contadores por status × fase, total de etapas, % concluído.
+- **Conteúdo agrupado**:
+  ```
+  ┌─ FASE PLANEAMENTO ──────────────────────
+  │  ▌Zonas Físicas
+  │    ├─ Palco Principal (José Lombello)
+  │    │    • Etapa 1  [Em curso]  10–12 Mai
+  │    │    • Etapa 2  [Concluída] 08 Mai
+  │    └─ Catering (Leonardo Santos)
+  │
+  │  ▌Serviços Transversais
+  │    └─ Cerimónia (Ricardo Miranda)
+  └─ FASE MONTAGEM ──────────────────────
+  ```
+- Cada fase numa nova página. Dentro da fase: secção "Zonas Físicas" → secção "Serviços Transversais" (mesma ordem do PlanejamentoPhase).
+- Etapas sem frente (orfãs) numa secção "Outras" no fim de cada fase.
 
-## 4. Permissões
+### Backend
+- Sem migração necessária. Tudo lido a partir de tabelas existentes: `events`, `operacao_frentes`, `operacao_etapas`, `operacao_etapa_assignees`, `operacao_registos` (se modo Completo), `profiles`, `suppliers`.
+- Geração no cliente com **pdf-lib** + `@react-pdf/renderer` (já temos `pdf-lib` no projeto para outros relatórios — confirmar e reutilizar).
 
-### 4.1 Criar/Editar/Excluir Zonas e Serviços
+### Detalhes técnicos
+- **Heurística de fase por etapa**:
+  ```ts
+  function inferEtapaPhase(etapa, event): Phase {
+    if (!etapa.planned_start) return "setup";
+    const daysBefore = differenceInDays(event.start_date, etapa.planned_start);
+    if (etapa.planned_start >= event.start_date && etapa.planned_start <= event.end_date) return "evento";
+    if (daysBefore <= 1) return "montagem";
+    if (daysBefore <= 14) return "planning";
+    return "setup";
+  }
+  ```
+- **Fotos**: ler de `operacao_registos.media_urls` (Signed URLs 1h), reduzir client-side com Canvas antes de embutir.
+- **Ordem dentro de cada frente**: por `display_order`, depois `planned_start`.
 
-Só pode quem é admin OU tem `manage_operacao_frentes` OU é `general_producer` em `event_team_members` para o evento ativo.
+### Ficheiros a criar / editar
+- `src/components/operacao/reports/OperationalReportDialog.tsx` (novo) — diálogo de opções.
+- `src/components/operacao/reports/operationalReportPdf.tsx` (novo) — componente `<Document>` do `@react-pdf/renderer`.
+- `src/lib/operacao/inferEtapaPhase.ts` (novo) — heurística.
+- `src/pages/operacao/EventHub.tsx` — adicionar botão "Exportar PDF".
+- `src/components/operacao/event/PlanejamentoPhase.tsx` — opcional: botão atalho no topo.
 
-- Novo hook `useCanManageZonasForEvent(eventId)` que junta as 3 condições.
-- UI: gate dos botões "+ Nova zona", ⋯ Editar/Excluir nos cards.
-- RLS: actualizar policies em `operacao_frentes` para permitir INSERT/UPDATE/DELETE quando o user é `general_producer` desse `event_id` (já além de admin/manager). Hoje exige `manage_operacao_frentes`.
+### O que fica de fora desta entrega
+- Não introduz controlos/bloqueios entre fases (mantém transição manual atual).
+- Não cria coluna `fase` nas etapas — se mais tarde quisermos atribuir fase explícita por etapa (e não inferir por data), isso será uma feature separada com migração.
 
-### 4.2 Criar Etapas só em frentes do produtor
-
-Hoje qualquer membro pode criar etapa. Restringir:
-
-- Admin / `manage_operacao_etapas`: cria em qualquer frente.
-- Resto: só em frentes onde está como `lead` em `operacao_frente_team` (já temos `useMyLeadFrenteIds`).
-- UI: na lista de Etapas, no Hub de evento e nos detalhes de Zona, o botão "+ Nova etapa" só aparece se `canCreateEtapaInFrente(frenteId)`.
-- RLS: actualizar policy de INSERT em `operacao_etapas` para exigir `is_lead_of_frente(frente_id)` (nova helper SQL `STABLE SECURITY INVOKER`) OU `has_permission(...,'manage_operacao_etapas')`.
-
-## 5. Ficheiros principais a tocar
-
-- Novo: `src/contexts/OperacaoEventContext.tsx`
-- Novo: `src/components/operacao/OperacaoEventSwitcher.tsx`
-- Novo: `src/hooks/useCanManageZonasForEvent.ts`, `src/hooks/useCanCreateEtapaInFrente.ts`
-- Edit: `src/components/AppSidebar.tsx` (secções)
-- Edit shell: `src/components/operacao/list/OperacaoListShell.tsx` (header + switcher)
-- Edit páginas: `ZonasList.tsx`, `EtapasList.tsx`, `ChamadosList.tsx`, `EquipaView.tsx`, `Dashboard.tsx`, `MeusChamados.tsx`, `MinhasTarefas.tsx`
-- Edit cards: `ZonaCard.tsx`, `EtapaCard*`, `ChamadoCard`, `EquipaEventoTab.tsx` (e versão de página)
-- Migration RLS: `operacao_frentes` (general_producer) + `operacao_etapas` (lead-only INSERT) + helper `is_lead_of_frente(uuid)`.
-
-## 6. Fora de scope (confirmar se queres incluir)
-
-- Alterar quem pode **excluir** etapas concluídas (mantém regra actual: só admin).
-- Trash 30d para entidades de Operação (já existe sistema global — usar `delete_with_trash` se aplicável; caso contrário deletes hard com confirmação).
-- Versionamento das frentes (não toca).
-
-## 7. Smoke test pós-implementação
-
-1. Login admin → header mostra switcher; trocar de evento muda todas as listas.
-2. Recarregar página → evento mantido (localStorage).
-3. Login produtor Beatriz (general_producer Coala) → consegue criar zona; produtor sem general_producer não consegue.
-4. Produtor Coala → "+ Nova etapa" só aparece nas frentes onde é lead.
-5. Excluir zona com etapas → confirma, arquiva tudo.
-6. Excluir membro da Equipa direto em `/operacao/equipa` sem ir ao Hub.
-
-Estimativa: 2 sessões (contexto+sidebar+RLS numa, editar/excluir+gates na outra).

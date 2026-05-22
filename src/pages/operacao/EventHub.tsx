@@ -13,9 +13,10 @@ import { PlanejamentoPhase } from "@/components/operacao/event/PlanejamentoPhase
 import { EventoPhase } from "@/components/operacao/event/EventoPhase";
 import { MontagemPhase } from "@/components/operacao/event/MontagemPhase";
 
-import { ArrowLeft, Users, ChevronRight, CheckCircle2, BarChart3 } from "lucide-react";
+import { ArrowLeft, Users, ChevronRight, CheckCircle2, BarChart3, FileDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { OperationalReportDialog } from "@/components/operacao/reports/OperationalReportDialog";
 
 function fmtRange(date?: string | null) {
   if (!date) return "";
@@ -46,6 +47,7 @@ export default function EventHub() {
 
   const currentPhase: Phase = (event?.operacao_mode as Phase) ?? "setup";
   const [viewPhase, setViewPhase] = useState<Phase | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
   const activePhase: Phase = viewPhase ?? currentPhase;
 
   const changePhase = async (next: Phase) => {
@@ -89,6 +91,15 @@ export default function EventHub() {
               title="Ver Dashboard analítico do evento"
             >
               <BarChart3 className="h-3 w-3" /> Dashboard
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2.5 text-[11px] gap-1 mr-1"
+              onClick={() => setReportOpen(true)}
+              title="Exportar PDF de etapas por Zona/Serviço"
+            >
+              <FileDown className="h-3 w-3" /> PDF
             </Button>
             {PHASE_ORDER.map((p) => {
               const isActive = activePhase === p.key;
@@ -144,6 +155,8 @@ export default function EventHub() {
       {activePhase === "post" && (
         <PlaceholderPhase title="Fecho" text="Em breve: Pendências operacionais e lições." eventId={event.id} />
       )}
+
+      <OperationalReportDialog eventId={event.id} open={reportOpen} onOpenChange={setReportOpen} />
     </div>
   );
 }
