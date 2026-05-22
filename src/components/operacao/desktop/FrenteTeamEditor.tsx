@@ -78,7 +78,16 @@ export function FrenteTeamEditor({ frenteId, companyId, canEdit }: Props) {
     [allProfiles, teamIds, search],
   );
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["op-frente-team-editor", frenteId] });
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["op-frente-team-editor", frenteId] });
+    qc.invalidateQueries({ queryKey: ["op-frente-team-editor-frente", frenteId] });
+  };
+
+  const makePrimary = async (profileId: string) => {
+    const { error } = await setPrimaryLead({ frenteId, profileId });
+    if (error) toast({ title: "Erro", description: error, variant: "destructive" });
+    else invalidate();
+  };
 
   const addMember = async (profileId: string) => {
     const { error } = await supabase.from("operacao_frente_team").insert({
