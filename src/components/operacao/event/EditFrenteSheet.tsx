@@ -323,7 +323,7 @@ export function EditFrenteSheet({
             defaultRole="producer"
             invalidateKeys={[["op-edit-frente-profiles", frente.company_id]]}
             onClose={() => setShowNewProfile(false)}
-            onCreated={(id) => { setLeadId(id); setShowNewProfile(false); }}
+            onCreated={(id) => { void handleAdd(id); setShowNewProfile(false); }}
           />
         )}
       </SheetContent>
