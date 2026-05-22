@@ -159,7 +159,7 @@ export default function MyFrentes() {
             frente={f}
             counts={counts?.[f.id] ?? { etapas_pending: 0, etapas_in_progress: 0, etapas_done: 0, chamados_open: 0, chamados_in_progress: 0 }}
             lastActivity={lastActivityMap?.[f.id] ?? null}
-            isLead={f.current_lead_id === user?.id}
+            isLead={leadFrenteIdSet.has(f.id) || f.current_lead_id === user?.id}
           />
         ))}
       </div>
