@@ -38,8 +38,8 @@ type Row = {
   phone: string | null;
   profile_type: string | null;
   archived_at: string | null;
-  zoneCount: number;
-  serviceCount: number;
+  zones: string[];
+  services: string[];
 };
 
 export function PessoasListTab({ eventId }: Props) {
