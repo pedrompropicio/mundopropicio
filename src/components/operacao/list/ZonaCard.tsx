@@ -19,6 +19,8 @@ export interface ZonaCardData {
   status: string;
   event?: { id: string; name: string; date?: string | null } | null;
   lead?: { id: string; full_name: string | null } | null;
+  current_lead_id?: string | null;
+  leads?: { profile_id: string; full_name: string | null }[];
   counts: {
     total: number;
     pending: number;
