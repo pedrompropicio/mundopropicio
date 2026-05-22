@@ -25,6 +25,7 @@ export function QuickActionFab() {
   const navigate = useNavigate();
   const location = useLocation();
   const params = useParams();
+  const { activeEventId } = useOperacaoEvent();
   const [open, setOpen] = useState(false);
   const [action, setAction] = useState<Action | null>(null);
   // dialog state when picker needed before opening child
