@@ -9,9 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, UserCog, HardHat } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Search, UserCog, HardHat, FileDown } from "lucide-react";
 import { NewPessoaMenu } from "./NewPessoaMenu";
 import { PessoaSheet } from "./PessoaSheet";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { toast } from "sonner";
 
 function initials(name?: string | null) {
   if (!name) return "?";
