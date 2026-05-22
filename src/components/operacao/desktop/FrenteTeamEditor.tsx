@@ -214,7 +214,8 @@ export function FrenteTeamEditor({ frenteId, companyId, canEdit }: Props) {
               </Button>
             )}
           </div>
-        ))}
+        );
+        })}
       </div>
 
       {newStaffOpen && (
