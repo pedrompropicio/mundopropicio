@@ -23,13 +23,6 @@ Deno.serve(async (req) => {
     const token = url.searchParams.get("hub.verify_token");
     const challenge = url.searchParams.get("hub.challenge");
     const expected = Deno.env.get("META_WA_WEBHOOK_VERIFY_TOKEN");
-    console.log("[wh-debug] expected token present:", !!expected);
-    console.log("[wh-debug] expected token length:", (expected ?? "").length);
-    console.log("[wh-debug] received token:", token);
-    console.log("[wh-debug] received token length:", (token ?? "").length);
-    console.log("[wh-debug] mode:", mode);
-    console.log("[wh-debug] all META_WA env keys:", Object.keys(Deno.env.toObject()).filter(k => k.startsWith("META_WA")));
-    console.log("[wh-debug] all env keys count:", Object.keys(Deno.env.toObject()).length);
     if (mode === "subscribe" && token && expected && token === expected) {
       return new Response(challenge ?? "", { status: 200, headers: { "Content-Type": "text/plain" } });
     }
