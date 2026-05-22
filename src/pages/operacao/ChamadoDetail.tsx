@@ -23,6 +23,7 @@ export default function ChamadoDetail() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [resolveOpen, setResolveOpen] = useState(false);
+  const { leadFrenteIdSet } = useMyLeadFrenteIds();
 
   const { data: c } = useQuery({
     queryKey: ["op-chamado", id],
