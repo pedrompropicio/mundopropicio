@@ -26,7 +26,15 @@ export default function EquipaView() {
   const { filters, update } = useOperacaoListFilters("pessoas");
   const { eventIds: scopedEventIds, isLoading: loadingScope } = useScopedEventIds();
   const { hasPermission, isAdmin } = useAuth();
-  const [tab, setTab] = useState<TabKey>("pessoas");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const tab: TabKey = tabParam === "frentes" || tabParam === "staff" ? tabParam : "pessoas";
+  const setTab = (v: TabKey) => {
+    const next = new URLSearchParams(searchParams);
+    if (v === "pessoas") next.delete("tab");
+    else next.set("tab", v);
+    setSearchParams(next, { replace: true });
+  };
 
   const canManageFrentes = isAdmin || hasPermission("manage_operacao_frentes");
   const canManageStaff = isAdmin || hasPermission("manage_operacao_staff");
