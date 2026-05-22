@@ -143,7 +143,7 @@ export function RegistroFeed({ filter, pageSize = 20 }: { filter: Filter; pageSi
                     {canDelete && (
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
-                        onClick={() => setDetail({ id: r.id, edit: false })}
+                        onClick={() => setToDelete(r.id)}
                       >
                         <Trash2 className="h-4 w-4 mr-2" /> Apagar
                       </DropdownMenuItem>
