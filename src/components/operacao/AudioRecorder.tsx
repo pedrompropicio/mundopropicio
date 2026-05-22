@@ -10,9 +10,10 @@ interface Props {
   registroId: string;
   value: string | null;
   onChange: (audioPath: string | null) => void;
+  onBusyChange?: (busy: boolean) => void;
 }
 
-export function AudioRecorder({ companyId, eventId, registroId, value, onChange }: Props) {
+export function AudioRecorder({ companyId, eventId, registroId, value, onChange, onBusyChange }: Props) {
   const [recording, setRecording] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -20,6 +21,10 @@ export function AudioRecorder({ companyId, eventId, registroId, value, onChange 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    onBusyChange?.(recording || uploading);
+  }, [recording, uploading, onBusyChange]);
 
   useEffect(() => {
     if (!value) { setPreviewUrl(null); return; }
