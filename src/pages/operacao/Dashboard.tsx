@@ -390,18 +390,67 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
             <UICard className="p-4 lg:col-span-2">
               <h3 className="text-sm font-semibold mb-2">Progresso por Frente</h3>
-              <ResponsiveContainer width="100%" height={Math.max(200, progressData.length * 32)}>
-                <BarChart data={progressData} layout="vertical" margin={{ left: 60 }}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                  <XAxis type="number" domain={[0, 100]} unit="%" />
-                  <YAxis type="category" dataKey="name" width={120} />
-                  <RTooltip />
-                  <Bar dataKey="pct">
-                    {progressData.map((d, i) => <Cell key={i} fill={d.fill} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              {progressData.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-8 text-center">Sem frentes para mostrar.</div>
+              ) : (() => {
+                const rowH = 36;
+                const chartH = Math.max(180, progressData.length * rowH + 40);
+                // Em mobile, limita a altura visível e activa scroll vertical interno
+                const maxVisible = 520;
+                const needsScroll = chartH > maxVisible;
+                return (
+                  <div
+                    className="w-full"
+                    style={needsScroll ? { maxHeight: maxVisible, overflowY: "auto" } : undefined}
+                  >
+                    <ResponsiveContainer width="100%" height={chartH}>
+                      <BarChart
+                        data={progressData}
+                        layout="vertical"
+                        margin={{ top: 8, right: 24, bottom: 8, left: 8 }}
+                        barCategoryGap={6}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" opacity={0.3} horizontal={false} />
+                        <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 11 }} />
+                        <YAxis
+                          type="category"
+                          dataKey="name"
+                          width={170}
+                          interval={0}
+                          tick={(props: any) => {
+                            const { x, y, payload } = props;
+                            const raw = String(payload.value ?? "");
+                            const max = 22;
+                            const label = raw.length > max ? raw.slice(0, max - 1) + "…" : raw;
+                            return (
+                              <g transform={`translate(${x},${y})`}>
+                                <title>{raw}</title>
+                                <text
+                                  x={-6}
+                                  y={0}
+                                  dy={4}
+                                  textAnchor="end"
+                                  fontSize={11}
+                                  fill="currentColor"
+                                  className="fill-muted-foreground"
+                                >
+                                  {label}
+                                </text>
+                              </g>
+                            );
+                          }}
+                        />
+                        <RTooltip formatter={(v: any) => [`${v}%`, "Concluído"]} />
+                        <Bar dataKey="pct" minPointSize={2} radius={[0, 4, 4, 0]}>
+                          {progressData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                );
+              })()}
             </UICard>
+
             <UICard className="p-4">
               <h3 className="text-sm font-semibold mb-2">Distribuição de status</h3>
               <ResponsiveContainer width="100%" height={220}>
