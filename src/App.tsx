@@ -388,7 +388,7 @@ function ProtectedLayout() {
                 <Route path="equipa/pessoa/:id" element={<PessoaDetail />} />
                 <Route path="atividade" element={<Atividade />} />
                 <Route path="minhas-tarefas" element={<MinhasTarefas />} />
-                <Route path="staff" element={<StaffList />} />
+                <Route path="staff" element={<Navigate to="/operacao/equipa?tab=staff" replace />} />
                 <Route path="frente/:id" element={<FrenteDetail />} />
                 <Route path="frente/:id/manage" element={<FrenteManage />} />
                 <Route path="etapa/:id" element={<EtapaDetail />} />
