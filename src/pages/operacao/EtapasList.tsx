@@ -19,6 +19,7 @@ export default function EtapasList() {
   const { filters, page, setPage } = useOperacaoListFilters("etapas");
   const { eventIds: scopedEventIds, isLoading: loadingScope } = useScopedEventIds();
   const [accumulated, setAccumulated] = useState<EtapaListRowData[]>([]);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const targetEventIds = useMemo(
     () => (filters.event ? [filters.event] : scopedEventIds),
