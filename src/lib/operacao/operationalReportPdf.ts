@@ -279,7 +279,8 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
     const renderFrente = async (f: any, items: any[]) => {
       ensureSpace(40);
       // Frente header
-      doc.setFillColor(f.color ? hexToRgb(f.color) : [99, 102, 241]);
+      const [fr, fg, fb] = f.color ? hexToRgb(f.color) : [99, 102, 241];
+      doc.setFillColor(fr, fg, fb);
       doc.rect(margin, y, 4, 14, "F");
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
