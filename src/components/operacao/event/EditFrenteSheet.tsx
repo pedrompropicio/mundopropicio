@@ -210,26 +210,100 @@ export function EditFrenteSheet({
                 ))}
               </div>
             </div>
-            <div>
-              <Label>{leadFieldLabel}</Label>
-              <Select value={leadId || "__none__"} onValueChange={handleLeadSelect} disabled={!canManage}>
-                <SelectTrigger><SelectValue placeholder="Sem produtor responsável" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">— Sem produtor responsável —</SelectItem>
-                  {(profiles ?? []).map((p: any) => (
-                    <SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>
-                  ))}
-                  {canCreateProfile && (
-                    <SelectItem value={NEW_PROFILE_SENTINEL} className="text-primary font-medium">
-                      + Nova pessoa…
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>{leadFieldLabel}</Label>
+                {canManage && (
+                  <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button size="sm" variant="outline" className="h-7">
+                        <Plus className="h-3 w-3 mr-1" /> Adicionar produtor
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-72 p-2" align="end">
+                      <div className="relative mb-2">
+                        <Search className="absolute left-2 top-2 h-3 w-3 text-muted-foreground" />
+                        <Input
+                          value={pickerSearch}
+                          onChange={(e) => setPickerSearch(e.target.value)}
+                          placeholder="Procurar..."
+                          className="h-7 pl-7 text-xs"
+                        />
+                      </div>
+                      <div className="max-h-56 overflow-y-auto">
+                        {candidates.length === 0 && (
+                          <p className="text-xs text-muted-foreground px-2 py-3 text-center">Sem candidatos</p>
+                        )}
+                        {candidates.map((p: any) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => handleAdd(p.id)}
+                            className="w-full text-left px-2 py-1.5 hover:bg-muted text-xs rounded"
+                          >
+                            {p.full_name}
+                          </button>
+                        ))}
+                        {canCreateProfile && (
+                          <button
+                            type="button"
+                            onClick={() => { setPickerOpen(false); setShowNewProfile(true); }}
+                            className="w-full text-left px-2 py-1.5 hover:bg-muted text-xs rounded text-primary font-medium border-t mt-1"
+                          >
+                            + Nova pessoa…
+                          </button>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                {(leads ?? []).length === 0 && (
+                  <p className="text-xs text-muted-foreground italic px-1">Sem produtores atribuídos.</p>
+                )}
+                {(leads ?? []).map((l: any) => {
+                  const isPrimary = l.profile_id === frente.current_lead_id;
+                  return (
+                    <div key={l.profile_id} className="flex items-center gap-2 p-2 rounded border bg-card">
+                      <Avatar className="h-7 w-7">
+                        <AvatarFallback className="text-[10px]">{initials(l.profiles?.full_name)}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm truncate flex items-center gap-1.5">
+                          {l.profiles?.full_name ?? "—"}
+                          {isPrimary && <Crown className="h-3 w-3 text-amber-500 fill-amber-500" />}
+                        </p>
+                      </div>
+                      {isPrimary ? (
+                        <Badge variant="default" className="text-[10px]">Primário</Badge>
+                      ) : canManage ? (
+                        <Button
+                          size="sm" variant="ghost" className="h-7 text-[11px]"
+                          onClick={() => handleSetPrimary(l.profile_id)}
+                        >
+                          Tornar primário
+                        </Button>
+                      ) : null}
+                      {canManage && (
+                        <Button
+                          variant="ghost" size="icon" className="h-7 w-7"
+                          onClick={() => handleRemove(l.profile_id)}
+                          title="Remover produtor (passa a auxiliar)"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
               <p className="text-[11px] text-muted-foreground mt-1 italic">
-                Só admins, managers e producers podem ser produtores responsáveis.
+                Pode haver vários produtores. Remover passa a pessoa a auxiliar (mantém na equipa).
               </p>
             </div>
+
             <div className="flex gap-2 pt-3 border-t">
               <Button onClick={save} disabled={saving || !canManage || !name.trim()} className="flex-1">
                 {saving ? "A guardar…" : "Guardar"}
