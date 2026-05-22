@@ -1589,7 +1589,9 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
         constraints_changing: Object.keys(topProposal.constraints_change ?? {}),
       });
 
-      const altResp = await fetch(req.url, {
+      const selfUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/crm-meta-campaign-redesign`;
+      console.log("[redesign] PAS_self_url", { url: selfUrl });
+      const altResp = await fetch(selfUrl, {
         method: "POST",
         headers: {
           "Authorization": req.headers.get("Authorization") ?? "",
