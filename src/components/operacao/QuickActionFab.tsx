@@ -12,6 +12,7 @@ import { NewEtapaDialog } from "./NewEtapaDialog";
 import { RegistroSheet } from "./RegistroSheet";
 import { FrentePickerDialog } from "./FrentePickerDialog";
 import { useCurrentOperacaoMode, useOperacaoMode } from "@/hooks/useOperacaoMode";
+import { useOperacaoEvent } from "@/contexts/OperacaoEventContext";
 
 type Action = "frente" | "etapa" | "registro" | "chamado";
 
