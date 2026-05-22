@@ -256,6 +256,7 @@ Deno.serve(async (req) => {
           targetRole,
           existingAuthUser.user_metadata?.full_name ?? normalizedFullName,
           normalizedEmail,
+          isOperacaoOnly,
         );
       } catch (e) {
         return respond({ error: e instanceof Error ? e.message : "Erro ao associar utilizador." });
