@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { EditFrenteSheet } from "@/components/operacao/event/EditFrenteSheet";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +23,7 @@ import { useOperacaoMode } from "@/hooks/useOperacaoMode";
 
 export default function FrenteDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { user, hasPermission, isAdmin } = useAuth();
   const [chamadoStatus, setChamadoStatus] = useState<string>("open");
   const [newEtapaOpen, setNewEtapaOpen] = useState(false);
@@ -120,9 +121,13 @@ export default function FrenteDetail() {
 
   return (
     <div className="p-4 max-w-2xl mx-auto space-y-4 pb-24">
-      <Link to="/operacao/equipa" className="inline-flex items-center text-sm text-muted-foreground">
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-      </Link>
+      </button>
       <header className="space-y-2">
         <div className="flex items-center gap-3">
           <div className="h-14 w-2 rounded-full" style={{ backgroundColor: frente.color ?? "#6b7280" }} />
