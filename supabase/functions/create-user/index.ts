@@ -288,6 +288,11 @@ Deno.serve(async (req) => {
     const userId = newUser.user?.id;
     if (!userId) return respond({ error: "Não foi possível preparar a conta do utilizador." });
 
+    if (isOperacaoOnly) {
+      await adminClient.from("profiles").update({ is_operacao_only: true }).eq("id", userId);
+    }
+
+
     // handle_new_user trigger já cria profile + user_roles (role 'user' na company);
     // garantir que a role correta fica registada na empresa ativa.
     const { error: roleErr } = await adminClient
