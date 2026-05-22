@@ -14,7 +14,7 @@ import { RegistroFeed } from "@/components/operacao/RegistroFeed";
 import { EtapaAssigneeAvatars } from "@/components/operacao/EtapaAssigneeAvatars";
 import { FrenteTeamSheet } from "@/components/operacao/FrenteTeamSheet";
 import { FrenteLeadsAvatars } from "@/components/operacao/shared/FrenteLeadsAvatars";
-import { Plus, ChevronRight, ArrowLeft, Users } from "lucide-react";
+import { Plus, ChevronRight, ArrowLeft, Users, UserCog } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { NewEtapaDialog } from "@/components/operacao/NewEtapaDialog";
