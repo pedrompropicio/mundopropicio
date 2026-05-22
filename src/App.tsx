@@ -342,7 +342,13 @@ function ProtectedLayout() {
   return (
     <div className="flex min-h-screen flex-col">
       <ApprovedPaymentListReminder />
-      <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-border bg-sidebar shadow-sm px-4 lg:px-6">
+      <header
+        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between border-b border-border bg-sidebar shadow-sm px-4 lg:px-6"
+        style={{
+          paddingTop: "env(safe-area-inset-top)",
+          height: "calc(3.5rem + env(safe-area-inset-top))",
+        }}
+      >
         <BrandedLogo />
         <div className="flex items-center gap-2">
           <ModuleSwitcherButton />
@@ -352,7 +358,7 @@ function ProtectedLayout() {
           <ThemeToggle />
         </div>
       </header>
-      <div className="flex pt-14">
+      <div className="flex" style={{ paddingTop: "calc(3.5rem + env(safe-area-inset-top))" }}>
         <AppSidebar />
         <main className="flex-1 pl-16 lg:pl-56">
           <div className="mx-auto max-w-7xl p-4 lg:p-6">
