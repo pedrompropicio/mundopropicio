@@ -76,15 +76,25 @@ async function fetchData(eventId: string) {
   };
 }
 
-async function fetchRegistros(etapaIds: string[]) {
-  if (!etapaIds.length) return new Map<string, any[]>();
-  const { data: registros } = await supabase
+async function fetchRegistros(filter: { etapaIds: string[]; frenteIds: string[] }) {
+  const { etapaIds, frenteIds } = filter;
+  if (!etapaIds.length && !frenteIds.length) {
+    return { byEtapa: new Map<string, any[]>(), byFrente: new Map<string, any[]>() };
+  }
+
+  let query = supabase
     .from("operacao_registros")
-    .select("id,etapa_id,kind,text,transcribed_text,created_at,author_profile_id")
-    .in("etapa_id", etapaIds)
+    .select("id,etapa_id,frente_id,kind,text,transcribed_text,created_at,author_profile_id")
     .order("created_at", { ascending: true });
 
+  const orParts: string[] = [];
+  if (etapaIds.length) orParts.push(`etapa_id.in.(${etapaIds.join(",")})`);
+  if (frenteIds.length) orParts.push(`and(etapa_id.is.null,frente_id.in.(${frenteIds.join(",")}))`);
+  query = query.or(orParts.join(","));
+
+  const { data: registros } = await query;
   const regs = registros ?? [];
+
   const { data: media } = regs.length
     ? await supabase
         .from("operacao_registro_media")
@@ -101,12 +111,20 @@ async function fetchRegistros(etapaIds: string[]) {
   });
 
   const byEtapa = new Map<string, any[]>();
+  const byFrente = new Map<string, any[]>();
   regs.forEach((r: any) => {
-    const arr = byEtapa.get(r.etapa_id) ?? [];
-    arr.push({ ...r, media: mediaByReg.get(r.id) ?? [] });
-    byEtapa.set(r.etapa_id, arr);
+    const enriched = { ...r, media: mediaByReg.get(r.id) ?? [] };
+    if (r.etapa_id) {
+      const arr = byEtapa.get(r.etapa_id) ?? [];
+      arr.push(enriched);
+      byEtapa.set(r.etapa_id, arr);
+    } else if (r.frente_id) {
+      const arr = byFrente.get(r.frente_id) ?? [];
+      arr.push(enriched);
+      byFrente.set(r.frente_id, arr);
+    }
   });
-  return byEtapa;
+  return { byEtapa, byFrente };
 }
 
 async function imageUrlToDataUrl(url: string): Promise<{ data: string; w: number; h: number } | null> {
