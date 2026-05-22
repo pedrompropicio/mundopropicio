@@ -131,7 +131,7 @@ export default function ZonasList() {
 
       const frenteIds = frentes.map((f) => f.id as string);
 
-      const [{ data: etapas }, { data: chamados }] = await Promise.all([
+      const [{ data: etapas }, { data: chamados }, { data: teamLeads }] = await Promise.all([
         supabase
           .from("operacao_etapas")
           .select("frente_id, status")
@@ -142,6 +142,12 @@ export default function ZonasList() {
           .eq("kind", "chamado")
           .in("status", ["open", "in_progress"])
           .in("frente_id", frenteIds),
+        supabase
+          .from("operacao_frente_team")
+          .select("frente_id, profile_id, profiles:profile_id(full_name)")
+          .in("frente_id", frenteIds)
+          .eq("role_in_frente", "lead")
+          .eq("active", true),
       ]);
 
       const countsByFrente: Record<string, FrenteCounts> = {};
@@ -162,6 +168,15 @@ export default function ZonasList() {
         if (countsByFrente[ch.frente_id]) countsByFrente[ch.frente_id].chamados_open++;
       });
 
+      const leadsByFrente: Record<string, { profile_id: string; full_name: string | null }[]> = {};
+      (teamLeads ?? []).forEach((t: any) => {
+        if (!leadsByFrente[t.frente_id]) leadsByFrente[t.frente_id] = [];
+        leadsByFrente[t.frente_id].push({
+          profile_id: t.profile_id,
+          full_name: t.profiles?.full_name ?? null,
+        });
+      });
+
       const rows: ZonaCardData[] = frentes.map((f) => ({
         id: f.id,
         name: f.name,
@@ -170,6 +185,8 @@ export default function ZonasList() {
         status: f.status,
         event: f.event ?? null,
         lead: f.lead ?? null,
+        current_lead_id: f.lead?.id ?? null,
+        leads: leadsByFrente[f.id] ?? [],
         counts: countsByFrente[f.id] ?? emptyCounts(),
       }));
 
