@@ -12,6 +12,7 @@ import { PriorityBadge } from "@/components/operacao/PriorityBadge";
 import { RegistroFeed } from "@/components/operacao/RegistroFeed";
 import { EtapaAssigneeAvatars } from "@/components/operacao/EtapaAssigneeAvatars";
 import { FrenteTeamSheet } from "@/components/operacao/FrenteTeamSheet";
+import { FrenteLeadsAvatars } from "@/components/operacao/shared/FrenteLeadsAvatars";
 import { Plus, ChevronRight, ArrowLeft, Users } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -123,9 +124,40 @@ export default function FrenteDetail() {
           <div className="h-14 w-2 rounded-full" style={{ backgroundColor: frente.color ?? "#6b7280" }} />
           <div className="flex-1 min-w-0">
             <h1 className="text-xl font-bold truncate">{frente.name}</h1>
-            <p className="text-xs text-muted-foreground">
-              {(frente as any).events?.name} · Produtor: {(frente as any).lead?.full_name ?? "—"}
+            <p className="text-xs text-muted-foreground truncate">
+              {(frente as any).events?.name}
             </p>
+            {(() => {
+              const leads = ((teamSummary ?? []) as any[])
+                .filter((t) => t.role_in_frente === "lead")
+                .map((t) => ({ profile_id: t.profile_id, full_name: t.profiles?.full_name ?? null }));
+              if (leads.length === 0) {
+                return <p className="text-xs text-muted-foreground italic mt-0.5">Sem produtor</p>;
+              }
+              const label = leads.length > 1 ? "Produtores" : "Produtor";
+              return (
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <FrenteLeadsAvatars
+                    leads={leads}
+                    currentLeadId={frente.current_lead_id}
+                    max={3}
+                    size="xs"
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    <span className="text-muted-foreground/70">{label}: </span>
+                    {leads.map((l, i) => (
+                      <span key={l.profile_id}>
+                        {l.full_name ?? "—"}
+                        {l.profile_id === frente.current_lead_id && leads.length > 1 && (
+                          <Badge variant="default" className="ml-1 text-[9px] h-3.5 px-1">Primário</Badge>
+                        )}
+                        {i < leads.length - 1 ? ", " : ""}
+                      </span>
+                    ))}
+                  </span>
+                </div>
+              );
+            })()}
           </div>
           <OperacaoStatusBadge status={frente.status} kind="etapa" />
         </div>

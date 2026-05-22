@@ -59,9 +59,18 @@ export function FrenteCardDesktop({
   const chamadosOpen = counts.chamados_open + counts.chamados_in_progress;
   const showChamados = chamadosOpen > 0 || mode === "evento" || mode === "post";
 
-  const lead = team.find((m) => m.role_in_frente === "lead");
+  const leads = team.filter((m) => m.role_in_frente === "lead");
   const aux = team.filter((m) => m.role_in_frente === "auxiliary").slice(0, 4);
   const otherObs = team.filter((m) => m.role_in_frente === "observer").length;
+
+  // Ordenar leads: primário primeiro
+  const sortedLeads = [...leads].sort((a, b) => {
+    if (a.profile_id === frente.current_lead_id) return -1;
+    if (b.profile_id === frente.current_lead_id) return 1;
+    return 0;
+  });
+  const visibleLeads = sortedLeads.slice(0, 3);
+  const extraLeads = sortedLeads.length - visibleLeads.length;
 
   return (
     <Card className="overflow-hidden flex flex-col">
@@ -113,15 +122,27 @@ export function FrenteCardDesktop({
           <p className="text-xs text-muted-foreground border-t pt-2 italic">Sem atividade recente</p>
         )}
 
-        <div className="flex items-center gap-1">
-          {lead && (
-            <span
-              title={`Produtor: ${lead.full_name}`}
-              className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-1.5 py-0.5 text-[10px] font-medium"
-            >
-              <Crown className="h-3 w-3" />
-              {initials(lead.full_name)}
-              {lead.profile_type === "field_staff" && <HardHat className="h-3 w-3" />}
+        <div className="flex items-center gap-1 flex-wrap" title={sortedLeads.map((l) => l.full_name).join(", ")}>
+          {visibleLeads.map((l) => {
+            const isPrimary = l.profile_id === frente.current_lead_id;
+            return (
+              <span
+                key={l.profile_id}
+                title={l.full_name ?? ""}
+                className={
+                  "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium " +
+                  (isPrimary ? "bg-primary/10 text-primary" : "bg-muted text-foreground")
+                }
+              >
+                {isPrimary && <Crown className="h-3 w-3" />}
+                {initials(l.full_name)}
+                {l.profile_type === "field_staff" && <HardHat className="h-3 w-3" />}
+              </span>
+            );
+          })}
+          {extraLeads > 0 && (
+            <span className="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              +{extraLeads}
             </span>
           )}
           {aux.map((m) => (
