@@ -121,9 +121,13 @@ export default function FrenteDetail() {
 
   return (
     <div className="p-4 max-w-2xl mx-auto space-y-4 pb-24">
-      <Link to="/operacao/equipa" className="inline-flex items-center text-sm text-muted-foreground">
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-      </Link>
+      </button>
       <header className="space-y-2">
         <div className="flex items-center gap-3">
           <div className="h-14 w-2 rounded-full" style={{ backgroundColor: frente.color ?? "#6b7280" }} />
