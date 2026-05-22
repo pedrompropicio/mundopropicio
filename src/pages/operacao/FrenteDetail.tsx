@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { EditFrenteSheet } from "@/components/operacao/event/EditFrenteSheet";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,7 +14,7 @@ import { RegistroFeed } from "@/components/operacao/RegistroFeed";
 import { EtapaAssigneeAvatars } from "@/components/operacao/EtapaAssigneeAvatars";
 import { FrenteTeamSheet } from "@/components/operacao/FrenteTeamSheet";
 import { FrenteLeadsAvatars } from "@/components/operacao/shared/FrenteLeadsAvatars";
-import { Plus, ChevronRight, ArrowLeft, Users } from "lucide-react";
+import { Plus, ChevronRight, ArrowLeft, Users, UserCog } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { NewEtapaDialog } from "@/components/operacao/NewEtapaDialog";
@@ -27,6 +28,9 @@ export default function FrenteDetail() {
   const [newEtapaOpen, setNewEtapaOpen] = useState(false);
   const [teamSheetOpen, setTeamSheetOpen] = useState(false);
   const [newRegistroOpen, setNewRegistroOpen] = useState(false);
+  const [editFrenteOpen, setEditFrenteOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const canManageFrente = isAdmin || hasPermission("manage_operacao_frentes");
 
   const { data: frente } = useQuery({
     queryKey: ["op-frente", id],
@@ -161,6 +165,13 @@ export default function FrenteDetail() {
           </div>
           <OperacaoStatusBadge status={frente.status} kind="etapa" />
         </div>
+        {canManageFrente && (
+          <div className="flex justify-end">
+            <Button size="sm" variant="outline" onClick={() => setEditFrenteOpen(true)}>
+              <UserCog className="h-4 w-4 mr-1.5" /> Gerir produtores
+            </Button>
+          </div>
+        )}
         {teamSummary && teamSummary.length > 0 && (
           <button
             type="button"
@@ -298,6 +309,16 @@ export default function FrenteDetail() {
           onClose={() => setNewRegistroOpen(false)}
         />
       )}
+
+      <EditFrenteSheet
+        frenteId={editFrenteOpen ? id! : null}
+        open={editFrenteOpen}
+        onClose={() => setEditFrenteOpen(false)}
+        onChanged={() => {
+          queryClient.invalidateQueries({ queryKey: ["op-frente", id] });
+          queryClient.invalidateQueries({ queryKey: ["op-frente-team-summary", id] });
+        }}
+      />
     </div>
   );
 }
