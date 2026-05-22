@@ -200,7 +200,9 @@ function Section({
   canManage: boolean;
   onOpenEtapa: (id: string) => void;
 }) {
+  const navigate = useNavigate();
   return (
+
     <div>
       <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
         <Icon className="h-4 w-4" /> {title}
@@ -213,16 +215,22 @@ function Section({
           return (
             <Card key={f.id} className="overflow-hidden glass">
               <div className="flex items-center gap-3 p-3 border-b bg-muted/20">
-                <div className="w-1.5 self-stretch rounded-full" style={{ backgroundColor: f.color ?? "#6b7280" }} />
-                <Avatar className="h-7 w-7">
-                  <AvatarFallback className="text-[10px]">{initials(f.lead?.full_name)}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm truncate">{f.name}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">
-                    {f.lead?.full_name ? `Produtor: ${f.lead.full_name}` : "Sem produtor"} · {total} etapas
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/operacao/frente/${f.id}`)}
+                  className="flex items-center gap-3 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
+                >
+                  <div className="w-1.5 self-stretch rounded-full" style={{ backgroundColor: f.color ?? "#6b7280" }} />
+                  <Avatar className="h-7 w-7">
+                    <AvatarFallback className="text-[10px]">{initials(f.lead?.full_name)}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate">{f.name}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {f.lead?.full_name ? `Produtor: ${f.lead.full_name}` : "Sem produtor"} · {total} etapas
+                    </p>
+                  </div>
+                </button>
                 {canManage && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -238,6 +246,7 @@ function Section({
                   </DropdownMenu>
                 )}
               </div>
+
               <div className="divide-y">
                 {total === 0 && (
                   <button
