@@ -200,7 +200,9 @@ function Section({
   canManage: boolean;
   onOpenEtapa: (id: string) => void;
 }) {
+  const navigate = useNavigate();
   return (
+
     <div>
       <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
         <Icon className="h-4 w-4" /> {title}
