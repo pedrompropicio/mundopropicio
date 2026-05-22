@@ -1,13 +1,13 @@
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useOperacaoListFilters, type SortDir } from "@/hooks/useOperacaoListFilters";
-import { useScopedEventIds } from "@/hooks/useScopedEventIds";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Filter, X, ArrowUpDown, AlertTriangle } from "lucide-react";
+
 
 const STATUS_OPTS = [
   { value: "open", label: "Abertos" },
