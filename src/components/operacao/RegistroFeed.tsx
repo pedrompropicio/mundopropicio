@@ -37,6 +37,7 @@ const KIND_ICON: Record<string, any> = {
 };
 
 export function RegistroFeed({ filter, pageSize = 20 }: { filter: Filter; pageSize?: number }) {
+  const queryKey = ["op-registros", filter];
   const queryClient = useQueryClient();
   const { user, isAdmin, isManager } = useAuth();
   const [detail, setDetail] = useState<{ id: string; edit: boolean } | null>(null);
