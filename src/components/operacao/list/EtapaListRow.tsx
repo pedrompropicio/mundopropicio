@@ -52,10 +52,11 @@ export interface EtapaListRowData {
 interface Props {
   etapa: EtapaListRowData;
   showEventBadge?: boolean;
+  showFrenteBadge?: boolean;
   onClick: () => void;
 }
 
-export function EtapaListRow({ etapa, showEventBadge, onClick }: Props) {
+export function EtapaListRow({ etapa, showEventBadge, showFrenteBadge = true, onClick }: Props) {
   const now = Date.now();
   const isLate =
     etapa.status !== "done" &&
@@ -87,7 +88,7 @@ export function EtapaListRow({ etapa, showEventBadge, onClick }: Props) {
               {etapa.frente.event.name}
             </Badge>
           )}
-          {etapa.frente?.name && (
+          {showFrenteBadge && etapa.frente?.name && (
             <Badge variant="outline" className="text-[10px] h-5">
               {etapa.frente.name}
             </Badge>
