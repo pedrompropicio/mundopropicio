@@ -6,13 +6,20 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/hooks/use-toast";
-import { Trash2 } from "lucide-react";
+import { Trash2, Plus, Crown, Search } from "lucide-react";
 import { frenteLabel } from "@/lib/operacao-labels";
-import { setFrenteLead } from "@/lib/operacao-frente-lead";
-import { NewProfileInlineDialog, NEW_PROFILE_SENTINEL } from "@/components/operacao/shared/NewProfileInlineDialog";
+import { addFrenteLead, removeFrenteLead, setPrimaryLead } from "@/lib/operacao-frente-lead";
+import { NewProfileInlineDialog } from "@/components/operacao/shared/NewProfileInlineDialog";
+
+function initials(n?: string | null) {
+  if (!n) return "?";
+  return n.split(/\s+/).map((p) => p[0]).slice(0, 2).join("").toUpperCase();
+}
 
 const PALETTE = ["#ef4444","#f97316","#eab308","#22c55e","#06b6d4","#3b82f6","#8b5cf6","#ec4899","#6b7280"];
 const ELIGIBLE_LEAD_ROLES = ["platform_admin", "admin", "manager", "producer"];
