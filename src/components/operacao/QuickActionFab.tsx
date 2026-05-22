@@ -138,7 +138,7 @@ export function QuickActionFab() {
         </SheetContent>
       </Sheet>
 
-      {action === "frente" && <NewFrenteDialog onClose={() => setAction(null)} />}
+      {action === "frente" && <NewFrenteDialog onClose={() => setAction(null)} defaultEventId={activeEventId ?? undefined} />}
 
       {action === "etapa" && pickedFrenteId && pickedFrenteCtx && (
         <NewEtapaDialog
