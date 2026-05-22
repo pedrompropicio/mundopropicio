@@ -29,6 +29,18 @@ export function FrenteTeamEditor({ frenteId, companyId, canEdit }: Props) {
   const [search, setSearch] = useState("");
   const [newStaffOpen, setNewStaffOpen] = useState(false);
 
+  const { data: frente } = useQuery({
+    queryKey: ["op-frente-team-editor-frente", frenteId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_frentes")
+        .select("current_lead_id")
+        .eq("id", frenteId)
+        .maybeSingle();
+      return data;
+    },
+  });
+
   const { data: team } = useQuery({
     queryKey: ["op-frente-team-editor", frenteId],
     queryFn: async () => {
