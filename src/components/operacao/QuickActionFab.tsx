@@ -12,6 +12,7 @@ import { NewEtapaDialog } from "./NewEtapaDialog";
 import { RegistroSheet } from "./RegistroSheet";
 import { FrentePickerDialog } from "./FrentePickerDialog";
 import { useCurrentOperacaoMode, useOperacaoMode } from "@/hooks/useOperacaoMode";
+import { useOperacaoEvent } from "@/contexts/OperacaoEventContext";
 
 type Action = "frente" | "etapa" | "registro" | "chamado";
 
@@ -24,6 +25,7 @@ export function QuickActionFab() {
   const navigate = useNavigate();
   const location = useLocation();
   const params = useParams();
+  const { activeEventId } = useOperacaoEvent();
   const [open, setOpen] = useState(false);
   const [action, setAction] = useState<Action | null>(null);
   // dialog state when picker needed before opening child
@@ -136,7 +138,7 @@ export function QuickActionFab() {
         </SheetContent>
       </Sheet>
 
-      {action === "frente" && <NewFrenteDialog onClose={() => setAction(null)} />}
+      {action === "frente" && <NewFrenteDialog onClose={() => setAction(null)} defaultEventId={activeEventId ?? undefined} />}
 
       {action === "etapa" && pickedFrenteId && pickedFrenteCtx && (
         <NewEtapaDialog
