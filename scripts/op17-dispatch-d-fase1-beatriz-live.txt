@@ -1,0 +1,77 @@
+-- =========================================================
+-- OP-17 Dispatch D Live — FASE 1 (validar com 1 perfil: Beatriz)
+-- Onde: Cloud → SQL Editor → Live selecionado
+-- Tempo: 1 min
+-- Reportar de volta: first_access_token da Beatriz
+-- =========================================================
+
+-- 1a) Criar auth.users
+INSERT INTO auth.users (
+  instance_id, id, aud, role, email, encrypted_password,
+  email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+  created_at, updated_at, confirmation_token, email_change,
+  email_change_token_new, recovery_token
+) VALUES (
+  '00000000-0000-0000-0000-000000000000',
+  gen_random_uuid(),
+  'authenticated','authenticated',
+  'bea@coalamusic.com',
+  crypt('PlaceholderPwToReplace!2026', gen_salt('bf')),
+  NULL,
+  '{"provider":"email","providers":["email"]}'::jsonb,
+  '{"full_name":"Beatriz Estevan","company_id":"7d831e59-6e82-427b-95a0-64904aae5dd2"}'::jsonb,
+  now(), now(), '', '', '', ''
+)
+RETURNING id;
+
+-- 1b) Criar auth.identities (CRÍTICO — sem isto o login falha)
+INSERT INTO auth.identities (
+  id, user_id, identity_data, provider, provider_id,
+  last_sign_in_at, created_at, updated_at
+)
+SELECT
+  gen_random_uuid(),
+  u.id,
+  jsonb_build_object('sub', u.id::text, 'email', u.email, 'email_verified', false),
+  'email',
+  u.id::text,
+  now(), now(), now()
+FROM auth.users u
+WHERE u.email = 'bea@coalamusic.com';
+
+-- 1c) Confirmar profile criado pelo trigger handle_new_user
+SELECT id, full_name, email, company_id, profile_type
+FROM profiles WHERE email = 'bea@coalamusic.com';
+
+-- 1d) Ajustar profile + gerar token de primeiro acesso
+UPDATE profiles
+SET phone = '+55 11 97146-8636',
+    profile_type = 'user',
+    is_operacao_only = true,
+    first_access_token = gen_random_uuid(),
+    full_name = 'Beatriz Estevan'
+WHERE email = 'bea@coalamusic.com'
+RETURNING id, first_access_token,
+  'https://www.mpgestaoeventos.com/operacao/onboarding?token=' || first_access_token::text AS link;
+
+-- 1e) user_roles: remover default 'user', pôr 'producer'
+DELETE FROM user_roles
+WHERE user_id = (SELECT id FROM profiles WHERE email='bea@coalamusic.com')
+  AND role = 'user'
+  AND company_id = '7d831e59-6e82-427b-95a0-64904aae5dd2';
+
+INSERT INTO user_roles (user_id, role, company_id)
+SELECT id, 'producer', '7d831e59-6e82-427b-95a0-64904aae5dd2'
+FROM profiles WHERE email = 'bea@coalamusic.com'
+ON CONFLICT (user_id, role, company_id) DO NOTHING;
+
+-- VALIDAÇÃO FINAL
+SELECT
+  p.id, p.full_name, p.email, p.phone, p.profile_type, p.is_operacao_only,
+  p.company_id, p.first_access_token,
+  'https://www.mpgestaoeventos.com/operacao/onboarding?token=' || p.first_access_token::text AS link,
+  array_agg(ur.role::text) AS roles
+FROM profiles p
+LEFT JOIN user_roles ur ON ur.user_id = p.id AND ur.company_id = p.company_id
+WHERE p.email = 'bea@coalamusic.com'
+GROUP BY p.id;
