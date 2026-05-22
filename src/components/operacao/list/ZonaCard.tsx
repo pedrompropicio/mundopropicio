@@ -124,16 +124,26 @@ export function ZonaCard({ zona, showEventBadge, onClick, onEdit, canEdit }: Pro
 
         <h3 className="text-base font-semibold truncate">{zona.name}</h3>
 
-        <p className="text-xs text-muted-foreground truncate">
-          {zona.lead?.full_name ? (
-            <>
-              <span className="text-muted-foreground/70">Produtor: </span>
-              {zona.lead.full_name}
-            </>
-          ) : (
-            <span className="italic">Sem produtor</span>
-          )}
-        </p>
+        {(() => {
+          const leads = zona.leads ?? (zona.lead ? [{ profile_id: zona.lead.id, full_name: zona.lead.full_name }] : []);
+          if (leads.length === 0) {
+            return <p className="text-xs text-muted-foreground italic">Sem produtor</p>;
+          }
+          if (leads.length === 1) {
+            return (
+              <p className="text-xs text-muted-foreground truncate">
+                <span className="text-muted-foreground/70">Produtor: </span>
+                {leads[0].full_name ?? "—"}
+              </p>
+            );
+          }
+          return (
+            <div className="flex items-center gap-2">
+              <FrenteLeadsAvatars leads={leads} currentLeadId={zona.current_lead_id ?? zona.lead?.id ?? null} max={3} size="xs" />
+              <span className="text-xs text-muted-foreground">{leads.length} produtores</span>
+            </div>
+          );
+        })()}
 
         <div className="pt-1 space-y-1.5">
           <p className="text-[11px] text-muted-foreground">
