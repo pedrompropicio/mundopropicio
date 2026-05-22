@@ -28,6 +28,9 @@ export default function FrenteDetail() {
   const [newEtapaOpen, setNewEtapaOpen] = useState(false);
   const [teamSheetOpen, setTeamSheetOpen] = useState(false);
   const [newRegistroOpen, setNewRegistroOpen] = useState(false);
+  const [editFrenteOpen, setEditFrenteOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const canManageFrente = isAdmin || hasPermission("manage_operacao_frentes");
 
   const { data: frente } = useQuery({
     queryKey: ["op-frente", id],
