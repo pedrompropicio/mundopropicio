@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Bell, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { isPushSupported, getPushPermission } from "@/lib/push-notifications";
+import { useMyLeadFrenteIds } from "@/hooks/useMyLeadFrenteIds";
 
 export default function MyFrentes() {
   const { user, hasPermission, isAdmin } = useAuth();
