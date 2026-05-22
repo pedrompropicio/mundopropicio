@@ -155,6 +155,8 @@ export default function EventHub() {
       {activePhase === "post" && (
         <PlaceholderPhase title="Fecho" text="Em breve: Pendências operacionais e lições." eventId={event.id} />
       )}
+
+      <OperationalReportDialog eventId={event.id} open={reportOpen} onOpenChange={setReportOpen} />
     </div>
   );
 }
