@@ -1,105 +1,91 @@
+# Plano — Operação: evento ativo + UX cadastros/registos + permissões
 
-# OP-19 — Plano AJUSTADO (modelo "nível Operacional" confirmado)
+## 1. Seletor global de Evento Operação
 
-## Respostas à investigação
+Um seletor fixo no header do shell de Operação (igual ao "empresa ativa" do admin), que se aplica a Dashboard, Etapas, Zonas/Serviços, Chamados, Equipa.
 
-### 1) `is_operacao_only` hoje
+- Novo contexto `OperacaoEventContext` com `activeEventId`, `setActiveEventId`, lista `availableEvents` (vinda de `useScopedEventIds`).
+- Persistência: `localStorage` por user (`op.activeEventId.<userId>`).
+- Auto-selecção: se houver só 1 evento visível, escolhe-o sozinho; se nenhum, mostra estado vazio "Sem eventos acessíveis".
+- Componente `OperacaoEventSwitcher` no header (combobox com search), aparece em todas as rotas `/operacao/*` exceto `/operacao/accept-invite` e `/operacao/staff`.
+- Refactor: páginas Etapas/Zonas/Chamados/Equipa/Dashboard deixam de ler `?event=` do URL; passam a ler do contexto. Mantemos compat ao redirecionar `?event=X` para `setActiveEventId(X)` uma vez. Filtros remanescentes (status, frentes, etc.) continuam no URL.
 
-- **Coluna**: `profiles.is_operacao_only boolean NOT NULL DEFAULT false` (migração 2026-05-21).
-- **Quem escreve**: só `onboarding-bulk-import` (default `true`). `create-staff` e `create-user` **não tocam** no campo.
-- **Quem lê**: apenas `useIsFieldStaffOnly` → consumido **só** em `AppSidebar.tsx` (filtra itens que não começam por `/operacao`).
-- **Gating real**: não há guarda de rota. Um user `is_operacao_only=true` que digite `/admin` ou `/eventos` directamente **passa**, sujeito apenas às permissões/RLS normais. Hoje a barreira efectiva são as permissões (`view_operacao` vs `view_bp` etc.) — o flag é cosmético/sidebar.
+## 2. Reordenação da sidebar Operação
 
-### 2) Edge functions de criação
+Ordem nova (registos em cima → cadastros em baixo):
 
-| Função | profile_type | is_operacao_only | role atribuída |
-|---|---|---|---|
-| `create-user` | `'user'` (default) | **não escreve** (fica `false`) | role escolhida (admin/manager/editor/viewer/user/partner) |
-| `create-staff` | `'field_staff'` | **não escreve** (fica `false`) | `field_producer` |
-| `onboarding-bulk-import` | configurável | **escreve, default `true`** | configurável |
+```text
+REGISTOS
+  Dashboard
+  Etapas
+  Chamados
+  Atividade
+  Minhas Tarefas
+  Meus Chamados
+CADASTROS
+  Zonas / Serviços
+  Equipa
+```
 
-→ Para a área Equipa cumprir o modelo do Pedro, **as duas edges principais (`create-user`, `create-staff`) precisam de aceitar `is_operacao_only`** e a UI tem de passar `true` sempre que cadastra pela /operacao/equipa.
+- 2 secções com label (`SidebarGroupLabel`).
+- Para field-staff puros mantém só a parte de Registos visível (sem Cadastros), porque eles não criam nada.
 
-### 3) Roles vs is_operacao_only
+## 3. Editar + Excluir
 
-- Modelo desejado:
-  - Produtor de evento: `user_roles.role='producer'` + `is_operacao_only=true`
-  - Field staff: `role='field_producer'` + `is_operacao_only=true`
-  - User pleno (BP, etc.): `role∈{admin,manager,editor,viewer}` + `is_operacao_only=false`
-- Não há conflito formal — são eixos independentes. Risco: hoje `producer` tem permissões plenas de Operação (ver seed), mas se for promovido a admin/manager **e ficar com `is_operacao_only=true`**, fica "preso" à sidebar de Operação mesmo tendo permissão para tudo. ⇒ **Regra a documentar**: ao promover alguém para admin/manager/editor no Admin, repor `is_operacao_only=false` automaticamente (ou avisar).
+Padrão consistente: menu ⋯ com **Editar** e **Excluir** (Excluir abre `AlertDialog` de confirmação, faz soft-delete via Trash 30d).
 
-### 4) Pertença ao evento
-
-Dois canais, ambos válidos:
-- `event_team_members(event_id, profile_id, role)` — papéis "macro" no evento (general_producer, director, coordinator, producer).
-- `operacao_frente_team(frente_id, profile_id, ...)` onde `frente.event_id = X` — pertença via frente concreta.
-
-Pessoa `is_operacao_only=true` cadastrada mas sem nenhuma das duas ligações fica **"solta"** — não aparece em `PessoasList` actual (que parte de frentes/etapas). Precisa de uma vista explícita "produtores da empresa" para não desaparecer.
-
----
-
-## Ajustes ao plano OP-19
-
-### Modelo confirmado e implicações na UI
-
-- A área **/operacao/equipa cadastra SEMPRE com `is_operacao_only=true`**, qualquer que seja o tipo (producer ou field_staff).
-- Mensagem clara no botão "+ Nova pessoa" e no header da sheet de edição: *"Pessoas da Operação. Para acesso ao BP, contabilidade ou outros módulos, criar no Admin → Utilizadores."*
-- Listagem na tab **Pessoas** filtra `profiles.is_operacao_only=true AND company_id = empresa_activa` (não mistura com utilizadores plenos). Filtro opcional "Só do evento X" usa união `event_team_members ∪ operacao_frente_team`.
-- Edição inline pode mudar nome/telefone/email e papel-Operação (producer vs field_producer), **não** promove a admin/manager/editor — isso fica no Admin.
-
-### Estrutura final das 3 fases (mantida, com sub-passos novos)
-
-#### DISP-G — Tabs + ponto de entrada (≈30–45 min, pré-Coala)
-Sem alterações face ao plano anterior. Sidebar perde "Staff", `/operacao/equipa` ganha 3 tabs (Pessoas, Por Zona/Serviço, Field Staff).
-
-#### DISP-H — CRUD + associações multi-frente + `is_operacao_only` (≈2h, pré-Coala se possível)
-
-Sub-passos:
-
-1. **Edge `create-user`** — aceitar `is_operacao_only?: boolean` no body, escrever em `profiles` no INSERT inicial e também no caminho `attach`. Default `false` (não mexe em chamadas existentes do Admin).
-2. **Edge `create-staff`** — sempre escrever `is_operacao_only=true` (não há cenário em que field_staff seja user pleno).
-3. **UI `NewPessoaMenu`** na tab Pessoas:
-   - "Convidar produtor" → `NewProfileInlineDialog` com role fixo `producer` e `is_operacao_only=true` (esconder o select de role; quem quiser admin/manager vai ao Admin).
-   - "Cadastrar Staff de Campo" → `NewStaffDialog` (já cria `field_staff`, agora com flag).
-4. **`PessoaSheet`** — edit inline, associar/desassociar frentes (multi), marcar primário; chama `addFrenteLead/removeFrenteLead/setPrimaryLead` existentes.
-5. **Listagem tab Pessoas** — query base `profiles.is_operacao_only=true` na empresa activa, com merge das contagens por evento (quando filtro de evento activo).
-6. **Trigger UI (não DB)** — ao promover via Admin para admin/manager/editor/viewer, oferecer reset de `is_operacao_only`. (Pode ficar para I se faltar tempo.)
-7. **`NewProfileInlineDialog` reutilizado fora da Equipa** mantém comportamento actual (flag opcional, default `false`).
-
-#### DISP-I — Polimento (pós-Coala)
-- Vista inversa inline na "Por Zona/Serviço".
-- Banner "Pessoa com associações activas" ao arquivar.
-- Métricas no topo.
-- Auto-reset `is_operacao_only` quando role pleno é atribuído no Admin.
-- Migração leve opcional: back-fill de `is_operacao_only=true` em todos os profiles com `profile_type='field_staff'` (limpa o gap criado por `create-staff` não ter posto a flag). Idempotente, baixo risco.
-
----
-
-## Mudanças nas edge functions (resumo)
-
-| Edge | Mudança | Risco |
+| Entidade | Estado actual | Acção |
 |---|---|---|
-| `create-user` | + parâmetro opcional `is_operacao_only` (default false); aplicar no INSERT do profile e no path `attach` | Baixo — backward compatible |
-| `create-staff` | Forçar `is_operacao_only=true` no upsert do profile | Nulo — só endurece o que já deveria ser |
-| `onboarding-bulk-import` | Sem mudança (já suporta) | — |
+| Zonas/Serviços (ZonaCard) | Editar OK, falta Excluir | Adicionar item Excluir gated por `canManageZonas` |
+| Etapas (cards na lista e Gantt) | Editar via sheet, sem Excluir | Adicionar Editar+Excluir no menu ⋯ do card e linha da lista |
+| Equipa do Evento (`/operacao/equipa`) | Hoje read-only, remover só no Hub | Adicionar ⋯ Editar papel / Remover na própria página |
+| Chamados (ChamadoCard) | Sem ⋯ | Adicionar ⋯ Editar (abre Sheet) + Fechar/Excluir |
 
----
+Excluir Zona com etapas: confirmação extra "X etapas serão arquivadas". Excluir Etapa concluída: bloqueado (só admin) — alinha com regras existentes.
 
-## Avaliação: modelo coerente e seguro?
+## 4. Permissões
 
-**Coerente — sim.** O eixo `is_operacao_only` é ortogonal a roles/permissões e tem semântica clara: "este perfil é gerido pela Operação, não pelo Admin de Sistema".
+### 4.1 Criar/Editar/Excluir Zonas e Serviços
 
-**Armadilhas a registar:**
+Só pode quem é admin OU tem `manage_operacao_frentes` OU é `general_producer` em `event_team_members` para o evento ativo.
 
-1. **Hoje a flag é apenas cosmética** (filtra sidebar). Se quisermos isolamento real, futuramente um `RouteGuard` que redirecciona para `/operacao` quando `is_operacao_only=true && rota não começa por /operacao` — fica como nota para I ou um OP-20 dedicado a hardening.
-2. **`create-staff` não pôs a flag até hoje** — qualquer field_staff actual tem `is_operacao_only=false`. O hook `useIsFieldStaffOnly` ainda os apanha pelo fallback `profile_type='field_staff' + só role field_producer`, por isso não há regressão visível, mas convém o back-fill do DISP-I.
-3. **Promoção a role pleno** sem reset da flag deixa users "presos" à sidebar de Operação. Documentar e/ou automatizar.
-4. **RLS**: a flag não entra em nenhuma policy hoje. Não é gate de dados — não criar essa expectativa.
+- Novo hook `useCanManageZonasForEvent(eventId)` que junta as 3 condições.
+- UI: gate dos botões "+ Nova zona", ⋯ Editar/Excluir nos cards.
+- RLS: actualizar policies em `operacao_frentes` para permitir INSERT/UPDATE/DELETE quando o user é `general_producer` desse `event_id` (já além de admin/manager). Hoje exige `manage_operacao_frentes`.
 
-Sem armadilhas críticas. Pronto para arrancar DISP-G assim que confirmares.
+### 4.2 Criar Etapas só em frentes do produtor
 
-## Espero confirmação para arrancar
+Hoje qualquer membro pode criar etapa. Restringir:
 
-1. OK em forçar `is_operacao_only=true` em **toda** criação pela /operacao/equipa (sem opção contrária na UI)?
-2. OK em remover o item "Staff" do sidebar já em DISP-G (vira tab dentro da Equipa)?
-3. OK em **bloquear** arquivar/excluir de producers (user normais) pela Equipa — mandar para Admin — e só permitir arquivar field_staff?
+- Admin / `manage_operacao_etapas`: cria em qualquer frente.
+- Resto: só em frentes onde está como `lead` em `operacao_frente_team` (já temos `useMyLeadFrenteIds`).
+- UI: na lista de Etapas, no Hub de evento e nos detalhes de Zona, o botão "+ Nova etapa" só aparece se `canCreateEtapaInFrente(frenteId)`.
+- RLS: actualizar policy de INSERT em `operacao_etapas` para exigir `is_lead_of_frente(frente_id)` (nova helper SQL `STABLE SECURITY INVOKER`) OU `has_permission(...,'manage_operacao_etapas')`.
+
+## 5. Ficheiros principais a tocar
+
+- Novo: `src/contexts/OperacaoEventContext.tsx`
+- Novo: `src/components/operacao/OperacaoEventSwitcher.tsx`
+- Novo: `src/hooks/useCanManageZonasForEvent.ts`, `src/hooks/useCanCreateEtapaInFrente.ts`
+- Edit: `src/components/AppSidebar.tsx` (secções)
+- Edit shell: `src/components/operacao/list/OperacaoListShell.tsx` (header + switcher)
+- Edit páginas: `ZonasList.tsx`, `EtapasList.tsx`, `ChamadosList.tsx`, `EquipaView.tsx`, `Dashboard.tsx`, `MeusChamados.tsx`, `MinhasTarefas.tsx`
+- Edit cards: `ZonaCard.tsx`, `EtapaCard*`, `ChamadoCard`, `EquipaEventoTab.tsx` (e versão de página)
+- Migration RLS: `operacao_frentes` (general_producer) + `operacao_etapas` (lead-only INSERT) + helper `is_lead_of_frente(uuid)`.
+
+## 6. Fora de scope (confirmar se queres incluir)
+
+- Alterar quem pode **excluir** etapas concluídas (mantém regra actual: só admin).
+- Trash 30d para entidades de Operação (já existe sistema global — usar `delete_with_trash` se aplicável; caso contrário deletes hard com confirmação).
+- Versionamento das frentes (não toca).
+
+## 7. Smoke test pós-implementação
+
+1. Login admin → header mostra switcher; trocar de evento muda todas as listas.
+2. Recarregar página → evento mantido (localStorage).
+3. Login produtor Beatriz (general_producer Coala) → consegue criar zona; produtor sem general_producer não consegue.
+4. Produtor Coala → "+ Nova etapa" só aparece nas frentes onde é lead.
+5. Excluir zona com etapas → confirma, arquiva tudo.
+6. Excluir membro da Equipa direto em `/operacao/equipa` sem ir ao Hub.
+
+Estimativa: 2 sessões (contexto+sidebar+RLS numa, editar/excluir+gates na outra).
