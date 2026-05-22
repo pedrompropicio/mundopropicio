@@ -35,7 +35,19 @@ export function ZonasFiltersBar() {
     setParams(next, { replace: true });
   };
 
+  // "Activas" visualmente activo quando não há filtro explícito de status
+  const statusActive = (val: string) =>
+    filters.status.length === 0 ? val === "active" : filters.status.includes(val as any);
 
+  const hasAnyFilter = filters.status.length > 0 || currentType !== "all";
+
+  const toggleDir = () =>
+    update({ sort_dir: (filters.sort_dir === "asc" ? "desc" : "asc") as SortDir });
+
+  return (
+    <div className="border-b pb-3 space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Filter className="h-4 w-4 text-muted-foreground" />
         <Select
           value={filters.sort_by ?? "display_order"}
           onValueChange={(v) => update({ sort_by: v })}
@@ -51,7 +63,13 @@ export function ZonasFiltersBar() {
             ))}
           </SelectContent>
         </Select>
-        <Button variant="outline" size="sm" className="h-8 px-2" onClick={toggleDir} title="Inverter ordem">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 px-2"
+          onClick={toggleDir}
+          title="Inverter ordem"
+        >
           <ArrowUpDown className="h-3.5 w-3.5" />
           <span className="ml-1 text-[10px]">{filters.sort_dir === "asc" ? "↑" : "↓"}</span>
         </Button>
