@@ -207,11 +207,21 @@ export function EquipaEventoTab({ eventId }: Props) {
   }));
 
   // Secção 2 ------------------------------------------------------------
-  const produtoresPorFrente = frentes.map((f: any) => ({
-    frente: f,
-    leadId: f.current_lead_id as string | null,
-    leadProfile: f.current_lead_id ? profilesById.get(f.current_lead_id) : undefined,
-  }));
+  // Multi-produtor: lista todos os leads do team por frente (primário primeiro)
+  const leadsPorFrente = new Map<string, Array<{ profileId: string; isPrimary: boolean }>>();
+  data.teamMembers.forEach((t: any) => {
+    if (t.role_in_frente !== "lead") return;
+    const frente: any = frenteById.get(t.frente_id);
+    if (!frente) return;
+    const arr = leadsPorFrente.get(t.frente_id) ?? [];
+    arr.push({ profileId: t.profile_id, isPrimary: frente.current_lead_id === t.profile_id });
+    leadsPorFrente.set(t.frente_id, arr);
+  });
+  const produtoresPorFrente = frentes.map((f: any) => {
+    const list = leadsPorFrente.get(f.id) ?? [];
+    list.sort((a, b) => (a.isPrimary === b.isPrimary ? 0 : a.isPrimary ? -1 : 1));
+    return { frente: f, leads: list };
+  });
 
   return (
     <div className="space-y-6 p-3">
@@ -249,14 +259,14 @@ export function EquipaEventoTab({ eventId }: Props) {
         <EmptyHint>Sem zonas ou serviços criados.</EmptyHint>
       ) : (
         <div className="grid gap-2 sm:grid-cols-2">
-          {produtoresPorFrente.map(({ frente, leadId, leadProfile }) => (
+          {produtoresPorFrente.map(({ frente, leads }) => (
             <div
               key={`prod-${frente.id}`}
               role="button"
               tabIndex={0}
               onClick={() =>
-                leadId
-                  ? onClickPessoa(leadId)
+                leads.length > 0
+                  ? onClickPessoa(leads[0].profileId)
                   : navigate(`/operacao/${eventId}`)
               }
               className={cn(
@@ -276,21 +286,35 @@ export function EquipaEventoTab({ eventId }: Props) {
                     {frenteLabel(frente.type)}
                   </Badge>
                 </div>
-                {leadId && leadProfile ? (
-                  <div className="flex items-center gap-2 mt-1">
-                    <Avatar className="h-6 w-6">
-                      <AvatarFallback className="text-[10px]">
-                        {initialsOf(leadProfile.full_name, leadProfile.email)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm font-medium truncate">
-                      {leadProfile.full_name || leadProfile.email || "—"}
-                    </span>
-                  </div>
-                ) : (
+                {leads.length === 0 ? (
                   <div className="flex items-center gap-1.5 mt-1 text-amber-600 text-xs font-medium">
                     <AlertTriangle className="h-3.5 w-3.5" />
                     Sem produtor atribuído
+                  </div>
+                ) : (
+                  <div className="mt-1 space-y-1">
+                    {leads.map((l) => {
+                      const prof = profilesById.get(l.profileId);
+                      return (
+                        <div
+                          key={l.profileId}
+                          className="flex items-center gap-2"
+                          onClick={(e) => { e.stopPropagation(); onClickPessoa(l.profileId); }}
+                        >
+                          <Avatar className="h-5 w-5">
+                            <AvatarFallback className="text-[9px]">
+                              {initialsOf(prof?.full_name, prof?.email)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm truncate flex-1">
+                            {prof?.full_name || prof?.email || "—"}
+                          </span>
+                          {l.isPrimary && leads.length > 1 && (
+                            <Badge variant="default" className="text-[9px] h-4 px-1">Primário</Badge>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
