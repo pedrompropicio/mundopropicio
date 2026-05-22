@@ -162,6 +162,8 @@ export async function setPrimaryLead({
     .eq("id", frenteId);
   if (error) return { error: error.message };
   return {};
+}
+
 
 /**
  * Associa um perfil a uma frente como AUXILIAR (role_in_frente='auxiliary').
