@@ -14,6 +14,7 @@ import { useMyLeadFrenteIds } from "@/hooks/useMyLeadFrenteIds";
 export default function MyFrentes() {
   const { user, hasPermission, isAdmin } = useAuth();
   const canView = isAdmin || hasPermission("view_operacao");
+  const { leadFrenteIdSet } = useMyLeadFrenteIds();
   const [showPushPrompt, setShowPushPrompt] = useState(false);
 
   useEffect(() => {
