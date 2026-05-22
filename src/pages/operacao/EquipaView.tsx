@@ -6,7 +6,7 @@ import { useOperacaoListFilters } from "@/hooks/useOperacaoListFilters";
 import { useScopedEventIds } from "@/hooks/useScopedEventIds";
 import { useAuth } from "@/contexts/AuthContext";
 import { OperacaoListShell } from "@/components/operacao/list/OperacaoListShell";
-import { EquipaEventoTab } from "@/components/operacao/equipa/EquipaEventoTab";
+import { PessoasListTab } from "@/components/operacao/equipa/PessoasListTab";
 import { FieldStaffSection } from "@/components/operacao/equipa/FieldStaffSection";
 import { FrentesPanel } from "@/components/operacao/event/FrentesPanel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
