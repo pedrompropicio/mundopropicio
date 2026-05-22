@@ -5,7 +5,6 @@ import { OperacaoEventSwitcher } from "@/components/operacao/OperacaoEventSwitch
 
 const HIDE_SWITCHER_ON = [
   "/operacao/accept-invite",
-  "/operacao/staff",
   "/operacao/onboarding",
 ];
 
