@@ -57,44 +57,62 @@ export default function PessoaDetail() {
         evtRoles = data ?? [];
       }
 
-      // 3) frentes onde é lead OU está no team
+      // 3) frentes onde é lead (via team role='lead') OU auxiliar no team
       let leadFrentes: any[] = [];
       let teamFrentes: any[] = [];
       let scopeFrenteIds = new Set<string>();
       if (eventId) {
-        const [leadsRes, teamsRes] = await Promise.all([
-          supabase
-            .from("operacao_frentes")
-            .select("id, name, color, type, status")
-            .eq("event_id", eventId)
-            .eq("current_lead_id", id!)
-            .neq("status", "cancelled"),
-          supabase
-            .from("operacao_frente_team")
-            .select("frente_id, role_in_frente, is_permanent_lead")
-            .eq("profile_id", id!)
-            .eq("active", true),
-        ]);
-        if (leadsRes.error) throw leadsRes.error;
-        if (teamsRes.error) throw teamsRes.error;
-        leadFrentes = leadsRes.data ?? [];
-        leadFrentes.forEach((f: any) => scopeFrenteIds.add(f.id));
+        const { data: teamsRaw, error: teamsErr } = await supabase
+          .from("operacao_frente_team")
+          .select("frente_id, role_in_frente, is_permanent_lead")
+          .eq("profile_id", id!)
+          .eq("active", true);
+        if (teamsErr) throw teamsErr;
 
-        const teamFrenteIds = (teamsRes.data ?? []).map((t: any) => t.frente_id);
-        if (teamFrenteIds.length > 0) {
+        const teamFrenteIds = (teamsRaw ?? []).map((t: any) => t.frente_id);
+        const teamRoleByFrente = new Map<string, { role: string; isLead: boolean }>();
+        (teamsRaw ?? []).forEach((t: any) => {
+          teamRoleByFrente.set(t.frente_id, {
+            role: t.role_in_frente,
+            isLead: t.role_in_frente === "lead" || t.is_permanent_lead === true,
+          });
+        });
+
+        // Inclui também frentes onde é current_lead_id (fallback caso o back-fill falhe)
+        const { data: primaryLeadFrs, error: plErr } = await supabase
+          .from("operacao_frentes")
+          .select("id, name, color, type, status, event_id, current_lead_id")
+          .eq("event_id", eventId)
+          .eq("current_lead_id", id!)
+          .neq("status", "cancelled");
+        if (plErr) throw plErr;
+
+        const allFrenteIds = Array.from(new Set([
+          ...teamFrenteIds,
+          ...((primaryLeadFrs ?? []).map((f: any) => f.id)),
+        ]));
+
+        let frentesData: any[] = [];
+        if (allFrenteIds.length > 0) {
           const { data: frs, error: fErr } = await supabase
             .from("operacao_frentes")
-            .select("id, name, color, type, status, event_id")
-            .in("id", teamFrenteIds)
-            .eq("event_id", eventId);
+            .select("id, name, color, type, status, event_id, current_lead_id")
+            .in("id", allFrenteIds)
+            .eq("event_id", eventId)
+            .neq("status", "cancelled");
           if (fErr) throw fErr;
-          teamFrentes = (frs ?? [])
-            .filter((f: any) => !leadFrentes.some((l: any) => l.id === f.id))
-            .map((f: any) => ({
-              ...f,
-              role: (teamsRes.data ?? []).find((t: any) => t.frente_id === f.id)?.role_in_frente,
-            }));
-          teamFrentes.forEach((f: any) => scopeFrenteIds.add(f.id));
+          frentesData = frs ?? [];
+        }
+
+        for (const f of frentesData) {
+          const tInfo = teamRoleByFrente.get(f.id);
+          const isLead = tInfo?.isLead === true || f.current_lead_id === id;
+          if (isLead) {
+            leadFrentes.push(f);
+          } else {
+            teamFrentes.push({ ...f, role: tInfo?.role });
+          }
+          scopeFrenteIds.add(f.id);
         }
       }
 
