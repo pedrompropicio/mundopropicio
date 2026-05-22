@@ -129,12 +129,12 @@ export async function removeFrenteLead({
   // Procurar substituto: outro lead permanente activo (mais antigo)
   const { data: candidates } = await supabase
     .from("operacao_frente_team")
-    .select("profile_id, created_at")
+    .select("profile_id, assigned_at")
     .eq("frente_id", frenteId)
     .eq("role_in_frente", "lead")
     .eq("is_permanent_lead", true)
     .eq("active", true)
-    .order("created_at", { ascending: true })
+    .order("assigned_at", { ascending: true })
     .limit(1);
 
   const nextPrimary = candidates?.[0]?.profile_id ?? null;
