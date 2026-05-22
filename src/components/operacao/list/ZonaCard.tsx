@@ -10,6 +10,7 @@ import {
 import { MoreHorizontal, Bell, Pencil, ExternalLink } from "lucide-react";
 import { frenteLabel } from "@/lib/operacao-labels";
 import { cn } from "@/lib/utils";
+import { FrenteLeadsAvatars } from "@/components/operacao/shared/FrenteLeadsAvatars";
 
 export interface ZonaCardData {
   id: string;
