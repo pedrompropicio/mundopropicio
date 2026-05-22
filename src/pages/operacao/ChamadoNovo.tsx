@@ -24,6 +24,8 @@ export default function ChamadoNovo() {
   const [media, setMedia] = useState<CapturedMedia[]>([]);
   const [audio, setAudio] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [mediaBusy, setMediaBusy] = useState(false);
+  const [audioBusy, setAudioBusy] = useState(false);
 
   // Frentes onde o user participa (visíveis)
   const { data: frentes } = useQuery({
@@ -132,17 +134,17 @@ export default function ChamadoNovo() {
             <MediaCapture
               companyId={(selectedFrente as any).company_id}
               eventId={(selectedFrente as any).event_id}
-              registroId={registroId} value={media} onChange={setMedia}
+              registroId={registroId} value={media} onChange={setMedia} onBusyChange={setMediaBusy}
             />
             <AudioRecorder
               companyId={(selectedFrente as any).company_id}
               eventId={(selectedFrente as any).event_id}
-              registroId={registroId} value={audio} onChange={setAudio}
+              registroId={registroId} value={audio} onChange={setAudio} onBusyChange={setAudioBusy}
             />
           </>
         )}
-        <Button size="lg" className="w-full" onClick={submit} disabled={saving}>
-          {saving ? "A abrir..." : "Abrir chamado"}
+        <Button size="lg" className="w-full" onClick={submit} disabled={saving || mediaBusy || audioBusy}>
+          {saving ? "A abrir..." : mediaBusy || audioBusy ? "A enviar anexos..." : "Abrir chamado"}
         </Button>
       </Card>
     </div>

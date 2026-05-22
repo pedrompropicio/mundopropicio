@@ -139,6 +139,7 @@ function ResolveDialog({ chamadoId, frenteId, eventId, companyId, onClose }: { c
   const [registroId] = useState(() => crypto.randomUUID());
   const [media, setMedia] = useState<CapturedMedia[]>([]);
   const [saving, setSaving] = useState(false);
+  const [mediaBusy, setMediaBusy] = useState(false);
 
   const submit = async () => {
     if (!user || !text.trim()) return;
@@ -182,9 +183,9 @@ function ResolveDialog({ chamadoId, frenteId, eventId, companyId, onClose }: { c
             <Label>O que foi feito? *</Label>
             <Textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} autoFocus />
           </div>
-          <MediaCapture companyId={companyId} eventId={eventId} registroId={registroId} value={media} onChange={setMedia} />
-          <Button onClick={submit} disabled={saving || !text.trim()} className="w-full">
-            {saving ? "A guardar..." : "Confirmar resolução"}
+          <MediaCapture companyId={companyId} eventId={eventId} registroId={registroId} value={media} onChange={setMedia} onBusyChange={setMediaBusy} />
+          <Button onClick={submit} disabled={saving || !text.trim() || mediaBusy} className="w-full">
+            {saving ? "A guardar..." : mediaBusy ? "A enviar anexos..." : "Confirmar resolução"}
           </Button>
         </div>
       </DialogContent>
