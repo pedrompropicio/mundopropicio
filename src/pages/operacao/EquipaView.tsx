@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useOperacaoListFilters } from "@/hooks/useOperacaoListFilters";
