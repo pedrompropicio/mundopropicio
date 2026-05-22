@@ -438,65 +438,11 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
         y += 4;
       }
 
-      // Registos (full mode)
+      // Registos da etapa (full mode)
       if (opts.detail === "full") {
         const regs = registrosByEtapa.get(e.id) ?? [];
         if (regs.length) {
-          ensureSpace(16);
-          doc.setFontSize(9);
-          doc.setTextColor(80);
-          doc.text(`Registos (${regs.length}):`, margin + 16, y);
-          doc.setTextColor(0);
-          y += 13;
-          for (const r of regs) {
-            const author = profilesById.get(r.author_profile_id) ?? "—";
-            const when = new Date(r.created_at).toLocaleString("pt-PT", {
-              day: "2-digit",
-              month: "short",
-              hour: "2-digit",
-              minute: "2-digit",
-            });
-            const text = r.text ?? r.transcribed_text ?? "(sem texto)";
-            const head = `${when} · ${author}`;
-            const lines = doc.splitTextToSize(text, pageW - margin * 2 - 24);
-            ensureSpace(12 + 11 * lines.length + 6);
-            doc.setFontSize(8);
-            doc.setTextColor(120);
-            doc.text(head, margin + 20, y);
-            y += 11;
-            doc.setTextColor(0);
-            doc.setFontSize(9);
-            doc.text(lines, margin + 20, y);
-            y += 11 * lines.length + 4;
-
-            // Photos — side by side (2 per row)
-            if (opts.includePhotos && r.media?.length) {
-              const colW = (pageW - margin * 2 - 24 - 10) / 2;
-              const loaded: { data: string; w: number; h: number }[] = [];
-              for (const m of r.media as any[]) {
-                const img = await imageUrlToDataUrl(m.file_url);
-                if (img) loaded.push(img);
-              }
-              for (let i = 0; i < loaded.length; i += 2) {
-                const a = loaded[i];
-                const b = loaded[i + 1];
-                const aH = (a.h / a.w) * colW;
-                const bH = b ? (b.h / b.w) * colW : 0;
-                const rowH = Math.max(aH, bH);
-                ensureSpace(rowH + 8);
-                try {
-                  doc.addImage(a.data, "JPEG", margin + 20, y, colW, aH);
-                  if (b) {
-                    doc.addImage(b.data, "JPEG", margin + 20 + colW + 10, y, colW, bH);
-                  }
-                } catch {
-                  /* skip */
-                }
-                y += rowH + 8;
-              }
-            }
-          }
-          y += 4;
+          await renderRegistroBlock(regs, "Registos", 16);
         } else {
           doc.setFont("helvetica", "italic");
           doc.setFontSize(8);
@@ -509,6 +455,12 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
       }
       y += 4;
     }
+
+    // Registos da frente (sem etapa) — full mode
+    if (frenteRegs.length) {
+      await renderRegistroBlock(frenteRegs, "Registos da frente (sem etapa)", 12);
+    }
+
     y += 8;
   };
 
