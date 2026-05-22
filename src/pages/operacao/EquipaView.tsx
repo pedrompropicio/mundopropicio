@@ -112,22 +112,9 @@ export default function EquipaView() {
           </TabsList>
 
           <TabsContent value="pessoas" className="mt-4">
-            {noScope ? (
-              <Card className="p-10 text-center text-sm text-muted-foreground">
-                Não fazes parte de nenhum evento. Pede para te adicionarem.
-              </Card>
-            ) : !activeEventId ? (
-              <Card className="p-10 text-center space-y-3">
-                <CalendarRange className="h-8 w-8 mx-auto text-muted-foreground" />
-                <h3 className="font-medium">Escolhe um evento</h3>
-                <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  A vista de pessoas precisa de um evento ativo. Seleciona acima.
-                </p>
-              </Card>
-            ) : (
-              <EquipaEventoTab eventId={activeEventId} />
-            )}
+            <PessoasListTab eventId={activeEventId} />
           </TabsContent>
+
 
           <TabsContent value="frentes" className="mt-4 space-y-6">
             {noScope ? (
