@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsEventDirectorOnly } from "@/hooks/useIsEventDirectorOnly";
+import { useMyLeadFrenteIds } from "@/hooks/useMyLeadFrenteIds";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -75,6 +76,7 @@ export default function EtapaDetail() {
   // Hooks chamados sempre antes de early returns (Rules of Hooks)
   const eventIdForDirector = (etapa as any)?.frente?.event_id;
   const isDirectorOnly = useIsEventDirectorOnly(eventIdForDirector);
+  const { leadFrenteIdSet } = useMyLeadFrenteIds();
   const [editOpen, setEditOpen] = useState(false);
 
   if (isLoading) return <div className="p-6">A carregar...</div>;
@@ -82,7 +84,7 @@ export default function EtapaDetail() {
   if (!etapa) return <div className="p-6 text-muted-foreground">Etapa não encontrada.</div>;
 
   const frente = (etapa as any).frente;
-  const isLead = frente?.current_lead_id === user?.id;
+  const isLead = frente?.current_lead_id === user?.id || (frente?.id && leadFrenteIdSet.has(frente.id));
   const isResponsible = etapa.responsible_profile_id === user?.id;
   const canChangeStatus = !isDirectorOnly && (isAdmin || hasPermission("manage_operacao_etapas") || isLead || isResponsible);
   const canEditAssignees = !isDirectorOnly && (isAdmin || hasPermission("manage_operacao_etapas") || isLead);

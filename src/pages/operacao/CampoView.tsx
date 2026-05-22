@@ -200,7 +200,7 @@ export default function CampoView() {
       const [{ data: teams }, { data: leadFrs }] = await Promise.all([
         supabase
           .from("operacao_frente_team")
-          .select("frente_id, frente:operacao_frentes!inner(id,name,color,type,event_id,current_lead_id)")
+          .select("frente_id, role_in_frente, is_permanent_lead, frente:operacao_frentes!inner(id,name,color,type,event_id,current_lead_id)")
           .eq("profile_id", user!.id)
           .eq("active", true),
         supabase
@@ -214,12 +214,14 @@ export default function CampoView() {
       for (const t of teams ?? []) {
         const f: any = (t as any).frente;
         if (!f || f.event_id !== activeId) continue;
+        const teamRole = (t as any).role_in_frente;
+        const isPermLead = (t as any).is_permanent_lead;
         frenteMap.set(f.id, {
           id: f.id,
           name: f.name,
           color: f.color,
           type: f.type,
-          is_lead: f.current_lead_id === user!.id,
+          is_lead: teamRole === "lead" || isPermLead === true || f.current_lead_id === user!.id,
           etapas_count: 0,
         });
       }

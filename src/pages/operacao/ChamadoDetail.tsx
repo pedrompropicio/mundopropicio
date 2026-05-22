@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useMyLeadFrenteIds } from "@/hooks/useMyLeadFrenteIds";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -22,6 +23,7 @@ export default function ChamadoDetail() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [resolveOpen, setResolveOpen] = useState(false);
+  const { leadFrenteIdSet } = useMyLeadFrenteIds();
 
   const { data: c } = useQuery({
     queryKey: ["op-chamado", id],
@@ -37,7 +39,7 @@ export default function ChamadoDetail() {
 
   if (!c) return <div className="p-6">A carregar...</div>;
   const frente = (c as any).frente;
-  const isLead = frente?.current_lead_id === user?.id;
+  const isLead = frente?.current_lead_id === user?.id || (frente?.id && leadFrenteIdSet.has(frente.id));
 
   const ack = async () => {
     const { error } = await supabase.from("operacao_registros")

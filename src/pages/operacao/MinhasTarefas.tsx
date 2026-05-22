@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { OperacaoStatusBadge } from "@/components/operacao/OperacaoStatusBadge";
 import { Crown, ChevronRight } from "lucide-react";
+import { useMyLeadFrenteIds } from "@/hooks/useMyLeadFrenteIds";
 
 type EtapaRow = any;
 
@@ -20,18 +21,8 @@ export default function MinhasTarefas() {
   const { user, hasPermission, isAdmin } = useAuth();
   const canView = isAdmin || hasPermission("view_operacao");
 
-  // 1. Frentes onde o user é current_lead
-  const { data: leadFrenteIds } = useQuery({
-    queryKey: ["op-lead-frentes", user?.id],
-    enabled: !!user && canView,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("operacao_frentes")
-        .select("id")
-        .eq("current_lead_id", user!.id);
-      return (data ?? []).map((f: any) => f.id as string);
-    },
-  });
+  // 1. Frentes onde o user é lead (primário ou co-produtor) — via team
+  const { leadFrenteIds } = useMyLeadFrenteIds();
 
   // 2. Etapas onde o user é assignee
   const { data: assigneeEtapas } = useQuery({
