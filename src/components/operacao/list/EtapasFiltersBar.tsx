@@ -30,28 +30,6 @@ const SORT_OPTS = [
 
 export function EtapasFiltersBar() {
   const { filters, update, toggle, clear } = useOperacaoListFilters("etapas");
-  const { eventIds } = useScopedEventIds();
-
-  // Resolve event labels
-  const { data: events } = useQuery({
-    queryKey: ["op-etapas-filter-events", eventIds.join(",")],
-    enabled: eventIds.length > 0,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("events")
-        .select("id,name,date,status")
-        .in("id", eventIds)
-        .order("date", { ascending: false });
-      return data ?? [];
-    },
-  });
-
-  // Auto-select first event if none picked and only 1 available
-  useEffect(() => {
-    if (!filters.event && events && events.length === 1) {
-      update({ event: events[0].id });
-    }
-  }, [filters.event, events, update]);
 
   const { data: frentes } = useQuery({
     queryKey: ["op-etapas-filter-frentes", filters.event],
@@ -68,7 +46,6 @@ export function EtapasFiltersBar() {
   });
 
   const hasAnyFilter =
-    !!filters.event ||
     filters.frentes.length > 0 ||
     filters.status.length > 0 ||
     filters.responsibility !== "todos";
@@ -80,22 +57,7 @@ export function EtapasFiltersBar() {
     <div className="border-b pb-3 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <Filter className="h-4 w-4 text-muted-foreground" />
-        <Select
-          value={filters.event ?? "__all__"}
-          onValueChange={(v) => update({ event: v === "__all__" ? null : v, frentes: [] })}
-        >
-          <SelectTrigger className="w-[240px] h-8">
-            <SelectValue placeholder="Todos os eventos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">Todos os eventos</SelectItem>
-            {(events ?? []).map((e: any) => (
-              <SelectItem key={e.id} value={e.id}>
-                {e.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+
 
         <Select
           value={filters.sort_by ?? "planned_start"}
