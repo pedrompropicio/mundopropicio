@@ -1,9 +1,5 @@
-import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useOperacaoListFilters, type SortDir } from "@/hooks/useOperacaoListFilters";
-import { useScopedEventIds } from "@/hooks/useScopedEventIds";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,7 +24,6 @@ const SORT_OPTS = [
 
 export function ZonasFiltersBar() {
   const { filters, update, toggle, clear } = useOperacaoListFilters("zonas");
-  const { eventIds } = useScopedEventIds();
   const [params, setParams] = useSearchParams();
   const currentType = (params.get("type") as "zone" | "service" | null) ?? "all";
 
@@ -40,33 +35,11 @@ export function ZonasFiltersBar() {
     setParams(next, { replace: true });
   };
 
-  const { data: events } = useQuery({
-    queryKey: ["op-zonas-filter-events", eventIds.join(",")],
-    enabled: eventIds.length > 0,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("events")
-        .select("id,name,date,status")
-        .in("id", eventIds)
-        .order("date", { ascending: false });
-      return data ?? [];
-    },
-  });
-
-  useEffect(() => {
-    if (!filters.event && events && events.length === 1) {
-      update({ event: events[0].id });
-    }
-  }, [filters.event, events, update]);
-
-  // "Activas" treated as visually active when no explicit status filter
+  // "Activas" visualmente activo quando não há filtro explícito de status
   const statusActive = (val: string) =>
     filters.status.length === 0 ? val === "active" : filters.status.includes(val as any);
 
-  const hasAnyFilter =
-    !!filters.event ||
-    filters.status.length > 0 ||
-    currentType !== "all";
+  const hasAnyFilter = filters.status.length > 0 || currentType !== "all";
 
   const toggleDir = () =>
     update({ sort_dir: (filters.sort_dir === "asc" ? "desc" : "asc") as SortDir });
@@ -75,23 +48,6 @@ export function ZonasFiltersBar() {
     <div className="border-b pb-3 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <Filter className="h-4 w-4 text-muted-foreground" />
-        <Select
-          value={filters.event ?? "__all__"}
-          onValueChange={(v) => update({ event: v === "__all__" ? null : v })}
-        >
-          <SelectTrigger className="w-[240px] h-8">
-            <SelectValue placeholder="Todos os eventos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">Todos os eventos</SelectItem>
-            {(events ?? []).map((e: any) => (
-              <SelectItem key={e.id} value={e.id}>
-                {e.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
         <Select
           value={filters.sort_by ?? "display_order"}
           onValueChange={(v) => update({ sort_by: v })}
@@ -107,7 +63,13 @@ export function ZonasFiltersBar() {
             ))}
           </SelectContent>
         </Select>
-        <Button variant="outline" size="sm" className="h-8 px-2" onClick={toggleDir} title="Inverter ordem">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 px-2"
+          onClick={toggleDir}
+          title="Inverter ordem"
+        >
           <ArrowUpDown className="h-3.5 w-3.5" />
           <span className="ml-1 text-[10px]">{filters.sort_dir === "asc" ? "↑" : "↓"}</span>
         </Button>
