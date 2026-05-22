@@ -9,9 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, UserCog, HardHat } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Search, UserCog, HardHat, FileDown } from "lucide-react";
 import { NewPessoaMenu } from "./NewPessoaMenu";
 import { PessoaSheet } from "./PessoaSheet";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { toast } from "sonner";
 
 function initials(name?: string | null) {
   if (!name) return "?";
@@ -34,8 +38,8 @@ type Row = {
   phone: string | null;
   profile_type: string | null;
   archived_at: string | null;
-  zoneCount: number;
-  serviceCount: number;
+  zones: string[];
+  services: string[];
 };
 
 export function PessoasListTab({ eventId }: Props) {
@@ -83,7 +87,7 @@ export function PessoasListTab({ eventId }: Props) {
       if (ids.length > 0) {
         const { data: tRows } = await supabase
           .from("operacao_frente_team")
-          .select("profile_id, role_in_frente, operacao_frentes!inner(type, status)")
+          .select("profile_id, role_in_frente, operacao_frentes!inner(type, status, name)")
           .in("profile_id", ids)
           .eq("role_in_frente", "lead")
           .eq("active", true);
@@ -94,8 +98,16 @@ export function PessoasListTab({ eventId }: Props) {
 
       return (profiles ?? []).map((p: any) => {
         const mine = teamRows.filter((r) => r.profile_id === p.id);
-        const zoneCount = mine.filter((r) => r.operacao_frentes?.type === "zone").length;
-        const serviceCount = mine.filter((r) => r.operacao_frentes?.type === "service").length;
+        const zones = mine
+          .filter((r) => r.operacao_frentes?.type === "zone")
+          .map((r) => r.operacao_frentes?.name as string)
+          .filter(Boolean)
+          .sort();
+        const services = mine
+          .filter((r) => r.operacao_frentes?.type === "service")
+          .map((r) => r.operacao_frentes?.name as string)
+          .filter(Boolean)
+          .sort();
         return {
           id: p.id,
           full_name: p.full_name,
@@ -103,8 +115,8 @@ export function PessoasListTab({ eventId }: Props) {
           phone: p.phone,
           profile_type: p.profile_type,
           archived_at: p.archived_at,
-          zoneCount,
-          serviceCount,
+          zones,
+          services,
         };
       });
     },
@@ -120,6 +132,44 @@ export function PessoasListTab({ eventId }: Props) {
         (r.phone ?? "").toLowerCase().includes(s),
     );
   }, [rows, search]);
+
+  function exportPdf() {
+    if (filtered.length === 0) {
+      toast.error("Sem pessoas para exportar.");
+      return;
+    }
+    const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+    const title = "Equipa — Pessoas";
+    const subtitle = `${filtered.length} pessoas · ${new Date().toLocaleString("pt-PT")}`;
+    doc.setFontSize(14);
+    doc.text(title, 40, 40);
+    doc.setFontSize(9);
+    doc.setTextColor(120);
+    doc.text(subtitle, 40, 56);
+    doc.setTextColor(0);
+
+    autoTable(doc, {
+      startY: 72,
+      head: [["Nome", "Tipo", "Contacto", "Zonas", "Serviços"]],
+      body: filtered.map((r) => [
+        r.full_name ?? "—",
+        r.profile_type === "field_staff" ? "Staff" : "Produtor",
+        [r.email, r.phone].filter(Boolean).join("\n"),
+        r.zones.join(", ") || "—",
+        r.services.join(", ") || "—",
+      ]),
+      styles: { fontSize: 8, cellPadding: 4, valign: "top" },
+      headStyles: { fillColor: [30, 30, 30] },
+      columnStyles: {
+        0: { cellWidth: 110 },
+        1: { cellWidth: 50 },
+        2: { cellWidth: 130 },
+        3: { cellWidth: 110 },
+        4: { cellWidth: 110 },
+      },
+    });
+    doc.save(`equipa-pessoas-${new Date().toISOString().slice(0, 10)}.pdf`);
+  }
 
   return (
     <div className="space-y-3">
@@ -147,7 +197,18 @@ export function PessoasListTab({ eventId }: Props) {
             </div>
           )}
         </div>
-        <NewPessoaMenu onCreated={(id) => setSelectedId(id)} />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportPdf}
+            disabled={isLoading || filtered.length === 0}
+            className="h-8 text-xs"
+          >
+            <FileDown className="h-3.5 w-3.5 mr-1" /> PDF
+          </Button>
+          <NewPessoaMenu onCreated={(id) => setSelectedId(id)} />
+        </div>
       </div>
 
       {isLoading ? (
@@ -164,17 +225,18 @@ export function PessoasListTab({ eventId }: Props) {
         <div className="border rounded-md divide-y">
           {filtered.map((r) => {
             const isStaff = r.profile_type === "field_staff";
+            const responsibilities = [...r.zones, ...r.services];
             return (
               <button
                 key={r.id}
                 onClick={() => setSelectedId(r.id)}
-                className="w-full flex items-center gap-3 px-3 py-2 hover:bg-muted/40 text-left transition-colors"
+                className="w-full flex items-start gap-3 px-3 py-2 hover:bg-muted/40 text-left transition-colors"
               >
-                <Avatar className="h-9 w-9 shrink-0">
+                <Avatar className="h-9 w-9 shrink-0 mt-0.5">
                   <AvatarFallback className="text-xs">{initials(r.full_name)}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium truncate">{r.full_name ?? "—"}</span>
                     <Badge variant={isStaff ? "secondary" : "default"} className="text-[10px]">
                       {isStaff ? (
@@ -192,9 +254,24 @@ export function PessoasListTab({ eventId }: Props) {
                   <div className="text-[11px] text-muted-foreground truncate">
                     {r.email ?? ""}{r.email && r.phone ? " · " : ""}{r.phone ?? ""}
                   </div>
-                </div>
-                <div className="text-[11px] text-muted-foreground shrink-0">
-                  {r.zoneCount} zonas · {r.serviceCount} serviços
+                  {responsibilities.length > 0 ? (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {r.zones.map((z) => (
+                        <Badge key={`z-${z}`} variant="outline" className="text-[10px] border-blue-500/40 text-blue-600 dark:text-blue-400">
+                          {z}
+                        </Badge>
+                      ))}
+                      {r.services.map((s) => (
+                        <Badge key={`s-${s}`} variant="outline" className="text-[10px] border-lime-500/40 text-lime-700 dark:text-lime-400">
+                          {s}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-1 text-[10px] text-muted-foreground italic">
+                      Sem responsabilidades
+                    </div>
+                  )}
                 </div>
               </button>
             );
