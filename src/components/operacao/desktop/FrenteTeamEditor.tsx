@@ -3,12 +3,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { Crown, HardHat, Plus, Trash2, Search, UserPlus } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { NewStaffDialog } from "@/components/operacao/NewStaffDialog";
+import { setPrimaryLead } from "@/lib/operacao-frente-lead";
 
 interface Props {
   frenteId: string;
