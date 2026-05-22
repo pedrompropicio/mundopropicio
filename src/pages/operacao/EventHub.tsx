@@ -13,9 +13,10 @@ import { PlanejamentoPhase } from "@/components/operacao/event/PlanejamentoPhase
 import { EventoPhase } from "@/components/operacao/event/EventoPhase";
 import { MontagemPhase } from "@/components/operacao/event/MontagemPhase";
 
-import { ArrowLeft, Users, ChevronRight, CheckCircle2, BarChart3 } from "lucide-react";
+import { ArrowLeft, Users, ChevronRight, CheckCircle2, BarChart3, FileDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { OperationalReportDialog } from "@/components/operacao/reports/OperationalReportDialog";
 
 function fmtRange(date?: string | null) {
   if (!date) return "";
