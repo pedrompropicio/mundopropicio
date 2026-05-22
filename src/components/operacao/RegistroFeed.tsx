@@ -37,9 +37,26 @@ const KIND_ICON: Record<string, any> = {
 };
 
 export function RegistroFeed({ filter, pageSize = 20 }: { filter: Filter; pageSize?: number }) {
-  const queryKey = ["op-registros", filter];
+  const queryClient = useQueryClient();
   const { user, isAdmin, isManager } = useAuth();
   const [detail, setDetail] = useState<{ id: string; edit: boolean } | null>(null);
+  const [toDelete, setToDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!toDelete) return;
+    setDeleting(true);
+    const { error } = await supabase.from("operacao_registros").delete().eq("id", toDelete);
+    setDeleting(false);
+    if (error) {
+      toast.error("Não foi possível apagar: " + error.message);
+      return;
+    }
+    toast.success("Registo apagado");
+    setToDelete(null);
+    queryClient.invalidateQueries({ queryKey: ["op-registros"] });
+  }
+
 
   const { data, isLoading } = useQuery({
     queryKey,
