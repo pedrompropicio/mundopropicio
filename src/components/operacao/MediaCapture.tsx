@@ -19,6 +19,7 @@ interface Props {
   registroId: string;
   onChange: (media: CapturedMedia[]) => void;
   value: CapturedMedia[];
+  onBusyChange?: (busy: boolean) => void;
 }
 
 async function videoFirstFrameDataUrl(file: File): Promise<string | null> {
@@ -52,7 +53,7 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([arr], { type: mime });
 }
 
-export function MediaCapture({ companyId, eventId, registroId, onChange, value }: Props) {
+export function MediaCapture({ companyId, eventId, registroId, onChange, value, onBusyChange }: Props) {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
