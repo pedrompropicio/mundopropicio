@@ -1,0 +1,40 @@
+-- =====================================================================
+-- Cron whatsapp_dispatcher_minute — LIVE
+-- Cola no SQL Editor com ambiente Live selecionado e corre tudo.
+-- =====================================================================
+
+-- 1) Pré-check: o secret tem de existir no vault em Live
+SELECT name FROM vault.decrypted_secrets WHERE name = 'email_queue_service_role_key';
+-- Esperado: 1 linha. Se não houver, PARA e avisa antes de continuar.
+
+-- 2) (Re)criar o cron
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'whatsapp_dispatcher_minute') THEN
+    PERFORM cron.unschedule('whatsapp_dispatcher_minute');
+  END IF;
+END $$;
+
+SELECT cron.schedule(
+  'whatsapp_dispatcher_minute',
+  '* * * * *',
+  $cmd$
+  SELECT net.http_post(
+    url := 'https://ukpuhoynrqobqtzdbysp.supabase.co/functions/v1/whatsapp-dispatcher',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (
+        SELECT decrypted_secret FROM vault.decrypted_secrets
+        WHERE name = 'email_queue_service_role_key'
+      )
+    ),
+    body := '{}'::jsonb
+  );
+  $cmd$
+);
+
+-- 3) Validação
+SELECT jobid, jobname, schedule, active
+FROM cron.job
+WHERE jobname = 'whatsapp_dispatcher_minute';
+-- Esperado: 1 linha, schedule '* * * * *', active=true.
