@@ -156,14 +156,71 @@ export default function EtapasList() {
           : "Tenta ajustar os filtros ou limpar."
       }
     >
-      {accumulated.map((etapa) => (
-        <EtapaListRow
-          key={etapa.id}
-          etapa={etapa}
-          showEventBadge={scopedEventIds.length > 1 && !filters.event}
-          onClick={() => navigate(`/operacao/etapa/${etapa.id}`)}
-        />
-      ))}
-    </OperacaoListShell>
-  );
-}
+      {(() => {
+        // Group by frente, preserving order of first appearance (which already follows sort_by)
+        const groups: Array<{ frente: NonNullable<EtapaListRowData["frente"]>; rows: EtapaListRowData[] }> = [];
+        const idx = new Map<string, number>();
+        const orphans: EtapaListRowData[] = [];
+        for (const e of accumulated) {
+          if (!e.frente) { orphans.push(e); continue; }
+          const k = e.frente.id;
+          let i = idx.get(k);
+          if (i === undefined) {
+            i = groups.length;
+            idx.set(k, i);
+            groups.push({ frente: e.frente, rows: [] });
+          }
+          groups[i].rows.push(e);
+        }
+        const showEventBadge = scopedEventIds.length > 1 && !filters.event;
+        const toggle = (id: string) => {
+          setCollapsed((prev) => {
+            const n = new Set(prev);
+            if (n.has(id)) n.delete(id); else n.add(id);
+            return n;
+          });
+        };
+        return (
+          <>
+            {groups.map(({ frente, rows }) => {
+              const isCollapsed = collapsed.has(frente.id);
+              const Icon = frente.type === "service" ? Wrench : MapPin;
+              return (
+                <div key={frente.id} className="border-b last:border-b-0">
+                  <button
+                    type="button"
+                    onClick={() => toggle(frente.id)}
+                    className="w-full flex items-center gap-2 px-3 py-2 bg-muted/30 hover:bg-muted/50 text-left transition-colors"
+                  >
+                    {isCollapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                    <span
+                      className="h-2.5 w-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: frente.color ?? "hsl(var(--muted-foreground))" }}
+                    />
+                    <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-xs font-semibold uppercase tracking-wide truncate">{frente.name}</span>
+                    <span className="ml-auto text-[10px] text-muted-foreground">{rows.length}</span>
+                  </button>
+                  {!isCollapsed && rows.map((etapa) => (
+                    <EtapaListRow
+                      key={etapa.id}
+                      etapa={etapa}
+                      showEventBadge={showEventBadge}
+                      showFrenteBadge={false}
+                      onClick={() => navigate(`/operacao/etapa/${etapa.id}`)}
+                    />
+                  ))}
+                </div>
+              );
+            })}
+            {orphans.map((etapa) => (
+              <EtapaListRow
+                key={etapa.id}
+                etapa={etapa}
+                showEventBadge={showEventBadge}
+                onClick={() => navigate(`/operacao/etapa/${etapa.id}`)}
+              />
+            ))}
+          </>
+        );
+      })()}
