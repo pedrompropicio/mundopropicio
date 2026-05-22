@@ -31,7 +31,6 @@ const SORT_OPTS = [
 
 export function ChamadosFiltersBar() {
   const { filters, update, toggle, clear } = useOperacaoListFilters("chamados");
-  const { eventIds } = useScopedEventIds();
   const [params, setParams] = useSearchParams();
 
   const priorityFilter = useMemo(
@@ -60,25 +59,6 @@ export function ChamadosFiltersBar() {
     setParams(next, { replace: true });
   };
 
-  const { data: events } = useQuery({
-    queryKey: ["op-chamados-filter-events", eventIds.join(",")],
-    enabled: eventIds.length > 0,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("events")
-        .select("id,name,date,status")
-        .in("id", eventIds)
-        .order("date", { ascending: false });
-      return data ?? [];
-    },
-  });
-
-  useEffect(() => {
-    if (!filters.event && events && events.length === 1) {
-      update({ event: events[0].id });
-    }
-  }, [filters.event, events, update]);
-
   const { data: frentes } = useQuery({
     queryKey: ["op-chamados-filter-frentes", filters.event],
     enabled: !!filters.event,
@@ -94,7 +74,6 @@ export function ChamadosFiltersBar() {
   });
 
   const hasAnyFilter =
-    !!filters.event ||
     filters.frentes.length > 0 ||
     filters.status.length > 0 ||
     priorityFilter.length > 0 ||
@@ -115,22 +94,7 @@ export function ChamadosFiltersBar() {
     <div className="border-b pb-3 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <Filter className="h-4 w-4 text-muted-foreground" />
-        <Select
-          value={filters.event ?? "__all__"}
-          onValueChange={(v) => update({ event: v === "__all__" ? null : v, frentes: [] })}
-        >
-          <SelectTrigger className="w-[240px] h-8">
-            <SelectValue placeholder="Todos os eventos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">Todos os eventos</SelectItem>
-            {(events ?? []).map((e: any) => (
-              <SelectItem key={e.id} value={e.id}>
-                {e.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+
 
         <Select
           value={filters.sort_by ?? "created_at"}
