@@ -155,12 +155,13 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
   const { event, frentes, etapas, profilesById, suppliersById } = await fetchData(opts.eventId);
   if (!event) throw new Error("Evento não encontrado");
 
-  // Filter etapas by phase + status
-  const enriched = etapas
-    .map((e) => ({ ...e, _phase: inferEtapaPhase(e, event) }))
-    .filter((e) => opts.phases.includes(e._phase) && opts.statuses.includes(e.status));
+  // Enrich all etapas with phase; then filter view by phase+status
+  const enrichedAll = etapas.map((e) => ({ ...e, _phase: inferEtapaPhase(e, event) }));
+  const enriched = enrichedAll.filter(
+    (e) => opts.phases.includes(e._phase) && opts.statuses.includes(e.status)
+  );
 
-  // Optionally load registos
+  // Load registos for all visible etapas (full mode)
   const registrosByEtapa =
     opts.detail === "full" ? await fetchRegistros(enriched.map((e) => e.id)) : new Map<string, any[]>();
 
@@ -238,10 +239,188 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
   });
   y = (doc as any).lastAutoTable.finalY + 16;
 
-  // ----- For each phase -----
-  for (const phase of opts.phases) {
-    const phaseEtapas = enriched.filter((e) => e._phase === phase);
-    if (!phaseEtapas.length) continue;
+  // ----- Render a frente block: header + etapas (or empty hint) -----
+  const renderFrente = async (f: any) => {
+    const items = enriched
+      .filter((e) => e.frente_id === f.id)
+      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+
+    ensureSpace(50);
+    const [fr, fg, fb] = f.color ? hexToRgb(f.color) : [99, 102, 241];
+    doc.setFillColor(fr, fg, fb);
+    doc.rect(margin, y, 4, 14, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    const nameWidth = doc.getTextWidth(f.name);
+    doc.text(f.name, margin + 10, y + 11);
+    const leadName = f.current_lead_id ? profilesById.get(f.current_lead_id) : null;
+    if (leadName) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(120);
+      doc.text(`· ${leadName}`, margin + 10 + nameWidth + 6, y + 11);
+      doc.setTextColor(0);
+    }
+    // count tag on the right
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(140);
+    const tag = items.length
+      ? `${items.length} ${items.length === 1 ? "etapa" : "etapas"}`
+      : "sem etapas";
+    doc.text(tag, pageW - margin, y + 11, { align: "right" });
+    doc.setTextColor(0);
+    y += 22;
+
+    if (!items.length) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(9);
+      doc.setTextColor(140);
+      doc.text("Sem etapas para os filtros selecionados.", margin + 12, y);
+      doc.setTextColor(0);
+      doc.setFont("helvetica", "normal");
+      y += 16;
+      return;
+    }
+
+    if (opts.detail === "compact") {
+      autoTable(doc, {
+        startY: y,
+        head: [["Etapa", "Fase", "Status", "Datas", "Responsável"]],
+        body: items.map((e) => [
+          e.name,
+          PHASE_LABELS[e._phase],
+          STATUS_LABEL[e.status] ?? e.status,
+          fmtRange(e.planned_start, e.planned_end),
+          e.responsible_profile_id ? profilesById.get(e.responsible_profile_id) ?? "—" : "—",
+        ]),
+        styles: { fontSize: 9, cellPadding: 3 },
+        headStyles: { fillColor: [241, 245, 249], textColor: 0 },
+        margin: { left: margin + 8, right: margin },
+      });
+      y = (doc as any).lastAutoTable.finalY + 12;
+      return;
+    }
+
+    // medium / full
+    for (const e of items) {
+      ensureSpace(50);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(`• ${e.name}`, margin + 12, y);
+      y += 13;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(110);
+      doc.text(
+        `${PHASE_LABELS[e._phase]}  ·  ${STATUS_LABEL[e.status] ?? e.status}  ·  ${fmtRange(e.planned_start, e.planned_end)}`,
+        margin + 16,
+        y
+      );
+      doc.setTextColor(0);
+      y += 13;
+
+      const meta: string[] = [];
+      if (e.responsible_profile_id) {
+        const n = profilesById.get(e.responsible_profile_id);
+        if (n) meta.push(`Responsável: ${n}`);
+      }
+      if (e.supplier_id) {
+        const n = suppliersById.get(e.supplier_id);
+        if (n) meta.push(`Fornecedor: ${n}`);
+      }
+      if (e.escopo) meta.push(`Escopo: ${e.escopo}`);
+      if (meta.length) {
+        doc.setFontSize(9);
+        for (const m of meta) {
+          const lines = doc.splitTextToSize(m, pageW - margin * 2 - 18);
+          ensureSpace(11 * lines.length + 2);
+          doc.text(lines, margin + 16, y);
+          y += 11 * lines.length;
+        }
+        y += 4;
+      }
+
+      // Registos (full mode)
+      if (opts.detail === "full") {
+        const regs = registrosByEtapa.get(e.id) ?? [];
+        if (regs.length) {
+          ensureSpace(16);
+          doc.setFontSize(9);
+          doc.setTextColor(80);
+          doc.text(`Registos (${regs.length}):`, margin + 16, y);
+          doc.setTextColor(0);
+          y += 13;
+          for (const r of regs) {
+            const author = profilesById.get(r.author_profile_id) ?? "—";
+            const when = new Date(r.created_at).toLocaleString("pt-PT", {
+              day: "2-digit",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+            const text = r.text ?? r.transcribed_text ?? "(sem texto)";
+            const head = `${when} · ${author}`;
+            const lines = doc.splitTextToSize(text, pageW - margin * 2 - 24);
+            ensureSpace(12 + 11 * lines.length + 6);
+            doc.setFontSize(8);
+            doc.setTextColor(120);
+            doc.text(head, margin + 20, y);
+            y += 11;
+            doc.setTextColor(0);
+            doc.setFontSize(9);
+            doc.text(lines, margin + 20, y);
+            y += 11 * lines.length + 4;
+
+            // Photos — side by side (2 per row)
+            if (opts.includePhotos && r.media?.length) {
+              const colW = (pageW - margin * 2 - 24 - 10) / 2;
+              const loaded: { data: string; w: number; h: number }[] = [];
+              for (const m of r.media as any[]) {
+                const img = await imageUrlToDataUrl(m.file_url);
+                if (img) loaded.push(img);
+              }
+              for (let i = 0; i < loaded.length; i += 2) {
+                const a = loaded[i];
+                const b = loaded[i + 1];
+                const aH = (a.h / a.w) * colW;
+                const bH = b ? (b.h / b.w) * colW : 0;
+                const rowH = Math.max(aH, bH);
+                ensureSpace(rowH + 8);
+                try {
+                  doc.addImage(a.data, "JPEG", margin + 20, y, colW, aH);
+                  if (b) {
+                    doc.addImage(b.data, "JPEG", margin + 20 + colW + 10, y, colW, bH);
+                  }
+                } catch {
+                  /* skip */
+                }
+                y += rowH + 8;
+              }
+            }
+          }
+          y += 4;
+        } else {
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(8);
+          doc.setTextColor(140);
+          doc.text("Sem registos.", margin + 16, y);
+          doc.setTextColor(0);
+          doc.setFont("helvetica", "normal");
+          y += 12;
+        }
+      }
+      y += 4;
+    }
+    y += 8;
+  };
+
+  // ----- Render section header + group of frentes -----
+  const renderSection = async (label: string, predicate: (f: any) => boolean) => {
+    const groupFrentes = frentes
+      .filter(predicate)
+      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+    if (!groupFrentes.length) return;
 
     doc.addPage();
     y = margin;
@@ -250,182 +429,18 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
     doc.setFillColor(30, 41, 59);
     doc.setTextColor(255);
     doc.rect(margin, y - 14, pageW - margin * 2, 22, "F");
-    doc.text(`FASE — ${PHASE_LABELS[phase].toUpperCase()}`, margin + 8, y + 2);
+    doc.text(label.toUpperCase(), margin + 8, y + 2);
     doc.setTextColor(0);
     y += 22;
 
-    // Group by frente type: zone first, then service, then anything else
-    const renderGroup = async (
-      typeLabel: string,
-      predicate: (f: any) => boolean
-    ) => {
-      const groupFrentes = frentes
-        .filter(predicate)
-        .filter((f) => phaseEtapas.some((e) => e.frente_id === f.id));
-      if (!groupFrentes.length) return;
+    for (const f of groupFrentes) {
+      await renderFrente(f);
+    }
+  };
 
-      ensureSpace(40);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(80);
-      doc.text(typeLabel.toUpperCase(), margin, y);
-      y += 16;
-      doc.setTextColor(0);
-
-      for (const f of groupFrentes) {
-        const items = phaseEtapas.filter((e) => e.frente_id === f.id);
-        if (!items.length) continue;
-        await renderFrente(f, items);
-      }
-    };
-
-    const renderFrente = async (f: any, items: any[]) => {
-      ensureSpace(50);
-      // Frente header
-      const [fr, fg, fb] = f.color ? hexToRgb(f.color) : [99, 102, 241];
-      doc.setFillColor(fr, fg, fb);
-      doc.rect(margin, y, 4, 14, "F");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      const nameWidth = doc.getTextWidth(f.name);
-      doc.text(f.name, margin + 10, y + 11);
-      const leadName = f.current_lead_id ? profilesById.get(f.current_lead_id) : null;
-      if (leadName) {
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.setTextColor(120);
-        doc.text(`· ${leadName}`, margin + 10 + nameWidth + 6, y + 11);
-        doc.setTextColor(0);
-      }
-      y += 22;
-
-      if (opts.detail === "compact") {
-        autoTable(doc, {
-          startY: y,
-          head: [["Etapa", "Status", "Datas", "Responsável"]],
-          body: items.map((e) => [
-            e.name,
-            STATUS_LABEL[e.status] ?? e.status,
-            fmtRange(e.planned_start, e.planned_end),
-            e.responsible_profile_id ? profilesById.get(e.responsible_profile_id) ?? "—" : "—",
-          ]),
-          styles: { fontSize: 9, cellPadding: 3 },
-          headStyles: { fillColor: [241, 245, 249], textColor: 0 },
-          margin: { left: margin + 8, right: margin },
-        });
-        y = (doc as any).lastAutoTable.finalY + 12;
-        return;
-      }
-
-      // medium / full
-      for (const e of items) {
-        ensureSpace(50);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
-        doc.text(`• ${e.name}`, margin + 12, y);
-        y += 13;
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.setTextColor(110);
-        doc.text(
-          `${STATUS_LABEL[e.status] ?? e.status}  ·  ${fmtRange(e.planned_start, e.planned_end)}`,
-          margin + 16,
-          y
-        );
-        doc.setTextColor(0);
-        y += 13;
-
-        const meta: string[] = [];
-        if (e.responsible_profile_id) {
-          const n = profilesById.get(e.responsible_profile_id);
-          if (n) meta.push(`Responsável: ${n}`);
-        }
-        if (e.supplier_id) {
-          const n = suppliersById.get(e.supplier_id);
-          if (n) meta.push(`Fornecedor: ${n}`);
-        }
-        if (e.escopo) meta.push(`Escopo: ${e.escopo}`);
-        if (meta.length) {
-          doc.setFontSize(9);
-          for (const m of meta) {
-            const lines = doc.splitTextToSize(m, pageW - margin * 2 - 18);
-            ensureSpace(11 * lines.length + 2);
-            doc.text(lines, margin + 16, y);
-            y += 11 * lines.length;
-          }
-          y += 4;
-        }
-
-        // Registos (full mode)
-        if (opts.detail === "full") {
-          const regs = registrosByEtapa.get(e.id) ?? [];
-          if (regs.length) {
-            ensureSpace(16);
-            doc.setFontSize(9);
-            doc.setTextColor(80);
-            doc.text("Registos:", margin + 16, y);
-            doc.setTextColor(0);
-            y += 13;
-            for (const r of regs) {
-              const author = profilesById.get(r.author_profile_id) ?? "—";
-              const when = new Date(r.created_at).toLocaleString("pt-PT", {
-                day: "2-digit",
-                month: "short",
-                hour: "2-digit",
-                minute: "2-digit",
-              });
-              const text = r.text ?? r.transcribed_text ?? "(sem texto)";
-              const head = `${when} · ${author}`;
-              const lines = doc.splitTextToSize(text, pageW - margin * 2 - 24);
-              ensureSpace(12 + 11 * lines.length + 6);
-              doc.setFontSize(8);
-              doc.setTextColor(120);
-              doc.text(head, margin + 20, y);
-              y += 11;
-              doc.setTextColor(0);
-              doc.setFontSize(9);
-              doc.text(lines, margin + 20, y);
-              y += 11 * lines.length + 4;
-
-              // Photos — side by side (2 per row)
-              if (opts.includePhotos && r.media?.length) {
-                const colW = (pageW - margin * 2 - 24 - 10) / 2;
-                const loaded: { data: string; w: number; h: number }[] = [];
-                for (const m of r.media as any[]) {
-                  const img = await imageUrlToDataUrl(m.file_url);
-                  if (img) loaded.push(img);
-                }
-                for (let i = 0; i < loaded.length; i += 2) {
-                  const a = loaded[i];
-                  const b = loaded[i + 1];
-                  const aH = (a.h / a.w) * colW;
-                  const bH = b ? (b.h / b.w) * colW : 0;
-                  const rowH = Math.max(aH, bH);
-                  ensureSpace(rowH + 8);
-                  try {
-                    doc.addImage(a.data, "JPEG", margin + 20, y, colW, aH);
-                    if (b) {
-                      doc.addImage(b.data, "JPEG", margin + 20 + colW + 10, y, colW, bH);
-                    }
-                  } catch {
-                    /* skip */
-                  }
-                  y += rowH + 8;
-                }
-              }
-            }
-            y += 4;
-          }
-        }
-        y += 4;
-      }
-      y += 8;
-    };
-
-    await renderGroup("Zonas Físicas", (f) => f.type === "zone");
-    await renderGroup("Serviços Transversais", (f) => f.type === "service");
-    await renderGroup("Outras frentes", (f) => f.type !== "zone" && f.type !== "service");
-  }
+  await renderSection("Zonas Físicas", (f) => f.type === "zone");
+  await renderSection("Serviços Transversais", (f) => f.type === "service");
+  await renderSection("Outras frentes", (f) => f.type !== "zone" && f.type !== "service");
 
   doc.save(`relatorio-operacional-${(event.name ?? "evento").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.pdf`);
 }
