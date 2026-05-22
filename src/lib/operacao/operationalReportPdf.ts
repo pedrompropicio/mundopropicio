@@ -295,7 +295,9 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
     doc.setTextColor(0);
     y += 22;
 
-    if (!items.length) {
+    const frenteRegs = opts.detail === "full" ? registrosByFrente.get(f.id) ?? [] : [];
+
+    if (!items.length && !frenteRegs.length) {
       doc.setFont("helvetica", "italic");
       doc.setFontSize(9);
       doc.setTextColor(140);
@@ -305,6 +307,78 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
       y += 16;
       return;
     }
+
+    // Inline helper to render a list of registos at given indent
+    const renderRegistroBlock = async (regs: any[], labelPrefix: string, indent: number) => {
+      ensureSpace(16);
+      doc.setFontSize(9);
+      doc.setTextColor(80);
+      doc.text(`${labelPrefix} (${regs.length}):`, margin + indent, y);
+      doc.setTextColor(0);
+      y += 13;
+      for (const r of regs) {
+        const author = profilesById.get(r.author_profile_id) ?? "—";
+        const when = new Date(r.created_at).toLocaleString("pt-PT", {
+          day: "2-digit",
+          month: "short",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        const text = r.text ?? r.transcribed_text ?? "(sem texto)";
+        const head = `${when} · ${author}`;
+        const lines = doc.splitTextToSize(text, pageW - margin * 2 - indent - 8);
+        ensureSpace(12 + 11 * lines.length + 6);
+        doc.setFontSize(8);
+        doc.setTextColor(120);
+        doc.text(head, margin + indent + 4, y);
+        y += 11;
+        doc.setTextColor(0);
+        doc.setFontSize(9);
+        doc.text(lines, margin + indent + 4, y);
+        y += 11 * lines.length + 4;
+
+        if (opts.includePhotos && r.media?.length) {
+          const colW = (pageW - margin * 2 - indent - 8 - 10) / 2;
+          const loaded: { data: string; w: number; h: number }[] = [];
+          for (const m of r.media as any[]) {
+            const img = await imageUrlToDataUrl(m.file_url);
+            if (img) loaded.push(img);
+          }
+          for (let i = 0; i < loaded.length; i += 2) {
+            const a = loaded[i];
+            const b = loaded[i + 1];
+            const aH = (a.h / a.w) * colW;
+            const bH = b ? (b.h / b.w) * colW : 0;
+            const rowH = Math.max(aH, bH);
+            ensureSpace(rowH + 8);
+            try {
+              doc.addImage(a.data, "JPEG", margin + indent + 4, y, colW, aH);
+              if (b) {
+                doc.addImage(b.data, "JPEG", margin + indent + 4 + colW + 10, y, colW, bH);
+              }
+            } catch {
+              /* skip */
+            }
+            y += rowH + 8;
+          }
+        }
+      }
+      y += 4;
+    };
+
+    if (!items.length) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(9);
+      doc.setTextColor(140);
+      doc.text("Sem etapas. Registos da frente abaixo:", margin + 12, y);
+      doc.setTextColor(0);
+      doc.setFont("helvetica", "normal");
+      y += 16;
+      await renderRegistroBlock(frenteRegs, "Registos da frente", 12);
+      y += 8;
+      return;
+    }
+
 
     if (opts.detail === "compact") {
       autoTable(doc, {
