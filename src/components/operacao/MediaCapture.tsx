@@ -72,6 +72,7 @@ export function MediaCapture({ companyId, eventId, registroId, onChange, value, 
     }
 
     setUploading(true);
+    onBusyChange?.(true);
     const next: CapturedMedia[] = [...value];
     try {
       for (const file of Array.from(files)) {
@@ -115,6 +116,7 @@ export function MediaCapture({ companyId, eventId, registroId, onChange, value, 
       onChange(next);
     } finally {
       setUploading(false);
+      onBusyChange?.(false);
       if (cameraInputRef.current) cameraInputRef.current.value = "";
       if (galleryInputRef.current) galleryInputRef.current.value = "";
     }
