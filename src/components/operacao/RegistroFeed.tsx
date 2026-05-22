@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -27,8 +38,26 @@ const KIND_ICON: Record<string, any> = {
 
 export function RegistroFeed({ filter, pageSize = 20 }: { filter: Filter; pageSize?: number }) {
   const queryKey = ["op-registros", filter];
+  const queryClient = useQueryClient();
   const { user, isAdmin, isManager } = useAuth();
   const [detail, setDetail] = useState<{ id: string; edit: boolean } | null>(null);
+  const [toDelete, setToDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!toDelete) return;
+    setDeleting(true);
+    const { error } = await supabase.from("operacao_registros").delete().eq("id", toDelete);
+    setDeleting(false);
+    if (error) {
+      toast.error("Não foi possível apagar: " + error.message);
+      return;
+    }
+    toast.success("Registo apagado");
+    setToDelete(null);
+    queryClient.invalidateQueries({ queryKey: ["op-registros"] });
+  }
+
 
   const { data, isLoading } = useQuery({
     queryKey,
@@ -74,7 +103,7 @@ export function RegistroFeed({ filter, pageSize = 20 }: { filter: Filter; pageSi
           const Icon = KIND_ICON[r.kind] ?? MessageSquare;
           const ms = (medias ?? []).filter((m: any) => m.registro_id === r.id);
           const canEdit = user?.id === r.author_profile_id || isAdmin || isManager;
-          const canDelete = isAdmin || isManager;
+          const canDelete = user?.id === r.author_profile_id || isAdmin || isManager;
           return (
             <div
               key={r.id}
@@ -114,7 +143,7 @@ export function RegistroFeed({ filter, pageSize = 20 }: { filter: Filter; pageSi
                     {canDelete && (
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
-                        onClick={() => setDetail({ id: r.id, edit: false })}
+                        onClick={() => setToDelete(r.id)}
                       >
                         <Trash2 className="h-4 w-4 mr-2" /> Apagar
                       </DropdownMenuItem>
@@ -136,6 +165,27 @@ export function RegistroFeed({ filter, pageSize = 20 }: { filter: Filter; pageSi
         registroId={detail?.id ?? null}
         startInEdit={detail?.edit ?? false}
       />
+
+      <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar registo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O registo e as suas fotos/áudios serão removidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDelete(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "A apagar..." : "Apagar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
