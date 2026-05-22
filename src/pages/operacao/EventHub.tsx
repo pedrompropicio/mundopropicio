@@ -47,6 +47,7 @@ export default function EventHub() {
 
   const currentPhase: Phase = (event?.operacao_mode as Phase) ?? "setup";
   const [viewPhase, setViewPhase] = useState<Phase | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
   const activePhase: Phase = viewPhase ?? currentPhase;
 
   const changePhase = async (next: Phase) => {
