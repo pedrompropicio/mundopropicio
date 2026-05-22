@@ -206,12 +206,13 @@ Deno.serve(async (req) => {
     const normalizedFullName = String(body.full_name ?? "").trim();
     const dryRun = body.dry_run === true;
     const role = body.role;
+    const isOperacaoOnly = body.is_operacao_only === true;
 
     if (!normalizedEmail || (!dryRun && !normalizedFullName)) {
       return respond({ error: "Email e nome são obrigatórios." });
     }
 
-    const validRoles = ["admin", "manager", "editor", "viewer", "user", "partner"];
+    const validRoles = ["admin", "manager", "producer", "editor", "viewer", "user", "partner"];
     const targetRole = validRoles.includes(role) ? role : "user";
 
     // ── Pre-check: existe em auth.users?
