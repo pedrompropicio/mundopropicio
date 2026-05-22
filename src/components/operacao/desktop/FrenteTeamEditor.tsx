@@ -164,15 +164,19 @@ export function FrenteTeamEditor({ frenteId, companyId, canEdit }: Props) {
         {(team ?? []).length === 0 && (
           <p className="text-xs text-muted-foreground italic">Sem membros.</p>
         )}
-        {(team ?? []).map((m: any) => (
+        {(team ?? []).map((m: any) => {
+          const isPrimary = m.profile_id === frente?.current_lead_id;
+          const isLead = m.role_in_frente === "lead";
+          return (
           <div key={m.id} className="flex items-center gap-2 p-2 rounded border bg-card">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 text-sm">
-                {m.role_in_frente === "lead" && <Crown className="h-3 w-3 text-primary" />}
+                {isLead && <Crown className={"h-3 w-3 " + (isPrimary ? "text-amber-500 fill-amber-500" : "text-primary")} />}
                 {m.profiles?.profile_type === "field_staff" && (
                   <HardHat className="h-3 w-3 text-amber-600" />
                 )}
                 <span className="truncate">{m.profiles?.full_name ?? "—"}</span>
+                {isPrimary && <Badge variant="default" className="text-[9px] h-4 px-1">Primário</Badge>}
               </div>
             </div>
             <Select
@@ -180,7 +184,7 @@ export function FrenteTeamEditor({ frenteId, companyId, canEdit }: Props) {
               onValueChange={(v) => updateRow(m.id, { role_in_frente: v })}
               disabled={!canEdit}
             >
-              <SelectTrigger className="h-7 w-28 text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-7 w-24 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {ROLES.map((r) => (
                   <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
@@ -191,10 +195,19 @@ export function FrenteTeamEditor({ frenteId, companyId, canEdit }: Props) {
               <Checkbox
                 checked={!!m.is_permanent_lead}
                 onCheckedChange={(c) => updateRow(m.id, { is_permanent_lead: !!c })}
-                disabled={!canEdit || m.role_in_frente !== "lead"}
+                disabled={!canEdit || !isLead}
               />
               Perm.
             </label>
+            {canEdit && isLead && !isPrimary && (
+              <Button
+                variant="ghost" size="sm" className="h-7 text-[10px] px-2"
+                onClick={() => makePrimary(m.profile_id)}
+                title="Tornar produtor primário desta frente"
+              >
+                Tornar 1º
+              </Button>
+            )}
             {canEdit && (
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeRow(m.id)}>
                 <Trash2 className="h-3 w-3" />
