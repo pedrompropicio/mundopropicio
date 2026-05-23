@@ -230,7 +230,13 @@ export function EditFrenteSheet({
                           className="h-7 pl-7 text-xs"
                         />
                       </div>
-                      <div className="max-h-56 overflow-y-auto">
+                      <div
+                        className="max-h-56 overflow-y-auto overscroll-contain touch-pan-y"
+                        style={{ WebkitOverflowScrolling: "touch" }}
+                        onTouchMove={(e) => e.stopPropagation()}
+                        onWheel={(e) => e.stopPropagation()}
+                      >
+
                         {candidates.length === 0 && (
                           <p className="text-xs text-muted-foreground px-2 py-3 text-center">Sem candidatos</p>
                         )}
