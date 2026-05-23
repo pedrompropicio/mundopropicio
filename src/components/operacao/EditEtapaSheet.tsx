@@ -74,6 +74,22 @@ export function EditEtapaSheet({
     setSupplierId(etapa.supplier_id ?? "");
   }, [etapa?.id]);
 
+  const { data: frentesEvento } = useQuery({
+    queryKey: ["op-frentes-for-event", frente?.event_id],
+    enabled: !!frente?.event_id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_frentes")
+        .select("id,name,type,display_order")
+        .eq("event_id", frente!.event_id)
+        .in("type", ["zone", "service"])
+        .neq("status", "cancelled")
+        .order("display_order", { ascending: true })
+        .order("name");
+      return data ?? [];
+    },
+  });
+
   const { data: zones } = useQuery({
     queryKey: ["op-zones-for-event", frente?.event_id],
     enabled: isService && !!frente?.event_id,
