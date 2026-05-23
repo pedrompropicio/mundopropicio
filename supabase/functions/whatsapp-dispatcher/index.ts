@@ -24,9 +24,28 @@ interface QueueRow {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  // SECURITY: gateway enforces verify_jwt=true. Defense in depth: only allow
+  // service_role JWT (cron) OR explicit cron secret. Blocks anon JWT replay.
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  let jwtRole: string | null = null;
+  try {
+    const p = JSON.parse(atob((token.split(".")[1] ?? "").replace(/-/g, "+").replace(/_/g, "/")));
+    jwtRole = p?.role ?? null;
+  } catch { /* ignore */ }
+  const cronSecret = Deno.env.get("WHATSAPP_DISPATCHER_CRON_SECRET");
+  const providedCronSecret = req.headers.get("x-cron-secret");
+  const isCron = !!cronSecret && providedCronSecret === cronSecret;
+  if (jwtRole !== "service_role" && !isCron) {
+    return new Response(JSON.stringify({ error: "forbidden" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   const phoneNumberId = Deno.env.get("META_WA_PHONE_NUMBER_ID");
-  const token = Deno.env.get("META_WA_SYSTEM_TOKEN");
-  if (!phoneNumberId || !token) {
+  const wamToken = Deno.env.get("META_WA_SYSTEM_TOKEN");
+  if (!phoneNumberId || !wamToken) {
     return new Response(JSON.stringify({ error: "Meta WA secrets missing" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
