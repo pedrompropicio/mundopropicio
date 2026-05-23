@@ -52,6 +52,7 @@ export function EditEtapaSheet({
 
   const [name, setName] = useState("");
   const [escopo, setEscopo] = useState("");
+  const [frenteId, setFrenteId] = useState("");
   const [zoneId, setZoneId] = useState("");
   const [plannedStart, setPlannedStart] = useState("");
   const [plannedEnd, setPlannedEnd] = useState("");
@@ -59,11 +60,13 @@ export function EditEtapaSheet({
   const [supplierId, setSupplierId] = useState("");
   const [saving, setSaving] = useState(false);
   const [showNewProfile, setShowNewProfile] = useState(false);
+  const [confirmMoveOpen, setConfirmMoveOpen] = useState(false);
 
   useEffect(() => {
     if (!etapa) return;
     setName(etapa.name ?? "");
     setEscopo(etapa.escopo ?? "");
+    setFrenteId(etapa.frente_id ?? "");
     setZoneId(etapa.zone_id ?? "");
     setPlannedStart(isoToLocalInput(etapa.planned_start));
     setPlannedEnd(isoToLocalInput(etapa.planned_end));
