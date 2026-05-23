@@ -35,8 +35,40 @@ Deno.serve(async (req) => {
     return new Response("method not allowed", { status: 405 });
   }
 
+  // ── HMAC-SHA256 signature verification (Meta App Secret)
+  // Meta sends X-Hub-Signature-256: sha256=<hex>
+  const rawBody = await req.text();
+  const appSecret = Deno.env.get("META_APP_SECRET") ?? Deno.env.get("META_WA_APP_SECRET");
+  if (!appSecret) {
+    console.error("[wh] META_APP_SECRET missing — rejecting unsigned payload");
+    return new Response("server misconfigured", { status: 500 });
+  }
+  const sigHeader = req.headers.get("x-hub-signature-256") ?? "";
+  const provided = sigHeader.replace(/^sha256=/i, "").trim().toLowerCase();
+  if (!provided || provided.length !== 64) {
+    return new Response("forbidden", { status: 403 });
+  }
+  // Compute expected
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(appSecret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sigBuf = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+  const expected = Array.from(new Uint8Array(sigBuf))
+    .map((b) => b.toString(16).padStart(2, "0")).join("");
+  // constant-time compare
+  let diff = 0;
+  for (let i = 0; i < 64; i++) diff |= expected.charCodeAt(i) ^ provided.charCodeAt(i);
+  if (diff !== 0) {
+    console.warn("[wh] HMAC mismatch");
+    return new Response("forbidden", { status: 403 });
+  }
+
   let body: any = {};
-  try { body = await req.json(); } catch (_) { /* fall through */ }
+  try { body = JSON.parse(rawBody); } catch (_) { /* fall through */ }
 
   // Processa de forma defensiva — Meta espera 200 sempre.
   try {

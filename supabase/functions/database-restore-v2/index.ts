@@ -79,7 +79,9 @@ Deno.serve(async (req) => {
       userId = payload?.sub ?? null;
     } catch { /* not jwt */ }
 
-    const isMachine = role === "service_role" || role === "anon";
+    // SECURITY: only service_role (cron / internal) OR an authenticated admin user.
+    // 'anon' role is a public JWT and MUST NOT bypass admin gate.
+    const isMachine = role === "service_role";
     if (!isMachine) {
       if (!userId) return jsonErr("Não autorizado", 401);
       const { data: roleRow } = await admin
