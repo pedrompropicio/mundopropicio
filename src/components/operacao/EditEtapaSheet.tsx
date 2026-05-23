@@ -369,6 +369,23 @@ export function EditEtapaSheet({
             onCreated={(id) => { setResponsibleId(id); setShowNewProfile(false); }}
           />
         )}
+
+        <AlertDialog open={confirmMoveOpen} onOpenChange={(o) => !o && !saving && setConfirmMoveOpen(false)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Mover etapa para outra frente?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Vais mover esta etapa e todos os seus registos (fotos, notas, chamados) da frente «{(frentesEvento ?? []).find((f: any) => f.id === etapa?.frente_id)?.name ?? "—"}» para «{(frentesEvento ?? []).find((f: any) => f.id === frenteId)?.name ?? "—"}». Continuar?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmMove} disabled={saving}>
+                {saving ? "A mover…" : "Mover"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </SheetContent>
     </Sheet>
   );
