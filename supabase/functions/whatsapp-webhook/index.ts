@@ -22,7 +22,9 @@ Deno.serve(async (req) => {
     const mode = url.searchParams.get("hub.mode");
     const token = url.searchParams.get("hub.verify_token");
     const challenge = url.searchParams.get("hub.challenge");
-    const expected = Deno.env.get("META_WA_WEBHOOK_VERIFY_TOKEN");
+    // TEMP: hardcoded verify token — secrets META_WA_* não acessíveis via env (a investigar). Reverter para Deno.env.get quando resolvido.
+    const expected = Deno.env.get("META_WA_WEBHOOK_VERIFY_TOKEN") ?? "mpgestao2026webhook";
+    console.log("[wh-debug] GET", { mode, hasToken: !!token, hasExpected: !!expected, match: token === expected });
     if (mode === "subscribe" && token && expected && token === expected) {
       return new Response(challenge ?? "", { status: 200, headers: { "Content-Type": "text/plain" } });
     }
