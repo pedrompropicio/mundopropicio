@@ -70,6 +70,14 @@ Deno.serve(async (req) => {
   let body: any = {};
   try { body = JSON.parse(rawBody); } catch (_) { /* fall through */ }
 
+  // Processa de forma defensiva — Meta espera 200 sempre.
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { persistSession: false } },
+    );
+
     const entries = Array.isArray(body?.entry) ? body.entry : [];
     for (const entry of entries) {
       const changes = Array.isArray(entry?.changes) ? entry.changes : [];
