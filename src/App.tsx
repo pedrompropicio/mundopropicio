@@ -458,6 +458,7 @@ function ProtectedLayout() {
               <Route path="/admin/empresas" element={<Companies />} />
               <Route path="/admin/lembretes" element={<Reminders />} />
               <Route path="/admin/auditoria-rls" element={<RlsLegacyAudit />} />
+              <Route path="/admin/upload-coala-fotos" element={<UploadCoalaFotos />} />
               <Route path="/admin/sync-health" element={<SyncHealth />} />
               <Route path="/admin/sync-coala" element={<CoalaSync />} />
               <Route path="/admin/fever-sync" element={<FeverSync />} />
