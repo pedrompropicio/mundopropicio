@@ -324,50 +324,67 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
           hour: "2-digit",
           minute: "2-digit",
         });
-        const text = r.text ?? r.transcribed_text ?? "(sem texto)";
+        const text = r.text ?? r.transcribed_text ?? "";
         const head = `${when} · ${author}`;
-        const lines = doc.splitTextToSize(text, pageW - margin * 2 - indent - 8);
-        ensureSpace(12 + 6);
+        const textWidth = pageW - margin * 2 - indent - 8;
+        const lines = text ? doc.splitTextToSize(text, textWidth) : [];
+
+        ensureSpace(14);
         doc.setFontSize(8);
         doc.setTextColor(120);
         doc.text(head, margin + indent + 4, y);
-        y += 11;
+        y += 10;
         doc.setTextColor(0);
 
-        // Imagens primeiro
+        // Texto descritivo como legenda — logo após o cabeçalho
+        if (lines.length) {
+          ensureSpace(11 * lines.length + 4);
+          doc.setFontSize(9);
+          doc.text(lines, margin + indent + 4, y);
+          y += 11 * lines.length + 4;
+        }
+
+        // Imagens em grelha 2 colunas, capadas a 70mm de altura
         if (opts.includePhotos && r.media?.length) {
+          const MAX_IMG_H = 70;
           const colW = (pageW - margin * 2 - indent - 8 - 10) / 2;
           const loaded: { data: string; w: number; h: number }[] = [];
           for (const m of r.media as any[]) {
             const img = await imageUrlToDataUrl(m.file_url);
             if (img) loaded.push(img);
           }
+          const fit = (img: { w: number; h: number }) => {
+            const natH = (img.h / img.w) * colW;
+            if (natH <= MAX_IMG_H) return { w: colW, h: natH, x: 0 };
+            const w = (img.w / img.h) * MAX_IMG_H;
+            return { w, h: MAX_IMG_H, x: (colW - w) / 2 };
+          };
           for (let i = 0; i < loaded.length; i += 2) {
             const a = loaded[i];
             const b = loaded[i + 1];
-            const aH = (a.h / a.w) * colW;
-            const bH = b ? (b.h / b.w) * colW : 0;
-            const rowH = Math.max(aH, bH);
-            ensureSpace(rowH + 8);
+            const fa = fit(a);
+            const fb = b ? fit(b) : null;
+            const rowH = Math.max(fa.h, fb?.h ?? 0);
+            ensureSpace(rowH + 6);
             try {
-              doc.addImage(a.data, "JPEG", margin + indent + 4, y, colW, aH);
-              if (b) {
-                doc.addImage(b.data, "JPEG", margin + indent + 4 + colW + 10, y, colW, bH);
+              doc.addImage(a.data, "JPEG", margin + indent + 4 + fa.x, y, fa.w, fa.h);
+              if (b && fb) {
+                doc.addImage(b.data, "JPEG", margin + indent + 4 + colW + 10 + fb.x, y, fb.w, fb.h);
               }
             } catch {
               /* skip */
             }
-            y += rowH + 8;
+            y += rowH + 6;
           }
         }
 
-        // Texto descritivo por baixo das imagens
-        ensureSpace(11 * lines.length + 6);
-        doc.setFontSize(9);
-        doc.text(lines, margin + indent + 4, y);
-        y += 11 * lines.length + 4;
+        // Separador subtil entre registos
+        doc.setDrawColor(230);
+        doc.setLineWidth(0.2);
+        doc.line(margin + indent + 4, y, pageW - margin - 4, y);
+        y += 6;
       }
-      y += 4;
+      y += 2;
     };
 
     if (!items.length) {
