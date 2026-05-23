@@ -168,7 +168,7 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
     setSaving(true);
     const originalFrenteId = registro?.frente_id;
     const newCompanyId = (frentesDoEvento ?? []).find((f: any) => f.id === editFrenteId)?.company_id;
-    const payload: Record<string, unknown> = {
+    const payload: any = {
       text: editText,
       kind: editKind,
       frente_id: editFrenteId,
