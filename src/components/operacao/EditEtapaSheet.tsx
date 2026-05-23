@@ -254,6 +254,25 @@ export function EditEtapaSheet({
               <Input value={escopo} onChange={(e) => setEscopo(e.target.value)} />
             </div>
 
+            <div>
+              <Label>Frente (Zona/Serviço)</Label>
+              <Select value={frenteId} onValueChange={setFrenteId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(frentesEvento ?? []).map((f: any) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.name} <span className="text-muted-foreground text-xs">· {f.type === "zone" ? "Zona" : "Serviço"}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {frenteChanged && (
+                <p className="text-xs text-amber-500 mt-1">
+                  Vais mover esta etapa e os seus registos para outra frente.
+                </p>
+              )}
+            </div>
+
             {isService && (
               <div>
                 <Label>Zona que atende</Label>
