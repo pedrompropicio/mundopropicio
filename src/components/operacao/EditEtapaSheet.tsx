@@ -151,24 +151,27 @@ export function EditEtapaSheet({
     setResponsibleId(v);
   };
 
-  const invalidateAll = () => {
+  const invalidateAll = (extraFrenteId?: string) => {
     qc.invalidateQueries({ queryKey: ["op-etapa", etapaId] });
     qc.invalidateQueries({ queryKey: ["op-edit-etapa", etapaId] });
-    if (etapa?.frente_id) {
-      qc.invalidateQueries({ queryKey: ["op-etapas", etapa.frente_id] });
-      qc.invalidateQueries({ queryKey: ["op-etapas-table", etapa.frente_id] });
+    const frenteIds = [etapa?.frente_id, extraFrenteId].filter(Boolean) as string[];
+    for (const fid of frenteIds) {
+      qc.invalidateQueries({ queryKey: ["op-etapas", fid] });
+      qc.invalidateQueries({ queryKey: ["op-etapas-table", fid] });
+      qc.invalidateQueries({ queryKey: ["op-registros", fid] });
+      qc.invalidateQueries({ queryKey: ["op-frente", fid] });
     }
     qc.invalidateQueries({ queryKey: ["op-hub-planning"] });
+    if (frente?.event_id) {
+      qc.invalidateQueries({ queryKey: ["op-hub", frente.event_id] });
+    }
   };
 
-  const save = async () => {
-    if (!etapa || !name.trim()) return;
-    if (datesInvalid) {
-      toast({ title: "Data limite antes do início", variant: "destructive" });
-      return;
-    }
-    setSaving(true);
-    const { error } = await supabase.from("operacao_etapas").update({
+  const frenteChanged = !!etapa && !!frenteId && frenteId !== etapa.frente_id;
+
+  const doSaveFields = async () => {
+    if (!etapa) return { error: null as any };
+    return await supabase.from("operacao_etapas").update({
       name: name.trim(),
       escopo: escopo.trim() || null,
       zone_id: isService && zoneId ? zoneId : null,
@@ -177,10 +180,48 @@ export function EditEtapaSheet({
       responsible_profile_id: responsibleId || null,
       supplier_id: supplierId || null,
     }).eq("id", etapa.id);
+  };
+
+  const save = async () => {
+    if (!etapa || !name.trim()) return;
+    if (datesInvalid) {
+      toast({ title: "Data limite antes do início", variant: "destructive" });
+      return;
+    }
+    if (frenteChanged) {
+      setConfirmMoveOpen(true);
+      return;
+    }
+    setSaving(true);
+    const { error } = await doSaveFields();
     setSaving(false);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     toast({ title: "Etapa atualizada" });
     invalidateAll();
+    onClose();
+  };
+
+  const confirmMove = async () => {
+    if (!etapa) return;
+    setSaving(true);
+    // 1) Save os outros campos primeiro
+    const { error: saveErr } = await doSaveFields();
+    if (saveErr) {
+      setSaving(false);
+      toast({ title: "Erro", description: saveErr.message, variant: "destructive" });
+      return;
+    }
+    // 2) Mover via RPC
+    const { data, error } = await (supabase as any).rpc("move_operacao_etapa", {
+      p_etapa_id: etapa.id,
+      p_new_frente_id: frenteId,
+    });
+    setSaving(false);
+    setConfirmMoveOpen(false);
+    if (error) { toast({ title: "Erro ao mover", description: error.message, variant: "destructive" }); return; }
+    const moved = (data as any)?.registros_moved ?? 0;
+    toast({ title: "Etapa movida", description: `${moved} registo(s) atualizado(s).` });
+    invalidateAll(frenteId);
     onClose();
   };
 
