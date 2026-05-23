@@ -7,6 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
 import { Trash2, Phone, Mail } from "lucide-react";
 import { NewProfileInlineDialog, NEW_PROFILE_SENTINEL } from "@/components/operacao/shared/NewProfileInlineDialog";
@@ -48,6 +52,7 @@ export function EditEtapaSheet({
 
   const [name, setName] = useState("");
   const [escopo, setEscopo] = useState("");
+  const [frenteId, setFrenteId] = useState("");
   const [zoneId, setZoneId] = useState("");
   const [plannedStart, setPlannedStart] = useState("");
   const [plannedEnd, setPlannedEnd] = useState("");
@@ -55,17 +60,35 @@ export function EditEtapaSheet({
   const [supplierId, setSupplierId] = useState("");
   const [saving, setSaving] = useState(false);
   const [showNewProfile, setShowNewProfile] = useState(false);
+  const [confirmMoveOpen, setConfirmMoveOpen] = useState(false);
 
   useEffect(() => {
     if (!etapa) return;
     setName(etapa.name ?? "");
     setEscopo(etapa.escopo ?? "");
+    setFrenteId(etapa.frente_id ?? "");
     setZoneId(etapa.zone_id ?? "");
     setPlannedStart(isoToLocalInput(etapa.planned_start));
     setPlannedEnd(isoToLocalInput(etapa.planned_end));
     setResponsibleId(etapa.responsible_profile_id ?? "");
     setSupplierId(etapa.supplier_id ?? "");
   }, [etapa?.id]);
+
+  const { data: frentesEvento } = useQuery({
+    queryKey: ["op-frentes-for-event", frente?.event_id],
+    enabled: !!frente?.event_id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_frentes")
+        .select("id,name,type,display_order")
+        .eq("event_id", frente!.event_id)
+        .in("type", ["zone", "service"])
+        .neq("status", "cancelled")
+        .order("display_order", { ascending: true })
+        .order("name");
+      return data ?? [];
+    },
+  });
 
   const { data: zones } = useQuery({
     queryKey: ["op-zones-for-event", frente?.event_id],
@@ -128,24 +151,27 @@ export function EditEtapaSheet({
     setResponsibleId(v);
   };
 
-  const invalidateAll = () => {
+  const invalidateAll = (extraFrenteId?: string) => {
     qc.invalidateQueries({ queryKey: ["op-etapa", etapaId] });
     qc.invalidateQueries({ queryKey: ["op-edit-etapa", etapaId] });
-    if (etapa?.frente_id) {
-      qc.invalidateQueries({ queryKey: ["op-etapas", etapa.frente_id] });
-      qc.invalidateQueries({ queryKey: ["op-etapas-table", etapa.frente_id] });
+    const frenteIds = [etapa?.frente_id, extraFrenteId].filter(Boolean) as string[];
+    for (const fid of frenteIds) {
+      qc.invalidateQueries({ queryKey: ["op-etapas", fid] });
+      qc.invalidateQueries({ queryKey: ["op-etapas-table", fid] });
+      qc.invalidateQueries({ queryKey: ["op-registros", fid] });
+      qc.invalidateQueries({ queryKey: ["op-frente", fid] });
     }
     qc.invalidateQueries({ queryKey: ["op-hub-planning"] });
+    if (frente?.event_id) {
+      qc.invalidateQueries({ queryKey: ["op-hub", frente.event_id] });
+    }
   };
 
-  const save = async () => {
-    if (!etapa || !name.trim()) return;
-    if (datesInvalid) {
-      toast({ title: "Data limite antes do início", variant: "destructive" });
-      return;
-    }
-    setSaving(true);
-    const { error } = await supabase.from("operacao_etapas").update({
+  const frenteChanged = !!etapa && !!frenteId && frenteId !== etapa.frente_id;
+
+  const doSaveFields = async () => {
+    if (!etapa) return { error: null as any };
+    return await supabase.from("operacao_etapas").update({
       name: name.trim(),
       escopo: escopo.trim() || null,
       zone_id: isService && zoneId ? zoneId : null,
@@ -154,10 +180,48 @@ export function EditEtapaSheet({
       responsible_profile_id: responsibleId || null,
       supplier_id: supplierId || null,
     }).eq("id", etapa.id);
+  };
+
+  const save = async () => {
+    if (!etapa || !name.trim()) return;
+    if (datesInvalid) {
+      toast({ title: "Data limite antes do início", variant: "destructive" });
+      return;
+    }
+    if (frenteChanged) {
+      setConfirmMoveOpen(true);
+      return;
+    }
+    setSaving(true);
+    const { error } = await doSaveFields();
     setSaving(false);
     if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
     toast({ title: "Etapa atualizada" });
     invalidateAll();
+    onClose();
+  };
+
+  const confirmMove = async () => {
+    if (!etapa) return;
+    setSaving(true);
+    // 1) Save os outros campos primeiro
+    const { error: saveErr } = await doSaveFields();
+    if (saveErr) {
+      setSaving(false);
+      toast({ title: "Erro", description: saveErr.message, variant: "destructive" });
+      return;
+    }
+    // 2) Mover via RPC
+    const { data, error } = await (supabase as any).rpc("move_operacao_etapa", {
+      p_etapa_id: etapa.id,
+      p_new_frente_id: frenteId,
+    });
+    setSaving(false);
+    setConfirmMoveOpen(false);
+    if (error) { toast({ title: "Erro ao mover", description: error.message, variant: "destructive" }); return; }
+    const moved = (data as any)?.registros_moved ?? 0;
+    toast({ title: "Etapa movida", description: `${moved} registo(s) atualizado(s).` });
+    invalidateAll(frenteId);
     onClose();
   };
 
@@ -188,6 +252,25 @@ export function EditEtapaSheet({
             <div>
               <Label>Escopo</Label>
               <Input value={escopo} onChange={(e) => setEscopo(e.target.value)} />
+            </div>
+
+            <div>
+              <Label>Frente (Zona/Serviço)</Label>
+              <Select value={frenteId} onValueChange={setFrenteId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(frentesEvento ?? []).map((f: any) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.name} <span className="text-muted-foreground text-xs">· {f.type === "zone" ? "Zona" : "Serviço"}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {frenteChanged && (
+                <p className="text-xs text-amber-500 mt-1">
+                  Vais mover esta etapa e os seus registos para outra frente.
+                </p>
+              )}
             </div>
 
             {isService && (
@@ -286,6 +369,23 @@ export function EditEtapaSheet({
             onCreated={(id) => { setResponsibleId(id); setShowNewProfile(false); }}
           />
         )}
+
+        <AlertDialog open={confirmMoveOpen} onOpenChange={(o) => !o && !saving && setConfirmMoveOpen(false)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Mover etapa para outra frente?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Vais mover esta etapa e todos os seus registos (fotos, notas, chamados) da frente «{(frentesEvento ?? []).find((f: any) => f.id === etapa?.frente_id)?.name ?? "—"}» para «{(frentesEvento ?? []).find((f: any) => f.id === frenteId)?.name ?? "—"}». Continuar?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmMove} disabled={saving}>
+                {saving ? "A mover…" : "Mover"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </SheetContent>
     </Sheet>
   );

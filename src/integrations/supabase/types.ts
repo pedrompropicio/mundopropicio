@@ -8470,6 +8470,10 @@ export type Database = {
           merged_into_splits: number
         }[]
       }
+      move_operacao_etapa: {
+        Args: { p_etapa_id: string; p_new_frente_id: string }
+        Returns: Json
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
