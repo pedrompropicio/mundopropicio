@@ -327,16 +327,14 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
         const text = r.text ?? r.transcribed_text ?? "(sem texto)";
         const head = `${when} · ${author}`;
         const lines = doc.splitTextToSize(text, pageW - margin * 2 - indent - 8);
-        ensureSpace(12 + 11 * lines.length + 6);
+        ensureSpace(12 + 6);
         doc.setFontSize(8);
         doc.setTextColor(120);
         doc.text(head, margin + indent + 4, y);
         y += 11;
         doc.setTextColor(0);
-        doc.setFontSize(9);
-        doc.text(lines, margin + indent + 4, y);
-        y += 11 * lines.length + 4;
 
+        // Imagens primeiro
         if (opts.includePhotos && r.media?.length) {
           const colW = (pageW - margin * 2 - indent - 8 - 10) / 2;
           const loaded: { data: string; w: number; h: number }[] = [];
@@ -362,6 +360,12 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
             y += rowH + 8;
           }
         }
+
+        // Texto descritivo por baixo das imagens
+        ensureSpace(11 * lines.length + 6);
+        doc.setFontSize(9);
+        doc.text(lines, margin + indent + 4, y);
+        y += 11 * lines.length + 4;
       }
       y += 4;
     };
