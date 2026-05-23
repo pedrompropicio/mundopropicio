@@ -344,24 +344,27 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
           y += 11 * lines.length + 4;
         }
 
-        // Imagens em grelha 2 colunas, capadas a 70mm de altura
+        // Imagens maiores: 1 sozinha ocupa largura disponível; pares em 2 colunas largas
         if (opts.includePhotos && r.media?.length) {
-          const MAX_IMG_H = 70;
-          const colW = (pageW - margin * 2 - indent - 8 - 10) / 2;
+          const MAX_IMG_H = 110;
+          const availW = pageW - margin * 2 - indent - 4;
           const loaded: { data: string; w: number; h: number }[] = [];
           for (const m of r.media as any[]) {
             const img = await imageUrlToDataUrl(m.file_url);
             if (img) loaded.push(img);
           }
+          const single = loaded.length === 1;
+          const colW = single ? availW : (availW - 6) / 2;
           const fit = (img: { w: number; h: number }) => {
             const natH = (img.h / img.w) * colW;
             if (natH <= MAX_IMG_H) return { w: colW, h: natH, x: 0 };
             const w = (img.w / img.h) * MAX_IMG_H;
             return { w, h: MAX_IMG_H, x: (colW - w) / 2 };
           };
-          for (let i = 0; i < loaded.length; i += 2) {
+          const step = single ? 1 : 2;
+          for (let i = 0; i < loaded.length; i += step) {
             const a = loaded[i];
-            const b = loaded[i + 1];
+            const b = !single ? loaded[i + 1] : null;
             const fa = fit(a);
             const fb = b ? fit(b) : null;
             const rowH = Math.max(fa.h, fb?.h ?? 0);
@@ -369,7 +372,7 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
             try {
               doc.addImage(a.data, "JPEG", margin + indent + 4 + fa.x, y, fa.w, fa.h);
               if (b && fb) {
-                doc.addImage(b.data, "JPEG", margin + indent + 4 + colW + 10 + fb.x, y, fb.w, fb.h);
+                doc.addImage(b.data, "JPEG", margin + indent + 4 + colW + 6 + fb.x, y, fb.w, fb.h);
               }
             } catch {
               /* skip */
