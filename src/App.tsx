@@ -120,6 +120,7 @@ import AcceptInvitation from "./pages/AcceptInvitation";
 import Companies from "./pages/admin/Companies";
 import Reminders from "./pages/admin/Reminders";
 import RlsLegacyAudit from "./pages/admin/RlsLegacyAudit";
+import UploadCoalaFotos from "./pages/admin/UploadCoalaFotos";
 import CoalaSync from "./pages/admin/CoalaSync";
 import FeverSync from "./pages/admin/FeverSync";
 import SyncHealth from "./pages/admin/SyncHealth";
