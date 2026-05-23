@@ -16,7 +16,21 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.whatsapp-webhook]
+# Public — Meta webhook. Auth via X-Hub-Signature-256 HMAC inside the handler.
 verify_jwt = false
 
 [functions.whatsapp-dispatcher]
-verify_jwt = false
+# Cron-only. Gateway requires a valid JWT (cron sends service_role bearer).
+verify_jwt = true
+
+[functions.apply-coala-bp]
+verify_jwt = true
+
+[functions.database-restore-v2]
+verify_jwt = true
+
+[functions.crm-cron-pause-replaced-originals]
+verify_jwt = true
+
+[functions.sync-coala-from-drive]
+verify_jwt = true
