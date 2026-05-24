@@ -14,9 +14,9 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { MessageSquare, AlertOctagon, Clipboard, Activity, MoreVertical, Eye, Pencil, Trash2 } from "lucide-react";
+import { MessageSquare, AlertOctagon, Clipboard, Activity, MoreVertical, Eye, Pencil, Trash2, MoveRight } from "lucide-react";
 import { PriorityBadge } from "./PriorityBadge";
-import { RegistroDetailSheet } from "./RegistroDetailSheet";
+import { RegistroDetailSheet, MovePhotosDialog } from "./RegistroDetailSheet";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +43,13 @@ export function RegistroFeed({ filter, pageSize = 20 }: { filter: Filter; pageSi
   const [detail, setDetail] = useState<{ id: string; edit: boolean } | null>(null);
   const [toDelete, setToDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [moveSource, setMoveSource] = useState<{
+    registroId: string;
+    frenteId: string;
+    companyId: string;
+    eventId: string | null;
+    mediaIds: string[];
+  } | null>(null);
 
   async function handleDelete() {
     if (!toDelete) return;
@@ -137,7 +144,28 @@ export function RegistroFeed({ filter, pageSize = 20 }: { filter: Filter; pageSi
                     </DropdownMenuItem>
                     {canEdit && (
                       <DropdownMenuItem onClick={() => setDetail({ id: r.id, edit: true })}>
-                        <Pencil className="h-4 w-4 mr-2" /> Editar
+                        <Pencil className="h-4 w-4 mr-2" /> Editar registo
+                      </DropdownMenuItem>
+                    )}
+                    {canEdit && ms.length > 0 && (
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          // Buscar event_id da frente
+                          const { data: f } = await supabase
+                            .from("operacao_frentes")
+                            .select("event_id")
+                            .eq("id", r.frente_id)
+                            .maybeSingle();
+                          setMoveSource({
+                            registroId: r.id,
+                            frenteId: r.frente_id,
+                            companyId: r.company_id,
+                            eventId: f?.event_id ?? null,
+                            mediaIds: ms.map((m: any) => m.id),
+                          });
+                        }}
+                      >
+                        <MoveRight className="h-4 w-4 mr-2" /> Mover fotos
                       </DropdownMenuItem>
                     )}
                     {canDelete && (
@@ -186,6 +214,25 @@ export function RegistroFeed({ filter, pageSize = 20 }: { filter: Filter; pageSi
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {moveSource && (
+        <MovePhotosDialog
+          open={!!moveSource}
+          onClose={() => setMoveSource(null)}
+          sourceRegistroId={moveSource.registroId}
+          sourceFrenteId={moveSource.frenteId}
+          companyId={moveSource.companyId}
+          eventId={moveSource.eventId}
+          selectedMediaIds={moveSource.mediaIds}
+          onMoved={(destRegistroId, destFrenteId) => {
+            setMoveSource(null);
+            queryClient.invalidateQueries({ queryKey: ["op-registros"] });
+            queryClient.invalidateQueries({ queryKey: ["op-registros-media"] });
+            queryClient.invalidateQueries({ queryKey: ["op-registro-detail-media", moveSource.registroId] });
+            queryClient.invalidateQueries({ queryKey: ["op-registro-detail-media", destRegistroId] });
+          }}
+        />
+      )}
     </>
   );
 }
