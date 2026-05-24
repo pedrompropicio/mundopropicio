@@ -343,6 +343,21 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
                       className="mt-1"
                     />
                   </div>
+                  {canChangeAuthor && (
+                    <div>
+                      <Label className="text-xs">Autor</Label>
+                      <Select value={editAuthorId} onValueChange={setEditAuthorId}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Escolher autor..." /></SelectTrigger>
+                        <SelectContent>
+                          {(possibleAuthors ?? []).map((p: any) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.full_name ?? p.email ?? p.id}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     Edição de media não suportada aqui — usa "Mover fotos" no modo de visualização.
                   </p>
