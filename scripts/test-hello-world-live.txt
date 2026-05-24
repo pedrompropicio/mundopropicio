@@ -1,0 +1,11 @@
+-- 1. Apontar template de teste para hello_world (existe e está aprovado no WABA)
+UPDATE notification_templates
+SET meta_template_name='hello_world', language_code='en_US'
+WHERE template_name='fase_evento_avancou'
+RETURNING template_name, meta_template_name, language_code, status;
+
+-- 2. Destrancar e limpar mensagem de teste (hello_world não aceita parâmetros)
+UPDATE notification_queue
+SET status='queued', attempts=0, last_error=NULL, params='{}'::jsonb, updated_at=now()
+WHERE id='c293eae7-eaef-4787-8b46-6006352f74ac'
+RETURNING id, status, attempts, params;
