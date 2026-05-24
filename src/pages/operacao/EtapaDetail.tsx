@@ -25,6 +25,7 @@ import { toast } from "@/hooks/use-toast";
 
 export default function EtapaDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { user, hasPermission, isAdmin } = useAuth();
   const qc = useQueryClient();
   const [sheetOpen, setSheetOpen] = useState(false);
