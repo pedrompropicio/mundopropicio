@@ -45,6 +45,7 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
   ]);
   const [detail, setDetail] = useState<ReportDetail>("medium");
   const [includePhotos, setIncludePhotos] = useState(false);
+  const [groupBy, setGroupBy] = useState<ReportGroupBy>("frente");
   const [busy, setBusy] = useState(false);
 
   const togglePhase = (p: EtapaPhase) =>
