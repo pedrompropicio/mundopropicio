@@ -55,9 +55,9 @@ export function AppSidebar() {
   > = [
     { to: "/operacao/dashboard",      icon: LayoutDashboard, label: "Dashboard",
       show: hasPermission("view_operacao") || isAdmin },
-    { to: "/operacao/etapas",         icon: ListChecks,      label: "Etapas",
-      show: hasPermission("view_operacao") || isAdmin },
     { to: "/operacao/zonas",          icon: Grid3x3,         label: "Zonas / Serviços",
+      show: hasPermission("view_operacao") || isAdmin },
+    { to: "/operacao/etapas",         icon: ListChecks,      label: "Etapas",
       show: hasPermission("view_operacao") || isAdmin },
     { to: "/operacao/chamados",       icon: Bell,            label: "Chamados",
       show: hasPermission("view_operacao") || isAdmin },
