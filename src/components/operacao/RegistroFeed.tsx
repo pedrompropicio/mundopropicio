@@ -43,6 +43,13 @@ export function RegistroFeed({ filter, pageSize = 20 }: { filter: Filter; pageSi
   const [detail, setDetail] = useState<{ id: string; edit: boolean } | null>(null);
   const [toDelete, setToDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [moveSource, setMoveSource] = useState<{
+    registroId: string;
+    frenteId: string;
+    companyId: string;
+    eventId: string | null;
+    mediaIds: string[];
+  } | null>(null);
 
   async function handleDelete() {
     if (!toDelete) return;
