@@ -822,6 +822,22 @@ export function MovePhotosDialog({
               </Select>
             </div>
             <div>
+              <Label className="text-xs">Etapa (opcional)</Label>
+              <Select value={newEtapaId} onValueChange={setNewEtapaId}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Sem etapa</SelectItem>
+                  {(etapasDoEvento ?? [])
+                    .filter((e: any) => !newFrenteId || e.frente_id === newFrenteId)
+                    .map((e: any) => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.name} {e.operacao_frentes?.name ? `· ${e.operacao_frentes.name}` : ""}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label className="text-xs">Tipo</Label>
               <Select value={newKind} onValueChange={setNewKind}>
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
@@ -840,7 +856,15 @@ export function MovePhotosDialog({
         </Tabs>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={busy}>Cancelar</Button>
-          <Button onClick={confirm} disabled={busy}>
+          <Button
+            onClick={confirm}
+            disabled={
+              busy ||
+              selectedMediaIds.length === 0 ||
+              (tab === "existing" && !pickedRegistroId) ||
+              (tab === "new" && !newFrenteId)
+            }
+          >
             {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Mover
           </Button>
