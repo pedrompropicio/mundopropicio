@@ -613,14 +613,14 @@ function DetailAudio({ path }: { path: string }) {
   return <audio controls src={url} className="w-full" onClick={(e) => e.stopPropagation()} />;
 }
 
-function MovePhotosDialog({
+export function MovePhotosDialog({
   open,
   onClose,
   sourceRegistroId,
   sourceFrenteId,
   companyId,
   eventId,
-  frentesDoEvento,
+  frentesDoEvento: frentesDoEventoProp,
   selectedMediaIds,
   onMoved,
 }: {
@@ -630,7 +630,7 @@ function MovePhotosDialog({
   sourceFrenteId: string;
   companyId: string;
   eventId: string | null;
-  frentesDoEvento: any[];
+  frentesDoEvento?: any[];
   selectedMediaIds: string[];
   onMoved: (destRegistroId: string, destFrenteId: string | null) => void;
 }) {
@@ -640,9 +640,43 @@ function MovePhotosDialog({
   const [search, setSearch] = useState("");
   const [pickedRegistroId, setPickedRegistroId] = useState<string | null>(null);
   const [newFrenteId, setNewFrenteId] = useState<string>(sourceFrenteId);
+  const [newEtapaId, setNewEtapaId] = useState<string>("__none__");
   const [newKind, setNewKind] = useState<string>("observacao");
   const [newText, setNewText] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Se não recebermos frentesDoEvento via prop (uso a partir do feed), carregar aqui
+  const { data: frentesFetched } = useQuery({
+    queryKey: ["op-move-frentes-do-evento", eventId],
+    enabled: open && !frentesDoEventoProp && !!eventId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_frentes")
+        .select("id,name,company_id")
+        .eq("event_id", eventId!)
+        .order("display_order");
+      return data ?? [];
+    },
+  });
+  const frentesDoEvento = frentesDoEventoProp ?? frentesFetched ?? [];
+
+  // Etapas do evento para o seletor opcional no "Novo registo"
+  const { data: etapasDoEvento } = useQuery({
+    queryKey: ["op-move-etapas-do-evento", eventId],
+    enabled: open && !!eventId && tab === "new",
+    queryFn: async () => {
+      const { data: frentes } = await supabase
+        .from("operacao_frentes").select("id").eq("event_id", eventId!);
+      const fIds = (frentes ?? []).map((f: any) => f.id);
+      if (!fIds.length) return [];
+      const { data } = await supabase
+        .from("operacao_etapas")
+        .select("id,name,frente_id, operacao_frentes!inner(name)")
+        .in("frente_id", fIds)
+        .order("display_order");
+      return data ?? [];
+    },
+  });
 
   const { data: candidates } = useQuery({
     queryKey: ["op-registros-candidates", eventId, search],
