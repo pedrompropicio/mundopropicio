@@ -69,7 +69,8 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
         phases,
         statuses,
         detail,
-        includePhotos: detail !== "compact" && includePhotos,
+        groupBy,
+        includePhotos: (detail !== "compact" || groupBy === "day") && includePhotos,
       });
       toast({ title: "Relatório gerado" });
       onOpenChange(false);
