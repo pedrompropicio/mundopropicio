@@ -251,6 +251,7 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
     if (originalFrenteId && originalFrenteId !== editFrenteId) {
       qc.invalidateQueries({ queryKey: ["op-chamados"] });
     }
+    onClose();
   };
 
   const handleDelete = async () => {
