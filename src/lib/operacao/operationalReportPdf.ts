@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { inferEtapaPhase, PHASE_LABELS, PHASE_ORDER, type EtapaPhase } from "./inferEtapaPhase";
 
 export type ReportDetail = "compact" | "medium" | "full";
+export type ReportGroupBy = "frente" | "day";
 
 export interface ReportOptions {
   eventId: string;
@@ -11,6 +12,7 @@ export interface ReportOptions {
   statuses: string[]; // pending / in_progress / blocked / done / cancelled
   detail: ReportDetail;
   includePhotos: boolean;
+  groupBy?: ReportGroupBy;
 }
 
 const STATUS_LABEL: Record<string, string> = {
