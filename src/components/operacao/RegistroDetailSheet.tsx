@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useMyLeadFrenteIds } from "@/hooks/useMyLeadFrenteIds";
+import { useIsEventGeneralProducer } from "@/hooks/useIsEventGeneralProducer";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Pencil, Trash2, Loader2, ExternalLink, MoveRight, X, CheckSquare } from "lucide-react";
@@ -87,6 +88,7 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
   });
 
   const eventId = (registro as any)?.frente?.event_id ?? null;
+  const isGeneralProducer = useIsEventGeneralProducer(eventId);
 
   const { data: medias } = useQuery({
     queryKey: ["op-registro-detail-media", registroId],
@@ -134,8 +136,8 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
   });
 
   // Authors pickable: distinct profiles in team of any frente do evento + current author.
-  // Only admin/manager can change author.
-  const canChangeAuthor = isAdmin || isManager;
+  // Admin/Manager e Produtor Geral do evento podem trocar o autor.
+  const canChangeAuthor = isAdmin || isManager || isGeneralProducer;
   const { data: possibleAuthors } = useQuery({
     queryKey: ["op-possible-authors", eventId, registro?.author_profile_id],
     enabled: !!eventId && open && editing && canChangeAuthor,
@@ -185,8 +187,8 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
 
   const canEdit =
     !!registro &&
-    (user?.id === registro.author_profile_id || isAdmin || isManager || isLeadOfFrente);
-  const canDelete = isAdmin || isManager;
+    (user?.id === registro.author_profile_id || isAdmin || isManager || isGeneralProducer || isLeadOfFrente);
+  const canDelete = isAdmin || isManager || isGeneralProducer;
 
   const handleSave = async () => {
     if (!registroId) return;
