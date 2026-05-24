@@ -124,8 +124,12 @@ export default function FrenteDetail() {
       <button
         type="button"
         onClick={() => {
-          const eventId = (frente as any)?.event_id;
-          navigate(eventId ? `/operacao/${eventId}` : "/operacao", { replace: true });
+          if (window.history.length > 1) {
+            navigate(-1);
+          } else {
+            const eventId = (frente as any)?.event_id;
+            navigate(eventId ? `/operacao/zonas?event=${eventId}` : "/operacao/zonas", { replace: true });
+          }
         }}
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
