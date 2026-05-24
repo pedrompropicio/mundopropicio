@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Priority: platform_admin > admin > manager > accountant > editor > partner > viewer > user
     const priority: Record<string, number> = {
       platform_admin: 0, admin: 1, manager: 2, accountant: 3,
-      marketing_manager: 4, editor: 4, producer: 4, partner: 5, viewer: 6, user: 7,
+      marketing_manager: 4, editor: 4, producer: 4, field_producer: 4, partner: 5, viewer: 6, user: 7,
     };
     const roles = Array.from(new Set((roleRows ?? []).map((r: any) => r.role as AppRole)));
     roles.sort((a, b) => (priority[a] ?? 99) - (priority[b] ?? 99));
