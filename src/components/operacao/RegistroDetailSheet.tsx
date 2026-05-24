@@ -643,17 +643,39 @@ export function MovePhotosDialog({
 }) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [tab, setTab] = useState<"existing" | "new">("existing");
-  const [search, setSearch] = useState("");
-  const [pickedRegistroId, setPickedRegistroId] = useState<string | null>(null);
-  const [newFrenteId, setNewFrenteId] = useState<string>(sourceFrenteId);
-  const [newEtapaId, setNewEtapaId] = useState<string>("__none__");
-  const [newKind, setNewKind] = useState<string>("observacao");
-  const [newText, setNewText] = useState("");
-  const [busy, setBusy] = useState(false);
+
+  // Wizard
+  const [step, setStep] = useState<1 | 2>(1);
+
+  // Step 1 — fotos
   const [picked, setPicked] = useState<Set<string>>(new Set(selectedMediaIds));
 
-  // Carregar TODAS as fotos do registo de origem para escolher quais mover
+  // Step 2 — destino
+  const [destFrenteId, setDestFrenteId] = useState<string>(sourceFrenteId);
+  const [destEtapaId, setDestEtapaId] = useState<string>("__none__");
+  const [mode, setMode] = useState<"pick" | "new">("pick");
+  const [pickedRegistroId, setPickedRegistroId] = useState<string | null>(null);
+  const [newKind, setNewKind] = useState<string>("observacao");
+  const [newText, setNewText] = useState("");
+
+  const [busy, setBusy] = useState(false);
+
+  // Reset ao abrir
+  useEffect(() => {
+    if (open) {
+      setStep(1);
+      setPicked(new Set(selectedMediaIds));
+      setDestFrenteId(sourceFrenteId);
+      setDestEtapaId("__none__");
+      setMode("pick");
+      setPickedRegistroId(null);
+      setNewKind("observacao");
+      setNewText("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, sourceRegistroId]);
+
+  // Fotos do registo de origem
   const { data: sourceMedia } = useQuery({
     queryKey: ["op-move-source-media", sourceRegistroId],
     enabled: open && !!sourceRegistroId,
@@ -667,12 +689,7 @@ export function MovePhotosDialog({
     },
   });
 
-  useEffect(() => {
-    if (open) setPicked(new Set(selectedMediaIds));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, sourceRegistroId]);
-
-  // Se não recebermos frentesDoEvento via prop (uso a partir do feed), carregar aqui
+  // Frentes do evento
   const { data: frentesFetched } = useQuery({
     queryKey: ["op-move-frentes-do-evento", eventId],
     enabled: open && !frentesDoEventoProp && !!eventId,
@@ -687,78 +704,83 @@ export function MovePhotosDialog({
   });
   const frentesDoEvento = frentesDoEventoProp ?? frentesFetched ?? [];
 
-  // Etapas do evento para o seletor opcional no "Novo registo"
-  const { data: etapasDoEvento } = useQuery({
-    queryKey: ["op-move-etapas-do-evento", eventId],
-    enabled: open && !!eventId && tab === "new",
+  // Etapas filtradas pela frente escolhida
+  const { data: etapasDaFrente } = useQuery({
+    queryKey: ["op-move-etapas-da-frente", destFrenteId],
+    enabled: open && step === 2 && !!destFrenteId,
     queryFn: async () => {
-      const { data: frentes } = await supabase
-        .from("operacao_frentes").select("id").eq("event_id", eventId!);
-      const fIds = (frentes ?? []).map((f: any) => f.id);
-      if (!fIds.length) return [];
       const { data } = await supabase
         .from("operacao_etapas")
-        .select("id,name,frente_id, operacao_frentes!inner(name)")
-        .in("frente_id", fIds)
+        .select("id,name,frente_id")
+        .eq("frente_id", destFrenteId)
         .order("display_order");
       return data ?? [];
     },
   });
 
-  const { data: candidates } = useQuery({
-    queryKey: ["op-registros-candidates", eventId, search],
-    enabled: !!eventId && open && tab === "existing",
+  // Registos existentes na Frente (+Etapa, se selecionada)
+  const { data: candidates, isFetching: loadingCandidates } = useQuery({
+    queryKey: ["op-move-candidates", destFrenteId, destEtapaId, sourceRegistroId],
+    enabled: open && step === 2 && !!destFrenteId,
     queryFn: async () => {
-      const { data: frentes } = await supabase
-        .from("operacao_frentes")
-        .select("id,name")
-        .eq("event_id", eventId!);
-      const frenteIds = (frentes ?? []).map((f: any) => f.id);
-      const nameById = new Map((frentes ?? []).map((f: any) => [f.id, f.name]));
-      if (frenteIds.length === 0) return [];
       let q = supabase
         .from("operacao_registros")
-        .select("id,text,kind,created_at,frente_id")
-        .in("frente_id", frenteIds)
+        .select("id,text,kind,created_at,etapa_id")
+        .eq("frente_id", destFrenteId)
         .neq("id", sourceRegistroId)
         .order("created_at", { ascending: false })
         .limit(50);
-      if (search.trim()) q = q.ilike("text", `%${search.trim()}%`);
+      if (destEtapaId !== "__none__") q = q.eq("etapa_id", destEtapaId);
       const { data } = await q;
-      return (data ?? []).map((r: any) => ({ ...r, frente_name: nameById.get(r.frente_id) }));
+      return data ?? [];
     },
   });
 
+  // Se filtros aplicados e não há registos → propor automaticamente "criar novo"
+  useEffect(() => {
+    if (step !== 2 || loadingCandidates) return;
+    if (!candidates) return;
+    if (candidates.length === 0 && mode === "pick") {
+      setMode("new");
+    } else if (candidates.length > 0 && mode === "new" && !pickedRegistroId) {
+      // mantém modo escolhido pelo user; não força
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidates, loadingCandidates, step]);
+
+  // Reset registo escolhido quando muda filtro
+  useEffect(() => {
+    setPickedRegistroId(null);
+  }, [destFrenteId, destEtapaId]);
+
+  const destFrenteName = frentesDoEvento.find((f: any) => f.id === destFrenteId)?.name;
+  const destEtapaName = (etapasDaFrente ?? []).find((e: any) => e.id === destEtapaId)?.name;
+  const destRegistro = (candidates ?? []).find((c: any) => c.id === pickedRegistroId);
+
+  const canConfirm =
+    picked.size > 0 &&
+    !!destFrenteId &&
+    (mode === "pick" ? !!pickedRegistroId : true);
+
   const confirm = async () => {
     const mediaIds = Array.from(picked);
-    if (mediaIds.length === 0) return;
+    if (mediaIds.length === 0 || !destFrenteId) return;
     setBusy(true);
     try {
       let destRegistroId: string | null = null;
-      let destFrenteId: string | null = null;
+      let destFrenteIdFinal: string | null = destFrenteId;
 
-      if (tab === "existing") {
-        if (!pickedRegistroId) {
-          toast({ title: "Escolhe o registo de destino", variant: "destructive" });
-          setBusy(false);
-          return;
-        }
+      if (mode === "pick") {
+        if (!pickedRegistroId) throw new Error("Escolhe o registo de destino");
         destRegistroId = pickedRegistroId;
-        const pickedReg = (candidates ?? []).find((c: any) => c.id === pickedRegistroId);
-        destFrenteId = pickedReg?.frente_id ?? null;
       } else {
-        if (!newFrenteId) {
-          toast({ title: "Escolhe a frente", variant: "destructive" });
-          setBusy(false);
-          return;
-        }
         const frenteCompanyId =
-          frentesDoEvento.find((f) => f.id === newFrenteId)?.company_id ?? companyId;
+          frentesDoEvento.find((f: any) => f.id === destFrenteId)?.company_id ?? companyId;
         const { data: created, error } = await supabase
           .from("operacao_registros")
           .insert({
-            frente_id: newFrenteId,
-            etapa_id: newEtapaId === "__none__" ? null : newEtapaId,
+            frente_id: destFrenteId,
+            etapa_id: destEtapaId === "__none__" ? null : destEtapaId,
             company_id: frenteCompanyId,
             author_profile_id: user!.id,
             kind: newKind,
@@ -768,10 +790,9 @@ export function MovePhotosDialog({
           .single();
         if (error || !created) throw error ?? new Error("Falha ao criar registo");
         destRegistroId = created.id;
-        destFrenteId = created.frente_id;
+        destFrenteIdFinal = created.frente_id;
       }
 
-      // sort_order base no destino
       const { data: lastInDest } = await supabase
         .from("operacao_registro_media")
         .select("sort_order")
@@ -790,7 +811,7 @@ export function MovePhotosDialog({
       }
 
       toast({ title: `${mediaIds.length} foto(s) movida(s)` });
-      onMoved(destRegistroId!, destFrenteId);
+      onMoved(destRegistroId!, destFrenteIdFinal);
     } catch (e: any) {
       toast({ title: "Erro ao mover fotos", description: e?.message, variant: "destructive" });
     } finally {
@@ -800,148 +821,233 @@ export function MovePhotosDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Mover fotos ({picked.size}/{(sourceMedia ?? []).length})</DialogTitle>
+          <DialogTitle>
+            {step === 1 ? "Mover fotos — escolher fotos" : "Mover fotos — escolher destino"}
+            <span className="ml-2 text-sm font-normal text-muted-foreground">
+              ({picked.size}/{(sourceMedia ?? []).length} selecionadas)
+            </span>
+          </DialogTitle>
         </DialogHeader>
 
-        {/* Seletor de fotos */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <Label className="text-xs">Escolhe as fotos a mover</Label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="text-primary hover:underline"
-                onClick={() => setPicked(new Set((sourceMedia ?? []).map((m: any) => m.id)))}
-              >
-                Todas
-              </button>
-              <button
-                type="button"
-                className="text-muted-foreground hover:underline"
-                onClick={() => setPicked(new Set())}
-              >
-                Nenhuma
-              </button>
+        {step === 1 && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <Label className="text-xs">Escolhe as fotos a mover</Label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  className="text-primary hover:underline"
+                  onClick={() => setPicked(new Set((sourceMedia ?? []).map((m: any) => m.id)))}
+                >
+                  Todas
+                </button>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:underline"
+                  onClick={() => setPicked(new Set())}
+                >
+                  Nenhuma
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5 max-h-[55vh] overflow-y-auto p-1 border rounded">
+              {(sourceMedia ?? []).map((m: any) => (
+                <MovePhotoThumb
+                  key={m.id}
+                  m={m}
+                  selected={picked.has(m.id)}
+                  onToggle={() => {
+                    setPicked((prev) => {
+                      const n = new Set(prev);
+                      if (n.has(m.id)) n.delete(m.id);
+                      else n.add(m.id);
+                      return n;
+                    });
+                  }}
+                />
+              ))}
+              {(sourceMedia ?? []).length === 0 && (
+                <div className="col-span-5 text-center text-xs text-muted-foreground p-3">
+                  Sem fotos neste registo
+                </div>
+              )}
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-1.5 max-h-48 overflow-y-auto p-1 border rounded">
-            {(sourceMedia ?? []).map((m: any) => (
-              <MovePhotoThumb
-                key={m.id}
-                m={m}
-                selected={picked.has(m.id)}
-                onToggle={() => {
-                  setPicked((prev) => {
-                    const n = new Set(prev);
-                    if (n.has(m.id)) n.delete(m.id);
-                    else n.add(m.id);
-                    return n;
-                  });
-                }}
-              />
-            ))}
-            {(sourceMedia ?? []).length === 0 && (
-              <div className="col-span-4 text-center text-xs text-muted-foreground p-3">
-                Sem fotos neste registo
+        )}
+
+        {step === 2 && (
+          <div className="space-y-4">
+            {/* Filtros de destino */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Zona / Serviço (Frente)</Label>
+                <Select value={destFrenteId} onValueChange={setDestFrenteId}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {frentesDoEvento.map((f: any) => (
+                      <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Etapa (opcional)</Label>
+                <Select value={destEtapaId} onValueChange={setDestEtapaId}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Todas / sem etapa</SelectItem>
+                    {(etapasDaFrente ?? []).map((e: any) => (
+                      <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Toggle modo: registo existente vs novo */}
+            <RadioGroup
+              value={mode}
+              onValueChange={(v) => setMode(v as any)}
+              className="grid grid-cols-2 gap-2"
+            >
+              <label
+                className={`flex items-start gap-2 p-2 border rounded cursor-pointer ${mode === "pick" ? "border-primary bg-muted/40" : ""}`}
+              >
+                <RadioGroupItem value="pick" className="mt-1" />
+                <div className="text-sm">
+                  <div className="font-medium">Registo existente</div>
+                  <div className="text-xs text-muted-foreground">
+                    {loadingCandidates ? "A carregar..." : `${(candidates ?? []).length} disponíveis`}
+                  </div>
+                </div>
+              </label>
+              <label
+                className={`flex items-start gap-2 p-2 border rounded cursor-pointer ${mode === "new" ? "border-primary bg-muted/40" : ""}`}
+              >
+                <RadioGroupItem value="new" className="mt-1" />
+                <div className="text-sm">
+                  <div className="font-medium">Criar novo registo aqui</div>
+                  <div className="text-xs text-muted-foreground">
+                    Na Frente{destEtapaName ? " + Etapa" : ""} selecionada
+                  </div>
+                </div>
+              </label>
+            </RadioGroup>
+
+            {mode === "pick" && (
+              <div className="max-h-72 overflow-y-auto border rounded divide-y">
+                {(candidates ?? []).length === 0 && !loadingCandidates && (
+                  <div className="p-4 text-sm text-muted-foreground text-center space-y-2">
+                    <div>Não há registos nesta seleção.</div>
+                    <Button size="sm" variant="outline" onClick={() => setMode("new")}>
+                      Criar novo registo aqui
+                    </Button>
+                  </div>
+                )}
+                {(candidates ?? []).map((c: any) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setPickedRegistroId(c.id)}
+                    className={`w-full text-left p-2 text-sm hover:bg-muted ${pickedRegistroId === c.id ? "bg-muted ring-1 ring-primary" : ""}`}
+                  >
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Badge variant="outline">{KIND_LABEL[c.kind]?.label ?? c.kind}</Badge>
+                      <span>{format(new Date(c.created_at), "dd/MM HH:mm")}</span>
+                    </div>
+                    <div className="line-clamp-2">
+                      {c.text || <em className="text-muted-foreground">(sem texto)</em>}
+                    </div>
+                  </button>
+                ))}
               </div>
             )}
-          </div>
-        </div>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
-          <TabsList className="grid grid-cols-2">
-            <TabsTrigger value="existing">Registo existente</TabsTrigger>
-            <TabsTrigger value="new">Novo registo</TabsTrigger>
-          </TabsList>
-          <TabsContent value="existing" className="space-y-2">
-            <Input
-              placeholder="Pesquisar pelo texto..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <div className="max-h-72 overflow-y-auto border rounded divide-y">
-              {(candidates ?? []).length === 0 && (
-                <div className="p-3 text-sm text-muted-foreground text-center">Sem registos</div>
-              )}
-              {(candidates ?? []).map((c: any) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setPickedRegistroId(c.id)}
-                  className={`w-full text-left p-2 text-sm hover:bg-muted ${pickedRegistroId === c.id ? "bg-muted" : ""}`}
-                >
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Badge variant="outline">{KIND_LABEL[c.kind]?.label ?? c.kind}</Badge>
-                    <span>{c.frente_name}</span>
-                    <span>·</span>
-                    <span>{format(new Date(c.created_at), "dd/MM HH:mm")}</span>
-                  </div>
-                  <div className="line-clamp-2">{c.text || <em className="text-muted-foreground">(sem texto)</em>}</div>
-                </button>
-              ))}
+            {mode === "new" && (
+              <div className="space-y-3 p-3 border rounded bg-muted/20">
+                <div className="text-xs font-medium text-muted-foreground">
+                  Dados do novo registo
+                </div>
+                <div>
+                  <Label className="text-xs">Tipo</Label>
+                  <Select value={newKind} onValueChange={setNewKind}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(KIND_LABEL)
+                        .filter(([k]) => k !== "chamado")
+                        .map(([k, v]) => (
+                          <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Texto (opcional)</Label>
+                  <Textarea
+                    rows={3}
+                    value={newText}
+                    onChange={(e) => setNewText(e.target.value)}
+                    placeholder="Descreve este registo..."
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Card de confirmação */}
+            <div className="p-3 rounded-md border-2 border-primary/40 bg-primary/5 text-sm">
+              <div className="text-xs font-medium uppercase text-muted-foreground mb-1">
+                Vais mover {picked.size} foto(s) para:
+              </div>
+              <div className="font-medium">
+                {destFrenteName ?? "—"}
+                {destEtapaName ? <> · <span className="text-muted-foreground">{destEtapaName}</span></> : null}
+              </div>
+              <div className="mt-1">
+                {mode === "pick" ? (
+                  destRegistro ? (
+                    <span>
+                      Registo: <Badge variant="outline" className="ml-1">{KIND_LABEL[destRegistro.kind]?.label ?? destRegistro.kind}</Badge>{" "}
+                      <span className="text-muted-foreground">
+                        · {format(new Date(destRegistro.created_at), "dd/MM HH:mm")}
+                      </span>
+                      {destRegistro.text ? <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{destRegistro.text}</div> : null}
+                    </span>
+                  ) : (
+                    <span className="text-destructive text-xs">Escolhe um registo na lista acima.</span>
+                  )
+                ) : (
+                  <span>
+                    <Badge variant="secondary" className="mr-1">Novo registo</Badge>
+                    <span className="text-muted-foreground">
+                      {KIND_LABEL[newKind]?.label ?? newKind}
+                      {newText.trim() ? ` · ${newText.trim().slice(0, 60)}${newText.trim().length > 60 ? "…" : ""}` : ""}
+                    </span>
+                  </span>
+                )}
+              </div>
             </div>
-          </TabsContent>
-          <TabsContent value="new" className="space-y-3">
-            <div>
-              <Label className="text-xs">Frente</Label>
-              <Select value={newFrenteId} onValueChange={setNewFrenteId}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {frentesDoEvento.map((f) => (
-                    <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Etapa (opcional)</Label>
-              <Select value={newEtapaId} onValueChange={setNewEtapaId}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Sem etapa</SelectItem>
-                  {(etapasDoEvento ?? [])
-                    .filter((e: any) => !newFrenteId || e.frente_id === newFrenteId)
-                    .map((e: any) => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.name} {e.operacao_frentes?.name ? `· ${e.operacao_frentes.name}` : ""}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Tipo</Label>
-              <Select value={newKind} onValueChange={setNewKind}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(KIND_LABEL).filter(([k]) => k !== "chamado").map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Texto (opcional)</Label>
-              <Textarea rows={3} value={newText} onChange={(e) => setNewText(e.target.value)} />
-            </div>
-          </TabsContent>
-        </Tabs>
-        <DialogFooter>
+          </div>
+        )}
+
+        <DialogFooter className="gap-2">
           <Button variant="ghost" onClick={onClose} disabled={busy}>Cancelar</Button>
-          <Button
-            onClick={confirm}
-            disabled={
-              busy ||
-              picked.size === 0 ||
-              (tab === "existing" && !pickedRegistroId) ||
-              (tab === "new" && !newFrenteId)
-            }
-          >
-            {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Mover{picked.size > 0 ? ` ${picked.size}` : ""}
-          </Button>
+          {step === 2 && (
+            <Button variant="outline" onClick={() => setStep(1)} disabled={busy}>
+              Voltar
+            </Button>
+          )}
+          {step === 1 ? (
+            <Button onClick={() => setStep(2)} disabled={picked.size === 0}>
+              Continuar
+            </Button>
+          ) : (
+            <Button onClick={confirm} disabled={busy || !canConfirm}>
+              {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Confirmar e mover {picked.size}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
