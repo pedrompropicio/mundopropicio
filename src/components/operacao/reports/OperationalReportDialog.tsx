@@ -121,6 +121,37 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
             </div>
           </div>
 
+          {/* Agrupamento */}
+          <div>
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+              Agrupamento
+            </Label>
+            <RadioGroup
+              value={groupBy}
+              onValueChange={(v) => setGroupBy(v as ReportGroupBy)}
+              className="mt-2 space-y-1.5"
+            >
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <RadioGroupItem value="frente" className="mt-0.5" />
+                <span>
+                  <span className="font-medium">Por Zona / Serviço → Etapa</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Estrutural: cada frente com as suas etapas.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <RadioGroupItem value="day" className="mt-0.5" />
+                <span>
+                  <span className="font-medium">Cronológico (dia a dia)</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Timeline diária dos registos, com zona/serviço e etapa em cada item.
+                  </span>
+                </span>
+              </label>
+            </RadioGroup>
+          </div>
+
           {/* Detalhe */}
           <div>
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">
