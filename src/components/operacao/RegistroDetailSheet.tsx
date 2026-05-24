@@ -136,8 +136,8 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
   });
 
   // Authors pickable: distinct profiles in team of any frente do evento + current author.
-  // Only admin/manager can change author.
-  const canChangeAuthor = isAdmin || isManager;
+  // Admin/Manager e Produtor Geral do evento podem trocar o autor.
+  const canChangeAuthor = isAdmin || isManager || isGeneralProducer;
   const { data: possibleAuthors } = useQuery({
     queryKey: ["op-possible-authors", eventId, registro?.author_profile_id],
     enabled: !!eventId && open && editing && canChangeAuthor,
