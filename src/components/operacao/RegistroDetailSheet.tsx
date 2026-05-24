@@ -133,6 +133,33 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
     },
   });
 
+  // Authors pickable: distinct profiles in team of any frente do evento + current author.
+  // Only admin/manager can change author.
+  const canChangeAuthor = isAdmin || isManager;
+  const { data: possibleAuthors } = useQuery({
+    queryKey: ["op-possible-authors", eventId, registro?.author_profile_id],
+    enabled: !!eventId && open && editing && canChangeAuthor,
+    queryFn: async () => {
+      const { data: frentes } = await supabase
+        .from("operacao_frentes").select("id").eq("event_id", eventId!);
+      const fIds = (frentes ?? []).map((f: any) => f.id);
+      let profIds: string[] = [];
+      if (fIds.length) {
+        const { data: team } = await supabase
+          .from("operacao_frente_team").select("profile_id").in("frente_id", fIds).eq("active", true);
+        profIds = Array.from(new Set((team ?? []).map((t: any) => t.profile_id)));
+      }
+      if (registro?.author_profile_id && !profIds.includes(registro.author_profile_id)) {
+        profIds.push(registro.author_profile_id);
+      }
+      if (!profIds.length) return [];
+      const { data: profs } = await supabase
+        .from("profiles").select("id,full_name,email").in("id", profIds);
+      return (profs ?? []).sort((a: any, b: any) =>
+        (a.full_name ?? a.email ?? "").localeCompare(b.full_name ?? b.email ?? ""));
+    },
+  });
+
   useEffect(() => {
     if (open && registro) {
       setEditText(registro.text ?? "");
@@ -140,6 +167,7 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
       setEditFrenteId(registro.frente_id ?? "");
       setEditEtapaId(registro.etapa_id ?? "__none__");
       setEditDate(registro.created_at ? format(new Date(registro.created_at), "yyyy-MM-dd'T'HH:mm") : "");
+      setEditAuthorId(registro.author_profile_id ?? "");
       setEditing(startInEdit);
     }
     if (!open) {
