@@ -730,6 +730,7 @@ export function MovePhotosDialog({
           .from("operacao_registros")
           .insert({
             frente_id: newFrenteId,
+            etapa_id: newEtapaId === "__none__" ? null : newEtapaId,
             company_id: frenteCompanyId,
             author_profile_id: user!.id,
             kind: newKind,
