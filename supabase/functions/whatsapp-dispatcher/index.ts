@@ -52,9 +52,7 @@ Deno.serve(async (req) => {
   );
 
   // Token sensível: ler do Vault (Deno.env não acede a secrets META_WA_* neste projeto)
-  const envTok = Deno.env.get("META_WA_SYSTEM_TOKEN") ?? null;
-  let wamToken: string | null = envTok;
-  let tokenSource = envTok ? "env" : "vault";
+  let wamToken: string | null = Deno.env.get("META_WA_SYSTEM_TOKEN") ?? null;
   if (!wamToken) {
     const { data: tokRpc, error: tokErr } = await supabase.rpc("get_vault_secret" as any, {
       _name: "META_WA_SYSTEM_TOKEN",
@@ -67,16 +65,6 @@ Deno.serve(async (req) => {
     }
     wamToken = typeof tokRpc === "string" ? tokRpc : String(tokRpc);
   }
-  // TEMP diagnóstico 190: comparar token usado vs vault sem expor o valor
-  console.log("[wa-disp] token", {
-    source: tokenSource,
-    len: wamToken?.length ?? 0,
-    prefix: wamToken?.slice(0, 8) ?? null,
-    suffix: wamToken?.slice(-4) ?? null,
-    envPresent: !!envTok,
-    envLen: envTok?.length ?? 0,
-    envPrefix: envTok?.slice(0, 8) ?? null,
-  });
 
   if (!phoneNumberId || !wamToken) {
     return new Response(JSON.stringify({ error: "Meta WA secrets missing" }), {
