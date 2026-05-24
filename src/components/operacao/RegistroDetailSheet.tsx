@@ -644,6 +644,26 @@ export function MovePhotosDialog({
   const [newKind, setNewKind] = useState<string>("observacao");
   const [newText, setNewText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set(selectedMediaIds));
+
+  // Carregar TODAS as fotos do registo de origem para escolher quais mover
+  const { data: sourceMedia } = useQuery({
+    queryKey: ["op-move-source-media", sourceRegistroId],
+    enabled: open && !!sourceRegistroId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_registro_media")
+        .select("*")
+        .eq("registro_id", sourceRegistroId)
+        .order("sort_order");
+      return data ?? [];
+    },
+  });
+
+  useEffect(() => {
+    if (open) setPicked(new Set(selectedMediaIds));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, sourceRegistroId]);
 
   // Se não recebermos frentesDoEvento via prop (uso a partir do feed), carregar aqui
   const { data: frentesFetched } = useQuery({
