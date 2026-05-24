@@ -88,6 +88,7 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
   });
 
   const eventId = (registro as any)?.frente?.event_id ?? null;
+  const isGeneralProducer = useIsEventGeneralProducer(eventId);
 
   const { data: medias } = useQuery({
     queryKey: ["op-registro-detail-media", registroId],
