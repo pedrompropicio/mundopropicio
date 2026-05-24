@@ -183,7 +183,7 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
 
   // Load registos for all visible etapas + frente-level orphan registos (full mode)
   const { byEtapa: registrosByEtapa, byFrente: registrosByFrente } =
-    opts.detail === "full"
+    opts.detail === "full" || opts.groupBy === "day"
       ? await fetchRegistros({
           etapaIds: enriched.map((e) => e.id),
           frenteIds: frentes.map((f) => f.id),
