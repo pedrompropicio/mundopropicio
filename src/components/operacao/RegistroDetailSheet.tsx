@@ -206,6 +206,9 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
     };
     if (editDate) payload.created_at = new Date(editDate).toISOString();
     if (newCompanyId) payload.company_id = newCompanyId;
+    if (canChangeAuthor && editAuthorId && editAuthorId !== registro?.author_profile_id) {
+      payload.author_profile_id = editAuthorId;
+    }
 
     const { error } = await supabase.from("operacao_registros").update(payload).eq("id", registroId);
     setSaving(false);
