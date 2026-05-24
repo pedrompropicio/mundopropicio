@@ -114,15 +114,20 @@ Deno.serve(async (req) => {
               .map((k) => (rawParams as Record<string, any>)[k])
           : []);
     const parameters = paramsArr.map((p) => ({ type: "text", text: String(p ?? "") }));
+    const templatePayload: Record<string, unknown> = {
+      name: item.template?.meta_template_name,
+      language: { code: item.template?.language_code || "pt_PT" },
+    };
+    // Só incluir components se houver parâmetros — templates sem variáveis (ex: hello_world)
+    // rebentam com "number of parameters mismatch" se enviarmos body component vazio.
+    if (parameters.length > 0) {
+      templatePayload.components = [{ type: "body", parameters }];
+    }
     const body = {
       messaging_product: "whatsapp",
       to,
       type: "template",
-      template: {
-        name: item.template?.meta_template_name,
-        language: { code: item.template?.language_code || "pt_PT" },
-        components: [{ type: "body", parameters }],
-      },
+      template: templatePayload,
     };
 
     try {
