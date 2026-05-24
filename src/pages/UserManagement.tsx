@@ -25,6 +25,7 @@ const ROLE_ICONS: Record<AppRole, React.ElementType> = {
   admin: ShieldCheck,
   manager: Briefcase,
   producer: HardHat,
+  field_producer: HardHat,
   editor: Pencil,
   viewer: Eye,
   user: User,
@@ -33,7 +34,7 @@ const ROLE_ICONS: Record<AppRole, React.ElementType> = {
   marketing_manager: Megaphone,
 };
 
-const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "producer", "editor", "viewer", "partner"];
+const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "producer", "field_producer", "editor", "viewer", "partner"];
 
 export default function UserManagement() {
   const { isAdmin, user } = useAuth();
