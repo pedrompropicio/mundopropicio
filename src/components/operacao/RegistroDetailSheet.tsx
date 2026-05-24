@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useMyLeadFrenteIds } from "@/hooks/useMyLeadFrenteIds";
+import { useIsEventGeneralProducer } from "@/hooks/useIsEventGeneralProducer";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Pencil, Trash2, Loader2, ExternalLink, MoveRight, X, CheckSquare } from "lucide-react";
