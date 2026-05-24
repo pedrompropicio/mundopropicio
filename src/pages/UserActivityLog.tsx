@@ -37,12 +37,15 @@ export default function UserActivityLog() {
     queryKey: ["profiles-activity", companyId],
     enabled: !!companyId,
     queryFn: async () => {
+      // A RLS de profiles já devolve apenas: próprio user, platform_admins,
+      // e membros da empresa ativa (via user_roles). Não filtrar por
+      // profiles.company_id — esse campo é só "empresa principal" e exclui
+      // utilizadores cross-tenant (ex.: platform_admin a operar noutra empresa).
       const { data, error } = await supabase
         .from("profiles")
         .select("id, full_name, email, company_id");
       if (error) throw error;
-      // Mostra utilizadores da empresa ativa + platform_admins (company_id=null) para auditoria
-      return (data ?? []).filter((p: any) => p.company_id === companyId || p.company_id === null) as ProfileRow[];
+      return (data ?? []) as ProfileRow[];
     },
   });
 
