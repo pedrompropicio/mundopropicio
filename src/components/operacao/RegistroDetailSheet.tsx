@@ -58,6 +58,7 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
   const [editFrenteId, setEditFrenteId] = useState<string>("");
   const [editEtapaId, setEditEtapaId] = useState<string>("__none__");
   const [editDate, setEditDate] = useState<string>("");
+  const [editAuthorId, setEditAuthorId] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
