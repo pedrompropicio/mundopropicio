@@ -144,7 +144,28 @@ export function RegistroFeed({ filter, pageSize = 20 }: { filter: Filter; pageSi
                     </DropdownMenuItem>
                     {canEdit && (
                       <DropdownMenuItem onClick={() => setDetail({ id: r.id, edit: true })}>
-                        <Pencil className="h-4 w-4 mr-2" /> Editar
+                        <Pencil className="h-4 w-4 mr-2" /> Editar registo
+                      </DropdownMenuItem>
+                    )}
+                    {canEdit && ms.length > 0 && (
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          // Buscar event_id da frente
+                          const { data: f } = await supabase
+                            .from("operacao_frentes")
+                            .select("event_id")
+                            .eq("id", r.frente_id)
+                            .maybeSingle();
+                          setMoveSource({
+                            registroId: r.id,
+                            frenteId: r.frente_id,
+                            companyId: r.company_id,
+                            eventId: f?.event_id ?? null,
+                            mediaIds: ms.map((m: any) => m.id),
+                          });
+                        }}
+                      >
+                        <MoveRight className="h-4 w-4 mr-2" /> Mover fotos
                       </DropdownMenuItem>
                     )}
                     {canDelete && (
