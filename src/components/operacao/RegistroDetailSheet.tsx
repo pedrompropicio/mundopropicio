@@ -725,7 +725,7 @@ export function MovePhotosDialog({
   const confirm = async () => {
     const mediaIds = Array.from(picked);
     if (mediaIds.length === 0) return;
-
+    setBusy(true);
     try {
       let destRegistroId: string | null = null;
       let destFrenteId: string | null = null;
@@ -737,8 +737,8 @@ export function MovePhotosDialog({
           return;
         }
         destRegistroId = pickedRegistroId;
-        const picked = (candidates ?? []).find((c: any) => c.id === pickedRegistroId);
-        destFrenteId = picked?.frente_id ?? null;
+        const pickedReg = (candidates ?? []).find((c: any) => c.id === pickedRegistroId);
+        destFrenteId = pickedReg?.frente_id ?? null;
       } else {
         if (!newFrenteId) {
           toast({ title: "Escolhe a frente", variant: "destructive" });
@@ -773,7 +773,7 @@ export function MovePhotosDialog({
         .limit(1);
       let next = ((lastInDest?.[0]?.sort_order ?? -1) as number) + 1;
 
-      for (const mediaId of selectedMediaIds) {
+      for (const mediaId of mediaIds) {
         const { error } = await supabase
           .from("operacao_registro_media")
           .update({ registro_id: destRegistroId!, sort_order: next })
@@ -782,7 +782,7 @@ export function MovePhotosDialog({
         next++;
       }
 
-      toast({ title: `${selectedMediaIds.length} foto(s) movida(s)` });
+      toast({ title: `${mediaIds.length} foto(s) movida(s)` });
       onMoved(destRegistroId!, destFrenteId);
     } catch (e: any) {
       toast({ title: "Erro ao mover fotos", description: e?.message, variant: "destructive" });
