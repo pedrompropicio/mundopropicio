@@ -123,7 +123,10 @@ export default function FrenteDetail() {
     <div className="p-4 max-w-2xl mx-auto space-y-4 pb-24">
       <button
         type="button"
-        onClick={() => navigate(-1)}
+        onClick={() => {
+          const eventId = (frente as any)?.event_id;
+          navigate(eventId ? `/operacao/${eventId}` : "/operacao", { replace: true });
+        }}
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4 mr-1" /> Voltar

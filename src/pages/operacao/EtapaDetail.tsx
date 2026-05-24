@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,6 +25,7 @@ import { toast } from "@/hooks/use-toast";
 
 export default function EtapaDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { user, hasPermission, isAdmin } = useAuth();
   const qc = useQueryClient();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -122,9 +123,13 @@ export default function EtapaDetail() {
           <Eye className="h-3.5 w-3.5" /> Modo Diretor — só visualização
         </div>
       )}
-      <Link to={`/operacao/frente/${frente.id}`} className="inline-flex items-center text-sm text-muted-foreground">
+      <button
+        type="button"
+        onClick={() => navigate(`/operacao/frente/${frente.id}`, { replace: true })}
+        className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeft className="h-4 w-4 mr-1" /> Voltar à Zona/Serviço
-      </Link>
+      </button>
       <Card className="p-4 space-y-2">
         <div className="flex items-start gap-3">
           <div className="h-12 w-2 rounded-full" style={{ backgroundColor: frente?.color ?? "#6b7280" }} />
