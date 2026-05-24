@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -182,8 +182,12 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
     },
   });
 
+  // Hidrata o formulário apenas quando o sheet abre (não a cada refetch),
+  // para evitar voltar a entrar em modo de edição depois de gravar.
+  const hydratedForRef = useRef<string | null>(null);
   useEffect(() => {
-    if (open && registro) {
+    if (open && registro && hydratedForRef.current !== registro.id) {
+      hydratedForRef.current = registro.id;
       setEditText(registro.text ?? "");
       setEditKind(registro.kind ?? "observacao");
       setEditFrenteId(registro.frente_id ?? "");
@@ -193,6 +197,7 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
       setEditing(startInEdit);
     }
     if (!open) {
+      hydratedForRef.current = null;
       setEditing(false);
       setConfirmDelete(false);
       setSelectMode(false);
@@ -200,6 +205,7 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
       setMoveOpen(false);
     }
   }, [open, registro, startInEdit]);
+
 
   const isLeadOfFrente =
     !!registro && ((registro as any).frente?.current_lead_id === user?.id ||
