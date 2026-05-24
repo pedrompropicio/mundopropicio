@@ -125,10 +125,13 @@ export default function EtapaDetail() {
       )}
       <button
         type="button"
-        onClick={() => navigate(`/operacao/frente/${frente.id}`, { replace: true })}
+        onClick={() => {
+          if (window.history.length > 1) navigate(-1);
+          else navigate(`/operacao/frente/${frente.id}`, { replace: true });
+        }}
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="h-4 w-4 mr-1" /> Voltar à Zona/Serviço
+        <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
       </button>
       <Card className="p-4 space-y-2">
         <div className="flex items-start gap-3">
