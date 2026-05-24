@@ -644,6 +644,26 @@ export function MovePhotosDialog({
   const [newKind, setNewKind] = useState<string>("observacao");
   const [newText, setNewText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set(selectedMediaIds));
+
+  // Carregar TODAS as fotos do registo de origem para escolher quais mover
+  const { data: sourceMedia } = useQuery({
+    queryKey: ["op-move-source-media", sourceRegistroId],
+    enabled: open && !!sourceRegistroId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_registro_media")
+        .select("*")
+        .eq("registro_id", sourceRegistroId)
+        .order("sort_order");
+      return data ?? [];
+    },
+  });
+
+  useEffect(() => {
+    if (open) setPicked(new Set(selectedMediaIds));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, sourceRegistroId]);
 
   // Se não recebermos frentesDoEvento via prop (uso a partir do feed), carregar aqui
   const { data: frentesFetched } = useQuery({
@@ -703,7 +723,8 @@ export function MovePhotosDialog({
   });
 
   const confirm = async () => {
-    if (selectedMediaIds.length === 0) return;
+    const mediaIds = Array.from(picked);
+    if (mediaIds.length === 0) return;
     setBusy(true);
     try {
       let destRegistroId: string | null = null;
@@ -716,8 +737,8 @@ export function MovePhotosDialog({
           return;
         }
         destRegistroId = pickedRegistroId;
-        const picked = (candidates ?? []).find((c: any) => c.id === pickedRegistroId);
-        destFrenteId = picked?.frente_id ?? null;
+        const pickedReg = (candidates ?? []).find((c: any) => c.id === pickedRegistroId);
+        destFrenteId = pickedReg?.frente_id ?? null;
       } else {
         if (!newFrenteId) {
           toast({ title: "Escolhe a frente", variant: "destructive" });
@@ -752,7 +773,7 @@ export function MovePhotosDialog({
         .limit(1);
       let next = ((lastInDest?.[0]?.sort_order ?? -1) as number) + 1;
 
-      for (const mediaId of selectedMediaIds) {
+      for (const mediaId of mediaIds) {
         const { error } = await supabase
           .from("operacao_registro_media")
           .update({ registro_id: destRegistroId!, sort_order: next })
@@ -761,7 +782,7 @@ export function MovePhotosDialog({
         next++;
       }
 
-      toast({ title: `${selectedMediaIds.length} foto(s) movida(s)` });
+      toast({ title: `${mediaIds.length} foto(s) movida(s)` });
       onMoved(destRegistroId!, destFrenteId);
     } catch (e: any) {
       toast({ title: "Erro ao mover fotos", description: e?.message, variant: "destructive" });
@@ -772,10 +793,56 @@ export function MovePhotosDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Mover {selectedMediaIds.length} foto(s)</DialogTitle>
+          <DialogTitle>Mover fotos ({picked.size}/{(sourceMedia ?? []).length})</DialogTitle>
         </DialogHeader>
+
+        {/* Seletor de fotos */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <Label className="text-xs">Escolhe as fotos a mover</Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="text-primary hover:underline"
+                onClick={() => setPicked(new Set((sourceMedia ?? []).map((m: any) => m.id)))}
+              >
+                Todas
+              </button>
+              <button
+                type="button"
+                className="text-muted-foreground hover:underline"
+                onClick={() => setPicked(new Set())}
+              >
+                Nenhuma
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-4 gap-1.5 max-h-48 overflow-y-auto p-1 border rounded">
+            {(sourceMedia ?? []).map((m: any) => (
+              <MovePhotoThumb
+                key={m.id}
+                m={m}
+                selected={picked.has(m.id)}
+                onToggle={() => {
+                  setPicked((prev) => {
+                    const n = new Set(prev);
+                    if (n.has(m.id)) n.delete(m.id);
+                    else n.add(m.id);
+                    return n;
+                  });
+                }}
+              />
+            ))}
+            {(sourceMedia ?? []).length === 0 && (
+              <div className="col-span-4 text-center text-xs text-muted-foreground p-3">
+                Sem fotos neste registo
+              </div>
+            )}
+          </div>
+        </div>
+
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
           <TabsList className="grid grid-cols-2">
             <TabsTrigger value="existing">Registo existente</TabsTrigger>
@@ -860,16 +927,48 @@ export function MovePhotosDialog({
             onClick={confirm}
             disabled={
               busy ||
-              selectedMediaIds.length === 0 ||
+              picked.size === 0 ||
               (tab === "existing" && !pickedRegistroId) ||
               (tab === "new" && !newFrenteId)
             }
           >
             {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Mover
+            Mover{picked.size > 0 ? ` ${picked.size}` : ""}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function MovePhotoThumb({ m, selected, onToggle }: { m: any; selected: boolean; onToggle: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const p = m.thumbnail_url ?? m.file_url;
+    if (!p) return;
+    resolveOperacaoMediaUrl({ path: p, mediaId: m.id, registroId: m.registro_id }).then((s) => {
+      if (!cancelled && s) setUrl(s);
+    });
+    return () => { cancelled = true; };
+  }, [m]);
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`relative aspect-square rounded overflow-hidden bg-muted border-2 transition ${selected ? "border-primary ring-2 ring-primary/40" : "border-transparent opacity-60"}`}
+    >
+      {url ? (
+        <img src={url} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full animate-pulse" />
+      )}
+      {m.file_type === "video" && (
+        <span className="absolute bottom-0.5 left-0.5 text-[9px] bg-black/60 text-white px-1 rounded">▶</span>
+      )}
+      <span className={`absolute top-0.5 right-0.5 h-4 w-4 rounded-full text-[10px] flex items-center justify-center font-bold ${selected ? "bg-primary text-primary-foreground" : "bg-background/80 text-muted-foreground border"}`}>
+        {selected ? "✓" : ""}
+      </span>
+    </button>
   );
 }
