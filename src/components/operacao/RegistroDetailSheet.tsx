@@ -139,21 +139,41 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
   // Admin/Manager e Produtor Geral do evento podem trocar o autor.
   const canChangeAuthor = isAdmin || isManager || isGeneralProducer;
   const { data: possibleAuthors } = useQuery({
-    queryKey: ["op-possible-authors", eventId, registro?.author_profile_id],
+    queryKey: ["op-possible-authors", eventId, registro?.author_profile_id, registro?.company_id],
     enabled: !!eventId && open && editing && canChangeAuthor,
     queryFn: async () => {
+      const profIdSet = new Set<string>();
+
+      // 1) Membros das frentes do evento
       const { data: frentes } = await supabase
         .from("operacao_frentes").select("id").eq("event_id", eventId!);
       const fIds = (frentes ?? []).map((f: any) => f.id);
-      let profIds: string[] = [];
       if (fIds.length) {
         const { data: team } = await supabase
           .from("operacao_frente_team").select("profile_id").in("frente_id", fIds).eq("active", true);
-        profIds = Array.from(new Set((team ?? []).map((t: any) => t.profile_id)));
+        (team ?? []).forEach((t: any) => t.profile_id && profIdSet.add(t.profile_id));
       }
-      if (registro?.author_profile_id && !profIds.includes(registro.author_profile_id)) {
-        profIds.push(registro.author_profile_id);
+
+      // 2) Membros do evento (event_team_members) — produtores gerais, diretores, etc.
+      const { data: evTeam } = await supabase
+        .from("event_team_members").select("profile_id").eq("event_id", eventId!);
+      (evTeam ?? []).forEach((t: any) => t.profile_id && profIdSet.add(t.profile_id));
+
+      // 3) Perfis da empresa (admins/managers/editores que podem registar)
+      if (registro?.company_id) {
+        const { data: companyProfs } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("company_id", registro.company_id)
+          .is("archived_at", null)
+          .limit(500);
+        (companyProfs ?? []).forEach((p: any) => p.id && profIdSet.add(p.id));
       }
+
+      // 4) Autor atual sempre presente
+      if (registro?.author_profile_id) profIdSet.add(registro.author_profile_id);
+
+      const profIds = Array.from(profIdSet);
       if (!profIds.length) return [];
       const { data: profs } = await supabase
         .from("profiles").select("id,full_name,email").in("id", profIds);
