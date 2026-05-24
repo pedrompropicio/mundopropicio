@@ -14,9 +14,9 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { MessageSquare, AlertOctagon, Clipboard, Activity, MoreVertical, Eye, Pencil, Trash2 } from "lucide-react";
+import { MessageSquare, AlertOctagon, Clipboard, Activity, MoreVertical, Eye, Pencil, Trash2, MoveRight } from "lucide-react";
 import { PriorityBadge } from "./PriorityBadge";
-import { RegistroDetailSheet } from "./RegistroDetailSheet";
+import { RegistroDetailSheet, MovePhotosDialog } from "./RegistroDetailSheet";
 import {
   DropdownMenu,
   DropdownMenuContent,
