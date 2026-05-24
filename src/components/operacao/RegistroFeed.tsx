@@ -214,6 +214,25 @@ export function RegistroFeed({ filter, pageSize = 20 }: { filter: Filter; pageSi
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {moveSource && (
+        <MovePhotosDialog
+          open={!!moveSource}
+          onClose={() => setMoveSource(null)}
+          sourceRegistroId={moveSource.registroId}
+          sourceFrenteId={moveSource.frenteId}
+          companyId={moveSource.companyId}
+          eventId={moveSource.eventId}
+          selectedMediaIds={moveSource.mediaIds}
+          onMoved={(destRegistroId, destFrenteId) => {
+            setMoveSource(null);
+            queryClient.invalidateQueries({ queryKey: ["op-registros"] });
+            queryClient.invalidateQueries({ queryKey: ["op-registros-media"] });
+            queryClient.invalidateQueries({ queryKey: ["op-registro-detail-media", moveSource.registroId] });
+            queryClient.invalidateQueries({ queryKey: ["op-registro-detail-media", destRegistroId] });
+          }}
+        />
+      )}
     </>
   );
 }
