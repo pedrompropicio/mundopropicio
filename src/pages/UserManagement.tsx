@@ -25,6 +25,7 @@ const ROLE_ICONS: Record<AppRole, React.ElementType> = {
   admin: ShieldCheck,
   manager: Briefcase,
   producer: HardHat,
+  field_producer: HardHat,
   editor: Pencil,
   viewer: Eye,
   user: User,
@@ -33,7 +34,7 @@ const ROLE_ICONS: Record<AppRole, React.ElementType> = {
   marketing_manager: Megaphone,
 };
 
-const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "producer", "editor", "viewer", "partner"];
+const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "producer", "field_producer", "editor", "viewer", "partner"];
 
 export default function UserManagement() {
   const { isAdmin, user } = useAuth();
@@ -77,7 +78,7 @@ export default function UserManagement() {
       if (pErr) throw pErr;
 
       const priority: Record<string, number> = {
-        platform_admin: 0, admin: 1, manager: 2, producer: 3, editor: 4, partner: 5, viewer: 6, user: 7,
+        platform_admin: 0, admin: 1, manager: 2, producer: 3, field_producer: 3, editor: 4, partner: 5, viewer: 6, user: 7,
       };
       const roleByUser = new Map<string, AppRole>();
       for (const row of companyRoles ?? []) {
