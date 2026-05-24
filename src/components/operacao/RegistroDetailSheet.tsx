@@ -187,8 +187,8 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
 
   const canEdit =
     !!registro &&
-    (user?.id === registro.author_profile_id || isAdmin || isManager || isLeadOfFrente);
-  const canDelete = isAdmin || isManager;
+    (user?.id === registro.author_profile_id || isAdmin || isManager || isGeneralProducer || isLeadOfFrente);
+  const canDelete = isAdmin || isManager || isGeneralProducer;
 
   const handleSave = async () => {
     if (!registroId) return;
