@@ -43,20 +43,35 @@ Deno.serve(async (req) => {
     });
   }
 
-  const phoneNumberId = Deno.env.get("META_WA_PHONE_NUMBER_ID");
-  const wamToken = Deno.env.get("META_WA_SYSTEM_TOKEN");
-  if (!phoneNumberId || !wamToken) {
-    return new Response(JSON.stringify({ error: "Meta WA secrets missing" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  const phoneNumberId = Deno.env.get("META_WA_PHONE_NUMBER_ID") ?? "1090662907471517";
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     { auth: { persistSession: false } },
   );
+
+  // Token sensível: ler do Vault (Deno.env não acede a secrets META_WA_* neste projeto)
+  let wamToken: string | null = Deno.env.get("META_WA_SYSTEM_TOKEN") ?? null;
+  if (!wamToken) {
+    const { data: tokRpc, error: tokErr } = await supabase.rpc("get_vault_secret" as any, {
+      _name: "META_WA_SYSTEM_TOKEN",
+    });
+    if (tokErr || !tokRpc) {
+      return new Response(JSON.stringify({ error: "META_WA_SYSTEM_TOKEN not found in vault", detail: tokErr?.message ?? null }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    wamToken = typeof tokRpc === "string" ? tokRpc : String(tokRpc);
+  }
+
+  if (!phoneNumberId || !wamToken) {
+    return new Response(JSON.stringify({ error: "Meta WA secrets missing" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   const { data: items, error: selErr } = await supabase
     .from("notification_queue")
