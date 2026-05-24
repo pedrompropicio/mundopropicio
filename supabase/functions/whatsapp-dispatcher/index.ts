@@ -104,7 +104,16 @@ Deno.serve(async (req) => {
     }
 
     const to = (item.recipient_phone || "").replace(/^\+/, "").replace(/\s+/g, "");
-    const parameters = (item.params ?? []).map((p) => ({ type: "text", text: String(p ?? "") }));
+    // params pode vir como array OU objeto {"1": "...", "2": "..."} (jsonb)
+    const rawParams = item.params;
+    const paramsArr: any[] = Array.isArray(rawParams)
+      ? rawParams
+      : (rawParams && typeof rawParams === "object"
+          ? Object.keys(rawParams as Record<string, any>)
+              .sort((a, b) => Number(a) - Number(b))
+              .map((k) => (rawParams as Record<string, any>)[k])
+          : []);
+    const parameters = paramsArr.map((p) => ({ type: "text", text: String(p ?? "") }));
     const body = {
       messaging_product: "whatsapp",
       to,
