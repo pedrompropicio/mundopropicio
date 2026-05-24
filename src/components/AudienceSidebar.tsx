@@ -72,7 +72,7 @@ export function AudienceSidebar() {
 
       <div className="mt-auto w-full px-2 lg:px-3 space-y-1">
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/modulos")}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           title="Trocar módulo"
         >

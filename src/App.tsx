@@ -339,6 +339,11 @@ function ProtectedLayout() {
   if (currentPath === "/") {
     return <PostLoginRedirect />;
   }
+  // Rota dedicada ao seletor de módulos: bypassa o PostLoginRedirect para que
+  // utilizadores de campo (Operação) também consigam abrir o seletor.
+  if (currentPath === "/modulos") {
+    return <ModuleSelector />;
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
