@@ -1,0 +1,7 @@
+-- Reset mensagem locked em "sending" após crash de params.map
+UPDATE notification_queue
+SET status='queued', attempts=0, last_error=NULL, updated_at=now()
+WHERE id='c293eae7-eaef-4787-8b46-6006352f74ac';
+
+SELECT id, status, attempts FROM notification_queue
+WHERE id='c293eae7-eaef-4787-8b46-6006352f74ac';
