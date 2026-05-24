@@ -78,7 +78,7 @@ export default function UserManagement() {
       if (pErr) throw pErr;
 
       const priority: Record<string, number> = {
-        platform_admin: 0, admin: 1, manager: 2, producer: 3, editor: 4, partner: 5, viewer: 6, user: 7,
+        platform_admin: 0, admin: 1, manager: 2, producer: 3, field_producer: 3, editor: 4, partner: 5, viewer: 6, user: 7,
       };
       const roleByUser = new Map<string, AppRole>();
       for (const row of companyRoles ?? []) {
