@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { inferEtapaPhase, PHASE_LABELS, PHASE_ORDER, type EtapaPhase } from "./inferEtapaPhase";
 
 export type ReportDetail = "compact" | "medium" | "full";
+export type ReportGroupBy = "frente" | "day";
 
 export interface ReportOptions {
   eventId: string;
@@ -11,6 +12,7 @@ export interface ReportOptions {
   statuses: string[]; // pending / in_progress / blocked / done / cancelled
   detail: ReportDetail;
   includePhotos: boolean;
+  groupBy?: ReportGroupBy;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -181,7 +183,7 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
 
   // Load registos for all visible etapas + frente-level orphan registos (full mode)
   const { byEtapa: registrosByEtapa, byFrente: registrosByFrente } =
-    opts.detail === "full"
+    opts.detail === "full" || opts.groupBy === "day"
       ? await fetchRegistros({
           etapaIds: enriched.map((e) => e.id),
           frenteIds: frentes.map((f) => f.id),
@@ -511,9 +513,166 @@ export async function generateOperationalReport(opts: ReportOptions): Promise<vo
     }
   };
 
-  await renderSection("Zonas Físicas", (f) => f.type === "zone");
-  await renderSection("Serviços Transversais", (f) => f.type === "service");
-  await renderSection("Outras frentes", (f) => f.type !== "zone" && f.type !== "service");
+  if (opts.groupBy === "day") {
+    // ---- Chronological day-by-day ----
+    const etapaById = new Map(enriched.map((e) => [e.id, e]));
+    const frenteById = new Map(frentes.map((f) => [f.id, f]));
+    type Entry = { reg: any; frente: any; etapa: any | null };
+    const entries: Entry[] = [];
+    for (const [etapaId, regs] of registrosByEtapa) {
+      const etapa = etapaById.get(etapaId);
+      if (!etapa) continue; // etapa fora dos filtros
+      const frente = frenteById.get(etapa.frente_id);
+      if (!frente) continue;
+      for (const reg of regs) entries.push({ reg, frente, etapa });
+    }
+    for (const [frenteId, regs] of registrosByFrente) {
+      const frente = frenteById.get(frenteId);
+      if (!frente) continue;
+      for (const reg of regs) entries.push({ reg, frente, etapa: null });
+    }
+    entries.sort((a, b) => a.reg.created_at.localeCompare(b.reg.created_at));
+
+    // group by day key YYYY-MM-DD (local)
+    const byDay = new Map<string, Entry[]>();
+    for (const e of entries) {
+      const d = new Date(e.reg.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const arr = byDay.get(key) ?? [];
+      arr.push(e);
+      byDay.set(key, arr);
+    }
+    const dayKeys = Array.from(byDay.keys()).sort();
+
+    doc.addPage();
+    y = margin;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.setFillColor(30, 41, 59);
+    doc.setTextColor(255);
+    doc.rect(margin, y - 14, pageW - margin * 2, 22, "F");
+    doc.text("CRONOLÓGICO (DIA A DIA)", margin + 8, y + 2);
+    doc.setTextColor(0);
+    y += 22;
+
+    if (!dayKeys.length) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(10);
+      doc.setTextColor(140);
+      doc.text("Sem registos para os filtros selecionados.", margin, y);
+      doc.setTextColor(0);
+    }
+
+    for (const dayKey of dayKeys) {
+      const dayEntries = byDay.get(dayKey)!;
+      const dayDate = new Date(dayKey + "T00:00:00");
+      const dayLabel = dayDate.toLocaleDateString("pt-PT", {
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      });
+
+      ensureSpace(30);
+      doc.setFillColor(241, 245, 249);
+      doc.rect(margin, y, pageW - margin * 2, 18, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(dayLabel, margin + 8, y + 12);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(120);
+      doc.text(
+        `${dayEntries.length} ${dayEntries.length === 1 ? "registo" : "registos"}`,
+        pageW - margin - 8,
+        y + 12,
+        { align: "right" }
+      );
+      doc.setTextColor(0);
+      y += 22;
+
+      for (const entry of dayEntries) {
+        const { reg, frente, etapa } = entry;
+        const author = profilesById.get(reg.author_profile_id) ?? "—";
+        const when = new Date(reg.created_at).toLocaleTimeString("pt-PT", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        const text = reg.text ?? reg.transcribed_text ?? "";
+
+        ensureSpace(40);
+        // colored bar by frente
+        const [fr, fg, fb] = frente.color ? hexToRgb(frente.color) : [99, 102, 241];
+        doc.setFillColor(fr, fg, fb);
+        doc.rect(margin, y, 3, 12, "F");
+
+        // header: hora · frente / etapa
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        const ctx = etapa ? `${frente.name} / ${etapa.name}` : `${frente.name}`;
+        doc.text(`${when} · ${ctx}`, margin + 8, y + 9);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(120);
+        doc.text(author, pageW - margin - 4, y + 9, { align: "right" });
+        doc.setTextColor(0);
+        y += 14;
+
+        if (text) {
+          const textW = pageW - margin * 2 - 12;
+          const lines = doc.splitTextToSize(text, textW);
+          ensureSpace(11 * lines.length + 2);
+          doc.setFontSize(9);
+          doc.text(lines, margin + 8, y);
+          y += 11 * lines.length + 2;
+        }
+
+        if (opts.includePhotos && reg.media?.length) {
+          const MAX_IMG_H = 110;
+          const availW = pageW - margin * 2 - 12;
+          const loaded: { data: string; w: number; h: number }[] = [];
+          for (const m of reg.media as any[]) {
+            const img = await imageUrlToDataUrl(m.file_url);
+            if (img) loaded.push(img);
+          }
+          const single = loaded.length === 1;
+          const colW = single ? availW : (availW - 6) / 2;
+          const fit = (img: { w: number; h: number }) => {
+            const natH = (img.h / img.w) * colW;
+            if (natH <= MAX_IMG_H) return { w: colW, h: natH, x: 0 };
+            const w = (img.w / img.h) * MAX_IMG_H;
+            return { w, h: MAX_IMG_H, x: (colW - w) / 2 };
+          };
+          const step = single ? 1 : 2;
+          for (let i = 0; i < loaded.length; i += step) {
+            const a = loaded[i];
+            const b = !single ? loaded[i + 1] : null;
+            const fa = fit(a);
+            const fb = b ? fit(b) : null;
+            const rowH = Math.max(fa.h, fb?.h ?? 0);
+            ensureSpace(rowH + 6);
+            try {
+              doc.addImage(a.data, "JPEG", margin + 8 + fa.x, y, fa.w, fa.h);
+              if (b && fb) {
+                doc.addImage(b.data, "JPEG", margin + 8 + colW + 6 + fb.x, y, fb.w, fb.h);
+              }
+            } catch { /* skip */ }
+            y += rowH + 6;
+          }
+        }
+
+        doc.setDrawColor(230);
+        doc.setLineWidth(0.2);
+        doc.line(margin + 8, y, pageW - margin - 4, y);
+        y += 6;
+      }
+      y += 6;
+    }
+  } else {
+    await renderSection("Zonas Físicas", (f) => f.type === "zone");
+    await renderSection("Serviços Transversais", (f) => f.type === "service");
+    await renderSection("Outras frentes", (f) => f.type !== "zone" && f.type !== "service");
+  }
 
   doc.save(`relatorio-operacional-${(event.name ?? "evento").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.pdf`);
 }

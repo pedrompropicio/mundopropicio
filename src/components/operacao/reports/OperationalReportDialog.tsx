@@ -17,6 +17,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   generateOperationalReport,
   type ReportDetail,
+  type ReportGroupBy,
 } from "@/lib/operacao/operationalReportPdf";
 import { PHASE_LABELS, PHASE_ORDER, type EtapaPhase } from "@/lib/operacao/inferEtapaPhase";
 
@@ -44,6 +45,7 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
   ]);
   const [detail, setDetail] = useState<ReportDetail>("medium");
   const [includePhotos, setIncludePhotos] = useState(false);
+  const [groupBy, setGroupBy] = useState<ReportGroupBy>("frente");
   const [busy, setBusy] = useState(false);
 
   const togglePhase = (p: EtapaPhase) =>
@@ -67,7 +69,8 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
         phases,
         statuses,
         detail,
-        includePhotos: detail !== "compact" && includePhotos,
+        groupBy,
+        includePhotos: (detail !== "compact" || groupBy === "day") && includePhotos,
       });
       toast({ title: "Relatório gerado" });
       onOpenChange(false);
@@ -118,6 +121,37 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
             </div>
           </div>
 
+          {/* Agrupamento */}
+          <div>
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+              Agrupamento
+            </Label>
+            <RadioGroup
+              value={groupBy}
+              onValueChange={(v) => setGroupBy(v as ReportGroupBy)}
+              className="mt-2 space-y-1.5"
+            >
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <RadioGroupItem value="frente" className="mt-0.5" />
+                <span>
+                  <span className="font-medium">Por Zona / Serviço → Etapa</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Estrutural: cada frente com as suas etapas.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <RadioGroupItem value="day" className="mt-0.5" />
+                <span>
+                  <span className="font-medium">Cronológico (dia a dia)</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Timeline diária dos registos, com zona/serviço e etapa em cada item.
+                  </span>
+                </span>
+              </label>
+            </RadioGroup>
+          </div>
+
           {/* Detalhe */}
           <div>
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -159,7 +193,7 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
           </div>
 
           {/* Fotos */}
-          {detail === "full" && (
+          {(detail === "full" || groupBy === "day") && (
             <div className="flex items-center justify-between rounded border p-3">
               <div>
                 <Label className="text-sm">Incluir registos fotográficos</Label>
