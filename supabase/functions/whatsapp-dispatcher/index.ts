@@ -8,7 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const META_API_VERSION = "v21.0";
+const META_API_VERSION = "v25.0";
 const BATCH_SIZE = 50;
 const MAX_ATTEMPTS = 3;
 
