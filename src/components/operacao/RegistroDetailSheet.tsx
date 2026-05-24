@@ -927,16 +927,48 @@ export function MovePhotosDialog({
             onClick={confirm}
             disabled={
               busy ||
-              selectedMediaIds.length === 0 ||
+              picked.size === 0 ||
               (tab === "existing" && !pickedRegistroId) ||
               (tab === "new" && !newFrenteId)
             }
           >
             {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Mover
+            Mover{picked.size > 0 ? ` ${picked.size}` : ""}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function MovePhotoThumb({ m, selected, onToggle }: { m: any; selected: boolean; onToggle: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const p = m.thumbnail_url ?? m.file_url;
+    if (!p) return;
+    resolveOperacaoMediaUrl({ path: p, mediaId: m.id, registroId: m.registro_id }).then((s) => {
+      if (!cancelled && s) setUrl(s);
+    });
+    return () => { cancelled = true; };
+  }, [m]);
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`relative aspect-square rounded overflow-hidden bg-muted border-2 transition ${selected ? "border-primary ring-2 ring-primary/40" : "border-transparent opacity-60"}`}
+    >
+      {url ? (
+        <img src={url} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full animate-pulse" />
+      )}
+      {m.file_type === "video" && (
+        <span className="absolute bottom-0.5 left-0.5 text-[9px] bg-black/60 text-white px-1 rounded">▶</span>
+      )}
+      <span className={`absolute top-0.5 right-0.5 h-4 w-4 rounded-full text-[10px] flex items-center justify-center font-bold ${selected ? "bg-primary text-primary-foreground" : "bg-background/80 text-muted-foreground border"}`}>
+        {selected ? "✓" : ""}
+      </span>
+    </button>
   );
 }
