@@ -17,6 +17,7 @@ import { toast } from "@/hooks/use-toast";
 import {
   generateOperationalReport,
   type ReportDetail,
+  type ReportGroupBy,
 } from "@/lib/operacao/operationalReportPdf";
 import { PHASE_LABELS, PHASE_ORDER, type EtapaPhase } from "@/lib/operacao/inferEtapaPhase";
 
