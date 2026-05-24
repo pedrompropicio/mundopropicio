@@ -84,7 +84,7 @@ export default function ModuleSelector() {
       description: "Diário de obra, frentes, registos e chamados em tempo real",
       bullets: "Frentes · Etapas · Registos · Chamados",
       icon: Radar,
-      to: "/operacao",
+      to: "/operacao/zonas",
       enabled: isAdmin || hasPermission("view_operacao"),
       noAccess: !(isAdmin || hasPermission("view_operacao")),
       accent: {
