@@ -193,7 +193,7 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
           </div>
 
           {/* Fotos */}
-          {detail === "full" && (
+          {(detail === "full" || groupBy === "day") && (
             <div className="flex items-center justify-between rounded border p-3">
               <div>
                 <Label className="text-sm">Incluir registos fotográficos</Label>
