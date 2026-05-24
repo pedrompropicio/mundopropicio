@@ -20,8 +20,9 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.whatsapp-dispatcher]
-# Cron-only. Gateway requires a valid JWT (cron sends service_role bearer).
-verify_jwt = true
+# Cron-only. Gateway auth desligado (legacy JWT do vault não passa o gateway).
+# Defesa em profundidade no handler: exige role=service_role no JWT OU x-cron-secret.
+verify_jwt = false
 
 [functions.apply-coala-bp]
 verify_jwt = true
