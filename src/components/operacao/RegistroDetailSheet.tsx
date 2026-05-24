@@ -723,8 +723,9 @@ export function MovePhotosDialog({
   });
 
   const confirm = async () => {
-    if (selectedMediaIds.length === 0) return;
-    setBusy(true);
+    const mediaIds = Array.from(picked);
+    if (mediaIds.length === 0) return;
+
     try {
       let destRegistroId: string | null = null;
       let destFrenteId: string | null = null;
