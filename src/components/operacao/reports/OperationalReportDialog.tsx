@@ -122,7 +122,7 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Relatório Operacional</DialogTitle>
           <DialogDescription>
@@ -131,6 +131,59 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
         </DialogHeader>
 
         <div className="space-y-5 py-2">
+          {/* Zonas / Serviços */}
+          <div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Zonas e Serviços
+              </Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="text-[11px] text-primary hover:underline"
+                  onClick={() => setSelectedFrenteIds(null)}
+                >
+                  Todos
+                </button>
+                <button
+                  type="button"
+                  className="text-[11px] text-muted-foreground hover:underline"
+                  onClick={() => setSelectedFrenteIds([])}
+                >
+                  Nenhum
+                </button>
+              </div>
+            </div>
+            <div className="mt-2 grid grid-cols-1 gap-1.5 max-h-48 overflow-y-auto rounded border p-2">
+              {frentes.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Sem zonas/serviços.</p>
+              ) : (
+                frentes.map((f) => {
+                  const checked = allSelected ? true : selectedFrenteIds!.includes(f.id);
+                  return (
+                    <label key={f.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Checkbox checked={checked} onCheckedChange={() => toggleFrente(f.id)} />
+                      <span
+                        className="w-1 h-4 rounded-full shrink-0"
+                        style={{ backgroundColor: f.color ?? "#6b7280" }}
+                      />
+                      <span className="flex-1 truncate">{f.name}</span>
+                      <span className="text-[10px] uppercase text-muted-foreground">
+                        {f.type === "service" ? "Serviço" : "Zona"}
+                      </span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {allSelected
+                ? "Todas as zonas e serviços incluídos."
+                : `${selectedFrenteIds!.length} selecionados.`}
+            </p>
+          </div>
+
+
           {/* Fases */}
           <div>
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">Fases</Label>
