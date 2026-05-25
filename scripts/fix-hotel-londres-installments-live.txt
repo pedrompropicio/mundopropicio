@@ -26,11 +26,12 @@ SET amount      = 1503.80,
     description = 'Hospedagem Equipe Ivete - Hotel Londres (04 a 06/09) (1/3)'
 WHERE id = 'f7772476-3007-40cf-9ff1-b77f83457142';
 
--- (2) Parcela 2/3
+-- (2) Parcela 2/3 (filha — parent_transaction_id aponta para a 1/3)
 INSERT INTO public.transactions (
   description, type, amount, iva_rate, event_id, category_id, supplier_id,
   specification, date, due_date, status, paid_amount, payment_date,
-  is_reimbursement, is_transitory, invoice_ref, payment_method, company_id
+  is_reimbursement, is_transitory, invoice_ref, payment_method, company_id,
+  parent_transaction_id
 ) VALUES (
   'Hospedagem Equipe Ivete - Hotel Londres (04 a 06/09) (2/3)',
   'expense', 3007.60, 0,
@@ -40,14 +41,16 @@ INSERT INTO public.transactions (
   'Hospedagem', '2026-05-25', '2026-07-14',
   'pending', 0, NULL, false, false,
   'proforma', 'transfer',
-  '7c858982-6ccd-47ca-bd65-e0dd3eebf01c'
+  '7c858982-6ccd-47ca-bd65-e0dd3eebf01c',
+  'f7772476-3007-40cf-9ff1-b77f83457142'
 );
 
--- (3) Parcela 3/3
+-- (3) Parcela 3/3 (filha — parent_transaction_id aponta para a 1/3)
 INSERT INTO public.transactions (
   description, type, amount, iva_rate, event_id, category_id, supplier_id,
   specification, date, due_date, status, paid_amount, payment_date,
-  is_reimbursement, is_transitory, invoice_ref, payment_method, company_id
+  is_reimbursement, is_transitory, invoice_ref, payment_method, company_id,
+  parent_transaction_id
 ) VALUES (
   'Hospedagem Equipe Ivete - Hotel Londres (04 a 06/09) (3/3)',
   'expense', 3007.60, 0,
@@ -57,7 +60,8 @@ INSERT INTO public.transactions (
   'Hospedagem', '2026-05-25', '2026-08-13',
   'pending', 0, NULL, false, false,
   'proforma', 'transfer',
-  '7c858982-6ccd-47ca-bd65-e0dd3eebf01c'
+  '7c858982-6ccd-47ca-bd65-e0dd3eebf01c',
+  'f7772476-3007-40cf-9ff1-b77f83457142'
 );
 
 -- (4) Apaga as 3 rows em transaction_payments

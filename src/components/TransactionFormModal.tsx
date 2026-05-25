@@ -1364,6 +1364,9 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
               original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
               fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
               fx_rate_source: currency === "EUR" ? null : fxRateSource,
+              parent_transaction_id: insertedTx.id,
+              split_percentage: null,
+              split_amount: null,
             } as any).select("id").single();
             if (sErr) throw sErr;
             if (siblingTx?.id) {
