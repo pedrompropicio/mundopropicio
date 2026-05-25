@@ -94,6 +94,24 @@ export default function EtapaDetail() {
     },
   });
 
+  const { data: prevEtapa } = useQuery({
+    queryKey: ["op-etapa-prev", frenteIdForNext, id, plannedStart],
+    enabled: !!frenteIdForNext && !!id,
+    queryFn: async () => {
+      let q = supabase
+        .from("operacao_etapas")
+        .select("id, name, planned_start")
+        .eq("frente_id", frenteIdForNext)
+        .neq("id", id!)
+        .neq("status", "cancelled")
+        .order("planned_start", { ascending: false, nullsFirst: false })
+        .limit(1);
+      if (plannedStart) q = q.lt("planned_start", plannedStart);
+      const { data } = await q;
+      return data?.[0] ?? null;
+    },
+  });
+
   // Hooks chamados sempre antes de early returns (Rules of Hooks)
   const eventIdForDirector = (etapa as any)?.frente?.event_id;
   const isDirectorOnly = useIsEventDirectorOnly(eventIdForDirector);
@@ -225,15 +243,29 @@ export default function EtapaDetail() {
         </TooltipProvider>
       )}
 
-      {nextEtapa && (
-        <Button
-          size="sm"
-          variant="secondary"
-          className="w-full justify-center"
-          onClick={() => navigate(`/operacao/etapa/${nextEtapa.id}`)}
-        >
-          Próxima etapa: {nextEtapa.name} <ArrowRight className="h-4 w-4 ml-1" />
-        </Button>
+      {(prevEtapa || nextEtapa) && (
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            className="w-full justify-center"
+            disabled={!prevEtapa}
+            onClick={() => prevEtapa && navigate(`/operacao/etapa/${prevEtapa.id}`)}
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            <span className="truncate">{prevEtapa ? `Anterior: ${prevEtapa.name}` : "Sem anterior"}</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="w-full justify-center"
+            disabled={!nextEtapa}
+            onClick={() => nextEtapa && navigate(`/operacao/etapa/${nextEtapa.id}`)}
+          >
+            <span className="truncate">{nextEtapa ? `Próxima: ${nextEtapa.name}` : "Sem próxima"}</span>
+            <ArrowRight className="h-4 w-4 ml-1" />
+          </Button>
+        </div>
       )}
 
       {!isDirectorOnly && (
