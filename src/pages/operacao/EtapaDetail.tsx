@@ -225,6 +225,17 @@ export default function EtapaDetail() {
         </TooltipProvider>
       )}
 
+      {nextEtapa && (
+        <Button
+          size="sm"
+          variant="secondary"
+          className="w-full justify-center"
+          onClick={() => navigate(`/operacao/etapa/${nextEtapa.id}`)}
+        >
+          Próxima etapa: {nextEtapa.name} <ArrowRight className="h-4 w-4 ml-1" />
+        </Button>
+      )}
+
       {!isDirectorOnly && (
         <Button size="lg" className="w-full" onClick={() => setSheetOpen(true)}>
           <Camera className="h-5 w-5 mr-2" /> Registar
