@@ -9,6 +9,12 @@
 ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS ticketline_event_id text;
 
+-- 1b) Coluna sales_start_date em ticketline_sync_config (criada abaixo
+--     no CREATE TABLE IF NOT EXISTS; este ALTER serve para Live já com
+--     a tabela criada).
+ALTER TABLE IF EXISTS public.ticketline_sync_config
+  ADD COLUMN IF NOT EXISTS sales_start_date date;
+
 -- 2) Tabela ticketline_sync_config -------------------------------
 CREATE TABLE IF NOT EXISTS public.ticketline_sync_config (
   id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -18,6 +24,7 @@ CREATE TABLE IF NOT EXISTS public.ticketline_sync_config (
   ticketline_event_id  text NOT NULL,
   organization_name    text NOT NULL DEFAULT 'Ticketline',
   enabled              boolean NOT NULL DEFAULT true,
+  sales_start_date     date,
   last_run_at          timestamptz,
   last_run_status      text,
   created_at           timestamptz NOT NULL DEFAULT now(),

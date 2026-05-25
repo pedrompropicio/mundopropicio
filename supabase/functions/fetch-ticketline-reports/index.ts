@@ -7,7 +7,22 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.2_2026_05_25_geometric_fallback_section2";
+const VERSION = "v2.3_2026_05_25_date_filter_params";
+
+// Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
+function fmtDDMMYYYY(d: Date): string {
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const yyyy = d.getUTCFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+}
+function salesStartToDDMMYYYY(salesStart: string | null | undefined): string {
+  if (!salesStart) return "01-01-2025";
+  // Espera YYYY-MM-DD do Postgres
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(salesStart);
+  if (!m) return "01-01-2025";
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -146,11 +161,24 @@ async function downloadXlsx(jar: Jar, url: string, label: string): Promise<Uint8
   return buf;
 }
 
-async function downloadSummary(creds: { email: string; password: string }, ticketlineEventId: string) {
+async function downloadSummary(
+  creds: { email: string; password: string },
+  ticketlineEventId: string,
+  filterStartDDMMYYYY: string,
+  filterEndDDMMYYYY: string,
+) {
   let jar: Jar;
   const { jar: j0 } = await loginDevise(creds.email, creds.password);
   jar = j0;
-  const url = `${BASE}/managers/events/${encodeURIComponent(ticketlineEventId)}/sale_summary.xlsx?granularity=2`;
+  const qs = new URLSearchParams();
+  qs.set("utf8", "✓");
+  qs.set("granularity", "2");
+  qs.set("bulk_event_ids", "");
+  qs.set("filter_start_date", filterStartDDMMYYYY);
+  qs.set("filter_end_date", filterEndDDMMYYYY);
+  qs.set("post_render_content", "data");
+  qs.set("_", String(Date.now()));
+  const url = `${BASE}/managers/events/${encodeURIComponent(ticketlineEventId)}/sale_summary.xlsx?${qs.toString()}`;
   try {
     return await downloadXlsx(jar, url, "sale_summary");
   } catch (e: any) {
@@ -192,7 +220,13 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     catch { throw Object.assign(new Error("Vault secret não é JSON {email,password}"), { phase: "creds_invalid" }); }
     if (!creds.email || !creds.password) throw Object.assign(new Error("Vault: email/password em falta"), { phase: "creds_invalid" });
 
-    const summary = await downloadSummary(creds, cfg.ticketline_event_id);
+    const filterStart = salesStartToDDMMYYYY(cfg.sales_start_date);
+    const filterEnd = fmtDDMMYYYY(new Date());
+    debug.filter_start_date = filterStart;
+    debug.filter_end_date = filterEnd;
+    debug.sales_start_date_source = cfg.sales_start_date ? "config" : "fallback_2025_01_01";
+
+    const summary = await downloadSummary(creds, cfg.ticketline_event_id, filterStart, filterEnd);
     const filesAudit = [
       { name: `sale_summary_${cfg.ticketline_event_id}.xlsx`, size: summary.length },
     ];

@@ -7279,6 +7279,7 @@ export type Database = {
           last_run_at: string | null
           last_run_status: string | null
           organization_name: string
+          sales_start_date: string | null
           ticketline_event_id: string
           updated_at: string
           vault_secret_name: string
@@ -7292,6 +7293,7 @@ export type Database = {
           last_run_at?: string | null
           last_run_status?: string | null
           organization_name?: string
+          sales_start_date?: string | null
           ticketline_event_id: string
           updated_at?: string
           vault_secret_name: string
@@ -7305,6 +7307,7 @@ export type Database = {
           last_run_at?: string | null
           last_run_status?: string | null
           organization_name?: string
+          sales_start_date?: string | null
           ticketline_event_id?: string
           updated_at?: string
           vault_secret_name?: string
