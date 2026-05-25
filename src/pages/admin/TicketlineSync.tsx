@@ -334,11 +334,51 @@ function ConfigCard({
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Data de início de vendas (on-sale)</Label>
-            <Input
-              type="date"
-              value={salesStart}
-              onChange={(e) => setSalesStart(e.target.value)}
-            />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !salesStart && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {salesStart && isValid(parse(salesStart, "yyyy-MM-dd", new Date()))
+                    ? format(parse(salesStart, "yyyy-MM-dd", new Date()), "dd/MM/yyyy", { locale: pt })
+                    : "Selecionar data"}
+                  {salesStart && (
+                    <X
+                      className="ml-auto h-4 w-4 opacity-60 hover:opacity-100"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setSalesStart("");
+                      }}
+                    />
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 z-[100]" align="start">
+                <Calendar
+                  mode="single"
+                  locale={pt}
+                  selected={salesStart && isValid(parse(salesStart, "yyyy-MM-dd", new Date()))
+                    ? parse(salesStart, "yyyy-MM-dd", new Date())
+                    : undefined}
+                  onSelect={(d) => {
+                    if (d) {
+                      const y = d.getFullYear();
+                      const m = String(d.getMonth() + 1).padStart(2, "0");
+                      const day = String(d.getDate()).padStart(2, "0");
+                      setSalesStart(`${y}-${m}-${day}`);
+                    }
+                  }}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
             <p className="text-[11px] text-muted-foreground">
               Vazio = fallback 01-01-2025. Usado como <code>filter_start_date</code> no pedido sale_summary.
             </p>
