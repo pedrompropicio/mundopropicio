@@ -37,6 +37,9 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
   const [loadingFx, setLoadingFx] = useState<CurrencyCode | null>(null);
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { data: installmentTxIds = new Set<string>() } = useInstallmentTxIds();
+
+
 
   const { data: financialAccounts = [] } = useQuery({
     queryKey: ["financial-accounts-active"],
