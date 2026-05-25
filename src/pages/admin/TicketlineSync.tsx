@@ -110,6 +110,21 @@ export default function TicketlineSync() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ticketline-sync-config"] }),
   });
 
+  const updateFieldsMut = useMutation({
+    mutationFn: async (args: { id: string; ticketline_event_id: string; sales_start_date: string | null }) => {
+      const { error } = await supabase.from("ticketline_sync_config" as any).update({
+        ticketline_event_id: args.ticketline_event_id,
+        sales_start_date: args.sales_start_date,
+      }).eq("id", args.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Configuração actualizada.");
+      qc.invalidateQueries({ queryKey: ["ticketline-sync-config"] });
+    },
+    onError: (e: any) => toast.error(e?.message || "Erro a guardar"),
+  });
+
   const cfgs = cfgQ.data || [];
   const runs = runsQ.data || [];
 
