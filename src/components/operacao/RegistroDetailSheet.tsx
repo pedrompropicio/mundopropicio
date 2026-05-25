@@ -333,7 +333,7 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <Label className="text-xs">Frente</Label>
-                      <Select value={editFrenteId} onValueChange={setEditFrenteId}>
+                      <Select value={editFrenteId} onValueChange={(v) => { setEditFrenteId(v); setEditEtapaId("__none__"); }}>
                         <SelectTrigger className="mt-1"><SelectValue placeholder="Escolher..." /></SelectTrigger>
                         <SelectContent>
                           {(frentesDoEvento ?? []).map((f: any) => (
