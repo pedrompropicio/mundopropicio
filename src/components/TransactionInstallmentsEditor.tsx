@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { MoneyInput } from "@/components/ui/money-input";
 import { cn } from "@/lib/utils";
 import { distributeEvenly, addByInterval } from "@/components/ScheduleInstallmentsModal";
 
