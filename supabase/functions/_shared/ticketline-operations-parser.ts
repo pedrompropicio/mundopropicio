@@ -91,6 +91,7 @@ export interface ParseDebug {
     geralAt: { row: number; col: number } | null;
     vendasAt: { row: number; col: number } | null;
     vendasFromFallback: boolean;
+    geometricFallback?: boolean;
     qtCol: number; valCol: number;
     dataStartRow: number;
   };
@@ -100,10 +101,16 @@ export interface ParseDebug {
     geralAt: { row: number; col: number } | null;
     vendasAt: { row: number; col: number } | null;
     vendasFromFallback: boolean;
+    geometricFallback?: boolean;
     qtCol: number; valCol: number;
     dataStartRow: number;
   };
+  rawHeaderCells?: {
+    section1: Record<string, Record<string, string>>;
+    section2: Record<string, Record<string, string>>;
+  };
 }
+
 
 export interface OperationsParseResult {
   header: SaleSummaryHeader;
