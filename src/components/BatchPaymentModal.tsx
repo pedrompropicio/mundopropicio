@@ -130,28 +130,42 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
   // Compute the actual EUR to settle per item, applying day-rate when available
   const computed = useMemo(() => {
     return items.map((i) => {
-      if (!i.isForeign) {
-        return { ...i, remainingEurFinal: i.remainingEurOriginal, dayRate: 0 };
+      let remainingEurFinal = i.remainingEurOriginal;
+      let dayRate = 0;
+      if (i.isForeign) {
+        const dayRateStr = fxRates[i.currency];
+        const r = parseFloat(dayRateStr ?? "") || 0;
+        if (r > 0 && i.remainingFx > 0) {
+          remainingEurFinal = +(i.remainingFx * r).toFixed(2);
+          dayRate = r;
+        }
       }
-      const dayRateStr = fxRates[i.currency];
-      const dayRate = parseFloat(dayRateStr ?? "") || 0;
-      if (dayRate <= 0 || i.remainingFx <= 0) {
-        return {
-          ...i,
-          remainingEurFinal: i.remainingEurOriginal,
-          dayRate: 0,
-        };
-      }
-      const newEur = +(i.remainingFx * dayRate).toFixed(2);
-      return { ...i, remainingEurFinal: newEur, dayRate };
+      // Retenção IRS declarada — só aplica se transação não tem parcelas
+      const declaredW = getDeclaredWithholding(i);
+      const hasInstallments = installmentTxIds.has(i.id);
+      const np = computeNetPayable({
+        grossWithIva: remainingEurFinal,
+        declaredWithholding: declaredW,
+        hasInstallments,
+      });
+      return {
+        ...i,
+        remainingEurFinal,
+        dayRate,
+        withholding: np.withholding,
+        netPayable: np.net,
+        withholdingApplied: np.applied,
+      };
     });
-  }, [items, fxRates]);
+  }, [items, fxRates, installmentTxIds]);
 
   const totalRemaining = computed.reduce((s, i) => s + i.remainingEurFinal, 0);
   const totalRemainingOriginal = computed.reduce(
     (s, i) => s + i.remainingEurOriginal,
     0
   );
+  const totalWithholding = computed.reduce((s, i) => s + (i.withholding || 0), 0);
+  const totalCashOut = +(totalRemaining - totalWithholding).toFixed(2);
   const fxDelta = +(totalRemaining - totalRemainingOriginal).toFixed(2);
   const totalWithIva = computed.reduce((s, i) => s + i.total, 0);
   const allExpenses = computed.every((i) => i.type === "expense");
