@@ -143,42 +143,18 @@ export default function TicketlineSync() {
         </CardContent></Card>
       ) : (
         cfgs.map((cfg) => (
-          <Card key={cfg.id}>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    {cfg.organization_name}
-                    <Badge variant={cfg.enabled ? "default" : "secondary"}>{cfg.enabled ? "Ativo" : "Desativado"}</Badge>
-                    {cfg.last_run_status && (
-                      <Badge variant={statusVariant(cfg.last_run_status)}>{cfg.last_run_status}</Badge>
-                    )}
-                  </CardTitle>
-                  <CardDescription className="mt-1 font-mono text-xs">
-                    ticketline_event_id={cfg.ticketline_event_id} • event_id={cfg.event_id.slice(0, 8)}…
-                  </CardDescription>
-                  {cfg.last_run_at && (
-                    <CardDescription className="mt-1">
-                      Última execução: {new Date(cfg.last_run_at).toLocaleString("pt-PT")}
-                    </CardDescription>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch checked={cfg.enabled} onCheckedChange={(v) => enableMut.mutate({ id: cfg.id, enabled: v })} />
-                  <Button variant="outline" size="sm" onClick={() => { setCredsModal(cfg); setCredsForm({ email: "", password: "" }); }}>
-                    <KeyRound className="h-4 w-4 mr-2" /> Credenciais
-                  </Button>
-                  <Button size="sm" disabled={runMut.isPending} onClick={() => runMut.mutate(cfg.id)}>
-                    {runMut.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
-                    Correr agora
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xs text-muted-foreground">Vault: <code>{cfg.vault_secret_name}</code></div>
-            </CardContent>
-          </Card>
+          <ConfigCard
+            key={cfg.id}
+            cfg={cfg}
+            runDisabled={runMut.isPending}
+            onRun={() => runMut.mutate(cfg.id)}
+            onToggle={(v) => enableMut.mutate({ id: cfg.id, enabled: v })}
+            onOpenCreds={() => { setCredsModal(cfg); setCredsForm({ email: "", password: "" }); }}
+            onSave={(ticketline_event_id, sales_start_date) =>
+              updateFieldsMut.mutate({ id: cfg.id, ticketline_event_id, sales_start_date })
+            }
+            saving={updateFieldsMut.isPending}
+          />
         ))
       )}
 
