@@ -9,8 +9,13 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, Play, RefreshCw, AlertTriangle, CheckCircle2, KeyRound } from "lucide-react";
+import { Loader2, Play, RefreshCw, AlertTriangle, CheckCircle2, KeyRound, Calendar as CalendarIcon, X } from "lucide-react";
 import { toast } from "sonner";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format, parse, isValid } from "date-fns";
+import { pt } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 type Cfg = {
   id: string;
