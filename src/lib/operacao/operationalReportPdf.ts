@@ -13,7 +13,10 @@ export interface ReportOptions {
   detail: ReportDetail;
   includePhotos: boolean;
   groupBy?: ReportGroupBy;
+  /** Se omitido ou vazio → todas as frentes. */
+  frenteIds?: string[];
 }
+
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "Pendente",
@@ -172,14 +175,24 @@ async function imageUrlToDataUrl(url: string): Promise<{ data: string; w: number
 }
 
 export async function generateOperationalReport(opts: ReportOptions): Promise<void> {
-  const { event, frentes, etapas, profilesById, suppliersById } = await fetchData(opts.eventId);
-  if (!event) throw new Error("Evento não encontrado");
+  const fetched = await fetchData(opts.eventId);
+  if (!fetched.event) throw new Error("Evento não encontrado");
+  const { event, profilesById, suppliersById } = fetched;
+
+  // Aplica filtro de frentes (zonas/serviços) — se omitido/vazio, todas.
+  const frenteFilter = opts.frenteIds && opts.frenteIds.length > 0 ? new Set(opts.frenteIds) : null;
+  const frentes = frenteFilter
+    ? fetched.frentes.filter((f) => frenteFilter.has(f.id))
+    : fetched.frentes;
+  const allowedFrenteIds = new Set(frentes.map((f) => f.id));
+  const etapas = fetched.etapas.filter((e) => allowedFrenteIds.has(e.frente_id));
 
   // Enrich all etapas with phase; then filter view by phase+status
   const enrichedAll = etapas.map((e) => ({ ...e, _phase: inferEtapaPhase(e, event) }));
   const enriched = enrichedAll.filter(
     (e) => opts.phases.includes(e._phase) && opts.statuses.includes(e.status)
   );
+
 
   // Load registos for all visible etapas + frente-level orphan registos (full mode)
   const { byEtapa: registrosByEtapa, byFrente: registrosByFrente } =

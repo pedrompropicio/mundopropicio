@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,12 +14,15 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Loader2, FileDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import {
   generateOperationalReport,
   type ReportDetail,
   type ReportGroupBy,
 } from "@/lib/operacao/operationalReportPdf";
 import { PHASE_LABELS, PHASE_ORDER, type EtapaPhase } from "@/lib/operacao/inferEtapaPhase";
+
 
 const ALL_STATUSES = [
   { key: "pending", label: "Pendente" },
@@ -47,6 +50,36 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
   const [includePhotos, setIncludePhotos] = useState(false);
   const [groupBy, setGroupBy] = useState<ReportGroupBy>("frente");
   const [busy, setBusy] = useState(false);
+  // Frentes: null = todas; [] também tratado como todas.
+  const [selectedFrenteIds, setSelectedFrenteIds] = useState<string[] | null>(null);
+
+  const { data: frentes = [] } = useQuery({
+    queryKey: ["op-report-frentes", eventId],
+    enabled: !!eventId && open,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_frentes")
+        .select("id,name,type,color,display_order")
+        .eq("event_id", eventId)
+        .neq("status", "cancelled")
+        .order("display_order");
+      return (data ?? []) as Array<{ id: string; name: string; type: string; color: string | null }>;
+    },
+  });
+
+  // Reset seleção quando o evento muda ou dialog reabre
+  useEffect(() => {
+    if (open) setSelectedFrenteIds(null);
+  }, [open, eventId]);
+
+  const allFrenteIds = useMemo(() => frentes.map((f) => f.id), [frentes]);
+  const allSelected = selectedFrenteIds === null || selectedFrenteIds.length === 0;
+  const toggleFrente = (id: string) => {
+    setSelectedFrenteIds((cur) => {
+      const base = cur === null ? allFrenteIds : cur;
+      return base.includes(id) ? base.filter((x) => x !== id) : [...base, id];
+    });
+  };
 
   const togglePhase = (p: EtapaPhase) =>
     setPhases((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
@@ -62,6 +95,10 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
       toast({ title: "Seleciona pelo menos um status", variant: "destructive" });
       return;
     }
+    if (selectedFrenteIds !== null && selectedFrenteIds.length === 0) {
+      toast({ title: "Seleciona pelo menos uma Zona ou Serviço", variant: "destructive" });
+      return;
+    }
     setBusy(true);
     try {
       await generateOperationalReport({
@@ -71,6 +108,7 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
         detail,
         groupBy,
         includePhotos: (detail !== "compact" || groupBy === "day") && includePhotos,
+        frenteIds: selectedFrenteIds ?? undefined,
       });
       toast({ title: "Relatório gerado" });
       onOpenChange(false);
@@ -81,9 +119,10 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
     }
   };
 
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Relatório Operacional</DialogTitle>
           <DialogDescription>
@@ -92,6 +131,59 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
         </DialogHeader>
 
         <div className="space-y-5 py-2">
+          {/* Zonas / Serviços */}
+          <div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                Zonas e Serviços
+              </Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="text-[11px] text-primary hover:underline"
+                  onClick={() => setSelectedFrenteIds(null)}
+                >
+                  Todos
+                </button>
+                <button
+                  type="button"
+                  className="text-[11px] text-muted-foreground hover:underline"
+                  onClick={() => setSelectedFrenteIds([])}
+                >
+                  Nenhum
+                </button>
+              </div>
+            </div>
+            <div className="mt-2 grid grid-cols-1 gap-1.5 max-h-48 overflow-y-auto rounded border p-2">
+              {frentes.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Sem zonas/serviços.</p>
+              ) : (
+                frentes.map((f) => {
+                  const checked = allSelected ? true : selectedFrenteIds!.includes(f.id);
+                  return (
+                    <label key={f.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Checkbox checked={checked} onCheckedChange={() => toggleFrente(f.id)} />
+                      <span
+                        className="w-1 h-4 rounded-full shrink-0"
+                        style={{ backgroundColor: f.color ?? "#6b7280" }}
+                      />
+                      <span className="flex-1 truncate">{f.name}</span>
+                      <span className="text-[10px] uppercase text-muted-foreground">
+                        {f.type === "service" ? "Serviço" : "Zona"}
+                      </span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              {allSelected
+                ? "Todas as zonas e serviços incluídos."
+                : `${selectedFrenteIds!.length} selecionados.`}
+            </p>
+          </div>
+
+
           {/* Fases */}
           <div>
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">Fases</Label>

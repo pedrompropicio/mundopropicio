@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { NavLink as RouterNavLink, useLocation, useNavigate } from "react-router-dom";
+import { NavLink as RouterNavLink, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { FileDown } from "lucide-react";
+import { OperationalReportDialog } from "@/components/operacao/reports/OperationalReportDialog";
 import {
   LayoutDashboard,
   Calendar,
@@ -41,8 +43,12 @@ import { useIsFieldStaffOnly } from "@/hooks/useIsFieldStaffOnly";
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { isAdmin, isManager, user, signOut, hasPermission } = useAuth();
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const activeOpEventId = searchParams.get("event");
+
   const coalaBadgeCount = useCoalaSyncBadge(isAdmin);
   const hasCoala = useHasFeature(FEATURES.SYNC_COALA);
   const hasFever = useHasFeature(FEATURES.SYNC_FEVER);
@@ -138,7 +144,23 @@ export function AppSidebar() {
             </RouterNavLink>
           );
         })}
+        {inOperacao && (
+          <button
+            onClick={() => setReportOpen(true)}
+            disabled={!activeOpEventId}
+            className={cn(
+              "mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+              "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              "text-sidebar-foreground disabled:opacity-40 disabled:cursor-not-allowed",
+            )}
+            title={activeOpEventId ? "Gerar Relatório PDF" : "Seleciona um evento ativo primeiro"}
+          >
+            <FileDown className="h-5 w-5 shrink-0" />
+            <span className="hidden lg:block flex-1 text-left">Relatório PDF</span>
+          </button>
+        )}
       </nav>
+
 
       <div className="mt-auto w-full px-2 lg:px-3 space-y-1">
         {(isAdmin || inOperacao) && (
@@ -181,6 +203,14 @@ export function AppSidebar() {
       </div>
 
       <ChangePasswordModal open={showChangePassword} onOpenChange={setShowChangePassword} />
+      {activeOpEventId && (
+        <OperationalReportDialog
+          eventId={activeOpEventId}
+          open={reportOpen}
+          onOpenChange={setReportOpen}
+        />
+      )}
+
     </aside>
   );
 }
