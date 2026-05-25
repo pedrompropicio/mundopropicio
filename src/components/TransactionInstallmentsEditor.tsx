@@ -191,12 +191,9 @@ export function TransactionInstallmentsEditor({
                     </Popover>
                   </td>
                   <td className="px-2 py-1">
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min={0}
-                      value={r.amount}
-                      onChange={(e) => updateRow(i, { amount: Number(e.target.value) || 0 })}
+                    <MoneyInput
+                      value={Number(r.amount) || 0}
+                      onChange={(v) => updateRow(i, { amount: v })}
                       className="h-8 text-right font-mono text-xs"
                     />
                   </td>
