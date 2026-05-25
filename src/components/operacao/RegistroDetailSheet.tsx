@@ -343,18 +343,27 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-xs">Etapa (qualquer frente)</Label>
-                      <Select value={editEtapaId} onValueChange={setEditEtapaId}>
+                      <Label className="text-xs">Etapa</Label>
+                      <Select
+                        value={editEtapaId}
+                        onValueChange={setEditEtapaId}
+                        disabled={!editFrenteId}
+                      >
                         <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__none__">Sem etapa</SelectItem>
                           {(etapasDoEvento ?? []).map((e: any) => (
                             <SelectItem key={e.id} value={e.id}>
-                              {e.name} {e.operacao_frentes?.name ? `· ${e.operacao_frentes.name}` : ""}
+                              {e.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+                      {editFrenteId && (etapasDoEvento ?? []).length === 0 && (
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          Esta frente não tem etapas.
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div>
