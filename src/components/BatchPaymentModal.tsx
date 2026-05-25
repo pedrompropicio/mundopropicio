@@ -194,15 +194,15 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
       if (!accountId) throw new Error("Selecione a conta");
       if (!paymentDate) throw new Error("Selecione a data de pagamento");
 
-      // Validate balance for expenses
+      // Validate balance for expenses — usa saída de caixa (já descontada a retenção)
       if (allExpenses) {
         const acc = financialAccounts.find((a: any) => a.id === accountId);
         const skipCheck = acc?.skip_balance_check ?? false;
         if (!skipCheck) {
           const accBal = computeAccountBalance(accountId);
-          if (totalRemaining > accBal + 0.05) {
+          if (totalCashOut > accBal + 0.05) {
             throw new Error(
-              `Saldo insuficiente. Disponível: ${formatCurrency(accBal)}, Necessário: ${formatCurrency(totalRemaining)}`
+              `Saldo insuficiente. Disponível: ${formatCurrency(accBal)}, Necessário: ${formatCurrency(totalCashOut)}`
             );
           }
         }
