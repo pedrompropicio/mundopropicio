@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS public.ticketline_sync_config (
   ticketline_event_id  text NOT NULL,
   organization_name    text NOT NULL DEFAULT 'Ticketline',
   enabled              boolean NOT NULL DEFAULT true,
+  sales_start_date     date,
   last_run_at          timestamptz,
   last_run_status      text,
   created_at           timestamptz NOT NULL DEFAULT now(),
