@@ -906,45 +906,49 @@ export function MovePhotosDialog({
               </div>
             </div>
 
-            {/* Toggle modo: registo existente vs novo */}
-            <RadioGroup
-              value={mode}
-              onValueChange={(v) => setMode(v as any)}
-              className="grid grid-cols-2 gap-2"
-            >
-              <label
-                className={`flex items-start gap-2 p-2 border rounded cursor-pointer ${mode === "pick" ? "border-primary bg-muted/40" : ""}`}
-              >
-                <RadioGroupItem value="pick" className="mt-1" />
-                <div className="text-sm">
-                  <div className="font-medium">Registo existente</div>
-                  <div className="text-xs text-muted-foreground">
-                    {loadingCandidates ? "A carregar..." : `${(candidates ?? []).length} disponíveis`}
-                  </div>
+            {/* Toggle modo: só mostra "Registo existente" se houver candidatos */}
+            {(candidates ?? []).length === 0 && !loadingCandidates ? (
+              <div className="p-3 border rounded bg-muted/30 text-sm">
+                <div className="font-medium">Criar novo registo aqui</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Não há registos nesta Zona/Serviço{destEtapaName ? " + Etapa" : ""}. Vai ser criado um novo registo automaticamente.
                 </div>
-              </label>
-              <label
-                className={`flex items-start gap-2 p-2 border rounded cursor-pointer ${mode === "new" ? "border-primary bg-muted/40" : ""}`}
+              </div>
+            ) : (
+              <RadioGroup
+                value={mode}
+                onValueChange={(v) => setMode(v as any)}
+                className="grid grid-cols-2 gap-2"
               >
-                <RadioGroupItem value="new" className="mt-1" />
-                <div className="text-sm">
-                  <div className="font-medium">Criar novo registo aqui</div>
-                  <div className="text-xs text-muted-foreground">
-                    Na Frente{destEtapaName ? " + Etapa" : ""} selecionada
+                <label
+                  className={`flex items-start gap-2 p-2 border rounded cursor-pointer ${mode === "pick" ? "border-primary bg-muted/40" : ""}`}
+                >
+                  <RadioGroupItem value="pick" className="mt-1" />
+                  <div className="text-sm">
+                    <div className="font-medium">Registo existente</div>
+                    <div className="text-xs text-muted-foreground">
+                      {loadingCandidates ? "A carregar..." : `${(candidates ?? []).length} disponíveis`}
+                    </div>
                   </div>
-                </div>
-              </label>
-            </RadioGroup>
+                </label>
+                <label
+                  className={`flex items-start gap-2 p-2 border rounded cursor-pointer ${mode === "new" ? "border-primary bg-muted/40" : ""}`}
+                >
+                  <RadioGroupItem value="new" className="mt-1" />
+                  <div className="text-sm">
+                    <div className="font-medium">Criar novo registo aqui</div>
+                    <div className="text-xs text-muted-foreground">
+                      Na Frente{destEtapaName ? " + Etapa" : ""} selecionada
+                    </div>
+                  </div>
+                </label>
+              </RadioGroup>
+            )}
 
-            {mode === "pick" && (
+            {mode === "pick" && (candidates ?? []).length > 0 && (
               <div className="max-h-72 overflow-y-auto border rounded divide-y">
-                {(candidates ?? []).length === 0 && !loadingCandidates && (
-                  <div className="p-4 text-sm text-muted-foreground text-center space-y-2">
-                    <div>Não há registos nesta seleção.</div>
-                    <Button size="sm" variant="outline" onClick={() => setMode("new")}>
-                      Criar novo registo aqui
-                    </Button>
-                  </div>
+                {false && (
+                  <div />
                 )}
                 {(candidates ?? []).map((c: any) => (
                   <button
