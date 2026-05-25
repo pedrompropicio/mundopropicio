@@ -91,6 +91,7 @@ export interface ParseDebug {
     geralAt: { row: number; col: number } | null;
     vendasAt: { row: number; col: number } | null;
     vendasFromFallback: boolean;
+    geometricFallback?: boolean;
     qtCol: number; valCol: number;
     dataStartRow: number;
   };
@@ -100,10 +101,16 @@ export interface ParseDebug {
     geralAt: { row: number; col: number } | null;
     vendasAt: { row: number; col: number } | null;
     vendasFromFallback: boolean;
+    geometricFallback?: boolean;
     qtCol: number; valCol: number;
     dataStartRow: number;
   };
+  rawHeaderCells?: {
+    section1: Record<string, Record<string, string>>;
+    section2: Record<string, Record<string, string>>;
+  };
 }
+
 
 export interface OperationsParseResult {
   header: SaleSummaryHeader;
@@ -302,11 +309,21 @@ export function parseTicketlineOperationsXlsx(buf: ArrayBuffer): OperationsParse
       valCol = geralSub.valCol + 2;
       debug.section1.vendasFromFallback = true;
       warnings.push("Secção 1: 'TOTAL VENDAS' resolvido por offset relativo (fallback).");
+    } else if (s1DateCol >= 0) {
+      // Último recurso: fallback geométrico ancorado em DATA.
+      // Layout secção 1: DATA | GERAL(qt,val) | VENDAS(qt,val) | ...
+      geralSub = { qtCol: s1DateCol + 1, valCol: s1DateCol + 2 };
+      qtCol = s1DateCol + 3;
+      valCol = s1DateCol + 4;
+      debug.section1.vendasFromFallback = true;
+      debug.section1.geometricFallback = true;
+      warnings.push("Secção 1: colunas resolvidas por offset relativo à DATA (fallback geométrico).");
     } else {
       warnings.push("Secção 1: nem 'TOTAL VENDAS' nem 'TOTAL GERAL' foram encontrados.");
     }
     debug.section1.qtCol = qtCol;
     debug.section1.valCol = valCol;
+
 
     // Início dos dados: primeira linha abaixo do sub-header (que está na linha
     // do label-pai + 1) em que a célula de DATA faz parse como data PT.
@@ -379,13 +396,20 @@ export function parseTicketlineOperationsXlsx(buf: ArrayBuffer): OperationsParse
     qtCol2 = geralSub2.qtCol + 2;
     valCol2 = geralSub2.valCol + 2;
     debug.section2.vendasFromFallback = true;
-    warnings.push("Secção 2: 'TOTAL VENDAS' resolvido por offset relativo (fallback).");
+    warnings.push("Secção 2: 'TOTAL VENDAS' resolvido por offset relativo a GERAL (fallback).");
   } else {
-    warnings.push("Secção 2: nem 'TOTAL VENDAS' nem 'TOTAL GERAL' foram encontrados — sem dados a importar.");
-    return { header, rows: [], section1Daily, section2DailyTotals: [], warnings, debug };
+    // Fallback geométrico ancorado em ZONA. Layout:
+    // ZONA | (col+1 vazio/sep) | GERAL(qt,val)=+2,+3 | VENDAS(qt,val)=+4,+5
+    geralSub2 = { qtCol: s2ZoneCol + 2, valCol: s2ZoneCol + 3 };
+    qtCol2 = s2ZoneCol + 4;
+    valCol2 = s2ZoneCol + 5;
+    debug.section2.vendasFromFallback = true;
+    debug.section2.geometricFallback = true;
+    warnings.push("Secção 2: colunas resolvidas por offset relativo à ZONA (fallback geométrico).");
   }
   debug.section2.qtCol = qtCol2;
   debug.section2.valCol = valCol2;
+
 
   // Início dos dados: primeira linha abaixo do sub-header com ou data válida
   // (col DATA) ou string de zona não-vazia/não-header.
@@ -479,5 +503,26 @@ export function parseTicketlineOperationsXlsx(buf: ArrayBuffer): OperationsParse
     }
   }
 
+  // --- Diagnóstico: dump cru das linhas de cabeçalho de ambas secções ---
+  const dumpRows = (startRow: number, count: number): Record<string, Record<string, string>> => {
+    const out: Record<string, Record<string, string>> = {};
+    if (startRow <= 0) return out;
+    for (let i = 0; i < count; i++) {
+      const r = startRow + i;
+      const row: Record<string, string> = {};
+      for (let c = 0; c <= maxCol; c++) {
+        const v = cell(ws, c, r);
+        if (v != null && v !== "") row[String(c)] = JSON.stringify(v);
+      }
+      out[String(r)] = row;
+    }
+    return out;
+  };
+  debug.rawHeaderCells = {
+    section1: s1HeaderRow > 0 ? dumpRows(s1HeaderRow, 3) : {},
+    section2: s2HeaderRow > 0 ? dumpRows(s2HeaderRow, 3) : {},
+  };
+
   return { header, rows, section1Daily, section2DailyTotals, warnings, debug };
 }
+
