@@ -281,6 +281,16 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
             new_value: notes.trim(),
           });
         }
+        const withholding = item.withholding || 0;
+        if (withholding > 0) {
+          auditEntries.push({
+            transaction_id: item.id,
+            changed_by: userName,
+            field_name: "Retenção IRS",
+            old_value: null,
+            new_value: `${formatCurrency(withholding)} (pago ao fornecedor: ${formatCurrency(settleEur - withholding)})`,
+          });
+        }
         await supabase.from("transaction_audit_log").insert(auditEntries);
 
         // Update transaction
@@ -297,6 +307,20 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
           .update(updateData)
           .eq("id", item.id);
         if (error) throw error;
+
+        // Registo individual em transaction_payments (para timeline + ajuste de saldo)
+        await (supabase as any).from("transaction_payments").insert({
+          transaction_id: item.id,
+          amount: settleEur,
+          payment_date: paymentDate,
+          account_id: accountId,
+          invoice_ref: invoiceRef.trim() || null,
+          withholding_amount: withholding,
+          credit_amount: 0,
+          notes: notes.trim() || null,
+          created_by: userName,
+        });
+
 
         // Propagate to child splits if parent — proportional to the EUR settled
         const { data: children } = await supabase
