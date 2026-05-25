@@ -420,29 +420,48 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
             {computed.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between text-xs gap-2"
+                className="text-xs"
               >
-                <span className="truncate flex-1">{item.description}</span>
-                <span className="font-mono whitespace-nowrap inline-flex items-center gap-1">
-                  {item.remainingEurFinal > 0
-                    ? formatCurrency(item.remainingEurFinal)
-                    : "✓ Pago"}
-                  <CurrencyBadge
-                    currency={item.currency}
-                    originalAmount={item.origAmt}
-                    fxRate={item.origRate}
-                  />
-                </span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate flex-1">{item.description}</span>
+                  <span className="font-mono whitespace-nowrap inline-flex items-center gap-1">
+                    {item.remainingEurFinal > 0
+                      ? formatCurrency(item.remainingEurFinal)
+                      : "✓ Pago"}
+                    <CurrencyBadge
+                      currency={item.currency}
+                      originalAmount={item.origAmt}
+                      fxRate={item.origRate}
+                    />
+                  </span>
+                </div>
+                {item.withholdingApplied && (
+                  <div className="flex items-center justify-end gap-2 text-[10px] text-warning font-mono">
+                    <span>L: {formatCurrency(item.netPayable)}</span>
+                    <span className="text-warning/70">Ret. −{formatCurrency(item.withholding)}</span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
           <div className="border-t border-border pt-2 flex items-center justify-between text-sm font-semibold">
-            <span>Total a liquidar</span>
+            <span>Total a liquidar (compromisso)</span>
             <span className="font-mono text-primary">
               {formatCurrency(totalRemaining)}
             </span>
           </div>
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
+          {totalWithholding > 0 && (
+            <>
+              <div className="flex items-center justify-between text-xs text-warning">
+                <span>Retenção IRS</span>
+                <span className="font-mono">−{formatCurrency(totalWithholding)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm font-semibold">
+                <span>Saída de caixa</span>
+                <span className="font-mono text-warning">{formatCurrency(totalCashOut)}</span>
+              </div>
+            </>
+          )}
             <span>Total bruto (c/ IVA)</span>
             <span className="font-mono">{formatCurrency(totalWithIva)}</span>
           </div>
