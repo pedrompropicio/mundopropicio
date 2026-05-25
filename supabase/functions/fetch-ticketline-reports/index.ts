@@ -1,13 +1,13 @@
 // fetch-ticketline-reports
-// Pipeline Devise (Rails) → cookie jar → sale_summary.xlsx + ticket_zone.xlsx → parser → import.
+// Pipeline Devise (Rails) → cookie jar → sale_summary.xlsx?granularity=2 →
+// parser de operações por dia × zona → import zonas/lotes/vendas reais.
 // Multi-evento: se body.configId vier, corre só esse; senão corre todos os configs enabled=true.
 // Auth: aceita SERVICE_ROLE (cron) OU JWT de admin/manager/editor/platform_admin (UI).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { parseTicketlineSaleSummaryXlsx } from "../_shared/ticketline-parser.ts";
-import { parseTicketlineZoneXlsx } from "../_shared/ticketline-zone-parser.ts";
+import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v1_2026_05_25";
+const VERSION = "v2_2026_05_25_operations";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,7 +39,6 @@ function jarToHeader(jar: Jar): string {
   return Array.from(jar.entries()).map(([k, v]) => `${k}=${v}`).join("; ");
 }
 function ingestSetCookie(jar: Jar, resp: Response) {
-  // Deno expõe getSetCookie() em Headers
   const anyHeaders = resp.headers as any;
   const list: string[] = typeof anyHeaders.getSetCookie === "function"
     ? anyHeaders.getSetCookie()
@@ -66,10 +65,8 @@ async function loginDevise(email: string, password: string): Promise<LoginResult
   const jar: Jar = new Map();
   const ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
 
-  // 1. GET sign_in para CSRF + cookies pré-login
   const getResp = await fetchWithTimeout(`${BASE}/managers/sign_in`, {
-    method: "GET",
-    redirect: "manual",
+    method: "GET", redirect: "manual",
     headers: { "User-Agent": ua, "Accept": "text/html,application/xhtml+xml" },
   });
   ingestSetCookie(jar, getResp);
@@ -81,7 +78,6 @@ async function loginDevise(email: string, password: string): Promise<LoginResult
   const csrf = extractCsrfToken(html);
   if (!csrf) throw Object.assign(new Error("CSRF token não encontrado em GET sign_in"), { phase: "login_csrf" });
 
-  // 2. POST sign_in
   const params = new URLSearchParams();
   params.set("utf8", "✓");
   params.set("authenticity_token", csrf);
@@ -92,8 +88,7 @@ async function loginDevise(email: string, password: string): Promise<LoginResult
   params.set("commit", "Entrar");
 
   const postResp = await fetchWithTimeout(`${BASE}/managers/sign_in?locale=pt`, {
-    method: "POST",
-    redirect: "manual",
+    method: "POST", redirect: "manual",
     headers: {
       "User-Agent": ua,
       "Content-Type": "application/x-www-form-urlencoded",
@@ -107,7 +102,6 @@ async function loginDevise(email: string, password: string): Promise<LoginResult
   ingestSetCookie(jar, postResp);
   await postResp.text().catch(() => null);
 
-  // Esperado: 302. Se 200 / 4xx → falhou.
   if (postResp.status !== 302) {
     throw Object.assign(new Error(`POST sign_in HTTP ${postResp.status} (esperava 302)`), { phase: "login_post" });
   }
@@ -120,8 +114,7 @@ async function loginDevise(email: string, password: string): Promise<LoginResult
 async function downloadXlsx(jar: Jar, url: string, label: string): Promise<Uint8Array> {
   const ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
   const resp = await fetchWithTimeout(url, {
-    method: "GET",
-    redirect: "manual",
+    method: "GET", redirect: "manual",
     headers: {
       "User-Agent": ua,
       "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,*/*",
@@ -130,7 +123,6 @@ async function downloadXlsx(jar: Jar, url: string, label: string): Promise<Uint8
     },
   });
   ingestSetCookie(jar, resp);
-  // 302 para sign_in = sessão expirou
   if (resp.status === 302) {
     const loc = resp.headers.get("location") || "";
     await resp.text().catch(() => null);
@@ -145,8 +137,7 @@ async function downloadXlsx(jar: Jar, url: string, label: string): Promise<Uint8
   }
   const ct = resp.headers.get("content-type") || "";
   const buf = new Uint8Array(await resp.arrayBuffer());
-  // Se devolveu HTML (login form), sessão expirou
-  if (ct.includes("text/html") || (buf[0] === 0x3c /* '<' */)) {
+  if (ct.includes("text/html") || buf[0] === 0x3c) {
     throw Object.assign(new Error(`XLSX ${label} devolveu HTML (sessão expirada?)`), { phase: "session_expired", retriable: true });
   }
   if (buf.length < 100 || buf[0] !== 0x50 || buf[1] !== 0x4b) {
@@ -155,31 +146,22 @@ async function downloadXlsx(jar: Jar, url: string, label: string): Promise<Uint8
   return buf;
 }
 
-async function downloadBothXlsx(creds: { email: string; password: string }, ticketlineEventId: string) {
+async function downloadSummary(creds: { email: string; password: string }, ticketlineEventId: string) {
   let jar: Jar;
   const { jar: j0 } = await loginDevise(creds.email, creds.password);
   jar = j0;
-
-  const summaryUrl = `${BASE}/managers/events/${encodeURIComponent(ticketlineEventId)}/sale_summary.xlsx?granularity=2`;
-  const zoneUrl = `${BASE}/managers/events/${encodeURIComponent(ticketlineEventId)}/ticket_zone.xlsx`;
-
-  const download = async (url: string, label: string): Promise<Uint8Array> => {
-    try {
-      return await downloadXlsx(jar, url, label);
-    } catch (e: any) {
-      if (e?.retriable) {
-        console.log(`[ticketline] self-heal re-login (${label})`);
-        const { jar: j2 } = await loginDevise(creds.email, creds.password);
-        jar = j2;
-        return await downloadXlsx(jar, url, label);
-      }
-      throw e;
+  const url = `${BASE}/managers/events/${encodeURIComponent(ticketlineEventId)}/sale_summary.xlsx?granularity=2`;
+  try {
+    return await downloadXlsx(jar, url, "sale_summary");
+  } catch (e: any) {
+    if (e?.retriable) {
+      console.log(`[ticketline] self-heal re-login (sale_summary)`);
+      const { jar: j2 } = await loginDevise(creds.email, creds.password);
+      jar = j2;
+      return await downloadXlsx(jar, url, "sale_summary");
     }
-  };
-
-  const summary = await download(summaryUrl, "sale_summary");
-  const zone = await download(zoneUrl, "ticket_zone");
-  return { summary, zone };
+    throw e;
+  }
 }
 
 async function updateRun(admin: any, runId: string, patch: Record<string, any>) {
@@ -200,7 +182,6 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
   const debug: Record<string, any> = { version: VERSION };
 
   try {
-    // 1. Credenciais do Vault
     const { data: secRpc, error: secErr } = await admin.rpc("get_vault_secret" as any, { _name: cfg.vault_secret_name });
     const raw = (typeof secRpc === "string" ? secRpc : "").trim();
     if (secErr || !raw) {
@@ -211,31 +192,23 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     catch { throw Object.assign(new Error("Vault secret não é JSON {email,password}"), { phase: "creds_invalid" }); }
     if (!creds.email || !creds.password) throw Object.assign(new Error("Vault: email/password em falta"), { phase: "creds_invalid" });
 
-    // 2. Pipeline Devise + download
-    const { summary, zone } = await downloadBothXlsx(creds, cfg.ticketline_event_id);
+    const summary = await downloadSummary(creds, cfg.ticketline_event_id);
     const filesAudit = [
       { name: `sale_summary_${cfg.ticketline_event_id}.xlsx`, size: summary.length },
-      { name: `ticket_zone_${cfg.ticketline_event_id}.xlsx`, size: zone.length },
     ];
 
-    // 3. Parsers
-    let summaryRes, zoneRes;
+    let parseRes;
     try {
-      summaryRes = parseTicketlineSaleSummaryXlsx(summary.buffer as ArrayBuffer);
+      parseRes = parseTicketlineOperationsXlsx(summary.buffer as ArrayBuffer);
     } catch (e: any) {
-      throw Object.assign(new Error(`Parser sale_summary: ${e?.message || e}`), { phase: "parse_summary_failed", filesAudit });
+      throw Object.assign(new Error(`Parser sale_summary: ${e?.message || e}`), { phase: "parse_failed", filesAudit });
     }
-    try {
-      zoneRes = parseTicketlineZoneXlsx(zone.buffer as ArrayBuffer);
-    } catch (e: any) {
-      console.warn("Parser zone falhou (não-bloqueante):", e?.message);
-      zoneRes = null;
-    }
-    debug.daily_points = summaryRes.daily.length;
-    debug.total_qty = summaryRes.totalQty;
-    debug.total_value = summaryRes.totalValue;
+    debug.rows = parseRes.rows.length;
+    debug.unique_zones = new Set(parseRes.rows.map(r => r.zone)).size;
+    debug.section1_days = parseRes.section1Daily.length;
+    debug.section2_days = parseRes.section2DailyTotals.length;
+    debug.warnings = parseRes.warnings.length;
 
-    // 4. Conta Ticketline
     const { data: tlAcc } = await admin.from("financial_accounts")
       .select("id, name").eq("type", "ticket_office").eq("company_id", cfg.company_id)
       .ilike("name", "%ticketline%").limit(1).maybeSingle();
@@ -243,19 +216,14 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
       throw Object.assign(new Error("Conta financeira Ticketline não encontrada (criar conta tipo bilheteira com 'Ticketline' no nome)."), { phase: "account_missing", filesAudit });
     }
 
-    // 5. Import
     let audit: any;
     try {
       audit = await runTicketlineImport({
         supabase: admin,
         eventId: cfg.event_id,
         ticketlineAccountId: tlAcc.id,
-        parseResult: summaryRes,
-        zoneSnapshot: zoneRes,
-        filenames: {
-          summary: `sale_summary_${cfg.ticketline_event_id}.xlsx`,
-          zone: `ticket_zone_${cfg.ticketline_event_id}.xlsx`,
-        },
+        parseResult: parseRes,
+        filenames: { summary: `sale_summary_${cfg.ticketline_event_id}.xlsx` },
       });
     } catch (e: any) {
       throw Object.assign(new Error(`Import: ${e?.message || e}`), { phase: "import_failed", filesAudit });
@@ -286,7 +254,6 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   console.log(`[ticketline-sync] ${VERSION}`);
 
-  // --- Auth: service_role direto OU JWT privilegiado ---
   const authHeader = req.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
   if (!token) return json(401, { error: "missing authorization" });
@@ -311,7 +278,6 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { /* sem body = cron */ }
   const { configId, mode = "manual", triggeredBy = null } = body;
 
-  // Carregar configs
   let cfgs: any[] = [];
   if (configId) {
     const { data, error } = await admin.from("ticketline_sync_config").select("*").eq("id", configId).limit(1);
