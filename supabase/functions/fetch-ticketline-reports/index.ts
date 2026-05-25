@@ -7,7 +7,22 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2.2_2026_05_25_geometric_fallback_section2";
+const VERSION = "v2.3_2026_05_25_date_filter_params";
+
+// Formata YYYY-MM-DD (date) ou Date para DD-MM-YYYY (UTC).
+function fmtDDMMYYYY(d: Date): string {
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const yyyy = d.getUTCFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+}
+function salesStartToDDMMYYYY(salesStart: string | null | undefined): string {
+  if (!salesStart) return "01-01-2025";
+  // Espera YYYY-MM-DD do Postgres
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(salesStart);
+  if (!m) return "01-01-2025";
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
