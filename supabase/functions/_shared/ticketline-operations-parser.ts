@@ -309,11 +309,21 @@ export function parseTicketlineOperationsXlsx(buf: ArrayBuffer): OperationsParse
       valCol = geralSub.valCol + 2;
       debug.section1.vendasFromFallback = true;
       warnings.push("Secção 1: 'TOTAL VENDAS' resolvido por offset relativo (fallback).");
+    } else if (s1DateCol >= 0) {
+      // Último recurso: fallback geométrico ancorado em DATA.
+      // Layout secção 1: DATA | GERAL(qt,val) | VENDAS(qt,val) | ...
+      geralSub = { qtCol: s1DateCol + 1, valCol: s1DateCol + 2 };
+      qtCol = s1DateCol + 3;
+      valCol = s1DateCol + 4;
+      debug.section1.vendasFromFallback = true;
+      debug.section1.geometricFallback = true;
+      warnings.push("Secção 1: colunas resolvidas por offset relativo à DATA (fallback geométrico).");
     } else {
       warnings.push("Secção 1: nem 'TOTAL VENDAS' nem 'TOTAL GERAL' foram encontrados.");
     }
     debug.section1.qtCol = qtCol;
     debug.section1.valCol = valCol;
+
 
     // Início dos dados: primeira linha abaixo do sub-header (que está na linha
     // do label-pai + 1) em que a célula de DATA faz parse como data PT.
