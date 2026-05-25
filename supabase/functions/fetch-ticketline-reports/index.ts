@@ -161,11 +161,24 @@ async function downloadXlsx(jar: Jar, url: string, label: string): Promise<Uint8
   return buf;
 }
 
-async function downloadSummary(creds: { email: string; password: string }, ticketlineEventId: string) {
+async function downloadSummary(
+  creds: { email: string; password: string },
+  ticketlineEventId: string,
+  filterStartDDMMYYYY: string,
+  filterEndDDMMYYYY: string,
+) {
   let jar: Jar;
   const { jar: j0 } = await loginDevise(creds.email, creds.password);
   jar = j0;
-  const url = `${BASE}/managers/events/${encodeURIComponent(ticketlineEventId)}/sale_summary.xlsx?granularity=2`;
+  const qs = new URLSearchParams();
+  qs.set("utf8", "✓");
+  qs.set("granularity", "2");
+  qs.set("bulk_event_ids", "");
+  qs.set("filter_start_date", filterStartDDMMYYYY);
+  qs.set("filter_end_date", filterEndDDMMYYYY);
+  qs.set("post_render_content", "data");
+  qs.set("_", String(Date.now()));
+  const url = `${BASE}/managers/events/${encodeURIComponent(ticketlineEventId)}/sale_summary.xlsx?${qs.toString()}`;
   try {
     return await downloadXlsx(jar, url, "sale_summary");
   } catch (e: any) {
