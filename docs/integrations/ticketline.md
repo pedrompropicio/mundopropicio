@@ -96,6 +96,23 @@ re-tenta. Erros classificados por `phase` (`login_csrf`, `login_post`,
 O parser soma a secção 2 por dia e compara com a secção 1 (TOTAL VENDAS).
 Divergência → entra como `warning` no `import_audit` mas não falha o run.
 
+## Janela de datas e `sales_start_date`
+
+O pedido envia `filter_start_date` e `filter_end_date` em `DD-MM-YYYY`:
+
+- `filter_start_date` = `ticketline_sync_config.sales_start_date` (data de
+  início de vendas do evento). Se a coluna estiver nula, o sync usa o
+  fallback fixo **`01-01-2025`**.
+- `filter_end_date` = data de execução do sync (hoje, UTC).
+
+Ambos os valores ficam registados em `import_audit.debug`
+(`filter_start_date`, `filter_end_date`, `sales_start_date_source`).
+
+A `sales_start_date` é editável directamente em `/admin/ticketline-sync`,
+ao lado do código do evento Ticketline. Não é obrigatório preencher — o
+fallback de 2025 cobre a maioria dos casos —, mas estreitar a janela
+acelera o download e reduz ruído no parser.
+
 ## Setup de um novo evento
 
 1. Criar uma conta financeira tipo `ticket_office` com "Ticketline" no
@@ -103,9 +120,11 @@ Divergência → entra como `warning` no `import_audit` mas não falha o run.
 2. Inserir 1 linha em `ticketline_sync_config` com `event_id`,
    `ticketline_event_id`, `vault_secret_name` (ex:
    `ticketline_<event_id>`), `organization_name`.
-3. Em `/admin/ticketline-sync` → botão **Credenciais** → guardar
-   `email` + `password` do gestor Ticketline.
-4. Botão **Correr agora** para validar.
+3. Em `/admin/ticketline-sync` → preencher **Código do evento na
+   Ticketline** e (opcional) **Data de início de vendas** → **Guardar**.
+4. Botão **Credenciais** → guardar `email` + `password` do gestor
+   Ticketline.
+5. Botão **Correr agora** para validar.
 
 ## Endpoints úteis
 
@@ -114,6 +133,11 @@ Divergência → entra como `warning` no `import_audit` mas não falha o run.
 
 ## Notas de versão
 
+- v2.3 (2026-05-25): pedido passa a incluir `filter_start_date`,
+  `filter_end_date` e `bulk_event_ids=` na URL do `sale_summary.xlsx`
+  (sem estes parâmetros o servidor devolvia janela por defeito, muitas
+  vezes vazia). Nova coluna `ticketline_sync_config.sales_start_date`
+  editável na UI; fallback `01-01-2025` quando nula.
 - v2 (2026-05-25): substitui o import sintético "Ticketline (Total)" por
   zonas/lotes reais parseados da secção 2 do `sale_summary.xlsx`.
   `ticket_zone.xlsx` deixa de ser usado.
