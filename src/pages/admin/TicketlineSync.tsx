@@ -265,3 +265,93 @@ export default function TicketlineSync() {
     </div>
   );
 }
+
+function ConfigCard({
+  cfg, runDisabled, onRun, onToggle, onOpenCreds, onSave, saving,
+}: {
+  cfg: Cfg;
+  runDisabled: boolean;
+  onRun: () => void;
+  onToggle: (v: boolean) => void;
+  onOpenCreds: () => void;
+  onSave: (ticketline_event_id: string, sales_start_date: string | null) => void;
+  saving: boolean;
+}) {
+  const [tlEventId, setTlEventId] = useState(cfg.ticketline_event_id || "");
+  const [salesStart, setSalesStart] = useState(cfg.sales_start_date || "");
+
+  const dirty = (tlEventId !== (cfg.ticketline_event_id || "")) ||
+                ((salesStart || null) !== (cfg.sales_start_date || null));
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              {cfg.organization_name}
+              <Badge variant={cfg.enabled ? "default" : "secondary"}>{cfg.enabled ? "Ativo" : "Desativado"}</Badge>
+              {cfg.last_run_status && (
+                <Badge variant={statusVariant(cfg.last_run_status)}>{cfg.last_run_status}</Badge>
+              )}
+            </CardTitle>
+            <CardDescription className="mt-1 font-mono text-xs">
+              event_id={cfg.event_id.slice(0, 8)}…
+            </CardDescription>
+            {cfg.last_run_at && (
+              <CardDescription className="mt-1">
+                Última execução: {new Date(cfg.last_run_at).toLocaleString("pt-PT")}
+              </CardDescription>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch checked={cfg.enabled} onCheckedChange={onToggle} />
+            <Button variant="outline" size="sm" onClick={onOpenCreds}>
+              <KeyRound className="h-4 w-4 mr-2" /> Credenciais
+            </Button>
+            <Button size="sm" disabled={runDisabled} onClick={onRun}>
+              {runDisabled ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
+              Correr agora
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <Label className="text-xs">Código do evento na Ticketline</Label>
+            <Input
+              value={tlEventId}
+              onChange={(e) => setTlEventId(e.target.value)}
+              placeholder="ex: 63653"
+              className="font-mono"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Data de início de vendas (on-sale)</Label>
+            <Input
+              type="date"
+              value={salesStart}
+              onChange={(e) => setSalesStart(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Vazio = fallback 01-01-2025. Usado como <code>filter_start_date</code> no pedido sale_summary.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-muted-foreground">Vault: <code>{cfg.vault_secret_name}</code></div>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!dirty || saving || !tlEventId.trim()}
+            onClick={() => onSave(tlEventId.trim(), salesStart || null)}
+          >
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Guardar
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
