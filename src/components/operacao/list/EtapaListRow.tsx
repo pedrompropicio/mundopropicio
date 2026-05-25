@@ -1,7 +1,13 @@
 import { Badge } from "@/components/ui/badge";
 import { OperacaoStatusBadge } from "@/components/operacao/OperacaoStatusBadge";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, CalendarDays, CalendarClock, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+function formatDate(iso?: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "2-digit" });
+}
+
 
 function formatRelative(iso?: string | null): string {
   if (!iso) return "";
