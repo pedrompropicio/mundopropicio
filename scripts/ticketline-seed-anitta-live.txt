@@ -1,0 +1,83 @@
+-- ============================================================
+-- Ticketline — Seed da config inicial: Ensaios da Anitta - Lisboa
+-- Aplicar em LIVE, depois de:
+--   1) Publish do código
+--   2) scripts/ticketline-sync-schema-live.txt
+-- Credenciais NÃO entram aqui — Pedro grava-as via UI
+-- (/admin/ticketline-sync → Credenciais), que escreve no Vault
+-- com o mesmo nome usado em vault_secret_name abaixo.
+-- ============================================================
+
+DO $$
+DECLARE
+  v_event_id    uuid;
+  v_company_id  uuid;
+  v_account_id  uuid;
+  v_secret_name text;
+  v_match_count int;
+BEGIN
+  -- 1) Resolver event_id da Anitta (NÃO hardcoded) -------------
+  SELECT count(*) INTO v_match_count
+  FROM public.events
+  WHERE name ILIKE '%ensaios%anitta%lisboa%';
+
+  IF v_match_count <> 1 THEN
+    RAISE EXCEPTION
+      'Esperava 1 evento "Ensaios da Anitta - Lisboa", encontrei %. Ajusta o ILIKE.', v_match_count;
+  END IF;
+
+  SELECT id, company_id INTO v_event_id, v_company_id
+  FROM public.events
+  WHERE name ILIKE '%ensaios%anitta%lisboa%'
+  LIMIT 1;
+
+  v_secret_name := 'ticketline_' || v_event_id::text;
+
+  -- 2) Garantir conta financeira Ticketline (ticket_office) ----
+  --    Se já existir alguma com "Ticketline" no nome p/ a empresa, reutiliza.
+  SELECT id INTO v_account_id
+  FROM public.financial_accounts
+  WHERE company_id = v_company_id
+    AND type = 'ticket_office'
+    AND name ILIKE '%ticketline%'
+  LIMIT 1;
+
+  IF v_account_id IS NULL THEN
+    INSERT INTO public.financial_accounts (company_id, name, type, currency)
+    VALUES (v_company_id, 'Bilheteira Ticketline', 'ticket_office', 'EUR')
+    RETURNING id INTO v_account_id;
+    RAISE NOTICE 'Criada conta financeira Ticketline %', v_account_id;
+  ELSE
+    RAISE NOTICE 'Conta financeira Ticketline já existia: %', v_account_id;
+  END IF;
+
+  -- 3) Inserir/atualizar config (UNIQUE em event_id) -----------
+  INSERT INTO public.ticketline_sync_config
+    (company_id, event_id, vault_secret_name, ticketline_event_id,
+     organization_name, enabled)
+  VALUES
+    (v_company_id, v_event_id, v_secret_name, '63653',
+     'Ticketline — Ensaios da Anitta Lisboa', true)
+  ON CONFLICT (event_id) DO UPDATE
+    SET ticketline_event_id = EXCLUDED.ticketline_event_id,
+        vault_secret_name   = EXCLUDED.vault_secret_name,
+        organization_name   = EXCLUDED.organization_name,
+        enabled             = true,
+        updated_at          = now();
+
+  RAISE NOTICE 'OK. event_id=%, company=%, vault_secret_name=%',
+    v_event_id, v_company_id, v_secret_name;
+END $$;
+
+-- Verificação ----------------------------------------------------
+-- SELECT c.id, e.name, c.ticketline_event_id, c.vault_secret_name,
+--        c.enabled, c.last_run_status, c.last_run_at
+-- FROM public.ticketline_sync_config c
+-- JOIN public.events e ON e.id = c.event_id
+-- WHERE e.name ILIKE '%anitta%';
+--
+-- Próximo passo manual (Pedro):
+--   /admin/ticketline-sync → Credenciais → email+password do gestor Ticketline.
+--   Isto chama update-ticketline-credentials, que grava no Vault com
+--   o nome 'ticketline_<event_id>' — exactamente o que a edge function
+--   fetch-ticketline-reports lê via get_vault_secret(cfg.vault_secret_name).
