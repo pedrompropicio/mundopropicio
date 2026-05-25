@@ -123,6 +123,7 @@ import RlsLegacyAudit from "./pages/admin/RlsLegacyAudit";
 import UploadCoalaFotos from "./pages/admin/UploadCoalaFotos";
 import CoalaSync from "./pages/admin/CoalaSync";
 import FeverSync from "./pages/admin/FeverSync";
+import TicketlineSync from "./pages/admin/TicketlineSync";
 import SyncHealth from "./pages/admin/SyncHealth";
 import Notifications from "./pages/admin/Notifications";
 import UserSettings from "./pages/UserSettings";
