@@ -227,6 +227,9 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     debug.sales_start_date_source = cfg.sales_start_date ? "config" : "fallback_2025_01_01";
 
     const summary = await downloadSummary(creds, cfg.ticketline_event_id, filterStart, filterEnd);
+    const filesAudit = [
+      { name: `sale_summary_${cfg.ticketline_event_id}.xlsx`, size: summary.length },
+    ];
 
     let parseRes;
     try {
