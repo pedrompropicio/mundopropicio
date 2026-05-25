@@ -175,12 +175,15 @@
 ### 5.6 Importadores Bilheteira
 | Fonte | Formato | Parser TS |
 |---|---|---|
-| Ticketline (PT) | PDF + XLSX (zona/global) | `parse-ticketline-xlsx.ts`, `parse-ticketline-zone-xlsx.ts`, edge `extract-ticket-pdf` |
-| Fever | 2 XLSX | `parse-fever-xlsx.ts` (`FeverImportModal`) |
+| Ticketline (PT) — import manual | PDF + XLSX | `parse-ticketline-xlsx.ts`, `parse-ticketline-zone-xlsx.ts`, edge `extract-ticket-pdf` |
+| **Ticketline (PT) — sync diária** | XLSX via Devise login | edge `fetch-ticketline-reports`, parser `_shared/ticketline-operations-parser.ts`, doc `docs/integrations/ticketline.md` |
+| Fever — sync diária | 2 XLSX via API | edge `fetch-fever-reports` |
+| Fever — import manual | 2 XLSX | `parse-fever-xlsx.ts` (`FeverImportModal`) |
 | Coala (BR) | XLSX V2 | `event-simulator-coala.ts` (DuckDB queries client-side) |
 | Patrocínios | XLSX | `parse-sponsors-xlsx.ts` |
 
-> Nenhum acesso a APIs públicas dos vendors — apenas parsing de exports.
+> Sync Ticketline/Fever fazem login programático e correm via `pg_cron` 1×/dia.
+
 
 ---
 

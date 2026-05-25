@@ -1,0 +1,26 @@
+-- Cron diário Ticketline (LIVE)
+-- Aplicar manualmente no SQL Editor do Lovable Cloud (Live) após Publish.
+-- Schedule: 22:59 UTC = 23:59 Portugal (horário de verão).
+-- Corre sem configId → processa todos os ticketline_sync_config com enabled=true.
+-- Em Test já está aplicado (jobid=24, jobname='ticketline-sync-daily').
+
+select cron.schedule(
+  'ticketline-sync-daily',
+  '59 22 * * *',
+  $$
+  select net.http_post(
+    url:='https://ukpuhoynrqobqtzdbysp.supabase.co/functions/v1/fetch-ticketline-reports',
+    headers:=jsonb_build_object(
+      'Content-Type','application/json',
+      'Authorization','Bearer ' || current_setting('app.settings.service_role_key', true)
+    ),
+    body:='{"mode":"cron","triggeredBy":"pg_cron"}'::jsonb
+  ) as request_id;
+  $$
+);
+
+-- Verificar:
+-- select jobid, schedule, jobname from cron.job where jobname='ticketline-sync-daily';
+
+-- Para remover:
+-- select cron.unschedule('ticketline-sync-daily');
