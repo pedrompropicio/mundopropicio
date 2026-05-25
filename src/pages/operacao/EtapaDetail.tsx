@@ -20,7 +20,7 @@ import { EtapaAssigneeSheet } from "@/components/operacao/EtapaAssigneeSheet";
 import { EtapaSuppliersPanel } from "@/components/operacao/suppliers/EtapaSuppliersPanel";
 import { EditEtapaSheet } from "@/components/operacao/EditEtapaSheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Camera, Play, Ban, CheckCircle2, ArrowLeft, Eye, Pencil } from "lucide-react";
+import { Camera, Play, Ban, CheckCircle2, ArrowLeft, Eye, Pencil, ArrowRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 export default function EtapaDetail() {
@@ -71,6 +71,26 @@ export default function EtapaDetail() {
         .eq("id", leadId)
         .maybeSingle();
       return data;
+    },
+  });
+
+  const frenteIdForNext = (etapa as any)?.frente?.id;
+  const plannedStart = (etapa as any)?.planned_start;
+  const { data: nextEtapa } = useQuery({
+    queryKey: ["op-etapa-next", frenteIdForNext, id, plannedStart],
+    enabled: !!frenteIdForNext && !!id,
+    queryFn: async () => {
+      let q = supabase
+        .from("operacao_etapas")
+        .select("id, name, planned_start")
+        .eq("frente_id", frenteIdForNext)
+        .neq("id", id!)
+        .neq("status", "cancelled")
+        .order("planned_start", { ascending: true, nullsFirst: false })
+        .limit(1);
+      if (plannedStart) q = q.gt("planned_start", plannedStart);
+      const { data } = await q;
+      return data?.[0] ?? null;
     },
   });
 
@@ -203,6 +223,17 @@ export default function EtapaDetail() {
             </TooltipTrigger>{isDirectorOnly && <TooltipContent>Sem permissão para editar</TooltipContent>}</Tooltip>
           </div>
         </TooltipProvider>
+      )}
+
+      {nextEtapa && (
+        <Button
+          size="sm"
+          variant="secondary"
+          className="w-full justify-center"
+          onClick={() => navigate(`/operacao/etapa/${nextEtapa.id}`)}
+        >
+          Próxima etapa: {nextEtapa.name} <ArrowRight className="h-4 w-4 ml-1" />
+        </Button>
       )}
 
       {!isDirectorOnly && (
