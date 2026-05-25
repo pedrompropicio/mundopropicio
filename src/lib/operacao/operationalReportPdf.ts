@@ -13,7 +13,10 @@ export interface ReportOptions {
   detail: ReportDetail;
   includePhotos: boolean;
   groupBy?: ReportGroupBy;
+  /** Se omitido ou vazio → todas as frentes. */
+  frenteIds?: string[];
 }
+
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "Pendente",
