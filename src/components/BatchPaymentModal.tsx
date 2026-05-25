@@ -462,6 +462,7 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
               </div>
             </>
           )}
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>Total bruto (c/ IVA)</span>
             <span className="font-mono">{formatCurrency(totalWithIva)}</span>
           </div>
