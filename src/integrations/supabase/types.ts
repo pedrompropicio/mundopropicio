@@ -4206,6 +4206,7 @@ export type Database = {
           status: string
           ticketing_provider: string | null
           ticketing_url: string | null
+          ticketline_event_id: string | null
           tickets_sold: number
           tickets_total: number
           updated_at: string
@@ -4233,6 +4234,7 @@ export type Database = {
           status?: string
           ticketing_provider?: string | null
           ticketing_url?: string | null
+          ticketline_event_id?: string | null
           tickets_sold?: number
           tickets_total?: number
           updated_at?: string
@@ -4260,6 +4262,7 @@ export type Database = {
           status?: string
           ticketing_provider?: string | null
           ticketing_url?: string | null
+          ticketline_event_id?: string | null
           tickets_sold?: number
           tickets_total?: number
           updated_at?: string
@@ -7262,6 +7265,116 @@ export type Database = {
             columns: ["zone_id"]
             isOneToOne: false
             referencedRelation: "event_ticket_zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticketline_sync_config: {
+        Row: {
+          company_id: string
+          created_at: string
+          enabled: boolean
+          event_id: string
+          id: string
+          last_run_at: string | null
+          last_run_status: string | null
+          organization_name: string
+          ticketline_event_id: string
+          updated_at: string
+          vault_secret_name: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          enabled?: boolean
+          event_id: string
+          id?: string
+          last_run_at?: string | null
+          last_run_status?: string | null
+          organization_name?: string
+          ticketline_event_id: string
+          updated_at?: string
+          vault_secret_name: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          enabled?: boolean
+          event_id?: string
+          id?: string
+          last_run_at?: string | null
+          last_run_status?: string | null
+          organization_name?: string
+          ticketline_event_id?: string
+          updated_at?: string
+          vault_secret_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticketline_sync_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticketline_sync_config_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticketline_sync_runs: {
+        Row: {
+          company_id: string
+          config_id: string
+          created_at: string
+          error_message: string | null
+          files_downloaded: Json | null
+          finished_at: string | null
+          id: string
+          import_audit: Json | null
+          mode: string
+          started_at: string
+          status: string
+          triggered_by: string | null
+        }
+        Insert: {
+          company_id: string
+          config_id: string
+          created_at?: string
+          error_message?: string | null
+          files_downloaded?: Json | null
+          finished_at?: string | null
+          id?: string
+          import_audit?: Json | null
+          mode: string
+          started_at?: string
+          status: string
+          triggered_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          config_id?: string
+          created_at?: string
+          error_message?: string | null
+          files_downloaded?: Json | null
+          finished_at?: string | null
+          id?: string
+          import_audit?: Json | null
+          mode?: string
+          started_at?: string
+          status?: string
+          triggered_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticketline_sync_runs_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "ticketline_sync_config"
             referencedColumns: ["id"]
           },
         ]
