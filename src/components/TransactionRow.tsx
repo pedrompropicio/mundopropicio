@@ -651,7 +651,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                         </DropdownMenuItem>
                         {showViewPayments && (
                           <DropdownMenuItem onClick={() => onViewPayments!(t.id)}>
-                            <CreditCard className="h-3.5 w-3.5 mr-2" /> Ver pagamentos
+                            <CreditCard className="h-3.5 w-3.5 mr-2" /> {paidAmount > 0 ? "Ver pagamentos" : "Ver parcelas planeadas"}
                           </DropdownMenuItem>
                         )}
                         {showHide && (
