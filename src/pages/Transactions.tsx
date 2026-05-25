@@ -20,6 +20,7 @@ import { TransactionAuditModal } from "@/components/TransactionAuditModal";
 import { TransactionDocumentsModal } from "@/components/TransactionDocumentsModal";
 import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsListModal";
 import { TransactionRow } from "@/components/TransactionRow";
+import { useInstallmentTxIds } from "@/hooks/useInstallmentTxIds";
 import { groupTransactionsByRefund, type RefundNoteSummary, type RefundRenderItem } from "@/lib/refund-grouping";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { Switch } from "@/components/ui/switch";
@@ -208,6 +209,9 @@ export default function Transactions() {
       return data;
     },
   });
+
+  const { data: installmentTxIds = new Set<string>() } = useInstallmentTxIds();
+
 
   // ===== Reembolsos: dados para consolidação visual =====
   // Mapa transaction_id → noteId para qualquer status (retroativo). Inclui:
@@ -997,6 +1001,7 @@ export default function Transactions() {
         onViewPayments={(id) => setShowPaymentsListId(id)}
         highlightId={highlightId}
         inGroup={inGroup}
+        hasInstallments={installmentTxIds.has(t.id)}
       />
     );
 

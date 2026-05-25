@@ -6,6 +6,8 @@ import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import { exportPaymentListToExcel, exportPaymentListToPDF, groupPaymentItems, formatSupplierFullName, formatAmountForBank } from "@/lib/export-payment-list";
 import { calcWithIva } from "@/lib/utils";
+import { computeNetPayable, getDeclaredWithholding } from "@/lib/withholding";
+import { useInstallmentTxIds } from "@/hooks/useInstallmentTxIds";
 import { sendPushToAdminsAndManagers } from "@/lib/push-notifications";
 import { getPendingPaymentListsCount, refreshBadgeFromDB } from "@/lib/app-badge";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -505,6 +507,8 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
     },
   });
 
+  const { data: installmentTxIds = new Set<string>() } = useInstallmentTxIds();
+
   // Unique events for filter dropdown
   const eventOptions = useMemo(() => {
     const map = new Map<string, string>();
@@ -672,6 +676,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                   <th className="p-2 text-right font-medium">Valor c/IVA</th>
                   <th className="p-2 text-right font-medium hidden sm:table-cell">Já Pago</th>
                   <th className="p-2 text-right font-medium">Saldo</th>
+                  <th className="p-2 text-right font-medium" title="Valor líquido após retenção IRS declarada (saldo − retenção). Só aplica em transações sem parcelas.">A pagar (líquido)</th>
                   <th className="p-2 text-left font-medium hidden lg:table-cell">Vencimento</th>
                 </tr>
               </thead>
@@ -683,6 +688,11 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                   const saldo = withIva - paidWithIva;
                   const hasPartial = paid > 0;
                   const bpCheck = checkExceedsBP(t.event_id, t.category_id, Number(t.amount));
+                  const np = computeNetPayable({
+                    grossWithIva: saldo,
+                    declaredWithholding: getDeclaredWithholding(t),
+                    hasInstallments: installmentTxIds.has(t.id),
+                  });
                   return (
                     <tr key={t.id} className={`cursor-pointer transition-colors ${selectedIds.has(t.id) ? "bg-primary/5" : "hover:bg-muted/30"} ${bpCheck.exceeds ? "bg-destructive/5" : ""}`} onClick={() => toggleId(t.id)}>
                       <td className="p-2 text-center"><Checkbox checked={selectedIds.has(t.id)} onCheckedChange={() => toggleId(t.id)} /></td>
@@ -699,6 +709,16 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
                       <td className="p-2 text-right font-mono">{formatCurrency(withIva)}</td>
                       <td className="p-2 text-right font-mono hidden sm:table-cell">{formatCurrency(paidWithIva)}</td>
                       <td className={`p-2 text-right font-mono font-semibold ${hasPartial ? "text-warning" : ""}`}>{formatCurrency(saldo)}</td>
+                      <td className="p-2 text-right font-mono">
+                        {np.applied ? (
+                          <>
+                            <span className="font-semibold text-warning">{formatCurrency(np.net)}</span>
+                            <p className="text-[10px] text-warning/70">Ret. IRS −{formatCurrency(np.withholding)}</p>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground/50">—</span>
+                        )}
+                      </td>
                       <td className="p-2 hidden lg:table-cell">{t.due_date ? formatDate(t.due_date) : "-"}</td>
                     </tr>
                   );

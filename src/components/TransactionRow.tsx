@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
 import { calcWithIva, isFullyPaid, formatDatePT, formatDatePTOptions } from "@/lib/utils";
+import { computeNetPayable, getDeclaredWithholding } from "@/lib/withholding";
 import { Pencil, ShieldCheck, CreditCard, Paperclip, History, ChevronDown, ChevronRight, Trash2, AlertTriangle, UserCheck, EyeOff, Eye, Layers, MoreHorizontal } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -32,6 +33,8 @@ interface Props {
   highlightId?: string | null;
   /** Quando true, renderiza a linha como filha de um grupo de reembolso (barra accent + bg sutil). */
   inGroup?: boolean;
+  /** Se a transação tem registos em transaction_payments (parcelas). Determina se a retenção declarada se aplica. */
+  hasInstallments?: boolean;
 }
 
 function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; onClick: () => void }) {
@@ -78,7 +81,7 @@ function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; on
   );
 }
 
-export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete, onToggleHidden, onViewPayments, highlightId, inGroup }: Props) {
+export function TransactionRow({ transaction: t, isAdmin, selectable, selected, onToggleSelect, showSelectColumn, eventCompleted, showPaymentDate, onEdit, onApprove, onPayment, onDocs, onAudit, onDelete, onToggleHidden, onViewPayments, highlightId, inGroup, hasInstallments }: Props) {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const [childrenExpanded, setChildrenExpanded] = useState(false);
@@ -536,6 +539,31 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
               Base: {formatCurrency(amount)} + IVA {ivaRate}%
             </p>
           )}
+          {isExpense && computedStatus !== "paid" && (() => {
+            const np = computeNetPayable({
+              grossWithIva: totalWithIva,
+              declaredWithholding: getDeclaredWithholding(t),
+              hasInstallments: !!hasInstallments,
+            });
+            if (!np.applied) return null;
+            return (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <p className="mt-0.5 text-[10px] font-mono text-warning cursor-help">
+                    A pagar: <span className="font-semibold">{formatCurrency(np.net)}</span>
+                    <span className="text-warning/70"> · Ret. IRS −{formatCurrency(np.withholding)}</span>
+                  </p>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs text-xs">
+                  <p>Retenção IRS declarada na fatura.</p>
+                  <p className="mt-1 text-muted-foreground">
+                    O fornecedor recebe o líquido; a retenção é entregue ao Estado.
+                    Valor pode ser ajustado no momento da liquidação.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            );
+          })()}
         </td>
         <td className="py-2">
           <div className="flex items-center justify-center gap-1">

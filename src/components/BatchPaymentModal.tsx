@@ -16,6 +16,8 @@ import {
   formatInCurrency,
   fetchSuggestedFxRate,
 } from "@/lib/currency";
+import { computeNetPayable, getDeclaredWithholding } from "@/lib/withholding";
+import { useInstallmentTxIds } from "@/hooks/useInstallmentTxIds";
 
 interface Props {
   transactions: any[];
@@ -35,6 +37,9 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
   const [loadingFx, setLoadingFx] = useState<CurrencyCode | null>(null);
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { data: installmentTxIds = new Set<string>() } = useInstallmentTxIds();
+
+
 
   const { data: financialAccounts = [] } = useQuery({
     queryKey: ["financial-accounts-active"],
@@ -125,28 +130,42 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
   // Compute the actual EUR to settle per item, applying day-rate when available
   const computed = useMemo(() => {
     return items.map((i) => {
-      if (!i.isForeign) {
-        return { ...i, remainingEurFinal: i.remainingEurOriginal, dayRate: 0 };
+      let remainingEurFinal = i.remainingEurOriginal;
+      let dayRate = 0;
+      if (i.isForeign) {
+        const dayRateStr = fxRates[i.currency];
+        const r = parseFloat(dayRateStr ?? "") || 0;
+        if (r > 0 && i.remainingFx > 0) {
+          remainingEurFinal = +(i.remainingFx * r).toFixed(2);
+          dayRate = r;
+        }
       }
-      const dayRateStr = fxRates[i.currency];
-      const dayRate = parseFloat(dayRateStr ?? "") || 0;
-      if (dayRate <= 0 || i.remainingFx <= 0) {
-        return {
-          ...i,
-          remainingEurFinal: i.remainingEurOriginal,
-          dayRate: 0,
-        };
-      }
-      const newEur = +(i.remainingFx * dayRate).toFixed(2);
-      return { ...i, remainingEurFinal: newEur, dayRate };
+      // Retenção IRS declarada — só aplica se transação não tem parcelas
+      const declaredW = getDeclaredWithholding(i);
+      const hasInstallments = installmentTxIds.has(i.id);
+      const np = computeNetPayable({
+        grossWithIva: remainingEurFinal,
+        declaredWithholding: declaredW,
+        hasInstallments,
+      });
+      return {
+        ...i,
+        remainingEurFinal,
+        dayRate,
+        withholding: np.withholding,
+        netPayable: np.net,
+        withholdingApplied: np.applied,
+      };
     });
-  }, [items, fxRates]);
+  }, [items, fxRates, installmentTxIds]);
 
   const totalRemaining = computed.reduce((s, i) => s + i.remainingEurFinal, 0);
   const totalRemainingOriginal = computed.reduce(
     (s, i) => s + i.remainingEurOriginal,
     0
   );
+  const totalWithholding = computed.reduce((s, i) => s + (i.withholding || 0), 0);
+  const totalCashOut = +(totalRemaining - totalWithholding).toFixed(2);
   const fxDelta = +(totalRemaining - totalRemainingOriginal).toFixed(2);
   const totalWithIva = computed.reduce((s, i) => s + i.total, 0);
   const allExpenses = computed.every((i) => i.type === "expense");
@@ -175,15 +194,15 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
       if (!accountId) throw new Error("Selecione a conta");
       if (!paymentDate) throw new Error("Selecione a data de pagamento");
 
-      // Validate balance for expenses
+      // Validate balance for expenses — usa saída de caixa (já descontada a retenção)
       if (allExpenses) {
         const acc = financialAccounts.find((a: any) => a.id === accountId);
         const skipCheck = acc?.skip_balance_check ?? false;
         if (!skipCheck) {
           const accBal = computeAccountBalance(accountId);
-          if (totalRemaining > accBal + 0.05) {
+          if (totalCashOut > accBal + 0.05) {
             throw new Error(
-              `Saldo insuficiente. Disponível: ${formatCurrency(accBal)}, Necessário: ${formatCurrency(totalRemaining)}`
+              `Saldo insuficiente. Disponível: ${formatCurrency(accBal)}, Necessário: ${formatCurrency(totalCashOut)}`
             );
           }
         }
@@ -262,6 +281,16 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
             new_value: notes.trim(),
           });
         }
+        const withholding = item.withholding || 0;
+        if (withholding > 0) {
+          auditEntries.push({
+            transaction_id: item.id,
+            changed_by: userName,
+            field_name: "Retenção IRS",
+            old_value: null,
+            new_value: `${formatCurrency(withholding)} (pago ao fornecedor: ${formatCurrency(settleEur - withholding)})`,
+          });
+        }
         await supabase.from("transaction_audit_log").insert(auditEntries);
 
         // Update transaction
@@ -278,6 +307,20 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
           .update(updateData)
           .eq("id", item.id);
         if (error) throw error;
+
+        // Registo individual em transaction_payments (para timeline + ajuste de saldo)
+        await (supabase as any).from("transaction_payments").insert({
+          transaction_id: item.id,
+          amount: settleEur,
+          payment_date: paymentDate,
+          account_id: accountId,
+          invoice_ref: invoiceRef.trim() || null,
+          withholding_amount: withholding,
+          credit_amount: 0,
+          notes: notes.trim() || null,
+          created_by: userName,
+        });
+
 
         // Propagate to child splits if parent — proportional to the EUR settled
         const { data: children } = await supabase
@@ -377,28 +420,48 @@ export function BatchPaymentModal({ transactions, onClose, initialInvoiceRef = "
             {computed.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between text-xs gap-2"
+                className="text-xs"
               >
-                <span className="truncate flex-1">{item.description}</span>
-                <span className="font-mono whitespace-nowrap inline-flex items-center gap-1">
-                  {item.remainingEurFinal > 0
-                    ? formatCurrency(item.remainingEurFinal)
-                    : "✓ Pago"}
-                  <CurrencyBadge
-                    currency={item.currency}
-                    originalAmount={item.origAmt}
-                    fxRate={item.origRate}
-                  />
-                </span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate flex-1">{item.description}</span>
+                  <span className="font-mono whitespace-nowrap inline-flex items-center gap-1">
+                    {item.remainingEurFinal > 0
+                      ? formatCurrency(item.remainingEurFinal)
+                      : "✓ Pago"}
+                    <CurrencyBadge
+                      currency={item.currency}
+                      originalAmount={item.origAmt}
+                      fxRate={item.origRate}
+                    />
+                  </span>
+                </div>
+                {item.withholdingApplied && (
+                  <div className="flex items-center justify-end gap-2 text-[10px] text-warning font-mono">
+                    <span>L: {formatCurrency(item.netPayable)}</span>
+                    <span className="text-warning/70">Ret. −{formatCurrency(item.withholding)}</span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
           <div className="border-t border-border pt-2 flex items-center justify-between text-sm font-semibold">
-            <span>Total a liquidar</span>
+            <span>Total a liquidar (compromisso)</span>
             <span className="font-mono text-primary">
               {formatCurrency(totalRemaining)}
             </span>
           </div>
+          {totalWithholding > 0 && (
+            <>
+              <div className="flex items-center justify-between text-xs text-warning">
+                <span>Retenção IRS</span>
+                <span className="font-mono">−{formatCurrency(totalWithholding)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm font-semibold">
+                <span>Saída de caixa</span>
+                <span className="font-mono text-warning">{formatCurrency(totalCashOut)}</span>
+              </div>
+            </>
+          )}
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>Total bruto (c/ IVA)</span>
             <span className="font-mono">{formatCurrency(totalWithIva)}</span>
