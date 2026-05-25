@@ -24,8 +24,8 @@
 //   ou "indeterminada". Deriva a postura recomendada. Nunca classifica por uma
 //   janela de 7d isolada — usa o baseline projetado.
 //
-// NÃO faz (vem na fase seguinte):
-//   - escrita em crm.campaign_diagnosis_360
+// FASE DE ESCRITA — persiste o diagnóstico completo em crm.campaign_diagnosis_360
+//   (append-only, via service role). Resposta inclui diagnosis_id + persisted.
 //
 // Histórico ~45 dias COM gaps: iteramos sobre as linhas existentes, nunca
 // assumimos continuidade nem usamos generate_series.
@@ -34,6 +34,9 @@ import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+// Service role: necessário para INSERT (RLS só permite SELECT a authenticated;
+// a escrita passa pela policy service_role_bypass). A função corre server-side.
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 // Fallback fixo de ROAS-alvo quando o request não o fornece (Fase 1A).
 const DEFAULT_TARGET_ROAS = 8.0;
@@ -59,8 +62,15 @@ const TREND_BAND_FACTORS: Record<string, number> = {
 // ── Classificação da campanha (Fase 1D) — constantes CALIBRÁVEIS ──
 const HEALTHY_FLOOR_RATIO = 0.60;     // floor de "nível bom" = target_roas * 0.60
 const DEAD_BASELINE_THRESHOLD = 0.30; // baseline projetado <= isto → MORTA
+// Tipos estritos: o compilador valida que a função só produz estes valores
+// (e que batem com a coluna source_campaign_class text da tabela).
+type SourceCampaignClass =
+  | "saudavel_subindo" | "saudavel_caindo" | "fraca" | "morta" | "indeterminada";
+type RecommendedPosture =
+  | "manter_escalar" | "intervencao_cirurgica" | "redesign" | "novo_desenho" | "recolher_mais_dados";
+
 // Postura recomendada por classe (deriva diretamente da classe).
-const POSTURE_BY_CLASS: Record<string, string> = {
+const POSTURE_BY_CLASS: Record<SourceCampaignClass, RecommendedPosture> = {
   saudavel_subindo: "manter_escalar",
   saudavel_caindo: "intervencao_cirurgica",
   fraca: "redesign",
@@ -380,7 +390,15 @@ function computeCampaignTrajectory(
 // targetRoas chega sempre como número válido (handler garante o default 8.0).
 type TrajectoryBlock = ReturnType<typeof computeCampaignTrajectory>;
 
-function classifyCampaign(trajectory: TrajectoryBlock, targetRoas: number) {
+type CampaignClassification = {
+  source_campaign_class: SourceCampaignClass;
+  recommended_posture: RecommendedPosture;
+  healthy_floor: number;
+  classification_reason: string;
+  inputs: { projected_baseline_roas: number | null; trend_band: string; target_roas: number };
+};
+
+function classifyCampaign(trajectory: TrajectoryBlock, targetRoas: number): CampaignClassification {
   const healthyFloor = round(targetRoas * HEALTHY_FLOOR_RATIO, 4);
   const baseline = trajectory.projected_baseline_roas;
   const band = trajectory.trend_band;
@@ -404,7 +422,7 @@ function classifyCampaign(trajectory: TrajectoryBlock, targetRoas: number) {
     };
   }
 
-  let cls: string;
+  let cls: SourceCampaignClass;
   let reason: string;
 
   if (baseline <= DEAD_BASELINE_THRESHOLD) {
@@ -442,7 +460,7 @@ function classifyCampaign(trajectory: TrajectoryBlock, targetRoas: number) {
 // Camada de leitura: lê os 3 níveis de insights e estrutura por janela.
 // ──────────────────────────────────────────────────────────────────────────
 const CAMPAIGN_COLS =
-  "date_start, impressions, reach, frequency, clicks, unique_clicks, spend_cents, purchases_count, purchases_value_cents, leads_count, add_to_cart_count, initiate_checkout_count, view_content_count, roas";
+  "connection_id, campaign_name, date_start, impressions, reach, frequency, clicks, unique_clicks, spend_cents, purchases_count, purchases_value_cents, leads_count, add_to_cart_count, initiate_checkout_count, view_content_count, roas";
 const ADSET_COLS = "external_adset_id, " + CAMPAIGN_COLS;
 const AD_COLS = "external_ad_id, external_adset_id, " + CAMPAIGN_COLS;
 
@@ -492,6 +510,14 @@ async function readInsightWindows(
     ...adRows.map((r) => r.date_start),
   ].filter(Boolean).sort();
 
+  // Metadados da campanha para a persistência (connection_id, campaign_name).
+  // Preferimos a linha de campanha; caímos para adset/ad se necessário.
+  const metaRow = campRows[0] ?? adsetRows[0] ?? adRows[0] ?? null;
+  const campaignMeta = {
+    connection_id: metaRow?.connection_id ?? null,
+    campaign_name: metaRow?.campaign_name ?? null,
+  };
+
   if (allDates.length === 0) {
     return {
       has_data: false,
@@ -500,6 +526,7 @@ async function readInsightWindows(
       windows: null,
       levels: null,
       raw_counts: { campaign: 0, adset: 0, ad: 0 },
+      campaign_meta: campaignMeta,
     };
   }
 
@@ -592,6 +619,7 @@ async function readInsightWindows(
     windows,
     levels,
     raw_counts: { campaign: campRows.length, adset: adsetRows.length, ad: adRows.length },
+    campaign_meta: campaignMeta,
   };
 }
 
@@ -657,11 +685,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const recommendedPosture = classification?.recommended_posture ?? POSTURE_BY_CLASS["indeterminada"];
   const projectedBaselineRoas = campaignLevel?.trajectory?.projected_baseline_roas ?? null;
 
-  // FASE 1D: métricas + trajetória + classificação no nível campaign, com espelho
-  // no topo. Diagnóstico determinístico completo. Sem escrita na tabela ainda.
-  return json({
+  // Objeto de diagnóstico COMPLETO (vai para diagnosis_jsonb e para a resposta).
+  const diagnosis = {
     ok: true,
-    phase: "1D-classification",
+    phase: "1-complete",
     input: {
       company_id: companyId,
       external_campaign_id: campaignId,
@@ -679,5 +706,58 @@ Deno.serve(async (req: Request): Promise<Response> => {
     levels: windowsResult.levels,
     raw_counts: windowsResult.raw_counts,
     generated_at: new Date().toISOString(),
+  };
+
+  // ── FASE DE ESCRITA: persistir (append-only) via service role ──
+  // RLS só dá SELECT a authenticated; a escrita usa a policy service_role_bypass.
+  // Edge case: diagnóstico indeterminado (sem dados) também é inserido — saber
+  // que uma campanha não tem dados suficientes é informação útil.
+  const campaignMeta = (windowsResult as any).campaign_meta ?? { connection_id: null, campaign_name: null };
+  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  let diagnosisId: string | null = null;
+  let persisted = false;
+  let persistError: string | null = null;
+  try {
+    const { data: inserted, error: insErr } = await (admin as any)
+      .schema("crm")
+      .from("campaign_diagnosis_360")
+      .insert({
+        company_id: companyId,
+        connection_id: campaignMeta.connection_id,
+        external_campaign_id: campaignId,
+        campaign_name: campaignMeta.campaign_name,
+        target_roas: targetRoas,
+        diagnosis_jsonb: diagnosis,
+        source_campaign_class: sourceCampaignClass,
+        projected_baseline_roas: projectedBaselineRoas,
+        history_days_available: windowsResult.history?.history_days_available ?? null,
+        history_warning: windowsResult.history?.history_warning ?? null,
+        created_by: createdBy,
+      })
+      .select("id")
+      .single();
+    if (insErr) {
+      persistError = insErr.message;
+      console.error(`[campaign-diagnosis] persist FAILED — ${insErr.message}`);
+    } else {
+      diagnosisId = inserted?.id ?? null;
+      persisted = true;
+      console.log(`[campaign-diagnosis] persisted ok — id=${diagnosisId} class=${sourceCampaignClass}`);
+    }
+  } catch (e) {
+    persistError = String((e as Error)?.message ?? e);
+    console.error(`[campaign-diagnosis] persist EXCEPTION — ${persistError}`);
+  }
+
+  // Falha de inserção é reportada (não silenciosa): persisted=false + persist_error.
+  // O diagnóstico calculado vem SEMPRE na resposta.
+  return json({
+    ...diagnosis,
+    persisted,
+    diagnosis_id: diagnosisId,
+    persist_error: persistError,
   });
 });
