@@ -210,6 +210,9 @@ export default function Transactions() {
     },
   });
 
+  const { data: installmentTxIds = new Set<string>() } = useInstallmentTxIds();
+
+
   // ===== Reembolsos: dados para consolidação visual =====
   // Mapa transaction_id → noteId para qualquer status (retroativo). Inclui:
   //  (a) despesas-filhas via reimbursement_note_items
