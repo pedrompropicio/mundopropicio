@@ -123,6 +123,7 @@ import RlsLegacyAudit from "./pages/admin/RlsLegacyAudit";
 import UploadCoalaFotos from "./pages/admin/UploadCoalaFotos";
 import CoalaSync from "./pages/admin/CoalaSync";
 import FeverSync from "./pages/admin/FeverSync";
+import TicketlineSync from "./pages/admin/TicketlineSync";
 import SyncHealth from "./pages/admin/SyncHealth";
 import Notifications from "./pages/admin/Notifications";
 import UserSettings from "./pages/UserSettings";
@@ -467,6 +468,7 @@ function ProtectedLayout() {
               <Route path="/admin/sync-health" element={<SyncHealth />} />
               <Route path="/admin/sync-coala" element={<CoalaSync />} />
               <Route path="/admin/fever-sync" element={<FeverSync />} />
+              <Route path="/admin/ticketline-sync" element={<TicketlineSync />} />
               <Route path="/admin/notifications" element={<Notifications />} />
               <Route path="/perfil" element={<UserSettings />} />
               <Route path="/crm/connections" element={<Navigate to="/audience/connections" replace />} />

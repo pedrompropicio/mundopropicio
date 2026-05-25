@@ -1,82 +1,100 @@
+## Resposta à pergunta obrigatória — onde encaixa a curva diária
 
-## Regras e fluxos atuais das fases (correção)
+**Conclusão: reutilizar `ticket_sales` (não criar tabela nova).**
 
-A **fase é do evento**, não da etapa. O evento percorre 4 estados em `events.operacao_mode`:
+`ticket_sales` é a tabela canónica de vendas diárias do sistema — já é usada pela Fever (`source='fever_import'`), pelo import Ticketline cliente (`source='import'`), pela box-office manual (`source='manual'`) e pela Coala. Tem:
+- `sale_date date` ✅ (1 linha por dia)
+- `zone_id` / `lot_id` (CHECK obriga ≥1 dos dois)
+- `quantity`, `unit_price`, `total_value` ✅
+- `source text`, `financial_account_id`, `import_batch_id` para idempotência por run
+- índice único parcial `uniq_ticket_sales_imported_row WHERE source='import'` (não conflita com novo source)
+
+**Mapeamento da curva diária Ticketline → `ticket_sales`:**
+
+A série TOTAL GERAL do `sale_summary.xlsx` só dá (data, qty, valor) — sem desagregação por zona/tipo. Para satisfazer o CHECK e ficar coerente com o resto do sistema, cria-se **por evento** (idempotente):
+- 1 `event_ticket_zones` "Ticketline (Total)" com `session_id=null`, `total_capacity=0`
+- 1 `event_ticket_lots` "Ticketline (Total)" dentro dessa zona, `iva_rate=6`, `lot_kind='simple'`
+
+Cada dia da curva → 1 linha `ticket_sales` com `source='ticketline_import'`, `import_batch_id=<run uuid>`, `quantity`/`unit_price`(=val/qty)/`total_value` desse dia (qty pode ser negativa = cancelamentos, mantém-se assim).
+
+Idempotência: antes de cada import apaga-se `ticket_sales WHERE event_zone (Ticketline Total) AND financial_account_id=<conta Ticketline> AND source='ticketline_import'`. Mesmo padrão da Fever.
+
+**Segundo ficheiro `ticket_zone.xlsx`:** parser portado para `_shared/` mas o resultado **não** é importado para `ticket_sales` nesta fase — guarda-se em `import_audit.zone_snapshot` (para reconciliação futura sem duplicar receita). Decisão alinhada com a frase "Para esta fase importamos a série TOTAL GERAL por dia".
+
+Esta abordagem evita criar `ticketline_sales` nova, mantém os relatórios (DRE, bilheteira, curva de vendas) a ler de uma única fonte, e é o que o sistema já faz com Fever/Coala.
+
+---
+
+## Implementação (espelho 1:1 do Fever)
+
+### 1. Migration (Test via tool; .txt para Live)
+
+- `ticketline_sync_config` — `id, company_id, event_id (uniq), vault_secret_name, ticketline_event_id text, organization_name, enabled, last_run_at, last_run_status, created_at, updated_at`. RLS idêntica a `fever_sync_config` (admin/manager/editor/platform_admin escrita; select por company). Trigger `updated_at`.
+- `ticketline_sync_runs` — `id, config_id, company_id, started_at, finished_at, status, mode, triggered_by, error_message, files_downloaded jsonb, import_audit jsonb`. RLS idêntica + trigger `notify_sync_action_needed`.
+- `events.ticketline_event_id text` — campo novo, nullable, preenchido na UI quando provider=ticketline.
+
+### 2. Edge functions
 
 ```
-SETUP → PLANEAMENTO → MONTAGEM → EVENTO
+supabase/functions/
+  fetch-ticketline-reports/index.ts    # pipeline Devise + parser + import
+  update-ticketline-credentials/index.ts  # {email,password} → Vault (clona update-fever-credentials)
 ```
 
-- Transição é **manual** (botão no header do EventHub), com confirmação para Montagem/Evento.
-- Cada fase tem uma vista própria; só **PLANEAMENTO** já lista frentes+etapas. Setup serve para criar zonas/serviços.
-- Não há bloqueios automáticos entre fases. Etapas (`operacao_etapas`) têm apenas `status` (pending, in_progress, blocked, done, cancelled) e datas (`planned_start`, `planned_end`).
-- "Filtrar por fase" no PDF será portanto **heurístico por data**, relativo às datas do evento:
-  - **Setup** — etapas sem data ou >14 dias antes do evento
-  - **Planeamento** — entre 14 e 2 dias antes
-  - **Montagem** — 1 dia antes até abertura
-  - **Evento** — entre `event.start_date` e `end_date`
+`fetch-ticketline-reports` (autoriza service_role OU JWT de admin/manager/editor/platform_admin):
+1. carrega config + credenciais do Vault via `get_vault_secret`
+2. `loginDevise()` — `fetch` com `redirect:'manual'`, cookie jar Map, extrai CSRF do `<meta name="csrf-token">`, POST `application/x-www-form-urlencoded`, captura `_session_id` e `acaAffinity` do 302
+3. baixa `sale_summary.xlsx?granularity=2` e `ticket_zone.xlsx` reutilizando o jar
+4. **Self-heal**: se response não-OK ou Content-Type `text/html` (página de login), refaz login UMA vez e re-tenta
+5. parser → import. Erros classificados por `phase` (`login_csrf`, `login_post`, `xlsx_*_http_*`, `parse_failed`, `import_failed`).
+6. grava run + atualiza `last_run_*`.
 
-## Nova feature: PDF "Relatório Operacional"
+### 3. Parsers `_shared/`
 
-### Acesso
-- Botão **"Exportar PDF"** no header da fase **Planeamento** (e replicado em Montagem/Evento) dentro do EventHub.
-- Abre um diálogo `OperationalReportDialog` com as opções.
+- `ticketline-parser.ts` — novo, com `parseTicketlineSaleSummaryXlsx(buf)` que para na transição secção 1 → secção 2 (col[3] passa a string).
+- `ticketline-zone-parser.ts` — porta de `src/lib/parse-ticketline-zone-xlsx.ts` (cópia direta, sem dependências de browser).
 
-### Opções no diálogo
-1. **Fases** (multi-checkbox) — Setup / Planeamento / Montagem / Evento. Default: todas marcadas.
-2. **Status a incluir** (multi-checkbox) — Pendente / Em curso / Bloqueada / Concluída / Cancelada. Default: tudo exceto Cancelada.
-3. **Nível de detalhe** (radio):
-   - **Compacto** — 1 linha por etapa (nome · status · datas · responsável).
-   - **Médio** — + descrição/escopo, fornecedor vinculado, lista de assignees.
-   - **Completo** — + registos (notas e fotos) cronológicos com observação por registo.
-4. **Incluir registos fotográficos** (switch, só ativo nos modos Médio/Completo) — embute fotos em miniatura (`max 600px`) abaixo de cada etapa, com a observação do registo.
+### 4. Import server `_shared/ticketline-import-server.ts`
 
-### Layout do PDF
-- **Capa**: nome do evento + cidade + datas + logo da empresa + data/hora de geração + filtros aplicados.
-- **Sumário executivo** (1 página): contadores por status × fase, total de etapas, % concluído.
-- **Conteúdo agrupado**:
-  ```
-  ┌─ FASE PLANEAMENTO ──────────────────────
-  │  ▌Zonas Físicas
-  │    ├─ Palco Principal (José Lombello)
-  │    │    • Etapa 1  [Em curso]  10–12 Mai
-  │    │    • Etapa 2  [Concluída] 08 Mai
-  │    └─ Catering (Leonardo Santos)
-  │
-  │  ▌Serviços Transversais
-  │    └─ Cerimónia (Ricardo Miranda)
-  └─ FASE MONTAGEM ──────────────────────
-  ```
-- Cada fase numa nova página. Dentro da fase: secção "Zonas Físicas" → secção "Serviços Transversais" (mesma ordem do PlanejamentoPhase).
-- Etapas sem frente (orfãs) numa secção "Outras" no fim de cada fase.
+Pequeno (≈80 linhas): ensure zona+lote "Ticketline (Total)", apaga vendas anteriores desse source nesse evento+conta, insere as linhas em chunks de 500. Devolve `ImportAudit` (rowsImported, prevSalesDeleted, importBatchId, zoneCreated, lotCreated, warnings, zone_snapshot).
 
-### Backend
-- Sem migração necessária. Tudo lido a partir de tabelas existentes: `events`, `operacao_frentes`, `operacao_etapas`, `operacao_etapa_assignees`, `operacao_registos` (se modo Completo), `profiles`, `suppliers`.
-- Geração no cliente com **pdf-lib** + `@react-pdf/renderer` (já temos `pdf-lib` no projeto para outros relatórios — confirmar e reutilizar).
+### 5. Cron
 
-### Detalhes técnicos
-- **Heurística de fase por etapa**:
-  ```ts
-  function inferEtapaPhase(etapa, event): Phase {
-    if (!etapa.planned_start) return "setup";
-    const daysBefore = differenceInDays(event.start_date, etapa.planned_start);
-    if (etapa.planned_start >= event.start_date && etapa.planned_start <= event.end_date) return "evento";
-    if (daysBefore <= 1) return "montagem";
-    if (daysBefore <= 14) return "planning";
-    return "setup";
-  }
-  ```
-- **Fotos**: ler de `operacao_registos.media_urls` (Signed URLs 1h), reduzir client-side com Canvas antes de embutir.
-- **Ordem dentro de cada frente**: por `display_order`, depois `planned_start`.
+```sql
+select cron.schedule('ticketline-sync-daily','59 22 * * *', $$
+  select net.http_post(
+    url:='https://<ref>.supabase.co/functions/v1/fetch-ticketline-reports',
+    headers:='{"Content-Type":"application/json","Authorization":"Bearer <SERVICE_ROLE>"}'::jsonb,
+    body:='{"mode":"cron","triggeredBy":"pg_cron"}'::jsonb);
+$$);
+```
 
-### Ficheiros a criar / editar
-- `src/components/operacao/reports/OperationalReportDialog.tsx` (novo) — diálogo de opções.
-- `src/components/operacao/reports/operationalReportPdf.tsx` (novo) — componente `<Document>` do `@react-pdf/renderer`.
-- `src/lib/operacao/inferEtapaPhase.ts` (novo) — heurística.
-- `src/pages/operacao/EventHub.tsx` — adicionar botão "Exportar PDF".
-- `src/components/operacao/event/PlanejamentoPhase.tsx` — opcional: botão atalho no topo.
+Body sem `configId` → função corre **todos** os configs com `enabled=true`. Aplicado em Test via `supabase--insert` + script `.txt` em `scripts/cron-ticketline-sync-daily-live.txt`.
 
-### O que fica de fora desta entrega
-- Não introduz controlos/bloqueios entre fases (mantém transição manual atual).
-- Não cria coluna `fase` nas etapas — se mais tarde quisermos atribuir fase explícita por etapa (e não inferir por data), isso será uma feature separada com migração.
+### 6. UI
 
+- `src/pages/admin/TicketlineSync.tsx` — clone direto de `FeverSync.tsx`, sem o bloco de Token (Ticketline = só credenciais). Botões: "Credenciais", "Correr agora", switch enabled, tabela últimas runs.
+- Rota `/admin/ticketline-sync` em `src/App.tsx`.
+- Link em `src/components/AppSidebar.tsx` ao lado de "Sync Fever".
+- Campo `ticketline_event_id` no formulário de edição do evento (visível quando `ticketing_provider='ticketline'`) — local a confirmar lendo `EventEdit`/equivalente; se complexo, abre-se aqui um Input no card do config (mais simples e suficiente para arrancar).
+
+Decisão pragmática para o MVP: como ainda não há provider selector no evento (campo `ticketing_provider` está vazio para todos os eventos), o `ticketline_event_id` mora **na própria config** (`ticketline_sync_config.ticketline_event_id`) — editável diretamente no card da `/admin/ticketline-sync`. Mantém o conceito multi-evento e evita tocar no editor de evento agora (que está marcado como protegido em vários sítios). Adicionar também ao schema `events` fica como nota mas não bloqueia.
+
+### 7. Documentação
+
+- `docs/integrations/ticketline.md` novo, formato igual a `docs/integrations/lovable-mcp.md`.
+- Linha em `INTEGRATIONS.md` raiz (secção 5 — APIs Externas).
+
+### 8. Restrições respeitadas
+
+- Não toca `EventTicketing.tsx` nem `FeverImportModal.tsx`.
+- Reutiliza o conceito de `event_ticket_zones`/`event_ticket_lots`/`ticket_sales` — sem nova tabela de vendas.
+- Selectors do parser baseados em busca por label ("DATA", "TOTAL GERAL"), não por offset fixo.
+- Zero hardcoded de eventos: `ticketline_event_id=63653` entra via UI/seed manual no único config inicial.
+
+### O que reporto no fim
+
+- SHA do commit, ficheiros criados/editados
+- Confirmação `supabase--migration` aplicada em Test
+- Confirmação `supabase--deploy_edge_functions` das 2 fns
+- Script `.txt` do cron pronto em `scripts/` para o Pedro correr em Live após Publish
