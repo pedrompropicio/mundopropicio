@@ -117,23 +117,26 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
   });
 
   const selectedEditFrente = (frentesDoEvento ?? []).find((f: any) => f.id === editFrenteId);
+  // Tipo da frente: prefere o que vem no registo (sempre disponível); cai para o lookup do evento.
+  const editFrenteType: string | undefined =
+    (editFrenteId && editFrenteId === registro?.frente_id ? (registro as any)?.frente?.type : undefined) ??
+    (selectedEditFrente as any)?.type;
 
   const { data: etapasDoEvento } = useQuery({
-    queryKey: ["op-etapas-da-frente", editFrenteId, selectedEditFrente?.type ?? "unknown"],
-    enabled: !!editFrenteId && open && editing && !!selectedEditFrente,
+    queryKey: ["op-etapas-da-frente", editFrenteId, editFrenteType ?? "unknown"],
+    enabled: !!editFrenteId && open && editing && !!editFrenteType,
     queryFn: async () => {
       let q = supabase
         .from("operacao_etapas")
-        .select("id,name,frente_id,zone_id,operacao_frentes(name,type)");
+        .select("id,name,frente_id,zone_id");
 
-      if ((selectedEditFrente as any)?.type === "zone") {
+      if (editFrenteType === "zone") {
         q = q.or(`frente_id.eq.${editFrenteId},zone_id.eq.${editFrenteId}`);
       } else {
         q = q.eq("frente_id", editFrenteId);
       }
 
-      const { data } = await q
-        .order("name");
+      const { data } = await q.order("name");
       return data ?? [];
     },
   });
