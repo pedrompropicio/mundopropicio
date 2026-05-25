@@ -205,16 +205,21 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
     staleTime: 60_000,
   });
 
-  // Invoice grouping: count sibling transactions with same invoice_ref
+  // Invoice grouping: count sibling transactions with same invoice_ref + supplier
+  // (invoice_ref alone is too generic — e.g. "proforma" — and would group unrelated TXs)
   const invoiceRef = t.invoice_ref;
+  const invoiceSupplierId = (t as any).supplier_id ?? null;
   const { data: invoiceSiblings } = useQuery({
-    queryKey: ["invoice-group", invoiceRef],
+    queryKey: ["invoice-group", invoiceRef, invoiceSupplierId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("transactions")
         .select("id, description, amount, iva_rate, type")
         .eq("invoice_ref", invoiceRef!)
         .order("description");
+      if (invoiceSupplierId) q = q.eq("supplier_id", invoiceSupplierId);
+      else q = q.is("supplier_id", null);
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
