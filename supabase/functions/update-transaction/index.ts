@@ -212,16 +212,25 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Propagate changes to child split transactions
+    // Propagate changes to child transactions (splits or installments)
     const { data: children } = await adminClient
       .from("transactions")
-      .select("id, split_percentage, split_amount")
+      .select("id, split_percentage, split_amount, status")
       .eq("parent_transaction_id", transaction_id);
 
     if (children && children.length > 0) {
       const amountChanged = "amount" in sanitizedUpdates && Number(sanitizedUpdates.amount) !== Number(transaction.amount);
       const ivaChanged = "iva_rate" in sanitizedUpdates && Number(sanitizedUpdates.iva_rate) !== Number(transaction.iva_rate);
       const sharedFields = ["description", "category_id", "supplier_id", "account_id", "due_date", "specification", "date"];
+
+      // Installment children = parent_transaction_id set but no split_percentage.
+      // Shared fields that should cascade to PENDING installment siblings.
+      // Date/due_date/amount/account stay per-installment (each has own schedule).
+      const installmentSharedFields = [
+        "category_id", "supplier_id", "event_id", "specification",
+        "invoice_ref", "payment_method", "payment_entity", "payment_reference",
+        "is_transitory", "exclude_from_result",
+      ];
 
       // If explicit child adjustments were sent (from edit modal), use those
       const hasExplicitAdjustments = child_adjustments && Array.isArray(child_adjustments) && child_adjustments.length > 0;
@@ -230,40 +239,45 @@ Deno.serve(async (req) => {
         : null;
 
       for (const child of children) {
+        const isInstallmentChild = child.split_percentage == null;
         const childUpdates: Record<string, any> = {};
 
-        // Propagate amount
-        if (amountChanged) {
-          if (adjustmentMap && adjustmentMap[child.id] != null) {
-            // Use explicit adjustment from user
-            childUpdates.amount = adjustmentMap[child.id];
-            // Update split_percentage to reflect new ratio
-            const newTotal = Number(sanitizedUpdates.amount);
-            if (newTotal > 0) {
-              childUpdates.split_percentage = +((adjustmentMap[child.id] / newTotal) * 100).toFixed(4);
-            }
-            // Update split_amount if in absolute mode
-            if (child.split_amount != null) {
-              childUpdates.split_amount = adjustmentMap[child.id];
-            }
-          } else {
-            // Auto-propagate proportionally via percentage
-            const pct = child.split_percentage ?? 0;
-            const newAmount = Number(sanitizedUpdates.amount);
-            childUpdates.amount = +(newAmount * pct / 100).toFixed(2);
-            if (child.split_amount != null) {
-              childUpdates.split_amount = childUpdates.amount;
+        if (isInstallmentChild) {
+          // Skip paid installments — only edit pending/approved/partially_paid
+          if (child.status === "paid") continue;
+          for (const field of installmentSharedFields) {
+            if (field in sanitizedUpdates && sanitizedUpdates[field] !== transaction[field]) {
+              childUpdates[field] = sanitizedUpdates[field];
             }
           }
-        }
-        // Propagate IVA rate directly
-        if (ivaChanged) {
-          childUpdates.iva_rate = sanitizedUpdates.iva_rate;
-        }
-        // Propagate shared fields directly
-        for (const field of sharedFields) {
-          if (field in sanitizedUpdates && sanitizedUpdates[field] !== transaction[field]) {
-            childUpdates[field] = sanitizedUpdates[field];
+          // IVA propagates to pending installments (same fiscal doc)
+          if (ivaChanged) childUpdates.iva_rate = sanitizedUpdates.iva_rate;
+        } else {
+          // Split child — keep existing proportional propagation
+          if (amountChanged) {
+            if (adjustmentMap && adjustmentMap[child.id] != null) {
+              childUpdates.amount = adjustmentMap[child.id];
+              const newTotal = Number(sanitizedUpdates.amount);
+              if (newTotal > 0) {
+                childUpdates.split_percentage = +((adjustmentMap[child.id] / newTotal) * 100).toFixed(4);
+              }
+              if (child.split_amount != null) {
+                childUpdates.split_amount = adjustmentMap[child.id];
+              }
+            } else {
+              const pct = child.split_percentage ?? 0;
+              const newAmount = Number(sanitizedUpdates.amount);
+              childUpdates.amount = +(newAmount * pct / 100).toFixed(2);
+              if (child.split_amount != null) {
+                childUpdates.split_amount = childUpdates.amount;
+              }
+            }
+          }
+          if (ivaChanged) childUpdates.iva_rate = sanitizedUpdates.iva_rate;
+          for (const field of sharedFields) {
+            if (field in sanitizedUpdates && sanitizedUpdates[field] !== transaction[field]) {
+              childUpdates[field] = sanitizedUpdates[field];
+            }
           }
         }
 
