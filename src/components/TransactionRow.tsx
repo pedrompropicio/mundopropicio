@@ -329,6 +329,19 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                     <EyeOff className="h-2.5 w-2.5" /> Oculta
                   </span>
                 )}
+                {hasInstallments && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary cursor-help">
+                        <CreditCard className="h-2.5 w-2.5" /> Parcelada
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-xs">
+                      <p>Pagamento dividido em parcelas planeadas.</p>
+                      <p className="mt-1 text-muted-foreground">Abre o menu "Mais ações" → "Ver parcelas planeadas".</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 {t.pl_override_note && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -631,7 +644,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 {/* Secondary actions menu */}
                 {(() => {
                   const showDelete = !eventCompleted && (computedStatus === "pending" || (isAdmin && (computedStatus === "approved" || computedStatus === "overdue" || computedStatus === "paid")));
-                  const showViewPayments = onViewPayments && paidAmount > 0;
+                  const showViewPayments = onViewPayments && (paidAmount > 0 || !!hasInstallments);
                   const showHide = isAdmin && onToggleHidden;
                   const showReclassify = isTourSubEvent && t.type === "expense" && t.category_id && (isLocalReinforcement || localReinforcementInfo);
                   if (!showDelete && !showViewPayments && !showHide && !showReclassify) return null;
@@ -651,7 +664,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                         </DropdownMenuItem>
                         {showViewPayments && (
                           <DropdownMenuItem onClick={() => onViewPayments!(t.id)}>
-                            <CreditCard className="h-3.5 w-3.5 mr-2" /> Ver pagamentos
+                            <CreditCard className="h-3.5 w-3.5 mr-2" /> {paidAmount > 0 ? "Ver pagamentos" : "Ver parcelas planeadas"}
                           </DropdownMenuItem>
                         )}
                         {showHide && (
