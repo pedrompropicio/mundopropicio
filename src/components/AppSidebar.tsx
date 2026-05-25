@@ -43,8 +43,12 @@ import { useIsFieldStaffOnly } from "@/hooks/useIsFieldStaffOnly";
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { isAdmin, isManager, user, signOut, hasPermission } = useAuth();
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const activeOpEventId = searchParams.get("event");
+
   const coalaBadgeCount = useCoalaSyncBadge(isAdmin);
   const hasCoala = useHasFeature(FEATURES.SYNC_COALA);
   const hasFever = useHasFeature(FEATURES.SYNC_FEVER);
