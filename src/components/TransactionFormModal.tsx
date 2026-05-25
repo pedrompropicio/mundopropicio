@@ -1327,24 +1327,55 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           }
         }
 
-        // ===== Parcelamento (Fase 1.5) =====
-        // Cria N rows planned em transaction_payments. Trigger DB recalcula paid_amount/status/payment_date.
+        // ===== Parcelamento — N transações irmãs (uma por vencimento) =====
+        // A 1ª parcela é a TX já criada acima. Aqui criamos as restantes (2..N)
+        // partilhando todos os metadados (categoria, evento, fornecedor, IVA, etc.)
+        // para que cada parcela apareça com a sua própria data de vencimento.
         if (useInstallments && insertedTx?.id && installmentRows.length >= 2) {
-          const callerName = user?.email ?? "sistema";
-          const rows = installmentRows.map((r) => ({
-            transaction_id: insertedTx.id,
-            amount: r.amount,
-            scheduled_date: r.scheduled_date,
-            payment_date: r.scheduled_date, // NOT NULL fallback; trigger ignora planned
-            status: "planned" as const,
-            payment_method: data.payment_method || "transfer",
-            account_id: null,
-            withholding_amount: 0,
-            credit_amount: 0,
-            created_by: callerName,
-          }));
-          const { error: instErr } = await supabase.from("transaction_payments" as any).insert(rows as any);
-          if (instErr) throw instErr;
+          const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+          const n = installmentRows.length;
+          for (let i = 1; i < n; i++) {
+            const inst = installmentRows[i];
+            const netAmt = +(Number(inst.amount || 0) / ivaMultiplier).toFixed(2);
+            const { data: siblingTx, error: sErr } = await supabase.from("transactions").insert({
+              description: `${data.description} (${i + 1}/${n})`,
+              type: data.type,
+              amount: netAmt,
+              iva_rate: data.iva_rate,
+              event_id: data.event_id || null,
+              category_id: data.category_id || null,
+              supplier_id: data.supplier_id || null,
+              account_id: accountId,
+              specification: data.type === "expense" ? (data.specification || null) : null,
+              pl_override_note: data.pl_override_note.trim() || null,
+              date: data.date,
+              due_date: inst.scheduled_date,
+              status: partnerStatus,
+              paid_amount: 0,
+              payment_date: null,
+              is_reimbursement: false,
+              is_transitory: principalIsTransitory,
+              exclude_from_result: isExcludeFromResult,
+              invoice_ref: data.invoice_ref.trim() || null,
+              payment_method: data.payment_method || "transfer",
+              payment_entity: data.payment_method === "service_payment" ? (data.payment_entity.trim() || null) : null,
+              payment_reference: data.payment_method !== "transfer" ? (data.payment_reference.trim() || null) : null,
+              currency,
+              original_amount: currency === "EUR" ? null : (parseFloat(originalAmount) || null),
+              fx_rate: currency === "EUR" ? null : (parseFloat(fxRate) || null),
+              fx_rate_source: currency === "EUR" ? null : fxRateSource,
+            } as any).select("id").single();
+            if (sErr) throw sErr;
+            if (siblingTx?.id) {
+              await supabase.from("transaction_audit_log").insert({
+                transaction_id: siblingTx.id,
+                changed_by: callerName,
+                field_name: "Criação",
+                old_value: null,
+                new_value: `Parcela ${i + 1}/${n} de "${data.description}" — ${Number(inst.amount).toFixed(2)} € (bruto)`,
+              });
+            }
+          }
         }
 
         // Link to Master forecast if user chose "master" in reinforcement dialog
