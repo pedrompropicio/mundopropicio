@@ -50,6 +50,36 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
   const [includePhotos, setIncludePhotos] = useState(false);
   const [groupBy, setGroupBy] = useState<ReportGroupBy>("frente");
   const [busy, setBusy] = useState(false);
+  // Frentes: null = todas; [] também tratado como todas.
+  const [selectedFrenteIds, setSelectedFrenteIds] = useState<string[] | null>(null);
+
+  const { data: frentes = [] } = useQuery({
+    queryKey: ["op-report-frentes", eventId],
+    enabled: !!eventId && open,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("operacao_frentes")
+        .select("id,name,type,color,display_order")
+        .eq("event_id", eventId)
+        .neq("status", "cancelled")
+        .order("display_order");
+      return (data ?? []) as Array<{ id: string; name: string; type: string; color: string | null }>;
+    },
+  });
+
+  // Reset seleção quando o evento muda ou dialog reabre
+  useEffect(() => {
+    if (open) setSelectedFrenteIds(null);
+  }, [open, eventId]);
+
+  const allFrenteIds = useMemo(() => frentes.map((f) => f.id), [frentes]);
+  const allSelected = selectedFrenteIds === null || selectedFrenteIds.length === 0;
+  const toggleFrente = (id: string) => {
+    setSelectedFrenteIds((cur) => {
+      const base = cur === null ? allFrenteIds : cur;
+      return base.includes(id) ? base.filter((x) => x !== id) : [...base, id];
+    });
+  };
 
   const togglePhase = (p: EtapaPhase) =>
     setPhases((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
@@ -65,6 +95,10 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
       toast({ title: "Seleciona pelo menos um status", variant: "destructive" });
       return;
     }
+    if (selectedFrenteIds !== null && selectedFrenteIds.length === 0) {
+      toast({ title: "Seleciona pelo menos uma Zona ou Serviço", variant: "destructive" });
+      return;
+    }
     setBusy(true);
     try {
       await generateOperationalReport({
@@ -74,6 +108,7 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
         detail,
         groupBy,
         includePhotos: (detail !== "compact" || groupBy === "day") && includePhotos,
+        frenteIds: selectedFrenteIds ?? undefined,
       });
       toast({ title: "Relatório gerado" });
       onOpenChange(false);
@@ -83,6 +118,7 @@ export function OperationalReportDialog({ eventId, open, onOpenChange }: Props) 
       setBusy(false);
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
