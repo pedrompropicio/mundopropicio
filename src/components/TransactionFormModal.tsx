@@ -1512,7 +1512,13 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       }
       if (newTxId) onCreated?.(newTxId);
       onClose();
-      toast({ title: isSplit ? "Rateio criado com sucesso!" : (autoMarkPaid ? "Despesa registada e liquidada!" : "Transação criada com sucesso!") });
+      toast({
+        title: isSplit
+          ? "Rateio criado com sucesso!"
+          : useInstallments && installmentRows.length >= 2
+            ? `${installmentRows.length} parcelas criadas com sucesso!`
+            : (autoMarkPaid ? "Despesa registada e liquidada!" : "Transação criada com sucesso!"),
+      });
     },
     onError: (err: any) => {
       toast({ title: "Erro ao criar transação", description: err.message, variant: "destructive" });
