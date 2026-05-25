@@ -468,6 +468,7 @@ function ProtectedLayout() {
               <Route path="/admin/sync-health" element={<SyncHealth />} />
               <Route path="/admin/sync-coala" element={<CoalaSync />} />
               <Route path="/admin/fever-sync" element={<FeverSync />} />
+              <Route path="/admin/ticketline-sync" element={<TicketlineSync />} />
               <Route path="/admin/notifications" element={<Notifications />} />
               <Route path="/perfil" element={<UserSettings />} />
               <Route path="/crm/connections" element={<Navigate to="/audience/connections" replace />} />
