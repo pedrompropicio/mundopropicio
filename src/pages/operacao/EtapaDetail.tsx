@@ -74,6 +74,26 @@ export default function EtapaDetail() {
     },
   });
 
+  const frenteIdForNext = (etapa as any)?.frente?.id;
+  const plannedStart = (etapa as any)?.planned_start;
+  const { data: nextEtapa } = useQuery({
+    queryKey: ["op-etapa-next", frenteIdForNext, id, plannedStart],
+    enabled: !!frenteIdForNext && !!id,
+    queryFn: async () => {
+      let q = supabase
+        .from("operacao_etapas")
+        .select("id, name, planned_start")
+        .eq("frente_id", frenteIdForNext)
+        .neq("id", id!)
+        .neq("status", "cancelled")
+        .order("planned_start", { ascending: true, nullsFirst: false })
+        .limit(1);
+      if (plannedStart) q = q.gt("planned_start", plannedStart);
+      const { data } = await q;
+      return data?.[0] ?? null;
+    },
+  });
+
   // Hooks chamados sempre antes de early returns (Rules of Hooks)
   const eventIdForDirector = (etapa as any)?.frente?.event_id;
   const isDirectorOnly = useIsEventDirectorOnly(eventIdForDirector);
