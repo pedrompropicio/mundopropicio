@@ -40,6 +40,7 @@ do portal de gestão da Ticketline (`manager.ticketline.pt`). Multi-evento.
 | `vault_secret_name` | text | Nome do segredo Vault com `{email,password}` |
 | `organization_name` | text | Label para a UI |
 | `enabled` | bool | Liga/desliga sync |
+| `sales_start_date` | date | Data de início de vendas (on-sale). Vai para `filter_start_date` no pedido. Nula = fallback `01-01-2025`. |
 | `last_run_at`, `last_run_status` | — | Auditoria rápida |
 
 `ticketline_sync_runs`: cada execução grava `status`, `mode`
