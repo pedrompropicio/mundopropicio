@@ -396,13 +396,20 @@ export function parseTicketlineOperationsXlsx(buf: ArrayBuffer): OperationsParse
     qtCol2 = geralSub2.qtCol + 2;
     valCol2 = geralSub2.valCol + 2;
     debug.section2.vendasFromFallback = true;
-    warnings.push("Secção 2: 'TOTAL VENDAS' resolvido por offset relativo (fallback).");
+    warnings.push("Secção 2: 'TOTAL VENDAS' resolvido por offset relativo a GERAL (fallback).");
   } else {
-    warnings.push("Secção 2: nem 'TOTAL VENDAS' nem 'TOTAL GERAL' foram encontrados — sem dados a importar.");
-    return { header, rows: [], section1Daily, section2DailyTotals: [], warnings, debug };
+    // Fallback geométrico ancorado em ZONA. Layout:
+    // ZONA | (col+1 vazio/sep) | GERAL(qt,val)=+2,+3 | VENDAS(qt,val)=+4,+5
+    geralSub2 = { qtCol: s2ZoneCol + 2, valCol: s2ZoneCol + 3 };
+    qtCol2 = s2ZoneCol + 4;
+    valCol2 = s2ZoneCol + 5;
+    debug.section2.vendasFromFallback = true;
+    debug.section2.geometricFallback = true;
+    warnings.push("Secção 2: colunas resolvidas por offset relativo à ZONA (fallback geométrico).");
   }
   debug.section2.qtCol = qtCol2;
   debug.section2.valCol = valCol2;
+
 
   // Início dos dados: primeira linha abaixo do sub-header com ou data válida
   // (col DATA) ou string de zona não-vazia/não-header.
