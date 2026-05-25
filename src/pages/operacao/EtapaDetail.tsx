@@ -243,15 +243,29 @@ export default function EtapaDetail() {
         </TooltipProvider>
       )}
 
-      {nextEtapa && (
-        <Button
-          size="sm"
-          variant="secondary"
-          className="w-full justify-center"
-          onClick={() => navigate(`/operacao/etapa/${nextEtapa.id}`)}
-        >
-          Próxima etapa: {nextEtapa.name} <ArrowRight className="h-4 w-4 ml-1" />
-        </Button>
+      {(prevEtapa || nextEtapa) && (
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            className="w-full justify-center"
+            disabled={!prevEtapa}
+            onClick={() => prevEtapa && navigate(`/operacao/etapa/${prevEtapa.id}`)}
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            <span className="truncate">{prevEtapa ? `Anterior: ${prevEtapa.name}` : "Sem anterior"}</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="w-full justify-center"
+            disabled={!nextEtapa}
+            onClick={() => nextEtapa && navigate(`/operacao/etapa/${nextEtapa.id}`)}
+          >
+            <span className="truncate">{nextEtapa ? `Próxima: ${nextEtapa.name}` : "Sem próxima"}</span>
+            <ArrowRight className="h-4 w-4 ml-1" />
+          </Button>
+        </div>
       )}
 
       {!isDirectorOnly && (
