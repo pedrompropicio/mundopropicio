@@ -78,7 +78,7 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
           *,
           author:profiles!operacao_registros_author_profile_id_fkey(id,full_name),
           etapa:operacao_etapas(id,name),
-          frente:operacao_frentes(id,name,event_id,current_lead_id,company_id)
+          frente:operacao_frentes(id,name,type,event_id,current_lead_id,company_id)
         `)
         .eq("id", registroId!)
         .maybeSingle();
