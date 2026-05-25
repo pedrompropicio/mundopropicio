@@ -507,6 +507,8 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
     },
   });
 
+  const { data: installmentTxIds = new Set<string>() } = useInstallmentTxIds();
+
   // Unique events for filter dropdown
   const eventOptions = useMemo(() => {
     const map = new Map<string, string>();
