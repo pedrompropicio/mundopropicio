@@ -503,5 +503,26 @@ export function parseTicketlineOperationsXlsx(buf: ArrayBuffer): OperationsParse
     }
   }
 
+  // --- Diagnóstico: dump cru das linhas de cabeçalho de ambas secções ---
+  const dumpRows = (startRow: number, count: number): Record<string, Record<string, string>> => {
+    const out: Record<string, Record<string, string>> = {};
+    if (startRow <= 0) return out;
+    for (let i = 0; i < count; i++) {
+      const r = startRow + i;
+      const row: Record<string, string> = {};
+      for (let c = 0; c <= maxCol; c++) {
+        const v = cell(ws, c, r);
+        if (v != null && v !== "") row[String(c)] = JSON.stringify(v);
+      }
+      out[String(r)] = row;
+    }
+    return out;
+  };
+  debug.rawHeaderCells = {
+    section1: s1HeaderRow > 0 ? dumpRows(s1HeaderRow, 3) : {},
+    section2: s2HeaderRow > 0 ? dumpRows(s2HeaderRow, 3) : {},
+  };
+
   return { header, rows, section1Daily, section2DailyTotals, warnings, debug };
 }
+
