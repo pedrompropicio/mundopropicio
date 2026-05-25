@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,12 +14,15 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Loader2, FileDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import {
   generateOperationalReport,
   type ReportDetail,
   type ReportGroupBy,
 } from "@/lib/operacao/operationalReportPdf";
 import { PHASE_LABELS, PHASE_ORDER, type EtapaPhase } from "@/lib/operacao/inferEtapaPhase";
+
 
 const ALL_STATUSES = [
   { key: "pending", label: "Pendente" },
