@@ -20,7 +20,7 @@ import { EtapaAssigneeSheet } from "@/components/operacao/EtapaAssigneeSheet";
 import { EtapaSuppliersPanel } from "@/components/operacao/suppliers/EtapaSuppliersPanel";
 import { EditEtapaSheet } from "@/components/operacao/EditEtapaSheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Camera, Play, Ban, CheckCircle2, ArrowLeft, Eye, Pencil } from "lucide-react";
+import { Camera, Play, Ban, CheckCircle2, ArrowLeft, Eye, Pencil, ArrowRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 export default function EtapaDetail() {
