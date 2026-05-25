@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FinancialOperationsTab from "@/components/FinancialOperationsTab";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
+import { fetchAccountCashAdjustments } from "@/lib/account-balance";
 
 const ACCOUNT_TYPES = [
   { value: "bank", label: "Conta Bancária", icon: Landmark },
@@ -124,6 +125,14 @@ export default function FinancialAccounts() {
     },
   });
 
+  // Adjustments for IRS withholding and supplier credits (non-cash deductions
+  // already embedded in transactions.paid_amount). Added back to the gross
+  // balance so the displayed value reflects the real cash position.
+  const { data: cashAdjustments } = useQuery({
+    queryKey: ["financial-accounts-cash-adjustments"],
+    queryFn: () => fetchAccountCashAdjustments(),
+  });
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload: any = {
@@ -156,6 +165,7 @@ export default function FinancialAccounts() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["financial-accounts"] });
       queryClient.invalidateQueries({ queryKey: ["financial-accounts-tx-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["financial-accounts-cash-adjustments"] });
       toast({ title: editingId ? "Conta atualizada!" : "Conta criada com sucesso!" });
       resetForm();
     },
@@ -196,6 +206,9 @@ export default function FinancialAccounts() {
       if (t.type === "income") balance += amt;
       else balance -= amt;
     });
+    // Add back non-cash deductions (IRS withholding + supplier credits)
+    // that are embedded in the gross paid_amount.
+    balance += cashAdjustments?.get(accountId) ?? 0;
     return balance;
   }
 

@@ -6,6 +6,7 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
+import { fetchAccountCashAdjustments } from "@/lib/account-balance";
 
 const TRANSFER_CATEGORY_CODE = "10.3";
 
@@ -70,6 +71,10 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
         if (t.type === "income") balance += paid;
         else balance -= paid;
       }
+      // Add back IRS withholding + supplier credits (non-cash deductions
+      // already embedded in paid_amount).
+      const adj = await fetchAccountCashAdjustments([fromAccountId]);
+      balance += adj.get(fromAccountId) ?? 0;
       return balance;
     },
   });
