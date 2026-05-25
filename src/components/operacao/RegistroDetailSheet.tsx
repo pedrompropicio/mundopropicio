@@ -109,21 +109,30 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
     queryFn: async () => {
       const { data } = await supabase
         .from("operacao_frentes")
-        .select("id,name,company_id")
+        .select("id,name,type,company_id")
         .eq("event_id", eventId!)
         .order("name");
       return data ?? [];
     },
   });
 
+  const selectedEditFrente = (frentesDoEvento ?? []).find((f: any) => f.id === editFrenteId);
+
   const { data: etapasDoEvento } = useQuery({
-    queryKey: ["op-etapas-da-frente", editFrenteId],
-    enabled: !!editFrenteId && open && editing,
+    queryKey: ["op-etapas-da-frente", editFrenteId, selectedEditFrente?.type ?? "unknown"],
+    enabled: !!editFrenteId && open && editing && !!selectedEditFrente,
     queryFn: async () => {
-      const { data } = await supabase
+      let q = supabase
         .from("operacao_etapas")
-        .select("id,name,frente_id,operacao_frentes(name)")
-        .eq("frente_id", editFrenteId)
+        .select("id,name,frente_id,zone_id,operacao_frentes(name,type)");
+
+      if ((selectedEditFrente as any)?.type === "zone") {
+        q = q.or(`frente_id.eq.${editFrenteId},zone_id.eq.${editFrenteId}`);
+      } else {
+        q = q.eq("frente_id", editFrenteId);
+      }
+
+      const { data } = await q
         .order("name");
       return data ?? [];
     },
