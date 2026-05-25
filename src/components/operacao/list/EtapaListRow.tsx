@@ -1,7 +1,13 @@
 import { Badge } from "@/components/ui/badge";
 import { OperacaoStatusBadge } from "@/components/operacao/OperacaoStatusBadge";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, CalendarDays, CalendarClock, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+function formatDate(iso?: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "2-digit" });
+}
+
 
 function formatRelative(iso?: string | null): string {
   if (!iso) return "";
@@ -105,8 +111,29 @@ export function EtapaListRow({ etapa, showEventBadge, showFrenteBadge = true, on
           ) : (
             <span className="italic">Sem responsável</span>
           )}
-          {etapa.supplier?.name && <span>· {etapa.supplier.name}</span>}
+          {etapa.supplier?.name && (
+            <span className="inline-flex items-center gap-1">
+              <Truck className="h-3 w-3" />
+              {etapa.supplier.name}
+            </span>
+          )}
         </div>
+        <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
+          <span className="inline-flex items-center gap-1">
+            <CalendarDays className="h-3 w-3" />
+            Início: {formatDate(etapa.planned_start)}
+          </span>
+          <span
+            className={cn(
+              "inline-flex items-center gap-1",
+              isLate && "text-destructive font-medium",
+            )}
+          >
+            <CalendarClock className="h-3 w-3" />
+            Limite: {formatDate(etapa.planned_end)}
+          </span>
+        </div>
+
       </div>
       <div className="flex flex-col items-end gap-1 shrink-0 self-center">
         {dateIso && (
