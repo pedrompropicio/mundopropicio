@@ -19,6 +19,7 @@ type Cfg = {
   ticketline_event_id: string;
   organization_name: string;
   enabled: boolean;
+  sales_start_date: string | null;
   last_run_at: string | null;
   last_run_status: string | null;
 };
