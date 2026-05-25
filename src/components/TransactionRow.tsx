@@ -32,6 +32,8 @@ interface Props {
   highlightId?: string | null;
   /** Quando true, renderiza a linha como filha de um grupo de reembolso (barra accent + bg sutil). */
   inGroup?: boolean;
+  /** Se a transação tem registos em transaction_payments (parcelas). Determina se a retenção declarada se aplica. */
+  hasInstallments?: boolean;
 }
 
 function DocsBadgeButton({ transactionId, onClick }: { transactionId: string; onClick: () => void }) {
