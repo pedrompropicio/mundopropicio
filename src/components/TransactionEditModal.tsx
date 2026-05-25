@@ -87,7 +87,8 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
       const { data, error } = await supabase
         .from("transactions")
         .select("id, split_percentage, split_amount, amount, event_id, events(name)")
-        .eq("parent_transaction_id", transaction.id);
+        .eq("parent_transaction_id", transaction.id)
+        .not("split_percentage", "is", null);
       if (error) throw error;
       return (data ?? []).map((c: any) => ({
         id: c.id,
