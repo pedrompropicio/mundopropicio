@@ -117,21 +117,15 @@ export function RegistroDetailSheet({ open, onClose, registroId, startInEdit = f
   });
 
   const { data: etapasDoEvento } = useQuery({
-    queryKey: ["op-etapas-do-evento", eventId],
-    enabled: !!eventId && open && editing,
+    queryKey: ["op-etapas-da-frente", editFrenteId],
+    enabled: !!editFrenteId && open && editing,
     queryFn: async () => {
       const { data } = await supabase
         .from("operacao_etapas")
         .select("id,name,frente_id,operacao_frentes(name)")
-        .eq("operacao_frentes.event_id", eventId!)
+        .eq("frente_id", editFrenteId)
         .order("name");
-      // filter by event manually because nested filter may not apply
-      const { data: frentes } = await supabase
-        .from("operacao_frentes")
-        .select("id")
-        .eq("event_id", eventId!);
-      const ids = new Set((frentes ?? []).map((f: any) => f.id));
-      return (data ?? []).filter((e: any) => ids.has(e.frente_id));
+      return data ?? [];
     },
   });
 
