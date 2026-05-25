@@ -8,6 +8,12 @@ do portal de gestão da Ticketline (`manager.ticketline.pt`). Multi-evento.
 - **Fonte:** 1 ficheiro XLSX por evento — `sale_summary.xlsx?granularity=2`
   (título interno "RESUMO DE OPERAÇÕES"). Inclui o cubo completo
   data × zona/lote × canal numa segunda secção.
+- **Janela de datas obrigatória:** o endpoint `sale_summary` exige
+  `filter_start_date` e `filter_end_date` na query string (formato
+  `DD-MM-YYYY`). Sem eles devolve uma janela por defeito que pode vir
+  vazia — origem de imports a zero. O pedido inclui também
+  `bulk_event_ids=` (vazio) e `post_render_content=data` para coincidir
+  com o que o browser envia.
 - **Destino:** `ticket_sales` (mesma tabela que Fever / Coala / box-office),
   com `source='ticketline_import'`.
 - **Zonas/lotes:** criados/reutilizados em `event_ticket_zones` /
