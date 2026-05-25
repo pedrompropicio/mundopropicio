@@ -7,7 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { parseTicketlineOperationsXlsx } from "../_shared/ticketline-operations-parser.ts";
 import { runTicketlineImport } from "../_shared/ticketline-import-server.ts";
 
-const VERSION = "v2_2026_05_25_operations";
+const VERSION = "v2.1_2026_05_25_merge_aware_parser";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -208,6 +208,7 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     debug.section1_days = parseRes.section1Daily.length;
     debug.section2_days = parseRes.section2DailyTotals.length;
     debug.warnings = parseRes.warnings.length;
+    debug.parser = parseRes.debug;
 
     const { data: tlAcc } = await admin.from("financial_accounts")
       .select("id, name").eq("type", "ticket_office").eq("company_id", cfg.company_id)
