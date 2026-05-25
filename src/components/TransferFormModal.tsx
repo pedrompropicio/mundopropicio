@@ -6,6 +6,7 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
+import { fetchAccountCashAdjustments } from "@/lib/account-balance";
 
 const TRANSFER_CATEGORY_CODE = "10.3";
 
