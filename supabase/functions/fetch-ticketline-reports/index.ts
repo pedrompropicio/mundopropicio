@@ -220,10 +220,13 @@ async function runOneConfig(admin: any, cfg: any, mode: string, triggeredBy: str
     catch { throw Object.assign(new Error("Vault secret não é JSON {email,password}"), { phase: "creds_invalid" }); }
     if (!creds.email || !creds.password) throw Object.assign(new Error("Vault: email/password em falta"), { phase: "creds_invalid" });
 
-    const summary = await downloadSummary(creds, cfg.ticketline_event_id);
-    const filesAudit = [
-      { name: `sale_summary_${cfg.ticketline_event_id}.xlsx`, size: summary.length },
-    ];
+    const filterStart = salesStartToDDMMYYYY(cfg.sales_start_date);
+    const filterEnd = fmtDDMMYYYY(new Date());
+    debug.filter_start_date = filterStart;
+    debug.filter_end_date = filterEnd;
+    debug.sales_start_date_source = cfg.sales_start_date ? "config" : "fallback_2025_01_01";
+
+    const summary = await downloadSummary(creds, cfg.ticketline_event_id, filterStart, filterEnd);
 
     let parseRes;
     try {
