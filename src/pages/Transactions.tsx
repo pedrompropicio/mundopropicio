@@ -1001,6 +1001,7 @@ export default function Transactions() {
         onViewPayments={(id) => setShowPaymentsListId(id)}
         highlightId={highlightId}
         inGroup={inGroup}
+        hasInstallments={installmentTxIds.has(t.id)}
       />
     );
 
