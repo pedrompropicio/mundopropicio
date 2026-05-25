@@ -203,6 +203,14 @@ export function AppSidebar() {
       </div>
 
       <ChangePasswordModal open={showChangePassword} onOpenChange={setShowChangePassword} />
+      {activeOpEventId && (
+        <OperationalReportDialog
+          eventId={activeOpEventId}
+          open={reportOpen}
+          onOpenChange={setReportOpen}
+        />
+      )}
+
     </aside>
   );
 }
