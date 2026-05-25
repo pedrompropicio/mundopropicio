@@ -71,6 +71,10 @@ export function TransferFormModal({ onClose }: TransferFormModalProps) {
         if (t.type === "income") balance += paid;
         else balance -= paid;
       }
+      // Add back IRS withholding + supplier credits (non-cash deductions
+      // already embedded in paid_amount).
+      const adj = await fetchAccountCashAdjustments([fromAccountId]);
+      balance += adj.get(fromAccountId) ?? 0;
       return balance;
     },
   });
