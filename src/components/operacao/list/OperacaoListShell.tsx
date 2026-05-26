@@ -60,7 +60,9 @@ export function OperacaoListShell({
   emptyTitle = "Sem resultados",
   emptyMessage,
   emptyAction,
+  headerActions,
   children,
+
 }: Props) {
   const [, force] = useState(0);
   useEffect(() => {
