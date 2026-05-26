@@ -1014,6 +1014,60 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // DIAG — Diagnóstico 360 server-to-server (crm-campaign-diagnosis).
+  // Projecta a trajectória da campanha (projected_baseline_roas) para a FIX 1
+  // comparar o plano contra a tendência projectada em vez do ROAS-30d estático.
+  // Padrão idêntico ao PAS: URL absoluto, reencaminha Authorization+apikey, falha
+  // graciosa. Colocado APÓS o skip early-abort para não gastar a chamada quando o
+  // redesign aborta (o baseline só é usado na FIX 1, pós-LLM). Em caso de falha,
+  // diagBaselineRoas fica null → FIX 1 cai no fallback (viability.current_roas).
+  // ─────────────────────────────────────────────────────────────────────────
+  let diagBaselineRoas: number | null = null;
+  let diagSourceClass: string | null = null;
+  let diag360Id: string | null = null;
+  try {
+    const diagUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/crm-campaign-diagnosis`;
+    console.log("[redesign] DIAG_starting", {
+      company_id: campaign.company_id,
+      external_campaign_id: campaignId,
+      target_roas: targetBlendedRoas,
+    });
+    const diagResp = await fetch(diagUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": req.headers.get("Authorization") ?? "",
+        "Content-Type": "application/json",
+        "apikey": req.headers.get("apikey") ?? "",
+      },
+      body: JSON.stringify({
+        company_id: campaign.company_id,
+        external_campaign_id: campaignId,
+        target_roas: targetBlendedRoas,
+      }),
+    });
+    if (diagResp.ok) {
+      const diagData = await diagResp.json();
+      const baseline = Number(diagData?.projected_baseline_roas);
+      diagBaselineRoas = Number.isFinite(baseline) && baseline > 0 ? baseline : null;
+      diagSourceClass = typeof diagData?.source_campaign_class === "string" ? diagData.source_campaign_class : null;
+      diag360Id = typeof diagData?.diagnosis_id === "string" ? diagData.diagnosis_id : null;
+      console.log("[redesign] DIAG_completed", {
+        ok: diagData?.ok ?? null,
+        source_campaign_class: diagSourceClass,
+        projected_baseline_roas: diagData?.projected_baseline_roas ?? null,
+        recommended_posture: diagData?.recommended_posture ?? null,
+        diagnosis_id: diag360Id,
+        usable_baseline: diagBaselineRoas,
+      });
+    } else {
+      const errText = await diagResp.text().catch(() => "");
+      console.warn("[redesign] DIAG_http_error", { status: diagResp.status, body_excerpt: errText.slice(0, 200) });
+    }
+  } catch (err) {
+    console.warn("[redesign] DIAG_exception", { error: err instanceof Error ? err.message : String(err) });
+  }
+
   // E1 — Downtrend pre-LLM warning injection.
   // Trajectórias descendentes NÃO fazem skip (diferente do A3 uptrend skip): queremos
   // o LLM analisar — pode haver fix operacional que reverta. Mas pré-popula warnings
@@ -1491,14 +1545,25 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
   // bloqueia o plano como 'impossible' + ready_to_deploy=false.
   // Só aplica quando current_roas > 0 (campanha sem compras: qualquer plano é melhoria).
   if (plan && plan.summary && typeof plan.summary === "object") {
-    const currentRoasForCheck = viability.current_roas;
+    // Fonte do "actual" da comparação: baseline projectado da diagnosis (trajectória)
+    // com precedência; fallback para o ROAS-30d estático (viability.current_roas).
+    const useDiagBaseline = diagBaselineRoas != null && diagBaselineRoas > 0;
+    const currentRoasForCheck = useDiagBaseline ? (diagBaselineRoas as number) : viability.current_roas;
+    const baselineSource = useDiagBaseline ? "diagnosis" : "fallback_roas_30d";
     const expectedRoas = Number(plan.summary.expected_overall_roas ?? 0);
+    console.log("[redesign] feasibility_baseline_source", {
+      source: baselineSource,
+      baseline_used: currentRoasForCheck,
+      diagnosis_projected_baseline_roas: diagBaselineRoas,
+      roas_30d_static: viability.current_roas,
+      source_campaign_class: diagSourceClass,
+    });
     if (currentRoasForCheck > 0 && expectedRoas > 0 && expectedRoas < currentRoasForCheck) {
       plan.summary.feasibility = "impossible";
       plan.summary.confidence = "low";
       plan.summary.feasibility_reason =
         `Re-design incongruente: plano propõe expected_overall_roas ${expectedRoas.toFixed(2)}x, ` +
-        `inferior ao actual ${currentRoasForCheck.toFixed(2)}x. Re-design existe para MELHORAR. ` +
+        `inferior ao ${useDiagBaseline ? "baseline projectado de trajectória" : "actual"} ${currentRoasForCheck.toFixed(2)}x. Re-design existe para MELHORAR. ` +
         `Reavaliar premissas, ajustar constraints, ou aceitar que goal não é viável.`;
       plan.summary.expected_roas_degradation_blocked = true;
       plan.summary.expected_roas_degradation_reason =
@@ -1506,11 +1571,16 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       plan.automation_metadata = plan.automation_metadata ?? {};
       plan.automation_metadata.ready_to_deploy = false;
       plan.automation_metadata.deploy_blocked_reason =
-        `Plano propõe degradação de ROAS (${expectedRoas.toFixed(2)}x < ${currentRoasForCheck.toFixed(2)}x actual). Não deployável.`;
+        `Plano propõe degradação de ROAS (${expectedRoas.toFixed(2)}x < ${currentRoasForCheck.toFixed(2)}x ${useDiagBaseline ? "baseline projectado de trajectória" : "actual"}). Não deployável.`;
       // C3 — substitui TODO o redesign_rationale do LLM por template determinístico.
       // Perde nuance do LLM mas garante coerência entre texto e estado (impossible).
+      // Texto cita a fonte real do baseline: projecção de trajectória (diagnosis) ou
+      // janela estática (fallback).
+      const c3Baseline = useDiagBaseline
+        ? `baseline projectado de trajectória ${currentRoasForCheck.toFixed(2)}x (diagnóstico 360 — projecção da tendência, não uma janela estática)`
+        : `ROAS actual ${currentRoasForCheck.toFixed(2)}x`;
       plan.redesign_rationale =
-        `Plano gerado projecta ROAS ${expectedRoas.toFixed(2)}x, inferior ao ROAS actual ${currentRoasForCheck.toFixed(2)}x. ` +
+        `Plano gerado projecta ROAS ${expectedRoas.toFixed(2)}x, inferior ao ${c3Baseline}. ` +
         `Recomenda-se: (1) reavaliar o ROAS floor configurado, ` +
         `(2) manter a campanha actual em observação, ou ` +
         `(3) considerar pausar e redirigir budget para campanhas com maior alavanca.`;
