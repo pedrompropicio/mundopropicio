@@ -29,8 +29,7 @@ export default function DiagnosisTest() {
         // Try to extract response body if available
         let body: any = null;
         try {
-          // @ts-expect-error - FunctionsHttpError has context.response
-          body = await error.context?.response?.text?.();
+          body = await (error as any).context?.response?.text?.();
         } catch { /* ignore */ }
         setError({ message: error.message, name: error.name, body, raw: error });
       }
