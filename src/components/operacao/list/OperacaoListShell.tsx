@@ -29,7 +29,9 @@ interface Props {
   emptyTitle?: string;
   emptyMessage?: string;
   emptyAction?: ReactNode;
+  headerActions?: ReactNode;
   children: ReactNode;
+
 }
 
 function ageSeconds(ts?: number): number {
