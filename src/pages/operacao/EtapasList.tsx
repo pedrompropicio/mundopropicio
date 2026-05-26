@@ -100,16 +100,17 @@ export default function EtapasList() {
         q = q.is("responsible_profile_id", null);
       }
 
-      // Filtro de período (sobreposição com a janela): planned_start ≤ to AND planned_end ≥ from.
-      // Etapas sem data (has_no_date) ficam fora quando há filtro de período.
+      // Filtro de período: sobreposição da etapa com a janela [from, to].
+      // Considera etapas com planned_end NULL como evento pontual em planned_start.
+      // Etapas marcadas has_no_date=true ficam fora.
       const preset = filters.date_preset ?? "all";
       if (preset !== "all" && filters.date_from && filters.date_to) {
         const fromTs = `${filters.date_from}T00:00:00`;
         const toTs = `${filters.date_to}T23:59:59`;
         q = q
-          .eq("has_no_date", false)
+          .not("has_no_date", "is", true)
           .lte("planned_start", toTs)
-          .gte("planned_end", fromTs);
+          .or(`planned_end.gte.${fromTs},planned_end.is.null`);
       }
 
       const sortBy = filters.sort_by ?? "planned_start";
@@ -169,7 +170,10 @@ export default function EtapasList() {
       if (preset !== "all" && filters.date_from && filters.date_to) {
         const fromTs = `${filters.date_from}T00:00:00`;
         const toTs = `${filters.date_to}T23:59:59`;
-        q = q.eq("has_no_date", false).lte("planned_start", toTs).gte("planned_end", fromTs);
+        q = q
+          .not("has_no_date", "is", true)
+          .lte("planned_start", toTs)
+          .or(`planned_end.gte.${fromTs},planned_end.is.null`);
       }
       const sortBy = filters.sort_by ?? "planned_start";
       const sortDir = filters.sort_dir ?? "asc";
