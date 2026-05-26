@@ -511,6 +511,48 @@ export default function Dashboard() {
                   </div>
                 </div>
 
+                {/* Vendas: ontem / últimos 7 dias / total — com fallback "Última venda" */}
+                <div className="mt-3 pt-2 border-t border-border/30 text-xs">
+                  {event.salesYesterday === 0 && event.salesLast7d === 0 ? (
+                    event.lastSaleDate ? (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground">
+                          Última venda: <span className="font-mono font-medium text-foreground">{formatCurrency(event.lastSaleAmount ?? 0)}</span>
+                          {" · "}
+                          <span className="text-foreground">{formatDate(event.lastSaleDate)}</span>
+                        </span>
+                        <span>
+                          <span className="text-muted-foreground">Total: </span>
+                          <span className="font-mono font-semibold text-success">{formatCurrency(event.ticketRevenue)}</span>
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground italic">Sem vendas registadas</span>
+                        <span>
+                          <span className="text-muted-foreground">Total: </span>
+                          <span className="font-mono font-semibold">{formatCurrency(event.ticketRevenue)}</span>
+                        </span>
+                      </div>
+                    )
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Ontem</p>
+                        <p className="font-mono font-semibold">{formatCurrency(event.salesYesterday)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Últimos 7 dias</p>
+                        <p className="font-mono font-semibold">{formatCurrency(event.salesLast7d)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total</p>
+                        <p className="font-mono font-semibold text-success">{formatCurrency(event.ticketRevenue)}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Financials summary */}
                 {(event.totalIncome > 0 || event.totalExpense > 0) && (
                   <div className="flex items-center gap-4 text-xs mt-3 pt-2 border-t border-border/30">
