@@ -334,7 +334,10 @@ export default function Dashboard() {
     const planningRaw = allEnriched.filter((e) => e.status === "planning");
     const planning = groupWithParents(planningRaw, events);
 
-    const activeRaw = allEnriched.filter((e) => e.status === "active" || e.status === "confirmed");
+    // Excluir eventos cuja data de realização já passou
+    const activeRaw = allEnriched
+      .filter((e) => e.status === "active" || e.status === "confirmed")
+      .filter((e) => !e.date || e.date >= todayISO);
     const active = groupWithParents(activeRaw, events);
 
     const completedRaw = allEnriched
