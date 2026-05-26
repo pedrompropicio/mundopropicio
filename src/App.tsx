@@ -470,6 +470,7 @@ function ProtectedLayout() {
               <Route path="/admin/fever-sync" element={<FeverSync />} />
               <Route path="/admin/ticketline-sync" element={<TicketlineSync />} />
               <Route path="/admin/notifications" element={<Notifications />} />
+              <Route path="/admin/diagnosis-test" element={<DiagnosisTest />} />
               <Route path="/perfil" element={<UserSettings />} />
               <Route path="/crm/connections" element={<Navigate to="/audience/connections" replace />} />
               <Route path="/crm/campaigns" element={<Navigate to="/audience/dashboard" replace />} />
