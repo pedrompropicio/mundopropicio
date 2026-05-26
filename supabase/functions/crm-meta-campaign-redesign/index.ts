@@ -187,6 +187,10 @@ function computeAnchoredNumbers(args: {
   recommended_total_budget_eur: number;
   actual_revenue_eur: number;
   actual_purchases: number;
+  // 1.E-2 — override de baseline/banda LIMPOS vindos do diagnóstico (wind-down).
+  // Quando presente, substitui o baseline_roas interno (contaminado) e a trajectory
+  // usada no trajectory_factor. gap_factor e tudo o resto mantêm-se.
+  cleanOverride?: { baseline_roas: number; trajectory: string };
 }): {
   expected_overall_roas: number;
   expected_revenue_eur: number;
@@ -203,9 +207,15 @@ function computeAnchoredNumbers(args: {
     capped_at: number | null;
     final_roas: number;
     avg_ticket_source: "actual" | "fallback";
+    winddown_override?: {
+      internal_baseline_roas: number;
+      clean_baseline_roas: number;
+      internal_trajectory: string;
+      clean_trajectory: string;
+    };
   };
 } {
-  const { viability, constraints, recommended_total_budget_eur, actual_revenue_eur, actual_purchases } = args;
+  const { viability, constraints, recommended_total_budget_eur, actual_revenue_eur, actual_purchases, cleanOverride } = args;
   const r = (n: number) => Math.round(n);
 
   // STEP 1 — Baseline ROAS (weighted): 28d=0.5, lifetime=0.3, 7d=0.2.
@@ -235,12 +245,17 @@ function computeAnchoredNumbers(args: {
     baseline_roas = components.reduce((s, c, i) => s + c * weights[i], 0) / totalWeight;
   }
 
+  // 1.E-2 — quando há override LIMPO (wind-down), usa o baseline/trajectory do
+  // diagnóstico no lugar dos internos (contaminados). gap_factor MANTÉM-SE.
+  const usedBaselineRoas = cleanOverride ? cleanOverride.baseline_roas : baseline_roas;
+  const usedTrajectory = cleanOverride ? cleanOverride.trajectory : viability.trajectory;
+
   // STEP 2-3 — Factors gap_severity + trajectory.
   const gap_factor = GAP_SEVERITY_FACTORS[viability.gap_severity] ?? 1.00;
-  const trajectory_factor = TRAJECTORY_PROJECTION_FACTORS[viability.trajectory] ?? 1.00;
+  const trajectory_factor = TRAJECTORY_PROJECTION_FACTORS[usedTrajectory] ?? 1.00;
 
   // STEP 4-5 — Computed + cap defensivo.
-  const raw_computed_roas = baseline_roas * gap_factor * trajectory_factor;
+  const raw_computed_roas = usedBaselineRoas * gap_factor * trajectory_factor;
   const max_allowed = constraints.roas_floor * ANCHORED_ROAS_CAP_VS_FLOOR;
   const final_roas = Math.min(raw_computed_roas, max_allowed);
   const capped_at = raw_computed_roas > max_allowed ? max_allowed : null;
@@ -267,16 +282,26 @@ function computeAnchoredNumbers(args: {
     expected_purchases,
     avg_ticket_eur,
     number_lineage: {
-      baseline_roas: Math.round(baseline_roas * 100) / 100,
+      baseline_roas: Math.round(usedBaselineRoas * 100) / 100,
       baseline_components: componentDetails,
       gap_severity: viability.gap_severity,
       gap_factor,
-      trajectory: viability.trajectory,
+      trajectory: usedTrajectory,
       trajectory_factor,
       raw_computed_roas: Math.round(raw_computed_roas * 100) / 100,
       capped_at,
       final_roas: expected_overall_roas,
       avg_ticket_source,
+      ...(cleanOverride
+        ? {
+          winddown_override: {
+            internal_baseline_roas: Math.round(baseline_roas * 100) / 100,
+            clean_baseline_roas: Math.round(usedBaselineRoas * 100) / 100,
+            internal_trajectory: viability.trajectory,
+            clean_trajectory: usedTrajectory,
+          },
+        }
+        : {}),
     },
   };
 }
@@ -953,6 +978,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   let diagBaselineRoas: number | null = null;
   let diagSourceClass: string | null = null;
   let diag360Id: string | null = null;
+  // 1.E-2 — ingredientes LIMPOS do diagnóstico (wind-down). Fallback gracioso a false/null.
+  let diagIsWinddown = false;
+  let diagCleanBaseNumber: number | null = null;
+  let diagCleanBand: string | null = null;
   try {
     const diagUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/crm-campaign-diagnosis`;
     console.log("[redesign] DIAG_starting", {
@@ -979,6 +1008,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
       diagBaselineRoas = Number.isFinite(baseline) && baseline > 0 ? baseline : null;
       diagSourceClass = typeof diagData?.source_campaign_class === "string" ? diagData.source_campaign_class : null;
       diag360Id = typeof diagData?.diagnosis_id === "string" ? diagData.diagnosis_id : null;
+      // 1.E-2 — parsing defensivo dos campos limpos (wind-down).
+      diagIsWinddown = diagData?.operational_warning?.is_winddown === true;
+      const diagTraj = diagData?.levels?.campaign?.trajectory;
+      const cleanNum = Number(diagTraj?.numero_base);
+      diagCleanBaseNumber = Number.isFinite(cleanNum) && cleanNum > 0 ? cleanNum : null;
+      diagCleanBand = typeof diagTraj?.trend_band === "string" ? diagTraj.trend_band : null;
       console.log("[redesign] DIAG_completed", {
         ok: diagData?.ok ?? null,
         source_campaign_class: diagSourceClass,
@@ -1636,6 +1671,11 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       viability.statistical_floor_spend_eur,
     );
     const recommendedBudgetFromLLM = Number(plan.summary.recommended_total_budget_eur) || estimatedBudgetFallback;
+    // 1.E-2 — override LIMPO: só quando o diagnóstico sinaliza wind-down E tem os ingredientes
+    // (numero_base e banda limpos). Senão undefined → computeAnchoredNumbers calcula como hoje.
+    const winddownCleanOverride = (diagIsWinddown && diagCleanBaseNumber != null && diagCleanBand != null)
+      ? { baseline_roas: diagCleanBaseNumber, trajectory: diagCleanBand }
+      : undefined;
     const anchoredPost = computeAnchoredNumbers({
       viability: {
         roas_7d: viability.roas_7d,
@@ -1653,6 +1693,18 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       recommended_total_budget_eur: recommendedBudgetFromLLM,
       actual_revenue_eur: lifetimeMetricsForAnchor.revenue_eur,
       actual_purchases: lifetimeMetricsForAnchor.purchases,
+      cleanOverride: winddownCleanOverride,
+    });
+    // 1.E-2 — log do override de baseline/banda por wind-down.
+    const nlOverride = (anchoredPost.number_lineage as any).winddown_override;
+    console.log("[redesign] winddown_baseline_override", {
+      diag_is_winddown: diagIsWinddown,
+      override_applied: !!winddownCleanOverride,
+      internal_baseline_roas: nlOverride?.internal_baseline_roas ?? anchoredPost.number_lineage.baseline_roas,
+      clean_baseline_roas: winddownCleanOverride ? diagCleanBaseNumber : null,
+      internal_trajectory: viability.trajectory,
+      clean_band: winddownCleanOverride ? diagCleanBand : null,
+      final_roas: anchoredPost.expected_overall_roas,
     });
     const confidencePost = computeAnchoredConfidence({
       viability: { gap_severity: viability.gap_severity, trajectory: viability.trajectory },
