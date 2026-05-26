@@ -56,10 +56,13 @@ export default function EtapasList() {
       filters.responsibility ?? "todos",
       filters.sort_by ?? "planned_start",
       filters.sort_dir ?? "asc",
+      filters.date_preset ?? "all",
+      filters.date_from ?? "",
+      filters.date_to ?? "",
       page,
       user?.id,
     ],
-    [scopedFrenteIds, filters.status, filters.responsibility, filters.sort_by, filters.sort_dir, page, user?.id],
+    [scopedFrenteIds, filters.status, filters.responsibility, filters.sort_by, filters.sort_dir, filters.date_preset, filters.date_from, filters.date_to, page, user?.id],
   );
 
   const {
@@ -92,6 +95,18 @@ export default function EtapasList() {
         q = q.eq("responsible_profile_id", user.id);
       } else if (filters.responsibility === "sem_responsavel") {
         q = q.is("responsible_profile_id", null);
+      }
+
+      // Filtro de período (sobreposição com a janela): planned_start ≤ to AND planned_end ≥ from.
+      // Etapas sem data (has_no_date) ficam fora quando há filtro de período.
+      const preset = filters.date_preset ?? "all";
+      if (preset !== "all" && filters.date_from && filters.date_to) {
+        const fromTs = `${filters.date_from}T00:00:00`;
+        const toTs = `${filters.date_to}T23:59:59`;
+        q = q
+          .eq("has_no_date", false)
+          .lte("planned_start", toTs)
+          .gte("planned_end", fromTs);
       }
 
       const sortBy = filters.sort_by ?? "planned_start";
