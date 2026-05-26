@@ -334,7 +334,17 @@ export default function Dashboard() {
     const planningRaw = allEnriched.filter((e) => e.status === "planning");
     const planning = groupWithParents(planningRaw, events);
 
-    const activeRaw = allEnriched.filter((e) => e.status === "active" || e.status === "confirmed");
+    // Today as YYYY-MM-DD (local) to exclude events whose realization date has passed
+    const today = (() => {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    })();
+    const activeRaw = allEnriched
+      .filter((e) => e.status === "active" || e.status === "confirmed")
+      .filter((e) => !e.date || e.date >= today);
     const active = groupWithParents(activeRaw, events);
 
     const completedRaw = allEnriched
