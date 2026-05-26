@@ -74,6 +74,18 @@ interface ComputedEvent extends EnrichedEvent {
   isChild: boolean;
   childCount?: number;
 }
+
+function enrichEvent(
+  e: EnrichedEvent,
+  capacityMap: Record<string, number>,
+  salesMap: Record<string, SalesBreakdown>,
+  txnMap: Record<string, { income: number; expense: number }>,
+  forecastMap: Record<string, { income: number; expense: number }>,
+): ComputedEvent {
+  const capacity = capacityMap[e.id] || e.tickets_total || 0;
+  const s = salesMap[e.id];
+  const sold = s?.qty ?? 0;
+  const ticketRevenue = s?.revenue ?? 0;
   const txnIncome = txnMap[e.id]?.income ?? 0;
   const txnExpense = txnMap[e.id]?.expense ?? 0;
   const totalIncome = ticketRevenue + txnIncome;
@@ -90,8 +102,11 @@ interface ComputedEvent extends EnrichedEvent {
     result: totalIncome - txnExpense,
     salesYesterday: s?.yesterday ?? 0,
     salesLast7d: s?.last7d ?? 0,
+    qtyYesterday: s?.qtyYesterday ?? 0,
+    qtyLast7d: s?.qtyLast7d ?? 0,
     lastSaleAmount: s?.lastSaleAmount ?? null,
     lastSaleDate: s?.lastSaleDate ?? null,
+    zones: s ? Object.values(s.zones).sort((a, b) => b.revenue - a.revenue) : [],
     isParent: false,
     isChild: false,
   };
