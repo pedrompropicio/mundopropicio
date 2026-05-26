@@ -8,8 +8,11 @@ import { useScopedEventIds } from "@/hooks/useScopedEventIds";
 import { OperacaoListShell } from "@/components/operacao/list/OperacaoListShell";
 import { EtapasFiltersBar } from "@/components/operacao/list/EtapasFiltersBar";
 import { EtapaListRow, type EtapaListRowData } from "@/components/operacao/list/EtapaListRow";
-import { ChevronDown, ChevronRight, MapPin, Wrench } from "lucide-react";
+import { ChevronDown, ChevronRight, MapPin, Wrench, FileDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { exportEtapasListPdf } from "@/lib/operacao/exportEtapasListPdf";
 import { cn } from "@/lib/utils";
+
 
 const PAGE_SIZE = 50;
 
@@ -141,6 +144,72 @@ export default function EtapasList() {
   const hasMore = total !== null && accumulated.length < total;
   const noScope = !filters.event && scopedEventIds.length === 0 && !loadingScope;
 
+  const [exporting, setExporting] = useState(false);
+  const handleExportPdf = async () => {
+    try {
+      setExporting(true);
+      // Re-executa a mesma query sem paginação
+      let q = supabase
+        .from("operacao_etapas")
+        .select(
+          `id, name, status, planned_start, planned_end, actual_start, actual_end, has_no_date, responsible_profile_id,
+           frente:operacao_frentes!operacao_etapas_frente_id_fkey(id, name, color, type, event_id, event:events(id, name)),
+           responsible:profiles!operacao_etapas_responsible_profile_id_fkey(id, full_name),
+           supplier:suppliers!operacao_etapas_supplier_id_fkey(id, name)`,
+        )
+        .in("frente_id", scopedFrenteIds);
+
+      if (filters.status.length > 0) q = q.in("status", filters.status);
+      if (filters.responsibility === "meus" && user?.id) {
+        q = q.eq("responsible_profile_id", user.id);
+      } else if (filters.responsibility === "sem_responsavel") {
+        q = q.is("responsible_profile_id", null);
+      }
+      const preset = filters.date_preset ?? "all";
+      if (preset !== "all" && filters.date_from && filters.date_to) {
+        const fromTs = `${filters.date_from}T00:00:00`;
+        const toTs = `${filters.date_to}T23:59:59`;
+        q = q.eq("has_no_date", false).lte("planned_start", toTs).gte("planned_end", fromTs);
+      }
+      const sortBy = filters.sort_by ?? "planned_start";
+      const sortDir = filters.sort_dir ?? "asc";
+      q = q.order(sortBy, { ascending: sortDir === "asc", nullsFirst: false }).limit(5000);
+
+      const { data, error } = await q;
+      if (error) throw error;
+      const rows = (data ?? []) as unknown as EtapaListRowData[];
+
+      const eventLabel = filters.event
+        ? rows.find((r) => r.frente?.event?.name)?.frente?.event?.name ?? null
+        : null;
+      const frentesLabels = filters.frentes.length
+        ? Array.from(
+            new Set(
+              rows
+                .filter((r) => r.frente && filters.frentes.includes(r.frente.id))
+                .map((r) => r.frente!.name),
+            ),
+          )
+        : undefined;
+
+      exportEtapasListPdf(rows, {
+        date_preset: filters.date_preset,
+        date_from: filters.date_from,
+        date_to: filters.date_to,
+        status: filters.status,
+        responsibility: filters.responsibility,
+        sort_by: filters.sort_by,
+        sort_dir: filters.sort_dir,
+        frentes_labels: frentesLabels,
+        event_label: eventLabel,
+      });
+    } catch (e) {
+      console.error("[EtapasList] PDF export failed", e);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <OperacaoListShell
       title="Etapas"
@@ -170,7 +239,20 @@ export default function EtapasList() {
           ? "Não fazes parte de nenhum evento. Pede a alguém para te adicionar."
           : "Tenta ajustar os filtros ou limpar."
       }
+      headerActions={
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExportPdf}
+          disabled={exporting || scopedFrenteIds.length === 0}
+          title="Exportar PDF com os filtros actuais"
+        >
+          <FileDown className={cn("h-3.5 w-3.5 mr-1", exporting && "animate-pulse")} />
+          PDF
+        </Button>
+      }
     >
+
       {(() => {
         // Group by frente, preserving order of first appearance (which already follows sort_by)
         const groups: Array<{ frente: NonNullable<EtapaListRowData["frente"]>; rows: EtapaListRowData[] }> = [];

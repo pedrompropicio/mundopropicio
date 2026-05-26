@@ -29,7 +29,9 @@ interface Props {
   emptyTitle?: string;
   emptyMessage?: string;
   emptyAction?: ReactNode;
+  headerActions?: ReactNode;
   children: ReactNode;
+
 }
 
 function ageSeconds(ts?: number): number {
@@ -58,7 +60,9 @@ export function OperacaoListShell({
   emptyTitle = "Sem resultados",
   emptyMessage,
   emptyAction,
+  headerActions,
   children,
+
 }: Props) {
   const [, force] = useState(0);
   useEffect(() => {
@@ -102,6 +106,8 @@ export function OperacaoListShell({
                 </Button>
               </>
             )}
+            {headerActions}
+
           </div>
         </div>
       </div>
