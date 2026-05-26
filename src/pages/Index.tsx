@@ -31,6 +31,15 @@ interface EnrichedEvent {
   [key: string]: any;
 }
 
+interface SalesBreakdown {
+  qty: number;
+  revenue: number;
+  yesterday: number;
+  last7d: number;
+  lastSaleAmount: number | null;
+  lastSaleDate: string | null;
+}
+
 interface ComputedEvent extends EnrichedEvent {
   capacity: number;
   sold: number;
@@ -41,6 +50,10 @@ interface ComputedEvent extends EnrichedEvent {
   forecastIncome: number;
   forecastExpense: number;
   result: number;
+  salesYesterday: number;
+  salesLast7d: number;
+  lastSaleAmount: number | null;
+  lastSaleDate: string | null;
   isParent: boolean;
   isChild: boolean;
   childCount?: number;
@@ -49,13 +62,14 @@ interface ComputedEvent extends EnrichedEvent {
 function enrichEvent(
   e: EnrichedEvent,
   capacityMap: Record<string, number>,
-  salesMap: Record<string, { qty: number; revenue: number }>,
+  salesMap: Record<string, SalesBreakdown>,
   txnMap: Record<string, { income: number; expense: number }>,
   forecastMap: Record<string, { income: number; expense: number }>,
 ): ComputedEvent {
   const capacity = capacityMap[e.id] || e.tickets_total || 0;
-  const sold = salesMap[e.id]?.qty ?? 0;
-  const ticketRevenue = salesMap[e.id]?.revenue ?? 0;
+  const s = salesMap[e.id];
+  const sold = s?.qty ?? 0;
+  const ticketRevenue = s?.revenue ?? 0;
   const txnIncome = txnMap[e.id]?.income ?? 0;
   const txnExpense = txnMap[e.id]?.expense ?? 0;
   const totalIncome = ticketRevenue + txnIncome;
@@ -70,6 +84,10 @@ function enrichEvent(
     forecastIncome: forecastMap[e.id]?.income ?? 0,
     forecastExpense: forecastMap[e.id]?.expense ?? 0,
     result: totalIncome - txnExpense,
+    salesYesterday: s?.yesterday ?? 0,
+    salesLast7d: s?.last7d ?? 0,
+    lastSaleAmount: s?.lastSaleAmount ?? null,
+    lastSaleDate: s?.lastSaleDate ?? null,
     isParent: false,
     isChild: false,
   };
