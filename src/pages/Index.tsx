@@ -269,13 +269,43 @@ export default function Dashboard() {
       capacityMap[z.event_id] = (capacityMap[z.event_id] || 0) + z.total_capacity;
     });
 
-    const salesMap: Record<string, { qty: number; revenue: number }> = {};
+    // Janelas temporais (timezone local, datas estritas YYYY-MM-DD)
+    const today = new Date();
+    const toLocalISO = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
+    const yesterdayDate = new Date(today);
+    yesterdayDate.setDate(today.getDate() - 1);
+    const sevenAgoDate = new Date(today);
+    sevenAgoDate.setDate(today.getDate() - 7);
+    const yesterdayISO = toLocalISO(yesterdayDate);
+    const sevenAgoISO = toLocalISO(sevenAgoDate);
+    const todayISO = toLocalISO(today);
+
+    const salesMap: Record<string, SalesBreakdown> = {};
     ticketSales.forEach((ts: any) => {
       const eventId = ts.event_ticket_zones?.event_id;
       if (!eventId) return;
-      if (!salesMap[eventId]) salesMap[eventId] = { qty: 0, revenue: 0 };
-      salesMap[eventId].qty += Number(ts.quantity);
-      salesMap[eventId].revenue += ts.total_value != null ? Number(ts.total_value) : Number(ts.quantity) * Number(ts.unit_price);
+      if (!salesMap[eventId]) {
+        salesMap[eventId] = { qty: 0, revenue: 0, yesterday: 0, last7d: 0, lastSaleAmount: null, lastSaleDate: null };
+      }
+      const rev = ts.total_value != null ? Number(ts.total_value) : Number(ts.quantity) * Number(ts.unit_price);
+      const bucket = salesMap[eventId];
+      bucket.qty += Number(ts.quantity);
+      bucket.revenue += rev;
+      const saleDate: string | undefined = ts.sale_date;
+      if (saleDate) {
+        if (saleDate === yesterdayISO) bucket.yesterday += rev;
+        // Últimos 7 dias = 7 dias anteriores a hoje (inclui ontem, exclui hoje)
+        if (saleDate >= sevenAgoISO && saleDate < todayISO) bucket.last7d += rev;
+        if (!bucket.lastSaleDate || saleDate > bucket.lastSaleDate) {
+          bucket.lastSaleDate = saleDate;
+          bucket.lastSaleAmount = rev;
+        }
+      }
     });
 
     // Resultado real: apenas paid + approved (pending excluído) e exclui transitórias / exclude_from_result.
