@@ -58,7 +58,7 @@ export function useOperacaoListFilters(scope: ListScope) {
       let touchedNonPage = false;
       for (const [key, val] of Object.entries(patch)) {
         if (key !== "page") touchedNonPage = true;
-        if (val == null || (Array.isArray(val) && val.length === 0) || val === "" || val === "todos") {
+        if (val == null || (Array.isArray(val) && val.length === 0) || val === "" || val === "todos" || (key === "date_preset" && val === "all")) {
           next.delete(key);
         } else if (Array.isArray(val)) {
           next.set(key, val.join(","));
