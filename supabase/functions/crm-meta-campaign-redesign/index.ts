@@ -28,6 +28,12 @@ const NO_OP_TARGET_PROXIMITY = 0.9;         // A3: roas_7d >= target * 0.9 → s
 const NO_OP_HORIZON_DAYS_THRESHOLD = 10;    // D3: days_until_event < 10 → skip (se !meets_floor)
 const HIGH_BUDGET_SHARE_THRESHOLD = 0.30;   // B1: phase com peso > 30% = warning relevante
 const KEYWORD_DIVERGENCE_TOLERANCE = 0.5;   // C2: claimed - expected > 0.5x = warning
+// ─────────────────────────────────────────────────────────────────────────
+// Fase 3B — Classificação winner/loser de criativos herdados (por performance real).
+// Limiares de ARRANQUE, conservadores — a calibrar com dados reais em produção.
+const CREATIVE_MIN_SPEND_EUR = 50;          // 3B: gasto acumulado mínimo p/ classificar
+const CREATIVE_MIN_PURCHASES = 3;           // 3B: conversões mínimas p/ classificar
+const CREATIVE_WINNER_ROAS_RATIO = 0.6;     // 3B: winner se roas_creative >= target_roas * 0.6
 // E3 — Downtrend tuning. Arbitrário; calibrar empiricamente em produção.
 const TRAJECTORY_DOWNTREND_PROJECTION_RATIO_LIMIT = 2.0;
 // E3 — Keywords PT que indicam que o LLM justificou plano de recovery no rationale.
@@ -788,6 +794,85 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Target BLENDED ROAS para o evento (piso da meta — redesign corrige campanha existente face a este piso).
   // Default 8 (não 9 como em strategy-generate; aqui é piso, não centro da banda).
   const targetBlendedRoas: number = typeof ctIn.roas_floor === "number" && ctIn.roas_floor > 0 ? ctIn.roas_floor : 8;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Fase 3B — Classificação determinística de criativos herdados (winner/loser/
+  // inconclusive) por performance real (ROAS por criativo). NÃO remove criativos —
+  // só ANEXA creative_performance + creative_label + marked_for_replacement a cada
+  // entrada de inheritedCreatives. Colocado após targetBlendedRoas (necessário ao
+  // limiar de winner) e após a herança (inheritedCreatives/inheritedIds já existem).
+  // ─────────────────────────────────────────────────────────────────────────
+  if (inheritedCreatives.length > 0) {
+    // Mapa external_ad_id → meta_creative_id: TODOS os ads da campanha que usam os
+    // criativos herdados (qualquer status — maximiza o histórico de performance).
+    // Query separada da herança (não tocamos na query de 656-681).
+    const adToCreative = new Map<string, string>();
+    const { data: creativeAds } = await (supabase as any)
+      .schema("crm").from("meta_ad_snapshot")
+      .select("external_ad_id, meta_creative_id")
+      .eq("company_id", campaign.company_id)
+      .eq("external_campaign_id", campaignId)
+      .in("meta_creative_id", inheritedIds);
+    for (const a of creativeAds ?? []) {
+      if (a.external_ad_id && a.meta_creative_id) adToCreative.set(a.external_ad_id, a.meta_creative_id);
+    }
+    const adIdsForPerf = [...adToCreative.keys()];
+
+    // Agrega insights ALL-TIME (sem fatiar janela) por criativo: soma dos ads que o usam.
+    const perfByCreative = new Map<string, { spend_cents: number; pv_cents: number; purchases: number }>();
+    for (const id of inheritedIds) perfByCreative.set(id, { spend_cents: 0, pv_cents: 0, purchases: 0 });
+    if (adIdsForPerf.length > 0) {
+      const { data: creativeAdInsights } = await (supabase as any)
+        .schema("crm").from("meta_ad_insights_daily")
+        .select("external_ad_id, spend_cents, purchases_value_cents, purchases_count")
+        .eq("company_id", campaign.company_id)
+        .eq("external_campaign_id", campaignId)
+        .in("external_ad_id", adIdsForPerf);
+      for (const r of creativeAdInsights ?? []) {
+        const cid = adToCreative.get(r.external_ad_id);
+        if (!cid) continue;
+        const agg = perfByCreative.get(cid);
+        if (!agg) continue;
+        agg.spend_cents += Number(r.spend_cents ?? 0);
+        agg.pv_cents += Number(r.purchases_value_cents ?? 0);
+        agg.purchases += Number(r.purchases_count ?? 0);
+      }
+    }
+
+    // Classifica cada criativo herdado e anexa os campos (não remove nenhum).
+    const winnerRoasThreshold = targetBlendedRoas * CREATIVE_WINNER_ROAS_RATIO;
+    const creativeLabelCounts = { winner: 0, loser: 0, inconclusive: 0 };
+    for (const c of inheritedCreatives as any[]) {
+      const agg = perfByCreative.get(c.meta_creative_id) ?? { spend_cents: 0, pv_cents: 0, purchases: 0 };
+      const spend_eur = agg.spend_cents / 100;
+      const purchases_value_eur = agg.pv_cents / 100;
+      const roas = spend_eur > 0 ? Math.round((purchases_value_eur / spend_eur) * 10000) / 10000 : null;
+      let label: "winner" | "loser" | "inconclusive";
+      if (spend_eur < CREATIVE_MIN_SPEND_EUR || agg.purchases < CREATIVE_MIN_PURCHASES) {
+        // Gate de volume (inclui criativos sem qualquer insight) → não julgar.
+        label = "inconclusive";
+      } else {
+        label = roas != null && roas >= winnerRoasThreshold ? "winner" : "loser";
+      }
+      creativeLabelCounts[label]++;
+      c.creative_performance = {
+        spend_eur: Math.round(spend_eur * 100) / 100,
+        purchases_count: agg.purchases,
+        purchases_value_eur: Math.round(purchases_value_eur * 100) / 100,
+        roas,
+      };
+      c.creative_label = label;
+      c.marked_for_replacement = label === "loser";
+    }
+
+    console.log("[redesign] creative_classification", {
+      total_inherited: inheritedCreatives.length,
+      winner: creativeLabelCounts.winner,
+      loser: creativeLabelCounts.loser,
+      inconclusive: creativeLabelCounts.inconclusive,
+      winner_roas_threshold: Math.round(winnerRoasThreshold * 100) / 100,
+    });
+  }
 
   const constraintLines: string[] = [];
   if (effDailyCents != null) constraintLines.push(`- Verba diária TOTAL da campanha: €${(effDailyCents / 100).toFixed(2)}/dia (não inventes valor diferente)`);
