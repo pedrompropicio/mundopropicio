@@ -65,24 +65,15 @@ interface ComputedEvent extends EnrichedEvent {
   result: number;
   salesYesterday: number;
   salesLast7d: number;
+  qtyYesterday: number;
+  qtyLast7d: number;
   lastSaleAmount: number | null;
   lastSaleDate: string | null;
+  zones: ZoneBreakdown[];
   isParent: boolean;
   isChild: boolean;
   childCount?: number;
 }
-
-function enrichEvent(
-  e: EnrichedEvent,
-  capacityMap: Record<string, number>,
-  salesMap: Record<string, SalesBreakdown>,
-  txnMap: Record<string, { income: number; expense: number }>,
-  forecastMap: Record<string, { income: number; expense: number }>,
-): ComputedEvent {
-  const capacity = capacityMap[e.id] || e.tickets_total || 0;
-  const s = salesMap[e.id];
-  const sold = s?.qty ?? 0;
-  const ticketRevenue = s?.revenue ?? 0;
   const txnIncome = txnMap[e.id]?.income ?? 0;
   const txnExpense = txnMap[e.id]?.expense ?? 0;
   const totalIncome = ticketRevenue + txnIncome;
