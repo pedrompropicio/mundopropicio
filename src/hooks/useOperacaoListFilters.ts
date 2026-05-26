@@ -6,11 +6,16 @@ export type ListScope = "zonas" | "etapas" | "chamados" | "pessoas";
 export type SortDir = "asc" | "desc";
 export type Responsibility = "meus" | "sem_responsavel" | "todos";
 
+export type DatePreset = "all" | "today" | "range";
+
 export interface OperacaoListExtras {
   responsibility?: Responsibility;
   sort_by?: string;
   sort_dir?: SortDir;
   page?: number;
+  date_preset?: DatePreset;
+  date_from?: string; // YYYY-MM-DD
+  date_to?: string;   // YYYY-MM-DD
 }
 
 export interface OperacaoListFilters extends OperacaoFilters, OperacaoListExtras {}
@@ -22,19 +27,22 @@ const DEFAULTS: Record<ListScope, Required<Pick<OperacaoListExtras, "sort_by" | 
   pessoas: { sort_by: "name", sort_dir: "asc" },
 };
 
-const EXTRA_KEYS = ["responsibility", "sort_by", "sort_dir", "page"] as const;
+const EXTRA_KEYS = ["responsibility", "sort_by", "sort_dir", "page", "date_preset", "date_from", "date_to"] as const;
 
 export function useOperacaoListFilters(scope: ListScope) {
   const base = useOperacaoFilters();
   const [params, setParams] = useSearchParams();
   const defaults = DEFAULTS[scope];
 
-  const extras: Required<OperacaoListExtras> = useMemo(
+  const extras: Required<Pick<OperacaoListExtras, "responsibility" | "sort_by" | "sort_dir" | "page" | "date_preset">> & Pick<OperacaoListExtras, "date_from" | "date_to"> = useMemo(
     () => ({
       responsibility: (params.get("responsibility") as Responsibility) || "todos",
       sort_by: params.get("sort_by") || defaults.sort_by,
       sort_dir: (params.get("sort_dir") as SortDir) || defaults.sort_dir,
       page: Number(params.get("page") ?? "0") || 0,
+      date_preset: (params.get("date_preset") as DatePreset) || "all",
+      date_from: params.get("date_from") || undefined,
+      date_to: params.get("date_to") || undefined,
     }),
     [params, defaults.sort_by, defaults.sort_dir],
   );
@@ -50,7 +58,7 @@ export function useOperacaoListFilters(scope: ListScope) {
       let touchedNonPage = false;
       for (const [key, val] of Object.entries(patch)) {
         if (key !== "page") touchedNonPage = true;
-        if (val == null || (Array.isArray(val) && val.length === 0) || val === "" || val === "todos") {
+        if (val == null || (Array.isArray(val) && val.length === 0) || val === "" || val === "todos" || (key === "date_preset" && val === "all")) {
           next.delete(key);
         } else if (Array.isArray(val)) {
           next.set(key, val.join(","));
