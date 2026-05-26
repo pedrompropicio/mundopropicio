@@ -615,20 +615,70 @@ export default function Dashboard() {
                       </div>
                     )
                   ) : (
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Ontem</p>
-                        <p className="font-mono font-semibold">{formatCurrency(event.salesYesterday)}</p>
+                    <>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Ontem</p>
+                          <p className="font-mono font-semibold">{formatCurrency(event.salesYesterday)}</p>
+                          <p className="text-[10px] text-muted-foreground">{event.qtyYesterday.toLocaleString()} bilh.</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Últimos 7 dias</p>
+                          <p className="font-mono font-semibold">{formatCurrency(event.salesLast7d)}</p>
+                          <p className="text-[10px] text-muted-foreground">{event.qtyLast7d.toLocaleString()} bilh.</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total</p>
+                          <p className="font-mono font-semibold text-success">{formatCurrency(event.ticketRevenue)}</p>
+                          <p className="text-[10px] text-muted-foreground">{event.sold.toLocaleString()} bilh.</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Últimos 7 dias</p>
-                        <p className="font-mono font-semibold">{formatCurrency(event.salesLast7d)}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total</p>
-                        <p className="font-mono font-semibold text-success">{formatCurrency(event.ticketRevenue)}</p>
-                      </div>
-                    </div>
+
+                      {event.zones.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-border/20">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Por zona</p>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-[11px]">
+                              <thead>
+                                <tr className="text-muted-foreground">
+                                  <th className="text-left font-normal pb-1">Zona</th>
+                                  <th className="text-right font-normal pb-1">Ontem</th>
+                                  <th className="text-right font-normal pb-1">7d</th>
+                                  <th className="text-right font-normal pb-1">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {event.zones.map((z) => (
+                                  <tr key={z.name} className="border-t border-border/10">
+                                    <td className="py-0.5 pr-2 truncate max-w-[120px]" title={z.name}>{z.name}</td>
+                                    <td className="py-0.5 text-right font-mono">
+                                      {z.qtyYesterday > 0 ? (
+                                        <>
+                                          {z.qtyYesterday}
+                                          <span className="text-muted-foreground"> · {formatCurrency(z.revYesterday)}</span>
+                                        </>
+                                      ) : <span className="text-muted-foreground">—</span>}
+                                    </td>
+                                    <td className="py-0.5 text-right font-mono">
+                                      {z.qty7d > 0 ? (
+                                        <>
+                                          {z.qty7d}
+                                          <span className="text-muted-foreground"> · {formatCurrency(z.rev7d)}</span>
+                                        </>
+                                      ) : <span className="text-muted-foreground">—</span>}
+                                    </td>
+                                    <td className="py-0.5 text-right font-mono">
+                                      {z.qty}
+                                      <span className="text-success"> · {formatCurrency(z.revenue)}</span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
