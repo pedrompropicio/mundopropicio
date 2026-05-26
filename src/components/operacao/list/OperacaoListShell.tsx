@@ -106,6 +106,8 @@ export function OperacaoListShell({
                 </Button>
               </>
             )}
+            {headerActions}
+
           </div>
         </div>
       </div>
