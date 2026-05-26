@@ -335,7 +335,6 @@ export default function Dashboard() {
     const planning = groupWithParents(planningRaw, events);
 
     // Excluir eventos cuja data de realização já passou
-    const todayISO = toLocalISO(today);
     const activeRaw = allEnriched
       .filter((e) => e.status === "active" || e.status === "confirmed")
       .filter((e) => !e.date || e.date >= todayISO);
