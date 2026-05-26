@@ -1,0 +1,46 @@
+-- ============================================================
+-- Fix cron ticketline-sync-daily em LIVE
+-- ------------------------------------------------------------
+-- Problema: o cron usava current_setting('app.settings.service_role_key')
+-- que está NULL em Live → header Authorization vazio → função (verify_jwt)
+-- rejeita silenciosamente. 0 runs em modo cron desde setup.
+-- Fix: usar o service_role do vault, mesmo padrão de coala-sync-auto.
+-- Aplicar no SQL Editor de Live.
+-- ============================================================
+
+SELECT cron.unschedule('ticketline-sync-daily')
+WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname='ticketline-sync-daily');
+
+SELECT cron.schedule(
+  'ticketline-sync-daily',
+  '59 22 * * *',  -- 22:59 UTC = 23:59 PT (verão)
+  $cron$
+  SELECT net.http_post(
+    url := 'https://ukpuhoynrqobqtzdbysp.supabase.co/functions/v1/fetch-ticketline-reports',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (
+        SELECT decrypted_secret FROM vault.decrypted_secrets
+        WHERE name = 'email_queue_service_role_key'
+      )
+    ),
+    body := '{"mode":"cron","triggeredBy":"pg_cron"}'::jsonb
+  );
+  $cron$
+);
+
+-- Verificação
+SELECT jobid, schedule, jobname, active FROM cron.job WHERE jobname='ticketline-sync-daily';
+
+-- Teste imediato (opcional — força um run agora para validar):
+-- SELECT net.http_post(
+--   url := 'https://ukpuhoynrqobqtzdbysp.supabase.co/functions/v1/fetch-ticketline-reports',
+--   headers := jsonb_build_object(
+--     'Content-Type','application/json',
+--     'Authorization','Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name='email_queue_service_role_key')
+--   ),
+--   body := '{"mode":"cron","triggeredBy":"manual_test"}'::jsonb
+-- );
+--
+-- Depois confirmar:
+-- SELECT started_at, mode, status, error_message FROM ticketline_sync_runs ORDER BY started_at DESC LIMIT 5;
