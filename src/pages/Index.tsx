@@ -329,22 +329,54 @@ export default function Dashboard() {
     const sevenAgoISO = toLocalISO(sevenAgoDate);
     const todayISO = toLocalISO(today);
 
+    // Zone lookup: id → { name, event_id }
+    const zoneInfo: Record<string, { name: string; event_id: string }> = {};
+    ticketZones.forEach((z: any) => {
+      if (z.id) zoneInfo[z.id] = { name: z.name || "—", event_id: z.event_id };
+    });
+
     const salesMap: Record<string, SalesBreakdown> = {};
     ticketSales.forEach((ts: any) => {
       const eventId = ts.event_ticket_zones?.event_id;
       if (!eventId) return;
       if (!salesMap[eventId]) {
-        salesMap[eventId] = { qty: 0, revenue: 0, yesterday: 0, last7d: 0, lastSaleAmount: null, lastSaleDate: null };
+        salesMap[eventId] = {
+          qty: 0, revenue: 0, yesterday: 0, last7d: 0,
+          qtyYesterday: 0, qtyLast7d: 0,
+          lastSaleAmount: null, lastSaleDate: null,
+          zones: {},
+        };
       }
-      const rev = ts.total_value != null ? Number(ts.total_value) : Number(ts.quantity) * Number(ts.unit_price);
+      const qty = Number(ts.quantity);
+      const rev = ts.total_value != null ? Number(ts.total_value) : qty * Number(ts.unit_price);
       const bucket = salesMap[eventId];
-      bucket.qty += Number(ts.quantity);
+      bucket.qty += qty;
       bucket.revenue += rev;
+
+      // Per-zone
+      const zName = (ts.zone_id && zoneInfo[ts.zone_id]?.name) || "Sem zona";
+      if (!bucket.zones[zName]) {
+        bucket.zones[zName] = { name: zName, qty: 0, qtyYesterday: 0, qty7d: 0, revenue: 0, revYesterday: 0, rev7d: 0 };
+      }
+      const zb = bucket.zones[zName];
+      zb.qty += qty;
+      zb.revenue += rev;
+
       const saleDate: string | undefined = ts.sale_date;
       if (saleDate) {
-        if (saleDate === yesterdayISO) bucket.yesterday += rev;
+        if (saleDate === yesterdayISO) {
+          bucket.yesterday += rev;
+          bucket.qtyYesterday += qty;
+          zb.qtyYesterday += qty;
+          zb.revYesterday += rev;
+        }
         // Últimos 7 dias = 7 dias anteriores a hoje (inclui ontem, exclui hoje)
-        if (saleDate >= sevenAgoISO && saleDate < todayISO) bucket.last7d += rev;
+        if (saleDate >= sevenAgoISO && saleDate < todayISO) {
+          bucket.last7d += rev;
+          bucket.qtyLast7d += qty;
+          zb.qty7d += qty;
+          zb.rev7d += rev;
+        }
         if (!bucket.lastSaleDate || saleDate > bucket.lastSaleDate) {
           bucket.lastSaleDate = saleDate;
           bucket.lastSaleAmount = rev;
