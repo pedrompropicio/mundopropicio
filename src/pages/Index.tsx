@@ -287,7 +287,7 @@ export default function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_ticket_zones")
-        .select("event_id, total_capacity");
+        .select("id, event_id, name, total_capacity");
       if (error) throw error;
       return data;
     },
