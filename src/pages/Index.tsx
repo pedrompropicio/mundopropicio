@@ -132,6 +132,8 @@ function groupWithParents(items: ComputedEvent[], allEvents: EnrichedEvent[]): C
     const aggExpense = children.reduce((s, c) => s + c.totalExpense, 0);
     const aggForecastIncome = children.reduce((s, c) => s + c.forecastIncome, 0);
     const aggForecastExpense = children.reduce((s, c) => s + c.forecastExpense, 0);
+    const aggYesterday = children.reduce((s, c) => s + c.salesYesterday, 0);
+    const aggLast7d = children.reduce((s, c) => s + c.salesLast7d, 0);
 
     // If the parent itself has own data (from parentInList), add it
     const ownIncome = parentInList ? parentInList.totalIncome : 0;
@@ -141,12 +143,25 @@ function groupWithParents(items: ComputedEvent[], allEvents: EnrichedEvent[]): C
     const ownTicketRevenue = parentInList ? parentInList.ticketRevenue : 0;
     const ownForecastIncome = parentInList ? parentInList.forecastIncome : 0;
     const ownForecastExpense = parentInList ? parentInList.forecastExpense : 0;
+    const ownYesterday = parentInList ? parentInList.salesYesterday : 0;
+    const ownLast7d = parentInList ? parentInList.salesLast7d : 0;
 
     const totalCapacity = aggCapacity + ownCapacity;
     const totalSold = aggSold + ownSold;
     const totalTicketRevenue = aggTicketRevenue + ownTicketRevenue;
     const totalIncome = aggIncome + ownIncome;
     const totalExpense = aggExpense + ownExpense;
+
+    // Last sale = most recent across children + own
+    const candidates: Array<{ amount: number; date: string }> = [];
+    children.forEach((c) => {
+      if (c.lastSaleDate && c.lastSaleAmount != null) candidates.push({ amount: c.lastSaleAmount, date: c.lastSaleDate });
+    });
+    if (parentInList?.lastSaleDate && parentInList.lastSaleAmount != null) {
+      candidates.push({ amount: parentInList.lastSaleAmount, date: parentInList.lastSaleDate });
+    }
+    candidates.sort((a, b) => b.date.localeCompare(a.date));
+    const lastSale = candidates[0] ?? null;
 
     const base = parentInList || parentRaw!;
     const parentComputed: ComputedEvent = {
@@ -160,6 +175,10 @@ function groupWithParents(items: ComputedEvent[], allEvents: EnrichedEvent[]): C
       forecastIncome: aggForecastIncome + ownForecastIncome,
       forecastExpense: aggForecastExpense + ownForecastExpense,
       result: totalIncome - totalExpense,
+      salesYesterday: aggYesterday + ownYesterday,
+      salesLast7d: aggLast7d + ownLast7d,
+      lastSaleAmount: lastSale?.amount ?? null,
+      lastSaleDate: lastSale?.date ?? null,
       isParent: true,
       isChild: false,
       childCount: children.length,
