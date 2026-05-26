@@ -31,13 +31,26 @@ interface EnrichedEvent {
   [key: string]: any;
 }
 
+interface ZoneBreakdown {
+  name: string;
+  qty: number;
+  qtyYesterday: number;
+  qty7d: number;
+  revenue: number;
+  revYesterday: number;
+  rev7d: number;
+}
+
 interface SalesBreakdown {
   qty: number;
   revenue: number;
   yesterday: number;
   last7d: number;
+  qtyYesterday: number;
+  qtyLast7d: number;
   lastSaleAmount: number | null;
   lastSaleDate: string | null;
+  zones: Record<string, ZoneBreakdown>;
 }
 
 interface ComputedEvent extends EnrichedEvent {
@@ -52,8 +65,11 @@ interface ComputedEvent extends EnrichedEvent {
   result: number;
   salesYesterday: number;
   salesLast7d: number;
+  qtyYesterday: number;
+  qtyLast7d: number;
   lastSaleAmount: number | null;
   lastSaleDate: string | null;
+  zones: ZoneBreakdown[];
   isParent: boolean;
   isChild: boolean;
   childCount?: number;
@@ -86,8 +102,11 @@ function enrichEvent(
     result: totalIncome - txnExpense,
     salesYesterday: s?.yesterday ?? 0,
     salesLast7d: s?.last7d ?? 0,
+    qtyYesterday: s?.qtyYesterday ?? 0,
+    qtyLast7d: s?.qtyLast7d ?? 0,
     lastSaleAmount: s?.lastSaleAmount ?? null,
     lastSaleDate: s?.lastSaleDate ?? null,
+    zones: s ? Object.values(s.zones).sort((a, b) => b.revenue - a.revenue) : [],
     isParent: false,
     isChild: false,
   };
@@ -134,6 +153,25 @@ function groupWithParents(items: ComputedEvent[], allEvents: EnrichedEvent[]): C
     const aggForecastExpense = children.reduce((s, c) => s + c.forecastExpense, 0);
     const aggYesterday = children.reduce((s, c) => s + c.salesYesterday, 0);
     const aggLast7d = children.reduce((s, c) => s + c.salesLast7d, 0);
+    const aggQtyYesterday = children.reduce((s, c) => s + c.qtyYesterday, 0);
+    const aggQtyLast7d = children.reduce((s, c) => s + c.qtyLast7d, 0);
+
+    // Aggregate zones across children (and parent's own) by name
+    const zoneMap: Record<string, ZoneBreakdown> = {};
+    const addZones = (zs: ZoneBreakdown[]) => {
+      zs.forEach((z) => {
+        if (!zoneMap[z.name]) {
+          zoneMap[z.name] = { name: z.name, qty: 0, qtyYesterday: 0, qty7d: 0, revenue: 0, revYesterday: 0, rev7d: 0 };
+        }
+        zoneMap[z.name].qty += z.qty;
+        zoneMap[z.name].qtyYesterday += z.qtyYesterday;
+        zoneMap[z.name].qty7d += z.qty7d;
+        zoneMap[z.name].revenue += z.revenue;
+        zoneMap[z.name].revYesterday += z.revYesterday;
+        zoneMap[z.name].rev7d += z.rev7d;
+      });
+    };
+    children.forEach((c) => addZones(c.zones));
 
     // If the parent itself has own data (from parentInList), add it
     const ownIncome = parentInList ? parentInList.totalIncome : 0;
@@ -145,6 +183,9 @@ function groupWithParents(items: ComputedEvent[], allEvents: EnrichedEvent[]): C
     const ownForecastExpense = parentInList ? parentInList.forecastExpense : 0;
     const ownYesterday = parentInList ? parentInList.salesYesterday : 0;
     const ownLast7d = parentInList ? parentInList.salesLast7d : 0;
+    const ownQtyYesterday = parentInList ? parentInList.qtyYesterday : 0;
+    const ownQtyLast7d = parentInList ? parentInList.qtyLast7d : 0;
+    if (parentInList) addZones(parentInList.zones);
 
     const totalCapacity = aggCapacity + ownCapacity;
     const totalSold = aggSold + ownSold;
@@ -177,8 +218,11 @@ function groupWithParents(items: ComputedEvent[], allEvents: EnrichedEvent[]): C
       result: totalIncome - totalExpense,
       salesYesterday: aggYesterday + ownYesterday,
       salesLast7d: aggLast7d + ownLast7d,
+      qtyYesterday: aggQtyYesterday + ownQtyYesterday,
+      qtyLast7d: aggQtyLast7d + ownQtyLast7d,
       lastSaleAmount: lastSale?.amount ?? null,
       lastSaleDate: lastSale?.date ?? null,
+      zones: Object.values(zoneMap).sort((a, b) => b.revenue - a.revenue),
       isParent: true,
       isChild: false,
       childCount: children.length,
@@ -243,7 +287,7 @@ export default function Dashboard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_ticket_zones")
-        .select("event_id, total_capacity");
+        .select("id, event_id, name, total_capacity");
       if (error) throw error;
       return data;
     },
@@ -285,22 +329,54 @@ export default function Dashboard() {
     const sevenAgoISO = toLocalISO(sevenAgoDate);
     const todayISO = toLocalISO(today);
 
+    // Zone lookup: id → { name, event_id }
+    const zoneInfo: Record<string, { name: string; event_id: string }> = {};
+    ticketZones.forEach((z: any) => {
+      if (z.id) zoneInfo[z.id] = { name: z.name || "—", event_id: z.event_id };
+    });
+
     const salesMap: Record<string, SalesBreakdown> = {};
     ticketSales.forEach((ts: any) => {
       const eventId = ts.event_ticket_zones?.event_id;
       if (!eventId) return;
       if (!salesMap[eventId]) {
-        salesMap[eventId] = { qty: 0, revenue: 0, yesterday: 0, last7d: 0, lastSaleAmount: null, lastSaleDate: null };
+        salesMap[eventId] = {
+          qty: 0, revenue: 0, yesterday: 0, last7d: 0,
+          qtyYesterday: 0, qtyLast7d: 0,
+          lastSaleAmount: null, lastSaleDate: null,
+          zones: {},
+        };
       }
-      const rev = ts.total_value != null ? Number(ts.total_value) : Number(ts.quantity) * Number(ts.unit_price);
+      const qty = Number(ts.quantity);
+      const rev = ts.total_value != null ? Number(ts.total_value) : qty * Number(ts.unit_price);
       const bucket = salesMap[eventId];
-      bucket.qty += Number(ts.quantity);
+      bucket.qty += qty;
       bucket.revenue += rev;
+
+      // Per-zone
+      const zName = (ts.zone_id && zoneInfo[ts.zone_id]?.name) || "Sem zona";
+      if (!bucket.zones[zName]) {
+        bucket.zones[zName] = { name: zName, qty: 0, qtyYesterday: 0, qty7d: 0, revenue: 0, revYesterday: 0, rev7d: 0 };
+      }
+      const zb = bucket.zones[zName];
+      zb.qty += qty;
+      zb.revenue += rev;
+
       const saleDate: string | undefined = ts.sale_date;
       if (saleDate) {
-        if (saleDate === yesterdayISO) bucket.yesterday += rev;
+        if (saleDate === yesterdayISO) {
+          bucket.yesterday += rev;
+          bucket.qtyYesterday += qty;
+          zb.qtyYesterday += qty;
+          zb.revYesterday += rev;
+        }
         // Últimos 7 dias = 7 dias anteriores a hoje (inclui ontem, exclui hoje)
-        if (saleDate >= sevenAgoISO && saleDate < todayISO) bucket.last7d += rev;
+        if (saleDate >= sevenAgoISO && saleDate < todayISO) {
+          bucket.last7d += rev;
+          bucket.qtyLast7d += qty;
+          zb.qty7d += qty;
+          zb.rev7d += rev;
+        }
         if (!bucket.lastSaleDate || saleDate > bucket.lastSaleDate) {
           bucket.lastSaleDate = saleDate;
           bucket.lastSaleAmount = rev;
@@ -539,20 +615,70 @@ export default function Dashboard() {
                       </div>
                     )
                   ) : (
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Ontem</p>
-                        <p className="font-mono font-semibold">{formatCurrency(event.salesYesterday)}</p>
+                    <>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Ontem</p>
+                          <p className="font-mono font-semibold">{formatCurrency(event.salesYesterday)}</p>
+                          <p className="text-[10px] text-muted-foreground">{event.qtyYesterday.toLocaleString()} bilh.</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Últimos 7 dias</p>
+                          <p className="font-mono font-semibold">{formatCurrency(event.salesLast7d)}</p>
+                          <p className="text-[10px] text-muted-foreground">{event.qtyLast7d.toLocaleString()} bilh.</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total</p>
+                          <p className="font-mono font-semibold text-success">{formatCurrency(event.ticketRevenue)}</p>
+                          <p className="text-[10px] text-muted-foreground">{event.sold.toLocaleString()} bilh.</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Últimos 7 dias</p>
-                        <p className="font-mono font-semibold">{formatCurrency(event.salesLast7d)}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total</p>
-                        <p className="font-mono font-semibold text-success">{formatCurrency(event.ticketRevenue)}</p>
-                      </div>
-                    </div>
+
+                      {event.zones.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-border/20">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Por zona</p>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-[11px]">
+                              <thead>
+                                <tr className="text-muted-foreground">
+                                  <th className="text-left font-normal pb-1">Zona</th>
+                                  <th className="text-right font-normal pb-1">Ontem</th>
+                                  <th className="text-right font-normal pb-1">7d</th>
+                                  <th className="text-right font-normal pb-1">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {event.zones.map((z) => (
+                                  <tr key={z.name} className="border-t border-border/10">
+                                    <td className="py-0.5 pr-2 truncate max-w-[120px]" title={z.name}>{z.name}</td>
+                                    <td className="py-0.5 text-right font-mono">
+                                      {z.qtyYesterday > 0 ? (
+                                        <>
+                                          {z.qtyYesterday}
+                                          <span className="text-muted-foreground"> · {formatCurrency(z.revYesterday)}</span>
+                                        </>
+                                      ) : <span className="text-muted-foreground">—</span>}
+                                    </td>
+                                    <td className="py-0.5 text-right font-mono">
+                                      {z.qty7d > 0 ? (
+                                        <>
+                                          {z.qty7d}
+                                          <span className="text-muted-foreground"> · {formatCurrency(z.rev7d)}</span>
+                                        </>
+                                      ) : <span className="text-muted-foreground">—</span>}
+                                    </td>
+                                    <td className="py-0.5 text-right font-mono">
+                                      {z.qty}
+                                      <span className="text-success"> · {formatCurrency(z.revenue)}</span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
