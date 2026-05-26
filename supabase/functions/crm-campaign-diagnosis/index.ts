@@ -33,9 +33,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-// Service role: necessário para INSERT (RLS só permite SELECT a authenticated;
-// a escrita passa pela policy service_role_bypass). A função corre server-side.
+// Cliente único service-role: a função corre server-side e é invocada também
+// server-to-server (sem JWT de utilizador), por isso NÃO depende do token
+// reencaminhado ser verificável pela Data API. Lê E escreve com esta chave; o
+// isolamento por tenant é garantido em código (filtro company_id + validação
+// de pertença abaixo) — com service-role o RLS não protege.
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 // Fallback fixo de ROAS-alvo quando o request não o fornece (Fase 1A).
@@ -89,6 +91,20 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+// Descodifica o payload de um JWT SEM verificação (a assinatura já foi validada
+// pelo gateway, verify_jwt=true). Só para ler role/sub. À maneira de
+// crm-measure-action-impact. Devolve null se o token for inválido/ausente.
+function decodeJwtPayload(authHeader: string | null): Record<string, any> | null {
+  try {
+    const token = (authHeader ?? "").replace(/^Bearer\s+/i, "");
+    const part = token.split(".")[1];
+    if (!part) return null;
+    return JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")));
+  } catch {
+    return null;
+  }
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -649,17 +665,47 @@ Deno.serve(async (req: Request): Promise<Response> => {
     `[campaign-diagnosis] start company=${companyId} campaign=${campaignId} target_roas=${targetRoas}`,
   );
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
+  // Cliente único service-role (lê insights + escreve diagnóstico).
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // created_by capturado para futura persistência (Fase 1B+). Ainda não escreve.
-  let createdBy: string | null = null;
-  try {
-    const { data: u } = await supabase.auth.getUser();
-    createdBy = u?.user?.id ?? null;
-  } catch { /* noop */ }
+  // Token já verificado pelo gateway (verify_jwt=true); aqui só lemos role/sub.
+  const claims = decodeJwtPayload(authHeader);
+  const tokenRole = typeof claims?.role === "string" ? claims.role : null;
+  // created_by: o sub do utilizador (auditoria). Null em chamadas server-to-server.
+  const createdBy: string | null = typeof claims?.sub === "string" ? claims.sub : null;
+
+  // ── Validação de pertença ao company_id (OBRIGATÓRIA com service-role) ──
+  // service_role  → chamada interna de confiança (server-to-server): aceita o body.
+  // authenticated → resolve o company do utilizador (padrão de _shared/multiTenant.ts:
+  //   profiles.company_id, ou active_company_id + is_platform_admin) e exige match.
+  if (tokenRole === "service_role") {
+    console.log("[campaign-diagnosis] caller=service_role (server-to-server) — company_id aceite");
+  } else if (tokenRole === "authenticated" && createdBy) {
+    const { data: profile } = await supabase
+      .from("profiles").select("company_id, active_company_id").eq("id", createdBy).maybeSingle();
+    const { data: isPaRow } = await supabase.rpc("is_platform_admin", { _user_id: createdBy });
+    const isPlatformAdmin = Boolean(isPaRow);
+    const callerCompanyId = isPlatformAdmin
+      ? (profile?.active_company_id ?? profile?.company_id ?? null)
+      : (profile?.company_id ?? null);
+    // PA sem company ativo pode aceder a qualquer tenant (raro); senão exige match.
+    const bypass = isPlatformAdmin && callerCompanyId == null;
+    if (!bypass && callerCompanyId !== companyId) {
+      console.warn(
+        `[campaign-diagnosis] 403 cross-tenant — caller company=${callerCompanyId} body=${companyId}`,
+      );
+      return json({ error: "forbidden", detail: "company_id não pertence ao utilizador" }, 403);
+    }
+    console.log(`[campaign-diagnosis] caller=authenticated user=${createdBy} company verificado`);
+  } else {
+    console.warn(`[campaign-diagnosis] 403 — token role inesperado: ${tokenRole}`);
+    return json(
+      { error: "forbidden", detail: "autorização insuficiente para aceder a este company_id" },
+      403,
+    );
+  }
 
   let windowsResult;
   try {
@@ -713,15 +759,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Edge case: diagnóstico indeterminado (sem dados) também é inserido — saber
   // que uma campanha não tem dados suficientes é informação útil.
   const campaignMeta = (windowsResult as any).campaign_meta ?? { connection_id: null, campaign_name: null };
-  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
 
   let diagnosisId: string | null = null;
   let persisted = false;
   let persistError: string | null = null;
   try {
-    const { data: inserted, error: insErr } = await (admin as any)
+    const { data: inserted, error: insErr } = await (supabase as any)
       .schema("crm")
       .from("campaign_diagnosis_360")
       .insert({
