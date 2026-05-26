@@ -64,6 +64,8 @@ const TREND_BAND_FACTORS: Record<string, number> = {
 // ── Classificação da campanha (Fase 1D) — constantes CALIBRÁVEIS ──
 const HEALTHY_FLOOR_RATIO = 0.60;     // floor de "nível bom" = target_roas * 0.60
 const DEAD_BASELINE_THRESHOLD = 0.30; // baseline projetado <= isto → MORTA
+// ── Sub-fase 1.E-1: detecção de wind-down — constante CALIBRÁVEL ──
+const WINDDOWN_PAUSED_ADSET_RATIO = 0.5; // > 50% dos adsets PAUSED → campanha em wind-down
 // Tipos estritos: o compilador valida que a função só produz estes valores
 // (e que batem com a coluna source_campaign_class text da tabela).
 type SourceCampaignClass =
@@ -331,6 +333,7 @@ function classifyTrendBand(
 function computeCampaignTrajectory(
   byWindow: Record<string, WindowMetrics>,
   historyWarning: boolean,
+  bandOverride?: { band: TrendBand; ratio: number | null },
 ) {
   const baseWindows = ["last_7d", "last_30d", "all_time"] as const;
   const windowsUsed: any[] = [];
@@ -382,7 +385,8 @@ function computeCampaignTrajectory(
     numeroBase = round(weightedSum, 4);
   }
 
-  const { band, ratio } = classifyTrendBand(byWindow.last_7d, byWindow.prev_7d);
+  // Banda: override (1.E-1, janelas pré-pausa) ou o cálculo normal (last_7d vs prev_7d).
+  const { band, ratio } = bandOverride ?? classifyTrendBand(byWindow.last_7d, byWindow.prev_7d);
   const adjustmentFactor = TREND_BAND_FACTORS[band];
   const projected = numeroBase === null ? null : round(numeroBase * adjustmentFactor, 4);
 
@@ -543,6 +547,7 @@ async function readInsightWindows(
       levels: null,
       raw_counts: { campaign: 0, adset: 0, ad: 0 },
       campaign_meta: campaignMeta,
+      operational_warning: null,
     };
   }
 
@@ -569,7 +574,86 @@ async function readInsightWindows(
 
   // ── FASE 1C: projeção de trajetória (apenas nível campaign) ──
   const campaignByWindow = windowMetricsForRows(campRows, windows);
-  const campaignTrajectory = computeCampaignTrajectory(campaignByWindow, historyWarning);
+
+  // ── Sub-fase 1.E-1: detecção de wind-down (campanha a ser desligada) ──
+  // Lê effective_status dos adsets (snapshot fresco; service_role tem SELECT).
+  // Maioria PAUSED (> WINDDOWN_PAUSED_ADSET_RATIO) → is_winddown.
+  const { data: adsetSnaps } = await supabase
+    .schema("crm").from("meta_adset_snapshot")
+    .select("external_adset_id, effective_status")
+    .eq("company_id", companyId).eq("external_campaign_id", campaignId);
+  const totalAdsets = adsetSnaps?.length ?? 0;
+  const pausedAdsets = (adsetSnaps ?? []).filter((a: any) => a.effective_status === "PAUSED").length;
+  const pausedRatio = totalAdsets > 0 ? pausedAdsets / totalAdsets : 0;
+  const isWinddown = totalAdsets > 0 && pausedRatio > WINDDOWN_PAUSED_ADSET_RATIO;
+
+  // winddown_start_date: a partir da âncora para trás, 1º dia da sequência CONTÍGUA
+  // (calendário) de dias com spend>0 e 0 conversões. Um dia em falta / com conversões /
+  // sem spend quebra a sequência. null se a âncora ainda convertia (sem cauda contaminada).
+  let winddownStart: string | null = null;
+  if (isWinddown) {
+    const byDate = new Map<string, any>();
+    for (const r of campRows) if (r.date_start) byDate.set(r.date_start, r);
+    let cursor = anchor;
+    while (true) {
+      const row = byDate.get(cursor);
+      if (!row) break;
+      const spend = Number(row.spend_cents ?? 0);
+      const purch = Number(row.purchases_count ?? 0);
+      if (spend > 0 && purch === 0) {
+        winddownStart = cursor;
+        cursor = addDays(cursor, -1);
+      } else break;
+    }
+  }
+
+  // Trajetória: ajustada (só dados pré-wind-down) quando há winddownStart; senão normal.
+  const trajAdjusted = isWinddown && winddownStart != null;
+  let campaignTrajectory: any;
+  let numeroBaseBefore: number | null = null;
+  let bandBefore: string | null = null;
+  if (trajAdjusted) {
+    const startStr = winddownStart as string;
+    // Dados limpos = dias < winddownStart. A last_7d limpa fica vazia → no_data → excluída.
+    // last_30d/all_time são recalculadas só com dias limpos (renormalização já existente).
+    const cleanRows = campRows.filter((r: any) => r.date_start && r.date_start < startStr);
+    const cleanByWindow = windowMetricsForRows(cleanRows, windows);
+    // Banda (Opção Y): duas semanas de 7d imediatamente ANTES do winddownStart.
+    const preWeekWin = { from: addDays(startStr, -7), to: addDays(startStr, -1) };
+    const priorWeekWin = { from: addDays(startStr, -14), to: addDays(startStr, -8) };
+    const preWeekM = computeWindowMetrics(campRows.filter((r: any) => r.date_start && inWindow(r.date_start, preWeekWin)));
+    const priorWeekM = computeWindowMetrics(campRows.filter((r: any) => r.date_start && inWindow(r.date_start, priorWeekWin)));
+    const bandOverride = classifyTrendBand(preWeekM, priorWeekM); // sem dados → indeterminate (fator 1.0)
+    const before = computeCampaignTrajectory(campaignByWindow, historyWarning);
+    numeroBaseBefore = before.numero_base;
+    bandBefore = before.trend_band;
+    campaignTrajectory = {
+      ...computeCampaignTrajectory(cleanByWindow, historyWarning, bandOverride),
+      trajectory_adjusted_for_winddown: true,
+    };
+  } else {
+    campaignTrajectory = {
+      ...computeCampaignTrajectory(campaignByWindow, historyWarning),
+      trajectory_adjusted_for_winddown: false,
+    };
+  }
+
+  // Aviso operacional (top-level do diagnosis) — só quando wind-down.
+  const operationalWarning = isWinddown
+    ? {
+      is_winddown: true,
+      paused_adset_ratio: Math.round(pausedRatio * 1000) / 1000,
+      paused_adsets: pausedAdsets,
+      total_adsets: totalAdsets,
+      winddown_start_date: winddownStart,
+      message: winddownStart
+        ? `Campanha maioritariamente pausada (${pausedAdsets}/${totalAdsets} adsets PAUSED). ` +
+          `Detectado gasto residual sem conversões desde ${winddownStart} (wind-down). ` +
+          `A trajetória foi recalculada apenas com dados anteriores a essa data (pré-pausa).`
+        : `Campanha maioritariamente pausada (${pausedAdsets}/${totalAdsets} adsets PAUSED), ` +
+          `mas os últimos dados ainda convertiam — trajetória não ajustada, apenas sinalizada.`,
+    }
+    : null;
 
   // ── FASE 1D: classificação da campanha (apenas nível campaign) ──
   const campaignClassification = classifyCampaign(campaignTrajectory, targetRoas);
@@ -622,6 +706,18 @@ async function readInsightWindows(
       ` floor=${campaignClassification.healthy_floor}` +
       ` | reason: ${campaignClassification.classification_reason}`,
   );
+  console.log("[campaign-diagnosis] winddown_detection", {
+    paused_adset_ratio: Math.round(pausedRatio * 1000) / 1000,
+    paused_adsets: pausedAdsets,
+    total_adsets: totalAdsets,
+    is_winddown: isWinddown,
+    winddown_start_date: winddownStart,
+    trajectory_adjusted: trajAdjusted,
+    numero_base_before: numeroBaseBefore,
+    numero_base_after: trajAdjusted ? campaignTrajectory.numero_base : null,
+    band_before: bandBefore,
+    band_after: trajAdjusted ? campaignTrajectory.trend_band : null,
+  });
 
   return {
     has_data: true,
@@ -636,6 +732,7 @@ async function readInsightWindows(
     levels,
     raw_counts: { campaign: campRows.length, adset: adsetRows.length, ad: adRows.length },
     campaign_meta: campaignMeta,
+    operational_warning: operationalWarning,
   };
 }
 
@@ -745,6 +842,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     source_campaign_class: sourceCampaignClass,
     projected_baseline_roas: projectedBaselineRoas,
     recommended_posture: recommendedPosture,
+    // 1.E-1 — aviso operacional (só quando wind-down; omitido caso contrário).
+    operational_warning: (windowsResult as any).operational_warning ?? undefined,
     created_by: createdBy,
     anchor_date: windowsResult.anchor_date,
     history: windowsResult.history,
