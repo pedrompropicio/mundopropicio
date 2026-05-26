@@ -31,13 +31,26 @@ interface EnrichedEvent {
   [key: string]: any;
 }
 
+interface ZoneBreakdown {
+  name: string;
+  qty: number;
+  qtyYesterday: number;
+  qty7d: number;
+  revenue: number;
+  revYesterday: number;
+  rev7d: number;
+}
+
 interface SalesBreakdown {
   qty: number;
   revenue: number;
   yesterday: number;
   last7d: number;
+  qtyYesterday: number;
+  qtyLast7d: number;
   lastSaleAmount: number | null;
   lastSaleDate: string | null;
+  zones: Record<string, ZoneBreakdown>;
 }
 
 interface ComputedEvent extends EnrichedEvent {
