@@ -858,8 +858,62 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const viability = analyzeViability(roasBuckets);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Fase 1 — Pré-checks early-abort (D1 + D3 + A3).
+  // DIAG — Diagnóstico 360 server-to-server (crm-campaign-diagnosis).
+  // [Fase 3A] Movido para ANTES do decideSkip/switch: define diagSourceClass e
+  // diagBaselineRoas, necessários à ramificação de shape por classe (e à FIX 1).
+  // Corre também nos caminhos de skip — intencional (a diagnosis é determinística
+  // e barata). Padrão PAS: URL absoluto, reencaminha Authorization+apikey, falha
+  // graciosa (em falha diagSourceClass e diagBaselineRoas ficam null).
+  // ─────────────────────────────────────────────────────────────────────────
+  let diagBaselineRoas: number | null = null;
+  let diagSourceClass: string | null = null;
+  let diag360Id: string | null = null;
+  try {
+    const diagUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/crm-campaign-diagnosis`;
+    console.log("[redesign] DIAG_starting", {
+      company_id: campaign.company_id,
+      external_campaign_id: campaignId,
+      target_roas: targetBlendedRoas,
+    });
+    const diagResp = await fetch(diagUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": req.headers.get("Authorization") ?? "",
+        "Content-Type": "application/json",
+        "apikey": req.headers.get("apikey") ?? "",
+      },
+      body: JSON.stringify({
+        company_id: campaign.company_id,
+        external_campaign_id: campaignId,
+        target_roas: targetBlendedRoas,
+      }),
+    });
+    if (diagResp.ok) {
+      const diagData = await diagResp.json();
+      const baseline = Number(diagData?.projected_baseline_roas);
+      diagBaselineRoas = Number.isFinite(baseline) && baseline > 0 ? baseline : null;
+      diagSourceClass = typeof diagData?.source_campaign_class === "string" ? diagData.source_campaign_class : null;
+      diag360Id = typeof diagData?.diagnosis_id === "string" ? diagData.diagnosis_id : null;
+      console.log("[redesign] DIAG_completed", {
+        ok: diagData?.ok ?? null,
+        source_campaign_class: diagSourceClass,
+        projected_baseline_roas: diagData?.projected_baseline_roas ?? null,
+        recommended_posture: diagData?.recommended_posture ?? null,
+        diagnosis_id: diag360Id,
+        usable_baseline: diagBaselineRoas,
+      });
+    } else {
+      const errText = await diagResp.text().catch(() => "");
+      console.warn("[redesign] DIAG_http_error", { status: diagResp.status, body_excerpt: errText.slice(0, 200) });
+    }
+  } catch (err) {
+    console.warn("[redesign] DIAG_exception", { error: err instanceof Error ? err.message : String(err) });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Fase 1 — Pré-checks early-abort de VIABILIDADE (D1 + D3) — independentes de classe.
   // Decide se vale a pena chamar o LLM. Devolve {reason, message} ou null.
+  // (A3 movido para legacyA3Skip() — ver switch por classe da Fase 3A.)
   // ─────────────────────────────────────────────────────────────────────────
   function decideSkip(): { reason: SkipReason; message: string } | null {
     // D1 — Gap unrealistic + sem budget para validar
@@ -889,7 +943,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
           `manter campanha actual e monitorizar até ao fim.`,
       };
     }
-    // A3 — Trajectória ascendente perto do target (campanha em auto-melhoria)
+    // A3 movido para legacyA3Skip() (Fase 3A) — agora só corre no ramo default do
+    // switch por classe (rede de segurança quando a diagnosis está indisponível).
+    return null;
+  }
+
+  // legacyA3Skip — condição A3 ORIGINAL (pré-3A): trajectória ascendente perto do
+  // alvo (campanha em auto-melhoria). Usada SÓ no ramo default do switch por classe
+  // (diagSourceClass null/desconhecido). Lógica byte-a-byte igual à antiga A3.
+  function legacyA3Skip(): { reason: SkipReason; message: string } | null {
     if (
       (viability.trajectory === "strong_uptrend" || viability.trajectory === "uptrend") &&
       viability.roas_7d != null &&
@@ -909,7 +971,72 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return null;
   }
 
-  const skip = decideSkip();
+  // Gates de viabilidade D1/D3 (independentes de classe) — têm precedência sobre o switch.
+  let skip = decideSkip();
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Fase 3A — Decisão de SHAPE do output por classe da campanha-fonte.
+  // Corre após DIAG (diagSourceClass) e após os gates D1/D3 (não os altera).
+  // Só decide o shape quando D1/D3 não abortaram.
+  // ─────────────────────────────────────────────────────────────────────────
+  if (!skip) {
+    let outputShape: "skip_saudavel_subindo" | "redesign" | "fallback_default" = "redesign";
+    let decidedBy: "class" | "fallback" = "class";
+    switch (diagSourceClass) {
+      case "saudavel_subindo":
+        // Mesmo shape que o A3 antigo: skip stub. Campanha saudável e a subir.
+        skip = {
+          reason: "ascending_trajectory_near_target",
+          message:
+            `Campanha classificada como saudável e em trajectória ascendente ` +
+            `(classe "saudavel_subindo"${diagBaselineRoas != null ? `, ROAS projectado ${diagBaselineRoas.toFixed(2)}x` : ""}). ` +
+            `Recomenda-se NÃO fazer redesign agora — escalar gradualmente e monitorizar. ` +
+            `Redesign arriscaria degradar uma campanha em auto-melhoria.`,
+        };
+        outputShape = "skip_saudavel_subindo";
+        break;
+      case "fraca":
+        // Fluxo de redesign completo (caminho actual — não alterado).
+        outputShape = "redesign";
+        break;
+      case "morta":
+        // TODO Fase 3B: shape "nova_campanha_completa". Por agora cai no redesign.
+        outputShape = "redesign";
+        console.warn("[redesign] shape_not_specialized", {
+          source_campaign_class: "morta",
+          intended_shape: "nova_campanha_completa",
+          using: "redesign_fallback",
+        });
+        break;
+      case "saudavel_caindo":
+        // TODO Fase 3B: shape "intervencao_cirurgica". Por agora cai no redesign.
+        outputShape = "redesign";
+        console.warn("[redesign] shape_not_specialized", {
+          source_campaign_class: "saudavel_caindo",
+          intended_shape: "intervencao_cirurgica",
+          using: "redesign_fallback",
+        });
+        break;
+      default: {
+        // diagnosis indisponível / classe inesperada → rede de segurança pré-3A:
+        // corre o A3 antigo. Se disparar → skip; senão segue para redesign.
+        // Comportamento idêntico ao de antes da Fase 3A.
+        const a3 = legacyA3Skip();
+        if (a3) skip = a3;
+        outputShape = "fallback_default";
+        decidedBy = "fallback";
+        break;
+      }
+    }
+    console.log("[redesign] output_shape_decision", {
+      diag_source_class: diagSourceClass,
+      output_shape: outputShape,
+      decided_by: decidedBy,
+      skip_triggered: !!skip,
+      skip_reason: skip?.reason ?? null,
+    });
+  }
+
   if (skip) {
     // Stub plan: mesma shape do output normal mas com phases vazias + flags de skip.
     // Front renderiza graciosamente via skip_llm flag (assumido — não verificado).
@@ -1012,60 +1139,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
         diagnosis_id: diagnosisId,
       },
     });
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // DIAG — Diagnóstico 360 server-to-server (crm-campaign-diagnosis).
-  // Projecta a trajectória da campanha (projected_baseline_roas) para a FIX 1
-  // comparar o plano contra a tendência projectada em vez do ROAS-30d estático.
-  // Padrão idêntico ao PAS: URL absoluto, reencaminha Authorization+apikey, falha
-  // graciosa. Colocado APÓS o skip early-abort para não gastar a chamada quando o
-  // redesign aborta (o baseline só é usado na FIX 1, pós-LLM). Em caso de falha,
-  // diagBaselineRoas fica null → FIX 1 cai no fallback (viability.current_roas).
-  // ─────────────────────────────────────────────────────────────────────────
-  let diagBaselineRoas: number | null = null;
-  let diagSourceClass: string | null = null;
-  let diag360Id: string | null = null;
-  try {
-    const diagUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/crm-campaign-diagnosis`;
-    console.log("[redesign] DIAG_starting", {
-      company_id: campaign.company_id,
-      external_campaign_id: campaignId,
-      target_roas: targetBlendedRoas,
-    });
-    const diagResp = await fetch(diagUrl, {
-      method: "POST",
-      headers: {
-        "Authorization": req.headers.get("Authorization") ?? "",
-        "Content-Type": "application/json",
-        "apikey": req.headers.get("apikey") ?? "",
-      },
-      body: JSON.stringify({
-        company_id: campaign.company_id,
-        external_campaign_id: campaignId,
-        target_roas: targetBlendedRoas,
-      }),
-    });
-    if (diagResp.ok) {
-      const diagData = await diagResp.json();
-      const baseline = Number(diagData?.projected_baseline_roas);
-      diagBaselineRoas = Number.isFinite(baseline) && baseline > 0 ? baseline : null;
-      diagSourceClass = typeof diagData?.source_campaign_class === "string" ? diagData.source_campaign_class : null;
-      diag360Id = typeof diagData?.diagnosis_id === "string" ? diagData.diagnosis_id : null;
-      console.log("[redesign] DIAG_completed", {
-        ok: diagData?.ok ?? null,
-        source_campaign_class: diagSourceClass,
-        projected_baseline_roas: diagData?.projected_baseline_roas ?? null,
-        recommended_posture: diagData?.recommended_posture ?? null,
-        diagnosis_id: diag360Id,
-        usable_baseline: diagBaselineRoas,
-      });
-    } else {
-      const errText = await diagResp.text().catch(() => "");
-      console.warn("[redesign] DIAG_http_error", { status: diagResp.status, body_excerpt: errText.slice(0, 200) });
-    }
-  } catch (err) {
-    console.warn("[redesign] DIAG_exception", { error: err instanceof Error ? err.message : String(err) });
   }
 
   // E1 — Downtrend pre-LLM warning injection.
