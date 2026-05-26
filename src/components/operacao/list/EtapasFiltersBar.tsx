@@ -65,16 +65,97 @@ export function EtapasFiltersBar() {
   const hasAnyFilter =
     filters.frentes.length > 0 ||
     filters.status.length > 0 ||
-    filters.responsibility !== "todos";
+    filters.responsibility !== "todos" ||
+    (filters.date_preset ?? "all") !== "all";
 
   const toggleDir = () =>
     update({ sort_dir: (filters.sort_dir === "asc" ? "desc" : "asc") as SortDir });
+
+  const preset: DatePreset = filters.date_preset ?? "all";
+  const fromDate = parseISO(filters.date_from);
+  const toDate = parseISO(filters.date_to);
+
+  const setPreset = (p: DatePreset) => {
+    if (p === "today") {
+      const t = toISO(new Date());
+      update({ date_preset: "today", date_from: t, date_to: t });
+    } else if (p === "all") {
+      update({ date_preset: "all", date_from: undefined, date_to: undefined });
+    } else {
+      // range — keep existing or seed with today
+      const t = toISO(new Date());
+      update({
+        date_preset: "range",
+        date_from: filters.date_from ?? t,
+        date_to: filters.date_to ?? t,
+      });
+    }
+  };
+
+  const rangeLabel = () => {
+    if (preset !== "range" || !fromDate) return "Período…";
+    const f = format(fromDate, "dd MMM", { locale: pt });
+    if (!toDate || filters.date_from === filters.date_to) return f;
+    return `${f} – ${format(toDate, "dd MMM", { locale: pt })}`;
+  };
 
   return (
     <div className="border-b pb-3 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <Filter className="h-4 w-4 text-muted-foreground" />
 
+        {/* Período */}
+        <div className="flex items-center gap-1">
+          <Button
+            variant={preset === "all" ? "default" : "outline"}
+            size="sm"
+            className="h-8 px-2"
+            onClick={() => setPreset("all")}
+          >
+            Todas
+          </Button>
+          <Button
+            variant={preset === "today" ? "default" : "outline"}
+            size="sm"
+            className="h-8 px-2"
+            onClick={() => setPreset("today")}
+          >
+            Hoje
+          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={preset === "range" ? "default" : "outline"}
+                size="sm"
+                className="h-8 px-2"
+                onClick={() => preset !== "range" && setPreset("range")}
+              >
+                <CalendarIcon className="h-3.5 w-3.5 mr-1" />
+                {rangeLabel()}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="range"
+                selected={fromDate ? { from: fromDate, to: toDate ?? fromDate } : undefined}
+                onSelect={(range: any) => {
+                  if (!range?.from) {
+                    update({ date_preset: "all", date_from: undefined, date_to: undefined });
+                    return;
+                  }
+                  update({
+                    date_preset: "range",
+                    date_from: toISO(range.from),
+                    date_to: toISO(range.to ?? range.from),
+                  });
+                }}
+                numberOfMonths={2}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
 
         <Select
           value={filters.sort_by ?? "planned_start"}
@@ -102,6 +183,7 @@ export function EtapasFiltersBar() {
           </Button>
         )}
       </div>
+
 
       {(frentes ?? []).length > 0 && (
         <div className="flex flex-wrap gap-1.5">
