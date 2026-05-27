@@ -273,11 +273,24 @@ export default function Dashboard() {
     queryKey: ["dashboard_ticket_sales", companyId],
     enabled: !!companyId,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("*, event_ticket_zones(event_id)");
-      if (error) throw error;
-      return data;
+      // Pagina explicitamente para contornar o limite default de 1000 do PostgREST.
+      const pageSize = 1000;
+      let from = 0;
+      const all: any[] = [];
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { data, error } = await supabase
+          .from("ticket_sales")
+          .select("*, event_ticket_zones(event_id)")
+          .order("sale_date", { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      return all;
     },
   });
 
