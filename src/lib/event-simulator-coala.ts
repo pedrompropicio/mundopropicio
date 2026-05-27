@@ -386,7 +386,7 @@ export type ScenarioKpis = {
   totalPublic: number;
   /** Bilhetes únicos vendidos (1 combo = 1 bilhete). */
   uniqueTickets: number;
-  tmTickets: number;       // receita / bilhetes únicos (preço médio do bilhete)
+  tmTickets: number;       // receita de bilheteira / pagantes × dia (combo 2d = 2)
   tmAB: number;            // A&B / presenças (consumo médio por pessoa-dia)
   costPerPerson: number;   // custo total / presenças
   resultPerPerson: number; // resultado / presenças
@@ -399,12 +399,15 @@ export function computeScenarioKpis(
 ): ScenarioKpis {
   const uniqueTickets = rev.ticketsQty + rev.courtesyQty;
   const totalPublic = rev.attendanceQty + rev.attendanceCourtesyQty;
-  const divTickets = uniqueTickets > 0 ? uniqueTickets : 0;
   const divAttendance = totalPublic > 0 ? totalPublic : 0;
+  // TM Ingresso = receita de bilheteira ÷ pagantes×dia (presenças pagantes
+  // expandidas: 1 Passe 2 dias = 2). Alinhado com tmAB/costPerPerson para
+  // que todos os indicadores per-capita usem o mesmo denominador.
+  const payingAttendance = rev.attendanceQty > 0 ? rev.attendanceQty : 0;
   return {
     totalPublic,
     uniqueTickets,
-    tmTickets: divTickets ? rev.ticketsRevenue / rev.ticketsQty : 0,
+    tmTickets: payingAttendance ? rev.ticketsRevenue / payingAttendance : 0,
     tmAB: divAttendance ? (rev.drinkRevenue + rev.foodRevenue) / divAttendance : 0,
     costPerPerson: divAttendance ? cost.totalCost / divAttendance : 0,
     resultPerPerson: divAttendance ? result.general / divAttendance : 0,
