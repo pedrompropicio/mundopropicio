@@ -41,6 +41,18 @@ function mapObjective(objective: string | undefined): string {
   return m[objective] ?? "OUTCOME_TRAFFIC";
 }
 
+// Gate de qualidade de criativos: um criativo é "degradado" se o nome ainda contém
+// um placeholder por resolver ({{...}}) ou se a headline está em falta — ambos
+// publicariam texto inválido na conta Meta real. Devolve o motivo (para log) ou null.
+// IMPORTANTE: mantém-se idêntico ao predicado do frontend em
+// src/pages/crm/StrategyView.tsx (creativeDegradedReason). Runtimes diferentes
+// (Deno vs Vite) impedem partilhar o mesmo módulo — alterar os dois em conjunto.
+function creativeDegradedReason(c: { name?: string | null; headline?: string | null }): string | null {
+  if (typeof c?.name === "string" && c.name.includes("{{")) return "placeholder no nome";
+  if (!c?.headline || c.headline.trim() === "") return "headline em falta";
+  return null;
+}
+
 async function metaPost(path: string, accessToken: string, params: Record<string, string>): Promise<any> {
   const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${path}`;
   const body = new URLSearchParams({ ...params, access_token: accessToken });
@@ -175,7 +187,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     for (const phase of phases) {
       const phaseCreativeIds = creativeIdsByPhase[phase.id] ?? creativeIdsByPhase["_global"] ?? [];
-      const phaseCreatives = phaseCreativeIds.map((id) => creativesById.get(id)).filter(Boolean);
+      const phaseCreativesAll = phaseCreativeIds.map((id) => creativesById.get(id)).filter(Boolean);
+      // GATE de qualidade: saltar criativos degradados ANTES do guard de fase vazia
+      // (abaixo), para que uma fase sem criativos válidos seja saltada antes de criar
+      // qualquer Campaign/AdSet na Meta — evitando entidades órfãs em PAUSED.
+      const phaseCreatives = phaseCreativesAll.filter((c: any) => {
+        const reason = creativeDegradedReason(c);
+        if (reason) {
+          addLog("error", `✗ Criativo saltado (degradado): ${c.name ?? c.id}`, { creative_id: c.id, reason });
+          return false;
+        }
+        return true;
+      });
       const phaseCampaigns = recommendedCampaigns.filter((c: any) => c.phase_id === phase.id);
       // Detectar herdados no plan para esta fase
       const phaseHasInherited = phaseCampaigns.some((c: any) =>

@@ -161,6 +161,17 @@ function fmtNum(n: number | null | undefined) {
   return Number(n).toLocaleString("pt-PT", { maximumFractionDigits: 2 });
 }
 
+// Gate de qualidade de criativos: um criativo é "degradado" se o nome ainda contém
+// um placeholder por resolver ({{...}}) ou se a headline está em falta. Devolve o
+// motivo ou null. IMPORTANTE: idêntico ao predicado do backend em
+// supabase/functions/crm-meta-strategy-deploy/index.ts (creativeDegradedReason).
+// Runtimes diferentes (Vite vs Deno) impedem partilhar o módulo — alterar os dois juntos.
+function creativeDegradedReason(c: { name?: string | null; headline?: string | null } | null | undefined): string | null {
+  if (typeof c?.name === "string" && c.name.includes("{{")) return "placeholder no nome";
+  if (!c?.headline || c.headline.trim() === "") return "headline em falta";
+  return null;
+}
+
 export default function CrmStrategyView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -217,7 +228,7 @@ export default function CrmStrategyView() {
       const { data, error } = await (supabase as any)
         .schema("crm")
         .from("meta_strategy_creatives")
-        .select("id, creative_id, phase_id, position, meta_creatives:creative_id(id, name, type, file_url, duration_seconds)")
+        .select("id, creative_id, phase_id, position, meta_creatives:creative_id(id, name, type, file_url, duration_seconds, headline)")
         .eq("strategy_id", id)
         .order("position", { ascending: true });
       if (error) throw error;
@@ -459,7 +470,7 @@ export default function CrmStrategyView() {
   }, [inheritedByPhase]);
 
   const deployChecks = useMemo(() => {
-    const checks: { label: string; ok: boolean; detail?: string }[] = [];
+    const checks: { label: string; ok: boolean; warn?: boolean; detail?: string }[] = [];
     checks.push({
       label: "Conexão Meta ativa",
       ok: connection?.status === "active",
@@ -491,6 +502,38 @@ export default function CrmStrategyView() {
       label: `Criativos em todas as fases (${phasesCovered}/${totalPhases})`,
       ok: phasesWithoutCreatives.length === 0,
       detail,
+    });
+
+    // Check de qualidade: o deploy salta criativos degradados (placeholder no nome
+    // ou headline em falta). Avisa quantos serão saltados e bloqueia se alguma fase
+    // ficar sem criativos válidos (nem novos válidos, nem herdados) por causa disso.
+    let totalDegraded = 0;
+    const emptiedPhases: string[] = [];
+    for (const phase of plan?.phases ?? []) {
+      const assocs = associationsByPhase.get(phase.id) ?? [];
+      let validNew = 0;
+      for (const a of assocs) {
+        if (!a.meta_creatives) continue;
+        if (creativeDegradedReason(a.meta_creatives)) totalDegraded++;
+        else validNew++;
+      }
+      const hasInherited = (inheritedByPhase.get(phase.id)?.size ?? 0) > 0;
+      // Só conta como "esvaziada pela degradação" se tinha criativos novos associados
+      // mas nenhum válido sobra e não há herdados. Fases sem associações nenhumas já
+      // são apanhadas pelo check anterior.
+      if (assocs.length > 0 && validNew === 0 && !hasInherited) emptiedPhases.push(phase.name);
+    }
+    const qualityOk = emptiedPhases.length === 0;
+    const qualityDetail = totalDegraded === 0
+      ? "✓ Sem placeholders nem headlines em falta"
+      : qualityOk
+        ? `⚠ ${totalDegraded} criativo(s) serão saltados (placeholder no nome ou headline em falta) — todas as fases mantêm cobertura`
+        : `${emptiedPhases.length} fase(s) ficariam sem criativos válidos: ${emptiedPhases.join(", ")}`;
+    checks.push({
+      label: "Qualidade dos criativos (sem placeholders)",
+      ok: qualityOk,
+      warn: totalDegraded > 0 && qualityOk,
+      detail: qualityDetail,
     });
     return checks;
   }, [connection, plan, associationsByPhase, inheritedByPhase, inheritedTotal]);
@@ -1436,7 +1479,11 @@ export default function CrmStrategyView() {
           {deployChecks.map((check, i) => (
             <div key={i} className="flex items-start gap-2 text-xs">
               {check.ok ? (
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                check.warn ? (
+                  <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
+                ) : (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                )
               ) : check.label === "Instagram associado" ? (
                 <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
               ) : (
