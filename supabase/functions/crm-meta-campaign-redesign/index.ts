@@ -34,6 +34,15 @@ const KEYWORD_DIVERGENCE_TOLERANCE = 0.5;   // C2: claimed - expected > 0.5x = w
 const CREATIVE_MIN_SPEND_EUR = 50;          // 3B: gasto acumulado mínimo p/ classificar
 const CREATIVE_MIN_PURCHASES = 3;           // 3B: conversões mínimas p/ classificar
 const CREATIVE_WINNER_ROAS_RATIO = 0.6;     // 3B: winner se roas_creative >= target_roas * 0.6
+// ─────────────────────────────────────────────────────────────────────────
+// Fase 3C — Budget determinístico (substitui o budget do LLM no caminho normal).
+// Limiares de ARRANQUE, calibráveis com dados reais.
+const BUDGET_MAX_MULTIPLIER_VS_CURRENT = 5;  // 3C: budget diário recomendado <= 5x o gasto diário actual
+const STATISTICAL_FLOOR_SPEND_EUR = 2000;    // 3C: floor estatístico de spend (era hardcoded em analyzeViability)
+const TICKET_AVG_FALLBACK_EUR = 25;          // 3C: ticket médio fallback p/ goal_revenue (era local em analyzeViability)
+// 3C v3 — Verba de aprendizagem editável (sem piso rígido). Limiar de aviso de compressão
+// RELATIVO à curva de cada fase (escala automaticamente com o tamanho do evento).
+const PHASE_COMPRESSION_WARN_RATIO = 0.30;   // 3C v3: UI sinaliza fase de escala < 30% da verba-base da curva
 // E3 — Downtrend tuning. Arbitrário; calibrar empiricamente em produção.
 const TRAJECTORY_DOWNTREND_PROJECTION_RATIO_LIMIT = 2.0;
 // E3 — Keywords PT que indicam que o LLM justificou plano de recovery no rationale.
@@ -810,6 +819,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const keepOriginal = ctIn.keep_original_budget !== false; // default true
   let effDailyCents: number | null = typeof ctIn.daily_budget_cents === "number" ? ctIn.daily_budget_cents : null;
   let effLifetimeCents: number | null = typeof ctIn.lifetime_budget_cents === "number" ? ctIn.lifetime_budget_cents : null;
+  // Fase 3C — só há constraint EXPLÍCITA de verba quando o utilizador passou um número.
+  // (keepOriginal a puxar o budget actual da campanha NÃO conta como explícita.)
+  // Quando há constraint explícita, ela tem precedência sobre o budget determinístico.
+  const hasExplicitBudgetConstraint =
+    typeof ctIn.daily_budget_cents === "number" || typeof ctIn.lifetime_budget_cents === "number";
   if (keepOriginal && effDailyCents == null && effLifetimeCents == null) {
     effDailyCents = campaign.daily_budget_cents ?? null;
     effLifetimeCents = campaign.lifetime_budget_cents ?? null;
@@ -910,7 +924,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // 5b) Análise de viabilidade (Sprint 3c-2) — calcula apenas, não prescreve.
   // Métricas concretas para o prompt ancorar o juízo da IA na realidade.
-  const TICKET_AVG_FALLBACK_EUR = 25;
+  // (TICKET_AVG_FALLBACK_EUR e STATISTICAL_FLOOR_SPEND_EUR agora no topo — Fase 3C.)
   function analyzeViability(buckets: ROASBuckets) {
     const targetRoas = targetBlendedRoas;
     const currentRoas = campMetrics.roas ?? 0;
@@ -926,7 +940,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const spendNeededForGoal = eventGoalRevenue > 0 ? eventGoalRevenue / targetRoas : null;
     const dailySpendNeeded = spendNeededForGoal != null && daysUntil > 0 ? spendNeededForGoal / daysUntil : null;
 
-    const statisticalFloorSpend = 2000;
+    const statisticalFloorSpend = STATISTICAL_FLOOR_SPEND_EUR;
     const statisticalFloorPurchases = 50;
     const currentProjectedSpend = currentDailySpend * daysUntil;
     const meetsStatFloor = currentProjectedSpend >= statisticalFloorSpend
@@ -966,6 +980,45 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   const viability = analyzeViability(roasBuckets);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Fase 3C — Budget diário/total DETERMINÍSTICO (substitui o budget do LLM no
+  // caminho normal). Aplica-se SÓ quando NÃO há constraint explícita de verba do
+  // utilizador — caso contrário a constraint mantém precedência.
+  // ─────────────────────────────────────────────────────────────────────────
+  function computeDeterministicBudget() {
+    const days = Math.max(1, viability.days_until_event);
+    const candidato_goal = viability.target_roas > 0
+      ? viability.event_goal_revenue_eur / viability.target_roas / days : 0;
+    const candidato_floor = STATISTICAL_FLOOR_SPEND_EUR / days;
+    const ancora = Math.max(candidato_goal, candidato_floor);
+    const winner: "goal" | "floor" = candidato_goal >= candidato_floor ? "goal" : "floor";
+    // Cap só quando há gasto actual conhecido (>0) — gasto 0/desconhecido NÃO limita
+    // (evita forçar budget 0); usa-se a âncora directamente.
+    const cap = viability.current_daily_spend_eur > 0
+      ? viability.current_daily_spend_eur * BUDGET_MAX_MULTIPLIER_VS_CURRENT
+      : null;
+    const cap_applied = cap != null && ancora > cap;
+    const dailyBeforeRound = cap != null ? Math.min(ancora, cap) : ancora;
+    const daily_final = Math.ceil(dailyBeforeRound / 5) * 5; // múltiplos de €5 (padrão CP1)
+    const total = daily_final * days;
+    return { daily_final, total, candidato_goal, candidato_floor, ancora, cap, cap_applied, winner };
+  }
+  const budgetDet = computeDeterministicBudget();
+  const useDeterministicBudget = !hasExplicitBudgetConstraint && budgetDet.total > 0;
+  console.log("[redesign] budget_deterministic", {
+    candidato_goal: Math.round(budgetDet.candidato_goal * 100) / 100,
+    candidato_floor: Math.round(budgetDet.candidato_floor * 100) / 100,
+    ancora: Math.round(budgetDet.ancora * 100) / 100,
+    cap: budgetDet.cap != null ? Math.round(budgetDet.cap * 100) / 100 : null,
+    budget_diario_final: budgetDet.daily_final,
+    budget_total_deterministico: budgetDet.total,
+    winner: budgetDet.winner,
+    cap_applied: budgetDet.cap_applied,
+    current_daily_spend: Math.round(viability.current_daily_spend_eur * 100) / 100,
+    applied: useDeterministicBudget,
+    has_explicit_constraint: hasExplicitBudgetConstraint,
+  });
 
   // ─────────────────────────────────────────────────────────────────────────
   // DIAG — Diagnóstico 360 server-to-server (crm-campaign-diagnosis).
@@ -1671,6 +1724,10 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       viability.statistical_floor_spend_eur,
     );
     const recommendedBudgetFromLLM = Number(plan.summary.recommended_total_budget_eur) || estimatedBudgetFallback;
+    // Fase 3C — budget determinístico tem precedência no caminho normal (sem constraint
+    // explícita). Caso contrário usa o do LLM (comportamento anterior). Escala receita/
+    // compras/CPA linearmente; NÃO afecta expected_overall_roas.
+    const recommendedTotalBudget = useDeterministicBudget ? budgetDet.total : recommendedBudgetFromLLM;
     // 1.E-2 — override LIMPO: só quando o diagnóstico sinaliza wind-down E tem os ingredientes
     // (numero_base e banda limpos). Senão undefined → computeAnchoredNumbers calcula como hoje.
     const winddownCleanOverride = (diagIsWinddown && diagCleanBaseNumber != null && diagCleanBand != null)
@@ -1690,7 +1747,7 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
         end_date: effEndTime ?? "",
       },
       horizon_days: viability.days_until_event,
-      recommended_total_budget_eur: recommendedBudgetFromLLM,
+      recommended_total_budget_eur: recommendedTotalBudget,
       actual_revenue_eur: lifetimeMetricsForAnchor.revenue_eur,
       actual_purchases: lifetimeMetricsForAnchor.purchases,
       cleanOverride: winddownCleanOverride,
@@ -1718,14 +1775,32 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
     plan.summary.expected_revenue_eur = anchoredPost.expected_revenue_eur;
     plan.summary.expected_purchases = anchoredPost.expected_purchases;
     plan.summary.expected_cpa_eur = anchoredPost.expected_purchases > 0
-      ? Math.round((recommendedBudgetFromLLM / anchoredPost.expected_purchases) * 100) / 100
+      ? Math.round((recommendedTotalBudget / anchoredPost.expected_purchases) * 100) / 100
       : null;
     plan.summary.confidence = confidencePost.confidence;
     plan.summary.confidence_reasons = confidencePost.confidence_reasons;
     plan.summary.number_lineage = anchoredPost.number_lineage;
+    // Fase 3C — quando determinístico, o total do summary passa a ser o calculado.
+    if (useDeterministicBudget) plan.summary.recommended_total_budget_eur = budgetDet.total;
 
     console.log("[redesign] anchored_numbers", anchoredPost.number_lineage);
     console.log("[redesign] anchored_confidence", confidencePost);
+  }
+
+  // Fase 3C — budget_recommendation (UI) com os números DETERMINÍSTICOS quando aplicável.
+  if (useDeterministicBudget && plan && typeof plan === "object") {
+    const curDaily = viability.current_daily_spend_eur;
+    plan.budget_recommendation = (plan.budget_recommendation && typeof plan.budget_recommendation === "object")
+      ? plan.budget_recommendation : {};
+    plan.budget_recommendation.suggested_daily_eur = budgetDet.daily_final;
+    plan.budget_recommendation.suggested_total_eur = budgetDet.total;
+    plan.budget_recommendation.adjustment_direction =
+      budgetDet.daily_final > curDaily ? "increase" : budgetDet.daily_final < curDaily ? "decrease" : "maintain";
+    plan.budget_recommendation.adjustment_reason =
+      `Budget determinístico (3C): €${budgetDet.daily_final}/dia × ${viability.days_until_event} dias = €${budgetDet.total}. ` +
+      `Âncora=${budgetDet.winner} (goal €${Math.round(budgetDet.candidato_goal)}/dia vs floor €${Math.round(budgetDet.candidato_floor)}/dia)` +
+      `${budgetDet.cap_applied ? `, limitado a ${BUDGET_MAX_MULTIPLIER_VS_CURRENT}x o gasto diário actual (€${Math.round(curDaily)})` : ""}.`;
+    plan.budget_recommendation.deterministic = true;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -2258,7 +2333,9 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
 
   // 7) Validar e enforce constraints (sobrescreve se IA desviou >5%)
   const constraintViolations: string[] = [];
-  if (effDailyCents != null) {
+  // 2a (review 3C) — em modo budget DETERMINÍSTICO, a 3C é a fonte do budget; o
+  // enforcement antigo (clobber do summary + re-escala das campanhas) NÃO corre.
+  if (effDailyCents != null && !useDeterministicBudget) {
     const expectedEur = effDailyCents / 100;
     const sumDaily = (plan?.recommended_campaigns ?? []).reduce(
       (s: number, c: any) => s + (Number(c?.daily_budget_eur) || 0), 0,
@@ -2305,6 +2382,144 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
         }
       }
       phase.target_kpis.roas_min = effRoasFloor;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Fase 3C v3 — Distribuição do budget determinístico pela CURVA do LLM. SEM piso rígido
+  // nem water-filling: o total é SEMPRE o determinístico (não há overshoot). As fases de
+  // aprendizagem recebem uma verba SUGERIDA + EDITÁVEL — a UI ajusta-a mantendo o total
+  // fixo, redistribuindo o delta pelas fases de escala ∝ peso. Só no caminho normal.
+  //  B) escala única total/Σtotal_LLM → curva (forma decrescente do LLM) preservada.
+  //  E) cada campanha copia o daily da sua fase (1:1 via phase_id).
+  //  Saída: learning_budget por fase (editável) + redistribution_contract para a UI.
+  // ─────────────────────────────────────────────────────────────────────────
+  if (useDeterministicBudget && Array.isArray(plan?.phases) && plan.phases.length > 0) {
+    const sumDuration = plan.phases.reduce((s: number, p: any) => s + (Number(p?.duration_days) || 0), 0);
+    if (sumDuration > 0) {
+      // Contexto INFORMATIVO (não entra em nenhum cálculo de verba). Vem do summary
+      // (anchoring interno do redesign) — nunca depende de insights da Meta.
+      const expectedCpa = Number(plan?.summary?.expected_cpa_eur);
+      const expectedCpaOut = Number.isFinite(expectedCpa) && expectedCpa > 0 ? Math.round(expectedCpa * 100) / 100 : null;
+
+      // ── Parte B — curva (escala única). total_phase_budget_eur do LLM (fallback daily×dur)
+      // define a forma; uma só escala preserva-a exactamente. Total = determinístico.
+      const phasesArr: any[] = plan.phases;
+      const campaigns: any[] = Array.isArray(plan?.recommended_campaigns) ? plan.recommended_campaigns : [];
+      const ph = phasesArr.map((p: any) => {
+        const dur = Number(p?.duration_days) || 0;
+        const tRaw = Number(p?.total_phase_budget_eur);
+        const dyLLM = Number(p?.daily_budget_eur) || 0;
+        const totalLLM = Number.isFinite(tRaw) && tRaw > 0 ? tRaw : dyLLM * dur;
+        const obj = String(p?.objective ?? "").toUpperCase();
+        const isLearning = !NON_CONVERSION_OBJECTIVES.has(obj);
+        return { ref: p, dur, totalLLM, dailyLLM: dur > 0 ? totalLLM / dur : 0, obj, isLearning };
+      });
+      const sumPhaseTotalLLM = ph.reduce((s, x) => s + x.totalLLM, 0);
+      const scale0 = sumPhaseTotalLLM > 0 ? budgetDet.total / sumPhaseTotalLLM : 0;
+
+      // ── Escreve daily/total da curva por fase + marca aprendizagem/editável.
+      const dailyByPhase: Record<string, number> = {};
+      let sumDistributed = 0;
+      for (const x of ph) {
+        const totalCurve = x.totalLLM * scale0;
+        const daily = x.dur > 0 ? Math.round((totalCurve / x.dur) * 100) / 100 : 0;
+        const totalPhase = Math.round(daily * x.dur * 100) / 100;
+        x.ref.daily_budget_eur = daily;
+        x.ref.total_phase_budget_eur = totalPhase;
+        sumDistributed += totalPhase;
+        dailyByPhase[String(x.ref?.id ?? "")] = daily;
+        if (x.isLearning) {
+          // Verba EDITÁVEL: sugestão = curva; contexto (cpa/conversões) é só informativo.
+          const estConv = expectedCpaOut && expectedCpaOut > 0 ? Math.round(totalPhase / expectedCpaOut) : null;
+          x.ref.learning_budget = {
+            is_learning_phase: true,
+            editable: true,
+            suggested_daily_eur: daily,
+            expected_cpa_eur: expectedCpaOut,
+            estimated_conversions: estConv,
+          };
+        } else {
+          x.ref.learning_budget = { is_learning_phase: false, editable: false };
+        }
+      }
+      sumDistributed = Math.round(sumDistributed * 100) / 100;
+
+      // ── Parte E — campanhas 1:1 copiam o daily da sua fase.
+      let campaignsMatched = 0;
+      for (const c of campaigns) {
+        const pid = String(c?.phase_id ?? "");
+        if (Object.prototype.hasOwnProperty.call(dailyByPhase, pid)) {
+          c.daily_budget_eur = dailyByPhase[pid];
+          campaignsMatched++;
+        } else {
+          console.warn("[redesign] campaign_phase_unmatched", { phase_id: pid });
+        }
+      }
+
+      // ── Contrato de redistribuição de TOTAL FIXO para a UI. A edição da verba editável é
+      // feita na plataforma (esta função não recebe override). Fornecemos os dados: total
+      // fixo, fases redistribuíveis (não-aprendizagem) e o peso (verba-base da curva) de cada
+      // uma. O limiar de aviso é RELATIVO (ratio × verba-base) → escala com o tamanho do evento.
+      const learningIds = ph.filter((x) => x.isLearning).map((x) => String(x.ref?.id ?? ""));
+      const redistributableIds: string[] = [];
+      const phaseWeights: Record<string, number> = {};
+      for (const x of ph) {
+        if (!x.isLearning) {
+          const id = String(x.ref?.id ?? "");
+          redistributableIds.push(id);
+          phaseWeights[id] = Number(x.ref.total_phase_budget_eur) || 0;
+        }
+      }
+
+      // ── budget_recommendation — total determinístico (sempre) + média informativa + contrato.
+      const avgDaily = Math.round((budgetDet.total / sumDuration) * 100) / 100;
+      if (plan.budget_recommendation && typeof plan.budget_recommendation === "object") {
+        const curDaily = viability.current_daily_spend_eur;
+        plan.budget_recommendation.suggested_total_eur = budgetDet.total;
+        plan.budget_recommendation.suggested_daily_eur = avgDaily;
+        plan.budget_recommendation.suggested_daily_is_average = true; // curva real por fase
+        plan.budget_recommendation.adjustment_direction =
+          avgDaily > curDaily ? "increase" : avgDaily < curDaily ? "decrease" : "maintain";
+        plan.budget_recommendation.adjustment_reason =
+          `Budget determinístico (3C v3): alvo €${budgetDet.total} distribuído pela curva do LLM (escala ${scale0.toFixed(3)}). ` +
+          (learningIds.length
+            ? `${learningIds.length} fase(s) de aprendizagem com verba editável (sugestão = curva). `
+            : "") +
+          `Daily €${avgDaily} é a MÉDIA (a curva real está em phases[].daily_budget_eur). Âncora=${budgetDet.winner}${budgetDet.cap_applied ? `, cap ${BUDGET_MAX_MULTIPLIER_VS_CURRENT}x` : ""}.`;
+        plan.budget_recommendation.redistribution_contract = {
+          total_is_fixed: true,
+          fixed_total_eur: budgetDet.total,
+          editable_phase_ids: learningIds,
+          redistributable_phase_ids: redistributableIds,
+          phase_weights: phaseWeights, // id → verba-base da curva (peso de redistribuição)
+          compression_warn_ratio: PHASE_COMPRESSION_WARN_RATIO,
+          note: "Ao editar a verba de uma fase editável, redistribuir o delta pelas redistributable_phase_ids ∝ phase_weights, mantendo fixed_total_eur. SINALIZAR (não bloquear) se uma fase de escala cair abaixo de phase_weights[id] × compression_warn_ratio.",
+        };
+      }
+      if (plan.summary && typeof plan.summary === "object") {
+        plan.summary.recommended_total_budget_eur = budgetDet.total;
+      }
+
+      console.log("[redesign] deterministic_budget_v3", {
+        total_target: budgetDet.total,
+        scale0: Math.round(scale0 * 10000) / 10000,
+        total_distributed: sumDistributed,
+        expected_cpa_eur: expectedCpaOut,
+        compression_warn_ratio: PHASE_COMPRESSION_WARN_RATIO,
+        n_campaigns: campaigns.length,
+        campaigns_matched: campaignsMatched,
+        learning_phase_ids: learningIds,
+        phases: ph.map((x) => ({
+          id: String(x.ref?.id ?? ""),
+          obj: x.obj,
+          dur: x.dur,
+          is_learning: x.isLearning,
+          editable: x.isLearning,
+          daily_llm: Math.round(x.dailyLLM * 100) / 100,
+          daily_curve: x.ref.daily_budget_eur,
+        })),
+      });
     }
   }
 
