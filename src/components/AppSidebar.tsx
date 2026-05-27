@@ -107,9 +107,15 @@ export function AppSidebar() {
   ];
 
   return (
-    <aside className="fixed left-0 top-14 z-40 flex h-[calc(100vh-3.5rem)] w-16 flex-col items-center border-r border-border bg-sidebar py-4 lg:w-56">
+    <aside
+      className="fixed left-0 z-40 flex w-16 flex-col items-center overflow-hidden border-r border-border bg-sidebar py-4 lg:w-56"
+      style={{
+        top: "calc(3.5rem + env(safe-area-inset-top))",
+        height: "calc(100dvh - 3.5rem - env(safe-area-inset-top))",
+      }}
+    >
 
-      <nav className="flex flex-1 flex-col gap-1 px-2 lg:px-3 w-full overflow-y-auto overscroll-contain [touch-action:pan-y] [-webkit-overflow-scrolling:touch]">
+      <nav className="flex min-h-0 w-full flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-2 pb-3 lg:px-3 [touch-action:pan-y] [-webkit-overflow-scrolling:touch]">
         {(inOperacao ? operacaoItems : fullNavItems)
           .filter((i: any) => i.divider || (i.show && (!fieldStaffOnly || i.to.startsWith("/operacao"))))
           .map((item: any) => {
@@ -163,7 +169,7 @@ export function AppSidebar() {
       </nav>
 
 
-      <div className="mt-auto w-full px-2 lg:px-3 space-y-1">
+      <div className="mt-auto w-full shrink-0 space-y-1 px-2 lg:px-3">
         {(isAdmin || inOperacao) && (
           <button
             onClick={() => navigate("/modulos")}
