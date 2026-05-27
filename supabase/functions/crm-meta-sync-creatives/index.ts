@@ -17,10 +17,12 @@
 // crm-meta-creative-analyze, refresh full periódico, template_data/AAA.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { REHOST_BUCKET, rehostCreative } from "../_shared/rehost-creative.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ENCRYPTION_MASTER_KEY = Deno.env.get("ENCRYPTION_MASTER_KEY")!;
 
 const corsHeaders = {
@@ -307,7 +309,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!connectionId || !rawAcct) return json({ error: "missing_params", required: ["connection_id", "ad_account_id"] }, 400);
   const adAccountId = normalizeAdAccountId(rawAcct);
   const mode: "incremental" | "full" = body?.mode === "full" ? "full" : "incremental";
-  const maxRun = Math.min(Math.max(body?.max_creatives_per_run ?? 200, 1), 2000);
+  const maxRun = Math.min(Math.max(body?.max_creatives_per_run ?? 40, 1), 2000);
   const triggeredBy = body?.triggered_by ?? (isServiceRole ? "service_role" : "user");
 
   // v2: force_resync requer service_role JWT. Skipa set-diff E faz UPSERT real
@@ -323,6 +325,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  // Service-role client — necessário para escrever no storage (bucket próprio)
+  // no re-host de criativos. Bypassa RLS; usado só para upload + getPublicUrl.
+  const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
@@ -422,6 +430,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     file_url_resolved_via_video_thumbnail: 0,
     file_url_resolved_via_hash: 0,
     file_url_still_null: 0,
+    rehosted: 0,
+    rehost_skipped: 0,
+    rehost_failed: 0,
     meta_api_calls: { video_thumbnail_count: 0, adimages_batch_count: 0 },
     errors: [] as { meta_creative_id: string; error_msg: string }[],
   };
@@ -500,6 +511,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
       if (stats.errors.length < 10) {
         stats.errors.push({ meta_creative_id: "<batch>", error_msg: `image_hash_batch: ${(e as Error).message}` });
       }
+    }
+  }
+
+  // ── 3c) Re-host: descarrega o file_url da Meta e re-upload para o bucket
+  // próprio, persistindo um URL estável (ver _shared/rehost-creative.ts). Corre
+  // só sobre as rows desta run (criativos novos do set-diff) — não toca no que
+  // já está em meta_creatives. Erros isolados: falha de um não aborta a run.
+  // Para type=video o file_url é o poster (imagem); o vídeo fica na Meta.
+  for (const row of rows) {
+    const res = await rehostCreative(
+      adminClient,
+      { company_id: companyId, path_key: row.meta_creative_id, type: row.type, file_url: row.file_url },
+      { supabaseUrl: SUPABASE_URL },
+    );
+    if (res.status === "rehosted") {
+      row.file_url = res.file_url!;
+      row.storage_bucket = REHOST_BUCKET;
+      row.storage_path = res.storage_path!;
+      if (row.type !== "video" && res.mime) row.file_mime_type = res.mime;
+      stats.rehosted++;
+    } else if (res.status === "failed") {
+      stats.rehost_failed++;
+      if (stats.errors.length < 10) {
+        stats.errors.push({ meta_creative_id: row.meta_creative_id, error_msg: `rehost: ${res.reason}` });
+      }
+    } else {
+      stats.rehost_skipped++;
     }
   }
 
