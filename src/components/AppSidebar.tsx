@@ -109,7 +109,7 @@ export function AppSidebar() {
   return (
     <aside className="fixed left-0 top-14 z-40 flex h-[calc(100vh-3.5rem)] w-16 flex-col items-center border-r border-border bg-sidebar py-4 lg:w-56">
 
-      <nav className="flex flex-1 flex-col gap-1 px-2 lg:px-3 w-full overflow-y-auto">
+      <nav className="flex flex-1 flex-col gap-1 px-2 lg:px-3 w-full overflow-y-auto overscroll-contain [touch-action:pan-y] [-webkit-overflow-scrolling:touch]">
         {(inOperacao ? operacaoItems : fullNavItems)
           .filter((i: any) => i.divider || (i.show && (!fieldStaffOnly || i.to.startsWith("/operacao"))))
           .map((item: any) => {
