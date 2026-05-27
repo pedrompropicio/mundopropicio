@@ -335,7 +335,7 @@ export default function TourSimulator({ masterEvent, splits }: Props) {
     const baseRev = { ticketsRevenue: 0, drinkRevenue: 0, foodRevenue: 0, sponsorRevenue: 0, souvenirRevenue: 0, otherCredits: 0, ticketsQty: 0, courtesyQty: 0, totalRevenue: 0 };
     const baseCost = { eventCosts: 0, abCost: 0, souvenirCost: 0, totalCost: 0 };
     let resGeneral = 0, resEvent = 0, resAb = 0, resSouv = 0;
-    let totalPublic = 0, ticketsRev = 0, ticketsQty = 0, drinkFood = 0;
+    let totalPublic = 0, payingPublic = 0, ticketsRev = 0, ticketsQty = 0, drinkFood = 0;
     for (const c of cities) {
       if (c.data.loading) continue;
       const r = c.data.rev[k]; const co = c.data.costs[k]; const re = c.data.res[k]; const kp = c.data.kpis[k];
@@ -346,7 +346,8 @@ export default function TourSimulator({ masterEvent, splits }: Props) {
       baseCost.eventCosts += co.eventCosts; baseCost.abCost += co.abCost;
       baseCost.souvenirCost += co.souvenirCost; baseCost.totalCost += co.totalCost;
       resGeneral += re.general; resEvent += re.event; resAb += re.ab; resSouv += re.souvenir;
-      totalPublic += kp.totalPublic; ticketsRev += r.ticketsRevenue; ticketsQty += r.ticketsQty; drinkFood += r.drinkRevenue + r.foodRevenue;
+      totalPublic += kp.totalPublic; payingPublic += Number((r as any).attendanceQty || 0);
+      ticketsRev += r.ticketsRevenue; ticketsQty += r.ticketsQty; drinkFood += r.drinkRevenue + r.foodRevenue;
     }
     // extras Master
     const masterSponsor = Number(masterData.cfg?.sponsorship_revenue || 0);
@@ -363,7 +364,8 @@ export default function TourSimulator({ masterEvent, splits }: Props) {
       res: { general: resGeneral, event: resEvent, ab: resAb, souvenir: resSouv },
       kpis: {
         totalPublic,
-        tmTickets: ticketsQty > 0 ? ticketsRev / ticketsQty : 0,
+        // TM Ingresso = receita bilheteira ÷ pagantes×dia (combo 2d = 2)
+        tmTickets: payingPublic > 0 ? ticketsRev / payingPublic : 0,
         tmAB: totalPublic > 0 ? drinkFood / totalPublic : 0,
         costPerPerson: totalPublic > 0 ? baseCost.totalCost / totalPublic : 0,
         resultPerPerson: totalPublic > 0 ? resGeneral / totalPublic : 0,
