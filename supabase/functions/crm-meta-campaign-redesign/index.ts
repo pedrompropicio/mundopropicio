@@ -2387,9 +2387,9 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
 
   // ─────────────────────────────────────────────────────────────────────────
   // Fase 3C v3 — Distribuição do budget determinístico pela CURVA do LLM. SEM piso rígido
-  // nem water-filling: o total é SEMPRE o determinístico (não há overshoot). As fases de
-  // aprendizagem recebem uma verba SUGERIDA + EDITÁVEL — a UI ajusta-a mantendo o total
-  // fixo, redistribuindo o delta pelas fases de escala ∝ peso. Só no caminho normal.
+  // nem water-filling: o total é SEMPRE o determinístico (não há overshoot). TODAS as fases
+  // recebem uma verba SUGERIDA + EDITÁVEL — a UI ajusta-a mantendo o total fixo, redistribuindo
+  // o delta pelas RESTANTES fases ∝ peso. Só no caminho normal.
   //  B) escala única total/Σtotal_LLM → curva (forma decrescente do LLM) preservada.
   //  E) cada campanha copia o daily da sua fase (1:1 via phase_id).
   //  Saída: learning_budget por fase (editável) + redistribution_contract para a UI.
@@ -2429,19 +2429,17 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
         x.ref.total_phase_budget_eur = totalPhase;
         sumDistributed += totalPhase;
         dailyByPhase[String(x.ref?.id ?? "")] = daily;
-        if (x.isLearning) {
-          // Verba EDITÁVEL: sugestão = curva; contexto (cpa/conversões) é só informativo.
-          const estConv = expectedCpaOut && expectedCpaOut > 0 ? Math.round(totalPhase / expectedCpaOut) : null;
-          x.ref.learning_budget = {
-            is_learning_phase: true,
-            editable: true,
-            suggested_daily_eur: daily,
-            expected_cpa_eur: expectedCpaOut,
-            estimated_conversions: estConv,
-          };
-        } else {
-          x.ref.learning_budget = { is_learning_phase: false, editable: false };
-        }
+        // 3C v3.1 — TODAS as fases são editáveis e redistribuíveis. is_learning_phase fica
+        // como rótulo informativo (objective ∉ NON_CONVERSION_OBJECTIVES) e NÃO condiciona
+        // editable. Contexto (cpa/conversões) é só informativo, presente em todas as fases.
+        const estConv = expectedCpaOut && expectedCpaOut > 0 ? Math.round(totalPhase / expectedCpaOut) : null;
+        x.ref.learning_budget = {
+          is_learning_phase: x.isLearning,
+          editable: true,
+          suggested_daily_eur: daily,
+          expected_cpa_eur: expectedCpaOut,
+          estimated_conversions: estConv,
+        };
       }
       sumDistributed = Math.round(sumDistributed * 100) / 100;
 
@@ -2457,20 +2455,15 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
         }
       }
 
-      // ── Contrato de redistribuição de TOTAL FIXO para a UI. A edição da verba editável é
-      // feita na plataforma (esta função não recebe override). Fornecemos os dados: total
-      // fixo, fases redistribuíveis (não-aprendizagem) e o peso (verba-base da curva) de cada
-      // uma. O limiar de aviso é RELATIVO (ratio × verba-base) → escala com o tamanho do evento.
-      const learningIds = ph.filter((x) => x.isLearning).map((x) => String(x.ref?.id ?? ""));
-      const redistributableIds: string[] = [];
-      const phaseWeights: Record<string, number> = {};
-      for (const x of ph) {
-        if (!x.isLearning) {
-          const id = String(x.ref?.id ?? "");
-          redistributableIds.push(id);
-          phaseWeights[id] = Number(x.ref.total_phase_budget_eur) || 0;
-        }
-      }
+      // ── Contrato de redistribuição de TOTAL FIXO para a UI. A edição da verba é feita na
+      // plataforma (esta função não recebe override). Fornecemos os dados: total fixo + UMA
+      // lista única com TODAS as fases e o seu peso (verba-base da curva escalada). Todas são
+      // editáveis e redistribuíveis. A lista nunca fica vazia quando há fases no plano. O limiar
+      // de aviso é RELATIVO (ratio × peso) → escala com o tamanho do evento.
+      const contractPhases = ph.map((x) => ({
+        phase_id: String(x.ref?.id ?? ""),
+        weight: Number(x.ref.total_phase_budget_eur) || 0,
+      }));
 
       // ── budget_recommendation — total determinístico (sempre) + média informativa + contrato.
       const avgDaily = Math.round((budgetDet.total / sumDuration) * 100) / 100;
@@ -2483,18 +2476,14 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
           avgDaily > curDaily ? "increase" : avgDaily < curDaily ? "decrease" : "maintain";
         plan.budget_recommendation.adjustment_reason =
           `Budget determinístico (3C v3): alvo €${budgetDet.total} distribuído pela curva do LLM (escala ${scale0.toFixed(3)}). ` +
-          (learningIds.length
-            ? `${learningIds.length} fase(s) de aprendizagem com verba editável (sugestão = curva). `
-            : "") +
+          `${contractPhases.length} fase(s) com verba editável e redistribuível (sugestão = curva). ` +
           `Daily €${avgDaily} é a MÉDIA (a curva real está em phases[].daily_budget_eur). Âncora=${budgetDet.winner}${budgetDet.cap_applied ? `, cap ${BUDGET_MAX_MULTIPLIER_VS_CURRENT}x` : ""}.`;
         plan.budget_recommendation.redistribution_contract = {
           total_is_fixed: true,
           fixed_total_eur: budgetDet.total,
-          editable_phase_ids: learningIds,
-          redistributable_phase_ids: redistributableIds,
-          phase_weights: phaseWeights, // id → verba-base da curva (peso de redistribuição)
+          phases: contractPhases, // TODAS as fases: { phase_id, weight }, weight = verba-base da curva
           compression_warn_ratio: PHASE_COMPRESSION_WARN_RATIO,
-          note: "Ao editar a verba de uma fase editável, redistribuir o delta pelas redistributable_phase_ids ∝ phase_weights, mantendo fixed_total_eur. SINALIZAR (não bloquear) se uma fase de escala cair abaixo de phase_weights[id] × compression_warn_ratio.",
+          note: "Todas as fases são editáveis e redistribuíveis. Ao editar a verba de uma fase, redistribuir o delta pelas RESTANTES fases (todas menos a editada) ∝ ao seu weight, mantendo fixed_total_eur. A fase editada é excluída do rateio dessa edição. SINALIZAR (não bloquear) se qualquer fase, ao absorver o delta, cair abaixo de weight × compression_warn_ratio. Se a lista tiver 1 só fase, não há para onde redistribuir: editar essa fase equivale a editar o total.",
         };
       }
       if (plan.summary && typeof plan.summary === "object") {
@@ -2509,13 +2498,13 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
         compression_warn_ratio: PHASE_COMPRESSION_WARN_RATIO,
         n_campaigns: campaigns.length,
         campaigns_matched: campaignsMatched,
-        learning_phase_ids: learningIds,
+        editable_phase_ids: contractPhases.map((p) => p.phase_id),
         phases: ph.map((x) => ({
           id: String(x.ref?.id ?? ""),
           obj: x.obj,
           dur: x.dur,
           is_learning: x.isLearning,
-          editable: x.isLearning,
+          editable: true,
           daily_llm: Math.round(x.dailyLLM * 100) / 100,
           daily_curve: x.ref.daily_budget_eur,
         })),
