@@ -400,7 +400,7 @@ export function computeScenarioKpis(
   const uniqueTickets = rev.ticketsQty + rev.courtesyQty;
   const totalPublic = rev.attendanceQty + rev.attendanceCourtesyQty;
   const divAttendance = totalPublic > 0 ? totalPublic : 0;
-  // TM Ingresso = receita de bilheteira ÷ pagantes×dia (presenças pagantes
+  // TM Bilhetes = receita de bilheteira ÷ pagantes×dia (presenças pagantes
   // expandidas: 1 Passe 2 dias = 2). Alinhado com tmAB/costPerPerson para
   // que todos os indicadores per-capita usem o mesmo denominador.
   const payingAttendance = rev.attendanceQty > 0 ? rev.attendanceQty : 0;
