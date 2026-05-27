@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Notas de trabalho/handover de sessões (não versionadas)
+docs/fase*.md
+docs/decisoes-*.md
+docs/ivete-*.md
+docs/questoes-*.md
