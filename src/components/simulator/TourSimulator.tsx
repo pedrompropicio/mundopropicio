@@ -364,7 +364,7 @@ export default function TourSimulator({ masterEvent, splits }: Props) {
       res: { general: resGeneral, event: resEvent, ab: resAb, souvenir: resSouv },
       kpis: {
         totalPublic,
-        // TM Ingresso = receita bilheteira ÷ pagantes×dia (combo 2d = 2)
+        // TM Bilhetes = receita bilheteira ÷ pagantes×dia (combo 2d = 2)
         tmTickets: payingPublic > 0 ? ticketsRev / payingPublic : 0,
         tmAB: totalPublic > 0 ? drinkFood / totalPublic : 0,
         costPerPerson: totalPublic > 0 ? baseCost.totalCost / totalPublic : 0,

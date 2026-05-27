@@ -212,7 +212,7 @@ export default function ExecutiveDashboard(props: Props) {
         deltaType: "value",
       },
       { label: "Indicadores por pessoa", sectionHeader: "kpis" },
-      { label: "TM Ingresso", indent: true, values: [todayKpis.tmTickets, beKpis.tmTickets, fcKpis.tmTickets] },
+      { label: "TM Bilhetes", indent: true, values: [todayKpis.tmTickets, beKpis.tmTickets, fcKpis.tmTickets] },
       { label: "TM A&B Bebidas", indent: true, values: [tmDrink(today, todayKpis), tmDrink(breakeven, beKpis), tmDrink(forecast, fcKpis)] },
       { label: "TM A&B Alimentos", indent: true, values: [tmFood(today, todayKpis), tmFood(breakeven, beKpis), tmFood(forecast, fcKpis)] },
       { label: "Custo / pessoa", indent: true, values: [todayKpis.costPerPerson, beKpis.costPerPerson, fcKpis.costPerPerson] },

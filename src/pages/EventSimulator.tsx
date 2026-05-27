@@ -1668,7 +1668,7 @@ export default function EventSimulator() {
                   <ResRow label="Resultado Souvenir" a={todayRes.souvenir} b={beRes.souvenir} c={fcRes.souvenir} />
                   <TableRow><TableCell colSpan={4} className="font-bold pt-6">Indicadores</TableCell></TableRow>
                   <KpiRow label="Público total (qty)" a={todayKpis.totalPublic} b={beKpis.totalPublic} c={fcKpis.totalPublic} isInt />
-                  <KpiRow label="TM Ingresso" a={todayKpis.tmTickets} b={beKpis.tmTickets} c={fcKpis.tmTickets} />
+                  <KpiRow label="TM Bilhetes" a={todayKpis.tmTickets} b={beKpis.tmTickets} c={fcKpis.tmTickets} />
                   <KpiRow label="TM A&B" a={todayKpis.tmAB} b={beKpis.tmAB} c={fcKpis.tmAB} />
                   <KpiRow label="Custo / pessoa" a={todayKpis.costPerPerson} b={beKpis.costPerPerson} c={fcKpis.costPerPerson} />
                   <KpiRow label="Resultado / pessoa" a={todayKpis.resultPerPerson} b={beKpis.resultPerPerson} c={fcKpis.resultPerPerson} />
@@ -2251,7 +2251,7 @@ function SimulatorDashboard({
         <KpiTile label="Receita (Hoje)" value={fmt(today.totalRevenue)} />
         <KpiTile label="Custo (Hoje)" value={fmt(todayCosts.totalCost)} />
         <KpiTile label="Resultado (Hoje)" value={fmt(todayRes.general)} tone={todayRes.general >= 0 ? "ok" : "bad"} />
-        <KpiTile label="TM Ingresso" value={fmt(todayKpis.tmTickets)} />
+        <KpiTile label="TM Bilhetes" value={fmt(todayKpis.tmTickets)} />
         <KpiTile label="TM A&B / pessoa" value={fmt(todayKpis.tmAB)} />
         <KpiTile label="Custo / pessoa" value={fmt(todayKpis.costPerPerson)} />
         <KpiTile label="Resultado / pessoa" value={fmt(todayKpis.resultPerPerson)} tone={todayKpis.resultPerPerson >= 0 ? "ok" : "bad"} />
