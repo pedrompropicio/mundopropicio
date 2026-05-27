@@ -970,7 +970,16 @@ export function solveForecast(
       price: n(l.price),
       left: Math.max(0, n(l.quantity) - n(l.sold)),
     }));
-    const lastDefinedPrice = lots.length ? n(lots[lots.length - 1].price) : 0;
+    // Fallback usado quando o boost projeta além dos lotes com stock declarado.
+    // IMPORTANTE: ignorar lotes com `quantity = 0` aqui — são placeholders
+    // (preço cadastrado mas sem stock real) que de outro modo inflariam a
+    // receita projectada (bug Coala 2026: lotes Parque/VVIP a 900€/300€).
+    // A iteração lot-a-lot acima continua a usar TODOS os lotes com `left > 0`,
+    // pelo que lotes futuros legítimos com stock continuam a participar no boost.
+    const lotsWithStock = lots.filter((l) => n(l.quantity) > 0);
+    const lastDefinedPrice = lotsWithStock.length
+      ? n(lotsWithStock[lotsWithStock.length - 1].price)
+      : 0;
     const fallbackPrice = lastDefinedPrice || sessionAvgTicket(anchor);
 
     while (remaining > 0) {
