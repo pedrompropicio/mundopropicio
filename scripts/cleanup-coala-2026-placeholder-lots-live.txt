@@ -1,0 +1,39 @@
+-- Coala Festival Portugal 2026 (LIVE)
+-- Remoção dos 8 lotes-placeholder (quantity=0, 0 vendas) que estavam a
+-- inflar o Forecast do Simulador. Bug observado 2026-05-27: solver usava
+-- preço destes lotes (900€/300€) como fallbackPrice, fazendo o ticket
+-- médio implícito saltar de 74,81€ (Hoje) → 100,77€ (Forecast).
+--
+-- O fix de código (src/lib/event-simulator-coala.ts) já garante imunidade,
+-- mas estes lotes não deviam existir — são ruído de import.
+BEGIN;
+
+-- Sanidade: confirmar 0 vendas antes de apagar
+SELECT l.id, l.name, l.price, l.quantity,
+  (SELECT COUNT(*) FROM ticket_sales s WHERE s.lot_id = l.id) AS sales_count
+FROM event_ticket_lots l
+WHERE l.id IN (
+  '8fa503ae-b308-4ebc-a565-bf665bb1b9d6',
+  'b8d51a50-b3cf-4b9e-ab4e-d1c35f160df8',
+  '0c6c88d3-8952-4be2-92a6-579cec0e5724',
+  '870b5c6c-5191-47cf-8ba1-dd6cafda54f7',
+  'e3431010-d402-4fae-a987-7ba3fec1527f',
+  '4712e2b7-6c18-48ae-81b2-40b976581594',
+  '7f8ac550-aed3-4861-a318-14497e40d7fd',
+  'd5030691-2d59-4bfa-b0ad-2e49042a4814'
+);
+
+DELETE FROM event_ticket_lots
+WHERE id IN (
+  '8fa503ae-b308-4ebc-a565-bf665bb1b9d6',
+  'b8d51a50-b3cf-4b9e-ab4e-d1c35f160df8',
+  '0c6c88d3-8952-4be2-92a6-579cec0e5724',
+  '870b5c6c-5191-47cf-8ba1-dd6cafda54f7',
+  'e3431010-d402-4fae-a987-7ba3fec1527f',
+  '4712e2b7-6c18-48ae-81b2-40b976581594',
+  '7f8ac550-aed3-4861-a318-14497e40d7fd',
+  'd5030691-2d59-4bfa-b0ad-2e49042a4814'
+)
+  AND (SELECT COUNT(*) FROM ticket_sales s WHERE s.lot_id = event_ticket_lots.id) = 0;
+
+COMMIT;
