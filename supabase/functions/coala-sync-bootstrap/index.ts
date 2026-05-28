@@ -244,21 +244,52 @@ Deno.serve(async (req) => {
               const scored = centsCands
                 .map((f: any) => ({ f, s: dice(r.description, f.description) }))
                 .sort((a, b) => b.s - a.s);
+              let matched = false;
               if (scored.length) {
                 const top = scored[0];
                 const tied = scored.filter((x) => Math.abs(x.s - top.s) < 0.001);
                 if (top.s >= 0.7 && tied.length === 1) {
-                  forecastId = top.f.id; bootstrapSource = "fuzzy"; stats.fuzzy++;
+                  forecastId = top.f.id; bootstrapSource = "fuzzy"; stats.fuzzy++; matched = true;
                 } else if (top.s >= 0.55 && tied.length === 1) {
-                  forecastId = top.f.id; bootstrapSource = "value_anchor"; stats.value_anchor++;
+                  forecastId = top.f.id; bootstrapSource = "value_anchor"; stats.value_anchor++; matched = true;
                 } else if (top.s >= 0.55 && tied.length > 1) {
-                  needsManualLink = true; bootstrapSource = "ambiguous"; stats.ambiguous++;
-                } else {
-                  stats.no_match++;
+                  needsManualLink = true; bootstrapSource = "ambiguous"; stats.ambiguous++; matched = true;
                 }
-              } else {
-                stats.no_match++;
               }
+              // T4: category_anchor — cents iguais + categoria compatível com centerCusto
+              if (!matched) {
+                const centsCandsAll = (byCents.get(moneyKey(r.netAmount)) ?? []).filter((f: any) => !usedFcIds.has(f.id));
+                const catCands = centsCandsAll.filter((f: any) => categoryMatches(f.category_id, r.rawCenterCusto));
+                if (catCands.length === 1) {
+                  forecastId = catCands[0].id; bootstrapSource = "category_anchor"; stats.category_anchor++; matched = true;
+                } else if (catCands.length > 1) {
+                  needsManualLink = true; bootstrapSource = "ambiguous_category"; stats.ambiguous_category++; matched = true;
+                }
+              }
+              // T5: value_tolerance ±10% + categoria compatível
+              if (!matched) {
+                const target = Number(r.netAmount) || 0;
+                const tolCands = expenseFcs.filter((f: any) => {
+                  if (usedFcIds.has(f.id)) return false;
+                  if (!categoryMatches(f.category_id, r.rawCenterCusto)) return false;
+                  const amt = Number(f.amount) || 0;
+                  if (target === 0) return false;
+                  return Math.abs(amt - target) / Math.abs(target) <= 0.10;
+                });
+                if (tolCands.length) {
+                  const scoredTol = tolCands
+                    .map((f: any) => ({ f, s: dice(r.description, f.description) }))
+                    .sort((a, b) => b.s - a.s);
+                  const top = scoredTol[0];
+                  const tied = scoredTol.filter((x) => Math.abs(x.s - top.s) < 0.001);
+                  if (top.s >= 0.55 && tied.length === 1) {
+                    forecastId = top.f.id; bootstrapSource = "value_tolerance"; stats.value_tolerance++; matched = true;
+                  } else if (tied.length > 1) {
+                    needsManualLink = true; bootstrapSource = "ambiguous_value"; stats.ambiguous_value++; matched = true;
+                  }
+                }
+              }
+              if (!matched) stats.no_match++;
             }
             if (forecastId) usedFcIds.add(forecastId);
           }
