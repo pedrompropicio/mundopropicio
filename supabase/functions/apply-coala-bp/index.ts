@@ -69,6 +69,7 @@ Deno.serve(async (req) => {
       syncMode = "replace", ackTotals = false,
       phase = "apply", // "preview" | "apply"
       decisions = {} as Record<string, "skip" | "create">, // rowNumber -> decisão da IA/utilizador
+      configId: bodyConfigIdTop = null, // opcional: ativa diff ancorado em coala_sync_row_state
     } = body ?? {};
     if (!fileBase64 || !fileVersion || !eventId) {
       return json({ error: "fileBase64, fileVersion e eventId obrigatórios" }, 400);
