@@ -1,158 +1,156 @@
 
-# Fix matching de identidade — sync Coala
+# Caminho A — Diff ancorado no `coala_sync_row_state`
 
-## Diagnóstico do código atual
+## Objetivo
 
-### 1. Como `row_key` é gerado hoje
-`supabase/functions/sync-coala-from-drive/index.ts:136-148`
+Fechar o gap entre o bootstrap (que já vincula 264/333 linhas a `forecast_id`) e o `compare`/`auto_apply`, que hoje ignoram o `row_state` e refazem matching por descrição. Após esta mudança, uma linha XLSX ancorada é sempre reconhecida como UPDATE do seu forecast (nunca missing+extra), eliminando o ciclo de duplicação.
 
-```ts
-const buildRowKey = (r) => [
-  norm(r.description),     // ← muda quando se acrescenta "3ª parcela"
-  moneyKey(r.netAmount),   // ← muda quando se separa em parcelas
-  norm(r.supplier ?? ""),
-  norm(r.invoiceRef ?? ""),
-  r.paymentDate ?? "",     // ← muda quando se preenche/edita data
-  r.dueDate ?? "",
-].join("|");
-```
-
-**Confirmado**: qualquer edição na descrição (sufixo de parcela, correção de tipo), no valor (split em parcelas), ou na data ⇒ row_key diferente ⇒ a mesma linha conceptual aparece como `extraInBp` (antiga, a remover) + `missingInBp`/INSERT (nova). É exatamente o padrão das 37 `extraInBp` que recolheste.
-
-### 2. Porque `coala_sync_row_state` está vazio
-- Só é escrita em `mode === "apply"` (linhas 535-548 do `sync-coala-from-drive`). Os crons que correm só fazem `dry_run` → nunca escrevem.
-- Mesmo na via apply, o INSERT **não preenche `forecast_id`** (coluna existe mas é sempre `NULL`). Logo nunca existiu âncora `row_key → forecast_id`.
-- `apply-coala-bp` (phase `compare` e `auto_apply`) **ignora completamente** `coala_sync_row_state` — recalcula tudo por matching ad-hoc (`normTxt(description)|moneyKey(amount)` + agregação por `baseDesc` + Dice fuzzy). Não há continuidade entre execuções.
-
-### 3. Quem produz `extraInBp`/`missingInBp`/`renameOnly`
-`apply-coala-bp/index.ts:236-410`. Matching em 3 passos, todos baseados em descrição/valor — sem identidade persistida.
-
-## Campos disponíveis no parser para identidade estável
-`ParsedRow` (coalaParser.ts:39-67): `rowNumber` (1-indexed do XLSX), `rawCC`, `rawCenterCusto`, `supplier`, `invoiceRef`, `netAmount`, `paymentDate`, `dueDate`, `description`. **Não existe** um "Código" único por linha — `rowNumber` é o ID natural mais próximo, mas instável a inserções/reordenações na planilha.
+Restrições mantidas: 0 DELETEs auto, mudança cirúrgica só em `apply-coala-bp` (fases `compare` e `auto_apply`) + escritas no `row_state`. Não tocar em `reset_reimport`, `preview`, sponsors, CRM, BE B+B, Forecast regression, IA classificadora.
 
 ---
 
-## Plano de implementação (faseado, sem aplicar ainda)
+## Ficheiros e funções a tocar
 
-### Fase 1 — Identity Key estável (multi-campo) e persistência sempre
+1. **`supabase/functions/apply-coala-bp/index.ts`**
+   - `phase === "compare"` (linhas ~183–725): nova passagem T0 ancorada, antes do PASSO 1 agregado.
+   - `phase === "auto_apply"` (linhas ~731–1130): escrita no `row_state` após cada operação.
+   - Classificação de `severity` (linhas ~640–685): manter `extraInBp` em `auto`, mas marcar como "review" quando vier sem âncora E com forecast órfão sob suspeita (ver §3).
 
-**Ficheiros**: `sync-coala-from-drive/index.ts`, migração SQL.
+2. **`supabase/functions/sync-coala-from-drive/index.ts`** (apenas leitura/reuso)
+   - Reusar `buildIdentityKey` e `buildFallbackKey` (já exportadas, ~linhas 147–172). Não alterar.
+   - Confirmar que o `compare` recebe `configId` no payload (hoje o body do `apply-coala-bp` não tem `configId` para `compare`; tem em `auto_apply`). Adicionar `configId` opcional ao body do `compare` e propagar do `sync-coala-from-drive` quando dispara o compare (já passa em `auto_apply`).
 
-1. Substituir `buildRowKey` por dois identificadores complementares:
-   - `identityKey` (forte, baseado em fatura): `norm(supplier) + "::" + norm(invoiceRef)` quando ambos existem e `invoiceRef` é não-trivial. Usa-se como chave primária de identidade quando disponível.
-   - `fallbackKey` (posicional + semântico): `rowNumber + "::" + norm(rawCenterCusto) + "::" + norm(supplier) + "::" + moneyBucket(netAmount, 5%)` para linhas sem fatura. `moneyBucket` arredonda para janelas de ±5% para tolerar splits em parcelas.
-   - `legacyKey` (o atual, descrição+valor+data+supplier+invoice+due): mantém-se **só para migração one-shot** do estado existente.
-
-2. Estender `coala_sync_row_state`:
-   ```sql
-   ALTER TABLE coala_sync_row_state
-     ADD COLUMN identity_key text,
-     ADD COLUMN fallback_key text,
-     ADD COLUMN legacy_key text,
-     ADD COLUMN row_number int,
-     ADD COLUMN supplier_norm text,
-     ADD COLUMN invoice_ref_norm text,
-     ADD COLUMN center_custo_norm text,
-     ADD COLUMN net_amount_cents bigint;
-   CREATE INDEX ON coala_sync_row_state (config_id, identity_key);
-   CREATE INDEX ON coala_sync_row_state (config_id, fallback_key);
-   CREATE INDEX ON coala_sync_row_state (config_id, supplier_norm, net_amount_cents);
-   ```
-
-3. Persistir `row_state` **em todos os modos que avançam** (`apply` e `auto_apply`), nunca só em `dry_run`. Continua a não persistir em `dry_run` puro (read-only).
-
-### Fase 2 — Bootstrap one-shot do `row_state` para o Coala atual
-
-Sem `row_state`, o primeiro sync depois do deploy continuaria a ver tudo como "novo". Edge function nova `coala-sync-bootstrap` (admin-only, dry-run + commit):
-
-1. Para cada config ativa: baixa o XLSX atual do Drive, faz `parseCoalaXlsx`.
-2. Carrega todos os `event_forecasts` do evento (tipo `expense`, não-sponsorship).
-3. Faz matching agressivo (descrição exata > base description > Dice ≥ 0.85 + valor exato) para encontrar `forecast_id` para cada linha da planilha.
-4. Devolve relatório: matched / ambíguos / órfãos.
-5. Em modo commit, popula `coala_sync_row_state` com `forecast_id`, `identity_key`, `fallback_key`, `legacy_key`, `last_xlsx_payload`.
-6. Os ambíguos ficam para revisão manual numa UI mínima (Fase 4) ou via SQL.
-
-### Fase 3 — Matching em cascata em `apply-coala-bp` (phase `compare` e `auto_apply`)
-
-Refactor de `apply-coala-bp/index.ts:236-410`. Em vez de matching baseado só em descrição/valor:
-
-1. **Carregar `row_state`** para o evento/config (passar `configId` no payload do compare; quando absent, fallback para o comportamento atual).
-2. **Tier 1 — match exato por identidade persistida**: se `row_state[identityKey].forecast_id` existe ⇒ ligação direta. Compara só valor/descrição para classificar como `unchanged` | `valueMismatch` | `renameOnly`.
-3. **Tier 2 — fuzzy fallback**:
-   - Sub-tier 2a: `identityKey` (supplier+invoice) novo, mas existe `forecast` com `supplier+invoice` iguais ⇒ assume mesma linha, reclassifica e atualiza row_state.
-   - Sub-tier 2b: scoring por `supplier` (peso 0.4) + `centerCusto` (0.2) + `valor` em janela ±10% (0.3) + Dice descrição (0.1). Score ≥ 0.7 ⇒ `renameOnly`/`valueMismatch`. Score 0.5–0.7 ⇒ `needs_review` com top-3 candidatos (já existente).
-4. **Tier 3 — split detection** (1 forecast → N rows na planilha): se houver N linhas com mesmo `supplier+centerCusto` cujo somatório bate ±2% num forecast existente, classifica `splitPending` (já existe lógica `findSumCombination`, mas ancora ao `forecast_id` via row_state em vez de re-fazer match).
-5. **Tier 4 — só agora `INSERT/DELETE`**: missing → INSERT novo forecast; extraInBp → DELETE (com guard: só se o forecast não está protegido por sponsorship/manual_override e não tem TX já liquidada — o último ponto já existe).
-
-### Fase 4 — Idempotência e garantias
-
-1. Após cada `apply`/`auto_apply` bem-sucedido, fazer **UPSERT** completo de `coala_sync_row_state` (não DELETE+INSERT como hoje, para não perder `forecast_id` em runs concorrentes). Preencher `forecast_id` sempre.
-2. Adicionar `coala_sync_row_state.last_apply_hash` (jsonb hash de description+amount+date) para detetar mudanças sem reparsing.
-3. Em `compare`, qualquer linha cujo `identity_key` e payload são iguais ao `last_xlsx_payload` ⇒ skip ⇒ não entra em nenhum dos buckets de diff. Idempotência garantida.
-
-### Fase 5 — Guard contra DELETE em massa durante transição
-
-Antes da Fase 2 (bootstrap) correr, o `compare` continuará a produzir `extraInBp` grandes. Mitigação:
-
-1. Adicionar flag `safeMode` em `apply-coala-bp` (default ON). Em `safeMode`, recusa qualquer `auto_apply`/`apply` se `extraInBp.length > maxAutoDeletes` (sugiro 5) ou se ratio `extraInBp/totalBpRows > 10%` ⇒ devolve status `blocked` com motivo.
-2. UI de revisão mostra warning explícito quando `safeMode` bloqueia.
-3. Cron desliga automaticamente `auto_apply` para a config quando `safeMode` dispara 2× consecutivos.
+3. **Sem migração SQL**. A tabela `coala_sync_row_state` já tem `forecast_id`, `identity_key`, `fallback_key`, `needs_manual_link`, `bootstrap_source`, `last_xlsx_payload`. Reaproveitamos.
 
 ---
 
-## Estratégia de teste
+## §1 — `compare`: matching ancorado em cascata
 
-1. **Teste de idempotência** (vitest + edge):
-   - Seed: 5 forecasts, planilha com as mesmas 5 linhas.
-   - Correr `dry_run` 3×, depois `apply`, depois `dry_run` 3×. Asserção: 2º `dry_run` em diante ⇒ diff vazio.
+Nova passagem **T0 (anchor)** colocada **antes** do PASSO 1 atual (agregado por baseDesc):
 
-2. **Teste de renomeação**:
-   - Forecast "Slow J" €30k. Planilha passa a "Slow J - 3ª parcela" €30k mesmo supplier. Asserção: `renameOnly` 1 entrada com mesmo `bpId`, `extraInBp` vazio.
+1. Se `configId` ausente → fallback para o comportamento atual (sem âncoras). Garante backward-compat e cobre o caso "sem row_state ainda".
+2. Carregar `coala_sync_row_state` filtrado por `config_id = configId` para um Map por `row_key` (identity ou fallback, conforme o que existir na linha).
+3. Para cada `ParsedRow` da XLSX, computar `identityKey` (preferencial) ou `fallbackKey`. Procurar âncora:
+   - **Âncora existe E `forecast_id` não-nulo E o forecast ainda existe em `bpRows`**:
+     - `matchedFileKeys.add(fileKey)` + `matchedBpIds.add(forecast_id)` (consome dos dois lados → este forecast nunca vai a `extraInBp`).
+     - Comparar `r.netAmount` vs `forecast.amount`:
+       - delta ≤ 0.01 → match limpo (não entra em nenhum bucket).
+       - delta > 0.01 → push em `valueMismatches` com `bpId = forecast_id`, marcar `source: "anchor"` para auditoria.
+     - Comparar `normTxt(r.description)` vs `normTxt(forecast.description)`:
+       - diferentes → push em `renameOnly` com `bpId = forecast_id`, `source: "anchor"`. Não dependemos do Dice ≥ 0.85: a âncora já garante identidade.
+   - **Âncora existe MAS `needs_manual_link = true` (forecast_id NULL)**: ver §2.
+   - **Âncora existe MAS `forecast_id` aponta para forecast já apagado**: tratar como "âncora obsoleta" → `audit.staleAnchors++`, não consome nada, cai no fallback (matching atual). No fim do compare, propor `row_state cleanup` (não executa).
+   - **Sem âncora** (linha XLSX nova nesta sync): cai no matching atual a partir do PASSO 1.
 
-3. **Teste de split em parcelas**:
-   - Forecast "João Gomes" €60k. Planilha vira 3× "João Gomes - parcela N" €20k cada. Asserção: `splitPending` 1 entrada com `bpId` correto + 3 children; após apply, 3 forecasts novos com mesma category/supplier, original deletado.
+4. **Fallback (matching atual descrição/Dice/agregação)** corre apenas sobre `fileRows` não-consumidos e `bpRows` não-marcados. Os Sets `matchedFileKeys`/`matchedBpIds` já existem e bastam.
 
-4. **Teste de bootstrap**:
-   - DB com 100 forecasts, 0 row_state. Correr `coala-sync-bootstrap`. Asserção: ≥95% matched, relatório enumera órfãos.
-
-5. **Teste de safeMode**:
-   - Forçar 20 `extraInBp`. Asserção: `apply` recusa com `blocked: safeMode_threshold`.
-
-6. **Smoke em Live (read-only)**:
-   - Após deploy + bootstrap, correr `dry_run` no run `104e3a21-…`. Esperado: das 37 `extraInBp` atuais, ≤3 ficam (só as despesas 2025 obsoletas legítimas); os ~14 renomeados viram `renameOnly`; os ~17 parcelados viram `splitPending` ou matched.
+5. **Stats novas no response do `compare`**: `anchoredMatches`, `anchoredValueMismatches`, `anchoredRenames`, `staleAnchors`, `pendingManualLink` (ver §2), `fallbackMatched`.
 
 ---
 
-## Riscos e mitigações
+## §2 — Neutralizar `needs_manual_link`
+
+Linhas com `needs_manual_link = true` no `row_state` (no bootstrap atual: 58 `orphan_value_candidate` + 6 `ambiguous_*`):
+
+1. **Lado XLSX**: a linha é marcada como "pendingManualLink" e:
+   - `matchedFileKeys.add(fileKey)` (não vai a `missingInBp` → não cria duplicado).
+   - **NÃO** consome nenhum forecast (não toca em `matchedBpIds`).
+   - Push num novo bucket `pendingManualLink: [{ rowNumber, description, netAmount, candidates: row_state.candidates }]` devolvido pelo compare. Severity sempre `"review"` (nunca `"auto"`).
+
+2. **Lado BP**: os forecasts "candidatos" desta linha (lidos do `row_state.candidates` se persistido, ou re-derivados por valor±10% + cents igual) são marcados num Set `suspectedOrphanFcIds`. Esses forecasts:
+   - **NÃO** podem ir a `extraInBp` com severity `auto`. Se sobrarem (não matched no fallback), entram em `extraInBp` com severity `"review"` e flag `reason: "candidate-of-pendingManualLink"`.
+
+3. UI de resolução em lote (fora do scope deste plano; já planeada) consome `pendingManualLink` + `extraInBp[severity=review, reason=candidate-of-...]`.
+
+**Resultado**: nem insert, nem delete, nem update sobre estes 64 itens até o Pedro resolver.
+
+---
+
+## §3 — `extraInBp` e DELETEs com âncoras
+
+Hoje qualquer forecast não-matched vira `extraInBp` severity `"auto"`, protegido só por `safeMode maxAutoDeletes=0` (que aborta o auto_apply inteiro). Com âncoras:
+
+1. Um forecast só é candidato a `extraInBp` **auto** se:
+   - Não tem âncora a apontar para si no `row_state` (ou seja, nenhuma linha XLSX o reclama via identity/fallback), E
+   - Não está em `suspectedOrphanFcIds` (§2), E
+   - Não está `protectedFcIds` (sponsorship).
+
+2. Caso contrário, severity = `"review"`.
+
+3. **Mantém-se a decisão Pedro**: `maxAutoDeletes=0` por default → qualquer `extraInBp` mesmo `auto` continua a bloquear `auto_apply` via `safeMode`. As âncoras servem para **reduzir o número** de extraInBp falsos (já não aparecem os que estão ancorados em linhas XLSX renomeadas/com valor diferente), tornando o trabalho manual realista.
+
+4. Métrica nova: `extraInBp.bySource = { unanchored, suspectedOrphan, protected }`.
+
+---
+
+## §4 — Manter o `row_state` no `auto_apply`
+
+Após cada operação bem-sucedida em `auto_apply`, escrever no `row_state` (upsert por `(config_id, row_key)`):
+
+1. **`missingInBp` (auto) → INSERT forecast novo** (linhas 871–887):
+   - Calcular `row_key` da `ParsedRow r` (identity ou fallback).
+   - Upsert: `forecast_id = newFc.id`, `bootstrap_source = "auto_apply_insert"`, `needs_manual_link = false`, `last_xlsx_payload = {…r}`, `last_apply_hash = hash(description|cents|paymentDate)`.
+
+2. **`valueMismatches` (auto) → UPDATE amount** (linhas 926–946):
+   - Se a linha veio com `source: "anchor"`, a âncora já existe; só actualizar `last_xlsx_payload` + `last_apply_hash`.
+   - Se veio via fallback descrição/Dice, fazer upsert para ancorar pela primeira vez (`bootstrap_source = "auto_apply_value"`).
+
+3. **`renameOnly` (auto) → UPDATE description** (linhas 948–964):
+   - Idem ponto 2 (`bootstrap_source = "auto_apply_rename"` quando via fallback).
+
+4. **`extraInBp` (auto) → DELETE forecast**: como `maxAutoDeletes=0` bloqueia hoje e mantém-se, não há código a alterar aqui agora. Se algum dia o cap subir, adicionar: upsert `forecast_id = NULL`, `bootstrap_source = "auto_apply_deleted"`, ou apagar a linha do `row_state`. Documentar como TODO.
+
+5. **Transação**: cada operação já é atómica por linha. Não usamos transação global porque o código actual também não usa. Se a escrita no `row_state` falhar, registar em `audit.errors` mas **não reverter** a operação no forecast — o pior caso é uma âncora em falta que o próximo bootstrap recupera.
+
+6. **Helper local** `upsertRowAnchor(r, forecastId, source)` para evitar repetição (uma vez por bloco).
+
+---
+
+## §5 — Ordem de deploy
+
+1. **Comitar o bootstrap em Live** (PASSO 2 do `scripts/coala-bootstrap-live.txt`). Popular `row_state` com as 333 linhas (264 ancoradas + 64 needs_manual_link + 2 no_match + 3 ambiguous).
+2. **Validar** com a query final do script (`vinculados`, `needs_manual_link`, etc.).
+3. **Verificar safeMode em todas as `coala_sync_config`**: `maxAutoDeletes=0` (cron deve dispará-lo já assim). Confirmar via SQL antes do deploy.
+4. **Deploy do código novo** (`apply-coala-bp`). Auto-deploy chega a Test; **Publish manual** para Live.
+5. **Smoke test em Live**: disparar `phase:"compare"` com `configId` no run base atual. Esperado: das 37 `extraInBp` que tínhamos, ≤5 ficam (só as 2 no_match + eventuais staleAnchors); ~14 renomeações viram `renameOnly` `source:"anchor"`; valores diferentes viram `valueMismatches` `source:"anchor"`.
+6. Se as métricas baterem, deixar o cron correr `dry_run` normalmente. **NÃO** subir `maxAutoDeletes` — fica 0.
+7. UI de resolução de `pendingManualLink` fica para iteração seguinte (fora deste plano).
+
+**Janela crítica entre 1 e 4**: o `auto_apply` antigo continua a correr com a lógica velha. Como o `safeMode` já está em 0, qualquer `extraInBp` bloqueia. Risco real só existe para `missingInBp` (insert duplicado). Mitigação: pausar o cron `coala-sync-auto` enquanto se faz o deploy (1 SQL `UPDATE cron.job SET active=false` + reativar no fim).
+
+---
+
+## Riscos e mitigação
 
 | Risco | Mitigação |
 |---|---|
-| Bootstrap mapeia errado e perde linhas legítimas | Bootstrap nunca apaga; só popula row_state. Apply só age após Pedro aprovar diff em UI. |
-| `auto_apply` apaga em massa antes do bootstrap | Fase 5 `safeMode` ON por default + cron auto-desliga após 2 bloqueios. |
-| `invoiceRef` repetido entre fornecedores diferentes | `identityKey = supplier+invoiceRef` (nunca só invoice). |
-| Reordenação da planilha invalida `fallbackKey` posicional | `identityKey` (supplier+invoice) tem prioridade; fallback tem `supplier+centerCusto+netAmount` na chave, não só `rowNumber`. |
-| Splits com valores não-uniformes não detetados | `findSumCombination` já existe; ancorar ao `forecast_id` via row_state melhora precisão. |
-| `coala_sync_row_state` corrompida por run falhado a meio | UPSERT por `(config_id, identity_key)` + transação por run; rollback no catch. |
+| Âncora aponta para forecast apagado fora do sync (staleAnchor) | T0 detecta e cai no fallback; conta em `staleAnchors`; não consome BP. |
+| `configId` não chega ao `compare` em call-sites legados | Fallback: sem configId → comportamento antigo (sem regressão). |
+| Escrita no row_state no `auto_apply` falha → âncora não fica | Registado em `audit.errors`; bootstrap idempotente recupera no run seguinte. |
+| `suspectedOrphanFcIds` é estimado a partir de `row_state.candidates` que pode não estar persistido | Re-derivar in-flight: forecasts não-matched cujo `cents` bate exato ou ±10% com alguma `pendingManualLink` row. |
+| Bootstrap não corrido antes do deploy | Sem âncoras o T0 não consome nada e o fallback antigo corre integral. Comportamento idêntico ao atual — não há regressão. |
+| Race entre dois `auto_apply` concorrentes a escrever no mesmo `row_key` | Upsert por `(config_id, row_key)` é atómico no Postgres; última escrita ganha (aceitável: ambas escrevem o mesmo forecast_id se vieram da mesma XLSX). |
+| `safeMode` deixa de proteger se alguém subir `maxAutoDeletes` | Manter `0` como invariant; adicionar comment-warning no body do `auto_apply`. |
 
 ---
 
-## Ordem de execução proposta
+## Fora de scope (explicitamente)
 
-1. Migração SQL (colunas + índices em `coala_sync_row_state`).
-2. Refactor `buildRowKey` + escrita sempre + `forecast_id` populado em `sync-coala-from-drive`.
-3. Edge `coala-sync-bootstrap` + correr em Live com `dry_run` → rever relatório → commit.
-4. Refactor matching em cascata em `apply-coala-bp` (compare + auto_apply).
-5. `safeMode` + auto-disable do cron.
-6. Suite de testes vitest dedicada.
-7. Correr `dry_run` em Live no run `104e3a21-…` e validar redução das 37 `extraInBp`.
-
-**Sem mexer**: BE B+B, IA classificadora, regressão Forecast.
+- UI de resolução em lote de `pendingManualLink`.
+- Limpeza automática de `staleAnchors` no `row_state`.
+- Alterações em `reset_reimport`, `preview`, sponsors, IA classificadora, BE B+B, Forecast regression.
+- Subir `maxAutoDeletes` ou mexer no fluxo de DELETE.
+- CRM / MP Audience.
 
 ---
 
-## Decisões em aberto (precisam Pedro)
+## Validação pós-deploy
 
-1. **`maxAutoDeletes` em `safeMode`**: 5 (sugerido) | 10 | 0 (qualquer delete vai para review).
-2. **`identityKey` quando `invoiceRef` está vazio**: usar `supplier+centerCusto+valor+rowNumber` (sugerido) ou exigir review manual da linha?
-3. **Bootstrap ambíguos** (forecast com 2+ candidatos com score igual): auto-escolher o de menor `rowNumber` ou marcar todos como `needs_manual_link`?
-4. **Janela `±10%` no Tier 2b**: confortável ou queres apertar para `±5%`?
+1. `dry_run` em Live no `configId` Coala. Comparar contadores:
+   - `anchoredMatches` ≈ 264 (bootstrap auto-vinculados).
+   - `pendingManualLink` ≈ 64.
+   - `no_match`/genuíno → entra em `missingInBp` ≈ 2.
+   - `extraInBp` cai de 37 → ≤5.
+2. Correr `dry_run` 2× consecutivos. Diff deve estabilizar (idempotência).
+3. Inspecionar `coala_sync_row_state` após um `auto_apply` real (forçado em Test): novos forecasts inseridos têm `forecast_id` populado e `bootstrap_source = "auto_apply_insert"`.
+

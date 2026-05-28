@@ -69,6 +69,7 @@ Deno.serve(async (req) => {
       syncMode = "replace", ackTotals = false,
       phase = "apply", // "preview" | "apply"
       decisions = {} as Record<string, "skip" | "create">, // rowNumber -> decisão da IA/utilizador
+      configId: bodyConfigIdTop = null, // opcional: ativa diff ancorado em coala_sync_row_state
     } = body ?? {};
     if (!fileBase64 || !fileVersion || !eventId) {
       return json({ error: "fileBase64, fileVersion e eventId obrigatórios" }, 400);
@@ -249,6 +250,127 @@ Deno.serve(async (req) => {
         bpByBase.set(bk, barr);
       }
 
+      // Buckets do diff — declarados antes do T0 (anchor) para serem populados lá também.
+      const missingInBp: any[] = [];
+      const valueMismatches: any[] = [];
+      const renameOnly: any[] = [];
+      const matchedFileKeys = new Set<string>();
+      const matchedBpIds = new Set<string>();
+
+
+
+      // ─────────────────────────────────────────────────────────────────────
+      // T0 (anchor): se houver configId, consome row_state.forecast_id como
+      // âncora de identidade ANTES do matching por descrição/Dice.
+      // - Linha XLSX ancorada a forecast existente → consome ambos.
+      //   Se valor difere → valueMismatch (source: anchor). Se descrição
+      //   difere → renameOnly (source: anchor). Senão match limpo.
+      // - Linha XLSX com needs_manual_link=true → pendingManualLink.
+      //   Não consome BP; marca candidatos como suspectedOrphanFcIds.
+      // - Sem configId → cai diretamente no fluxo antigo (zero regressão).
+      // ─────────────────────────────────────────────────────────────────────
+      const norm2 = (s: string | null) =>
+        String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase().replace(/\s+/g, " ").trim();
+      const isInvRefStrong = (ref: string | null | undefined) => {
+        if (!ref) return false;
+        const n = norm2(ref);
+        if (n.length < 3) return false;
+        if (/^(n\/?a|na|sem|s\/n|sn|nd|0+|-+|x+|fatura|recibo|fact|inv)$/.test(n)) return false;
+        return true;
+      };
+      const buildIdentityKey = (r: ParsedRow): string | null => {
+        const sup = norm2(r.supplier ?? "");
+        if (!sup) return null;
+        if (!isInvRefStrong(r.invoiceRef)) return null;
+        return `inv::${sup}::${norm2(r.invoiceRef ?? "")}`;
+      };
+      const buildFallbackKey = (r: ParsedRow): string =>
+        ["fb", r.rowNumber, norm2(r.supplier ?? ""), norm2(r.rawCenterCusto ?? ""), moneyKey(r.netAmount)].join("::");
+      const rowKeyOf = (r: ParsedRow): string => buildIdentityKey(r) ?? buildFallbackKey(r);
+
+      const anchoredValueMismatches: any[] = [];
+      const anchoredRenames: any[] = [];
+      const pendingManualLink: any[] = [];
+      const suspectedOrphanFcIds = new Set<string>();
+      let anchoredMatches = 0;
+      let staleAnchors = 0;
+      const bpById = new Map<string, any>(bpRows.map((f: any) => [f.id, f]));
+
+      if (bodyConfigIdTop) {
+        const { data: anchorRows } = await admin
+          .from("coala_sync_row_state")
+          .select("row_key, forecast_id, needs_manual_link, last_xlsx_payload")
+          .eq("config_id", bodyConfigIdTop);
+        const anchorByKey = new Map<string, any>();
+        for (const a of (anchorRows || [])) anchorByKey.set(a.row_key, a);
+
+        for (const r of fileRows) {
+          const fileKey = `${normTxt(r.description)}|${moneyKey(r.netAmount)}`;
+          if (matchedFileKeys.has(fileKey)) continue;
+          const rk = rowKeyOf(r);
+          const a = anchorByKey.get(rk);
+          if (!a) continue;
+
+          // needs_manual_link → neutralizar
+          if (a.needs_manual_link) {
+            matchedFileKeys.add(fileKey);
+            // candidatos suspeitos: forecasts não-matched com cents igual ou ±10%
+            const tgt = moneyKey(r.netAmount);
+            for (const f of bpRows) {
+              if (matchedBpIds.has(f.id)) continue;
+              const c = moneyKey(Number(f.amount) || 0);
+              if (c === tgt || (tgt > 0 && Math.abs(c - tgt) / tgt <= 0.10)) {
+                suspectedOrphanFcIds.add(f.id);
+              }
+            }
+            pendingManualLink.push({
+              rowNumber: r.rowNumber,
+              description: r.description,
+              supplier: r.supplier,
+              netAmount: r.netAmount,
+              reason: "row_state.needs_manual_link",
+            });
+            continue;
+          }
+
+          if (!a.forecast_id) continue;
+          const fc = bpById.get(a.forecast_id);
+          if (!fc) {
+            // âncora obsoleta (forecast apagado fora do sync)
+            staleAnchors++;
+            continue;
+          }
+          if (matchedBpIds.has(fc.id)) continue; // já consumido por T0 anterior
+
+          // consome ambos os lados
+          matchedFileKeys.add(fileKey);
+          matchedBpIds.add(fc.id);
+          anchoredMatches++;
+
+          const bpAmt = Number(fc.amount) || 0;
+          const valDelta = +(r.netAmount - bpAmt).toFixed(2);
+          if (Math.abs(valDelta) > 0.01) {
+            const vm = {
+              description: r.description, bpDescription: fc.description,
+              fileAmount: r.netAmount, bpAmount: bpAmt, delta: valDelta,
+              rowNumber: r.rowNumber, bpId: fc.id, source: "anchor",
+            };
+            valueMismatches.push(vm);
+            anchoredValueMismatches.push(vm);
+          }
+          if (normTxt(r.description) !== normTxt(fc.description)) {
+            const ro = {
+              rowNumber: r.rowNumber, description: r.description,
+              bpDescription: fc.description, fileAmount: r.netAmount,
+              bpAmount: bpAmt, delta: 0, bpId: fc.id, source: "anchor",
+            };
+            renameOnly.push(ro);
+            anchoredRenames.push(ro);
+          }
+        }
+      }
+
       // Agregar XLSX por base description (junta "X parcela 01" + "X parcela 02" → X)
       const fileByBase = new Map<string, { desc: string; total: number; rows: ParsedRow[] }>();
       for (const r of fileRows) {
@@ -259,16 +381,10 @@ Deno.serve(async (req) => {
         fileByBase.set(bk, ent);
       }
 
-      // Missing in BP: file rows whose key not in BP
-      const missingInBp: any[] = [];
-      // Mismatched: same description (or fuzzy match) but different amount
-      const valueMismatches: any[] = [];
-      const matchedFileKeys = new Set<string>();
-      const matchedBpIds = new Set<string>();
-
       // PASSO 1: match agregado por baseDesc — junta "X parcela 01"+"X parcela 02"
       // numa só comparação contra "X" (€40k) do BP. Cobre o caso "Lulu Santos".
       const aggregatedFileKeys = new Set<string>();
+
       for (const [bk, agg] of fileByBase.entries()) {
         const bpCandidates = bpByBase.get(bk) ?? [];
         if (bpCandidates.length === 0) continue;
@@ -399,14 +515,17 @@ Deno.serve(async (req) => {
       const extraInBp: any[] = [];
       for (const f of bpRows) {
         if (matchedBpIds.has(f.id)) continue;
+        const isSuspect = suspectedOrphanFcIds.has(f.id);
         extraInBp.push({
           id: f.id,
           description: f.description,
           amount: Number(f.amount) || 0,
           hasTransaction: !!f.transaction_id,
           transactionId: f.transaction_id ?? null,
+          ...(isSuspect ? { reason: "candidate-of-pendingManualLink" } : {}),
         });
       }
+
 
       // Enriquecer "missingInBp" com Top-3 candidatos do BP (Dice ≥ 0.45 ou valor ±20%)
       const unmatchedBp = bpRows.filter((f) => !matchedBpIds.has(f.id));
@@ -638,7 +757,7 @@ Deno.serve(async (req) => {
       const classifySeverity = (item: any, kind: string): "auto" | "review" => {
         switch (kind) {
           case "missingInBp": return "auto";
-          case "extraInBp":   return "auto"; // Opção C: apaga sempre (com ou sem TX)
+          case "extraInBp":   return item.reason === "candidate-of-pendingManualLink" ? "review" : "auto";
           case "renameOnly":  return "auto"; // delta=0, zero risco
           case "txMissing":   return "auto"; // Pago BR também é auto (supplier+partner fixos)
           case "txExtra":     return "auto"; // Opção B: apaga mesmo paga (Santander sem saldo)
@@ -709,6 +828,15 @@ Deno.serve(async (req) => {
           sponsors: { missing: sponsorMissing.length, extra: sponsorExtra.length, mismatch: sponsorMismatch.length },
           severity: { auto: autoCount, review: reviewCount },
           protected: { forecasts: protectedFcIds.size, transactions: protectedTxIds.size },
+          anchored: {
+            enabled: !!bodyConfigIdTop,
+            matches: anchoredMatches,
+            valueMismatches: anchoredValueMismatches.length,
+            renames: anchoredRenames.length,
+            staleAnchors,
+            pendingManualLink: pendingManualLink.length,
+            suspectedOrphans: suspectedOrphanFcIds.size,
+          },
         },
         missingInBp,
         extraInBp,
@@ -721,8 +849,10 @@ Deno.serve(async (req) => {
         sponsorMissing,
         sponsorExtra,
         sponsorMismatch,
+        pendingManualLink,
       });
     }
+
 
     // ===========================================================================
     // PHASE = "auto_apply": aplica APENAS items severity='auto' do diff de uma run base
@@ -864,27 +994,78 @@ Deno.serve(async (req) => {
         txDeleted: 0,
         txAmountUpdated: 0,
         suppliersCreated: newSupplierIds.length,
+        anchorsUpserted: 0,
+        anchorsErrors: 0,
         skipped: [] as Array<{ kind: string; reason: string; id?: string; rowNumber?: number }>,
         errors: [] as Array<{ kind: string; error: string; ref?: any }>,
       };
 
-      // 1) missingInBp (auto) → INSERT forecast
+      // ── Helper: upsert âncora no coala_sync_row_state após operação OK.
+      // Silencioso: erro grava em audit mas não reverte a operação.
+      const _norm = (s: string | null) =>
+        String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase().replace(/\s+/g, " ").trim();
+      const _invStrong = (ref: string | null | undefined) => {
+        if (!ref) return false;
+        const n = _norm(ref);
+        if (n.length < 3) return false;
+        if (/^(n\/?a|na|sem|s\/n|sn|nd|0+|-+|x+|fatura|recibo|fact|inv)$/.test(n)) return false;
+        return true;
+      };
+      const _rowKey = (r: ParsedRow): string => {
+        const sup = _norm(r.supplier ?? "");
+        if (sup && _invStrong(r.invoiceRef)) return `inv::${sup}::${_norm(r.invoiceRef ?? "")}`;
+        return ["fb", r.rowNumber, sup, _norm(r.rawCenterCusto ?? ""), moneyKey(r.netAmount)].join("::");
+      };
+      const _applyHash = (r: ParsedRow): string =>
+        [_norm(r.description), moneyKey(r.netAmount), r.paymentDate ?? "", r.dueDate ?? "", r.status ?? ""].join("|");
+      const upsertRowAnchor = async (r: ParsedRow, forecastId: string | null, source: string) => {
+        if (!configId) return;
+        try {
+          const { error } = await admin.from("coala_sync_row_state").upsert({
+            config_id: configId,
+            row_key: _rowKey(r),
+            forecast_id: forecastId,
+            needs_manual_link: false,
+            bootstrap_source: source,
+            last_apply_hash: _applyHash(r),
+            last_xlsx_payload: {
+              rowNumber: r.rowNumber, description: r.description, netAmount: r.netAmount,
+              supplier: r.supplier, invoiceRef: r.invoiceRef, status: r.status,
+              paymentDate: r.paymentDate, dueDate: r.dueDate,
+            },
+          }, { onConflict: "config_id,row_key", ignoreDuplicates: false });
+          if (error) { audit.anchorsErrors++; audit.errors.push({ kind: "row_state", error: error.message, ref: r.rowNumber }); }
+          else audit.anchorsUpserted++;
+        } catch (e) {
+          audit.anchorsErrors++;
+          audit.errors.push({ kind: "row_state", error: (e as Error).message, ref: r.rowNumber });
+        }
+      };
+
+
+
+      // 1) missingInBp (auto) → INSERT forecast + ancorar no row_state
       for (const it of (diff.missingInBp ?? [])) {
         if (it.severity !== "auto") continue;
         const r = rowByNum.get(it.rowNumber);
         if (!r) { audit.skipped.push({ kind: "missingInBp", reason: "row not in parsed", rowNumber: it.rowNumber }); continue; }
         const categoryId = resolveCatForRow(r);
-        const { error } = await admin.from("event_forecasts").insert({
+        const { data: newFc, error } = await admin.from("event_forecasts").insert({
           company_id: ev.company_id, event_id: eventId, category_id: categoryId, type: "expense",
           description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
           status: "approved", approved_at: new Date().toISOString(),
           approved_by: "system:coala-auto-sync",
           formalidade: formalidadeMap[r.formalidade] ?? "estimado",
           notes: ["Coala auto-sync", r.invoiceRef ? `Fatura ${r.invoiceRef}` : null].filter(Boolean).join(" • "),
-        });
+        }).select("id").maybeSingle();
         if (error) audit.errors.push({ kind: "missingInBp", error: error.message, ref: it.rowNumber });
-        else audit.forecastsInserted++;
+        else {
+          audit.forecastsInserted++;
+          if (newFc?.id) await upsertRowAnchor(r, newFc.id, "auto_apply_insert");
+        }
       }
+
 
       // 2) extraInBp (auto) → DELETE forecast (+ TX ligada se houver) + snapshot
       for (const it of (diff.extraInBp ?? [])) {
@@ -943,7 +1124,10 @@ Deno.serve(async (req) => {
           field: "amount", old_value: oldVal, new_value: newVal,
         });
         audit.forecastsAmountUpdated++;
+        const r = it.rowNumber != null ? rowByNum.get(it.rowNumber) : null;
+        if (r) await upsertRowAnchor(r, fcId, it.source === "anchor" ? "auto_apply_value_anchor" : "auto_apply_value");
       }
+
 
       // 4) renameOnly (auto, dice≥0.85) → UPDATE forecast.description + audit
       for (const it of (diff.renameOnly ?? [])) {
@@ -961,7 +1145,10 @@ Deno.serve(async (req) => {
           field: "description", old_value: oldDesc, new_value: newDesc,
         });
         audit.forecastsRenamed++;
+        const r = it.rowNumber != null ? rowByNum.get(it.rowNumber) : null;
+        if (r) await upsertRowAnchor(r, fcId, it.source === "anchor" ? "auto_apply_rename_anchor" : "auto_apply_rename");
       }
+
 
       // 5) txMissing (auto) → INSERT transaction
       // Pago BR: supplier+partner fixos (regra de negócio Coala 2026)
