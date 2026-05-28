@@ -681,7 +681,14 @@ Deno.serve(async (req) => {
           const sev = compareJson?.summary?.severity ?? { auto: 0, review: 0 };
           const autoCount = Number(sev.auto) || 0;
           const reviewCount = Number(sev.review) || 0;
-          const canEscalate = !hasConflicts && reviewCount === 0 && autoCount > 0 && cfg.auto_apply_enabled !== false;
+          // safeMode: bloqueia escalação se houver QUALQUER DELETE auto (extraInBp/txExtra/splitPending).
+          const autoDeleteCount =
+            (compareJson?.extraInBp ?? []).filter((x: any) => x.severity === "auto").length +
+            (compareJson?.txExtra ?? []).filter((x: any) => x.severity === "auto").length +
+            (compareJson?.splitPending ?? []).filter((x: any) => x.severity === "auto").length;
+          const canEscalate = !hasConflicts && reviewCount === 0 && autoCount > 0
+            && autoDeleteCount === 0 && cfg.auto_apply_enabled !== false;
+
 
           await admin.from("coala_sync_runs").update({
             status: canEscalate ? "success" : (reviewCount > 0 ? "needs_review" : "success"),
