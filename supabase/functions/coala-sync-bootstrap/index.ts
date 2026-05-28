@@ -228,10 +228,18 @@ Deno.serve(async (req) => {
           exact: 0, fuzzy: 0, value_anchor: 0,
           category_anchor: 0, value_tolerance: 0,
           core_description: 0, ambiguous_core: 0,
+          value_unique_pair: 0,
           orphan_value_candidate: 0,
           ambiguous: 0, ambiguous_category: 0, ambiguous_value: 0,
           no_match: 0, preserved: 0,
         };
+
+        // Pré-cálculo: contagem de cents nas rows XLSX (para detetar pares 1-para-1 inequívocos)
+        const xlsxCentsCount = new Map<number, number>();
+        for (const r of rows) {
+          const c = moneyKey(r.netAmount);
+          xlsxCentsCount.set(c, (xlsxCentsCount.get(c) ?? 0) + 1);
+        }
 
         for (const r of rows) {
           const identityKey = buildIdentityKey(r);
