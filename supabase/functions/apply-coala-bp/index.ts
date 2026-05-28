@@ -729,7 +729,7 @@ Deno.serve(async (req) => {
     // Body extra: { basedOnRunId, configId? }  — fileBase64/eventId/fileVersion já vêm
     // ===========================================================================
     if (phase === "auto_apply") {
-      const { basedOnRunId, configId: bodyConfigId } = body ?? {};
+      const { basedOnRunId, configId: bodyConfigId, maxAutoDeletes = 0 } = body ?? {};
       if (!basedOnRunId) return json({ error: "auto_apply requer basedOnRunId" }, 400);
 
       const { data: baseRun } = await admin
@@ -742,6 +742,36 @@ Deno.serve(async (req) => {
       }
       const configId = bodyConfigId ?? baseRun.config_id;
       const diff: any = baseRun.diff ?? {};
+
+      // ── safeMode (default 0): bloqueia auto_apply se houver QUALQUER DELETE auto.
+      // Cobre extraInBp, txExtra, splitPending (cada split apaga 1 forecast original).
+      const autoExtraInBp = (diff.extraInBp ?? []).filter((x: any) => x.severity === "auto").length;
+      const autoTxExtra = (diff.txExtra ?? []).filter((x: any) => x.severity === "auto").length;
+      const autoSplitPending = (diff.splitPending ?? []).filter((x: any) => x.severity === "auto").length;
+      const autoDeleteCount = autoExtraInBp + autoTxExtra + autoSplitPending;
+      const safeCap = Number(maxAutoDeletes);
+      if (autoDeleteCount > safeCap) {
+        await admin.from("coala_sync_runs").update({
+          status: "needs_review",
+          diff: {
+            ...diff,
+            safeModeBlock: {
+              maxAutoDeletes: safeCap,
+              autoDeleteCount,
+              extraInBp: autoExtraInBp,
+              txExtra: autoTxExtra,
+              splitPending: autoSplitPending,
+              blockedAt: new Date().toISOString(),
+            },
+          },
+        }).eq("id", basedOnRunId);
+        return json({
+          ok: false, phase: "auto_apply", blocked: true, reason: "safeMode",
+          maxAutoDeletes: safeCap, autoDeleteCount,
+          message: `auto_apply bloqueado: ${autoDeleteCount} DELETE(s) auto excedem maxAutoDeletes=${safeCap}. Revisão manual obrigatória.`,
+        }, 409);
+      }
+
 
       // Snapshot BP (STRICT — abort se falhar; sem snapshot não há recovery)
       let bpVersionId: string | null = null;
