@@ -1045,23 +1045,27 @@ Deno.serve(async (req) => {
 
 
 
-      // 1) missingInBp (auto) → INSERT forecast
+      // 1) missingInBp (auto) → INSERT forecast + ancorar no row_state
       for (const it of (diff.missingInBp ?? [])) {
         if (it.severity !== "auto") continue;
         const r = rowByNum.get(it.rowNumber);
         if (!r) { audit.skipped.push({ kind: "missingInBp", reason: "row not in parsed", rowNumber: it.rowNumber }); continue; }
         const categoryId = resolveCatForRow(r);
-        const { error } = await admin.from("event_forecasts").insert({
+        const { data: newFc, error } = await admin.from("event_forecasts").insert({
           company_id: ev.company_id, event_id: eventId, category_id: categoryId, type: "expense",
           description: r.description, amount: r.netAmount, iva_rate: r.ivaRate,
           status: "approved", approved_at: new Date().toISOString(),
           approved_by: "system:coala-auto-sync",
           formalidade: formalidadeMap[r.formalidade] ?? "estimado",
           notes: ["Coala auto-sync", r.invoiceRef ? `Fatura ${r.invoiceRef}` : null].filter(Boolean).join(" • "),
-        });
+        }).select("id").maybeSingle();
         if (error) audit.errors.push({ kind: "missingInBp", error: error.message, ref: it.rowNumber });
-        else audit.forecastsInserted++;
+        else {
+          audit.forecastsInserted++;
+          if (newFc?.id) await upsertRowAnchor(r, newFc.id, "auto_apply_insert");
+        }
       }
+
 
       // 2) extraInBp (auto) → DELETE forecast (+ TX ligada se houver) + snapshot
       for (const it of (diff.extraInBp ?? [])) {
