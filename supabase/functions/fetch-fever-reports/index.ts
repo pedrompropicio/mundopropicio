@@ -69,6 +69,21 @@ Deno.serve(async (req) => {
   if (cfgErr || !cfg) return json(404, { error: "config not found" });
   if (!cfg.enabled) return json(200, { ok: true, skipped: true, reason: "disabled" });
 
+  // Lock anti-concorrência: se já existe um run "started" deste config nos últimos 120s,
+  // saltamos para não fazer dois delete+insert em paralelo sobre as mesmas ticket_sales.
+  const since = new Date(Date.now() - 120_000).toISOString();
+  const { data: inFlight } = await admin
+    .from("fever_sync_runs")
+    .select("id, started_at")
+    .eq("config_id", cfg.id)
+    .eq("status", "started")
+    .gte("started_at", since)
+    .limit(1);
+  if (inFlight && inFlight.length > 0) {
+    console.log(`[fever-sync] skip: concurrent run ${inFlight[0].id} in flight`);
+    return json(200, { ok: true, skipped: true, reason: "concurrent_run", concurrent_run_id: inFlight[0].id });
+  }
+
   const { data: run, error: runErr } = await admin.from("fever_sync_runs").insert({
     config_id: cfg.id, company_id: cfg.company_id, status: "started",
     mode, triggered_by: triggeredBy || null,
