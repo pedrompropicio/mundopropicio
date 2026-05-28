@@ -463,7 +463,6 @@ Deno.serve(async (req) => {
       // Aceita como rename APENAS se Dice ≥ 0.55 (defesa contra falsos positivos
       // tipo "Plataforma diária extra" ↔ "Custos com influencers" só por terem
       // o mesmo valor). Senão, vai para missingInBp para humano decidir.
-      const renameOnly: any[] = [];
       const RENAME_DICE_MIN = 0.55;
       for (const r of pendingFile) {
         const target = moneyKey(r.netAmount);
