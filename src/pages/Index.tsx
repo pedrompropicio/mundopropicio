@@ -306,6 +306,20 @@ export default function Dashboard() {
     },
   });
 
+  // Lotes: precisamos de is_combo + consumes_zone_ids para expandir Passes 2 dias
+  // como "presenças×dia" na tabela Por Zona (1 combo = +1 acesso em cada zona consumida).
+  const { data: ticketLots = [] } = useQuery({
+    queryKey: ["dashboard_ticket_lots", companyId],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_ticket_lots")
+        .select("id, zone_id, is_combo, consumes_zone_ids");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: forecasts = [] } = useQuery({
     queryKey: ["dashboard_forecasts", companyId],
     enabled: !!companyId,
