@@ -831,11 +831,16 @@ Deno.serve(async (req) => {
           anchored: {
             enabled: !!bodyConfigIdTop,
             matches: anchoredMatches,
+            anchoredMatches,
             valueMismatches: anchoredValueMismatches.length,
+            anchoredValueMismatches: anchoredValueMismatches.length,
             renames: anchoredRenames.length,
+            anchoredRenames: anchoredRenames.length,
             staleAnchors,
             pendingManualLink: pendingManualLink.length,
             suspectedOrphans: suspectedOrphanFcIds.size,
+            // fallbackMatched = linhas XLSX consumidas mas NÃO via âncora (matching legacy descrição/Dice/agregado).
+            fallbackMatched: Math.max(0, matchedFileKeys.size - anchoredMatches - pendingManualLink.length),
           },
         },
         missingInBp,
@@ -859,6 +864,9 @@ Deno.serve(async (req) => {
     // Body extra: { basedOnRunId, configId? }  — fileBase64/eventId/fileVersion já vêm
     // ===========================================================================
     if (phase === "auto_apply") {
+      // ⚠️ INVARIANTE: maxAutoDeletes=0 é a proteção final contra DELETEs em cascata
+      // quando uma âncora fica obsoleta ou o matching falha. Subir este cap quebra
+      // a garantia "0 DELETEs auto" decidida pelo Pedro. Não alterar sem revisão.
       const { basedOnRunId, configId: bodyConfigId, maxAutoDeletes = 0 } = body ?? {};
       if (!basedOnRunId) return json({ error: "auto_apply requer basedOnRunId" }, 400);
 
