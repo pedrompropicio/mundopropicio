@@ -613,21 +613,49 @@ Deno.serve(async (req) => {
             throw new Error(`apply-coala-bp falhou (${applyResp.status}): ${JSON.stringify(applyJson)}`);
           }
 
-          // Atualizar row_state com snapshot atual (substitui tudo: este sync usa reset_reimport)
+          // Atualizar row_state com snapshot atual.
+          // NOTA: reset_reimport (Fase 3 vai substituir por diff-based) ainda recria
+          // os forecasts do zero. Por isso forecast_id fica NULL aqui — é o
+          // bootstrap (coala-sync-bootstrap, Fase 2) ou o novo apply (Fase 3) que o
+          // preenche. As chaves estáveis (identity/fallback) já são persistidas para
+          // que o próximo dry_run consiga distinguir new vs renamed.
+          // Preserva manual_override existentes (não os apaga em apply automático).
+          const { data: keepOverrides } = await admin.from("coala_sync_row_state")
+            .select("row_key, manual_override_reason, forecast_id")
+            .eq("config_id", cfg.id)
+            .eq("manual_override", true);
+          const overrideByKey = new Map<string, any>(
+            (keepOverrides ?? []).map((s: any) => [s.row_key, s]),
+          );
           await admin.from("coala_sync_row_state").delete().eq("config_id", cfg.id);
           if (currentKeys.size > 0) {
-            const stateRows = Array.from(currentKeys.entries()).map(([k, payload]) => ({
-              config_id: cfg.id,
-              row_key: k,
-              last_seen_run_id: runId,
-              last_xlsx_payload: payload,
-              manual_override: false,
-            }));
-            // bulk insert em chunks de 500
+            const stateRows = Array.from(currentKeys.entries()).map(([k, payload]) => {
+              const prev = overrideByKey.get(k);
+              return {
+                config_id: cfg.id,
+                row_key: k,
+                identity_key: payload._identityKey,
+                fallback_key: payload._fallbackKey,
+                legacy_key: payload._legacyKey,
+                row_number: payload.rowNumber,
+                supplier_norm: payload._supplierNorm,
+                invoice_ref_norm: payload._invoiceRefNorm,
+                center_custo_norm: payload._centerCustoNorm,
+                net_amount_cents: payload._netAmountCents,
+                last_apply_hash: payload._applyHash,
+                last_seen_run_id: runId,
+                last_xlsx_payload: payload,
+                forecast_id: prev?.forecast_id ?? null,
+                manual_override: !!prev,
+                manual_override_reason: prev?.manual_override_reason ?? null,
+              };
+            });
             for (let i = 0; i < stateRows.length; i += 500) {
-              await admin.from("coala_sync_row_state").insert(stateRows.slice(i, i + 500));
+              const { error: insErr } = await admin.from("coala_sync_row_state").insert(stateRows.slice(i, i + 500));
+              if (insErr) console.error("[coala-sync] row_state insert failed:", insErr);
             }
           }
+
 
           await admin.from("coala_sync_runs").update({
             status: "success",
