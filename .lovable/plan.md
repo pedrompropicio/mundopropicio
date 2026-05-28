@@ -1,101 +1,158 @@
 
-## Problema
+# Fix matching de identidade — sync Coala
 
-Quando se declara retenção IRS (taxa/valor) numa transação (`declared_withholding_rate`/`declared_withholding_amount`), o sistema só usa esses valores para pré‑preencher o `TransactionPaymentModal`. Em todo o resto — lista de transações, lista de pagamento, modal de liquidação em lote e cálculo do saldo de conta — continua a mostrar e a movimentar o valor bruto. Resultado: o utilizador vê "a pagar = bruto", e mesmo ao liquidar com retenção no modal singular, o saldo da conta financeira é debitado em bruto porque é reconstruído a partir de `transactions.paid_amount` (que por regra fica em bruto para preservar BP/DRE).
+## Diagnóstico do código atual
 
-## Regra confirmada
-
-- `transactions.paid_amount` continua em **bruto** (memória `tax-withholding`: compromisso é 100% liquidado para BP/DRE).
-- O que o fornecedor recebe = bruto − retenção declarada.
-- O que sai realmente da conta = bruto − retenção − créditos.
-- Só aplica em transações **sem parcelas** (transação que tenha linhas em `transaction_payments` ignora a declarada — a retenção é tratada por parcela).
-
-## Mudanças
-
-### 1. Helper `src/lib/withholding.ts`
+### 1. Como `row_key` é gerado hoje
+`supabase/functions/sync-coala-from-drive/index.ts:136-148`
 
 ```ts
-export function getDeclaredWithholding(t: any): number;
-export function computeNetPayable(opts: {
-  grossWithIva: number;
-  declaredWithholding: number;
-  hasInstallments: boolean;
-}): { gross: number; withholding: number; net: number; applied: boolean };
+const buildRowKey = (r) => [
+  norm(r.description),     // ← muda quando se acrescenta "3ª parcela"
+  moneyKey(r.netAmount),   // ← muda quando se separa em parcelas
+  norm(r.supplier ?? ""),
+  norm(r.invoiceRef ?? ""),
+  r.paymentDate ?? "",     // ← muda quando se preenche/edita data
+  r.dueDate ?? "",
+].join("|");
 ```
 
-`applied = true` só quando `!hasInstallments && declaredWithholding > 0`. `withholding` é clamped a `min(declared, gross)`.
+**Confirmado**: qualquer edição na descrição (sufixo de parcela, correção de tipo), no valor (split em parcelas), ou na data ⇒ row_key diferente ⇒ a mesma linha conceptual aparece como `extraInBp` (antiga, a remover) + `missingInBp`/INSERT (nova). É exatamente o padrão das 37 `extraInBp` que recolheste.
 
-### 2. Detecção de parcelas (reutilizável)
+### 2. Porque `coala_sync_row_state` está vazio
+- Só é escrita em `mode === "apply"` (linhas 535-548 do `sync-coala-from-drive`). Os crons que correm só fazem `dry_run` → nunca escrevem.
+- Mesmo na via apply, o INSERT **não preenche `forecast_id`** (coluna existe mas é sempre `NULL`). Logo nunca existiu âncora `row_key → forecast_id`.
+- `apply-coala-bp` (phase `compare` e `auto_apply`) **ignora completamente** `coala_sync_row_state` — recalcula tudo por matching ad-hoc (`normTxt(description)|moneyKey(amount)` + agregação por `baseDesc` + Dice fuzzy). Não há continuidade entre execuções.
 
-Pequeno hook `useInstallmentTxIds()` que faz `select transaction_id from transaction_payments limit 50000` e devolve `Set<string>`. Usado por Transactions, PaymentListsTab (criação + viewer) e BatchPaymentModal. Cache `queryKey: ["transactions-with-installments"]`.
+### 3. Quem produz `extraInBp`/`missingInBp`/`renameOnly`
+`apply-coala-bp/index.ts:236-410`. Matching em 3 passos, todos baseados em descrição/valor — sem identidade persistida.
 
-### 3. Lista de transações (`TransactionRow.tsx`)
+## Campos disponíveis no parser para identidade estável
+`ParsedRow` (coalaParser.ts:39-67): `rowNumber` (1-indexed do XLSX), `rawCC`, `rawCenterCusto`, `supplier`, `invoiceRef`, `netAmount`, `paymentDate`, `dueDate`, `description`. **Não existe** um "Código" único por linha — `rowNumber` é o ID natural mais próximo, mas instável a inserções/reordenações na planilha.
 
-- Nova prop `hasInstallments?: boolean`.
-- Na célula do valor, abaixo da linha `Base: X + IVA Y%`, adiciona quando `applied`:
-  ```
-  A pagar (líquido): {net}   · Ret. IRS: -{w}
-  ```
-  Em tom `warning`, fonte mono, pequena. Não altera `Aberto` (que continua a refletir o compromisso bruto).
+---
 
-### 4. `Transactions.tsx`
+## Plano de implementação (faseado, sem aplicar ainda)
 
-- Adicionar query `installmentTxIds` e passar `hasInstallments={installmentTxIds.has(t.id)}` ao `TransactionRow`.
+### Fase 1 — Identity Key estável (multi-campo) e persistência sempre
 
-### 5. Lista de pagamento — selecionar transações (`PaymentListsTab.tsx` modal de criação, linhas 670‑705)
+**Ficheiros**: `sync-coala-from-drive/index.ts`, migração SQL.
 
-- Nova coluna `A pagar (líquido)` à direita do `Saldo`.
-- Quando não há parcelas e há retenção declarada: mostra `formatCurrency(saldo − withholding)` em `warning`, com badge `-Ret. {w}€` por baixo. Caso contrário, mostra `—` ou repete o saldo discreto.
-- Usa `installmentTxIds` carregado uma vez.
+1. Substituir `buildRowKey` por dois identificadores complementares:
+   - `identityKey` (forte, baseado em fatura): `norm(supplier) + "::" + norm(invoiceRef)` quando ambos existem e `invoiceRef` é não-trivial. Usa-se como chave primária de identidade quando disponível.
+   - `fallbackKey` (posicional + semântico): `rowNumber + "::" + norm(rawCenterCusto) + "::" + norm(supplier) + "::" + moneyBucket(netAmount, 5%)` para linhas sem fatura. `moneyBucket` arredonda para janelas de ±5% para tolerar splits em parcelas.
+   - `legacyKey` (o atual, descrição+valor+data+supplier+invoice+due): mantém-se **só para migração one-shot** do estado existente.
 
-### 6. Lista de pagamento — viewer (`ViewPaymentList` em `PaymentListsTab.tsx`)
+2. Estender `coala_sync_row_state`:
+   ```sql
+   ALTER TABLE coala_sync_row_state
+     ADD COLUMN identity_key text,
+     ADD COLUMN fallback_key text,
+     ADD COLUMN legacy_key text,
+     ADD COLUMN row_number int,
+     ADD COLUMN supplier_norm text,
+     ADD COLUMN invoice_ref_norm text,
+     ADD COLUMN center_custo_norm text,
+     ADD COLUMN net_amount_cents bigint;
+   CREATE INDEX ON coala_sync_row_state (config_id, identity_key);
+   CREATE INDEX ON coala_sync_row_state (config_id, fallback_key);
+   CREATE INDEX ON coala_sync_row_state (config_id, supplier_norm, net_amount_cents);
+   ```
 
-- Em cada linha exibida, adicionar abaixo do total a linha "Líquido: X · Ret. {w}" quando aplicável.
+3. Persistir `row_state` **em todos os modos que avançam** (`apply` e `auto_apply`), nunca só em `dry_run`. Continua a não persistir em `dry_run` puro (read-only).
 
-### 7. `BatchPaymentModal.tsx`
+### Fase 2 — Bootstrap one-shot do `row_state` para o Coala atual
 
-- Carregar `installmentTxIds`.
-- Para cada `item`, calcular `declaredW = getDeclaredWithholding(item)` e `withholding = (!hasInstallments && declaredW > 0) ? min(declaredW, item.remainingEurFinal) : 0`.
-- UI por linha:
-  ```
-  Descrição                            {remainingEurFinal}
-                                       L: {net}  Ret.: -{w}
-  ```
-- Totais: adicionar `Retenção IRS: -{totalW}` e `Saída de caixa: {totalRemaining − totalW}`. `Total a liquidar` (= bruto compromisso) mantém-se.
-- Validação de saldo passa a usar `totalRemaining − totalW` (não `totalRemaining`).
-- No insert por item:
-  - `paid_amount` continua em bruto (`finalPaid` como hoje).
-  - Inserir registo em `transaction_payments` (hoje o batch **não cria**, vou adicionar) com `amount = settleEur`, `withholding_amount = w`, `account_id`, `payment_date`, `invoice_ref`.
-  - Adicionar audit `Retenção IRS` quando `w > 0` (igual ao modal singular).
+Sem `row_state`, o primeiro sync depois do deploy continuaria a ver tudo como "novo". Edge function nova `coala-sync-bootstrap` (admin-only, dry-run + commit):
 
-### 8. Saldo de conta — coerência
+1. Para cada config ativa: baixa o XLSX atual do Drive, faz `parseCoalaXlsx`.
+2. Carrega todos os `event_forecasts` do evento (tipo `expense`, não-sponsorship).
+3. Faz matching agressivo (descrição exata > base description > Dice ≥ 0.85 + valor exato) para encontrar `forecast_id` para cada linha da planilha.
+4. Devolve relatório: matched / ambíguos / órfãos.
+5. Em modo commit, popula `coala_sync_row_state` com `forecast_id`, `identity_key`, `fallback_key`, `legacy_key`, `last_xlsx_payload`.
+6. Os ambíguos ficam para revisão manual numa UI mínima (Fase 4) ou via SQL.
 
-`computeAccountBalance` em `BatchPaymentModal.tsx`, `TransactionPaymentModal.tsx`, `SupplierTransactions.tsx`, `CacheSettlementPanel.tsx`, `TicketOfficeBalancePanel.tsx`, `ReportContasPagar.tsx`, `ReportSuppliersPage.tsx`, `ReportTicketOfficeAudit.tsx`, `PartnerEventDetail.tsx` continua a usar `transactions.paid_amount`. Para refletir caixa real, criar helper centralizado:
+### Fase 3 — Matching em cascata em `apply-coala-bp` (phase `compare` e `auto_apply`)
 
-```ts
-// src/lib/account-balance.ts
-export async function fetchAccountCashAdjustments(): Promise<Map<string, number>>;
-// devolve, por account_id, sum(withholding_amount + credit_amount) das linhas de transaction_payments
-```
+Refactor de `apply-coala-bp/index.ts:236-410`. Em vez de matching baseado só em descrição/valor:
 
-Cada local que computa balance subtrai esse ajuste do débito bruto (`bal += adj` para despesas), sem alterar `paid_amount`. Isto resolve o "valor real em caixa" sem mexer em BP/DRE.
+1. **Carregar `row_state`** para o evento/config (passar `configId` no payload do compare; quando absent, fallback para o comportamento atual).
+2. **Tier 1 — match exato por identidade persistida**: se `row_state[identityKey].forecast_id` existe ⇒ ligação direta. Compara só valor/descrição para classificar como `unchanged` | `valueMismatch` | `renameOnly`.
+3. **Tier 2 — fuzzy fallback**:
+   - Sub-tier 2a: `identityKey` (supplier+invoice) novo, mas existe `forecast` com `supplier+invoice` iguais ⇒ assume mesma linha, reclassifica e atualiza row_state.
+   - Sub-tier 2b: scoring por `supplier` (peso 0.4) + `centerCusto` (0.2) + `valor` em janela ±10% (0.3) + Dice descrição (0.1). Score ≥ 0.7 ⇒ `renameOnly`/`valueMismatch`. Score 0.5–0.7 ⇒ `needs_review` com top-3 candidatos (já existente).
+4. **Tier 3 — split detection** (1 forecast → N rows na planilha): se houver N linhas com mesmo `supplier+centerCusto` cujo somatório bate ±2% num forecast existente, classifica `splitPending` (já existe lógica `findSumCombination`, mas ancora ao `forecast_id` via row_state em vez de re-fazer match).
+5. **Tier 4 — só agora `INSERT/DELETE`**: missing → INSERT novo forecast; extraInBp → DELETE (com guard: só se o forecast não está protegido por sponsorship/manual_override e não tem TX já liquidada — o último ponto já existe).
 
-**Nota**: este passo (8) é o mais sensível. Vou aplicá-lo com testes em modo "shadow" — manter o cálculo atual + log `console.debug` da diferença numa primeira iteração? Não. Aplicar diretamente mas só após validares o âmbito.
+### Fase 4 — Idempotência e garantias
 
-### 9. Memory
+1. Após cada `apply`/`auto_apply` bem-sucedido, fazer **UPSERT** completo de `coala_sync_row_state` (não DELETE+INSERT como hoje, para não perder `forecast_id` em runs concorrentes). Preencher `forecast_id` sempre.
+2. Adicionar `coala_sync_row_state.last_apply_hash` (jsonb hash de description+amount+date) para detetar mudanças sem reparsing.
+3. Em `compare`, qualquer linha cujo `identity_key` e payload são iguais ao `last_xlsx_payload` ⇒ skip ⇒ não entra em nenhum dos buckets de diff. Idempotência garantida.
 
-Atualizar `mem://features/tax-withholding` para refletir que o saldo de conta passa a descontar retenções/créditos via `transaction_payments`, e que a UI mostra líquido sempre que não há parcelas.
+### Fase 5 — Guard contra DELETE em massa durante transição
 
-## Fora do âmbito
+Antes da Fase 2 (bootstrap) correr, o `compare` continuará a produzir `extraInBp` grandes. Mitigação:
 
-- Parcelas (`transaction_payments` planeadas): cada parcela já tem `withholding_amount` próprio inserido em `MarkInstallmentPaidModal`. Não alterado.
-- Reembolsos, créditos de fornecedor: lógica inalterada.
-- Receitas: retenção só faz sentido em despesas; UI esconde como hoje.
+1. Adicionar flag `safeMode` em `apply-coala-bp` (default ON). Em `safeMode`, recusa qualquer `auto_apply`/`apply` se `extraInBp.length > maxAutoDeletes` (sugiro 5) ou se ratio `extraInBp/totalBpRows > 10%` ⇒ devolve status `blocked` com motivo.
+2. UI de revisão mostra warning explícito quando `safeMode` bloqueia.
+3. Cron desliga automaticamente `auto_apply` para a config quando `safeMode` dispara 2× consecutivos.
 
-## Validação
+---
 
-1. Criar despesa €1000 + IVA 23% (bruto 1230) com retenção 25% = 307,50.
-2. Lista de transações deve mostrar `-1230,00` + linha `A pagar (líquido): 922,50 · Ret. IRS: -307,50`.
-3. Lista de pagamento (criação) deve mostrar coluna `A pagar (líquido): 922,50`.
-4. BatchPaymentModal com 1 item: total bruto 1230, retenção -307,50, saída caixa 922,50; validação de saldo usa 922,50; após confirmar, conta debita 922,50 (não 1230).
-5. DRE/BP da despesa continuam a contar 1230 (compromisso integral).
+## Estratégia de teste
+
+1. **Teste de idempotência** (vitest + edge):
+   - Seed: 5 forecasts, planilha com as mesmas 5 linhas.
+   - Correr `dry_run` 3×, depois `apply`, depois `dry_run` 3×. Asserção: 2º `dry_run` em diante ⇒ diff vazio.
+
+2. **Teste de renomeação**:
+   - Forecast "Slow J" €30k. Planilha passa a "Slow J - 3ª parcela" €30k mesmo supplier. Asserção: `renameOnly` 1 entrada com mesmo `bpId`, `extraInBp` vazio.
+
+3. **Teste de split em parcelas**:
+   - Forecast "João Gomes" €60k. Planilha vira 3× "João Gomes - parcela N" €20k cada. Asserção: `splitPending` 1 entrada com `bpId` correto + 3 children; após apply, 3 forecasts novos com mesma category/supplier, original deletado.
+
+4. **Teste de bootstrap**:
+   - DB com 100 forecasts, 0 row_state. Correr `coala-sync-bootstrap`. Asserção: ≥95% matched, relatório enumera órfãos.
+
+5. **Teste de safeMode**:
+   - Forçar 20 `extraInBp`. Asserção: `apply` recusa com `blocked: safeMode_threshold`.
+
+6. **Smoke em Live (read-only)**:
+   - Após deploy + bootstrap, correr `dry_run` no run `104e3a21-…`. Esperado: das 37 `extraInBp` atuais, ≤3 ficam (só as despesas 2025 obsoletas legítimas); os ~14 renomeados viram `renameOnly`; os ~17 parcelados viram `splitPending` ou matched.
+
+---
+
+## Riscos e mitigações
+
+| Risco | Mitigação |
+|---|---|
+| Bootstrap mapeia errado e perde linhas legítimas | Bootstrap nunca apaga; só popula row_state. Apply só age após Pedro aprovar diff em UI. |
+| `auto_apply` apaga em massa antes do bootstrap | Fase 5 `safeMode` ON por default + cron auto-desliga após 2 bloqueios. |
+| `invoiceRef` repetido entre fornecedores diferentes | `identityKey = supplier+invoiceRef` (nunca só invoice). |
+| Reordenação da planilha invalida `fallbackKey` posicional | `identityKey` (supplier+invoice) tem prioridade; fallback tem `supplier+centerCusto+netAmount` na chave, não só `rowNumber`. |
+| Splits com valores não-uniformes não detetados | `findSumCombination` já existe; ancorar ao `forecast_id` via row_state melhora precisão. |
+| `coala_sync_row_state` corrompida por run falhado a meio | UPSERT por `(config_id, identity_key)` + transação por run; rollback no catch. |
+
+---
+
+## Ordem de execução proposta
+
+1. Migração SQL (colunas + índices em `coala_sync_row_state`).
+2. Refactor `buildRowKey` + escrita sempre + `forecast_id` populado em `sync-coala-from-drive`.
+3. Edge `coala-sync-bootstrap` + correr em Live com `dry_run` → rever relatório → commit.
+4. Refactor matching em cascata em `apply-coala-bp` (compare + auto_apply).
+5. `safeMode` + auto-disable do cron.
+6. Suite de testes vitest dedicada.
+7. Correr `dry_run` em Live no run `104e3a21-…` e validar redução das 37 `extraInBp`.
+
+**Sem mexer**: BE B+B, IA classificadora, regressão Forecast.
+
+---
+
+## Decisões em aberto (precisam Pedro)
+
+1. **`maxAutoDeletes` em `safeMode`**: 5 (sugerido) | 10 | 0 (qualquer delete vai para review).
+2. **`identityKey` quando `invoiceRef` está vazio**: usar `supplier+centerCusto+valor+rowNumber` (sugerido) ou exigir review manual da linha?
+3. **Bootstrap ambíguos** (forecast com 2+ candidatos com score igual): auto-escolher o de menor `rowNumber` ou marcar todos como `needs_manual_link`?
+4. **Janela `±10%` no Tier 2b**: confortável ou queres apertar para `±5%`?
