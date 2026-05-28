@@ -994,9 +994,56 @@ Deno.serve(async (req) => {
         txDeleted: 0,
         txAmountUpdated: 0,
         suppliersCreated: newSupplierIds.length,
+        anchorsUpserted: 0,
+        anchorsErrors: 0,
         skipped: [] as Array<{ kind: string; reason: string; id?: string; rowNumber?: number }>,
         errors: [] as Array<{ kind: string; error: string; ref?: any }>,
       };
+
+      // ── Helper: upsert âncora no coala_sync_row_state após operação OK.
+      // Silencioso: erro grava em audit mas não reverte a operação.
+      const _norm = (s: string | null) =>
+        String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase().replace(/\s+/g, " ").trim();
+      const _invStrong = (ref: string | null | undefined) => {
+        if (!ref) return false;
+        const n = _norm(ref);
+        if (n.length < 3) return false;
+        if (/^(n\/?a|na|sem|s\/n|sn|nd|0+|-+|x+|fatura|recibo|fact|inv)$/.test(n)) return false;
+        return true;
+      };
+      const _rowKey = (r: ParsedRow): string => {
+        const sup = _norm(r.supplier ?? "");
+        if (sup && _invStrong(r.invoiceRef)) return `inv::${sup}::${_norm(r.invoiceRef ?? "")}`;
+        return ["fb", r.rowNumber, sup, _norm(r.rawCenterCusto ?? ""), moneyKey(r.netAmount)].join("::");
+      };
+      const _applyHash = (r: ParsedRow): string =>
+        [_norm(r.description), moneyKey(r.netAmount), r.paymentDate ?? "", r.dueDate ?? "", r.status ?? ""].join("|");
+      const upsertRowAnchor = async (r: ParsedRow, forecastId: string | null, source: string) => {
+        if (!configId) return;
+        try {
+          const { error } = await admin.from("coala_sync_row_state").upsert({
+            config_id: configId,
+            row_key: _rowKey(r),
+            forecast_id: forecastId,
+            needs_manual_link: false,
+            bootstrap_source: source,
+            last_apply_hash: _applyHash(r),
+            last_xlsx_payload: {
+              rowNumber: r.rowNumber, description: r.description, netAmount: r.netAmount,
+              supplier: r.supplier, invoiceRef: r.invoiceRef, status: r.status,
+              paymentDate: r.paymentDate, dueDate: r.dueDate,
+            },
+          }, { onConflict: "config_id,row_key", ignoreDuplicates: false });
+          if (error) { audit.anchorsErrors++; audit.errors.push({ kind: "row_state", error: error.message, ref: r.rowNumber }); }
+          else audit.anchorsUpserted++;
+        } catch (e) {
+          audit.anchorsErrors++;
+          audit.errors.push({ kind: "row_state", error: (e as Error).message, ref: r.rowNumber });
+        }
+      };
+
+
 
       // 1) missingInBp (auto) → INSERT forecast
       for (const it of (diff.missingInBp ?? [])) {
