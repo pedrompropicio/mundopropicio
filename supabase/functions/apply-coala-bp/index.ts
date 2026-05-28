@@ -831,11 +831,16 @@ Deno.serve(async (req) => {
           anchored: {
             enabled: !!bodyConfigIdTop,
             matches: anchoredMatches,
+            anchoredMatches,
             valueMismatches: anchoredValueMismatches.length,
+            anchoredValueMismatches: anchoredValueMismatches.length,
             renames: anchoredRenames.length,
+            anchoredRenames: anchoredRenames.length,
             staleAnchors,
             pendingManualLink: pendingManualLink.length,
             suspectedOrphans: suspectedOrphanFcIds.size,
+            // fallbackMatched = linhas XLSX consumidas mas NÃO via âncora (matching legacy descrição/Dice/agregado).
+            fallbackMatched: Math.max(0, matchedFileKeys.size - anchoredMatches - pendingManualLink.length),
           },
         },
         missingInBp,
