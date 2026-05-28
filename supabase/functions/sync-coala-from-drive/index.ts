@@ -454,7 +454,9 @@ Deno.serve(async (req) => {
         const currentKeys = new Map<string, any>();
         for (const r of parsed.rows) {
           if (r.excluded) continue;
-          const k = buildRowKey(r);
+          const identityKey = buildIdentityKey(r);
+          const fallbackKey = buildFallbackKey(r);
+          const k = identityKey ?? fallbackKey;
           currentKeys.set(k, {
             rowNumber: r.rowNumber,
             description: r.description,
@@ -465,13 +467,32 @@ Deno.serve(async (req) => {
             status: r.status,
             paymentDate: r.paymentDate,
             dueDate: r.dueDate,
+            rawCenterCusto: r.rawCenterCusto,
+            // metadados de identidade (escritos no row_state em apply)
+            _identityKey: identityKey,
+            _fallbackKey: fallbackKey,
+            _legacyKey: buildLegacyKey(r),
+            _applyHash: buildApplyHash(r),
+            _supplierNorm: norm(r.supplier ?? ""),
+            _invoiceRefNorm: norm(r.invoiceRef ?? ""),
+            _centerCustoNorm: norm(r.rawCenterCusto ?? ""),
+            _netAmountCents: moneyKey(r.netAmount),
           });
         }
 
         const { data: prevState } = await admin.from("coala_sync_row_state")
-          .select("row_key, last_xlsx_payload, manual_override, manual_override_reason, forecast_id")
+          .select("row_key, identity_key, fallback_key, last_xlsx_payload, manual_override, manual_override_reason, forecast_id")
           .eq("config_id", cfg.id);
-        const prevByKey = new Map<string, any>((prevState ?? []).map((s: any) => [s.row_key, s]));
+        // Mapeia por row_key (chave atual) E por identity_key (continuidade quando
+        // só o fallback mudou de posição mas a fatura é a mesma).
+        const prevByKey = new Map<string, any>();
+        for (const s of (prevState ?? [])) {
+          prevByKey.set(s.row_key, s);
+          if (s.identity_key && !prevByKey.has(s.identity_key)) {
+            prevByKey.set(s.identity_key, s);
+          }
+        }
+
 
         const newRows: any[] = [];
         const removedRows: any[] = [];
