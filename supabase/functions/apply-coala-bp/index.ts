@@ -757,7 +757,7 @@ Deno.serve(async (req) => {
       const classifySeverity = (item: any, kind: string): "auto" | "review" => {
         switch (kind) {
           case "missingInBp": return "auto";
-          case "extraInBp":   return "auto"; // Opção C: apaga sempre (com ou sem TX)
+          case "extraInBp":   return item.reason === "candidate-of-pendingManualLink" ? "review" : "auto";
           case "renameOnly":  return "auto"; // delta=0, zero risco
           case "txMissing":   return "auto"; // Pago BR também é auto (supplier+partner fixos)
           case "txExtra":     return "auto"; // Opção B: apaga mesmo paga (Santander sem saldo)
