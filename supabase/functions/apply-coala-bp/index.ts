@@ -828,6 +828,15 @@ Deno.serve(async (req) => {
           sponsors: { missing: sponsorMissing.length, extra: sponsorExtra.length, mismatch: sponsorMismatch.length },
           severity: { auto: autoCount, review: reviewCount },
           protected: { forecasts: protectedFcIds.size, transactions: protectedTxIds.size },
+          anchored: {
+            enabled: !!bodyConfigIdTop,
+            matches: anchoredMatches,
+            valueMismatches: anchoredValueMismatches.length,
+            renames: anchoredRenames.length,
+            staleAnchors,
+            pendingManualLink: pendingManualLink.length,
+            suspectedOrphans: suspectedOrphanFcIds.size,
+          },
         },
         missingInBp,
         extraInBp,
@@ -840,8 +849,10 @@ Deno.serve(async (req) => {
         sponsorMissing,
         sponsorExtra,
         sponsorMismatch,
+        pendingManualLink,
       });
     }
+
 
     // ===========================================================================
     // PHASE = "auto_apply": aplica APENAS items severity='auto' do diff de uma run base
