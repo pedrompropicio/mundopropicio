@@ -133,8 +133,47 @@ const jwtRole = (authHeader: string | null): string | null => {
 
 const moneyKey = (n: number) => Math.round((Number(n) || 0) * 100);
 
-// row_key estável: descrição+valor+data+fornecedor+invoice
-const buildRowKey = (r: {
+// Considera invoiceRef "fraca" valores triviais como "-", "n/a", "0", "fatura", etc.
+const isInvoiceRefStrong = (ref: string | null | undefined): boolean => {
+  if (!ref) return false;
+  const n = norm(ref);
+  if (n.length < 3) return false;
+  if (/^(n\/?a|na|sem|s\/n|sn|nd|0+|-+|x+|fatura|recibo|fact|inv)$/.test(n)) return false;
+  return true;
+};
+
+// IDENTITY KEY (forte): supplier + invoiceRef. Só quando ambos existem.
+// Imune a renomeação de descrição, mudança de valor (split em parcelas), mudança de data.
+export const buildIdentityKey = (r: {
+  supplier: string | null;
+  invoiceRef: string | null;
+}): string | null => {
+  const sup = norm(r.supplier ?? "");
+  if (!sup) return null;
+  if (!isInvoiceRefStrong(r.invoiceRef)) return null;
+  return `inv::${sup}::${norm(r.invoiceRef ?? "")}`;
+};
+
+// FALLBACK KEY: linhas sem fatura. supplier + centerCusto + valor (cents) + rowNumber.
+// O rowNumber dá uma âncora posicional; o resto permite detetar a mesma linha
+// mesmo que se acrescente "X parcela" à descrição.
+export const buildFallbackKey = (r: {
+  rowNumber: number;
+  supplier: string | null;
+  rawCenterCusto: string | null;
+  netAmount: number;
+}): string =>
+  [
+    "fb",
+    r.rowNumber,
+    norm(r.supplier ?? ""),
+    norm(r.rawCenterCusto ?? ""),
+    moneyKey(r.netAmount),
+  ].join("::");
+
+// LEGACY KEY: chave antiga (descrição+valor+data+supplier+invoice+due). Mantida
+// SÓ para migração one-shot a partir de coala_sync_decisions/runs anteriores.
+export const buildLegacyKey = (r: {
   description: string; netAmount: number; supplier: string | null;
   invoiceRef: string | null; paymentDate: string | null; dueDate: string | null;
 }) =>
@@ -146,6 +185,27 @@ const buildRowKey = (r: {
     r.paymentDate ?? "",
     r.dueDate ?? "",
   ].join("|");
+
+// Hash compacto do payload para detetar mudanças entre runs sem comparar tudo.
+const buildApplyHash = (r: {
+  description: string; netAmount: number; paymentDate: string | null;
+  dueDate: string | null; status: string | null;
+}): string =>
+  [
+    norm(r.description),
+    moneyKey(r.netAmount),
+    r.paymentDate ?? "",
+    r.dueDate ?? "",
+    r.status ?? "",
+  ].join("|");
+
+// Chave efetiva (a usada em xlsxVsState). Prefere identity; cai para fallback.
+const buildRowKey = (r: {
+  description: string; netAmount: number; supplier: string | null;
+  invoiceRef: string | null; paymentDate: string | null; dueDate: string | null;
+  rowNumber: number; rawCenterCusto: string | null;
+}): string =>
+  buildIdentityKey(r) ?? buildFallbackKey(r);
 
 // ─────────────────────────────────────────────────────────────────
 // Handler
