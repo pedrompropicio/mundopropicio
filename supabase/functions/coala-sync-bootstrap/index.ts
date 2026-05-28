@@ -170,9 +170,18 @@ Deno.serve(async (req) => {
         const expenseFcs = (fcs ?? []).filter((f: any) => f.type === "expense");
 
         const { data: cats } = await admin.from("account_categories")
-          .select("id, code, name, parent_id");
+          .select("id, code, name, parent_id, is_active");
         const catById = new Map<string, any>();
         for (const c of (cats ?? [])) catById.set(c.id, c);
+        // Helper L2 id (L1→null, L2→self, L3→parent) — espelha apply-coala-bp
+        const getL2Id = (catId: string | null | undefined): string | null => {
+          if (!catId) return null;
+          const cur = catById.get(catId);
+          if (!cur || !cur.parent_id) return null;
+          const parent = catById.get(cur.parent_id);
+          if (!parent) return null;
+          return parent.parent_id ? parent.id : cur.id;
+        };
         // Conjunto de "nomes alvo" (normalizados) por category_id: própria + pais (L2/L1)
         const catNamesById = new Map<string, Set<string>>();
         for (const c of (cats ?? [])) {
@@ -197,6 +206,76 @@ Deno.serve(async (req) => {
             if (n.includes(target) || target.includes(n)) return true;
           }
           return false;
+        };
+
+        // ── FRENTE 2 (bootstrap): aprendizado supplier→categoria ──
+        const { data: supRows } = await admin.from("suppliers")
+          .select("id, name")
+          .eq("company_id", cfg.company_id);
+        const supByName = new Map<string, string>();
+        for (const s of (supRows ?? [])) supByName.set(s.name, s.id);
+
+        type LearnedRule = { id: string; supplier_id: string; description_normalized: string; category_id: string; confirmed_count: number };
+        const learnedRulesBySupplier = new Map<string, LearnedRule[]>();
+        try {
+          const { data: rules } = await admin.from("coala_supplier_category_map")
+            .select("id, supplier_id, description_normalized, category_id, confirmed_count")
+            .eq("company_id", cfg.company_id);
+          for (const rl of (rules ?? []) as LearnedRule[]) {
+            const c = catById.get(rl.category_id);
+            if (!c || c.is_active === false) continue;
+            const arr = learnedRulesBySupplier.get(rl.supplier_id) ?? [];
+            arr.push(rl);
+            learnedRulesBySupplier.set(rl.supplier_id, arr);
+          }
+        } catch (e) {
+          console.warn("[bootstrap learning] load failed:", (e as Error).message);
+        }
+        // Trigram Dice (sim ≥0.85) — alinhado com apply-coala-bp
+        const tri = (s: string): Set<string> => {
+          const padded = `  ${s}  `;
+          const out = new Set<string>();
+          for (let i = 0; i < padded.length - 2; i++) out.add(padded.slice(i, i + 3));
+          return out;
+        };
+        const triSim = (a: string, b: string): number => {
+          if (!a || !b) return 0;
+          if (a === b) return 1;
+          const A = tri(a), B = tri(b);
+          let inter = 0; for (const t of A) if (B.has(t)) inter++;
+          return (2 * inter) / (A.size + B.size);
+        };
+        // Resolve categoria sugerida pela learning para uma row XLSX.
+        // Retorna null se não há sugestão OU se a regra colide com o L2 do CC do XLSX.
+        const resolveLearnedCatId = (r: any): string | null => {
+          const sup = r.supplier ? supByName.get(r.supplier) ?? null : null;
+          if (!sup) return null;
+          const rules = learnedRulesBySupplier.get(sup);
+          if (!rules || !rules.length) return null;
+          const descNorm = norm(r.description);
+          const xlsxCat = r.rawCenterCusto
+            ? (cats ?? []).find((c: any) => c.parent_id != null && norm(c.name) === norm(r.rawCenterCusto || ""))
+            : null;
+          const xlsxL2 = xlsxCat ? getL2Id(xlsxCat.id) : null;
+          const validate = (rl: LearnedRule): string | null => {
+            if (xlsxL2) {
+              const ruleL2 = getL2Id(rl.category_id);
+              if (ruleL2 && ruleL2 !== xlsxL2) return null;
+            }
+            return rl.category_id;
+          };
+          const exact = rules.find((rl) => rl.description_normalized === descNorm);
+          if (exact) {
+            const v = validate(exact);
+            if (v) return v;
+          }
+          let best: { rule: LearnedRule; sim: number } | null = null;
+          for (const rl of rules) {
+            const sim = triSim(descNorm, rl.description_normalized);
+            if (sim >= 0.85 && (!best || sim > best.sim)) best = { rule: rl, sim };
+          }
+          if (best) return validate(best.rule);
+          return null;
         };
 
         // Índices
@@ -226,7 +305,7 @@ Deno.serve(async (req) => {
         const upserts: any[] = [];
         const stats = {
           exact: 0, fuzzy: 0, value_anchor: 0,
-          category_anchor: 0, value_tolerance: 0,
+          category_anchor: 0, category_anchor_via_learning: 0, value_tolerance: 0,
           core_description: 0, ambiguous_core: 0,
           value_unique_pair: 0,
           orphan_value_candidate: 0,
@@ -293,6 +372,38 @@ Deno.serve(async (req) => {
                   forecastId = catCands[0].id; bootstrapSource = "category_anchor"; stats.category_anchor++; matched = true;
                 } else if (catCands.length > 1) {
                   needsManualLink = true; bootstrapSource = "ambiguous_category"; stats.ambiguous_category++; matched = true;
+                }
+              }
+              // T4b: category_anchor_via_learning — sinal adicional da learning table
+              // (não override, só desempate/confirmação quando o CC do XLSX falha)
+              if (!matched) {
+                const learnedCatId = resolveLearnedCatId(r);
+                if (learnedCatId) {
+                  const learnedL2 = getL2Id(learnedCatId);
+                  if (learnedL2) {
+                    const targetCents = moneyKey(r.netAmount);
+                    const target = Number(r.netAmount) || 0;
+                    // 1º cents exatos com L2 compatível
+                    let lrnCands = (byCents.get(targetCents) ?? [])
+                      .filter((f: any) => !usedFcIds.has(f.id))
+                      .filter((f: any) => getL2Id(f.category_id) === learnedL2);
+                    // 2º se nenhum, tenta ±10% com L2 compatível
+                    if (lrnCands.length === 0 && target !== 0) {
+                      lrnCands = expenseFcs.filter((f: any) => {
+                        if (usedFcIds.has(f.id)) return false;
+                        if (getL2Id(f.category_id) !== learnedL2) return false;
+                        const amt = Number(f.amount) || 0;
+                        return Math.abs(amt - target) / Math.abs(target) <= 0.10;
+                      });
+                    }
+                    if (lrnCands.length === 1) {
+                      forecastId = lrnCands[0].id;
+                      bootstrapSource = "category_anchor_via_learning";
+                      stats.category_anchor_via_learning++;
+                      matched = true;
+                    }
+                    // empate >1 deixa cair para tiers seguintes (ou orphan/needs_manual_link)
+                  }
                 }
               }
               // T5: value_tolerance ±10% + categoria compatível
