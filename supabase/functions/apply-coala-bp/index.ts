@@ -1145,7 +1145,10 @@ Deno.serve(async (req) => {
           field: "description", old_value: oldDesc, new_value: newDesc,
         });
         audit.forecastsRenamed++;
+        const r = it.rowNumber != null ? rowByNum.get(it.rowNumber) : null;
+        if (r) await upsertRowAnchor(r, fcId, it.source === "anchor" ? "auto_apply_rename_anchor" : "auto_apply_rename");
       }
+
 
       // 5) txMissing (auto) → INSERT transaction
       // Pago BR: supplier+partner fixos (regra de negócio Coala 2026)
