@@ -146,12 +146,42 @@ Deno.serve(async (req) => {
         const parsed = parseCoalaXlsx(buf, "bootstrap");
         const rows = parsed.rows.filter((r) => !r.excluded);
 
-        // 2. Forecasts actuais (despesas activas)
+        // 2. Forecasts actuais (despesas activas) + mapa de categorias
         const { data: fcs } = await admin.from("event_forecasts")
-          .select("id, description, amount, type")
+          .select("id, description, amount, type, category_id")
           .eq("event_id", cfg.event_id)
           .is("version_id", null);
         const expenseFcs = (fcs ?? []).filter((f: any) => f.type === "expense");
+
+        const { data: cats } = await admin.from("account_categories")
+          .select("id, code, name, parent_id");
+        const catById = new Map<string, any>();
+        for (const c of (cats ?? [])) catById.set(c.id, c);
+        // Conjunto de "nomes alvo" (normalizados) por category_id: própria + pais (L2/L1)
+        const catNamesById = new Map<string, Set<string>>();
+        for (const c of (cats ?? [])) {
+          const names = new Set<string>();
+          let cur: any = c;
+          for (let i = 0; i < 4 && cur; i++) {
+            if (cur.name) names.add(norm(cur.name));
+            if (cur.code) names.add(norm(cur.code));
+            cur = cur.parent_id ? catById.get(cur.parent_id) : null;
+          }
+          catNamesById.set(c.id, names);
+        }
+        const categoryMatches = (fcCategoryId: string | null, rawCenterCusto: string | null): boolean => {
+          if (!fcCategoryId || !rawCenterCusto) return false;
+          const target = norm(rawCenterCusto);
+          if (!target) return false;
+          const names = catNamesById.get(fcCategoryId);
+          if (!names) return false;
+          if (names.has(target)) return true;
+          for (const n of names) {
+            if (!n) continue;
+            if (n.includes(target) || target.includes(n)) return true;
+          }
+          return false;
+        };
 
         // Índices
         const byExact = new Map<string, any[]>();
@@ -175,7 +205,12 @@ Deno.serve(async (req) => {
 
         // 4. Para cada row: computar keys + matching
         const upserts: any[] = [];
-        const stats = { exact: 0, fuzzy: 0, value_anchor: 0, ambiguous: 0, no_match: 0, preserved: 0 };
+        const stats = {
+          exact: 0, fuzzy: 0, value_anchor: 0,
+          category_anchor: 0, value_tolerance: 0,
+          ambiguous: 0, ambiguous_category: 0, ambiguous_value: 0,
+          no_match: 0, preserved: 0,
+        };
 
         for (const r of rows) {
           const identityKey = buildIdentityKey(r);
