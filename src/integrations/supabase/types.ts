@@ -1449,39 +1449,72 @@ export type Database = {
       }
       coala_sync_row_state: {
         Row: {
+          bootstrap_source: string | null
+          center_custo_norm: string | null
           config_id: string
           created_at: string
+          fallback_key: string | null
           forecast_id: string | null
           id: string
+          identity_key: string | null
+          invoice_ref_norm: string | null
+          last_apply_hash: string | null
           last_seen_run_id: string | null
           last_xlsx_payload: Json
+          legacy_key: string | null
           manual_override: boolean
           manual_override_reason: string | null
+          needs_manual_link: boolean
+          net_amount_cents: number | null
           row_key: string
+          row_number: number | null
+          supplier_norm: string | null
           updated_at: string
         }
         Insert: {
+          bootstrap_source?: string | null
+          center_custo_norm?: string | null
           config_id: string
           created_at?: string
+          fallback_key?: string | null
           forecast_id?: string | null
           id?: string
+          identity_key?: string | null
+          invoice_ref_norm?: string | null
+          last_apply_hash?: string | null
           last_seen_run_id?: string | null
           last_xlsx_payload: Json
+          legacy_key?: string | null
           manual_override?: boolean
           manual_override_reason?: string | null
+          needs_manual_link?: boolean
+          net_amount_cents?: number | null
           row_key: string
+          row_number?: number | null
+          supplier_norm?: string | null
           updated_at?: string
         }
         Update: {
+          bootstrap_source?: string | null
+          center_custo_norm?: string | null
           config_id?: string
           created_at?: string
+          fallback_key?: string | null
           forecast_id?: string | null
           id?: string
+          identity_key?: string | null
+          invoice_ref_norm?: string | null
+          last_apply_hash?: string | null
           last_seen_run_id?: string | null
           last_xlsx_payload?: Json
+          legacy_key?: string | null
           manual_override?: boolean
           manual_override_reason?: string | null
+          needs_manual_link?: boolean
+          net_amount_cents?: number | null
           row_key?: string
+          row_number?: number | null
+          supplier_norm?: string | null
           updated_at?: string
         }
         Relationships: [
