@@ -133,8 +133,47 @@ const jwtRole = (authHeader: string | null): string | null => {
 
 const moneyKey = (n: number) => Math.round((Number(n) || 0) * 100);
 
-// row_key estável: descrição+valor+data+fornecedor+invoice
-const buildRowKey = (r: {
+// Considera invoiceRef "fraca" valores triviais como "-", "n/a", "0", "fatura", etc.
+const isInvoiceRefStrong = (ref: string | null | undefined): boolean => {
+  if (!ref) return false;
+  const n = norm(ref);
+  if (n.length < 3) return false;
+  if (/^(n\/?a|na|sem|s\/n|sn|nd|0+|-+|x+|fatura|recibo|fact|inv)$/.test(n)) return false;
+  return true;
+};
+
+// IDENTITY KEY (forte): supplier + invoiceRef. Só quando ambos existem.
+// Imune a renomeação de descrição, mudança de valor (split em parcelas), mudança de data.
+export const buildIdentityKey = (r: {
+  supplier: string | null;
+  invoiceRef: string | null;
+}): string | null => {
+  const sup = norm(r.supplier ?? "");
+  if (!sup) return null;
+  if (!isInvoiceRefStrong(r.invoiceRef)) return null;
+  return `inv::${sup}::${norm(r.invoiceRef ?? "")}`;
+};
+
+// FALLBACK KEY: linhas sem fatura. supplier + centerCusto + valor (cents) + rowNumber.
+// O rowNumber dá uma âncora posicional; o resto permite detetar a mesma linha
+// mesmo que se acrescente "X parcela" à descrição.
+export const buildFallbackKey = (r: {
+  rowNumber: number;
+  supplier: string | null;
+  rawCenterCusto: string | null;
+  netAmount: number;
+}): string =>
+  [
+    "fb",
+    r.rowNumber,
+    norm(r.supplier ?? ""),
+    norm(r.rawCenterCusto ?? ""),
+    moneyKey(r.netAmount),
+  ].join("::");
+
+// LEGACY KEY: chave antiga (descrição+valor+data+supplier+invoice+due). Mantida
+// SÓ para migração one-shot a partir de coala_sync_decisions/runs anteriores.
+export const buildLegacyKey = (r: {
   description: string; netAmount: number; supplier: string | null;
   invoiceRef: string | null; paymentDate: string | null; dueDate: string | null;
 }) =>
@@ -146,6 +185,27 @@ const buildRowKey = (r: {
     r.paymentDate ?? "",
     r.dueDate ?? "",
   ].join("|");
+
+// Hash compacto do payload para detetar mudanças entre runs sem comparar tudo.
+const buildApplyHash = (r: {
+  description: string; netAmount: number; paymentDate: string | null;
+  dueDate: string | null; status: string | null;
+}): string =>
+  [
+    norm(r.description),
+    moneyKey(r.netAmount),
+    r.paymentDate ?? "",
+    r.dueDate ?? "",
+    r.status ?? "",
+  ].join("|");
+
+// Chave efetiva (a usada em xlsxVsState). Prefere identity; cai para fallback.
+const buildRowKey = (r: {
+  description: string; netAmount: number; supplier: string | null;
+  invoiceRef: string | null; paymentDate: string | null; dueDate: string | null;
+  rowNumber: number; rawCenterCusto: string | null;
+}): string =>
+  buildIdentityKey(r) ?? buildFallbackKey(r);
 
 // ─────────────────────────────────────────────────────────────────
 // Handler
@@ -394,7 +454,9 @@ Deno.serve(async (req) => {
         const currentKeys = new Map<string, any>();
         for (const r of parsed.rows) {
           if (r.excluded) continue;
-          const k = buildRowKey(r);
+          const identityKey = buildIdentityKey(r);
+          const fallbackKey = buildFallbackKey(r);
+          const k = identityKey ?? fallbackKey;
           currentKeys.set(k, {
             rowNumber: r.rowNumber,
             description: r.description,
@@ -405,13 +467,32 @@ Deno.serve(async (req) => {
             status: r.status,
             paymentDate: r.paymentDate,
             dueDate: r.dueDate,
+            rawCenterCusto: r.rawCenterCusto,
+            // metadados de identidade (escritos no row_state em apply)
+            _identityKey: identityKey,
+            _fallbackKey: fallbackKey,
+            _legacyKey: buildLegacyKey(r),
+            _applyHash: buildApplyHash(r),
+            _supplierNorm: norm(r.supplier ?? ""),
+            _invoiceRefNorm: norm(r.invoiceRef ?? ""),
+            _centerCustoNorm: norm(r.rawCenterCusto ?? ""),
+            _netAmountCents: moneyKey(r.netAmount),
           });
         }
 
         const { data: prevState } = await admin.from("coala_sync_row_state")
-          .select("row_key, last_xlsx_payload, manual_override, manual_override_reason, forecast_id")
+          .select("row_key, identity_key, fallback_key, last_xlsx_payload, manual_override, manual_override_reason, forecast_id")
           .eq("config_id", cfg.id);
-        const prevByKey = new Map<string, any>((prevState ?? []).map((s: any) => [s.row_key, s]));
+        // Mapeia por row_key (chave atual) E por identity_key (continuidade quando
+        // só o fallback mudou de posição mas a fatura é a mesma).
+        const prevByKey = new Map<string, any>();
+        for (const s of (prevState ?? [])) {
+          prevByKey.set(s.row_key, s);
+          if (s.identity_key && !prevByKey.has(s.identity_key)) {
+            prevByKey.set(s.identity_key, s);
+          }
+        }
+
 
         const newRows: any[] = [];
         const removedRows: any[] = [];
@@ -532,21 +613,49 @@ Deno.serve(async (req) => {
             throw new Error(`apply-coala-bp falhou (${applyResp.status}): ${JSON.stringify(applyJson)}`);
           }
 
-          // Atualizar row_state com snapshot atual (substitui tudo: este sync usa reset_reimport)
+          // Atualizar row_state com snapshot atual.
+          // NOTA: reset_reimport (Fase 3 vai substituir por diff-based) ainda recria
+          // os forecasts do zero. Por isso forecast_id fica NULL aqui — é o
+          // bootstrap (coala-sync-bootstrap, Fase 2) ou o novo apply (Fase 3) que o
+          // preenche. As chaves estáveis (identity/fallback) já são persistidas para
+          // que o próximo dry_run consiga distinguir new vs renamed.
+          // Preserva manual_override existentes (não os apaga em apply automático).
+          const { data: keepOverrides } = await admin.from("coala_sync_row_state")
+            .select("row_key, manual_override_reason, forecast_id")
+            .eq("config_id", cfg.id)
+            .eq("manual_override", true);
+          const overrideByKey = new Map<string, any>(
+            (keepOverrides ?? []).map((s: any) => [s.row_key, s]),
+          );
           await admin.from("coala_sync_row_state").delete().eq("config_id", cfg.id);
           if (currentKeys.size > 0) {
-            const stateRows = Array.from(currentKeys.entries()).map(([k, payload]) => ({
-              config_id: cfg.id,
-              row_key: k,
-              last_seen_run_id: runId,
-              last_xlsx_payload: payload,
-              manual_override: false,
-            }));
-            // bulk insert em chunks de 500
+            const stateRows = Array.from(currentKeys.entries()).map(([k, payload]) => {
+              const prev = overrideByKey.get(k);
+              return {
+                config_id: cfg.id,
+                row_key: k,
+                identity_key: payload._identityKey,
+                fallback_key: payload._fallbackKey,
+                legacy_key: payload._legacyKey,
+                row_number: payload.rowNumber,
+                supplier_norm: payload._supplierNorm,
+                invoice_ref_norm: payload._invoiceRefNorm,
+                center_custo_norm: payload._centerCustoNorm,
+                net_amount_cents: payload._netAmountCents,
+                last_apply_hash: payload._applyHash,
+                last_seen_run_id: runId,
+                last_xlsx_payload: payload,
+                forecast_id: prev?.forecast_id ?? null,
+                manual_override: !!prev,
+                manual_override_reason: prev?.manual_override_reason ?? null,
+              };
+            });
             for (let i = 0; i < stateRows.length; i += 500) {
-              await admin.from("coala_sync_row_state").insert(stateRows.slice(i, i + 500));
+              const { error: insErr } = await admin.from("coala_sync_row_state").insert(stateRows.slice(i, i + 500));
+              if (insErr) console.error("[coala-sync] row_state insert failed:", insErr);
             }
           }
+
 
           await admin.from("coala_sync_runs").update({
             status: "success",
