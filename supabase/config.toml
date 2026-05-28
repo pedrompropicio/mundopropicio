@@ -40,6 +40,10 @@ verify_jwt = true
 [functions.sync-coala-from-drive]
 verify_jwt = true
 
+[functions.coala-sync-bootstrap]
+verify_jwt = true
+
+
 [functions.crm-campaign-diagnosis]
 verify_jwt = true
 
