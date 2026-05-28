@@ -515,14 +515,17 @@ Deno.serve(async (req) => {
       const extraInBp: any[] = [];
       for (const f of bpRows) {
         if (matchedBpIds.has(f.id)) continue;
+        const isSuspect = suspectedOrphanFcIds.has(f.id);
         extraInBp.push({
           id: f.id,
           description: f.description,
           amount: Number(f.amount) || 0,
           hasTransaction: !!f.transaction_id,
           transactionId: f.transaction_id ?? null,
+          ...(isSuspect ? { reason: "candidate-of-pendingManualLink" } : {}),
         });
       }
+
 
       // Enriquecer "missingInBp" com Top-3 candidatos do BP (Dice ≥ 0.45 ou valor ±20%)
       const unmatchedBp = bpRows.filter((f) => !matchedBpIds.has(f.id));
