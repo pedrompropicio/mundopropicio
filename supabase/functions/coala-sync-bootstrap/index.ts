@@ -374,6 +374,38 @@ Deno.serve(async (req) => {
                   needsManualLink = true; bootstrapSource = "ambiguous_category"; stats.ambiguous_category++; matched = true;
                 }
               }
+              // T4b: category_anchor_via_learning — sinal adicional da learning table
+              // (não override, só desempate/confirmação quando o CC do XLSX falha)
+              if (!matched) {
+                const learnedCatId = resolveLearnedCatId(r);
+                if (learnedCatId) {
+                  const learnedL2 = getL2Id(learnedCatId);
+                  if (learnedL2) {
+                    const targetCents = moneyKey(r.netAmount);
+                    const target = Number(r.netAmount) || 0;
+                    // 1º cents exatos com L2 compatível
+                    let lrnCands = (byCents.get(targetCents) ?? [])
+                      .filter((f: any) => !usedFcIds.has(f.id))
+                      .filter((f: any) => getL2Id(f.category_id) === learnedL2);
+                    // 2º se nenhum, tenta ±10% com L2 compatível
+                    if (lrnCands.length === 0 && target !== 0) {
+                      lrnCands = expenseFcs.filter((f: any) => {
+                        if (usedFcIds.has(f.id)) return false;
+                        if (getL2Id(f.category_id) !== learnedL2) return false;
+                        const amt = Number(f.amount) || 0;
+                        return Math.abs(amt - target) / Math.abs(target) <= 0.10;
+                      });
+                    }
+                    if (lrnCands.length === 1) {
+                      forecastId = lrnCands[0].id;
+                      bootstrapSource = "category_anchor_via_learning";
+                      stats.category_anchor_via_learning++;
+                      matched = true;
+                    }
+                    // empate >1 deixa cair para tiers seguintes (ou orphan/needs_manual_link)
+                  }
+                }
+              }
               // T5: value_tolerance ±10% + categoria compatível
               if (!matched) {
                 const target = Number(r.netAmount) || 0;
