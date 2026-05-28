@@ -25,7 +25,11 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.apply-coala-bp]
-verify_jwt = true
+# verify_jwt=false: chamada internamente por sync-coala-from-drive com
+# SUPABASE_SERVICE_ROLE_KEY (formato sb_secret_..., não-JWT) — o gateway
+# rejeitava com 401 UNAUTHORIZED_INVALID_JWT_FORMAT. A função valida o
+# role/JWT in-code (ver jwtRole + isServiceRole no index.ts).
+verify_jwt = false
 
 [functions.database-restore-v2]
 verify_jwt = true
