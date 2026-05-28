@@ -328,6 +328,17 @@ Deno.serve(async (req) => {
                   needsManualLink = true; bootstrapSource = "ambiguous_core"; stats.ambiguous_core++; matched = true;
                 }
               }
+              // T7: value_unique_pair — par 1-para-1 inequívoco por cents EXACTOS
+              if (!matched) {
+                const targetCents = moneyKey(r.netAmount);
+                const fcOrphansSameCents = (byCents.get(targetCents) ?? []).filter((f: any) => !usedFcIds.has(f.id));
+                if (fcOrphansSameCents.length === 1 && (xlsxCentsCount.get(targetCents) ?? 0) === 1) {
+                  forecastId = fcOrphansSameCents[0].id;
+                  bootstrapSource = "value_unique_pair";
+                  stats.value_unique_pair++;
+                  matched = true;
+                }
+              }
               // Destino final reforçado: forecast órfão de valor compatível → manual_link
               if (!matched) {
                 const target = Number(r.netAmount) || 0;
