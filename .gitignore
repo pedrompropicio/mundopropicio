@@ -28,3 +28,6 @@ docs/fase*.md
 docs/decisoes-*.md
 docs/ivete-*.md
 docs/questoes-*.md
+
+# Outputs crus de comandos/invocações guardados pelo Claude (não versionados)
+/claude-outputs/
