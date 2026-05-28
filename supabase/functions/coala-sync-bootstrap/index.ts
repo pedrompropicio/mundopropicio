@@ -310,6 +310,35 @@ Deno.serve(async (req) => {
                   }
                 }
               }
+              // T6: core_description — descrição sem sufixo de parcela + cents iguais
+              if (!matched) {
+                const coreKey = `${coreDescription(r.description)}|${moneyKey(r.netAmount)}`;
+                const coreCands = (byCoreCents.get(coreKey) ?? []).filter((f: any) => !usedFcIds.has(f.id));
+                if (coreCands.length === 1) {
+                  forecastId = coreCands[0].id; bootstrapSource = "core_description"; stats.core_description++; matched = true;
+                } else if (coreCands.length > 1) {
+                  needsManualLink = true; bootstrapSource = "ambiguous_core"; stats.ambiguous_core++; matched = true;
+                }
+              }
+              // Destino final reforçado: forecast órfão de valor compatível → manual_link
+              if (!matched) {
+                const target = Number(r.netAmount) || 0;
+                const targetCents = moneyKey(r.netAmount);
+                const orphanCands = expenseFcs.filter((f: any) => {
+                  if (usedFcIds.has(f.id)) return false;
+                  const amt = Number(f.amount) || 0;
+                  const cents = moneyKey(amt);
+                  if (cents === targetCents) return true;
+                  if (target === 0) return false;
+                  return Math.abs(amt - target) / Math.abs(target) <= 0.10;
+                });
+                if (orphanCands.length >= 1) {
+                  needsManualLink = true;
+                  bootstrapSource = "orphan_value_candidate";
+                  stats.orphan_value_candidate++;
+                  matched = true;
+                }
+              }
               if (!matched) stats.no_match++;
             }
             if (forecastId) usedFcIds.add(forecastId);
