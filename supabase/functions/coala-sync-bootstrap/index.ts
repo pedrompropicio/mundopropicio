@@ -202,11 +202,14 @@ Deno.serve(async (req) => {
         // Índices
         const byExact = new Map<string, any[]>();
         const byCents = new Map<number, any[]>();
+        const byCoreCents = new Map<string, any[]>();
         for (const f of expenseFcs) {
           const k = `${norm(f.description)}|${moneyKey(Number(f.amount) || 0)}`;
           (byExact.get(k) ?? byExact.set(k, []).get(k)!).push(f);
           const c = moneyKey(Number(f.amount) || 0);
           (byCents.get(c) ?? byCents.set(c, []).get(c)!).push(f);
+          const ck = `${coreDescription(f.description)}|${c}`;
+          (byCoreCents.get(ck) ?? byCoreCents.set(ck, []).get(ck)!).push(f);
         }
 
         // 3. Estado actual do row_state (preservar manual_override + forecast_id já vinculado)
@@ -224,6 +227,8 @@ Deno.serve(async (req) => {
         const stats = {
           exact: 0, fuzzy: 0, value_anchor: 0,
           category_anchor: 0, value_tolerance: 0,
+          core_description: 0, ambiguous_core: 0,
+          orphan_value_candidate: 0,
           ambiguous: 0, ambiguous_category: 0, ambiguous_value: 0,
           no_match: 0, preserved: 0,
         };
