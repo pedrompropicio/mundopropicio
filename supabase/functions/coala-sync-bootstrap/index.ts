@@ -305,7 +305,7 @@ Deno.serve(async (req) => {
         const upserts: any[] = [];
         const stats = {
           exact: 0, fuzzy: 0, value_anchor: 0,
-          category_anchor: 0, value_tolerance: 0,
+          category_anchor: 0, category_anchor_via_learning: 0, value_tolerance: 0,
           core_description: 0, ambiguous_core: 0,
           value_unique_pair: 0,
           orphan_value_candidate: 0,
