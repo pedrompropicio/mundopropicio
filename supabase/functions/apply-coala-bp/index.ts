@@ -1124,7 +1124,10 @@ Deno.serve(async (req) => {
           field: "amount", old_value: oldVal, new_value: newVal,
         });
         audit.forecastsAmountUpdated++;
+        const r = it.rowNumber != null ? rowByNum.get(it.rowNumber) : null;
+        if (r) await upsertRowAnchor(r, fcId, it.source === "anchor" ? "auto_apply_value_anchor" : "auto_apply_value");
       }
+
 
       // 4) renameOnly (auto, dice≥0.85) → UPDATE forecast.description + audit
       for (const it of (diff.renameOnly ?? [])) {
