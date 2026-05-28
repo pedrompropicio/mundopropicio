@@ -528,7 +528,9 @@ Deno.serve(async (req) => {
             eventId: cfg.event_id,
             phase: "compare",
             ackTotals: true,
+            configId: cfg.id,
           }),
+
         });
         const compareJson = await compareResp.json().catch(() => ({}));
         if (!compareResp.ok || !compareJson?.ok || !compareJson?.summary) {
