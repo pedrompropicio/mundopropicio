@@ -371,8 +371,20 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Agregar XLSX por base description (junta "X parcela 01" + "X parcela 02" → X)
+      const fileByBase = new Map<string, { desc: string; total: number; rows: ParsedRow[] }>();
+      for (const r of fileRows) {
+        const bk = baseDesc(r.description);
+        const ent = fileByBase.get(bk) ?? { desc: r.description, total: 0, rows: [] };
+        ent.total += r.netAmount;
+        ent.rows.push(r);
+        fileByBase.set(bk, ent);
+      }
 
+      // PASSO 1: match agregado por baseDesc — junta "X parcela 01"+"X parcela 02"
+      // numa só comparação contra "X" (€40k) do BP. Cobre o caso "Lulu Santos".
       const aggregatedFileKeys = new Set<string>();
+
       for (const [bk, agg] of fileByBase.entries()) {
         const bpCandidates = bpByBase.get(bk) ?? [];
         if (bpCandidates.length === 0) continue;
