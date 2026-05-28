@@ -250,25 +250,119 @@ Deno.serve(async (req) => {
         bpByBase.set(bk, barr);
       }
 
-      // Agregar XLSX por base description (junta "X parcela 01" + "X parcela 02" → X)
-      const fileByBase = new Map<string, { desc: string; total: number; rows: ParsedRow[] }>();
-      for (const r of fileRows) {
-        const bk = baseDesc(r.description);
-        const ent = fileByBase.get(bk) ?? { desc: r.description, total: 0, rows: [] };
-        ent.total += r.netAmount;
-        ent.rows.push(r);
-        fileByBase.set(bk, ent);
+      // ─────────────────────────────────────────────────────────────────────
+      // T0 (anchor): se houver configId, consome row_state.forecast_id como
+      // âncora de identidade ANTES do matching por descrição/Dice.
+      // - Linha XLSX ancorada a forecast existente → consome ambos.
+      //   Se valor difere → valueMismatch (source: anchor). Se descrição
+      //   difere → renameOnly (source: anchor). Senão match limpo.
+      // - Linha XLSX com needs_manual_link=true → pendingManualLink.
+      //   Não consome BP; marca candidatos como suspectedOrphanFcIds.
+      // - Sem configId → cai diretamente no fluxo antigo (zero regressão).
+      // ─────────────────────────────────────────────────────────────────────
+      const norm2 = (s: string | null) =>
+        String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase().replace(/\s+/g, " ").trim();
+      const isInvRefStrong = (ref: string | null | undefined) => {
+        if (!ref) return false;
+        const n = norm2(ref);
+        if (n.length < 3) return false;
+        if (/^(n\/?a|na|sem|s\/n|sn|nd|0+|-+|x+|fatura|recibo|fact|inv)$/.test(n)) return false;
+        return true;
+      };
+      const buildIdentityKey = (r: ParsedRow): string | null => {
+        const sup = norm2(r.supplier ?? "");
+        if (!sup) return null;
+        if (!isInvRefStrong(r.invoiceRef)) return null;
+        return `inv::${sup}::${norm2(r.invoiceRef ?? "")}`;
+      };
+      const buildFallbackKey = (r: ParsedRow): string =>
+        ["fb", r.rowNumber, norm2(r.supplier ?? ""), norm2(r.rawCenterCusto ?? ""), moneyKey(r.netAmount)].join("::");
+      const rowKeyOf = (r: ParsedRow): string => buildIdentityKey(r) ?? buildFallbackKey(r);
+
+      const anchoredValueMismatches: any[] = [];
+      const anchoredRenames: any[] = [];
+      const pendingManualLink: any[] = [];
+      const suspectedOrphanFcIds = new Set<string>();
+      let anchoredMatches = 0;
+      let staleAnchors = 0;
+      const bpById = new Map<string, any>(bpRows.map((f: any) => [f.id, f]));
+
+      if (bodyConfigIdTop) {
+        const { data: anchorRows } = await admin
+          .from("coala_sync_row_state")
+          .select("row_key, forecast_id, needs_manual_link, last_xlsx_payload")
+          .eq("config_id", bodyConfigIdTop);
+        const anchorByKey = new Map<string, any>();
+        for (const a of (anchorRows || [])) anchorByKey.set(a.row_key, a);
+
+        for (const r of fileRows) {
+          const fileKey = `${normTxt(r.description)}|${moneyKey(r.netAmount)}`;
+          if (matchedFileKeys.has(fileKey)) continue;
+          const rk = rowKeyOf(r);
+          const a = anchorByKey.get(rk);
+          if (!a) continue;
+
+          // needs_manual_link → neutralizar
+          if (a.needs_manual_link) {
+            matchedFileKeys.add(fileKey);
+            // candidatos suspeitos: forecasts não-matched com cents igual ou ±10%
+            const tgt = moneyKey(r.netAmount);
+            for (const f of bpRows) {
+              if (matchedBpIds.has(f.id)) continue;
+              const c = moneyKey(Number(f.amount) || 0);
+              if (c === tgt || (tgt > 0 && Math.abs(c - tgt) / tgt <= 0.10)) {
+                suspectedOrphanFcIds.add(f.id);
+              }
+            }
+            pendingManualLink.push({
+              rowNumber: r.rowNumber,
+              description: r.description,
+              supplier: r.supplier,
+              netAmount: r.netAmount,
+              reason: "row_state.needs_manual_link",
+            });
+            continue;
+          }
+
+          if (!a.forecast_id) continue;
+          const fc = bpById.get(a.forecast_id);
+          if (!fc) {
+            // âncora obsoleta (forecast apagado fora do sync)
+            staleAnchors++;
+            continue;
+          }
+          if (matchedBpIds.has(fc.id)) continue; // já consumido por T0 anterior
+
+          // consome ambos os lados
+          matchedFileKeys.add(fileKey);
+          matchedBpIds.add(fc.id);
+          anchoredMatches++;
+
+          const bpAmt = Number(fc.amount) || 0;
+          const valDelta = +(r.netAmount - bpAmt).toFixed(2);
+          if (Math.abs(valDelta) > 0.01) {
+            const vm = {
+              description: r.description, bpDescription: fc.description,
+              fileAmount: r.netAmount, bpAmount: bpAmt, delta: valDelta,
+              rowNumber: r.rowNumber, bpId: fc.id, source: "anchor",
+            };
+            valueMismatches.push(vm);
+            anchoredValueMismatches.push(vm);
+          }
+          if (normTxt(r.description) !== normTxt(fc.description)) {
+            const ro = {
+              rowNumber: r.rowNumber, description: r.description,
+              bpDescription: fc.description, fileAmount: r.netAmount,
+              bpAmount: bpAmt, delta: 0, bpId: fc.id, source: "anchor",
+            };
+            renameOnly.push(ro);
+            anchoredRenames.push(ro);
+          }
+        }
       }
 
-      // Missing in BP: file rows whose key not in BP
-      const missingInBp: any[] = [];
-      // Mismatched: same description (or fuzzy match) but different amount
-      const valueMismatches: any[] = [];
-      const matchedFileKeys = new Set<string>();
-      const matchedBpIds = new Set<string>();
 
-      // PASSO 1: match agregado por baseDesc — junta "X parcela 01"+"X parcela 02"
-      // numa só comparação contra "X" (€40k) do BP. Cobre o caso "Lulu Santos".
       const aggregatedFileKeys = new Set<string>();
       for (const [bk, agg] of fileByBase.entries()) {
         const bpCandidates = bpByBase.get(bk) ?? [];
