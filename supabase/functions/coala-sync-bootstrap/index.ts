@@ -54,6 +54,22 @@ const dice = (a: string, b: string): number => {
   return (2 * inter) / (A.size + B.size || 1);
 };
 
+// Remove sufixos de parcela/ordinais e devolve "core" da descrição.
+const coreDescription = (s: string): string => {
+  let v = norm(s);
+  if (!v) return v;
+  // "- 3ª parcela", "— 01 parcela", "3a parcela", etc.
+  v = v.replace(/[-–—]?\s*\d+\s*[ºoªa]?\s*parcela\b/gi, " ");
+  // "parcela 01", "parcela 3"
+  v = v.replace(/\bparcela\s*\d+\b/gi, " ");
+  // ordinal solto no fim ("... 3ª" ou "... 03o")
+  v = v.replace(/\b\d+\s*[ºoªa]\s*$/gi, " ");
+  // limpar traços/separadores residuais nas pontas
+  v = v.replace(/[\s\-–—·:|]+$/g, "").replace(/^[\s\-–—·:|]+/g, "");
+  v = v.replace(/\s+/g, " ").trim();
+  return v;
+};
+
 // ── Google Drive helpers (replicados de sync-coala-from-drive) ──
 async function getDriveAccessToken(): Promise<string> {
   const sets = [
