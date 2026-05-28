@@ -26,6 +26,14 @@ export interface ImportAudit {
   importBatchId: string;
   importLogId: string | null;
   warnings: string[];
+  // Telemetria por sale_date (prev vs new após o delete+insert).
+  byDate?: {
+    prev: Record<string, { qty: number; rev: number }>;
+    next: Record<string, { qty: number; rev: number }>;
+    diff: Record<string, { qty: number; rev: number }>;
+    yesterday?: { date: string; prev_qty: number; next_qty: number; delta_qty: number; prev_rev: number; next_rev: number; delta_rev: number };
+    shrunk_dates: string[]; // datas onde qty caiu vs run anterior
+  };
 }
 
 export async function runFeverImport(input: ImportInput): Promise<ImportAudit> {
