@@ -250,6 +250,15 @@ Deno.serve(async (req) => {
         bpByBase.set(bk, barr);
       }
 
+      // Buckets do diff — declarados antes do T0 (anchor) para serem populados lá também.
+      const missingInBp: any[] = [];
+      const valueMismatches: any[] = [];
+      const renameOnly: any[] = [];
+      const matchedFileKeys = new Set<string>();
+      const matchedBpIds = new Set<string>();
+
+
+
       // ─────────────────────────────────────────────────────────────────────
       // T0 (anchor): se houver configId, consome row_state.forecast_id como
       // âncora de identidade ANTES do matching por descrição/Dice.
