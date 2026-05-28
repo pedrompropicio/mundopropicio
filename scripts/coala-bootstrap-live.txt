@@ -1,0 +1,49 @@
+-- COALA SYNC BOOTSTRAP — disparar em Live via pg_net
+-- Pré-requisito: secret 'email_queue_service_role_key' no vault contém SUPABASE_SERVICE_ROLE_KEY (formato sb_secret_...).
+-- A função aceita esse formato (valida role=service_role in-code).
+--
+-- PASSO 1 — DRY RUN (não escreve). Devolve stats + samplePlan por config.
+select net.http_post(
+  url:='https://ukpuhoynrqobqtzdbysp.supabase.co/functions/v1/coala-sync-bootstrap',
+  headers:=jsonb_build_object(
+    'Content-Type','application/json',
+    'Authorization','Bearer '|| (select decrypted_secret from vault.decrypted_secrets where name='email_queue_service_role_key')
+  ),
+  body:='{"configId":"c4d00d98-3c71-455a-a5fc-244b13b58f65","dryRun":true}'::jsonb,
+  timeout_milliseconds:=120000
+) as request_id;
+
+-- Espera ~15s e depois lê o resultado:
+select status_code, left(content::text, 12000) as content
+from net._http_response order by id desc limit 1;
+
+-- PASSO 2 — Se as stats baterem certo, comita (escreve em coala_sync_row_state):
+select net.http_post(
+  url:='https://ukpuhoynrqobqtzdbysp.supabase.co/functions/v1/coala-sync-bootstrap',
+  headers:=jsonb_build_object(
+    'Content-Type','application/json',
+    'Authorization','Bearer '|| (select decrypted_secret from vault.decrypted_secrets where name='email_queue_service_role_key')
+  ),
+  body:='{"configId":"c4d00d98-3c71-455a-a5fc-244b13b58f65","dryRun":false}'::jsonb,
+  timeout_milliseconds:=120000
+) as request_id;
+
+-- Espera ~30s e lê:
+select status_code, left(content::text, 12000) as content
+from net._http_response order by id desc limit 1;
+
+-- VALIDAÇÃO PÓS-BOOTSTRAP
+select
+  count(*) as total,
+  count(forecast_id) as vinculados,
+  count(*) filter (where needs_manual_link) as needs_manual_link,
+  count(*) filter (where bootstrap_source = 'exact') as exact_,
+  count(*) filter (where bootstrap_source = 'fuzzy') as fuzzy_,
+  count(*) filter (where bootstrap_source = 'value_anchor') as value_anchor,
+  count(*) filter (where bootstrap_source like 'ambiguous%') as ambiguous,
+  count(*) filter (where bootstrap_source = 'no_match') as no_match
+from public.coala_sync_row_state
+where config_id = 'c4d00d98-3c71-455a-a5fc-244b13b58f65';
+
+-- IDEMPOTÊNCIA: correr PASSO 2 outra vez. As stats devem mostrar
+-- 'preserved_existing_link' para tudo o que já tinha forecast_id, e 0 mudanças.
