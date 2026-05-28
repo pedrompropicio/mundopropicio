@@ -228,10 +228,18 @@ Deno.serve(async (req) => {
           exact: 0, fuzzy: 0, value_anchor: 0,
           category_anchor: 0, value_tolerance: 0,
           core_description: 0, ambiguous_core: 0,
+          value_unique_pair: 0,
           orphan_value_candidate: 0,
           ambiguous: 0, ambiguous_category: 0, ambiguous_value: 0,
           no_match: 0, preserved: 0,
         };
+
+        // Pré-cálculo: contagem de cents nas rows XLSX (para detetar pares 1-para-1 inequívocos)
+        const xlsxCentsCount = new Map<number, number>();
+        for (const r of rows) {
+          const c = moneyKey(r.netAmount);
+          xlsxCentsCount.set(c, (xlsxCentsCount.get(c) ?? 0) + 1);
+        }
 
         for (const r of rows) {
           const identityKey = buildIdentityKey(r);
@@ -318,6 +326,17 @@ Deno.serve(async (req) => {
                   forecastId = coreCands[0].id; bootstrapSource = "core_description"; stats.core_description++; matched = true;
                 } else if (coreCands.length > 1) {
                   needsManualLink = true; bootstrapSource = "ambiguous_core"; stats.ambiguous_core++; matched = true;
+                }
+              }
+              // T7: value_unique_pair — par 1-para-1 inequívoco por cents EXACTOS
+              if (!matched) {
+                const targetCents = moneyKey(r.netAmount);
+                const fcOrphansSameCents = (byCents.get(targetCents) ?? []).filter((f: any) => !usedFcIds.has(f.id));
+                if (fcOrphansSameCents.length === 1 && (xlsxCentsCount.get(targetCents) ?? 0) === 1) {
+                  forecastId = fcOrphansSameCents[0].id;
+                  bootstrapSource = "value_unique_pair";
+                  stats.value_unique_pair++;
+                  matched = true;
                 }
               }
               // Destino final reforçado: forecast órfão de valor compatível → manual_link
