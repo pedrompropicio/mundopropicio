@@ -54,6 +54,22 @@ const dice = (a: string, b: string): number => {
   return (2 * inter) / (A.size + B.size || 1);
 };
 
+// Remove sufixos de parcela/ordinais e devolve "core" da descrição.
+const coreDescription = (s: string): string => {
+  let v = norm(s);
+  if (!v) return v;
+  // "- 3ª parcela", "— 01 parcela", "3a parcela", etc.
+  v = v.replace(/[-–—]?\s*\d+\s*[ºoªa]?\s*parcela\b/gi, " ");
+  // "parcela 01", "parcela 3"
+  v = v.replace(/\bparcela\s*\d+\b/gi, " ");
+  // ordinal solto no fim ("... 3ª" ou "... 03o")
+  v = v.replace(/\b\d+\s*[ºoªa]\s*$/gi, " ");
+  // limpar traços/separadores residuais nas pontas
+  v = v.replace(/[\s\-–—·:|]+$/g, "").replace(/^[\s\-–—·:|]+/g, "");
+  v = v.replace(/\s+/g, " ").trim();
+  return v;
+};
+
 // ── Google Drive helpers (replicados de sync-coala-from-drive) ──
 async function getDriveAccessToken(): Promise<string> {
   const sets = [
@@ -186,11 +202,14 @@ Deno.serve(async (req) => {
         // Índices
         const byExact = new Map<string, any[]>();
         const byCents = new Map<number, any[]>();
+        const byCoreCents = new Map<string, any[]>();
         for (const f of expenseFcs) {
           const k = `${norm(f.description)}|${moneyKey(Number(f.amount) || 0)}`;
           (byExact.get(k) ?? byExact.set(k, []).get(k)!).push(f);
           const c = moneyKey(Number(f.amount) || 0);
           (byCents.get(c) ?? byCents.set(c, []).get(c)!).push(f);
+          const ck = `${coreDescription(f.description)}|${c}`;
+          (byCoreCents.get(ck) ?? byCoreCents.set(ck, []).get(ck)!).push(f);
         }
 
         // 3. Estado actual do row_state (preservar manual_override + forecast_id já vinculado)
@@ -208,6 +227,8 @@ Deno.serve(async (req) => {
         const stats = {
           exact: 0, fuzzy: 0, value_anchor: 0,
           category_anchor: 0, value_tolerance: 0,
+          core_description: 0, ambiguous_core: 0,
+          orphan_value_candidate: 0,
           ambiguous: 0, ambiguous_category: 0, ambiguous_value: 0,
           no_match: 0, preserved: 0,
         };
@@ -287,6 +308,35 @@ Deno.serve(async (req) => {
                   } else if (tied.length > 1) {
                     needsManualLink = true; bootstrapSource = "ambiguous_value"; stats.ambiguous_value++; matched = true;
                   }
+                }
+              }
+              // T6: core_description — descrição sem sufixo de parcela + cents iguais
+              if (!matched) {
+                const coreKey = `${coreDescription(r.description)}|${moneyKey(r.netAmount)}`;
+                const coreCands = (byCoreCents.get(coreKey) ?? []).filter((f: any) => !usedFcIds.has(f.id));
+                if (coreCands.length === 1) {
+                  forecastId = coreCands[0].id; bootstrapSource = "core_description"; stats.core_description++; matched = true;
+                } else if (coreCands.length > 1) {
+                  needsManualLink = true; bootstrapSource = "ambiguous_core"; stats.ambiguous_core++; matched = true;
+                }
+              }
+              // Destino final reforçado: forecast órfão de valor compatível → manual_link
+              if (!matched) {
+                const target = Number(r.netAmount) || 0;
+                const targetCents = moneyKey(r.netAmount);
+                const orphanCands = expenseFcs.filter((f: any) => {
+                  if (usedFcIds.has(f.id)) return false;
+                  const amt = Number(f.amount) || 0;
+                  const cents = moneyKey(amt);
+                  if (cents === targetCents) return true;
+                  if (target === 0) return false;
+                  return Math.abs(amt - target) / Math.abs(target) <= 0.10;
+                });
+                if (orphanCands.length >= 1) {
+                  needsManualLink = true;
+                  bootstrapSource = "orphan_value_candidate";
+                  stats.orphan_value_candidate++;
+                  matched = true;
                 }
               }
               if (!matched) stats.no_match++;
