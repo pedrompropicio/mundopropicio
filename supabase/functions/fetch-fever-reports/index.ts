@@ -236,11 +236,12 @@ Deno.serve(async (req) => {
       throw Object.assign(new Error(`Import: ${e?.message || e}`), { phase: "import_failed", filesAudit });
     }
 
+    const finalStatus = (audit?.warnings?.length || 0) > 0 ? "success_with_warning" : "success";
     await updateRun(admin, runId, {
-      status: "success", finished_at: new Date().toISOString(),
+      status: finalStatus, finished_at: new Date().toISOString(),
       files_downloaded: filesAudit, import_audit: { ...audit, debug },
     });
-    await updateConfig(admin, cfg.id, { last_run_at: new Date().toISOString(), last_run_status: "success" });
+    await updateConfig(admin, cfg.id, { last_run_at: new Date().toISOString(), last_run_status: finalStatus });
 
     return json(200, { ok: true, runId, audit, debug });
   } catch (e: any) {
