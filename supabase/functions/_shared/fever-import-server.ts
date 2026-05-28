@@ -193,13 +193,35 @@ export async function runFeverImport(input: ImportInput): Promise<ImportAudit> {
     if (error) throw error;
   }
 
-  // 6. Apagar ticket_sales Fever existentes do evento
+  // 6. Apagar ticket_sales Fever existentes do evento (com snapshot prévio por sale_date)
   const { data: allEventZones } = await supabase.from("event_ticket_zones").select("id").eq("event_id", eventId);
   const allEventZoneIds = (allEventZones || []).map((z: any) => z.id);
+
+  // Snapshot agregado por sale_date ANTES do delete (para telemetria byDate)
+  const prevByDate: Record<string, { qty: number; rev: number }> = {};
   if (allEventZoneIds.length > 0) {
-    const { data: priorSales } = await supabase.from("ticket_sales").select("id", { count: "exact" })
-      .in("zone_id", allEventZoneIds).eq("financial_account_id", feverAccountId);
-    audit.prevSalesDeleted = priorSales?.length || 0;
+    // pagina para evitar limite default de 1000
+    const pageSize = 1000;
+    let from = 0;
+    while (true) {
+      const { data: rows, error } = await supabase.from("ticket_sales")
+        .select("sale_date, quantity, total_value")
+        .in("zone_id", allEventZoneIds).eq("financial_account_id", feverAccountId)
+        .range(from, from + pageSize - 1);
+      if (error) break;
+      if (!rows || rows.length === 0) break;
+      for (const r of rows as any[]) {
+        const d = r.sale_date as string;
+        if (!d) continue;
+        if (!prevByDate[d]) prevByDate[d] = { qty: 0, rev: 0 };
+        prevByDate[d].qty += Number(r.quantity || 0);
+        prevByDate[d].rev += Number(r.total_value || 0);
+      }
+      if (rows.length < pageSize) break;
+      from += pageSize;
+    }
+    audit.prevSalesDeleted = Object.values(prevByDate).reduce((s, v) => s + v.qty, 0);
+
     const { error } = await supabase.from("ticket_sales").delete()
       .in("zone_id", allEventZoneIds).eq("financial_account_id", feverAccountId);
     if (error) throw error;
@@ -225,6 +247,50 @@ export async function runFeverImport(input: ImportInput): Promise<ImportAudit> {
     if (error) throw error;
   }
   audit.rowsImported = salesPayload.length;
+
+  // 7.5 Snapshot agregado por sale_date DEPOIS do insert + cálculo do diff
+  const nextByDate: Record<string, { qty: number; rev: number }> = {};
+  for (const s of parseResult.sales) {
+    const d = s.purchaseDate;
+    if (!d) continue;
+    if (!nextByDate[d]) nextByDate[d] = { qty: 0, rev: 0 };
+    nextByDate[d].qty += Number(s.quantity || 0);
+    nextByDate[d].rev += Number(s.totalValue || 0);
+  }
+  const allDates = new Set<string>([...Object.keys(prevByDate), ...Object.keys(nextByDate)]);
+  const diffByDate: Record<string, { qty: number; rev: number }> = {};
+  const shrunk: string[] = [];
+  for (const d of allDates) {
+    const p = prevByDate[d] || { qty: 0, rev: 0 };
+    const n = nextByDate[d] || { qty: 0, rev: 0 };
+    diffByDate[d] = { qty: n.qty - p.qty, rev: Math.round((n.rev - p.rev) * 100) / 100 };
+    if (p.qty > 0 && n.qty < p.qty) shrunk.push(d);
+  }
+  // Cálculo de "ontem" no fuso UTC (mesmo que o resto do sistema usa YYYY-MM-DD)
+  const today = new Date();
+  const yest = new Date(today.getTime() - 86400000);
+  const yISO = `${yest.getFullYear()}-${String(yest.getMonth() + 1).padStart(2, "0")}-${String(yest.getDate()).padStart(2, "0")}`;
+  const py = prevByDate[yISO] || { qty: 0, rev: 0 };
+  const ny = nextByDate[yISO] || { qty: 0, rev: 0 };
+  audit.byDate = {
+    prev: prevByDate,
+    next: nextByDate,
+    diff: diffByDate,
+    yesterday: {
+      date: yISO,
+      prev_qty: py.qty, next_qty: ny.qty, delta_qty: ny.qty - py.qty,
+      prev_rev: Math.round(py.rev * 100) / 100,
+      next_rev: Math.round(ny.rev * 100) / 100,
+      delta_rev: Math.round((ny.rev - py.rev) * 100) / 100,
+    },
+    shrunk_dates: shrunk,
+  };
+  if (audit.byDate.yesterday && audit.byDate.yesterday.delta_qty < 0) {
+    audit.warnings.push(`yesterday_shrunk: ${yISO} qty ${py.qty}→${ny.qty} (Δ${ny.qty - py.qty})`);
+  }
+  if (shrunk.length > 0) {
+    audit.warnings.push(`shrunk_dates: ${shrunk.slice(0, 10).join(",")}${shrunk.length > 10 ? `… (+${shrunk.length - 10})` : ""}`);
+  }
 
   // 8. Log
   const { data: log, error: logErr } = await supabase.from("ticket_import_logs").insert({
