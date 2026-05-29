@@ -96,6 +96,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
     console.log(`[${level}] ${message}`, context ? JSON.stringify(context) : "");
   };
 
+  // Persiste a falha no deployment (mesmo formato do status final) antes de um
+  // early-return por caso-limite. Usado pelos aborts de pixel (ver abaixo).
+  const failDeployment = async (errorCode: string) => {
+    if (!deploymentId) return;
+    await (supabase as any).schema("crm").from("meta_campaign_strategy_deployments").update({
+      status: "failed",
+      log_entries: log,
+      error_summary: errorCode,
+      completed_at: new Date().toISOString(),
+      duration_ms: Date.now() - startedAt,
+    }).eq("id", deploymentId);
+  };
+
   let deploymentId: string | null = null;
   const startedAt = Date.now();
 
@@ -180,6 +193,58 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const phases = Array.isArray(plan.phases) ? plan.phases : [];
     const recommendedCampaigns = Array.isArray(plan.recommended_campaigns) ? plan.recommended_campaigns : [];
 
+    // ── Pixel da campanha-fonte (redesign Meta) ──────────────────────────────
+    // DEBT(multi-platform): MVP Meta — lê pixel da campanha-fonte. Quando entrar
+    // Google/TikTok, mover para tabela event_trackers (event_id × platform ×
+    // tracker_id). Ver .lovable/memory/features/multi-platform-tracking-roadmap.md.
+    //
+    // Deriva UM promoted_object consistente dos adsets da campanha-fonte
+    // (crm.meta_adset_snapshot.raw->'promoted_object') e injecta-o nos adsets
+    // novos. Os casos-limite abortam ANTES de criar qualquer entidade na Meta.
+    const CONVERSION_GOALS = new Set(["OFFSITE_CONVERSIONS", "CONVERSIONS", "VALUE"]);
+    const planUsesConversionGoal = recommendedCampaigns.some((c: any) =>
+      (c.adsets ?? []).some((a: any) =>
+        CONVERSION_GOALS.has(String(a?.optimization_goal ?? "").toUpperCase())
+      )
+    );
+
+    let sourcePromotedObject: any = null;
+    if (strategy.source_campaign_id) {
+      const { data: sourceAdsets } = await (supabase as any)
+        .schema("crm").from("meta_adset_snapshot")
+        .select("external_adset_id, raw")
+        .eq("company_id", companyId)
+        .eq("external_campaign_id", strategy.source_campaign_id);
+
+      const promotedObjects = (sourceAdsets ?? [])
+        .map((r: any) => r?.raw?.promoted_object)
+        .filter((po: any) => po && po.pixel_id);
+      const distinctPixels = [...new Set(promotedObjects.map((po: any) => String(po.pixel_id)))];
+
+      if (distinctPixels.length > 1) {
+        // Caso-limite (b): adsets da fonte com pixels diferentes → abortar.
+        addLog("error", `Pixels inconsistentes na campanha-fonte ${strategy.source_campaign_id}`, { pixel_ids: distinctPixels });
+        await failDeployment("source_pixel_inconsistent");
+        return json({ error: "source_pixel_inconsistent", source_campaign_id: strategy.source_campaign_id, pixel_ids: distinctPixels }, 422);
+      }
+      if (distinctPixels.length === 1) {
+        sourcePromotedObject = promotedObjects.find((po: any) => String(po.pixel_id) === distinctPixels[0]) ?? null;
+        addLog("info", `Pixel herdado da campanha-fonte: ${distinctPixels[0]}`, { promoted_object: sourcePromotedObject });
+      }
+    }
+
+    if (!sourcePromotedObject && planUsesConversionGoal) {
+      // Caso-limite (a): plano usa goal de conversão mas a fonte não tem pixel.
+      // A chamada /adsets falharia na Meta — abortar com mensagem clara.
+      addLog("error", "Campanha-fonte sem pixel (promoted_object) mas o plano usa optimization_goal de conversão", { source_campaign_id: strategy.source_campaign_id ?? null });
+      await failDeployment("source_campaign_no_pixel");
+      return json({
+        error: "source_campaign_no_pixel",
+        source_campaign_id: strategy.source_campaign_id ?? null,
+        message: "A campanha-fonte não tem pixel (promoted_object) sincronizado e o plano usa goal de conversão. Re-sincroniza os adsets em modo full e tenta de novo.",
+      }, 422);
+    }
+
     const metaCampaigns: any[] = [];
     const metaAdsets: any[] = [];
     const metaAds: any[] = [];
@@ -239,7 +304,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
               const startTime = new Date(Date.now() + 60 * 60 * 1000).toISOString();
               const dailyBudgetCents = Math.max(100, Math.round((planCampaign.daily_budget_eur ?? 10) * 100));
 
-              const adsetRes = await metaPost(`${adAccountId}/adsets`, accessToken, {
+              const adsetParams: Record<string, string> = {
                 name: planAdset.adset_name,
                 campaign_id: metaCampaignId,
                 daily_budget: String(dailyBudgetCents),
@@ -249,7 +314,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
                 targeting: JSON.stringify(targeting),
                 status: "PAUSED",
                 start_time: startTime,
-              });
+              };
+              // Injecta o pixel herdado da campanha-fonte (ver bloco DEBT acima).
+              // Só quando há um promoted_object consistente derivado; senão mantém
+              // o comportamento atual (sem pixel).
+              if (sourcePromotedObject) {
+                adsetParams.promoted_object = JSON.stringify(sourcePromotedObject);
+              }
+              const adsetRes = await metaPost(`${adAccountId}/adsets`, accessToken, adsetParams);
               const metaAdsetId = adsetRes.id;
               metaAdsets.push({
                 plan_adset_name: planAdset.adset_name,
