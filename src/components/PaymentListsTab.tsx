@@ -1410,12 +1410,24 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                         <CopyLine label="IBAN" value={group.iban ?? "-"} mono />
                       )}
                       <CopyLine
-                        label="Total a transferir"
+                        label={group.totalWithholding > 0 ? "Bruto" : "Total a transferir"}
                         value={formatCurrency(group.totalWithIva)}
                         copyValue={formatAmountForBank(group.totalWithIva)}
                         mono
-                        bold
+                        bold={group.totalWithholding <= 0}
                       />
+                      {group.totalWithholding > 0 && (
+                        <>
+                          <CopyLine label="Ret. IRS" value={`- ${formatCurrency(group.totalWithholding)}`} mono />
+                          <CopyLine
+                            label="Líquido a transferir"
+                            value={formatCurrency(group.totalNetPayable)}
+                            copyValue={formatAmountForBank(group.totalNetPayable)}
+                            mono
+                            bold
+                          />
+                        </>
+                      )}
                     </div>
                     <div className="space-y-2 pl-2 border-l-2 border-primary/20 ml-1">
                       {groupItems.map((gi: any) => renderItem(gi))}
