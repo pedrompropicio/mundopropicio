@@ -1034,7 +1034,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           payment_entity: item.transactions?.payment_entity,
           payment_reference: item.transactions?.payment_reference,
           invoice_ref: item.transactions?.invoice_ref ?? null,
+          declared_withholding_amount: Number(item.transactions?.declared_withholding_amount ?? 0),
+          has_installments: installmentTxIds.has(item.transactions?.id),
         })),
+
       };
       if (format === "pdf") await exportPaymentListToPDF(exportData);
       else exportPaymentListToExcel(exportData);
