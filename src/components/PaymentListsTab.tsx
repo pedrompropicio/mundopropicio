@@ -1266,6 +1266,8 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               payment_entity: tx?.payment_entity,
               payment_reference: tx?.payment_reference,
               invoice_ref: tx?.invoice_ref ?? null,
+              declared_withholding_amount: Number(tx?.declared_withholding_amount ?? 0),
+              has_installments: installmentTxIds.has(tx?.id),
             };
           });
           const { groups, ungrouped } = groupPaymentItems(exportItems as any);
@@ -1280,6 +1282,14 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
             const isSelectable = isApproved && !isPaid && tx;
             const bpCheck = checkExceedsBP(tx?.event_id, tx?.category_id, amount);
             const manuallyMarked = !!item.manually_marked_paid;
+            const np = itemNetPayable({
+              amount,
+              iva_rate: ivaRate,
+              paid_amount: paid,
+              declared_withholding_amount: Number(tx?.declared_withholding_amount ?? 0),
+              has_installments: installmentTxIds.has(tx?.id),
+            } as any);
+
 
             return (
               <div
@@ -1328,7 +1338,14 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       <p className="text-xs text-muted-foreground pl-0.5">{tx.specification}</p>
                     )}
                     <CopyLine label="Valor" value={formatCurrency(withIva)} copyValue={formatAmountForBank(withIva)} mono bold />
+                    {np.applied && (
+                      <>
+                        <CopyLine label="Ret. IRS" value={`- ${formatCurrency(np.withholding)}`} mono />
+                        <CopyLine label="Líquido a pagar" value={formatCurrency(np.net)} copyValue={formatAmountForBank(np.net)} mono bold />
+                      </>
+                    )}
                     {bpCheck.exceeds && (
+
                       <BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={amount} />
                     )}
                     {paid > 0 && !isPaid && (
@@ -1393,12 +1410,24 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                         <CopyLine label="IBAN" value={group.iban ?? "-"} mono />
                       )}
                       <CopyLine
-                        label="Total a transferir"
+                        label={group.totalWithholding > 0 ? "Bruto" : "Total a transferir"}
                         value={formatCurrency(group.totalWithIva)}
                         copyValue={formatAmountForBank(group.totalWithIva)}
                         mono
-                        bold
+                        bold={group.totalWithholding <= 0}
                       />
+                      {group.totalWithholding > 0 && (
+                        <>
+                          <CopyLine label="Ret. IRS" value={`- ${formatCurrency(group.totalWithholding)}`} mono />
+                          <CopyLine
+                            label="Líquido a transferir"
+                            value={formatCurrency(group.totalNetPayable)}
+                            copyValue={formatAmountForBank(group.totalNetPayable)}
+                            mono
+                            bold
+                          />
+                        </>
+                      )}
                     </div>
                     <div className="space-y-2 pl-2 border-l-2 border-primary/20 ml-1">
                       {groupItems.map((gi: any) => renderItem(gi))}
