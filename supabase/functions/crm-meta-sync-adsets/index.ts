@@ -41,6 +41,7 @@ const ADSET_FIELDS = [
   "daily_budget", "lifetime_budget", "budget_remaining",
   "start_time", "end_time",
   "targeting", "attribution_spec", "pacing_type", "learning_stage_info",
+  "promoted_object",
 ].join(",");
 
 interface GraphAdset {

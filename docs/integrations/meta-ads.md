@@ -159,6 +159,8 @@ O cron `crm-refresh-ad-tokens` corre a cada 12h:
 | 9 | Implementar `crm-send-conversion-event` (CAPI) | Não |
 | 10 | Implementar `crm-fetch-attribution` | Não |
 
+> Pixel no deploy: o `crm-meta-strategy-deploy` infere o pixel da campanha-fonte (MVP Meta). Tracker canónico multi-plataforma (Google/TikTok) está em `.lovable/memory/features/multi-platform-tracking-roadmap.md` (tabela `event_trackers`).
+
 ---
 
 ## 6. Decisões fechadas
