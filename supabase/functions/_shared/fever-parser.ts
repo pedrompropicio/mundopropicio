@@ -55,6 +55,14 @@ export interface FeverParseResult {
 const norm = (s: string) =>
   (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
+// Tipos de bilhete que NÃO são venda: convites, cortesias, invitings (Fever).
+// Excluídos do parser → não criam lote nem venda em ticket_sales.
+export const isComplimentaryTicketType = (t: string) => {
+  const n = norm(t);
+  return n.includes("convite") || n.includes("cortesia") || n.includes("inviting")
+      || n.includes("invitation") || n.includes("complimentary") || n.includes("cortesy");
+};
+
 const lotKey = (t: string, p: number) => `${t.trim()}|${Number(p).toFixed(2)}`;
 const roundCents = (v: number) => Math.round((Number(v) || 0) * 100) / 100;
 
