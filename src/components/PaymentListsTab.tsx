@@ -1099,9 +1099,14 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       }
       for (const item of group.items) {
         const withIva = item.amount * (1 + item.iva_rate / 100);
-        lines.push(`  ↳ ${item.description} (${item.event_name}) — ${formatCurrency(withIva)}`);
+        const np = itemNetPayable(item as any);
+        const suffix = np.applied ? ` — ${formatCurrency(withIva)} (Ret. IRS −${formatCurrency(np.withholding)} • Líquido ${formatCurrency(np.net)})` : ` — ${formatCurrency(withIva)}`;
+        lines.push(`  ↳ ${item.description} (${item.event_name})${suffix}`);
       }
-      lines.push(`*Total: ${formatCurrency(group.totalWithIva)}*`);
+      const groupLabel = group.totalWithholding > 0
+        ? `*Líquido a transferir: ${formatCurrency(group.totalNetPayable)}* _(bruto ${formatCurrency(group.totalWithIva)} − Ret. IRS ${formatCurrency(group.totalWithholding)})_`
+        : `*Total: ${formatCurrency(group.totalWithIva)}*`;
+      lines.push(groupLabel);
       lines.push("───────────────");
       idx++;
     }
@@ -1113,6 +1118,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       const isPaid = paid >= item.amount;
       const status = isPaid ? "✅" : "⬜";
       const isRefPayment = item.payment_method === "service_payment" || item.payment_method === "state_payment";
+      const np = itemNetPayable(item as any);
 
       lines.push(`${status} *${idx}.*`);
       lines.push(`Evento: ${item.event_name}`);
@@ -1127,6 +1133,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       lines.push(`Descrição: ${item.description}`);
       if (item.specification) lines.push(`Especificação: ${item.specification}`);
       lines.push(`Valor: ${formatCurrency(withIva)}`);
+      if (np.applied) {
+        lines.push(`Ret. IRS: −${formatCurrency(np.withholding)}`);
+        lines.push(`*Líquido a pagar: ${formatCurrency(np.net)}*`);
+      }
       if (paid > 0 && !isPaid) {
         lines.push(`Saldo a pagar: ${formatCurrency(withIva - paid * (1 + item.iva_rate / 100))}`);
       }
@@ -1135,9 +1145,12 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     }
 
     const total = exportItems.reduce((sum, item) => {
-      return sum + item.amount * (1 + item.iva_rate / 100);
+      const withIva = item.amount * (1 + item.iva_rate / 100);
+      const np = itemNetPayable(item as any);
+      return sum + (np.applied ? np.net : withIva);
     }, 0);
-    lines.push(`💰 *Total: ${formatCurrency(total)}*`);
+    lines.push(`💰 *Total líquido a transferir: ${formatCurrency(total)}*`);
+
 
     navigator.clipboard.writeText(lines.join("\n")).then(() => {
       toast({ title: "Copiado!", description: "Lista formatada copiada para a área de transferência. Cole no WhatsApp." });
