@@ -196,16 +196,16 @@ export function parseFeverXlsxBuffers(salesBuf: ArrayBuffer, pricesBuf: ArrayBuf
     }
     if (variants.length === 1) {
       const lot = variants[0];
-      let remainingStock = lot.totalQty;
+      let remaining = lot.totalQty;
       for (const r of dailyRows) {
-        if (remainingStock <= 0) {
+        if (remaining <= 0) {
           warnings.push(`Descartado ${r.qty} bilhete(s) "${ticketType}" em ${r.date} — não corresponde a vendas confirmadas no relatório sales_per_ticket_type (provavelmente reservas pendentes / refunds posteriores)`);
           continue;
         }
-        const take = Math.min(r.qty, remainingStock);
+        const take = Math.min(r.qty, remaining);
         sales.push({ purchaseDate: r.date, weekday: r.weekday, lotKey: lot.key, ticketType: lot.ticketType,
           unitPrice: lot.unitPrice, quantity: take, totalValue: roundCents(take * lot.unitPrice) });
-        remainingStock -= take;
+        remaining -= take;
         if (r.qty > take) {
           warnings.push(`Descartado ${r.qty - take} bilhete(s) "${ticketType}" em ${r.date} — não corresponde a vendas confirmadas no relatório sales_per_ticket_type (provavelmente reservas pendentes / refunds posteriores)`);
         }
@@ -221,7 +221,8 @@ export function parseFeverXlsxBuffers(salesBuf: ArrayBuffer, pricesBuf: ArrayBuf
         while (cursor < variants.length && (remaining.get(variants[cursor].key) || 0) <= 0) cursor++;
         if (cursor >= variants.length) {
           warnings.push(`Descartado ${need} bilhete(s) "${ticketType}" em ${r.date} — não corresponde a vendas confirmadas no relatório sales_per_ticket_type (provavelmente reservas pendentes / refunds posteriores)`);
-          need = 0; break;
+          need = 0;
+          break;
         }
         const lot = variants[cursor];
         const stock = remaining.get(lot.key) || 0;

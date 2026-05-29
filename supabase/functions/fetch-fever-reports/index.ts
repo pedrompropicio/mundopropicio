@@ -5,8 +5,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { parseFeverXlsxBuffers, groupFeverLots } from "../_shared/fever-parser.ts";
 import { runFeverImport } from "../_shared/fever-import-server.ts";
 
-// v26_phantom_tickets_discarded_single_variant_2026_05_16
-const VERSION = "v26_phantom_tickets_discarded_single_variant_2026_05_16";
+// v27_revert_phantom_absorb_keep_confirmed_prices_2026_05_28
+const VERSION = "v27_revert_phantom_absorb_keep_confirmed_prices_2026_05_28";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -68,6 +68,21 @@ Deno.serve(async (req) => {
     .from("fever_sync_config").select("*").eq("id", configId).single();
   if (cfgErr || !cfg) return json(404, { error: "config not found" });
   if (!cfg.enabled) return json(200, { ok: true, skipped: true, reason: "disabled" });
+
+  // Lock anti-concorrência: se já existe um run "started" deste config nos últimos 120s,
+  // saltamos para não fazer dois delete+insert em paralelo sobre as mesmas ticket_sales.
+  const since = new Date(Date.now() - 120_000).toISOString();
+  const { data: inFlight } = await admin
+    .from("fever_sync_runs")
+    .select("id, started_at")
+    .eq("config_id", cfg.id)
+    .eq("status", "started")
+    .gte("started_at", since)
+    .limit(1);
+  if (inFlight && inFlight.length > 0) {
+    console.log(`[fever-sync] skip: concurrent run ${inFlight[0].id} in flight`);
+    return json(200, { ok: true, skipped: true, reason: "concurrent_run", concurrent_run_id: inFlight[0].id });
+  }
 
   const { data: run, error: runErr } = await admin.from("fever_sync_runs").insert({
     config_id: cfg.id, company_id: cfg.company_id, status: "started",
@@ -221,11 +236,12 @@ Deno.serve(async (req) => {
       throw Object.assign(new Error(`Import: ${e?.message || e}`), { phase: "import_failed", filesAudit });
     }
 
+    const finalStatus = (audit?.warnings?.length || 0) > 0 ? "success_with_warning" : "success";
     await updateRun(admin, runId, {
-      status: "success", finished_at: new Date().toISOString(),
+      status: finalStatus, finished_at: new Date().toISOString(),
       files_downloaded: filesAudit, import_audit: { ...audit, debug },
     });
-    await updateConfig(admin, cfg.id, { last_run_at: new Date().toISOString(), last_run_status: "success" });
+    await updateConfig(admin, cfg.id, { last_run_at: new Date().toISOString(), last_run_status: finalStatus });
 
     return json(200, { ok: true, runId, audit, debug });
   } catch (e: any) {

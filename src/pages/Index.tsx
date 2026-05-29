@@ -306,6 +306,20 @@ export default function Dashboard() {
     },
   });
 
+  // Lotes: precisamos de is_combo + consumes_zone_ids para expandir Passes 2 dias
+  // como "presenças×dia" na tabela Por Zona (1 combo = +1 acesso em cada zona consumida).
+  const { data: ticketLots = [] } = useQuery({
+    queryKey: ["dashboard_ticket_lots", companyId],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_ticket_lots")
+        .select("id, zone_id, is_combo, consumes_zone_ids");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: forecasts = [] } = useQuery({
     queryKey: ["dashboard_forecasts", companyId],
     enabled: !!companyId,
@@ -348,6 +362,16 @@ export default function Dashboard() {
       if (z.id) zoneInfo[z.id] = { name: z.name || "—", event_id: z.event_id };
     });
 
+    // Lot lookup: id → { is_combo, consumes_zone_ids }
+    const lotInfo: Record<string, { is_combo: boolean; consumes: string[] }> = {};
+    (ticketLots as any[]).forEach((l) => {
+      if (!l?.id) return;
+      lotInfo[l.id] = {
+        is_combo: !!l.is_combo,
+        consumes: Array.isArray(l.consumes_zone_ids) ? l.consumes_zone_ids.filter(Boolean) : [],
+      };
+    });
+
     const salesMap: Record<string, SalesBreakdown> = {};
     ticketSales.forEach((ts: any) => {
       const eventId = ts.event_ticket_zones?.event_id;
@@ -366,29 +390,50 @@ export default function Dashboard() {
       bucket.qty += qty;
       bucket.revenue += rev;
 
-      // Per-zone
-      const zName = (ts.zone_id && zoneInfo[ts.zone_id]?.name) || "Sem zona";
-      if (!bucket.zones[zName]) {
-        bucket.zones[zName] = { name: zName, qty: 0, qtyYesterday: 0, qty7d: 0, revenue: 0, revYesterday: 0, rev7d: 0 };
-      }
-      const zb = bucket.zones[zName];
-      zb.qty += qty;
-      zb.revenue += rev;
+      // Expansão combo → presenças/dia:
+      //  - lote simples: 1 venda = qty na zona dela.
+      //  - lote combo (ex.: Passe 2 dias): qty conta +qty em CADA zona de consumes_zone_ids
+      //    (regra: 1 combo = 1 acesso em cada dia). Receita € é dividida por N para
+      //    o somatório por zona continuar a reconciliar com a Receita Bilheteira total.
+      const lot = ts.lot_id ? lotInfo[ts.lot_id] : undefined;
+      const isCombo = !!lot?.is_combo;
+      const targetZoneIds: string[] = isCombo && lot && lot.consumes.length > 0
+        ? lot.consumes
+        : [ts.zone_id].filter(Boolean);
+      const split = Math.max(1, targetZoneIds.length);
 
       const saleDate: string | undefined = ts.sale_date;
+      const inYesterday = saleDate === yesterdayISO;
+      const in7d = !!saleDate && saleDate >= sevenAgoISO && saleDate < todayISO;
+
+      targetZoneIds.forEach((zid) => {
+        const zName = (zid && zoneInfo[zid]?.name) || "Sem zona";
+        if (!bucket.zones[zName]) {
+          bucket.zones[zName] = { name: zName, qty: 0, qtyYesterday: 0, qty7d: 0, revenue: 0, revYesterday: 0, rev7d: 0 };
+        }
+        const zb = bucket.zones[zName];
+        // qty: combo conta +qty em cada zona consumida; simples conta uma vez.
+        zb.qty += qty;
+        zb.revenue += rev / split;
+        if (inYesterday) {
+          zb.qtyYesterday += qty;
+          zb.revYesterday += rev / split;
+        }
+        if (in7d) {
+          zb.qty7d += qty;
+          zb.rev7d += rev / split;
+        }
+      });
+
+      // Totais por evento (event-level) — não duplicar combos: usa a venda original uma só vez.
       if (saleDate) {
-        if (saleDate === yesterdayISO) {
+        if (inYesterday) {
           bucket.yesterday += rev;
           bucket.qtyYesterday += qty;
-          zb.qtyYesterday += qty;
-          zb.revYesterday += rev;
         }
-        // Últimos 7 dias = 7 dias anteriores a hoje (inclui ontem, exclui hoje)
-        if (saleDate >= sevenAgoISO && saleDate < todayISO) {
+        if (in7d) {
           bucket.last7d += rev;
           bucket.qtyLast7d += qty;
-          zb.qty7d += qty;
-          zb.rev7d += rev;
         }
         if (!bucket.lastSaleDate || saleDate > bucket.lastSaleDate) {
           bucket.lastSaleDate = saleDate;
@@ -443,7 +488,7 @@ export default function Dashboard() {
     };
 
     return { planning, active, completed, yearAccum };
-  }, [events, transactions, ticketSales, ticketZones, forecasts]);
+  }, [events, transactions, ticketSales, ticketZones, ticketLots, forecasts]);
 
   if (isLoading) {
     return (
@@ -649,7 +694,7 @@ export default function Dashboard() {
 
                       {event.zones.length > 0 && (
                         <div className="mt-2 pt-2 border-t border-border/20">
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Por zona</p>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1" title="Combos (ex.: Passe 2 dias) contam +1 acesso em cada dia consumido. Receita € é dividida por nº de dias.">Por zona (presenças/dia)</p>
                           <div className="overflow-x-auto">
                             <table className="w-full text-[11px]">
                               <thead>

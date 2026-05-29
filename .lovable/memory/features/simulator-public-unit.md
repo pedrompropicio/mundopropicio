@@ -23,3 +23,11 @@ apenas como linha "informativa" abaixo do total quando > 0.
 
 Não confundir com a Bilheteira / Reports onde "Bilhetes vendidos" continua
 a contar 1 ingresso = 1 (unidade comercial).
+
+Dashboard `src/pages/Index.tsx` (card do evento ativo, tabela "Por zona"):
+desde 2026-05-28 a tabela mostra **presenças/dia** — para cada venda de
+lote combo (`is_combo=true`) a qty é somada em CADA zona de
+`consumes_zone_ids` (ex.: Passe 2 dias Coala = +1 Sáb e +1 Dom). A €
+recebida é dividida por N para a soma por zona reconciliar com a "Receita
+Bilheteira" total. Os totais por evento (Ontem / 7d / Total no header)
+continuam a contar a venda original uma só vez.
