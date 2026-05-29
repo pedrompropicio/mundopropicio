@@ -460,7 +460,7 @@ export async function parseFeverXlsx(
     lots,
     sales,
     totals: {
-      totalQty: totalQtySales,
+      totalQty: sales.reduce((s, x) => s + x.quantity, 0),
       totalGross: lots.reduce((s, l) => s + l.totalGross, 0),
       totalDiscount: lots.reduce((s, l) => s + l.totalDiscount, 0),
       totalUserPayment: lots.reduce((s, l) => s + l.totalUserPayment, 0),
