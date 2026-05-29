@@ -404,7 +404,8 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
   // Render ungrouped items
   for (const item of ungrouped) {
     const withIva = calcWithIva(item.amount, item.iva_rate);
-    totalValue += withIva;
+    const np = itemNetPayable(item);
+    totalValue += np.applied ? np.net : withIva;
 
     checkPage(6);
     renderSeparator();
@@ -477,7 +478,22 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
     doc.setFont("helvetica", "bold");
     doc.text(formatCurrencyDecimal(withIva), valueX, y);
     doc.setFont("helvetica", "normal");
-    y += lineHeight + 4;
+    y += lineHeight;
+
+    if (np.applied) {
+      doc.setTextColor(150, 80, 0);
+      doc.text("Ret. IRS:", labelX, y);
+      doc.text(`−${formatCurrencyDecimal(np.withholding)}`, valueX, y);
+      y += lineHeight;
+      doc.setTextColor(0, 110, 0);
+      doc.setFont("helvetica", "bold");
+      doc.text("Líquido a pagar:", labelX, y);
+      doc.text(formatCurrencyDecimal(np.net), valueX, y);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      y += lineHeight;
+    }
+    y += 4;
 
     itemIdx++;
   }
