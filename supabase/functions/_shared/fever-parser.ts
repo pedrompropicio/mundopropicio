@@ -271,10 +271,11 @@ export function parseFeverXlsxBuffers(salesBuf: ArrayBuffer, pricesBuf: ArrayBuf
     warnings.push(`Info: vendas diárias=${totalQtySales} vs prices.Tickets sold=${totalQtyPrices} (delta ${totalQtySales - totalQtyPrices}) — diário é a fonte de verdade`);
   }
 
+  const totalQtyEmitted = sales.reduce((s, x) => s + x.quantity, 0);
   return {
     lots, sales,
     totals: {
-      totalQty: totalQtySales,
+      totalQty: totalQtyEmitted,
       totalGross: lots.reduce((s, l) => s + l.totalGross, 0),
       totalDiscount: lots.reduce((s, l) => s + l.totalDiscount, 0),
       totalUserPayment: lots.reduce((s, l) => s + l.totalUserPayment, 0),
