@@ -684,7 +684,7 @@ export default function Dashboard() {
 
                       {event.zones.length > 0 && (
                         <div className="mt-2 pt-2 border-t border-border/20">
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1" title="Combos (ex.: Passe 2 dias) contam +1 acesso em cada dia consumido. Receita € é dividida por nº de dias.">Por zona (presenças/dia)</p>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1" title="Vendas atribuídas à zona de origem do lote, igual ao reporte da bilheteira (Fever).">Por zona (vendas)</p>
                           <div className="overflow-x-auto">
                             <table className="w-full text-[11px]">
                               <thead>
