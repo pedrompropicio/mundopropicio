@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
-import { exportPaymentListToExcel, exportPaymentListToPDF, groupPaymentItems, formatSupplierFullName, formatAmountForBank } from "@/lib/export-payment-list";
+import { exportPaymentListToExcel, exportPaymentListToPDF, groupPaymentItems, formatSupplierFullName, formatAmountForBank, itemNetPayable } from "@/lib/export-payment-list";
 import { calcWithIva } from "@/lib/utils";
 import { computeNetPayable, getDeclaredWithholding } from "@/lib/withholding";
 import { useInstallmentTxIds } from "@/hooks/useInstallmentTxIds";
@@ -779,6 +779,8 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   const [position, setPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const dragging = useRef(false);
   const startPos = useRef({ x: 0, y: 0 });
+  const { data: installmentTxIds = new Set<string>() } = useInstallmentTxIds();
+
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     dragging.current = true;
@@ -1032,7 +1034,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
           payment_entity: item.transactions?.payment_entity,
           payment_reference: item.transactions?.payment_reference,
           invoice_ref: item.transactions?.invoice_ref ?? null,
+          declared_withholding_amount: Number(item.transactions?.declared_withholding_amount ?? 0),
+          has_installments: installmentTxIds.has(item.transactions?.id),
         })),
+
       };
       if (format === "pdf") await exportPaymentListToPDF(exportData);
       else exportPaymentListToExcel(exportData);
@@ -1066,8 +1071,11 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         payment_reference: tx?.payment_reference,
         invoice_ref: tx?.invoice_ref ?? null,
         is_reimbursement: !!tx?.is_reimbursement,
+        declared_withholding_amount: Number(tx?.declared_withholding_amount ?? 0),
+        has_installments: installmentTxIds.has(tx?.id),
       };
     });
+
 
     const { groups, ungrouped } = groupPaymentItems(exportItems);
     const lines: string[] = [];
@@ -1091,9 +1099,14 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       }
       for (const item of group.items) {
         const withIva = item.amount * (1 + item.iva_rate / 100);
-        lines.push(`  ↳ ${item.description} (${item.event_name}) — ${formatCurrency(withIva)}`);
+        const np = itemNetPayable(item as any);
+        const suffix = np.applied ? ` — ${formatCurrency(withIva)} (Ret. IRS −${formatCurrency(np.withholding)} • Líquido ${formatCurrency(np.net)})` : ` — ${formatCurrency(withIva)}`;
+        lines.push(`  ↳ ${item.description} (${item.event_name})${suffix}`);
       }
-      lines.push(`*Total: ${formatCurrency(group.totalWithIva)}*`);
+      const groupLabel = group.totalWithholding > 0
+        ? `*Líquido a transferir: ${formatCurrency(group.totalNetPayable)}* _(bruto ${formatCurrency(group.totalWithIva)} − Ret. IRS ${formatCurrency(group.totalWithholding)})_`
+        : `*Total: ${formatCurrency(group.totalWithIva)}*`;
+      lines.push(groupLabel);
       lines.push("───────────────");
       idx++;
     }
@@ -1105,6 +1118,7 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       const isPaid = paid >= item.amount;
       const status = isPaid ? "✅" : "⬜";
       const isRefPayment = item.payment_method === "service_payment" || item.payment_method === "state_payment";
+      const np = itemNetPayable(item as any);
 
       lines.push(`${status} *${idx}.*`);
       lines.push(`Evento: ${item.event_name}`);
@@ -1119,6 +1133,10 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
       lines.push(`Descrição: ${item.description}`);
       if (item.specification) lines.push(`Especificação: ${item.specification}`);
       lines.push(`Valor: ${formatCurrency(withIva)}`);
+      if (np.applied) {
+        lines.push(`Ret. IRS: −${formatCurrency(np.withholding)}`);
+        lines.push(`*Líquido a pagar: ${formatCurrency(np.net)}*`);
+      }
       if (paid > 0 && !isPaid) {
         lines.push(`Saldo a pagar: ${formatCurrency(withIva - paid * (1 + item.iva_rate / 100))}`);
       }
@@ -1127,9 +1145,12 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
     }
 
     const total = exportItems.reduce((sum, item) => {
-      return sum + item.amount * (1 + item.iva_rate / 100);
+      const withIva = item.amount * (1 + item.iva_rate / 100);
+      const np = itemNetPayable(item as any);
+      return sum + (np.applied ? np.net : withIva);
     }, 0);
-    lines.push(`💰 *Total: ${formatCurrency(total)}*`);
+    lines.push(`💰 *Total líquido a transferir: ${formatCurrency(total)}*`);
+
 
     navigator.clipboard.writeText(lines.join("\n")).then(() => {
       toast({ title: "Copiado!", description: "Lista formatada copiada para a área de transferência. Cole no WhatsApp." });

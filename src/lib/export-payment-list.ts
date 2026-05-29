@@ -3,6 +3,7 @@ import jsPDF from "jspdf";
 import logoHorizontal from "@/assets/logo-horizontal.png?inline";
 import { formatCurrencyDecimal, formatDate } from "@/lib/mock-data";
 import { applyPTNumberFormat } from "@/lib/excel-format";
+import { computeNetPayable } from "@/lib/withholding";
 
 export interface PaymentItem {
   description: string;
@@ -22,6 +23,10 @@ export interface PaymentItem {
   payment_entity?: string | null;
   payment_reference?: string | null;
   invoice_ref?: string | null;
+  /** Retenção de IRS declarada (valor absoluto sobre o bruto c/ IVA). */
+  declared_withholding_amount?: number;
+  /** True quando a transação tem parcelas; nesse caso a retenção não aplica neste fluxo. */
+  has_installments?: boolean;
 }
 
 interface PaymentListExport {
@@ -36,6 +41,16 @@ function calcWithIva(amount: number, ivaRate: number): number {
   return amount * (1 + ivaRate / 100);
 }
 
+/** Líquido a pagar (c/ IVA − retenção IRS declarada) para um item de lista. */
+export function itemNetPayable(item: PaymentItem) {
+  const withIva = calcWithIva(item.amount, item.iva_rate);
+  return computeNetPayable({
+    grossWithIva: withIva,
+    declaredWithholding: Number(item.declared_withholding_amount ?? 0),
+    hasInstallments: !!item.has_installments,
+  });
+}
+
 /** Returns "Razão Social (Nome Fantasia)" when both exist and differ; otherwise just the legal name. */
 export function formatSupplierFullName(name: string | null | undefined, tradeName?: string | null): string {
   const norm = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
@@ -46,7 +61,7 @@ export function formatSupplierFullName(name: string | null | undefined, tradeNam
   return `${legal} (${trade})`;
 }
 
-/** Formats a number for bank-form pasting: no currency symbol, no thousand separator, comma decimal (e.g. 1234,56). */
+/** Formats a number for bank-form pasting: no currency symbol, no thousand separator, comma decimal. */
 export function formatAmountForBank(value: number): string {
   return value.toFixed(2).replace(".", ",");
 }
@@ -62,6 +77,10 @@ export interface PaymentGroup {
   payment_reference?: string | null;
   items: PaymentItem[];
   totalWithIva: number;
+  /** Soma das retenções IRS dos itens (0 se nenhum). */
+  totalWithholding: number;
+  /** Total líquido a transferir = totalWithIva − totalWithholding. */
+  totalNetPayable: number;
 }
 
 /** Groups items that share the same supplier + invoice_ref (>1 item). Others remain ungrouped. */
@@ -86,6 +105,8 @@ export function groupPaymentItems(items: PaymentItem[]): { groups: PaymentGroup[
     if (groupItems.length > 1) {
       const first = groupItems[0];
       const totalWithIva = groupItems.reduce((s, i) => s + calcWithIva(i.amount, i.iva_rate), 0);
+      const totalWithholding = groupItems.reduce((s, i) => s + itemNetPayable(i).withholding, 0);
+      const totalNetPayable = +(totalWithIva - totalWithholding).toFixed(2);
       groups.push({
         supplier_name: first.supplier_name,
         supplier_trade_name: first.supplier_trade_name ?? null,
@@ -96,7 +117,9 @@ export function groupPaymentItems(items: PaymentItem[]): { groups: PaymentGroup[
         payment_entity: first.payment_entity,
         payment_reference: first.payment_reference,
         items: groupItems,
-        totalWithIva,
+        totalWithIva: +totalWithIva.toFixed(2),
+        totalWithholding: +totalWithholding.toFixed(2),
+        totalNetPayable,
       });
     } else {
       ungrouped.push(...groupItems);
@@ -115,11 +138,13 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
     [`Data: ${formatDate(data.payment_date)}`],
     ...(data.approved_by ? [[`Aprovado por: ${data.approved_by} em ${data.approved_at ? formatDate(data.approved_at) : ""}`]] : []),
     [],
-    ["#", "Evento", "Categoria", "Descrição", "Especificação", "Fornecedor", "Nº Fatura", "IBAN / Dados Pgto", "Valor Base (€)", "IVA (%)", "Valor c/IVA (€)", "Já Pago (€)", "Saldo (€)", "Vencimento"],
+    ["#", "Evento", "Categoria", "Descrição", "Especificação", "Fornecedor", "Nº Fatura", "IBAN / Dados Pgto", "Valor Base (€)", "IVA (%)", "Valor c/IVA (€)", "Ret. IRS (€)", "Líquido a pagar (€)", "Já Pago (€)", "Saldo (€)", "Vencimento"],
   ];
 
   let totalWithIva = 0;
   let totalPaid = 0;
+  let totalWithholding = 0;
+  let totalNet = 0;
   let idx = 1;
 
   // Render grouped items first
@@ -142,16 +167,21 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
       "",
       "",
       group.totalWithIva,
+      group.totalWithholding || "",
+      group.totalNetPayable,
       "",
       "",
       "",
     ]);
     totalWithIva += group.totalWithIva;
+    totalWithholding += group.totalWithholding;
+    totalNet += group.totalNetPayable;
 
     // Sub-items
     for (const item of group.items) {
       const withIva = calcWithIva(item.amount, item.iva_rate);
       const balance = withIva - item.paid_amount;
+      const np = itemNetPayable(item);
       totalPaid += item.paid_amount;
 
       rows.push([
@@ -166,6 +196,8 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
         item.amount,
         `${item.iva_rate}%`,
         withIva,
+        np.applied ? np.withholding : "",
+        np.applied ? np.net : withIva,
         item.paid_amount,
         balance,
         item.due_date ? formatDate(item.due_date) : "-",
@@ -178,7 +210,10 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
   for (const item of ungrouped) {
     const withIva = calcWithIva(item.amount, item.iva_rate);
     const balance = withIva - item.paid_amount;
+    const np = itemNetPayable(item);
     totalWithIva += withIva;
+    totalWithholding += np.withholding;
+    totalNet += np.applied ? np.net : withIva;
     totalPaid += item.paid_amount;
 
     const isRefPayment = item.payment_method === "service_payment" || item.payment_method === "state_payment";
@@ -198,6 +233,8 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
       item.amount,
       `${item.iva_rate}%`,
       withIva,
+      np.applied ? np.withholding : "",
+      np.applied ? np.net : withIva,
       item.paid_amount,
       balance,
       item.due_date ? formatDate(item.due_date) : "-",
@@ -206,7 +243,7 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
   }
 
   rows.push([]);
-  rows.push(["", "", "", "", "TOTAL", "", "", "", totalWithIva, "", "", totalPaid, totalWithIva - totalPaid, ""]);
+  rows.push(["", "", "", "", "TOTAL", "", "", "", "", "", totalWithIva, totalWithholding, totalNet, totalPaid, totalWithIva - totalPaid, ""]);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws["!cols"] = [
@@ -221,6 +258,8 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
     { wch: 14 },
     { wch: 8 },
     { wch: 14 },
+    { wch: 12 },
+    { wch: 16 },
     { wch: 14 },
     { wch: 14 },
     { wch: 14 },
@@ -332,31 +371,41 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
     for (const item of group.items) {
       checkPage(3);
       const withIva = calcWithIva(item.amount, item.iva_rate);
+      const np = itemNetPayable(item);
       doc.setTextColor(120, 120, 120);
       doc.text("  ↳", labelX, y);
       doc.setTextColor(0, 0, 0);
-      const descLine = `${item.description}${item.event_name ? ` (${item.event_name})` : ""} — ${formatCurrencyDecimal(withIva)}`;
+      const descLine = np.applied
+        ? `${item.description}${item.event_name ? ` (${item.event_name})` : ""} — ${formatCurrencyDecimal(withIva)} (Ret. IRS −${formatCurrencyDecimal(np.withholding)} • Líquido ${formatCurrencyDecimal(np.net)})`
+        : `${item.description}${item.event_name ? ` (${item.event_name})` : ""} — ${formatCurrencyDecimal(withIva)}`;
       doc.text(descLine, labelX + 10, y);
       y += lineHeight;
     }
 
     // Group total
     doc.setTextColor(120, 120, 120);
-    doc.text("Total Fatura:", labelX, y);
+    doc.text(group.totalWithholding > 0 ? "Líquido a transferir:" : "Total Fatura:", labelX, y);
     doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "bold");
-    doc.text(formatCurrencyDecimal(group.totalWithIva), valueX, y);
+    doc.text(formatCurrencyDecimal(group.totalNetPayable), valueX, y);
     doc.setFont("helvetica", "normal");
+    if (group.totalWithholding > 0) {
+      y += lineHeight;
+      doc.setTextColor(150, 80, 0);
+      doc.text(`(Bruto ${formatCurrencyDecimal(group.totalWithIva)} − Ret. IRS ${formatCurrencyDecimal(group.totalWithholding)})`, valueX, y);
+      doc.setTextColor(0, 0, 0);
+    }
     y += lineHeight + 4;
 
-    totalValue += group.totalWithIva;
+    totalValue += group.totalNetPayable;
     itemIdx++;
   }
 
   // Render ungrouped items
   for (const item of ungrouped) {
     const withIva = calcWithIva(item.amount, item.iva_rate);
-    totalValue += withIva;
+    const np = itemNetPayable(item);
+    totalValue += np.applied ? np.net : withIva;
 
     checkPage(6);
     renderSeparator();
@@ -429,7 +478,22 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
     doc.setFont("helvetica", "bold");
     doc.text(formatCurrencyDecimal(withIva), valueX, y);
     doc.setFont("helvetica", "normal");
-    y += lineHeight + 4;
+    y += lineHeight;
+
+    if (np.applied) {
+      doc.setTextColor(150, 80, 0);
+      doc.text("Ret. IRS:", labelX, y);
+      doc.text(`−${formatCurrencyDecimal(np.withholding)}`, valueX, y);
+      y += lineHeight;
+      doc.setTextColor(0, 110, 0);
+      doc.setFont("helvetica", "bold");
+      doc.text("Líquido a pagar:", labelX, y);
+      doc.text(formatCurrencyDecimal(np.net), valueX, y);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      y += lineHeight;
+    }
+    y += 4;
 
     itemIdx++;
   }
