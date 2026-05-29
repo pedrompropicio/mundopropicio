@@ -138,11 +138,13 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
     [`Data: ${formatDate(data.payment_date)}`],
     ...(data.approved_by ? [[`Aprovado por: ${data.approved_by} em ${data.approved_at ? formatDate(data.approved_at) : ""}`]] : []),
     [],
-    ["#", "Evento", "Categoria", "Descrição", "Especificação", "Fornecedor", "Nº Fatura", "IBAN / Dados Pgto", "Valor Base (€)", "IVA (%)", "Valor c/IVA (€)", "Já Pago (€)", "Saldo (€)", "Vencimento"],
+    ["#", "Evento", "Categoria", "Descrição", "Especificação", "Fornecedor", "Nº Fatura", "IBAN / Dados Pgto", "Valor Base (€)", "IVA (%)", "Valor c/IVA (€)", "Ret. IRS (€)", "Líquido a pagar (€)", "Já Pago (€)", "Saldo (€)", "Vencimento"],
   ];
 
   let totalWithIva = 0;
   let totalPaid = 0;
+  let totalWithholding = 0;
+  let totalNet = 0;
   let idx = 1;
 
   // Render grouped items first
@@ -165,16 +167,21 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
       "",
       "",
       group.totalWithIva,
+      group.totalWithholding || "",
+      group.totalNetPayable,
       "",
       "",
       "",
     ]);
     totalWithIva += group.totalWithIva;
+    totalWithholding += group.totalWithholding;
+    totalNet += group.totalNetPayable;
 
     // Sub-items
     for (const item of group.items) {
       const withIva = calcWithIva(item.amount, item.iva_rate);
       const balance = withIva - item.paid_amount;
+      const np = itemNetPayable(item);
       totalPaid += item.paid_amount;
 
       rows.push([
@@ -189,6 +196,8 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
         item.amount,
         `${item.iva_rate}%`,
         withIva,
+        np.applied ? np.withholding : "",
+        np.applied ? np.net : withIva,
         item.paid_amount,
         balance,
         item.due_date ? formatDate(item.due_date) : "-",
@@ -201,7 +210,10 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
   for (const item of ungrouped) {
     const withIva = calcWithIva(item.amount, item.iva_rate);
     const balance = withIva - item.paid_amount;
+    const np = itemNetPayable(item);
     totalWithIva += withIva;
+    totalWithholding += np.withholding;
+    totalNet += np.applied ? np.net : withIva;
     totalPaid += item.paid_amount;
 
     const isRefPayment = item.payment_method === "service_payment" || item.payment_method === "state_payment";
@@ -221,6 +233,8 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
       item.amount,
       `${item.iva_rate}%`,
       withIva,
+      np.applied ? np.withholding : "",
+      np.applied ? np.net : withIva,
       item.paid_amount,
       balance,
       item.due_date ? formatDate(item.due_date) : "-",
@@ -229,7 +243,7 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
   }
 
   rows.push([]);
-  rows.push(["", "", "", "", "TOTAL", "", "", "", totalWithIva, "", "", totalPaid, totalWithIva - totalPaid, ""]);
+  rows.push(["", "", "", "", "TOTAL", "", "", "", "", "", totalWithIva, totalWithholding, totalNet, totalPaid, totalWithIva - totalPaid, ""]);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws["!cols"] = [
@@ -244,6 +258,8 @@ export function exportPaymentListToExcel(data: PaymentListExport) {
     { wch: 14 },
     { wch: 8 },
     { wch: 14 },
+    { wch: 12 },
+    { wch: 16 },
     { wch: 14 },
     { wch: 14 },
     { wch: 14 },
