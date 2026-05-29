@@ -194,21 +194,16 @@ export function parseFeverXlsxBuffers(salesBuf: ArrayBuffer, pricesBuf: ArrayBuf
       warnings.push(`Tipo "${ticketType}" sem preço — ${skipped} ignorados`);
       continue;
     }
+    // Fonte de verdade = relatório diário (tickets_per_purchase_date).
+    // O cap por preço (prices.Tickets sold) é só usado como guia para repartir
+    // FIFO o `qty` diário pelos vários lotes do mesmo ticketType. Quando o cap
+    // de todos os lotes é ultrapassado, o excedente vai para o ÚLTIMO lote
+    // (preço mais alto / lote mais recente) — nunca se descartam vendas.
     if (variants.length === 1) {
       const lot = variants[0];
-      let remaining = lot.totalQty;
       for (const r of dailyRows) {
-        if (remaining <= 0) {
-          warnings.push(`Descartado ${r.qty} bilhete(s) "${ticketType}" em ${r.date} — não corresponde a vendas confirmadas no relatório sales_per_ticket_type (provavelmente reservas pendentes / refunds posteriores)`);
-          continue;
-        }
-        const take = Math.min(r.qty, remaining);
         sales.push({ purchaseDate: r.date, weekday: r.weekday, lotKey: lot.key, ticketType: lot.ticketType,
-          unitPrice: lot.unitPrice, quantity: take, totalValue: roundCents(take * lot.unitPrice) });
-        remaining -= take;
-        if (r.qty > take) {
-          warnings.push(`Descartado ${r.qty - take} bilhete(s) "${ticketType}" em ${r.date} — não corresponde a vendas confirmadas no relatório sales_per_ticket_type (provavelmente reservas pendentes / refunds posteriores)`);
-        }
+          unitPrice: lot.unitPrice, quantity: r.qty, totalValue: roundCents(r.qty * lot.unitPrice) });
       }
       continue;
     }
@@ -218,18 +213,14 @@ export function parseFeverXlsxBuffers(salesBuf: ArrayBuffer, pricesBuf: ArrayBuf
     for (const r of dailyRows) {
       let need = r.qty;
       while (need > 0) {
-        while (cursor < variants.length && (remaining.get(variants[cursor].key) || 0) <= 0) cursor++;
-        if (cursor >= variants.length) {
-          warnings.push(`Descartado ${need} bilhete(s) "${ticketType}" em ${r.date} — não corresponde a vendas confirmadas no relatório sales_per_ticket_type (provavelmente reservas pendentes / refunds posteriores)`);
-          need = 0;
-          break;
-        }
+        while (cursor < variants.length - 1 && (remaining.get(variants[cursor].key) || 0) <= 0) cursor++;
         const lot = variants[cursor];
         const stock = remaining.get(lot.key) || 0;
-        const take = Math.min(need, stock);
+        // Último lote absorve tudo o que sobra; restantes consomem só até ao cap
+        const take = cursor === variants.length - 1 ? need : Math.min(need, stock);
         sales.push({ purchaseDate: r.date, weekday: r.weekday, lotKey: lot.key, ticketType: lot.ticketType,
           unitPrice: lot.unitPrice, quantity: take, totalValue: roundCents(take * lot.unitPrice) });
-        remaining.set(lot.key, stock - take);
+        remaining.set(lot.key, Math.max(0, stock - take));
         need -= take;
       }
     }
