@@ -149,6 +149,10 @@ export function parseFeverXlsxBuffers(salesBuf: ArrayBuffer, pricesBuf: ArrayBuf
     const discount = Number(cellByHeader(row, pIdx, "Discount")) || 0;
     const userPayment = Number(cellByHeader(row, pIdx, "User Payment")) || 0;
     if (!ticketType || !Number.isFinite(price)) continue;
+    if (isComplimentaryTicketType(ticketType)) {
+      warnings.push(`Tipo "${ticketType}" ignorado (convite/cortesia/inviting — não é venda)`);
+      continue;
+    }
     const meta = deriveLotMeta(ticketType);
     const k = lotKey(ticketType, price);
     if (lotMap.has(k)) { warnings.push(`Lote duplicado: "${ticketType}" @ €${price}`); continue; }
