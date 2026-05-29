@@ -371,24 +371,33 @@ export function exportPaymentListToPDF(data: PaymentListExport) {
     for (const item of group.items) {
       checkPage(3);
       const withIva = calcWithIva(item.amount, item.iva_rate);
+      const np = itemNetPayable(item);
       doc.setTextColor(120, 120, 120);
       doc.text("  ↳", labelX, y);
       doc.setTextColor(0, 0, 0);
-      const descLine = `${item.description}${item.event_name ? ` (${item.event_name})` : ""} — ${formatCurrencyDecimal(withIva)}`;
+      const descLine = np.applied
+        ? `${item.description}${item.event_name ? ` (${item.event_name})` : ""} — ${formatCurrencyDecimal(withIva)} (Ret. IRS −${formatCurrencyDecimal(np.withholding)} • Líquido ${formatCurrencyDecimal(np.net)})`
+        : `${item.description}${item.event_name ? ` (${item.event_name})` : ""} — ${formatCurrencyDecimal(withIva)}`;
       doc.text(descLine, labelX + 10, y);
       y += lineHeight;
     }
 
     // Group total
     doc.setTextColor(120, 120, 120);
-    doc.text("Total Fatura:", labelX, y);
+    doc.text(group.totalWithholding > 0 ? "Líquido a transferir:" : "Total Fatura:", labelX, y);
     doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "bold");
-    doc.text(formatCurrencyDecimal(group.totalWithIva), valueX, y);
+    doc.text(formatCurrencyDecimal(group.totalNetPayable), valueX, y);
     doc.setFont("helvetica", "normal");
+    if (group.totalWithholding > 0) {
+      y += lineHeight;
+      doc.setTextColor(150, 80, 0);
+      doc.text(`(Bruto ${formatCurrencyDecimal(group.totalWithIva)} − Ret. IRS ${formatCurrencyDecimal(group.totalWithholding)})`, valueX, y);
+      doc.setTextColor(0, 0, 0);
+    }
     y += lineHeight + 4;
 
-    totalValue += group.totalWithIva;
+    totalValue += group.totalNetPayable;
     itemIdx++;
   }
 
