@@ -391,40 +391,30 @@ export default function Dashboard() {
       bucket.qty += qty;
       bucket.revenue += rev;
 
-      // Expansão combo → presenças/dia:
-      //  - lote simples: 1 venda = qty na zona dela.
-      //  - lote combo (ex.: Passe 2 dias): qty conta +qty em CADA zona de consumes_zone_ids
-      //    (regra: 1 combo = 1 acesso em cada dia). Receita € é dividida por N para
-      //    o somatório por zona continuar a reconciliar com a Receita Bilheteira total.
-      const lot = ts.lot_id ? lotInfo[ts.lot_id] : undefined;
-      const isCombo = !!lot?.is_combo;
-      const targetZoneIds: string[] = isCombo && lot && lot.consumes.length > 0
-        ? lot.consumes
-        : [ts.zone_id].filter(Boolean);
-      const split = Math.max(1, targetZoneIds.length);
+      // Vendas por zona = zona real do lote (igual ao reporte Fever).
+      // Combos (ex.: Passe 2 dias) ficam atribuídos à zona de origem do lote
+      // — não espalhamos qty/rev pelas zonas consumidas, senão não bate com o
+      // ficheiro da bilheteira.
+      const zName = (ts.zone_id && zoneInfo[ts.zone_id]?.name) || "Sem zona";
 
       const saleDate: string | undefined = ts.sale_date;
       const inYesterday = saleDate === yesterdayISO;
       const in7d = !!saleDate && saleDate >= sevenAgoISO && saleDate < todayISO;
 
-      targetZoneIds.forEach((zid) => {
-        const zName = (zid && zoneInfo[zid]?.name) || "Sem zona";
-        if (!bucket.zones[zName]) {
-          bucket.zones[zName] = { name: zName, qty: 0, qtyYesterday: 0, qty7d: 0, revenue: 0, revYesterday: 0, rev7d: 0 };
-        }
-        const zb = bucket.zones[zName];
-        // qty: combo conta +qty em cada zona consumida; simples conta uma vez.
-        zb.qty += qty;
-        zb.revenue += rev / split;
-        if (inYesterday) {
-          zb.qtyYesterday += qty;
-          zb.revYesterday += rev / split;
-        }
-        if (in7d) {
-          zb.qty7d += qty;
-          zb.rev7d += rev / split;
-        }
-      });
+      if (!bucket.zones[zName]) {
+        bucket.zones[zName] = { name: zName, qty: 0, qtyYesterday: 0, qty7d: 0, revenue: 0, revYesterday: 0, rev7d: 0 };
+      }
+      const zb = bucket.zones[zName];
+      zb.qty += qty;
+      zb.revenue += rev;
+      if (inYesterday) {
+        zb.qtyYesterday += qty;
+        zb.revYesterday += rev;
+      }
+      if (in7d) {
+        zb.qty7d += qty;
+        zb.rev7d += rev;
+      }
 
       // Totais por evento (event-level) — não duplicar combos: usa a venda original uma só vez.
       if (saleDate) {
@@ -695,7 +685,7 @@ export default function Dashboard() {
 
                       {event.zones.length > 0 && (
                         <div className="mt-2 pt-2 border-t border-border/20">
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1" title="Combos (ex.: Passe 2 dias) contam +1 acesso em cada dia consumido. Receita € é dividida por nº de dias.">Por zona (presenças/dia)</p>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1" title="Vendas atribuídas à zona de origem do lote, igual ao reporte da bilheteira (Fever).">Por zona (vendas)</p>
                           <div className="overflow-x-auto">
                             <table className="w-full text-[11px]">
                               <thead>
