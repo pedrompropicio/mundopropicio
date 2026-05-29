@@ -217,35 +217,47 @@ export function parseFeverXlsxBuffers(salesBuf: ArrayBuffer, pricesBuf: ArrayBuf
       warnings.push(`Tipo "${ticketType}" sem preço — ${skipped} ignorados`);
       continue;
     }
-    // Fonte de verdade = relatório diário (tickets_per_purchase_date).
-    // O cap por preço (prices.Tickets sold) é só usado como guia para repartir
-    // FIFO o `qty` diário pelos vários lotes do mesmo ticketType. Quando o cap
-    // de todos os lotes é ultrapassado, o excedente vai para o ÚLTIMO lote
-    // (preço mais alto / lote mais recente) — nunca se descartam vendas.
+    // Fonte de verdade = ficheiro de PREÇOS (cap por preço). O relatório diário
+    // distribui FIFO entre lotes; excedente é DESCARTADO com aviso — Fever é
+    // a fonte autoritativa de quantos bilhetes existem.
     if (variants.length === 1) {
       const lot = variants[0];
+      let remaining = lot.totalQty;
+      let dropped = 0;
       for (const r of dailyRows) {
-        sales.push({ purchaseDate: r.date, weekday: r.weekday, lotKey: lot.key, ticketType: lot.ticketType,
-          unitPrice: lot.unitPrice, quantity: r.qty, totalValue: roundCents(r.qty * lot.unitPrice) });
+        const take = Math.min(r.qty, remaining);
+        if (take > 0) {
+          sales.push({ purchaseDate: r.date, weekday: r.weekday, lotKey: lot.key, ticketType: lot.ticketType,
+            unitPrice: lot.unitPrice, quantity: take, totalValue: roundCents(take * lot.unitPrice) });
+          remaining -= take;
+        }
+        dropped += r.qty - take;
       }
+      if (dropped > 0) warnings.push(`"${ticketType}": ${dropped} bilhete(s) descartado(s) (excedem cap Fever ${lot.totalQty})`);
       continue;
     }
     dailyRows.sort((a, b) => a.date.localeCompare(b.date));
     const remaining = new Map(variants.map((v) => [v.key, v.totalQty]));
     let cursor = 0;
+    let dropped = 0;
     for (const r of dailyRows) {
       let need = r.qty;
-      while (need > 0) {
-        while (cursor < variants.length - 1 && (remaining.get(variants[cursor].key) || 0) <= 0) cursor++;
+      while (need > 0 && cursor < variants.length) {
+        while (cursor < variants.length && (remaining.get(variants[cursor].key) || 0) <= 0) cursor++;
+        if (cursor >= variants.length) break;
         const lot = variants[cursor];
         const stock = remaining.get(lot.key) || 0;
-        // Último lote absorve tudo o que sobra; restantes consomem só até ao cap
-        const take = cursor === variants.length - 1 ? need : Math.min(need, stock);
+        const take = Math.min(need, stock);
         sales.push({ purchaseDate: r.date, weekday: r.weekday, lotKey: lot.key, ticketType: lot.ticketType,
           unitPrice: lot.unitPrice, quantity: take, totalValue: roundCents(take * lot.unitPrice) });
-        remaining.set(lot.key, Math.max(0, stock - take));
+        remaining.set(lot.key, stock - take);
         need -= take;
       }
+      dropped += need;
+    }
+    if (dropped > 0) {
+      const cap = variants.reduce((s, v) => s + v.totalQty, 0);
+      warnings.push(`"${ticketType}": ${dropped} bilhete(s) descartado(s) (excedem cap Fever ${cap})`);
     }
   }
 
