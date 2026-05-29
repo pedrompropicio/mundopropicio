@@ -431,7 +431,7 @@ export async function parseFeverXlsx(
   const totalQtyPrices = lots.reduce((s, l) => s + l.totalQty, 0);
   if (Math.abs(totalQtySales - totalQtyPrices) > 0) {
     warnings.push(
-      `Discrepância nos totais: ficheiro de vendas tem ${totalQtySales} bilhetes mas o de preços tem ${totalQtyPrices}.`,
+      `Info: vendas diárias=${totalQtySales} vs prices.Tickets sold=${totalQtyPrices} (delta ${totalQtySales - totalQtyPrices}) — diário é a fonte de verdade.`,
     );
   }
 
@@ -439,7 +439,7 @@ export async function parseFeverXlsx(
     lots,
     sales,
     totals: {
-      totalQty: totalQtyPrices,
+      totalQty: totalQtySales,
       totalGross: lots.reduce((s, l) => s + l.totalGross, 0),
       totalDiscount: lots.reduce((s, l) => s + l.totalDiscount, 0),
       totalUserPayment: lots.reduce((s, l) => s + l.totalUserPayment, 0),
