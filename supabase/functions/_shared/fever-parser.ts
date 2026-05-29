@@ -183,6 +183,7 @@ export function parseFeverXlsxBuffers(salesBuf: ArrayBuffer, pricesBuf: ArrayBuf
     if (!row || row.length === 0) continue;
     const [dateRaw, weekday, ticketType, qtyRaw] = row;
     if (!ticketType) continue;
+    if (isComplimentaryTicketType(ticketType as string)) continue;
     const date = toLocalDate(dateRaw);
     const qty = Number(qtyRaw) || 0;
     if (!date || qty <= 0) continue;
