@@ -283,6 +283,7 @@ export default function Dashboard() {
           .from("ticket_sales")
           .select("*, event_ticket_zones(event_id)")
           .order("sale_date", { ascending: false })
+          .order("id", { ascending: true })
           .range(from, from + pageSize - 1);
         if (error) throw error;
         if (!data || data.length === 0) break;
