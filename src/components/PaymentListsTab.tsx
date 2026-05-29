@@ -779,6 +779,8 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
   const [position, setPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const dragging = useRef(false);
   const startPos = useRef({ x: 0, y: 0 });
+  const { data: installmentTxIds = new Set<string>() } = useInstallmentTxIds();
+
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     dragging.current = true;
