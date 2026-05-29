@@ -1338,7 +1338,14 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
                       <p className="text-xs text-muted-foreground pl-0.5">{tx.specification}</p>
                     )}
                     <CopyLine label="Valor" value={formatCurrency(withIva)} copyValue={formatAmountForBank(withIva)} mono bold />
+                    {np.applied && (
+                      <>
+                        <CopyLine label="Ret. IRS" value={`- ${formatCurrency(np.withholding)}`} mono />
+                        <CopyLine label="Líquido a pagar" value={formatCurrency(np.net)} copyValue={formatAmountForBank(np.net)} mono bold />
+                      </>
+                    )}
                     {bpCheck.exceeds && (
+
                       <BPExceedsWarning forecastAmount={bpCheck.forecastAmount!} txAmount={amount} />
                     )}
                     {paid > 0 && !isPaid && (
