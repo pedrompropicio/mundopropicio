@@ -1071,8 +1071,11 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
         payment_reference: tx?.payment_reference,
         invoice_ref: tx?.invoice_ref ?? null,
         is_reimbursement: !!tx?.is_reimbursement,
+        declared_withholding_amount: Number(tx?.declared_withholding_amount ?? 0),
+        has_installments: installmentTxIds.has(tx?.id),
       };
     });
+
 
     const { groups, ungrouped } = groupPaymentItems(exportItems);
     const lines: string[] = [];
