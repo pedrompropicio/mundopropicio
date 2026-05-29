@@ -101,6 +101,14 @@ export interface FeverParseResult {
 const norm = (s: string) =>
   (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
+// Tipos de bilhete que NÃO são venda: convites, cortesias, invitings (Fever).
+// Excluídos do parser → não criam lote nem venda em ticket_sales.
+export const isComplimentaryTicketType = (t: string) => {
+  const n = norm(t);
+  return n.includes("convite") || n.includes("cortesia") || n.includes("inviting")
+      || n.includes("invitation") || n.includes("complimentary") || n.includes("cortesy");
+};
+
 function lotKey(ticketType: string, price: number): string {
   return `${ticketType.trim()}|${Number(price).toFixed(2)}`;
 }
@@ -262,6 +270,10 @@ export async function parseFeverXlsx(
     const discount = cellByHeader(row, pricesHeaderIndexes, "Discount");
     const userPayment = cellByHeader(row, pricesHeaderIndexes, "User Payment");
     if (!ticketType) continue;
+    if (isComplimentaryTicketType(ticketType)) {
+      warnings.push(`Tipo "${ticketType}" ignorado (convite/cortesia/inviting — não é venda).`);
+      continue;
+    }
     const price = Number(ticketPrice);
     if (!Number.isFinite(price)) continue;
 

@@ -55,6 +55,14 @@ export interface FeverParseResult {
 const norm = (s: string) =>
   (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
+// Tipos de bilhete que NÃO são venda: convites, cortesias, invitings (Fever).
+// Excluídos do parser → não criam lote nem venda em ticket_sales.
+export const isComplimentaryTicketType = (t: string) => {
+  const n = norm(t);
+  return n.includes("convite") || n.includes("cortesia") || n.includes("inviting")
+      || n.includes("invitation") || n.includes("complimentary") || n.includes("cortesy");
+};
+
 const lotKey = (t: string, p: number) => `${t.trim()}|${Number(p).toFixed(2)}`;
 const roundCents = (v: number) => Math.round((Number(v) || 0) * 100) / 100;
 
@@ -141,6 +149,10 @@ export function parseFeverXlsxBuffers(salesBuf: ArrayBuffer, pricesBuf: ArrayBuf
     const discount = Number(cellByHeader(row, pIdx, "Discount")) || 0;
     const userPayment = Number(cellByHeader(row, pIdx, "User Payment")) || 0;
     if (!ticketType || !Number.isFinite(price)) continue;
+    if (isComplimentaryTicketType(ticketType)) {
+      warnings.push(`Tipo "${ticketType}" ignorado (convite/cortesia/inviting — não é venda)`);
+      continue;
+    }
     const meta = deriveLotMeta(ticketType);
     const k = lotKey(ticketType, price);
     if (lotMap.has(k)) { warnings.push(`Lote duplicado: "${ticketType}" @ €${price}`); continue; }
@@ -171,6 +183,7 @@ export function parseFeverXlsxBuffers(salesBuf: ArrayBuffer, pricesBuf: ArrayBuf
     if (!row || row.length === 0) continue;
     const [dateRaw, weekday, ticketType, qtyRaw] = row;
     if (!ticketType) continue;
+    if (isComplimentaryTicketType(ticketType as string)) continue;
     const date = toLocalDate(dateRaw);
     const qty = Number(qtyRaw) || 0;
     if (!date || qty <= 0) continue;
