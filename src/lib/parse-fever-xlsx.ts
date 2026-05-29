@@ -361,54 +361,38 @@ export async function parseFeverXlsx(
       continue;
     }
 
+    // Fonte de verdade = relatório diário. Cap do prices file é só guia para
+    // repartir FIFO entre lotes do mesmo ticketType; excedente vai para o último.
     if (variants.length === 1) {
       const lot = variants[0];
-      let remainingStock = lot.totalQty;
       for (const r of dailyRows) {
-        if (remainingStock <= 0) {
-          warnings.push(`Descartado ${r.qty} bilhete(s) "${ticketType}" em ${r.date} — não corresponde a vendas confirmadas no relatório sales_per_ticket_type (provavelmente reservas pendentes / refunds posteriores)`);
-          continue;
-        }
-        const take = Math.min(r.qty, remainingStock);
         sales.push({
           purchaseDate: r.date,
           weekday: r.weekday,
           lotKey: lot.key,
           ticketType: lot.ticketType,
           unitPrice: lot.unitPrice,
-          quantity: take,
-          totalValue: roundCents(take * lot.unitPrice),
+          quantity: r.qty,
+          totalValue: roundCents(r.qty * lot.unitPrice),
         });
-        remainingStock -= take;
-        if (r.qty > take) {
-          warnings.push(`Descartado ${r.qty - take} bilhete(s) "${ticketType}" em ${r.date} — não corresponde a vendas confirmadas no relatório sales_per_ticket_type (provavelmente reservas pendentes / refunds posteriores)`);
-        }
       }
       continue;
     }
 
-    // Múltiplos preços → capacity-fill cronológico.
+    // Múltiplos preços → capacity-fill cronológico; último lote absorve excesso.
     dailyRows.sort((a, b) => a.date.localeCompare(b.date));
     const remainingByLot = new Map<string, number>(variants.map(v => [v.key, v.totalQty]));
-    let cursor = 0; // índice da variante atual (mais barata para mais cara)
+    let cursor = 0;
 
     for (const r of dailyRows) {
       let need = r.qty;
       while (need > 0) {
-        // avança até encontrar variante com stock
-        while (cursor < variants.length && (remainingByLot.get(variants[cursor].key) || 0) <= 0) {
+        while (cursor < variants.length - 1 && (remainingByLot.get(variants[cursor].key) || 0) <= 0) {
           cursor++;
-        }
-        if (cursor >= variants.length) {
-          warnings.push(
-            `Descartado ${need} bilhete(s) "${ticketType}" em ${r.date} — não corresponde a vendas confirmadas no relatório sales_per_ticket_type (provavelmente reservas pendentes / refunds posteriores)`,
-          );
-          need = 0;
-          break;
         }
         const lot = variants[cursor];
         const stock = remainingByLot.get(lot.key) || 0;
-        const take = Math.min(need, stock);
+        const take = cursor === variants.length - 1 ? need : Math.min(need, stock);
         sales.push({
           purchaseDate: r.date,
           weekday: r.weekday,
@@ -418,7 +402,7 @@ export async function parseFeverXlsx(
           quantity: take,
           totalValue: roundCents(take * lot.unitPrice),
         });
-        remainingByLot.set(lot.key, stock - take);
+        remainingByLot.set(lot.key, Math.max(0, stock - take));
         need -= take;
       }
     }
@@ -447,7 +431,7 @@ export async function parseFeverXlsx(
   const totalQtyPrices = lots.reduce((s, l) => s + l.totalQty, 0);
   if (Math.abs(totalQtySales - totalQtyPrices) > 0) {
     warnings.push(
-      `Discrepância nos totais: ficheiro de vendas tem ${totalQtySales} bilhetes mas o de preços tem ${totalQtyPrices}.`,
+      `Info: vendas diárias=${totalQtySales} vs prices.Tickets sold=${totalQtyPrices} (delta ${totalQtySales - totalQtyPrices}) — diário é a fonte de verdade.`,
     );
   }
 
@@ -455,7 +439,7 @@ export async function parseFeverXlsx(
     lots,
     sales,
     totals: {
-      totalQty: totalQtyPrices,
+      totalQty: totalQtySales,
       totalGross: lots.reduce((s, l) => s + l.totalGross, 0),
       totalDiscount: lots.reduce((s, l) => s + l.totalDiscount, 0),
       totalUserPayment: lots.reduce((s, l) => s + l.totalUserPayment, 0),
