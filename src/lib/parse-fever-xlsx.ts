@@ -109,6 +109,11 @@ export const isComplimentaryTicketType = (t: string) => {
       || n.includes("invitation") || n.includes("complimentary") || n.includes("cortesy");
 };
 
+// Preços que não correspondem a venda real (staff/produção/cortesia disfarçada).
+export const FEVER_EXCLUDED_PRICES = new Set<number>([300, 900]);
+export const isExcludedFeverPrice = (p: number) =>
+  Number.isFinite(p) && FEVER_EXCLUDED_PRICES.has(Math.round(p * 100) / 100);
+
 function lotKey(ticketType: string, price: number): string {
   return `${ticketType.trim()}|${Number(price).toFixed(2)}`;
 }
@@ -276,6 +281,10 @@ export async function parseFeverXlsx(
     }
     const price = Number(ticketPrice);
     if (!Number.isFinite(price)) continue;
+    if (isExcludedFeverPrice(price)) {
+      warnings.push(`Lote "${ticketType}" @ €${price} ignorado (preço excluído — staff/cortesia).`);
+      continue;
+    }
 
     const meta = deriveLotMeta(ticketType);
     const key = lotKey(ticketType, price);
@@ -451,7 +460,7 @@ export async function parseFeverXlsx(
     lots,
     sales,
     totals: {
-      totalQty: totalQtySales,
+      totalQty: sales.reduce((s, x) => s + x.quantity, 0),
       totalGross: lots.reduce((s, l) => s + l.totalGross, 0),
       totalDiscount: lots.reduce((s, l) => s + l.totalDiscount, 0),
       totalUserPayment: lots.reduce((s, l) => s + l.totalUserPayment, 0),

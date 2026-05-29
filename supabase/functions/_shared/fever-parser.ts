@@ -63,6 +63,13 @@ export const isComplimentaryTicketType = (t: string) => {
       || n.includes("invitation") || n.includes("complimentary") || n.includes("cortesy");
 };
 
+// Preços que não correspondem a venda real (staff/produção/cortesia disfarçada).
+// Lotes com estes preços são ignorados; vendas para tickets cujo único preço cai
+// aqui são descartadas silenciosamente.
+export const FEVER_EXCLUDED_PRICES = new Set<number>([300, 900]);
+export const isExcludedFeverPrice = (p: number) =>
+  Number.isFinite(p) && FEVER_EXCLUDED_PRICES.has(Math.round(p * 100) / 100);
+
 const lotKey = (t: string, p: number) => `${t.trim()}|${Number(p).toFixed(2)}`;
 const roundCents = (v: number) => Math.round((Number(v) || 0) * 100) / 100;
 
@@ -151,6 +158,10 @@ export function parseFeverXlsxBuffers(salesBuf: ArrayBuffer, pricesBuf: ArrayBuf
     if (!ticketType || !Number.isFinite(price)) continue;
     if (isComplimentaryTicketType(ticketType)) {
       warnings.push(`Tipo "${ticketType}" ignorado (convite/cortesia/inviting — não é venda)`);
+      continue;
+    }
+    if (isExcludedFeverPrice(price)) {
+      warnings.push(`Lote "${ticketType}" @ €${price} ignorado (preço excluído — staff/cortesia)`);
       continue;
     }
     const meta = deriveLotMeta(ticketType);
@@ -260,10 +271,11 @@ export function parseFeverXlsxBuffers(salesBuf: ArrayBuffer, pricesBuf: ArrayBuf
     warnings.push(`Info: vendas diárias=${totalQtySales} vs prices.Tickets sold=${totalQtyPrices} (delta ${totalQtySales - totalQtyPrices}) — diário é a fonte de verdade`);
   }
 
+  const totalQtyEmitted = sales.reduce((s, x) => s + x.quantity, 0);
   return {
     lots, sales,
     totals: {
-      totalQty: totalQtySales,
+      totalQty: totalQtyEmitted,
       totalGross: lots.reduce((s, l) => s + l.totalGross, 0),
       totalDiscount: lots.reduce((s, l) => s + l.totalDiscount, 0),
       totalUserPayment: lots.reduce((s, l) => s + l.totalUserPayment, 0),
