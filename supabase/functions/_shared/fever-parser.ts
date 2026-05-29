@@ -244,13 +244,13 @@ export function parseFeverXlsxBuffers(salesBuf: ArrayBuffer, pricesBuf: ArrayBuf
 
   const totalQtyPrices = lots.reduce((s, l) => s + l.totalQty, 0);
   if (Math.abs(totalQtySales - totalQtyPrices) > 0) {
-    warnings.push(`Discrepância: vendas=${totalQtySales} vs preços=${totalQtyPrices}`);
+    warnings.push(`Info: vendas diárias=${totalQtySales} vs prices.Tickets sold=${totalQtyPrices} (delta ${totalQtySales - totalQtyPrices}) — diário é a fonte de verdade`);
   }
 
   return {
     lots, sales,
     totals: {
-      totalQty: totalQtyPrices,
+      totalQty: totalQtySales,
       totalGross: lots.reduce((s, l) => s + l.totalGross, 0),
       totalDiscount: lots.reduce((s, l) => s + l.totalDiscount, 0),
       totalUserPayment: lots.reduce((s, l) => s + l.totalUserPayment, 0),
