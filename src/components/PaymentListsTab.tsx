@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
-import { exportPaymentListToExcel, exportPaymentListToPDF, groupPaymentItems, formatSupplierFullName, formatAmountForBank } from "@/lib/export-payment-list";
+import { exportPaymentListToExcel, exportPaymentListToPDF, groupPaymentItems, formatSupplierFullName, formatAmountForBank, itemNetPayable } from "@/lib/export-payment-list";
 import { calcWithIva } from "@/lib/utils";
 import { computeNetPayable, getDeclaredWithholding } from "@/lib/withholding";
 import { useInstallmentTxIds } from "@/hooks/useInstallmentTxIds";
