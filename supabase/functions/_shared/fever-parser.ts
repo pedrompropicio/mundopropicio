@@ -63,10 +63,9 @@ export const isComplimentaryTicketType = (t: string) => {
       || n.includes("invitation") || n.includes("complimentary") || n.includes("cortesy");
 };
 
-// Preços que não correspondem a venda real (staff/produção/cortesia disfarçada).
-// Lotes com estes preços são ignorados; vendas para tickets cujo único preço cai
-// aqui são descartadas silenciosamente.
-export const FEVER_EXCLUDED_PRICES = new Set<number>([300, 900]);
+// Preços que não correspondem a venda real (staff/produção/cortesia disfarçada,
+// VVIP, Parking, etc.). €0 também é excluído — não é venda.
+export const FEVER_EXCLUDED_PRICES = new Set<number>([0, 300, 900]);
 export const isExcludedFeverPrice = (p: number) =>
   Number.isFinite(p) && FEVER_EXCLUDED_PRICES.has(Math.round(p * 100) / 100);
 
