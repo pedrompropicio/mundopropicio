@@ -19,10 +19,13 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const { eventId, feverAccountId, salesB64, pricesB64, salesName, pricesName } = await req.json();
+    console.log("DEBUG params", { eventId, feverAccountId, sUrl: Deno.env.get("SUPABASE_URL"), keyPrefix: (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "").slice(0, 12) });
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+    const probe = await supabase.from("financial_accounts").select("id,name,company_id").eq("id", feverAccountId).maybeSingle();
+    console.log("DEBUG fa probe", JSON.stringify(probe));
     const parseResult = parseFeverXlsxBuffers(b64ToBuf(salesB64), b64ToBuf(pricesB64));
     const grouped = groupFeverLots(parseResult.lots);
     const audit = await runFeverImport({
@@ -34,6 +37,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
+    console.error("IMPORT ERROR", e?.message, JSON.stringify(e));
     return new Response(JSON.stringify({ ok: false, error: e?.message || String(e) }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
