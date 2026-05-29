@@ -1266,6 +1266,8 @@ function ViewPaymentList({ listId, onClose }: { listId: string; onClose: () => v
               payment_entity: tx?.payment_entity,
               payment_reference: tx?.payment_reference,
               invoice_ref: tx?.invoice_ref ?? null,
+              declared_withholding_amount: Number(tx?.declared_withholding_amount ?? 0),
+              has_installments: installmentTxIds.has(tx?.id),
             };
           });
           const { groups, ungrouped } = groupPaymentItems(exportItems as any);
