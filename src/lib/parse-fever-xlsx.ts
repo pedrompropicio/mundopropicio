@@ -281,6 +281,10 @@ export async function parseFeverXlsx(
     }
     const price = Number(ticketPrice);
     if (!Number.isFinite(price)) continue;
+    if (isExcludedFeverPrice(price)) {
+      warnings.push(`Lote "${ticketType}" @ €${price} ignorado (preço excluído — staff/cortesia).`);
+      continue;
+    }
 
     const meta = deriveLotMeta(ticketType);
     const key = lotKey(ticketType, price);
