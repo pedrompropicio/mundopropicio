@@ -160,6 +160,10 @@ export function parseFeverXlsxBuffers(salesBuf: ArrayBuffer, pricesBuf: ArrayBuf
       warnings.push(`Tipo "${ticketType}" ignorado (convite/cortesia/inviting — não é venda)`);
       continue;
     }
+    if (isExcludedFeverPrice(price)) {
+      warnings.push(`Lote "${ticketType}" @ €${price} ignorado (preço excluído — staff/cortesia)`);
+      continue;
+    }
     const meta = deriveLotMeta(ticketType);
     const k = lotKey(ticketType, price);
     if (lotMap.has(k)) { warnings.push(`Lote duplicado: "${ticketType}" @ €${price}`); continue; }
