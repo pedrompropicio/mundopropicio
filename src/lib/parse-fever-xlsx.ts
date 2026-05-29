@@ -262,6 +262,10 @@ export async function parseFeverXlsx(
     const discount = cellByHeader(row, pricesHeaderIndexes, "Discount");
     const userPayment = cellByHeader(row, pricesHeaderIndexes, "User Payment");
     if (!ticketType) continue;
+    if (isComplimentaryTicketType(ticketType)) {
+      warnings.push(`Tipo "${ticketType}" ignorado (convite/cortesia/inviting — não é venda).`);
+      continue;
+    }
     const price = Number(ticketPrice);
     if (!Number.isFinite(price)) continue;
 
