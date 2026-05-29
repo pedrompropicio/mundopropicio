@@ -190,8 +190,11 @@ export async function runFeverImport(input: ImportInput): Promise<ImportAudit> {
   if (!existingAssign) {
     const { error } = await supabase.from("event_ticket_office_assignments")
       .insert({ event_id: eventId, event_date_id: null, financial_account_id: feverAccountId, company_id: companyId });
-    if (error) throw error;
+    // Ignora erro se a atribuição já existir (corrida ou check anterior falhou silenciosamente)
+    if (error && !/duplicate|already|foreign key/i.test(error.message || "")) throw error;
+    if (error) audit.warnings.push(`assignment_skipped: ${error.message}`);
   }
+
 
   // 6. Apagar ticket_sales Fever existentes do evento (com snapshot prévio por sale_date)
   const { data: allEventZones } = await supabase.from("event_ticket_zones").select("id").eq("event_id", eventId);
