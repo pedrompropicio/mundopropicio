@@ -357,6 +357,10 @@ export async function parseFeverXlsx(
     if (!row || row.length === 0) continue;
     const [dateRaw, weekday, ticketType, qtyRaw] = row;
     if (!ticketType) continue;
+    if (isComplimentaryTicketType(ticketType as string)) {
+      warnings.push(`Linha de vendas ignorada (convite/cortesia): "${ticketType}".`);
+      continue;
+    }
     const date = toLocalDate(dateRaw);
     const qty = Number(qtyRaw) || 0;
     if (!date || qty <= 0) continue;
