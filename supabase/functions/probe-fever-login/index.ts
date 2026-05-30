@@ -69,7 +69,7 @@ async function probe(label: string, body: Record<string, string>, extraHeaders: 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json(405, { error: "method not allowed" });
-  if (!(await authorize(req))) return json(401, { error: "unauthorized" });
+  const az = await authorize(req); if (!az.ok) return json(401, { error: "unauthorized", why: az.why });
 
   const { configId, variants = ["A", "C", "D"] } = await req.json().catch(() => ({}));
   if (!configId) return json(400, { error: "configId required" });
