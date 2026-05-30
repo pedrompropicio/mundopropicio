@@ -32,6 +32,12 @@ async function authorize(req: Request): Promise<{ ok: true; via: "service_role" 
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token) return { ok: false, status: 401, error: "unauthorized: missing bearer" };
 
+  // Short-circuit: token igual ao SERVICE_ROLE_KEY (novo formato sb_secret_... não é JWT)
+  if (SERVICE_ROLE && token === SERVICE_ROLE) {
+    console.log("[refresh-fever-token] service_role authorized via env match");
+    return { ok: true, via: "service_role" };
+  }
+
   // Decode JWT payload (sem verificar signature — já confiamos no Supabase upstream)
   let payload: any = null;
   try {
@@ -45,8 +51,10 @@ async function authorize(req: Request): Promise<{ ok: true; via: "service_role" 
 
   // service_role bypass: qualquer JWT com role=service_role passa
   if (payload?.role === "service_role") {
+    console.log("[refresh-fever-token] service_role authorized via JWT role");
     return { ok: true, via: "service_role" };
   }
+
 
   const userClient = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: `Bearer ${token}` } },
