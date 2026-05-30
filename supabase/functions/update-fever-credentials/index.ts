@@ -54,26 +54,21 @@ Deno.serve(async (req) => {
   const secretValue = JSON.stringify({ username, password });
   const secretName = cfg.vault_secret_name;
 
-  // Tentar update; se não existir, criar.
-  // Vault: vault.create_secret(secret, name, description) e vault.update_secret(id, new_secret)
-  const { data: existing } = await admin.from("vault.secrets" as any).select("id").eq("name", secretName).maybeSingle();
-
-  let vaultErr: any = null;
-  if (existing?.id) {
-    const { error } = await admin.rpc("update_vault_secret" as any, { _id: existing.id, _value: secretValue });
-    vaultErr = error;
-  } else {
-    const { error } = await admin.rpc("create_vault_secret" as any, { _name: secretName, _value: secretValue, _description: `Fever credentials (config ${configId})` });
-    vaultErr = error;
-  }
+  // Usar upsert_vault_secret (mesma RPC que refresh-fever-token usa com sucesso).
+  // Trata create+update num só. Evita falha por unique violation quando o segredo já existe.
+  const { error: vaultErr } = await admin.rpc("upsert_vault_secret" as any, {
+    _name: secretName,
+    _value: secretValue,
+    _description: `Fever credentials (config ${configId}, updated ${new Date().toISOString()})`,
+  });
 
   if (vaultErr) {
-    // Fallback: chamar funções vault. directamente via SQL (algumas instalações)
-    // Tentar via SECDEF wrappers fica para outra iteração; reportar erro para utilizador.
-    return new Response(JSON.stringify({ error: `vault: ${vaultErr.message}. Crie manualmente as RPCs create_vault_secret/update_vault_secret ou peça ao admin para inserir o segredo.` }), {
+    console.log(`[update-fever-credentials] upsert_vault_secret failed: ${vaultErr.message}`);
+    return new Response(JSON.stringify({ error: `vault: ${vaultErr.message}` }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
+  console.log(`[update-fever-credentials] OK config=${configId} secret=${secretName}`);
   return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 });
