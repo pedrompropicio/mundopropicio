@@ -20,22 +20,29 @@ function mask(v: string) {
   return { len: v.length, head: v.slice(0, 2), tail: v.slice(-2) };
 }
 
-async function authorize(req: Request) {
+async function authorize(req: Request): Promise<{ ok: boolean; why?: string }> {
   const tok = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
-  if (!tok) return false;
-  if (tok === SERVICE_ROLE) return true;
+  if (!tok) return { ok: false, why: "no bearer" };
+  if (tok === SERVICE_ROLE) return { ok: true };
+  // try JWT decode
   try {
-    const p = JSON.parse(atob(tok.split(".")[1].replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(tok.split(".")[1].length/4)*4, "=")));
-    if (p?.role === "service_role") return true;
+    const parts = tok.split(".");
+    if (parts.length === 3) {
+      let p = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      while (p.length % 4) p += "=";
+      const payload = JSON.parse(atob(p));
+      if (payload?.role === "service_role") return { ok: true };
+    }
   } catch (_) {}
-  // user JWT path: admin/platform_admin only for this probe
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-  const { data: u } = await createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+  const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
     global: { headers: { Authorization: `Bearer ${tok}` } },
-  }).auth.getUser();
-  if (!u?.user) return false;
+  });
+  const { data: u, error: ue } = await userClient.auth.getUser();
+  if (ue || !u?.user) return { ok: false, why: `getUser failed: ${ue?.message || "no user"}` };
   const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", u.user.id);
-  return (roles || []).some((r: any) => ["admin", "platform_admin"].includes(r.role));
+  const ok = (roles || []).some((r: any) => ["admin", "platform_admin"].includes(r.role));
+  return ok ? { ok: true } : { ok: false, why: `roles=${JSON.stringify(roles)}` };
 }
 
 async function probe(label: string, body: Record<string, string>, extraHeaders: Record<string, string>) {
