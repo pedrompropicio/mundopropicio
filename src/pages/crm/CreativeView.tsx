@@ -55,6 +55,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { classifyCreative, metaAdsManagerUrl } from "@/lib/creative-media";
 
 const CTA_OPTIONS = [
   { v: "GET_TICKETS", l: "Comprar Bilhetes" },
@@ -101,6 +102,22 @@ export default function CrmCreativeView() {
         .single();
       if (error) throw error;
       return data;
+    },
+  });
+
+  // ad_account_id da conexão ativa — usado só para o link "Abrir no Ads Manager"
+  // (nível-conta; o Ads Manager não tem deep-link fiável por creative_id).
+  const { data: adAccountId } = useQuery({
+    queryKey: ["crm-active-ad-account"],
+    queryFn: async () => {
+      const { data: c, error } = await (supabase as any)
+        .schema("crm")
+        .from("ad_platform_connections")
+        .select("selected_ad_account_id")
+        .eq("status", "active")
+        .maybeSingle();
+      if (error) throw error;
+      return (c?.selected_ad_account_id as string | null) ?? null;
     },
   });
 
@@ -225,6 +242,8 @@ export default function CrmCreativeView() {
   }
 
   const isVideo = data.type === "video";
+  const kind = classifyCreative(data.file_url, data.type, data.file_mime_type);
+  const adsManagerHref = metaAdsManagerUrl(adAccountId);
 
   return (
     <div className="space-y-6 max-w-6xl">
@@ -266,16 +285,54 @@ export default function CrmCreativeView() {
         {/* Preview */}
         <Card className="p-4 space-y-3">
           <div className="rounded-lg overflow-hidden bg-muted">
-            {isVideo ? (
+            {kind === "video" ? (
               <video src={data.file_url} controls className="w-full max-h-[500px] object-contain" />
-            ) : (
+            ) : kind === "thumbnail" ? (
+              <div className="relative">
+                <img
+                  src={data.file_url}
+                  alt={data.name}
+                  className="w-full max-h-[500px] object-contain"
+                />
+                <Badge
+                  variant="outline"
+                  className="absolute top-2 left-2 bg-purple-500/20 text-purple-100 border-purple-400/40 backdrop-blur"
+                >
+                  <Video className="h-3 w-3 mr-1" /> Vídeo
+                </Badge>
+              </div>
+            ) : kind === "image" ? (
               <img
                 src={data.file_url}
                 alt={data.name}
                 className="w-full max-h-[500px] object-contain"
               />
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 p-12 text-center">
+                <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                <div className="text-xs text-muted-foreground">Sem preview disponível</div>
+              </div>
             )}
           </div>
+          {kind === "thumbnail" && (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5 space-y-1.5">
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                Este criativo é um vídeo. O Meta fornece apenas a thumbnail — o vídeo
+                reproduz-se no Ads Manager.
+              </p>
+              {adsManagerHref && (
+                <a
+                  href={adsManagerHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Pesquisa pelo nome do criativo no Ads Manager"
+                  className="inline-flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 hover:underline"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" /> Abrir no Ads Manager
+                </a>
+              )}
+            </div>
+          )}
           <div className="text-xs text-muted-foreground space-y-0.5">
             {data.width && data.height && (
               <div>

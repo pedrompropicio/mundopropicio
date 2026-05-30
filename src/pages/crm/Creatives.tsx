@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Image as ImageIcon, Plus, Loader2, Play, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { classifyCreative } from "@/lib/creative-media";
 
 type CreativeRow = {
   id: string;
   name: string;
   type: "image" | "video" | "carousel";
   file_url: string;
+  file_mime_type: string | null;
   duration_seconds: number | null;
   tags: string[] | null;
   created_at: string;
@@ -33,7 +35,7 @@ export default function CrmCreatives() {
       const { data, error } = await (supabase as any)
         .schema("crm")
         .from("meta_creatives")
-        .select("id, name, type, file_url, duration_seconds, tags, created_at")
+        .select("id, name, type, file_url, file_mime_type, duration_seconds, tags, created_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as CreativeRow[];
@@ -99,34 +101,53 @@ export default function CrmCreatives() {
                 )}
               >
                 <div className="relative aspect-video bg-muted overflow-hidden">
-                  {c.type === "video" ? (
-                    <>
-                      <video
-                        src={c.file_url}
-                        className="w-full h-full object-cover"
-                        muted
-                        playsInline
-                        preload="metadata"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                        <div className="h-12 w-12 rounded-full bg-black/60 flex items-center justify-center">
-                          <Play className="h-5 w-5 text-white fill-white" />
+                  {(() => {
+                    const kind = classifyCreative(c.file_url, c.type, c.file_mime_type);
+                    if (kind === "placeholder") {
+                      return (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ImageIcon className="h-8 w-8 text-muted-foreground" />
                         </div>
-                      </div>
-                      {c.duration_seconds && (
-                        <span className="absolute bottom-2 right-2 text-[10px] font-medium bg-black/70 text-white px-1.5 py-0.5 rounded">
-                          {fmtDuration(c.duration_seconds)}
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    <img
-                      src={c.file_url}
-                      alt={c.name}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  )}
+                      );
+                    }
+                    // "video" e "thumbnail" partilham o chrome de vídeo (botão play + duração);
+                    // a diferença é só a tag de media: <video> real vs <img> da thumbnail.
+                    const showVideoChrome = kind === "video" || kind === "thumbnail";
+                    return (
+                      <>
+                        {kind === "video" ? (
+                          <video
+                            src={c.file_url}
+                            className="w-full h-full object-cover"
+                            muted
+                            playsInline
+                            preload="metadata"
+                          />
+                        ) : (
+                          <img
+                            src={c.file_url}
+                            alt={c.name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        )}
+                        {showVideoChrome && (
+                          <>
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                              <div className="h-12 w-12 rounded-full bg-black/60 flex items-center justify-center">
+                                <Play className="h-5 w-5 text-white fill-white" />
+                              </div>
+                            </div>
+                            {c.duration_seconds && (
+                              <span className="absolute bottom-2 right-2 text-[10px] font-medium bg-black/70 text-white px-1.5 py-0.5 rounded">
+                                {fmtDuration(c.duration_seconds)}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
                 <div className="p-3 space-y-2">
                   <div className="flex items-start justify-between gap-2">
