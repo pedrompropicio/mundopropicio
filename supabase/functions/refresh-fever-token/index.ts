@@ -67,8 +67,10 @@ async function authorize(req: Request): Promise<{ ok: true; via: "service_role" 
   const allowed = (roles || []).some((r: any) => ["admin", "manager", "editor", "platform_admin"].includes(r.role));
   if (!allowed) return { ok: false, status: 403, error: "forbidden: role not allowed" };
 
+  console.log("[refresh-fever-token] user JWT authorized", userData.user.id);
   return { ok: true, via: "user", uid: userData.user.id };
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
