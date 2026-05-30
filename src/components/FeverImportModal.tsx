@@ -299,6 +299,11 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
         lot: { key: string; lotName: string; unitPrice: number; totalQty: number; ticketPrice: number },
         opts: { isCombo: boolean; consumesZoneIds: string[]; lotNumber: number },
       ) => {
+        // Combo SEM consumes_zone_ids dá fallback errado em useEventAttendance (0 público no Dom). Bloqueia.
+        if (opts.isCombo && opts.consumesZoneIds.length === 0) {
+          throw new Error(`Combo "${lot.lotName}" precisa de consumes_zone_ids preenchido (zonas Sáb+Dom).`);
+        }
+
         // tenta achar lote existente nesta zona com mesmo nome/preço
         const { data: existingLots } = await supabase
           .from("event_ticket_lots")
