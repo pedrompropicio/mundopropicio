@@ -220,25 +220,49 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
       }
 
       // === 2. ZONAS-DIA (uma por daily group) ===
-      // Reimport Fever é substitutivo: antes de criar os lotes novos, remove
-      // todos os lotes das zonas Fever do evento para não somar quantidades
-      // planeadas antigas ao novo ficheiro.
+      // Sweep TOTAL de lotes Fever do evento (substitutivo):
+      //  (a) lotes em zonas cujo nome bate com as zonas-dia esperadas;
+      //  (b) lotes ligados a QUALQUER ticket_sale da conta Fever
+      //      (apanha phantom lots de runs antigos — ex.: cortesias €300/€900
+      //      antes do FEVER_EXCLUDED_PRICES existir).
       const expectedZoneNames = new Set(grouped.dailyGroups.map((g) => norm(g.zoneName)));
       const feverZonesBeforeImport = (existing?.zones || []).filter((z: any) => expectedZoneNames.has(norm(z.name)));
+      const lotIdsToSweep = new Set<string>();
+
       const feverZoneIdsBeforeImport = feverZonesBeforeImport.map((z: any) => z.id);
       if (feverZoneIdsBeforeImport.length > 0) {
-        const { data: feverLotsBeforeImport } = await supabase
-          .from("event_ticket_lots")
-          .select("id")
-          .in("zone_id", feverZoneIdsBeforeImport);
-        const feverLotIdsBeforeImport = (feverLotsBeforeImport || []).map((l: any) => l.id);
-        if (feverLotIdsBeforeImport.length > 0) {
-          const { error: salesByLotErr } = await supabase.from("ticket_sales").delete().in("lot_id", feverLotIdsBeforeImport);
-          if (salesByLotErr) throw salesByLotErr;
-          const { error: lotsErr } = await supabase.from("event_ticket_lots").delete().in("id", feverLotIdsBeforeImport);
-          if (lotsErr) throw lotsErr;
+        const { data: lotsByZone } = await supabase
+          .from("event_ticket_lots").select("id").in("zone_id", feverZoneIdsBeforeImport);
+        for (const l of (lotsByZone || []) as any[]) lotIdsToSweep.add(l.id);
+      }
+
+      const allEventZoneIdsForSweep = (existing?.zones || []).map((z: any) => z.id);
+      if (allEventZoneIdsForSweep.length > 0) {
+        const pageSize = 1000;
+        let from = 0;
+        while (true) {
+          const { data: rows, error } = await supabase.from("ticket_sales")
+            .select("lot_id")
+            .in("zone_id", allEventZoneIdsForSweep)
+            .eq("financial_account_id", feverAccountId)
+            .not("lot_id", "is", null)
+            .range(from, from + pageSize - 1);
+          if (error) break;
+          if (!rows || rows.length === 0) break;
+          for (const r of rows as any[]) if (r.lot_id) lotIdsToSweep.add(r.lot_id);
+          if (rows.length < pageSize) break;
+          from += pageSize;
         }
       }
+
+      if (lotIdsToSweep.size > 0) {
+        const ids = Array.from(lotIdsToSweep);
+        const { error: salesByLotErr } = await supabase.from("ticket_sales").delete().in("lot_id", ids);
+        if (salesByLotErr) throw salesByLotErr;
+        const { error: lotsErr } = await supabase.from("event_ticket_lots").delete().in("id", ids);
+        if (lotsErr) throw lotsErr;
+      }
+
 
       // Reaproveita zonas existentes por nome normalizado, senão cria.
       const zoneIdByKindDay = new Map<string, string>(); // `${kind}|${slot}` -> zone_id
@@ -275,6 +299,11 @@ export function FeverImportModal({ open, onClose, defaultEventId }: Props) {
         lot: { key: string; lotName: string; unitPrice: number; totalQty: number; ticketPrice: number },
         opts: { isCombo: boolean; consumesZoneIds: string[]; lotNumber: number },
       ) => {
+        // Combo SEM consumes_zone_ids dá fallback errado em useEventAttendance (0 público no Dom). Bloqueia.
+        if (opts.isCombo && opts.consumesZoneIds.length === 0) {
+          throw new Error(`Combo "${lot.lotName}" precisa de consumes_zone_ids preenchido (zonas Sáb+Dom).`);
+        }
+
         // tenta achar lote existente nesta zona com mesmo nome/preço
         const { data: existingLots } = await supabase
           .from("event_ticket_lots")
