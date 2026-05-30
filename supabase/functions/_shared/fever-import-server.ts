@@ -107,20 +107,51 @@ export async function runFeverImport(input: ImportInput): Promise<ImportAudit> {
     await supabase.from("event_ticket_zones").delete().in("id", orphanIds);
   }
 
-  // 2. Zonas-dia (reset de lotes Fever existentes nessas zonas)
+  // 2. Sweep TOTAL de lotes Fever do evento.
+  //    - (a) lotes em zonas cujo nome bate com as zonas-dia esperadas (caminho histórico);
+  //    - (b) lotes que tenham QUALQUER ticket_sale ligado à conta Fever
+  //      (apanha phantom lots de runs antigos cujas zonas já não batem,
+  //      ex.: cortesias a €300/€900 antes do FEVER_EXCLUDED_PRICES existir).
   const expectedZoneNames = new Set(grouped.dailyGroups.map((g) => norm(g.zoneName)));
   const feverZonesBefore = existingZones.filter((z: any) => expectedZoneNames.has(norm(z.name)));
+  const lotIdsToSweep = new Set<string>();
+
   const feverZoneIdsBefore = feverZonesBefore.map((z: any) => z.id);
   if (feverZoneIdsBefore.length > 0) {
-    const { data: feverLotsBefore } = await supabase.from("event_ticket_lots").select("id").in("zone_id", feverZoneIdsBefore);
-    const feverLotIdsBefore = (feverLotsBefore || []).map((l: any) => l.id);
-    if (feverLotIdsBefore.length > 0) {
-      const { error: e1 } = await supabase.from("ticket_sales").delete().in("lot_id", feverLotIdsBefore);
-      if (e1) throw e1;
-      const { error: e2 } = await supabase.from("event_ticket_lots").delete().in("id", feverLotIdsBefore);
-      if (e2) throw e2;
+    const { data: lotsByZone } = await supabase.from("event_ticket_lots")
+      .select("id").in("zone_id", feverZoneIdsBefore);
+    for (const l of (lotsByZone || []) as any[]) lotIdsToSweep.add(l.id);
+  }
+
+  const allEventZoneIdsForSweep = existingZones.map((z: any) => z.id);
+  if (allEventZoneIdsForSweep.length > 0) {
+    // pagina para apanhar todos os lot_ids ligados a vendas Fever
+    const pageSize = 1000;
+    let from = 0;
+    while (true) {
+      const { data: rows, error } = await supabase.from("ticket_sales")
+        .select("lot_id")
+        .in("zone_id", allEventZoneIdsForSweep)
+        .eq("financial_account_id", feverAccountId)
+        .not("lot_id", "is", null)
+        .range(from, from + pageSize - 1);
+      if (error) break;
+      if (!rows || rows.length === 0) break;
+      for (const r of rows as any[]) if (r.lot_id) lotIdsToSweep.add(r.lot_id);
+      if (rows.length < pageSize) break;
+      from += pageSize;
     }
   }
+
+  if (lotIdsToSweep.size > 0) {
+    const ids = Array.from(lotIdsToSweep);
+    const { error: e1 } = await supabase.from("ticket_sales").delete().in("lot_id", ids);
+    if (e1) throw e1;
+    const { error: e2 } = await supabase.from("event_ticket_lots").delete().in("id", ids);
+    if (e2) throw e2;
+    audit.warnings.push(`fever_sweep: ${ids.length} lote(s) removido(s) antes do re-import`);
+  }
+
 
   const zoneIdByKindDay = new Map<string, string>();
   for (const g of grouped.dailyGroups) {
