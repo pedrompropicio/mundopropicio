@@ -641,7 +641,7 @@ export default function Dashboard() {
 
                 {/* Vendas: ontem / últimos 7 dias / total — com fallback "Última venda" */}
                 <div className="mt-3 pt-2 border-t border-border/30 text-xs">
-                  {event.salesYesterday === 0 && event.salesLast7d === 0 && event.ticketsSold === 0 ? (
+                  {event.salesYesterday === 0 && event.salesLast7d === 0 && event.ticketRevenue === 0 ? (
                     event.lastSaleDate ? (
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-muted-foreground">
