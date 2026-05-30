@@ -19,7 +19,10 @@ export interface AttendanceLot {
   kind: LotKind;
   /** preço unitário (para receita; opcional) */
   price?: number;
+  /** zonas (1 por dia coberto) que o combo consome; obrigatório quando kind="combo" */
+  consumes_zone_ids?: string[];
 }
+
 
 export interface AttendanceZone {
   id: string;
@@ -108,12 +111,24 @@ export function computeEventAttendance(input: AttendanceInput): AttendanceResult
     ticketsSold += qty;
 
     if (kind === "combo") {
-      for (let d = 0; d < numDays; d++) ensure(d, mv.zone_id).paying += qty;
+      // Distribui por CADA zona em consumes_zone_ids (uma por dia coberto).
+      // Fallback: zona âncora em todos os dias (modelo antigo; mantém compat).
+      const consumed = lot?.consumes_zone_ids?.length ? lot.consumes_zone_ids : null;
+      if (consumed) {
+        for (const zid of consumed) {
+          const zd = zoneById.get(zid)?.day_index;
+          const dayIdx = typeof zd === "number" ? zd : 0;
+          if (dayIdx >= 0 && dayIdx < numDays) ensure(dayIdx, zid).paying += qty;
+        }
+      } else {
+        for (let d = 0; d < numDays; d++) ensure(d, mv.zone_id).paying += qty;
+      }
     } else {
       const zd = zoneById.get(mv.zone_id)?.day_index;
       const dayIdx = typeof zd === "number" ? zd : 0;
       if (dayIdx >= 0 && dayIdx < numDays) ensure(dayIdx, mv.zone_id).paying += qty;
     }
+
   }
 
   for (const c of courtesies) {
