@@ -174,6 +174,12 @@ export async function runFeverImport(input: ImportInput): Promise<ImportAudit> {
   const resolvedLotIds: Record<string, string> = {};
   const lotZoneByKey = new Map<string, string>();
   const ensureLot = async (zoneId: string, lot: any, opts: { isCombo: boolean; consumesZoneIds: string[]; lotNumber: number }) => {
+    // Assertion crítica: combo SEM consumes_zone_ids leva a fallback em useEventAttendance
+    // que dá 0 público no Domingo. Bloqueia em vez de gravar lixo.
+    if (opts.isCombo && opts.consumesZoneIds.length === 0) {
+      throw new Error(`Combo "${lot.lotName}" precisa de consumes_zone_ids preenchido (zonas Sáb+Dom).`);
+    }
+
     const { data: existingLots } = await supabase.from("event_ticket_lots").select("id, name, price").eq("zone_id", zoneId);
     const found = (existingLots || []).find((l: any) =>
       norm(l.name) === norm(lot.lotName) &&
