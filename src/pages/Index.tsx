@@ -11,6 +11,7 @@ import {
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { makeLastDateResolver } from "@/lib/event-dates";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { ResultsAnalysis } from "@/components/ResultsAnalysis";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
@@ -332,6 +333,21 @@ export default function Dashboard() {
       return data;
     },
   });
+
+  // event_dates para resolver "última data efetiva" de festivais multi-dia.
+  // (Turnês cobrem via parent_event_id que já vem em `events`.)
+  const { data: eventDates = [] } = useQuery({
+    queryKey: ["dashboard_event_dates", companyId],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_dates")
+        .select("event_id, date");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
 
   const isLoading = companyLoading || loadingEvents || loadingTxns;
 
