@@ -5,6 +5,7 @@ import { moveToTrash } from "@/lib/trash";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { computeEventLastDate } from "@/lib/event-dates";
 import { ArrowLeft, TrendingUp, TrendingDown, Wallet, Ticket, CheckCircle2, RotateCcw, Calendar, Layers, Route, Pencil, Copy, Trash2, Lock, LockOpen, AlertTriangle } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { StatCard } from "@/components/StatCard";
@@ -757,12 +758,15 @@ export default function EventDetail() {
       {/* Post-event completion alert */}
       {(isAdmin || isManager) && event.status === "active" && (() => {
         const today = new Date().toISOString().slice(0, 10);
-        const eventDate = event.date;
-        // For tours, check the latest child date
-        const latestDate = subEvents.length > 0
-          ? subEvents.reduce((max: string, s: any) => s.date > max ? s.date : max, eventDate)
-          : eventDate;
+        // Última data efetiva = max(event.date, event_dates, sub-eventos).
+        // Cobre festivais multi-dia (festivalDates) e turnês (subEvents).
+        const latestDate = computeEventLastDate({
+          eventDate: event.date,
+          extraDates: festivalDates as any[],
+          subEvents: subEvents as any[],
+        }) ?? event.date;
         if (today > latestDate) {
+
           return (
             <div className="flex items-center gap-3 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3">
               <AlertTriangle className="h-5 w-5 text-warning shrink-0" />

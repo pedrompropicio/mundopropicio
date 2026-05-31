@@ -11,6 +11,7 @@ import {
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { makeLastDateResolver } from "@/lib/event-dates";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { ResultsAnalysis } from "@/components/ResultsAnalysis";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
@@ -333,6 +334,21 @@ export default function Dashboard() {
     },
   });
 
+  // event_dates para resolver "última data efetiva" de festivais multi-dia.
+  // (Turnês cobrem via parent_event_id que já vem em `events`.)
+  const { data: eventDates = [] } = useQuery({
+    queryKey: ["dashboard_event_dates", companyId],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("event_dates")
+        .select("event_id, date");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+
   const isLoading = companyLoading || loadingEvents || loadingTxns;
 
   const computed = useMemo(() => {
@@ -459,10 +475,16 @@ export default function Dashboard() {
     const planningRaw = allEnriched.filter((e) => e.status === "planning");
     const planning = groupWithParents(planningRaw, events);
 
-    // Excluir eventos cuja data de realização já passou
+    // Excluir eventos cuja ÚLTIMA data efetiva já passou.
+    // Para festivais multi-dia usa max(event_dates); para turnês usa max(sub-eventos).
+    const lastDateOf = makeLastDateResolver({ eventDates, allEvents: events });
     const activeRaw = allEnriched
       .filter((e) => e.status === "active" || e.status === "confirmed")
-      .filter((e) => !e.date || e.date >= todayISO);
+      .filter((e) => {
+        const last = lastDateOf(e);
+        return !last || last >= todayISO;
+      });
+
     const active = groupWithParents(activeRaw, events);
 
     const completedRaw = allEnriched
@@ -479,7 +501,7 @@ export default function Dashboard() {
     };
 
     return { planning, active, completed, yearAccum };
-  }, [events, transactions, ticketSales, ticketZones, ticketLots, forecasts]);
+  }, [events, transactions, ticketSales, ticketZones, ticketLots, forecasts, eventDates]);
 
   if (isLoading) {
     return (
