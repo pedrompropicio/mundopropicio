@@ -501,7 +501,7 @@ export default function Dashboard() {
     };
 
     return { planning, active, completed, yearAccum };
-  }, [events, transactions, ticketSales, ticketZones, ticketLots, forecasts]);
+  }, [events, transactions, ticketSales, ticketZones, ticketLots, forecasts, eventDates]);
 
   if (isLoading) {
     return (
