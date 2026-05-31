@@ -4,9 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Image as ImageIcon, Plus, Loader2, Play, Video } from "lucide-react";
+import { Image as ImageIcon, Plus, Loader2, Play, Video, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { classifyCreative } from "@/lib/creative-media";
+import { classifyCreative, metaAdsManagerUrl } from "@/lib/creative-media";
 
 type CreativeRow = {
   id: string;
@@ -41,6 +41,24 @@ export default function CrmCreatives() {
       return (data ?? []) as CreativeRow[];
     },
   });
+
+  // ad_account_id da conexão ativa — usado só para o link "Abrir no Ads Manager"
+  // dos thumbnails de vídeo (nível-conta; sem deep-link fiável por creative_id).
+  // Mesma queryKey que CreativeView -> React Query partilha cache entre páginas.
+  const { data: adAccountId } = useQuery({
+    queryKey: ["crm-active-ad-account"],
+    queryFn: async () => {
+      const { data: c, error } = await (supabase as any)
+        .schema("crm")
+        .from("ad_platform_connections")
+        .select("selected_ad_account_id")
+        .eq("status", "active")
+        .maybeSingle();
+      if (error) throw error;
+      return (c?.selected_ad_account_id as string | null) ?? null;
+    },
+  });
+  const adsHref = metaAdsManagerUrl(adAccountId);
 
   return (
     <div className="space-y-6">
@@ -113,6 +131,10 @@ export default function CrmCreatives() {
                     // "video" e "thumbnail" partilham o chrome de vídeo (botão play + duração);
                     // a diferença é só a tag de media: <video> real vs <img> da thumbnail.
                     const showVideoChrome = kind === "video" || kind === "thumbnail";
+                    // Thumbnails de vídeo não reproduzem inline; quando há conta ativa,
+                    // o overlay leva ao Ads Manager (nova aba). Sem conta -> overlay
+                    // decorativo e o card abre o detalhe como hoje.
+                    const clickableThumbnail = kind === "thumbnail" && !!adsHref;
                     return (
                       <>
                         {kind === "video" ? (
@@ -133,11 +155,29 @@ export default function CrmCreatives() {
                         )}
                         {showVideoChrome && (
                           <>
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                              <div className="h-12 w-12 rounded-full bg-black/60 flex items-center justify-center">
-                                <Play className="h-5 w-5 text-white fill-white" />
+                            {clickableThumbnail ? (
+                              <a
+                                href={adsHref!}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Abrir no Ads Manager"
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute inset-0 flex items-center justify-center bg-black/20"
+                              >
+                                <div className="h-12 w-12 rounded-full bg-black/60 flex items-center justify-center">
+                                  <Play className="h-5 w-5 text-white fill-white" />
+                                </div>
+                              </a>
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                <div className="h-12 w-12 rounded-full bg-black/60 flex items-center justify-center">
+                                  <Play className="h-5 w-5 text-white fill-white" />
+                                </div>
                               </div>
-                            </div>
+                            )}
+                            {clickableThumbnail && (
+                              <ExternalLink className="absolute top-2 right-2 h-4 w-4 text-white/80 drop-shadow pointer-events-none" />
+                            )}
                             {c.duration_seconds && (
                               <span className="absolute bottom-2 right-2 text-[10px] font-medium bg-black/70 text-white px-1.5 py-0.5 rounded">
                                 {fmtDuration(c.duration_seconds)}
