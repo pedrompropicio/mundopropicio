@@ -475,10 +475,16 @@ export default function Dashboard() {
     const planningRaw = allEnriched.filter((e) => e.status === "planning");
     const planning = groupWithParents(planningRaw, events);
 
-    // Excluir eventos cuja data de realização já passou
+    // Excluir eventos cuja ÚLTIMA data efetiva já passou.
+    // Para festivais multi-dia usa max(event_dates); para turnês usa max(sub-eventos).
+    const lastDateOf = makeLastDateResolver({ eventDates, allEvents: events });
     const activeRaw = allEnriched
       .filter((e) => e.status === "active" || e.status === "confirmed")
-      .filter((e) => !e.date || e.date >= todayISO);
+      .filter((e) => {
+        const last = lastDateOf(e);
+        return !last || last >= todayISO;
+      });
+
     const active = groupWithParents(activeRaw, events);
 
     const completedRaw = allEnriched
