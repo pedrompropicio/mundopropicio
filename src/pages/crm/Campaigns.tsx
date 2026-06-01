@@ -724,7 +724,7 @@ function CampaignTableRow({
         "border-b border-border/40 hover:bg-muted/40 transition-colors cursor-pointer",
         (isPaused || isReplaced) && "opacity-60",
       )}
-      onClick={() => console.log("[campaign click]", c.external_campaign_id, c.name)}
+      onClick={() => navigate(`/audience/campaigns/${c.external_campaign_id}`)}
     >
       <td className="py-2.5 px-3 max-w-[280px] font-medium text-sm">
         <div className="flex items-center gap-1.5 min-w-0">
