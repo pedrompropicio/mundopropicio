@@ -1,3 +1,4 @@
+// cold-start trigger: 2026-06-01 secret rotation
 // crm-meta-oauth-callback
 //
 // Meta OAuth redirect handler. Meta sends the user back here with
