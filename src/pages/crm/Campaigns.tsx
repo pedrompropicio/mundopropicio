@@ -2418,6 +2418,17 @@ export default function CrmCampaigns() {
             </SheetDescription>
           </SheetHeader>
 
+          {analyzeCampaignId && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2 mb-1"
+              onClick={() => navigate(`/audience/campaigns/${analyzeCampaignId}`)}
+            >
+              Ver detalhe completo
+            </Button>
+          )}
+
           <div className="mt-6 space-y-6">
             {analyzeLoading && (
               <div className="flex flex-col items-center gap-3 py-12">

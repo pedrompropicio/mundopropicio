@@ -143,6 +143,7 @@ import AudiencePrint from "@/pages/crm/AudiencePrint";
 import CrmCreatives from "./pages/crm/Creatives";
 import CrmCreativeNew from "./pages/crm/CreativeNew";
 import CrmCreativeView from "./pages/crm/CreativeView";
+import CrmCampaignView from "./pages/crm/CampaignView";
 import CrmAudit from "./pages/crm/Audit";
 import CrmFunnelTest from "./pages/crm/FunnelTest";
 import ModuleSelector from "./pages/ModuleSelector";
@@ -524,6 +525,7 @@ function App() {
                   <Route path="/audience" element={<AudienceLayout />}>
                     <Route index element={<Navigate to="/audience/dashboard" replace />} />
                     <Route path="dashboard" element={<CrmCampaigns />} />
+                    <Route path="campaigns/:id" element={<CrmCampaignView />} />
                     <Route path="connections" element={<CrmConnections />} />
                     <Route path="pixels" element={<CrmPixels />} />
                     <Route path="insights" element={<CrmInsights />} />
