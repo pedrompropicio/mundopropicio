@@ -122,6 +122,51 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (!strategy.generated_plan) return json({ error: "plan_not_generated" }, 400);
     if (!strategy.connection_id) return json({ error: "connection_missing" }, 400);
 
+    // ── GUARDRAIL: cap de budget diário por role (atómico) ─────────────────────
+    // Valida TODAS as campanhas do plano. Se QUALQUER uma excede → 403, nada é
+    // criado na Meta. Colocado antes de criar a deployment row para não deixar
+    // rows "running" órfãs num abort.
+    {
+      const planForCap = strategy.generated_plan;
+      const campaignsForCap = Array.isArray(planForCap.recommended_campaigns)
+        ? planForCap.recommended_campaigns
+        : [];
+      const { data: capData, error: capErr } = await supabase.rpc(
+        "get_user_max_daily_budget_eur",
+        { _user_id: userId },
+      );
+      if (capErr) {
+        console.error("[strategy-deploy] failed to read budget cap", capErr);
+        return json({ error: "internal_error", message: "Failed to check budget cap." }, 500);
+      }
+      const capEur: number | null = capData === null ? null : Number(capData);
+      console.log("[strategy-deploy] budget cap check", { userId, capEur, campaigns: campaignsForCap.length });
+      if (capEur === 0) {
+        return json({
+          error: "no_budget_authority",
+          message: "User has no role authorised to set budget.",
+        }, 403);
+      }
+      if (capEur !== null) {
+        const offending = campaignsForCap
+          .map((c: any, i: number) => {
+            // Mesmo fallback (10) que o código usa ao criar o adset.
+            const dailyEur = Number(c?.daily_budget_eur ?? 10);
+            return { campaign_index: i, campaign_name: c?.campaign_name ?? `#${i}`, daily_budget_eur: dailyEur };
+          })
+          .filter((c: any) => c.daily_budget_eur > capEur);
+        if (offending.length > 0) {
+          return json({
+            error: "budget_cap_exceeded_in_plan",
+            message: `Strategy contains campaigns exceeding your daily budget limit of €${capEur}/day.`,
+            cap_eur: capEur,
+            offending_campaigns: offending,
+          }, 403);
+        }
+      }
+    }
+    // ───────────────────────────────────────────────────────────────────────────
+
     // 2) Buscar token + company
     const { data: tokenRows, error: tokenErr } = await supabase.rpc("crm_get_meta_decrypted_token", {
       p_connection_id: strategy.connection_id,

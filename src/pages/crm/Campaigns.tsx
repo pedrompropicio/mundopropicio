@@ -42,6 +42,7 @@ import { computeScore } from "@/lib/campaign-score";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRoleBudgetCap } from "@/hooks/useRoleBudgetCap";
 import { useCompany } from "@/hooks/useCompany";
 import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
 import { Button } from "@/components/ui/button";
@@ -367,6 +368,7 @@ function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: () => vo
   const [endDate, setEndDate] = useState(c.stop_time ? c.stop_time.slice(0, 10) : "");
   const [roasGoal, setRoasGoal] = useState("");
   const [saving, setSaving] = useState(false);
+  const { capEur } = useRoleBudgetCap();
 
   const supportsRoas = c.bid_strategy === "LOWEST_COST_WITH_MIN_ROAS";
 
@@ -388,6 +390,24 @@ function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: () => vo
     if (Object.keys(updates).length === 0) {
       toast.info("Nada para alterar.");
       return;
+    }
+    // Guardrail client-side (1ª linha; o servidor revalida). Só bloqueia se já
+    // sabemos o cap (number). null = sem limite; undefined = a carregar → deixa
+    // passar e confia no servidor.
+    if (typeof updates.daily_budget_cents === "number" && typeof capEur === "number") {
+      if (capEur === 0) {
+        toast.error("Sem autoridade para alterar verba", {
+          description: "O teu role não está autorizado a definir orçamentos. Pede a um admin.",
+        });
+        return;
+      }
+      const attemptedEur = updates.daily_budget_cents / 100;
+      if (attemptedEur > capEur) {
+        toast.error("Verba diária excede o limite", {
+          description: `Verba diária €${attemptedEur} excede o limite de €${capEur}/dia para o teu role. Pede revisão a um admin.`,
+        });
+        return;
+      }
     }
     setSaving(true);
     try {
@@ -456,6 +476,13 @@ function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: () => vo
               value={dailyEur}
               onChange={(e) => setDailyEur(e.target.value)}
             />
+            {capEur === null ? (
+              <p className="text-[11px] text-muted-foreground">Limite: sem restrição</p>
+            ) : capEur === 0 ? (
+              <p className="text-[11px] text-destructive">Sem autoridade para alterar verba</p>
+            ) : typeof capEur === "number" ? (
+              <p className="text-[11px] text-muted-foreground">Limite: €{capEur}/dia</p>
+            ) : null}
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Data de fim (opcional)</Label>

@@ -90,6 +90,38 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (userErr || !userData?.user) return json({ error: "unauthorized", detail: userErr?.message }, 401);
   const userId = userData.user.id;
 
+  // ── GUARDRAIL: cap de budget diário por role ────────────────────────────────
+  // Só aplica a updates que mexem na verba diária. Bloqueia ANTES de tocar na Meta.
+  if (action === "update" && typeof updates?.daily_budget_cents === "number") {
+    const { data: capData, error: capErr } = await supabase.rpc(
+      "get_user_max_daily_budget_eur",
+      { _user_id: userId },
+    );
+    if (capErr) {
+      console.error("[entity-action] failed to read budget cap", capErr);
+      return json({ error: "internal_error", message: "Failed to check budget cap." }, 500);
+    }
+    // numeric vem como string via PostgREST → coerção (preserva null = sem limite).
+    const capEur: number | null = capData === null ? null : Number(capData);
+    const attemptedEur = updates.daily_budget_cents / 100;
+    console.log("[entity-action] budget cap check", { userId, capEur, attemptedEur });
+    if (capEur === 0) {
+      return json({
+        error: "no_budget_authority",
+        message: "User has no role authorised to set budget.",
+      }, 403);
+    }
+    if (capEur !== null && attemptedEur > capEur) {
+      return json({
+        error: "budget_cap_exceeded",
+        message: `Daily budget €${attemptedEur} exceeds your limit of €${capEur}/day.`,
+        cap_eur: capEur,
+        attempted_eur: attemptedEur,
+      }, 403);
+    }
+  }
+  // ────────────────────────────────────────────────────────────────────────────
+
   // Token + companyId
   const { data: tokenRows, error: tokenErr } = await supabase.rpc("crm_get_meta_decrypted_token", {
     p_connection_id: connection_id,
