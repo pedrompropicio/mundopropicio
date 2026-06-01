@@ -29,6 +29,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ReactivateCampaignDialog } from "@/components/crm/ReactivateCampaignDialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -61,7 +62,7 @@ import { cn } from "@/lib/utils";
 // ============================================================
 // Types
 // ============================================================
-interface CampaignRow {
+export interface CampaignRow {
   id: string;
   connection_id: string;
   ad_account_id: string;
@@ -359,7 +360,7 @@ function deltaPct(curr: number, prev: number): number | null {
 // ============================================================
 // Edit Campaign Popover (inline)
 // ============================================================
-function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: () => void }) {
+export function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: () => void }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(c.name);
   const [dailyEur, setDailyEur] = useState(
@@ -1391,8 +1392,6 @@ export default function CrmCampaigns() {
   // Reactivate dialog (substitui window.confirm para activate; pause mantém confirm).
   const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
   const [reactivateCampaign, setReactivateCampaign] = useState<CampaignRow | null>(null);
-  const [reactivateReason, setReactivateReason] = useState("");
-  const [reactivateLoading, setReactivateLoading] = useState(false);
 
   const [analyzeOpen, setAnalyzeOpen] = useState(false);
   const [analyzeData, setAnalyzeData] = useState<any>(null);
@@ -1704,19 +1703,7 @@ export default function CrmCampaigns() {
   // Abre dialog de reactivação (substitui chamada directa para evitar reactivação acidental).
   const openReactivateDialog = (c: CampaignRow) => {
     setReactivateCampaign(c);
-    setReactivateReason("");
     setReactivateDialogOpen(true);
-  };
-
-  const confirmReactivate = async () => {
-    if (!reactivateCampaign) return;
-    setReactivateLoading(true);
-    try {
-      await toggleCampaignStatus(reactivateCampaign, "ACTIVE", reactivateReason.trim() || undefined);
-      setReactivateDialogOpen(false);
-    } finally {
-      setReactivateLoading(false);
-    }
   };
 
   // ---------- Campaigns ----------
@@ -3123,44 +3110,16 @@ export default function CrmCampaigns() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={reactivateDialogOpen} onOpenChange={setReactivateDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Reactivar campanha?</DialogTitle>
-            <DialogDescription>
-              <span className="block">{reactivateCampaign?.name ?? ""}</span>
-              <span className="block mt-1">Vai voltar a gastar verba do Meta. Confirmar?</span>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-[11px] text-muted-foreground">
-              Para ajustar verba diária antes, usa o botão de editar (✎) na linha da campanha primeiro.
-            </p>
-            <div>
-              <Label htmlFor="reactivate-reason" className="text-xs uppercase text-muted-foreground">
-                Razão (opcional)
-              </Label>
-              <Input
-                id="reactivate-reason"
-                value={reactivateReason}
-                onChange={(e) => setReactivateReason(e.target.value)}
-                placeholder="ex: pausa terminada — retomar conversão pre-evento"
-                disabled={reactivateLoading}
-                className="mt-1"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setReactivateDialogOpen(false)} disabled={reactivateLoading}>
-              Cancelar
-            </Button>
-            <Button size="sm" onClick={confirmReactivate} disabled={reactivateLoading || !reactivateCampaign}>
-              {reactivateLoading && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-              Reactivar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ReactivateCampaignDialog
+        open={reactivateDialogOpen}
+        onOpenChange={setReactivateDialogOpen}
+        campaignName={reactivateCampaign?.name}
+        onConfirm={(reason) =>
+          reactivateCampaign
+            ? toggleCampaignStatus(reactivateCampaign, "ACTIVE", reason)
+            : Promise.resolve()
+        }
+      />
     </div>
   );
 }

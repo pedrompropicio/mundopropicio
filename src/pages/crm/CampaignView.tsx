@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { pt } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,9 +37,12 @@ import {
   Settings2,
   Pause,
   Play,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { classifyCreative } from "@/lib/creative-media";
+import { EditCampaignPopover, type CampaignRow } from "@/pages/crm/Campaigns";
+import { ReactivateCampaignDialog } from "@/components/crm/ReactivateCampaignDialog";
 
 // ── Tipos (subset dos snapshots; só o que a página usa) ─────────────────────
 interface CampaignSnap {
@@ -238,6 +242,9 @@ function aggregateTargeting(adsets: AdsetSnap[]) {
 export default function CrmCampaignView() {
   const { id } = useParams<{ id: string }>(); // external_campaign_id
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [toggling, setToggling] = useState(false);
+  const [reactivateOpen, setReactivateOpen] = useState(false);
 
   // 1) Campanha
   const { data: campaign, isLoading: loadingCampaign, error: campaignError } =
@@ -462,6 +469,46 @@ export default function CrmCampaignView() {
     return m;
   }, [creatives]);
 
+  // ── Ações (duplicação leve do toggle da lista; ver Campaigns.tsx) ───────────
+  async function runToggle(target: "ACTIVE" | "PAUSED", reasonText?: string) {
+    if (!campaign) return;
+    setToggling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-entity-action", {
+        body: {
+          connection_id: (campaign as any).connection_id,
+          entity_type: "campaign",
+          external_id: campaign.external_campaign_id,
+          action: target === "ACTIVE" ? "activate" : "pause",
+          ad_account_id: (campaign as any).ad_account_id,
+          ...(reasonText ? { reason_text: reasonText, triggered_by: "user_manual" } : {}),
+        },
+      });
+      if (error) {
+        let detail = error.message;
+        const ctx = (error as any).context;
+        if (ctx) {
+          try {
+            const b = await (ctx.clone ? ctx.clone() : ctx).json();
+            detail = b?.detail || b?.error || detail;
+          } catch {}
+        }
+        throw new Error(detail);
+      }
+      if ((data as any)?.ok === false) throw new Error((data as any)?.detail ?? "Falha");
+      toast.success(
+        target === "ACTIVE"
+          ? `Campanha "${campaign.name}" activada`
+          : `Campanha "${campaign.name}" pausada`,
+      );
+      qc.invalidateQueries({ queryKey: ["crm-campaign-view", id] });
+    } catch (e: any) {
+      toast.error("Falha a alterar status no Meta", { description: e?.message ?? String(e) });
+    } finally {
+      setToggling(false);
+    }
+  }
+
   // ── Estados ──────────────────────────────────────────────────────────────
   if (loadingCampaign) {
     return (
@@ -511,8 +558,52 @@ export default function CrmCampaignView() {
             )}
           </div>
         </div>
-        <div className="text-xs text-muted-foreground text-right">
-          {dateFmt(campaign.start_time)} — {campaign.stop_time ? dateFmt(campaign.stop_time) : "sem fim"}
+        <div className="flex flex-col items-end gap-2 shrink-0">
+          {(() => {
+            const eff = campaign.effective_status ?? campaign.status ?? null;
+            const isActive = eff === "ACTIVE";
+            const isPaused = eff === "PAUSED";
+            return (
+              <div className="flex items-center gap-1.5">
+                {(isActive || isPaused) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={toggling}
+                    onClick={() => {
+                      if (isActive) {
+                        if (!confirm(`Pausar campanha "${campaign.name}" no Meta? Pode reactivar depois.`)) return;
+                        runToggle("PAUSED");
+                      } else {
+                        setReactivateOpen(true);
+                      }
+                    }}
+                    className={cn(
+                      "h-7 px-2 text-[11px]",
+                      isActive
+                        ? "border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                        : "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10",
+                    )}
+                  >
+                    {toggling ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : isActive ? (
+                      <><Pause className="h-3 w-3 mr-1" />Pausar</>
+                    ) : (
+                      <><Play className="h-3 w-3 mr-1" />Activar</>
+                    )}
+                  </Button>
+                )}
+                <EditCampaignPopover
+                  c={campaign as unknown as CampaignRow}
+                  onSaved={() => qc.invalidateQueries({ queryKey: ["crm-campaign-view", id] })}
+                />
+              </div>
+            );
+          })()}
+          <div className="text-xs text-muted-foreground text-right">
+            {dateFmt(campaign.start_time)} — {campaign.stop_time ? dateFmt(campaign.stop_time) : "sem fim"}
+          </div>
         </div>
       </div>
 
@@ -791,6 +882,13 @@ export default function CrmCampaignView() {
           </ol>
         )}
       </Card>
+
+      <ReactivateCampaignDialog
+        open={reactivateOpen}
+        onOpenChange={setReactivateOpen}
+        campaignName={campaign.name}
+        onConfirm={(reason) => runToggle("ACTIVE", reason)}
+      />
     </div>
   );
 }
