@@ -1,3 +1,4 @@
+// cold-start trigger: 2026-06-01-v2 secret rotation
 // crm-meta-fetch-pages
 // POST { connection_id } → busca Pages do utilizador via Graph API,
 // inclui Instagram Business Account associado a cada Page (quando existe).

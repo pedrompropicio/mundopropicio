@@ -1,3 +1,4 @@
+// cold-start trigger: 2026-06-01-v2 secret rotation
 // crm-meta-entity-action
 // POST { connection_id, entity_type, external_id, action, updates? }
 // Pausa, ativa ou atualiza qualquer entidade Meta (campaign|adset|ad).

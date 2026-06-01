@@ -1,3 +1,4 @@
+// cold-start trigger: 2026-06-01-v2 secret rotation
 // crm-meta-strategy-deploy
 // POST { strategy_id } → cria Campaigns + AdSets + AdCreatives + Ads no Meta via Marketing API.
 // Tudo em status PAUSED por segurança (Pedro ativa manualmente no Ads Manager).

@@ -1,3 +1,4 @@
+// cold-start trigger: 2026-06-01-v2 secret rotation
 // crm-meta-funnel-breakdown (Fase 5)
 // POST { connection_id, level: 'campaign'|'adset'|'ad', external_id, days_back?, breakdown_by: 'placement'|'device'|'platform' }
 // Devolve agregação on-demand do funnel por placement/device/platform via Meta Graph API.

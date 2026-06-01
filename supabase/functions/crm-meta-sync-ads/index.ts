@@ -1,3 +1,4 @@
+// cold-start trigger: 2026-06-01-v2 secret rotation
 // crm-meta-sync-ads
 // POST { connection_id, ad_account_id, campaign_external_ids?: string[] }
 // Sync ads from Meta Graph into crm.meta_ad_snapshot.
