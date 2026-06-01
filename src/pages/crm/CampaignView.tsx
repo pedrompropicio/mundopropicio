@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { formatDistanceToNow } from "date-fns";
+import { pt } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +28,14 @@ import {
   Eye,
   ShoppingCart,
   Sparkles,
+  Activity,
+  AlertTriangle,
+  TrendingDown,
+  Minus,
+  History,
+  Settings2,
+  Pause,
+  Play,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { classifyCreative } from "@/lib/creative-media";
@@ -85,6 +95,38 @@ interface InsightRow {
   roas: number | null;
   currency: string | null;
 }
+interface DiagnosisRow {
+  target_roas: number | null;
+  source_campaign_class: string | null;
+  projected_baseline_roas: number | null;
+  diagnosis_jsonb: any;
+  created_at: string;
+}
+interface ChangeRow {
+  id: string;
+  change_type: string;
+  before_jsonb: any;
+  after_jsonb: any;
+  reason_text: string | null;
+  triggered_by: string | null;
+  applied_by_user_id: string | null;
+  applied_at: string;
+}
+interface ActionRow {
+  id: string;
+  action: string;
+  prev_status: string | null;
+  new_status: string | null;
+  success: boolean;
+  error_message: string | null;
+  performed_by: string | null;
+  performed_at: string;
+}
+interface ProfileRow {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+}
 
 // ── Helpers de formatação ───────────────────────────────────────────────────
 const eur = (cents: number | null | undefined, currency = "EUR") =>
@@ -110,6 +152,49 @@ const verdictLabel: Record<string, { label: string; color: string }> = {
   needs_major_changes: { label: "Mudanças", color: "bg-orange-500/10 text-orange-400 border-orange-500/40" },
   reject: { label: "Não usar", color: "bg-red-500/10 text-red-400 border-red-500/40" },
 };
+
+// Classe da campanha (diagnóstico 360) → label + cor
+const classMeta: Record<string, { label: string; color: string }> = {
+  saudavel_subindo: { label: "Saudável a subir", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/40" },
+  saudavel_caindo: { label: "Saudável a cair", color: "bg-amber-500/10 text-amber-400 border-amber-500/40" },
+  fraca: { label: "Fraca", color: "bg-orange-500/10 text-orange-400 border-orange-500/40" },
+  morta: { label: "Morta", color: "bg-red-500/10 text-red-400 border-red-500/40" },
+};
+const changeTypeMeta: Record<string, string> = {
+  budget: "Orçamento", targeting: "Targeting", creative: "Criativo",
+  status: "Status", bid: "Licitação", name: "Nome", other: "Outro",
+};
+const actionMeta: Record<string, string> = {
+  pause: "Campanha pausada", activate: "Campanha ativada",
+  update_budget: "Orçamento alterado", update_name: "Nome alterado",
+  update_end_time: "Data de fim alterada",
+};
+const triggerMeta: Record<string, string> = {
+  user_manual: "Manual", cron_auto: "Automático", ai_suggestion: "IA",
+};
+
+const relTime = (ts: string) =>
+  formatDistanceToNow(new Date(ts), { addSuffix: true, locale: pt });
+
+function truncId(id: string) {
+  return `${id.slice(0, 6)}…${id.slice(-4)}`;
+}
+function actorLabel(id: string | null, map: Map<string, ProfileRow>) {
+  if (!id) return "sistema";
+  const p = map.get(id);
+  if (p?.full_name && p.full_name.trim()) {
+    const parts = p.full_name.trim().split(/\s+/);
+    return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0]}.` : parts[0];
+  }
+  if (p?.email) return p.email;
+  return truncId(id);
+}
+function TrendIcon({ band }: { band?: string | null }) {
+  const b = (band || "").toLowerCase();
+  if (/sub|up|melhor/.test(b)) return <TrendingUp className="h-4 w-4 text-emerald-400" />;
+  if (/caind|desc|down|pior/.test(b)) return <TrendingDown className="h-4 w-4 text-red-400" />;
+  return <Minus className="h-4 w-4 text-muted-foreground" />;
+}
 
 // Agrega o targeting de TODOS os adsets em conjuntos únicos
 function aggregateTargeting(adsets: AdsetSnap[]) {
@@ -249,6 +334,113 @@ export default function CrmCampaignView() {
     },
   });
 
+  // 6) Diagnóstico IA — último entry
+  const { data: diagnosis } = useQuery({
+    queryKey: ["crm-campaign-view-diagnosis", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("campaign_diagnosis_360")
+        .select("target_roas, source_campaign_class, projected_baseline_roas, diagnosis_jsonb, created_at")
+        .eq("external_campaign_id", id)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (error) throw error;
+      return (data?.[0] ?? null) as DiagnosisRow | null;
+    },
+  });
+
+  // 7) Histórico — mudanças (últimas 30)
+  const { data: changes } = useQuery({
+    queryKey: ["crm-campaign-view-changes", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_campaign_changes")
+        .select("id, change_type, before_jsonb, after_jsonb, reason_text, triggered_by, applied_by_user_id, applied_at")
+        .eq("external_campaign_id", id)
+        .order("applied_at", { ascending: false })
+        .limit(30);
+      if (error) throw error;
+      return (data ?? []) as ChangeRow[];
+    },
+  });
+
+  // 8) Histórico — ações nível campanha (últimas 30)
+  const { data: actions } = useQuery({
+    queryKey: ["crm-campaign-view-actions", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_entity_actions_log")
+        .select("id, action, prev_status, new_status, success, error_message, performed_by, performed_at")
+        .eq("entity_type", "campaign")
+        .eq("external_id", id)
+        .order("performed_at", { ascending: false })
+        .limit(30);
+      if (error) throw error;
+      return (data ?? []) as ActionRow[];
+    },
+  });
+
+  // 9) Lookup de atores (profiles, public schema)
+  const actorIds = useMemo(() => {
+    const s = new Set<string>();
+    (changes ?? []).forEach((c) => c.applied_by_user_id && s.add(c.applied_by_user_id));
+    (actions ?? []).forEach((a) => a.performed_by && s.add(a.performed_by));
+    return [...s];
+  }, [changes, actions]);
+  const { data: profiles } = useQuery({
+    queryKey: ["crm-campaign-view-profiles", actorIds.sort().join(",")],
+    enabled: actorIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", actorIds);
+      if (error) throw error;
+      return (data ?? []) as ProfileRow[];
+    },
+  });
+  const profileMap = useMemo(() => {
+    const m = new Map<string, ProfileRow>();
+    (profiles ?? []).forEach((p) => m.set(p.id, p));
+    return m;
+  }, [profiles]);
+
+  // Timeline combinada (change + action), desc, top 30
+  const timeline = useMemo(() => {
+    type T = {
+      key: string; ts: string; type: "change" | "action"; success: boolean;
+      actorId: string | null; title: string; subtitle: string; trigger?: string | null;
+    };
+    const items: T[] = [];
+    for (const c of changes ?? []) {
+      const label = changeTypeMeta[c.change_type] ?? c.change_type;
+      items.push({
+        key: `c-${c.id}`, ts: c.applied_at, type: "change", success: true,
+        actorId: c.applied_by_user_id, trigger: c.triggered_by,
+        title: `${label} alterado`,
+        subtitle: c.reason_text ?? "",
+      });
+    }
+    for (const a of actions ?? []) {
+      items.push({
+        key: `a-${a.id}`, ts: a.performed_at, type: "action", success: a.success,
+        actorId: a.performed_by,
+        title: actionMeta[a.action] ?? a.action,
+        subtitle: a.success
+          ? [a.prev_status, a.new_status].filter(Boolean).join(" → ")
+          : (a.error_message ?? "falhou"),
+      });
+    }
+    items.sort((x, y) => new Date(y.ts).getTime() - new Date(x.ts).getTime());
+    return items.slice(0, 30);
+  }, [changes, actions]);
+
   // ── Derivados ──────────────────────────────────────────────────────────────
   const metrics = useMemo(() => {
     const rows = insights ?? [];
@@ -337,6 +529,74 @@ export default function CrmCampaignView() {
           <p className="text-xs text-muted-foreground mt-2">Sem dados de insights nos últimos 30 dias.</p>
         )}
       </div>
+
+      {/* Diagnóstico IA */}
+      <Card className="p-5 space-y-3">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <Activity className="h-4 w-4 text-cyan-400" /> Diagnóstico IA
+        </h2>
+        {!diagnosis ? (
+          <p className="text-sm text-muted-foreground">Sem diagnóstico IA disponível para esta campanha.</p>
+        ) : (() => {
+          const dj = diagnosis.diagnosis_jsonb ?? {};
+          const cls = diagnosis.source_campaign_class ?? "";
+          const cm = classMeta[cls];
+          const posture = dj.recommended_posture as string | undefined;
+          const trendBand = dj?.levels?.campaign?.trajectory?.trend_band as string | undefined;
+          const reason = dj?.levels?.campaign?.classification?.classification_reason as string | undefined;
+          const warning = dj.operational_warning as { message?: string; is_winddown?: boolean } | undefined;
+          return (
+            <>
+              <div className="flex items-center gap-3 flex-wrap">
+                <Badge variant="outline" className={cn("border text-sm px-3 py-1", cm?.color ?? "")}>
+                  {cm?.label ?? cls ?? "—"}
+                </Badge>
+                {posture && (
+                  <span className="text-sm">
+                    <span className="text-muted-foreground">Postura recomendada: </span>
+                    <strong>{posture}</strong>
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Baseline projetado: </span>
+                  <strong>{diagnosis.projected_baseline_roas != null ? `${Number(diagnosis.projected_baseline_roas).toFixed(2)}x` : "—"}</strong>
+                  {diagnosis.target_roas != null && (
+                    <span className="text-muted-foreground"> · Target: <strong className="text-foreground">{Number(diagnosis.target_roas).toFixed(2)}x</strong></span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">Tendência:</span>
+                  <TrendIcon band={trendBand} />
+                  <strong>{trendBand ?? "—"}</strong>
+                </div>
+              </div>
+
+              {reason && (
+                <div className="rounded-lg border border-border p-3 text-sm">
+                  <span className="text-muted-foreground">Razão: </span>{reason}
+                </div>
+              )}
+
+              {warning?.message && (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
+                  <div className="text-sm text-amber-200">
+                    {warning.message}
+                    {warning.is_winddown && <span className="ml-1 font-medium">(wind-down)</span>}
+                  </div>
+                </div>
+              )}
+
+              <div className="text-[11px] text-muted-foreground pt-1 border-t border-border">
+                Última análise: {relTime(diagnosis.created_at)}
+              </div>
+            </>
+          );
+        })()}
+      </Card>
 
       {/* Configuração */}
       <Card className="p-5">
@@ -476,6 +736,59 @@ export default function CrmCampaignView() {
               );
             })}
           </div>
+        )}
+      </Card>
+
+      {/* Histórico */}
+      <Card className="p-5">
+        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <History className="h-4 w-4" /> Histórico
+        </h2>
+        {timeline.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Sem alterações registadas para esta campanha.</p>
+        ) : (
+          <ol className="relative border-l border-border/60 ml-2 space-y-4">
+            {timeline.map((it) => (
+              <li key={it.key} className="ml-4">
+                <span
+                  className={cn(
+                    "absolute -left-[7px] flex h-3.5 w-3.5 items-center justify-center rounded-full border",
+                    it.type === "change"
+                      ? "bg-cyan-500/20 border-cyan-500/50"
+                      : it.success
+                        ? "bg-emerald-500/20 border-emerald-500/50"
+                        : "bg-red-500/20 border-red-500/50",
+                  )}
+                />
+                <div className="flex items-start gap-2">
+                  {it.type === "change" ? (
+                    <Settings2 className="h-3.5 w-3.5 text-cyan-400 mt-0.5 shrink-0" />
+                  ) : it.title.includes("pausada") ? (
+                    <Pause className="h-3.5 w-3.5 text-amber-400 mt-0.5 shrink-0" />
+                  ) : (
+                    <Play className="h-3.5 w-3.5 text-emerald-400 mt-0.5 shrink-0" />
+                  )}
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
+                      {it.title}
+                      {it.trigger && (
+                        <Badge variant="outline" className="text-[9px] border-border text-muted-foreground">
+                          {triggerMeta[it.trigger] ?? it.trigger}
+                        </Badge>
+                      )}
+                      {!it.success && (
+                        <Badge variant="outline" className="text-[9px] border-red-500/40 text-red-400">falhou</Badge>
+                      )}
+                    </div>
+                    {it.subtitle && <div className="text-xs text-muted-foreground mt-0.5">{it.subtitle}</div>}
+                    <div className="text-[11px] text-muted-foreground/80 mt-0.5">
+                      {relTime(it.ts)} · {actorLabel(it.actorId, profileMap)}
+                    </div>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
         )}
       </Card>
     </div>
