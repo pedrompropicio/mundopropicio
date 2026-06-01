@@ -1,0 +1,541 @@
+import { useMemo } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  ArrowLeft,
+  ExternalLink,
+  Image as ImageIcon,
+  Target,
+  Users,
+  UserMinus,
+  MapPin,
+  Wallet,
+  TrendingUp,
+  Eye,
+  ShoppingCart,
+  Sparkles,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { classifyCreative } from "@/lib/creative-media";
+
+// ── Tipos (subset dos snapshots; só o que a página usa) ─────────────────────
+interface CampaignSnap {
+  external_campaign_id: string;
+  name: string;
+  status: string | null;
+  effective_status: string | null;
+  objective: string | null;
+  daily_budget_cents: number | null;
+  lifetime_budget_cents: number | null;
+  buying_type: string | null;
+  bid_strategy: string | null;
+  start_time: string | null;
+  stop_time: string | null;
+}
+interface AdsetSnap {
+  external_adset_id: string;
+  name: string | null;
+  status: string | null;
+  effective_status: string | null;
+  optimization_goal: string | null;
+  billing_event: string | null;
+  daily_budget_cents: number | null;
+  lifetime_budget_cents: number | null;
+  currency: string | null;
+  targeting: any;
+}
+interface AdSnap {
+  external_ad_id: string;
+  external_adset_id: string;
+  name: string | null;
+  status: string | null;
+  effective_status: string | null;
+  meta_creative_id: string | null;
+}
+interface CreativeRow {
+  id: string;
+  meta_creative_id: string | null;
+  name: string;
+  type: string;
+  file_url: string;
+  file_mime_type: string | null;
+  headline: string | null;
+  analysis_jsonb: any;
+}
+interface InsightRow {
+  date_start: string;
+  spend_cents: number | null;
+  ctr: number | null;
+  impressions: number | null;
+  clicks: number | null;
+  purchases_count: number | null;
+  purchases_value_cents: number | null;
+  roas: number | null;
+  currency: string | null;
+}
+
+// ── Helpers de formatação ───────────────────────────────────────────────────
+const eur = (cents: number | null | undefined, currency = "EUR") =>
+  cents == null
+    ? "—"
+    : new Intl.NumberFormat("pt-PT", { style: "currency", currency }).format(cents / 100);
+const intFmt = (n: number | null | undefined) =>
+  n == null ? "—" : new Intl.NumberFormat("pt-PT").format(n);
+const dateFmt = (s: string | null) =>
+  s ? new Date(s).toLocaleDateString("pt-PT") : "—";
+
+function statusColor(status: string | null): string {
+  const s = (status || "").toUpperCase();
+  if (s === "ACTIVE") return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+  if (s === "PAUSED") return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+  return "bg-muted text-muted-foreground border-border";
+}
+
+// Verdict do analysis_jsonb do criativo (reaproveita vocabulário do CreativeView)
+const verdictLabel: Record<string, { label: string; color: string }> = {
+  ready: { label: "Pronto", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/40" },
+  needs_minor_changes: { label: "Ajustes", color: "bg-amber-500/10 text-amber-400 border-amber-500/40" },
+  needs_major_changes: { label: "Mudanças", color: "bg-orange-500/10 text-orange-400 border-orange-500/40" },
+  reject: { label: "Não usar", color: "bg-red-500/10 text-red-400 border-red-500/40" },
+};
+
+// Agrega o targeting de TODOS os adsets em conjuntos únicos
+function aggregateTargeting(adsets: AdsetSnap[]) {
+  const countries = new Set<string>();
+  const cities = new Map<string, { name: string; radius?: number; unit?: string }>();
+  const included = new Map<string, string>();
+  const excluded = new Map<string, string>();
+  let ageMin = Infinity;
+  let ageMax = -Infinity;
+
+  for (const a of adsets) {
+    const t = a.targeting ?? {};
+    const geo = t.geo_locations ?? {};
+    (geo.countries ?? []).forEach((c: string) => countries.add(c));
+    (geo.cities ?? []).forEach((c: any) =>
+      cities.set(String(c.key ?? c.name), {
+        name: c.name ?? String(c.key),
+        radius: c.radius,
+        unit: c.distance_unit,
+      }),
+    );
+    if (typeof t.age_min === "number") ageMin = Math.min(ageMin, t.age_min);
+    if (typeof t.age_max === "number") ageMax = Math.max(ageMax, t.age_max);
+    (t.custom_audiences ?? []).forEach((x: any) =>
+      included.set(String(x.id ?? x.name), x.name ?? String(x.id)),
+    );
+    (t.excluded_custom_audiences ?? []).forEach((x: any) =>
+      excluded.set(String(x.id ?? x.name), x.name ?? String(x.id)),
+    );
+  }
+  return {
+    countries: [...countries],
+    cities: [...cities.values()],
+    ageMin: Number.isFinite(ageMin) ? ageMin : null,
+    ageMax: Number.isFinite(ageMax) ? ageMax : null,
+    included: [...included.values()],
+    excluded: [...excluded.values()],
+  };
+}
+
+export default function CrmCampaignView() {
+  const { id } = useParams<{ id: string }>(); // external_campaign_id
+  const navigate = useNavigate();
+
+  // 1) Campanha
+  const { data: campaign, isLoading: loadingCampaign, error: campaignError } =
+    useQuery({
+      queryKey: ["crm-campaign-view", id],
+      enabled: !!id,
+      queryFn: async () => {
+        const { data, error } = await (supabase as any)
+          .schema("crm")
+          .from("meta_campaign_snapshot")
+          .select("*")
+          .eq("external_campaign_id", id)
+          .maybeSingle();
+        if (error) throw error;
+        return data as CampaignSnap | null;
+      },
+    });
+
+  // 2) Insights últimos 30d (nível campanha — única fonte de métricas)
+  const { data: insights } = useQuery({
+    queryKey: ["crm-campaign-view-insights", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const since = new Date();
+      since.setDate(since.getDate() - 30);
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_campaign_insights_daily")
+        .select(
+          "date_start, spend_cents, ctr, impressions, clicks, purchases_count, purchases_value_cents, roas, currency",
+        )
+        .eq("external_campaign_id", id)
+        .gte("date_start", since.toISOString().slice(0, 10));
+      if (error) throw error;
+      return (data ?? []) as InsightRow[];
+    },
+  });
+
+  // 3) Adsets
+  const { data: adsets } = useQuery({
+    queryKey: ["crm-campaign-view-adsets", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_adset_snapshot")
+        .select(
+          "external_adset_id, name, status, effective_status, optimization_goal, billing_event, daily_budget_cents, lifetime_budget_cents, currency, targeting",
+        )
+        .eq("external_campaign_id", id);
+      if (error) throw error;
+      return (data ?? []) as AdsetSnap[];
+    },
+  });
+
+  // 4) Ads
+  const { data: ads } = useQuery({
+    queryKey: ["crm-campaign-view-ads", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_ad_snapshot")
+        .select(
+          "external_ad_id, external_adset_id, name, status, effective_status, meta_creative_id",
+        )
+        .eq("external_campaign_id", id);
+      if (error) throw error;
+      return (data ?? []) as AdSnap[];
+    },
+  });
+
+  // 5) Criativos sincronizados que correspondem aos ads (join client-side por meta_creative_id)
+  const creativeIds = useMemo(
+    () =>
+      Array.from(
+        new Set((ads ?? []).map((a) => a.meta_creative_id).filter(Boolean) as string[]),
+      ),
+    [ads],
+  );
+  const { data: creatives } = useQuery({
+    queryKey: ["crm-campaign-view-creatives", creativeIds.sort().join(",")],
+    enabled: creativeIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_creatives")
+        .select(
+          "id, meta_creative_id, name, type, file_url, file_mime_type, headline, analysis_jsonb",
+        )
+        .in("meta_creative_id", creativeIds);
+      if (error) throw error;
+      return (data ?? []) as CreativeRow[];
+    },
+  });
+
+  // ── Derivados ──────────────────────────────────────────────────────────────
+  const metrics = useMemo(() => {
+    const rows = insights ?? [];
+    const spend = rows.reduce((s, r) => s + (r.spend_cents ?? 0), 0);
+    const revenue = rows.reduce((s, r) => s + (r.purchases_value_cents ?? 0), 0);
+    const conversions = rows.reduce((s, r) => s + (r.purchases_count ?? 0), 0);
+    const roas = spend > 0 ? revenue / spend : null;
+    const currency = rows.find((r) => r.currency)?.currency ?? "EUR";
+    return { spend, revenue, conversions, roas, currency };
+  }, [insights]);
+
+  const targeting = useMemo(() => aggregateTargeting(adsets ?? []), [adsets]);
+
+  const creativeByMetaId = useMemo(() => {
+    const m = new Map<string, CreativeRow>();
+    (creatives ?? []).forEach((c) => {
+      if (c.meta_creative_id) m.set(c.meta_creative_id, c);
+    });
+    return m;
+  }, [creatives]);
+
+  // ── Estados ──────────────────────────────────────────────────────────────
+  if (loadingCampaign) {
+    return (
+      <div className="space-y-6 max-w-6xl">
+        <Skeleton className="h-10 w-64" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-24" />
+          ))}
+        </div>
+        <Skeleton className="h-48" />
+      </div>
+    );
+  }
+  if (campaignError || !campaign) {
+    return (
+      <Card className="p-6 text-sm text-destructive max-w-6xl">
+        Campanha não encontrada.
+        <div className="mt-3">
+          <Button variant="outline" size="sm" onClick={() => navigate("/audience/dashboard")}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> Voltar ao dashboard
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
+  const cur = metrics.currency;
+
+  return (
+    <div className="space-y-6 max-w-6xl">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/audience/dashboard")}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> Campanhas
+          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl font-bold tracking-tight">{campaign.name}</h1>
+            <Badge variant="outline" className={cn("border", statusColor(campaign.effective_status ?? campaign.status))}>
+              {campaign.effective_status ?? campaign.status ?? "—"}
+            </Badge>
+            {campaign.objective && (
+              <Badge variant="outline" className="border-border text-muted-foreground">
+                {campaign.objective}
+              </Badge>
+            )}
+          </div>
+        </div>
+        <div className="text-xs text-muted-foreground text-right">
+          {dateFmt(campaign.start_time)} — {campaign.stop_time ? dateFmt(campaign.stop_time) : "sem fim"}
+        </div>
+      </div>
+
+      {/* Métricas chave (últimos 30d) */}
+      <div>
+        <h2 className="text-sm font-semibold mb-2 text-muted-foreground">Métricas chave · últimos 30 dias</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <MetricCard icon={TrendingUp} label="ROAS" value={metrics.roas == null ? "—" : `${metrics.roas.toFixed(2)}x`} />
+          <MetricCard icon={Wallet} label="Gasto" value={eur(metrics.spend, cur)} />
+          <MetricCard icon={ShoppingCart} label="Receita" value={eur(metrics.revenue, cur)} />
+          <MetricCard icon={Users} label="Conversões" value={intFmt(metrics.conversions)} />
+        </div>
+        {(insights ?? []).length === 0 && (
+          <p className="text-xs text-muted-foreground mt-2">Sem dados de insights nos últimos 30 dias.</p>
+        )}
+      </div>
+
+      {/* Configuração */}
+      <Card className="p-5">
+        <h2 className="text-lg font-semibold mb-3">Configuração</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+          <ConfigRow label="Estratégia de licitação" value={campaign.bid_strategy} />
+          <ConfigRow label="Orçamento diário" value={eur(campaign.daily_budget_cents, cur)} />
+          <ConfigRow label="Orçamento total" value={eur(campaign.lifetime_budget_cents, cur)} />
+          <ConfigRow label="Tipo de compra" value={campaign.buying_type} />
+          <ConfigRow label="Início" value={dateFmt(campaign.start_time)} />
+          <ConfigRow label="Fim" value={campaign.stop_time ? dateFmt(campaign.stop_time) : "—"} />
+        </div>
+      </Card>
+
+      {/* Targeting agregado */}
+      <Card className="p-5 space-y-4">
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <Target className="h-4 w-4" /> Targeting agregado
+          <span className="text-xs font-normal text-muted-foreground">({(adsets ?? []).length} adsets)</span>
+        </h2>
+
+        <PillRow icon={MapPin} label="Países" items={targeting.countries} />
+        <PillRow
+          icon={MapPin}
+          label="Cidades"
+          items={targeting.cities.map((c) => (c.radius ? `${c.name} (${c.radius}${c.unit ?? "km"})` : c.name))}
+        />
+        <div className="text-sm">
+          <span className="text-muted-foreground">Faixa etária: </span>
+          <strong>
+            {targeting.ageMin ?? "?"}–{targeting.ageMax ?? "?"}
+          </strong>
+        </div>
+        <PillRow icon={Users} label="Audiências incluídas" items={targeting.included} />
+        <PillRow icon={UserMinus} label="Audiências excluídas" items={targeting.excluded} destructive />
+      </Card>
+
+      {/* Adsets */}
+      <Card className="p-5">
+        <h2 className="text-lg font-semibold mb-3">Adsets ({(adsets ?? []).length})</h2>
+        {(adsets ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">Sem adsets sincronizados.</p>
+        ) : (
+          <Accordion type="multiple" className="w-full">
+            {(adsets ?? []).map((a) => {
+              const t = aggregateTargeting([a]);
+              return (
+                <AccordionItem key={a.external_adset_id} value={a.external_adset_id}>
+                  <AccordionTrigger>
+                    <div className="flex items-center gap-2 text-left">
+                      <Badge variant="outline" className={cn("border text-[10px]", statusColor(a.effective_status ?? a.status))}>
+                        {a.effective_status ?? a.status ?? "—"}
+                      </Badge>
+                      <span className="font-medium">{a.name ?? a.external_adset_id}</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-3 pt-1">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1.5 text-sm">
+                        <ConfigRow label="Objetivo de otimização" value={a.optimization_goal} />
+                        <ConfigRow label="Evento de faturação" value={a.billing_event} />
+                        <ConfigRow label="Orçamento diário" value={eur(a.daily_budget_cents, a.currency ?? cur)} />
+                      </div>
+                      <Separator />
+                      <PillRow icon={MapPin} label="Cidades" items={t.cities.map((c) => c.name)} small />
+                      <div className="text-xs">
+                        <span className="text-muted-foreground">Idade: </span>
+                        <strong>{t.ageMin ?? "?"}–{t.ageMax ?? "?"}</strong>
+                      </div>
+                      <PillRow icon={Users} label="Audiências" items={t.included} small />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+          </Accordion>
+        )}
+      </Card>
+
+      {/* Criativos */}
+      <Card className="p-5">
+        <h2 className="text-lg font-semibold mb-3">Criativos ({(ads ?? []).length})</h2>
+        {(ads ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">Sem anúncios sincronizados.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {(ads ?? []).map((ad) => {
+              const cr = ad.meta_creative_id ? creativeByMetaId.get(ad.meta_creative_id) : undefined;
+              const kind = cr ? classifyCreative(cr.file_url, cr.type, cr.file_mime_type) : null;
+              const verdict = cr?.analysis_jsonb?.verdict as string | undefined;
+              const vMeta = verdict ? verdictLabel[verdict] : undefined;
+              return (
+                <Card key={ad.external_ad_id} className="overflow-hidden">
+                  <div className="aspect-video bg-muted flex items-center justify-center">
+                    {cr && (kind === "image" || kind === "thumbnail") ? (
+                      <img src={cr.file_url} alt={cr.name} className="w-full h-full object-cover" />
+                    ) : cr && kind === "video" ? (
+                      <video src={cr.file_url} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                        <ImageIcon className="h-6 w-6" />
+                        <span className="text-[10px]">{cr ? "sem preview" : "criativo não sincronizado"}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-sm font-medium line-clamp-2">{ad.name ?? "(sem nome)"}</div>
+                      <Badge variant="outline" className={cn("border text-[9px] shrink-0", statusColor(ad.effective_status ?? ad.status))}>
+                        {ad.effective_status ?? ad.status ?? "—"}
+                      </Badge>
+                    </div>
+                    {vMeta && (
+                      <Badge variant="outline" className={cn("border text-[10px] gap-1", vMeta.color)}>
+                        <Sparkles className="h-3 w-3" /> {vMeta.label}
+                        {typeof cr?.analysis_jsonb?.scores?.overall === "number" && (
+                          <span>· {cr.analysis_jsonb.scores.overall}/100</span>
+                        )}
+                      </Badge>
+                    )}
+                    {cr ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-cyan-400 hover:text-cyan-300"
+                        onClick={() => navigate(`/audience/creatives/${cr.id}`)}
+                      >
+                        <Eye className="h-3.5 w-3.5 mr-1" /> Ver análise
+                      </Button>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
+                        <ExternalLink className="h-3 w-3" /> só no Ads Manager
+                      </span>
+                    )}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// ── Subcomponentes ───────────────────────────────────────────────────────────
+function MetricCard({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
+  return (
+    <Card className="p-4">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+        <Icon className="h-3.5 w-3.5" /> {label}
+      </div>
+      <div className="text-2xl font-bold tracking-tight">{value}</div>
+    </Card>
+  );
+}
+
+function ConfigRow({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div className="flex justify-between gap-3 border-b border-border/50 py-1">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-right">{value || "—"}</span>
+    </div>
+  );
+}
+
+function PillRow({
+  icon: Icon,
+  label,
+  items,
+  destructive,
+  small,
+}: {
+  icon: any;
+  label: string;
+  items: string[];
+  destructive?: boolean;
+  small?: boolean;
+}) {
+  return (
+    <div className={small ? "text-xs" : "text-sm"}>
+      <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
+        <Icon className="h-3.5 w-3.5" /> {label}
+      </div>
+      {items.length === 0 ? (
+        <span className="text-muted-foreground/60">—</span>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {items.map((it, i) => (
+            <Badge
+              key={`${it}-${i}`}
+              variant="secondary"
+              className={destructive ? "bg-red-500/10 text-red-400 border-red-500/30 border" : ""}
+            >
+              {it}
+            </Badge>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
