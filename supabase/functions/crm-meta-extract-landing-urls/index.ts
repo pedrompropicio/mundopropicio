@@ -1,3 +1,4 @@
+// cold-start trigger: 2026-06-01-v2 secret rotation
 // crm-meta-extract-landing-urls
 // Extrai landing URLs de uma campanha Meta (ou retorna vazio se for evento).
 // Camada 1 — DB local (meta_creatives.link_url + raw/tracking_specs)

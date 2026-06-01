@@ -1,3 +1,4 @@
+// cold-start trigger: 2026-06-01-v2 secret rotation
 // crm-meta-deployment-toggle
 // POST { deployment_id, target_status: 'ACTIVE' | 'PAUSED' }
 // Para cada campaign/adset/ad do deployment, faz POST ao Meta para mudar o status.

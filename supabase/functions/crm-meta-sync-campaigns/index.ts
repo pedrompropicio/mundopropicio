@@ -1,3 +1,4 @@
+// cold-start trigger: 2026-06-01-v2 secret rotation
 // crm-meta-sync-campaigns
 //
 // POST { connection_id: string, ad_account_id: string }

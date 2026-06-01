@@ -1,3 +1,4 @@
+// cold-start trigger: 2026-06-01-v2 secret rotation
 // crm-cron-pause-replaced-originals
 // Cron diário. Para cada crm.meta_campaign_strategies com
 // pause_original_mode='delayed_7d', pause_original_scheduled_for <= now,

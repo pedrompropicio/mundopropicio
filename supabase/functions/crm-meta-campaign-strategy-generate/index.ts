@@ -1,3 +1,4 @@
+// cold-start trigger: 2026-06-01-v2 secret rotation
 // crm-meta-campaign-strategy-generate
 // POST → gera plano de campanha Meta via Lovable AI Gateway (Gemini 2.5 Flash)
 // e persiste em crm.meta_campaign_strategies.

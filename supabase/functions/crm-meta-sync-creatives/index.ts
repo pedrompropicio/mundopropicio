@@ -1,3 +1,4 @@
+// cold-start trigger: 2026-06-01-v2 secret rotation
 // Force re-deploy 2026-05-17 — Lovable não detectou auto-deploy
 // inicial após push a2b2ed93 (Sprint Meta Creatives Sync v1).
 // crm-meta-sync-creatives (Sprint Meta Creatives Sync v1)

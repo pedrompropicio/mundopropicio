@@ -1,3 +1,4 @@
+// cold-start trigger: 2026-06-01-v2 secret rotation
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
 const GRAPH_API_VERSION = "v18.0";

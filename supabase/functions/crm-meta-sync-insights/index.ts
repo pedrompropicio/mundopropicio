@@ -1,3 +1,4 @@
+// cold-start trigger: 2026-06-01-v2 secret rotation
 // crm-meta-sync-insights
 // POST { connection_id, ad_account_id, days_back?, levels? }
 // levels?: ("campaign"|"adset"|"ad")[]   default ["campaign"] (back-compat)
