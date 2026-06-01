@@ -8530,6 +8530,10 @@ export type Database = {
           without_any_match: number
         }[]
       }
+      get_user_max_daily_budget_eur: {
+        Args: { _user_id: string }
+        Returns: number
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
