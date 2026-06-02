@@ -383,6 +383,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
             status: "PAUSED",
             special_ad_categories: "[]",
             buying_type: "AUCTION",
+            // Orçamento é definido ao nível do AdSet (ABO). A Meta exige que este
+            // campo seja declarado na Campaign — caso contrário a chamada falha
+            // com code=100, error_subcode=4834011. "false" = cada AdSet usa o
+            // seu daily_budget independente, sem partilha.
+            is_adset_budget_sharing_enabled: "false",
           });
           const metaCampaignId = campRes.id;
           metaCampaigns.push({
