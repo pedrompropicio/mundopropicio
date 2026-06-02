@@ -54,14 +54,62 @@ function creativeDegradedReason(c: { name?: string | null; headline?: string | n
   return null;
 }
 
+// Erro estruturado: preserva o corpo do erro da Meta (error_user_msg,
+// error_user_title, code, error_subcode, fbtrace_id, type) em vez de o reduzir
+// a "Invalid parameter". Os catches e o frontend podem ler `metaError` para
+// diagnóstico real.
+class MetaApiError extends Error {
+  httpStatus: number;
+  metaError: any;
+  rawBody: any;
+  constructor(httpStatus: number, metaError: any, rawBody: any) {
+    const userMsg =
+      metaError?.error_user_msg ||
+      metaError?.message ||
+      (typeof rawBody === "string" ? rawBody.slice(0, 300) : JSON.stringify(rawBody)?.slice(0, 300));
+    super(`Meta API ${httpStatus}: ${userMsg}`);
+    this.name = "MetaApiError";
+    this.httpStatus = httpStatus;
+    this.metaError = metaError ?? null;
+    this.rawBody = rawBody;
+  }
+}
+
+// Contexto estruturado para usar em addLog/json. Para MetaApiError expõe o
+// detalhe Meta; para erros genéricos cai em { error: e.message }.
+function errContext(e: any): Record<string, unknown> {
+  if (e?.name === "MetaApiError") {
+    return {
+      error: e.message,
+      http_status: e.httpStatus,
+      meta_error: {
+        message: e.metaError?.message ?? null,
+        type: e.metaError?.type ?? null,
+        code: e.metaError?.code ?? null,
+        error_subcode: e.metaError?.error_subcode ?? null,
+        error_user_title: e.metaError?.error_user_title ?? null,
+        error_user_msg: e.metaError?.error_user_msg ?? null,
+        fbtrace_id: e.metaError?.fbtrace_id ?? null,
+      },
+    };
+  }
+  return { error: e?.message ?? String(e) };
+}
+
 async function metaPost(path: string, accessToken: string, params: Record<string, string>): Promise<any> {
   const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${path}`;
   const body = new URLSearchParams({ ...params, access_token: accessToken });
   const r = await fetch(url, { method: "POST", body });
-  const j = await r.json();
-  if (!r.ok || j.error) {
-    const err = j.error?.message || JSON.stringify(j);
-    throw new Error(`Meta API ${r.status}: ${err}`);
+  // Ler como texto primeiro para preservar o corpo mesmo se não for JSON válido.
+  const text = await r.text();
+  let j: any = null;
+  try { j = text ? JSON.parse(text) : null; } catch { /* corpo não-JSON */ }
+  if (!r.ok || j?.error) {
+    // Log para Edge Function logs com o corpo inteiro da Meta antes do throw.
+    console.error("[metaPost] Meta API error", {
+      path, http_status: r.status, meta_error: j?.error ?? null, raw_body: j ?? text,
+    });
+    throw new MetaApiError(r.status, j?.error ?? null, j ?? text);
   }
   return j;
 }
@@ -403,7 +451,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
                   inheritedUsed = true;
                   addLog("info", `    ✓ Ad (reused) criado: ${adRes.id} (creative ${ra.existing_creative_id})`);
                 } catch (e: any) {
-                  addLog("error", `    ✗ Falha a reaproveitar creative ${ra.existing_creative_id}`, { error: e.message });
+                  addLog("error", `    ✗ Falha a reaproveitar creative ${ra.existing_creative_id}`, errContext(e));
                 }
               }
               if (briefAds.length > 0) {
@@ -465,15 +513,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
                   });
                   addLog("info", `    ✓ Ad criado: ${adRes.id}`);
                 } catch (e: any) {
-                  addLog("error", `    ✗ Falha a criar Ad para creative ${creative.id}`, { error: e.message });
+                  addLog("error", `    ✗ Falha a criar Ad para creative ${creative.id}`, errContext(e));
                 }
               }
             } catch (e: any) {
-              addLog("error", `  ✗ Falha a criar AdSet ${planAdset.adset_name}`, { error: e.message });
+              addLog("error", `  ✗ Falha a criar AdSet ${planAdset.adset_name}`, errContext(e));
             }
           }
         } catch (e: any) {
-          addLog("error", `✗ Falha a criar Campaign ${planCampaign.campaign_name}`, { error: e.message });
+          addLog("error", `✗ Falha a criar Campaign ${planCampaign.campaign_name}`, errContext(e));
         }
       }
     }
@@ -558,7 +606,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
             addLog("info", "Manual pause mode — only marked replaced_by_strategy_id");
           }
         } catch (pauseErr: any) {
-          addLog("error", "Pause/mark step failed", { error: pauseErr?.message?.slice(0, 300) });
+          addLog("error", "Pause/mark step failed", errContext(pauseErr));
         }
       }
     }
@@ -576,16 +624,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
       log,
     });
   } catch (e: any) {
-    addLog("error", "Unhandled exception", { error: e.message, stack: e.stack?.slice(0, 1000) });
+    const ctx = errContext(e);
+    addLog("error", "Unhandled exception", { ...ctx, stack: e?.stack?.slice(0, 1000) });
+    const metaUserMsg = (ctx as any).meta_error?.error_user_msg
+      || (ctx as any).meta_error?.message;
+    const summary = metaUserMsg || e?.message?.slice(0, 500) || "unknown";
     if (deploymentId) {
       await (supabase as any).schema("crm").from("meta_campaign_strategy_deployments").update({
         status: "failed",
         log_entries: log,
-        error_summary: e.message?.slice(0, 500),
+        error_summary: String(summary).slice(0, 500),
         completed_at: new Date().toISOString(),
         duration_ms: Date.now() - startedAt,
       }).eq("id", deploymentId);
     }
-    return json({ error: "deployment_failed", detail: e.message, log }, 500);
+    return json({ error: "deployment_failed", detail: e?.message, meta_error: (ctx as any).meta_error ?? null, log }, 500);
   }
 });
