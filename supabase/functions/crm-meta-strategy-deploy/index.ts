@@ -144,7 +144,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     log.push({ ts: new Date().toISOString(), level, message, context });
     console.log(`[${level}] ${message}`, context ? JSON.stringify(context) : "");
   };
-  addLog("info", "DEPLOY_VERSION_MARKER v=13eb9583 advantage_audience+cleanPromotedObject ativo");
+  addLog("info", "DEPLOY_VERSION_MARKER v=a20a742b exclusions-array-drop+video-only-awareness ativo");
 
   // Persiste a falha no deployment (mesmo formato do status final) antes de um
   // early-return por caso-limite. Usado pelos aborts de pixel (ver abaixo).
@@ -288,6 +288,30 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const phases = Array.isArray(plan.phases) ? plan.phases : [];
     const recommendedCampaigns = Array.isArray(plan.recommended_campaigns) ? plan.recommended_campaigns : [];
 
+    // Pre-fetch dos tipos de creatives herdados (existing_creative_id no plan)
+    // para validar compatibilidade com o objetivo da campanha ANTES de criar o
+    // ad (ERRO B: subcode 1885873 — Video Views exige formato vídeo único).
+    const inheritedCreativeIds = new Set<string>();
+    for (const c of recommendedCampaigns) {
+      for (const a of (c.adsets ?? [])) {
+        for (const ad of (a.ads ?? [])) {
+          if (typeof ad?.existing_creative_id === "string") {
+            inheritedCreativeIds.add(ad.existing_creative_id);
+          }
+        }
+      }
+    }
+    const inheritedCreativeTypes = new Map<string, string>();
+    if (inheritedCreativeIds.size > 0) {
+      const { data: inheritedRows } = await (supabase as any)
+        .schema("crm").from("meta_creatives")
+        .select("meta_creative_id, type")
+        .in("meta_creative_id", [...inheritedCreativeIds]);
+      for (const r of (inheritedRows ?? [])) {
+        if (r.meta_creative_id) inheritedCreativeTypes.set(r.meta_creative_id, r.type ?? "");
+      }
+    }
+
     // ── Pixel da campanha-fonte (redesign Meta) ──────────────────────────────
     // DEBT(multi-platform): MVP Meta — lê pixel da campanha-fonte. Quando entrar
     // Google/TikTok, mover para tabela event_trackers (event_id × platform ×
@@ -414,6 +438,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
                   ...(baseTargeting?.targeting_automation ?? {}),
                 },
               };
+              // ERRO A fix (subcode 1885097, "expected string, got integer 0"):
+              // o gerador de planos por IA emite por vezes `targeting.exclusions`
+              // como ARRAY (`[{custom_audience_id: "PURCHASERS_ALL_TIME"}]`) em
+              // vez do objeto que a Meta espera (`{custom_audiences:[{id:"…"}]}`).
+              // Meta não consegue parsear e devolve 1885097. Dropamos só a forma
+              // estruturalmente inválida (array). Exclusions em formato objeto
+              // passam intactos. Confirmado por dados: Lookalike (sem exclusions)
+              // passa; 3 SALES com exclusions array falham.
+              if (Array.isArray((targeting as any).exclusions)) {
+                addLog("warn", `    ⚠ Targeting.exclusions removidas do adset ${planAdset.adset_name} (estrutura array inválida — Meta espera objeto)`, { original_exclusions: (targeting as any).exclusions });
+                delete (targeting as any).exclusions;
+              }
               const startTime = new Date(Date.now() + 60 * 60 * 1000).toISOString();
               const dailyBudgetCents = Math.max(100, Math.round((planCampaign.daily_budget_eur ?? 10) * 100));
 
@@ -491,6 +527,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
                 if (ra.creative_brief) {
                   addLog("error", `    ✗ Ad inválido: tem existing_creative_id E creative_brief — skip`, { existing_creative_id: ra.existing_creative_id });
                   continue;
+                }
+                // ERRO B fix (subcode 1885873): campanhas OUTCOME_AWARENESS
+                // (Video Views/THRUPLAY) exigem creative formato vídeo. Saltar
+                // creatives herdados não-vídeo com warning. Outros objetivos:
+                // deixar a Meta validar (matriz completa de compatibilidade
+                // fica para fase posterior). Type undefined → tratado como
+                // "desconhecido" e saltado defensivamente em AWARENESS.
+                if (campaignObjective === "OUTCOME_AWARENESS") {
+                  const creativeType = inheritedCreativeTypes.get(ra.existing_creative_id) ?? "";
+                  if (creativeType !== "video") {
+                    addLog("warn", `    ⊘ Creative ${ra.existing_creative_id} saltado: campanha OUTCOME_AWARENESS exige vídeo (tipo herdado: ${creativeType || "desconhecido"})`);
+                    continue;
+                  }
                 }
                 try {
                   const adRes = await metaPost(`${adAccountId}/ads`, accessToken, {
