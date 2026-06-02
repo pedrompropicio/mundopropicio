@@ -400,7 +400,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
           for (const planAdset of planCampaign.adsets ?? []) {
             try {
-              const targeting = planAdset.targeting_json || { geo_locations: { countries: ["PT", "BR"] } };
+              // ERRO 2 fix (subcode 1870227): a Meta exige targeting_automation.
+              // advantage_audience explícito (0 ou 1, integer) em todos os adsets.
+              // 0 = Advantage audience desativado (público fica como definido,
+              // sem expansão automática). Preserva valor pré-existente do plano.
+              const baseTargeting = planAdset.targeting_json
+                || { geo_locations: { countries: ["PT", "BR"] } };
+              const targeting = {
+                ...baseTargeting,
+                targeting_automation: {
+                  advantage_audience: 0,
+                  ...(baseTargeting?.targeting_automation ?? {}),
+                },
+              };
               const startTime = new Date(Date.now() + 60 * 60 * 1000).toISOString();
               const dailyBudgetCents = Math.max(100, Math.round((planCampaign.daily_budget_eur ?? 10) * 100));
 
@@ -427,7 +439,37 @@ Deno.serve(async (req: Request): Promise<Response> => {
                 campaignObjective === "OUTCOME_SALES" &&
                 CONVERSION_GOALS.has(adsetGoal)
               ) {
-                adsetParams.promoted_object = JSON.stringify(sourcePromotedObject);
+                // ERRO 3 fix (subcode 1885097, "expected string, got integer 0"):
+                // sourcePromotedObject é copiado verbatim do raw da Meta e pode
+                // incluir campos extra (page_id, application_id, etc.) com valor
+                // integer 0 quando não estão definidos. Filtramos para os campos
+                // canónicos com coerção explícita a string — elimina o leak sem
+                // mudar o significado da injeção.
+                const cleanPromotedObject: Record<string, string> = {
+                  pixel_id: String(sourcePromotedObject.pixel_id),
+                };
+                if (sourcePromotedObject.custom_event_type) {
+                  cleanPromotedObject.custom_event_type = String(sourcePromotedObject.custom_event_type);
+                }
+                adsetParams.promoted_object = JSON.stringify(cleanPromotedObject);
+                // ERRO 1 visibility (subcode 1885091): regista a decisão de
+                // injeção por adset com os valores exactos vistos pelo gate.
+                // Em deploys futuros, este log prova inequivocamente que o
+                // gate disparou (ou não) — elimina suspeitas de "deploy lag".
+                addLog("info", `  ✓ Pixel injetado no adset ${planAdset.adset_name}`, {
+                  campaign_objective: campaignObjective,
+                  adset_goal: adsetGoal,
+                  pixel_id: cleanPromotedObject.pixel_id,
+                  custom_event_type: cleanPromotedObject.custom_event_type ?? null,
+                });
+              } else if (sourcePromotedObject) {
+                addLog("info", `  ⊘ Pixel NÃO injetado no adset ${planAdset.adset_name}`, {
+                  campaign_objective: campaignObjective,
+                  adset_goal: adsetGoal,
+                  reason: campaignObjective !== "OUTCOME_SALES"
+                    ? "campaign_not_sales"
+                    : "adset_goal_not_conversion",
+                });
               }
               const adsetRes = await metaPost(`${adAccountId}/adsets`, accessToken, adsetParams);
               const metaAdsetId = adsetRes.id;
