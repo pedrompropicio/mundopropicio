@@ -144,6 +144,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     log.push({ ts: new Date().toISOString(), level, message, context });
     console.log(`[${level}] ${message}`, context ? JSON.stringify(context) : "");
   };
+  addLog("info", "DEPLOY_VERSION_MARKER v=13eb9583 advantage_audience+cleanPromotedObject ativo");
 
   // Persiste a falha no deployment (mesmo formato do status final) antes de um
   // early-return por caso-limite. Usado pelos aborts de pixel (ver abaixo).
