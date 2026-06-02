@@ -377,9 +377,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
       for (const planCampaign of phaseCampaigns) {
         try {
           addLog("info", `A criar Campaign: ${planCampaign.campaign_name}`);
+          const campaignObjective = mapObjective(planCampaign.objective);
           const campRes = await metaPost(`${adAccountId}/campaigns`, accessToken, {
             name: planCampaign.campaign_name,
-            objective: mapObjective(planCampaign.objective),
+            objective: campaignObjective,
             status: "PAUSED",
             special_ad_categories: "[]",
             buying_type: "AUCTION",
@@ -415,9 +416,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
                 start_time: startTime,
               };
               // Injecta o pixel herdado da campanha-fonte (ver bloco DEBT acima).
-              // Só quando há um promoted_object consistente derivado; senão mantém
-              // o comportamento atual (sem pixel).
-              if (sourcePromotedObject) {
+              // SÓ quando a campanha é OUTCOME_SALES E o optimization_goal do adset
+              // é de conversão (CONVERSION_GOALS). A Meta rejeita promoted_object/pixel
+              // em objetivos não-conversão (OUTCOME_AWARENESS/THRUPLAY, OUTCOME_TRAFFIC)
+              // com subcode 1885091 — Awareness, Tráfego e qualquer adset sem goal de
+              // conversão ficam deliberadamente sem pixel.
+              const adsetGoal = String(planAdset.optimization_goal ?? "").toUpperCase();
+              if (
+                sourcePromotedObject &&
+                campaignObjective === "OUTCOME_SALES" &&
+                CONVERSION_GOALS.has(adsetGoal)
+              ) {
                 adsetParams.promoted_object = JSON.stringify(sourcePromotedObject);
               }
               const adsetRes = await metaPost(`${adAccountId}/adsets`, accessToken, adsetParams);
