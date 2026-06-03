@@ -9,6 +9,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { normalizePlanInPlace } from "../_shared/plan-normalize.ts";
 import { resolveInterestsInPlace } from "../_shared/resolve-interests.ts";
+import { resolveCustomLocationsInPlace } from "../_shared/resolve-geo.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -1815,6 +1816,19 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       console.warn("[redesign] interest resolution warnings", interestWarnings);
       const prev = Array.isArray(plan._normalization_warnings) ? plan._normalization_warnings : [];
       plan._normalization_warnings = [...prev, ...interestWarnings];
+    }
+  }
+
+  // Fix 3 — Resolução determinística de geo "raio à volta de cidade".
+  // accessToken hoisted (bloco P2). Null → fallback countries defensivo.
+  {
+    const geoWarnings = await resolveCustomLocationsInPlace(plan, {
+      accessToken, apiVersion: GRAPH_API_VERSION, locale: "pt_PT",
+    });
+    if (geoWarnings.length > 0) {
+      console.warn("[redesign] geo resolution warnings", geoWarnings);
+      const prev = Array.isArray(plan._normalization_warnings) ? plan._normalization_warnings : [];
+      plan._normalization_warnings = [...prev, ...geoWarnings];
     }
   }
 

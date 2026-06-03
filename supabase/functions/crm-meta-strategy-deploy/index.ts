@@ -537,6 +537,45 @@ Deno.serve(async (req: Request): Promise<Response> => {
                 addLog("warn", `    ⚠ Targeting.exclusions removidas do adset ${planAdset.adset_name} (estrutura array inválida — Meta espera objeto)`, { original_exclusions: (targeting as any).exclusions });
                 delete (targeting as any).exclusions;
               }
+              // Fix 3 (guard) — custom_locations sem lat/lng → HTTP 500 da Meta.
+              // Planos NOVOS já vêm resolvidos da geração (resolve-geo.ts). Aqui
+              // protegemos planos ANTIGOS / editados à mão que nunca passaram por
+              // essa resolução. Fallback DETERMINÍSTICO, SEM /search (o deploy não
+              // depende de resolução de geo): dropar custom_locations inválidos e
+              // garantir countries. NUNCA enviar address_string cru à Meta.
+              const geoLoc = (targeting as any).geo_locations;
+              if (geoLoc && typeof geoLoc === "object" && Array.isArray(geoLoc.custom_locations)) {
+                const validCoords = geoLoc.custom_locations.filter((loc: any) =>
+                  loc && typeof loc === "object" &&
+                  loc.latitude != null && loc.longitude != null &&
+                  Number.isFinite(Number(loc.latitude)) && Number.isFinite(Number(loc.longitude)));
+                const invalid = geoLoc.custom_locations.filter((loc: any) =>
+                  !(loc && typeof loc === "object" &&
+                    loc.latitude != null && loc.longitude != null &&
+                    Number.isFinite(Number(loc.latitude)) && Number.isFinite(Number(loc.longitude))));
+                if (invalid.length > 0) {
+                  // Derivar país do address_string ("…, Portugal" → PT; "…, Brasil" → BR).
+                  const isos = new Set<string>();
+                  for (const loc of invalid) {
+                    const addr = typeof loc?.address_string === "string" ? loc.address_string.toLowerCase() : "";
+                    if (addr.includes("portugal")) isos.add("PT");
+                    else if (addr.includes("brasil") || addr.includes("brazil")) isos.add("BR");
+                  }
+                  if (validCoords.length > 0) geoLoc.custom_locations = validCoords;
+                  else delete geoLoc.custom_locations;
+                  const existing = Array.isArray(geoLoc.countries) ? geoLoc.countries : [];
+                  const merged = new Set<string>([...existing, ...(isos.size > 0 ? [...isos] : ["PT"])]);
+                  if (!Array.isArray(geoLoc.cities) || geoLoc.cities.length === 0) {
+                    // Só impomos countries se não há já cities a cobrir o geo.
+                    geoLoc.countries = [...merged];
+                  }
+                  addLog("warn", `    ⚠ geo custom_locations sem coords no adset ${planAdset.adset_name} — fallback countries (plano antigo/editado; nunca passou por resolve-geo)`, {
+                    dropped: invalid,
+                    countries_final: geoLoc.countries ?? null,
+                    cities_present: Array.isArray(geoLoc.cities) ? geoLoc.cities.length : 0,
+                  });
+                }
+              }
               const startTime = new Date(Date.now() + 60 * 60 * 1000).toISOString();
               const dailyBudgetCents = Math.max(100, Math.round((planCampaign.daily_budget_eur ?? 10) * 100));
 

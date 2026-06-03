@@ -6,6 +6,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { normalizePlanInPlace } from "../_shared/plan-normalize.ts";
 import { resolveInterestsInPlace } from "../_shared/resolve-interests.ts";
+import { resolveCustomLocationsInPlace } from "../_shared/resolve-geo.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -430,6 +431,18 @@ Sê preciso, realista e crítico. Se a meta é inalcançável, diz claramente. S
     console.warn("[generate] interest resolution warnings", interestWarnings);
     const prev = Array.isArray(plan._normalization_warnings) ? plan._normalization_warnings : [];
     plan._normalization_warnings = [...prev, ...interestWarnings];
+  }
+
+  // Fix 3 — Resolução determinística de geo "raio à volta de cidade":
+  // custom_locations(address_string sem lat/lng) → cities[{key,radius,distance_unit}]
+  // via Meta /search?type=adgeolocation. Fallback countries se não resolver.
+  const geoWarnings = await resolveCustomLocationsInPlace(plan, {
+    accessToken, apiVersion: GRAPH_API_VERSION, locale: "pt_PT",
+  });
+  if (geoWarnings.length > 0) {
+    console.warn("[generate] geo resolution warnings", geoWarnings);
+    const prev = Array.isArray(plan._normalization_warnings) ? plan._normalization_warnings : [];
+    plan._normalization_warnings = [...prev, ...geoWarnings];
   }
 
   // 7) Persist
