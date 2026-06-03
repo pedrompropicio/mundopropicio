@@ -5,6 +5,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { normalizePlanInPlace } from "../_shared/plan-normalize.ts";
+import { resolveInterestsInPlace } from "../_shared/resolve-interests.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -274,6 +275,7 @@ REGRAS QUE DEVES OBEDECER:
 10. Avaliação por fase: critérios de sucesso de fases não-conversion são CPM, CTR, hook rate, alcance — NÃO ROAS. Não definas \`roas_min\` em \`target_kpis\` de uma fase REACH/VIDEO_VIEWS; usa 0 ou omite.
 11. Custom audiences / exclusions: usa APENAS os ids da lista "CUSTOM AUDIENCES disponíveis" acima, verbatim, no formato \`[{id:"<id>", name:"<name>"}]\`. NUNCA inventes placeholders simbólicos (ex.: "LOOKALIKE_PURCHASERS_1_PERCENT", "PURCHASERS_ALL_TIME"). Se não há id real para o que queres, omite o item.
 12. Exclusions é um OBJETO, NUNCA um array. Formato Meta correto: \`targeting.exclusions = { custom_audiences: [{id:"<numeric-id>"}], interests: [{id:..., name:...}] }\`. Qualquer outro formato será rejeitado pela Meta.
+13. Interests: emite-os como objetos \`{name: "<nome real do interesse Meta>"}\` (sem id). O sistema resolve o id automaticamente pós-geração via /search?type=adinterest. NUNCA inventes ids numéricos; NUNCA emitas interests como array de strings nuas. Usa nomes reconhecíveis (ex.: nome do artista detetado acima, género musical, etc.). Se um nome não resolver na Meta, será removido com warning — preferível a inventar.
 
 == FORMATO DE RESPOSTA ==
 Responde APENAS com JSON puro (sem markdown fences) com este schema EXATO:
@@ -330,7 +332,8 @@ Responde APENAS com JSON puro (sem markdown fences) com este schema EXATO:
             "geo_locations": {"countries": ["PT","BR"]},
             "publisher_platforms": ["facebook","instagram"],
             "custom_audiences": [{"id": "<id-numerico-da-lista-acima>"}],
-            "exclusions": {"custom_audiences": [{"id": "<id-numerico>"}]}
+            "exclusions": {"custom_audiences": [{"id": "<id-numerico>"}]},
+            "interests": [{"name": "<nome real, sem id; sistema resolve>"}]
           },
           "optimization_goal": "REACH",
           "billing_event": "IMPRESSIONS",
@@ -416,6 +419,17 @@ Sê preciso, realista e crítico. Se a meta é inalcançável, diz claramente. S
   if (planNormalizationWarnings.length > 0) {
     console.warn("[generate] plan normalization warnings", planNormalizationWarnings);
     plan._normalization_warnings = planNormalizationWarnings;
+  }
+
+  // P1 — Resolução determinística de interests nome→{id,name} via Meta /search.
+  // Substitui in-place; remove interesses que não resolvam (warning).
+  const interestWarnings = await resolveInterestsInPlace(plan, {
+    accessToken, apiVersion: GRAPH_API_VERSION, locale: "pt_PT",
+  });
+  if (interestWarnings.length > 0) {
+    console.warn("[generate] interest resolution warnings", interestWarnings);
+    const prev = Array.isArray(plan._normalization_warnings) ? plan._normalization_warnings : [];
+    plan._normalization_warnings = [...prev, ...interestWarnings];
   }
 
   // 7) Persist

@@ -8,6 +8,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { normalizePlanInPlace } from "../_shared/plan-normalize.ts";
+import { resolveInterestsInPlace } from "../_shared/resolve-interests.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -1515,14 +1516,17 @@ REGRAS RÍGIDAS:
   // redesign não bloqueia se a Graph API não responder ou se a decifragem
   // falhar; o LLM passa a ter regra "se não houver lista, NÃO uses ids".
   let customAudienceList: Array<{ id: string; name: string }> = [];
+  // P1 — accessToken/adAcct HOISTED para reutilização pós-LLM (resolveInterestsInPlace).
+  let accessToken: string | null = null;
+  let adAcct: string | null = null;
   try {
     const { data: tokenRows, error: tokenErr } = await (supabase as any).rpc(
       "crm_get_meta_decrypted_token",
       { p_connection_id: campaign.connection_id, p_master_key: ENCRYPTION_MASTER_KEY },
     );
     if (!tokenErr && Array.isArray(tokenRows) && tokenRows.length > 0) {
-      const accessToken = (tokenRows[0] as { access_token: string }).access_token;
-      const adAcct = String(campaign.ad_account_id ?? "").startsWith("act_")
+      accessToken = (tokenRows[0] as { access_token: string }).access_token;
+      adAcct = String(campaign.ad_account_id ?? "").startsWith("act_")
         ? String(campaign.ad_account_id)
         : `act_${campaign.ad_account_id}`;
       const caUrl = new URL(
@@ -1615,7 +1619,7 @@ Se não consegues atingir esse floor em phases com peso significativo, marca fea
 == O QUE PRECISO QUE FAÇAS ==
 Desenha uma estratégia COMPLETA estruturada em fases (3-5), aplicando o diagnóstico:
 - Pausa/elimina o que está mau, escala o que funciona, corrige fraquezas (CTR baixo, CPA alto, frequência saturada, etc.).
-- Adsets novos com targetings concretos (countries, age, interests, custom audiences, lookalikes — usa nomes reconhecíveis).
+- Adsets novos com targetings concretos (countries, age, interests, custom audiences, lookalikes). Para interests usa NOMES reais de interesses Meta (ex.: nome do artista, género musical); o sistema resolve o id automaticamente pós-geração. NUNCA inventes ids numéricos de interesse; NUNCA emitas interests como array de strings nuas — emite como objetos {name:"..."}.
 - Verbas diárias e KPIs por fase.
 - Inclui também \`redesign_rationale\` (texto curto, 3-6 frases, em PT) explicando o porquê das mudanças vs original.
 
@@ -1697,7 +1701,8 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
             "geo_locations": {"countries": ["PT","BR"]},
             "publisher_platforms": ["facebook","instagram"],
             "custom_audiences": [{"id": "<id real da lista CUSTOM AUDIENCES, ou omitir o campo>"}],
-            "exclusions": {"custom_audiences": [{"id": "<id real, ou omitir o campo inteiro>"}]}
+            "exclusions": {"custom_audiences": [{"id": "<id real, ou omitir o campo inteiro>"}]},
+            "interests": [{"name": "<nome real do interesse Meta; id resolvido pelo sistema>"}]
           },
           "optimization_goal": "REACH",
           "billing_event": "IMPRESSIONS",
@@ -1796,6 +1801,20 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       console.warn("[redesign] normalization warnings:", normWarnings);
       const prev = Array.isArray(plan._normalization_warnings) ? plan._normalization_warnings : [];
       plan._normalization_warnings = [...prev, ...normWarnings];
+    }
+  }
+
+  // P1 — Resolução determinística de interests nome→{id,name} via Meta /search.
+  // accessToken vem do bloco P2 acima (hoisted). Se token é null (decrypt falhou),
+  // o helper remove interests não-numéricos defensivamente com warning.
+  {
+    const interestWarnings = await resolveInterestsInPlace(plan, {
+      accessToken, apiVersion: GRAPH_API_VERSION, locale: "pt_PT",
+    });
+    if (interestWarnings.length > 0) {
+      console.warn("[redesign] interest resolution warnings", interestWarnings);
+      const prev = Array.isArray(plan._normalization_warnings) ? plan._normalization_warnings : [];
+      plan._normalization_warnings = [...prev, ...interestWarnings];
     }
   }
 

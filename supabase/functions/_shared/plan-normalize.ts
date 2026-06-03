@@ -55,6 +55,61 @@ export function normalizePlanInPlace(plan: any): string[] {
         t.custom_audiences = sanitizeCAs(t.custom_audiences, `${adsetCtx} custom_audiences`);
         if (!t.custom_audiences.length) delete t.custom_audiences;
       }
+
+      // Dedup (bug 1487916 "Duplicate Targeting Fields"):
+      // 1) Dedup ids repetidos DENTRO de custom_audiences (mesmo id 2x → 1x).
+      if (Array.isArray(t.custom_audiences)) {
+        const seen = new Set<string>();
+        const deduped: any[] = [];
+        for (const item of t.custom_audiences) {
+          const id = String(item?.id ?? "");
+          if (seen.has(id)) {
+            warnings.push(`${adsetCtx} custom_audiences: id ${id} repetido — mantido só uma vez`);
+            continue;
+          }
+          seen.add(id);
+          deduped.push(item);
+        }
+        t.custom_audiences = deduped;
+      }
+
+      // 2) Dedup ids repetidos DENTRO de exclusions.custom_audiences.
+      if (t.exclusions && Array.isArray(t.exclusions.custom_audiences)) {
+        const seen = new Set<string>();
+        const deduped: any[] = [];
+        for (const item of t.exclusions.custom_audiences) {
+          const id = String(item?.id ?? "");
+          if (seen.has(id)) {
+            warnings.push(`${adsetCtx} exclusions.custom_audiences: id ${id} repetido — mantido só uma vez`);
+            continue;
+          }
+          seen.add(id);
+          deduped.push(item);
+        }
+        t.exclusions.custom_audiences = deduped;
+      }
+
+      // 3) Remove de exclusions.custom_audiences qualquer id que também esteja
+      //    em custom_audiences (include) — Meta rejeita include+exclude do mesmo id.
+      if (Array.isArray(t.custom_audiences) && t.exclusions && Array.isArray(t.exclusions.custom_audiences)) {
+        const includeIds = new Set(t.custom_audiences.map((i: any) => String(i?.id ?? "")));
+        t.exclusions.custom_audiences = t.exclusions.custom_audiences.filter((item: any) => {
+          const id = String(item?.id ?? "");
+          if (includeIds.has(id)) {
+            warnings.push(`${adsetCtx}: audience ${id} em include+exclude — removido do exclude`);
+            return false;
+          }
+          return true;
+        });
+        if (!t.exclusions.custom_audiences.length) delete t.exclusions.custom_audiences;
+        if (t.exclusions && Object.keys(t.exclusions).length === 0) delete t.exclusions;
+      }
+
+      // 4) Limpar flexible_spec vazio ([{}] ou []).
+      if (Array.isArray(t.flexible_spec)) {
+        t.flexible_spec = t.flexible_spec.filter((spec: any) => spec && typeof spec === "object" && Object.keys(spec).length > 0);
+        if (t.flexible_spec.length === 0) delete t.flexible_spec;
+      }
     }
   }
   return warnings;
