@@ -190,6 +190,7 @@ export default function CrmStrategyView() {
   const [selectedCreativeIds, setSelectedCreativeIds] = useState<Set<string>>(new Set());
   const [deployOpen, setDeployOpen] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
+  const [forceRedeployConfirmOpen, setForceRedeployConfirmOpen] = useState(false);
   const [deployResult, setDeployResult] = useState<any>(null);
 
   const { data, isLoading, error } = useQuery({
@@ -561,14 +562,16 @@ export default function CrmStrategyView() {
     return { campaigns, adsets, ads };
   }, [plan, associationsByPhase, inheritedByPhase]);
 
-  const handleDeploy = async () => {
+  const handleDeploy = async () => handleDeployInternal(false);
+  const handleForceRedeploy = async () => handleDeployInternal(true);
+  const handleDeployInternal = async (force: boolean) => {
     if (!data || isDeploying) return;
     setIsDeploying(true);
     setDeployResult(null);
     try {
       const { data: resp, error } = await supabase.functions.invoke(
         "crm-meta-strategy-deploy",
-        { body: { strategy_id: data.id } }
+        { body: { strategy_id: data.id, force_redeploy: force } }
       );
       if (error) {
         let detail = error.message;
@@ -598,6 +601,17 @@ export default function CrmStrategyView() {
       setIsDeploying(false);
     }
   };
+
+  // Latest deployment status — usado para desabilitar o botão se há um deploy
+  // em curso há <10min (mesmo timeout do lock backend). Sincroniza UI com
+  // estado real do servidor; protege contra refresh + duplo-clique.
+  // deployments query ordena por created_at DESC (L289), logo [0] é o mais recente.
+  const latestDeployment = (deployments as any[] | undefined)?.[0];
+  const isDeployRunningOnServer = (() => {
+    if (!latestDeployment || latestDeployment.status !== "running") return false;
+    const startedAt = latestDeployment.started_at ? new Date(latestDeployment.started_at).getTime() : 0;
+    return Date.now() - startedAt < 10 * 60 * 1000;
+  })();
 
   const [togglingDeploymentId, setTogglingDeploymentId] = useState<string | null>(null);
 
@@ -1514,14 +1528,22 @@ export default function CrmStrategyView() {
         <div className="flex flex-wrap gap-2">
           <Button
             onClick={() => setDeployOpen(true)}
-            disabled={!canDeploy || isDeploying}
+            disabled={!canDeploy || isDeploying || isDeployRunningOnServer}
             className="bg-cyan-500 hover:bg-cyan-600 text-white"
           >
-            {isDeploying ? (
+            {isDeploying || isDeployRunningOnServer ? (
               <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> A deployar…</>
             ) : (
               <><Rocket className="h-4 w-4 mr-1.5" /> Deploy para Meta</>
             )}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setForceRedeployConfirmOpen(true)}
+            disabled={isDeploying || isDeployRunningOnServer}
+          >
+            Forçar re-deploy
           </Button>
           <Button variant="outline" onClick={handleCopyJson}>
             <Copy className="h-4 w-4 mr-1.5" /> {copied ? "Copiado!" : "Copiar plano (JSON)"}
@@ -1832,6 +1854,30 @@ export default function CrmStrategyView() {
             >
               {isDeploying && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
               Sim, deployar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={forceRedeployConfirmOpen} onOpenChange={setForceRedeployConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Forçar re-deploy?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isto cria TODAS as campanhas/adsets/ads de novo na Meta, mesmo que
+              já existam de deployments anteriores. Usa só se apagaste as campanhas
+              manualmente na Meta e queres recriar do zero. Caso contrário, o
+              deploy normal já é idempotente e salta o que já existe.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeploying}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); setForceRedeployConfirmOpen(false); handleForceRedeploy(); }}
+              disabled={isDeploying}
+            >
+              {isDeploying && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Forçar re-deploy
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
