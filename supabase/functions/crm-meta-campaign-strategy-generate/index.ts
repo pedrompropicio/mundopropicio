@@ -55,6 +55,65 @@ function stripJsonFences(text: string): string {
   return t.trim();
 }
 
+// Normalização determinística pós-LLM (backstop para P2 e P3 do prompt):
+// — Converte `targeting.exclusions` array em objeto Meta-válido se possível
+//   (mapear `custom_audience_id`/`audience_id`/`id` para `{custom_audiences:[{id}]}`).
+// — Remove ids de custom audiences (em `custom_audiences` e em
+//   `exclusions.custom_audiences`) que não sejam estritamente numéricos
+//   (descarta placeholders simbólicos que o LLM inventa sem ter id real).
+// Idempotente e defensiva: não rebenta em campos em falta. Devolve a lista
+// de warnings (para console.warn + persistir em plan._normalization_warnings).
+function normalizePlanInPlace(plan: any): string[] {
+  const warnings: string[] = [];
+  if (!plan || typeof plan !== "object") return warnings;
+  const isNumericId = (v: any) => typeof v === "string" && /^\d+$/.test(v);
+  const sanitizeCAs = (arr: any[], ctx: string): any[] => {
+    const out: any[] = [];
+    for (const item of arr ?? []) {
+      if (isNumericId(item?.id)) {
+        out.push(item);
+      } else {
+        warnings.push(`${ctx}: custom audience descartado (id inválido/placeholder: ${JSON.stringify(item)?.slice(0, 120)})`);
+      }
+    }
+    return out;
+  };
+  for (const c of plan.recommended_campaigns ?? []) {
+    for (const a of c.adsets ?? []) {
+      const t = a?.targeting_json;
+      if (!t || typeof t !== "object") continue;
+      const adsetCtx = `adset "${a?.adset_name ?? "?"}"`;
+      // P3 — exclusions ARRAY → OBJETO (tentativa de recuperação)
+      if (Array.isArray(t.exclusions)) {
+        const cas: any[] = [];
+        for (const item of t.exclusions) {
+          const id = item?.id ?? item?.custom_audience_id ?? item?.audience_id;
+          if (id !== undefined) cas.push({ id });
+        }
+        const sanitized = sanitizeCAs(cas, `${adsetCtx} exclusions[]→{}`);
+        warnings.push(`${adsetCtx}: exclusions array normalizado para objeto (${sanitized.length}/${t.exclusions.length} ids válidos)`);
+        if (sanitized.length > 0) {
+          t.exclusions = { custom_audiences: sanitized };
+        } else {
+          delete t.exclusions;
+        }
+      }
+      // P2 — validar exclusions.custom_audiences (após eventual normalização)
+      if (t.exclusions && typeof t.exclusions === "object" && !Array.isArray(t.exclusions) && Array.isArray(t.exclusions.custom_audiences)) {
+        t.exclusions.custom_audiences = sanitizeCAs(t.exclusions.custom_audiences, `${adsetCtx} exclusions.custom_audiences`);
+        if (!t.exclusions.custom_audiences.length) delete t.exclusions.custom_audiences;
+        if (t.exclusions && Object.keys(t.exclusions).length === 0) delete t.exclusions;
+      }
+      // P2 — validar custom_audiences (positivos)
+      if (Array.isArray(t.custom_audiences)) {
+        t.custom_audiences = sanitizeCAs(t.custom_audiences, `${adsetCtx} custom_audiences`);
+        if (!t.custom_audiences.length) delete t.custom_audiences;
+      }
+    }
+  }
+  return warnings;
+}
+
 interface ReqBody {
   event_id?: string;
   connection_id?: string;
@@ -242,7 +301,7 @@ TOP PERFORMERS desta ad account (últimos 90d, ROAS > 3):
 ${topPerformers.map((t: any) => `- ${t.campaign_name}: ROAS ${t.roas.toFixed(2)}x, gasto ${t.spend_eur}€, targeting top: ${(t.adsets?.[0]?.targeting?.flexible_spec?.[0]?.interests || t.adsets?.[0]?.targeting?.interests || []).map((i: any) => i.name).slice(0, 3).join("+") || "—"}, geo: ${t.adsets?.[0]?.targeting?.geo_locations?.countries?.join(",") || "—"}`).join("\n") || "(sem histórico)"}
 
 CUSTOM AUDIENCES disponíveis nesta ad account:
-${customAudiences.map((c: any) => `- ${c.name} (${c.subtype}, ~${c.approximate_count_lower_bound ?? "?"}-${c.approximate_count_upper_bound ?? "?"} users)`).join("\n") || "(nenhuma)"}
+${customAudiences.map((c: any) => `- ${c.name} (id: ${c.id}, ${c.subtype}, ~${c.approximate_count_lower_bound ?? "?"}-${c.approximate_count_upper_bound ?? "?"} users)`).join("\n") || "(nenhuma)"}
 
 Pixels disponíveis: ${pixels.map((p: any) => p.name).join(", ") || "(nenhum)"}
 
@@ -271,6 +330,8 @@ REGRAS QUE DEVES OBEDECER:
 8. Ser realista: se a meta de receita é muito agressiva vs verba, alertar e propor metas alternativas.
 9. ROAS BLENDED do evento: ROAS alvo é a MÉTRICA AGREGADA do evento. Fases REACH/AWARENESS/VIDEO_VIEWS terão ROAS individual baixo (esperado 0–2x); fases CONVERSIONS/SALES devem entregar ROAS >=8x para puxar o blended até ${targetRoas}x; retargeting deve entregar 10–20x. Em cada phase do output, preenche \`expected_blended_contribution\` (peso 0–1 desta fase no ROAS agregado — soma de todas as fases deve aproximar-se de 1.0; fases de conversão e retargeting pesam mais que awareness).
 10. Avaliação por fase: critérios de sucesso de fases não-conversion são CPM, CTR, hook rate, alcance — NÃO ROAS. Não definas \`roas_min\` em \`target_kpis\` de uma fase REACH/VIDEO_VIEWS; usa 0 ou omite.
+11. Custom audiences / exclusions: usa APENAS os ids da lista "CUSTOM AUDIENCES disponíveis" acima, verbatim, no formato \`[{id:"<id>", name:"<name>"}]\`. NUNCA inventes placeholders simbólicos (ex.: "LOOKALIKE_PURCHASERS_1_PERCENT", "PURCHASERS_ALL_TIME"). Se não há id real para o que queres, omite o item.
+12. Exclusions é um OBJETO, NUNCA um array. Formato Meta correto: \`targeting.exclusions = { custom_audiences: [{id:"<numeric-id>"}], interests: [{id:..., name:...}] }\`. Qualquer outro formato será rejeitado pela Meta.
 
 == FORMATO DE RESPOSTA ==
 Responde APENAS com JSON puro (sem markdown fences) com este schema EXATO:
@@ -325,7 +386,9 @@ Responde APENAS com JSON puro (sem markdown fences) com este schema EXATO:
             "age_min": 18,
             "age_max": 55,
             "geo_locations": {"countries": ["PT","BR"]},
-            "publisher_platforms": ["facebook","instagram"]
+            "publisher_platforms": ["facebook","instagram"],
+            "custom_audiences": [{"id": "<id-numerico-da-lista-acima>"}],
+            "exclusions": {"custom_audiences": [{"id": "<id-numerico>"}]}
           },
           "optimization_goal": "REACH",
           "billing_event": "IMPRESSIONS",
@@ -404,6 +467,13 @@ Sê preciso, realista e crítico. Se a meta é inalcançável, diz claramente. S
   } catch (e) {
     console.error("[ai] invalid JSON", e, rawText.slice(0, 500));
     return json({ error: "ai_invalid_json", message: "Modelo devolveu JSON inválido.", raw_preview: rawText.slice(0, 800) }, 502);
+  }
+
+  // Normalização determinística pós-LLM (backstop para P2 e P3 do prompt).
+  const planNormalizationWarnings = normalizePlanInPlace(plan);
+  if (planNormalizationWarnings.length > 0) {
+    console.warn("[generate] plan normalization warnings", planNormalizationWarnings);
+    plan._normalization_warnings = planNormalizationWarnings;
   }
 
   // 7) Persist
