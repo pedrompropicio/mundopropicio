@@ -7,10 +7,13 @@
 // para que crm-meta-strategy-deploy continue a funcionar sem alterações.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { normalizePlanInPlace } from "../_shared/plan-normalize.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const ENCRYPTION_MASTER_KEY = Deno.env.get("ENCRYPTION_MASTER_KEY")!;
+const GRAPH_API_VERSION = "v18.0";
 const AI_MODEL = "google/gemini-2.5-flash";
 // TEMP — Temperature reduzida vs default 0.4 para baixar variância nos números do plano.
 // Não elimina (LLM é stochastic) — combinar com NA (anchored numbers, override pós-LLM).
@@ -145,6 +148,29 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+// Espelho EXACTO de mapObjective em crm-meta-strategy-deploy/index.ts (L25-43).
+// ALTERAR OS DOIS EM CONJUNTO. Necessário aqui (P4) para validação determinística
+// de compatibilidade formato×objective sem chamada à Graph API.
+function mapObjective(objective: string | undefined): string {
+  const m: Record<string, string> = {
+    REACH: "OUTCOME_AWARENESS",
+    BRAND_AWARENESS: "OUTCOME_AWARENESS",
+    VIDEO_VIEWS: "OUTCOME_AWARENESS",
+    TRAFFIC: "OUTCOME_TRAFFIC",
+    LINK_CLICKS: "OUTCOME_TRAFFIC",
+    POST_ENGAGEMENT: "OUTCOME_ENGAGEMENT",
+    PAGE_LIKES: "OUTCOME_ENGAGEMENT",
+    LEAD_GENERATION: "OUTCOME_LEADS",
+    APP_INSTALLS: "OUTCOME_APP_PROMOTION",
+    OFFSITE_CONVERSIONS: "OUTCOME_SALES",
+    CONVERSIONS: "OUTCOME_SALES",
+    CATALOG_SALES: "OUTCOME_SALES",
+  };
+  if (!objective) return "OUTCOME_TRAFFIC";
+  if (objective.startsWith("OUTCOME_")) return objective;
+  return m[objective] ?? "OUTCOME_TRAFFIC";
 }
 
 function stripJsonFences(text: string): string {
@@ -1484,18 +1510,62 @@ REGRAS RÍGIDAS:
 `;
   }
 
+  // P2: best-effort fetch das custom audiences reais da ad account para
+  // injectar no prompt + permitir validação. Falha silenciosamente — o
+  // redesign não bloqueia se a Graph API não responder ou se a decifragem
+  // falhar; o LLM passa a ter regra "se não houver lista, NÃO uses ids".
+  let customAudienceList: Array<{ id: string; name: string }> = [];
+  try {
+    const { data: tokenRows, error: tokenErr } = await (supabase as any).rpc(
+      "crm_get_meta_decrypted_token",
+      { p_connection_id: campaign.connection_id, p_master_key: ENCRYPTION_MASTER_KEY },
+    );
+    if (!tokenErr && Array.isArray(tokenRows) && tokenRows.length > 0) {
+      const accessToken = (tokenRows[0] as { access_token: string }).access_token;
+      const adAcct = String(campaign.ad_account_id ?? "").startsWith("act_")
+        ? String(campaign.ad_account_id)
+        : `act_${campaign.ad_account_id}`;
+      const caUrl = new URL(
+        `https://graph.facebook.com/${GRAPH_API_VERSION}/${adAcct}/customaudiences`,
+      );
+      caUrl.searchParams.set("fields", "id,name");
+      caUrl.searchParams.set("limit", "100");
+      caUrl.searchParams.set("access_token", accessToken);
+      const caResp = await fetch(caUrl.toString());
+      const caJson = await caResp.json();
+      if (caResp.ok && Array.isArray(caJson.data)) {
+        customAudienceList = caJson.data
+          .filter((c: any) => c?.id && c?.name)
+          .map((c: any) => ({ id: String(c.id), name: String(c.name) }));
+      } else {
+        console.warn("[redesign] CA fetch non-ok:", caJson?.error?.message ?? caResp.status);
+      }
+    } else if (tokenErr) {
+      console.warn("[redesign] CA decrypt failed (non-fatal):", tokenErr.message);
+    }
+  } catch (e) {
+    console.warn("[redesign] CA fetch threw (non-fatal):", String(e));
+  }
+
+  const customAudiencesBlock = customAudienceList.length > 0
+    ? `\n== CUSTOM AUDIENCES disponíveis nesta ad account ==\n` +
+      customAudienceList.map((c) => `- id="${c.id}" name="${c.name}"`).join("\n") +
+      `\n(usa estes ids VERBATIM em targeting_json.custom_audiences[].id e exclusions.custom_audiences[].id)\n`
+    : `\n== CUSTOM AUDIENCES ==\n(nenhuma audience disponível ou fetch falhou — NÃO uses custom_audiences nem exclusions com ids inventados)\n`;
+
   const inheritedBlock = inheritedCreatives.length > 0
     ? `\n== CRIATIVOS DISPONÍVEIS (REAPROVEITAR POR DEFEITO) ==
 A campanha original tem ${inheritedCreatives.length} criativo(s) que JÁ EXISTEM no Meta. **Reaproveita-os por defeito** — não peças briefs novos para o que já está bom.
 
 Lista (Meta creative_id → descrição):
-${inheritedCreatives.map((c, i) => `  ${i + 1}. ${c.meta_creative_id} — "${c.library?.name ?? c.ad_name ?? "sem nome"}"${c.library?.headline ? ` | hook: "${c.library.headline}"` : ""}`).join("\n")}
+${inheritedCreatives.map((c, i) => `  ${i + 1}. ${c.meta_creative_id} (type=${c.library?.type ?? "?"}) — "${c.library?.name ?? c.ad_name ?? "sem nome"}"${c.library?.headline ? ` | hook: "${c.library.headline}"` : ""}`).join("\n")}
 
 REGRAS PARA OS \`ads\` DE CADA ADSET:
 - Para cada ad no plano, indica \`existing_creative_id: "<meta_creative_id>"\` em vez de pedir um brief novo.
 - Distribui os criativos herdados pelos adsets de forma sensata (todos em todas as fases por defeito, salvo se a fase pedir criativo específico).
 - Só sugere \`creative_brief\` (em alternativa) se o diagnóstico identificou problema concreto num criativo (hook_score < 60, audio_score < 60, congruência baixa) — nesse caso preenche \`creative_replacement_reason\` a explicar.
 - Cada ad usa OR \`existing_creative_id\` OR \`creative_brief\`, NUNCA ambos.
+- **Compatibilidade formato×objective (P4)**: em campanhas com objective REACH/BRAND_AWARENESS/VIDEO_VIEWS (mapeiam para OUTCOME_AWARENESS no Meta), só PODES referenciar \`existing_creative_id\` cujo type=video. Criativos image/carousel/dynamic em adsets dessas fases são rejeitados pelo deploy (erro 1885873). Em fases de awareness, se não houver vídeo herdado, prefere \`creative_brief\` para vídeo novo em vez de inserir image herdada.
 `
     : "";
 
@@ -1531,6 +1601,7 @@ ${eventCtx.name ? `- Nome: ${eventCtx.name}
 == DIAGNÓSTICO ANTERIOR (severity=${diagnosis.severity}, score=${diagnosis.overall_score}) ==
 ${diagJsonStr}
 ${inheritedBlock}
+${customAudiencesBlock}
 ${crossEventContextText}
 ${inheritanceDecisionsText}
 ${viabilityBlock}
@@ -1560,7 +1631,8 @@ REGRAS:
   Se a aritmética não bate, ajusta budget ou ROAS alvo. NÃO inventes. Plano com KPIs incoerentes será automaticamente marcado confidence='low'.
 - Learning Phase: cada adset OFFSITE_CONVERSIONS precisa ~50 conversões/7d.
 - Frequência: alertar se >5.
-- Não inventes IDs Meta. Usa nomes humanos para audiences/criativos.
+- Custom audiences / exclusions: usa APENAS os ids da lista "CUSTOM AUDIENCES disponíveis" acima, verbatim como id="...". NUNCA inventes placeholders nem nomes humanos como id. Se a lista estiver vazia, NÃO incluas \`custom_audiences\` nem \`exclusions\` no targeting_json.
+- \`exclusions\` é um OBJETO Meta-válido, NUNCA um array. Forma correcta: \`"exclusions": {"custom_audiences": [{"id": "<id real>"}]}\`. Forma ERRADA (será descartada): \`"exclusions": [{"custom_audience_id": "..."}]\`.
 - Sê crítico e directo no rationale.
 - ROAS BLENDED: em cada phase do output, preenche \`expected_blended_contribution\` (peso 0–1 desta fase no ROAS agregado do evento — soma de todas as fases deve aproximar-se de 1.0; fases de conversão e retargeting pesam mais que awareness). Não definas \`roas_min\` em \`target_kpis\` de fases REACH/VIDEO_VIEWS; usa 0 ou omite.
 - Creative briefs (ads NOVOS): quando propones \`creative_brief\` em qualquer ad, os campos \`headline_suggestion\`, \`primary_text_suggestion\` e \`cta_suggestion\` SÃO OBRIGATÓRIOS. Não basta \`primary_message\` abstracto — escreve a copy concreta como apareceria no anúncio final. \`headline_suggestion\` 30–50 chars; \`primary_text_suggestion\` 80–180 chars. \`cta_suggestion\` deve ser um valor Meta Ads válido (preferidos: GET_TICKETS para conversion phases, LEARN_MORE para awareness, SHOP_NOW se URL leva a checkout, SIGN_UP se leva a formulário). \`destination_url_hint\` é null por default — só preencher se o evento tiver ticketing_url conhecido ou se for óbvio do contexto.
@@ -1623,7 +1695,9 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
           "targeting_json": {
             "age_min": 18, "age_max": 55,
             "geo_locations": {"countries": ["PT","BR"]},
-            "publisher_platforms": ["facebook","instagram"]
+            "publisher_platforms": ["facebook","instagram"],
+            "custom_audiences": [{"id": "<id real da lista CUSTOM AUDIENCES, ou omitir o campo>"}],
+            "exclusions": {"custom_audiences": [{"id": "<id real, ou omitir o campo inteiro>"}]}
           },
           "optimization_goal": "REACH",
           "billing_event": "IMPRESSIONS",
@@ -1710,6 +1784,19 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
   catch (e) {
     console.error("[redesign] parse error:", e, content.slice(0, 500));
     return json({ error: "ai_invalid_json", detail: content.slice(0, 200) }, 502);
+  }
+
+  // Normalização determinística pós-LLM (P2+P3 backstop, partilhada com generate).
+  // Se o LLM ignorar as regras do prompt (exclusions array, ids inventados), corrige
+  // o plan ANTES de qualquer validação a jusante. Warnings persistidas em
+  // plan._normalization_warnings (merge com array existente se houver).
+  {
+    const normWarnings = normalizePlanInPlace(plan);
+    if (normWarnings.length > 0) {
+      console.warn("[redesign] normalization warnings:", normWarnings);
+      const prev = Array.isArray(plan._normalization_warnings) ? plan._normalization_warnings : [];
+      plan._normalization_warnings = [...prev, ...normWarnings];
+    }
   }
 
   // NA-POST / CONF-POST — Override autoritário pós-LLM (única passagem).
@@ -2330,6 +2417,41 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
     if (removedCount > 0) console.log(`[redesign] inheritance_decisions enforce: ${removedCount} ad(s) com criativo não-aprovado filtrados`);
   }
 
+  // 7.0.2) P4 — enforce determinístico de compatibilidade formato×objective.
+  // Em campanhas OUTCOME_AWARENESS (REACH/BRAND_AWARENESS/VIDEO_VIEWS), o Meta
+  // rejeita criativos image/carousel/dynamic (erro 1885873). Filtra os ads que
+  // referenciam existing_creative_id de type != "video" nessas fases. Lookup do
+  // type a partir de inheritedCreatives (já carregado, sem queries extra).
+  {
+    const typeByCreativeId = new Map<string, string | undefined>(
+      inheritedCreatives.map((ic: any) => [ic.meta_creative_id, ic?.library?.type])
+    );
+    const p4Warnings: string[] = [];
+    for (const c of plan?.recommended_campaigns ?? []) {
+      const campObj = mapObjective(c?.objective);
+      if (campObj !== "OUTCOME_AWARENESS") continue;
+      for (const a of c?.adsets ?? []) {
+        if (!Array.isArray(a.ads)) continue;
+        const before = a.ads.length;
+        a.ads = a.ads.filter((ad: any) => {
+          const cid = typeof ad?.existing_creative_id === "string" ? ad.existing_creative_id : null;
+          if (!cid) return true; // brief novo passa — deploy logo decide
+          const t = typeByCreativeId.get(cid);
+          if (t === "video") return true;
+          p4Warnings.push(`campanha "${c?.campaign_name ?? "?"}" adset "${a?.adset_name ?? "?"}": ad com creative_id=${cid} type=${t ?? "?"} removido (OUTCOME_AWARENESS requer vídeo)`);
+          return false;
+        });
+        if (a.ads.length !== before) {
+          // se ficou sem ads, deixa array vazio — gate a jusante valida
+        }
+      }
+    }
+    if (p4Warnings.length > 0) {
+      console.warn("[redesign] P4 awareness×non-video filter:", p4Warnings);
+      const prev = Array.isArray(plan._normalization_warnings) ? plan._normalization_warnings : [];
+      plan._normalization_warnings = [...prev, ...p4Warnings];
+    }
+  }
 
   // 7) Validar e enforce constraints (sobrescreve se IA desviou >5%)
   const constraintViolations: string[] = [];
