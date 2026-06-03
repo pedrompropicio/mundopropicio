@@ -480,12 +480,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
           const campKey = `${phase.id}||${planCampaign.campaign_name}`;
           const existingCampaignId = campaignByKey.get(campKey);
           let metaCampaignId: string;
+          // Hoisted FORA do if/else: campaignObjective é usado mais à frente
+          // (gate de pixel, validação OUTCOME_AWARENESS, logs) mesmo quando a
+          // campanha é REUTILIZADA — não pode ficar só no ramo de criação.
+          const campaignObjective = mapObjective(planCampaign.objective);
           if (existingCampaignId) {
             metaCampaignId = existingCampaignId;
             addLog("info", `⟳ Campaign já existe (id ${metaCampaignId}) — reutilizada (key=${campKey})`);
           } else {
             addLog("info", `A criar Campaign: ${planCampaign.campaign_name}`);
-            const campaignObjective = mapObjective(planCampaign.objective);
             const campRes = await metaPost(`${adAccountId}/campaigns`, accessToken, {
               name: planCampaign.campaign_name,
               objective: campaignObjective,
