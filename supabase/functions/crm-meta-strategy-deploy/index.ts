@@ -508,6 +508,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
                     : "adset_goal_not_conversion",
                 });
               }
+              // Instrumentação 1487916 / debug de targeting:
+              // Loga o objeto `targeting` FINAL (mesma referência que vai para
+              // adsetParams.targeting via JSON.stringify) ANTES do POST, para
+              // termos diagnóstico do payload exato em deploys partial. Entrada
+              // separada do log de sucesso/erro — sobrevive a falhas do POST.
+              // adsetParams NÃO contém access_token (o token é adicionado em
+              // metaPost via URLSearchParams; ver L101); logar adsetParams seria
+              // safe, mas restringimos aos campos relevantes para evitar bloat.
+              addLog("info", `  targeting final do adset ${planAdset.adset_name} (pré-POST)`, {
+                adset_name: planAdset.adset_name,
+                targeting_final: targeting,
+                has_custom_audiences: Array.isArray((targeting as any).custom_audiences) && (targeting as any).custom_audiences.length > 0,
+                has_exclusions: !!(targeting as any).exclusions && typeof (targeting as any).exclusions === "object" && Object.keys((targeting as any).exclusions).length > 0,
+                n_interests: Array.isArray((targeting as any).interests) ? (targeting as any).interests.length : 0,
+                adset_params_relevant: {
+                  optimization_goal: adsetParams.optimization_goal,
+                  billing_event: adsetParams.billing_event,
+                  bid_strategy: adsetParams.bid_strategy,
+                  promoted_object: adsetParams.promoted_object ?? null,
+                },
+              });
               const adsetRes = await metaPost(`${adAccountId}/adsets`, accessToken, adsetParams);
               const metaAdsetId = adsetRes.id;
               metaAdsets.push({
