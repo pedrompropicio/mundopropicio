@@ -21,6 +21,12 @@ const cors = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
+    if (!MASTER_KEY) {
+      return new Response(JSON.stringify({
+        error: "missing_master_key",
+        env_keys: Object.keys(Deno.env.toObject()).filter(k => !k.includes("SUPABASE")),
+      }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
+    }
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
     const { data: rows, error } = await admin.rpc("crm_get_meta_decrypted_token", {
       p_connection_id: CONN_ID,
