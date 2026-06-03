@@ -124,10 +124,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { strategy_id?: string };
+  let body: { strategy_id?: string; force_redeploy?: boolean };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
   const { strategy_id } = body;
   if (!strategy_id) return json({ error: "missing_strategy_id" }, 400);
+  const forceRedeploy = body.force_redeploy === true;
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
@@ -170,6 +171,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (stratErr || !strategy) return json({ error: "strategy_not_found", detail: stratErr?.message }, 404);
     if (!strategy.generated_plan) return json({ error: "plan_not_generated" }, 400);
     if (!strategy.connection_id) return json({ error: "connection_missing" }, 400);
+
+    // ── LOCK — recusar se já há deployment desta strategy a correr há <10min ──
+    // Usa o status='running' da row de deployment como mutex distribuído. TTL
+    // de 10min evita lock permanente em caso de crash do edge function sem
+    // update final. force_redeploy NÃO bypassa este lock (não queremos 2
+    // forces concorrentes a duplicar tudo).
+    try {
+      const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const { data: runningDeps, error: runErr } = await (supabase as any)
+        .schema("crm").from("meta_campaign_strategy_deployments")
+        .select("id, started_at")
+        .eq("strategy_id", strategy_id)
+        .eq("status", "running")
+        .gte("started_at", tenMinAgo)
+        .limit(1);
+      if (!runErr && Array.isArray(runningDeps) && runningDeps.length > 0) {
+        return json({
+          error: "deploy_already_running",
+          detail: `Já existe um deployment em curso (id ${runningDeps[0].id}, iniciado em ${runningDeps[0].started_at}). Espera que termine ou aguarda 10min se crashou.`,
+          running_deployment_id: runningDeps[0].id,
+        }, 409);
+      }
+    } catch (e) {
+      console.warn("[deploy] lock check failed (non-fatal):", String(e));
+    }
 
     // ── GUARDRAIL: cap de budget diário por role (atómico) ─────────────────────
     // Valida TODAS as campanhas do plano. Se QUALQUER uma excede → 403, nada é
@@ -243,6 +269,51 @@ Deno.serve(async (req: Request): Promise<Response> => {
       ? strategy.ad_account_id
       : `act_${strategy.ad_account_id}`;
 
+    // ── IDEMPOTÊNCIA — lookup de ids JÁ deployados desta strategy ─────────────
+    // Lê todos os deployments anteriores com status success/partial e agrega
+    // ids gravados para que metaPosts redundantes sejam saltados.
+    // Se forceRedeploy=true, ignora (cria tudo do zero) mas mantém o lock.
+    // Se o SELECT falhar, segue como se não houvesse anteriores (defensivo).
+    const campaignByKey = new Map<string, string>();
+    const adsetByKey = new Map<string, string>();
+    const adByKey = new Map<string, string>();
+    if (!forceRedeploy) {
+      try {
+        const { data: priorDeps, error: priorErr } = await (supabase as any)
+          .schema("crm").from("meta_campaign_strategy_deployments")
+          .select("meta_campaign_ids, meta_adset_ids, meta_ad_ids, status, started_at")
+          .eq("strategy_id", strategy_id)
+          .in("status", ["success", "partial"])
+          .order("started_at", { ascending: true });
+        if (priorErr) {
+          console.warn("[deploy] prior deployments lookup failed:", priorErr.message);
+        } else {
+          for (const dep of priorDeps ?? []) {
+            for (const c of (dep.meta_campaign_ids as any[]) ?? []) {
+              if (c?.plan_phase_id && c?.plan_campaign_name && c?.meta_campaign_id) {
+                campaignByKey.set(`${c.plan_phase_id}||${c.plan_campaign_name}`, String(c.meta_campaign_id));
+              }
+            }
+            for (const a of (dep.meta_adset_ids as any[]) ?? []) {
+              if (a?.phase_id && a?.plan_adset_name && a?.meta_adset_id) {
+                adsetByKey.set(`${a.phase_id}||${a.plan_adset_name}`, String(a.meta_adset_id));
+              }
+            }
+            for (const ad of (dep.meta_ad_ids as any[]) ?? []) {
+              if (!ad?.parent_meta_adset_id || !ad?.meta_ad_id) continue;
+              if (ad.inherited && ad.meta_creative_id) {
+                adByKey.set(`${ad.parent_meta_adset_id}||inherited||${ad.meta_creative_id}`, String(ad.meta_ad_id));
+              } else if (ad.creative_id) {
+                adByKey.set(`${ad.parent_meta_adset_id}||brief||${ad.creative_id}`, String(ad.meta_ad_id));
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[deploy] prior deployments lookup threw:", String(e));
+      }
+    }
+
     // 4) Criar deployment row
     const { data: depRow, error: depErr } = await (supabase as any)
       .schema("crm").from("meta_campaign_strategy_deployments")
@@ -259,6 +330,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (depErr || !depRow) return json({ error: "deployment_create_failed", detail: depErr?.message }, 500);
     deploymentId = depRow.id;
     addLog("info", "Deployment iniciado", { deployment_id: deploymentId, ad_account_id: adAccountId, page_id: pageId, instagram: !!instagramActorId });
+    if (forceRedeploy) {
+      addLog("warn", "force_redeploy=true — a recriar tudo, ignorando deployments anteriores");
+    } else if (campaignByKey.size + adsetByKey.size + adByKey.size > 0) {
+      addLog("info", `Idempotência: ${campaignByKey.size} campanhas / ${adsetByKey.size} adsets / ${adByKey.size} ads de deployments anteriores serão reutilizados`);
+    }
 
     // 5) Buscar associações criativo → phase
     const { data: associations } = await (supabase as any)
@@ -401,27 +477,35 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
       for (const planCampaign of phaseCampaigns) {
         try {
-          addLog("info", `A criar Campaign: ${planCampaign.campaign_name}`);
-          const campaignObjective = mapObjective(planCampaign.objective);
-          const campRes = await metaPost(`${adAccountId}/campaigns`, accessToken, {
-            name: planCampaign.campaign_name,
-            objective: campaignObjective,
-            status: "PAUSED",
-            special_ad_categories: "[]",
-            buying_type: "AUCTION",
-            // Orçamento é definido ao nível do AdSet (ABO). A Meta exige que este
-            // campo seja declarado na Campaign — caso contrário a chamada falha
-            // com code=100, error_subcode=4834011. "false" = cada AdSet usa o
-            // seu daily_budget independente, sem partilha.
-            is_adset_budget_sharing_enabled: "false",
-          });
-          const metaCampaignId = campRes.id;
+          const campKey = `${phase.id}||${planCampaign.campaign_name}`;
+          const existingCampaignId = campaignByKey.get(campKey);
+          let metaCampaignId: string;
+          if (existingCampaignId) {
+            metaCampaignId = existingCampaignId;
+            addLog("info", `⟳ Campaign já existe (id ${metaCampaignId}) — reutilizada (key=${campKey})`);
+          } else {
+            addLog("info", `A criar Campaign: ${planCampaign.campaign_name}`);
+            const campaignObjective = mapObjective(planCampaign.objective);
+            const campRes = await metaPost(`${adAccountId}/campaigns`, accessToken, {
+              name: planCampaign.campaign_name,
+              objective: campaignObjective,
+              status: "PAUSED",
+              special_ad_categories: "[]",
+              buying_type: "AUCTION",
+              // Orçamento é definido ao nível do AdSet (ABO). A Meta exige que este
+              // campo seja declarado na Campaign — caso contrário a chamada falha
+              // com code=100, error_subcode=4834011. "false" = cada AdSet usa o
+              // seu daily_budget independente, sem partilha.
+              is_adset_budget_sharing_enabled: "false",
+            });
+            metaCampaignId = campRes.id;
+            addLog("info", `✓ Campaign criada: ${metaCampaignId}`);
+          }
           metaCampaigns.push({
             plan_phase_id: phase.id,
             plan_campaign_name: planCampaign.campaign_name,
             meta_campaign_id: metaCampaignId,
           });
-          addLog("info", `✓ Campaign criada: ${metaCampaignId}`);
 
           for (const planAdset of planCampaign.adsets ?? []) {
             try {
@@ -529,15 +613,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
                   promoted_object: adsetParams.promoted_object ?? null,
                 },
               });
-              const adsetRes = await metaPost(`${adAccountId}/adsets`, accessToken, adsetParams);
-              const metaAdsetId = adsetRes.id;
+              const adsetKey = `${phase.id}||${planAdset.adset_name}`;
+              const existingAdsetId = adsetByKey.get(adsetKey);
+              let metaAdsetId: string;
+              if (existingAdsetId) {
+                metaAdsetId = existingAdsetId;
+                addLog("info", `  ⟳ AdSet já existe (id ${metaAdsetId}) — reutilizado (key=${adsetKey})`);
+              } else {
+                const adsetRes = await metaPost(`${adAccountId}/adsets`, accessToken, adsetParams);
+                metaAdsetId = adsetRes.id;
+                addLog("info", `  ✓ AdSet criado: ${metaAdsetId}`);
+              }
               metaAdsets.push({
                 plan_adset_name: planAdset.adset_name,
                 meta_adset_id: metaAdsetId,
                 parent_meta_campaign_id: metaCampaignId,
                 phase_id: phase.id,
               });
-              addLog("info", `  ✓ AdSet criado: ${metaAdsetId}`);
 
               // 6.1) Reaproveitar criativos herdados (existing_creative_id no plan)
               const planAds: any[] = Array.isArray(planAdset.ads) ? planAdset.ads : [];
@@ -563,12 +655,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
                   }
                 }
                 try {
-                  const adRes = await metaPost(`${adAccountId}/ads`, accessToken, {
-                    name: `Ad (reused): ${ra.existing_creative_id} → ${planAdset.adset_name}`.slice(0, 100),
-                    adset_id: metaAdsetId,
-                    creative: JSON.stringify({ creative_id: ra.existing_creative_id }),
-                    status: "PAUSED",
-                  });
+                  const adKeyInh = `${metaAdsetId}||inherited||${ra.existing_creative_id}`;
+                  const existingAdInh = adByKey.get(adKeyInh);
+                  let adRes: { id: string };
+                  if (existingAdInh) {
+                    adRes = { id: existingAdInh };
+                    addLog("info", `    ⟳ Ad (reused) já existe (id ${existingAdInh}) — reutilizado (creative ${ra.existing_creative_id})`);
+                  } else {
+                    adRes = await metaPost(`${adAccountId}/ads`, accessToken, {
+                      name: `Ad (reused): ${ra.existing_creative_id} → ${planAdset.adset_name}`.slice(0, 100),
+                      adset_id: metaAdsetId,
+                      creative: JSON.stringify({ creative_id: ra.existing_creative_id }),
+                      status: "PAUSED",
+                    });
+                    addLog("info", `    ✓ Ad (reused) criado: ${adRes.id} (creative ${ra.existing_creative_id})`);
+                  }
                   metaAds.push({
                     inherited: true,
                     meta_creative_id: ra.existing_creative_id,
@@ -576,7 +677,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
                     parent_meta_adset_id: metaAdsetId,
                   });
                   inheritedUsed = true;
-                  addLog("info", `    ✓ Ad (reused) criado: ${adRes.id} (creative ${ra.existing_creative_id})`);
                 } catch (e: any) {
                   addLog("error", `    ✗ Falha a reaproveitar creative ${ra.existing_creative_id}`, errContext(e));
                 }
@@ -626,19 +726,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
                   await (supabase as any).schema("crm").from("meta_creatives")
                     .update({ meta_creative_id: metaCreativeId }).eq("id", creative.id);
 
-                  const adRes = await metaPost(`${adAccountId}/ads`, accessToken, {
-                    name: `Ad: ${creative.name} → ${planAdset.adset_name}`,
-                    adset_id: metaAdsetId,
-                    creative: JSON.stringify({ creative_id: metaCreativeId }),
-                    status: "PAUSED",
-                  });
+                  const adKeyBrief = `${metaAdsetId}||brief||${creative.id}`;
+                  const existingAdBrief = adByKey.get(adKeyBrief);
+                  let adRes: { id: string };
+                  if (existingAdBrief) {
+                    adRes = { id: existingAdBrief };
+                    addLog("info", `    ⟳ Ad já existe (id ${existingAdBrief}) — reutilizado (creative ${creative.id})`);
+                  } else {
+                    adRes = await metaPost(`${adAccountId}/ads`, accessToken, {
+                      name: `Ad: ${creative.name} → ${planAdset.adset_name}`,
+                      adset_id: metaAdsetId,
+                      creative: JSON.stringify({ creative_id: metaCreativeId }),
+                      status: "PAUSED",
+                    });
+                    addLog("info", `    ✓ Ad criado: ${adRes.id}`);
+                  }
                   metaAds.push({
                     creative_id: creative.id,
                     meta_creative_id: metaCreativeId,
                     meta_ad_id: adRes.id,
                     parent_meta_adset_id: metaAdsetId,
                   });
-                  addLog("info", `    ✓ Ad criado: ${adRes.id}`);
                 } catch (e: any) {
                   addLog("error", `    ✗ Falha a criar Ad para creative ${creative.id}`, errContext(e));
                 }
