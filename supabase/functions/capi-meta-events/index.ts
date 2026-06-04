@@ -1,3 +1,4 @@
+// cache-buster: 2026-06-04d
 // capi-meta-events — wrapper da Meta Conversions API (CAPI) v25.0.
 // Chamada internamente (HTTP) pelos processadores process-lead-capture e
 // process-redirect-log. NÃO faz hashing: o user_data já chega hashed/pronto
@@ -12,6 +13,11 @@ const corsHeaders = {
 };
 
 const GRAPH_API_VERSION = "v25.0";
+
+const _CAPI_TOKEN_BOOT = Deno.env.get("META_CAPI_ACCESS_TOKEN");
+console.log("[capi-meta-events boot] token_present:", !!_CAPI_TOKEN_BOOT,
+            "token_len:", _CAPI_TOKEN_BOOT?.length ?? 0,
+            "token_prefix:", _CAPI_TOKEN_BOOT ? _CAPI_TOKEN_BOOT.slice(0, 4) : "null");
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
