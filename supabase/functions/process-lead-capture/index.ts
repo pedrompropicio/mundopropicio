@@ -1,4 +1,4 @@
-// cache-buster: 2026-06-04b
+// cache-buster: 2026-06-04c
 // process-lead-capture — wrapper HTTP que invoca a RPC SECURITY DEFINER
 // public.process_lead_captures_batch e dispara CAPI 'Lead' por cada payload
 // retornado. Toda a lógica de bypass-RLS está na RPC; supabase-js só precisa
