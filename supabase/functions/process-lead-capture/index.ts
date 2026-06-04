@@ -74,12 +74,29 @@ async function callCapi(payload: Record<string, any>): Promise<void> {
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
   const debug = {
-    url_len: SUPABASE_URL?.length ?? 0,
     url_host: (SUPABASE_URL || "").replace("https://", "").split(".")[0],
     srk_len: SERVICE_ROLE_KEY?.length ?? 0,
     srk_first4: SERVICE_ROLE_KEY?.substring(0, 4) ?? "",
     srk_last4: SERVICE_ROLE_KEY?.substring(Math.max(0, (SERVICE_ROLE_KEY?.length ?? 0) - 4)) ?? "",
+    anon_len: anonKey.length,
+    anon_first4: anonKey.substring(0, 4),
+    env_keys: Object.keys(Deno.env.toObject()).filter((k) => k.startsWith("SUPABASE_") || k.startsWith("SB_")),
+  };
+
+  // Raw fetch ao PostgREST com SERVICE_ROLE_KEY para isolar problema de SDK vs key.
+  const rawResp = await fetch(`${SUPABASE_URL}/rest/v1/lead_capture?processed=eq.false&select=id,email&limit=5`, {
+    headers: {
+      "apikey": SERVICE_ROLE_KEY,
+      "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+    },
+  });
+  const rawText = await rawResp.text();
+  const rawDebug = {
+    status: rawResp.status,
+    role_header: rawResp.headers.get("content-range"),
+    body: rawText.slice(0, 500),
   };
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
@@ -98,6 +115,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     count: count ?? null,
     error: selErr?.message ?? null,
   };
+
+  // Early return só de debug para esta iteração — não processa nada.
+  return json({ debug, rawDebug, selectDebug });
 
   if (selErr) {
     console.error("[process-lead-capture] select falhou", selErr.message);
