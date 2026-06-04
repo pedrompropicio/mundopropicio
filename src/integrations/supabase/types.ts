@@ -5209,6 +5209,7 @@ export type Database = {
       }
       lead_capture: {
         Row: {
+          client_event_id: string | null
           consent_email: boolean
           consent_whatsapp: boolean
           created_at: string
@@ -5232,6 +5233,7 @@ export type Database = {
           utm_source: string | null
         }
         Insert: {
+          client_event_id?: string | null
           consent_email?: boolean
           consent_whatsapp?: boolean
           created_at?: string
@@ -5255,6 +5257,7 @@ export type Database = {
           utm_source?: string | null
         }
         Update: {
+          client_event_id?: string | null
           consent_email?: boolean
           consent_whatsapp?: boolean
           created_at?: string
@@ -7029,6 +7032,7 @@ export type Database = {
       }
       redirect_log: {
         Row: {
+          client_event_id: string | null
           created_at: string
           event_slug: string
           fbc: string | null
@@ -7045,6 +7049,7 @@ export type Database = {
           utm_source: string | null
         }
         Insert: {
+          client_event_id?: string | null
           created_at?: string
           event_slug: string
           fbc?: string | null
@@ -7061,6 +7066,7 @@ export type Database = {
           utm_source?: string | null
         }
         Update: {
+          client_event_id?: string | null
           created_at?: string
           event_slug?: string
           fbc?: string | null
