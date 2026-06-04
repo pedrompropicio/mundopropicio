@@ -85,18 +85,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
     env_keys: Object.keys(Deno.env.toObject()).filter((k) => k.startsWith("SUPABASE_") || k.startsWith("SB_")),
   };
 
-  // Raw fetch ao PostgREST com SERVICE_ROLE_KEY para isolar problema de SDK vs key.
-  const rawResp = await fetch(`${SUPABASE_URL}/rest/v1/lead_capture?processed=eq.false&select=id,email&limit=5`, {
-    headers: {
-      "apikey": SERVICE_ROLE_KEY,
-      "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
-    },
-  });
-  const rawText = await rawResp.text();
+  // Raw fetch — testar SRK, anon e chave inválida para distinguir RLS-anon vs auth-fail.
+  const testKey = async (k: string, label: string) => {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/lead_capture?processed=eq.false&select=id&limit=5`, {
+      headers: { "apikey": k, "Authorization": `Bearer ${k}` },
+    });
+    const t = await r.text();
+    return { label, status: r.status, body: t.slice(0, 200) };
+  };
   const rawDebug = {
-    status: rawResp.status,
-    role_header: rawResp.headers.get("content-range"),
-    body: rawText.slice(0, 500),
+    srk: await testKey(SERVICE_ROLE_KEY, "srk"),
+    anon: await testKey(anonKey, "anon"),
+    invalid: await testKey("sb_secret_INVALID_KEY_TEST_123", "invalid"),
   };
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
