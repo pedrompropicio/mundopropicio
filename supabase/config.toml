@@ -54,3 +54,13 @@ verify_jwt = false
 # Diagnóstico temporário: metadata do secret ENCRYPTION_MASTER_KEY (sem expor
 # o valor). verify_jwt=false para podermos chamar sem auth. Remover após uso.
 verify_jwt = false
+
+# Portal MP CRM — Sprint 2. Cron-only / invocação interna; auth via SERVICE_ROLE.
+[functions.process-lead-capture]
+verify_jwt = false
+
+[functions.process-redirect-log]
+verify_jwt = false
+
+[functions.capi-meta-events]
+verify_jwt = false
