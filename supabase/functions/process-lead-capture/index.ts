@@ -74,11 +74,13 @@ async function callCapi(payload: Record<string, any>): Promise<void> {
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  console.log("[process-lead-capture] DEBUG env",
-    "SUPABASE_URL len:", SUPABASE_URL?.length ?? 0,
-    "SRK len:", SERVICE_ROLE_KEY?.length ?? 0,
-    "SRK first4:", SERVICE_ROLE_KEY?.substring(0, 4) ?? "",
-    "SRK last4:", SERVICE_ROLE_KEY?.substring(Math.max(0, (SERVICE_ROLE_KEY?.length ?? 0) - 4)) ?? "");
+  const debug = {
+    url_len: SUPABASE_URL?.length ?? 0,
+    url_host: (SUPABASE_URL || "").replace("https://", "").split(".")[0],
+    srk_len: SERVICE_ROLE_KEY?.length ?? 0,
+    srk_first4: SERVICE_ROLE_KEY?.substring(0, 4) ?? "",
+    srk_last4: SERVICE_ROLE_KEY?.substring(Math.max(0, (SERVICE_ROLE_KEY?.length ?? 0) - 4)) ?? "",
+  };
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -91,8 +93,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .order("created_at", { ascending: true })
     .limit(BATCH_LIMIT);
 
-  console.log("[process-lead-capture] DEBUG select result",
-    "rows:", rows?.length ?? 0, "count:", count, "error:", selErr?.message ?? null);
+  const selectDebug = {
+    rows: rows?.length ?? 0,
+    count: count ?? null,
+    error: selErr?.message ?? null,
+  };
 
   if (selErr) {
     console.error("[process-lead-capture] select falhou", selErr.message);
