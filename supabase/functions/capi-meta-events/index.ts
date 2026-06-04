@@ -1,4 +1,4 @@
-// cache-buster: 2026-06-04f
+// cache-buster: 2026-06-04g
 // capi-meta-events — wrapper da Meta Conversions API (CAPI) v25.0.
 // Chamada internamente (HTTP) pelos processadores process-lead-capture e
 // process-redirect-log. NÃO faz hashing: o user_data já chega hashed/pronto
