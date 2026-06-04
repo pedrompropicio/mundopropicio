@@ -1,4 +1,4 @@
-// cache-buster: 2026-06-04f
+// cache-buster: 2026-06-04g
 // capi-meta-events — wrapper da Meta Conversions API (CAPI) v25.0.
 // Chamada internamente (HTTP) pelos processadores process-lead-capture e
 // process-redirect-log. NÃO faz hashing: o user_data já chega hashed/pronto
@@ -38,23 +38,51 @@ Deno.serve(async (req: Request): Promise<Response> => {
     { auth: { persistSession: false } },
   );
 
-  // Token CAPI: ler do Vault (Deno.env não acede a secrets META_* neste projeto)
+  // Token CAPI: ler do Vault (Deno.env não acede a secrets META_* neste projeto).
+  // supabase.rpc() retorna [] silenciosamente neste projeto (PostgREST + sb_secret_* key)
+  // → usar fetch directo para receber scalar text puro.
   const srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 
   let accessToken: string | null = Deno.env.get("META_CAPI_ACCESS_TOKEN") ?? null;
-  if (!accessToken) {
-    const { data: tokRpc, error: tokErr } = await supabase.rpc("get_vault_secret" as any, {
-      _name: "META_CAPI_ACCESS_TOKEN",
-    });
-    const diag_tokRpc_type = typeof tokRpc;
-    const diag_tokRpc_len =
-      typeof tokRpc === "string" ? tokRpc.length : (tokRpc == null ? 0 : String(tokRpc).length);
-    const diag_tokErr_msg = tokErr?.message ?? null;
-    const diag_tokErr_code = (tokErr as any)?.code ?? null;
+  let diag_rpc_http_status = 0;
+  let diag_rpc_body_len = 0;
+  let diag_rpc_body_preview = "";
 
-    if (tokErr || !tokRpc) {
-      console.error("[capi-meta-events] vault lookup failed", diag_tokErr_msg);
+  if (!accessToken) {
+    try {
+      const rpcUrl = `${supabaseUrl}/rest/v1/rpc/get_vault_secret`;
+      const rpcResp = await fetch(rpcUrl, {
+        method: "POST",
+        headers: {
+          "apikey": srk,
+          "Authorization": `Bearer ${srk}`,
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify({ _name: "META_CAPI_ACCESS_TOKEN" }),
+      });
+      diag_rpc_http_status = rpcResp.status;
+      const rawText = await rpcResp.text();
+      diag_rpc_body_len = rawText.length;
+      diag_rpc_body_preview = rawText.slice(0, 80);
+
+      if (rpcResp.ok && rawText) {
+        let parsed: any = rawText;
+        try { parsed = JSON.parse(rawText); } catch { /* raw text */ }
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          accessToken = String(parsed[0]);
+        } else if (typeof parsed === "string") {
+          accessToken = parsed;
+        } else if (parsed && typeof parsed === "object" && "get_vault_secret" in parsed) {
+          accessToken = String((parsed as any).get_vault_secret);
+        }
+      }
+    } catch (e) {
+      diag_rpc_body_preview = `fetch_exception: ${String(e)}`;
+    }
+
+    if (!accessToken) {
       return json({
         error: "missing_capi_token",
         diag: {
@@ -63,15 +91,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
           srk_prefix: srk.slice(0, 12),
           supabase_url_present: !!supabaseUrl,
           env_token_present: !!Deno.env.get("META_CAPI_ACCESS_TOKEN"),
-          tokRpc_type: diag_tokRpc_type,
-          tokRpc_len: diag_tokRpc_len,
-          tokErr_msg: diag_tokErr_msg,
-          tokErr_code: diag_tokErr_code,
+          rpc_http_status: diag_rpc_http_status,
+          rpc_body_len: diag_rpc_body_len,
+          rpc_body_preview: diag_rpc_body_preview,
         },
       }, 500);
     }
-    accessToken = typeof tokRpc === "string" ? tokRpc : String(tokRpc);
   }
+
 
   let body: any;
   try {
