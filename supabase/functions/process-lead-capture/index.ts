@@ -17,7 +17,7 @@
 //
 // verify_jwt = false (config.toml): cron-only, usa SERVICE_ROLE internamente.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -84,6 +84,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .eq("processed", false)
     .order("created_at", { ascending: true })
     .limit(BATCH_LIMIT);
+
 
   if (selErr) {
     console.error("[process-lead-capture] select falhou", selErr.message);
@@ -250,5 +251,5 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   }
 
-  return json({ processed, errors, capi_failures });
+  return json({ processed, errors, capi_failures, debug, selectDebug });
 });
