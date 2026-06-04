@@ -142,6 +142,63 @@ export type Database = {
         }
         Relationships: []
       }
+      blog_posts: {
+        Row: {
+          author_id: string | null
+          company_id: string
+          content_en: string
+          content_pt: string
+          cover_image: string | null
+          created_at: string
+          excerpt_en: string | null
+          excerpt_pt: string | null
+          id: string
+          portal_visible: boolean
+          published: boolean
+          published_at: string | null
+          slug: string
+          title_en: string
+          title_pt: string
+          updated_at: string
+        }
+        Insert: {
+          author_id?: string | null
+          company_id: string
+          content_en?: string
+          content_pt?: string
+          cover_image?: string | null
+          created_at?: string
+          excerpt_en?: string | null
+          excerpt_pt?: string | null
+          id?: string
+          portal_visible?: boolean
+          published?: boolean
+          published_at?: string | null
+          slug: string
+          title_en: string
+          title_pt: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string | null
+          company_id?: string
+          content_en?: string
+          content_pt?: string
+          cover_image?: string | null
+          created_at?: string
+          excerpt_en?: string | null
+          excerpt_pt?: string | null
+          id?: string
+          portal_visible?: boolean
+          published?: boolean
+          published_at?: string | null
+          slug?: string
+          title_en?: string
+          title_pt?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bp_orphan_attachments: {
         Row: {
           company_id: string
@@ -6620,6 +6677,60 @@ export type Database = {
           },
         ]
       }
+      press_clippings: {
+        Row: {
+          company_id: string
+          created_at: string
+          display_order: number | null
+          event_id: string | null
+          event_name: string
+          id: string
+          image: string | null
+          portal_visible: boolean
+          source: string
+          url: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          display_order?: number | null
+          event_id?: string | null
+          event_name: string
+          id?: string
+          image?: string | null
+          portal_visible?: boolean
+          source: string
+          url: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          display_order?: number | null
+          event_id?: string | null
+          event_name?: string
+          id?: string
+          image?: string | null
+          portal_visible?: boolean
+          source?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "press_clippings_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "press_clippings_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           active_company_id: string | null
@@ -8992,6 +9103,51 @@ export type Database = {
       }
     }
     Views: {
+      blog_posts_public: {
+        Row: {
+          content_en: string | null
+          content_pt: string | null
+          cover_image: string | null
+          created_at: string | null
+          excerpt_en: string | null
+          excerpt_pt: string | null
+          id: string | null
+          published_at: string | null
+          slug: string | null
+          title_en: string | null
+          title_pt: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          content_en?: string | null
+          content_pt?: string | null
+          cover_image?: string | null
+          created_at?: string | null
+          excerpt_en?: string | null
+          excerpt_pt?: string | null
+          id?: string | null
+          published_at?: string | null
+          slug?: string | null
+          title_en?: string | null
+          title_pt?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          content_en?: string | null
+          content_pt?: string | null
+          cover_image?: string | null
+          created_at?: string | null
+          excerpt_en?: string | null
+          excerpt_pt?: string | null
+          id?: string | null
+          published_at?: string | null
+          slug?: string | null
+          title_en?: string | null
+          title_pt?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       event_faqs_public: {
         Row: {
           answer_en: string | null
@@ -9111,6 +9267,54 @@ export type Database = {
           venue_map_url?: string | null
         }
         Relationships: []
+      }
+      press_clippings_public: {
+        Row: {
+          created_at: string | null
+          display_order: number | null
+          event_id: string | null
+          event_name: string | null
+          id: string | null
+          image: string | null
+          source: string | null
+          url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_order?: number | null
+          event_id?: string | null
+          event_name?: string | null
+          id?: string | null
+          image?: string | null
+          source?: string | null
+          url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_order?: number | null
+          event_id?: string | null
+          event_name?: string | null
+          id?: string | null
+          image?: string | null
+          source?: string | null
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "press_clippings_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "press_clippings_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_public"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_companies: {
         Row: {
