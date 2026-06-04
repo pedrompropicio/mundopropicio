@@ -74,50 +74,17 @@ async function callCapi(payload: Record<string, any>): Promise<void> {
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-  const debug = {
-    url_host: (SUPABASE_URL || "").replace("https://", "").split(".")[0],
-    srk_len: SERVICE_ROLE_KEY?.length ?? 0,
-    srk_first4: SERVICE_ROLE_KEY?.substring(0, 4) ?? "",
-    srk_last4: SERVICE_ROLE_KEY?.substring(Math.max(0, (SERVICE_ROLE_KEY?.length ?? 0) - 4)) ?? "",
-    anon_len: anonKey.length,
-    anon_first4: anonKey.substring(0, 4),
-    env_keys: Object.keys(Deno.env.toObject()).filter((k) => k.startsWith("SUPABASE_") || k.startsWith("SB_")),
-  };
-
-  // Raw fetch — testar SRK, anon e chave inválida para distinguir RLS-anon vs auth-fail.
-  const testKey = async (k: string, label: string) => {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/lead_capture?processed=eq.false&select=id&limit=5`, {
-      headers: { "apikey": k, "Authorization": `Bearer ${k}` },
-    });
-    const t = await r.text();
-    return { label, status: r.status, body: t.slice(0, 200) };
-  };
-  const rawDebug = {
-    srk: await testKey(SERVICE_ROLE_KEY, "srk"),
-    anon: await testKey(anonKey, "anon"),
-    invalid: await testKey("sb_secret_INVALID_KEY_TEST_123", "invalid"),
-  };
-
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: rows, error: selErr, count } = await supabase
+  const { data: rows, error: selErr } = await supabase
     .from("lead_capture")
-    .select("*", { count: "exact" })
+    .select("*")
     .eq("processed", false)
     .order("created_at", { ascending: true })
     .limit(BATCH_LIMIT);
 
-  const selectDebug = {
-    rows: rows?.length ?? 0,
-    count: count ?? null,
-    error: selErr?.message ?? null,
-  };
-
-  // Early return só de debug para esta iteração — não processa nada.
-  return json({ debug, rawDebug, selectDebug });
 
   if (selErr) {
     console.error("[process-lead-capture] select falhou", selErr.message);
