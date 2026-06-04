@@ -9560,6 +9560,14 @@ export type Database = {
         Returns: number
       }
       norm_coala_desc: { Args: { s: string }; Returns: string }
+      process_lead_captures_batch: {
+        Args: { p_batch_size?: number }
+        Returns: Json[]
+      }
+      process_redirect_logs_batch: {
+        Args: { p_batch_size?: number }
+        Returns: Json[]
+      }
       promote_scenario_draft_to_active: {
         Args: {
           _new_active_description?: string
