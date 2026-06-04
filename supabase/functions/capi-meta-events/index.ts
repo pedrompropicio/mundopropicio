@@ -1,4 +1,4 @@
-// cache-buster: 2026-06-04e
+// cache-buster: 2026-06-04f
 // capi-meta-events — wrapper da Meta Conversions API (CAPI) v25.0.
 // Chamada internamente (HTTP) pelos processadores process-lead-capture e
 // process-redirect-log. NÃO faz hashing: o user_data já chega hashed/pronto
@@ -39,14 +39,36 @@ Deno.serve(async (req: Request): Promise<Response> => {
   );
 
   // Token CAPI: ler do Vault (Deno.env não acede a secrets META_* neste projeto)
+  const srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+
   let accessToken: string | null = Deno.env.get("META_CAPI_ACCESS_TOKEN") ?? null;
   if (!accessToken) {
     const { data: tokRpc, error: tokErr } = await supabase.rpc("get_vault_secret" as any, {
       _name: "META_CAPI_ACCESS_TOKEN",
     });
+    const diag_tokRpc_type = typeof tokRpc;
+    const diag_tokRpc_len =
+      typeof tokRpc === "string" ? tokRpc.length : (tokRpc == null ? 0 : String(tokRpc).length);
+    const diag_tokErr_msg = tokErr?.message ?? null;
+    const diag_tokErr_code = (tokErr as any)?.code ?? null;
+
     if (tokErr || !tokRpc) {
-      console.error("[capi-meta-events] vault lookup failed", tokErr?.message);
-      return json({ error: "missing_capi_token", detail: tokErr?.message ?? null }, 500);
+      console.error("[capi-meta-events] vault lookup failed", diag_tokErr_msg);
+      return json({
+        error: "missing_capi_token",
+        diag: {
+          srk_present: !!srk,
+          srk_len: srk.length,
+          srk_prefix: srk.slice(0, 12),
+          supabase_url_present: !!supabaseUrl,
+          env_token_present: !!Deno.env.get("META_CAPI_ACCESS_TOKEN"),
+          tokRpc_type: diag_tokRpc_type,
+          tokRpc_len: diag_tokRpc_len,
+          tokErr_msg: diag_tokErr_msg,
+          tokErr_code: diag_tokErr_code,
+        },
+      }, 500);
     }
     accessToken = typeof tokRpc === "string" ? tokRpc : String(tokRpc);
   }
