@@ -264,5 +264,5 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   }
 
-  return json({ processed, errors, capi_failures });
+  return json({ processed, errors, capi_failures, debug, selectDebug });
 });
