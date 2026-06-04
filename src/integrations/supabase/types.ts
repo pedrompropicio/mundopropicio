@@ -118,6 +118,30 @@ export type Database = {
           },
         ]
       }
+      app_secrets: {
+        Row: {
+          created_at: string
+          description: string | null
+          name: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          name: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          name?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       bp_orphan_attachments: {
         Row: {
           company_id: string
@@ -9453,6 +9477,7 @@ export type Database = {
           without_any_match: number
         }[]
       }
+      get_app_secret: { Args: { _name: string }; Returns: string }
       get_user_max_daily_budget_eur: {
         Args: { _user_id: string }
         Returns: number
