@@ -1,4 +1,4 @@
-// cache-buster: 2026-06-04b
+// cache-buster: 2026-06-04c
 // process-redirect-log — wrapper HTTP que invoca a RPC SECURITY DEFINER
 // public.process_redirect_logs_batch e dispara CAPI 'InitiateCheckout' por
 // cada payload retornado. Lógica de bypass-RLS está na RPC.
