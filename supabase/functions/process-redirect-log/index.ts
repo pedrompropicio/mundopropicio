@@ -1,3 +1,4 @@
+// cache-buster: 2026-06-04
 // process-redirect-log — consumidor de public.redirect_log (invocado por cron 1min).
 // redirect_click é ANÓNIMO (sem email): só INSERT em public.leads e CAPI
 // 'InitiateCheckout' (não-bloqueante). Sem contacts.

@@ -1,3 +1,4 @@
+// cache-buster: 2026-06-04
 // process-lead-capture — consumidor de public.lead_capture (invocado por cron 1min).
 // Para cada row não processado: match-or-insert em public.contacts, INSERT em
 // public.leads, e dispara CAPI 'Lead' (não-bloqueante) via capi-meta-events.
