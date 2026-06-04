@@ -74,16 +74,25 @@ async function callCapi(payload: Record<string, any>): Promise<void> {
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  console.log("[process-lead-capture] DEBUG env",
+    "SUPABASE_URL len:", SUPABASE_URL?.length ?? 0,
+    "SRK len:", SERVICE_ROLE_KEY?.length ?? 0,
+    "SRK first4:", SERVICE_ROLE_KEY?.substring(0, 4) ?? "",
+    "SRK last4:", SERVICE_ROLE_KEY?.substring(Math.max(0, (SERVICE_ROLE_KEY?.length ?? 0) - 4)) ?? "");
+
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: rows, error: selErr } = await supabase
+  const { data: rows, error: selErr, count } = await supabase
     .from("lead_capture")
-    .select("*")
+    .select("*", { count: "exact" })
     .eq("processed", false)
     .order("created_at", { ascending: true })
     .limit(BATCH_LIMIT);
+
+  console.log("[process-lead-capture] DEBUG select result",
+    "rows:", rows?.length ?? 0, "count:", count, "error:", selErr?.message ?? null);
 
   if (selErr) {
     console.error("[process-lead-capture] select falhou", selErr.message);
