@@ -129,12 +129,8 @@ type TourGroup = {
 };
 type DashboardGroup = SimpleGroup | TourGroup;
 
-type PeriodMode = "yesterday" | "7d" | "30d" | "custom";
-interface PeriodState {
-  mode: PeriodMode;
-  from: Date;
-  to: Date;
-}
+import type { PeriodMode, PeriodState } from "@/lib/crm/period";
+import { periodFromMode } from "@/lib/crm/period";
 
 // ============================================================
 // Helpers
