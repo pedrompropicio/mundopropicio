@@ -69,10 +69,22 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       onCreated?.(data.id);
     },
     onError: (err: any) => {
-      if (err?.message?.includes("suppliers_name_unique")) {
-        toast.error("Já existe um fornecedor/parceiro com este nome");
+      const msg = String(err?.message ?? "");
+      const code = String(err?.code ?? "");
+      if (msg.includes("suppliers_company_name_unique") || msg.includes("suppliers_name_unique")) {
+        toast.error("Já existe um fornecedor/parceiro com este nome nesta empresa");
+      } else if (code === "42501" || /row-level security|permission denied/i.test(msg)) {
+        toast.error("Sem permissão para criar fornecedores", {
+          description: "A tua role não tem permissão. Pede a um admin/manager.",
+        });
+      } else if (code === "P0001" && /company_id/i.test(msg)) {
+        toast.error("Empresa ativa não definida", {
+          description: "Seleciona a empresa no canto superior antes de criar o fornecedor.",
+        });
+      } else if (code === "23503") {
+        toast.error("Referência inválida", { description: msg });
       } else {
-        toast.error("Erro ao criar fornecedor");
+        toast.error("Erro ao criar fornecedor", { description: msg || code || "Erro desconhecido" });
       }
     },
   });
