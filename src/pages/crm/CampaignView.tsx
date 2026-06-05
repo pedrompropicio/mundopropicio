@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { pt } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -38,11 +38,16 @@ import {
   Pause,
   Play,
   Loader2,
+  Pencil,
+  Link2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { classifyCreative } from "@/lib/creative-media";
+import { classifyCreative, metaAdsManagerUrl } from "@/lib/creative-media";
 import { EditCampaignPopover, type CampaignRow } from "@/pages/crm/Campaigns";
 import { ReactivateCampaignDialog } from "@/components/crm/ReactivateCampaignDialog";
+import { PeriodSelector } from "@/components/crm/PeriodSelector";
+import { EditAdsetBudgetDialog } from "@/components/crm/EditAdsetBudgetDialog";
+import { periodFromMode, type PeriodState } from "@/lib/crm/period";
 
 // ── Tipos (subset dos snapshots; só o que a página usa) ─────────────────────
 interface CampaignSnap {
