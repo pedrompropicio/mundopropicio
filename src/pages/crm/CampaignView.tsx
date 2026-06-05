@@ -91,6 +91,9 @@ interface CreativeRow {
   file_url: string;
   file_mime_type: string | null;
   headline: string | null;
+  body: string | null;
+  cta_type: string | null;
+  link_url: string | null;
   analysis_jsonb: any;
 }
 interface InsightRow {
