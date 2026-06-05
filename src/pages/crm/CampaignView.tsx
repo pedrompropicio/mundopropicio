@@ -701,9 +701,22 @@ export default function CrmCampaignView() {
         </div>
       </div>
 
-      {/* Métricas chave (últimos 30d) */}
+      {/* Métricas chave (período selecionável) */}
       <div>
-        <h2 className="text-sm font-semibold mb-2 text-muted-foreground">Métricas chave · últimos 30 dias</h2>
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+          <h2 className="text-sm font-semibold text-muted-foreground">
+            Métricas chave ·{" "}
+            {period.mode === "yesterday"
+              ? "ontem"
+              : period.mode === "7d"
+                ? "últimos 7 dias"
+                : "últimos 30 dias"}
+          </h2>
+          <PeriodSelector
+            mode={period.mode}
+            onChange={(m) => setPeriod(periodFromMode(m))}
+          />
+        </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard icon={TrendingUp} label="ROAS" value={metrics.roas == null ? "—" : `${metrics.roas.toFixed(2)}x`} />
           <MetricCard icon={Wallet} label="Gasto" value={eur(metrics.spend, cur)} />
@@ -711,7 +724,7 @@ export default function CrmCampaignView() {
           <MetricCard icon={Users} label="Conversões" value={intFmt(metrics.conversions)} />
         </div>
         {(insights ?? []).length === 0 && (
-          <p className="text-xs text-muted-foreground mt-2">Sem dados de insights nos últimos 30 dias.</p>
+          <p className="text-xs text-muted-foreground mt-2">Sem dados de insights no período selecionado.</p>
         )}
       </div>
 
@@ -783,13 +796,48 @@ export default function CrmCampaignView() {
         })()}
       </Card>
 
-      {/* Configuração */}
+      {/* Configuração — detecção ABO/CBO */}
       <Card className="p-5">
-        <h2 className="text-lg font-semibold mb-3">Configuração</h2>
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+          <h2 className="text-lg font-semibold">Configuração</h2>
+          {budgetSummary.mode !== "unknown" && (
+            <Badge
+              variant="outline"
+              className={cn(
+                "border text-[10px]",
+                budgetSummary.mode === "CBO"
+                  ? "border-cyan-500/40 text-cyan-400 bg-cyan-500/10"
+                  : "border-indigo-500/40 text-indigo-400 bg-indigo-500/10",
+              )}
+              title={
+                budgetSummary.mode === "CBO"
+                  ? "Campaign Budget Optimization — orçamento ao nível da campanha"
+                  : "Adset Budget Optimization — orçamento ao nível dos adsets"
+              }
+            >
+              Orçamento: {budgetSummary.mode}
+              {budgetSummary.mode === "ABO" && ` (${budgetSummary.adsetCount} adsets)`}
+            </Badge>
+          )}
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
           <ConfigRow label="Estratégia de licitação" value={campaign.bid_strategy} />
-          <ConfigRow label="Orçamento diário" value={eur(campaign.daily_budget_cents, cur)} />
-          <ConfigRow label="Orçamento total" value={eur(campaign.lifetime_budget_cents, cur)} />
+          <ConfigRow
+            label={
+              budgetSummary.mode === "ABO"
+                ? `Orçamento diário (soma ${budgetSummary.adsetCount} adsets)`
+                : "Orçamento diário"
+            }
+            value={eur(budgetSummary.daily_cents, cur)}
+          />
+          <ConfigRow
+            label={
+              budgetSummary.mode === "ABO"
+                ? `Orçamento total (soma ${budgetSummary.adsetCount} adsets)`
+                : "Orçamento total"
+            }
+            value={eur(budgetSummary.lifetime_cents, cur)}
+          />
           <ConfigRow label="Tipo de compra" value={campaign.buying_type} />
           <ConfigRow label="Início" value={dateFmt(campaign.start_time)} />
           <ConfigRow label="Fim" value={campaign.stop_time ? dateFmt(campaign.stop_time) : "—"} />
@@ -819,7 +867,7 @@ export default function CrmCampaignView() {
         <PillRow icon={UserMinus} label="Audiências excluídas" items={targeting.excluded} destructive />
       </Card>
 
-      {/* Adsets */}
+      {/* Adsets — detalhados, com ações */}
       <Card className="p-5">
         <h2 className="text-lg font-semibold mb-3">Adsets ({(adsets ?? []).length})</h2>
         {(adsets ?? []).length === 0 ? (
@@ -828,30 +876,88 @@ export default function CrmCampaignView() {
           <Accordion type="multiple" className="w-full">
             {(adsets ?? []).map((a) => {
               const t = aggregateTargeting([a]);
+              const eff = a.effective_status ?? a.status ?? null;
+              const isActive = eff === "ACTIVE";
+              const isPaused = eff === "PAUSED";
+              const adsetCur = a.currency ?? cur;
+              const busy = adsetToggling === a.external_adset_id;
               return (
                 <AccordionItem key={a.external_adset_id} value={a.external_adset_id}>
                   <AccordionTrigger>
-                    <div className="flex items-center gap-2 text-left">
-                      <Badge variant="outline" className={cn("border text-[10px]", statusColor(a.effective_status ?? a.status))}>
-                        {a.effective_status ?? a.status ?? "—"}
+                    <div className="flex items-center gap-2 text-left flex-1 pr-3">
+                      <Badge variant="outline" className={cn("border text-[10px]", statusColor(eff))}>
+                        {eff ?? "—"}
                       </Badge>
-                      <span className="font-medium">{a.name ?? a.external_adset_id}</span>
+                      <span className="font-medium flex-1 truncate">{a.name ?? a.external_adset_id}</span>
+                      <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+                        {eur(a.daily_budget_cents, adsetCur)} / dia
+                      </span>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-3 pt-1">
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1.5 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
                         <ConfigRow label="Objetivo de otimização" value={a.optimization_goal} />
                         <ConfigRow label="Evento de faturação" value={a.billing_event} />
-                        <ConfigRow label="Orçamento diário" value={eur(a.daily_budget_cents, a.currency ?? cur)} />
+                        <ConfigRow label="Orçamento diário" value={eur(a.daily_budget_cents, adsetCur)} />
+                        <ConfigRow label="Orçamento total" value={eur(a.lifetime_budget_cents, adsetCur)} />
                       </div>
                       <Separator />
-                      <PillRow icon={MapPin} label="Cidades" items={t.cities.map((c) => c.name)} small />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <PillRow icon={MapPin} label="Países" items={t.countries} small />
+                        <PillRow icon={MapPin} label="Cidades" items={t.cities.map((c) => c.radius ? `${c.name} (${c.radius}${c.unit ?? "km"})` : c.name)} small />
+                      </div>
                       <div className="text-xs">
-                        <span className="text-muted-foreground">Idade: </span>
+                        <span className="text-muted-foreground">Faixa etária: </span>
                         <strong>{t.ageMin ?? "?"}–{t.ageMax ?? "?"}</strong>
                       </div>
-                      <PillRow icon={Users} label="Audiências" items={t.included} small />
+                      <PillRow icon={Users} label="Audiências incluídas" items={t.included} small />
+                      <PillRow icon={UserMinus} label="Audiências excluídas" items={t.excluded} destructive small />
+
+                      <Separator />
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {(isActive || isPaused) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={busy}
+                            onClick={() => {
+                              const target = isActive ? "PAUSED" : "ACTIVE";
+                              if (isActive && !confirm(`Pausar adset "${a.name ?? a.external_adset_id}" no Meta?`)) return;
+                              runEntityToggle({
+                                entity_type: "adset",
+                                external_id: a.external_adset_id,
+                                connection_id: a.connection_id,
+                                ad_account_id: a.ad_account_id,
+                                target,
+                                label: `Adset "${a.name ?? a.external_adset_id}"`,
+                              });
+                            }}
+                            className={cn(
+                              "h-7 px-2 text-[11px]",
+                              isActive
+                                ? "border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                                : "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10",
+                            )}
+                          >
+                            {busy ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : isActive ? (
+                              <><Pause className="h-3 w-3 mr-1" /> Pausar</>
+                            ) : (
+                              <><Play className="h-3 w-3 mr-1" /> Ativar</>
+                            )}
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[11px]"
+                          onClick={() => setEditAdsetBudget(a)}
+                        >
+                          <Pencil className="h-3 w-3 mr-1" /> Editar verba
+                        </Button>
+                      </div>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -861,9 +967,9 @@ export default function CrmCampaignView() {
         )}
       </Card>
 
-      {/* Criativos */}
+      {/* Ads — criativo, link, pausar/ativar */}
       <Card className="p-5">
-        <h2 className="text-lg font-semibold mb-3">Criativos ({(ads ?? []).length})</h2>
+        <h2 className="text-lg font-semibold mb-3">Anúncios ({(ads ?? []).length})</h2>
         {(ads ?? []).length === 0 ? (
           <p className="text-sm text-muted-foreground">Sem anúncios sincronizados.</p>
         ) : (
@@ -873,6 +979,11 @@ export default function CrmCampaignView() {
               const kind = cr ? classifyCreative(cr.file_url, cr.type, cr.file_mime_type) : null;
               const verdict = cr?.analysis_jsonb?.verdict as string | undefined;
               const vMeta = verdict ? verdictLabel[verdict] : undefined;
+              const eff = ad.effective_status ?? ad.status ?? null;
+              const isActive = eff === "ACTIVE";
+              const isPaused = eff === "PAUSED";
+              const busy = adToggling === ad.external_ad_id;
+              const adsManagerUrl = metaAdsManagerUrl(ad.ad_account_id);
               return (
                 <Card key={ad.external_ad_id} className="overflow-hidden">
                   <div className="aspect-video bg-muted flex items-center justify-center">
@@ -890,10 +1001,45 @@ export default function CrmCampaignView() {
                   <div className="p-3 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="text-sm font-medium line-clamp-2">{ad.name ?? "(sem nome)"}</div>
-                      <Badge variant="outline" className={cn("border text-[9px] shrink-0", statusColor(ad.effective_status ?? ad.status))}>
-                        {ad.effective_status ?? ad.status ?? "—"}
+                      <Badge variant="outline" className={cn("border text-[9px] shrink-0", statusColor(eff))}>
+                        {eff ?? "—"}
                       </Badge>
                     </div>
+
+                    {cr?.headline && (
+                      <p className="text-xs text-muted-foreground line-clamp-2" title={cr.headline}>
+                        {cr.headline}
+                      </p>
+                    )}
+                    {cr?.cta_type && (
+                      <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
+                        {cr.cta_type}
+                      </Badge>
+                    )}
+
+                    {/* Link de destino — somente leitura nesta sprint.
+                        TODO[link-edit]: editar link do ad requer criar novo
+                        adcreative na Meta (clone do existente com link
+                        substituído) + PATCH ao ad com creative.creative_id.
+                        Os criativos são imutáveis depois de associados a ads,
+                        por isso fica fora deste passo. */}
+                    {cr?.link_url ? (
+                      <a
+                        href={cr.link_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] text-cyan-400 hover:text-cyan-300 inline-flex items-center gap-1 break-all"
+                        title={cr.link_url}
+                      >
+                        <Link2 className="h-3 w-3 shrink-0" />
+                        <span className="line-clamp-1">{cr.link_url}</span>
+                      </a>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground/60 inline-flex items-center gap-1">
+                        <Link2 className="h-3 w-3" /> sem link sincronizado
+                      </span>
+                    )}
+
                     {vMeta && (
                       <Badge variant="outline" className={cn("border text-[10px] gap-1", vMeta.color)}>
                         <Sparkles className="h-3 w-3" /> {vMeta.label}
@@ -902,20 +1048,63 @@ export default function CrmCampaignView() {
                         )}
                       </Badge>
                     )}
-                    {cr ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs text-cyan-400 hover:text-cyan-300"
-                        onClick={() => navigate(`/audience/creatives/${cr.id}`)}
-                      >
-                        <Eye className="h-3.5 w-3.5 mr-1" /> Ver análise
-                      </Button>
-                    ) : (
-                      <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
-                        <ExternalLink className="h-3 w-3" /> só no Ads Manager
-                      </span>
-                    )}
+
+                    <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                      {(isActive || isPaused) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() => {
+                            const target = isActive ? "PAUSED" : "ACTIVE";
+                            if (isActive && !confirm(`Pausar anúncio "${ad.name ?? ad.external_ad_id}" no Meta?`)) return;
+                            runEntityToggle({
+                              entity_type: "ad",
+                              external_id: ad.external_ad_id,
+                              connection_id: ad.connection_id,
+                              ad_account_id: ad.ad_account_id,
+                              target,
+                              label: `Anúncio "${ad.name ?? ad.external_ad_id}"`,
+                            });
+                          }}
+                          className={cn(
+                            "h-6 px-2 text-[10px]",
+                            isActive
+                              ? "border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                              : "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10",
+                          )}
+                        >
+                          {busy ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : isActive ? (
+                            <><Pause className="h-3 w-3 mr-0.5" /> Pausar</>
+                          ) : (
+                            <><Play className="h-3 w-3 mr-0.5" /> Ativar</>
+                          )}
+                        </Button>
+                      )}
+                      {cr && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-[10px] text-cyan-400 hover:text-cyan-300"
+                          onClick={() => navigate(`/audience/creatives/${cr.id}`)}
+                        >
+                          <Eye className="h-3 w-3 mr-0.5" /> Análise
+                        </Button>
+                      )}
+                      {adsManagerUrl && (
+                        <a
+                          href={adsManagerUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5"
+                          title="Abrir no Meta Ads Manager"
+                        >
+                          <ExternalLink className="h-3 w-3 mr-0.5" /> Ads Manager
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </Card>
               );
@@ -923,6 +1112,7 @@ export default function CrmCampaignView() {
           </div>
         )}
       </Card>
+
 
       {/* Histórico */}
       <Card className="p-5">
