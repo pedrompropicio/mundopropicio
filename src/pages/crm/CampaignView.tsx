@@ -486,6 +486,83 @@ export default function CrmCampaignView() {
     return m;
   }, [creatives]);
 
+  // ── ABO vs CBO detection ─────────────────────────────────────────────────
+  // CBO: orçamento ao nível da campanha. ABO: orçamento ao nível dos adsets.
+  // Regra prática: se a campanha tem daily/lifetime_budget_cents → CBO; senão
+  // se a soma dos adsets > 0 → ABO; caso contrário, unknown.
+  const budgetSummary = useMemo(() => {
+    const list = adsets ?? [];
+    const sumDaily = list.reduce((s, a) => s + (a.daily_budget_cents ?? 0), 0);
+    const sumLifetime = list.reduce((s, a) => s + (a.lifetime_budget_cents ?? 0), 0);
+    const campaignHasBudget =
+      (campaign?.daily_budget_cents ?? 0) > 0 ||
+      (campaign?.lifetime_budget_cents ?? 0) > 0;
+    const adsetsHaveBudget = sumDaily > 0 || sumLifetime > 0;
+    const mode: "CBO" | "ABO" | "unknown" = campaignHasBudget
+      ? "CBO"
+      : adsetsHaveBudget
+        ? "ABO"
+        : "unknown";
+    return {
+      mode,
+      daily_cents:
+        mode === "CBO" ? campaign?.daily_budget_cents ?? null : sumDaily || null,
+      lifetime_cents:
+        mode === "CBO" ? campaign?.lifetime_budget_cents ?? null : sumLifetime || null,
+      adsetCount: list.length,
+    };
+  }, [campaign, adsets]);
+
+  // ── Toggle Adset / Ad (reutiliza a edge fn crm-meta-entity-action) ───────
+  async function runEntityToggle(opts: {
+    entity_type: "adset" | "ad";
+    external_id: string;
+    connection_id: string;
+    ad_account_id?: string;
+    target: "ACTIVE" | "PAUSED";
+    label: string;
+  }) {
+    const setter = opts.entity_type === "adset" ? setAdsetToggling : setAdToggling;
+    setter(opts.external_id);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-entity-action", {
+        body: {
+          connection_id: opts.connection_id,
+          entity_type: opts.entity_type,
+          external_id: opts.external_id,
+          action: opts.target === "ACTIVE" ? "activate" : "pause",
+          ad_account_id: opts.ad_account_id,
+          triggered_by: "user_manual",
+        },
+      });
+      if (error) {
+        let detail = error.message;
+        const ctx = (error as any).context;
+        if (ctx) {
+          try {
+            const b = await (ctx.clone ? ctx.clone() : ctx).json();
+            detail = b?.detail || b?.error || detail;
+          } catch {}
+        }
+        throw new Error(detail);
+      }
+      if ((data as any)?.ok === false) throw new Error((data as any)?.detail ?? "Falha");
+      toast.success(
+        opts.target === "ACTIVE"
+          ? `${opts.label} ativado`
+          : `${opts.label} pausado`,
+      );
+      qc.invalidateQueries({
+        queryKey: [opts.entity_type === "adset" ? "crm-campaign-view-adsets" : "crm-campaign-view-ads", id],
+      });
+    } catch (e: any) {
+      toast.error("Falha a alterar status no Meta", { description: e?.message ?? String(e) });
+    } finally {
+      setter(null);
+    }
+  }
+
+
   // ── Ações (duplicação leve do toggle da lista; ver Campaigns.tsx) ───────────
   async function runToggle(target: "ACTIVE" | "PAUSED", reasonText?: string) {
     if (!campaign) return;
