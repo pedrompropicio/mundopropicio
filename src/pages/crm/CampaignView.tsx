@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { pt } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -38,11 +38,16 @@ import {
   Pause,
   Play,
   Loader2,
+  Pencil,
+  Link2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { classifyCreative } from "@/lib/creative-media";
+import { classifyCreative, metaAdsManagerUrl } from "@/lib/creative-media";
 import { EditCampaignPopover, type CampaignRow } from "@/pages/crm/Campaigns";
 import { ReactivateCampaignDialog } from "@/components/crm/ReactivateCampaignDialog";
+import { PeriodSelector } from "@/components/crm/PeriodSelector";
+import { EditAdsetBudgetDialog } from "@/components/crm/EditAdsetBudgetDialog";
+import { periodFromMode, type PeriodState } from "@/lib/crm/period";
 
 // ── Tipos (subset dos snapshots; só o que a página usa) ─────────────────────
 interface CampaignSnap {
@@ -69,6 +74,8 @@ interface AdsetSnap {
   lifetime_budget_cents: number | null;
   currency: string | null;
   targeting: any;
+  connection_id: string;
+  ad_account_id: string;
 }
 interface AdSnap {
   external_ad_id: string;
@@ -77,6 +84,8 @@ interface AdSnap {
   status: string | null;
   effective_status: string | null;
   meta_creative_id: string | null;
+  connection_id: string;
+  ad_account_id: string;
 }
 interface CreativeRow {
   id: string;
@@ -86,6 +95,9 @@ interface CreativeRow {
   file_url: string;
   file_mime_type: string | null;
   headline: string | null;
+  body: string | null;
+  cta_type: string | null;
+  link_url: string | null;
   analysis_jsonb: any;
 }
 interface InsightRow {
@@ -244,7 +256,11 @@ export default function CrmCampaignView() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [toggling, setToggling] = useState(false);
+  const [adsetToggling, setAdsetToggling] = useState<string | null>(null);
+  const [adToggling, setAdToggling] = useState<string | null>(null);
+  const [editAdsetBudget, setEditAdsetBudget] = useState<AdsetSnap | null>(null);
   const [reactivateOpen, setReactivateOpen] = useState(false);
+  const [period, setPeriod] = useState<PeriodState>(periodFromMode("30d"));
 
   // 1) Campanha
   const { data: campaign, isLoading: loadingCampaign, error: campaignError } =
@@ -263,13 +279,13 @@ export default function CrmCampaignView() {
       },
     });
 
-  // 2) Insights últimos 30d (nível campanha — única fonte de métricas)
+  // 2) Insights — período selecionado (Ontem / 7d / 30d)
+  const periodFromStr = format(period.from, "yyyy-MM-dd");
+  const periodToStr = format(period.to, "yyyy-MM-dd");
   const { data: insights } = useQuery({
-    queryKey: ["crm-campaign-view-insights", id],
+    queryKey: ["crm-campaign-view-insights", id, periodFromStr, periodToStr],
     enabled: !!id,
     queryFn: async () => {
-      const since = new Date();
-      since.setDate(since.getDate() - 30);
       const { data, error } = await (supabase as any)
         .schema("crm")
         .from("meta_campaign_insights_daily")
@@ -277,13 +293,14 @@ export default function CrmCampaignView() {
           "date_start, spend_cents, ctr, impressions, clicks, purchases_count, purchases_value_cents, roas, currency",
         )
         .eq("external_campaign_id", id)
-        .gte("date_start", since.toISOString().slice(0, 10));
+        .gte("date_start", periodFromStr)
+        .lte("date_start", periodToStr);
       if (error) throw error;
       return (data ?? []) as InsightRow[];
     },
   });
 
-  // 3) Adsets
+  // 3) Adsets — incluímos connection_id/ad_account_id p/ poder chamar entity-action
   const { data: adsets } = useQuery({
     queryKey: ["crm-campaign-view-adsets", id],
     enabled: !!id,
@@ -292,7 +309,7 @@ export default function CrmCampaignView() {
         .schema("crm")
         .from("meta_adset_snapshot")
         .select(
-          "external_adset_id, name, status, effective_status, optimization_goal, billing_event, daily_budget_cents, lifetime_budget_cents, currency, targeting",
+          "external_adset_id, name, status, effective_status, optimization_goal, billing_event, daily_budget_cents, lifetime_budget_cents, currency, targeting, connection_id, ad_account_id",
         )
         .eq("external_campaign_id", id);
       if (error) throw error;
@@ -300,7 +317,7 @@ export default function CrmCampaignView() {
     },
   });
 
-  // 4) Ads
+  // 4) Ads — idem
   const { data: ads } = useQuery({
     queryKey: ["crm-campaign-view-ads", id],
     enabled: !!id,
@@ -309,7 +326,7 @@ export default function CrmCampaignView() {
         .schema("crm")
         .from("meta_ad_snapshot")
         .select(
-          "external_ad_id, external_adset_id, name, status, effective_status, meta_creative_id",
+          "external_ad_id, external_adset_id, name, status, effective_status, meta_creative_id, connection_id, ad_account_id",
         )
         .eq("external_campaign_id", id);
       if (error) throw error;
@@ -333,7 +350,7 @@ export default function CrmCampaignView() {
         .schema("crm")
         .from("meta_creatives")
         .select(
-          "id, meta_creative_id, name, type, file_url, file_mime_type, headline, analysis_jsonb",
+          "id, meta_creative_id, name, type, file_url, file_mime_type, headline, body, cta_type, link_url, analysis_jsonb",
         )
         .in("meta_creative_id", creativeIds);
       if (error) throw error;
@@ -468,6 +485,83 @@ export default function CrmCampaignView() {
     });
     return m;
   }, [creatives]);
+
+  // ── ABO vs CBO detection ─────────────────────────────────────────────────
+  // CBO: orçamento ao nível da campanha. ABO: orçamento ao nível dos adsets.
+  // Regra prática: se a campanha tem daily/lifetime_budget_cents → CBO; senão
+  // se a soma dos adsets > 0 → ABO; caso contrário, unknown.
+  const budgetSummary = useMemo(() => {
+    const list = adsets ?? [];
+    const sumDaily = list.reduce((s, a) => s + (a.daily_budget_cents ?? 0), 0);
+    const sumLifetime = list.reduce((s, a) => s + (a.lifetime_budget_cents ?? 0), 0);
+    const campaignHasBudget =
+      (campaign?.daily_budget_cents ?? 0) > 0 ||
+      (campaign?.lifetime_budget_cents ?? 0) > 0;
+    const adsetsHaveBudget = sumDaily > 0 || sumLifetime > 0;
+    const mode: "CBO" | "ABO" | "unknown" = campaignHasBudget
+      ? "CBO"
+      : adsetsHaveBudget
+        ? "ABO"
+        : "unknown";
+    return {
+      mode,
+      daily_cents:
+        mode === "CBO" ? campaign?.daily_budget_cents ?? null : sumDaily || null,
+      lifetime_cents:
+        mode === "CBO" ? campaign?.lifetime_budget_cents ?? null : sumLifetime || null,
+      adsetCount: list.length,
+    };
+  }, [campaign, adsets]);
+
+  // ── Toggle Adset / Ad (reutiliza a edge fn crm-meta-entity-action) ───────
+  async function runEntityToggle(opts: {
+    entity_type: "adset" | "ad";
+    external_id: string;
+    connection_id: string;
+    ad_account_id?: string;
+    target: "ACTIVE" | "PAUSED";
+    label: string;
+  }) {
+    const setter = opts.entity_type === "adset" ? setAdsetToggling : setAdToggling;
+    setter(opts.external_id);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-entity-action", {
+        body: {
+          connection_id: opts.connection_id,
+          entity_type: opts.entity_type,
+          external_id: opts.external_id,
+          action: opts.target === "ACTIVE" ? "activate" : "pause",
+          ad_account_id: opts.ad_account_id,
+          triggered_by: "user_manual",
+        },
+      });
+      if (error) {
+        let detail = error.message;
+        const ctx = (error as any).context;
+        if (ctx) {
+          try {
+            const b = await (ctx.clone ? ctx.clone() : ctx).json();
+            detail = b?.detail || b?.error || detail;
+          } catch {}
+        }
+        throw new Error(detail);
+      }
+      if ((data as any)?.ok === false) throw new Error((data as any)?.detail ?? "Falha");
+      toast.success(
+        opts.target === "ACTIVE"
+          ? `${opts.label} ativado`
+          : `${opts.label} pausado`,
+      );
+      qc.invalidateQueries({
+        queryKey: [opts.entity_type === "adset" ? "crm-campaign-view-adsets" : "crm-campaign-view-ads", id],
+      });
+    } catch (e: any) {
+      toast.error("Falha a alterar status no Meta", { description: e?.message ?? String(e) });
+    } finally {
+      setter(null);
+    }
+  }
+
 
   // ── Ações (duplicação leve do toggle da lista; ver Campaigns.tsx) ───────────
   async function runToggle(target: "ACTIVE" | "PAUSED", reasonText?: string) {
@@ -607,9 +701,22 @@ export default function CrmCampaignView() {
         </div>
       </div>
 
-      {/* Métricas chave (últimos 30d) */}
+      {/* Métricas chave (período selecionável) */}
       <div>
-        <h2 className="text-sm font-semibold mb-2 text-muted-foreground">Métricas chave · últimos 30 dias</h2>
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+          <h2 className="text-sm font-semibold text-muted-foreground">
+            Métricas chave ·{" "}
+            {period.mode === "yesterday"
+              ? "ontem"
+              : period.mode === "7d"
+                ? "últimos 7 dias"
+                : "últimos 30 dias"}
+          </h2>
+          <PeriodSelector
+            mode={period.mode}
+            onChange={(m) => setPeriod(periodFromMode(m))}
+          />
+        </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard icon={TrendingUp} label="ROAS" value={metrics.roas == null ? "—" : `${metrics.roas.toFixed(2)}x`} />
           <MetricCard icon={Wallet} label="Gasto" value={eur(metrics.spend, cur)} />
@@ -617,7 +724,7 @@ export default function CrmCampaignView() {
           <MetricCard icon={Users} label="Conversões" value={intFmt(metrics.conversions)} />
         </div>
         {(insights ?? []).length === 0 && (
-          <p className="text-xs text-muted-foreground mt-2">Sem dados de insights nos últimos 30 dias.</p>
+          <p className="text-xs text-muted-foreground mt-2">Sem dados de insights no período selecionado.</p>
         )}
       </div>
 
@@ -689,13 +796,48 @@ export default function CrmCampaignView() {
         })()}
       </Card>
 
-      {/* Configuração */}
+      {/* Configuração — detecção ABO/CBO */}
       <Card className="p-5">
-        <h2 className="text-lg font-semibold mb-3">Configuração</h2>
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+          <h2 className="text-lg font-semibold">Configuração</h2>
+          {budgetSummary.mode !== "unknown" && (
+            <Badge
+              variant="outline"
+              className={cn(
+                "border text-[10px]",
+                budgetSummary.mode === "CBO"
+                  ? "border-cyan-500/40 text-cyan-400 bg-cyan-500/10"
+                  : "border-indigo-500/40 text-indigo-400 bg-indigo-500/10",
+              )}
+              title={
+                budgetSummary.mode === "CBO"
+                  ? "Campaign Budget Optimization — orçamento ao nível da campanha"
+                  : "Adset Budget Optimization — orçamento ao nível dos adsets"
+              }
+            >
+              Orçamento: {budgetSummary.mode}
+              {budgetSummary.mode === "ABO" && ` (${budgetSummary.adsetCount} adsets)`}
+            </Badge>
+          )}
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
           <ConfigRow label="Estratégia de licitação" value={campaign.bid_strategy} />
-          <ConfigRow label="Orçamento diário" value={eur(campaign.daily_budget_cents, cur)} />
-          <ConfigRow label="Orçamento total" value={eur(campaign.lifetime_budget_cents, cur)} />
+          <ConfigRow
+            label={
+              budgetSummary.mode === "ABO"
+                ? `Orçamento diário (soma ${budgetSummary.adsetCount} adsets)`
+                : "Orçamento diário"
+            }
+            value={eur(budgetSummary.daily_cents, cur)}
+          />
+          <ConfigRow
+            label={
+              budgetSummary.mode === "ABO"
+                ? `Orçamento total (soma ${budgetSummary.adsetCount} adsets)`
+                : "Orçamento total"
+            }
+            value={eur(budgetSummary.lifetime_cents, cur)}
+          />
           <ConfigRow label="Tipo de compra" value={campaign.buying_type} />
           <ConfigRow label="Início" value={dateFmt(campaign.start_time)} />
           <ConfigRow label="Fim" value={campaign.stop_time ? dateFmt(campaign.stop_time) : "—"} />
@@ -725,7 +867,7 @@ export default function CrmCampaignView() {
         <PillRow icon={UserMinus} label="Audiências excluídas" items={targeting.excluded} destructive />
       </Card>
 
-      {/* Adsets */}
+      {/* Adsets — detalhados, com ações */}
       <Card className="p-5">
         <h2 className="text-lg font-semibold mb-3">Adsets ({(adsets ?? []).length})</h2>
         {(adsets ?? []).length === 0 ? (
@@ -734,30 +876,88 @@ export default function CrmCampaignView() {
           <Accordion type="multiple" className="w-full">
             {(adsets ?? []).map((a) => {
               const t = aggregateTargeting([a]);
+              const eff = a.effective_status ?? a.status ?? null;
+              const isActive = eff === "ACTIVE";
+              const isPaused = eff === "PAUSED";
+              const adsetCur = a.currency ?? cur;
+              const busy = adsetToggling === a.external_adset_id;
               return (
                 <AccordionItem key={a.external_adset_id} value={a.external_adset_id}>
                   <AccordionTrigger>
-                    <div className="flex items-center gap-2 text-left">
-                      <Badge variant="outline" className={cn("border text-[10px]", statusColor(a.effective_status ?? a.status))}>
-                        {a.effective_status ?? a.status ?? "—"}
+                    <div className="flex items-center gap-2 text-left flex-1 pr-3">
+                      <Badge variant="outline" className={cn("border text-[10px]", statusColor(eff))}>
+                        {eff ?? "—"}
                       </Badge>
-                      <span className="font-medium">{a.name ?? a.external_adset_id}</span>
+                      <span className="font-medium flex-1 truncate">{a.name ?? a.external_adset_id}</span>
+                      <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+                        {eur(a.daily_budget_cents, adsetCur)} / dia
+                      </span>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-3 pt-1">
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1.5 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
                         <ConfigRow label="Objetivo de otimização" value={a.optimization_goal} />
                         <ConfigRow label="Evento de faturação" value={a.billing_event} />
-                        <ConfigRow label="Orçamento diário" value={eur(a.daily_budget_cents, a.currency ?? cur)} />
+                        <ConfigRow label="Orçamento diário" value={eur(a.daily_budget_cents, adsetCur)} />
+                        <ConfigRow label="Orçamento total" value={eur(a.lifetime_budget_cents, adsetCur)} />
                       </div>
                       <Separator />
-                      <PillRow icon={MapPin} label="Cidades" items={t.cities.map((c) => c.name)} small />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <PillRow icon={MapPin} label="Países" items={t.countries} small />
+                        <PillRow icon={MapPin} label="Cidades" items={t.cities.map((c) => c.radius ? `${c.name} (${c.radius}${c.unit ?? "km"})` : c.name)} small />
+                      </div>
                       <div className="text-xs">
-                        <span className="text-muted-foreground">Idade: </span>
+                        <span className="text-muted-foreground">Faixa etária: </span>
                         <strong>{t.ageMin ?? "?"}–{t.ageMax ?? "?"}</strong>
                       </div>
-                      <PillRow icon={Users} label="Audiências" items={t.included} small />
+                      <PillRow icon={Users} label="Audiências incluídas" items={t.included} small />
+                      <PillRow icon={UserMinus} label="Audiências excluídas" items={t.excluded} destructive small />
+
+                      <Separator />
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {(isActive || isPaused) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={busy}
+                            onClick={() => {
+                              const target = isActive ? "PAUSED" : "ACTIVE";
+                              if (isActive && !confirm(`Pausar adset "${a.name ?? a.external_adset_id}" no Meta?`)) return;
+                              runEntityToggle({
+                                entity_type: "adset",
+                                external_id: a.external_adset_id,
+                                connection_id: a.connection_id,
+                                ad_account_id: a.ad_account_id,
+                                target,
+                                label: `Adset "${a.name ?? a.external_adset_id}"`,
+                              });
+                            }}
+                            className={cn(
+                              "h-7 px-2 text-[11px]",
+                              isActive
+                                ? "border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                                : "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10",
+                            )}
+                          >
+                            {busy ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : isActive ? (
+                              <><Pause className="h-3 w-3 mr-1" /> Pausar</>
+                            ) : (
+                              <><Play className="h-3 w-3 mr-1" /> Ativar</>
+                            )}
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[11px]"
+                          onClick={() => setEditAdsetBudget(a)}
+                        >
+                          <Pencil className="h-3 w-3 mr-1" /> Editar verba
+                        </Button>
+                      </div>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -767,9 +967,9 @@ export default function CrmCampaignView() {
         )}
       </Card>
 
-      {/* Criativos */}
+      {/* Ads — criativo, link, pausar/ativar */}
       <Card className="p-5">
-        <h2 className="text-lg font-semibold mb-3">Criativos ({(ads ?? []).length})</h2>
+        <h2 className="text-lg font-semibold mb-3">Anúncios ({(ads ?? []).length})</h2>
         {(ads ?? []).length === 0 ? (
           <p className="text-sm text-muted-foreground">Sem anúncios sincronizados.</p>
         ) : (
@@ -779,6 +979,11 @@ export default function CrmCampaignView() {
               const kind = cr ? classifyCreative(cr.file_url, cr.type, cr.file_mime_type) : null;
               const verdict = cr?.analysis_jsonb?.verdict as string | undefined;
               const vMeta = verdict ? verdictLabel[verdict] : undefined;
+              const eff = ad.effective_status ?? ad.status ?? null;
+              const isActive = eff === "ACTIVE";
+              const isPaused = eff === "PAUSED";
+              const busy = adToggling === ad.external_ad_id;
+              const adsManagerUrl = metaAdsManagerUrl(ad.ad_account_id);
               return (
                 <Card key={ad.external_ad_id} className="overflow-hidden">
                   <div className="aspect-video bg-muted flex items-center justify-center">
@@ -796,10 +1001,45 @@ export default function CrmCampaignView() {
                   <div className="p-3 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="text-sm font-medium line-clamp-2">{ad.name ?? "(sem nome)"}</div>
-                      <Badge variant="outline" className={cn("border text-[9px] shrink-0", statusColor(ad.effective_status ?? ad.status))}>
-                        {ad.effective_status ?? ad.status ?? "—"}
+                      <Badge variant="outline" className={cn("border text-[9px] shrink-0", statusColor(eff))}>
+                        {eff ?? "—"}
                       </Badge>
                     </div>
+
+                    {cr?.headline && (
+                      <p className="text-xs text-muted-foreground line-clamp-2" title={cr.headline}>
+                        {cr.headline}
+                      </p>
+                    )}
+                    {cr?.cta_type && (
+                      <Badge variant="outline" className="text-[10px] border-border text-muted-foreground">
+                        {cr.cta_type}
+                      </Badge>
+                    )}
+
+                    {/* Link de destino — somente leitura nesta sprint.
+                        TODO[link-edit]: editar link do ad requer criar novo
+                        adcreative na Meta (clone do existente com link
+                        substituído) + PATCH ao ad com creative.creative_id.
+                        Os criativos são imutáveis depois de associados a ads,
+                        por isso fica fora deste passo. */}
+                    {cr?.link_url ? (
+                      <a
+                        href={cr.link_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] text-cyan-400 hover:text-cyan-300 inline-flex items-center gap-1 break-all"
+                        title={cr.link_url}
+                      >
+                        <Link2 className="h-3 w-3 shrink-0" />
+                        <span className="line-clamp-1">{cr.link_url}</span>
+                      </a>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground/60 inline-flex items-center gap-1">
+                        <Link2 className="h-3 w-3" /> sem link sincronizado
+                      </span>
+                    )}
+
                     {vMeta && (
                       <Badge variant="outline" className={cn("border text-[10px] gap-1", vMeta.color)}>
                         <Sparkles className="h-3 w-3" /> {vMeta.label}
@@ -808,20 +1048,63 @@ export default function CrmCampaignView() {
                         )}
                       </Badge>
                     )}
-                    {cr ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs text-cyan-400 hover:text-cyan-300"
-                        onClick={() => navigate(`/audience/creatives/${cr.id}`)}
-                      >
-                        <Eye className="h-3.5 w-3.5 mr-1" /> Ver análise
-                      </Button>
-                    ) : (
-                      <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
-                        <ExternalLink className="h-3 w-3" /> só no Ads Manager
-                      </span>
-                    )}
+
+                    <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                      {(isActive || isPaused) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() => {
+                            const target = isActive ? "PAUSED" : "ACTIVE";
+                            if (isActive && !confirm(`Pausar anúncio "${ad.name ?? ad.external_ad_id}" no Meta?`)) return;
+                            runEntityToggle({
+                              entity_type: "ad",
+                              external_id: ad.external_ad_id,
+                              connection_id: ad.connection_id,
+                              ad_account_id: ad.ad_account_id,
+                              target,
+                              label: `Anúncio "${ad.name ?? ad.external_ad_id}"`,
+                            });
+                          }}
+                          className={cn(
+                            "h-6 px-2 text-[10px]",
+                            isActive
+                              ? "border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                              : "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10",
+                          )}
+                        >
+                          {busy ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : isActive ? (
+                            <><Pause className="h-3 w-3 mr-0.5" /> Pausar</>
+                          ) : (
+                            <><Play className="h-3 w-3 mr-0.5" /> Ativar</>
+                          )}
+                        </Button>
+                      )}
+                      {cr && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-[10px] text-cyan-400 hover:text-cyan-300"
+                          onClick={() => navigate(`/audience/creatives/${cr.id}`)}
+                        >
+                          <Eye className="h-3 w-3 mr-0.5" /> Análise
+                        </Button>
+                      )}
+                      {adsManagerUrl && (
+                        <a
+                          href={adsManagerUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5"
+                          title="Abrir no Meta Ads Manager"
+                        >
+                          <ExternalLink className="h-3 w-3 mr-0.5" /> Ads Manager
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </Card>
               );
@@ -829,6 +1112,7 @@ export default function CrmCampaignView() {
           </div>
         )}
       </Card>
+
 
       {/* Histórico */}
       <Card className="p-5">
@@ -889,6 +1173,17 @@ export default function CrmCampaignView() {
         campaignName={campaign.name}
         onConfirm={(reason) => runToggle("ACTIVE", reason)}
       />
+
+      {editAdsetBudget && (
+        <EditAdsetBudgetDialog
+          open={!!editAdsetBudget}
+          onOpenChange={(v) => { if (!v) setEditAdsetBudget(null); }}
+          adset={editAdsetBudget}
+          connectionId={editAdsetBudget.connection_id}
+          adAccountId={editAdsetBudget.ad_account_id ?? null}
+          onSaved={() => qc.invalidateQueries({ queryKey: ["crm-campaign-view-adsets", id] })}
+        />
+      )}
     </div>
   );
 }
