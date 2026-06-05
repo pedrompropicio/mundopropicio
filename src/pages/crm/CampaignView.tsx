@@ -74,6 +74,8 @@ interface AdsetSnap {
   lifetime_budget_cents: number | null;
   currency: string | null;
   targeting: any;
+  connection_id: string;
+  ad_account_id: string;
 }
 interface AdSnap {
   external_ad_id: string;
@@ -82,6 +84,8 @@ interface AdSnap {
   status: string | null;
   effective_status: string | null;
   meta_creative_id: string | null;
+  connection_id: string;
+  ad_account_id: string;
 }
 interface CreativeRow {
   id: string;
