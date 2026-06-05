@@ -252,7 +252,11 @@ export default function CrmCampaignView() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [toggling, setToggling] = useState(false);
+  const [adsetToggling, setAdsetToggling] = useState<string | null>(null);
+  const [adToggling, setAdToggling] = useState<string | null>(null);
+  const [editAdsetBudget, setEditAdsetBudget] = useState<AdsetSnap | null>(null);
   const [reactivateOpen, setReactivateOpen] = useState(false);
+  const [period, setPeriod] = useState<PeriodState>(periodFromMode("30d"));
 
   // 1) Campanha
   const { data: campaign, isLoading: loadingCampaign, error: campaignError } =
@@ -271,13 +275,13 @@ export default function CrmCampaignView() {
       },
     });
 
-  // 2) Insights últimos 30d (nível campanha — única fonte de métricas)
+  // 2) Insights — período selecionado (Ontem / 7d / 30d)
+  const periodFromStr = format(period.from, "yyyy-MM-dd");
+  const periodToStr = format(period.to, "yyyy-MM-dd");
   const { data: insights } = useQuery({
-    queryKey: ["crm-campaign-view-insights", id],
+    queryKey: ["crm-campaign-view-insights", id, periodFromStr, periodToStr],
     enabled: !!id,
     queryFn: async () => {
-      const since = new Date();
-      since.setDate(since.getDate() - 30);
       const { data, error } = await (supabase as any)
         .schema("crm")
         .from("meta_campaign_insights_daily")
@@ -285,13 +289,14 @@ export default function CrmCampaignView() {
           "date_start, spend_cents, ctr, impressions, clicks, purchases_count, purchases_value_cents, roas, currency",
         )
         .eq("external_campaign_id", id)
-        .gte("date_start", since.toISOString().slice(0, 10));
+        .gte("date_start", periodFromStr)
+        .lte("date_start", periodToStr);
       if (error) throw error;
       return (data ?? []) as InsightRow[];
     },
   });
 
-  // 3) Adsets
+  // 3) Adsets — incluímos connection_id/ad_account_id p/ poder chamar entity-action
   const { data: adsets } = useQuery({
     queryKey: ["crm-campaign-view-adsets", id],
     enabled: !!id,
@@ -300,7 +305,7 @@ export default function CrmCampaignView() {
         .schema("crm")
         .from("meta_adset_snapshot")
         .select(
-          "external_adset_id, name, status, effective_status, optimization_goal, billing_event, daily_budget_cents, lifetime_budget_cents, currency, targeting",
+          "external_adset_id, name, status, effective_status, optimization_goal, billing_event, daily_budget_cents, lifetime_budget_cents, currency, targeting, connection_id, ad_account_id",
         )
         .eq("external_campaign_id", id);
       if (error) throw error;
@@ -308,7 +313,7 @@ export default function CrmCampaignView() {
     },
   });
 
-  // 4) Ads
+  // 4) Ads — idem
   const { data: ads } = useQuery({
     queryKey: ["crm-campaign-view-ads", id],
     enabled: !!id,
@@ -317,7 +322,7 @@ export default function CrmCampaignView() {
         .schema("crm")
         .from("meta_ad_snapshot")
         .select(
-          "external_ad_id, external_adset_id, name, status, effective_status, meta_creative_id",
+          "external_ad_id, external_adset_id, name, status, effective_status, meta_creative_id, connection_id, ad_account_id",
         )
         .eq("external_campaign_id", id);
       if (error) throw error;
@@ -341,7 +346,7 @@ export default function CrmCampaignView() {
         .schema("crm")
         .from("meta_creatives")
         .select(
-          "id, meta_creative_id, name, type, file_url, file_mime_type, headline, analysis_jsonb",
+          "id, meta_creative_id, name, type, file_url, file_mime_type, headline, body, cta_type, link_url, analysis_jsonb",
         )
         .in("meta_creative_id", creativeIds);
       if (error) throw error;
