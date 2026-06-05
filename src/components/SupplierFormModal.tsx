@@ -125,7 +125,17 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       onOpenChange(false);
       toast.success("Fornecedor atualizado com sucesso");
     },
-    onError: () => toast.error("Erro ao atualizar fornecedor"),
+    onError: (err: any) => {
+      const msg = String(err?.message ?? "");
+      const code = String(err?.code ?? "");
+      if (code === "42501" || /row-level security|permission denied/i.test(msg)) {
+        toast.error("Sem permissão para editar fornecedores", {
+          description: "A tua role não tem permissão. Pede a um admin/manager.",
+        });
+      } else {
+        toast.error("Erro ao atualizar fornecedor", { description: msg || code || "Erro desconhecido" });
+      }
+    },
   });
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
