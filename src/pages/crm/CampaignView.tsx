@@ -1173,6 +1173,17 @@ export default function CrmCampaignView() {
         campaignName={campaign.name}
         onConfirm={(reason) => runToggle("ACTIVE", reason)}
       />
+
+      {editAdsetBudget && (
+        <EditAdsetBudgetDialog
+          open={!!editAdsetBudget}
+          onOpenChange={(v) => { if (!v) setEditAdsetBudget(null); }}
+          adset={editAdsetBudget}
+          connectionId={editAdsetBudget.connection_id}
+          adAccountId={editAdsetBudget.ad_account_id ?? null}
+          onSaved={() => qc.invalidateQueries({ queryKey: ["crm-campaign-view-adsets", id] })}
+        />
+      )}
     </div>
   );
 }
