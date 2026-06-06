@@ -153,7 +153,9 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const { email } = body;
-    const portal: Portal = (body.portal ?? "erp") as Portal;
+    // Param `portal` aceite por extensibilidade futura, mas só 'erp' é válido.
+    const portalRaw = (body.portal ?? "erp") as string;
+    const portal: Portal = (PORTAL_URLS[portalRaw] ? portalRaw : "erp") as Portal;
 
     if (!email || typeof email !== "string") {
       return new Response(
