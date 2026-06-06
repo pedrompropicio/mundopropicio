@@ -174,6 +174,10 @@ export default function EventMarketingEditor() {
     );
   }
 
+  const ev = eventQuery.data as any;
+  const isForeign = ev && ev.company_id !== MP_COMPANY_ID;
+  const isPartnerManaged = ev && ev.management_type === "partner_managed";
+
   return (
     <div className="space-y-4 pb-24">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -183,9 +187,16 @@ export default function EventMarketingEditor() {
               <ArrowLeft className="h-4 w-4" /> Voltar
             </Link>
           </Button>
-          <h1 className="text-2xl font-bold text-foreground">{eventQuery.data.name}</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground">{ev?.name}</h1>
+            {isPartnerManaged && (
+              <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-sm text-amber-600">
+                🤝 Parceria{ev.partner_name ? ` com ${ev.partner_name}` : ""} — não entra em BP/TX/Operação/Audience
+              </span>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">
-            Slug ERP: {eventQuery.data.slug ?? "—"} · Data: {eventQuery.data.date ?? "—"}
+            Slug ERP: {ev?.slug ?? "—"} · Data: {ev?.date ?? "—"}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -195,15 +206,26 @@ export default function EventMarketingEditor() {
             variant="outline"
             size="sm"
             onClick={togglePublish}
-            disabled={saveMutation.isPending}
+            disabled={saveMutation.isPending || isForeign}
           >
             {form!.status === "published" ? "Despublicar" : "Publicar"}
           </Button>
         </div>
       </div>
 
-      <Tabs defaultValue="hero">
+      {isForeign && (
+        <Card className="border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+          Este evento pertence a outra empresa e não pode ser editado aqui. Volta à lista e
+          abre via tab Endossados.
+          <Button asChild variant="outline" size="sm" className="ml-3">
+            <Link to="/crm/eventos">Voltar</Link>
+          </Button>
+        </Card>
+      )}
+
+      <Tabs defaultValue={isForeign ? "hero" : "gestao"}>
         <TabsList className="flex w-full flex-wrap h-auto">
+          <TabsTrigger value="gestao">Gestão</TabsTrigger>
           <TabsTrigger value="hero">Hero</TabsTrigger>
           <TabsTrigger value="imagens">Imagens</TabsTrigger>
           <TabsTrigger value="cta">CTA &amp; Urgência</TabsTrigger>
@@ -211,6 +233,10 @@ export default function EventMarketingEditor() {
           <TabsTrigger value="oferta">Oferta</TabsTrigger>
           <TabsTrigger value="seo">SEO</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="gestao">
+          <GestaoTab eventId={eventId} ev={ev} disabled={!!isForeign} />
+        </TabsContent>
 
         <TabsContent value="hero">
           <Card className="space-y-4 p-4">
