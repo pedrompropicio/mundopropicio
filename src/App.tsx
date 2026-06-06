@@ -149,7 +149,17 @@ import CrmFunnelTest from "./pages/crm/FunnelTest";
 import ModuleSelector from "./pages/ModuleSelector";
 import PostLoginRedirect from "./components/PostLoginRedirect";
 import { AudienceLayout } from "./components/layout/AudienceLayout";
+import { CrmLayout } from "./components/layout/CrmLayout";
 import { PartnerLayout } from "./components/PartnerLayout";
+import CrmDashboard from "./pages/crm-admin/CrmDashboard";
+import {
+  CrmEventosPlaceholder,
+  CrmContactosPlaceholder,
+  CrmLeadsPlaceholder,
+  CrmAudiencesPlaceholder,
+  CrmBlogPlaceholder,
+  CrmPaginasPlaceholder,
+} from "./pages/crm-admin/CrmPlaceholder";
 import { useLocation } from "react-router-dom";
 
 const queryClient = new QueryClient({
@@ -474,8 +484,6 @@ function ProtectedLayout() {
               <Route path="/admin/notifications" element={<Notifications />} />
               <Route path="/admin/diagnosis-test" element={<DiagnosisTest />} />
               <Route path="/perfil" element={<UserSettings />} />
-              <Route path="/crm/connections" element={<Navigate to="/audience/connections" replace />} />
-              <Route path="/crm/campaigns" element={<Navigate to="/audience/dashboard" replace />} />
             </Routes>
           </div>
         </main>
@@ -544,6 +552,15 @@ function App() {
                   </Route>
                   <Route path="/audience/strategies/:id/print" element={<CrmStrategyPrint />} />
                   <Route path="/audience/print/:type" element={<AudiencePrint />} />
+                  <Route path="/crm" element={<CrmLayout />}>
+                    <Route index element={<CrmDashboard />} />
+                    <Route path="eventos" element={<CrmEventosPlaceholder />} />
+                    <Route path="contactos" element={<CrmContactosPlaceholder />} />
+                    <Route path="leads" element={<CrmLeadsPlaceholder />} />
+                    <Route path="audiences" element={<CrmAudiencesPlaceholder />} />
+                    <Route path="blog" element={<CrmBlogPlaceholder />} />
+                    <Route path="paginas" element={<CrmPaginasPlaceholder />} />
+                  </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
               </BrowserRouter>
