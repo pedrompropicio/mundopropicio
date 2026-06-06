@@ -215,17 +215,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ERP: manter OTP code (retrocompat — ResetPassword.tsx flow atual).
-    // CRM portals: usar link com token_hash → /admin/set-password?token_hash=...&type=recovery
-    const isCrm = portal !== "erp";
-    const setupUrl = isCrm && tokenHash
-      ? `${portalRedirect}?token_hash=${tokenHash}&type=recovery`
-      : undefined;
+    // ERP: OTP code flow (ResetPassword.tsx).
+    const setupUrl: string | undefined = undefined;
 
     const html = await renderAsync(
       React.createElement(RecoveryEmail, {
         siteName,
-        token: setupUrl ? undefined : otp,
+        token: otp,
         setupUrl,
       })
     );
