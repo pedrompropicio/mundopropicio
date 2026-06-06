@@ -225,9 +225,7 @@ Deno.serve(async (req) => {
         setupUrl,
       })
     );
-    const text = setupUrl
-      ? `Recuperação de senha — ${siteName}. Abra o link para definir nova senha: ${setupUrl}`
-      : `Código de recuperação de senha — ${siteName}: ${otp}`;
+    const text = `Código de recuperação de senha — ${siteName}: ${otp}`;
 
     // Enqueue via transactional queue
     const messageId = crypto.randomUUID();
