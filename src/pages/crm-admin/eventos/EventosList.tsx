@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Search, ChevronRight } from "lucide-react";
@@ -21,8 +21,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { MP_COMPANY_ID } from "../constants";
 import type { EventRow, EventMarketingRow } from "../types";
+
+const ACTIVE_ONLY_KEY = "crm.eventos.activeOnly";
+const INACTIVE_STATUSES = new Set(["completed", "cancelled", "archived"]);
+
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 type EventWithMk = EventRow & {
   marketing: Pick<EventMarketingRow, "status" | "updated_at"> | null;
@@ -31,6 +41,17 @@ type EventWithMk = EventRow & {
 export default function EventosList() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [activeOnly, setActiveOnly] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const v = window.localStorage.getItem(ACTIVE_ONLY_KEY);
+    return v === null ? true : v === "true";
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(ACTIVE_ONLY_KEY, String(activeOnly));
+    } catch {}
+  }, [activeOnly]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["crm-eventos-list", MP_COMPANY_ID],
@@ -61,7 +82,9 @@ export default function EventosList() {
     },
   });
 
-  const rows = useMemo(() => {
+  const today = todayISO();
+
+  const baseFiltered = useMemo(() => {
     const list = data ?? [];
     return list.filter((e) => {
       if (search) {
@@ -79,6 +102,18 @@ export default function EventosList() {
       return true;
     });
   }, [data, search, statusFilter]);
+
+  const rows = useMemo(() => {
+    if (!activeOnly) return baseFiltered;
+    return baseFiltered.filter((e) => {
+      if (e.status && INACTIVE_STATUSES.has(String(e.status).toLowerCase())) return false;
+      if (e.date && e.date < today) return false;
+      return true;
+    });
+  }, [baseFiltered, activeOnly, today]);
+
+  const totalCount = baseFiltered.length;
+  const shownCount = rows.length;
 
   return (
     <div className="space-y-4">
@@ -111,7 +146,24 @@ export default function EventosList() {
               <SelectItem value="none">Sem marketing</SelectItem>
             </SelectContent>
           </Select>
+          <div className="flex items-center gap-2 sm:pl-2">
+            <Switch
+              id="crm-eventos-active-only"
+              checked={activeOnly}
+              onCheckedChange={setActiveOnly}
+              className="data-[state=checked]:bg-emerald-500"
+            />
+            <Label
+              htmlFor="crm-eventos-active-only"
+              className="text-sm cursor-pointer whitespace-nowrap"
+            >
+              Apenas eventos activos
+            </Label>
+          </div>
         </div>
+        <p className="text-xs text-muted-foreground mt-2">
+          {activeOnly ? `${shownCount} de ${totalCount} eventos` : `${totalCount} eventos`}
+        </p>
       </Card>
 
       <Card>
