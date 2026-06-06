@@ -10259,6 +10259,33 @@ export type Database = {
           version_number: number
         }[]
       }
+      list_endorsable_companies: {
+        Args: { p_portal_company_id: string }
+        Returns: {
+          display_name: string
+          id: string
+          legal_name: string
+        }[]
+      }
+      list_endorsable_events: {
+        Args: {
+          p_company_filter?: string
+          p_hide_past?: boolean
+          p_limit?: number
+          p_portal_company_id: string
+          p_search?: string
+        }
+        Returns: {
+          company_display_name: string
+          company_id: string
+          company_legal_name: string
+          date: string
+          hero_image_url: string
+          id: string
+          name: string
+          status: string
+        }[]
+      }
       list_orphan_transactions_for_event: {
         Args: { _event_id: string }
         Returns: {
