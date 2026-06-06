@@ -153,10 +153,11 @@ import { CrmLayout } from "./components/layout/CrmLayout";
 import { PartnerLayout } from "./components/PartnerLayout";
 import CrmDashboard from "./pages/crm-admin/CrmDashboard";
 import {
-  CrmContactosPlaceholder,
-  CrmLeadsPlaceholder,
-  CrmAudiencesPlaceholder,
-} from "./pages/crm-admin/CrmPlaceholder";
+import ContactosList from "./pages/crm-admin/contactos/ContactosList";
+import LeadsList from "./pages/crm-admin/leads/LeadsList";
+import AudiencesList from "./pages/crm-admin/audiences/AudiencesList";
+import AudienceNew from "./pages/crm-admin/audiences/AudienceNew";
+import AudienceEditor from "./pages/crm-admin/audiences/AudienceEditor";
 import EventosList from "./pages/crm-admin/eventos/EventosList";
 import EventMarketingEditor from "./pages/crm-admin/eventos/EventMarketingEditor";
 import BlogList from "./pages/crm-admin/blog/BlogList";
