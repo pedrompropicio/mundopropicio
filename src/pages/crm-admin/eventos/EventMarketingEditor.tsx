@@ -66,10 +66,10 @@ export default function EventMarketingEditor() {
 
   const eventQuery = useQuery({
     queryKey: ["crm-event", eventId],
-    queryFn: async (): Promise<EventRow | null> => {
+    queryFn: async (): Promise<any> => {
       const { data, error } = await (supabase as any)
         .from("events")
-        .select("id, name, slug, status, date, company_id")
+        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured")
         .eq("id", eventId)
         .maybeSingle();
       if (error) throw error;
