@@ -503,3 +503,118 @@ function Field({
     </div>
   );
 }
+
+import { Switch } from "@/components/ui/switch";
+
+function GestaoTab({
+  eventId,
+  ev,
+  disabled,
+}: {
+  eventId: string;
+  ev: any;
+  disabled: boolean;
+}) {
+  const qc = useQueryClient();
+  const [mgmt, setMgmt] = useState<string>(ev?.management_type ?? "own");
+  const [partnerName, setPartnerName] = useState<string>(ev?.partner_name ?? "");
+  const [location, setLocation] = useState<string>(ev?.location ?? "");
+  const [ticketingUrl, setTicketingUrl] = useState<string>(ev?.ticketing_url ?? "");
+  const [ticketingProvider, setTicketingProvider] = useState<string>(ev?.ticketing_provider ?? "");
+  const [portalVisible, setPortalVisible] = useState<boolean>(!!ev?.portal_visible);
+  const [portalFeatured, setPortalFeatured] = useState<boolean>(!!ev?.portal_featured);
+
+  useEffect(() => {
+    setMgmt(ev?.management_type ?? "own");
+    setPartnerName(ev?.partner_name ?? "");
+    setLocation(ev?.location ?? "");
+    setTicketingUrl(ev?.ticketing_url ?? "");
+    setTicketingProvider(ev?.ticketing_provider ?? "");
+    setPortalVisible(!!ev?.portal_visible);
+    setPortalFeatured(!!ev?.portal_featured);
+  }, [ev]);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const { error } = await (supabase as any)
+        .from("events")
+        .update({
+          management_type: mgmt,
+          partner_name: mgmt === "partner_managed" ? (partnerName.trim() || null) : null,
+          location: location.trim() || null,
+          ticketing_url: ticketingUrl.trim() || null,
+          ticketing_provider: ticketingProvider.trim() || null,
+          portal_visible: portalVisible,
+          portal_featured: portalFeatured,
+        })
+        .eq("id", eventId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Gestão guardada.");
+      qc.invalidateQueries({ queryKey: ["crm-event", eventId] });
+      qc.invalidateQueries({ queryKey: ["crm-eventos-list"] });
+    },
+    onError: (e: any) => toast.error(`Falha: ${e.message ?? e}`),
+  });
+
+  return (
+    <Card className="space-y-4 p-4">
+      <Field label="Tipo de gestão">
+        <Select value={mgmt} onValueChange={setMgmt} disabled={disabled}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="own">Própria (MP gere tudo)</SelectItem>
+            <SelectItem value="partner_managed">Parceria (sócio externo gere)</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+
+      {mgmt === "partner_managed" && (
+        <Field label="Nome do parceiro">
+          <Input
+            value={partnerName}
+            onChange={(e) => setPartnerName(e.target.value)}
+            placeholder="ex.: Pulsetto Productions"
+            disabled={disabled}
+          />
+        </Field>
+      )}
+
+      <p className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
+        Mudar para Parceria esconde imediatamente o evento de BP, TX, Operação e Audience.
+        Mudar de Parceria para Própria volta a mostrá-lo nesses módulos.
+      </p>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Localização">
+          <Input value={location} onChange={(e) => setLocation(e.target.value)} disabled={disabled} />
+        </Field>
+        <Field label="Ticketing URL">
+          <Input type="url" value={ticketingUrl} onChange={(e) => setTicketingUrl(e.target.value)} disabled={disabled} />
+        </Field>
+        <Field label="Ticketing provider">
+          <Input value={ticketingProvider} onChange={(e) => setTicketingProvider(e.target.value)} disabled={disabled} />
+        </Field>
+      </div>
+
+      <div className="flex flex-wrap gap-6 pt-2">
+        <label className="flex items-center gap-2 text-sm">
+          <Switch checked={portalVisible} onCheckedChange={setPortalVisible} disabled={disabled} />
+          Visível no portal
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <Switch checked={portalFeatured} onCheckedChange={setPortalFeatured} disabled={disabled} />
+          Destacado na homepage
+        </label>
+      </div>
+
+      <div className="flex justify-end">
+        <Button onClick={() => save.mutate()} disabled={disabled || save.isPending}>
+          {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Guardar gestão
+        </Button>
+      </div>
+    </Card>
+  );
+}
