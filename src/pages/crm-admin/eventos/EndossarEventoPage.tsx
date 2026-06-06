@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, Search, Check } from "lucide-react";
@@ -20,22 +20,22 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ImageUploader } from "../components/ImageUploader";
 import { MP_COMPANY_ID } from "../constants";
 
-type ExternalEvent = {
+type EndorsableEvent = {
   id: string;
   name: string;
   date: string | null;
   status: string | null;
   company_id: string;
   hero_image_url: string | null;
-  company: { id: string; display_name: string | null; legal_name: string | null } | null;
+  company_display_name: string | null;
+  company_legal_name: string | null;
 };
 
-const INACTIVE = new Set(["completed", "archived", "cancelled"]);
-
-function todayISO() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+type EndorsableCompany = {
+  id: string;
+  display_name: string | null;
+  legal_name: string | null;
+};
 
 export default function EndossarEventoPage() {
   const navigate = useNavigate();
@@ -43,6 +43,7 @@ export default function EndossarEventoPage() {
   const { user } = useAuth();
 
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [hidePast, setHidePast] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -52,63 +53,40 @@ export default function EndossarEventoPage() {
   const [featured, setFeatured] = useState(false);
   const [overrideHero, setOverrideHero] = useState<string | null>(null);
 
-  const { data: events, isLoading } = useQuery({
-    queryKey: ["crm-endossar-picker"],
-    queryFn: async (): Promise<ExternalEvent[]> => {
-      const { data: ev, error } = await (supabase as any)
-        .from("events")
-        .select("id, name, date, status, company_id, hero_image_url")
-        .neq("company_id", MP_COMPANY_ID)
-        .order("date", { ascending: false, nullsFirst: false })
-        .limit(500);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const { data: companies } = useQuery({
+    queryKey: ["crm-endossar-companies", MP_COMPANY_ID],
+    queryFn: async (): Promise<EndorsableCompany[]> => {
+      const { data, error } = await (supabase as any).rpc("list_endorsable_companies", {
+        p_portal_company_id: MP_COMPANY_ID,
+      });
       if (error) throw error;
-
-      const { data: already } = await (supabase as any)
-        .from("event_portal_endorsements")
-        .select("event_id")
-        .eq("portal_company_id", MP_COMPANY_ID);
-      const alreadySet = new Set((already ?? []).map((r: any) => r.event_id));
-
-      const filtered = (ev ?? []).filter((e: any) => !alreadySet.has(e.id));
-      const companyIds = Array.from(new Set(filtered.map((e: any) => e.company_id).filter(Boolean)));
-      let companyMap = new Map<string, any>();
-      if (companyIds.length > 0) {
-        const { data: companies } = await (supabase as any)
-          .from("companies")
-          .select("id, display_name, legal_name")
-          .in("id", companyIds);
-        companyMap = new Map<string, any>((companies ?? []).map((c: any) => [c.id, c]));
-      }
-      return filtered.map((e: any) => ({ ...e, company: companyMap.get(e.company_id) ?? null }));
+      return (data ?? []) as EndorsableCompany[];
     },
   });
 
-  const companies = useMemo(() => {
-    const map = new Map<string, string>();
-    (events ?? []).forEach((e) => {
-      if (e.company) {
-        map.set(e.company.id, e.company.display_name ?? e.company.legal_name ?? e.company.id);
-      }
-    });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [events]);
-
-  const today = todayISO();
-  const filteredEvents = useMemo(() => {
-    return (events ?? []).filter((e) => {
-      if (search && !e.name.toLowerCase().includes(search.toLowerCase())) return false;
-      if (companyFilter !== "all" && e.company_id !== companyFilter) return false;
-      if (hidePast) {
-        if (e.status && INACTIVE.has(String(e.status).toLowerCase())) return false;
-        if (e.date && e.date < today) return false;
-      }
-      return true;
-    });
-  }, [events, search, companyFilter, hidePast, today]);
+  const { data: events, isLoading } = useQuery({
+    queryKey: ["crm-endossar-events", MP_COMPANY_ID, debouncedSearch, companyFilter, hidePast],
+    queryFn: async (): Promise<EndorsableEvent[]> => {
+      const { data, error } = await (supabase as any).rpc("list_endorsable_events", {
+        p_portal_company_id: MP_COMPANY_ID,
+        p_search: debouncedSearch || null,
+        p_company_filter: companyFilter === "all" ? null : companyFilter,
+        p_hide_past: hidePast,
+        p_limit: 500,
+      });
+      if (error) throw error;
+      return (data ?? []) as EndorsableEvent[];
+    },
+  });
 
   const selected = useMemo(
-    () => filteredEvents.find((e) => e.id === selectedId) ?? (events ?? []).find((e) => e.id === selectedId) ?? null,
-    [filteredEvents, events, selectedId]
+    () => (events ?? []).find((e) => e.id === selectedId) ?? null,
+    [events, selectedId]
   );
 
   const saveMutation = useMutation({
@@ -167,8 +145,10 @@ export default function EndossarEventoPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas as empresas</SelectItem>
-                {companies.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                {(companies ?? []).map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.display_name ?? c.legal_name ?? c.id}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -180,11 +160,12 @@ export default function EndossarEventoPage() {
 
           <div className="max-h-[500px] space-y-1 overflow-y-auto">
             {isLoading && <p className="p-4 text-sm text-muted-foreground">A carregar…</p>}
-            {!isLoading && filteredEvents.length === 0 && (
+            {!isLoading && (events ?? []).length === 0 && (
               <p className="p-4 text-sm text-muted-foreground">Sem eventos disponíveis.</p>
             )}
-            {filteredEvents.map((e) => {
+            {(events ?? []).map((e) => {
               const isActive = e.id === selectedId;
+              const companyName = e.company_display_name ?? e.company_legal_name ?? "—";
               return (
                 <button
                   key={e.id}
@@ -199,7 +180,7 @@ export default function EndossarEventoPage() {
                   <div className="min-w-0">
                     <p className="truncate font-medium">{e.name}</p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {e.company?.display_name ?? e.company?.legal_name ?? "—"} · {e.date ?? "—"}
+                      {companyName} · {e.date ?? "—"}
                     </p>
                   </div>
                   {isActive && <Check className="h-4 w-4 text-emerald-500" />}
@@ -218,7 +199,7 @@ export default function EndossarEventoPage() {
               <div className="rounded-md border border-border bg-muted/30 p-3">
                 <p className="text-sm font-medium">{selected.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {selected.company?.display_name ?? selected.company?.legal_name ?? "—"} · {selected.date ?? "—"}
+                  {(selected.company_display_name ?? selected.company_legal_name ?? "—")} · {selected.date ?? "—"}
                 </p>
                 {selected.hero_image_url && (
                   <img
