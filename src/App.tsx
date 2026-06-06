@@ -153,13 +153,16 @@ import { CrmLayout } from "./components/layout/CrmLayout";
 import { PartnerLayout } from "./components/PartnerLayout";
 import CrmDashboard from "./pages/crm-admin/CrmDashboard";
 import {
-  CrmEventosPlaceholder,
   CrmContactosPlaceholder,
   CrmLeadsPlaceholder,
   CrmAudiencesPlaceholder,
-  CrmBlogPlaceholder,
-  CrmPaginasPlaceholder,
 } from "./pages/crm-admin/CrmPlaceholder";
+import EventosList from "./pages/crm-admin/eventos/EventosList";
+import EventMarketingEditor from "./pages/crm-admin/eventos/EventMarketingEditor";
+import BlogList from "./pages/crm-admin/blog/BlogList";
+import BlogEditor from "./pages/crm-admin/blog/BlogEditor";
+import PaginasList from "./pages/crm-admin/paginas/PaginasList";
+import PaginaEditor from "./pages/crm-admin/paginas/PaginaEditor";
 import { useLocation } from "react-router-dom";
 
 const queryClient = new QueryClient({
@@ -554,12 +557,16 @@ function App() {
                   <Route path="/audience/print/:type" element={<AudiencePrint />} />
                   <Route path="/crm" element={<CrmLayout />}>
                     <Route index element={<CrmDashboard />} />
-                    <Route path="eventos" element={<CrmEventosPlaceholder />} />
+                    <Route path="eventos" element={<EventosList />} />
+                    <Route path="eventos/:eventId" element={<EventMarketingEditor />} />
                     <Route path="contactos" element={<CrmContactosPlaceholder />} />
                     <Route path="leads" element={<CrmLeadsPlaceholder />} />
                     <Route path="audiences" element={<CrmAudiencesPlaceholder />} />
-                    <Route path="blog" element={<CrmBlogPlaceholder />} />
-                    <Route path="paginas" element={<CrmPaginasPlaceholder />} />
+                    <Route path="blog" element={<BlogList />} />
+                    <Route path="blog/novo" element={<BlogEditor mode="new" />} />
+                    <Route path="blog/:id" element={<BlogEditor mode="edit" />} />
+                    <Route path="paginas" element={<PaginasList />} />
+                    <Route path="paginas/:slug" element={<PaginaEditor />} />
                   </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
