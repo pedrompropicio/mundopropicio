@@ -8,11 +8,33 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SITE_NAME = "MP Gestão Eventos";
 const SENDER_DOMAIN = "notify.mpgestaoeventos.com";
 const FROM_DOMAIN = "mpgestaoeventos.com";
 
-const RecoveryEmail = ({ siteName, token }: { siteName: string; token: string }) =>
+// Whitelist de portais — NUNCA aceitar URL livre do client (open redirect risk)
+const PORTAL_URLS: Record<string, string> = {
+  "erp": "https://mpgestaoeventos.com/reset-password",
+  "crm-preview": "https://preview--propicio-stage-portal.lovable.app/admin/set-password",
+  "crm-prod": "https://mundopropicio.com/admin/set-password",
+};
+
+const PORTAL_LABELS: Record<string, string> = {
+  "erp": "MP Gestão Eventos",
+  "crm-preview": "MP CRM Admin",
+  "crm-prod": "MP CRM Admin",
+};
+
+type Portal = keyof typeof PORTAL_URLS;
+
+const RecoveryEmail = ({
+  siteName,
+  token,
+  setupUrl,
+}: {
+  siteName: string;
+  token?: string;
+  setupUrl?: string;
+}) =>
   React.createElement(
     "html",
     { lang: "pt", dir: "ltr" },
@@ -52,25 +74,63 @@ const RecoveryEmail = ({ siteName, token }: { siteName: string; token: string })
               margin: "0 0 25px",
             },
           },
-          `Recebemos um pedido para redefinir a sua senha em ${siteName}. Use o código abaixo para continuar:`
+          setupUrl
+            ? `Recebemos um pedido para redefinir a sua senha em ${siteName}. Clique no botão abaixo para definir uma nova senha:`
+            : `Recebemos um pedido para redefinir a sua senha em ${siteName}. Use o código abaixo para continuar:`
         ),
-        React.createElement(
-          "p",
-          {
-            style: {
-              fontSize: "32px",
-              fontWeight: "bold",
-              color: "#1a6fb8",
-              letterSpacing: "6px",
-              textAlign: "center",
-              margin: "16px 0 28px",
-              padding: "16px",
-              backgroundColor: "#f3f4f6",
-              borderRadius: "12px",
-            },
-          },
-          token
-        ),
+        setupUrl
+          ? React.createElement(
+              "div",
+              { style: { textAlign: "center", margin: "24px 0 28px" } },
+              React.createElement(
+                "a",
+                {
+                  href: setupUrl,
+                  style: {
+                    display: "inline-block",
+                    backgroundColor: "#1a6fb8",
+                    color: "#ffffff",
+                    padding: "14px 28px",
+                    borderRadius: "10px",
+                    textDecoration: "none",
+                    fontWeight: "bold",
+                    fontSize: "15px",
+                  },
+                },
+                "Definir nova senha"
+              )
+            )
+          : React.createElement(
+              "p",
+              {
+                style: {
+                  fontSize: "32px",
+                  fontWeight: "bold",
+                  color: "#1a6fb8",
+                  letterSpacing: "6px",
+                  textAlign: "center",
+                  margin: "16px 0 28px",
+                  padding: "16px",
+                  backgroundColor: "#f3f4f6",
+                  borderRadius: "12px",
+                },
+              },
+              token
+            ),
+        setupUrl
+          ? React.createElement(
+              "p",
+              {
+                style: {
+                  fontSize: "11px",
+                  color: "#9ca3af",
+                  margin: "0 0 20px",
+                  wordBreak: "break-all",
+                },
+              },
+              `Se o botão não funcionar, copie este link: ${setupUrl}`
+            )
+          : null,
         React.createElement(
           "p",
           {
@@ -81,7 +141,7 @@ const RecoveryEmail = ({ siteName, token }: { siteName: string; token: string })
               lineHeight: "1.5",
             },
           },
-          "Se não solicitou esta recuperação, pode ignorar este email. O código expira em poucos minutos."
+          "Se não solicitou esta recuperação, pode ignorar este email. O link expira em poucos minutos."
         )
       )
     )
@@ -93,7 +153,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { email } = await req.json();
+    const body = await req.json();
+    const { email } = body;
+    const portal: Portal = (body.portal ?? "erp") as Portal;
 
     if (!email || typeof email !== "string") {
       return new Response(
@@ -102,12 +164,22 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (!PORTAL_URLS[portal]) {
+      return new Response(
+        JSON.stringify({ error: "Portal inválido" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const siteName = PORTAL_LABELS[portal];
+    const portalRedirect = PORTAL_URLS[portal];
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     // Find the user by email
-    const { data: { users }, error: listError } = await adminClient.auth.admin.listUsers();
+    const { data: { users } } = await adminClient.auth.admin.listUsers();
     const targetUser = (users ?? []).find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
 
     if (targetUser) {
@@ -117,14 +189,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Generate recovery link via admin API — this returns the OTP code
+    // Generate recovery link via admin API
     const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
       type: "recovery",
       email,
+      options: { redirectTo: portalRedirect },
     });
 
     if (linkError) {
-      // Don't reveal if user exists or not
       console.error("generateLink error:", linkError.message);
       return new Response(
         JSON.stringify({ success: true }),
@@ -133,32 +205,44 @@ Deno.serve(async (req) => {
     }
 
     const otp = linkData?.properties?.email_otp;
-    if (!otp) {
-      console.error("No OTP returned from generateLink");
+    const tokenHash = linkData?.properties?.hashed_token;
+
+    if (!otp && !tokenHash) {
+      console.error("No OTP or token_hash returned from generateLink");
       return new Response(
         JSON.stringify({ success: true }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Render the email
-    const html = await renderAsync(
-      React.createElement(RecoveryEmail, { siteName: SITE_NAME, token: otp })
-    );
-    const text = `Código de recuperação de senha — ${SITE_NAME}: ${otp}`;
+    // ERP: manter OTP code (retrocompat — ResetPassword.tsx flow atual).
+    // CRM portals: usar link com token_hash → /admin/set-password?token_hash=...&type=recovery
+    const isCrm = portal !== "erp";
+    const setupUrl = isCrm && tokenHash
+      ? `${portalRedirect}?token_hash=${tokenHash}&type=recovery`
+      : undefined;
 
-    // Enqueue via transactional queue (proven to work)
+    const html = await renderAsync(
+      React.createElement(RecoveryEmail, {
+        siteName,
+        token: setupUrl ? undefined : otp,
+        setupUrl,
+      })
+    );
+    const text = setupUrl
+      ? `Recuperação de senha — ${siteName}. Abra o link para definir nova senha: ${setupUrl}`
+      : `Código de recuperação de senha — ${siteName}: ${otp}`;
+
+    // Enqueue via transactional queue
     const messageId = crypto.randomUUID();
-    const idempotencyKey = `recovery-${messageId}`;
+    const idempotencyKey = `recovery-${portal}-${messageId}`;
     const unsubscribeToken = crypto.randomUUID();
 
-    // Create unsubscribe token
     await adminClient.from("email_unsubscribe_tokens").upsert(
       { email, token: unsubscribeToken },
       { onConflict: "email" }
     );
 
-    // Log pending
     await adminClient.from("email_send_log").insert({
       message_id: messageId,
       template_name: "recovery",
@@ -166,7 +250,6 @@ Deno.serve(async (req) => {
       status: "pending",
     });
 
-    // Enqueue
     const { error: enqueueError } = await adminClient.rpc("enqueue_email", {
       queue_name: "transactional_emails",
       payload: {
@@ -174,13 +257,13 @@ Deno.serve(async (req) => {
         idempotency_key: idempotencyKey,
         unsubscribe_token: unsubscribeToken,
         to: email,
-        from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
+        from: `${siteName} <noreply@${FROM_DOMAIN}>`,
         sender_domain: SENDER_DOMAIN,
-        subject: "Código de recuperação de senha",
+        subject: isCrm ? `${siteName} — Definir nova senha` : "Código de recuperação de senha",
         html,
         text,
         purpose: "transactional",
-        label: "recovery",
+        label: `recovery-${portal}`,
         queued_at: new Date().toISOString(),
       },
     });
@@ -196,7 +279,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Always return success (don't reveal if email exists)
     return new Response(
       JSON.stringify({ success: true }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
