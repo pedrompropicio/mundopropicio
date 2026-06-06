@@ -559,9 +559,11 @@ function App() {
                     <Route index element={<CrmDashboard />} />
                     <Route path="eventos" element={<EventosList />} />
                     <Route path="eventos/:eventId" element={<EventMarketingEditor />} />
-                    <Route path="contactos" element={<CrmContactosPlaceholder />} />
-                    <Route path="leads" element={<CrmLeadsPlaceholder />} />
-                    <Route path="audiences" element={<CrmAudiencesPlaceholder />} />
+                    <Route path="contactos" element={<ContactosList />} />
+                    <Route path="leads" element={<LeadsList />} />
+                    <Route path="audiences" element={<AudiencesList />} />
+                    <Route path="audiences/novo" element={<AudienceNew />} />
+                    <Route path="audiences/:id" element={<AudienceEditor />} />
                     <Route path="blog" element={<BlogList />} />
                     <Route path="blog/novo" element={<BlogEditor mode="new" />} />
                     <Route path="blog/:id" element={<BlogEditor mode="edit" />} />
