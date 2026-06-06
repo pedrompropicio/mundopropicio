@@ -159,6 +159,9 @@ import AudienceNew from "./pages/crm-admin/audiences/AudienceNew";
 import AudienceEditor from "./pages/crm-admin/audiences/AudienceEditor";
 import EventosList from "./pages/crm-admin/eventos/EventosList";
 import EventMarketingEditor from "./pages/crm-admin/eventos/EventMarketingEditor";
+import NewEventoPage from "./pages/crm-admin/eventos/NewEventoPage";
+import EndossarEventoPage from "./pages/crm-admin/eventos/EndossarEventoPage";
+import EndorsementEditor from "./pages/crm-admin/eventos/EndorsementEditor";
 import BlogList from "./pages/crm-admin/blog/BlogList";
 import BlogEditor from "./pages/crm-admin/blog/BlogEditor";
 import PaginasList from "./pages/crm-admin/paginas/PaginasList";
@@ -558,6 +561,9 @@ function App() {
                   <Route path="/crm" element={<CrmLayout />}>
                     <Route index element={<CrmDashboard />} />
                     <Route path="eventos" element={<EventosList />} />
+                    <Route path="eventos/novo" element={<NewEventoPage />} />
+                    <Route path="eventos/endossar" element={<EndossarEventoPage />} />
+                    <Route path="eventos/endorsement/:eventId" element={<EndorsementEditor />} />
                     <Route path="eventos/:eventId" element={<EventMarketingEditor />} />
                     <Route path="contactos" element={<ContactosList />} />
                     <Route path="leads" element={<LeadsList />} />
