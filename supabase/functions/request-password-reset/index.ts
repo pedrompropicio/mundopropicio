@@ -11,17 +11,15 @@ const corsHeaders = {
 const SENDER_DOMAIN = "notify.mpgestaoeventos.com";
 const FROM_DOMAIN = "mpgestaoeventos.com";
 
-// Whitelist de portais — NUNCA aceitar URL livre do client (open redirect risk)
+// Portal whitelist: only 'erp' supported.
+// Removed 'crm-preview' and 'crm-prod' branches (Fase 7, 2026-06-06):
+// admin migrated from portal-novo into ERP /crm/* — reset only points to ERP.
 const PORTAL_URLS: Record<string, string> = {
   "erp": "https://mpgestaoeventos.com/reset-password",
-  "crm-preview": "https://preview--propicio-stage-portal.lovable.app/admin/set-password",
-  "crm-prod": "https://mundopropicio.com/admin/set-password",
 };
 
 const PORTAL_LABELS: Record<string, string> = {
   "erp": "MP Gestão Eventos",
-  "crm-preview": "MP CRM Admin",
-  "crm-prod": "MP CRM Admin",
 };
 
 type Portal = keyof typeof PORTAL_URLS;
@@ -155,7 +153,9 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const { email } = body;
-    const portal: Portal = (body.portal ?? "erp") as Portal;
+    // Param `portal` aceite por extensibilidade futura, mas só 'erp' é válido.
+    const portalRaw = (body.portal ?? "erp") as string;
+    const portal: Portal = (PORTAL_URLS[portalRaw] ? portalRaw : "erp") as Portal;
 
     if (!email || typeof email !== "string") {
       return new Response(
@@ -215,23 +215,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ERP: manter OTP code (retrocompat — ResetPassword.tsx flow atual).
-    // CRM portals: usar link com token_hash → /admin/set-password?token_hash=...&type=recovery
-    const isCrm = portal !== "erp";
-    const setupUrl = isCrm && tokenHash
-      ? `${portalRedirect}?token_hash=${tokenHash}&type=recovery`
-      : undefined;
+    // ERP: OTP code flow (ResetPassword.tsx).
+    const setupUrl: string | undefined = undefined;
 
     const html = await renderAsync(
       React.createElement(RecoveryEmail, {
         siteName,
-        token: setupUrl ? undefined : otp,
+        token: otp,
         setupUrl,
       })
     );
-    const text = setupUrl
-      ? `Recuperação de senha — ${siteName}. Abra o link para definir nova senha: ${setupUrl}`
-      : `Código de recuperação de senha — ${siteName}: ${otp}`;
+    const text = `Código de recuperação de senha — ${siteName}: ${otp}`;
 
     // Enqueue via transactional queue
     const messageId = crypto.randomUUID();
@@ -259,7 +253,7 @@ Deno.serve(async (req) => {
         to: email,
         from: `${siteName} <noreply@${FROM_DOMAIN}>`,
         sender_domain: SENDER_DOMAIN,
-        subject: isCrm ? `${siteName} — Definir nova senha` : "Código de recuperação de senha",
+        subject: "Código de recuperação de senha",
         html,
         text,
         purpose: "transactional",
