@@ -253,7 +253,7 @@ Deno.serve(async (req) => {
         to: email,
         from: `${siteName} <noreply@${FROM_DOMAIN}>`,
         sender_domain: SENDER_DOMAIN,
-        subject: isCrm ? `${siteName} — Definir nova senha` : "Código de recuperação de senha",
+        subject: "Código de recuperação de senha",
         html,
         text,
         purpose: "transactional",
