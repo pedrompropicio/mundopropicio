@@ -11,17 +11,15 @@ const corsHeaders = {
 const SENDER_DOMAIN = "notify.mpgestaoeventos.com";
 const FROM_DOMAIN = "mpgestaoeventos.com";
 
-// Whitelist de portais — NUNCA aceitar URL livre do client (open redirect risk)
+// Portal whitelist: only 'erp' supported.
+// Removed 'crm-preview' and 'crm-prod' branches (Fase 7, 2026-06-06):
+// admin migrated from portal-novo into ERP /crm/* — reset only points to ERP.
 const PORTAL_URLS: Record<string, string> = {
   "erp": "https://mpgestaoeventos.com/reset-password",
-  "crm-preview": "https://preview--propicio-stage-portal.lovable.app/admin/set-password",
-  "crm-prod": "https://mundopropicio.com/admin/set-password",
 };
 
 const PORTAL_LABELS: Record<string, string> = {
   "erp": "MP Gestão Eventos",
-  "crm-preview": "MP CRM Admin",
-  "crm-prod": "MP CRM Admin",
 };
 
 type Portal = keyof typeof PORTAL_URLS;
