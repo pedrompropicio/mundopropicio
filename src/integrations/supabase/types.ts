@@ -9640,61 +9640,46 @@ export type Database = {
       }
       events_public: {
         Row: {
+          cta_primary_label_en: string | null
+          cta_primary_label_pt: string | null
           date: string | null
           description_en: string | null
+          description_long_en: string | null
+          description_long_pt: string | null
           description_pt: string | null
           featured: boolean | null
+          gallery_urls: string[] | null
+          has_marketing: boolean | null
           hero_image_url: string | null
+          hook_en: string | null
+          hook_pt: string | null
           id: string | null
           is_past: boolean | null
           location_en: string | null
           location_pt: string | null
+          meta_description_en: string | null
+          meta_description_pt: string | null
           meta_pixel_id: string | null
+          offer_availability: string | null
+          offer_currency: string | null
+          offer_price_max: number | null
+          offer_price_min: number | null
+          og_image_url: string | null
+          performer_name: string | null
+          performer_url: string | null
           poster_image_url: string | null
+          poster_vertical_url: string | null
+          press_quote_en: string | null
+          press_quote_pt: string | null
+          press_quote_source: string | null
           slug: string | null
           ticketing_url: string | null
           title_en: string | null
           title_pt: string | null
+          urgency_message_en: string | null
+          urgency_message_pt: string | null
           venue_directions_url: string | null
           venue_map_url: string | null
-        }
-        Insert: {
-          date?: string | null
-          description_en?: string | null
-          description_pt?: string | null
-          featured?: boolean | null
-          hero_image_url?: string | null
-          id?: string | null
-          is_past?: never
-          location_en?: never
-          location_pt?: never
-          meta_pixel_id?: string | null
-          poster_image_url?: string | null
-          slug?: string | null
-          ticketing_url?: string | null
-          title_en?: never
-          title_pt?: never
-          venue_directions_url?: string | null
-          venue_map_url?: string | null
-        }
-        Update: {
-          date?: string | null
-          description_en?: string | null
-          description_pt?: string | null
-          featured?: boolean | null
-          hero_image_url?: string | null
-          id?: string | null
-          is_past?: never
-          location_en?: never
-          location_pt?: never
-          meta_pixel_id?: string | null
-          poster_image_url?: string | null
-          slug?: string | null
-          ticketing_url?: string | null
-          title_en?: never
-          title_pt?: never
-          venue_directions_url?: string | null
-          venue_map_url?: string | null
         }
         Relationships: []
       }
