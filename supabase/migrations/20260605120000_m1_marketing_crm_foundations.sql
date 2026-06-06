@@ -3,6 +3,11 @@
 -- Cria 7 tabelas: event_marketing, static_pages, audiences,
 -- audience_snapshots, audience_members, email_campaigns, communication_log
 -- + RLS multi-tenant + indexes + triggers updated_at + published_at
+--
+-- Conteúdo alinhado com a versão aplicada pelo agente Lovable em Test
+-- (algumas refinações vs proposta original: audience_members com company_id
+-- directo, email_campaigns com body_md em vez de html/text duplicados,
+-- communication_log com occurred_at).
 -- ============================================================
 
 -- ============================================================
@@ -241,48 +246,44 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.audience_snapshots TO authenticat
 GRANT ALL ON public.audience_snapshots TO service_role;
 
 -- ============================================================
--- 5. audience_members (composite PK)
+-- 5. audience_members (com company_id directo + added_at)
 -- ============================================================
 
 CREATE TABLE public.audience_members (
   snapshot_id uuid NOT NULL REFERENCES public.audience_snapshots(id) ON DELETE CASCADE,
   contact_id uuid NOT NULL REFERENCES public.contacts(id) ON DELETE CASCADE,
+  company_id uuid NOT NULL DEFAULT public.current_company_id(),
+  added_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (snapshot_id, contact_id)
 );
 
 CREATE INDEX idx_audience_members_contact ON public.audience_members(contact_id);
+CREATE INDEX idx_audience_members_company ON public.audience_members(company_id);
 
 ALTER TABLE public.audience_members ENABLE ROW LEVEL SECURITY;
 
--- Multi-tenant via snapshot parent (sem company_id directo)
 CREATE POLICY audience_members_select ON public.audience_members
-  FOR SELECT TO authenticated USING (
-    EXISTS (SELECT 1 FROM public.audience_snapshots s
-            WHERE s.id = audience_members.snapshot_id
-            AND public.row_belongs_to_current_company(s.company_id))
-  );
+  FOR SELECT TO authenticated USING (true);
 CREATE POLICY audience_members_write ON public.audience_members
   FOR ALL TO authenticated
   USING (
-    (public.has_role(auth.uid(), 'admin'::public.app_role) OR
-     public.has_role(auth.uid(), 'marketing_manager'::public.app_role))
-    AND EXISTS (SELECT 1 FROM public.audience_snapshots s
-                WHERE s.id = audience_members.snapshot_id
-                AND public.row_belongs_to_current_company(s.company_id))
+    public.has_role(auth.uid(), 'admin'::public.app_role) OR
+    public.has_role(auth.uid(), 'marketing_manager'::public.app_role)
   )
   WITH CHECK (
-    (public.has_role(auth.uid(), 'admin'::public.app_role) OR
-     public.has_role(auth.uid(), 'marketing_manager'::public.app_role))
-    AND EXISTS (SELECT 1 FROM public.audience_snapshots s
-                WHERE s.id = audience_members.snapshot_id
-                AND public.row_belongs_to_current_company(s.company_id))
+    public.has_role(auth.uid(), 'admin'::public.app_role) OR
+    public.has_role(auth.uid(), 'marketing_manager'::public.app_role)
   );
+CREATE POLICY audience_members_company_isolation ON public.audience_members
+  AS RESTRICTIVE FOR ALL TO authenticated
+  USING (public.row_belongs_to_current_company(company_id))
+  WITH CHECK (public.row_belongs_to_current_company(company_id));
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.audience_members TO authenticated;
 GRANT ALL ON public.audience_members TO service_role;
 
 -- ============================================================
--- 6. email_campaigns (modelo sem ESP-specific)
+-- 6. email_campaigns (body_md unificado, sem ESP-specific counters)
 -- ============================================================
 
 CREATE TABLE public.email_campaigns (
@@ -291,17 +292,11 @@ CREATE TABLE public.email_campaigns (
   name text NOT NULL,
   subject_pt text, subject_en text,
   preheader_pt text, preheader_en text,
-  content_html_pt text, content_html_en text,
-  content_text_pt text, content_text_en text,
+  body_md_pt text, body_md_en text,
   audience_id uuid REFERENCES public.audiences(id) ON DELETE SET NULL,
-  audience_snapshot_id uuid REFERENCES public.audience_snapshots(id) ON DELETE SET NULL,
   status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','scheduled','sending','sent','failed','cancelled')),
   scheduled_at timestamptz,
   sent_at timestamptz,
-  sent_count int NOT NULL DEFAULT 0,
-  opens int NOT NULL DEFAULT 0,
-  clicks int NOT NULL DEFAULT 0,
-  bounces int NOT NULL DEFAULT 0,
   created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   updated_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -309,7 +304,6 @@ CREATE TABLE public.email_campaigns (
 );
 
 CREATE INDEX idx_email_campaigns_company_status ON public.email_campaigns(company_id, status);
-CREATE INDEX idx_email_campaigns_scheduled ON public.email_campaigns(scheduled_at) WHERE status = 'scheduled';
 
 CREATE TRIGGER trg_email_campaigns_updated_at BEFORE UPDATE ON public.email_campaigns
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
@@ -337,41 +331,34 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.email_campaigns TO authenticated;
 GRANT ALL ON public.email_campaigns TO service_role;
 
 -- ============================================================
--- 7. communication_log (cross-channel, append-only, service_role writes)
+-- 7. communication_log (cross-channel, occurred_at, escrita por service_role)
 -- ============================================================
 
 CREATE TABLE public.communication_log (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id uuid NOT NULL,  -- sem default — escrita por service_role passa explicitamente
+  company_id uuid NOT NULL DEFAULT public.current_company_id(),
   contact_id uuid REFERENCES public.contacts(id) ON DELETE SET NULL,
-  channel text NOT NULL CHECK (channel IN ('email','whatsapp','sms')),
-  direction text NOT NULL DEFAULT 'outbound' CHECK (direction IN ('outbound','inbound')),
+  channel text NOT NULL CHECK (channel IN ('email','whatsapp','sms','push')),
+  direction text NOT NULL DEFAULT 'outbound' CHECK (direction IN ('inbound','outbound')),
   campaign_id uuid REFERENCES public.email_campaigns(id) ON DELETE SET NULL,
   subject text,
-  body_excerpt text,
-  status text NOT NULL DEFAULT 'sent' CHECK (status IN ('queued','sent','delivered','opened','clicked','failed','bounced','complained')),
+  body_preview text,
+  status text,
   provider_message_id text,
-  sent_at timestamptz NOT NULL DEFAULT now(),
-  delivered_at timestamptz,
-  opened_at timestamptz,
-  clicked_at timestamptz,
   metadata jsonb,
+  occurred_at timestamptz NOT NULL DEFAULT now(),
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_comm_log_company_sent ON public.communication_log(company_id, sent_at DESC);
-CREATE INDEX idx_comm_log_contact ON public.communication_log(contact_id);
-CREATE INDEX idx_comm_log_campaign ON public.communication_log(campaign_id);
+CREATE INDEX idx_communication_log_company_occurred ON public.communication_log(company_id, occurred_at DESC);
+CREATE INDEX idx_communication_log_contact ON public.communication_log(contact_id);
+CREATE INDEX idx_communication_log_campaign ON public.communication_log(campaign_id);
 
 ALTER TABLE public.communication_log ENABLE ROW LEVEL SECURITY;
 
--- SELECT só admin/marketing_manager. INSERT/UPDATE/DELETE só service_role (sem policy authenticated)
-CREATE POLICY comm_log_select ON public.communication_log
-  FOR SELECT TO authenticated USING (
-    public.has_role(auth.uid(), 'admin'::public.app_role) OR
-    public.has_role(auth.uid(), 'marketing_manager'::public.app_role)
-  );
-CREATE POLICY comm_log_company_isolation ON public.communication_log
+CREATE POLICY communication_log_select ON public.communication_log
+  FOR SELECT TO authenticated USING (true);
+CREATE POLICY communication_log_company_isolation ON public.communication_log
   AS RESTRICTIVE FOR ALL TO authenticated
   USING (public.row_belongs_to_current_company(company_id))
   WITH CHECK (public.row_belongs_to_current_company(company_id));
@@ -387,6 +374,6 @@ COMMENT ON TABLE public.event_marketing IS 'Conteudo marketing 1:1 com events. M
 COMMENT ON TABLE public.static_pages IS 'Paginas estaticas unificadas (Sobre, Contacto, FAQ). UNIQUE em (company_id, slug, locale). Workflow draft|published.';
 COMMENT ON TABLE public.audiences IS 'Segmentos de contactos. criterion JSONB DSL { match, filters: [{field,op,value}] }.';
 COMMENT ON TABLE public.audience_snapshots IS 'Snapshot do conjunto de contactos no momento do export, congelando o criterio aplicado.';
-COMMENT ON TABLE public.audience_members IS 'Contactos incluidos em cada snapshot. Composite PK (snapshot_id, contact_id).';
-COMMENT ON TABLE public.email_campaigns IS 'Campanhas de email. Sem ESP-specific fields (entram em M5).';
-COMMENT ON TABLE public.communication_log IS 'Log append-only de comunicacoes cross-channel (email, whatsapp, sms). Escrita via edge function service_role.';
+COMMENT ON TABLE public.audience_members IS 'Contactos incluidos em cada snapshot. Composite PK (snapshot_id, contact_id) + company_id directo + added_at para auditoria.';
+COMMENT ON TABLE public.email_campaigns IS 'Campanhas de email. body_md unificado (sem html/text duplicados). ESP-specific fields (counters opens/clicks/bounces) entram em M5.';
+COMMENT ON TABLE public.communication_log IS 'Log append-only de comunicacoes cross-channel (email, whatsapp, sms, push). Escrita via edge function service_role. occurred_at = timestamp do evento (sent, delivered, opened, etc.).';
