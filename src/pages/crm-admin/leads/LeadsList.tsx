@@ -1,0 +1,215 @@
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { Search, X } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { MP_COMPANY_ID } from "../constants";
+import LeadDetailsSheet from "./LeadDetailsSheet";
+import { relativeFromNow } from "../lib/relativeTime";
+
+const KIND_COLORS: Record<string, string> = {
+  lead_capture: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30",
+  click: "bg-amber-500/10 text-amber-700 border-amber-500/30",
+  redirect: "bg-amber-500/10 text-amber-700 border-amber-500/30",
+};
+
+export default function LeadsList() {
+  const [params, setParams] = useSearchParams();
+  const contactFilter = params.get("contact");
+
+  const [search, setSearch] = useState("");
+  const [kindFilter, setKindFilter] = useState<string>("all");
+  const [eventFilter, setEventFilter] = useState<string>("all");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
+  const [selected, setSelected] = useState<string | null>(null);
+
+  const { data: events } = useQuery({
+    queryKey: ["crm-leads-events", MP_COMPANY_ID],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("events")
+        .select("id, name")
+        .eq("company_id", MP_COMPANY_ID)
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["crm-leads-list", MP_COMPANY_ID, contactFilter, eventFilter, fromDate, toDate],
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("leads")
+        .select(`
+          id, kind, source, utm_source, created_at, contact_id, event_id,
+          contact:contacts(id, name, email),
+          event:events(id, name)
+        `)
+        .eq("company_id", MP_COMPANY_ID)
+        .order("created_at", { ascending: false })
+        .limit(1000);
+      if (contactFilter) q = q.eq("contact_id", contactFilter);
+      if (eventFilter !== "all") q = q.eq("event_id", eventFilter);
+      if (fromDate) q = q.gte("created_at", new Date(fromDate).toISOString());
+      if (toDate) {
+        const d = new Date(toDate); d.setHours(23, 59, 59, 999);
+        q = q.lte("created_at", d.toISOString());
+      }
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const kinds = useMemo(() => {
+    const set = new Set<string>();
+    (data ?? []).forEach((l: any) => set.add(l.kind));
+    return Array.from(set).sort();
+  }, [data]);
+
+  const rows = useMemo(() => {
+    return (data ?? []).filter((l: any) => {
+      if (kindFilter !== "all" && l.kind !== kindFilter) return false;
+      if (search) {
+        const s = search.toLowerCase();
+        const hit =
+          l.contact?.email?.toLowerCase().includes(s) ||
+          l.contact?.name?.toLowerCase().includes(s);
+        if (!hit) return false;
+      }
+      return true;
+    });
+  }, [data, search, kindFilter]);
+
+  const clearContactFilter = () => {
+    params.delete("contact");
+    setParams(params, { replace: true });
+  };
+
+  useEffect(() => {
+    // reset selected when changing list
+  }, [contactFilter]);
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Leads</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Leads capturados via portal, com origem, evento e estado.
+        </p>
+      </div>
+
+      {contactFilter && (
+        <div className="flex items-center gap-2">
+          <Badge className="bg-emerald-500/10 text-emerald-700 border-emerald-500/30">
+            Filtrado por contacto
+          </Badge>
+          <Button size="sm" variant="ghost" onClick={clearContactFilter}>
+            <X className="h-3 w-3" /> Limpar
+          </Button>
+        </div>
+      )}
+
+      <Card className="p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+          <div className="relative lg:col-span-2">
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Pesquisar email/nome do contacto…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <Select value={kindFilter} onValueChange={setKindFilter}>
+            <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tipo: todos</SelectItem>
+              {kinds.map((k) => <SelectItem key={k} value={k}>{k}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={eventFilter} onValueChange={setEventFilter}>
+            <SelectTrigger><SelectValue placeholder="Evento" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Evento: todos</SelectItem>
+              {(events ?? []).map((e: any) => (
+                <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex gap-2 lg:col-span-1">
+            <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Quando</TableHead>
+              <TableHead>Tipo</TableHead>
+              <TableHead>Contacto</TableHead>
+              <TableHead>Evento</TableHead>
+              <TableHead>Origem</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">A carregar…</TableCell></TableRow>}
+            {error && <TableRow><TableCell colSpan={5} className="text-center text-destructive">{(error as Error).message}</TableCell></TableRow>}
+            {!isLoading && rows.length === 0 && (
+              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Sem leads.</TableCell></TableRow>
+            )}
+            {rows.map((l: any) => (
+              <TableRow key={l.id} className="cursor-pointer" onClick={() => setSelected(l.id)}>
+                <TableCell className="text-xs text-muted-foreground">{relativeFromNow(l.created_at)}</TableCell>
+                <TableCell>
+                  <Badge className={KIND_COLORS[l.kind] ?? "bg-muted text-muted-foreground"}>
+                    {l.kind}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  {l.contact ? (
+                    <>
+                      <div className="font-medium text-sm">{l.contact.name ?? l.contact.email ?? "—"}</div>
+                      {l.contact.name && l.contact.email && (
+                        <div className="text-xs text-muted-foreground">{l.contact.email}</div>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">Anónimo</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-sm">{l.event?.name ?? <span className="text-muted-foreground">—</span>}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  {l.utm_source ?? l.source ?? "—"}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
+
+      <p className="text-xs text-muted-foreground">{rows.length} leads</p>
+
+      <LeadDetailsSheet
+        leadId={selected}
+        open={!!selected}
+        onOpenChange={(v) => !v && setSelected(null)}
+      />
+    </div>
+  );
+}

@@ -152,11 +152,11 @@ import { AudienceLayout } from "./components/layout/AudienceLayout";
 import { CrmLayout } from "./components/layout/CrmLayout";
 import { PartnerLayout } from "./components/PartnerLayout";
 import CrmDashboard from "./pages/crm-admin/CrmDashboard";
-import {
-  CrmContactosPlaceholder,
-  CrmLeadsPlaceholder,
-  CrmAudiencesPlaceholder,
-} from "./pages/crm-admin/CrmPlaceholder";
+import ContactosList from "./pages/crm-admin/contactos/ContactosList";
+import LeadsList from "./pages/crm-admin/leads/LeadsList";
+import AudiencesList from "./pages/crm-admin/audiences/AudiencesList";
+import AudienceNew from "./pages/crm-admin/audiences/AudienceNew";
+import AudienceEditor from "./pages/crm-admin/audiences/AudienceEditor";
 import EventosList from "./pages/crm-admin/eventos/EventosList";
 import EventMarketingEditor from "./pages/crm-admin/eventos/EventMarketingEditor";
 import BlogList from "./pages/crm-admin/blog/BlogList";
@@ -559,9 +559,11 @@ function App() {
                     <Route index element={<CrmDashboard />} />
                     <Route path="eventos" element={<EventosList />} />
                     <Route path="eventos/:eventId" element={<EventMarketingEditor />} />
-                    <Route path="contactos" element={<CrmContactosPlaceholder />} />
-                    <Route path="leads" element={<CrmLeadsPlaceholder />} />
-                    <Route path="audiences" element={<CrmAudiencesPlaceholder />} />
+                    <Route path="contactos" element={<ContactosList />} />
+                    <Route path="leads" element={<LeadsList />} />
+                    <Route path="audiences" element={<AudiencesList />} />
+                    <Route path="audiences/novo" element={<AudienceNew />} />
+                    <Route path="audiences/:id" element={<AudienceEditor />} />
                     <Route path="blog" element={<BlogList />} />
                     <Route path="blog/novo" element={<BlogEditor mode="new" />} />
                     <Route path="blog/:id" element={<BlogEditor mode="edit" />} />
