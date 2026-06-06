@@ -142,6 +142,128 @@ export type Database = {
         }
         Relationships: []
       }
+      audience_members: {
+        Row: {
+          added_at: string
+          company_id: string
+          contact_id: string
+          snapshot_id: string
+        }
+        Insert: {
+          added_at?: string
+          company_id?: string
+          contact_id: string
+          snapshot_id: string
+        }
+        Update: {
+          added_at?: string
+          company_id?: string
+          contact_id?: string
+          snapshot_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audience_members_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audience_members_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "audience_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audience_snapshots: {
+        Row: {
+          audience_id: string
+          captured_at: string
+          company_id: string
+          created_at: string
+          exported_at: string | null
+          exported_by: string | null
+          id: string
+          member_count: number
+          notes: string | null
+        }
+        Insert: {
+          audience_id: string
+          captured_at?: string
+          company_id?: string
+          created_at?: string
+          exported_at?: string | null
+          exported_by?: string | null
+          id?: string
+          member_count?: number
+          notes?: string | null
+        }
+        Update: {
+          audience_id?: string
+          captured_at?: string
+          company_id?: string
+          created_at?: string
+          exported_at?: string | null
+          exported_by?: string | null
+          id?: string
+          member_count?: number
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audience_snapshots_audience_id_fkey"
+            columns: ["audience_id"]
+            isOneToOne: false
+            referencedRelation: "audiences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audiences: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          criterion: Json
+          description: string | null
+          id: string
+          last_preview_count: number | null
+          last_previewed_at: string | null
+          name: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          criterion?: Json
+          description?: string | null
+          id?: string
+          last_preview_count?: number | null
+          last_previewed_at?: string | null
+          name: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          criterion?: Json
+          description?: string | null
+          id?: string
+          last_preview_count?: number | null
+          last_previewed_at?: string | null
+          name?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       blog_posts: {
         Row: {
           author_id: string | null
@@ -1827,6 +1949,69 @@ export type Database = {
           },
         ]
       }
+      communication_log: {
+        Row: {
+          body_preview: string | null
+          campaign_id: string | null
+          channel: string
+          company_id: string
+          contact_id: string | null
+          created_at: string
+          direction: string
+          id: string
+          metadata: Json | null
+          occurred_at: string
+          provider_message_id: string | null
+          status: string | null
+          subject: string | null
+        }
+        Insert: {
+          body_preview?: string | null
+          campaign_id?: string | null
+          channel: string
+          company_id?: string
+          contact_id?: string | null
+          created_at?: string
+          direction?: string
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string
+          provider_message_id?: string | null
+          status?: string | null
+          subject?: string | null
+        }
+        Update: {
+          body_preview?: string | null
+          campaign_id?: string | null
+          channel?: string
+          company_id?: string
+          contact_id?: string | null
+          created_at?: string
+          direction?: string
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string
+          provider_message_id?: string | null
+          status?: string | null
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_log_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_log_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           address: Json | null
@@ -2048,6 +2233,74 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_campaigns: {
+        Row: {
+          audience_id: string | null
+          body_md_en: string | null
+          body_md_pt: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          preheader_en: string | null
+          preheader_pt: string | null
+          scheduled_at: string | null
+          sent_at: string | null
+          status: string
+          subject_en: string | null
+          subject_pt: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          audience_id?: string | null
+          body_md_en?: string | null
+          body_md_pt?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          preheader_en?: string | null
+          preheader_pt?: string | null
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: string
+          subject_en?: string | null
+          subject_pt?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          audience_id?: string | null
+          body_md_en?: string | null
+          body_md_pt?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          preheader_en?: string | null
+          preheader_pt?: string | null
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: string
+          subject_en?: string | null
+          subject_pt?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_campaigns_audience_id_fkey"
+            columns: ["audience_id"]
+            isOneToOne: false
+            referencedRelation: "audiences"
             referencedColumns: ["id"]
           },
         ]
@@ -3484,6 +3737,123 @@ export type Database = {
             foreignKeyName: "event_lineups_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "events_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_marketing: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          cta_primary_label_en: string | null
+          cta_primary_label_pt: string | null
+          description_long_en: string | null
+          description_long_pt: string | null
+          event_id: string
+          gallery_urls: string[] | null
+          hero_image_url: string | null
+          hook_en: string | null
+          hook_pt: string | null
+          meta_description_en: string | null
+          meta_description_pt: string | null
+          offer_availability: string | null
+          offer_currency: string | null
+          offer_price_max: number | null
+          offer_price_min: number | null
+          og_image_url: string | null
+          performer_name: string | null
+          performer_url: string | null
+          poster_vertical_url: string | null
+          press_quote_en: string | null
+          press_quote_pt: string | null
+          press_quote_source: string | null
+          published_at: string | null
+          status: string
+          updated_at: string
+          updated_by: string | null
+          urgency_message_en: string | null
+          urgency_message_pt: string | null
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          cta_primary_label_en?: string | null
+          cta_primary_label_pt?: string | null
+          description_long_en?: string | null
+          description_long_pt?: string | null
+          event_id: string
+          gallery_urls?: string[] | null
+          hero_image_url?: string | null
+          hook_en?: string | null
+          hook_pt?: string | null
+          meta_description_en?: string | null
+          meta_description_pt?: string | null
+          offer_availability?: string | null
+          offer_currency?: string | null
+          offer_price_max?: number | null
+          offer_price_min?: number | null
+          og_image_url?: string | null
+          performer_name?: string | null
+          performer_url?: string | null
+          poster_vertical_url?: string | null
+          press_quote_en?: string | null
+          press_quote_pt?: string | null
+          press_quote_source?: string | null
+          published_at?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          urgency_message_en?: string | null
+          urgency_message_pt?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          cta_primary_label_en?: string | null
+          cta_primary_label_pt?: string | null
+          description_long_en?: string | null
+          description_long_pt?: string | null
+          event_id?: string
+          gallery_urls?: string[] | null
+          hero_image_url?: string | null
+          hook_en?: string | null
+          hook_pt?: string | null
+          meta_description_en?: string | null
+          meta_description_pt?: string | null
+          offer_availability?: string | null
+          offer_currency?: string | null
+          offer_price_max?: number | null
+          offer_price_min?: number | null
+          og_image_url?: string | null
+          performer_name?: string | null
+          performer_url?: string | null
+          poster_vertical_url?: string | null
+          press_quote_en?: string | null
+          press_quote_pt?: string | null
+          press_quote_source?: string | null
+          published_at?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          urgency_message_en?: string | null
+          urgency_message_pt?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_marketing_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_marketing_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
             referencedRelation: "events_public"
             referencedColumns: ["id"]
           },
@@ -7450,6 +7820,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      static_pages: {
+        Row: {
+          company_id: string
+          content_md: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          locale: string
+          meta_description: string | null
+          meta_title: string | null
+          og_image_url: string | null
+          published_at: string | null
+          slug: string
+          status: string
+          title: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          company_id?: string
+          content_md?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          locale: string
+          meta_description?: string | null
+          meta_title?: string | null
+          og_image_url?: string | null
+          published_at?: string | null
+          slug: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          content_md?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          locale?: string
+          meta_description?: string | null
+          meta_title?: string | null
+          og_image_url?: string | null
+          published_at?: string | null
+          slug?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       supplier_credit_usages: {
         Row: {
