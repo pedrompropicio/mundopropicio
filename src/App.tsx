@@ -552,6 +552,15 @@ function App() {
                   </Route>
                   <Route path="/audience/strategies/:id/print" element={<CrmStrategyPrint />} />
                   <Route path="/audience/print/:type" element={<AudiencePrint />} />
+                  <Route path="/crm" element={<CrmLayout />}>
+                    <Route index element={<CrmDashboard />} />
+                    <Route path="eventos" element={<CrmEventosPlaceholder />} />
+                    <Route path="contactos" element={<CrmContactosPlaceholder />} />
+                    <Route path="leads" element={<CrmLeadsPlaceholder />} />
+                    <Route path="audiences" element={<CrmAudiencesPlaceholder />} />
+                    <Route path="blog" element={<CrmBlogPlaceholder />} />
+                    <Route path="paginas" element={<CrmPaginasPlaceholder />} />
+                  </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
               </BrowserRouter>
