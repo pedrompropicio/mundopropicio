@@ -152,7 +152,6 @@ import { AudienceLayout } from "./components/layout/AudienceLayout";
 import { CrmLayout } from "./components/layout/CrmLayout";
 import { PartnerLayout } from "./components/PartnerLayout";
 import CrmDashboard from "./pages/crm-admin/CrmDashboard";
-import {
 import ContactosList from "./pages/crm-admin/contactos/ContactosList";
 import LeadsList from "./pages/crm-admin/leads/LeadsList";
 import AudiencesList from "./pages/crm-admin/audiences/AudiencesList";
