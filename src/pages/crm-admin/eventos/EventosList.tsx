@@ -319,7 +319,7 @@ function EndossadosTab() {
         .from("events")
         .select("id, name, date, company_id")
         .in("id", ids);
-      const eventMap = new Map((events ?? []).map((e: any) => [e.id, e]));
+      const eventMap = new Map<string, any>((events ?? []).map((e: any) => [e.id, e]));
 
       const companyIds = Array.from(
         new Set((events ?? []).map((e: any) => e.company_id).filter(Boolean))
