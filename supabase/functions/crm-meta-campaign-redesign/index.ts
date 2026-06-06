@@ -115,7 +115,8 @@ type Trajectory =
 type SkipReason =
   | "unrealistic_gap"
   | "insufficient_horizon"
-  | "ascending_trajectory_near_target";
+  | "ascending_trajectory_near_target"
+  | "campaign_in_learning_phase";
 
 type ROASBuckets = {
   roas_7d: number | null;
@@ -1181,9 +1182,26 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Só decide o shape quando D1/D3 não abortaram.
   // ─────────────────────────────────────────────────────────────────────────
   if (!skip) {
-    let outputShape: "skip_saudavel_subindo" | "redesign" | "fallback_default" = "redesign";
+    let outputShape: "skip_saudavel_subindo" | "skip_em_maturacao" | "redesign" | "fallback_default" = "redesign";
     let decidedBy: "class" | "fallback" = "class";
     switch (diagSourceClass) {
+      case "em_maturacao":
+        // Portão de maturação (diagnosis): campanha em learning phase. NÃO redesenhar —
+        // o ROAS é imaturo (ruído estatístico), não estrutural. Redesign agora reiniciaria
+        // a aprendizagem dos adsets de conversão e queimaria os dados já acumulados.
+        // Mesmo shape de skip stub que "saudavel_subindo".
+        skip = {
+          reason: "campaign_in_learning_phase",
+          message:
+            `Campanha em fase de aprendizagem (classe "em_maturacao"): nenhum adset de conversão ` +
+            `atingiu ainda ~50 eventos de optimização em 7 dias (learning phase da Meta). O ROAS ` +
+            `actual é imaturo (ruído estatístico por falta de volume), não uma fraqueza estrutural. ` +
+            `Recomenda-se NÃO fazer redesign agora — aguardar maturação e re-diagnosticar quando ` +
+            `os adsets saírem de learning. Redesign agora reiniciaria a aprendizagem e queimaria ` +
+            `os dados já acumulados.`,
+        };
+        outputShape = "skip_em_maturacao";
+        break;
       case "saudavel_subindo":
         // Mesmo shape que o A3 antigo: skip stub. Campanha saudável e a subir.
         skip = {

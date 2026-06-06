@@ -66,12 +66,19 @@ const HEALTHY_FLOOR_RATIO = 0.60;     // floor de "nível bom" = target_roas * 0
 const DEAD_BASELINE_THRESHOLD = 0.30; // baseline projetado <= isto → MORTA
 // ── Sub-fase 1.E-1: detecção de wind-down — constante CALIBRÁVEL ──
 const WINDDOWN_PAUSED_ADSET_RATIO = 0.5; // > 50% dos adsets PAUSED → campanha em wind-down
+// ── Portão de maturação (learning phase) — constante CALIBRÁVEL ──
+// Régua ~da Meta para um adset sair da "learning phase": ~50 eventos de
+// OTIMIZAÇÃO por adset / 7 dias (ao nível do adset e do evento que o adset
+// optimiza). Calibrável.
+const LEARNING_EVENTS_THRESHOLD = 50;
 // Tipos estritos: o compilador valida que a função só produz estes valores
 // (e que batem com a coluna source_campaign_class text da tabela).
 type SourceCampaignClass =
-  | "saudavel_subindo" | "saudavel_caindo" | "fraca" | "morta" | "indeterminada";
+  | "saudavel_subindo" | "saudavel_caindo" | "fraca" | "morta" | "indeterminada"
+  | "em_maturacao";
 type RecommendedPosture =
-  | "manter_escalar" | "intervencao_cirurgica" | "redesign" | "novo_desenho" | "recolher_mais_dados";
+  | "manter_escalar" | "intervencao_cirurgica" | "redesign" | "novo_desenho" | "recolher_mais_dados"
+  | "aguardar_maturacao";
 
 // Postura recomendada por classe (deriva diretamente da classe).
 const POSTURE_BY_CLASS: Record<SourceCampaignClass, RecommendedPosture> = {
@@ -80,6 +87,7 @@ const POSTURE_BY_CLASS: Record<SourceCampaignClass, RecommendedPosture> = {
   fraca: "redesign",
   morta: "novo_desenho",
   indeterminada: "recolher_mais_dados",
+  em_maturacao: "aguardar_maturacao",
 };
 
 const corsHeaders = {
@@ -477,6 +485,123 @@ function classifyCampaign(trajectory: TrajectoryBlock, targetRoas: number): Camp
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// PORTÃO DE MATURAÇÃO (learning phase) — a MONTANTE da Fase 1D
+// ──────────────────────────────────────────────────────────────────────────
+// A Meta tira um adset da "learning phase" com ~50 eventos de OTIMIZAÇÃO por
+// adset / 7 dias, ao nível do adset e do EVENTO que o adset optimiza. Uma
+// campanha jovem cujos adsets de conversão ainda não atingiram esse volume tem
+// ROAS IMATURO (ruído estatístico), não fraco — classificá-la como "fraca" e
+// mandá-la para redesign queima o aprendizado. Este portão deteta esse estado e
+// curto-circuita a classificação por ROAS (força "em_maturacao").
+//
+// Recorte: SÓ adsets de CONVERSÃO (optimization_goal de conversão). Goals de
+// awareness/reach/video/tráfego/engagement NÃO entram (não há "50 conversões" a
+// atingir). Contagem: por adset de conversão, os eventos do SEU goal na janela
+// last_7d (mapa goal→coluna de evento dos insights). 100% determinística — sem
+// LLM nem Graph API.
+//
+// Régua: há >=1 adset de conversão MAS nenhum atingiu LEARNING_EVENTS_THRESHOLD
+// eventos do seu goal em 7d → imatura. Sem adsets de conversão → portão NÃO se
+// aplica (mantém o comportamento normal).
+
+// optimization_goal de conversão → campo de evento de WindowMetrics (= coluna de
+// insight já existente). Espelha a semântica de sumActions no crm-meta-sync-insights
+// e o CONVERSION_GOALS do crm-meta-strategy-deploy. Goals fora deste mapa NÃO são
+// considerados de conversão para efeitos do portão.
+const CONVERSION_GOAL_EVENT_FIELD: Record<string, keyof WindowMetrics> = {
+  OFFSITE_CONVERSIONS: "purchases",
+  CONVERSIONS: "purchases",
+  VALUE: "purchases",
+  PURCHASE: "purchases",
+  LEAD_GENERATION: "leads",
+  QUALITY_LEAD: "leads",
+  LEADS: "leads",
+  ADD_TO_CART: "add_to_cart",
+  INITIATE_CHECKOUT: "initiate_checkout",
+};
+
+type MaturationAdset = {
+  external_adset_id: string;
+  optimization_goal: string;
+  event_field: string;       // coluna de evento contada (campo de WindowMetrics)
+  events_last_7d: number;    // eventos do goal na janela last_7d
+  reached_threshold: boolean;
+};
+type MaturationGate = {
+  applies: boolean;              // há >=1 adset de conversão
+  is_immature: boolean;         // applies && nenhum adset atingiu o limiar
+  threshold: number;            // LEARNING_EVENTS_THRESHOLD
+  conversion_adsets_count: number;
+  conversion_adsets: MaturationAdset[];
+  reason: string;
+};
+
+// Conta, por adset de CONVERSÃO, os eventos do seu goal na janela last_7d.
+// adsetSnaps: snapshot fresco (external_adset_id + optimization_goal).
+// adsetGroups: linhas de insight agrupadas por adset (Fase 1B). Determinístico.
+function computeMaturationGate(
+  adsetSnaps: Array<{ external_adset_id: string; optimization_goal: string | null }>,
+  adsetGroups: Map<string, any[]>,
+  last7: Window,
+): MaturationGate {
+  const conversionAdsets: MaturationAdset[] = [];
+  for (const snap of adsetSnaps) {
+    const goal = (snap.optimization_goal ?? "").toUpperCase();
+    const field = CONVERSION_GOAL_EVENT_FIELD[goal];
+    if (!field) continue; // não é adset de conversão → fora do portão
+    const rows = (adsetGroups.get(snap.external_adset_id) ?? [])
+      .filter((r: any) => r.date_start && inWindow(r.date_start, last7));
+    const m = computeWindowMetrics(rows);
+    const events = Number((m[field] as number | null) ?? 0);
+    conversionAdsets.push({
+      external_adset_id: snap.external_adset_id,
+      optimization_goal: goal,
+      event_field: field,
+      events_last_7d: events,
+      reached_threshold: events >= LEARNING_EVENTS_THRESHOLD,
+    });
+  }
+  const applies = conversionAdsets.length > 0;
+  const anyMature = conversionAdsets.some((a) => a.reached_threshold);
+  const isImmature = applies && !anyMature;
+  const reason = !applies
+    ? "sem adsets de conversão — portão de maturação não aplicável"
+    : isImmature
+      ? `nenhum dos ${conversionAdsets.length} adset(s) de conversão atingiu ${LEARNING_EVENTS_THRESHOLD} eventos do seu goal em 7d — campanha em learning phase`
+      : `pelo menos um adset de conversão atingiu ${LEARNING_EVENTS_THRESHOLD} eventos em 7d — campanha madura para classificação por ROAS`;
+  return {
+    applies,
+    is_immature: isImmature,
+    threshold: LEARNING_EVENTS_THRESHOLD,
+    conversion_adsets_count: conversionAdsets.length,
+    conversion_adsets: conversionAdsets,
+    reason,
+  };
+}
+
+// Classificação forçada quando o portão dispara (curto-circuita a Fase 1D).
+function maturationClassification(
+  trajectory: TrajectoryBlock,
+  targetRoas: number,
+  gate: MaturationGate,
+): CampaignClassification {
+  const healthyFloor = round(targetRoas * HEALTHY_FLOOR_RATIO, 4);
+  return {
+    source_campaign_class: "em_maturacao",
+    recommended_posture: POSTURE_BY_CLASS["em_maturacao"],
+    healthy_floor: healthyFloor,
+    classification_reason:
+      `portão de maturação: ${gate.reason}. Classificação por ROAS curto-circuitada ` +
+      `(limiar ${gate.threshold} eventos/adset/7d).`,
+    inputs: {
+      projected_baseline_roas: trajectory.projected_baseline_roas,
+      trend_band: trajectory.trend_band,
+      target_roas: targetRoas,
+    },
+  };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // Camada de leitura: lê os 3 níveis de insights e estrutura por janela.
 // ──────────────────────────────────────────────────────────────────────────
 const CAMPAIGN_COLS =
@@ -576,11 +701,13 @@ async function readInsightWindows(
   const campaignByWindow = windowMetricsForRows(campRows, windows);
 
   // ── Sub-fase 1.E-1: detecção de wind-down (campanha a ser desligada) ──
-  // Lê effective_status dos adsets (snapshot fresco; service_role tem SELECT).
+  // Lê effective_status + optimization_goal dos adsets (snapshot fresco;
+  // service_role tem SELECT). effective_status → wind-down; optimization_goal →
+  // portão de maturação (recorte dos adsets de conversão).
   // Maioria PAUSED (> WINDDOWN_PAUSED_ADSET_RATIO) → is_winddown.
   const { data: adsetSnaps } = await supabase
     .schema("crm").from("meta_adset_snapshot")
-    .select("external_adset_id, effective_status")
+    .select("external_adset_id, effective_status, optimization_goal")
     .eq("company_id", companyId).eq("external_campaign_id", campaignId);
   const totalAdsets = adsetSnaps?.length ?? 0;
   const pausedAdsets = (adsetSnaps ?? []).filter((a: any) => a.effective_status === "PAUSED").length;
@@ -655,14 +782,28 @@ async function readInsightWindows(
     }
     : null;
 
+  // ── PORTÃO DE MATURAÇÃO (learning phase) — a MONTANTE da Fase 1D ──
+  // Recorta adsets de conversão (via optimization_goal do snapshot) e conta os
+  // eventos do goal de cada um na janela last_7d. 100% determinístico.
+  const maturationGate = computeMaturationGate(
+    (adsetSnaps ?? []) as Array<{ external_adset_id: string; optimization_goal: string | null }>,
+    adsetGroups,
+    windows.last_7d,
+  );
+
   // ── FASE 1D: classificação da campanha (apenas nível campaign) ──
-  const campaignClassification = classifyCampaign(campaignTrajectory, targetRoas);
+  // Se o portão de maturação disparar (campanha imatura), curto-circuita a
+  // classificação por ROAS e força "em_maturacao" / "aguardar_maturacao".
+  const campaignClassification = maturationGate.is_immature
+    ? maturationClassification(campaignTrajectory, targetRoas, maturationGate)
+    : classifyCampaign(campaignTrajectory, targetRoas);
 
   const levels = {
     campaign: {
       total_rows: campRows.length,
       by_window: campaignByWindow,
       trajectory: campaignTrajectory,
+      maturation_gate: maturationGate,
       classification: campaignClassification,
     },
     adset: {
@@ -706,6 +847,19 @@ async function readInsightWindows(
       ` floor=${campaignClassification.healthy_floor}` +
       ` | reason: ${campaignClassification.classification_reason}`,
   );
+  console.log("[campaign-diagnosis] maturation_gate", {
+    applies: maturationGate.applies,
+    is_immature: maturationGate.is_immature,
+    threshold: maturationGate.threshold,
+    conversion_adsets: maturationGate.conversion_adsets_count,
+    events_by_adset: maturationGate.conversion_adsets.map((a) => ({
+      adset: a.external_adset_id,
+      goal: a.optimization_goal,
+      field: a.event_field,
+      events_7d: a.events_last_7d,
+      reached: a.reached_threshold,
+    })),
+  });
   console.log("[campaign-diagnosis] winddown_detection", {
     paused_adset_ratio: Math.round(pausedRatio * 1000) / 1000,
     paused_adsets: pausedAdsets,
@@ -733,6 +887,7 @@ async function readInsightWindows(
     raw_counts: { campaign: campRows.length, adset: adsetRows.length, ad: adRows.length },
     campaign_meta: campaignMeta,
     operational_warning: operationalWarning,
+    maturation_gate: maturationGate,
   };
 }
 
@@ -844,6 +999,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     recommended_posture: recommendedPosture,
     // 1.E-1 — aviso operacional (só quando wind-down; omitido caso contrário).
     operational_warning: (windowsResult as any).operational_warning ?? undefined,
+    // Portão de maturação (learning phase) — bloco auditável (eventos por adset
+    // de conversão, limiar, decisão). Omitido quando não houve dados para avaliar.
+    maturation_gate: (windowsResult as any).maturation_gate ?? undefined,
     created_by: createdBy,
     anchor_date: windowsResult.anchor_date,
     history: windowsResult.history,
