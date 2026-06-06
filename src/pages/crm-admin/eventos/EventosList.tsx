@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Search, ChevronRight } from "lucide-react";
@@ -21,8 +21,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { MP_COMPANY_ID } from "../constants";
 import type { EventRow, EventMarketingRow } from "../types";
+
+const ACTIVE_ONLY_KEY = "crm.eventos.activeOnly";
+const INACTIVE_STATUSES = new Set(["completed", "cancelled", "archived"]);
+
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 type EventWithMk = EventRow & {
   marketing: Pick<EventMarketingRow, "status" | "updated_at"> | null;
