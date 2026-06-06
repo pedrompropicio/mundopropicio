@@ -251,6 +251,7 @@ export default function Dashboard() {
       const { data, error } = await supabase
         .from("events")
         .select("*")
+        .eq("management_type", "own")
         .order("date", { ascending: true });
       if (error) throw error;
       return data;
