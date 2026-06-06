@@ -494,24 +494,35 @@ function classifyCampaign(trajectory: TrajectoryBlock, targetRoas: number): Camp
 // mandá-la para redesign queima o aprendizado. Este portão deteta esse estado e
 // curto-circuita a classificação por ROAS (força "em_maturacao").
 //
-// Recorte: SÓ adsets de CONVERSÃO (optimization_goal de conversão). Goals de
-// awareness/reach/video/tráfego/engagement NÃO entram (não há "50 conversões" a
-// atingir). Contagem: por adset de conversão, os eventos do SEU goal na janela
-// last_7d (mapa goal→coluna de evento dos insights). 100% determinística — sem
-// LLM nem Graph API.
+// Recorte: SÓ adsets de CONVERSÃO, identificados por ALLOWLIST EXPLÍCITA de
+// optimization_goal (NUNCA por "tudo o que não é awareness"). Apenas os goals na
+// allowlist contam para o portão; qualquer goal fora dela é tratado como
+// NÃO-conversão (não entra na contagem nem dispara o portão). Contagem: por adset
+// de conversão, os eventos do SEU goal na janela last_7d (mapa goal→coluna de
+// evento dos insights). 100% determinística — sem LLM nem Graph API.
 //
 // Régua: há >=1 adset de conversão MAS nenhum atingiu LEARNING_EVENTS_THRESHOLD
 // eventos do seu goal em 7d → imatura. Sem adsets de conversão → portão NÃO se
 // aplica (mantém o comportamento normal).
 
-// optimization_goal de conversão → campo de evento de WindowMetrics (= coluna de
-// insight já existente). Espelha a semântica de sumActions no crm-meta-sync-insights
-// e o CONVERSION_GOALS do crm-meta-strategy-deploy. Goals fora deste mapa NÃO são
-// considerados de conversão para efeitos do portão.
+// ALLOWLIST EXPLÍCITA de optimization_goal de conversão → campo de evento de
+// WindowMetrics (= coluna de insight já existente). Única fonte da régua do
+// portão. Espelha a semântica de sumActions no crm-meta-sync-insights e o
+// CONVERSION_GOALS do crm-meta-strategy-deploy.
+//
+// Goals presentes nos dados reais da conta (os únicos de conversão que existem):
+//   OFFSITE_CONVERSIONS, VALUE → purchases.
+// Restantes entradas são SALVAGUARDA para o futuro, sempre dentro desta allowlist.
+//
+// FORA da allowlist por design (NÃO contam, NÃO disparam o portão): LANDING_PAGE_VIEWS
+// (128 adsets na conta — NÃO é conversão), LINK_CLICKS, IMPRESSIONS, REACH, THRUPLAY,
+// VISIT_INSTAGRAM_PROFILE, VIEW_CONTENT e qualquer outro goal não listado abaixo.
 const CONVERSION_GOAL_EVENT_FIELD: Record<string, keyof WindowMetrics> = {
+  // Goals de conversão presentes nos dados reais.
   OFFSITE_CONVERSIONS: "purchases",
-  CONVERSIONS: "purchases",
   VALUE: "purchases",
+  // Salvaguarda para o futuro (dentro da allowlist explícita).
+  CONVERSIONS: "purchases",
   PURCHASE: "purchases",
   LEAD_GENERATION: "leads",
   QUALITY_LEAD: "leads",
@@ -547,8 +558,10 @@ function computeMaturationGate(
   const conversionAdsets: MaturationAdset[] = [];
   for (const snap of adsetSnaps) {
     const goal = (snap.optimization_goal ?? "").toUpperCase();
+    // Allowlist estrita: só chaves PRÓPRIAS contam (Object.hasOwn evita que
+    // chaves herdadas de Object.prototype — ex. "constructor" — passem o filtro).
+    if (!Object.hasOwn(CONVERSION_GOAL_EVENT_FIELD, goal)) continue; // não-conversão → fora
     const field = CONVERSION_GOAL_EVENT_FIELD[goal];
-    if (!field) continue; // não é adset de conversão → fora do portão
     const rows = (adsetGroups.get(snap.external_adset_id) ?? [])
       .filter((r: any) => r.date_start && inWindow(r.date_start, last7));
     const m = computeWindowMetrics(rows);

@@ -22,24 +22,38 @@ Adicionado um **portão de maturação** a **montante** da classificação por
 nível/tendência (Fase 1D, `classifyCampaign`). É a primeira coisa a decidir a
 classe — quando dispara, curto-circuita a classificação por ROAS.
 
-### Recorte — só adsets de conversão
-Só entram na contagem os adsets cujo `optimization_goal` é de **conversão**.
-Goals de awareness/reach/video/tráfego/engagement **NÃO** entram (não existe
-"50 conversões" a atingir). O recorte é feito pelo `optimization_goal` do
-`crm.meta_adset_snapshot` (a mesma leitura snapshot já usada pelo wind-down,
-agora estendida para trazer também `optimization_goal`).
+### Recorte — só adsets de conversão (ALLOWLIST EXPLÍCITA)
+Um adset só conta como "de conversão" se o seu `optimization_goal` estiver na
+**allowlist explícita** abaixo. A fronteira é por allowlist, **nunca** por "tudo
+o que não é awareness" — qualquer goal fora da allowlist é tratado como
+NÃO-conversão (não entra na contagem nem dispara o portão). O `optimization_goal`
+vem do `crm.meta_adset_snapshot` (a mesma leitura snapshot já usada pelo
+wind-down, agora estendida para trazer também `optimization_goal`).
 
-Mapa `optimization_goal` → coluna de evento dos insights (`WindowMetrics`):
+A leitura é guardada com `Object.hasOwn` — só chaves próprias da allowlist
+contam (chaves herdadas de `Object.prototype`, ex. `constructor`, nunca passam).
+
+**Allowlist final** `optimization_goal` → coluna de evento (`WindowMetrics`):
 
 ```
-OFFSITE_CONVERSIONS | CONVERSIONS | VALUE | PURCHASE   -> purchases  (purchases_count)
-LEAD_GENERATION | QUALITY_LEAD | LEADS                 -> leads      (leads_count)
-ADD_TO_CART                                            -> add_to_cart (add_to_cart_count)
-INITIATE_CHECKOUT                                      -> initiate_checkout (initiate_checkout_count)
+# presentes nos dados reais da conta (únicos goals de conversão que existem):
+OFFSITE_CONVERSIONS                 -> purchases  (purchases_count)
+VALUE                               -> purchases  (purchases_count)
+# salvaguarda para o futuro (dentro da mesma allowlist explícita):
+CONVERSIONS | PURCHASE              -> purchases  (purchases_count)
+LEAD_GENERATION | QUALITY_LEAD | LEADS  -> leads  (leads_count)
+ADD_TO_CART                         -> add_to_cart (add_to_cart_count)
+INITIATE_CHECKOUT                   -> initiate_checkout (initiate_checkout_count)
 ```
+
+**Fora da allowlist por design** (NÃO contam, NÃO disparam o portão):
+`LANDING_PAGE_VIEWS` (128 adsets na conta — confirmado que **não** é tratado como
+conversão), `LINK_CLICKS`, `IMPRESSIONS`, `REACH`, `THRUPLAY`,
+`VISIT_INSTAGRAM_PROFILE`, `VIEW_CONTENT`, e qualquer goal não listado na
+allowlist.
 
 (Espelha `sumActions` em `crm-meta-sync-insights` e `CONVERSION_GOALS` em
-`crm-meta-strategy-deploy`. Goal fora do mapa = não-conversão para o portão.)
+`crm-meta-strategy-deploy`.)
 
 ### Contagem
 Por adset de conversão, conta os eventos do **seu** goal na janela `last_7d` já
