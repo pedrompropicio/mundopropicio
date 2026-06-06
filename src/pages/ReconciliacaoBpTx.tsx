@@ -97,6 +97,7 @@ export default function ReconciliacaoBpTx() {
         .from("events")
         .select("id, name, status")
         .eq("company_id", companyId!)
+        .eq("management_type", "own")
         .order("name");
       if (error) throw error;
       return (data ?? []) as { id: string; name: string; status: string }[];

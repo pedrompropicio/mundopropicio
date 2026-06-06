@@ -65,7 +65,7 @@ export default function TicketManagement() {
   const { data: events = [] } = useQuery({
     queryKey: ["events"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("events").select("*").order("date", { ascending: false });
+      const { data, error } = await supabase.from("events").select("*").eq("management_type", "own").order("date", { ascending: false });
       if (error) throw error;
       // Sort: parent events first, then their children grouped underneath
       const parents = (data || []).filter(e => !e.parent_event_id);

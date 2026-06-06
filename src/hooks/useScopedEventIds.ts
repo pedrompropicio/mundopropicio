@@ -22,6 +22,7 @@ export function useScopedEventIds(): { eventIds: string[]; isLoading: boolean } 
         const { data, error } = await supabase
           .from("events")
           .select("id")
+          .eq("management_type", "own")
           .neq("status", "cancelled");
         if (error) throw error;
         return (data ?? []).map((e: any) => e.id as string);

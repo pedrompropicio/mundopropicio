@@ -37,7 +37,7 @@ export default function Quotations() {
   const { data: events = [] } = useQuery({
     queryKey: ["events-list"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("events").select("id, name").order("name");
+      const { data, error } = await supabase.from("events").select("id, name").eq("management_type", "own").order("name");
       if (error) throw error;
       return data;
     },

@@ -118,7 +118,7 @@ export default function RecurringTransactions() {
   const { data: events = [] } = useQuery({
     queryKey: ["events-active"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("events").select("id, name").in("status", ["planning", "confirmed", "active"]).order("name");
+      const { data, error } = await supabase.from("events").select("id, name").eq("management_type", "own").in("status", ["planning", "confirmed", "active"]).order("name");
       if (error) throw error;
       return data;
     },

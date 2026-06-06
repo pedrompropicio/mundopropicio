@@ -120,7 +120,7 @@ export default function Transactions() {
   const { data: events = [] } = useQuery({
     queryKey: ["events-list"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("events").select("id, name, parent_event_id").order("name");
+      const { data, error } = await supabase.from("events").select("id, name, parent_event_id").eq("management_type", "own").order("name");
       if (error) throw error;
       return data;
     },

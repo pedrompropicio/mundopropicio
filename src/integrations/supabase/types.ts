@@ -3992,6 +3992,64 @@ export type Database = {
           },
         ]
       }
+      event_portal_endorsements: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          display_order: number
+          event_id: string
+          featured: boolean
+          override_hero_image_url: string | null
+          partner_label: string | null
+          portal_company_id: string
+          updated_at: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          display_order?: number
+          event_id: string
+          featured?: boolean
+          override_hero_image_url?: string | null
+          partner_label?: string | null
+          portal_company_id: string
+          updated_at?: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          display_order?: number
+          event_id?: string
+          featured?: boolean
+          override_hero_image_url?: string | null
+          partner_label?: string | null
+          portal_company_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_portal_endorsements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_portal_endorsements_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_portal_endorsements_portal_company_id_fkey"
+            columns: ["portal_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_sessions: {
         Row: {
           company_id: string
@@ -5124,11 +5182,13 @@ export type Database = {
           location: string | null
           location_en: string | null
           location_pt: string | null
+          management_type: string
           meta_pixel_id: string | null
           name: string
           operacao_mode: string | null
           parent_event_id: string | null
           partner_calc_basis: string
+          partner_name: string | null
           pl_mode: string
           portal_featured: boolean
           portal_visible: boolean
@@ -5166,11 +5226,13 @@ export type Database = {
           location?: string | null
           location_en?: string | null
           location_pt?: string | null
+          management_type?: string
           meta_pixel_id?: string | null
           name: string
           operacao_mode?: string | null
           parent_event_id?: string | null
           partner_calc_basis?: string
+          partner_name?: string | null
           pl_mode?: string
           portal_featured?: boolean
           portal_visible?: boolean
@@ -5208,11 +5270,13 @@ export type Database = {
           location?: string | null
           location_en?: string | null
           location_pt?: string | null
+          management_type?: string
           meta_pixel_id?: string | null
           name?: string
           operacao_mode?: string | null
           parent_event_id?: string | null
           partner_calc_basis?: string
+          partner_name?: string | null
           pl_mode?: string
           portal_featured?: boolean
           portal_visible?: boolean

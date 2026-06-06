@@ -66,6 +66,7 @@ export default function EventImplementations() {
       const { data, error } = await supabase
         .from("events")
         .select("id, name, date, event_type, parent_event_id, status")
+        .eq("management_type", "own")
         .order("date", { ascending: false });
       if (error) throw error;
       return data;
