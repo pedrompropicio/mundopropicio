@@ -561,6 +561,9 @@ function App() {
                   <Route path="/crm" element={<CrmLayout />}>
                     <Route index element={<CrmDashboard />} />
                     <Route path="eventos" element={<EventosList />} />
+                    <Route path="eventos/novo" element={<NewEventoPage />} />
+                    <Route path="eventos/endossar" element={<EndossarEventoPage />} />
+                    <Route path="eventos/endorsement/:eventId" element={<EndorsementEditor />} />
                     <Route path="eventos/:eventId" element={<EventMarketingEditor />} />
                     <Route path="contactos" element={<ContactosList />} />
                     <Route path="leads" element={<LeadsList />} />
