@@ -7,6 +7,7 @@ import {
   Target,
   FileText,
   FilePen,
+  Video,
   ArrowLeft,
   KeyRound,
   LogOut,
