@@ -11,7 +11,6 @@ import {
   Newspaper,
   Settings,
   Activity,
-  Target,
   ArrowLeft,
   KeyRound,
   LogOut,
