@@ -306,6 +306,39 @@ export default function EventMarketingEditor() {
               onChange={(v) => set("gallery_urls", v)}
               hint="Arrasta para reordenar não disponível — remove e volta a adicionar"
             />
+            <div className="grid gap-4 sm:grid-cols-2 border-t border-border pt-4">
+              <Field label="Vídeo / Trailer (URL)" hint="YouTube ou Vimeo · opcional">
+                <Input
+                  type="url"
+                  value={form!.hero_video_url ?? ""}
+                  onChange={(e) => set("hero_video_url", e.target.value || null)}
+                  placeholder="https://youtu.be/… ou https://vimeo.com/…"
+                />
+              </Field>
+              <Field label="Música (Spotify ou YouTube)" hint="Link de partilha do artista/álbum/playlist · opcional">
+                <Input
+                  type="url"
+                  value={form!.music_embed_url ?? ""}
+                  onChange={(e) => set("music_embed_url", e.target.value || null)}
+                  placeholder="https://open.spotify.com/… ou https://youtube.com/…"
+                />
+              </Field>
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="experiencias">
+          <Card className="space-y-4 p-4">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold">Experiências de bilhete</h3>
+              <p className="text-xs text-muted-foreground">
+                Conteúdo de marketing curado — o que cada tipo de bilhete inclui (ex.: "VIP — Acesso antecipado e meet &amp; greet"). <strong>Não leva preço</strong>: o preço vive na bilheteira.
+              </p>
+            </div>
+            <TicketExperiencesEditor
+              value={form!.ticket_experiences ?? []}
+              onChange={(v) => set("ticket_experiences", v)}
+            />
           </Card>
         </TabsContent>
 
