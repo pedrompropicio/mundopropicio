@@ -8,6 +8,7 @@ import {
   FileText,
   FilePen,
   Video,
+  Newspaper,
   ArrowLeft,
   KeyRound,
   LogOut,
@@ -33,6 +34,7 @@ export function CrmSidebar() {
     { to: "/crm/blog", icon: FileText, label: "Blog" },
     { to: "/crm/paginas", icon: FilePen, label: "Páginas" },
     { to: "/crm/videos", icon: Video, label: "Vídeos" },
+    { to: "/crm/press", icon: Newspaper, label: "Imprensa" },
   ];
 
   const isItemActive = (to: string, end?: boolean) => {
