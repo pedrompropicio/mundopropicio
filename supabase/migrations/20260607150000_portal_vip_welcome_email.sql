@@ -56,6 +56,9 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  -- Wrapper best-effort: qualquer falha do caminho do email NUNCA aborta o
+  -- INSERT em lead_capture. RAISE NOTICE para Postgres logs.
+  BEGIN
   -- Locale: 'en' se NEW.raw->>'locale' = 'en', caso contrário 'pt'
   v_locale := lower(coalesce(NEW.raw->>'locale', ''));
   v_lang := CASE WHEN v_locale = 'en' THEN 'en' ELSE 'pt' END;
@@ -93,8 +96,8 @@ BEGIN
    LIMIT 1;
   IF v_unsub_token IS NULL THEN
     v_unsub_token := encode(extensions.gen_random_bytes(32), 'hex');
-    INSERT INTO public.email_unsubscribe_tokens (token, email)
-      VALUES (v_unsub_token, v_email_lc)
+    INSERT INTO public.email_unsubscribe_tokens (token, email, company_id)
+      VALUES (v_unsub_token, v_email_lc, MP_COMPANY_ID)
     ON CONFLICT (email) DO NOTHING;
     -- Re-leitura defensiva caso ON CONFLICT teve race
     SELECT token INTO v_unsub_token
@@ -245,10 +248,10 @@ BEGIN
     'queued_at',        to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
   );
 
-  BEGIN
-    PERFORM public.enqueue_email('transactional_emails', v_payload);
+  PERFORM public.enqueue_email('transactional_emails', v_payload);
+
   EXCEPTION WHEN OTHERS THEN
-    RAISE NOTICE 'tg_lead_capture_vip_welcome enqueue falhou para lead %: %', NEW.id, SQLERRM;
+    RAISE NOTICE 'tg_lead_capture_vip_welcome falhou para lead %: %', NEW.id, SQLERRM;
   END;
 
   RETURN NEW;
