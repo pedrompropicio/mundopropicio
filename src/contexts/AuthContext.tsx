@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef, ty
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
-export type AppRole = "admin" | "manager" | "producer" | "field_producer" | "editor" | "viewer" | "user" | "partner" | "platform_admin" | "marketing_manager";
+export type AppRole = "admin" | "manager" | "producer" | "field_producer" | "editor" | "viewer" | "user" | "partner" | "platform_admin" | "marketing_manager" | "content_manager";
 
 interface AuthContextType {
   user: User | null;
@@ -43,6 +43,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   partner: "Parceiro",
   platform_admin: "Super-Admin",
   marketing_manager: "Marketing Manager",
+  content_manager: "Gestor de Conteúdo",
 };
 
 export const ROLE_COLORS: Record<AppRole, string> = {
@@ -56,6 +57,7 @@ export const ROLE_COLORS: Record<AppRole, string> = {
   partner: "bg-indigo-500/15 text-indigo-600",
   platform_admin: "bg-rose-500/15 text-rose-600",
   marketing_manager: "bg-cyan-500/15 text-cyan-600",
+  content_manager: "bg-pink-500/15 text-pink-600",
 };
 
 export const ALL_PERMISSIONS = [
@@ -123,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Priority: platform_admin > admin > manager > accountant > editor > partner > viewer > user
     const priority: Record<string, number> = {
       platform_admin: 0, admin: 1, manager: 2, accountant: 3,
-      marketing_manager: 4, editor: 4, producer: 4, field_producer: 4, partner: 5, viewer: 6, user: 7,
+      marketing_manager: 4, content_manager: 4, editor: 4, producer: 4, field_producer: 4, partner: 5, viewer: 6, user: 7,
     };
     const roles = Array.from(new Set((roleRows ?? []).map((r: any) => r.role as AppRole)));
     roles.sort((a, b) => (priority[a] ?? 99) - (priority[b] ?? 99));

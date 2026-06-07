@@ -39,7 +39,8 @@ export function CrmLayout() {
   const canCrm =
     isAdmin ||
     (role as any) === "platform_admin" ||
-    (role as any) === "marketing_manager";
+    (role as any) === "marketing_manager" ||
+    (role as any) === "content_manager";
 
   if (!canCrm) {
     return <Navigate to="/modulos" replace />;

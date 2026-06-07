@@ -32,9 +32,10 @@ const ROLE_ICONS: Record<AppRole, React.ElementType> = {
   partner: Handshake,
   platform_admin: ShieldCheck,
   marketing_manager: Megaphone,
+  content_manager: Pencil,
 };
 
-const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "producer", "field_producer", "editor", "viewer", "partner"];
+const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "producer", "field_producer", "editor", "viewer", "partner", "content_manager"];
 
 export default function UserManagement() {
   const { isAdmin, user } = useAuth();

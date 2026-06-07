@@ -631,6 +631,10 @@ function AuthRoute() {
     if ((role as any) === "marketing_manager") {
       return <Navigate to="/audience/dashboard" replace />;
     }
+    // content_manager → admin do MP CRM (edição de conteúdo)
+    if ((role as any) === "content_manager") {
+      return <Navigate to="/crm" replace />;
+    }
     // Preferência opcional: admin/manager pode forçar entrada direta na vista compacta
     try {
       const prefersCamarim =
