@@ -56,11 +56,17 @@ export default function PostLoginRedirect() {
     }
   }
 
+  // content_manager → admin do MP CRM (edição de conteúdo)
+  if ((role as any) === "content_manager") {
+    return <Navigate to="/crm" replace />;
+  }
+
   const hasCrmAccess =
     permissions.some((p) => p.startsWith("crm.")) ||
     role === "admin" ||
     (role as any) === "platform_admin" ||
-    (role as any) === "marketing_manager";
+    (role as any) === "marketing_manager" ||
+    (role as any) === "content_manager";
 
   const hasErpAccess =
     permissions.some((p) => !p.startsWith("crm.")) ||
