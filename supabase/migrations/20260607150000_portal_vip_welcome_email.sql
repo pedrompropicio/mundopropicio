@@ -20,19 +20,7 @@
 -- enqueue NÃO aborta a inserção do lead.
 -- ============================================================
 
--- ── 1) Seed do setting "Código de cupão VIP (5%)" ──────────────────────
-INSERT INTO public.portal_settings
-  (company_id, key, value, category, label, description, display_order)
-VALUES (
-  '7c858982-6ccd-47ca-bd65-e0dd3eebf01c'::uuid,
-  'general.vip_coupon_code',
-  to_jsonb(''::text),
-  'general',
-  'Código de cupão VIP (5%)',
-  'Código único global de 5% off enviado por email aos novos leads VIP. Deixar vazio para enviar email sem código (versão graciosa).',
-  100
-)
-ON CONFLICT (company_id, key) DO NOTHING;
+-- Nota: a row portal_settings 'general.vip_coupon_code' (cupão VIP) é seedada manualmente no SQL Editor de Live (FK portal_settings.company_id → companies(id) falha em Test porque a empresa MP só existe em Live).
 
 -- ── 2) Trigger function ────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.tg_lead_capture_vip_welcome()
