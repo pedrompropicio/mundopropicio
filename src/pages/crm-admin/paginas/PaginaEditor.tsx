@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ExternalLink, Loader2, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ExternalLink, Loader2, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { marked } from "marked";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,10 +12,17 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { useAuth } from "@/contexts/AuthContext";
 import { ImageUploader } from "../components/ImageUploader";
 import { MP_COMPANY_ID, PORTAL_PREVIEW_BASE } from "../constants";
 import type { StaticPageRow, StaticPageStatus } from "../types";
+
+marked.setOptions({ breaks: true, gfm: true });
 
 type LocaleForm = {
   id?: string;
@@ -240,43 +248,90 @@ function LocaleEditor({
   const set = <K extends keyof LocaleForm>(key: K, v: LocaleForm[K]) =>
     onChange({ ...value, [key]: v });
 
+  const previewHtml = useMemo(
+    () => (value.content_md ? (marked.parse(value.content_md) as string) : ""),
+    [value.content_md],
+  );
+
   return (
     <Card className="space-y-4 p-4">
       <Field label="Título">
         <Input value={value.title} onChange={(e) => set("title", e.target.value)} />
       </Field>
-      <Field label="Conteúdo" hint="Markdown suportado">
-        <Textarea
-          className="h-96 font-mono text-sm"
-          value={value.content_md}
-          onChange={(e) => set("content_md", e.target.value)}
-        />
+
+      <Field label="Conteúdo" hint="Markdown — GFM + quebras de linha">
+        <Tabs defaultValue="edit">
+          <TabsList>
+            <TabsTrigger value="edit">Editar</TabsTrigger>
+            <TabsTrigger value="preview">Pré-visualizar</TabsTrigger>
+            <TabsTrigger value="split" className="hidden md:inline-flex">
+              Dividido
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="edit">
+            <Textarea
+              className="min-h-[420px] font-mono text-sm"
+              value={value.content_md}
+              onChange={(e) => set("content_md", e.target.value)}
+            />
+          </TabsContent>
+          <TabsContent value="preview">
+            <div
+              className="prose prose-sm dark:prose-invert max-w-none min-h-[420px] rounded-md border border-border bg-background p-4 overflow-auto"
+              dangerouslySetInnerHTML={{ __html: previewHtml || "<p class='text-muted-foreground'>Sem conteúdo.</p>" }}
+            />
+          </TabsContent>
+          <TabsContent value="split">
+            <div className="grid gap-3 md:grid-cols-2">
+              <Textarea
+                className="min-h-[420px] font-mono text-sm"
+                value={value.content_md}
+                onChange={(e) => set("content_md", e.target.value)}
+              />
+              <div
+                className="prose prose-sm dark:prose-invert max-w-none min-h-[420px] rounded-md border border-border bg-background p-4 overflow-auto"
+                dangerouslySetInnerHTML={{ __html: previewHtml || "<p class='text-muted-foreground'>Sem conteúdo.</p>" }}
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
       </Field>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Meta title">
-          <Input
-            value={value.meta_title}
-            onChange={(e) => set("meta_title", e.target.value)}
+
+      <Collapsible>
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" size="sm" className="-ml-2 text-muted-foreground">
+            <ChevronDown className="h-4 w-4" /> SEO & social (avançado)
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-4 pt-3">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Meta title">
+              <Input
+                value={value.meta_title}
+                onChange={(e) => set("meta_title", e.target.value)}
+              />
+            </Field>
+            <Field
+              label="Meta description"
+              hint={`${value.meta_description.length}/160`}
+            >
+              <Textarea
+                rows={3}
+                maxLength={200}
+                value={value.meta_description}
+                onChange={(e) => set("meta_description", e.target.value)}
+              />
+            </Field>
+          </div>
+          <ImageUploader
+            label="OG image"
+            value={value.og_image_url}
+            onChange={(v) => set("og_image_url", v)}
+            aspectRatio="1200/630"
           />
-        </Field>
-        <Field
-          label="Meta description"
-          hint={`${value.meta_description.length}/160`}
-        >
-          <Textarea
-            rows={3}
-            maxLength={200}
-            value={value.meta_description}
-            onChange={(e) => set("meta_description", e.target.value)}
-          />
-        </Field>
-      </div>
-      <ImageUploader
-        label="OG image"
-        value={value.og_image_url}
-        onChange={(v) => set("og_image_url", v)}
-        aspectRatio="1200/630"
-      />
+        </CollapsibleContent>
+      </Collapsible>
+
       <div className="flex items-center justify-between rounded-md border border-border p-3">
         <div>
           <div className="text-sm font-medium">Publicado</div>
