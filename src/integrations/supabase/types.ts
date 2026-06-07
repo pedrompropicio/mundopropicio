@@ -3593,10 +3593,12 @@ export type Database = {
           event_id: string
           gallery_urls: string[] | null
           hero_image_url: string | null
+          hero_video_url: string | null
           hook_en: string | null
           hook_pt: string | null
           meta_description_en: string | null
           meta_description_pt: string | null
+          music_embed_url: string | null
           offer_availability: string | null
           offer_currency: string | null
           offer_price_max: number | null
@@ -3610,6 +3612,7 @@ export type Database = {
           press_quote_source: string | null
           published_at: string | null
           status: string
+          ticket_experiences: Json | null
           updated_at: string
           updated_by: string | null
           urgency_message_en: string | null
@@ -3626,10 +3629,12 @@ export type Database = {
           event_id: string
           gallery_urls?: string[] | null
           hero_image_url?: string | null
+          hero_video_url?: string | null
           hook_en?: string | null
           hook_pt?: string | null
           meta_description_en?: string | null
           meta_description_pt?: string | null
+          music_embed_url?: string | null
           offer_availability?: string | null
           offer_currency?: string | null
           offer_price_max?: number | null
@@ -3643,6 +3648,7 @@ export type Database = {
           press_quote_source?: string | null
           published_at?: string | null
           status?: string
+          ticket_experiences?: Json | null
           updated_at?: string
           updated_by?: string | null
           urgency_message_en?: string | null
@@ -3659,10 +3665,12 @@ export type Database = {
           event_id?: string
           gallery_urls?: string[] | null
           hero_image_url?: string | null
+          hero_video_url?: string | null
           hook_en?: string | null
           hook_pt?: string | null
           meta_description_en?: string | null
           meta_description_pt?: string | null
+          music_embed_url?: string | null
           offer_availability?: string | null
           offer_currency?: string | null
           offer_price_max?: number | null
@@ -3676,6 +3684,7 @@ export type Database = {
           press_quote_source?: string | null
           published_at?: string | null
           status?: string
+          ticket_experiences?: Json | null
           updated_at?: string
           updated_by?: string | null
           urgency_message_en?: string | null
@@ -9527,6 +9536,7 @@ export type Database = {
           gallery_urls: string[] | null
           has_marketing: boolean | null
           hero_image_url: string | null
+          hero_video_url: string | null
           hook_en: string | null
           hook_pt: string | null
           id: string | null
@@ -9537,6 +9547,7 @@ export type Database = {
           meta_description_en: string | null
           meta_description_pt: string | null
           meta_pixel_id: string | null
+          music_embed_url: string | null
           offer_availability: string | null
           offer_currency: string | null
           offer_price_max: number | null
@@ -9551,6 +9562,7 @@ export type Database = {
           press_quote_pt: string | null
           press_quote_source: string | null
           slug: string | null
+          ticket_experiences: Json | null
           ticketing_url: string | null
           title_en: string | null
           title_pt: string | null
