@@ -44,13 +44,17 @@ AS $function$
 DECLARE
   MP_COMPANY_ID constant uuid := '7c858982-6ccd-47ca-bd65-e0dd3eebf01c';
   PORTAL_URL_BASE constant text := 'https://www.mundopropicio.com';
-  FROM_LINE constant text := 'MP Gestão Eventos <noreply@mpgestaoeventos.com>';
+  FROM_LINE constant text := 'Mundo Propício <noreply@mpgestaoeventos.com>';
   SENDER_DOM constant text := 'notify.mpgestaoeventos.com';
   v_locale text;
   v_lang text;
   v_coupon text;
+  v_email_lc text;
   v_event_name text;
   v_event_url text;
+  v_unsub_token text;
+  v_unsub_url text;
+  v_unsub_label text;
   v_subject text;
   v_greeting text;
   v_html text;
@@ -77,6 +81,8 @@ BEGIN
   LIMIT 1;
 
   -- Nome do evento (opcional, se event_slug presente)
+  -- URL canónica per docs/portal/mvp-spec.md L20: idioma é toggle global no
+  -- frontend, NÃO vai na URL — sem prefixo de locale, sem ?lang.
   v_event_name := NULL;
   v_event_url := PORTAL_URL_BASE || '/eventos';
   IF NEW.event_slug IS NOT NULL AND NEW.event_slug <> '' THEN
@@ -87,6 +93,29 @@ BEGIN
     LIMIT 1;
     v_event_url := PORTAL_URL_BASE || '/eventos/' || NEW.event_slug;
   END IF;
+
+  -- ── Unsubscribe (RGPD) ──
+  -- Mesmo padrão de send-transactional-email: 1 token por email (UNIQUE),
+  -- gerado on-demand se não existir. URL no domínio público mundopropicio.com
+  -- (consumido por handle-email-unsubscribe edge function).
+  v_email_lc := lower(NEW.email);
+  SELECT token INTO v_unsub_token
+    FROM public.email_unsubscribe_tokens
+   WHERE email = v_email_lc
+   LIMIT 1;
+  IF v_unsub_token IS NULL THEN
+    v_unsub_token := encode(extensions.gen_random_bytes(32), 'hex');
+    INSERT INTO public.email_unsubscribe_tokens (token, email)
+      VALUES (v_unsub_token, v_email_lc)
+    ON CONFLICT (email) DO NOTHING;
+    -- Re-leitura defensiva caso ON CONFLICT teve race
+    SELECT token INTO v_unsub_token
+      FROM public.email_unsubscribe_tokens
+     WHERE email = v_email_lc
+     LIMIT 1;
+  END IF;
+  v_unsub_url := PORTAL_URL_BASE || '/unsubscribe?token=' || v_unsub_token;
+  v_unsub_label := CASE WHEN v_lang = 'en' THEN 'Unsubscribe' ELSE 'Cancelar subscrição' END;
 
   v_message_id := 'vip-welcome:' || NEW.id::text;
   v_idem_key := v_message_id;
@@ -116,7 +145,10 @@ BEGIN
         'Your VIP code is on its way — we''ll email it shortly.' || E'\n\n'
       END ||
       'Browse events: ' || v_event_url || E'\n\n' ||
-      'See you there.' || E'\n— Mundo Propício';
+      'See you there.' || E'\n— Mundo Propício' || E'\n\n' ||
+      '— —' || E'\n' ||
+      'You received this because you opted in as VIP at mundopropicio.com.' || E'\n' ||
+      'Unsubscribe at any time: ' || v_unsub_url;
 
     v_html :=
       '<div style="font-family:Helvetica,Arial,sans-serif;background:#0a0a0a;padding:32px 0;color:#e9e6dc">' ||
@@ -141,6 +173,10 @@ BEGIN
             '<a href="' || v_event_url || '" style="display:inline-block;background:#d4af37;color:#0a0a0a;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;letter-spacing:.05em">Browse events</a>' ||
           '</div>' ||
           '<p style="font-size:12px;color:#7c7669;text-align:center;margin-top:32px;line-height:1.5">See you there.<br/>— Mundo Propício</p>' ||
+          '<p style="font-size:11px;color:#5a564c;text-align:center;margin-top:24px;line-height:1.6;border-top:1px solid #1f1d18;padding-top:16px">' ||
+            'You received this because you opted in as VIP at <a href="' || PORTAL_URL_BASE || '" style="color:#7c7669;text-decoration:underline">mundopropicio.com</a>.<br/>' ||
+            '<a href="' || v_unsub_url || '" style="color:#d4af37;text-decoration:underline">' || v_unsub_label || '</a>' ||
+          '</p>' ||
         '</div>' ||
       '</div>';
 
@@ -169,7 +205,10 @@ BEGIN
         'O teu código VIP está a caminho — enviamos por email em breve.' || E'\n\n'
       END ||
       'Ver eventos: ' || v_event_url || E'\n\n' ||
-      'Até já.' || E'\n— Mundo Propício';
+      'Até já.' || E'\n— Mundo Propício' || E'\n\n' ||
+      '— —' || E'\n' ||
+      'Recebeste este email porque te inscreveste como VIP em mundopropicio.com.' || E'\n' ||
+      'Cancela quando quiseres: ' || v_unsub_url;
 
     v_html :=
       '<div style="font-family:Helvetica,Arial,sans-serif;background:#0a0a0a;padding:32px 0;color:#e9e6dc">' ||
@@ -194,6 +233,10 @@ BEGIN
             '<a href="' || v_event_url || '" style="display:inline-block;background:#d4af37;color:#0a0a0a;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;letter-spacing:.05em">Ver eventos</a>' ||
           '</div>' ||
           '<p style="font-size:12px;color:#7c7669;text-align:center;margin-top:32px;line-height:1.5">Até já.<br/>— Mundo Propício</p>' ||
+          '<p style="font-size:11px;color:#5a564c;text-align:center;margin-top:24px;line-height:1.6;border-top:1px solid #1f1d18;padding-top:16px">' ||
+            'Recebeste este email porque te inscreveste como VIP em <a href="' || PORTAL_URL_BASE || '" style="color:#7c7669;text-decoration:underline">mundopropicio.com</a>.<br/>' ||
+            '<a href="' || v_unsub_url || '" style="color:#d4af37;text-decoration:underline">' || v_unsub_label || '</a>' ||
+          '</p>' ||
         '</div>' ||
       '</div>';
   END IF;
@@ -210,6 +253,7 @@ BEGIN
     'purpose',          'transactional',
     'label',            'portal_vip_welcome',
     'idempotency_key',  v_idem_key,
+    'unsubscribe_token', v_unsub_token,
     'queued_at',        to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
   );
 
