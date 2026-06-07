@@ -32,6 +32,7 @@ export function CrmSidebar() {
     { to: "/crm/audiences", icon: Target, label: "Audiências" },
     { to: "/crm/blog", icon: FileText, label: "Blog" },
     { to: "/crm/paginas", icon: FilePen, label: "Páginas" },
+    { to: "/crm/videos", icon: Video, label: "Vídeos" },
   ];
 
   const isItemActive = (to: string, end?: boolean) => {
