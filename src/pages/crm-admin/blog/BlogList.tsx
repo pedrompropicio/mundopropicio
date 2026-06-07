@@ -132,14 +132,14 @@ export default function BlogList() {
             )}
             {error && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-destructive">
+                <TableCell colSpan={8} className="text-center text-destructive">
                   {(error as Error).message}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   Sem posts.
                 </TableCell>
               </TableRow>
@@ -158,7 +158,7 @@ export default function BlogList() {
                   )}
                 </TableCell>
                 <TableCell className="font-medium">{p.title_pt}</TableCell>
-                <TableCell className="text-muted-foreground text-xs">{p.slug}</TableCell>
+                <TableCell className="text-muted-foreground text-xs font-mono">{p.slug}</TableCell>
                 <TableCell>
                   {p.published ? (
                     <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600">
@@ -172,6 +172,11 @@ export default function BlogList() {
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
                   {p.portal_visible ? "Visível" : "Oculto"}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  {p.published_at
+                    ? new Date(p.published_at).toLocaleDateString("pt-PT")
+                    : "—"}
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
                   {new Date(p.updated_at).toLocaleDateString("pt-PT")}
