@@ -10,6 +10,7 @@ import {
   Video,
   Newspaper,
   Settings,
+  Activity,
   ArrowLeft,
   KeyRound,
   LogOut,
