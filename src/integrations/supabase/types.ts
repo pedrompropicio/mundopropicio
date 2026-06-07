@@ -5605,6 +5605,112 @@ export type Database = {
         }
         Relationships: []
       }
+      meta_audience_sync_log: {
+        Row: {
+          audience_id: string
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          meta_response: Json | null
+          records_processed: number | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          audience_id: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          meta_response?: Json | null
+          records_processed?: number | null
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          audience_id?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          meta_response?: Json | null
+          records_processed?: number | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_audience_sync_log_audience_id_fkey"
+            columns: ["audience_id"]
+            isOneToOne: false
+            referencedRelation: "meta_custom_audiences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meta_custom_audiences: {
+        Row: {
+          audience_id_meta: string | null
+          company_id: string
+          connection_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          enabled: boolean
+          filters: Json
+          id: string
+          last_sync_error: string | null
+          last_sync_status: string | null
+          last_synced_at: string | null
+          name: string
+          total_records_local: number | null
+          total_records_meta: number | null
+          updated_at: string
+        }
+        Insert: {
+          audience_id_meta?: string | null
+          company_id: string
+          connection_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          enabled?: boolean
+          filters?: Json
+          id?: string
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          last_synced_at?: string | null
+          name: string
+          total_records_local?: number | null
+          total_records_meta?: number | null
+          updated_at?: string
+        }
+        Update: {
+          audience_id_meta?: string | null
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          enabled?: boolean
+          filters?: Json
+          id?: string
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          last_synced_at?: string | null
+          name?: string
+          total_records_local?: number | null
+          total_records_meta?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_custom_audiences_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mfa_recovery_codes: {
         Row: {
           code_hash: string
@@ -9873,6 +9979,14 @@ export type Database = {
           external_business_name: string
         }[]
       }
+      crm_meta_audience_collect_leads: {
+        Args: { p_audience_id: string }
+        Returns: {
+          email: string
+          phone: string
+        }[]
+      }
+      crm_meta_audiences_dashboard: { Args: never; Returns: Json }
       crm_meta_capi_dashboard: { Args: { p_days?: number }; Returns: Json }
       crm_upsert_meta_connection: {
         Args: {
