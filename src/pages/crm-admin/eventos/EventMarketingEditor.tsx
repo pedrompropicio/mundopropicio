@@ -103,7 +103,7 @@ export default function EventMarketingEditor() {
     if (mkQuery.data === undefined) return;
     if (mkQuery.data) {
       const { created_at, updated_at, created_by, updated_by, ...rest } = mkQuery.data;
-      setForm({ ...rest, gallery_urls: rest.gallery_urls ?? [] });
+      setForm({ ...rest, gallery_urls: rest.gallery_urls ?? [], ticket_experiences: (rest.ticket_experiences as TicketExperience[] | null) ?? [] });
     } else {
       setForm(emptyForm(eventId));
     }
