@@ -5361,6 +5361,66 @@ export type Database = {
           },
         ]
       }
+      home_videos: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          display_order: number
+          event_id: string | null
+          id: string
+          portal_visible: boolean
+          title_en: string | null
+          title_pt: string
+          updated_at: string
+          updated_by: string | null
+          youtube_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          event_id?: string | null
+          id?: string
+          portal_visible?: boolean
+          title_en?: string | null
+          title_pt: string
+          updated_at?: string
+          updated_by?: string | null
+          youtube_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          event_id?: string | null
+          id?: string
+          portal_visible?: boolean
+          title_en?: string | null
+          title_pt?: string
+          updated_at?: string
+          updated_by?: string | null
+          youtube_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "home_videos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "home_videos_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_capture: {
         Row: {
           client_event_id: string | null
@@ -9344,6 +9404,34 @@ export type Database = {
           venue_map_url: string | null
         }
         Relationships: []
+      }
+      home_videos_public: {
+        Row: {
+          company_id: string | null
+          display_order: number | null
+          event_id: string | null
+          event_slug: string | null
+          id: string | null
+          title_en: string | null
+          title_pt: string | null
+          youtube_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "home_videos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "home_videos_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       press_clippings_public: {
         Row: {
