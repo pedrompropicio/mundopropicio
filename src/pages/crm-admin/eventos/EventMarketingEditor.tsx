@@ -57,6 +57,9 @@ const emptyForm = (eventId: string): FormState => ({
   offer_price_max: null,
   offer_currency: "EUR",
   offer_availability: "InStock",
+  hero_video_url: null,
+  music_embed_url: null,
+  ticket_experiences: [],
 });
 
 export default function EventMarketingEditor() {
