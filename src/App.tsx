@@ -576,6 +576,7 @@ function App() {
                     <Route path="blog/:id" element={<BlogEditor mode="edit" />} />
                     <Route path="paginas" element={<PaginasList />} />
                     <Route path="paginas/:slug" element={<PaginaEditor />} />
+                    <Route path="videos" element={<VideosList />} />
                   </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
