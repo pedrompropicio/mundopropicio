@@ -32,6 +32,9 @@ export interface EventMarketingRow {
   offer_price_max: number | null;
   offer_currency: string | null;
   offer_availability: string | null;
+  hero_video_url: string | null;
+  music_embed_url: string | null;
+  ticket_experiences: TicketExperience[] | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
