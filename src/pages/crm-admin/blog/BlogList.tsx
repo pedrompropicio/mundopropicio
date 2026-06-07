@@ -45,11 +45,12 @@ export default function BlogList() {
 
   const rows = useMemo(() => {
     const list = data ?? [];
-    return list.filter((p) => {
+    const filtered = list.filter((p) => {
       if (search) {
         const s = search.toLowerCase();
         if (
           !p.title_pt?.toLowerCase().includes(s) &&
+          !p.title_en?.toLowerCase().includes(s) &&
           !p.slug.toLowerCase().includes(s)
         )
           return false;
@@ -57,6 +58,13 @@ export default function BlogList() {
       if (statusFilter === "published" && !p.published) return false;
       if (statusFilter === "draft" && p.published) return false;
       return true;
+    });
+    // Published first (by published_at desc), then drafts by updated_at desc
+    return filtered.sort((a, b) => {
+      if (a.published !== b.published) return a.published ? -1 : 1;
+      const ak = a.published ? a.published_at ?? a.updated_at : a.updated_at;
+      const bk = b.published ? b.published_at ?? b.updated_at : b.updated_at;
+      return (bk ?? "").localeCompare(ak ?? "");
     });
   }, [data, search, statusFilter]);
 
@@ -109,6 +117,7 @@ export default function BlogList() {
               <TableHead>Slug</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Portal</TableHead>
+              <TableHead>Publicado em</TableHead>
               <TableHead>Actualizado</TableHead>
               <TableHead className="text-right">Ação</TableHead>
             </TableRow>
@@ -116,21 +125,21 @@ export default function BlogList() {
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   A carregar…
                 </TableCell>
               </TableRow>
             )}
             {error && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-destructive">
+                <TableCell colSpan={8} className="text-center text-destructive">
                   {(error as Error).message}
                 </TableCell>
               </TableRow>
             )}
             {!isLoading && rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   Sem posts.
                 </TableCell>
               </TableRow>
@@ -149,7 +158,7 @@ export default function BlogList() {
                   )}
                 </TableCell>
                 <TableCell className="font-medium">{p.title_pt}</TableCell>
-                <TableCell className="text-muted-foreground text-xs">{p.slug}</TableCell>
+                <TableCell className="text-muted-foreground text-xs font-mono">{p.slug}</TableCell>
                 <TableCell>
                   {p.published ? (
                     <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600">
@@ -163,6 +172,11 @@ export default function BlogList() {
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
                   {p.portal_visible ? "Visível" : "Oculto"}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  {p.published_at
+                    ? new Date(p.published_at).toLocaleDateString("pt-PT")
+                    : "—"}
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
                   {new Date(p.updated_at).toLocaleDateString("pt-PT")}

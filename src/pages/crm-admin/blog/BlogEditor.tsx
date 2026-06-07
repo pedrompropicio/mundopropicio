@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ExternalLink, Loader2, Save, Trash2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
+import { marked } from "marked";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,11 +11,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { ImageUploader } from "../components/ImageUploader";
 import { MP_COMPANY_ID, PORTAL_PREVIEW_BASE } from "../constants";
 import { toSlug } from "../lib/slug";
 import type { BlogPostRow } from "../types";
+
+marked.setOptions({ breaks: true, gfm: true });
 
 type FormState = Omit<BlogPostRow, "id" | "created_at" | "updated_at" | "author_id"> & {
   id?: string;
@@ -162,7 +166,17 @@ export default function BlogEditor({ mode }: Props) {
   }
   if (!form) return null;
 
-  const portalUrl = `${PORTAL_PREVIEW_BASE}/pt/blog/${form.slug}`;
+  const portalPtUrl = `${PORTAL_PREVIEW_BASE}/pt/blog/${form.slug}`;
+  const portalEnUrl = `${PORTAL_PREVIEW_BASE}/en/blog/${form.slug}`;
+  const canOpenPortal = mode === "edit" && form.published && form.portal_visible && !!form.slug;
+
+  // datetime-local input expects "YYYY-MM-DDTHH:mm"
+  const publishedAtLocal = useMemo(() => {
+    if (!form.published_at) return "";
+    const d = new Date(form.published_at);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }, [form.published_at]);
 
   return (
     <div className="space-y-4 pb-24">
@@ -176,95 +190,109 @@ export default function BlogEditor({ mode }: Props) {
           <h1 className="text-2xl font-bold text-foreground">
             {mode === "new" ? "Novo post" : form.title_pt || "(sem título)"}
           </h1>
+          {form.slug && (
+            <p className="text-xs text-muted-foreground font-mono">/{form.slug}</p>
+          )}
         </div>
-        {mode === "edit" && form.published && form.portal_visible && (
-          <Button asChild variant="outline" size="sm">
-            <a href={portalUrl} target="_blank" rel="noreferrer">
-              Ver no portal <ExternalLink className="h-4 w-4" />
-            </a>
-          </Button>
+        {canOpenPortal && (
+          <div className="flex gap-2">
+            <Button asChild variant="outline" size="sm">
+              <a href={portalPtUrl} target="_blank" rel="noreferrer">
+                PT <ExternalLink className="h-4 w-4" />
+              </a>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <a href={portalEnUrl} target="_blank" rel="noreferrer">
+                EN <ExternalLink className="h-4 w-4" />
+              </a>
+            </Button>
+          </div>
         )}
       </div>
 
       <Card className="space-y-4 p-4">
-        <Field label="Slug">
-          <div className="flex gap-2">
+        <div className="grid gap-4 md:grid-cols-[1fr_auto]">
+          <Field label="Slug">
+            <div className="flex gap-2">
+              <Input
+                value={form.slug}
+                onChange={(e) => {
+                  setSlugTouched(true);
+                  set("slug", toSlug(e.target.value));
+                }}
+                placeholder="ex.: novidades-coala-2026"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSlugTouched(false);
+                  set("slug", toSlug(form.title_pt));
+                }}
+              >
+                <Wand2 className="h-4 w-4" /> Auto
+              </Button>
+            </div>
+          </Field>
+          <Field label="Data de publicação" hint="Mostrado no portal">
             <Input
-              value={form.slug}
-              onChange={(e) => {
-                setSlugTouched(true);
-                set("slug", toSlug(e.target.value));
-              }}
-              placeholder="ex.: novidades-coala-2026"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSlugTouched(false);
-                set("slug", toSlug(form.title_pt));
-              }}
-            >
-              <Wand2 className="h-4 w-4" /> Auto
-            </Button>
-          </div>
-        </Field>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Título (PT)">
-            <Input value={form.title_pt} onChange={(e) => onTitlePtChange(e.target.value)} />
-          </Field>
-          <Field label="Título (EN)">
-            <Input
-              value={form.title_en}
-              onChange={(e) => set("title_en", e.target.value)}
-              placeholder="Se vazio → usa PT"
-            />
-          </Field>
-          <Field label="Excerpt (PT)">
-            <Textarea
-              rows={2}
-              value={form.excerpt_pt ?? ""}
-              onChange={(e) => set("excerpt_pt", e.target.value || null)}
-            />
-          </Field>
-          <Field label="Excerpt (EN)">
-            <Textarea
-              rows={2}
-              value={form.excerpt_en ?? ""}
-              onChange={(e) => set("excerpt_en", e.target.value || null)}
+              type="datetime-local"
+              value={publishedAtLocal}
+              onChange={(e) =>
+                set(
+                  "published_at",
+                  e.target.value ? new Date(e.target.value).toISOString() : null,
+                )
+              }
+              className="w-full md:w-64"
             />
           </Field>
         </div>
 
         <ImageUploader
-          label="Cover"
+          label="Cover (16:9)"
           value={form.cover_image}
           onChange={(v) => set("cover_image", v)}
           aspectRatio="16/9"
         />
 
-        <Field label="Conteúdo (PT)" hint="Markdown suportado">
-          <Textarea
-            className="h-96 font-mono text-sm"
-            value={form.content_pt}
-            onChange={(e) => set("content_pt", e.target.value)}
-          />
-        </Field>
-        <Field label="Conteúdo (EN)" hint="Markdown suportado · Se vazio → usa PT">
-          <Textarea
-            className="h-96 font-mono text-sm"
-            value={form.content_en}
-            onChange={(e) => set("content_en", e.target.value)}
-          />
-        </Field>
+        <Tabs defaultValue="pt">
+          <TabsList>
+            <TabsTrigger value="pt">Português</TabsTrigger>
+            <TabsTrigger value="en">English</TabsTrigger>
+          </TabsList>
+          <TabsContent value="pt">
+            <LocaleFields
+              title={form.title_pt}
+              onTitle={onTitlePtChange}
+              excerpt={form.excerpt_pt}
+              onExcerpt={(v) => set("excerpt_pt", v)}
+              content={form.content_pt}
+              onContent={(v) => set("content_pt", v)}
+            />
+          </TabsContent>
+          <TabsContent value="en">
+            <LocaleFields
+              title={form.title_en}
+              onTitle={(v) => set("title_en", v)}
+              titlePlaceholder="Se vazio → usa PT"
+              excerpt={form.excerpt_en}
+              onExcerpt={(v) => set("excerpt_en", v)}
+              content={form.content_en}
+              onContent={(v) => set("content_en", v)}
+              contentHint="Se vazio → usa PT"
+            />
+          </TabsContent>
+        </Tabs>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex items-center justify-between rounded-md border border-border p-3">
             <div>
               <div className="text-sm font-medium">Publicado</div>
-              <div className="text-xs text-muted-foreground">Marca o post como pronto.</div>
+              <div className="text-xs text-muted-foreground">
+                Marca o post como pronto. Define data automaticamente.
+              </div>
             </div>
             <Switch checked={form.published} onCheckedChange={(v) => set("published", v)} />
           </div>
@@ -272,7 +300,7 @@ export default function BlogEditor({ mode }: Props) {
             <div>
               <div className="text-sm font-medium">Visível no portal</div>
               <div className="text-xs text-muted-foreground">
-                Permite ocultar temporariamente sem despublicar.
+                Oculta temporariamente sem despublicar.
               </div>
             </div>
             <Switch
@@ -316,6 +344,92 @@ export default function BlogEditor({ mode }: Props) {
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function LocaleFields({
+  title,
+  onTitle,
+  titlePlaceholder,
+  excerpt,
+  onExcerpt,
+  content,
+  onContent,
+  contentHint,
+}: {
+  title: string;
+  onTitle: (v: string) => void;
+  titlePlaceholder?: string;
+  excerpt: string | null;
+  onExcerpt: (v: string | null) => void;
+  content: string;
+  onContent: (v: string) => void;
+  contentHint?: string;
+}) {
+  const previewHtml = useMemo(
+    () => (content ? (marked.parse(content) as string) : ""),
+    [content],
+  );
+  const excerptVal = excerpt ?? "";
+
+  return (
+    <div className="space-y-4 pt-4">
+      <Field label="Título">
+        <Input
+          value={title}
+          onChange={(e) => onTitle(e.target.value)}
+          placeholder={titlePlaceholder}
+        />
+      </Field>
+      <Field label="Excerpt" hint={`${excerptVal.length} caracteres · 2-3 linhas`}>
+        <Textarea
+          rows={3}
+          value={excerptVal}
+          onChange={(e) => onExcerpt(e.target.value || null)}
+        />
+      </Field>
+      <Field label="Conteúdo" hint={contentHint ?? "Markdown — GFM + quebras de linha"}>
+        <Tabs defaultValue="edit">
+          <TabsList>
+            <TabsTrigger value="edit">Editar</TabsTrigger>
+            <TabsTrigger value="preview">Pré-visualizar</TabsTrigger>
+            <TabsTrigger value="split" className="hidden md:inline-flex">
+              Dividido
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="edit">
+            <Textarea
+              className="min-h-[420px] font-mono text-sm"
+              value={content}
+              onChange={(e) => onContent(e.target.value)}
+            />
+          </TabsContent>
+          <TabsContent value="preview">
+            <div
+              className="prose prose-sm dark:prose-invert max-w-none min-h-[420px] rounded-md border border-border bg-background p-4 overflow-auto"
+              dangerouslySetInnerHTML={{
+                __html: previewHtml || "<p class='text-muted-foreground'>Sem conteúdo.</p>",
+              }}
+            />
+          </TabsContent>
+          <TabsContent value="split">
+            <div className="grid gap-3 md:grid-cols-2">
+              <Textarea
+                className="min-h-[420px] font-mono text-sm"
+                value={content}
+                onChange={(e) => onContent(e.target.value)}
+              />
+              <div
+                className="prose prose-sm dark:prose-invert max-w-none min-h-[420px] rounded-md border border-border bg-background p-4 overflow-auto"
+                dangerouslySetInnerHTML={{
+                  __html: previewHtml || "<p class='text-muted-foreground'>Sem conteúdo.</p>",
+                }}
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
+      </Field>
     </div>
   );
 }
