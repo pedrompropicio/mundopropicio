@@ -11,6 +11,7 @@ import {
   Newspaper,
   Settings,
   Activity,
+  Target,
   ArrowLeft,
   KeyRound,
   LogOut,
@@ -39,6 +40,7 @@ export function CrmSidebar() {
     { to: "/crm/press", icon: Newspaper, label: "Imprensa" },
     { to: "/crm/portal-settings", icon: Settings, label: "Config. portal" },
     { to: "/crm/meta-capi", icon: Activity, label: "Meta CAPI" },
+    { to: "/crm/meta-audiences", icon: Target, label: "Meta Audiences" },
   ];
 
   const isItemActive = (to: string, end?: boolean) => {
