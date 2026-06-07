@@ -169,6 +169,7 @@ import PaginaEditor from "./pages/crm-admin/paginas/PaginaEditor";
 import VideosList from "./pages/crm-admin/videos/VideosList";
 import PressList from "./pages/crm-admin/press/PressList";
 import PortalSettings from "./pages/crm-admin/portal-settings/PortalSettings";
+import MetaCapiMonitor from "./pages/crm-admin/meta-capi/MetaCapiMonitor";
 import { useLocation } from "react-router-dom";
 
 const queryClient = new QueryClient({
@@ -581,6 +582,7 @@ function App() {
                     <Route path="videos" element={<VideosList />} />
                     <Route path="press" element={<PressList />} />
                     <Route path="portal-settings" element={<PortalSettings />} />
+                    <Route path="meta-capi" element={<MetaCapiMonitor />} />
                   </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>

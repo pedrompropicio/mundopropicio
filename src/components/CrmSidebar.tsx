@@ -10,6 +10,7 @@ import {
   Video,
   Newspaper,
   Settings,
+  Activity,
   ArrowLeft,
   KeyRound,
   LogOut,
@@ -37,6 +38,7 @@ export function CrmSidebar() {
     { to: "/crm/videos", icon: Video, label: "Vídeos" },
     { to: "/crm/press", icon: Newspaper, label: "Imprensa" },
     { to: "/crm/portal-settings", icon: Settings, label: "Config. portal" },
+    { to: "/crm/meta-capi", icon: Activity, label: "Meta CAPI" },
   ];
 
   const isItemActive = (to: string, end?: boolean) => {
