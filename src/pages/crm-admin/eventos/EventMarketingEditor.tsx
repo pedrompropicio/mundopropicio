@@ -21,7 +21,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ImageUploader } from "../components/ImageUploader";
 import { MultiImageUploader } from "../components/MultiImageUploader";
 import { MP_COMPANY_ID } from "../constants";
-import type { EventMarketingRow, EventRow } from "../types";
+import type { EventMarketingRow, EventRow, TicketExperience } from "../types";
+import { Trash2, Plus, ArrowUp, ArrowDown } from "lucide-react";
 
 type FormState = Omit<
   EventMarketingRow,
