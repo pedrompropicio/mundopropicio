@@ -167,6 +167,7 @@ import BlogEditor from "./pages/crm-admin/blog/BlogEditor";
 import PaginasList from "./pages/crm-admin/paginas/PaginasList";
 import PaginaEditor from "./pages/crm-admin/paginas/PaginaEditor";
 import VideosList from "./pages/crm-admin/videos/VideosList";
+import PressList from "./pages/crm-admin/press/PressList";
 import { useLocation } from "react-router-dom";
 
 const queryClient = new QueryClient({
