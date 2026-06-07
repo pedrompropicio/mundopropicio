@@ -168,6 +168,7 @@ import PaginasList from "./pages/crm-admin/paginas/PaginasList";
 import PaginaEditor from "./pages/crm-admin/paginas/PaginaEditor";
 import VideosList from "./pages/crm-admin/videos/VideosList";
 import PressList from "./pages/crm-admin/press/PressList";
+import PortalSettings from "./pages/crm-admin/portal-settings/PortalSettings";
 import { useLocation } from "react-router-dom";
 
 const queryClient = new QueryClient({
@@ -579,6 +580,7 @@ function App() {
                     <Route path="paginas/:slug" element={<PaginaEditor />} />
                     <Route path="videos" element={<VideosList />} />
                     <Route path="press" element={<PressList />} />
+                    <Route path="portal-settings" element={<PortalSettings />} />
                   </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>

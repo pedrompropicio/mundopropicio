@@ -6845,6 +6845,56 @@ export type Database = {
           },
         ]
       }
+      portal_settings: {
+        Row: {
+          category: string
+          company_id: string
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          key: string
+          label: string | null
+          updated_at: string
+          updated_by: string | null
+          value: Json | null
+        }
+        Insert: {
+          category?: string
+          company_id: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          key: string
+          label?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json | null
+        }
+        Update: {
+          category?: string
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          key?: string
+          label?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       press_clippings: {
         Row: {
           company_id: string
@@ -9429,6 +9479,38 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portal_settings_public: {
+        Row: {
+          category: string | null
+          company_id: string | null
+          display_order: number | null
+          key: string | null
+          value: Json | null
+        }
+        Insert: {
+          category?: string | null
+          company_id?: string | null
+          display_order?: number | null
+          key?: string | null
+          value?: Json | null
+        }
+        Update: {
+          category?: string | null
+          company_id?: string | null
+          display_order?: number | null
+          key?: string | null
+          value?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
