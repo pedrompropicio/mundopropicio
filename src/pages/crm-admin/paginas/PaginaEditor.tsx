@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ExternalLink, Loader2, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ExternalLink, Loader2, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { marked } from "marked";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,10 +12,17 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { useAuth } from "@/contexts/AuthContext";
 import { ImageUploader } from "../components/ImageUploader";
 import { MP_COMPANY_ID, PORTAL_PREVIEW_BASE } from "../constants";
 import type { StaticPageRow, StaticPageStatus } from "../types";
+
+marked.setOptions({ breaks: true, gfm: true });
 
 type LocaleForm = {
   id?: string;
