@@ -9988,6 +9988,7 @@ export type Database = {
       }
       crm_meta_audiences_dashboard: { Args: never; Returns: Json }
       crm_meta_capi_dashboard: { Args: { p_days?: number }; Returns: Json }
+      crm_rgpd_erase_contact: { Args: { p_contact_id: string }; Returns: Json }
       crm_upsert_meta_connection: {
         Args: {
           p_access_token: string
