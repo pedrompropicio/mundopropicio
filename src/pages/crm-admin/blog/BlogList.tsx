@@ -117,6 +117,7 @@ export default function BlogList() {
               <TableHead>Slug</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Portal</TableHead>
+              <TableHead>Publicado em</TableHead>
               <TableHead>Actualizado</TableHead>
               <TableHead className="text-right">Ação</TableHead>
             </TableRow>
@@ -124,7 +125,7 @@ export default function BlogList() {
           <TableBody>
             {isLoading && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   A carregar…
                 </TableCell>
               </TableRow>
