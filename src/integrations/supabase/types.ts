@@ -10391,6 +10391,7 @@ export type Database = {
         | "platform_admin"
         | "field_producer"
         | "producer"
+        | "content_manager"
       bp_formalidade:
         | "estimado"
         | "negociacao"
@@ -10554,6 +10555,7 @@ export const Constants = {
         "platform_admin",
         "field_producer",
         "producer",
+        "content_manager",
       ],
       bp_formalidade: [
         "estimado",
