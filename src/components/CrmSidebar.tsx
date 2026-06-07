@@ -8,6 +8,7 @@ import {
   FileText,
   FilePen,
   Video,
+  Newspaper,
   ArrowLeft,
   KeyRound,
   LogOut,
