@@ -1,9 +1,13 @@
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Search, Mail, MessageCircle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Search, Mail, MessageCircle, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -19,6 +23,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { MP_COMPANY_ID } from "../constants";
 import ContactDetailsSheet from "./ContactDetailsSheet";
@@ -27,12 +41,16 @@ import { relativeFromNow } from "../lib/relativeTime";
 type TriState = "all" | "yes" | "no";
 
 export default function ContactosList() {
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [emailConsent, setEmailConsent] = useState<TriState>("all");
   const [waConsent, setWaConsent] = useState<TriState>("all");
   const [activeFilter, setActiveFilter] = useState<TriState>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [selected, setSelected] = useState<string | null>(null);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["crm-contactos-list", MP_COMPANY_ID],
@@ -71,6 +89,70 @@ export default function ContactosList() {
       return true;
     });
   }, [data, search, emailConsent, waConsent, activeFilter, sourceFilter]);
+
+  useEffect(() => {
+    setChecked(new Set());
+  }, [search, emailConsent, waConsent, activeFilter, sourceFilter]);
+
+  const toggleOne = (id: string) =>
+    setChecked((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  const allChecked = rows.length > 0 && rows.every((r: any) => checked.has(r.id));
+  const someChecked = rows.some((r: any) => checked.has(r.id)) && !allChecked;
+  const toggleAll = () =>
+    setChecked((prev) => {
+      if (allChecked) {
+        const next = new Set(prev);
+        rows.forEach((r: any) => next.delete(r.id));
+        return next;
+      }
+      const next = new Set(prev);
+      rows.forEach((r: any) => next.add(r.id));
+      return next;
+    });
+
+  const eraseMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const results = { ok: 0, failed: 0, leads: 0, captures: 0, errors: [] as string[] };
+      for (const id of ids) {
+        const { data: r, error } = await (supabase as any).rpc("crm_rgpd_erase_contact", {
+          p_contact_id: id,
+        });
+        if (error) {
+          results.failed += 1;
+          results.errors.push(`${id.slice(0, 8)}: ${error.message ?? error.code ?? "erro"}`);
+        } else {
+          results.ok += 1;
+          results.leads += (r?.leads_deleted ?? 0);
+          results.captures += (r?.lead_captures_deleted ?? 0);
+        }
+      }
+      return results;
+    },
+    onSuccess: (r) => {
+      if (r.ok > 0) {
+        toast.success(
+          `${r.ok} contacto(s) apagado(s) (RGPD). ${r.leads} lead(s) e ${r.captures} captura(s) removidas.`,
+        );
+      }
+      if (r.failed > 0) {
+        toast.error(`${r.failed} falha(s): ${r.errors.slice(0, 3).join(" · ")}`);
+      }
+      qc.invalidateQueries({ queryKey: ["crm-contactos-list"] });
+      qc.invalidateQueries({ queryKey: ["crm-leads-list"] });
+      setChecked(new Set());
+      setDeleteOpen(false);
+      setConfirmText("");
+    },
+    onError: (e: any) => toast.error(`Falha total: ${e?.message ?? e}`),
+  });
+
+  const checkedCount = checked.size;
+  const confirmPhrase = "APAGAR";
+  const confirmMatches = confirmText.trim().toUpperCase() === confirmPhrase;
 
   return (
     <div className="space-y-4">
@@ -132,6 +214,13 @@ export default function ContactosList() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={allChecked || (someChecked ? "indeterminate" : false)}
+                  onCheckedChange={toggleAll}
+                  aria-label="Selecionar todos"
+                />
+              </TableHead>
               <TableHead>Contacto</TableHead>
               <TableHead>Source</TableHead>
               <TableHead>Consents</TableHead>
@@ -140,13 +229,20 @@ export default function ContactosList() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">A carregar…</TableCell></TableRow>}
-            {error && <TableRow><TableCell colSpan={5} className="text-center text-destructive">{(error as Error).message}</TableCell></TableRow>}
+            {isLoading && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">A carregar…</TableCell></TableRow>}
+            {error && <TableRow><TableCell colSpan={6} className="text-center text-destructive">{(error as Error).message}</TableCell></TableRow>}
             {!isLoading && rows.length === 0 && (
-              <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Sem contactos.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Sem contactos.</TableCell></TableRow>
             )}
             {rows.map((c: any) => (
               <TableRow key={c.id} className="cursor-pointer" onClick={() => setSelected(c.id)}>
+                <TableCell onClick={(e) => e.stopPropagation()} className="w-10">
+                  <Checkbox
+                    checked={checked.has(c.id)}
+                    onCheckedChange={() => toggleOne(c.id)}
+                    aria-label={`Selecionar contacto ${c.email ?? c.id}`}
+                  />
+                </TableCell>
                 <TableCell>
                   <div className="font-medium">{c.name ?? c.email ?? "—"}</div>
                   <div className="text-xs text-muted-foreground">
@@ -175,7 +271,63 @@ export default function ContactosList() {
         </Table>
       </Card>
 
-      <p className="text-xs text-muted-foreground">{rows.length} contactos</p>
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">{rows.length} contactos</p>
+        {checkedCount > 0 && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => { setConfirmText(""); setDeleteOpen(true); }}
+            disabled={eraseMutation.isPending}
+          >
+            <Trash2 className="h-4 w-4 mr-1.5" />
+            Apagar definitivamente (RGPD) ({checkedCount})
+          </Button>
+        )}
+      </div>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar {checkedCount} contacto(s) — RGPD Art. 17?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>Acção irreversível.</strong> Para cada contacto seleccionado:
+              <ul className="list-disc list-inside mt-2 space-y-0.5 text-xs">
+                <li>O contacto é removido da tabela <code className="font-mono">contacts</code>;</li>
+                <li>TODAS as <code className="font-mono">leads</code> que o referenciam são apagadas;</li>
+                <li>TODAS as <code className="font-mono">lead_capture</code> com o mesmo email são apagadas;</li>
+                <li>Não há undo, não há cópia, não há reversão.</li>
+              </ul>
+              <br />
+              Para confirmar, escreve <strong className="font-mono">{confirmPhrase}</strong> abaixo:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-1.5 py-2">
+            <Label htmlFor="confirm-erase" className="text-xs">Confirmação</Label>
+            <Input
+              id="confirm-erase"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              autoFocus
+              placeholder={confirmPhrase}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={eraseMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (confirmMatches) eraseMutation.mutate(Array.from(checked));
+              }}
+              disabled={!confirmMatches || eraseMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {eraseMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+              Apagar (RGPD)
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ContactDetailsSheet
         contactId={selected}
