@@ -542,6 +542,73 @@ function Field({
   );
 }
 
+function TicketExperiencesEditor({
+  value,
+  onChange,
+}: {
+  value: TicketExperience[];
+  onChange: (next: TicketExperience[]) => void;
+}) {
+  const update = (idx: number, patch: Partial<TicketExperience>) => {
+    onChange(value.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  };
+  const remove = (idx: number) => onChange(value.filter((_, i) => i !== idx));
+  const move = (idx: number, dir: -1 | 1) => {
+    const j = idx + dir;
+    if (j < 0 || j >= value.length) return;
+    const next = value.slice();
+    [next[idx], next[j]] = [next[j], next[idx]];
+    onChange(next);
+  };
+  const add = () =>
+    onChange([...value, { title_pt: "", title_en: "", description_pt: "", description_en: "" }]);
+
+  return (
+    <div className="space-y-3">
+      {value.length === 0 && (
+        <p className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+          Sem experiências. Adiciona a primeira abaixo.
+        </p>
+      )}
+      {value.map((it, idx) => (
+        <div key={idx} className="space-y-3 rounded-md border border-border bg-muted/20 p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-muted-foreground">#{idx + 1}</span>
+            <div className="flex items-center gap-1">
+              <Button type="button" variant="ghost" size="icon" onClick={() => move(idx, -1)} disabled={idx === 0} aria-label="Mover para cima">
+                <ArrowUp className="h-4 w-4" />
+              </Button>
+              <Button type="button" variant="ghost" size="icon" onClick={() => move(idx, 1)} disabled={idx === value.length - 1} aria-label="Mover para baixo">
+                <ArrowDown className="h-4 w-4" />
+              </Button>
+              <Button type="button" variant="ghost" size="icon" onClick={() => remove(idx)} aria-label="Remover">
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Título (PT)">
+              <Input value={it.title_pt} onChange={(e) => update(idx, { title_pt: e.target.value })} placeholder="ex.: VIP" />
+            </Field>
+            <Field label="Title (EN)">
+              <Input value={it.title_en} onChange={(e) => update(idx, { title_en: e.target.value })} placeholder="e.g.: VIP" />
+            </Field>
+            <Field label="Descrição (PT)">
+              <Textarea rows={3} value={it.description_pt} onChange={(e) => update(idx, { description_pt: e.target.value })} placeholder="O que inclui — sem preço" />
+            </Field>
+            <Field label="Description (EN)">
+              <Textarea rows={3} value={it.description_en} onChange={(e) => update(idx, { description_en: e.target.value })} placeholder="What it includes — no price" />
+            </Field>
+          </div>
+        </div>
+      ))}
+      <Button type="button" variant="outline" size="sm" onClick={add}>
+        <Plus className="h-4 w-4" /> Adicionar experiência
+      </Button>
+    </div>
+  );
+}
+
 import { Switch } from "@/components/ui/switch";
 
 function GestaoTab({
