@@ -45,11 +45,12 @@ export default function BlogList() {
 
   const rows = useMemo(() => {
     const list = data ?? [];
-    return list.filter((p) => {
+    const filtered = list.filter((p) => {
       if (search) {
         const s = search.toLowerCase();
         if (
           !p.title_pt?.toLowerCase().includes(s) &&
+          !p.title_en?.toLowerCase().includes(s) &&
           !p.slug.toLowerCase().includes(s)
         )
           return false;
@@ -57,6 +58,13 @@ export default function BlogList() {
       if (statusFilter === "published" && !p.published) return false;
       if (statusFilter === "draft" && p.published) return false;
       return true;
+    });
+    // Published first (by published_at desc), then drafts by updated_at desc
+    return filtered.sort((a, b) => {
+      if (a.published !== b.published) return a.published ? -1 : 1;
+      const ak = a.published ? a.published_at ?? a.updated_at : a.updated_at;
+      const bk = b.published ? b.published_at ?? b.updated_at : b.updated_at;
+      return (bk ?? "").localeCompare(ak ?? "");
     });
   }, [data, search, statusFilter]);
 
