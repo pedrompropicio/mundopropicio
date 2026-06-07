@@ -582,6 +582,7 @@ function App() {
                     <Route path="videos" element={<VideosList />} />
                     <Route path="press" element={<PressList />} />
                     <Route path="portal-settings" element={<PortalSettings />} />
+                    <Route path="meta-capi" element={<MetaCapiMonitor />} />
                   </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
