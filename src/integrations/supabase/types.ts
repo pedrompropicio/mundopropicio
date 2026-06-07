@@ -9873,6 +9873,7 @@ export type Database = {
           external_business_name: string
         }[]
       }
+      crm_meta_capi_dashboard: { Args: { p_days?: number }; Returns: Json }
       crm_upsert_meta_connection: {
         Args: {
           p_access_token: string
