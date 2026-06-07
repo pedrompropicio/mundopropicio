@@ -9,6 +9,7 @@ import {
   FilePen,
   Video,
   Newspaper,
+  Settings,
   ArrowLeft,
   KeyRound,
   LogOut,
