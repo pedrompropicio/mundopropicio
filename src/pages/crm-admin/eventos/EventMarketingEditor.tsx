@@ -231,7 +231,8 @@ export default function EventMarketingEditor() {
         <TabsList className="flex w-full flex-wrap h-auto">
           <TabsTrigger value="gestao">Gestão</TabsTrigger>
           <TabsTrigger value="hero">Hero</TabsTrigger>
-          <TabsTrigger value="imagens">Imagens</TabsTrigger>
+          <TabsTrigger value="imagens">Média</TabsTrigger>
+          <TabsTrigger value="experiencias">Experiências</TabsTrigger>
           <TabsTrigger value="cta">CTA &amp; Urgência</TabsTrigger>
           <TabsTrigger value="imprensa">Imprensa &amp; Performer</TabsTrigger>
           <TabsTrigger value="oferta">Oferta</TabsTrigger>
