@@ -50,7 +50,8 @@ export default function ModuleSelector() {
       bullets: "Calendário · Transações · Plano de Contas · Reembolsos",
       icon: Building2,
       to: "/erp",
-      enabled: true,
+      enabled: (role as any) !== "content_manager",
+      noAccess: (role as any) === "content_manager",
       accent: {
         border: "border-primary/30 hover:border-primary/60",
         bg: "bg-primary/5",
@@ -103,8 +104,8 @@ export default function ModuleSelector() {
       bullets: "Eventos · Contactos · Leads · Audiências · Blog · Páginas",
       icon: Users,
       to: "/crm",
-      enabled: isAdmin || (role as any) === "platform_admin" || (role as any) === "marketing_manager",
-      noAccess: !(isAdmin || (role as any) === "platform_admin" || (role as any) === "marketing_manager"),
+      enabled: isAdmin || (role as any) === "platform_admin" || (role as any) === "marketing_manager" || (role as any) === "content_manager",
+      noAccess: !(isAdmin || (role as any) === "platform_admin" || (role as any) === "marketing_manager" || (role as any) === "content_manager"),
       accent: {
         border: "border-emerald-500/30 hover:border-emerald-500/60",
         bg: "bg-emerald-500/5",
