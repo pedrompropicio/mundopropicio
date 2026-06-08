@@ -562,7 +562,9 @@ function App() {
                   <Route path="/operacao/accept-invite" element={<AcceptInvite />} />
                   <Route path="/operacao/onboarding" element={<OperacaoOnboarding />} />
                   <Route path="/camarim-equipa" element={<CamarimEquipa />} />
+                  <Route path="/contabilidade" element={<AccountantGate />} />
                   <Route path="/parceiro/*" element={<PartnerLayout />} />
+
                   <Route path="/audience" element={<AudienceLayout />}>
                     <Route index element={<Navigate to="/audience/dashboard" replace />} />
                     <Route path="dashboard" element={<CrmCampaigns />} />
