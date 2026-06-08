@@ -71,12 +71,14 @@ O `crm-meta-campaign-redesign` ainda depende da tabela **antiga**
    secção DIAG (L1053+), que devolve `diag360Id`, `source_campaign_class` e
    `projected_baseline_roas` — mas corre **depois** do gate 422.
 
-**Porque NÃO foi substituída agora:** é extensa e arriscada — toca no prompt do
-LLM (campos inexistentes no 360), exige reordenar o gate 422 para depois da
-chamada server-to-server (ou substituí-lo por ela), e remapear `severity`/
-`overall_score`. Decisão do Pedro pendente.
+**Decisão (confirmada pelo Pedro):** unificação **ADIADA para a Etapa 3+**, a
+fazer em conjunto com a revisão da geração/prompt do redesign (com validação do
+output). NÃO é uma branch isolada agora — o risco vive no remapeamento do prompt
+do LLM (`severity`/`overall_score` → `source_campaign_class`/
+`projected_baseline_roas`) e não há valor imediato em fazê-la isolada. A tabela
+antiga `crm.meta_campaign_diagnoses` **mantém-se como está** por agora.
 
-**Plano proposto:**
+**Plano proposto (pendente — executar na Etapa 3+):**
 1. Mover/duplicar a chamada server-to-server `crm-campaign-diagnosis` para
    **antes** do gate; usar a sua resposta (`ok`, `diagnosis_id`,
    `source_campaign_class`, `projected_baseline_roas`, `diagnosis_jsonb`) como
@@ -89,6 +91,18 @@ chamada server-to-server (ou substituí-lo por ela), e remapear `severity`/
 4. `diagnosisId` → `diag360Id` em toda a persistência (`source_diagnosis_id`).
 5. Depois de validado, deprecar leituras de `crm.meta_campaign_diagnoses` na
    redesign (manter a tabela até confirmar que nada mais a usa).
+
+## Dívida técnica / próximos passos (decisões confirmadas)
+1. **Unificação do diagnóstico na redesign — ADIADA (Etapa 3+).** Ver secção
+   acima. O `crm-meta-campaign-redesign` continua a usar a tabela antiga
+   `crm.meta_campaign_diagnoses`; o plano de migração para `campaign_diagnosis_360`
+   fica registado para ser executado junto com a revisão da geração/prompt (com
+   validação do output do redesign). Não fazer isolado.
+2. **`target_roas` do diagnóstico on-demand — manter `diagnosis.target_roas ??
+   8.0`.** Sem seletor de target na UI nesta etapa; revisitar na **Etapa 4**
+   (postura de escala / `manter_escalar`).
+3. **Posturas info (`aguardar_maturacao`, `recolher_mais_dados`) sem CTA** — só
+   mensagem + métricas. Confirmado como pretendido nesta etapa.
 
 ## Ficheiros
 - `src/pages/crm/CampaignView.tsx` — `classMeta` (+em_maturacao/indeterminada),
