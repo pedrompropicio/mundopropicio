@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  const phoneNumberId = Deno.env.get("META_WA_PHONE_NUMBER_ID") ?? "1090662907471517";
+  const phoneNumberId = Deno.env.get("META_WA_PHONE_NUMBER_ID") ?? "1183687074822342";
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
