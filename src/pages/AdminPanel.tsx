@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Users, Database, ShieldAlert, ShieldCheck, Trash2, History, Activity, ClipboardCheck, Sparkles, Building2, Bell, Cloud, Link2 } from "lucide-react";
+import { Users, Database, ShieldAlert, ShieldCheck, Trash2, History, Activity, ClipboardCheck, Sparkles, Building2, Bell, Cloud, Link2, Banknote } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
@@ -79,7 +79,14 @@ const adminCards = [
     title: "Sync Coala (Drive)",
     description: "Sincronização automática diária da planilha Coala no Google Drive com o BP do evento",
   },
+  {
+    to: "/admin/iban-duplicados",
+    icon: Banknote,
+    title: "IBANs Duplicados",
+    description: "Auditoria retroativa: IBANs partilhados por mais de um fornecedor na empresa ativa",
+  },
 ];
+
 
 export default function AdminPanel() {
   const navigate = useNavigate();

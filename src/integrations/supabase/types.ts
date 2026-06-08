@@ -9916,6 +9916,10 @@ export type Database = {
         Args: { _event_id: string; _user_id: string }
         Returns: boolean
       }
+      check_supplier_iban_duplicate: {
+        Args: { p_iban: string; p_supplier_id?: string }
+        Returns: Json
+      }
       cleanup_old_backups: {
         Args: never
         Returns: {
