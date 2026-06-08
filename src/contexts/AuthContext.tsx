@@ -44,6 +44,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   platform_admin: "Super-Admin",
   marketing_manager: "Marketing Manager",
   content_manager: "Gestor de Conteúdo",
+  accountant: "Contabilista",
 };
 
 export const ROLE_COLORS: Record<AppRole, string> = {
@@ -58,6 +59,7 @@ export const ROLE_COLORS: Record<AppRole, string> = {
   platform_admin: "bg-rose-500/15 text-rose-600",
   marketing_manager: "bg-cyan-500/15 text-cyan-600",
   content_manager: "bg-pink-500/15 text-pink-600",
+  accountant: "bg-teal-500/15 text-teal-600",
 };
 
 export const ALL_PERMISSIONS = [
