@@ -357,6 +357,12 @@ function ProtectedLayout() {
     return <Navigate to="/crm" replace />;
   }
 
+  // accountant → portal de contabilidade dedicado, read-only
+  if ((role as any) === "accountant") {
+    return <Navigate to="/contabilidade" replace />;
+  }
+
+
   // Preferência opcional: admin/manager com permissão camarim_team pode
   // optar por que a rota raiz "/" abra direto a vista compacta de equipa.
   try {
