@@ -43,13 +43,24 @@ Deno.serve(async (req) => {
     });
   }
 
-  const phoneNumberId = Deno.env.get("META_WA_PHONE_NUMBER_ID") ?? "1183687074822342";
-
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     { auth: { persistSession: false } },
   );
+
+  // Phone number id: ler do Vault com fallback para produção.
+  // NÃO ler de Deno.env (há valor legado de sandbox no ambiente).
+  let phoneNumberId = "1183687074822342";
+  try {
+    const { data: phoneRpc, error: phoneErr } = await supabase.rpc("get_vault_secret" as any, {
+      _name: "META_WA_PHONE_NUMBER_ID",
+    });
+    if (!phoneErr && phoneRpc) {
+      const v = typeof phoneRpc === "string" ? phoneRpc : String(phoneRpc);
+      if (v.trim()) phoneNumberId = v.trim();
+    }
+  } catch { /* fallback de produção */ }
 
   // Token sensível: ler do Vault (Deno.env não acede a secrets META_WA_* neste projeto)
   let wamToken: string | null = Deno.env.get("META_WA_SYSTEM_TOKEN") ?? null;
@@ -65,6 +76,7 @@ Deno.serve(async (req) => {
     }
     wamToken = typeof tokRpc === "string" ? tokRpc : String(tokRpc);
   }
+
 
   if (!phoneNumberId || !wamToken) {
     return new Response(JSON.stringify({ error: "Meta WA secrets missing" }), {
