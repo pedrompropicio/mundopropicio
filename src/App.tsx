@@ -184,7 +184,7 @@ const queryClient = new QueryClient({
 });
 
 function ProtectedLayout() {
-  const { user, loading, isPartner, isAdmin, isManager, hasPermission, signOut } = useAuth();
+  const { user, loading, isPartner, isAdmin, isManager, hasPermission, role, signOut } = useAuth();
   const { companyId, isLoading: companyLoading, isError: companyError, error: companyErrorObj, isPlatformAdmin, refetch: refetchCompany } = useCompany();
   const queryClient = useQueryClient();
   const previousCompanyIdRef = useRef<string | null>(null);
@@ -344,6 +344,12 @@ function ProtectedLayout() {
   // do dashboard administrativo — só podem ver /camarim-equipa.
   if (isCamarimOnly) {
     return <Navigate to="/camarim-equipa" replace />;
+  }
+
+  // content_manager só tem acesso ao MP CRM — bloqueia qualquer rota do ERP
+  // (inclui reabertura da PWA no último URL guardado).
+  if ((role as any) === "content_manager") {
+    return <Navigate to="/crm" replace />;
   }
 
   // Preferência opcional: admin/manager com permissão camarim_team pode
