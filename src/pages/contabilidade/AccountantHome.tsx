@@ -8,6 +8,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { BrandedLogo } from "@/components/BrandedLogo";
 import { PeriodSelector, PRESETS, type Period } from "./PeriodSelector";
 import { AccountantDocumentsTab } from "./AccountantDocumentsTab";
+import { AccountantReportsTab } from "./AccountantReportsTab";
+import { AccountantSuppliersTab } from "./AccountantSuppliersTab";
 import { LogOut } from "lucide-react";
 
 export default function AccountantHome() {
@@ -53,14 +55,10 @@ export default function AccountantHome() {
             <AccountantDocumentsTab period={period} />
           </TabsContent>
           <TabsContent value="reports" className="mt-4">
-            <div className="rounded-lg border border-dashed p-10 text-center text-muted-foreground">
-              Em breve — DRE, Plano de Contas, Auditoria IVA, Cachê do Artista.
-            </div>
+            <AccountantReportsTab />
           </TabsContent>
           <TabsContent value="suppliers" className="mt-4">
-            <div className="rounded-lg border border-dashed p-10 text-center text-muted-foreground">
-              Em breve — Lista de fornecedores com NIF e documentos associados.
-            </div>
+            <AccountantSuppliersTab />
           </TabsContent>
         </Tabs>
       </main>
