@@ -40,6 +40,14 @@ import {
   Loader2,
   Pencil,
   Link2,
+  Wand2,
+  Hourglass,
+  Rocket,
+  Stethoscope,
+  Database,
+  RefreshCw,
+  ArrowRight,
+  Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { classifyCreative, metaAdsManagerUrl } from "@/lib/creative-media";
@@ -169,12 +177,97 @@ const verdictLabel: Record<string, { label: string; color: string }> = {
   reject: { label: "Não usar", color: "bg-red-500/10 text-red-400 border-red-500/40" },
 };
 
-// Classe da campanha (diagnóstico 360) → label + cor
+// Classe da campanha (diagnóstico 360) → label + cor.
+// em_maturacao usa tom neutro/informativo (sky), NUNCA vermelho — é estado de
+// aprendizagem, não de fraqueza. indeterminada = neutro.
 const classMeta: Record<string, { label: string; color: string }> = {
   saudavel_subindo: { label: "Saudável a subir", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/40" },
   saudavel_caindo: { label: "Saudável a cair", color: "bg-amber-500/10 text-amber-400 border-amber-500/40" },
   fraca: { label: "Fraca", color: "bg-orange-500/10 text-orange-400 border-orange-500/40" },
   morta: { label: "Morta", color: "bg-red-500/10 text-red-400 border-red-500/40" },
+  em_maturacao: { label: "Em maturação", color: "bg-sky-500/10 text-sky-300 border-sky-500/40" },
+  indeterminada: { label: "Indeterminada", color: "bg-muted text-muted-foreground border-border" },
+};
+
+// ── Tela de decisão: postura recomendada (diagnóstico 360) → ação oferecida ──
+// As chaves batem EXACTAMENTE com POSTURE_BY_CLASS em crm-campaign-diagnosis:
+//   saudavel_subindo→manter_escalar, saudavel_caindo→intervencao_cirurgica,
+//   fraca→redesign, morta→novo_desenho, indeterminada→recolher_mais_dados,
+//   em_maturacao→aguardar_maturacao.
+// kind: "redesign" (fluxo activo p/ wizard) · "coming_soon" (Etapas 3-5, desativado)
+//       · "info" (sem fluxo de geração, só mensagem + métricas).
+type PostureKind = "redesign" | "coming_soon" | "info";
+const postureMeta: Record<
+  string,
+  { label: string; tagline: string; icon: any; kind: PostureKind; accent: string }
+> = {
+  redesign: {
+    label: "Redesenhar campanha",
+    tagline: "Gerar uma variante optimizada com o assistente de redesign.",
+    icon: Wand2, kind: "redesign", accent: "orange",
+  },
+  aguardar_maturacao: {
+    label: "Aguardar maturação",
+    tagline: "Campanha em aprendizagem — aguardar maturação e re-diagnosticar antes de qualquer mudança.",
+    icon: Hourglass, kind: "info", accent: "sky",
+  },
+  manter_escalar: {
+    label: "Manter e escalar",
+    tagline: "Campanha saudável a subir — escalar gradualmente e monitorizar.",
+    icon: Rocket, kind: "coming_soon", accent: "emerald",
+  },
+  intervencao_cirurgica: {
+    label: "Intervenção cirúrgica",
+    tagline: "Ajustes pontuais para travar a queda, sem redesenhar tudo.",
+    icon: Stethoscope, kind: "coming_soon", accent: "amber",
+  },
+  novo_desenho: {
+    label: "Novo desenho",
+    tagline: "Campanha esgotada — recomeçar com um desenho novo.",
+    icon: Sparkles, kind: "coming_soon", accent: "red",
+  },
+  recolher_mais_dados: {
+    label: "Recolher mais dados",
+    tagline: "Sem baseline suficiente — aguardar mais dados antes de decidir.",
+    icon: Database, kind: "info", accent: "slate",
+  },
+};
+// Ordem estável das alternativas (a recomendada é destacada à parte).
+const POSTURE_ORDER = [
+  "redesign", "aguardar_maturacao", "manter_escalar",
+  "intervencao_cirurgica", "novo_desenho", "recolher_mais_dados",
+];
+const postureAccent: Record<string, { card: string; icon: string; badge: string; btn: string }> = {
+  orange: {
+    card: "border-orange-500/60 bg-orange-500/5", icon: "text-orange-400",
+    badge: "bg-orange-500/10 text-orange-300 border-orange-500/40",
+    btn: "border-orange-500/50 text-orange-300 hover:bg-orange-500/10",
+  },
+  sky: {
+    card: "border-sky-500/60 bg-sky-500/5", icon: "text-sky-300",
+    badge: "bg-sky-500/10 text-sky-300 border-sky-500/40",
+    btn: "border-sky-500/50 text-sky-300 hover:bg-sky-500/10",
+  },
+  emerald: {
+    card: "border-emerald-500/60 bg-emerald-500/5", icon: "text-emerald-400",
+    badge: "bg-emerald-500/10 text-emerald-300 border-emerald-500/40",
+    btn: "border-emerald-500/50 text-emerald-300 hover:bg-emerald-500/10",
+  },
+  amber: {
+    card: "border-amber-500/60 bg-amber-500/5", icon: "text-amber-400",
+    badge: "bg-amber-500/10 text-amber-300 border-amber-500/40",
+    btn: "border-amber-500/50 text-amber-300 hover:bg-amber-500/10",
+  },
+  red: {
+    card: "border-red-500/60 bg-red-500/5", icon: "text-red-400",
+    badge: "bg-red-500/10 text-red-300 border-red-500/40",
+    btn: "border-red-500/50 text-red-300 hover:bg-red-500/10",
+  },
+  slate: {
+    card: "border-slate-500/50 bg-slate-500/5", icon: "text-slate-300",
+    badge: "bg-slate-500/10 text-slate-300 border-slate-500/40",
+    btn: "border-slate-500/50 text-slate-300 hover:bg-slate-500/10",
+  },
 };
 const changeTypeMeta: Record<string, string> = {
   budget: "Orçamento", targeting: "Targeting", creative: "Criativo",
@@ -261,6 +354,9 @@ export default function CrmCampaignView() {
   const [editAdsetBudget, setEditAdsetBudget] = useState<AdsetSnap | null>(null);
   const [reactivateOpen, setReactivateOpen] = useState(false);
   const [period, setPeriod] = useState<PeriodState>(periodFromMode("30d"));
+  // Tela de decisão: diagnóstico on-demand + escolha de acção (postura).
+  const [diagnosing, setDiagnosing] = useState(false);
+  const [selectedAlt, setSelectedAlt] = useState<string | null>(null);
 
   // 1) Campanha
   const { data: campaign, isLoading: loadingCampaign, error: campaignError } =
@@ -603,6 +699,48 @@ export default function CrmCampaignView() {
     }
   }
 
+  // ── Diagnóstico on-demand (mesmo padrão da DiagnosisTest) ──────────────────
+  // Corre crm-campaign-diagnosis e refaz a query do diagnóstico no fim.
+  async function runDiagnose() {
+    if (!campaign) return;
+    setDiagnosing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-campaign-diagnosis", {
+        body: {
+          company_id: (campaign as any).company_id,
+          external_campaign_id: campaign.external_campaign_id,
+          target_roas: diagnosis?.target_roas ?? 8.0,
+        },
+      });
+      if (error) {
+        let detail = error.message;
+        const ctx = (error as any).context;
+        if (ctx) {
+          try {
+            const b = await (ctx.clone ? ctx.clone() : ctx).json();
+            detail = b?.detail || b?.error || detail;
+          } catch {}
+        }
+        throw new Error(detail);
+      }
+      if ((data as any)?.ok === false) {
+        throw new Error((data as any)?.detail ?? (data as any)?.error ?? "Falha no diagnóstico");
+      }
+      toast.success("Diagnóstico atualizado");
+      setSelectedAlt(null);
+      await qc.invalidateQueries({ queryKey: ["crm-campaign-view-diagnosis", id] });
+    } catch (e: any) {
+      toast.error("Falha ao diagnosticar", { description: e?.message ?? String(e) });
+    } finally {
+      setDiagnosing(false);
+    }
+  }
+
+  function goRedesign() {
+    if (!campaign) return;
+    navigate(`/audience/strategies/redesign/${campaign.external_campaign_id}`);
+  }
+
   // ── Estados ──────────────────────────────────────────────────────────────
   if (loadingCampaign) {
     return (
@@ -728,53 +866,140 @@ export default function CrmCampaignView() {
         )}
       </div>
 
-      {/* Diagnóstico IA */}
-      <Card className="p-5 space-y-3">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Activity className="h-4 w-4 text-cyan-400" /> Diagnóstico IA
-        </h2>
+      {/* Diagnóstico & Decisão — tela de decisão adaptativa (opção C) */}
+      <Card className="p-5 space-y-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Activity className="h-4 w-4 text-cyan-400" /> Diagnóstico &amp; Decisão
+          </h2>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={diagnosing}
+            onClick={runDiagnose}
+            className="h-7 px-2 text-[11px]"
+          >
+            {diagnosing
+              ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              : <RefreshCw className="h-3 w-3 mr-1" />}
+            {diagnosis ? "Re-diagnosticar" : "Diagnosticar agora"}
+          </Button>
+        </div>
+
         {!diagnosis ? (
-          <p className="text-sm text-muted-foreground">Sem diagnóstico IA disponível para esta campanha.</p>
+          <p className="text-sm text-muted-foreground">
+            Sem diagnóstico para esta campanha. Corre o diagnóstico para ver a recomendação e as
+            ações disponíveis.
+          </p>
         ) : (() => {
           const dj = diagnosis.diagnosis_jsonb ?? {};
           const cls = diagnosis.source_campaign_class ?? "";
           const cm = classMeta[cls];
-          const posture = dj.recommended_posture as string | undefined;
+          // recommended_posture vem do espelho do diagnóstico; fallback deriva da classe
+          // (compat com diagnósticos antigos). Nomes batem com POSTURE_BY_CLASS.
+          const classPosture: Record<string, string> = {
+            saudavel_subindo: "manter_escalar",
+            saudavel_caindo: "intervencao_cirurgica",
+            fraca: "redesign",
+            morta: "novo_desenho",
+            indeterminada: "recolher_mais_dados",
+            em_maturacao: "aguardar_maturacao",
+          };
+          const recommended = (dj.recommended_posture as string | undefined) ?? classPosture[cls];
           const trendBand = dj?.levels?.campaign?.trajectory?.trend_band as string | undefined;
           const reason = dj?.levels?.campaign?.classification?.classification_reason as string | undefined;
           const warning = dj.operational_warning as { message?: string; is_winddown?: boolean } | undefined;
+          const matGate = dj.maturation_gate as
+            | { applies?: boolean; is_immature?: boolean; threshold?: number; conversion_adsets_count?: number }
+            | undefined;
+
+          // Renderiza um cartão de postura (recomendado ou alternativa).
+          const renderCard = (pk: string, isRec: boolean) => {
+            const m = postureMeta[pk];
+            if (!m) return null;
+            const ac = postureAccent[m.accent] ?? postureAccent.slate;
+            const Icon = m.icon;
+            const isSelected = !isRec && selectedAlt === pk;
+            return (
+              <button
+                type="button"
+                key={pk}
+                onClick={isRec ? undefined : () => setSelectedAlt(isSelected ? null : pk)}
+                className={cn(
+                  "text-left rounded-lg border p-4 transition-colors",
+                  isRec || isSelected ? ac.card : "border-border hover:border-muted-foreground/40",
+                  isRec ? "cursor-default" : "cursor-pointer",
+                )}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Icon className={cn("h-4 w-4 shrink-0", ac.icon)} />
+                  <span className="font-semibold text-sm">{m.label}</span>
+                  {isRec && (
+                    <Badge variant="outline" className={cn("ml-auto border text-[10px] gap-0.5", ac.badge)}>
+                      <Star className="h-3 w-3" /> Recomendado
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">{m.tagline}</p>
+                {isRec && (
+                  <div className="mt-3">
+                    {m.kind === "redesign" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={cn("h-7 px-2 text-[11px]", ac.btn)}
+                        onClick={goRedesign}
+                      >
+                        <Wand2 className="h-3 w-3 mr-1" /> Redesenhar
+                        <ArrowRight className="h-3 w-3 ml-1" />
+                      </Button>
+                    ) : m.kind === "coming_soon" ? (
+                      <Button size="sm" variant="outline" disabled className="h-7 px-2 text-[11px]">
+                        Em breve
+                      </Button>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground italic">
+                        Sem fluxo de geração — ver métricas acima.
+                      </span>
+                    )}
+                  </div>
+                )}
+              </button>
+            );
+          };
+
           return (
             <>
+              {/* Resumo do diagnóstico */}
               <div className="flex items-center gap-3 flex-wrap">
-                <Badge variant="outline" className={cn("border text-sm px-3 py-1", cm?.color ?? "")}>
+                <Badge variant="outline" className={cn("border text-sm px-3 py-1", cm?.color ?? "border-border")}>
                   {cm?.label ?? cls ?? "—"}
                 </Badge>
-                {posture && (
-                  <span className="text-sm">
-                    <span className="text-muted-foreground">Postura recomendada: </span>
-                    <strong>{posture}</strong>
-                  </span>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Baseline projetado: </span>
+                <div className="flex items-center gap-1.5 text-sm">
+                  <span className="text-muted-foreground">Tendência:</span>
+                  <TrendIcon band={trendBand} />
+                  <strong>{trendBand ?? "—"}</strong>
+                </div>
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Baseline: </span>
                   <strong>{diagnosis.projected_baseline_roas != null ? `${Number(diagnosis.projected_baseline_roas).toFixed(2)}x` : "—"}</strong>
                   {diagnosis.target_roas != null && (
                     <span className="text-muted-foreground"> · Target: <strong className="text-foreground">{Number(diagnosis.target_roas).toFixed(2)}x</strong></span>
                   )}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-muted-foreground">Tendência:</span>
-                  <TrendIcon band={trendBand} />
-                  <strong>{trendBand ?? "—"}</strong>
                 </div>
               </div>
 
               {reason && (
                 <div className="rounded-lg border border-border p-3 text-sm">
                   <span className="text-muted-foreground">Razão: </span>{reason}
+                </div>
+              )}
+
+              {matGate?.applies && matGate?.is_immature && (
+                <div className="rounded-lg border border-sky-500/40 bg-sky-500/10 p-3 text-sm text-sky-200">
+                  Campanha em aprendizagem: {matGate.conversion_adsets_count ?? 0} adset(s) de conversão,
+                  nenhum atingiu {matGate.threshold ?? 50} eventos de otimização em 7 dias. Aguardar
+                  maturação e re-diagnosticar.
                 </div>
               )}
 
@@ -787,6 +1012,68 @@ export default function CrmCampaignView() {
                   </div>
                 </div>
               )}
+
+              {/* Ação recomendada — destacada */}
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Ação recomendada
+                </div>
+                {recommended && postureMeta[recommended] ? (
+                  renderCard(recommended, true)
+                ) : (
+                  <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
+                    Postura recomendada: <strong className="text-foreground">{recommended ?? "—"}</strong>
+                  </div>
+                )}
+              </div>
+
+              {/* Alternativas — lado a lado, escolha-se a AÇÃO (não a classe) */}
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Outras ações
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {POSTURE_ORDER.filter((p) => p !== recommended).map((p) => renderCard(p, false))}
+                </div>
+              </div>
+
+              {/* Aviso (não bloqueia) quando se escolhe uma alternativa à recomendação */}
+              {selectedAlt && selectedAlt !== recommended && (() => {
+                const m = postureMeta[selectedAlt];
+                const recLabel = recommended ? (postureMeta[recommended]?.label ?? recommended) : "—";
+                return (
+                  <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 space-y-2">
+                    <div className="flex items-start gap-2 text-sm text-amber-200">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-400" />
+                      <div>
+                        Escolheste <strong>{m?.label ?? selectedAlt}</strong>, diferente da ação
+                        recomendada (<strong>{recLabel}</strong>). Podes prosseguir à mesma.
+                      </div>
+                    </div>
+                    <div>
+                      {m?.kind === "redesign" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[11px] border-amber-500/50 text-amber-200 hover:bg-amber-500/20"
+                          onClick={goRedesign}
+                        >
+                          <Wand2 className="h-3 w-3 mr-1" /> Redesenhar mesmo assim
+                          <ArrowRight className="h-3 w-3 ml-1" />
+                        </Button>
+                      ) : m?.kind === "coming_soon" ? (
+                        <Button size="sm" variant="outline" disabled className="h-7 px-2 text-[11px]">
+                          Em breve (Etapas 3-5)
+                        </Button>
+                      ) : (
+                        <span className="text-[11px] text-amber-200/80 italic">
+                          Esta ação não tem fluxo de geração.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="text-[11px] text-muted-foreground pt-1 border-t border-border">
                 Última análise: {relTime(diagnosis.created_at)}
