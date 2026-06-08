@@ -681,4 +681,18 @@ function AuthRoute() {
   return <Auth />;
 }
 
+function AccountantGate() {
+  const { user, loading, role, isAdmin } = useAuth();
+  if (loading || (user && role === null)) {
+    return <div className="min-h-screen flex items-center justify-center bg-background"><p className="text-muted-foreground">A carregar…</p></div>;
+  }
+  if (!user) return <Navigate to="/login" replace />;
+  const isAccountant = (role as any) === "accountant";
+  if (!isAccountant && !isAdmin && (role as any) !== "platform_admin") {
+    return <Navigate to="/" replace />;
+  }
+  return <AccountantHome />;
+}
+
 export default App;
+
