@@ -161,12 +161,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { campaign_id?: string; period_days?: number };
+  let body: { campaign_id?: string; period_days?: number; event_id?: string };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
   const campaignId = body.campaign_id;
   if (!campaignId) return json({ error: "missing_campaign_id" }, 400);
   const periodDays = Math.min(Math.max(body.period_days ?? 30, 7), 90);
-  console.log(`[inventory] start campaign=${campaignId} period=${periodDays}d`);
+  // ADITIVO (Etapa 5): event_id OPCIONAL. Quando presente, devolve ALÉM do
+  // inventário normal um event_inheritance_pool agregado across as campanhas do
+  // evento. Quando ausente, o output é IDÊNTICO ao atual (redesign/surgical/scale
+  // não passam event_id → comportamento inalterado).
+  const eventId = typeof body.event_id === "string" && body.event_id ? body.event_id : null;
+  console.log(`[inventory] start campaign=${campaignId} period=${periodDays}d event=${eventId ?? "—"}`);
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
@@ -635,6 +640,126 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
   }
 
+  // ── (ADITIVO, Etapa 5) Pool de herança agregado por evento ──────────────────
+  // Só corre quando event_id é passado. Agrega criativos+audiências de TODAS as
+  // campanhas do evento (campanha morta + peers), deduplicados por meta_creative_id,
+  // classificando cada criativo com os mesmos thresholds (escala = spend do evento).
+  let event_inheritance_pool: any = undefined;
+  if (eventId) {
+    const { data: eventCamps } = await (supabase as any)
+      .schema("crm").from("meta_campaign_snapshot")
+      .select("external_campaign_id, name, effective_status")
+      .eq("linked_event_id", eventId);
+    const eventCampIds: string[] = (eventCamps ?? []).map((c: any) => c.external_campaign_id);
+
+    let poolAds: any[] = [];
+    if (eventCampIds.length > 0) {
+      const { data } = await (supabase as any)
+        .schema("crm").from("meta_ad_snapshot")
+        .select("external_ad_id, external_campaign_id, meta_creative_id, name, effective_status")
+        .in("external_campaign_id", eventCampIds)
+        .not("meta_creative_id", "is", null)
+        .in("effective_status", ["ACTIVE", "PAUSED"])
+        .limit(500);
+      poolAds = data ?? [];
+    }
+    const poolAdIds: string[] = poolAds.map((a: any) => a.external_ad_id);
+    const poolAdAgg = new Map<string, Agg>();
+    for (const idp of poolAdIds) poolAdAgg.set(idp, emptyAgg());
+    if (poolAdIds.length > 0) {
+      const { data: ins } = await (supabase as any)
+        .schema("crm").from("meta_ad_insights_daily")
+        .select("external_ad_id, spend_cents, impressions, clicks, purchases_count, purchases_value_cents")
+        .in("external_ad_id", poolAdIds).gte("date_start", fromIso).lte("date_start", toIso);
+      for (const r of ins ?? []) { const a = poolAdAgg.get(r.external_ad_id); if (a) addRow(a, r); }
+    }
+    // Agregar por meta_creative_id (+ que campanhas o usam).
+    const poolByCreative = new Map<string, { agg: Agg; campaigns: Set<string>; ad_name: string | null }>();
+    for (const ad of poolAds) {
+      const cid = String(ad.meta_creative_id);
+      let g = poolByCreative.get(cid);
+      if (!g) { g = { agg: emptyAgg(), campaigns: new Set(), ad_name: ad.name ?? null }; poolByCreative.set(cid, g); }
+      g.campaigns.add(ad.external_campaign_id);
+      const a = poolAdAgg.get(ad.external_ad_id);
+      if (a) {
+        g.agg.spend_cents += a.spend_cents; g.agg.impressions += a.impressions; g.agg.clicks += a.clicks;
+        g.agg.purchases += a.purchases; g.agg.value_cents += a.value_cents;
+      }
+    }
+    const poolCreativeIds = [...poolByCreative.keys()];
+    const poolLib = new Map<string, any>();
+    if (poolCreativeIds.length > 0) {
+      const { data } = await (supabase as any).schema("crm").from("meta_creatives")
+        .select("id, meta_creative_id, name, type, file_url, headline, body, cta_type, link_url, analysis_jsonb")
+        .in("meta_creative_id", poolCreativeIds);
+      for (const c of data ?? []) poolLib.set(c.meta_creative_id, c);
+    }
+    // Thresholds de criativo escalados pelo spend total do evento (mesma lógica do main).
+    const eventSpendEur = [...poolByCreative.values()].reduce((s, g) => s + g.agg.spend_cents, 0) / 100;
+    const ps = computeScaleFactor(eventSpendEur);
+    const tWinAltRoas = Math.max(2, CREATIVE_THRESHOLDS.WINNING_ALT_ROAS_MIN * Math.sqrt(ps));
+    const tWinAltImp = Math.round(CREATIVE_THRESHOLDS.WINNING_ALT_IMPRESSIONS_MIN * ps);
+    const tLoseSpend = Math.max(10, CREATIVE_THRESHOLDS.LOSING_SPEND_MIN_EUR * ps);
+
+    const poolCreatives = poolCreativeIds.map((cid) => {
+      const g = poolByCreative.get(cid)!;
+      const lib = poolLib.get(cid);
+      const score = typeof lib?.analysis_jsonb?.scores?.overall === "number" ? lib.analysis_jsonb.scores.overall : null;
+      const roas = roasOf(g.agg);
+      const spendEur = g.agg.spend_cents / 100;
+      const impressions = g.agg.impressions;
+      const winning = (score != null && score >= CREATIVE_THRESHOLDS.WINNING_SCORE_MIN)
+        || (score != null && score >= CREATIVE_THRESHOLDS.WINNING_ALT_SCORE_MIN && roas != null && roas > tWinAltRoas && impressions >= tWinAltImp)
+        || (score == null && roas != null && roas > tWinAltRoas * 2 && impressions >= Math.max(500, tWinAltImp / 2));
+      const losing = (score != null && score < CREATIVE_THRESHOLDS.LOSING_SCORE_MAX)
+        || (roas != null && roas < CREATIVE_THRESHOLDS.LOSING_ROAS_MAX && spendEur >= tLoseSpend)
+        || (score == null && roas === 0 && spendEur >= tLoseSpend * 0.5);
+      const verdict: "winning" | "neutral" | "losing" = winning ? "winning" : losing ? "losing" : "neutral";
+      return {
+        meta_creative_id: cid,
+        library_id: lib?.id ?? null,
+        name: lib?.name ?? g.ad_name ?? null,
+        ad_name: g.ad_name,
+        type: lib?.type ?? null,
+        file_url: lib?.file_url ?? null,
+        headline: lib?.headline ?? null,
+        body: lib?.body ?? null,
+        cta_type: lib?.cta_type ?? null,
+        link_url: lib?.link_url ?? null,
+        performance: { roas, spend_eur: spendEur, impressions, purchases: g.agg.purchases, score_ai: score },
+        verdict,
+        source_campaign_ids: [...g.campaigns],
+      };
+    });
+    // Audiências do evento (dedupe por tipo+descrição).
+    const poolAudiences: any[] = [];
+    if (eventCampIds.length > 0) {
+      const { data: poolAdsets } = await (supabase as any).schema("crm").from("meta_adset_snapshot")
+        .select("external_adset_id, external_campaign_id, name, targeting")
+        .in("external_campaign_id", eventCampIds).limit(500);
+      const seen = new Set<string>();
+      for (const a of poolAdsets ?? []) {
+        const d = detectAudienceType(a.targeting, a.name ?? "");
+        const key = `${d.type}::${d.description}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        poolAudiences.push({
+          source_adset_id: a.external_adset_id, source_campaign_id: a.external_campaign_id,
+          type: d.type, description: d.description,
+        });
+      }
+    }
+    event_inheritance_pool = {
+      event_id: eventId,
+      source_campaigns: (eventCamps ?? []).map((c: any) => ({
+        external_campaign_id: c.external_campaign_id, name: c.name, effective_status: c.effective_status,
+      })),
+      creatives: poolCreatives,
+      audiences: poolAudiences,
+    };
+    console.log(`[inventory] event_pool: ${poolCreatives.length} creatives · ${poolAudiences.length} audiences · ${eventCampIds.length} campaigns`);
+  }
+
   console.log(`[inventory] done: ${creatives_inventory.length} creatives · ${adsets_inventory.length} adsets · ${audiences_inventory.length} audiences · ${gaps_detected.length} gaps`);
 
   return json({
@@ -644,5 +769,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     audiences_inventory,
     cross_event_context,
     gaps_detected,
+    // Só presente quando event_id foi pedido (omitido caso contrário → aditivo).
+    event_inheritance_pool,
   });
 });

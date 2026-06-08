@@ -248,9 +248,9 @@ const classMeta: Record<string, { label: string; color: string }> = {
 //   saudavel_subindo→manter_escalar, saudavel_caindo→intervencao_cirurgica,
 //   fraca→redesign, morta→novo_desenho, indeterminada→recolher_mais_dados,
 //   em_maturacao→aguardar_maturacao.
-// kind: "redesign" (wizard) · "surgical" (motor cirúrgico, Etapa 3) · "scale"
-//       (motor manter-e-escalar, Etapa 4) · "coming_soon" (desativado) · "info".
-type PostureKind = "redesign" | "surgical" | "scale" | "coming_soon" | "info";
+// kind: "redesign" (wizard) · "surgical" (cirúrgico, Etapa 3) · "scale" (escalar,
+//       Etapa 4) · "new_design" (novo desenho, Etapa 5) · "coming_soon" · "info".
+type PostureKind = "redesign" | "surgical" | "scale" | "new_design" | "coming_soon" | "info";
 const postureMeta: Record<
   string,
   { label: string; tagline: string; icon: any; kind: PostureKind; accent: string }
@@ -277,8 +277,8 @@ const postureMeta: Record<
   },
   novo_desenho: {
     label: "Novo desenho",
-    tagline: "Campanha esgotada — recomeçar com um desenho novo.",
-    icon: Sparkles, kind: "coming_soon", accent: "red",
+    tagline: "Campanha esgotada — recomeçar do zero, herdando seletivamente criativos/audiências do evento.",
+    icon: Sparkles, kind: "new_design", accent: "red",
   },
   recolher_mais_dados: {
     label: "Recolher mais dados",
@@ -825,6 +825,11 @@ export default function CrmCampaignView() {
     navigate(`/audience/strategies/redesign/${campaign.external_campaign_id}`);
   }
 
+  function goNewDesign() {
+    if (!campaign) return;
+    navigate(`/audience/strategies/new-design/${campaign.external_campaign_id}`);
+  }
+
   // ── Gerar prescrição (cirúrgico OU escala — mesma vista, função conforme kind) ──
   function runSurgical() { return runPrescription("surgical"); }
   function runScale() { return runPrescription("scale"); }
@@ -1160,6 +1165,16 @@ export default function CrmCampaignView() {
                         <Rocket className="h-3 w-3 mr-1" /> Ver ações de escala
                         <ArrowRight className="h-3 w-3 ml-1" />
                       </Button>
+                    ) : m.kind === "new_design" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={cn("h-7 px-2 text-[11px]", ac.btn)}
+                        onClick={goNewDesign}
+                      >
+                        <Sparkles className="h-3 w-3 mr-1" /> Desenhar do zero
+                        <ArrowRight className="h-3 w-3 ml-1" />
+                      </Button>
                     ) : m.kind === "coming_soon" ? (
                       <Button size="sm" variant="outline" disabled className="h-7 px-2 text-[11px]">
                         Em breve
@@ -1286,6 +1301,16 @@ export default function CrmCampaignView() {
                           onClick={runScale}
                         >
                           <Rocket className="h-3 w-3 mr-1" /> Ver ações de escala
+                          <ArrowRight className="h-3 w-3 ml-1" />
+                        </Button>
+                      ) : m?.kind === "new_design" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[11px] border-amber-500/50 text-amber-200 hover:bg-amber-500/20"
+                          onClick={goNewDesign}
+                        >
+                          <Sparkles className="h-3 w-3 mr-1" /> Desenhar do zero
                           <ArrowRight className="h-3 w-3 ml-1" />
                         </Button>
                       ) : m?.kind === "coming_soon" ? (
