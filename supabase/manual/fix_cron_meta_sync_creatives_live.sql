@@ -27,7 +27,8 @@
 --   2) Reativar (cron.schedule recria o job com active=true).
 --   3) max_creatives_per_run: 40 → 100 (apanhar o backlog de eventos ativos sem
 --      arriscar timeout — ver caveat).
---   4) Body: + 'active_events_only' = true (sync focado em eventos ativos).
+--   4) Body: + 'exclude_past_events' = true (sincroniza TODAS as campanhas exceto
+--      as ligadas a eventos JÁ OCORRIDOS; campanhas sem evento são incluídas).
 --
 -- CAVEAT (max=100): a função re-hospeda cada criativo antes do upsert (~1-2s cada).
 --   200 era borderline face ao wall-clock da edge function (~195s); 100 dá folga
@@ -79,7 +80,7 @@ SELECT cron.schedule(
           'ad_account_id', v_conn.ad_account_id,
           'mode', 'incremental',
           'max_creatives_per_run', 100,
-          'active_events_only', true,
+          'exclude_past_events', true,
           'triggered_by', 'cron-daily'
         )
       ) INTO v_response_id;
