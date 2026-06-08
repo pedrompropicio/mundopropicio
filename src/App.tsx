@@ -663,6 +663,10 @@ function AuthRoute() {
     if ((role as any) === "content_manager") {
       return <Navigate to="/crm" replace />;
     }
+    // accountant → portal de contabilidade dedicado
+    if ((role as any) === "accountant") {
+      return <Navigate to="/contabilidade" replace />;
+    }
     // Preferência opcional: admin/manager pode forçar entrada direta na vista compacta
     try {
       const prefersCamarim =
