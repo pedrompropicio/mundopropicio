@@ -50,6 +50,10 @@ verify_jwt = true
 [functions.crm-meta-campaign-redesign]
 verify_jwt = false
 
+# Etapa 3 — motor de intervenção cirúrgica (read-only + compute; user JWT).
+[functions.crm-meta-campaign-surgical]
+verify_jwt = true
+
 [functions.debug-key-check]
 # Diagnóstico temporário: metadata do secret ENCRYPTION_MASTER_KEY (sem expor
 # o valor). verify_jwt=false para podermos chamar sem auth. Remover após uso.
