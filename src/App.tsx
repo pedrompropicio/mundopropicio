@@ -128,6 +128,9 @@ import SyncHealth from "./pages/admin/SyncHealth";
 import Notifications from "./pages/admin/Notifications";
 import DiagnosisTest from "./pages/admin/DiagnosisTest";
 import IbanDuplicates from "./pages/admin/IbanDuplicates";
+import AuditDownloads from "./pages/admin/AuditDownloads";
+import AccountantHome from "./pages/contabilidade/AccountantHome";
+
 
 import UserSettings from "./pages/UserSettings";
 import CrmConnections from "./pages/crm/Connections";
@@ -354,6 +357,12 @@ function ProtectedLayout() {
     return <Navigate to="/crm" replace />;
   }
 
+  // accountant → portal de contabilidade dedicado, read-only
+  if ((role as any) === "accountant") {
+    return <Navigate to="/contabilidade" replace />;
+  }
+
+
   // Preferência opcional: admin/manager com permissão camarim_team pode
   // optar por que a rota raiz "/" abra direto a vista compacta de equipa.
   try {
@@ -504,6 +513,8 @@ function ProtectedLayout() {
               <Route path="/admin/notifications" element={<Notifications />} />
               <Route path="/admin/diagnosis-test" element={<DiagnosisTest />} />
               <Route path="/admin/iban-duplicados" element={<IbanDuplicates />} />
+              <Route path="/admin/audit-downloads" element={<AuditDownloads />} />
+
 
               <Route path="/perfil" element={<UserSettings />} />
             </Routes>
@@ -551,7 +562,9 @@ function App() {
                   <Route path="/operacao/accept-invite" element={<AcceptInvite />} />
                   <Route path="/operacao/onboarding" element={<OperacaoOnboarding />} />
                   <Route path="/camarim-equipa" element={<CamarimEquipa />} />
+                  <Route path="/contabilidade" element={<AccountantGate />} />
                   <Route path="/parceiro/*" element={<PartnerLayout />} />
+
                   <Route path="/audience" element={<AudienceLayout />}>
                     <Route index element={<Navigate to="/audience/dashboard" replace />} />
                     <Route path="dashboard" element={<CrmCampaigns />} />
@@ -650,6 +663,10 @@ function AuthRoute() {
     if ((role as any) === "content_manager") {
       return <Navigate to="/crm" replace />;
     }
+    // accountant → portal de contabilidade dedicado
+    if ((role as any) === "accountant") {
+      return <Navigate to="/contabilidade" replace />;
+    }
     // Preferência opcional: admin/manager pode forçar entrada direta na vista compacta
     try {
       const prefersCamarim =
@@ -664,4 +681,18 @@ function AuthRoute() {
   return <Auth />;
 }
 
+function AccountantGate() {
+  const { user, loading, role, isAdmin } = useAuth();
+  if (loading || (user && role === null)) {
+    return <div className="min-h-screen flex items-center justify-center bg-background"><p className="text-muted-foreground">A carregar…</p></div>;
+  }
+  if (!user) return <Navigate to="/login" replace />;
+  const isAccountant = (role as any) === "accountant";
+  if (!isAccountant && !isAdmin && (role as any) !== "platform_admin") {
+    return <Navigate to="/" replace />;
+  }
+  return <AccountantHome />;
+}
+
 export default App;
+

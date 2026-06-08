@@ -2167,6 +2167,57 @@ export type Database = {
           },
         ]
       }
+      document_download_audit: {
+        Row: {
+          bucket: string | null
+          company_id: string
+          downloaded_at: string
+          extra_metadata: Json
+          file_name: string | null
+          file_path: string | null
+          id: string
+          period_from: string | null
+          period_to: string | null
+          resource_id: string | null
+          resource_type: string
+          user_email: string
+          user_id: string
+          user_role: string
+        }
+        Insert: {
+          bucket?: string | null
+          company_id: string
+          downloaded_at?: string
+          extra_metadata?: Json
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          period_from?: string | null
+          period_to?: string | null
+          resource_id?: string | null
+          resource_type: string
+          user_email: string
+          user_id: string
+          user_role: string
+        }
+        Update: {
+          bucket?: string | null
+          company_id?: string
+          downloaded_at?: string
+          extra_metadata?: Json
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          period_from?: string | null
+          period_to?: string | null
+          resource_id?: string | null
+          resource_type?: string
+          user_email?: string
+          user_id?: string
+          user_role?: string
+        }
+        Relationships: []
+      }
       email_campaigns: {
         Row: {
           audience_id: string | null
@@ -10274,6 +10325,19 @@ export type Database = {
           _trigger_version_number: number
         }
         Returns: undefined
+      }
+      record_document_download: {
+        Args: {
+          p_bucket?: string
+          p_extra?: Json
+          p_file_name?: string
+          p_file_path?: string
+          p_period_from?: string
+          p_period_to?: string
+          p_resource_id?: string
+          p_resource_type: string
+        }
+        Returns: string
       }
       relink_orphan_transactions: {
         Args: {

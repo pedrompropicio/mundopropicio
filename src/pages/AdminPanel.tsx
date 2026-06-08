@@ -85,6 +85,12 @@ const adminCards = [
     title: "IBANs Duplicados",
     description: "Auditoria retroativa: IBANs partilhados por mais de um fornecedor na empresa ativa",
   },
+  {
+    to: "/admin/audit-downloads",
+    icon: History,
+    title: "Auditoria de Downloads",
+    description: "Registo de descarregamentos de documentos contábeis (individuais e ZIP)",
+  },
 ];
 
 
