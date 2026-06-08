@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Accordion,
   AccordionContent,
@@ -48,6 +49,8 @@ import {
   RefreshCw,
   ArrowRight,
   Star,
+  Info,
+  Scissors,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { classifyCreative, metaAdsManagerUrl } from "@/lib/creative-media";
@@ -126,6 +129,48 @@ interface DiagnosisRow {
   diagnosis_jsonb: any;
   created_at: string;
 }
+// ── Prescrição cirúrgica (output de crm-meta-campaign-surgical) ──────────────
+interface SurgicalAction {
+  action_index: number;
+  group: "pause" | "reduce_budget" | "reallocate_increase" | "pause_ad" | "recommendation";
+  executable: boolean;
+  entity_type: "adset" | "ad" | "campaign";
+  external_id: string | null;
+  connection_id: string | null;
+  ad_account_id: string | null;
+  entity_name: string | null;
+  verdict: string | null;
+  current_value_cents?: number | null;
+  proposed_value_cents?: number | null;
+  entity_action?: { action: "pause" | "update"; updates?: { daily_budget_cents?: number } };
+  rationale: string;
+  selected_by_default: boolean;
+  blocked: boolean;
+  blocked_reason?: string;
+}
+interface SurgicalPrescription {
+  ok: boolean;
+  campaign_id: string;
+  diagnosis_id: string;
+  source_campaign_class: string | null;
+  recommended_posture: string | null;
+  period_days: number;
+  budget_mode: "ABO" | "CBO" | "unknown";
+  generated_at: string;
+  summary: {
+    total_daily_before_cents: number;
+    total_daily_after_cents: number;
+    pool_freed_cents: number;
+    pool_reallocated_cents: number;
+    pool_unallocated_cents: number;
+    cap_eur: number | null;
+    learning_adsets_count: number;
+    currency: string;
+    counts: Record<string, number>;
+  };
+  proposed_actions: SurgicalAction[];
+}
+
 interface ChangeRow {
   id: string;
   change_type: string;
@@ -194,9 +239,9 @@ const classMeta: Record<string, { label: string; color: string }> = {
 //   saudavel_subindo→manter_escalar, saudavel_caindo→intervencao_cirurgica,
 //   fraca→redesign, morta→novo_desenho, indeterminada→recolher_mais_dados,
 //   em_maturacao→aguardar_maturacao.
-// kind: "redesign" (fluxo activo p/ wizard) · "coming_soon" (Etapas 3-5, desativado)
-//       · "info" (sem fluxo de geração, só mensagem + métricas).
-type PostureKind = "redesign" | "coming_soon" | "info";
+// kind: "redesign" (fluxo activo p/ wizard) · "surgical" (motor cirúrgico, Etapa 3)
+//       · "coming_soon" (Etapas 4-5, desativado) · "info" (só mensagem + métricas).
+type PostureKind = "redesign" | "surgical" | "coming_soon" | "info";
 const postureMeta: Record<
   string,
   { label: string; tagline: string; icon: any; kind: PostureKind; accent: string }
@@ -218,8 +263,8 @@ const postureMeta: Record<
   },
   intervencao_cirurgica: {
     label: "Intervenção cirúrgica",
-    tagline: "Ajustes pontuais para travar a queda, sem redesenhar tudo.",
-    icon: Stethoscope, kind: "coming_soon", accent: "amber",
+    tagline: "Podar e realocar nos adsets/ads existentes, sem redesenhar (preserva o aprendizado).",
+    icon: Stethoscope, kind: "surgical", accent: "amber",
   },
   novo_desenho: {
     label: "Novo desenho",
@@ -268,6 +313,26 @@ const postureAccent: Record<string, { card: string; icon: string; badge: string;
     badge: "bg-slate-500/10 text-slate-300 border-slate-500/40",
     btn: "border-slate-500/50 text-slate-300 hover:bg-slate-500/10",
   },
+};
+
+// ── Vista de ações propostas (motor cirúrgico) ──────────────────────────────
+// Grupos pela ordem de apresentação; ícone + label PT-PT.
+const SURGICAL_GROUP_META: Record<
+  string,
+  { label: string; icon: any; order: number }
+> = {
+  pause: { label: "Pausar adsets", icon: Pause, order: 0 },
+  reduce_budget: { label: "Reduzir verba", icon: TrendingDown, order: 1 },
+  reallocate_increase: { label: "Realocar para winners", icon: TrendingUp, order: 2 },
+  pause_ad: { label: "Pausar anúncios", icon: Pause, order: 3 },
+  recommendation: { label: "Recomendações (informativas)", icon: Info, order: 4 },
+};
+const SURGICAL_GROUP_ORDER = ["pause", "reduce_budget", "reallocate_increase", "pause_ad", "recommendation"];
+const verdictBadge: Record<string, string> = {
+  winning: "bg-emerald-500/10 text-emerald-300 border-emerald-500/40",
+  losing: "bg-red-500/10 text-red-300 border-red-500/40",
+  saturated: "bg-amber-500/10 text-amber-300 border-amber-500/40",
+  neutral: "bg-muted text-muted-foreground border-border",
 };
 const changeTypeMeta: Record<string, string> = {
   budget: "Orçamento", targeting: "Targeting", creative: "Criativo",
@@ -357,6 +422,13 @@ export default function CrmCampaignView() {
   // Tela de decisão: diagnóstico on-demand + escolha de acção (postura).
   const [diagnosing, setDiagnosing] = useState(false);
   const [selectedAlt, setSelectedAlt] = useState<string | null>(null);
+  // Intervenção cirúrgica (Etapa 3): prescrição on-demand + aprovação por ação.
+  const [surgicalOpen, setSurgicalOpen] = useState(false);
+  const [surgicalLoading, setSurgicalLoading] = useState(false);
+  const [surgicalError, setSurgicalError] = useState<string | null>(null);
+  const [surgicalData, setSurgicalData] = useState<SurgicalPrescription | null>(null);
+  const [selectedActions, setSelectedActions] = useState<Set<number>>(new Set());
+  const [applyingSurgical, setApplyingSurgical] = useState(false);
 
   // 1) Campanha
   const { data: campaign, isLoading: loadingCampaign, error: campaignError } =
@@ -741,6 +813,105 @@ export default function CrmCampaignView() {
     navigate(`/audience/strategies/redesign/${campaign.external_campaign_id}`);
   }
 
+  // ── Intervenção cirúrgica: gerar prescrição (crm-meta-campaign-surgical) ────
+  async function runSurgical() {
+    if (!campaign) return;
+    setSurgicalOpen(true);
+    setSurgicalLoading(true);
+    setSurgicalError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-campaign-surgical", {
+        body: { campaign_id: campaign.external_campaign_id, period_days: 30 },
+      });
+      if (error) {
+        let detail = error.message;
+        const ctx = (error as any).context;
+        if (ctx) {
+          try {
+            const b = await (ctx.clone ? ctx.clone() : ctx).json();
+            detail = b?.message || b?.detail || b?.error || detail;
+          } catch {}
+        }
+        throw new Error(detail);
+      }
+      if ((data as any)?.ok === false || (data as any)?.error) {
+        throw new Error((data as any)?.message ?? (data as any)?.detail ?? (data as any)?.error ?? "Falha");
+      }
+      const presc = data as SurgicalPrescription;
+      setSurgicalData(presc);
+      // Seleção por defeito: executáveis, não bloqueadas, marcadas pela engine.
+      const def = new Set<number>();
+      for (const a of presc.proposed_actions) {
+        if (a.executable && !a.blocked && a.selected_by_default) def.add(a.action_index);
+      }
+      setSelectedActions(def);
+    } catch (e: any) {
+      setSurgicalError(e?.message ?? String(e));
+      setSurgicalData(null);
+    } finally {
+      setSurgicalLoading(false);
+    }
+  }
+
+  // ── Aplicar selecionadas: 1 chamada entity-action por ação (sequencial) ─────
+  async function applySurgical() {
+    if (!surgicalData) return;
+    const toApply = surgicalData.proposed_actions.filter(
+      (a) => a.executable && !a.blocked && a.entity_action && selectedActions.has(a.action_index),
+    );
+    if (toApply.length === 0) {
+      toast.error("Nenhuma ação selecionada");
+      return;
+    }
+    setApplyingSurgical(true);
+    let okCount = 0;
+    let failCount = 0;
+    for (const a of toApply) {
+      try {
+        const { data, error } = await supabase.functions.invoke("crm-meta-entity-action", {
+          body: {
+            connection_id: a.connection_id,
+            entity_type: a.entity_type,
+            external_id: a.external_id,
+            action: a.entity_action!.action,
+            updates: a.entity_action!.updates,
+            ad_account_id: a.ad_account_id,
+            // Audit (Etapa 3): liga ao diagnóstico 360 e à ação proposta.
+            diagnosis_id: surgicalData.diagnosis_id,
+            applied_action_index: a.action_index,
+            triggered_by: "ai_suggestion",
+            reason_text: a.rationale,
+            measure_impact_requested: true,
+          },
+        });
+        if (error) {
+          let detail = error.message;
+          const ctx = (error as any).context;
+          if (ctx) {
+            try {
+              const b = await (ctx.clone ? ctx.clone() : ctx).json();
+              detail = b?.message || b?.detail || b?.error || detail;
+            } catch {}
+          }
+          throw new Error(detail);
+        }
+        if ((data as any)?.ok === false) throw new Error((data as any)?.detail ?? "Falha");
+        okCount++;
+      } catch (e: any) {
+        failCount++;
+        toast.error(`Falha: ${a.entity_name ?? a.external_id}`, { description: e?.message ?? String(e) });
+      }
+    }
+    if (okCount > 0) toast.success(`${okCount} ação(ões) aplicada(s) no Meta`);
+    if (failCount > 0) toast.error(`${failCount} ação(ões) falharam`);
+    setApplyingSurgical(false);
+    // Refrescar snapshots/diagnóstico e re-correr a engine (estado fresco).
+    await qc.invalidateQueries({ queryKey: ["crm-campaign-view-adsets", id] });
+    await qc.invalidateQueries({ queryKey: ["crm-campaign-view-ads", id] });
+    await qc.invalidateQueries({ queryKey: ["crm-campaign-view-diagnosis", id] });
+    await runSurgical();
+  }
+
   // ── Estados ──────────────────────────────────────────────────────────────
   if (loadingCampaign) {
     return (
@@ -953,6 +1124,16 @@ export default function CrmCampaignView() {
                         <Wand2 className="h-3 w-3 mr-1" /> Redesenhar
                         <ArrowRight className="h-3 w-3 ml-1" />
                       </Button>
+                    ) : m.kind === "surgical" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={cn("h-7 px-2 text-[11px]", ac.btn)}
+                        onClick={runSurgical}
+                      >
+                        <Scissors className="h-3 w-3 mr-1" /> Ver ações propostas
+                        <ArrowRight className="h-3 w-3 ml-1" />
+                      </Button>
                     ) : m.kind === "coming_soon" ? (
                       <Button size="sm" variant="outline" disabled className="h-7 px-2 text-[11px]">
                         Em breve
@@ -1061,9 +1242,19 @@ export default function CrmCampaignView() {
                           <Wand2 className="h-3 w-3 mr-1" /> Redesenhar mesmo assim
                           <ArrowRight className="h-3 w-3 ml-1" />
                         </Button>
+                      ) : m?.kind === "surgical" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[11px] border-amber-500/50 text-amber-200 hover:bg-amber-500/20"
+                          onClick={runSurgical}
+                        >
+                          <Scissors className="h-3 w-3 mr-1" /> Ver ações propostas
+                          <ArrowRight className="h-3 w-3 ml-1" />
+                        </Button>
                       ) : m?.kind === "coming_soon" ? (
                         <Button size="sm" variant="outline" disabled className="h-7 px-2 text-[11px]">
-                          Em breve (Etapas 3-5)
+                          Em breve (Etapas 4-5)
                         </Button>
                       ) : (
                         <span className="text-[11px] text-amber-200/80 italic">
@@ -1082,6 +1273,190 @@ export default function CrmCampaignView() {
           );
         })()}
       </Card>
+
+      {/* Intervenção cirúrgica — vista de ações propostas (Etapa 3) */}
+      {surgicalOpen && (
+        <Card className="p-5 space-y-4 border-amber-500/40">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Scissors className="h-4 w-4 text-amber-400" /> Intervenção cirúrgica — ações propostas
+            </h2>
+            <div className="flex items-center gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={surgicalLoading}
+                onClick={runSurgical}
+                className="h-7 px-2 text-[11px]"
+              >
+                {surgicalLoading
+                  ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  : <RefreshCw className="h-3 w-3 mr-1" />}
+                Recalcular
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setSurgicalOpen(false)}
+                className="h-7 px-2 text-[11px] text-muted-foreground"
+              >
+                Fechar
+              </Button>
+            </div>
+          </div>
+
+          {surgicalLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> A calcular ações…
+            </div>
+          ) : surgicalError ? (
+            <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
+              {surgicalError === "no_diagnosis" || /diagn/i.test(surgicalError)
+                ? "Faz primeiro um diagnóstico desta campanha."
+                : surgicalError}
+            </div>
+          ) : !surgicalData ? null : (() => {
+            const s = surgicalData.summary;
+            const cur = s.currency ?? "EUR";
+            const executable = surgicalData.proposed_actions.filter((a) => a.executable && !a.blocked);
+            const selectedCount = executable.filter((a) => selectedActions.has(a.action_index)).length;
+            return (
+              <>
+                {/* Resumo */}
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <Badge variant="outline" className="border-border">
+                    Modo: <strong className="ml-1">{surgicalData.budget_mode}</strong>
+                  </Badge>
+                  <Badge variant="outline" className="border-border">
+                    Total/dia: {eur(s.total_daily_before_cents, cur)} → <strong className="ml-1">{eur(s.total_daily_after_cents, cur)}</strong>
+                  </Badge>
+                  <Badge variant="outline" className="border-border">
+                    Pool libertado: {eur(s.pool_freed_cents, cur)}
+                  </Badge>
+                  <Badge variant="outline" className="border-border">
+                    Realocado: {eur(s.pool_reallocated_cents, cur)}
+                  </Badge>
+                  <Badge variant="outline" className="border-border">
+                    Não alocado: {eur(s.pool_unallocated_cents, cur)}
+                  </Badge>
+                  <Badge variant="outline" className="border-border">
+                    Cap: {s.cap_eur == null ? "sem limite" : `€${s.cap_eur}/dia`}
+                  </Badge>
+                  {s.learning_adsets_count > 0 && (
+                    <Badge variant="outline" className="border-sky-500/40 text-sky-300 bg-sky-500/10">
+                      {s.learning_adsets_count} adset(s) em learning
+                    </Badge>
+                  )}
+                </div>
+
+                {surgicalData.budget_mode !== "ABO" && (
+                  <div className="rounded-lg border border-border p-3 text-xs text-muted-foreground">
+                    {surgicalData.budget_mode === "CBO"
+                      ? "Campanha CBO: a verba é gerida ao nível da campanha. Pausar adsets concentra automaticamente a verba nos restantes; não há realocação por adset."
+                      : "Modo de verba indeterminado: só pausas e recomendações (sem ajustes de verba por adset)."}
+                  </div>
+                )}
+
+                {/* Grupos de ações */}
+                {SURGICAL_GROUP_ORDER.map((groupKey) => {
+                  const groupActions = surgicalData.proposed_actions.filter((a) => a.group === groupKey);
+                  if (groupActions.length === 0) return null;
+                  const gm = SURGICAL_GROUP_META[groupKey];
+                  const GIcon = gm.icon;
+                  return (
+                    <div key={groupKey} className="space-y-2">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        <GIcon className="h-3.5 w-3.5" /> {gm.label} ({groupActions.length})
+                      </div>
+                      <div className="space-y-2">
+                        {groupActions.map((a) => {
+                          const selectable = a.executable && !a.blocked;
+                          const checked = selectedActions.has(a.action_index);
+                          return (
+                            <div
+                              key={a.action_index}
+                              className={cn(
+                                "rounded-lg border p-3 flex items-start gap-3",
+                                a.blocked ? "border-border opacity-60" : "border-border",
+                              )}
+                            >
+                              {selectable ? (
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={(v) => {
+                                    setSelectedActions((prev) => {
+                                      const next = new Set(prev);
+                                      if (v) next.add(a.action_index); else next.delete(a.action_index);
+                                      return next;
+                                    });
+                                  }}
+                                  className="mt-0.5"
+                                />
+                              ) : (
+                                <span className="w-4 shrink-0" />
+                              )}
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {a.verdict && (
+                                    <Badge variant="outline" className={cn("border text-[9px]", verdictBadge[a.verdict] ?? "border-border")}>
+                                      {a.verdict}
+                                    </Badge>
+                                  )}
+                                  <span className="text-sm font-medium truncate">
+                                    {a.entity_name ?? a.external_id ?? "—"}
+                                  </span>
+                                  {a.current_value_cents != null && a.proposed_value_cents != null &&
+                                    a.current_value_cents !== a.proposed_value_cents && (
+                                    <span className="text-xs tabular-nums text-muted-foreground">
+                                      {eur(a.current_value_cents, cur)} → <strong className="text-foreground">{eur(a.proposed_value_cents, cur)}</strong>/dia
+                                    </span>
+                                  )}
+                                  {a.blocked && (
+                                    <Badge variant="outline" className="border-amber-500/40 text-amber-300 text-[9px]">
+                                      bloqueada
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">{a.rationale}</p>
+                                {a.blocked && a.blocked_reason && (
+                                  <p className="text-[11px] text-amber-300/80">Motivo: {a.blocked_reason}</p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {surgicalData.proposed_actions.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Sem ações propostas — a campanha não tem adsets/ads que justifiquem intervenção agora.
+                  </p>
+                )}
+
+                {/* Aplicar */}
+                <div className="flex items-center justify-between gap-3 flex-wrap pt-2 border-t border-border">
+                  <span className="text-xs text-muted-foreground">
+                    {selectedCount} de {executable.length} ação(ões) executável(eis) selecionada(s).
+                  </span>
+                  <Button
+                    size="sm"
+                    disabled={applyingSurgical || selectedCount === 0}
+                    onClick={applySurgical}
+                    className="h-8"
+                  >
+                    {applyingSurgical
+                      ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> A aplicar…</>
+                      : <>Aplicar selecionadas ({selectedCount})</>}
+                  </Button>
+                </div>
+              </>
+            );
+          })()}
+        </Card>
+      )}
 
       {/* Configuração — detecção ABO/CBO */}
       <Card className="p-5">
