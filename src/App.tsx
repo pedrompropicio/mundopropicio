@@ -127,6 +127,8 @@ import TicketlineSync from "./pages/admin/TicketlineSync";
 import SyncHealth from "./pages/admin/SyncHealth";
 import Notifications from "./pages/admin/Notifications";
 import DiagnosisTest from "./pages/admin/DiagnosisTest";
+import IbanDuplicates from "./pages/admin/IbanDuplicates";
+
 import UserSettings from "./pages/UserSettings";
 import CrmConnections from "./pages/crm/Connections";
 import CrmCampaigns from "./pages/crm/Campaigns";
@@ -501,6 +503,8 @@ function ProtectedLayout() {
               <Route path="/admin/ticketline-sync" element={<TicketlineSync />} />
               <Route path="/admin/notifications" element={<Notifications />} />
               <Route path="/admin/diagnosis-test" element={<DiagnosisTest />} />
+              <Route path="/admin/iban-duplicados" element={<IbanDuplicates />} />
+
               <Route path="/perfil" element={<UserSettings />} />
             </Routes>
           </div>
