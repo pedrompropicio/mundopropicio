@@ -51,10 +51,13 @@ const CATEGORY_META: Record<string, { title: string; subtitle: string }> = {
   contact: { title: "Contacto", subtitle: "Canais directos com o público" },
   social: { title: "Redes sociais", subtitle: "URLs dos perfis oficiais" },
   stats: { title: "Estatísticas", subtitle: "Números destacados na Home" },
+  home: { title: "Quem Somos (homepage)", subtitle: "Texto bilingue da secção \"Quem Somos\" da Home" },
   general: { title: "Geral", subtitle: "Outras configurações" },
 };
 
-const CATEGORY_ORDER = ["contact", "social", "stats", "general"];
+const CATEGORY_ORDER = ["contact", "social", "stats", "home", "general"];
+
+const LONG_TEXT_KEYS = new Set(["home.about_pt", "home.about_en"]);
 
 function toInputString(v: any): string {
   if (v === null || v === undefined) return "";
@@ -232,13 +235,24 @@ export default function PortalSettings() {
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                      <Input
-                        value={current}
-                        onChange={(e) =>
-                          setDirty((d) => ({ ...d, [s.id]: e.target.value }))
-                        }
-                        placeholder={s.description ?? ""}
-                      />
+                      {LONG_TEXT_KEYS.has(s.key) || s.category === "home" ? (
+                        <Textarea
+                          value={current}
+                          onChange={(e) =>
+                            setDirty((d) => ({ ...d, [s.id]: e.target.value }))
+                          }
+                          placeholder={s.description ?? ""}
+                          rows={6}
+                        />
+                      ) : (
+                        <Input
+                          value={current}
+                          onChange={(e) =>
+                            setDirty((d) => ({ ...d, [s.id]: e.target.value }))
+                          }
+                          placeholder={s.description ?? ""}
+                        />
+                      )}
                       {s.description && (
                         <p className="text-[11px] text-muted-foreground">{s.description}</p>
                       )}
@@ -384,6 +398,7 @@ function NewSettingDialog({
                 <SelectItem value="contact">Contacto</SelectItem>
                 <SelectItem value="social">Redes sociais</SelectItem>
                 <SelectItem value="stats">Estatísticas</SelectItem>
+                <SelectItem value="home">Quem Somos (homepage)</SelectItem>
                 <SelectItem value="general">Geral</SelectItem>
               </SelectContent>
             </Select>
