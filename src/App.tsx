@@ -128,6 +128,9 @@ import SyncHealth from "./pages/admin/SyncHealth";
 import Notifications from "./pages/admin/Notifications";
 import DiagnosisTest from "./pages/admin/DiagnosisTest";
 import IbanDuplicates from "./pages/admin/IbanDuplicates";
+import AuditDownloads from "./pages/admin/AuditDownloads";
+import AccountantHome from "./pages/contabilidade/AccountantHome";
+
 
 import UserSettings from "./pages/UserSettings";
 import CrmConnections from "./pages/crm/Connections";
