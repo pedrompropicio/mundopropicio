@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef, ty
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
-export type AppRole = "admin" | "manager" | "producer" | "field_producer" | "editor" | "viewer" | "user" | "partner" | "platform_admin" | "marketing_manager" | "content_manager";
+export type AppRole = "admin" | "manager" | "producer" | "field_producer" | "editor" | "viewer" | "user" | "partner" | "platform_admin" | "marketing_manager" | "content_manager" | "accountant";
 
 interface AuthContextType {
   user: User | null;
@@ -12,6 +12,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isManager: boolean;
   isPartner: boolean;
+  isAccountant: boolean;
   loading: boolean;
   hasPermission: (permission: string) => boolean;
   signOut: () => Promise<void>;
@@ -25,6 +26,7 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   isManager: false,
   isPartner: false,
+  isAccountant: false,
   loading: true,
   hasPermission: () => false,
   signOut: async () => {},
@@ -44,6 +46,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   platform_admin: "Super-Admin",
   marketing_manager: "Marketing Manager",
   content_manager: "Gestor de Conteúdo",
+  accountant: "Contabilista",
 };
 
 export const ROLE_COLORS: Record<AppRole, string> = {
@@ -58,6 +61,7 @@ export const ROLE_COLORS: Record<AppRole, string> = {
   platform_admin: "bg-rose-500/15 text-rose-600",
   marketing_manager: "bg-cyan-500/15 text-cyan-600",
   content_manager: "bg-pink-500/15 text-pink-600",
+  accountant: "bg-teal-500/15 text-teal-600",
 };
 
 export const ALL_PERMISSIONS = [
@@ -238,6 +242,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: role === "admin" || role === ("platform_admin" as AppRole),
       isManager: role === "manager",
       isPartner: role === "partner",
+      isAccountant: role === ("accountant" as AppRole),
       loading, hasPermission, signOut,
     }}>
       {children}

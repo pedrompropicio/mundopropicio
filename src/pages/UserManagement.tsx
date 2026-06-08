@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth, type AppRole, ROLE_LABELS, ROLE_COLORS } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { ShieldCheck, User, UserPlus, Loader2, Trash2, MailCheck, Eye, Pencil, Briefcase, Settings2, Handshake, ArrowLeft, Megaphone, HardHat } from "lucide-react";
+import { ShieldCheck, User, UserPlus, Loader2, Trash2, MailCheck, Eye, Pencil, Briefcase, Settings2, Handshake, ArrowLeft, Megaphone, HardHat, Calculator } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import UserPermissionsModal from "@/components/UserPermissionsModal";
 import { logAudit, getAuditUser } from "@/lib/audit";
@@ -33,9 +33,10 @@ const ROLE_ICONS: Record<AppRole, React.ElementType> = {
   platform_admin: ShieldCheck,
   marketing_manager: Megaphone,
   content_manager: Pencil,
+  accountant: Calculator,
 };
 
-const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "producer", "field_producer", "editor", "viewer", "partner", "content_manager"];
+const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "producer", "field_producer", "editor", "viewer", "partner", "content_manager", "accountant"];
 
 export default function UserManagement() {
   const { isAdmin, user } = useAuth();

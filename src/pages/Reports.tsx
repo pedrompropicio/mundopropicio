@@ -43,6 +43,9 @@ interface ReportItem {
   label: string;
   permission: string;
   managementOnly?: boolean;
+  /** Quando managementOnly=true mas o relatório é fiscal/operacional (não gerencial),
+   *  o Contabilista também pode aceder. */
+  accountantAllowed?: boolean;
 }
 
 interface ReportGroup {
@@ -106,9 +109,9 @@ const allReportGroups: ReportGroup[] = [
       { to: "/relatorios/fornecedores", icon: Users, label: "Fornecedores", permission: "view_report_suppliers" },
       { to: "/relatorios/plano-contas", icon: FolderTree, label: "Plano de Contas", permission: "view_report_categories" },
       { to: "/relatorios/listas-pagamento", icon: ClipboardList, label: "Listas de Pagamento", permission: "view_report_payment_lists" },
-      { to: "/relatorios/cache-artista", icon: Music, label: "Cachê do Artista", permission: "view_report_artist_cache", managementOnly: true },
+      { to: "/relatorios/cache-artista", icon: Music, label: "Cachê do Artista", permission: "view_report_artist_cache", managementOnly: true, accountantAllowed: true },
       { to: "/relatorios/pendencias-documentais", icon: FileWarning, label: "Pendências Documentais", permission: "view_report_document_pendencies" },
-      { to: "/relatorios/exportacao-contabil", icon: FileOutput, label: "Exportação Contábil", permission: "view_report_accounting_export", managementOnly: true },
+      { to: "/relatorios/exportacao-contabil", icon: FileOutput, label: "Exportação Contábil", permission: "view_report_accounting_export", managementOnly: true, accountantAllowed: true },
       { to: "/relatorios/indice-pendencias", icon: AlertTriangle, label: "Índice de Pendências", permission: "view_report_document_pendencies" },
       { to: "/relatorios/auditoria-iva", icon: AlertTriangle, label: "Auditoria de IVA", permission: "view_report_document_pendencies" },
     ],
@@ -119,12 +122,12 @@ export default function Reports() {
   const location = useLocation();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const { hasPermission, isAdmin, isManager } = useAuth();
+  const { hasPermission, isAdmin, isManager, isAccountant } = useAuth();
 
   const filteredGroups = allReportGroups.map((group) => ({
     ...group,
     items: group.items.filter((item) => {
-      if (item.managementOnly && !isAdmin && !isManager) return false;
+      if (item.managementOnly && !isAdmin && !isManager && !(isAccountant && item.accountantAllowed)) return false;
       return isAdmin || hasPermission(item.permission);
     }),
   })).filter((group) => group.items.length > 0);
