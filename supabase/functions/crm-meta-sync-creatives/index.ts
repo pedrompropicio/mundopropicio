@@ -302,6 +302,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     max_creatives_per_run?: number;
     triggered_by?: string;
     force_resync?: boolean;
+    // Event-aware sync: quando true (default), só sincroniza criativos referenciados
+    // em ads de campanhas ligadas a um EVENTO ATIVO (status='active' AND date >= hoje).
+    // Passar false faz um sync completo (todos os criativos do snapshot).
+    active_events_only?: boolean;
   };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
 
@@ -312,6 +316,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const mode: "incremental" | "full" = body?.mode === "full" ? "full" : "incremental";
   const maxRun = Math.min(Math.max(body?.max_creatives_per_run ?? 40, 1), 2000);
   const triggeredBy = body?.triggered_by ?? (isServiceRole ? "service_role" : "user");
+  // Default true: o sync foca-se em eventos ativos (ver body type acima).
+  const activeEventsOnly = body?.active_events_only !== false;
 
   // v2: force_resync requer service_role JWT. Skipa set-diff E faz UPSERT real
   // (ignoreDuplicates=false), re-escrevendo rows existentes com parsers v2.
@@ -357,26 +363,77 @@ Deno.serve(async (req: Request): Promise<Response> => {
     access_token: string; company_id: string;
   };
 
-  console.log(`[meta-sync-creatives] start company=${companyId} acct=${adAccountId} mode=${mode} max=${maxRun} triggered_by=${triggeredBy} force_resync=${forceResync}`);
+  console.log(`[meta-sync-creatives] start company=${companyId} acct=${adAccountId} mode=${mode} max=${maxRun} triggered_by=${triggeredBy} force_resync=${forceResync} active_events_only=${activeEventsOnly}`);
   if (forceResync) {
     console.log("[meta-sync-creatives][v2] force_resync_mode", { enabled: true });
   }
 
-  // ── 1) Identificar creative IDs a sincronizar ─────────────────────────
-  // Step A: distinct meta_creative_id em meta_ad_snapshot.
-  const { data: snapRows, error: snapErr } = await (supabase as any)
-    .schema("crm")
-    .from("meta_ad_snapshot")
-    .select("meta_creative_id")
-    .eq("company_id", companyId)
-    .eq("connection_id", connectionId)
-    .eq("ad_account_id", adAccountId)
-    .not("meta_creative_id", "is", null);
-  if (snapErr) {
-    console.error("[meta-sync-creatives] snapshot query error:", snapErr);
-    return json({ error: "snapshot_query_failed", detail: snapErr.message }, 500);
+  // ── 0) Event-aware scoping ────────────────────────────────────────────
+  // Quando active_events_only=true, restringe o set-diff aos criativos de ads de
+  // campanhas ligadas a um EVENTO ATIVO. "Evento ativo" = public.events com
+  // status='active' AND date >= CURRENT_DATE. Só status não chega: há eventos
+  // passados ainda marcados active — o filtro de data exclui-os.
+  //   eventos ativos → campanhas (meta_campaign_snapshot.linked_event_id) →
+  //   external_campaign_id que filtra o snapshot de ads no Step A.
+  let activeCampaignIds: string[] | null = null; // null = sem scoping (sync completo)
+  let activeEventCount = 0;
+  if (activeEventsOnly) {
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const { data: activeEvents, error: evErr } = await supabase
+      .from("events")
+      .select("id")
+      .eq("status", "active")
+      .gte("date", todayIso);
+    if (evErr) {
+      console.error("[meta-sync-creatives] active events query error:", evErr);
+      return json({ error: "active_events_query_failed", detail: evErr.message }, 500);
+    }
+    const activeEventIds = Array.from(new Set((activeEvents ?? []).map((e: any) => e.id).filter(Boolean)));
+    activeEventCount = activeEventIds.length;
+    if (activeEventIds.length === 0) {
+      activeCampaignIds = []; // nenhum evento ativo → nenhum criativo elegível
+    } else {
+      const { data: camps, error: cErr } = await (supabase as any)
+        .schema("crm")
+        .from("meta_campaign_snapshot")
+        .select("external_campaign_id")
+        .eq("company_id", companyId)
+        .in("linked_event_id", activeEventIds);
+      if (cErr) {
+        console.error("[meta-sync-creatives] active campaigns query error:", cErr);
+        return json({ error: "active_campaigns_query_failed", detail: cErr.message }, 500);
+      }
+      activeCampaignIds = Array.from(new Set((camps ?? []).map((c: any) => c.external_campaign_id as string).filter(Boolean)));
+    }
+    console.log(`[meta-sync-creatives] event_scope active_events=${activeEventCount} active_campaigns=${activeCampaignIds.length}`);
   }
-  const allSnapIds = Array.from(new Set((snapRows ?? []).map((r: any) => r.meta_creative_id as string).filter(Boolean)));
+
+  // ── 1) Identificar creative IDs a sincronizar ─────────────────────────
+  // Step A: distinct meta_creative_id em meta_ad_snapshot (scoped por evento ativo
+  // quando aplicável). Se não há campanhas de eventos ativos → set vazio, sem query.
+  let allSnapIds: string[];
+  if (activeEventsOnly && (activeCampaignIds?.length ?? 0) === 0) {
+    allSnapIds = [];
+    console.log("[meta-sync-creatives] no active-event campaigns — nothing to sync");
+  } else {
+    let snapQuery = (supabase as any)
+      .schema("crm")
+      .from("meta_ad_snapshot")
+      .select("meta_creative_id")
+      .eq("company_id", companyId)
+      .eq("connection_id", connectionId)
+      .eq("ad_account_id", adAccountId)
+      .not("meta_creative_id", "is", null);
+    if (activeEventsOnly && activeCampaignIds) {
+      snapQuery = snapQuery.in("external_campaign_id", activeCampaignIds);
+    }
+    const { data: snapRows, error: snapErr } = await snapQuery;
+    if (snapErr) {
+      console.error("[meta-sync-creatives] snapshot query error:", snapErr);
+      return json({ error: "snapshot_query_failed", detail: snapErr.message }, 500);
+    }
+    allSnapIds = Array.from(new Set((snapRows ?? []).map((r: any) => r.meta_creative_id as string).filter(Boolean)));
+  }
 
   // Step B: existentes em meta_creatives para esta company.
   // v2: force_resync skipa o set-diff (processa TODOS os IDs do snapshot).
@@ -411,6 +468,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({
       synced_count: 0, skipped_count: 0, ad_account_id: adAccountId, mode,
       remaining_to_sync: remainingToSync, triggered_by: triggeredBy,
+      active_events_only: activeEventsOnly,
+      active_event_count: activeEventCount,
+      active_campaign_count: activeCampaignIds?.length ?? null,
     });
   }
 
@@ -598,6 +658,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     ad_account_id: adAccountId,
     mode,
     force_resync: forceResync,
+    active_events_only: activeEventsOnly,
+    active_event_count: activeEventCount,
+    active_campaign_count: activeCampaignIds?.length ?? null,
     remaining_to_sync: remainingToSync,
     triggered_by: triggeredBy,
     backlog_snapshot: { snap_distinct: allSnapIds.length, existing: existingIds.size, missing: missingIds.length, fetched: idsToFetch.length },
