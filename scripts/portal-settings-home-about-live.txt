@@ -1,0 +1,13 @@
+-- Live: insere os dois settings bilingues "Quem Somos" da homepage
+-- para a empresa Mundo Propício (Live company_id = 7c858982-...).
+-- Correr no SQL Editor do Supabase com Live seleccionado.
+
+INSERT INTO public.portal_settings (company_id, key, value, category, label, description, display_order)
+VALUES
+  ('7c858982-6ccd-47ca-bd65-e0dd3eebf01c', 'home.about_pt',
+   to_jsonb('Internacionalizamos o melhor entretenimento brasileiro para a Europa. Trazemos a Portugal artistas como Anitta, Ivete Sangalo, Simone Mendes, Caetano Veloso, Roberto Carlos, Maiara & Maraisa, Raphael Ghanem, Professor Cortella e Whindersson Nunes, e festivais como Villa Mix, Coala e FestVyybe — entre vários outros artistas e projetos —, com a qualidade e o conforto que público, patrocinadores e artistas merecem.'::text),
+   'home', 'Texto PT', 'Texto da secção "Quem Somos" da homepage (português)', 1),
+  ('7c858982-6ccd-47ca-bd65-e0dd3eebf01c', 'home.about_en',
+   to_jsonb('We bring the best of Brazilian entertainment to Europe. We bring to Portugal artists like Anitta, Ivete Sangalo, Simone Mendes, Caetano Veloso, Roberto Carlos, Maiara & Maraisa, Raphael Ghanem, Professor Cortella and Whindersson Nunes, and festivals such as Villa Mix, Coala and FestVyybe — among many other artists and projects — with the quality and comfort that audiences, sponsors and artists deserve.'::text),
+   'home', 'Texto EN', 'Texto da secção "Quem Somos" da homepage (inglês)', 2)
+ON CONFLICT (company_id, key) DO NOTHING;
