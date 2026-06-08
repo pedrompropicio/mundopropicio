@@ -140,7 +140,9 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const normalizeIbanStr = (v: string | null) => (v ?? "").replace(/\s+/g, "").toUpperCase();
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const raw = {
@@ -151,11 +153,11 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       email: (fd.get("email") as string) || null,
       phone: (fd.get("phone") as string) || null,
       address: (fd.get("address") as string) || null,
-      iban: (fd.get("iban") as string) || null,
+      iban: normalizeIbanStr(fd.get("iban") as string) || null,
       swift_bic: (fd.get("swift_bic") as string) || null,
-      iban_2: (fd.get("iban_2") as string) || null,
+      iban_2: normalizeIbanStr(fd.get("iban_2") as string) || null,
       swift_bic_2: (fd.get("swift_bic_2") as string) || null,
-      iban_3: (fd.get("iban_3") as string) || null,
+      iban_3: normalizeIbanStr(fd.get("iban_3") as string) || null,
       swift_bic_3: (fd.get("swift_bic_3") as string) || null,
       payment_terms: (fd.get("payment_terms") as string) || null,
       category: (fd.get("category") as string) || null,
@@ -169,10 +171,45 @@ export function SupplierFormModal({ open, onOpenChange, onCreated, editingSuppli
       return;
     }
     setValidationErrors({});
+
+    // Validação estrutural (checksum MOD-97) e duplicação cross-supplier
+    const ibanFields: Array<{ key: "iban" | "iban_2" | "iban_3"; label: string; value: string | null }> = [
+      { key: "iban", label: "IBAN 1", value: raw.iban },
+      { key: "iban_2", label: "IBAN 2", value: raw.iban_2 },
+      { key: "iban_3", label: "IBAN 3", value: raw.iban_3 },
+    ];
+
+    for (const f of ibanFields) {
+      if (!f.value) continue;
+      const { isValidIBAN } = await import("ibantools");
+      if (!isValidIBAN(f.value)) {
+        toast.error(`${f.label} inválido`, {
+          description: "Verifique o formato (ex.: PT50XXXXXXXXXXXXXXXXXXXXX) e os dígitos de controlo.",
+        });
+        return;
+      }
+      const { data, error } = await supabase.rpc("check_supplier_iban_duplicate" as any, {
+        p_iban: f.value,
+        p_supplier_id: editingSupplier?.id ?? null,
+      });
+      if (error) {
+        toast.error("Erro ao validar IBAN", { description: error.message });
+        return;
+      }
+      const res = data as { exists?: boolean; supplier_name?: string; nif?: string | null } | null;
+      if (res?.exists) {
+        toast.error(`${f.label} duplicado`, {
+          description: `Este IBAN já está registado no fornecedor «${res.supplier_name}» (NIF: ${res.nif ?? "—"}). Não é permitido o mesmo IBAN em fornecedores diferentes.`,
+        });
+        return;
+      }
+    }
+
     if (isEditing) {
       updateMutation.mutate(raw);
     } else {
       createMutation.mutate(raw);
+
     }
   };
 
