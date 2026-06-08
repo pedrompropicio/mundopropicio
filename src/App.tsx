@@ -513,6 +513,8 @@ function ProtectedLayout() {
               <Route path="/admin/notifications" element={<Notifications />} />
               <Route path="/admin/diagnosis-test" element={<DiagnosisTest />} />
               <Route path="/admin/iban-duplicados" element={<IbanDuplicates />} />
+              <Route path="/admin/audit-downloads" element={<AuditDownloads />} />
+
 
               <Route path="/perfil" element={<UserSettings />} />
             </Routes>
