@@ -58,6 +58,10 @@ verify_jwt = true
 [functions.crm-meta-campaign-scale]
 verify_jwt = true
 
+# Etapa 5 — novo desenho do zero (generate + herança seletiva; user JWT + LLM).
+[functions.crm-meta-campaign-new-design]
+verify_jwt = true
+
 [functions.debug-key-check]
 # Diagnóstico temporário: metadata do secret ENCRYPTION_MASTER_KEY (sem expor
 # o valor). verify_jwt=false para podermos chamar sem auth. Remover após uso.
