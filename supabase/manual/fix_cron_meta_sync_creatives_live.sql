@@ -14,18 +14,26 @@
 -- (churn de duplicação de projetos). O canónico AGORA é sfohvvlqccmmebvjgibx (Live),
 -- confirmado em Live. Este script usa sfohvv.
 --
+-- PRÉ-REQUISITO (já aplicado em Live; versionado em
+--   supabase/migrations/20260608010000_grant_sync_creatives_event_aware.sql):
+--   GRANT SELECT ON crm.meta_campaign_snapshot TO service_role;
+--   GRANT SELECT ON public.events             TO service_role;
+--   Sem estes GRANTs o sync event-aware falha em runtime com
+--   "permission denied for table meta_campaign_snapshot" (o cron corre como
+--   service_role, que precisa de SELECT nestas duas tabelas).
+--
 -- ALTERAÇÕES face ao comando atual:
 --   1) URL → Live (sfohvvlqccmmebvjgibx).
 --   2) Reativar (cron.schedule recria o job com active=true).
---   3) max_creatives_per_run: 40 → 200 (apanhar o backlog de ~129 criativos de
---      eventos ativos numa só corrida).
+--   3) max_creatives_per_run: 40 → 100 (apanhar o backlog de eventos ativos sem
+--      arriscar timeout — ver caveat).
 --   4) Body: + 'active_events_only' = true (sync focado em eventos ativos).
 --
--- CAVEAT (max=200): a função re-hospeda cada criativo antes do upsert (~1-2s cada);
---   ~129 criativos ≈ ~195s, borderline face ao wall-clock da edge function. Como o
---   set-diff é incremental e o upsert é no fim, se UMA corrida estoirar nada se
---   perde — a seguinte refaz o lote. Se notares timeout, baixa para ~80 e deixa
---   drenar em 2 corridas. Depois deste arranque, as corridas diárias têm ~0 backlog.
+-- CAVEAT (max=100): a função re-hospeda cada criativo antes do upsert (~1-2s cada).
+--   200 era borderline face ao wall-clock da edge function (~195s); 100 dá folga
+--   (~100-150s). O set-diff é incremental e o upsert é no fim — se UMA corrida
+--   estoirar nada se perde, a seguinte refaz o lote. Depois do arranque, as
+--   corridas diárias têm ~0 backlog.
 --
 -- ABORDAGEM SEGURA (gotchas de permissão com cron.alter_job já apanhadas):
 --   unschedule + schedule POR JOBNAME (não por jobid). Idempotente.
@@ -70,7 +78,7 @@ SELECT cron.schedule(
           'connection_id', v_conn.connection_id,
           'ad_account_id', v_conn.ad_account_id,
           'mode', 'incremental',
-          'max_creatives_per_run', 200,
+          'max_creatives_per_run', 100,
           'active_events_only', true,
           'triggered_by', 'cron-daily'
         )
