@@ -12,6 +12,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isManager: boolean;
   isPartner: boolean;
+  isAccountant: boolean;
   loading: boolean;
   hasPermission: (permission: string) => boolean;
   signOut: () => Promise<void>;
@@ -25,6 +26,7 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   isManager: false,
   isPartner: false,
+  isAccountant: false,
   loading: true,
   hasPermission: () => false,
   signOut: async () => {},
@@ -240,6 +242,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: role === "admin" || role === ("platform_admin" as AppRole),
       isManager: role === "manager",
       isPartner: role === "partner",
+      isAccountant: role === ("accountant" as AppRole),
       loading, hasPermission, signOut,
     }}>
       {children}
