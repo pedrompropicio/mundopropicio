@@ -313,12 +313,15 @@ duplicação) — o canónico **agora** é `sfohvvlqccmmebvjgibx`, confirmado em
 Script pronto a colar no Live SQL Editor:
 [supabase/manual/fix_cron_meta_sync_creatives_live.sql](../../supabase/manual/fix_cron_meta_sync_creatives_live.sql).
 Corrige a URL → Live, reativa (`cron.schedule` recria com `active=true`), põe
-`max_creatives_per_run=200` (apanha os ~129 numa corrida) e
-`active_events_only=true` no body. Abordagem segura: `unschedule`+`schedule` **por
-jobname** (gotchas de permissão com `cron.alter_job`). Caveat do max=200: ~129
-re-hosts ≈ ~195s, borderline no wall-clock; se houver timeout, baixar para ~80 e
-deixar drenar em 2 corridas (o set-diff incremental + upsert no fim garantem que
-nada se perde).
+`max_creatives_per_run=100` (apanha o backlog de eventos ativos sem arriscar
+timeout) e `active_events_only=true` no body. Abordagem segura:
+`unschedule`+`schedule` **por jobname** (gotchas de permissão com `cron.alter_job`).
+Caveat: o re-host de 200 era borderline no wall-clock (~195s) — por isso baixou-se
+para 100 (~100-150s, com folga); o set-diff incremental + upsert no fim garantem
+que nada se perde se uma corrida estoirar.
+
+> **Pré-requisito de permissões** (ver §12.4): o sync event-aware exige `GRANT
+> SELECT` em `crm.meta_campaign_snapshot` e `public.events` ao `service_role`.
 
 > Crons são **Live-only**: não versionar como migration. O ficheiro vive em
 > `supabase/manual/` como referência; aplica-se à mão no Live SQL Editor.
@@ -333,6 +336,28 @@ linked_event_id = <event_id> WHERE external_campaign_id IN (...)` com os ids
 confirmados pelas queries. Enquanto não houver link, o sync event-aware não apanha
 os criativos deste evento (é o comportamento correto: sem link, não há como saber
 que pertencem a um evento ativo).
+
+### 12.4 Incidente: `permission denied` + GRANTs necessários
+Na primeira corrida real, o sync event-aware falhou com **`permission denied for
+table meta_campaign_snapshot`**. Causa: o cron corre como role **`service_role`**,
+que não tinha `SELECT` nas tabelas que o Step 0 consulta (`crm.meta_campaign_snapshot`
+e `public.events`). Os syncs anteriores nunca expuseram isto porque só liam tabelas
+onde o `service_role` já tinha GRANTs (`meta_creatives`, `meta_sync_state`).
+
+**Fix** (aplicado em Live à mão; versionado em
+[supabase/migrations/20260608010000_grant_sync_creatives_event_aware.sql](../../supabase/migrations/20260608010000_grant_sync_creatives_event_aware.sql)):
+```sql
+GRANT SELECT ON crm.meta_campaign_snapshot TO service_role;
+GRANT SELECT ON public.events             TO service_role;
+```
+Reforça a Lição §5.1: **toda a tabela nova que uma edge function via `service_role`
+passe a ler precisa de GRANT explícito** — não é herdado.
+
+### 12.5 Backfill concluído
+O backfill dos eventos ativos ficou **concluído**: **934 criativos** em
+`crm.meta_creatives` para o tenant, dos quais **129 dos eventos ativos** (o
+universo-alvo do sync event-aware). As corridas diárias do cron passam a manter
+este número a ~0 de backlog.
 
 ---
 
