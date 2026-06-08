@@ -184,7 +184,7 @@ const queryClient = new QueryClient({
 });
 
 function ProtectedLayout() {
-  const { user, loading, isPartner, isAdmin, isManager, hasPermission, signOut } = useAuth();
+  const { user, loading, isPartner, isAdmin, isManager, hasPermission, role, signOut } = useAuth();
   const { companyId, isLoading: companyLoading, isError: companyError, error: companyErrorObj, isPlatformAdmin, refetch: refetchCompany } = useCompany();
   const queryClient = useQueryClient();
   const previousCompanyIdRef = useRef<string | null>(null);
