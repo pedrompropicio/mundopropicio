@@ -281,28 +281,34 @@ A tabela `crm.meta_campaign_changes` (migration [supabase/migrations/20260516210
 
 ## 12. Sync event-aware + fix do cron (2026-06)
 
-### 12.1 Sync focado em eventos ativos
-A `crm-meta-sync-creatives` passou a ser **event-aware**. Novo parâmetro de body
-`active_events_only` (**default `true`**):
+### 12.1 Sync por campanha, excluindo eventos passados
+A `crm-meta-sync-creatives` é **event-aware** por **exclusão**. Parâmetro de body
+**`exclude_past_events`** (**default `true`**) — substitui o antigo
+`active_events_only`:
 
-- `true` (default): o set-diff só considera criativos referenciados em ads de
-  campanhas cujo `crm.meta_campaign_snapshot.linked_event_id` aponta para um
-  **EVENTO ATIVO**.
-- `false`: sync completo (todos os criativos do snapshot — comportamento antigo,
-  preservado para flexibilidade).
+- `true` (default): sincroniza criativos de **TODAS as campanhas EXCETO as ligadas
+  a eventos JÁ OCORRIDOS**. Campanhas **sem evento** (`linked_event_id IS NULL`) são
+  **sempre incluídas** — os criativos pertencem às campanhas, não aos eventos.
+- `false`: sync total (sem exclusão).
 
-**Critério de "evento ativo"** (Step 0 da função): `public.events` com
-`status = 'active'` **AND** `date >= CURRENT_DATE`. Só `status` não chega — há
-eventos passados ainda marcados `active` (ex.: Maiara e Maraisa de fev, Turnê
-Simone de março) que o filtro de data exclui. Sem o filtro de data, o sync
-arrastava ~2437 criativos (a maioria de eventos passados); com o critério correto,
-o universo relevante é ~129 criativos de eventos ativos.
+**Porque mudou:** o `active_events_only` (só `status='active' AND date >= hoje`)
+era demasiado restritivo — deixava de fora campanhas sem evento e campanhas de
+eventos futuros não marcados `active`. Os criativos pertencem às campanhas; só os
+de eventos **passados** é que não interessam.
 
-**Implementação:** eventos ativos → campanhas ligadas (`linked_event_id`) →
-`external_campaign_id` que filtra `meta_ad_snapshot` no Step A. Sem campanhas de
-eventos ativos → set vazio (sync no-op). Todo o resto (re-host, parsers,
-`max_creatives_per_run`, audit) fica intacto. A resposta inclui agora
-`active_events_only`, `active_event_count`, `active_campaign_count`.
+**Critério de "evento já ocorrido"** (Step 0): `status = 'completed'` **OU** a
+última **data efetiva** `< CURRENT_DATE`. A data efetiva respeita a hierarquia de
+eventos (ver §12.6): se o evento tem **filhos** (`parent_event_id`), usa
+`MAX(date dos filhos)`; senão, o próprio `date` (o `date` do PAI multi_day/festival
+não é fiável — fica com a data de criação).
+
+**Implementação:** eventos passados → `pastCampaignSet` (campanhas com
+`linked_event_id` passado). O Step A percorre `meta_ad_snapshot` (paginado, range
+1000) e exclui os ads dessas campanhas. Um **criativo entra se aparecer em pelo
+menos uma campanha NÃO passada** — só fica de fora o criativo cujas campanhas são
+**TODAS** de eventos passados. Resto (re-host, parsers, `max_creatives_per_run`,
+audit) intacto. Resposta inclui `exclude_past_events`, `past_event_count`,
+`past_campaign_count`.
 
 ### 12.2 Fix do cron (jobid 30, Live-only)
 O cron estava `active=false` E com a URL a apontar para o projeto **Test**
@@ -313,8 +319,8 @@ duplicação) — o canónico **agora** é `sfohvvlqccmmebvjgibx`, confirmado em
 Script pronto a colar no Live SQL Editor:
 [supabase/manual/fix_cron_meta_sync_creatives_live.sql](../../supabase/manual/fix_cron_meta_sync_creatives_live.sql).
 Corrige a URL → Live, reativa (`cron.schedule` recria com `active=true`), põe
-`max_creatives_per_run=100` (apanha o backlog de eventos ativos sem arriscar
-timeout) e `active_events_only=true` no body. Abordagem segura:
+`max_creatives_per_run=100` (apanha o backlog sem arriscar timeout) e
+`exclude_past_events=true` no body. Abordagem segura:
 `unschedule`+`schedule` **por jobname** (gotchas de permissão com `cron.alter_job`).
 Caveat: o re-host de 200 era borderline no wall-clock (~195s) — por isso baixou-se
 para 100 (~100-150s, com folga); o set-diff incremental + upsert no fim garantem
@@ -354,10 +360,27 @@ Reforça a Lição §5.1: **toda a tabela nova que uma edge function via `servic
 passe a ler precisa de GRANT explícito** — não é herdado.
 
 ### 12.5 Backfill concluído
-O backfill dos eventos ativos ficou **concluído**: **934 criativos** em
-`crm.meta_creatives` para o tenant, dos quais **129 dos eventos ativos** (o
-universo-alvo do sync event-aware). As corridas diárias do cron passam a manter
+O backfill ficou **concluído**: **934 criativos** em `crm.meta_creatives` para o
+tenant, dos quais **129 dos eventos ativos**. As corridas diárias do cron mantêm
 este número a ~0 de backlog.
+
+### 12.6 Tipos de evento + sync vs herança
+`public.events.event_type` ∈ **{ `simple`, `multi_day`, `festival` }** (default
+`simple`). Hierarquia via `parent_event_id`: um pai `multi_day`/`festival` agrupa
+**filhos** (cada um com a **data real** da sua cidade/dia). O `date` do **PAI não
+é fiável** — fica com a data de criação; a data real vive nos filhos. Daí a regra
+da **última data efetiva**: `MAX(date dos filhos)` se houver filhos, senão o
+próprio `date`.
+
+**Sync ≠ herança** (distinção chave):
+- **O sync** (`crm-meta-sync-creatives`) **não** filtra por evento — só exclui
+  campanhas de eventos passados. Garante que os criativos existem em DB.
+- **A herança** (criação de campanha do zero, Etapa 5 — `crm-meta-campaign-new-design`
+  via `crm-meta-redesign-inventory` com `event_id`) **agrupa** criativos por evento,
+  por osmose através da campanha (`linked_event_id`), para construir o pool de
+  reaproveitamento de um evento concreto.
+
+Detalhe completo: `.lovable/memory/features/mp-audience-event-types-sync.md`.
 
 ---
 
