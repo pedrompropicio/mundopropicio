@@ -87,16 +87,32 @@ export async function rehostCreative(
     return { status: "failed", reason: `not_an_image: ${contentType || "unknown"}` };
   }
 
-  const bytes = new Uint8Array(await resp.arrayBuffer());
+  const bytes = await (async () => {
+    try {
+      return new Uint8Array(await resp.arrayBuffer());
+    } catch (e) {
+      // Ler o corpo pode falhar (ligação cortada a meio do download do poster,
+      // erro de TLS/encoding do CDN da Meta, etc.). NUNCA deixar lançar — isto
+      // corria sob um loop sem try/catch e abortava a run inteira (poison-pill).
+      return e as Error;
+    }
+  })();
+  if (bytes instanceof Error) {
+    return { status: "failed", reason: `download_body_threw: ${bytes.message}` };
+  }
   if (bytes.byteLength === 0) return { status: "failed", reason: "empty_body" };
 
   const mime = contentType;
   const path = `${company_id}/${path_key}.${extFromMime(mime)}`;
 
-  const { error: upErr } = await admin.storage
-    .from(REHOST_BUCKET)
-    .upload(path, bytes, { contentType: mime, upsert: true });
-  if (upErr) return { status: "failed", reason: `upload: ${upErr.message}` };
+  try {
+    const { error: upErr } = await admin.storage
+      .from(REHOST_BUCKET)
+      .upload(path, bytes, { contentType: mime, upsert: true });
+    if (upErr) return { status: "failed", reason: `upload: ${upErr.message}` };
+  } catch (e) {
+    return { status: "failed", reason: `upload_threw: ${(e as Error).message}` };
+  }
 
   const { data: pub } = admin.storage.from(REHOST_BUCKET).getPublicUrl(path);
   return { status: "rehosted", file_url: pub.publicUrl, storage_path: path, mime };

@@ -202,10 +202,19 @@ async function batchFetchCreatives(ids: string[], accessToken: string): Promise<
         console.warn(`[meta-sync-creatives] batch ${i / CHUNK + 1} fetch error:`, j.error?.message ?? r.status);
         continue;
       }
-      // Graph retorna { "cid1": {...}, "cid2": {...}, ... }
+      // Graph retorna { "cid1": {...}, "cid2": {...}, ... }. Um criativo individual
+      // pode vir com { error: {...} } (asset sem permissão, vídeo ainda em
+      // processamento, etc.) — antes era descartado em SILÊNCIO e o criativo ficava
+      // eternamente "missing". Agora regista-se o erro para diagnóstico.
       for (const [cid, data] of Object.entries(j)) {
         if (typeof data === "object" && data && !(data as any).error) {
           out.set(cid, data);
+        } else if ((data as any)?.error) {
+          const err = (data as any).error;
+          console.warn(
+            `[meta-sync-creatives] graph_creative_error cid=${cid}`,
+            { message: err?.message ?? null, code: err?.code ?? null, subcode: err?.error_subcode ?? null },
+          );
         }
       }
     } catch (e) {
@@ -546,9 +555,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
     errors: [] as { meta_creative_id: string; error_msg: string }[],
   };
 
+  const notFetchedIds: string[] = []; // cids pedidos mas que a Graph não devolveu
   for (const cid of idsToFetch) {
     const creative = fetched.get(cid);
-    if (!creative) { skipped++; continue; }
+    if (!creative) {
+      // Não veio da Graph (erro de asset individual — ver graph_creative_error —
+      // ou ausente da resposta). NÃO é inserido → fica "missing" e é re-tentado em
+      // cada run. Registamos os ids para diagnóstico inequívoco.
+      skipped++;
+      if (notFetchedIds.length < 50) notFetchedIds.push(cid);
+      continue;
+    }
     const parsed = parseCreativeFields(creative);
 
     stats.total_processed++;
@@ -599,6 +616,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
       updated_at: nowIso,
     });
   }
+  if (notFetchedIds.length > 0) {
+    console.warn(
+      `[meta-sync-creatives] graph_not_fetched count=${notFetchedIds.length}`,
+      { meta_creative_ids: notFetchedIds },
+    );
+  }
 
   // ── 3b) v2: batch resolve image_hash → URL para rows ainda sem file_url ──
   // Só chama API para hashes onde file_url ficou null depois dos passos 1-5
@@ -629,11 +652,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // já está em meta_creatives. Erros isolados: falha de um não aborta a run.
   // Para type=video o file_url é o poster (imagem); o vídeo fica na Meta.
   for (const row of rows) {
-    const res = await rehostCreative(
-      adminClient,
-      { company_id: companyId, path_key: row.meta_creative_id, type: row.type, file_url: row.file_url },
-      { supabaseUrl: SUPABASE_URL },
-    );
+    // ISOLAMENTO POR ASSET: rehostCreative não deve lançar, mas se lançar (ex.
+    // poster de vídeo problemático) NÃO pode abortar a run — antes este loop não
+    // tinha try/catch e o UPSERT só ocorre depois dele, por isso UM asset a
+    // lançar deixava o lote inteiro (e estes criativos) eternamente por sincronizar.
+    let res: Awaited<ReturnType<typeof rehostCreative>>;
+    try {
+      res = await rehostCreative(
+        adminClient,
+        { company_id: companyId, path_key: row.meta_creative_id, type: row.type, file_url: row.file_url },
+        { supabaseUrl: SUPABASE_URL },
+      );
+    } catch (e) {
+      res = { status: "failed", reason: `rehost_threw: ${(e as Error).message}` };
+    }
     if (res.status === "rehosted") {
       row.file_url = res.file_url!;
       row.storage_bucket = REHOST_BUCKET;
@@ -645,6 +677,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
       if (stats.errors.length < 10) {
         stats.errors.push({ meta_creative_id: row.meta_creative_id, error_msg: `rehost: ${res.reason}` });
       }
+      // Diagnóstico do asset: type + url + razão ajudam a distinguir acesso
+      // (download_http_403/login HTML) de formato (not_an_image: video/mp4) de
+      // leitura (download_body_threw). O criativo É inserido na mesma (com o url
+      // original da Meta) — a falha de re-host não impede a sincronização.
+      console.warn("[meta-sync-creatives] rehost_failed", {
+        meta_creative_id: row.meta_creative_id,
+        type: row.type,
+        file_url: row.file_url,
+        reason: res.reason,
+      });
     } else {
       stats.rehost_skipped++;
     }
