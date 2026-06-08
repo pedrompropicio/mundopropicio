@@ -279,6 +279,63 @@ A tabela `crm.meta_campaign_changes` (migration [supabase/migrations/20260516210
 
 ---
 
+## 12. Sync event-aware + fix do cron (2026-06)
+
+### 12.1 Sync focado em eventos ativos
+A `crm-meta-sync-creatives` passou a ser **event-aware**. Novo parâmetro de body
+`active_events_only` (**default `true`**):
+
+- `true` (default): o set-diff só considera criativos referenciados em ads de
+  campanhas cujo `crm.meta_campaign_snapshot.linked_event_id` aponta para um
+  **EVENTO ATIVO**.
+- `false`: sync completo (todos os criativos do snapshot — comportamento antigo,
+  preservado para flexibilidade).
+
+**Critério de "evento ativo"** (Step 0 da função): `public.events` com
+`status = 'active'` **AND** `date >= CURRENT_DATE`. Só `status` não chega — há
+eventos passados ainda marcados `active` (ex.: Maiara e Maraisa de fev, Turnê
+Simone de março) que o filtro de data exclui. Sem o filtro de data, o sync
+arrastava ~2437 criativos (a maioria de eventos passados); com o critério correto,
+o universo relevante é ~129 criativos de eventos ativos.
+
+**Implementação:** eventos ativos → campanhas ligadas (`linked_event_id`) →
+`external_campaign_id` que filtra `meta_ad_snapshot` no Step A. Sem campanhas de
+eventos ativos → set vazio (sync no-op). Todo o resto (re-host, parsers,
+`max_creatives_per_run`, audit) fica intacto. A resposta inclui agora
+`active_events_only`, `active_event_count`, `active_campaign_count`.
+
+### 12.2 Fix do cron (jobid 30, Live-only)
+O cron estava `active=false` E com a URL a apontar para o projeto **Test**
+(`ukpuhoynrqobqtzdbysp`) em vez do **Live** (`sfohvvlqccmmebvjgibx`). Nota: o
+mapeamento de projetos inverteu-se face às migrations de 2026-05 (churn de
+duplicação) — o canónico **agora** é `sfohvvlqccmmebvjgibx`, confirmado em Live.
+
+Script pronto a colar no Live SQL Editor:
+[supabase/manual/fix_cron_meta_sync_creatives_live.sql](../../supabase/manual/fix_cron_meta_sync_creatives_live.sql).
+Corrige a URL → Live, reativa (`cron.schedule` recria com `active=true`), põe
+`max_creatives_per_run=200` (apanha os ~129 numa corrida) e
+`active_events_only=true` no body. Abordagem segura: `unschedule`+`schedule` **por
+jobname** (gotchas de permissão com `cron.alter_job`). Caveat do max=200: ~129
+re-hosts ≈ ~195s, borderline no wall-clock; se houver timeout, baixar para ~80 e
+deixar drenar em 2 corridas (o set-diff incremental + upsert no fim garantem que
+nada se perde).
+
+> Crons são **Live-only**: não versionar como migration. O ficheiro vive em
+> `supabase/manual/` como referência; aplica-se à mão no Live SQL Editor.
+
+### 12.3 Auto-link "Deive Leonardo - Lisboa" (investigação)
+Evento ativo (01/10) com **0 campanhas ligadas**. Queries read-only de diagnóstico
+em [supabase/manual/investigate_deive_leonardo_autolink.sql](../../supabase/manual/investigate_deive_leonardo_autolink.sql).
+Hipótese provável: **falta de link** — existem campanhas Meta do Deive Leonardo
+com `linked_event_id` NULL (nunca associadas), e não "evento ainda sem campanhas".
+Fix proposto (NÃO aplicar sem revisão): `UPDATE crm.meta_campaign_snapshot SET
+linked_event_id = <event_id> WHERE external_campaign_id IN (...)` com os ids
+confirmados pelas queries. Enquanto não houver link, o sync event-aware não apanha
+os criativos deste evento (é o comportamento correto: sem link, não há como saber
+que pertencem a um evento ativo).
+
+---
+
 ## 11. Referências
 
 - `INTEGRATIONS.md` (raiz) — catálogo curto de integrações; entrada do MCS deve ser adicionada.
