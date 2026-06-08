@@ -129,10 +129,11 @@ interface DiagnosisRow {
   diagnosis_jsonb: any;
   created_at: string;
 }
-// ── Prescrição cirúrgica (output de crm-meta-campaign-surgical) ──────────────
+// ── Prescrição (output de crm-meta-campaign-surgical E crm-meta-campaign-scale) ──
+// Contrato partilhado pelos dois motores → a mesma vista renderiza ambos.
 interface SurgicalAction {
   action_index: number;
-  group: "pause" | "reduce_budget" | "reallocate_increase" | "pause_ad" | "recommendation";
+  group: "pause" | "reduce_budget" | "reallocate_increase" | "pause_ad" | "scale_increase" | "recommendation";
   executable: boolean;
   entity_type: "adset" | "ad" | "campaign";
   external_id: string | null;
@@ -140,6 +141,7 @@ interface SurgicalAction {
   ad_account_id: string | null;
   entity_name: string | null;
   verdict: string | null;
+  audience_type?: string | null;
   current_value_cents?: number | null;
   proposed_value_cents?: number | null;
   entity_action?: { action: "pause" | "update"; updates?: { daily_budget_cents?: number } };
@@ -160,9 +162,15 @@ interface SurgicalPrescription {
   summary: {
     total_daily_before_cents: number;
     total_daily_after_cents: number;
-    pool_freed_cents: number;
-    pool_reallocated_cents: number;
-    pool_unallocated_cents: number;
+    // cirúrgico (poda/realoca):
+    pool_freed_cents?: number;
+    pool_reallocated_cents?: number;
+    pool_unallocated_cents?: number;
+    // escala (infla):
+    total_increase_cents?: number;
+    eligible_count?: number;
+    scaled_count?: number;
+    cooldown_count?: number;
     cap_eur: number | null;
     learning_adsets_count: number;
     currency: string;
@@ -170,6 +178,7 @@ interface SurgicalPrescription {
   };
   proposed_actions: SurgicalAction[];
 }
+type PrescriptionKind = "surgical" | "scale";
 
 interface ChangeRow {
   id: string;
@@ -239,9 +248,9 @@ const classMeta: Record<string, { label: string; color: string }> = {
 //   saudavel_subindo→manter_escalar, saudavel_caindo→intervencao_cirurgica,
 //   fraca→redesign, morta→novo_desenho, indeterminada→recolher_mais_dados,
 //   em_maturacao→aguardar_maturacao.
-// kind: "redesign" (fluxo activo p/ wizard) · "surgical" (motor cirúrgico, Etapa 3)
-//       · "coming_soon" (Etapas 4-5, desativado) · "info" (só mensagem + métricas).
-type PostureKind = "redesign" | "surgical" | "coming_soon" | "info";
+// kind: "redesign" (wizard) · "surgical" (motor cirúrgico, Etapa 3) · "scale"
+//       (motor manter-e-escalar, Etapa 4) · "coming_soon" (desativado) · "info".
+type PostureKind = "redesign" | "surgical" | "scale" | "coming_soon" | "info";
 const postureMeta: Record<
   string,
   { label: string; tagline: string; icon: any; kind: PostureKind; accent: string }
@@ -258,8 +267,8 @@ const postureMeta: Record<
   },
   manter_escalar: {
     label: "Manter e escalar",
-    tagline: "Campanha saudável a subir — escalar gradualmente e monitorizar.",
-    icon: Rocket, kind: "coming_soon", accent: "emerald",
+    tagline: "Campanha saudável a subir — escalar verba da prospecção para crescer volume.",
+    icon: Rocket, kind: "scale", accent: "emerald",
   },
   intervencao_cirurgica: {
     label: "Intervenção cirúrgica",
@@ -324,10 +333,11 @@ const SURGICAL_GROUP_META: Record<
   pause: { label: "Pausar adsets", icon: Pause, order: 0 },
   reduce_budget: { label: "Reduzir verba", icon: TrendingDown, order: 1 },
   reallocate_increase: { label: "Realocar para winners", icon: TrendingUp, order: 2 },
-  pause_ad: { label: "Pausar anúncios", icon: Pause, order: 3 },
-  recommendation: { label: "Recomendações (informativas)", icon: Info, order: 4 },
+  scale_increase: { label: "Escalar verba (prospecção)", icon: Rocket, order: 3 },
+  pause_ad: { label: "Pausar anúncios", icon: Pause, order: 4 },
+  recommendation: { label: "Recomendações (informativas)", icon: Info, order: 5 },
 };
-const SURGICAL_GROUP_ORDER = ["pause", "reduce_budget", "reallocate_increase", "pause_ad", "recommendation"];
+const SURGICAL_GROUP_ORDER = ["pause", "reduce_budget", "reallocate_increase", "scale_increase", "pause_ad", "recommendation"];
 const verdictBadge: Record<string, string> = {
   winning: "bg-emerald-500/10 text-emerald-300 border-emerald-500/40",
   losing: "bg-red-500/10 text-red-300 border-red-500/40",
@@ -423,12 +433,14 @@ export default function CrmCampaignView() {
   const [diagnosing, setDiagnosing] = useState(false);
   const [selectedAlt, setSelectedAlt] = useState<string | null>(null);
   // Intervenção cirúrgica (Etapa 3): prescrição on-demand + aprovação por ação.
+  // Painel de prescrição partilhado pelo cirúrgico (Etapa 3) e pela escala (Etapa 4).
   const [surgicalOpen, setSurgicalOpen] = useState(false);
   const [surgicalLoading, setSurgicalLoading] = useState(false);
   const [surgicalError, setSurgicalError] = useState<string | null>(null);
   const [surgicalData, setSurgicalData] = useState<SurgicalPrescription | null>(null);
   const [selectedActions, setSelectedActions] = useState<Set<number>>(new Set());
   const [applyingSurgical, setApplyingSurgical] = useState(false);
+  const [prescKind, setPrescKind] = useState<PrescriptionKind>("surgical");
 
   // 1) Campanha
   const { data: campaign, isLoading: loadingCampaign, error: campaignError } =
@@ -813,14 +825,18 @@ export default function CrmCampaignView() {
     navigate(`/audience/strategies/redesign/${campaign.external_campaign_id}`);
   }
 
-  // ── Intervenção cirúrgica: gerar prescrição (crm-meta-campaign-surgical) ────
-  async function runSurgical() {
+  // ── Gerar prescrição (cirúrgico OU escala — mesma vista, função conforme kind) ──
+  function runSurgical() { return runPrescription("surgical"); }
+  function runScale() { return runPrescription("scale"); }
+  async function runPrescription(kind: PrescriptionKind) {
     if (!campaign) return;
+    setPrescKind(kind);
     setSurgicalOpen(true);
     setSurgicalLoading(true);
     setSurgicalError(null);
     try {
-      const { data, error } = await supabase.functions.invoke("crm-meta-campaign-surgical", {
+      const fn = kind === "scale" ? "crm-meta-campaign-scale" : "crm-meta-campaign-surgical";
+      const { data, error } = await supabase.functions.invoke(fn, {
         body: { campaign_id: campaign.external_campaign_id, period_days: 30 },
       });
       if (error) {
@@ -909,7 +925,7 @@ export default function CrmCampaignView() {
     await qc.invalidateQueries({ queryKey: ["crm-campaign-view-adsets", id] });
     await qc.invalidateQueries({ queryKey: ["crm-campaign-view-ads", id] });
     await qc.invalidateQueries({ queryKey: ["crm-campaign-view-diagnosis", id] });
-    await runSurgical();
+    await runPrescription(prescKind);
   }
 
   // ── Estados ──────────────────────────────────────────────────────────────
@@ -1134,6 +1150,16 @@ export default function CrmCampaignView() {
                         <Scissors className="h-3 w-3 mr-1" /> Ver ações propostas
                         <ArrowRight className="h-3 w-3 ml-1" />
                       </Button>
+                    ) : m.kind === "scale" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={cn("h-7 px-2 text-[11px]", ac.btn)}
+                        onClick={runScale}
+                      >
+                        <Rocket className="h-3 w-3 mr-1" /> Ver ações de escala
+                        <ArrowRight className="h-3 w-3 ml-1" />
+                      </Button>
                     ) : m.kind === "coming_soon" ? (
                       <Button size="sm" variant="outline" disabled className="h-7 px-2 text-[11px]">
                         Em breve
@@ -1252,6 +1278,16 @@ export default function CrmCampaignView() {
                           <Scissors className="h-3 w-3 mr-1" /> Ver ações propostas
                           <ArrowRight className="h-3 w-3 ml-1" />
                         </Button>
+                      ) : m?.kind === "scale" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[11px] border-amber-500/50 text-amber-200 hover:bg-amber-500/20"
+                          onClick={runScale}
+                        >
+                          <Rocket className="h-3 w-3 mr-1" /> Ver ações de escala
+                          <ArrowRight className="h-3 w-3 ml-1" />
+                        </Button>
                       ) : m?.kind === "coming_soon" ? (
                         <Button size="sm" variant="outline" disabled className="h-7 px-2 text-[11px]">
                           Em breve (Etapas 4-5)
@@ -1274,12 +1310,16 @@ export default function CrmCampaignView() {
         })()}
       </Card>
 
-      {/* Intervenção cirúrgica — vista de ações propostas (Etapa 3) */}
+      {/* Vista de ações propostas — partilhada: cirúrgico (Etapa 3) e escala (Etapa 4) */}
       {surgicalOpen && (
-        <Card className="p-5 space-y-4 border-amber-500/40">
+        <Card className={cn("p-5 space-y-4", prescKind === "scale" ? "border-emerald-500/40" : "border-amber-500/40")}>
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Scissors className="h-4 w-4 text-amber-400" /> Intervenção cirúrgica — ações propostas
+              {prescKind === "scale" ? (
+                <><Rocket className="h-4 w-4 text-emerald-400" /> Manter e escalar — ações propostas</>
+              ) : (
+                <><Scissors className="h-4 w-4 text-amber-400" /> Intervenção cirúrgica — ações propostas</>
+              )}
             </h2>
             <div className="flex items-center gap-1.5">
               <Button
@@ -1327,18 +1367,36 @@ export default function CrmCampaignView() {
                   <Badge variant="outline" className="border-border">
                     Modo: <strong className="ml-1">{surgicalData.budget_mode}</strong>
                   </Badge>
-                  <Badge variant="outline" className="border-border">
+                  <Badge variant="outline" className={cn("border-border", prescKind === "scale" && "border-emerald-500/40 text-emerald-300 bg-emerald-500/10")}>
                     Total/dia: {eur(s.total_daily_before_cents, cur)} → <strong className="ml-1">{eur(s.total_daily_after_cents, cur)}</strong>
                   </Badge>
-                  <Badge variant="outline" className="border-border">
-                    Pool libertado: {eur(s.pool_freed_cents, cur)}
-                  </Badge>
-                  <Badge variant="outline" className="border-border">
-                    Realocado: {eur(s.pool_reallocated_cents, cur)}
-                  </Badge>
-                  <Badge variant="outline" className="border-border">
-                    Não alocado: {eur(s.pool_unallocated_cents, cur)}
-                  </Badge>
+                  {prescKind === "scale" ? (
+                    <>
+                      <Badge variant="outline" className="border-emerald-500/40 text-emerald-300 bg-emerald-500/10">
+                        Aumento: +{eur(s.total_increase_cents ?? 0, cur)}/dia
+                      </Badge>
+                      <Badge variant="outline" className="border-border">
+                        Elegíveis: {s.eligible_count ?? 0}
+                      </Badge>
+                      {(s.cooldown_count ?? 0) > 0 && (
+                        <Badge variant="outline" className="border-border">
+                          {s.cooldown_count} em cooldown
+                        </Badge>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Badge variant="outline" className="border-border">
+                        Pool libertado: {eur(s.pool_freed_cents ?? 0, cur)}
+                      </Badge>
+                      <Badge variant="outline" className="border-border">
+                        Realocado: {eur(s.pool_reallocated_cents ?? 0, cur)}
+                      </Badge>
+                      <Badge variant="outline" className="border-border">
+                        Não alocado: {eur(s.pool_unallocated_cents ?? 0, cur)}
+                      </Badge>
+                    </>
+                  )}
                   <Badge variant="outline" className="border-border">
                     Cap: {s.cap_eur == null ? "sem limite" : `€${s.cap_eur}/dia`}
                   </Badge>
@@ -1351,9 +1409,13 @@ export default function CrmCampaignView() {
 
                 {surgicalData.budget_mode !== "ABO" && (
                   <div className="rounded-lg border border-border p-3 text-xs text-muted-foreground">
-                    {surgicalData.budget_mode === "CBO"
-                      ? "Campanha CBO: a verba é gerida ao nível da campanha. Pausar adsets concentra automaticamente a verba nos restantes; não há realocação por adset."
-                      : "Modo de verba indeterminado: só pausas e recomendações (sem ajustes de verba por adset)."}
+                    {prescKind === "scale"
+                      ? (surgicalData.budget_mode === "CBO"
+                        ? "Campanha CBO: só se escala o budget da campanha quando é prospecção pura (sem retargeting nem adsets em learning). Caso contrário, só recomendação."
+                        : "Modo de verba indeterminado: sem campo de verba acionável — define orçamentos antes de escalar.")
+                      : (surgicalData.budget_mode === "CBO"
+                        ? "Campanha CBO: a verba é gerida ao nível da campanha. Pausar adsets concentra automaticamente a verba nos restantes; não há realocação por adset."
+                        : "Modo de verba indeterminado: só pausas e recomendações (sem ajustes de verba por adset).")}
                   </div>
                 )}
 
@@ -1402,6 +1464,11 @@ export default function CrmCampaignView() {
                                       {a.verdict}
                                     </Badge>
                                   )}
+                                  {a.audience_type && (
+                                    <Badge variant="outline" className="border-border text-[9px] text-muted-foreground">
+                                      {a.audience_type}
+                                    </Badge>
+                                  )}
                                   <span className="text-sm font-medium truncate">
                                     {a.entity_name ?? a.external_id ?? "—"}
                                   </span>
@@ -1432,7 +1499,9 @@ export default function CrmCampaignView() {
 
                 {surgicalData.proposed_actions.length === 0 && (
                   <p className="text-sm text-muted-foreground">
-                    Sem ações propostas — a campanha não tem adsets/ads que justifiquem intervenção agora.
+                    {prescKind === "scale"
+                      ? "Sem ações de escala — nenhum adset de prospecção elegível (winning, fora de learning, ROAS >= 3.5x, fora de cooldown) agora."
+                      : "Sem ações propostas — a campanha não tem adsets/ads que justifiquem intervenção agora."}
                   </p>
                 )}
 

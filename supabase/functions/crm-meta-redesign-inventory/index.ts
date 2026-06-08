@@ -329,6 +329,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
       optimization_goal: a.optimization_goal ?? null,
       billing_event: a.billing_event ?? null,
       targeting_summary: targetingSummary(a.targeting),
+      // ADITIVO (Etapa 4): tipo de audiência por adset (broad/interest/lookalike/
+      // custom/retargeting), reusando detectAudienceType. Permite ao motor de
+      // escala distinguir PROSPECÇÃO de RETARGETING. Não altera nada do resto.
+      audience_type: detectAudienceType(a.targeting, a.name ?? "").type,
       performance: {
         roas, spend_eur: spendEur, purchases, frequency: freq,
         cpa_eur: cpaEur, days_active: daysActive,
