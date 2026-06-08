@@ -602,6 +602,9 @@ function AuthRoute() {
   if (loading) return null;
   // Don't redirect if user is in the middle of password recovery flow
   const isRecoveryFlow = sessionStorage.getItem("recovery_in_progress") === "true";
+  // Aguarda resolução do role antes de decidir destino (evita race que
+  // mandava content_manager para /erp enquanto role ainda era null).
+  if (user && !isRecoveryFlow && role === null) return null;
   if (user && !isRecoveryFlow) {
     if (isPartner) return <Navigate to="/parceiro" replace />;
     const MANAGEMENT_PERMS = [
