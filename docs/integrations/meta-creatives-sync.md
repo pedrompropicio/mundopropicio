@@ -382,6 +382,42 @@ próprio `date`.
 
 Detalhe completo: `.lovable/memory/features/mp-audience-event-types-sync.md`.
 
+### 12.7 Re-host robusto (poison-pill batch) — Turnê Simone Mendes 2026
+**Sintoma:** 9 criativos novos (8 `[VID]` + 1 `[Banner]`) das campanhas Simone
+Mendes 2026 (28/04 e 11/05) nunca sincronizavam — consistente, lotes pequenos
+(max 20) também não, logo **não era timeout**.
+
+**Causa (por análise de código; logs de Live não acessíveis a partir do agente):**
+o re-host inseria criativos *independentemente* do resultado (uma falha graciosa
+de re-host NÃO impede o UPSERT). Portanto, para um criativo ficar **eternamente
+"missing"**, a run tinha de **abortar antes do UPSERT**. Havia dois caminhos de
+queda silenciosa que o provocam:
+1. **Re-host a lançar exceção não isolada.** O loop `for (const row of rows)
+   await rehostCreative(...)` **não** tinha `try/catch`, e `rehostCreative` —
+   apesar do comentário "nunca lança" — não guardava `resp.arrayBuffer()` nem o
+   `upload`. Um poster de vídeo cujo corpo falha a meio do download (CDN da Meta)
+   fazia o handler lançar → **500** → **nada** persistido nessa run. Como o UPSERT
+   é no fim, o lote inteiro (incl. estes 9) ficava por inserir e era re-tentado
+   **idêntico** em cada run (poison-pill batch). Explica os 4 sintomas.
+2. **Erro de asset individual na Graph silenciado.** Em `batchFetchCreatives`, um
+   criativo devolvido como `{ error: {...} }` (asset sem permissão / vídeo em
+   processamento) era descartado **sem log**; no loop principal `if (!creative)
+   { skipped++; continue; }` não inseria a row → "missing" permanente.
+
+**Fix (branch, sem deploy):**
+- `rehostCreative` passa a guardar `arrayBuffer()` e `upload` → devolve `failed`
+  (`download_body_threw` / `upload_threw`) em vez de lançar (honra o contrato).
+- O loop de re-host no sync ganha `try/catch` por asset (cinto e suspensórios) —
+  uma exceção nunca aborta a run; o criativo é inserido na mesma (com o URL
+  original da Meta) e o re-host re-tenta noutra run.
+- Diagnóstico: log `rehost_failed` (type + file_url + reason), log
+  `graph_creative_error` (message/code/subcode por criativo) e log
+  `graph_not_fetched` (ids pedidos que a Graph não devolveu). Na próxima run, os
+  logs dizem **exatamente** qual o caminho (acesso vs formato vs leitura) destes 9.
+
+**Ficheiros:** `supabase/functions/_shared/rehost-creative.ts`,
+`supabase/functions/crm-meta-sync-creatives/index.ts`.
+
 ---
 
 ## 11. Referências
