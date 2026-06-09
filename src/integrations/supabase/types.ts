@@ -5000,6 +5000,9 @@ export type Database = {
           venue_directions_url: string | null
           venue_id: string | null
           venue_map_url: string | null
+          vip_coupon_code: string | null
+          vip_coupon_discount_label: string | null
+          vip_coupon_valid_until: string | null
         }
         Insert: {
           absorbs_admin_costs?: boolean
@@ -5044,6 +5047,9 @@ export type Database = {
           venue_directions_url?: string | null
           venue_id?: string | null
           venue_map_url?: string | null
+          vip_coupon_code?: string | null
+          vip_coupon_discount_label?: string | null
+          vip_coupon_valid_until?: string | null
         }
         Update: {
           absorbs_admin_costs?: boolean
@@ -5088,6 +5094,9 @@ export type Database = {
           venue_directions_url?: string | null
           venue_id?: string | null
           venue_map_url?: string | null
+          vip_coupon_code?: string | null
+          vip_coupon_discount_label?: string | null
+          vip_coupon_valid_until?: string | null
         }
         Relationships: [
           {
@@ -9621,6 +9630,9 @@ export type Database = {
           urgency_message_pt: string | null
           venue_directions_url: string | null
           venue_map_url: string | null
+          vip_coupon_code: string | null
+          vip_coupon_discount_label: string | null
+          vip_coupon_valid_until: string | null
         }
         Relationships: []
       }
