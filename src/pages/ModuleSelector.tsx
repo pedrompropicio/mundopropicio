@@ -50,8 +50,8 @@ export default function ModuleSelector() {
       bullets: "Calendário · Transações · Plano de Contas · Reembolsos",
       icon: Building2,
       to: "/erp",
-      enabled: (role as any) !== "content_manager",
-      noAccess: (role as any) === "content_manager",
+      enabled: (role as any) !== "content_manager" && (role as any) !== "marketing_manager",
+      noAccess: (role as any) === "content_manager" || (role as any) === "marketing_manager",
       accent: {
         border: "border-primary/30 hover:border-primary/60",
         bg: "bg-primary/5",
