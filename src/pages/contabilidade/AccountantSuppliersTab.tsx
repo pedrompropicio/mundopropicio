@@ -173,7 +173,8 @@ export function AccountantSuppliersTab({ period }: Props) {
         <div className="text-sm text-muted-foreground">
           <span className="font-semibold text-foreground">{totals.total}</span> fornecedores ·{" "}
           <span className="font-semibold text-foreground">{totals.withDocs}</span> com anexos ·{" "}
-          <span className="font-semibold text-foreground">{totals.withActivity}</span> com movimento no período
+          <span className="font-semibold text-foreground">{totals.withActivity}</span> com movimento no período ·{" "}
+          <span className="font-semibold text-foreground">{totals.withPaid}</span> com liquidações no período
         </div>
       </div>
 
@@ -195,7 +196,15 @@ export function AccountantSuppliersTab({ period }: Props) {
           </Label>
           {loadingActivity && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
         </div>
+        <div className="flex items-center gap-2 rounded-md border bg-card px-3 h-9">
+          <Switch id="only-paid" checked={onlyWithPaid} onCheckedChange={setOnlyWithPaid} />
+          <Label htmlFor="only-paid" className="text-xs cursor-pointer whitespace-nowrap">
+            Só com liquidações no período
+          </Label>
+          {loadingPaid && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+        </div>
       </div>
+
 
       <div className="rounded-lg border overflow-hidden">
         <div className="max-h-[65vh] overflow-auto">
