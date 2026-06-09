@@ -221,6 +221,47 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
+  // Admin: desfazer liquidação (caso TX paga via lista de pagamento ou direto sem parcelas)
+  const undoSettlementMutation = useMutation({
+    mutationFn: async () => {
+      // 1) Remover ligação a payment_list_items (se houver)
+      const { error: delErr } = await supabase
+        .from("payment_list_items")
+        .delete()
+        .eq("transaction_id", txId);
+      if (delErr) throw delErr;
+
+      // 2) Reverter TX para 'approved' sem valor pago
+      const { error: updErr } = await supabase
+        .from("transactions")
+        .update({
+          paid_amount: 0,
+          payment_date: null,
+          status: "approved",
+          payment_list_id: null,
+        } as any)
+        .eq("id", txId);
+      if (updErr) throw updErr;
+
+      // 3) Audit log
+      const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+      await supabase.from("transaction_audit_log").insert([{
+        transaction_id: txId,
+        changed_by: callerName,
+        field_name: "Desfazer liquidação (admin)",
+        old_value: `${formatCurrency(Number(transaction.paid_amount ?? 0))} · ${transaction.payment_date ?? "—"}`,
+        new_value: "0,00 € · aguardando pagamento",
+      }]);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["payment-timeline", txId] });
+      queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+      toast({ title: "Liquidação revertida", description: "Transação voltou a 'Aprovada / aguarda pagamento'." });
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+  });
+
 
 
   function startDirectEdit() {
@@ -303,6 +344,27 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Admin: Desfazer liquidação */}
+      {isAdmin && (transaction.status === "paid" || Number(transaction.paid_amount ?? 0) > 0) && (
+        <div className="flex items-center justify-between rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs">
+          <div className="text-muted-foreground">
+            <span className="font-semibold text-destructive">Admin:</span> reverter esta liquidação devolve a transação a "aprovada / aguarda pagamento" e remove a ligação a listas de pagamento.
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm("Desfazer a liquidação desta transação?\n\nIsto vai:\n• Zerar o valor pago e a data de pagamento\n• Remover o item das listas de pagamento\n• Voltar o estado a 'Aprovada'\n\nContinuar?")) {
+                undoSettlementMutation.mutate();
+              }
+            }}
+            disabled={undoSettlementMutation.isPending}
+            className="shrink-0 rounded bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+          >
+            {undoSettlementMutation.isPending ? "A reverter…" : "Desfazer liquidação"}
+          </button>
+        </div>
+      )}
 
       {/* Cronograma de parcelas (planned + cancelled) */}
       {hasSchedule && (
