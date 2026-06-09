@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import type { Period } from "./PeriodSelector";
+import { fetchAccountantTxDocs, fetchAccountantDocCountsBatch } from "@/lib/accountant-tx-docs";
 
 interface Tx {
   id: string;
@@ -65,19 +66,12 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
       const { data: rows, error } = await q;
       if (error) throw error;
       const ids = (rows ?? []).map((r: any) => r.id);
-      let counts = new Map<string, number>();
-      if (ids.length) {
-        const { data: docs } = await (supabase as any)
-          .from("transaction_documents")
-          .select("transaction_id")
-          .in("transaction_id", ids);
-        for (const d of docs ?? []) counts.set(d.transaction_id, (counts.get(d.transaction_id) ?? 0) + 1);
-      }
+      const counts = await fetchAccountantDocCountsBatch(ids);
       return (rows ?? []).map((r: any): Tx => ({
         ...r,
         supplier_name: r.suppliers?.name ?? null,
         supplier_nif: r.suppliers?.nif ?? null,
-        doc_count: counts.get(r.id) ?? 0,
+        doc_count: counts[r.id] ?? 0,
       }));
     },
   });
@@ -121,37 +115,23 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
 
   const downloadOne = useMutation({
     mutationFn: async (tx: Tx) => {
-      const { data: docs } = await (supabase as any)
-        .from("transaction_documents")
-        .select("name, file_url")
-        .eq("transaction_id", tx.id);
-      if (!docs?.length) throw new Error("Sem anexos");
-      // For a single doc → direct signed URL. For multiple, fallback to ZIP via edge for the day.
-      if (docs.length === 1) {
+      const docs = await fetchAccountantTxDocs(tx.id);
+      if (!docs.length) throw new Error("Sem anexos");
+      // Abre cada anexo (próprio + despesas-filhas do reembolso) numa aba nova
+      for (const d of docs) {
         const { data: signed, error } = await supabase.storage
           .from("transaction-documents")
-          .createSignedUrl(docs[0].file_url, 60 * 60);
-        if (error || !signed) throw error ?? new Error("signed url falhou");
+          .createSignedUrl(d.file_url, 60 * 60, { download: true });
+        if (error || !signed) continue;
         await supabase.rpc("record_document_download" as any, {
           p_resource_type: "transaction_document",
-          p_resource_id: tx.id,
+          p_resource_id: d.source_tx_id,
           p_bucket: "transaction-documents",
-          p_file_path: docs[0].file_url,
-          p_file_name: docs[0].name,
+          p_file_path: d.file_url,
+          p_file_name: d.name,
         } as any);
         window.open(signed.signedUrl, "_blank");
-        return;
       }
-      // Many docs for one tx → use edge to build mini-ZIP scoped to that day+supplier
-      const { data, error } = await supabase.functions.invoke("generate-accountant-zip", {
-        body: {
-          company_id: companyId,
-          period: { from: tx.payment_date, to: tx.payment_date },
-          filters: { supplier_ids: tx.supplier_id ? [tx.supplier_id] : [] },
-        },
-      });
-      if (error) throw error;
-      if ((data as any)?.url) window.open((data as any).url, "_blank");
     },
     onError: (e: any) => toast({ title: "Erro", description: e?.message ?? String(e), variant: "destructive" }),
   });
@@ -288,17 +268,10 @@ function AttachmentsPopover({ txId, count }: { txId: string; count: number }) {
   const { toast } = useToast();
   const { data, isLoading } = useQuery({
     queryKey: ["accountant-tx-docs", txId],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("transaction_documents")
-        .select("id, name, file_url")
-        .eq("transaction_id", txId);
-      if (error) throw error;
-      return (data ?? []) as { id: string; name: string; file_url: string }[];
-    },
+    queryFn: () => fetchAccountantTxDocs(txId),
   });
 
-  async function openDoc(d: { id: string; name: string; file_url: string }) {
+  async function openDoc(d: { id: string; name: string; file_url: string; source_tx_id: string }) {
     try {
       const { data: signed, error } = await supabase.storage
         .from("transaction-documents")
@@ -306,7 +279,7 @@ function AttachmentsPopover({ txId, count }: { txId: string; count: number }) {
       if (error || !signed) throw error ?? new Error("signed url falhou");
       await supabase.rpc("record_document_download" as any, {
         p_resource_type: "transaction_document",
-        p_resource_id: txId,
+        p_resource_id: d.source_tx_id,
         p_bucket: "transaction-documents",
         p_file_path: d.file_url,
         p_file_name: d.name,
@@ -325,7 +298,7 @@ function AttachmentsPopover({ txId, count }: { txId: string; count: number }) {
           {count}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-2" align="start">
+      <PopoverContent className="w-96 p-2" align="start">
         {isLoading ? (
           <div className="p-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 inline animate-spin mr-1" />A carregar…</div>
         ) : !data?.length ? (
@@ -336,10 +309,15 @@ function AttachmentsPopover({ txId, count }: { txId: string; count: number }) {
               <button
                 key={d.id}
                 onClick={() => openDoc(d)}
-                className="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-muted"
+                className="flex w-full items-start justify-between gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-muted"
               >
-                <span className="truncate flex-1">{d.name}</span>
-                <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+                <div className="flex-1 min-w-0">
+                  <div className="truncate">{d.name}</div>
+                  {d.source_label && (
+                    <div className="truncate text-[10px] text-muted-foreground">{d.source_label}</div>
+                  )}
+                </div>
+                <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground mt-0.5" />
               </button>
             ))}
           </div>
