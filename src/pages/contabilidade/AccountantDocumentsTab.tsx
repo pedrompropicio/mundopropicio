@@ -282,17 +282,10 @@ function AttachmentsPopover({ txId, count }: { txId: string; count: number }) {
   const { toast } = useToast();
   const { data, isLoading } = useQuery({
     queryKey: ["accountant-tx-docs", txId],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("transaction_documents")
-        .select("id, name, file_url")
-        .eq("transaction_id", txId);
-      if (error) throw error;
-      return (data ?? []) as { id: string; name: string; file_url: string }[];
-    },
+    queryFn: () => fetchAccountantTxDocs(txId),
   });
 
-  async function openDoc(d: { id: string; name: string; file_url: string }) {
+  async function openDoc(d: { id: string; name: string; file_url: string; source_tx_id: string }) {
     try {
       const { data: signed, error } = await supabase.storage
         .from("transaction-documents")
@@ -300,7 +293,7 @@ function AttachmentsPopover({ txId, count }: { txId: string; count: number }) {
       if (error || !signed) throw error ?? new Error("signed url falhou");
       await supabase.rpc("record_document_download" as any, {
         p_resource_type: "transaction_document",
-        p_resource_id: txId,
+        p_resource_id: d.source_tx_id,
         p_bucket: "transaction-documents",
         p_file_path: d.file_url,
         p_file_name: d.name,
@@ -319,7 +312,7 @@ function AttachmentsPopover({ txId, count }: { txId: string; count: number }) {
           {count}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-2" align="start">
+      <PopoverContent className="w-96 p-2" align="start">
         {isLoading ? (
           <div className="p-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 inline animate-spin mr-1" />A carregar…</div>
         ) : !data?.length ? (
@@ -330,10 +323,15 @@ function AttachmentsPopover({ txId, count }: { txId: string; count: number }) {
               <button
                 key={d.id}
                 onClick={() => openDoc(d)}
-                className="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-muted"
+                className="flex w-full items-start justify-between gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-muted"
               >
-                <span className="truncate flex-1">{d.name}</span>
-                <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+                <div className="flex-1 min-w-0">
+                  <div className="truncate">{d.name}</div>
+                  {d.source_label && (
+                    <div className="truncate text-[10px] text-muted-foreground">{d.source_label}</div>
+                  )}
+                </div>
+                <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground mt-0.5" />
               </button>
             ))}
           </div>
