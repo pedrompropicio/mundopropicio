@@ -12,17 +12,21 @@ interface SupplierTransactionsProps {
   supplierId: string;
   isOpen: boolean;
   onToggle: () => void;
+  period?: { from: string; to: string };
 }
 
-export function SupplierTransactions({ supplierId, isOpen, onToggle }: SupplierTransactionsProps) {
+export function SupplierTransactions({ supplierId, isOpen, onToggle, period }: SupplierTransactionsProps) {
   const { data: transactions = [], isLoading } = useQuery({
-    queryKey: ["supplier-transactions", supplierId],
+    queryKey: ["supplier-transactions", supplierId, period?.from, period?.to],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("transactions")
         .select("id, description, amount, paid_amount, status, type, date, due_date, specification, event_id, events(name)")
         .eq("supplier_id", supplierId)
         .order("date", { ascending: false });
+      if (period?.from) q = q.gte("date", period.from);
+      if (period?.to) q = q.lte("date", period.to);
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },

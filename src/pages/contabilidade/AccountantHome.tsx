@@ -58,7 +58,7 @@ export default function AccountantHome() {
             <AccountantReportsTab />
           </TabsContent>
           <TabsContent value="suppliers" className="mt-4">
-            <AccountantSuppliersTab />
+            <AccountantSuppliersTab period={period} />
           </TabsContent>
         </Tabs>
       </main>
