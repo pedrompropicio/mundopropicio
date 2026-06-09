@@ -66,14 +66,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
       const { data: rows, error } = await q;
       if (error) throw error;
       const ids = (rows ?? []).map((r: any) => r.id);
-      let counts = new Map<string, number>();
-      if (ids.length) {
-        const { data: docs } = await (supabase as any)
-          .from("transaction_documents")
-          .select("transaction_id")
-          .in("transaction_id", ids);
-        for (const d of docs ?? []) counts.set(d.transaction_id, (counts.get(d.transaction_id) ?? 0) + 1);
-      }
+      const counts = await fetchAccountantDocCountsBatch(ids);
       return (rows ?? []).map((r: any): Tx => ({
         ...r,
         supplier_name: r.suppliers?.name ?? null,
