@@ -250,6 +250,7 @@ export default function PortalSettings() {
                         />
                       ) : (
                         <Input
+                          type={DATE_KEYS.has(s.key) ? "date" : "text"}
                           value={current}
                           onChange={(e) =>
                             setDirty((d) => ({ ...d, [s.id]: e.target.value }))
