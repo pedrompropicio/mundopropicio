@@ -34,9 +34,10 @@ type: feature
 
 ## 5. Aba Relatórios (`AccountantReportsTab.tsx`)
 - Grid de cards por categoria. Click → renderiza o componente Report* embebido (lazy) com botão "Voltar".
-- Reutiliza componentes existentes (`ReportCashFlow`, `ReportBankStatement`, `ReportContasPagar`, `ReportAging`, `ReportPaymentLists`, `ReportAccountCategoriesPage`, `ReportIvaAudit`, `ReportAccountingExport`, `ReportDocumentPendencies`, `ReportArtistCache`).
+- Apenas 4 relatórios (escopo reduzido 2026-06-09): **Plano de Contas**, **Exportação Contábil**, **Pendências Documentais**, **Cachê do Artista**.
+- Reutiliza `ReportAccountCategoriesPage`, `ReportAccountingExport`, `ReportDocumentPendencies`, `ReportArtistCache`.
 - Nenhum desses componentes tem gate por role — todos respeitam tenant via `current_company_id()` em RLS.
-- Bloqueados por design: DRE / DRE Brasil / DRE Empresarial / BP / Rentabilidade / Evolução Mensal / Desvio Orçamental / Projeção Tesouraria / Despesas Sócios / Acerto Sócios / Vendas & Bilheteira / Movimentações / Concentração Fornecedores / Fornecedores (gerencial) / Comparativo Vendas / Mix Receitas / Curva Vendas / Taxa Ocupação / BP vs Transações / Indice Pendências.
+- Bloqueados por design: Fluxo de Caixa, Extrato Bancário, Contas a Pagar, Aging, Listas de Pagamento, Auditoria IVA (operacionais/gestão — fora do escopo fiscal) + DRE / DRE Brasil / DRE Empresarial / BP / Rentabilidade / Evolução Mensal / Desvio Orçamental / Projeção Tesouraria / Despesas Sócios / Acerto Sócios / Vendas & Bilheteira / Movimentações / Concentração Fornecedores / Fornecedores (gerencial) / Comparativo Vendas / Mix Receitas / Curva Vendas / Taxa Ocupação / BP vs Transações / Índice Pendências.
 - A `Reports.tsx` central filtra por `managementOnly + accountantAllowed` para casos em que accountant tem direito (Cachê do Artista, Exportação Contábil).
 
 ## 6. Aba Fornecedores (`AccountantSuppliersTab.tsx`)
