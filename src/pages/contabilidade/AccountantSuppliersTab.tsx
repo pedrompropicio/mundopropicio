@@ -148,7 +148,7 @@ export function AccountantSuppliersTab() {
               ) : rows.length === 0 ? (
                 <tr><td colSpan={9} className="p-6 text-center text-muted-foreground">Sem fornecedores.</td></tr>
               ) : rows.map((s) => (
-                <>
+                <Fragment key={s.id}>
                   <tr key={s.id} className="border-t hover:bg-muted/30">
                     <td className="p-2 align-top">
                       <button onClick={() => toggleExpand(s.id)} className="p-1 hover:bg-muted rounded" aria-label="Expandir transações">
