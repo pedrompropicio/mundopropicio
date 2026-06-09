@@ -26,6 +26,7 @@ export function AccountantSuppliersTab({ period }: Props) {
   const [nifSearch, setNifSearch] = useState("");
   const [attachmentsFilter, setAttachmentsFilter] = useState<"all" | "with" | "without">("all");
   const [onlyWithActivity, setOnlyWithActivity] = useState(false);
+  const [onlyWithPaid, setOnlyWithPaid] = useState(false);
   const [sortBy, setSortBy] = useState<{ k: "name" | "nif"; dir: "asc" | "desc" }>({ k: "name", dir: "asc" });
   const [viewing, setViewing] = useState<SupplierRow | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
