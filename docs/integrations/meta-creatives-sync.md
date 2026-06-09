@@ -418,6 +418,49 @@ queda silenciosa que o provocam:
 **Ficheiros:** `supabase/functions/_shared/rehost-creative.ts`,
 `supabase/functions/crm-meta-sync-creatives/index.ts`.
 
+### 12.8 Shape Instagram (`object_story_spec` só com page_id/instagram_user_id)
+**Sintoma:** ~58 criativos (Simone Mendes 2026 e outros eventos ativos; ex.
+`120203119994160595`, `120203120168500595`, vídeos) caíam no fallback "Unknown
+shape" do `parseCreativeFields` e nunca sincronizavam com imagem. **Não** era
+re-host nem token — a Graph **devolve** o criativo; o parser é que não tinha caso.
+
+**Shape:** `object_story_spec` contém **apenas** identidade (`page_id`,
+`instagram_user_id` — por vezes `instagram_actor_id`), **sem** `video_data` /
+`image_data` / `link_data` / `template_data`. É o formato de anúncios **Instagram
+nativos / a partir de um post IG existente**: o asset visual **não está no spec**
+— vive no **nível de topo** do creative (`video_id`, `image_hash`, `image_url`,
+`thumbnail_url`) e/ou nas referências ao post/media IG
+(`effective_object_story_id`, `source_instagram_media_id`).
+
+> ⚠️ **Nota:** o fetch real à Graph para confirmar o JSON destes ids **não foi
+> possível a partir do agente** (sem token Meta acessível). O caso foi
+> implementado a partir do shape confirmado por logs + referência da Graph API,
+> de forma **defensiva** (cobre topo e referências de post/media). Os logs da 1ª
+> corrida pós-deploy confirmam o caminho real (ver contadores abaixo).
+
+**Tratamento (caso dedicado nº 6 no `parseCreativeFields`):**
+1. Deteção: `object_story_spec` tem identidade e **nenhuma** chave de media inline
+   (as ricas já retornam antes) e sem `asset_feed_spec`.
+2. Extrai do topo: `video_id`, `image_hash`, `file_url = image_url ?? thumbnail_url`.
+   `type` = `video` se houver `video_id`; `image` se houver hash/url; senão a
+   determinar.
+3. Carrega as referências IG (`effective_object_story_id`, `source_instagram_media_id`).
+4. Resolução do `file_url` **reusa** o que já existe + 1 resolver novo:
+   - `resolveVideoThumbnail(video_id)` → poster do vídeo (caminho existente).
+   - `resolveImageHashes(image_hash)` → imagem (caminho existente, passo 3b).
+   - **`resolveStoryMediaUrl(ref)`** (novo, mesmo padrão de retry): quando o topo
+     não trouxe nada, resolve o poster via `GET /{effective_object_story_id|
+     source_instagram_media_id}?fields=full_picture,picture`. Se trouxer poster e
+     o tipo estava indeterminado, fixa-o em `image`.
+5. O **re-host subsequente corre na mesma** sobre o `file_url` resolvido (é uma
+   imagem). `exclude_past_events` e o set-diff **não** foram tocados.
+
+Novos campos pedidos à Graph (`CREATIVE_FIELDS`): `effective_object_story_id`,
+`source_instagram_media_id`, `instagram_permalink_url`. Novos contadores em
+`parse_stats`: `file_url_resolved_via_ig_story`, `meta_api_calls.ig_story_count`.
+
+**Ficheiro:** `supabase/functions/crm-meta-sync-creatives/index.ts`.
+
 ---
 
 ## 11. Referências
