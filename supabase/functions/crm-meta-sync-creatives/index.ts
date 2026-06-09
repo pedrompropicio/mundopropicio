@@ -402,7 +402,7 @@ async function resolveImageHashes(adAccountId: string, hashes: string[], accessT
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[crm-meta-sync-creatives] BUILD_VERSION=ig-native-v3 deployed", new Date().toISOString());
+  console.log("[crm-meta-sync-creatives] BUILD_VERSION=ig-native-v4 deployed", new Date().toISOString());
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -603,13 +603,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // v2: force_resync skipa o set-diff (processa TODOS os IDs do snapshot).
   let existingIds = new Set<string>();
   if (mode === "incremental" && !forceResync && allSnapIds.length > 0) {
-    const { data: existing } = await (supabase as any)
-      .schema("crm")
-      .from("meta_creatives")
-      .select("meta_creative_id")
-      .eq("company_id", companyId)
-      .in("meta_creative_id", allSnapIds);
-    existingIds = new Set((existing ?? []).map((r: any) => r.meta_creative_id as string).filter(Boolean));
+    // Leitura paginada de TODOS os meta_creative_id desta company; filtramos em memória
+    // contra o snapshot. Evita .in() gigante que rebenta limites do PostgREST e devolve vazio.
+    const snapSet = new Set(allSnapIds);
+    const PAGE = 1000;
+    let from = 0;
+    while (true) {
+      const { data: existing, error: exErr } = await (supabase as any)
+        .schema("crm")
+        .from("meta_creatives")
+        .select("meta_creative_id")
+        .eq("company_id", companyId)
+        .order("meta_creative_id", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (exErr) {
+        console.error("[meta-sync-creatives] step_b existing query failed:", exErr);
+        return json({ error: "existing_query_failed", detail: exErr.message }, 500);
+      }
+      const batch = existing ?? [];
+      for (const r of batch) {
+        const id = r.meta_creative_id as string | null;
+        if (id && snapSet.has(id)) existingIds.add(id);
+      }
+      if (batch.length < PAGE) break;
+      from += PAGE;
+    }
   }
   // mode='full' force re-sync de tudo (mas com onConflict do nothing, existing rows não mudam).
   // force_resync='true' faz UPSERT real (ignoreDuplicates=false na fase 4).
