@@ -12,10 +12,10 @@ type: feature
 - Multi-tenant: 1 contabilista pode estar em N empresas via memberships existentes (`user_roles` UNIQUE(user_id,company_id,role)). Troca de empresa via CompanySwitcher no header.
 
 ## 2. Permissions (read-only, mapeadas em `role_permissions`)
-- `view_accounting_export`, `view_document_pendencies`, `view_iva_audit`
-- `view_artist_cache`, `view_categories`, `view_bank_statement`
-- `view_contas_pagar`, `view_payment_lists`, `view_cashflow`
-- `view_bp`, `view_suppliers`, `view_events`, `view_reports`
+- `view_report_accounting_export`, `view_report_document_pendencies`
+- `view_report_artist_cache`, `view_report_categories`
+- `view_report_suppliers`, `view_reports`, `view_events`, `view_bp`
+- Removidos (2026-06-09): `view_report_cashflow`, `view_report_bank_statement`, `view_report_contas_pagar`, `view_report_payment_lists` — contabilista não precisa de operacionais para fechar contabilidade.
 
 ## 3. Layout `/contabilidade`
 - 3 tabs: **Documentos** (default) / **Relatórios** / **Fornecedores**.
