@@ -2,26 +2,18 @@ import { useState, lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
-  ArrowLeftRight, Landmark, Receipt, Timer, ClipboardList, FolderTree,
-  AlertTriangle, FileOutput, FileWarning, Music, ArrowLeft, Loader2,
+  FolderTree, FileOutput, FileWarning, Music, ArrowLeft, Loader2,
 } from "lucide-react";
 
 // Reuse existing Report components — already query by current_company_id() server-side.
-const ReportCashFlow = lazy(() => import("@/components/ReportCashFlow"));
-const ReportBankStatement = lazy(() => import("@/components/ReportBankStatement"));
-const ReportContasPagar = lazy(() => import("@/components/ReportContasPagar"));
-const ReportAging = lazy(() => import("@/components/ReportAging"));
-const ReportIvaAudit = lazy(() => import("@/components/ReportIvaAudit"));
 const ReportAccountingExport = lazy(() => import("@/components/ReportAccountingExport"));
 const ReportDocumentPendencies = lazy(() => import("@/components/ReportDocumentPendencies"));
 const ReportArtistCache = lazy(() => import("@/components/ReportArtistCache"));
-const ReportPaymentLists = lazy(() => import("@/pages/ReportPaymentListsPage"));
 const ReportAccountCategoriesPage = lazy(() => import("@/pages/ReportAccountCategoriesPage"));
 
 type ReportKey =
-  | "cashflow" | "bank" | "contas-pagar" | "aging"
-  | "payment-lists" | "plano-contas"
-  | "iva" | "accounting-export" | "pendencias"
+  | "plano-contas"
+  | "accounting-export" | "pendencias"
   | "cache-artista";
 
 interface ReportDef {
@@ -34,23 +26,8 @@ interface ReportDef {
 
 const GROUPS: { label: string; items: ReportDef[] }[] = [
   {
-    label: "Fluxo Financeiro",
-    items: [
-      { key: "cashflow", label: "Fluxo de Caixa", description: "Receitas vs despesas por período", icon: ArrowLeftRight,
-        render: () => <ReportCashFlow /> },
-      { key: "bank", label: "Extrato Bancário", description: "Movimentações por conta financeira", icon: Landmark,
-        render: () => <ReportBankStatement /> },
-      { key: "contas-pagar", label: "Contas a Pagar", description: "Despesas pendentes e vencidas", icon: Receipt,
-        render: () => <ReportContasPagar /> },
-      { key: "aging", label: "Aging de Contas a Pagar", description: "Distribuição por antiguidade", icon: Timer,
-        render: () => <ReportAging /> },
-    ],
-  },
-  {
     label: "Listas",
     items: [
-      { key: "payment-lists", label: "Listas de Pagamento", description: "Lotes de pagamentos aprovados", icon: ClipboardList,
-        render: () => <ReportPaymentLists /> },
       { key: "plano-contas", label: "Plano de Contas", description: "Estrutura analítica L1→L3", icon: FolderTree,
         render: () => <ReportAccountCategoriesPage /> },
     ],
@@ -58,8 +35,6 @@ const GROUPS: { label: string; items: ReportDef[] }[] = [
   {
     label: "Fiscal / Operacional",
     items: [
-      { key: "iva", label: "Auditoria de IVA", description: "Consistência conforme Art.º 18.º CIVA", icon: AlertTriangle,
-        render: () => <ReportIvaAudit /> },
       { key: "accounting-export", label: "Exportação Contábil", description: "Exporta transações + documentos fiscais", icon: FileOutput,
         render: () => <ReportAccountingExport /> },
       { key: "pendencias", label: "Pendências Documentais", description: "Transações sem documento contábil", icon: FileWarning,
