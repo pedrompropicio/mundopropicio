@@ -5,6 +5,8 @@ import { useCompany } from "@/hooks/useCompany";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -12,12 +14,18 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Loader2, Paperclip, Eye, ArrowDownUp, ChevronRight } from "lucide-react";
 import { SupplierViewModal, type SupplierRow } from "./SupplierViewModal";
 import { SupplierTransactions } from "@/components/SupplierTransactions";
+import type { Period } from "./PeriodSelector";
 
-export function AccountantSuppliersTab() {
+interface Props {
+  period: Period;
+}
+
+export function AccountantSuppliersTab({ period }: Props) {
   const { companyId } = useCompany();
   const [nameSearch, setNameSearch] = useState("");
   const [nifSearch, setNifSearch] = useState("");
   const [attachmentsFilter, setAttachmentsFilter] = useState<"all" | "with" | "without">("all");
+  const [onlyWithActivity, setOnlyWithActivity] = useState(false);
   const [sortBy, setSortBy] = useState<{ k: "name" | "nif"; dir: "asc" | "desc" }>({ k: "name", dir: "asc" });
   const [viewing, setViewing] = useState<SupplierRow | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -54,8 +62,30 @@ export function AccountantSuppliersTab() {
     },
   });
 
+  // Contagem de transações no período por fornecedor
+  const { data: activityMap = {}, isLoading: loadingActivity } = useQuery({
+    queryKey: ["accountant-suppliers-activity", companyId, period.from, period.to],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data: txs, error } = await (supabase as any)
+        .from("transactions")
+        .select("supplier_id")
+        .eq("company_id", companyId)
+        .not("supplier_id", "is", null)
+        .gte("date", period.from)
+        .lte("date", period.to);
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      for (const t of txs ?? []) {
+        if (!t.supplier_id) continue;
+        map[t.supplier_id] = (map[t.supplier_id] ?? 0) + 1;
+      }
+      return map;
+    },
+  });
+
   const rows = useMemo(() => {
-    let r = data ?? [];
+    let r = (data ?? []).map((x) => ({ ...x, activity_count: activityMap[x.id] ?? 0 }));
     if (nameSearch.trim()) {
       const s = nameSearch.trim().toLowerCase();
       r = r.filter((x) => (x.name ?? "").toLowerCase().includes(s) || (x.trade_name ?? "").toLowerCase().includes(s));
@@ -66,6 +96,7 @@ export function AccountantSuppliersTab() {
     }
     if (attachmentsFilter === "with") r = r.filter((x) => x.doc_count > 0);
     else if (attachmentsFilter === "without") r = r.filter((x) => x.doc_count === 0);
+    if (onlyWithActivity) r = r.filter((x) => x.activity_count > 0);
     const dir = sortBy.dir === "asc" ? 1 : -1;
     r = [...r].sort((a, b) => {
       const va = ((a as any)[sortBy.k] ?? "").toString().toLowerCase();
@@ -74,11 +105,12 @@ export function AccountantSuppliersTab() {
       return va > vb ? dir : -dir;
     });
     return r;
-  }, [data, nameSearch, nifSearch, attachmentsFilter, sortBy]);
+  }, [data, activityMap, nameSearch, nifSearch, attachmentsFilter, onlyWithActivity, sortBy]);
 
   const totals = useMemo(() => ({
     total: rows.length,
     withDocs: rows.filter((r) => r.doc_count > 0).length,
+    withActivity: rows.filter((r) => r.activity_count > 0).length,
   }), [rows]);
 
   function toggleSort(k: "name" | "nif") {
@@ -109,11 +141,12 @@ export function AccountantSuppliersTab() {
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3">
         <div className="text-sm text-muted-foreground">
           <span className="font-semibold text-foreground">{totals.total}</span> fornecedores ·{" "}
-          <span className="font-semibold text-foreground">{totals.withDocs}</span> com anexos
+          <span className="font-semibold text-foreground">{totals.withDocs}</span> com anexos ·{" "}
+          <span className="font-semibold text-foreground">{totals.withActivity}</span> com movimento no período
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Input placeholder="Buscar por nome…" value={nameSearch} onChange={(e) => setNameSearch(e.target.value)} className="w-56 h-9" />
         <Input placeholder="Buscar por NIF…" value={nifSearch} onChange={(e) => setNifSearch(e.target.value)} className="w-44 h-9" />
         <Select value={attachmentsFilter} onValueChange={(v) => setAttachmentsFilter(v as any)}>
@@ -124,6 +157,13 @@ export function AccountantSuppliersTab() {
             <SelectItem value="without">Sem anexos</SelectItem>
           </SelectContent>
         </Select>
+        <div className="flex items-center gap-2 rounded-md border bg-card px-3 h-9">
+          <Switch id="only-activity" checked={onlyWithActivity} onCheckedChange={setOnlyWithActivity} />
+          <Label htmlFor="only-activity" className="text-xs cursor-pointer whitespace-nowrap">
+            Só com movimento no período
+          </Label>
+          {loadingActivity && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+        </div>
       </div>
 
       <div className="rounded-lg border overflow-hidden">
@@ -138,15 +178,16 @@ export function AccountantSuppliersTab() {
                 <th className="p-2">Email</th>
                 <th className="p-2">Telefone</th>
                 <th className="p-2">Morada</th>
+                <th className="p-2">Movimento</th>
                 <th className="p-2">Anexos</th>
                 <th className="p-2">Ações</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={9} className="p-6 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin inline mr-2" />A carregar…</td></tr>
+                <tr><td colSpan={10} className="p-6 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin inline mr-2" />A carregar…</td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={9} className="p-6 text-center text-muted-foreground">Sem fornecedores.</td></tr>
+                <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">Sem fornecedores.</td></tr>
               ) : rows.map((s) => (
                 <Fragment key={s.id}>
                   <tr key={s.id} className="border-t hover:bg-muted/30">
@@ -165,6 +206,9 @@ export function AccountantSuppliersTab() {
                     <td className="p-2 whitespace-nowrap">{s.phone ?? "—"}</td>
                     <td className="p-2 max-w-[220px] truncate">{s.address ?? "—"}</td>
                     <td className="p-2">
+                      {s.activity_count > 0 ? <Badge>{s.activity_count}</Badge> : <span className="text-muted-foreground">—</span>}
+                    </td>
+                    <td className="p-2">
                       {s.doc_count > 0 ? <Badge variant="secondary"><Paperclip className="h-3 w-3 mr-1" />{s.doc_count}</Badge> : "—"}
                     </td>
                     <td className="p-2">
@@ -176,8 +220,8 @@ export function AccountantSuppliersTab() {
                   {expanded.has(s.id) && (
                     <tr key={s.id + "-tx"} className="bg-muted/10">
                       <td></td>
-                      <td colSpan={8} className="p-3">
-                        <SupplierTransactions supplierId={s.id} isOpen={true} onToggle={() => toggleExpand(s.id)} />
+                      <td colSpan={9} className="p-3">
+                        <SupplierTransactions supplierId={s.id} isOpen={true} onToggle={() => toggleExpand(s.id)} period={period} />
                       </td>
                     </tr>
                   )}
