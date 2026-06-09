@@ -52,10 +52,14 @@ const CATEGORY_META: Record<string, { title: string; subtitle: string }> = {
   social: { title: "Redes sociais", subtitle: "URLs dos perfis oficiais" },
   stats: { title: "Estatísticas", subtitle: "Números destacados na Home" },
   home: { title: "Quem Somos (homepage)", subtitle: "Texto bilingue da secção \"Quem Somos\" da Home" },
+  tracking: { title: "Tracking & Marketing", subtitle: "Pixels e parâmetros de campanhas (site inteiro)" },
   general: { title: "Geral", subtitle: "Outras configurações" },
 };
 
-const CATEGORY_ORDER = ["contact", "social", "stats", "home", "general"];
+const CATEGORY_ORDER = ["contact", "social", "stats", "home", "tracking", "general"];
+
+// Datas (YYYY-MM-DD) — usar input type=date
+const DATE_KEYS = new Set(["general.vip_coupon_valid_until"]);
 
 const LONG_TEXT_KEYS = new Set(["home.about_pt", "home.about_en"]);
 
@@ -246,6 +250,7 @@ export default function PortalSettings() {
                         />
                       ) : (
                         <Input
+                          type={DATE_KEYS.has(s.key) ? "date" : "text"}
                           value={current}
                           onChange={(e) =>
                             setDirty((d) => ({ ...d, [s.id]: e.target.value }))
@@ -399,6 +404,7 @@ function NewSettingDialog({
                 <SelectItem value="social">Redes sociais</SelectItem>
                 <SelectItem value="stats">Estatísticas</SelectItem>
                 <SelectItem value="home">Quem Somos (homepage)</SelectItem>
+                <SelectItem value="tracking">Tracking &amp; Marketing</SelectItem>
                 <SelectItem value="general">Geral</SelectItem>
               </SelectContent>
             </Select>
