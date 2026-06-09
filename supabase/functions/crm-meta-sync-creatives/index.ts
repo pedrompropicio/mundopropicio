@@ -64,6 +64,9 @@ const CREATIVE_FIELDS = [
   "image_url", "video_id", "thumbnail_url", "call_to_action_type",
   "object_type", "image_hash",
   "asset_feed_spec", "product_set_id",
+  // Anúncios Instagram cujo object_story_spec só tem page_id/instagram_user_id:
+  // o asset visual não está no spec — vive nestas referências de topo (post/media IG).
+  "effective_object_story_id", "source_instagram_media_id", "instagram_permalink_url",
 ].join(",");
 
 interface ParsedCreative {
@@ -77,6 +80,11 @@ interface ParsedCreative {
   file_url: string | null;
   video_id: string | null;
   image_hash: string | null; // preparado para v2 image_hash batch resolution
+  // Anúncios Instagram (object_story_spec só com page_id/instagram_user_id): o
+  // asset não está no spec → referências ao post/media IG para resolver o poster
+  // pós-parser quando o topo não tem video_id/image_hash/image_url.
+  ig_object_story_id?: string | null;
+  ig_media_id?: string | null;
 }
 
 // Parser do object_story_spec. v2 cobre 5 shapes em ordem de especificidade:
@@ -165,6 +173,37 @@ function parseCreativeFields(creative: any): ParsedCreative {
     };
   }
 
+  // 6. Instagram-native — object_story_spec só com identidade (page_id /
+  // instagram_user_id / instagram_actor_id) e SEM media inline (video_data/
+  // image_data/link_data/template_data já filtrados acima). O asset visual vive
+  // no NÍVEL DE TOPO do creative (video_id / image_hash / image_url / thumbnail_url)
+  // e/ou nas referências ao post/media IG (effective_object_story_id /
+  // source_instagram_media_id) — resolvidas pós-parser com as funções existentes
+  // (resolveVideoThumbnail / resolveImageHashes) + resolveStoryMediaUrl.
+  const hasIdentity =
+    spec.page_id != null || spec.instagram_user_id != null || spec.instagram_actor_id != null;
+  if (hasIdentity && !creative?.asset_feed_spec) {
+    const topVideoId = creative?.video_id ?? null;
+    const topImageHash = creative?.image_hash ?? null;
+    const topFileUrl = creative?.image_url ?? creative?.thumbnail_url ?? null;
+    // type: vídeo se houver video_id; imagem se houver hash/url; senão fica por
+    // determinar (resolução por post IG ajusta para "image" se trouxer poster).
+    const igType: ParsedCreative["type"] =
+      topVideoId ? "video" : (topImageHash || topFileUrl) ? "image" : "unknown";
+    return {
+      type: igType,
+      headline: creative?.title ?? null,
+      body: creative?.body ?? null,
+      cta_type: creative?.call_to_action_type ?? null,
+      link_url: creative?.instagram_permalink_url ?? null,
+      file_url: topFileUrl,
+      video_id: topVideoId,
+      image_hash: topImageHash,
+      ig_object_story_id: creative?.effective_object_story_id ?? null,
+      ig_media_id: creative?.source_instagram_media_id ?? null,
+    };
+  }
+
   // Fallback — shape sem object_story_spec ou shape exótico
   console.warn(
     `[meta-sync-creatives] Unknown shape for creative ${creative?.id}. ` +
@@ -248,6 +287,38 @@ async function resolveVideoThumbnail(videoId: string, accessToken: string): Prom
     } catch (e) {
       if (attempt === 0) continue;
       console.warn(`[meta-sync-creatives][v2] resolveVideoThumbnail ${videoId} threw:`, (e as Error).message);
+      return null;
+    }
+  }
+  return null;
+}
+
+// IG-native: resolve o poster (imagem) de um anúncio Instagram a partir da
+// referência ao post/media — effective_object_story_id (post de página
+// "{page}_{post}") ou source_instagram_media_id. GET /{id}?fields=full_picture,
+// picture devolve uma imagem servível (re-hospedável). Mesmo padrão de retry do
+// resolveVideoThumbnail; null em falha (não bloqueia o sync).
+async function resolveStoryMediaUrl(objectId: string, accessToken: string): Promise<string | null> {
+  const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${objectId}`);
+  url.searchParams.set("fields", "full_picture,picture");
+  url.searchParams.set("access_token", accessToken);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const r = await fetch(url.toString());
+      if (r.status === 429 || r.status >= 500) {
+        if (attempt === 0) continue;
+        console.warn(`[meta-sync-creatives][ig] resolveStoryMediaUrl ${objectId} status=${r.status} after retry`);
+        return null;
+      }
+      const j = await r.json();
+      if (!r.ok || j.error) {
+        console.warn(`[meta-sync-creatives][ig] resolveStoryMediaUrl ${objectId} err:`, j.error?.message ?? r.status);
+        return null;
+      }
+      return j.full_picture ?? j.picture ?? null;
+    } catch (e) {
+      if (attempt === 0) continue;
+      console.warn(`[meta-sync-creatives][ig] resolveStoryMediaUrl ${objectId} threw:`, (e as Error).message);
       return null;
     }
   }
@@ -547,11 +618,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     file_url_resolved_direct: 0,
     file_url_resolved_via_video_thumbnail: 0,
     file_url_resolved_via_hash: 0,
+    file_url_resolved_via_ig_story: 0,
     file_url_still_null: 0,
     rehosted: 0,
     rehost_skipped: 0,
     rehost_failed: 0,
-    meta_api_calls: { video_thumbnail_count: 0, adimages_batch_count: 0 },
+    meta_api_calls: { video_thumbnail_count: 0, adimages_batch_count: 0, ig_story_count: 0 },
     errors: [] as { meta_creative_id: string; error_msg: string }[],
   };
 
@@ -588,6 +660,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
       } catch (e) {
         if (stats.errors.length < 10) {
           stats.errors.push({ meta_creative_id: cid, error_msg: `video_thumbnail: ${(e as Error).message}` });
+        }
+      }
+    }
+
+    // IG-native fallback: se ainda sem file_url E o topo não tinha video_id/hash,
+    // resolve o poster a partir do post/media IG (effective_object_story_id ou
+    // source_instagram_media_id). Só corre quando há referência — gating à mesma
+    // semântica do video thumbnail (uma chamada Graph só quando necessário).
+    const igRef = parsed.ig_object_story_id ?? parsed.ig_media_id ?? null;
+    if (parsed.file_url === null && igRef) {
+      stats.meta_api_calls.ig_story_count++;
+      try {
+        const resolved = await resolveStoryMediaUrl(igRef, accessToken);
+        if (resolved) {
+          parsed.file_url = resolved;
+          stats.file_url_resolved_via_ig_story++;
+          // O poster é uma imagem — se o tipo tinha ficado indeterminado, fixa-o.
+          if (parsed.type === "unknown") parsed.type = "image";
+        }
+      } catch (e) {
+        if (stats.errors.length < 10) {
+          stats.errors.push({ meta_creative_id: cid, error_msg: `ig_story: ${(e as Error).message}` });
         }
       }
     }
