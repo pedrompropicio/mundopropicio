@@ -181,7 +181,7 @@ export function AccountantSuppliersTab() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>
