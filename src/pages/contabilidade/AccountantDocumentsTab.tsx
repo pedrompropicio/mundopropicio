@@ -71,7 +71,7 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
         ...r,
         supplier_name: r.suppliers?.name ?? null,
         supplier_nif: r.suppliers?.nif ?? null,
-        doc_count: counts.get(r.id) ?? 0,
+        doc_count: counts[r.id] ?? 0,
       }));
     },
   });
