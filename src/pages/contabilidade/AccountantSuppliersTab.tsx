@@ -26,6 +26,7 @@ export function AccountantSuppliersTab({ period }: Props) {
   const [nifSearch, setNifSearch] = useState("");
   const [attachmentsFilter, setAttachmentsFilter] = useState<"all" | "with" | "without">("all");
   const [onlyWithActivity, setOnlyWithActivity] = useState(false);
+  const [onlyWithPaid, setOnlyWithPaid] = useState(false);
   const [sortBy, setSortBy] = useState<{ k: "name" | "nif"; dir: "asc" | "desc" }>({ k: "name", dir: "asc" });
   const [viewing, setViewing] = useState<SupplierRow | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -84,8 +85,35 @@ export function AccountantSuppliersTab({ period }: Props) {
     },
   });
 
+  // Contagem de transações liquidadas no período (status=paid + payment_date no intervalo)
+  const { data: paidMap = {}, isLoading: loadingPaid } = useQuery({
+    queryKey: ["accountant-suppliers-paid", companyId, period.from, period.to],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data: txs, error } = await (supabase as any)
+        .from("transactions")
+        .select("supplier_id")
+        .eq("company_id", companyId)
+        .eq("status", "paid")
+        .not("supplier_id", "is", null)
+        .gte("payment_date", period.from)
+        .lte("payment_date", period.to);
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      for (const t of txs ?? []) {
+        if (!t.supplier_id) continue;
+        map[t.supplier_id] = (map[t.supplier_id] ?? 0) + 1;
+      }
+      return map;
+    },
+  });
+
   const rows = useMemo(() => {
-    let r = (data ?? []).map((x) => ({ ...x, activity_count: activityMap[x.id] ?? 0 }));
+    let r = (data ?? []).map((x) => ({
+      ...x,
+      activity_count: activityMap[x.id] ?? 0,
+      paid_count: paidMap[x.id] ?? 0,
+    }));
     if (nameSearch.trim()) {
       const s = nameSearch.trim().toLowerCase();
       r = r.filter((x) => (x.name ?? "").toLowerCase().includes(s) || (x.trade_name ?? "").toLowerCase().includes(s));
@@ -97,6 +125,7 @@ export function AccountantSuppliersTab({ period }: Props) {
     if (attachmentsFilter === "with") r = r.filter((x) => x.doc_count > 0);
     else if (attachmentsFilter === "without") r = r.filter((x) => x.doc_count === 0);
     if (onlyWithActivity) r = r.filter((x) => x.activity_count > 0);
+    if (onlyWithPaid) r = r.filter((x) => x.paid_count > 0);
     const dir = sortBy.dir === "asc" ? 1 : -1;
     r = [...r].sort((a, b) => {
       const va = ((a as any)[sortBy.k] ?? "").toString().toLowerCase();
@@ -105,13 +134,15 @@ export function AccountantSuppliersTab({ period }: Props) {
       return va > vb ? dir : -dir;
     });
     return r;
-  }, [data, activityMap, nameSearch, nifSearch, attachmentsFilter, onlyWithActivity, sortBy]);
+  }, [data, activityMap, paidMap, nameSearch, nifSearch, attachmentsFilter, onlyWithActivity, onlyWithPaid, sortBy]);
 
   const totals = useMemo(() => ({
     total: rows.length,
     withDocs: rows.filter((r) => r.doc_count > 0).length,
     withActivity: rows.filter((r) => r.activity_count > 0).length,
+    withPaid: rows.filter((r) => r.paid_count > 0).length,
   }), [rows]);
+
 
   function toggleSort(k: "name" | "nif") {
     setSortBy((p) => p.k === k ? { k, dir: p.dir === "asc" ? "desc" : "asc" } : { k, dir: "asc" });
@@ -142,7 +173,8 @@ export function AccountantSuppliersTab({ period }: Props) {
         <div className="text-sm text-muted-foreground">
           <span className="font-semibold text-foreground">{totals.total}</span> fornecedores ·{" "}
           <span className="font-semibold text-foreground">{totals.withDocs}</span> com anexos ·{" "}
-          <span className="font-semibold text-foreground">{totals.withActivity}</span> com movimento no período
+          <span className="font-semibold text-foreground">{totals.withActivity}</span> com movimento no período ·{" "}
+          <span className="font-semibold text-foreground">{totals.withPaid}</span> com liquidações no período
         </div>
       </div>
 
@@ -164,7 +196,15 @@ export function AccountantSuppliersTab({ period }: Props) {
           </Label>
           {loadingActivity && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
         </div>
+        <div className="flex items-center gap-2 rounded-md border bg-card px-3 h-9">
+          <Switch id="only-paid" checked={onlyWithPaid} onCheckedChange={setOnlyWithPaid} />
+          <Label htmlFor="only-paid" className="text-xs cursor-pointer whitespace-nowrap">
+            Só com liquidações no período
+          </Label>
+          {loadingPaid && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+        </div>
       </div>
+
 
       <div className="rounded-lg border overflow-hidden">
         <div className="max-h-[65vh] overflow-auto">
