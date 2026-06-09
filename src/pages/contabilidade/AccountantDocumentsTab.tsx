@@ -9,7 +9,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Loader2, Download, Paperclip, ArrowDownUp } from "lucide-react";
+import { Loader2, Download, Paperclip, ArrowDownUp, ExternalLink } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import type { Period } from "./PeriodSelector";
@@ -262,7 +263,9 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
                   <td className="p-2 text-right whitespace-nowrap">{fmtEUR(Number(t.amount))}</td>
                   <td className="p-2">{t.invoice_ref ?? "—"}</td>
                   <td className="p-2">
-                    {t.doc_count > 0 ? <Badge variant="secondary"><Paperclip className="h-3 w-3 mr-1" />{t.doc_count}</Badge> : "—"}
+                    {t.doc_count > 0 ? (
+                      <AttachmentsPopover txId={t.id} count={t.doc_count} />
+                    ) : "—"}
                   </td>
                   <td className="p-2">
                     {t.doc_count > 0 && (
@@ -278,5 +281,70 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function AttachmentsPopover({ txId, count }: { txId: string; count: number }) {
+  const { toast } = useToast();
+  const { data, isLoading } = useQuery({
+    queryKey: ["accountant-tx-docs", txId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("transaction_documents")
+        .select("id, name, file_url")
+        .eq("transaction_id", txId);
+      if (error) throw error;
+      return (data ?? []) as { id: string; name: string; file_url: string }[];
+    },
+  });
+
+  async function openDoc(d: { id: string; name: string; file_url: string }) {
+    try {
+      const { data: signed, error } = await supabase.storage
+        .from("transaction-documents")
+        .createSignedUrl(d.file_url, 60 * 60);
+      if (error || !signed) throw error ?? new Error("signed url falhou");
+      await supabase.rpc("record_document_download" as any, {
+        p_resource_type: "transaction_document",
+        p_resource_id: txId,
+        p_bucket: "transaction-documents",
+        p_file_path: d.file_url,
+        p_file_name: d.name,
+      } as any);
+      window.open(signed.signedUrl, "_blank");
+    } catch (e: any) {
+      toast({ title: "Erro a abrir anexo", description: e?.message ?? String(e), variant: "destructive" });
+    }
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-0.5 text-xs hover:bg-secondary/80">
+          <Paperclip className="h-3 w-3" />
+          {count}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-2" align="start">
+        {isLoading ? (
+          <div className="p-2 text-xs text-muted-foreground"><Loader2 className="h-3 w-3 inline animate-spin mr-1" />A carregar…</div>
+        ) : !data?.length ? (
+          <div className="p-2 text-xs text-muted-foreground">Sem anexos.</div>
+        ) : (
+          <div className="space-y-1">
+            {data.map((d) => (
+              <button
+                key={d.id}
+                onClick={() => openDoc(d)}
+                className="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-muted"
+              >
+                <span className="truncate flex-1">{d.name}</span>
+                <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+              </button>
+            ))}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
