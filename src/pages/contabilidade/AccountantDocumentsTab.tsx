@@ -263,7 +263,9 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
                   <td className="p-2 text-right whitespace-nowrap">{fmtEUR(Number(t.amount))}</td>
                   <td className="p-2">{t.invoice_ref ?? "—"}</td>
                   <td className="p-2">
-                    {t.doc_count > 0 ? <Badge variant="secondary"><Paperclip className="h-3 w-3 mr-1" />{t.doc_count}</Badge> : "—"}
+                    {t.doc_count > 0 ? (
+                      <AttachmentsPopover txId={t.id} count={t.doc_count} />
+                    ) : "—"}
                   </td>
                   <td className="p-2">
                     {t.doc_count > 0 && (
