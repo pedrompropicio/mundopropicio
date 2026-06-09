@@ -85,8 +85,35 @@ export function AccountantSuppliersTab({ period }: Props) {
     },
   });
 
+  // Contagem de transações liquidadas no período (status=paid + payment_date no intervalo)
+  const { data: paidMap = {}, isLoading: loadingPaid } = useQuery({
+    queryKey: ["accountant-suppliers-paid", companyId, period.from, period.to],
+    enabled: !!companyId,
+    queryFn: async () => {
+      const { data: txs, error } = await (supabase as any)
+        .from("transactions")
+        .select("supplier_id")
+        .eq("company_id", companyId)
+        .eq("status", "paid")
+        .not("supplier_id", "is", null)
+        .gte("payment_date", period.from)
+        .lte("payment_date", period.to);
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      for (const t of txs ?? []) {
+        if (!t.supplier_id) continue;
+        map[t.supplier_id] = (map[t.supplier_id] ?? 0) + 1;
+      }
+      return map;
+    },
+  });
+
   const rows = useMemo(() => {
-    let r = (data ?? []).map((x) => ({ ...x, activity_count: activityMap[x.id] ?? 0 }));
+    let r = (data ?? []).map((x) => ({
+      ...x,
+      activity_count: activityMap[x.id] ?? 0,
+      paid_count: paidMap[x.id] ?? 0,
+    }));
     if (nameSearch.trim()) {
       const s = nameSearch.trim().toLowerCase();
       r = r.filter((x) => (x.name ?? "").toLowerCase().includes(s) || (x.trade_name ?? "").toLowerCase().includes(s));
@@ -98,6 +125,7 @@ export function AccountantSuppliersTab({ period }: Props) {
     if (attachmentsFilter === "with") r = r.filter((x) => x.doc_count > 0);
     else if (attachmentsFilter === "without") r = r.filter((x) => x.doc_count === 0);
     if (onlyWithActivity) r = r.filter((x) => x.activity_count > 0);
+    if (onlyWithPaid) r = r.filter((x) => x.paid_count > 0);
     const dir = sortBy.dir === "asc" ? 1 : -1;
     r = [...r].sort((a, b) => {
       const va = ((a as any)[sortBy.k] ?? "").toString().toLowerCase();
@@ -106,13 +134,15 @@ export function AccountantSuppliersTab({ period }: Props) {
       return va > vb ? dir : -dir;
     });
     return r;
-  }, [data, activityMap, nameSearch, nifSearch, attachmentsFilter, onlyWithActivity, sortBy]);
+  }, [data, activityMap, paidMap, nameSearch, nifSearch, attachmentsFilter, onlyWithActivity, onlyWithPaid, sortBy]);
 
   const totals = useMemo(() => ({
     total: rows.length,
     withDocs: rows.filter((r) => r.doc_count > 0).length,
     withActivity: rows.filter((r) => r.activity_count > 0).length,
+    withPaid: rows.filter((r) => r.paid_count > 0).length,
   }), [rows]);
+
 
   function toggleSort(k: "name" | "nif") {
     setSortBy((p) => p.k === k ? { k, dir: p.dir === "asc" ? "desc" : "asc" } : { k, dir: "asc" });
