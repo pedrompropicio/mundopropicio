@@ -402,7 +402,7 @@ async function resolveImageHashes(adAccountId: string, hashes: string[], accessT
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[crm-meta-sync-creatives] BUILD_VERSION=ig-native-v3 deployed", new Date().toISOString());
+  console.log("[crm-meta-sync-creatives] BUILD_VERSION=ig-native-v4 deployed", new Date().toISOString());
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
