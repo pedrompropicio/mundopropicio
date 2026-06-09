@@ -173,6 +173,36 @@ function parseCreativeFields(creative: any): ParsedCreative {
     };
   }
 
+  // 6a. Advantage+ / Instagram com asset_feed_spec mas SEM product_set_id —
+  // criativo dinâmico fora de catálogo (DPA). Tem asset_feed_spec, por isso o
+  // caso 6 (Instagram-native) rejeitava-o; e não tem product_set_id, por isso o
+  // caso 2 (DPA) também não o apanha. Aqui extraímos defensivamente o asset.
+  if (creative?.asset_feed_spec && !productSetId) {
+    const afs = creative.asset_feed_spec;
+    const videoId = afs.videos?.[0]?.video_id ?? creative.video_id ?? null;
+    const imageHash = afs.images?.[0]?.hash ?? creative.image_hash ?? null;
+    const fileUrl =
+      afs.images?.[0]?.url ??
+      afs.videos?.[0]?.thumbnail_url ??
+      creative.image_url ??
+      creative.thumbnail_url ??
+      null;
+    const afsType: ParsedCreative["type"] =
+      videoId ? "video" : (imageHash || fileUrl) ? "image" : "unknown";
+    return {
+      type: afsType,
+      headline: afs.titles?.[0]?.text ?? creative.title ?? null,
+      body: afs.bodies?.[0]?.text ?? creative.body ?? null,
+      cta_type: afs.call_to_action_types?.[0] ?? creative.call_to_action_type ?? null,
+      link_url: afs.link_urls?.[0]?.website_url ?? creative.instagram_permalink_url ?? null,
+      file_url: fileUrl,
+      video_id: videoId,
+      image_hash: imageHash,
+      ig_object_story_id: creative?.effective_object_story_id ?? null,
+      ig_media_id: creative?.source_instagram_media_id ?? null,
+    };
+  }
+
   // 6. Instagram-native — object_story_spec só com identidade (page_id /
   // instagram_user_id / instagram_actor_id) e SEM media inline (video_data/
   // image_data/link_data/template_data já filtrados acima). O asset visual vive
@@ -182,7 +212,7 @@ function parseCreativeFields(creative: any): ParsedCreative {
   // (resolveVideoThumbnail / resolveImageHashes) + resolveStoryMediaUrl.
   const hasIdentity =
     spec.page_id != null || spec.instagram_user_id != null || spec.instagram_actor_id != null;
-  if (hasIdentity && !creative?.asset_feed_spec) {
+  if (hasIdentity) {
     const topVideoId = creative?.video_id ?? null;
     const topImageHash = creative?.image_hash ?? null;
     const topFileUrl = creative?.image_url ?? creative?.thumbnail_url ?? null;
@@ -209,7 +239,12 @@ function parseCreativeFields(creative: any): ParsedCreative {
     `[meta-sync-creatives] Unknown shape for creative ${creative?.id}. ` +
     `Has object_story_spec: ${!!creative?.object_story_spec}. ` +
     `Keys: ${creative?.object_story_spec ? Object.keys(creative.object_story_spec).join(",") : "none"}. ` +
-    `v2 cobre carousel/dpa/video/banner/image. Shape exótico fica em fallback.`,
+    `top_keys: ${Object.keys(creative ?? {}).join(",")}. ` +
+    `has_asset_feed_spec: ${!!creative?.asset_feed_spec}. ` +
+    `afs_keys: ${creative?.asset_feed_spec ? Object.keys(creative.asset_feed_spec).join(",") : "none"}. ` +
+    `has_product_set_id: ${!!productSetId}. ` +
+    `has_effective_object_story_id: ${!!creative?.effective_object_story_id}. ` +
+    `v2 cobre carousel/dpa/video/banner/image/ig-native/afs-no-dpa. Shape exótico fica em fallback.`,
   );
   return {
     type: creative?.video_id ? "video" : "unknown",
@@ -367,7 +402,7 @@ async function resolveImageHashes(adAccountId: string, hashes: string[], accessT
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[crm-meta-sync-creatives] BUILD_VERSION=ig-native-v2 deployed", new Date().toISOString());
+  console.log("[crm-meta-sync-creatives] BUILD_VERSION=ig-native-v3 deployed", new Date().toISOString());
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
