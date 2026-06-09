@@ -202,9 +202,3 @@ function TxAttachmentsPopover({ txId, count }: { txId: string; count: number }) 
     </Popover>
   );
 }
-          </div>
-        )}
-      </PopoverContent>
-    </Popover>
-  );
-}
