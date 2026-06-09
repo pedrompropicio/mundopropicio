@@ -143,15 +143,7 @@ function TransactionLine({ tx, docCount }: { tx: any; docCount: number }) {
 function TxAttachmentsPopover({ txId, count }: { txId: string; count: number }) {
   const { data: docs = [], isLoading } = useQuery({
     queryKey: ["tx-docs-list", txId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transaction_documents")
-        .select("id, file_name, file_path, created_at")
-        .eq("transaction_id", txId)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: () => fetchAccountantTxDocs(txId),
   });
 
   async function open(path: string, download = false) {
@@ -179,26 +171,37 @@ function TxAttachmentsPopover({ txId, count }: { txId: string; count: number }) 
           <span className="text-[11px]">{count}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-2" align="end">
+      <PopoverContent className="w-96 p-2" align="end">
         {isLoading ? (
           <p className="text-xs text-muted-foreground p-2">A carregar…</p>
         ) : docs.length === 0 ? (
           <p className="text-xs text-muted-foreground p-2">Sem anexos.</p>
         ) : (
           <div className="space-y-1">
-            {docs.map((d: any) => (
-              <div key={d.id} className="flex items-center justify-between gap-2 rounded hover:bg-muted/50 px-2 py-1.5">
-                <span className="text-xs truncate flex-1" title={d.file_name}>{d.file_name}</span>
+            {docs.map((d) => (
+              <div key={d.id} className="flex items-start justify-between gap-2 rounded hover:bg-muted/50 px-2 py-1.5">
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs truncate" title={d.name}>{d.name}</div>
+                  {d.source_label && (
+                    <div className="text-[10px] text-muted-foreground truncate">{d.source_label}</div>
+                  )}
+                </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => open(d.file_path, false)} title="Abrir">
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => open(d.file_url, false)} title="Abrir">
                     <ExternalLink className="h-3 w-3" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => open(d.file_path, true)} title="Baixar">
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => open(d.file_url, true)} title="Baixar">
                     <Download className="h-3 w-3" />
                   </Button>
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
           </div>
         )}
       </PopoverContent>
