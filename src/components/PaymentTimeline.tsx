@@ -238,7 +238,6 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
           paid_amount: 0,
           payment_date: null,
           status: "approved",
-          payment_list_id: null,
         } as any)
         .eq("id", txId);
       if (updErr) throw updErr;
