@@ -9,8 +9,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Loader2, Paperclip, Eye, ArrowDownUp } from "lucide-react";
+import { Loader2, Paperclip, Eye, ArrowDownUp, ChevronRight } from "lucide-react";
 import { SupplierViewModal, type SupplierRow } from "./SupplierViewModal";
+import { SupplierTransactions } from "@/components/SupplierTransactions";
 
 export function AccountantSuppliersTab() {
   const { companyId } = useCompany();
