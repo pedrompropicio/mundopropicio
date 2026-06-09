@@ -131,6 +131,7 @@ export function AccountantSuppliersTab() {
           <table className="w-full text-sm">
             <thead className="bg-muted/40 sticky top-0">
               <tr className="text-left">
+                <th className="p-2 w-8"></th>
                 <th className="p-2 cursor-pointer" onClick={() => toggleSort("name")}>Nome <ArrowDownUp className="inline h-3 w-3" /></th>
                 <th className="p-2 cursor-pointer" onClick={() => toggleSort("nif")}>NIF <ArrowDownUp className="inline h-3 w-3" /></th>
                 <th className="p-2">IBAN</th>
@@ -143,29 +144,44 @@ export function AccountantSuppliersTab() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={8} className="p-6 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin inline mr-2" />A carregar…</td></tr>
+                <tr><td colSpan={9} className="p-6 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin inline mr-2" />A carregar…</td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">Sem fornecedores.</td></tr>
+                <tr><td colSpan={9} className="p-6 text-center text-muted-foreground">Sem fornecedores.</td></tr>
               ) : rows.map((s) => (
-                <tr key={s.id} className="border-t hover:bg-muted/30">
-                  <td className="p-2">
-                    <div className="font-medium">{s.name}</div>
-                    {s.trade_name && <div className="text-xs text-muted-foreground">{s.trade_name}</div>}
-                  </td>
-                  <td className="p-2 whitespace-nowrap">{s.nif ?? "—"}</td>
-                  <td className="p-2">{ibanCell(s)}</td>
-                  <td className="p-2 max-w-[200px] truncate">{s.email ?? "—"}</td>
-                  <td className="p-2 whitespace-nowrap">{s.phone ?? "—"}</td>
-                  <td className="p-2 max-w-[220px] truncate">{s.address ?? "—"}</td>
-                  <td className="p-2">
-                    {s.doc_count > 0 ? <Badge variant="secondary"><Paperclip className="h-3 w-3 mr-1" />{s.doc_count}</Badge> : "—"}
-                  </td>
-                  <td className="p-2">
-                    <Button size="sm" variant="ghost" onClick={() => setViewing(s)}>
-                      <Eye className="h-3.5 w-3.5 mr-1" /> Ver
-                    </Button>
-                  </td>
-                </tr>
+                <>
+                  <tr key={s.id} className="border-t hover:bg-muted/30">
+                    <td className="p-2 align-top">
+                      <button onClick={() => toggleExpand(s.id)} className="p-1 hover:bg-muted rounded" aria-label="Expandir transações">
+                        <ChevronRight className={`h-4 w-4 transition-transform ${expanded.has(s.id) ? "rotate-90" : ""}`} />
+                      </button>
+                    </td>
+                    <td className="p-2">
+                      <div className="font-medium">{s.name}</div>
+                      {s.trade_name && <div className="text-xs text-muted-foreground">{s.trade_name}</div>}
+                    </td>
+                    <td className="p-2 whitespace-nowrap">{s.nif ?? "—"}</td>
+                    <td className="p-2">{ibanCell(s)}</td>
+                    <td className="p-2 max-w-[200px] truncate">{s.email ?? "—"}</td>
+                    <td className="p-2 whitespace-nowrap">{s.phone ?? "—"}</td>
+                    <td className="p-2 max-w-[220px] truncate">{s.address ?? "—"}</td>
+                    <td className="p-2">
+                      {s.doc_count > 0 ? <Badge variant="secondary"><Paperclip className="h-3 w-3 mr-1" />{s.doc_count}</Badge> : "—"}
+                    </td>
+                    <td className="p-2">
+                      <Button size="sm" variant="ghost" onClick={() => setViewing(s)}>
+                        <Eye className="h-3.5 w-3.5 mr-1" /> Ver
+                      </Button>
+                    </td>
+                  </tr>
+                  {expanded.has(s.id) && (
+                    <tr key={s.id + "-tx"} className="bg-muted/10">
+                      <td></td>
+                      <td colSpan={8} className="p-3">
+                        <SupplierTransactions supplierId={s.id} isOpen={true} onToggle={() => toggleExpand(s.id)} />
+                      </td>
+                    </tr>
+                  )}
+                </>
               ))}
             </tbody>
           </table>
