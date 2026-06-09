@@ -217,7 +217,7 @@ Deno.serve(async (req) => {
       return respond({ error: "Email e nome são obrigatórios." });
     }
 
-    const validRoles = ["admin", "manager", "producer", "editor", "viewer", "user", "partner"];
+    const validRoles = ["admin", "manager", "producer", "editor", "viewer", "user", "partner", "marketing_manager"];
     const targetRole = validRoles.includes(role) ? role : "user";
 
     // ── Pre-check: existe em auth.users?

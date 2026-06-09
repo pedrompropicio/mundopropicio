@@ -44,7 +44,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   user: "Utilizador",
   partner: "Parceiro",
   platform_admin: "Super-Admin",
-  marketing_manager: "Marketing Manager",
+  marketing_manager: "Gestor de Marketing",
   content_manager: "Gestor de Conteúdo",
   accountant: "Contabilista",
 };
