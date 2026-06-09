@@ -36,7 +36,7 @@ const ROLE_ICONS: Record<AppRole, React.ElementType> = {
   accountant: Calculator,
 };
 
-const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "producer", "field_producer", "editor", "viewer", "partner", "content_manager", "accountant"];
+const ASSIGNABLE_ROLES: AppRole[] = ["admin", "manager", "producer", "field_producer", "editor", "viewer", "partner", "content_manager", "marketing_manager", "accountant"];
 
 export default function UserManagement() {
   const { isAdmin, user } = useAuth();
@@ -303,6 +303,7 @@ export default function UserManagement() {
                     {r === "producer" && "Gere operação de eventos (sem acesso a Gestão/financeiro)"}
                     {r === "editor" && "Cria e edita, configurável por utilizador"}
                     {r === "viewer" && "Apenas visualização"}
+                    {r === "marketing_manager" && "Gere campanhas e tráfego pago — módulo MP Audience"}
                   </p>
                 </div>
               </div>
