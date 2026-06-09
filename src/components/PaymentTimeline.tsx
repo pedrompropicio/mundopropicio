@@ -345,6 +345,27 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
         </div>
       </div>
 
+      {/* Admin: Desfazer liquidação */}
+      {isAdmin && (transaction.status === "paid" || Number(transaction.paid_amount ?? 0) > 0) && (
+        <div className="flex items-center justify-between rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs">
+          <div className="text-muted-foreground">
+            <span className="font-semibold text-destructive">Admin:</span> reverter esta liquidação devolve a transação a "aprovada / aguarda pagamento" e remove a ligação a listas de pagamento.
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm("Desfazer a liquidação desta transação?\n\nIsto vai:\n• Zerar o valor pago e a data de pagamento\n• Remover o item das listas de pagamento\n• Voltar o estado a 'Aprovada'\n\nContinuar?")) {
+                undoSettlementMutation.mutate();
+              }
+            }}
+            disabled={undoSettlementMutation.isPending}
+            className="shrink-0 rounded bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+          >
+            {undoSettlementMutation.isPending ? "A reverter…" : "Desfazer liquidação"}
+          </button>
+        </div>
+      )}
+
       {/* Cronograma de parcelas (planned + cancelled) */}
       {hasSchedule && (
         <Section
