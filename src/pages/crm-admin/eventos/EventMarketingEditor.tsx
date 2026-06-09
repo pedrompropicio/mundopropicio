@@ -628,6 +628,12 @@ function GestaoTab({
   const [ticketingProvider, setTicketingProvider] = useState<string>(ev?.ticketing_provider ?? "");
   const [portalVisible, setPortalVisible] = useState<boolean>(!!ev?.portal_visible);
   const [portalFeatured, setPortalFeatured] = useState<boolean>(!!ev?.portal_featured);
+  const [vipCode, setVipCode] = useState<string>(ev?.vip_coupon_code ?? "");
+  const [vipLabel, setVipLabel] = useState<string>(ev?.vip_coupon_discount_label ?? "");
+  // Guardamos como YYYY-MM-DD (input date). Convertemos para timestamptz no save.
+  const [vipValidUntil, setVipValidUntil] = useState<string>(
+    ev?.vip_coupon_valid_until ? String(ev.vip_coupon_valid_until).slice(0, 10) : "",
+  );
 
   useEffect(() => {
     setMgmt(ev?.management_type ?? "own");
@@ -637,7 +643,23 @@ function GestaoTab({
     setTicketingProvider(ev?.ticketing_provider ?? "");
     setPortalVisible(!!ev?.portal_visible);
     setPortalFeatured(!!ev?.portal_featured);
+    setVipCode(ev?.vip_coupon_code ?? "");
+    setVipLabel(ev?.vip_coupon_discount_label ?? "");
+    setVipValidUntil(
+      ev?.vip_coupon_valid_until ? String(ev.vip_coupon_valid_until).slice(0, 10) : "",
+    );
   }, [ev]);
+
+  // Pré-preenche validade com hoje+7 quando o utilizador começa a preencher o código
+  // (apenas se ainda não há validade definida).
+  const onVipCodeChange = (v: string) => {
+    setVipCode(v);
+    if (v.trim() && !vipValidUntil) {
+      const d = new Date();
+      d.setDate(d.getDate() + 7);
+      setVipValidUntil(d.toISOString().slice(0, 10));
+    }
+  };
 
   const save = useMutation({
     mutationFn: async () => {
@@ -651,6 +673,9 @@ function GestaoTab({
           ticketing_provider: ticketingProvider.trim() || null,
           portal_visible: portalVisible,
           portal_featured: portalFeatured,
+          vip_coupon_code: vipCode.trim() || null,
+          vip_coupon_discount_label: vipLabel.trim() || null,
+          vip_coupon_valid_until: vipValidUntil ? `${vipValidUntil}T23:59:59Z` : null,
         })
         .eq("id", eventId);
       if (error) throw error;
@@ -712,6 +737,41 @@ function GestaoTab({
           <Switch checked={portalFeatured} onCheckedChange={setPortalFeatured} disabled={disabled} />
           Destacado na homepage
         </label>
+      </div>
+
+      <div className="space-y-3 rounded-md border border-border bg-muted/20 p-3">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Cupão VIP</h3>
+          <p className="text-xs text-muted-foreground">
+            Cupão específico deste evento. Se preenchido, tem precedência sobre o cupão VIP global do portal.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="Código">
+            <Input
+              value={vipCode}
+              onChange={(e) => onVipCodeChange(e.target.value)}
+              placeholder="ex.: VIP-ANITTA"
+              disabled={disabled}
+            />
+          </Field>
+          <Field label="Label de desconto" hint="ex.: 5%, 10€">
+            <Input
+              value={vipLabel}
+              onChange={(e) => setVipLabel(e.target.value)}
+              placeholder="ex.: 5%"
+              disabled={disabled}
+            />
+          </Field>
+          <Field label="Validade" hint="Por defeito: hoje + 7 dias">
+            <Input
+              type="date"
+              value={vipValidUntil}
+              onChange={(e) => setVipValidUntil(e.target.value)}
+              disabled={disabled}
+            />
+          </Field>
+        </div>
       </div>
 
       <div className="flex justify-end">
