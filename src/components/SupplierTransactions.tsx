@@ -33,16 +33,7 @@ export function SupplierTransactions({ supplierId, isOpen, onToggle }: SupplierT
   const { data: docCounts = {} } = useQuery({
     queryKey: ["supplier-tx-doc-counts", supplierId, txIds.length],
     enabled: isOpen && txIds.length > 0,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("transaction_documents")
-        .select("transaction_id")
-        .in("transaction_id", txIds);
-      if (error) throw error;
-      const m: Record<string, number> = {};
-      for (const d of data ?? []) m[d.transaction_id] = (m[d.transaction_id] ?? 0) + 1;
-      return m;
-    },
+    queryFn: () => fetchAccountantDocCountsBatch(txIds),
   });
 
   const paid = transactions.filter((t) => t.status === "paid");
