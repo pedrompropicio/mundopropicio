@@ -221,6 +221,47 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
     onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
   });
 
+  // Admin: desfazer liquidação (caso TX paga via lista de pagamento ou direto sem parcelas)
+  const undoSettlementMutation = useMutation({
+    mutationFn: async () => {
+      // 1) Remover ligação a payment_list_items (se houver)
+      const { error: delErr } = await supabase
+        .from("payment_list_items")
+        .delete()
+        .eq("transaction_id", txId);
+      if (delErr) throw delErr;
+
+      // 2) Reverter TX para 'approved' sem valor pago
+      const { error: updErr } = await supabase
+        .from("transactions")
+        .update({
+          paid_amount: 0,
+          payment_date: null,
+          status: "approved",
+          payment_list_id: null,
+        } as any)
+        .eq("id", txId);
+      if (updErr) throw updErr;
+
+      // 3) Audit log
+      const callerName = user?.user_metadata?.full_name ?? user?.email ?? "sistema";
+      await supabase.from("transaction_audit_log").insert([{
+        transaction_id: txId,
+        changed_by: callerName,
+        field_name: "Desfazer liquidação (admin)",
+        old_value: `${formatCurrency(Number(transaction.paid_amount ?? 0))} · ${transaction.payment_date ?? "—"}`,
+        new_value: "0,00 € · aguardando pagamento",
+      }]);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["payment-timeline", txId] });
+      queryClient.invalidateQueries({ queryKey: ["payment-lists"] });
+      toast({ title: "Liquidação revertida", description: "Transação voltou a 'Aprovada / aguarda pagamento'." });
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e.message, variant: "destructive" }),
+  });
+
 
 
   function startDirectEdit() {
