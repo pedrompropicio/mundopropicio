@@ -115,37 +115,23 @@ export function AccountantDocumentsTab({ period }: { period: Period }) {
 
   const downloadOne = useMutation({
     mutationFn: async (tx: Tx) => {
-      const { data: docs } = await (supabase as any)
-        .from("transaction_documents")
-        .select("name, file_url")
-        .eq("transaction_id", tx.id);
-      if (!docs?.length) throw new Error("Sem anexos");
-      // For a single doc → direct signed URL. For multiple, fallback to ZIP via edge for the day.
-      if (docs.length === 1) {
+      const docs = await fetchAccountantTxDocs(tx.id);
+      if (!docs.length) throw new Error("Sem anexos");
+      // Abre cada anexo (próprio + despesas-filhas do reembolso) numa aba nova
+      for (const d of docs) {
         const { data: signed, error } = await supabase.storage
           .from("transaction-documents")
-          .createSignedUrl(docs[0].file_url, 60 * 60);
-        if (error || !signed) throw error ?? new Error("signed url falhou");
+          .createSignedUrl(d.file_url, 60 * 60, { download: true });
+        if (error || !signed) continue;
         await supabase.rpc("record_document_download" as any, {
           p_resource_type: "transaction_document",
-          p_resource_id: tx.id,
+          p_resource_id: d.source_tx_id,
           p_bucket: "transaction-documents",
-          p_file_path: docs[0].file_url,
-          p_file_name: docs[0].name,
+          p_file_path: d.file_url,
+          p_file_name: d.name,
         } as any);
         window.open(signed.signedUrl, "_blank");
-        return;
       }
-      // Many docs for one tx → use edge to build mini-ZIP scoped to that day+supplier
-      const { data, error } = await supabase.functions.invoke("generate-accountant-zip", {
-        body: {
-          company_id: companyId,
-          period: { from: tx.payment_date, to: tx.payment_date },
-          filters: { supplier_ids: tx.supplier_id ? [tx.supplier_id] : [] },
-        },
-      });
-      if (error) throw error;
-      if ((data as any)?.url) window.open((data as any).url, "_blank");
     },
     onError: (e: any) => toast({ title: "Erro", description: e?.message ?? String(e), variant: "destructive" }),
   });
