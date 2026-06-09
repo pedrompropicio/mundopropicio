@@ -20,6 +20,15 @@ export function AccountantSuppliersTab() {
   const [attachmentsFilter, setAttachmentsFilter] = useState<"all" | "with" | "without">("all");
   const [sortBy, setSortBy] = useState<{ k: "name" | "nif"; dir: "asc" | "desc" }>({ k: "name", dir: "asc" });
   const [viewing, setViewing] = useState<SupplierRow | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (id: string) => {
+    setExpanded((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ["accountant-suppliers", companyId],
