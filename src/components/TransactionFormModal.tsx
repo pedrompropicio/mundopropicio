@@ -548,7 +548,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, event_id, type, category_id, amount, status, description, iva_rate, specification")
+        .select("id, event_id, type, category_id, amount, status, description, iva_rate, specification, transaction_id")
         .in("event_id", forecastEventIds).is("version_id", null);
       if (error) throw error;
       return data;
@@ -2151,6 +2151,72 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
             </>
           )}
 
+          {/* Frente 2 — Banner proativo: Master selecionado + categoria com previsão no BP + sem linha escolhida */}
+          {isParentMultiDay && form.type === "expense" && form.category_id && !selectedForecastId && !isSplit && (() => {
+            const matching = (relevantForecasts as any[]).filter(
+              (f: any) => f.type === "expense" && f.category_id === form.category_id && !f.transaction_id
+            );
+            if (matching.length === 0) return null;
+            const totalForecast = matching.reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
+            const fmt = (n: number) =>
+              new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR" }).format(n);
+            return (
+              <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 space-y-2">
+                <div className="text-xs text-foreground">
+                  Esta conta tem <strong>{fmt(totalForecast)}</strong> previstos no BP Master
+                  {matching.length === 1 && matching[0].description ? (
+                    <> (linha: <em>{matching[0].description}</em>)</>
+                  ) : matching.length > 1 ? (
+                    <> ({matching.length} linhas)</>
+                  ) : null}
+                  . Vincular esta transação a essa linha?
+                </div>
+                {matching.length === 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const line = matching[0];
+                      setSelectedForecastId(line.id);
+                      setForm(prev => ({
+                        ...prev,
+                        description: prev.description || line.description || "",
+                        amount: prev.amount || String(Number(line.amount) || ""),
+                        iva_rate: (line.iva_rate ?? prev.iva_rate) as IvaRate,
+                        specification: prev.specification || line.specification || "",
+                      }));
+                    }}
+                    className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                  >
+                    Vincular ao BP Master
+                  </button>
+                ) : (
+                  <div className="space-y-1">
+                    {matching.map((line: any) => (
+                      <button
+                        key={line.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedForecastId(line.id);
+                          setForm(prev => ({
+                            ...prev,
+                            description: prev.description || line.description || "",
+                            amount: prev.amount || String(Number(line.amount) || ""),
+                            iva_rate: (line.iva_rate ?? prev.iva_rate) as IvaRate,
+                            specification: prev.specification || line.specification || "",
+                          }));
+                        }}
+                        className="w-full rounded-md border border-primary/30 bg-background px-3 py-1.5 text-left text-xs hover:bg-primary/10"
+                      >
+                        <span className="font-medium">{fmt(Number(line.amount || 0))}</span>
+                        {line.description ? <span className="text-muted-foreground"> — {line.description}</span> : null}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* BP forecast lines — auto-expand when event selected */}
           {hasPL && effectiveEventId && plExpanded && (() => {
             const typeForecasts = relevantForecasts.filter(f => f.type === form.type);
@@ -2254,6 +2320,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     description: artistNames || "Cachê",
                     iva_rate: 0,
                     specification: cacheLines.map(c => `${c.artistName}: ${c.amount.toFixed(2)}€ (${c.cacheType === "fixed" ? "fixo" : "variável"})`).join("; "),
+                    transaction_id: null as any,
                   }],
                 };
                 artGroup.details.push(cacheDetail);
