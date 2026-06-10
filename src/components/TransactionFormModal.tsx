@@ -1180,6 +1180,26 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
         const { error: childError } = await supabase.from("transactions").insert(childInsertsWithParent as any);
         if (childError) throw childError;
 
+        // 3b. 🔑 Se utilizador escolheu linha BP Master, amarra FK 1↔1 à TX-mãe.
+        // Modelo: forecast Master ↔ transação Master (pai). Filhas continuam SEM FK.
+        // Sem isto, splits em turnê deixam o BP Master órfão (caso Aéreo Simone).
+        // Defesa: AND transaction_id IS NULL evita sobrescrever vínculo existente.
+        if (parentId && selectedForecastId) {
+          const { error: fkErr } = await supabase
+            .from("event_forecasts")
+            .update({ transaction_id: parentId } as any)
+            .eq("id", selectedForecastId)
+            .is("transaction_id", null);
+          if (fkErr) {
+            console.error("[BP FK link split] failed", fkErr);
+            toast({
+              title: "Rateio criado, mas não foi possível vincular à linha BP Master",
+              description: "Pode vincular manualmente depois pela edição da linha do BP.",
+              variant: "destructive",
+            });
+          }
+        }
+
         // 4. If paid by partner, link parent transaction to partner_paid_expenses
         //    using the tour Master event (splitMasterEventId) where partners exist
         if (isPaidByPartner && paidByPartnerId && splitMasterEventId) {

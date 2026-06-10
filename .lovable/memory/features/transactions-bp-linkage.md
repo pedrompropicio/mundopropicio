@@ -34,7 +34,7 @@ O match fuzzy é o que permite que TXs criadas sem FK (a maioria do histórico) 
 5. Reset automático: quando `form.event_id` muda, `selectedForecastId` volta a `null`.
 6. No INSERT (single-tx path em `createMutation`): após criar a TX, executa
    `UPDATE event_forecasts SET transaction_id = <novaTxId> WHERE id = <selectedForecastId> AND transaction_id IS NULL`.
-7. Split (rateio) **não** escreve FK: pai/filhos múltiplos não cabem no modelo 1↔1.
+7. Split (rateio): a TX-mãe (event_id=NULL) recebe FK do `selectedForecastId` quando o user escolheu uma linha do BP Master. Modelo 1↔1 com a mãe; filhas continuam sem FK. Sem isto, splits em turnê deixavam o BP Master órfão (caso Aéreo Simone 2026-04). Defesa `AND transaction_id IS NULL` impede sobrescrita.
 
 ### Automático (`EventForecast.tsx` → "Gerar Transações")
 
