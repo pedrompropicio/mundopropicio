@@ -102,7 +102,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
   // ── BP do Master pai (só se evento é SUB) — full lines para apropriação Forecast ──
   // parentEventId vem como PROP do EventDetail (evita query encadeada e race de timing).
   const forecastEnabled = mode === "forecast";
-  const expenseForecastEnabled = forecastEnabled && kind === "expense";
+  // expense-only forecast (sentinel kept for clarity; not used)
   const parentEventId = args.parentEventId ?? null;
   const allocationEnabled = forecastEnabled && !!parentEventId;
 
