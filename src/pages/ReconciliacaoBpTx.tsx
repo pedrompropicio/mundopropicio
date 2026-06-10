@@ -427,6 +427,46 @@ export default function ReconciliacaoBpTx() {
         </Button>
       </div>
 
+      {/* FRENTE 5 — TX-mãe de split sem FK que bate categoria única no BP Master */}
+      {(masterOrphansQuery.data?.length ?? 0) > 0 && (
+        <Card className="border-warning/40">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Layers className="h-4 w-4 text-warning" />
+              TX-mãe de split sem vínculo ({masterOrphansQuery.data!.length})
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Transações-mãe (rateio Master, event_id=NULL) sem FK no BP que batem categoria única num BP Master. Um clique vincula à linha prevista.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {masterOrphansQuery.data!.map((row: any) => (
+              <div key={row.tx.id} className="flex items-start justify-between gap-3 rounded border p-3 flex-wrap">
+                <div className="flex-1 min-w-0 text-sm">
+                  <div className="font-medium">{row.tx.description ?? "(sem descrição)"}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {formatInCurrency(row.tx.amount, "EUR")} · {supplierName(row.tx.supplier_id)} · {row.tx.date ?? "—"}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Categoria: {catLabel(row.tx.category_id)}
+                  </div>
+                  <div className="text-xs mt-1">
+                    → Master <strong>{eventName(row.masterEventId)}</strong> · linha BP "{row.candidate.description ?? "(sem descrição)"}" ({formatInCurrency(row.candidate.amount, "EUR")})
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => linkMutation.mutate({ txId: row.tx.id, forecastId: row.candidate.id })}
+                  disabled={linkMutation.isPending}
+                >
+                  <Link2 className="h-3.5 w-3.5 mr-1" /> Vincular à linha BP Master
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Filtros</CardTitle>
