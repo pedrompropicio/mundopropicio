@@ -7,6 +7,11 @@ import {
   emptyBreakdown, addToBreakdown, detectPhase, defaultModeForPhase, classifyIncomeL1,
 } from "@/lib/event-financial-card";
 import { computeScenarioRevenue, type CoalaConfig, type CoalaSession } from "@/lib/event-simulator-coala";
+import {
+  computeMasterForecastAllocation,
+  type SubTxForAllocation,
+  type MasterBpLine,
+} from "@/lib/master-forecast-allocation";
 
 export interface UseEventFinancialCardDataArgs {
   eventId: string;
