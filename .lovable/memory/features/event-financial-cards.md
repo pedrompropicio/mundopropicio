@@ -14,7 +14,11 @@ Substitui os 2 StatCards estáticos por `<EventFinancialCard>` com 3 modos comut
 - **Comprometido** — Σ `event_forecasts.amount` (active version, approved, !is_transitory, !exclude_from_result). Mini-barra de formalidade (Estimado/Negociação/Fechado/Pago) com tooltips. Cachê aparece em legenda quando >0.
 - **Forecast**
   - Receitas: `computeScenarioRevenue` (toggle today/breakeven/forecast). Sub-totais Bilheteira/Patrocínio/A&B/Outros/Total.
-  - Custos: formalidade-aware. Linhas com `formalidade ∈ {fechado, pago_parcial, pago_total}` que tenham TX na mesma `category_id+event_id` usam Σ TX; restantes usam BP. TX em categorias sem linha BP somam à parte (são TXs reais do sub, não "órfãs"). Sub-totais: `BP do sub / TX do sub / [Cachê] / Total`.
+  - Custos: formalidade-aware. Linhas com `formalidade ∈ {fechado, pago_parcial, pago_total}` que tenham TX na mesma `category_id+event_id` usam Σ TX; restantes usam BP. TX em categorias sem linha BP do sub são distinguidas em dois rótulos:
+    - **TX via rateio Master** — categoria tem previsão no BP do Master pai (típico: TX-filha de despesa partilhada, ex. aéreo). Tem previsão, só que no Master — NÃO é "fora do BP".
+    - **TX local** — categoria sem previsão nem no sub nem no Master (despesa genuinamente local/extra).
+    A matemática do total não muda; só se divide o rótulo. Em evento simples ou no próprio Master, `masterBpCats` fica vazio e tudo cai em "TX local".
+    Sub-totais: `BP do sub / [TX via rateio Master] / [TX local] / [Cachê] / Total` (linhas a 0 são omitidas).
 
 ## Master/Split — modelo respeitado
 Fonte de verdade: `master-split-rateio-source-of-truth.md`.
