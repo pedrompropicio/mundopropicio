@@ -218,3 +218,16 @@ Vista compacta tipo PWA: criar item rápido (foto+OCR), ver sessão ativa, sem a
 | Multi-empresa switch | PA only | | | | | | |
 
 (* depende de `partner_event_access` ou granular permissions)
+
+---
+
+## 8. MP CRM — Admin (`/crm/*`)
+
+Backoffice do MP CRM (layout `CrmLayout` + `CrmSidebar`), com as áreas de marketing
+a par das de portal. Entradas de marketing/ads:
+
+| Rota | Componente | Descrição |
+|---|---|---|
+| `/crm/meta-capi` | `MetaCapiMonitor.tsx` | Monitor server-side do Meta Pixel + CAPI. |
+| `/crm/meta-audiences` | `MetaAudiencesList.tsx` | Custom Audiences Meta. |
+| `/crm/google-ads` | `crm-admin/google-ads/GoogleAdsAdmin.tsx` | **Google Ads (Sprint 1 — esqueleto).** Navegação por secção (Conversões, Campanhas, Audiences/Customer Match, Definições) com placeholders; sem lógica de API (gate do developer token + Data Manager API no Sprint 2). |
