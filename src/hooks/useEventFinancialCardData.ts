@@ -432,7 +432,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         { label: "BP do sub", value: bpSum },
       ];
       if (rateioMasterSum > 0) subtotals.push({ label: "Rateio Master (previsto)", value: rateioMasterSum });
-      if (txLocalSum > 0) subtotals.push({ label: "TX local", value: txLocalSum });
+      if (txLocalSum > 0) subtotals.push({ label: "TX local fora do BP", value: txLocalSum });
       if (txLinkedSum > 0 && rateioMasterSum === 0 && txLocalSum === 0) {
         subtotals.push({ label: "TX (substitui BP)", value: txLinkedSum });
       }
