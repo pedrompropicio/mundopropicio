@@ -19,11 +19,10 @@ export interface UseEventFinancialCardDataArgs {
   primaryEventDate?: string | null;
   /** Receita já calculada de ticket_sales (vem do EventDetail). */
   ticketSalesRevenue?: number;
-  /** TX do Master rateadas (÷ N siblings). */
-  masterExpenseShare?: number;
-  /** Forecasts overhead do Master rateados (÷ N siblings). Só aplicado em committed/forecast. */
-  masterForecastShare?: number;
-  /** Cachê calculado efetivo. */
+  /**
+   * Cachê calculado efetivo (useEventCacheImpact). Único extra legítimo:
+   * vive fora de event_forecasts/transactions e não duplica nada.
+   */
   cacheImpact?: number;
 }
 
@@ -40,10 +39,24 @@ export interface UseEventFinancialCardDataResult {
   modeUsed: ModeUsed;
   /** Algum dado indisponível (p.ex. simulador sem config). */
   unavailable: boolean;
-  /** Total da componente forecast bilheteira para casos especiais. */
   meta?: Record<string, number | null>;
 }
 
+/**
+ * NOTA SOBRE MASTER/SPLIT (importante — não reintroduzir mecanismos errados):
+ *
+ * Despesa partilhada do Master vive em 3 peças:
+ *   1) event_forecasts.event_id = Master           (previsão)
+ *   2) transactions.event_id = NULL (flutuante)    (pagamento, ligada via forecast.transaction_id)
+ *   3) transactions.event_id = SUB, parent_transaction_id = (2), amount ÷ N   (TX-filha já no sub)
+ *
+ * O card do sub seleciona TX por event_id=sub: as TX-filhas (peça 3) JÁ ENTRAM
+ * naturalmente. Não há rateio virtual de BP comum Master→sub; só overhead
+ * (is_overhead=true) tem expansão virtual via expandOverheadToSplits.
+ *
+ * Por isso este hook NÃO recebe masterExpenseShare nem masterForecastShare —
+ * essas variáveis eram dupla-contagem (ver master-split-rateio-source-of-truth.md).
+ */
 export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): UseEventFinancialCardDataResult {
   const { eventId, eventIds, kind, mode, scenario = "forecast", eventStatus, primaryEventDate } = args;
   const ids = eventIds.length > 0 ? eventIds : [eventId];
@@ -123,6 +136,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       hasSales,
     });
     const modeUsed: ModeUsed = mode === "auto" ? defaultModeForPhase(phase) : mode;
+    const cache = Number(args.cacheImpact || 0);
 
     // ── REALIZED ──────────────────────────────────────────────
     if (modeUsed === "realized") {
@@ -134,12 +148,11 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         const hasSalesNow = (args.ticketSalesRevenue ?? 0) > 0;
         const display = hasSalesNow ? (args.ticketSalesRevenue ?? 0) + nonTicketSum : allIncomeSum;
 
-        // Subtotais por L1
         const buckets = { bilheteira: hasSalesNow ? (args.ticketSalesRevenue ?? 0) : 0, patrocinio: 0, outros: 0 };
         const source = hasSalesNow ? nonTicket : incomeTx;
         for (const t of source) {
           const cls = classifyIncomeL1(t.account_categories?.code);
-          if (hasSalesNow && cls === "bilheteira") { /* já contado em ticketSales */ continue; }
+          if (hasSalesNow && cls === "bilheteira") continue;
           if (cls === "bilheteira") buckets.bilheteira += Number(t.amount || 0);
           else if (cls === "patrocinio") buckets.patrocinio += Number(t.amount || 0);
           else buckets.outros += Number(t.amount || 0);
@@ -150,25 +163,26 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
             { label: "Bilheteira", value: buckets.bilheteira },
             { label: "Patrocínio", value: buckets.patrocinio },
             { label: "Outros", value: buckets.outros },
+            { label: "Total", value: display },
           ],
           formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
         };
       } else {
-        // Expense
+        // Expense — só TX do(s) evento(s) seleccionados (TX-filhas de split JÁ entram via event_id=sub) + cachê pago.
         const expTx = realizedTx.filter((t: any) => t.type === "expense");
         const paid = expTx.filter((t: any) => t.status === "paid").reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
         const approved = expTx.filter((t: any) => t.status === "approved").reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
         const own = paid + approved;
-        const masterTx = Number(args.masterExpenseShare || 0);
-        const cache = Number(args.cacheImpact || 0);
-        // Realized NÃO inclui forecasts do Master (só TX).
-        const extra = masterTx + cache;
+        const total = own + cache;
+        const subtotals: Subtotal[] = [
+          { label: "Pago", value: paid },
+          { label: "Aprovado", value: approved },
+        ];
+        if (cache > 0) subtotals.push({ label: "Cachê", value: cache });
+        subtotals.push({ label: "Total", value: total });
         return {
-          displayValue: own + extra,
-          subtotals: [
-            { label: "Pago", value: paid },
-            { label: "Comprometido (próprio)", value: approved },
-          ],
+          displayValue: total,
+          subtotals,
           formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
         };
       }
@@ -180,17 +194,15 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       const approved = forecasts.filter((f: any) =>
         f.status === "approved" && !f.is_transitory && !f.exclude_from_result
       );
-      const total = approved.reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
+      const bpTotal = approved.reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
       const bd = approved.reduce<FormalidadeBreakdown>(
         (acc, f) => addToBreakdown(acc, f.formalidade, Number(f.amount || 0)),
         emptyBreakdown(),
       );
-      const extra = kind === "expense"
-        ? Number(args.masterExpenseShare || 0) + Number(args.masterForecastShare || 0) + Number(args.cacheImpact || 0)
-        : 0;
+      const total = bpTotal + (kind === "expense" ? cache : 0);
       return {
-        displayValue: total + extra,
-        subtotals: [], // mini-barra é render direto da breakdown
+        displayValue: total,
+        subtotals: [], // mini-barra é render direto da breakdown; extras (cachê) ficam na legenda do card
         formalidadeBreakdown: bd,
         phase, modeUsed, unavailable: approved.length === 0,
       };
@@ -251,15 +263,16 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
           { label: "Patrocínio", value: rev.sponsorRevenue },
           { label: "A&B", value: abZero ? null : rev.drinkRevenue + rev.foodRevenue },
           { label: "Outros", value: rev.souvenirRevenue + rev.otherCredits },
+          { label: "Total", value: rev.totalRevenue },
         ],
         formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
       };
     } else {
-      // Forecast custos: formalidade-aware
+      // Forecast custos: formalidade-aware sobre BP do(s) sub(s) + TX do sub em cats não cobertas.
+      // TX-filhas de split entram naturalmente porque têm event_id=sub.
       const approved = forecasts.filter((f: any) =>
         f.status === "approved" && !f.is_transitory && !f.exclude_from_result
       );
-      // soma TX por category_id+event_id (paid+approved+pending)
       const txExpense = txs.filter((t: any) => t.type === "expense" && !t.is_transitory);
       const txByCat = new Map<string, number>();
       for (const t of txExpense) {
@@ -267,7 +280,6 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         if (t.status !== "paid" && t.status !== "approved" && t.status !== "pending") continue;
         txByCat.set(t.category_id, (txByCat.get(t.category_id) ?? 0) + Number(t.amount || 0));
       }
-      // categorias cobertas pelo BP
       const bpCats = new Set<string>(approved.map((f: any) => f.category_id).filter(Boolean));
       let bpSum = 0;
       let txLinkedSum = 0;
@@ -279,33 +291,29 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
           f_.formalidade === "pago_total";
         if (isBlinded && f_.category_id) {
           const txAmt = txByCat.get(f_.category_id) ?? 0;
-          if (txAmt > 0) {
-            txLinkedSum += txAmt;
-            continue;
-          }
+          if (txAmt > 0) { txLinkedSum += txAmt; continue; }
         }
         bpSum += Number(f_.amount || 0);
       }
-      // órfãs: TX em categorias fora do BP
-      let orphanSum = 0;
+      // TX em categorias sem linha BP — são TX reais do sub (incl. filhas de split), não "órfãs"
+      let txExtraSum = 0;
       for (const [cat, sum] of txByCat) {
-        if (!bpCats.has(cat)) orphanSum += sum;
+        if (!bpCats.has(cat)) txExtraSum += sum;
       }
-      const extra =
-        Number(args.masterExpenseShare || 0) +
-        Number(args.masterForecastShare || 0) +
-        Number(args.cacheImpact || 0);
-      const total = bpSum + txLinkedSum + orphanSum + extra;
+      const txTotal = txLinkedSum + txExtraSum;
+      const total = bpSum + txTotal + cache;
+      const subtotals: Subtotal[] = [
+        { label: "BP do sub", value: bpSum },
+        { label: "TX do sub", value: txTotal },
+      ];
+      if (cache > 0) subtotals.push({ label: "Cachê", value: cache });
+      subtotals.push({ label: "Total", value: total });
       return {
         displayValue: total,
-        subtotals: [
-          { label: "BP próprio", value: bpSum },
-          { label: "TX fora do BP", value: txLinkedSum + orphanSum },
-          { label: "Forecast total", value: total },
-        ],
+        subtotals,
         formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
       };
     }
   }, [txs, forecasts, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate,
-      args.ticketSalesRevenue, args.masterExpenseShare, args.masterForecastShare, args.cacheImpact]);
+      args.ticketSalesRevenue, args.cacheImpact]);
 }
