@@ -524,15 +524,16 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
       const subs = subEventsByParent[ev.id] || [];
       const isMulti = ev.event_type === "multi_day" && subs.length > 0;
       const groupName = isMulti ? `🔀 ${ev.name} (Turnê)` : undefined;
+      const masterBadge = isMulti ? " · Turnê (Master)" : "";
       opts.push({
         value: ev.id,
-        label: `${ev.name}${ev.pl_mode === "active" ? " 🔒" : ""}${isMulti ? " ⚡ Rateio" : ""}`,
+        label: `${ev.name}${ev.pl_mode === "active" ? " 🔒" : ""}${masterBadge}`,
         group: groupName,
       });
       subs.forEach((sub: any) => {
         opts.push({
           value: sub.id,
-          label: `${ev.name} — ${sub.name}`,
+          label: `${ev.name} — ${sub.name} · Sub de ${ev.name}`,
           group: groupName,
           indent: true,
           icon: "↳",
