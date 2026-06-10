@@ -24,6 +24,8 @@ export interface UseEventFinancialCardDataArgs {
    * vive fora de event_forecasts/transactions e não duplica nada.
    */
   cacheImpact?: number;
+  /** parent_event_id do evento (null se Master ou simples). Usado em forecast custos para distinguir TX via rateio Master. */
+  parentEventId?: string | null;
 }
 
 export interface Subtotal {
