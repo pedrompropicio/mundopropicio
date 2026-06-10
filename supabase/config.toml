@@ -76,3 +76,8 @@ verify_jwt = false
 
 [functions.capi-meta-events]
 verify_jwt = false
+
+# Portal público mundopropicio.com — ingest de cliques Google Ads. CORS estrito
+# + Origin allowlist + Zod no handler. SERVICE_ROLE auto-injetada para o insert.
+[functions.crm-google-click-ingest]
+verify_jwt = false

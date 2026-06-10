@@ -83,18 +83,47 @@ A landing pública (`www.mundopropicio.com`) **não vive neste repositório**. S
 `docs/portal/architecture.md`, o portal público é um projeto **Lovable modern /
 TanStack Start** distinto (este repo é a SPA Vite de backoffice + edge functions).
 
-Por isso, o Sprint 1 **não** implementa aqui o código client-side de captura — fica
-para a integração do lado do Portal. Padrão a seguir lá (igual ao pixel/CAPI atual):
-1. Ao carregar a landing, ler `gclid`/`gbraid`/`wbraid` e `utm_*` do URL.
-2. Respeitar o **gating de consentimento** existente (igual ao pixel/CAPI); registar
-   `consent_granted`.
-3. Persistir em `crm.google_click` (via o padrão de escrita do Portal — write
-   server-side, à maneira de `lead_capture` / `process-lead-capture`), associando
-   `event_id`, `client_event_id` e `lead_capture_id` quando disponíveis.
+### 4.1 Edge function de ingest (este repo)
 
-> Quando o Portal for integrado, o ponto de escrita pode ser uma edge function
-> pública análoga a `process-lead-capture` (este repo) ou o write direto do Portal,
-> conforme a decisão de arquitetura. O schema já o suporta.
+`supabase/functions/crm-google-click-ingest/index.ts` — endpoint público que recebe
+POST do portal e escreve em `crm.google_click` com a `SERVICE_ROLE` auto-injetada.
+Alinhado com o padrão `capi-meta-events` (`verify_jwt = false` em `config.toml`,
+CORS estrito, validação Zod no handler).
+
+**URLs:**
+- Test: `https://ukpuhoynrqobqtzdbysp.supabase.co/functions/v1/crm-google-click-ingest`
+- Live: `https://sfohvvlqccmmebvjgibx.supabase.co/functions/v1/crm-google-click-ingest`
+
+**Origin allowlist** (rejeita 403 fora destes):
+- `https://www.mundopropicio.com`
+- `https://mundopropicio.com`
+- `https://propicio-stage-portal.lovable.app`
+- `https://*--26b95793-17b6-478c-a6e8-745c0cfb7ed9.lovable.app` (previews Lovable do portal)
+
+**company_id é fixo no servidor** — lido de `PORTAL_DEFAULT_COMPANY_ID` com
+fallback hardcoded para `7c858982-…` (Mundo Propício). **Nunca aceitar do payload**
+— qualquer site público conseguiria forjar inserts noutro tenant.
+
+**Payload aceite** (validação Zod, body máx 4 KB):
+- `gclid` | `gbraid` | `wbraid` (exatamente um, máx 255, sem normalizar)
+- `utm_source/medium/campaign/content/term` (opcionais, máx 255)
+- `landing_url` (URL, obrigatório), `referrer` (URL, opcional)
+- `user_agent` (máx 1000), `consent_granted` (boolean, obrigatório)
+- `event_id` (uuid, opcional), `client_event_id` (uuid, obrigatório),
+  `lead_capture_id` (uuid, opcional)
+
+`captured_at` e `expires_at` ficam a cargo da BD (default + trigger +90d). O
+`consent_granted=false` é gravado tal qual — o gating downstream para Google é
+tratado depois (não no ingest).
+
+### 4.2 Padrão do lado do Portal (resumo)
+
+1. Ao carregar a landing, ler `gclid`/`gbraid`/`wbraid` e `utm_*` do URL.
+2. Respeitar o gating de consentimento existente (igual ao pixel/CAPI); registar
+   `consent_granted`.
+3. POST para a URL Live da `crm-google-click-ingest` (apontar para Test só em
+   previews/desenvolvimento), associando `event_id`, `client_event_id` e
+   `lead_capture_id` quando disponíveis.
 
 ---
 
