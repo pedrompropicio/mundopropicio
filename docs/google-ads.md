@@ -43,8 +43,11 @@ Capturada na landing. Campos não-negociáveis:
 - `client_event_id` (UUID client-side, à maneira do Portal) e `lead_capture_id`
   (→ `public.lead_capture`) para correlação com lead/sessão.
 - `consent_granted` — estado de consentimento na captura (gating igual ao pixel/CAPI).
-- `captured_at` (default `now()`), `expires_at` **GERADO** = `captured_at + 90 dias`
-  (janela de atribuição Google).
+- `captured_at` (default `now()`), `expires_at` = `captured_at + 90 dias`
+  (janela de atribuição Google), preenchido por **trigger** `BEFORE INSERT/UPDATE`
+  (`crm.google_click_set_expires`). NÃO é coluna gerada: `timestamptz + interval`
+  usa `timestamptz_pl_interval`, que é STABLE e não pode estar numa coluna
+  `GENERATED` (erro Postgres 42P17).
 
 ### 2.2 `crm.google_conversion` — fila de conversões (Sprint 2 popula)
 Espelha o envio de `purchase` do CAPI:

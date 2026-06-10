@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS crm.google_click (
   user_agent text,
   raw jsonb,
   captured_at timestamptz NOT NULL DEFAULT now(),
-  expires_at timestamptz GENERATED ALWAYS AS (captured_at + interval '90 days') STORED,
+  expires_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT google_click_exactly_one_id CHECK (
     (gclid IS NOT NULL)::int + (gbraid IS NOT NULL)::int + (wbraid IS NOT NULL)::int = 1
@@ -82,6 +82,23 @@ CREATE INDEX IF NOT EXISTS idx_google_click_gclid ON crm.google_click(gclid) WHE
 CREATE INDEX IF NOT EXISTS idx_google_click_event ON crm.google_click(event_id) WHERE event_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_google_click_client_event ON crm.google_click(client_event_id) WHERE client_event_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_google_click_expires ON crm.google_click(expires_at);
+
+-- expires_at = captured_at + 90 dias, preenchido por TRIGGER (não coluna gerada):
+-- timestamptz + interval usa timestamptz_pl_interval, que é STABLE (não IMMUTABLE),
+-- por isso não pode ser usado numa coluna GENERATED (erro 42P17). Acontece com
+-- qualquer intervalo (dias ou segundos) — a solução é o trigger BEFORE INSERT/UPDATE.
+CREATE OR REPLACE FUNCTION crm.google_click_set_expires()
+RETURNS trigger LANGUAGE plpgsql AS $func$
+BEGIN
+  NEW.expires_at := NEW.captured_at + interval '90 days';
+  RETURN NEW;
+END
+$func$;
+
+DROP TRIGGER IF EXISTS trg_google_click_set_expires ON crm.google_click;
+CREATE TRIGGER trg_google_click_set_expires
+  BEFORE INSERT OR UPDATE OF captured_at ON crm.google_click
+  FOR EACH ROW EXECUTE FUNCTION crm.google_click_set_expires();
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 2) crm.google_conversion — fila de conversões (envio via Data Manager API no Sprint 2)

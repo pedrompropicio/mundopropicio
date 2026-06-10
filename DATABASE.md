@@ -459,7 +459,7 @@ Migration `20260610000000_google_ads_sprint1.sql`. Espelha o padrão `crm.meta_*
 
 | Tabela | Função |
 |---|---|
-| `crm.google_click` | Atribuição de clique. `gclid`/`gbraid`/`wbraid` (exatamente um; gclid `varchar(255)` case-sensitive), `landing_url`, `referrer`, `utm_*`, `event_id`→`events`, `client_event_id`, `lead_capture_id`, `consent_granted`, `captured_at`, `expires_at` **gerado** = `captured_at + 90 dias`. |
+| `crm.google_click` | Atribuição de clique. `gclid`/`gbraid`/`wbraid` (exatamente um; gclid `varchar(255)` case-sensitive), `landing_url`, `referrer`, `utm_*`, `event_id`→`events`, `client_event_id`, `lead_capture_id`, `consent_granted`, `captured_at`, `expires_at` = `captured_at + 90 dias` (preenchido por **trigger** `BEFORE INSERT/UPDATE`; não coluna gerada — `timestamptz + interval` é STABLE). |
 | `crm.google_conversion` | Fila de conversões (Data Manager API, Sprint 2). `conversion_action_ref`, clique (gclid/gbraid/wbraid), `conversion_value`, `currency_code`, `order_id`=`transaction_id` da venda (dedupe UNIQUE), `conversion_datetime`, `status` pending/sent/failed, `data_manager_job_id`, `error_detail`, `sent_at`. |
 | `crm.google_campaign` | Espelho de campanhas (Sprint 2). `customer_id`, `external_campaign_id`, perf em micros. |
 | `crm.google_ad_group` | Espelho de ad groups (Sprint 2). |
