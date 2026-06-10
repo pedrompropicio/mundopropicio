@@ -2590,15 +2590,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 </div>
               </div>}
 
-              {/* BP summary row */}
-              {(incomeForecasts.length > 0 || expenseForecasts.length > 0) && (
-                <div className="glass rounded-xl p-4 flex items-center justify-between">
-                  <span className="text-sm font-semibold">Resultado Previsto</span>
-                  <span className={`font-mono text-lg font-bold ${forecastProfit >= 0 ? "text-success" : "text-destructive"}`}>
-                    {formatCurrency(forecastProfit)}
-                  </span>
-                </div>
-              )}
+              {/* "Resultado Previsto" do rodapé removido — ver SummaryCard "Resultado" no topo (Previsão vs Real) e Cards Receitas/Custos no EventDetail. */}
             </div>
               )}
             </div>
