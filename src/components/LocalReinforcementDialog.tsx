@@ -114,9 +114,9 @@ export function LocalReinforcementDialog({ open, onOpenChange, categoryName, mas
                 </Popover>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Despesa exclusiva deste sub-evento (ex: artista local, reforço de mídia da cidade).
-                <span className="block mt-1">
-                  <strong className="text-foreground">Não consome</strong> a verba planeada no BP Master.
+                Custo local exclusivo deste sub-evento (não consome rateio Master).
+                <span className="block mt-1 text-muted-foreground">
+                  Ex.: artista de abertura local, reforço de mídia da cidade, equipamento extra exclusivo.
                 </span>
               </p>
             </div>
@@ -135,7 +135,7 @@ export function LocalReinforcementDialog({ open, onOpenChange, categoryName, mas
                 Vincular ao Rateio Master
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Esta despesa faz parte do custo rateado da turnê (vincula à linha Master)
+                Esta despesa faz parte do custo rateado da turnê e consome a linha prevista no BP Master.
               </p>
             </div>
           </label>
