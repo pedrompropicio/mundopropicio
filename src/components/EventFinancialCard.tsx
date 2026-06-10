@@ -21,7 +21,12 @@ interface Props {
   eventStatus?: string | null;
   primaryEventDate?: string | null;
   ticketSalesRevenue?: number;
-  extraExpense?: number;
+  /** TX do Master rateadas (÷ N siblings). */
+  masterExpenseShare?: number;
+  /** Forecasts overhead do Master rateados (÷ N siblings, anti-dup vs masterExpenseShare). */
+  masterForecastShare?: number;
+  /** Cachê calculado efetivo. */
+  cacheImpact?: number;
   /** Callback com o displayValue actual — usado pelo card Lucro. */
   onValueChange?: (value: number) => void;
 }
@@ -65,7 +70,9 @@ export function EventFinancialCard(props: Props) {
     eventStatus: props.eventStatus,
     primaryEventDate: props.primaryEventDate,
     ticketSalesRevenue: props.ticketSalesRevenue,
-    extraExpense: props.extraExpense,
+    masterExpenseShare: props.masterExpenseShare,
+    masterForecastShare: props.masterForecastShare,
+    cacheImpact: props.cacheImpact,
   });
 
   useEffect(() => { onValueChange?.(data.displayValue); }, [data.displayValue, onValueChange]);
@@ -79,6 +86,19 @@ export function EventFinancialCard(props: Props) {
   const variantIcon = kind === "income" ? "text-accent" : "text-warning";
 
   const showScenarioToggle = data.modeUsed === "forecast" && kind === "income";
+
+  // Extras visíveis (cachê e rateio turnê) — mostrados em todos os modos quando > 0.
+  const extras: Array<{ label: string; value: number }> = [];
+  if (kind === "expense") {
+    const cache = Number(props.cacheImpact || 0);
+    const masterTx = Number(props.masterExpenseShare || 0);
+    const masterFc = Number(props.masterForecastShare || 0);
+    if (cache > 0) extras.push({ label: "Cachê", value: cache });
+    // Em realized não somamos masterForecastShare ao displayValue, logo não o mostramos.
+    const includeMasterFc = data.modeUsed !== "realized" && masterFc > 0;
+    const rateio = masterTx + (includeMasterFc ? masterFc : 0);
+    if (rateio > 0) extras.push({ label: "Rateio turnê", value: rateio });
+  }
 
   return (
     <div className={`glass rounded-xl p-5 border ${variantBorder} relative`}>
@@ -137,15 +157,30 @@ export function EventFinancialCard(props: Props) {
       </div>
 
       {/* Sub-totais ou mini-barra */}
-      <div className="mt-3 min-h-[28px]">
+      <div className="mt-3 min-h-[28px] space-y-1.5">
         {data.formalidadeBreakdown ? (
-          <FormalidadeBar bd={data.formalidadeBreakdown} />
-        ) : data.subtotals.length > 0 ? (
+          <>
+            <FormalidadeBar bd={data.formalidadeBreakdown} />
+            {extras.length > 0 && (
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+                {extras.map((e, i) => (
+                  <span key={i}>+ {e.label}: {formatCurrency(e.value)}</span>
+                ))}
+              </div>
+            )}
+          </>
+        ) : data.subtotals.length > 0 || extras.length > 0 ? (
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
             {data.subtotals.map((s, i) => (
-              <span key={i}>
+              <span key={`s${i}`}>
                 <span className="font-medium text-foreground/70">{s.label}:</span>{" "}
                 {s.value === null ? <span className="opacity-60">—</span> : formatCurrency(s.value)}
+              </span>
+            ))}
+            {extras.map((e, i) => (
+              <span key={`e${i}`}>
+                <span className="font-medium text-foreground/70">{e.label}:</span>{" "}
+                {formatCurrency(e.value)}
               </span>
             ))}
           </div>

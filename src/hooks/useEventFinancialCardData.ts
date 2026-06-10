@@ -19,8 +19,12 @@ export interface UseEventFinancialCardDataArgs {
   primaryEventDate?: string | null;
   /** Receita já calculada de ticket_sales (vem do EventDetail). */
   ticketSalesRevenue?: number;
-  /** masterExpenseShare + cacheImpact (vem do EventDetail). */
-  extraExpense?: number;
+  /** TX do Master rateadas (÷ N siblings). */
+  masterExpenseShare?: number;
+  /** Forecasts overhead do Master rateados (÷ N siblings). Só aplicado em committed/forecast. */
+  masterForecastShare?: number;
+  /** Cachê calculado efetivo. */
+  cacheImpact?: number;
 }
 
 export interface Subtotal {
@@ -155,17 +159,21 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         const paid = expTx.filter((t: any) => t.status === "paid").reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
         const approved = expTx.filter((t: any) => t.status === "approved").reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
         const own = paid + approved;
-        const extra = Number(args.extraExpense || 0);
+        const masterTx = Number(args.masterExpenseShare || 0);
+        const cache = Number(args.cacheImpact || 0);
+        // Realized NÃO inclui forecasts do Master (só TX).
+        const extra = masterTx + cache;
         return {
           displayValue: own + extra,
           subtotals: [
             { label: "Pago", value: paid },
-            { label: "Comprometido", value: approved + extra },
+            { label: "Comprometido (próprio)", value: approved },
           ],
           formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
         };
       }
     }
+
 
     // ── COMMITTED ─────────────────────────────────────────────
     if (modeUsed === "committed") {
@@ -177,7 +185,9 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         (acc, f) => addToBreakdown(acc, f.formalidade, Number(f.amount || 0)),
         emptyBreakdown(),
       );
-      const extra = kind === "expense" ? Number(args.extraExpense || 0) : 0;
+      const extra = kind === "expense"
+        ? Number(args.masterExpenseShare || 0) + Number(args.masterForecastShare || 0) + Number(args.cacheImpact || 0)
+        : 0;
       return {
         displayValue: total + extra,
         subtotals: [], // mini-barra é render direto da breakdown
@@ -281,17 +291,21 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       for (const [cat, sum] of txByCat) {
         if (!bpCats.has(cat)) orphanSum += sum;
       }
-      const extra = Number(args.extraExpense || 0);
+      const extra =
+        Number(args.masterExpenseShare || 0) +
+        Number(args.masterForecastShare || 0) +
+        Number(args.cacheImpact || 0);
       const total = bpSum + txLinkedSum + orphanSum + extra;
       return {
         displayValue: total,
         subtotals: [
-          { label: "BP", value: bpSum },
-          { label: "TX realizadas", value: txLinkedSum + orphanSum },
+          { label: "BP próprio", value: bpSum },
+          { label: "TX fora do BP", value: txLinkedSum + orphanSum },
           { label: "Forecast total", value: total },
         ],
         formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
       };
     }
-  }, [txs, forecasts, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate, args.ticketSalesRevenue, args.extraExpense]);
+  }, [txs, forecasts, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate,
+      args.ticketSalesRevenue, args.masterExpenseShare, args.masterForecastShare, args.cacheImpact]);
 }
