@@ -19,8 +19,12 @@ export interface UseEventFinancialCardDataArgs {
   primaryEventDate?: string | null;
   /** Receita já calculada de ticket_sales (vem do EventDetail). */
   ticketSalesRevenue?: number;
-  /** masterExpenseShare + cacheImpact (vem do EventDetail). */
-  extraExpense?: number;
+  /** TX do Master rateadas (÷ N siblings). */
+  masterExpenseShare?: number;
+  /** Forecasts overhead do Master rateados (÷ N siblings). Só aplicado em committed/forecast. */
+  masterForecastShare?: number;
+  /** Cachê calculado efetivo. */
+  cacheImpact?: number;
 }
 
 export interface Subtotal {
