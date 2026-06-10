@@ -1730,7 +1730,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
     .filter((f) => f.type === "expense")
     .reduce((s, f) => s + calcIvaAmount(Number(f.amount), Number(f.iva_rate)), 0);
   const totalForecastExpense = totalForecastExpenseBase;
-  const totalForecastIncome = totalForecastIncomeStrict > 0 ? totalForecastIncomeStrict : ticketRevenue;
+  const totalForecastIncome = totalForecastIncomeBase > 0 ? totalForecastIncomeBase : ticketRevenue;
   const forecastProfit = totalForecastIncome - totalForecastExpense;
 
   const totalActualIncomeStrict = comparisonTransactions
@@ -2325,7 +2325,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                           <td colSpan={3} className="py-2.5 text-right text-xs font-medium text-muted-foreground">Total</td>
                           <td className="py-2.5 text-right font-mono font-bold text-success">{formatCurrency(totalForecastIncomeBase)}</td>
                           <td className="py-2.5 text-right font-mono font-bold text-success/70">{formatCurrency(totalForecastIncomeIva)}</td>
-                          <td className="py-2.5 text-right font-mono font-bold text-success">{formatCurrency(totalForecastIncome)}</td>
+                          <td className="py-2.5 text-right font-mono font-bold text-success">{formatCurrency(totalForecastIncomeBase + totalForecastIncomeIva)}</td>
                           <td />
                         </tr>
                       </tfoot>
@@ -2590,15 +2590,7 @@ export function EventForecast({ eventId, eventDate, eventName, childEventIds, ex
                 </div>
               </div>}
 
-              {/* BP summary row */}
-              {(incomeForecasts.length > 0 || expenseForecasts.length > 0) && (
-                <div className="glass rounded-xl p-4 flex items-center justify-between">
-                  <span className="text-sm font-semibold">Resultado Previsto</span>
-                  <span className={`font-mono text-lg font-bold ${forecastProfit >= 0 ? "text-success" : "text-destructive"}`}>
-                    {formatCurrency(forecastProfit)}
-                  </span>
-                </div>
-              )}
+              {/* "Resultado Previsto" do rodapé removido — ver SummaryCard "Resultado" no topo (Previsão vs Real) e Cards Receitas/Custos no EventDetail. */}
             </div>
               )}
             </div>
