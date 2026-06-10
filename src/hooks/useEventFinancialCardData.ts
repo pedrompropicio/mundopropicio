@@ -329,24 +329,54 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       }));
       const rev = computeScenarioRevenue(sessions, cfg, scenario);
       const abZero = cfg.ab_drink_avg_ticket === 0 && cfg.ab_food_avg_ticket === 0;
+
+      // Rateio Master Receitas (regra 4): patrocínio/receita Master ÷ N
+      let masterIncomeRateio = 0;
+      if (allocationEnabled && parentEventId) {
+        const bpSubCats = new Set<string>(
+          (forecasts as any[])
+            .filter((f) => f.status === "approved" && !f.is_transitory && !f.exclude_from_result && f.category_id)
+            .map((f) => f.category_id),
+        );
+        const subTxs: SubTxForAllocation[] = (txs as any[])
+          .filter((t) => !t.is_transitory && t.event_id === eventId)
+          .map((t) => ({
+            category_id: t.category_id ?? null,
+            amount: Number(t.amount || 0),
+            type: t.type as "expense" | "income",
+            parent_transaction_id: t.parent_transaction_id ?? null,
+            parent_event_id: t.parent_transaction_id ? (parentEventMap.get(t.parent_transaction_id) ?? null) : undefined,
+          }));
+        const alloc = computeMasterForecastAllocation({
+          subId: eventId,
+          N: nSubs,
+          bpMaster: (masterBpLines as MasterBpLine[]),
+          bpSubCats,
+          subTxs,
+          kind: "income",
+        });
+        masterIncomeRateio = alloc.rateioMasterSum;
+      }
+      const totalRevenue = rev.totalRevenue + masterIncomeRateio;
+      const subtotals: Subtotal[] = [
+        { label: "Bilheteira", value: rev.ticketsRevenue },
+        { label: "Patrocínio", value: rev.sponsorRevenue },
+        { label: "A&B", value: abZero ? null : rev.drinkRevenue + rev.foodRevenue },
+        { label: "Outros", value: rev.souvenirRevenue + rev.otherCredits },
+      ];
+      if (masterIncomeRateio > 0) subtotals.push({ label: "Patrocínio (rateio Master)", value: masterIncomeRateio });
+      subtotals.push({ label: "Total", value: totalRevenue });
       return {
-        displayValue: rev.totalRevenue,
-        subtotals: [
-          { label: "Bilheteira", value: rev.ticketsRevenue },
-          { label: "Patrocínio", value: rev.sponsorRevenue },
-          { label: "A&B", value: abZero ? null : rev.drinkRevenue + rev.foodRevenue },
-          { label: "Outros", value: rev.souvenirRevenue + rev.otherCredits },
-          { label: "Total", value: rev.totalRevenue },
-        ],
+        displayValue: totalRevenue,
+        subtotals,
         formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
       };
     } else {
-      // Forecast custos: formalidade-aware sobre BP do(s) sub(s) + TX do sub em cats não cobertas.
-      // TX-filhas de split entram naturalmente porque têm event_id=sub.
+      // Forecast custos: BP do sub formalidade-aware + apropriação BP Master + TX local.
       const approved = forecasts.filter((f: any) =>
         f.status === "approved" && !f.is_transitory && !f.exclude_from_result
       );
-      const txExpense = txs.filter((t: any) => t.type === "expense" && !t.is_transitory);
+      const txExpense = txs.filter((t: any) => t.type === "expense" && !t.is_transitory && t.event_id === eventId);
       const txByCat = new Map<string, number>();
       for (const t of txExpense) {
         if (!t.category_id) continue;
@@ -368,25 +398,42 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         }
         bpSum += Number(f_.amount || 0);
       }
-      // TX em categorias sem linha BP do sub — distinguir "via rateio Master" vs "local"
-      const masterCats = new Set<string>(masterBpCatsArr as string[]);
-      let txMasterRateioSum = 0;
+
+      // Apropriação BP Master + TX local (helper estrito)
+      let rateioMasterSum = 0;
       let txLocalSum = 0;
-      for (const [cat, sum] of txByCat) {
-        if (bpCats.has(cat)) continue;
-        if (masterCats.has(cat)) txMasterRateioSum += sum;
-        else txLocalSum += sum;
+      if (allocationEnabled && parentEventId) {
+        const subTxs: SubTxForAllocation[] = (txExpense as any[]).map((t) => ({
+          category_id: t.category_id ?? null,
+          amount: Number(t.amount || 0),
+          type: "expense",
+          parent_transaction_id: t.parent_transaction_id ?? null,
+          parent_event_id: t.parent_transaction_id ? (parentEventMap.get(t.parent_transaction_id) ?? null) : undefined,
+        }));
+        const alloc = computeMasterForecastAllocation({
+          subId: eventId,
+          N: nSubs,
+          bpMaster: (masterBpLines as MasterBpLine[]),
+          bpSubCats: bpCats,
+          subTxs,
+          kind: "expense",
+        });
+        rateioMasterSum = alloc.rateioMasterSum;
+        txLocalSum = alloc.txLocalSum;
+      } else {
+        // Visão Global ou evento simples: sem quota; TX em cats fora do BP contam como local.
+        for (const [cat, sum] of txByCat) {
+          if (bpCats.has(cat)) continue;
+          txLocalSum += sum;
+        }
       }
-      const txExtraSum = txMasterRateioSum + txLocalSum;
-      const txTotal = txLinkedSum + txExtraSum;
-      const total = bpSum + txTotal + cache;
+      const total = bpSum + txLinkedSum + rateioMasterSum + txLocalSum + cache;
       const subtotals: Subtotal[] = [
         { label: "BP do sub", value: bpSum },
       ];
-      if (txMasterRateioSum > 0) subtotals.push({ label: "TX via rateio Master", value: txMasterRateioSum });
+      if (rateioMasterSum > 0) subtotals.push({ label: "Rateio Master (previsto)", value: rateioMasterSum });
       if (txLocalSum > 0) subtotals.push({ label: "TX local", value: txLocalSum });
-      if (txLinkedSum > 0 && txMasterRateioSum === 0 && txLocalSum === 0) {
-        // edge case: só há TX que substituem BP fechado — mostrar linha consolidada
+      if (txLinkedSum > 0 && rateioMasterSum === 0 && txLocalSum === 0) {
         subtotals.push({ label: "TX (substitui BP)", value: txLinkedSum });
       }
       if (cache > 0) subtotals.push({ label: "Cachê", value: cache });
@@ -398,5 +445,6 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       };
     }
   }, [txs, forecasts, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate,
-      args.ticketSalesRevenue, args.cacheImpact, masterBpCatsArr]);
+      args.ticketSalesRevenue, args.cacheImpact, masterBpLines, nSubs, parentEventMap,
+      allocationEnabled, parentEventId, eventId]);
 }
