@@ -1,0 +1,15 @@
+-- Back-link linha BP Master Aéreo (Simone Mendes 2026) à TX-mãe €22.173
+-- Live (production). DML pontual, não migration.
+
+UPDATE event_forecasts
+SET transaction_id = 'a16b4416-00ee-4c76-a414-7d495862f411'
+WHERE id = 'd8b0add0-58a8-4d62-b64b-a90903a5329f'
+  AND transaction_id IS NULL;
+
+-- Confirmação
+SELECT ef.id, ac.code, ef.description, ef.amount, ef.transaction_id,
+       t.amount AS tx_amount, t.status AS tx_status
+FROM event_forecasts ef
+JOIN account_categories ac ON ac.id = ef.category_id
+LEFT JOIN transactions t ON t.id = ef.transaction_id
+WHERE ef.id = 'd8b0add0-58a8-4d62-b64b-a90903a5329f';
