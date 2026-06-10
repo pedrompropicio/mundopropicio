@@ -185,7 +185,9 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         (acc, f) => addToBreakdown(acc, f.formalidade, Number(f.amount || 0)),
         emptyBreakdown(),
       );
-      const extra = kind === "expense" ? Number(args.extraExpense || 0) : 0;
+      const extra = kind === "expense"
+        ? Number(args.masterExpenseShare || 0) + Number(args.masterForecastShare || 0) + Number(args.cacheImpact || 0)
+        : 0;
       return {
         displayValue: total + extra,
         subtotals: [], // mini-barra é render direto da breakdown
