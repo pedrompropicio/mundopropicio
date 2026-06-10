@@ -92,6 +92,42 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     enabled: ids.length > 0,
   });
 
+  // ── BP do Master pai (só se evento é SUB) — para distinguir "TX via rateio Master" de "TX local" ──
+  const expenseForecastEnabled = mode === "forecast" && kind === "expense";
+  const { data: parentEventId = null } = useQuery({
+    queryKey: ["efc-parent", eventId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("events")
+        .select("parent_event_id")
+        .eq("id", eventId)
+        .maybeSingle();
+      return (data?.parent_event_id ?? null) as string | null;
+    },
+    enabled: expenseForecastEnabled,
+  });
+
+  const { data: masterBpCatsArr = [] } = useQuery({
+    queryKey: ["efc-master-bp-cats", parentEventId],
+    queryFn: async () => {
+      if (!parentEventId) return [] as string[];
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("category_id, is_transitory, exclude_from_result")
+        .eq("event_id", parentEventId)
+        .is("version_id", null)
+        .eq("type", "expense")
+        .eq("status", "approved");
+      if (error) throw error;
+      return Array.from(new Set(
+        (data ?? [])
+          .filter((f: any) => !f.is_transitory && !f.exclude_from_result && f.category_id)
+          .map((f: any) => f.category_id as string)
+      ));
+    },
+    enabled: expenseForecastEnabled && !!parentEventId,
+  });
+
   // ── Simulator (apenas em forecast+income) ──
   const simEnabled = mode === "forecast" && kind === "income";
   const { data: simCfg } = useQuery({
@@ -295,17 +331,27 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         }
         bpSum += Number(f_.amount || 0);
       }
-      // TX em categorias sem linha BP — são TX reais do sub (incl. filhas de split), não "órfãs"
-      let txExtraSum = 0;
+      // TX em categorias sem linha BP do sub — distinguir "via rateio Master" vs "local"
+      const masterCats = new Set<string>(masterBpCatsArr as string[]);
+      let txMasterRateioSum = 0;
+      let txLocalSum = 0;
       for (const [cat, sum] of txByCat) {
-        if (!bpCats.has(cat)) txExtraSum += sum;
+        if (bpCats.has(cat)) continue;
+        if (masterCats.has(cat)) txMasterRateioSum += sum;
+        else txLocalSum += sum;
       }
+      const txExtraSum = txMasterRateioSum + txLocalSum;
       const txTotal = txLinkedSum + txExtraSum;
       const total = bpSum + txTotal + cache;
       const subtotals: Subtotal[] = [
         { label: "BP do sub", value: bpSum },
-        { label: "TX do sub", value: txTotal },
       ];
+      if (txMasterRateioSum > 0) subtotals.push({ label: "TX via rateio Master", value: txMasterRateioSum });
+      if (txLocalSum > 0) subtotals.push({ label: "TX local", value: txLocalSum });
+      if (txLinkedSum > 0 && txMasterRateioSum === 0 && txLocalSum === 0) {
+        // edge case: só há TX que substituem BP fechado — mostrar linha consolidada
+        subtotals.push({ label: "TX (substitui BP)", value: txLinkedSum });
+      }
       if (cache > 0) subtotals.push({ label: "Cachê", value: cache });
       subtotals.push({ label: "Total", value: total });
       return {
@@ -315,5 +361,5 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       };
     }
   }, [txs, forecasts, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate,
-      args.ticketSalesRevenue, args.cacheImpact]);
+      args.ticketSalesRevenue, args.cacheImpact, masterBpCatsArr]);
 }
