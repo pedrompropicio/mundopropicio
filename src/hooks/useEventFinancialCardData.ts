@@ -291,17 +291,21 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       for (const [cat, sum] of txByCat) {
         if (!bpCats.has(cat)) orphanSum += sum;
       }
-      const extra = Number(args.extraExpense || 0);
+      const extra =
+        Number(args.masterExpenseShare || 0) +
+        Number(args.masterForecastShare || 0) +
+        Number(args.cacheImpact || 0);
       const total = bpSum + txLinkedSum + orphanSum + extra;
       return {
         displayValue: total,
         subtotals: [
-          { label: "BP", value: bpSum },
-          { label: "TX realizadas", value: txLinkedSum + orphanSum },
+          { label: "BP próprio", value: bpSum },
+          { label: "TX fora do BP", value: txLinkedSum + orphanSum },
           { label: "Forecast total", value: total },
         ],
         formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
       };
     }
-  }, [txs, forecasts, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate, args.ticketSalesRevenue, args.extraExpense]);
+  }, [txs, forecasts, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate,
+      args.ticketSalesRevenue, args.masterExpenseShare, args.masterForecastShare, args.cacheImpact]);
 }
