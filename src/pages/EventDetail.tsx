@@ -9,6 +9,7 @@ import { computeEventLastDate } from "@/lib/event-dates";
 import { ArrowLeft, TrendingUp, TrendingDown, Wallet, Ticket, CheckCircle2, RotateCcw, Calendar, Layers, Route, Pencil, Copy, Trash2, Lock, LockOpen, AlertTriangle } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { StatCard } from "@/components/StatCard";
+import { EventFinancialCard } from "@/components/EventFinancialCard";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { EventForecast } from "@/components/EventForecast";
 import { SponsorshipPipelineBoard } from "@/components/sponsorship/SponsorshipPipelineBoard";
@@ -140,6 +141,9 @@ export default function EventDetail() {
   const [editingSubName, setEditingSubName] = useState<string | null>(null);
   const [editSubNameValue, setEditSubNameValue] = useState("");
   const [editingSubEvent, setEditingSubEvent] = useState<any | null>(null);
+  // Valores reportados pelos novos EventFinancialCard (para alimentar o card Lucro)
+  const [cardIncomeValue, setCardIncomeValue] = useState<number>(0);
+  const [cardExpenseValue, setCardExpenseValue] = useState<number>(0);
 
   // Reflect tab + sub-event into the URL so they survive navigations.
   useEffect(() => {
@@ -867,37 +871,35 @@ export default function EventDetail() {
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title={isGlobalView ? "Receitas (Global)" : "Receitas"}
-          value={formatCurrency(totalIncome)}
-          icon={TrendingUp}
-          variant="accent"
-          subtitle={hasTicketSales ? (nonTicketTransactionIncome > 0 ? "Bilheteira + outras receitas" : "Via bilheteira") : (transactionIncome > 0 ? "Via transações" : undefined)}
-          tooltip={
-            hasTicketSales
-              ? "Receita de vendas registadas na Bilheteira + receitas não-bilheteira aprovadas/pagas, como patrocínios. Transações de bilheteira são substituídas para evitar dupla contagem."
-              : "Soma das transações de receita aprovadas ou pagas (exclui pendentes). Quando existem vendas de bilheteira, passa a usar essa fonte."
-          }
+        <EventFinancialCard
+          eventId={id!}
+          eventIds={transactionEventIds}
+          kind="income"
+          isMasterView={isGlobalView}
+          eventStatus={event.status}
+          primaryEventDate={event.date}
+          ticketSalesRevenue={Number(ticketSalesRevenue || 0)}
+          onValueChange={setCardIncomeValue}
         />
-        <StatCard
-          title={isGlobalView ? "Despesas (Global)" : "Despesas"}
-          value={formatCurrency(totalExpenses)}
-          icon={TrendingDown}
-          variant="warning"
-          tooltip={
-            isGlobalView
-              ? "Soma das despesas operacionais aprovadas ou pagas (exclui pendentes e transitórias) de todas as datas da turnê + transações Master rateadas."
-              : "Despesas operacionais do evento (aprovadas/pagas, sem transitórias) + quota-parte das transações Master partilhadas com outras datas."
-          }
+        <EventFinancialCard
+          eventId={id!}
+          eventIds={transactionEventIds}
+          kind="expense"
+          isMasterView={isGlobalView}
+          eventStatus={event.status}
+          primaryEventDate={event.date}
+          extraExpense={Number(masterExpenseShare || 0) + Number(calculatedCacheImpact || 0)}
+          onValueChange={setCardExpenseValue}
         />
         <StatCard
           title="Lucro"
-          value={formatCurrency(profit)}
+          value={formatCurrency(cardIncomeValue - cardExpenseValue)}
           icon={Wallet}
           variant="primary"
-          subtitle={totalIncome > 0 ? `Margem: ${((profit / totalIncome) * 100).toFixed(1)}%` : undefined}
-          tooltip="Receitas − Despesas (com a mesma base dos cards acima). Margem = Lucro ÷ Receitas."
+          subtitle={cardIncomeValue > 0 ? `Margem: ${(((cardIncomeValue - cardExpenseValue) / cardIncomeValue) * 100).toFixed(1)}%` : undefined}
+          tooltip="Receitas − Custos (reflete o modo escolhido em cada card). Margem = Lucro ÷ Receitas."
         />
+
         <StatCard
           title="Bilhetes"
           value={`${event.tickets_sold.toLocaleString()}`}
