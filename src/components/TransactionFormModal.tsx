@@ -2320,6 +2320,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
                     description: artistNames || "Cachê",
                     iva_rate: 0,
                     specification: cacheLines.map(c => `${c.artistName}: ${c.amount.toFixed(2)}€ (${c.cacheType === "fixed" ? "fixo" : "variável"})`).join("; "),
+                    transaction_id: null as any,
                   }],
                 };
                 artGroup.details.push(cacheDetail);
