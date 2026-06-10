@@ -7,6 +7,11 @@ import {
   emptyBreakdown, addToBreakdown, detectPhase, defaultModeForPhase, classifyIncomeL1,
 } from "@/lib/event-financial-card";
 import { computeScenarioRevenue, type CoalaConfig, type CoalaSession } from "@/lib/event-simulator-coala";
+import {
+  computeMasterForecastAllocation,
+  type SubTxForAllocation,
+  type MasterBpLine,
+} from "@/lib/master-forecast-allocation";
 
 export interface UseEventFinancialCardDataArgs {
   eventId: string;
@@ -70,7 +75,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("id, event_id, type, status, amount, paid_amount, category_id, is_transitory, account_categories(code)")
+        .select("id, event_id, type, status, amount, paid_amount, category_id, is_transitory, parent_transaction_id, account_categories(code)")
         .in("event_id", ids);
       if (error) throw error;
       return (data ?? []) as any[];
@@ -94,30 +99,70 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     enabled: ids.length > 0,
   });
 
-  // ── BP do Master pai (só se evento é SUB) — para distinguir "TX via rateio Master" de "TX local" ──
+  // ── BP do Master pai (só se evento é SUB) — full lines para apropriação Forecast ──
   // parentEventId vem como PROP do EventDetail (evita query encadeada e race de timing).
-  const expenseForecastEnabled = mode === "forecast" && kind === "expense";
+  const forecastEnabled = mode === "forecast";
+  // expense-only forecast (sentinel kept for clarity; not used)
   const parentEventId = args.parentEventId ?? null;
+  const allocationEnabled = forecastEnabled && !!parentEventId;
 
-  const { data: masterBpCatsArr = [] } = useQuery({
-    queryKey: ["efc-master-bp-cats", parentEventId],
+  const { data: masterBpLines = [] } = useQuery({
+    queryKey: ["efc-master-bp-lines", parentEventId, kind],
     queryFn: async () => {
-      if (!parentEventId) return [] as string[];
+      if (!parentEventId) return [] as Array<{ category_id: string | null; amount: number; type: string }>;
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("category_id, is_transitory, exclude_from_result")
+        .select("category_id, amount, type, is_transitory, exclude_from_result")
         .eq("event_id", parentEventId)
         .is("version_id", null)
-        .eq("type", "expense")
+        .eq("type", kind)
         .eq("status", "approved");
       if (error) throw error;
-      return Array.from(new Set(
-        (data ?? [])
-          .filter((f: any) => !f.is_transitory && !f.exclude_from_result && f.category_id)
-          .map((f: any) => f.category_id as string)
-      ));
+      return (data ?? [])
+        .filter((f: any) => !f.is_transitory && !f.exclude_from_result && f.category_id)
+        .map((f: any) => ({ category_id: f.category_id, amount: Number(f.amount || 0), type: f.type }));
     },
-    enabled: expenseForecastEnabled && !!parentEventId,
+    enabled: allocationEnabled,
+  });
+
+  // N = nº de sub-eventos do Master (irmãos do sub atual + ele próprio)
+  const { data: nSubs = 0 } = useQuery({
+    queryKey: ["efc-n-subs", parentEventId],
+    queryFn: async () => {
+      if (!parentEventId) return 0;
+      const { count, error } = await supabase
+        .from("events")
+        .select("id", { count: "exact", head: true })
+        .eq("parent_event_id", parentEventId);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: allocationEnabled,
+  });
+
+  // parent.event_id das TX-mãe (para critério estrito de FILHA_RATEIO_MASTER)
+  const parentIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of (txs as any[])) {
+      if (t.parent_transaction_id) set.add(t.parent_transaction_id);
+    }
+    return Array.from(set);
+  }, [txs]);
+
+  const { data: parentEventMap = new Map<string, string | null>() } = useQuery({
+    queryKey: ["efc-parent-event-map", parentIds.slice().sort().join(",")],
+    queryFn: async () => {
+      if (parentIds.length === 0) return new Map<string, string | null>();
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id, event_id")
+        .in("id", parentIds);
+      if (error) throw error;
+      const m = new Map<string, string | null>();
+      for (const r of (data ?? []) as any[]) m.set(r.id, r.event_id ?? null);
+      return m;
+    },
+    enabled: allocationEnabled && parentIds.length > 0,
   });
 
   // ── Simulator (apenas em forecast+income) ──
@@ -284,24 +329,54 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       }));
       const rev = computeScenarioRevenue(sessions, cfg, scenario);
       const abZero = cfg.ab_drink_avg_ticket === 0 && cfg.ab_food_avg_ticket === 0;
+
+      // Rateio Master Receitas (regra 4): patrocínio/receita Master ÷ N
+      let masterIncomeRateio = 0;
+      if (allocationEnabled && parentEventId) {
+        const bpSubCats = new Set<string>(
+          (forecasts as any[])
+            .filter((f) => f.status === "approved" && !f.is_transitory && !f.exclude_from_result && f.category_id)
+            .map((f) => f.category_id),
+        );
+        const subTxs: SubTxForAllocation[] = (txs as any[])
+          .filter((t) => !t.is_transitory && t.event_id === eventId)
+          .map((t) => ({
+            category_id: t.category_id ?? null,
+            amount: Number(t.amount || 0),
+            type: t.type as "expense" | "income",
+            parent_transaction_id: t.parent_transaction_id ?? null,
+            parent_event_id: t.parent_transaction_id ? (parentEventMap.get(t.parent_transaction_id) ?? null) : undefined,
+          }));
+        const alloc = computeMasterForecastAllocation({
+          subId: eventId,
+          N: nSubs,
+          bpMaster: (masterBpLines as MasterBpLine[]),
+          bpSubCats,
+          subTxs,
+          kind: "income",
+        });
+        masterIncomeRateio = alloc.rateioMasterSum;
+      }
+      const totalRevenue = rev.totalRevenue + masterIncomeRateio;
+      const subtotals: Subtotal[] = [
+        { label: "Bilheteira", value: rev.ticketsRevenue },
+        { label: "Patrocínio", value: rev.sponsorRevenue },
+        { label: "A&B", value: abZero ? null : rev.drinkRevenue + rev.foodRevenue },
+        { label: "Outros", value: rev.souvenirRevenue + rev.otherCredits },
+      ];
+      if (masterIncomeRateio > 0) subtotals.push({ label: "Patrocínio (rateio Master)", value: masterIncomeRateio });
+      subtotals.push({ label: "Total", value: totalRevenue });
       return {
-        displayValue: rev.totalRevenue,
-        subtotals: [
-          { label: "Bilheteira", value: rev.ticketsRevenue },
-          { label: "Patrocínio", value: rev.sponsorRevenue },
-          { label: "A&B", value: abZero ? null : rev.drinkRevenue + rev.foodRevenue },
-          { label: "Outros", value: rev.souvenirRevenue + rev.otherCredits },
-          { label: "Total", value: rev.totalRevenue },
-        ],
+        displayValue: totalRevenue,
+        subtotals,
         formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
       };
     } else {
-      // Forecast custos: formalidade-aware sobre BP do(s) sub(s) + TX do sub em cats não cobertas.
-      // TX-filhas de split entram naturalmente porque têm event_id=sub.
+      // Forecast custos: BP do sub formalidade-aware + apropriação BP Master + TX local.
       const approved = forecasts.filter((f: any) =>
         f.status === "approved" && !f.is_transitory && !f.exclude_from_result
       );
-      const txExpense = txs.filter((t: any) => t.type === "expense" && !t.is_transitory);
+      const txExpense = txs.filter((t: any) => t.type === "expense" && !t.is_transitory && t.event_id === eventId);
       const txByCat = new Map<string, number>();
       for (const t of txExpense) {
         if (!t.category_id) continue;
@@ -323,25 +398,42 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         }
         bpSum += Number(f_.amount || 0);
       }
-      // TX em categorias sem linha BP do sub — distinguir "via rateio Master" vs "local"
-      const masterCats = new Set<string>(masterBpCatsArr as string[]);
-      let txMasterRateioSum = 0;
+
+      // Apropriação BP Master + TX local (helper estrito)
+      let rateioMasterSum = 0;
       let txLocalSum = 0;
-      for (const [cat, sum] of txByCat) {
-        if (bpCats.has(cat)) continue;
-        if (masterCats.has(cat)) txMasterRateioSum += sum;
-        else txLocalSum += sum;
+      if (allocationEnabled && parentEventId) {
+        const subTxs: SubTxForAllocation[] = (txExpense as any[]).map((t) => ({
+          category_id: t.category_id ?? null,
+          amount: Number(t.amount || 0),
+          type: "expense",
+          parent_transaction_id: t.parent_transaction_id ?? null,
+          parent_event_id: t.parent_transaction_id ? (parentEventMap.get(t.parent_transaction_id) ?? null) : undefined,
+        }));
+        const alloc = computeMasterForecastAllocation({
+          subId: eventId,
+          N: nSubs,
+          bpMaster: (masterBpLines as MasterBpLine[]),
+          bpSubCats: bpCats,
+          subTxs,
+          kind: "expense",
+        });
+        rateioMasterSum = alloc.rateioMasterSum;
+        txLocalSum = alloc.txLocalSum;
+      } else {
+        // Visão Global ou evento simples: sem quota; TX em cats fora do BP contam como local.
+        for (const [cat, sum] of txByCat) {
+          if (bpCats.has(cat)) continue;
+          txLocalSum += sum;
+        }
       }
-      const txExtraSum = txMasterRateioSum + txLocalSum;
-      const txTotal = txLinkedSum + txExtraSum;
-      const total = bpSum + txTotal + cache;
+      const total = bpSum + txLinkedSum + rateioMasterSum + txLocalSum + cache;
       const subtotals: Subtotal[] = [
         { label: "BP do sub", value: bpSum },
       ];
-      if (txMasterRateioSum > 0) subtotals.push({ label: "TX via rateio Master", value: txMasterRateioSum });
+      if (rateioMasterSum > 0) subtotals.push({ label: "Rateio Master (previsto)", value: rateioMasterSum });
       if (txLocalSum > 0) subtotals.push({ label: "TX local", value: txLocalSum });
-      if (txLinkedSum > 0 && txMasterRateioSum === 0 && txLocalSum === 0) {
-        // edge case: só há TX que substituem BP fechado — mostrar linha consolidada
+      if (txLinkedSum > 0 && rateioMasterSum === 0 && txLocalSum === 0) {
         subtotals.push({ label: "TX (substitui BP)", value: txLinkedSum });
       }
       if (cache > 0) subtotals.push({ label: "Cachê", value: cache });
@@ -353,5 +445,6 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       };
     }
   }, [txs, forecasts, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate,
-      args.ticketSalesRevenue, args.cacheImpact, masterBpCatsArr]);
+      args.ticketSalesRevenue, args.cacheImpact, masterBpLines, nSubs, parentEventMap,
+      allocationEnabled, parentEventId, eventId]);
 }
