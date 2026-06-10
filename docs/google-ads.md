@@ -18,7 +18,7 @@
 
 Apenas peças que **NÃO dependem de credenciais da Google API**:
 
-1. **Schema `crm.google_*`** — migration `supabase/migrations/20260610000000_google_ads_sprint1.sql`
+1. **Schema `crm.google_*`** — migration `supabase/migrations/20260610011843_e60a623e-9f5a-4791-9c90-4f2333bb2b3d.sql`
    (nunca via SQL Editor).
 2. **Captura de GCLID na landing** — ver §4 (depende de onde vive o Portal).
 3. **Esqueleto da área admin `/crm/google-ads`** — navegação + placeholders, sem lógica de API.
@@ -110,7 +110,7 @@ A área admin `/crm/google-ads` mostra estas dependências como pendentes.
 ---
 
 ## 6. Ficheiros (Sprint 1)
-- `supabase/migrations/20260610000000_google_ads_sprint1.sql` — schema `crm.google_*`.
+- `supabase/migrations/20260610011843_e60a623e-9f5a-4791-9c90-4f2333bb2b3d.sql` — schema `crm.google_*`.
 - `src/pages/crm-admin/google-ads/GoogleAdsAdmin.tsx` — esqueleto admin.
 - `src/App.tsx` — rota `/crm/google-ads`.
 - `src/components/CrmSidebar.tsx` — entrada de navegação.

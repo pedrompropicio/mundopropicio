@@ -454,7 +454,7 @@ Campanhas/adsets/ads (snapshots), insights diários, criativos, diagnóstico 360
 strategies. Documentado em `docs/integrations/meta-ads.md` e `meta-creatives-sync.md`.
 
 ### 17.2 Google Ads (`crm.google_*`) — Sprint 1
-Migration `20260610000000_google_ads_sprint1.sql`. Espelha o padrão `crm.meta_*`
+Migration `20260610011843_e60a623e-9f5a-4791-9c90-4f2333bb2b3d.sql`. Espelha o padrão `crm.meta_*`
 (RLS + GRANT `USAGE`/`SELECT/INSERT/UPDATE` a `authenticated` e `service_role`).
 
 | Tabela | Função |
