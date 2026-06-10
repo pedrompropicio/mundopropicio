@@ -354,6 +354,54 @@ export default function EventDetail() {
     enabled: !!masterIdForShare,
   });
 
+  // Quota-parte de FORECASTS do Master rateados ao filho (overheads ÷ N siblings).
+  // Anti-duplicação: se a categoria do overhead já tem TX no Master (paid+approved),
+  // a TX já está em masterExpenseShare → o forecast é ignorado.
+  const { data: masterForecastShare = 0 } = useQuery({
+    queryKey: ["event_master_forecast_share", masterIdForShare, selectedSubEvent],
+    queryFn: async () => {
+      if (!masterIdForShare) return 0;
+      const { data: siblings } = await supabase
+        .from("events")
+        .select("id")
+        .eq("parent_event_id", masterIdForShare);
+      const n = (siblings?.length ?? 0) || 1;
+
+      const { data: overheadFcs } = await supabase
+        .from("event_forecasts")
+        .select("amount, category_id, status, is_transitory, exclude_from_result, is_overhead")
+        .eq("event_id", masterIdForShare)
+        .eq("type", "expense")
+        .is("version_id", null)
+        .eq("is_overhead", true);
+
+      const { data: masterTxs } = await supabase
+        .from("transactions")
+        .select("amount, category_id, status, type, is_transitory")
+        .eq("event_id", masterIdForShare)
+        .eq("type", "expense")
+        .in("status", ["paid", "approved"]);
+
+      const txCats = new Set<string>();
+      (masterTxs ?? [])
+        .filter((t: any) => !t.is_transitory && t.category_id)
+        .forEach((t: any) => txCats.add(t.category_id));
+
+      const approved = (overheadFcs ?? []).filter((f: any) =>
+        f.status === "approved" && !f.is_transitory && !f.exclude_from_result
+      );
+      let total = 0;
+      for (const f of approved as any[]) {
+        if (f.category_id && txCats.has(f.category_id)) continue;
+        total += Number(f.amount || 0) / n;
+      }
+      return total;
+    },
+    enabled: !!masterIdForShare,
+  });
+
+
+
   // Fetch ticket sales revenue for the event(s) in net terms (s/IVA)
   const { data: ticketSalesRevenue = 0 } = useQuery({
     queryKey: ["event_ticket_revenue", id, selectedSubEvent, transactionEventIds.join(",")],
