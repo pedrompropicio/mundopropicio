@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, RefreshCw, Link2, EyeOff, Plus, ArrowRightLeft, AlertTriangle } from "lucide-react";
+import { Loader2, RefreshCw, Link2, EyeOff, Plus, ArrowRightLeft, AlertTriangle, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { formatInCurrency } from "@/lib/currency";
 import { getL2Id } from "@/lib/bp-category-constraint";
