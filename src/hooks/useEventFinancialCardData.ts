@@ -159,17 +159,21 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         const paid = expTx.filter((t: any) => t.status === "paid").reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
         const approved = expTx.filter((t: any) => t.status === "approved").reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
         const own = paid + approved;
-        const extra = Number(args.extraExpense || 0);
+        const masterTx = Number(args.masterExpenseShare || 0);
+        const cache = Number(args.cacheImpact || 0);
+        // Realized NÃO inclui forecasts do Master (só TX).
+        const extra = masterTx + cache;
         return {
           displayValue: own + extra,
           subtotals: [
             { label: "Pago", value: paid },
-            { label: "Comprometido", value: approved + extra },
+            { label: "Comprometido (próprio)", value: approved },
           ],
           formalidadeBreakdown: null, phase, modeUsed, unavailable: false,
         };
       }
     }
+
 
     // ── COMMITTED ─────────────────────────────────────────────
     if (modeUsed === "committed") {
