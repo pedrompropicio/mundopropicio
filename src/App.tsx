@@ -177,6 +177,7 @@ import PressList from "./pages/crm-admin/press/PressList";
 import PortalSettings from "./pages/crm-admin/portal-settings/PortalSettings";
 import MetaCapiMonitor from "./pages/crm-admin/meta-capi/MetaCapiMonitor";
 import MetaAudiencesList from "./pages/crm-admin/meta-audiences/MetaAudiencesList";
+import GoogleAdsAdmin from "./pages/crm-admin/google-ads/GoogleAdsAdmin";
 import { useLocation } from "react-router-dom";
 
 const queryClient = new QueryClient({
@@ -610,6 +611,7 @@ function App() {
                     <Route path="portal-settings" element={<PortalSettings />} />
                     <Route path="meta-capi" element={<MetaCapiMonitor />} />
                     <Route path="meta-audiences" element={<MetaAudiencesList />} />
+                    <Route path="google-ads" element={<GoogleAdsAdmin />} />
                   </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>

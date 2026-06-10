@@ -40,6 +40,7 @@ export function CrmSidebar() {
     { to: "/crm/portal-settings", icon: Settings, label: "Config. portal" },
     { to: "/crm/meta-capi", icon: Activity, label: "Meta CAPI" },
     { to: "/crm/meta-audiences", icon: Target, label: "Meta Audiences" },
+    { to: "/crm/google-ads", icon: Sparkles, label: "Google Ads" },
   ];
 
   const isItemActive = (to: string, end?: boolean) => {
