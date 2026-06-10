@@ -7,60 +7,46 @@ type: feature
 # Event Financial Cards — Receitas & Custos no EventDetail
 
 ## Visão geral
-Substitui os 2 StatCards estáticos (`Receitas`, `Despesas`) por `<EventFinancialCard>` com 3 modos comutáveis pelo utilizador via dropdown ⚙️ no canto do card. O card `Lucro` reage automaticamente aos displayValues escolhidos (via `onValueChange`).
+Substitui os 2 StatCards estáticos por `<EventFinancialCard>` com 3 modos comutáveis via dropdown ⚙️. O card `Lucro` reage via `onValueChange`.
 
 ## 3 modos
-- **Realizado** — lógica histórica (paid+approved, hasTicketSales replace, masterExpenseShare, cacheImpact). Sub-totais:
-  - Receitas: `Bilheteira / Patrocínio / Outros` (agrupados pelo prefixo L1 do `account_categories.code`: 1.1.* / 1.2.* / outros).
-  - Custos: `Pago` vs `Comprometido (approved + extras)`.
-- **Comprometido** — Σ `event_forecasts.amount` da versão ativa (`version_id IS NULL`) com `status='approved'`, `is_transitory=false`, `exclude_from_result=false`. Mostra mini-barra horizontal de 4 segmentos com tooltip por segmento (Estimado vermelho / Negociação laranja / Fechado azul / Pago verde). Em custos soma `extraExpense` (masterExpenseShare + cacheImpact).
+- **Realizado** — TXs do(s) evento(s) seleccionado(s) (paid/approved, não transitórias). Receitas com replace por `ticketSalesRevenue` (1.1.01). Custos: `Pago / Aprovado / [Cachê] / Total`.
+- **Comprometido** — Σ `event_forecasts.amount` (active version, approved, !is_transitory, !exclude_from_result). Mini-barra de formalidade (Estimado/Negociação/Fechado/Pago) com tooltips. Cachê aparece em legenda quando >0.
 - **Forecast**
-  - Receitas: chama `computeScenarioRevenue(sessions, cfg, scenario)` de `event-simulator-coala.ts`, com `sessions` carregadas de `event_simulator_inputs` e `cfg` de `event_simulator_config`. Toggle `today / breakeven / forecast` no mesmo dropdown ⚙️. Sub-totais: `Bilheteira / Patrocínio / A&B / Outros`.
-  - Custos: formalidade-aware. Para cada linha BP approved: se `formalidade ∈ {fechado, pago_parcial, pago_total}` E há TX com a mesma `category_id` no evento → usa Σ TX (paid+approved+pending). Caso contrário usa `forecast.amount`. TX em categorias **não** cobertas pelo BP (órfãs) somam à parte. Sub-totais: `BP / TX realizadas / Forecast total`.
+  - Receitas: `computeScenarioRevenue` (toggle today/breakeven/forecast). Sub-totais Bilheteira/Patrocínio/A&B/Outros/Total.
+  - Custos: formalidade-aware. Linhas com `formalidade ∈ {fechado, pago_parcial, pago_total}` que tenham TX na mesma `category_id+event_id` usam Σ TX; restantes usam BP. TX em categorias sem linha BP somam à parte (são TXs reais do sub, não "órfãs"). Sub-totais: `BP do sub / TX do sub / [Cachê] / Total`.
 
-## Mapeamento formalidade
-- `estimado` + `negociacao` → BP é o valor de referência (não fechou).
-- `fechado` + `pago_parcial` + `pago_total` → TX vinculadas (via category_id+event_id) substituem o BP no forecast de custos. Se não houver TX ainda, cai para BP.
+## Master/Split — modelo respeitado
+Fonte de verdade: `master-split-rateio-source-of-truth.md`.
 
-## Integração com Simulador
-- Reusa **integralmente** o motor `event-simulator-coala.ts` (sem duplicar lógica). Não chama solver — usa `computeScenarioRevenue` com fallback estático (`scenario='forecast'` aplica `sessionForecastQty/Revenue`).
-- Não toca em `EventSimulator.tsx`.
+Despesa partilhada do Master vive em 3 peças:
+1. `event_forecasts.event_id = Master` (previsão)
+2. `transactions.event_id = NULL` flutuante (pagamento, ligada via `forecast.transaction_id`)
+3. `transactions.event_id = SUB, parent_transaction_id`, `amount÷N` (TX-filha já no sub)
 
-## Fallback A&B
-Se `event_simulator_config.default_drink_avg_ticket=0` E `default_food_avg_ticket=0`, sub-total A&B mostra `—` em vez de `0,00 €` (sinaliza que bares não estão configurados).
+**O card do sub selecciona TX por `event_id=sub` — as TX-filhas (peça 3) ENTRAM NATURALMENTE.** Não existe rateio virtual de BP comum Master→sub. Não somar quotas adicionais — duplicaria.
 
-## Fase automática (modo='auto')
-Detectada em `detectPhase()`:
-- `completed`: `events.status='completed'` OU hoje > `primaryEventDate`.
-- `planning`: `events.status='planning'` OU (sem TX realizadas E sem vendas E hoje < primaryEventDate).
-- `development`: caso contrário.
+### Única expansão virtual: overhead
+`is_overhead=true` é expandido por `expandOverheadToSplits` / `bp_overhead_via_master` (÷ N siblings) nas superfícies DRE, BP, Acerto Sócios, Análise Resultados. O card NÃO duplica isto — o toggle "Com/Sem Overhead" no EventForecast/relatórios já controla a visibilidade.
 
-Default por fase:
-- planning → `forecast`
-- development → `committed`
-- completed → `realized`
+### Histórico — porque foram removidos `masterExpenseShare` e `masterForecastShare`
+Versões anteriores deste hook recebiam `masterExpenseShare` (Σ TX `event_id=Master` ÷ N) e `masterForecastShare` (overhead Master ÷ N). Ambos eram **dupla contagem**:
+- TXs do split real têm `event_id=NULL` (flutuante) ou `event_id=sub` (filha) — somar TX por `event_id=Master ÷ N` duplicava com as filhas que já vivem no sub.
+- `masterForecastShare` somava overhead já mostrado pelo EventForecast (badge "via Master") e duplicava o que DRE/Acerto já faz via `expandOverheadToSplits`.
+
+Removidos em 2026-06. Único extra externo legítimo: `cacheImpact` (vem de `useEventCacheImpact`, vive fora de `event_forecasts`/`transactions`).
+
+## Cachê
+`cacheImpact` (calculado por `useEventCacheImpact`) é somado em todos os modos quando >0. Em committed aparece em legenda abaixo da mini-barra; em realized/forecast como sub-total `Cachê` antes do `Total`.
+
+## Sub-totais — ordem
+`Total` é SEMPRE a última linha quando presente.
 
 ## localStorage
-Chave: `ef-card-mode-{user_id}-{event_id}-{kind}`. Persiste **apenas** a string do modo escolhido — nunca valores monetários. Sem user logged in usa prefixo `anon`.
-
-## Master/Split
-Respeita o toggle "Visão Global" existente: o componente recebe `eventIds` (já calculado por EventDetail como `transactionEventIds` = master+subs em visão global, ou apenas o sub seleccionado). Em filho (sub-evento), as 3 componentes extras são passadas separadamente:
-- `masterExpenseShare` — TX do Master ÷ N siblings (paid+approved, não transitórias).
-- `masterForecastShare` — Forecasts overhead do Master (`is_overhead=true`, approved) ÷ N siblings. **Anti-duplicação:** se a categoria do overhead já tem TX no Master, é ignorado (TX já entra via `masterExpenseShare`). Só somado em modos `committed` e `forecast` (em `realized` o card é só TX).
-- `cacheImpact` — Cachê calculado efetivo (via `useEventCacheImpact`).
-
-Em modo `committed` o BP da mini-barra é só do `event_id` do filho; rateios Master aparecem como legenda abaixo (`+ Cachê · + Rateio turnê`). Em `forecast` e `realized` os extras viram subtotais visíveis ("Cachê", "Rateio turnê"). Na visão Master/Global (`masterIdForShare = null`) as 3 quotas são 0 e os forecasts/TXs do Master contam inteiros via `eventIds`.
-
-
-## Decisões arquiteturais
-- **Zero campos novos** no schema.
-- Componente reutilizável `<EventFinancialCard kind="income"|"expense">` (não dois separados).
-- Lucro reage via callback `onValueChange` (não via Context — escopo limitado a 1 página).
-- Sub-totais nunca persistidos — sempre recalculados a partir do query cache.
-- Performance: hook usa `useQuery` com `queryKey` por kind+ids+mode, e `useMemo` para o cálculo final.
+Chave: `ef-card-mode-{user_id}-{event_id}-{kind}` — guarda só a string de modo, nunca valores monetários.
 
 ## Ficheiros
-- `src/lib/event-financial-card.ts` — pure helpers (fase, formalidade buckets, localStorage).
-- `src/hooks/useEventFinancialCardData.ts` — fetch + cálculo por modo.
-- `src/components/EventFinancialCard.tsx` — UI (dropdown ⚙️, mini-barra formalidade, sub-totais).
-- `src/pages/EventDetail.tsx` — integração (substitui 2 StatCards, mantém Lucro+Bilhetes).
+- `src/lib/event-financial-card.ts` — helpers puros
+- `src/hooks/useEventFinancialCardData.ts` — fetch + cálculo
+- `src/components/EventFinancialCard.tsx` — UI
+- `src/pages/EventDetail.tsx` — integração
