@@ -44,7 +44,13 @@ Default por fase:
 Chave: `ef-card-mode-{user_id}-{event_id}-{kind}`. Persiste **apenas** a string do modo escolhido — nunca valores monetários. Sem user logged in usa prefixo `anon`.
 
 ## Master/Split
-Respeita o toggle "Visão Global" existente: o componente recebe `eventIds` (já calculado por EventDetail como `transactionEventIds` = master+subs em visão global, ou apenas o sub seleccionado). Em filho (sub-evento), `extraExpense=masterExpenseShare+cacheImpact` continua a entrar no display em todos os modos. Em modo `committed` o BP é só do `event_id` do filho (rateios Master continuam a aparecer via `extraExpense`).
+Respeita o toggle "Visão Global" existente: o componente recebe `eventIds` (já calculado por EventDetail como `transactionEventIds` = master+subs em visão global, ou apenas o sub seleccionado). Em filho (sub-evento), as 3 componentes extras são passadas separadamente:
+- `masterExpenseShare` — TX do Master ÷ N siblings (paid+approved, não transitórias).
+- `masterForecastShare` — Forecasts overhead do Master (`is_overhead=true`, approved) ÷ N siblings. **Anti-duplicação:** se a categoria do overhead já tem TX no Master, é ignorado (TX já entra via `masterExpenseShare`). Só somado em modos `committed` e `forecast` (em `realized` o card é só TX).
+- `cacheImpact` — Cachê calculado efetivo (via `useEventCacheImpact`).
+
+Em modo `committed` o BP da mini-barra é só do `event_id` do filho; rateios Master aparecem como legenda abaixo (`+ Cachê · + Rateio turnê`). Em `forecast` e `realized` os extras viram subtotais visíveis ("Cachê", "Rateio turnê"). Na visão Master/Global (`masterIdForShare = null`) as 3 quotas são 0 e os forecasts/TXs do Master contam inteiros via `eventIds`.
+
 
 ## Decisões arquiteturais
 - **Zero campos novos** no schema.
