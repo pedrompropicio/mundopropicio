@@ -21,11 +21,7 @@ interface Props {
   eventStatus?: string | null;
   primaryEventDate?: string | null;
   ticketSalesRevenue?: number;
-  /** TX do Master rateadas (÷ N siblings). */
-  masterExpenseShare?: number;
-  /** Forecasts overhead do Master rateados (÷ N siblings, anti-dup vs masterExpenseShare). */
-  masterForecastShare?: number;
-  /** Cachê calculado efetivo. */
+  /** Cachê calculado efetivo (único extra legítimo — vive fora de forecasts/TX). */
   cacheImpact?: number;
   /** Callback com o displayValue actual — usado pelo card Lucro. */
   onValueChange?: (value: number) => void;
