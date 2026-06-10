@@ -323,6 +323,7 @@ export default function ReconciliacaoBpTx() {
       toast.success("Vinculado ao BP");
       qc.invalidateQueries({ queryKey: ["recon-tx"] });
       qc.invalidateQueries({ queryKey: ["recon-forecasts"] });
+      qc.invalidateQueries({ queryKey: ["recon-master-orphans"] });
     },
     onError: (e: any) => toast.error(e?.message ?? "Erro ao vincular"),
   });
