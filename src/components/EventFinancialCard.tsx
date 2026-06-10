@@ -69,6 +69,7 @@ export function EventFinancialCard(props: Props) {
     primaryEventDate: props.primaryEventDate,
     ticketSalesRevenue: props.ticketSalesRevenue,
     cacheImpact: props.cacheImpact,
+    parentEventId: props.parentEventId ?? null,
   });
 
   useEffect(() => { onValueChange?.(data.displayValue); }, [data.displayValue, onValueChange]);
