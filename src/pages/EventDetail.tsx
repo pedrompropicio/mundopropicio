@@ -859,9 +859,11 @@ export default function EventDetail() {
           isMasterView={isGlobalView}
           eventStatus={event.status}
           primaryEventDate={event.date}
+          parentEventId={event.parent_event_id ?? null}
           cacheImpact={Number(calculatedCacheImpact || 0)}
           onValueChange={setCardExpenseValue}
         />
+
         <StatCard
           title="Lucro"
           value={formatCurrency(cardIncomeValue - cardExpenseValue)}

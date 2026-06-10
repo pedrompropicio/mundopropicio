@@ -24,6 +24,8 @@ export interface UseEventFinancialCardDataArgs {
    * vive fora de event_forecasts/transactions e não duplica nada.
    */
   cacheImpact?: number;
+  /** parent_event_id do evento (null se Master ou simples). Usado em forecast custos para distinguir TX via rateio Master. */
+  parentEventId?: string | null;
 }
 
 export interface Subtotal {
@@ -93,19 +95,9 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
   });
 
   // ── BP do Master pai (só se evento é SUB) — para distinguir "TX via rateio Master" de "TX local" ──
+  // parentEventId vem como PROP do EventDetail (evita query encadeada e race de timing).
   const expenseForecastEnabled = mode === "forecast" && kind === "expense";
-  const { data: parentEventId = null } = useQuery({
-    queryKey: ["efc-parent", eventId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("events")
-        .select("parent_event_id")
-        .eq("id", eventId)
-        .maybeSingle();
-      return (data?.parent_event_id ?? null) as string | null;
-    },
-    enabled: expenseForecastEnabled,
-  });
+  const parentEventId = args.parentEventId ?? null;
 
   const { data: masterBpCatsArr = [] } = useQuery({
     queryKey: ["efc-master-bp-cats", parentEventId],
