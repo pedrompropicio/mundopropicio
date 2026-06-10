@@ -92,6 +92,42 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     enabled: ids.length > 0,
   });
 
+  // ── BP do Master pai (só se evento é SUB) — para distinguir "TX via rateio Master" de "TX local" ──
+  const expenseForecastEnabled = mode === "forecast" && kind === "expense";
+  const { data: parentEventId = null } = useQuery({
+    queryKey: ["efc-parent", eventId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("events")
+        .select("parent_event_id")
+        .eq("id", eventId)
+        .maybeSingle();
+      return (data?.parent_event_id ?? null) as string | null;
+    },
+    enabled: expenseForecastEnabled,
+  });
+
+  const { data: masterBpCatsArr = [] } = useQuery({
+    queryKey: ["efc-master-bp-cats", parentEventId],
+    queryFn: async () => {
+      if (!parentEventId) return [] as string[];
+      const { data, error } = await supabase
+        .from("event_forecasts")
+        .select("category_id, is_transitory, exclude_from_result")
+        .eq("event_id", parentEventId)
+        .is("version_id", null)
+        .eq("type", "expense")
+        .eq("status", "approved");
+      if (error) throw error;
+      return Array.from(new Set(
+        (data ?? [])
+          .filter((f: any) => !f.is_transitory && !f.exclude_from_result && f.category_id)
+          .map((f: any) => f.category_id as string)
+      ));
+    },
+    enabled: expenseForecastEnabled && !!parentEventId,
+  });
+
   // ── Simulator (apenas em forecast+income) ──
   const simEnabled = mode === "forecast" && kind === "income";
   const { data: simCfg } = useQuery({
