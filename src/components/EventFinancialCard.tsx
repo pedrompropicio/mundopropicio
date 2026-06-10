@@ -21,11 +21,7 @@ interface Props {
   eventStatus?: string | null;
   primaryEventDate?: string | null;
   ticketSalesRevenue?: number;
-  /** TX do Master rateadas (÷ N siblings). */
-  masterExpenseShare?: number;
-  /** Forecasts overhead do Master rateados (÷ N siblings, anti-dup vs masterExpenseShare). */
-  masterForecastShare?: number;
-  /** Cachê calculado efetivo. */
+  /** Cachê calculado efetivo (único extra legítimo — vive fora de forecasts/TX). */
   cacheImpact?: number;
   /** Callback com o displayValue actual — usado pelo card Lucro. */
   onValueChange?: (value: number) => void;
@@ -70,8 +66,6 @@ export function EventFinancialCard(props: Props) {
     eventStatus: props.eventStatus,
     primaryEventDate: props.primaryEventDate,
     ticketSalesRevenue: props.ticketSalesRevenue,
-    masterExpenseShare: props.masterExpenseShare,
-    masterForecastShare: props.masterForecastShare,
     cacheImpact: props.cacheImpact,
   });
 
@@ -87,18 +81,13 @@ export function EventFinancialCard(props: Props) {
 
   const showScenarioToggle = data.modeUsed === "forecast" && kind === "income";
 
-  // Extras visíveis (cachê e rateio turnê) — mostrados em todos os modos quando > 0.
+  // Extras visíveis em modo committed (mini-barra não inclui cachê) — único extra legítimo.
   const extras: Array<{ label: string; value: number }> = [];
-  if (kind === "expense") {
+  if (kind === "expense" && data.modeUsed === "committed") {
     const cache = Number(props.cacheImpact || 0);
-    const masterTx = Number(props.masterExpenseShare || 0);
-    const masterFc = Number(props.masterForecastShare || 0);
     if (cache > 0) extras.push({ label: "Cachê", value: cache });
-    // Em realized não somamos masterForecastShare ao displayValue, logo não o mostramos.
-    const includeMasterFc = data.modeUsed !== "realized" && masterFc > 0;
-    const rateio = masterTx + (includeMasterFc ? masterFc : 0);
-    if (rateio > 0) extras.push({ label: "Rateio turnê", value: rateio });
   }
+
 
   return (
     <div className={`glass rounded-xl p-5 border ${variantBorder} relative`}>

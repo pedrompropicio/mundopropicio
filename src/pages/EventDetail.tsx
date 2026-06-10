@@ -316,89 +316,12 @@ export default function EventDetail() {
     enabled: !!id,
   });
 
-  // ── Quota-parte das despesas do Master para vista de sub-evento ──
-  // Aplicável em DOIS cenários:
-  //   1) Navegar direto a um sub: event.parent_event_id presente, sem selectedSubEvent
-  //   2) Estar na turnê (Master) e ter um sub selecionado nas pills: usar id do Master (= event.id)
-  // Em qualquer caso, o card "Despesas Realizadas" passa a incluir a sua quota das despesas
-  // lançadas no Master (rateios da turnê: voos, hotel, equipa, etc.) dividida pelo número de subs.
-  // Alinha o card com a Análise de Resultados (Dashboard).
-  const masterIdForShare = selectedSubEvent
-    ? (event?.event_type === "multi_day" ? id! : null)
-    : (event?.parent_event_id ?? null);
-  const { data: masterExpenseShare = 0 } = useQuery({
-    queryKey: ["event_master_expense_share", masterIdForShare, selectedSubEvent],
-    queryFn: async () => {
-      if (!masterIdForShare) return 0;
-      // Conta subs (irmãos) — divisor da quota
-      const { data: siblings, error: sibErr } = await supabase
-        .from("events")
-        .select("id")
-        .eq("parent_event_id", masterIdForShare);
-      if (sibErr) throw sibErr;
-      const n = (siblings?.length ?? 0) || 1;
+  // Rateio Master→sub: NÃO há mecanismo virtual de BP comum nem de TX Master.
+  // TX-filhas de split têm event_id=sub e entram naturalmente nas queries do sub.
+  // Overhead (is_overhead=true) é o único caso de expansão virtual, e é tratado
+  // por expandOverheadToSplits / bp_overhead_via_master (toggle Com/Sem Overhead).
+  // Ver master-split-rateio-source-of-truth.md.
 
-      // Despesas do Master: paid + approved, exclui transitórias
-      const { data: masterTxs, error: txErr } = await supabase
-        .from("transactions")
-        .select("amount, status, type, is_transitory")
-        .eq("event_id", masterIdForShare)
-        .eq("type", "expense")
-        .in("status", ["paid", "approved"]);
-      if (txErr) throw txErr;
-      const total = (masterTxs ?? [])
-        .filter((t: any) => !t.is_transitory)
-        .reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
-      return total / n;
-    },
-    enabled: !!masterIdForShare,
-  });
-
-  // Quota-parte de FORECASTS do Master rateados ao filho (overheads ÷ N siblings).
-  // Anti-duplicação: se a categoria do overhead já tem TX no Master (paid+approved),
-  // a TX já está em masterExpenseShare → o forecast é ignorado.
-  const { data: masterForecastShare = 0 } = useQuery({
-    queryKey: ["event_master_forecast_share", masterIdForShare, selectedSubEvent],
-    queryFn: async () => {
-      if (!masterIdForShare) return 0;
-      const { data: siblings } = await supabase
-        .from("events")
-        .select("id")
-        .eq("parent_event_id", masterIdForShare);
-      const n = (siblings?.length ?? 0) || 1;
-
-      const { data: overheadFcs } = await supabase
-        .from("event_forecasts")
-        .select("amount, category_id, status, is_transitory, exclude_from_result, is_overhead")
-        .eq("event_id", masterIdForShare)
-        .eq("type", "expense")
-        .is("version_id", null)
-        .eq("is_overhead", true);
-
-      const { data: masterTxs } = await supabase
-        .from("transactions")
-        .select("amount, category_id, status, type, is_transitory")
-        .eq("event_id", masterIdForShare)
-        .eq("type", "expense")
-        .in("status", ["paid", "approved"]);
-
-      const txCats = new Set<string>();
-      (masterTxs ?? [])
-        .filter((t: any) => !t.is_transitory && t.category_id)
-        .forEach((t: any) => txCats.add(t.category_id));
-
-      const approved = (overheadFcs ?? []).filter((f: any) =>
-        f.status === "approved" && !f.is_transitory && !f.exclude_from_result
-      );
-      let total = 0;
-      for (const f of approved as any[]) {
-        if (f.category_id && txCats.has(f.category_id)) continue;
-        total += Number(f.amount || 0) / n;
-      }
-      return total;
-    },
-    enabled: !!masterIdForShare,
-  });
 
 
 
@@ -585,10 +508,9 @@ export default function EventDetail() {
   // If ticket sales exist, they replace only ticket-office transactions; other income (e.g. sponsors) still counts.
   const hasTicketSales = ticketSalesRevenue > 0;
   const totalIncome = hasTicketSales ? ticketSalesRevenue + nonTicketTransactionIncome : transactionIncome;
-  // Despesas reais do próprio evento + quota-parte do Master (apenas para vista de sub-evento isolado).
+  // Despesas reais do(s) evento(s) seleccionados (TX-filhas de split já entram via event_id=sub).
   const ownExpenses = operationalExpenseTransactions.reduce((s, t) => s + Number(t.amount), 0);
-  const totalExpenses =
-    ownExpenses + Number(masterExpenseShare || 0) + Number(masterForecastShare || 0) + Number(calculatedCacheImpact || 0);
+  const totalExpenses = ownExpenses + Number(calculatedCacheImpact || 0);
 
   const profit = totalIncome - totalExpenses;
 
@@ -937,8 +859,6 @@ export default function EventDetail() {
           isMasterView={isGlobalView}
           eventStatus={event.status}
           primaryEventDate={event.date}
-          masterExpenseShare={Number(masterExpenseShare || 0)}
-          masterForecastShare={Number(masterForecastShare || 0)}
           cacheImpact={Number(calculatedCacheImpact || 0)}
           onValueChange={setCardExpenseValue}
         />
