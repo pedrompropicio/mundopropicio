@@ -588,7 +588,8 @@ export default function EventDetail() {
   // Despesas reais do próprio evento + quota-parte do Master (apenas para vista de sub-evento isolado).
   const ownExpenses = operationalExpenseTransactions.reduce((s, t) => s + Number(t.amount), 0);
   const totalExpenses =
-    ownExpenses + Number(masterExpenseShare || 0) + Number(calculatedCacheImpact || 0);
+    ownExpenses + Number(masterExpenseShare || 0) + Number(masterForecastShare || 0) + Number(calculatedCacheImpact || 0);
+
   const profit = totalIncome - totalExpenses;
 
   const copyTicketingFromSubEvent = async (sourceId: string) => {
