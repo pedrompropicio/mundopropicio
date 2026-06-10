@@ -508,10 +508,9 @@ export default function EventDetail() {
   // If ticket sales exist, they replace only ticket-office transactions; other income (e.g. sponsors) still counts.
   const hasTicketSales = ticketSalesRevenue > 0;
   const totalIncome = hasTicketSales ? ticketSalesRevenue + nonTicketTransactionIncome : transactionIncome;
-  // Despesas reais do próprio evento + quota-parte do Master (apenas para vista de sub-evento isolado).
+  // Despesas reais do(s) evento(s) seleccionados (TX-filhas de split já entram via event_id=sub).
   const ownExpenses = operationalExpenseTransactions.reduce((s, t) => s + Number(t.amount), 0);
-  const totalExpenses =
-    ownExpenses + Number(masterExpenseShare || 0) + Number(masterForecastShare || 0) + Number(calculatedCacheImpact || 0);
+  const totalExpenses = ownExpenses + Number(calculatedCacheImpact || 0);
 
   const profit = totalIncome - totalExpenses;
 
