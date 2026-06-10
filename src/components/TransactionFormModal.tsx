@@ -2154,7 +2154,7 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
           {/* Frente 2 — Banner proativo: Master selecionado + categoria com previsão no BP + sem linha escolhida */}
           {isParentMultiDay && form.type === "expense" && form.category_id && !selectedForecastId && !isSplit && (() => {
             const matching = (relevantForecasts as any[]).filter(
-              (f: any) => f.type === "expense" && f.category_id === form.category_id
+              (f: any) => f.type === "expense" && f.category_id === form.category_id && !f.transaction_id
             );
             if (matching.length === 0) return null;
             const totalForecast = matching.reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
