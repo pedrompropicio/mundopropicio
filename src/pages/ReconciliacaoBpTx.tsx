@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, RefreshCw, Link2, EyeOff, Plus, ArrowRightLeft, AlertTriangle } from "lucide-react";
+import { Loader2, RefreshCw, Link2, EyeOff, Plus, ArrowRightLeft, AlertTriangle, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { formatInCurrency } from "@/lib/currency";
 import { getL2Id } from "@/lib/bp-category-constraint";
@@ -181,6 +181,97 @@ export default function ReconciliacaoBpTx() {
     },
   });
 
+  // FRENTE 5 — TX-mãe de split (event_id=NULL) sem FK que bate categoria única no BP Master do parent
+  const masterOrphansQuery = useQuery({
+    queryKey: ["recon-master-orphans", companyId],
+    enabled: !!companyId && allowed,
+    queryFn: async () => {
+      // 1) TXs-mãe candidatas: event_id NULL, sem parent, da empresa
+      const { data: mothers, error: e1 } = await supabase
+        .from("transactions")
+        .select("id, description, amount, type, category_id, supplier_id, date, due_date")
+        .eq("company_id", companyId!)
+        .is("event_id", null)
+        .is("parent_transaction_id", null)
+        .not("category_id", "is", null)
+        .limit(500);
+      if (e1) throw e1;
+      const motherList = (mothers ?? []) as any[];
+      if (motherList.length === 0) return [] as any[];
+
+      // 2) Excluir as que já têm FK em event_forecasts.transaction_id
+      const { data: linked, error: e2 } = await supabase
+        .from("event_forecasts")
+        .select("transaction_id")
+        .in("transaction_id", motherList.map((m) => m.id))
+        .is("version_id", null);
+      if (e2) throw e2;
+      const linkedSet = new Set((linked ?? []).map((r: any) => r.transaction_id));
+      const unlinked = motherList.filter((m) => !linkedSet.has(m.id));
+      if (unlinked.length === 0) return [];
+
+      // 3) Filhas de cada mãe (precisamos do parent_event_id do Master)
+      const { data: children, error: e3 } = await supabase
+        .from("transactions")
+        .select("parent_transaction_id, event_id")
+        .in("parent_transaction_id", unlinked.map((m) => m.id))
+        .not("event_id", "is", null);
+      if (e3) throw e3;
+      const childEventByMother = new Map<string, string>();
+      (children ?? []).forEach((c: any) => {
+        if (!childEventByMother.has(c.parent_transaction_id)) {
+          childEventByMother.set(c.parent_transaction_id, c.event_id);
+        }
+      });
+      const withChildren = unlinked.filter((m) => childEventByMother.has(m.id));
+      if (withChildren.length === 0) return [];
+
+      // 4) Resolver Master (parent_event_id) dos subs
+      const subEventIds = [...new Set(withChildren.map((m) => childEventByMother.get(m.id)!))];
+      const { data: subEvents, error: e4 } = await supabase
+        .from("events")
+        .select("id, parent_event_id")
+        .in("id", subEventIds);
+      if (e4) throw e4;
+      const parentBySub = new Map<string, string | null>();
+      (subEvents ?? []).forEach((s: any) => parentBySub.set(s.id, s.parent_event_id));
+
+      // 5) Para cada mãe, candidato Master = parent do sub. Buscar BP livre no Master.
+      const masterIds = [...new Set(
+        withChildren
+          .map((m) => parentBySub.get(childEventByMother.get(m.id)!))
+          .filter(Boolean) as string[],
+      )];
+      if (masterIds.length === 0) return [];
+      const { data: masterFc, error: e5 } = await supabase
+        .from("event_forecasts")
+        .select("id, event_id, category_id, type, description, amount")
+        .in("event_id", masterIds)
+        .is("transaction_id", null)
+        .is("version_id", null);
+      if (e5) throw e5;
+      const masterFreeByEv = new Map<string, any[]>();
+      (masterFc ?? []).forEach((f: any) => {
+        if (!masterFreeByEv.has(f.event_id)) masterFreeByEv.set(f.event_id, []);
+        masterFreeByEv.get(f.event_id)!.push(f);
+      });
+
+      // 6) Construir lista: só quando match único (cat+type) no Master
+      const result: any[] = [];
+      withChildren.forEach((m) => {
+        const masterId = parentBySub.get(childEventByMother.get(m.id)!);
+        if (!masterId) return;
+        const free = (masterFreeByEv.get(masterId) ?? []).filter(
+          (f) => f.category_id === m.category_id && f.type === m.type,
+        );
+        if (free.length === 1) {
+          result.push({ tx: m, masterEventId: masterId, candidate: free[0] });
+        }
+      });
+      return result;
+    },
+  });
+
   const catById = useMemo(() => {
     const m = new Map<string, CatNode>();
     (catsQuery.data ?? []).forEach((c) => m.set(c.id, c));
@@ -232,6 +323,7 @@ export default function ReconciliacaoBpTx() {
       toast.success("Vinculado ao BP");
       qc.invalidateQueries({ queryKey: ["recon-tx"] });
       qc.invalidateQueries({ queryKey: ["recon-forecasts"] });
+      qc.invalidateQueries({ queryKey: ["recon-master-orphans"] });
     },
     onError: (e: any) => toast.error(e?.message ?? "Erro ao vincular"),
   });
@@ -334,6 +426,46 @@ export default function ReconciliacaoBpTx() {
           <RefreshCw className="h-4 w-4 mr-1.5" /> Atualizar
         </Button>
       </div>
+
+      {/* FRENTE 5 — TX-mãe de split sem FK que bate categoria única no BP Master */}
+      {(masterOrphansQuery.data?.length ?? 0) > 0 && (
+        <Card className="border-warning/40">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Layers className="h-4 w-4 text-warning" />
+              TX-mãe de split sem vínculo ({masterOrphansQuery.data!.length})
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Transações-mãe (rateio Master, event_id=NULL) sem FK no BP que batem categoria única num BP Master. Um clique vincula à linha prevista.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {masterOrphansQuery.data!.map((row: any) => (
+              <div key={row.tx.id} className="flex items-start justify-between gap-3 rounded border p-3 flex-wrap">
+                <div className="flex-1 min-w-0 text-sm">
+                  <div className="font-medium">{row.tx.description ?? "(sem descrição)"}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {formatInCurrency(row.tx.amount, "EUR")} · {supplierName(row.tx.supplier_id)} · {row.tx.date ?? "—"}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Categoria: {catLabel(row.tx.category_id)}
+                  </div>
+                  <div className="text-xs mt-1">
+                    → Master <strong>{eventName(row.masterEventId)}</strong> · linha BP "{row.candidate.description ?? "(sem descrição)"}" ({formatInCurrency(row.candidate.amount, "EUR")})
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => linkMutation.mutate({ txId: row.tx.id, forecastId: row.candidate.id })}
+                  disabled={linkMutation.isPending}
+                >
+                  <Link2 className="h-3.5 w-3.5 mr-1" /> Vincular à linha BP Master
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="pb-3">

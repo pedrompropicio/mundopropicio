@@ -91,6 +91,9 @@ L2 da categoria não existe no BP do evento. Ações:
 - **Mudar categoria para uma do BP** (dropdown só com L3 dos L2 já no BP — sem ligar automaticamente).
 - **TX órfã legítima**.
 
+### Secção topo — TX-mãe de split sem FK (Frente 5)
+Detecta TXs-mãe (`event_id IS NULL`, `parent_transaction_id IS NULL`) sem FK em `event_forecasts.transaction_id` que têm filhas em subs de um Master e batem categoria+type numa única linha livre do BP Master. Botão "Vincular à linha BP Master" faz 1-clique UPDATE com guarda `AND transaction_id IS NULL`. Só aparece quando existir match único.
+
 ### Persistência das "ignoradas"
 Tabela `bp_tx_reconciliation_ignored (id, company_id, transaction_id UNIQUE, ignored_by, ignored_at, reason)`. RLS:
 - SELECT: `company_id = current_company_id() OR platform_admin`.
