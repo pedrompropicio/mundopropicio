@@ -937,7 +937,9 @@ export default function EventDetail() {
           isMasterView={isGlobalView}
           eventStatus={event.status}
           primaryEventDate={event.date}
-          extraExpense={Number(masterExpenseShare || 0) + Number(calculatedCacheImpact || 0)}
+          masterExpenseShare={Number(masterExpenseShare || 0)}
+          masterForecastShare={Number(masterForecastShare || 0)}
+          cacheImpact={Number(calculatedCacheImpact || 0)}
           onValueChange={setCardExpenseValue}
         />
         <StatCard
