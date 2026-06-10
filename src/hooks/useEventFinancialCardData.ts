@@ -99,30 +99,70 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     enabled: ids.length > 0,
   });
 
-  // ── BP do Master pai (só se evento é SUB) — para distinguir "TX via rateio Master" de "TX local" ──
+  // ── BP do Master pai (só se evento é SUB) — full lines para apropriação Forecast ──
   // parentEventId vem como PROP do EventDetail (evita query encadeada e race de timing).
-  const expenseForecastEnabled = mode === "forecast" && kind === "expense";
+  const forecastEnabled = mode === "forecast";
+  const expenseForecastEnabled = forecastEnabled && kind === "expense";
   const parentEventId = args.parentEventId ?? null;
+  const allocationEnabled = forecastEnabled && !!parentEventId;
 
-  const { data: masterBpCatsArr = [] } = useQuery({
-    queryKey: ["efc-master-bp-cats", parentEventId],
+  const { data: masterBpLines = [] } = useQuery({
+    queryKey: ["efc-master-bp-lines", parentEventId, kind],
     queryFn: async () => {
-      if (!parentEventId) return [] as string[];
+      if (!parentEventId) return [] as Array<{ category_id: string | null; amount: number; type: string }>;
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("category_id, is_transitory, exclude_from_result")
+        .select("category_id, amount, type, is_transitory, exclude_from_result")
         .eq("event_id", parentEventId)
         .is("version_id", null)
-        .eq("type", "expense")
+        .eq("type", kind)
         .eq("status", "approved");
       if (error) throw error;
-      return Array.from(new Set(
-        (data ?? [])
-          .filter((f: any) => !f.is_transitory && !f.exclude_from_result && f.category_id)
-          .map((f: any) => f.category_id as string)
-      ));
+      return (data ?? [])
+        .filter((f: any) => !f.is_transitory && !f.exclude_from_result && f.category_id)
+        .map((f: any) => ({ category_id: f.category_id, amount: Number(f.amount || 0), type: f.type }));
     },
-    enabled: expenseForecastEnabled && !!parentEventId,
+    enabled: allocationEnabled,
+  });
+
+  // N = nº de sub-eventos do Master (irmãos do sub atual + ele próprio)
+  const { data: nSubs = 0 } = useQuery({
+    queryKey: ["efc-n-subs", parentEventId],
+    queryFn: async () => {
+      if (!parentEventId) return 0;
+      const { count, error } = await supabase
+        .from("events")
+        .select("id", { count: "exact", head: true })
+        .eq("parent_event_id", parentEventId);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: allocationEnabled,
+  });
+
+  // parent.event_id das TX-mãe (para critério estrito de FILHA_RATEIO_MASTER)
+  const parentIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of (txs as any[])) {
+      if (t.parent_transaction_id) set.add(t.parent_transaction_id);
+    }
+    return Array.from(set);
+  }, [txs]);
+
+  const { data: parentEventMap = new Map<string, string | null>() } = useQuery({
+    queryKey: ["efc-parent-event-map", parentIds.slice().sort().join(",")],
+    queryFn: async () => {
+      if (parentIds.length === 0) return new Map<string, string | null>();
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("id, event_id")
+        .in("id", parentIds);
+      if (error) throw error;
+      const m = new Map<string, string | null>();
+      for (const r of (data ?? []) as any[]) m.set(r.id, r.event_id ?? null);
+      return m;
+    },
+    enabled: allocationEnabled && parentIds.length > 0,
   });
 
   // ── Simulator (apenas em forecast+income) ──
