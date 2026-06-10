@@ -331,17 +331,27 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
         }
         bpSum += Number(f_.amount || 0);
       }
-      // TX em categorias sem linha BP — são TX reais do sub (incl. filhas de split), não "órfãs"
-      let txExtraSum = 0;
+      // TX em categorias sem linha BP do sub — distinguir "via rateio Master" vs "local"
+      const masterCats = new Set<string>(masterBpCatsArr as string[]);
+      let txMasterRateioSum = 0;
+      let txLocalSum = 0;
       for (const [cat, sum] of txByCat) {
-        if (!bpCats.has(cat)) txExtraSum += sum;
+        if (bpCats.has(cat)) continue;
+        if (masterCats.has(cat)) txMasterRateioSum += sum;
+        else txLocalSum += sum;
       }
+      const txExtraSum = txMasterRateioSum + txLocalSum;
       const txTotal = txLinkedSum + txExtraSum;
       const total = bpSum + txTotal + cache;
       const subtotals: Subtotal[] = [
         { label: "BP do sub", value: bpSum },
-        { label: "TX do sub", value: txTotal },
       ];
+      if (txMasterRateioSum > 0) subtotals.push({ label: "TX via rateio Master", value: txMasterRateioSum });
+      if (txLocalSum > 0) subtotals.push({ label: "TX local", value: txLocalSum });
+      if (txLinkedSum > 0 && txMasterRateioSum === 0 && txLocalSum === 0) {
+        // edge case: só há TX que substituem BP fechado — mostrar linha consolidada
+        subtotals.push({ label: "TX (substitui BP)", value: txLinkedSum });
+      }
       if (cache > 0) subtotals.push({ label: "Cachê", value: cache });
       subtotals.push({ label: "Total", value: total });
       return {
@@ -351,5 +361,5 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
       };
     }
   }, [txs, forecasts, simCfg, simInputs, mode, kind, scenario, eventStatus, primaryEventDate,
-      args.ticketSalesRevenue, args.cacheImpact]);
+      args.ticketSalesRevenue, args.cacheImpact, masterBpCatsArr]);
 }
