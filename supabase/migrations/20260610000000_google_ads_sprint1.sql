@@ -119,8 +119,7 @@ COMMENT ON TABLE crm.google_conversion IS
 
 -- Dedupe: a mesma venda (order_id) não é enviada 2x para a mesma conversion action.
 CREATE UNIQUE INDEX IF NOT EXISTS uq_google_conversion_order
-  ON crm.google_conversion(company_id, conversion_action_ref, order_id)
-  WHERE order_id IS NOT NULL;
+  ON crm.google_conversion(company_id, conversion_action_ref, order_id);
 
 ALTER TABLE crm.google_conversion ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation_select ON crm.google_conversion;
