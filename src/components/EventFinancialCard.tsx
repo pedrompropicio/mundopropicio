@@ -20,6 +20,8 @@ interface Props {
   isMasterView?: boolean;
   eventStatus?: string | null;
   primaryEventDate?: string | null;
+  /** parent_event_id do evento (null se for Master ou simples). Usado para distinguir TX via rateio Master. */
+  parentEventId?: string | null;
   ticketSalesRevenue?: number;
   /** Cachê calculado efetivo (único extra legítimo — vive fora de forecasts/TX). */
   cacheImpact?: number;
