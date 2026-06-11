@@ -62,9 +62,16 @@ Deno.serve(async (req) => {
     return json({ error: "missing_env" }, 500);
   }
 
-  const auth = req.headers.get("Authorization") ?? "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
-  if (!token || token !== SERVICE_ROLE) {
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  let jwtRole: string | null = null;
+  try {
+    const p = JSON.parse(
+      atob((token.split(".")[1] ?? "").replace(/-/g, "+").replace(/_/g, "/")),
+    );
+    jwtRole = p?.role ?? null;
+  } catch { /* ignore */ }
+  if (jwtRole !== "service_role") {
     return json({ error: "unauthorized" }, 401);
   }
 
