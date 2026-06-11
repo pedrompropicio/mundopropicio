@@ -15,6 +15,7 @@ import {
   LogOut,
   Ticket,
   Landmark,
+  Wallet,
   KeyRound,
   RefreshCw,
   Settings,
