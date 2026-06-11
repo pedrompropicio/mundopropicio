@@ -118,6 +118,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const parsed = PayloadSchema.safeParse(parsedJson);
   if (!parsed.success) {
+    console.warn("[gclick] validation_failed DIAG", JSON.stringify({ body: parsedJson, errors: parsed.error.flatten() }));
     return json(
       { error: "validation_failed", details: parsed.error.flatten().fieldErrors },
       400,
