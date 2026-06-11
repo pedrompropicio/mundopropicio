@@ -8,6 +8,7 @@ import { TicketImportModal } from "@/components/TicketUploadModals";
 import { SalesLogPanel } from "@/components/SalesLogPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
+import { fetchAllPaginated } from "@/lib/paginated-select";
 
 interface Props {
   officeId?: string; // if provided, filter to this office only
