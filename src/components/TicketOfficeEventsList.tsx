@@ -8,6 +8,7 @@ import { TicketImportModal } from "@/components/TicketUploadModals";
 import { SalesLogPanel } from "@/components/SalesLogPanel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
+import { fetchAllPaginated } from "@/lib/paginated-select";
 
 interface Props {
   officeId?: string; // if provided, filter to this office only
@@ -70,15 +71,38 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     return map;
   }, [zones]);
 
-  // Get sales (include sale_date for period info)
+  // Get sales (paginado para contornar limite de 1000 do PostgREST)
   const { data: sales = [] } = useQuery({
     queryKey: ["to_event_sales", zoneIds],
     enabled: zoneIds.length > 0,
     queryFn: async () => {
+      // Faz a query por chunks de zonas (em caso de muitas zonas) e
+      // pagina cada chunk com .range() até esgotar.
+      const CHUNK = 200;
+      const out: any[] = [];
+      for (let i = 0; i < zoneIds.length; i += CHUNK) {
+        const slice = zoneIds.slice(i, i + CHUNK);
+        const rows = await fetchAllPaginated<any>(() =>
+          supabase
+            .from("ticket_sales")
+            .select("zone_id, quantity, unit_price, financial_account_id, sale_date")
+            .in("zone_id", slice),
+        );
+        out.push(...rows);
+      }
+      return out;
+    },
+  });
+
+  // Last sync timestamp from Ticketline sync config (per event)
+  const { data: syncConfigs = [] } = useQuery({
+    queryKey: ["to_sync_configs", eventIds],
+    enabled: eventIds.length > 0,
+    queryFn: async () => {
       const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("zone_id, quantity, unit_price, financial_account_id, sale_date")
-        .in("zone_id", zoneIds);
+        .from("ticketline_sync_config")
+        .select("event_id, last_run_at, last_run_status")
+        .in("event_id", eventIds);
       if (error) throw error;
       return data || [];
     },
@@ -144,8 +168,8 @@ export function TicketOfficeEventsList({ officeId }: Props) {
 
   // Aggregate per event (include sales period from sales data)
   const eventSummaries = useMemo(() => {
-    const map: Record<string, { revenue: number; ivaRevenue: number; expenses: number; ivaExpenses: number; qty: number; firstSaleDate: string | null; lastSaleDate: string | null; lastImportDate: string | null; importPeriodFrom: string | null; importPeriodTo: string | null }> = {};
-    eventIds.forEach((eid) => { map[eid] = { revenue: 0, ivaRevenue: 0, expenses: 0, ivaExpenses: 0, qty: 0, firstSaleDate: null, lastSaleDate: null, lastImportDate: null, importPeriodFrom: null, importPeriodTo: null }; });
+    const map: Record<string, { revenue: number; ivaRevenue: number; expenses: number; ivaExpenses: number; qty: number; firstSaleDate: string | null; lastSaleDate: string | null; lastImportDate: string | null; lastSyncAt: string | null; importPeriodFrom: string | null; importPeriodTo: string | null }> = {};
+    eventIds.forEach((eid) => { map[eid] = { revenue: 0, ivaRevenue: 0, expenses: 0, ivaExpenses: 0, qty: 0, firstSaleDate: null, lastSaleDate: null, lastImportDate: null, lastSyncAt: null, importPeriodFrom: null, importPeriodTo: null }; });
 
     sales.forEach((s: any) => {
       const eventId = zoneEventMap[s.zone_id];
@@ -179,6 +203,12 @@ export function TicketOfficeEventsList({ officeId }: Props) {
       if (log.period_to && (!entry.importPeriodTo || log.period_to > entry.importPeriodTo)) entry.importPeriodTo = log.period_to;
     });
 
+    // Attach Ticketline sync last_run_at (preferred carimbo — sync fresco)
+    syncConfigs.forEach((cfg: any) => {
+      if (!cfg.event_id || !map[cfg.event_id]) return;
+      if (cfg.last_run_at) map[cfg.event_id].lastSyncAt = cfg.last_run_at;
+    });
+
     txns.forEach((t: any) => {
       if (!t.event_id || !map[t.event_id]) return;
       if (t.type === "expense") {
@@ -192,7 +222,7 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     });
 
     return map;
-  }, [sales, txns, zoneEventMap, lotIvaMap, eventIds, officeId, importLogs]);
+  }, [sales, txns, zoneEventMap, lotIvaMap, eventIds, officeId, importLogs, syncConfigs]);
 
   const totalRevenue = Object.values(eventSummaries).reduce((s, e) => s + e.revenue, 0);
   const totalExpenses = Object.values(eventSummaries).reduce((s, e) => s + e.expenses, 0);
@@ -229,7 +259,7 @@ export function TicketOfficeEventsList({ officeId }: Props) {
         </TableHeader>
         <TableBody>
           {events.map((ev: any) => {
-            const s = eventSummaries[ev.id] || { revenue: 0, expenses: 0, ivaRevenue: 0, ivaExpenses: 0, qty: 0, firstSaleDate: null, lastSaleDate: null, lastImportDate: null, importPeriodFrom: null, importPeriodTo: null };
+            const s = eventSummaries[ev.id] || { revenue: 0, expenses: 0, ivaRevenue: 0, ivaExpenses: 0, qty: 0, firstSaleDate: null, lastSaleDate: null, lastImportDate: null, lastSyncAt: null, importPeriodFrom: null, importPeriodTo: null };
             const ivaBalance = s.ivaRevenue - s.ivaExpenses;
             const fmtD = (d: string | null) => d ? format(new Date(d), "dd/MM/yyyy") : "—";
             return (
@@ -250,11 +280,16 @@ export function TicketOfficeEventsList({ officeId }: Props) {
                           Vendas: {fmtD(s.firstSaleDate)} — {fmtD(s.lastSaleDate)}
                         </span>
                       )}
-                      {s.lastImportDate && (
-                        <span className="text-[10px] text-primary">
-                          Últ. importação: {format(new Date(s.lastImportDate), "dd/MM/yyyy HH:mm")}
-                        </span>
-                      )}
+                      {(() => {
+                        const stamp = s.lastSyncAt || s.lastImportDate;
+                        if (!stamp) return null;
+                        const label = s.lastSyncAt ? "Últ. sincronização" : "Últ. importação";
+                        return (
+                          <span className="text-[10px] text-primary">
+                            {label}: {format(new Date(stamp), "dd/MM/yyyy HH:mm")}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
                 </TableCell>
