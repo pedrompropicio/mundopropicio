@@ -59,9 +59,10 @@ export function EventPartnersTab({ eventId, eventStatus }: Props) {
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers-active"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("id, name").eq("is_active", true).order("name");
-      if (error) throw error;
-      return data;
+      const { fetchAllPaginated } = await import("@/lib/paginated-select");
+      return await fetchAllPaginated<{ id: string; name: string }>(() =>
+        supabase.from("suppliers").select("id, name").eq("is_active", true).order("name")
+      );
     },
   });
 
