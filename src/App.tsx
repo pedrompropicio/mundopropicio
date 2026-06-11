@@ -34,6 +34,7 @@ import Suppliers from "./pages/Suppliers";
 import Quotations from "./pages/Quotations";
 import AccountCategories from "./pages/AccountCategories";
 import FinancialAccounts from "./pages/FinancialAccounts";
+import Treasury from "./pages/Treasury";
 import UserManagement from "./pages/UserManagement";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
