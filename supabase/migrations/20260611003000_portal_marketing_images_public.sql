@@ -9,6 +9,9 @@ UPDATE storage.buckets
 DROP POLICY IF EXISTS portal_marketing_images_insert ON storage.objects;
 DROP POLICY IF EXISTS portal_marketing_images_update ON storage.objects;
 DROP POLICY IF EXISTS portal_marketing_images_delete ON storage.objects;
+DROP POLICY IF EXISTS "portal_marketing_images_auth_insert" ON storage.objects;
+DROP POLICY IF EXISTS "portal_marketing_images_auth_update" ON storage.objects;
+DROP POLICY IF EXISTS "portal_marketing_images_auth_delete" ON storage.objects;
 
 CREATE POLICY portal_marketing_images_insert
   ON storage.objects FOR INSERT TO authenticated
