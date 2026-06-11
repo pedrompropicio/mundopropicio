@@ -146,10 +146,13 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
     queryFn: async () => {
-      const { fetchAllPaginated } = await import("@/lib/paginated-select");
-      return await fetchAllPaginated<{ id: string; name: string }>(() =>
-        supabase.from("suppliers").select("id, name").eq("is_active", true).order("name")
-      );
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("id, name, trade_name")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
@@ -538,7 +541,11 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
 
   const eventOptions = events.map((ev) => ({ value: ev.id, label: ev.name }));
   const categoryOptions = filteredCategories.map((c) => ({ value: c.id, label: `${c.code} ${c.name}` }));
-  const supplierOptions = suppliers.map((s) => ({ value: s.id, label: s.name }));
+  const supplierOptions = suppliers.map((s: any) => ({
+    value: s.id,
+    label: s.trade_name ? `${s.name} — ${s.trade_name}` : s.name,
+    searchText: s.trade_name ?? undefined,
+  }));
   const accountOptions = financialAccounts.map((a: any) => ({ value: a.id, label: a.name }));
 
   return createPortal(
