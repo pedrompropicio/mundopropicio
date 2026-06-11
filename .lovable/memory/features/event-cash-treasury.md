@@ -63,10 +63,17 @@ Entrada no `AppSidebar` com ícone `Wallet`, junto a `/contas`.
 ```
 Realizado de caixa (pool)
 + Comprometido (aprovado por pagar)
-− Retido na bilheteira (liquidez condicionada)
 − Pago por sócios externos a regularizar (partner_paid_expenses)
-= Disponibilidade real do evento
+= Disponibilidade líquida no pool          ← caixa firme
++ Retido na bilheteira (liquidez condicionada)
+= Disponibilidade potencial total          ← inclui condicionada
 ```
+
+**Sinal do Retido**: parcela **positiva condicionada**, nunca subtração. O
+Realizado do pool já EXCLUI receita em contas `ticket_office` (fora do pool),
+portanto subtrair retido puniria o evento duas vezes. O retido só passa a caixa
+firme após repasse bilheteira/sala (`withholds_revenue`). UI mostra os dois
+subtotais com distinção visual (badge "inclui condicionada" no total potencial).
 
 - Pendente mostrado abaixo como ressalva (menor certeza, não somado).
 - Informativo: participação % Mundo Propício = `100 − Σ event_partners.percentage`.

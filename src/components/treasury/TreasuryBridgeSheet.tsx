@@ -70,7 +70,8 @@ export function TreasuryBridgeSheet({ open, onClose, eventId, retained, poolRow 
   const realized = poolRow?.realized ?? 0;
   const committed = poolRow?.committed ?? 0;
   const pending = poolRow?.pending ?? 0;
-  const availability = realized + committed - retained - paidByPartners;
+  const poolAvailability = realized + committed - paidByPartners;
+  const totalPotential = poolAvailability + retained;
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
@@ -86,7 +87,7 @@ export function TreasuryBridgeSheet({ open, onClose, eventId, retained, poolRow 
           <BridgeRow
             label="Realizado de caixa (pool)"
             value={realized}
-            hint="Saídas/entradas pagas em contas líquidas (bank/cash/prepaid_card)."
+            hint="Saídas/entradas pagas em contas líquidas (bank/cash/prepaid_card). Não inclui receita ainda em bilheteira."
           />
           <BridgeRow
             label="+ Comprometido (aprovado por pagar)"
@@ -95,24 +96,41 @@ export function TreasuryBridgeSheet({ open, onClose, eventId, retained, poolRow 
             hint="Timing — já decidido, ainda não saiu."
           />
           <BridgeRow
-            label="− Retido na bilheteira"
-            value={-retained}
-            tag="liquidez condicionada"
-            hint="Depende de repasse bilheteira/sala (withholds_revenue)."
-            link={{ to: "/bilheteiras", label: "ver bilheteiras" }}
-          />
-          <BridgeRow
             label="− Pago por sócios externos (a regularizar)"
             value={-paidByPartners}
             hint="Despesas suportadas por sócios — pendentes de acerto."
             link={{ to: `/eventos/${eventId}`, label: "ver Acerto de Sócios" }}
           />
           <div className="border-t pt-2 mt-2 flex items-center justify-between font-semibold">
-            <span>= Disponibilidade real do evento</span>
-            <span className={`font-mono ${availability >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-              {formatCurrency(availability)}
+            <span>= Disponibilidade líquida no pool</span>
+            <span className={`font-mono ${poolAvailability >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+              {formatCurrency(poolAvailability)}
             </span>
           </div>
+          <p className="text-[10px] text-muted-foreground -mt-1">
+            Caixa firme já no pool líquido da empresa.
+          </p>
+
+          <BridgeRow
+            label="+ Retido na bilheteira"
+            value={retained}
+            tag="liquidez condicionada"
+            hint="Ainda não está no pool — depende de repasse bilheteira/sala (withholds_revenue)."
+            link={{ to: "/bilheteiras", label: "ver bilheteiras" }}
+          />
+          <div className="border-t pt-2 mt-2 flex items-center justify-between font-semibold">
+            <span className="flex items-center gap-1 flex-wrap">
+              = Disponibilidade potencial total
+              <Badge variant="outline" className="text-[9px] py-0">inclui condicionada</Badge>
+            </span>
+            <span className={`font-mono ${totalPotential >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+              {formatCurrency(totalPotential)}
+            </span>
+          </div>
+          <p className="text-[10px] text-muted-foreground -mt-1 flex items-start gap-1">
+            <Info className="h-3 w-3 mt-px shrink-0" />
+            O retido só passa a caixa firme após repasse da bilheteira/sala.
+          </p>
 
           {pending !== 0 && (
             <p className="text-[10px] text-muted-foreground flex items-start gap-1 mt-2">
