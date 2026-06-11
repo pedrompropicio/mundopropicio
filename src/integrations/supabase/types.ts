@@ -10153,6 +10153,32 @@ export type Database = {
         }[]
       }
       get_app_secret: { Args: { _name: string }; Returns: string }
+      get_event_cash_position: {
+        Args: { p_company_id: string; p_date_from?: string; p_date_to?: string }
+        Returns: {
+          committed: number
+          event_date: string
+          event_id: string
+          event_name: string
+          is_sub: boolean
+          level: string
+          master_event_id: string
+          parent_event_id: string
+          pending: number
+          realized: number
+        }[]
+      }
+      get_event_cash_position_invariant: {
+        Args: { p_company_id: string }
+        Returns: {
+          diff: number
+          is_balanced: boolean
+          lhs: number
+          rhs_computebalance: number
+          sum_initial: number
+          sum_realized: number
+        }[]
+      }
       get_user_max_daily_budget_eur: {
         Args: { _user_id: string }
         Returns: number
