@@ -408,9 +408,10 @@ export function TransactionFormModal({ onClose, defaults, autoMarkPaid, onCreate
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("suppliers").select("id, name, trade_name, nif, iban, swift_bic, iban_2, swift_bic_2, iban_3, swift_bic_3").eq("is_active", true).order("name");
-      if (error) throw error;
-      return data;
+      const { fetchAllPaginated } = await import("@/lib/paginated-select");
+      return await fetchAllPaginated<any>(() =>
+        supabase.from("suppliers").select("id, name, trade_name, nif, iban, swift_bic, iban_2, swift_bic_2, iban_3, swift_bic_3").eq("is_active", true).order("name")
+      );
     },
   });
 
