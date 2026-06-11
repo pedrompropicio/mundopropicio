@@ -59,21 +59,21 @@ function json(body: unknown, status: number, origin: string | null) {
 
 const PayloadSchema = z
   .object({
-    gclid: z.string().max(255).optional(),
-    gbraid: z.string().max(255).optional(),
-    wbraid: z.string().max(255).optional(),
-    utm_source: z.string().max(255).optional(),
-    utm_medium: z.string().max(255).optional(),
-    utm_campaign: z.string().max(255).optional(),
-    utm_content: z.string().max(255).optional(),
-    utm_term: z.string().max(255).optional(),
+    gclid: z.string().max(255).nullable().optional(),
+    gbraid: z.string().max(255).nullable().optional(),
+    wbraid: z.string().max(255).nullable().optional(),
+    utm_source: z.string().max(255).nullable().optional(),
+    utm_medium: z.string().max(255).nullable().optional(),
+    utm_campaign: z.string().max(255).nullable().optional(),
+    utm_content: z.string().max(255).nullable().optional(),
+    utm_term: z.string().max(255).nullable().optional(),
     landing_url: z.string().url(),
     referrer: z.string().url().nullable().optional(),
-    user_agent: z.string().max(1000).optional(),
+    user_agent: z.string().max(1000).nullable().optional(),
     consent_granted: z.boolean(),
-    event_id: z.string().uuid().optional(),
+    event_id: z.string().uuid().nullable().optional(),
     client_event_id: z.string().uuid(),
-    lead_capture_id: z.string().uuid().optional(),
+    lead_capture_id: z.string().uuid().nullable().optional(),
   })
   .refine(
     (d) =>
@@ -118,7 +118,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const parsed = PayloadSchema.safeParse(parsedJson);
   if (!parsed.success) {
-    console.warn("[gclick] validation_failed DIAG", JSON.stringify({ body: parsedJson, errors: parsed.error.flatten() }));
     return json(
       { error: "validation_failed", details: parsed.error.flatten().fieldErrors },
       400,
