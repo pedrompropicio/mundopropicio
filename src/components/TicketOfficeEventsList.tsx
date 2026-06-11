@@ -280,11 +280,16 @@ export function TicketOfficeEventsList({ officeId }: Props) {
                           Vendas: {fmtD(s.firstSaleDate)} — {fmtD(s.lastSaleDate)}
                         </span>
                       )}
-                      {s.lastImportDate && (
-                        <span className="text-[10px] text-primary">
-                          Últ. importação: {format(new Date(s.lastImportDate), "dd/MM/yyyy HH:mm")}
-                        </span>
-                      )}
+                      {(() => {
+                        const stamp = s.lastSyncAt || s.lastImportDate;
+                        if (!stamp) return null;
+                        const label = s.lastSyncAt ? "Últ. sincronização" : "Últ. importação";
+                        return (
+                          <span className="text-[10px] text-primary">
+                            {label}: {format(new Date(stamp), "dd/MM/yyyy HH:mm")}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
                 </TableCell>
