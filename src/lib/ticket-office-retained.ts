@@ -54,12 +54,18 @@ export async function fetchTicketOfficeRetainedByEvent(
 
   let sales: any[] = [];
   if (zoneIds.length > 0) {
-    const { data, error } = await supabase
-      .from("ticket_sales")
-      .select("zone_id, quantity, unit_price, financial_account_id")
-      .in("zone_id", zoneIds);
-    if (error) throw error;
-    sales = data ?? [];
+    // Paginado para contornar limite implícito de 1000 linhas do PostgREST
+    const CHUNK = 200;
+    for (let i = 0; i < zoneIds.length; i += CHUNK) {
+      const slice = zoneIds.slice(i, i + CHUNK);
+      const rows = await fetchAllPaginated<any>(() =>
+        supabase
+          .from("ticket_sales")
+          .select("zone_id, quantity, unit_price, financial_account_id")
+          .in("zone_id", slice),
+      );
+      sales.push(...rows);
+    }
   }
 
   // 4. Despesas diretas (tx em conta bilheteira com event_id)
