@@ -81,3 +81,8 @@ verify_jwt = false
 # + Origin allowlist + Zod no handler. SERVICE_ROLE auto-injetada para o insert.
 [functions.crm-google-click-ingest]
 verify_jwt = false
+
+# Utilitário one-off: migra imagens do projeto Supabase antigo (zjseklogascfwqjoocbl)
+# para o bucket event-images deste Live. Auth manual via Bearer <SERVICE_ROLE>.
+[functions.migrate-legacy-images]
+verify_jwt = false
