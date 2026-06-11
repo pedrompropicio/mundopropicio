@@ -82,7 +82,3 @@ verify_jwt = false
 [functions.crm-google-click-ingest]
 verify_jwt = false
 
-# Utilitário one-off: migra imagens do projeto Supabase antigo (zjseklogascfwqjoocbl)
-# para o bucket event-images deste Live. Auth manual via Bearer <SERVICE_ROLE>.
-[functions.migrate-legacy-images]
-verify_jwt = false
