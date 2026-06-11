@@ -70,7 +70,8 @@ export function TreasuryBridgeSheet({ open, onClose, eventId, retained, poolRow 
   const realized = poolRow?.realized ?? 0;
   const committed = poolRow?.committed ?? 0;
   const pending = poolRow?.pending ?? 0;
-  const availability = realized + committed - retained - paidByPartners;
+  const poolAvailability = realized + committed - paidByPartners;
+  const totalPotential = poolAvailability + retained;
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
