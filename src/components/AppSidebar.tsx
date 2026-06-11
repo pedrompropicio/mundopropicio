@@ -89,6 +89,7 @@ export function AppSidebar() {
     { to: "/bilheteiras", icon: Store, label: "Bilheteiras", show: hasPermission("manage_ticket_offices") || hasPermission("manage_accounts") || isAdmin },
     { to: "/plano-contas", icon: BookOpen, label: "Plano de Contas", show: hasPermission("manage_categories") || isAdmin },
     { to: "/contas", icon: Landmark, label: "Contas", show: hasPermission("manage_accounts") || hasPermission("view_balances") || isAdmin },
+    { to: "/tesouraria", icon: Wallet, label: "Tesouraria", show: hasPermission("manage_accounts") || hasPermission("view_balances") || isAdmin },
     { to: "/fornecedores", icon: Users, label: "Entidades", show: hasPermission("manage_suppliers") || isAdmin },
     { to: "/cotacoes", icon: FileCheck, label: "Cotações", show: hasPermission("manage_quotations") || isAdmin },
     { to: "/iva", icon: Receipt, label: "Gestão IVA", show: hasPermission("manage_iva") || isAdmin },
