@@ -15,6 +15,13 @@ type ViewMode = "grid" | "list";
 type SortField = "name" | "trade_name";
 type SortDir = "asc" | "desc";
 
+const normalizeForSupplierSearch = (value: string | null | undefined) =>
+  (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
 export default function Suppliers() {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -54,11 +61,12 @@ export default function Suppliers() {
   });
 
   const filtered = useMemo(() => {
+    const normalizedSearch = normalizeForSupplierSearch(search);
     let list = suppliers.filter((s) =>
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      (s.trade_name && s.trade_name.toLowerCase().includes(search.toLowerCase())) ||
-      (s.nif && s.nif.includes(search)) ||
-      (s.category && s.category.toLowerCase().includes(search.toLowerCase()))
+      normalizeForSupplierSearch(s.name).includes(normalizedSearch) ||
+      normalizeForSupplierSearch(s.trade_name).includes(normalizedSearch) ||
+      normalizeForSupplierSearch(s.nif).includes(normalizedSearch) ||
+      normalizeForSupplierSearch(s.category).includes(normalizedSearch)
     );
     if (hidePartners) list = list.filter((s) => !s.is_partner);
     list.sort((a, b) => {
