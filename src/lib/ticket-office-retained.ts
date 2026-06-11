@@ -12,6 +12,7 @@
  * diferente de 0.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllPaginated } from "@/lib/paginated-select";
 
 export interface TicketOfficeRetainedRow {
   eventId: string;
