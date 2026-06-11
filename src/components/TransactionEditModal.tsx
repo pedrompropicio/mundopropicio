@@ -146,10 +146,13 @@ export function TransactionEditModal({ transaction, onClose, isAdmin }: Props) {
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
     queryFn: async () => {
-      const { fetchAllPaginated } = await import("@/lib/paginated-select");
-      return await fetchAllPaginated<{ id: string; name: string }>(() =>
-        supabase.from("suppliers").select("id, name").eq("is_active", true).order("name")
-      );
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("id, name, trade_name")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
