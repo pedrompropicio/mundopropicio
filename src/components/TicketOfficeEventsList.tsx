@@ -168,8 +168,8 @@ export function TicketOfficeEventsList({ officeId }: Props) {
 
   // Aggregate per event (include sales period from sales data)
   const eventSummaries = useMemo(() => {
-    const map: Record<string, { revenue: number; ivaRevenue: number; expenses: number; ivaExpenses: number; qty: number; firstSaleDate: string | null; lastSaleDate: string | null; lastImportDate: string | null; importPeriodFrom: string | null; importPeriodTo: string | null }> = {};
-    eventIds.forEach((eid) => { map[eid] = { revenue: 0, ivaRevenue: 0, expenses: 0, ivaExpenses: 0, qty: 0, firstSaleDate: null, lastSaleDate: null, lastImportDate: null, importPeriodFrom: null, importPeriodTo: null }; });
+    const map: Record<string, { revenue: number; ivaRevenue: number; expenses: number; ivaExpenses: number; qty: number; firstSaleDate: string | null; lastSaleDate: string | null; lastImportDate: string | null; lastSyncAt: string | null; importPeriodFrom: string | null; importPeriodTo: string | null }> = {};
+    eventIds.forEach((eid) => { map[eid] = { revenue: 0, ivaRevenue: 0, expenses: 0, ivaExpenses: 0, qty: 0, firstSaleDate: null, lastSaleDate: null, lastImportDate: null, lastSyncAt: null, importPeriodFrom: null, importPeriodTo: null }; });
 
     sales.forEach((s: any) => {
       const eventId = zoneEventMap[s.zone_id];
@@ -203,6 +203,12 @@ export function TicketOfficeEventsList({ officeId }: Props) {
       if (log.period_to && (!entry.importPeriodTo || log.period_to > entry.importPeriodTo)) entry.importPeriodTo = log.period_to;
     });
 
+    // Attach Ticketline sync last_run_at (preferred carimbo — sync fresco)
+    syncConfigs.forEach((cfg: any) => {
+      if (!cfg.event_id || !map[cfg.event_id]) return;
+      if (cfg.last_run_at) map[cfg.event_id].lastSyncAt = cfg.last_run_at;
+    });
+
     txns.forEach((t: any) => {
       if (!t.event_id || !map[t.event_id]) return;
       if (t.type === "expense") {
@@ -216,7 +222,7 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     });
 
     return map;
-  }, [sales, txns, zoneEventMap, lotIvaMap, eventIds, officeId, importLogs]);
+  }, [sales, txns, zoneEventMap, lotIvaMap, eventIds, officeId, importLogs, syncConfigs]);
 
   const totalRevenue = Object.values(eventSummaries).reduce((s, e) => s + e.revenue, 0);
   const totalExpenses = Object.values(eventSummaries).reduce((s, e) => s + e.expenses, 0);
