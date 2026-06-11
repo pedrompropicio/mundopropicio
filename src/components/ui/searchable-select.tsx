@@ -35,6 +35,23 @@ interface SearchableSelectProps {
   disabled?: boolean;
 }
 
+const normalizeForSearch = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+const matchesSearch = (haystack: string, query: string) => {
+  const normalizedHaystack = normalizeForSearch(haystack);
+  const normalizedQuery = normalizeForSearch(query);
+  if (normalizedHaystack.includes(normalizedQuery)) return true;
+
+  const compactHaystack = normalizedHaystack.replace(/[^a-z0-9]/g, "");
+  const compactQuery = normalizedQuery.replace(/[^a-z0-9]/g, "");
+  return compactQuery.length > 0 && compactHaystack.includes(compactQuery);
+};
+
 export function SearchableSelect({
   options,
   value,
@@ -52,13 +69,12 @@ export function SearchableSelect({
 
   const filtered = React.useMemo(() => {
     if (!search.trim()) return options;
-    const q = search.toLowerCase();
     // Find which non-header items match
     const matchIndices = new Set<number>();
     options.forEach((o, i) => {
       if (o.isHeader) return;
-      const haystack = [o.label, o.searchText, o.description].filter(Boolean).join(" ").toLowerCase();
-      if (haystack.includes(q)) matchIndices.add(i);
+      const haystack = [o.label, o.searchText, o.description].filter(Boolean).join(" ");
+      if (matchesSearch(haystack, search)) matchIndices.add(i);
     });
     // Keep matched items and any preceding headers
     const result: SearchableSelectOption[] = [];
