@@ -259,7 +259,7 @@ export function TicketOfficeEventsList({ officeId }: Props) {
         </TableHeader>
         <TableBody>
           {events.map((ev: any) => {
-            const s = eventSummaries[ev.id] || { revenue: 0, expenses: 0, ivaRevenue: 0, ivaExpenses: 0, qty: 0, firstSaleDate: null, lastSaleDate: null, lastImportDate: null, importPeriodFrom: null, importPeriodTo: null };
+            const s = eventSummaries[ev.id] || { revenue: 0, expenses: 0, ivaRevenue: 0, ivaExpenses: 0, qty: 0, firstSaleDate: null, lastSaleDate: null, lastImportDate: null, lastSyncAt: null, importPeriodFrom: null, importPeriodTo: null };
             const ivaBalance = s.ivaRevenue - s.ivaExpenses;
             const fmtD = (d: string | null) => d ? format(new Date(d), "dd/MM/yyyy") : "—";
             return (
