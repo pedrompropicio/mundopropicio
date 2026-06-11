@@ -71,15 +71,38 @@ export function TicketOfficeEventsList({ officeId }: Props) {
     return map;
   }, [zones]);
 
-  // Get sales (include sale_date for period info)
+  // Get sales (paginado para contornar limite de 1000 do PostgREST)
   const { data: sales = [] } = useQuery({
     queryKey: ["to_event_sales", zoneIds],
     enabled: zoneIds.length > 0,
     queryFn: async () => {
+      // Faz a query por chunks de zonas (em caso de muitas zonas) e
+      // pagina cada chunk com .range() até esgotar.
+      const CHUNK = 200;
+      const out: any[] = [];
+      for (let i = 0; i < zoneIds.length; i += CHUNK) {
+        const slice = zoneIds.slice(i, i + CHUNK);
+        const rows = await fetchAllPaginated<any>(() =>
+          supabase
+            .from("ticket_sales")
+            .select("zone_id, quantity, unit_price, financial_account_id, sale_date")
+            .in("zone_id", slice),
+        );
+        out.push(...rows);
+      }
+      return out;
+    },
+  });
+
+  // Last sync timestamp from Ticketline sync config (per event)
+  const { data: syncConfigs = [] } = useQuery({
+    queryKey: ["to_sync_configs", eventIds],
+    enabled: eventIds.length > 0,
+    queryFn: async () => {
       const { data, error } = await supabase
-        .from("ticket_sales")
-        .select("zone_id, quantity, unit_price, financial_account_id, sale_date")
-        .in("zone_id", zoneIds);
+        .from("ticketline_sync_config")
+        .select("event_id, last_run_at, last_run_status")
+        .in("event_id", eventIds);
       if (error) throw error;
       return data || [];
     },
