@@ -705,6 +705,20 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
         installment={markInstallment}
         transactionId={txId}
       />
+
+      <ReversePaymentDialog
+        open={!!reversePayment}
+        onClose={() => setReversePayment(null)}
+        payment={reversePayment ? {
+          id: reversePayment.id,
+          amount: Number(reversePayment.amount),
+          payment_date: reversePayment.payment_date ? formatDatePT(reversePayment.payment_date) : null,
+          account_name: reversePayment.financial_accounts?.name ?? null,
+        } : null}
+        transactionId={txId}
+        supplierAvailable={!!transaction.supplier_id}
+      />
+
     </div>
   );
 }
