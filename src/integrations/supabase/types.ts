@@ -10447,15 +10447,24 @@ export type Database = {
         }
         Returns: Json
       }
-      reverse_transaction: {
-        Args: {
-          p_kind: string
-          p_reason: string
-          p_tx_id: string
-          p_valid_until?: string
-        }
-        Returns: Json
-      }
+      reverse_transaction:
+        | {
+            Args: {
+              p_reason: string
+              p_reversal_kind: string
+              p_transaction_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_kind: string
+              p_reason: string
+              p_tx_id: string
+              p_valid_until?: string
+            }
+            Returns: Json
+          }
       revert_to_bp_version: {
         Args: {
           _force?: boolean
