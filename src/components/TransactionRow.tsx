@@ -278,6 +278,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
 
   // Compute effective status
   const computedStatus = (() => {
+    if (t.status === "reversed") return "reversed";
     if (t.status === "paid" || isFullyPaid(paidAmount, amount, ivaRate)) return "paid";
     // Check overdue before approved — only overdue if due_date is strictly before today (not today itself)
     const todayStr = new Date().toISOString().slice(0, 10);
@@ -287,14 +288,15 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
   })();
 
   const statusLabel = isExpense
-    ? { pending: "Aguardando", approved: "A Pagar", paid: "Pago", overdue: "Atrasado" }[computedStatus] ?? computedStatus
-    : { pending: "Pendente", approved: "Aprovado", paid: "Pago", overdue: "Atrasado" }[computedStatus] ?? computedStatus;
+    ? { pending: "Aguardando", approved: "A Pagar", paid: "Pago", overdue: "Atrasado", reversed: "Estornada" }[computedStatus] ?? computedStatus
+    : { pending: "Pendente", approved: "Aprovado", paid: "Pago", overdue: "Atrasado", reversed: "Estornada" }[computedStatus] ?? computedStatus;
 
   const statusClass = {
     pending: "bg-warning/15 text-warning",
     approved: "bg-blue-500/15 text-blue-400",
     paid: "bg-success/15 text-success",
     overdue: "bg-destructive/15 text-destructive",
+    reversed: "bg-orange-500/15 text-orange-500",
   }[computedStatus] ?? "bg-secondary text-muted-foreground";
 
   return (
