@@ -287,12 +287,15 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
   }
 
   const allPayments = data?.payments ?? [];
-  const paidPayments = allPayments.filter((p: any) => p.status === "paid" || !p.status);
+  const paidPayments = allPayments.filter((p: any) => (p.status === "paid" || !p.status) && p.reversal_kind !== "supplier_credit");
+  const creditConvertedPayments = allPayments.filter((p: any) => p.status === "paid" && p.reversal_kind === "supplier_credit");
+  const reversedPayments = allPayments.filter((p: any) => p.status === "reversed");
   const plannedPayments = allPayments.filter((p: any) => p.status === "planned");
   const cancelledPayments = allPayments.filter((p: any) => p.status === "cancelled");
   const hasSchedule = plannedPayments.length > 0 || cancelledPayments.length > 0 ||
     allPayments.some((p: any) => p.scheduled_date);
   const payments = paidPayments;
+
   const paymentListItems = data?.paymentListItems ?? [];
   const reimbursementItems = data?.reimbursementItems ?? [];
   const creditUsages = data?.creditUsages ?? [];
