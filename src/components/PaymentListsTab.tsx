@@ -590,7 +590,7 @@ function CreatePaymentList({ onClose, onCreated }: { onClose: () => void; onCrea
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="glass w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="glass w-full max-w-[min(1400px,96vw)] max-h-[90vh] overflow-y-auto rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-xl font-bold mb-4">Nova Lista de Contas a Pagar</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
