@@ -134,14 +134,23 @@ export async function deleteTransactionCascade({
   await supabase.from("transaction_payments").delete().in("transaction_id", allIds);
   await supabase.from("transaction_documents").delete().in("transaction_id", allIds);
 
-  // 9) Audit log entries
+  // 9) Audit log entries — preparar payload, mas inserir só APÓS o DELETE
+  //    confirmar. Caso contrário, falhas de RLS/FK deixam "Eliminação"
+  //    órfã no histórico de uma transação que continua viva.
   const groupReason =
     rootIds.length > 1
       ? `${auditReason ? auditReason + " · " : ""}Grupo fatura (${rootIds.length} linhas IVA)`
       : auditReason ?? null;
 
+  const pendingAuditRows: Array<{
+    transaction_id: string;
+    changed_by: string;
+    field_name: string;
+    old_value: string;
+    new_value: string | null;
+  }> = [];
   for (const tx of rootTxs ?? []) {
-    await supabase.from("transaction_audit_log").insert({
+    pendingAuditRows.push({
       transaction_id: tx.id,
       changed_by: callerName,
       field_name: "Eliminação",
@@ -150,7 +159,7 @@ export async function deleteTransactionCascade({
     });
   }
   for (const child of childTxs ?? []) {
-    await supabase.from("transaction_audit_log").insert({
+    pendingAuditRows.push({
       transaction_id: child.id,
       changed_by: callerName,
       field_name: "Eliminação",
@@ -165,12 +174,17 @@ export async function deleteTransactionCascade({
     .delete()
     .in("parent_transaction_id", rootIds);
 
-  // 11) Delete root transactions
+  // 11) Delete root transactions — se falhar, NÃO inserimos audit log
   const { error } = await supabase
     .from("transactions")
     .delete()
     .in("id", rootIds);
   if (error) throw error;
+
+  // 11.b) DELETE confirmou → inserir audit rows agora
+  if (pendingAuditRows.length > 0) {
+    await supabase.from("transaction_audit_log").insert(pendingAuditRows);
+  }
 
   // 12) System audit (one entry per root)
   for (const tx of rootTxs ?? []) {

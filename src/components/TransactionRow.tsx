@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/mock-data";
 import type { IvaRate } from "@/lib/mock-data";
-import { calcWithIva, isFullyPaid, formatDatePT, formatDatePTOptions } from "@/lib/utils";
+import { calcWithIva, isFullyPaid, formatDatePT, formatDatePTOptions, formatTimestampPT } from "@/lib/utils";
 import { computeNetPayable, getDeclaredWithholding } from "@/lib/withholding";
 import { Pencil, ShieldCheck, CreditCard, Paperclip, History, ChevronDown, ChevronRight, Trash2, AlertTriangle, UserCheck, EyeOff, Eye, Layers, MoreHorizontal } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -766,9 +766,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-3 text-xs">
                     <span className="whitespace-nowrap font-mono text-muted-foreground">
-                      {formatDatePTOptions(t.created_at, { day: "2-digit", month: "2-digit", year: "numeric" })}
-                      {" "}
-                      {new Date(t.created_at).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
+                      {formatTimestampPT(t.created_at)}
                     </span>
                     <span className="inline-flex rounded-full px-2 py-0.5 font-medium bg-secondary text-muted-foreground">
                       Criação
@@ -781,9 +779,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                   {paidAmount > 0 && !movements.some((m) => m.field_name === "Pagamento parcial" || m.field_name === "Recebimento parcial") && (
                     <div className="flex flex-wrap items-center gap-3 text-xs">
                       <span className="whitespace-nowrap font-mono text-muted-foreground">
-                        {formatDatePTOptions(t.updated_at, { day: "2-digit", month: "2-digit", year: "numeric" })}
-                        {" "}
-                        {new Date(t.updated_at).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
+                        {formatTimestampPT(t.updated_at)}
                       </span>
                       <span className="inline-flex rounded-full px-2 py-0.5 font-medium bg-success/15 text-success">
                         {isExpense ? "Pagamento" : "Recebimento"}
@@ -832,9 +828,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                     return (
                     <div key={m.id} className="flex flex-wrap items-center gap-3 text-xs">
                       <span className="whitespace-nowrap font-mono text-muted-foreground">
-                        {formatDatePTOptions(m.changed_at, { day: "2-digit", month: "2-digit", year: "numeric" })}
-                        {" "}
-                        {new Date(m.changed_at).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
+                        {formatTimestampPT(m.changed_at)}
                       </span>
                       <span className={`inline-flex rounded-full px-2 py-0.5 font-medium ${
                         isPaymentEntry
@@ -967,9 +961,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-3 text-xs">
                     <span className="whitespace-nowrap font-mono text-muted-foreground">
-                      {formatDatePTOptions(t.created_at, { day: "2-digit", month: "2-digit", year: "numeric" })}
-                      {" "}
-                      {new Date(t.created_at).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
+                      {formatTimestampPT(t.created_at)}
                     </span>
                     <span className="inline-flex rounded-full px-2 py-0.5 font-medium bg-secondary text-muted-foreground">
                       Criação

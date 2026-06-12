@@ -128,3 +128,19 @@ export function formatDatePTOptions(
   const d = new Date(value);
   return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString("pt-PT", options);
 }
+
+/**
+ * Formata um timestamptz (ISO com hora) no fuso horário LOCAL do browser,
+ * como "DD/MM/YYYY HH:MM". Usar SEMPRE em campos `timestamptz` (created_at,
+ * updated_at, changed_at, etc.). NÃO usar formatDatePT/formatDatePTOptions
+ * nesses campos — eles fazem slice da string UTC e produzem datas incoerentes
+ * com a hora local (ex.: "12/06 22:02" quando o instante ainda não chegou).
+ */
+export function formatTimestampPT(value?: string | Date | null): string {
+  if (!value) return "";
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return "";
+  const date = d.toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const time = d.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" });
+  return `${date} ${time}`;
+}

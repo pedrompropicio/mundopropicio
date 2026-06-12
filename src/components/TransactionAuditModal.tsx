@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { formatTimestampPT } from "@/lib/utils";
 
 interface Props {
   transactionId: string;
@@ -48,7 +49,7 @@ export function TransactionAuditModal({ transactionId, onClose }: Props) {
                         Lançamento criado
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {new Date(log.changed_at).toLocaleString("pt-PT")}
+                        {formatTimestampPT(log.changed_at)}
                       </span>
                     </div>
                     <p className="text-xs text-foreground">{log.new_value}</p>
@@ -66,7 +67,7 @@ export function TransactionAuditModal({ transactionId, onClose }: Props) {
                         Eliminação
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {new Date(log.changed_at).toLocaleString("pt-PT")}
+                        {formatTimestampPT(log.changed_at)}
                       </span>
                     </div>
                     {log.old_value && <p className="text-xs text-foreground">{log.old_value}</p>}
@@ -81,7 +82,7 @@ export function TransactionAuditModal({ transactionId, onClose }: Props) {
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-primary">{log.field_name}</span>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(log.changed_at).toLocaleString("pt-PT")}
+                      {formatTimestampPT(log.changed_at)}
                     </span>
                   </div>
                   <div className="flex gap-2 text-xs">
