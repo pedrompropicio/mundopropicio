@@ -33,12 +33,17 @@ export async function fetchAccountCashAdjustments(
 ): Promise<AccountCashAdjustments> {
   let query = supabase
     .from("transaction_payments")
-    .select("account_id, withholding_amount, credit_amount")
-    .not("account_id", "is", null);
+    .select("account_id, withholding_amount, credit_amount, status")
+    .not("account_id", "is", null)
+    // Excluir parcelas estornadas (V1 cash_refund): o dinheiro voltou,
+    // logo o withholding/credito também deixa de contar. V2 supplier_credit
+    // mantém status='paid' por isso é correctamente incluído aqui.
+    .neq("status", "reversed");
 
   if (accountIds && accountIds.length > 0) {
     query = query.in("account_id", accountIds);
   }
+
 
   const { data, error } = await query;
   if (error) {

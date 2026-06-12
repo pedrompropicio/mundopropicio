@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsListModal";
 import { MarkInstallmentPaidModal } from "@/components/MarkInstallmentPaidModal";
+import { ReversePaymentDialog } from "@/components/ReversePaymentDialog";
+
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -58,6 +60,8 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
   });
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [markInstallment, setMarkInstallment] = useState<any | null>(null);
+  const [reversePayment, setReversePayment] = useState<any | null>(null);
+
 
   const { data, isLoading } = useQuery({
     queryKey: ["payment-timeline", txId],
@@ -71,10 +75,11 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
       ] = await Promise.all([
         supabase
           .from("transaction_payments" as any)
-          .select("id, amount, payment_date, scheduled_date, status, payment_method, account_id, invoice_ref, financial_accounts:account_id(name)")
+          .select("id, amount, payment_date, scheduled_date, status, payment_method, account_id, invoice_ref, reversal_kind, reversal_reason, reversed_at, supplier_credit_id, financial_accounts:account_id(name)")
           .eq("transaction_id", txId)
           .order("scheduled_date", { ascending: true, nullsFirst: false })
           .order("payment_date", { ascending: true }),
+
         supabase
           .from("payment_list_items")
           .select("id, payment_list_id, manually_marked_paid, payment_lists:payment_list_id(id, title, status, payment_date)")
@@ -282,12 +287,16 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
   }
 
   const allPayments = data?.payments ?? [];
-  const paidPayments = allPayments.filter((p: any) => p.status === "paid" || !p.status);
+  // Pagas inclui pagas normais + convertidas em crédito (V2 — TX continua paga, marca-se com badge)
+  const paidPayments = allPayments.filter((p: any) => (p.status === "paid" || !p.status));
+
+  const reversedPayments = allPayments.filter((p: any) => p.status === "reversed");
   const plannedPayments = allPayments.filter((p: any) => p.status === "planned");
   const cancelledPayments = allPayments.filter((p: any) => p.status === "cancelled");
   const hasSchedule = plannedPayments.length > 0 || cancelledPayments.length > 0 ||
     allPayments.some((p: any) => p.scheduled_date);
   const payments = paidPayments;
+
   const paymentListItems = data?.paymentListItems ?? [];
   const reimbursementItems = data?.reimbursementItems ?? [];
   const creditUsages = data?.creditUsages ?? [];
@@ -441,30 +450,89 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
           ) : undefined}
         >
           <ul className="divide-y divide-border/40">
-            {payments.map((p, i) => (
-              <li key={p.id} className="flex items-center justify-between py-1.5 text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-muted-foreground">#{i + 1}</span>
-                  <span>{formatDatePT(p.payment_date)}</span>
-                  <span className="text-muted-foreground">·</span>
-                  <span className="text-muted-foreground">
-                    {methodLabels[p.payment_method] ?? p.payment_method}
-                  </span>
-                  {p.financial_accounts?.name && (
-                    <>
-                      <span className="text-muted-foreground">·</span>
-                      <span className="text-muted-foreground truncate max-w-[120px]">
-                        {p.financial_accounts.name}
+            {payments.map((p: any, i: number) => {
+              const isCreditConverted = p.reversal_kind === "supplier_credit";
+              return (
+                <li key={p.id} className="flex items-center justify-between py-1.5 text-xs gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                    <span className="font-medium text-muted-foreground">#{i + 1}</span>
+                    <span>{formatDatePT(p.payment_date)}</span>
+                    <span className="text-muted-foreground">·</span>
+                    <span className="text-muted-foreground">
+                      {methodLabels[p.payment_method] ?? p.payment_method}
+                    </span>
+                    {p.financial_accounts?.name && (
+                      <>
+                        <span className="text-muted-foreground">·</span>
+                        <span className="text-muted-foreground truncate max-w-[120px]">
+                          {p.financial_accounts.name}
+                        </span>
+                      </>
+                    )}
+                    {isCreditConverted && (
+                      <span
+                        className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary"
+                        title={p.reversal_reason ? `Convertida em crédito do fornecedor — ${p.reversal_reason}` : "Convertida em crédito do fornecedor"}
+                      >
+                        ↻ Crédito fornecedor
                       </span>
-                    </>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-mono font-semibold">{formatCurrency(Number(p.amount))}</span>
+                    {isAdmin && !isCreditConverted && (
+                      <button
+                        type="button"
+                        onClick={() => setReversePayment(p)}
+                        className="rounded px-1.5 py-0.5 text-[10px] text-destructive hover:bg-destructive/10"
+                        title="Estornar pagamento"
+                      >
+                        ↩ Estornar
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+
+        </Section>
+      )}
+
+      {/* Parcelas estornadas (V1 cash_refund) */}
+      {reversedPayments.length > 0 && (
+        <Section
+          icon={<XIcon className="h-3.5 w-3.5" />}
+          title={`Parcelas estornadas (${reversedPayments.length})`}
+        >
+          <ul className="divide-y divide-border/40">
+            {reversedPayments.map((p: any, i: number) => (
+              <li key={p.id} className="flex items-center justify-between py-1.5 text-xs gap-2">
+                <div className="flex items-center gap-2 min-w-0 flex-wrap line-through opacity-70">
+                  <span className="font-medium text-muted-foreground">#{i + 1}</span>
+                  <span>{p.payment_date ? formatDatePT(p.payment_date) : "—"}</span>
+                  {p.financial_accounts?.name && (
+                    <span className="text-muted-foreground truncate max-w-[120px]">· {p.financial_accounts.name}</span>
                   )}
                 </div>
-                <span className="font-mono font-semibold">{formatCurrency(Number(p.amount))}</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span
+                    className="rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] text-destructive"
+                    title={[
+                      p.reversal_reason ? `Motivo: ${p.reversal_reason}` : null,
+                      p.reversed_at ? `Estornado em ${formatDatePT(p.reversed_at.split("T")[0])}` : null,
+                    ].filter(Boolean).join(" · ")}
+                  >
+                    ↩ Estornado (saldo reposto)
+                  </span>
+                  <span className="font-mono font-semibold line-through opacity-60">{formatCurrency(Number(p.amount))}</span>
+                </div>
               </li>
             ))}
           </ul>
         </Section>
       )}
+
 
       {/* Listas de pagamento */}
       {paymentListItems.length > 0 && (
@@ -672,6 +740,20 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
         installment={markInstallment}
         transactionId={txId}
       />
+
+      <ReversePaymentDialog
+        open={!!reversePayment}
+        onClose={() => setReversePayment(null)}
+        payment={reversePayment ? {
+          id: reversePayment.id,
+          amount: Number(reversePayment.amount),
+          payment_date: reversePayment.payment_date ? formatDatePT(reversePayment.payment_date) : null,
+          account_name: reversePayment.financial_accounts?.name ?? null,
+        } : null}
+        transactionId={txId}
+        supplierAvailable={!!transaction.supplier_id}
+      />
+
     </div>
   );
 }
