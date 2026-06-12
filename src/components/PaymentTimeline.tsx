@@ -793,6 +793,18 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
         supplierAvailable={!!transaction.supplier_id}
       />
 
+      <ReverseTransactionDialog
+        open={reverseTxOpen}
+        onClose={() => setReverseTxOpen(false)}
+        transaction={transaction ? {
+          id: transaction.id,
+          description: transaction.description,
+          paid_amount: Number(transaction.paid_amount ?? 0),
+          supplier_id: transaction.supplier_id,
+        } : null}
+      />
+
+
     </div>
   );
 }
