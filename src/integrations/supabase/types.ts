@@ -9039,12 +9039,17 @@ export type Database = {
           payment_reference: string | null
           pl_override_note: string | null
           reimbursement_to: string | null
+          reversal_kind: string | null
+          reversal_reason: string | null
+          reversed_at: string | null
+          reversed_by: string | null
           settlement_id: string | null
           specification: string | null
           split_amount: number | null
           split_mode: string | null
           split_percentage: number | null
           status: string
+          supplier_credit_id: string | null
           supplier_id: string | null
           type: string
           updated_at: string
@@ -9082,12 +9087,17 @@ export type Database = {
           payment_reference?: string | null
           pl_override_note?: string | null
           reimbursement_to?: string | null
+          reversal_kind?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
           settlement_id?: string | null
           specification?: string | null
           split_amount?: number | null
           split_mode?: string | null
           split_percentage?: number | null
           status?: string
+          supplier_credit_id?: string | null
           supplier_id?: string | null
           type: string
           updated_at?: string
@@ -9125,12 +9135,17 @@ export type Database = {
           payment_reference?: string | null
           pl_override_note?: string | null
           reimbursement_to?: string | null
+          reversal_kind?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
           settlement_id?: string | null
           specification?: string | null
           split_amount?: number | null
           split_mode?: string | null
           split_percentage?: number | null
           status?: string
+          supplier_credit_id?: string | null
           supplier_id?: string | null
           type?: string
           updated_at?: string
@@ -9176,6 +9191,13 @@ export type Database = {
             columns: ["settlement_id"]
             isOneToOne: false
             referencedRelation: "ticket_office_settlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_supplier_credit_id_fkey"
+            columns: ["supplier_credit_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_credits"
             referencedColumns: ["id"]
           },
           {
@@ -10421,6 +10443,15 @@ export type Database = {
           p_kind: string
           p_payment_id: string
           p_reason: string
+          p_valid_until?: string
+        }
+        Returns: Json
+      }
+      reverse_transaction: {
+        Args: {
+          p_kind: string
+          p_reason: string
+          p_tx_id: string
           p_valid_until?: string
         }
         Returns: Json
