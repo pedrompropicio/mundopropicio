@@ -8913,8 +8913,13 @@ export type Database = {
           payment_entity: string | null
           payment_method: string
           payment_reference: string | null
+          reversal_kind: string | null
+          reversal_reason: string | null
+          reversed_at: string | null
+          reversed_by: string | null
           scheduled_date: string | null
           status: string
+          supplier_credit_id: string | null
           transaction_id: string
           updated_at: string
           withholding_amount: number
@@ -8933,8 +8938,13 @@ export type Database = {
           payment_entity?: string | null
           payment_method?: string
           payment_reference?: string | null
+          reversal_kind?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
           scheduled_date?: string | null
           status?: string
+          supplier_credit_id?: string | null
           transaction_id: string
           updated_at?: string
           withholding_amount?: number
@@ -8953,8 +8963,13 @@ export type Database = {
           payment_entity?: string | null
           payment_method?: string
           payment_reference?: string | null
+          reversal_kind?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
           scheduled_date?: string | null
           status?: string
+          supplier_credit_id?: string | null
           transaction_id?: string
           updated_at?: string
           withholding_amount?: number
@@ -8972,6 +8987,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_payments_supplier_credit_id_fkey"
+            columns: ["supplier_credit_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_credits"
             referencedColumns: ["id"]
           },
           {
@@ -10392,6 +10414,15 @@ export type Database = {
       }
       restore_bp_versions_from_trash: {
         Args: { _trash_id: string }
+        Returns: Json
+      }
+      reverse_payment: {
+        Args: {
+          p_kind: string
+          p_payment_id: string
+          p_reason: string
+          p_valid_until?: string
+        }
         Returns: Json
       }
       revert_to_bp_version: {
