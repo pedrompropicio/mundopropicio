@@ -828,9 +828,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                     return (
                     <div key={m.id} className="flex flex-wrap items-center gap-3 text-xs">
                       <span className="whitespace-nowrap font-mono text-muted-foreground">
-                        {formatDatePTOptions(m.changed_at, { day: "2-digit", month: "2-digit", year: "numeric" })}
-                        {" "}
-                        {new Date(m.changed_at).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
+                        {formatTimestampPT(m.changed_at)}
                       </span>
                       <span className={`inline-flex rounded-full px-2 py-0.5 font-medium ${
                         isPaymentEntry
