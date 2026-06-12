@@ -499,6 +499,41 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
         </Section>
       )}
 
+      {/* Parcelas estornadas (V1 cash_refund) */}
+      {reversedPayments.length > 0 && (
+        <Section
+          icon={<XIcon className="h-3.5 w-3.5" />}
+          title={`Parcelas estornadas (${reversedPayments.length})`}
+        >
+          <ul className="divide-y divide-border/40">
+            {reversedPayments.map((p: any, i: number) => (
+              <li key={p.id} className="flex items-center justify-between py-1.5 text-xs gap-2">
+                <div className="flex items-center gap-2 min-w-0 flex-wrap line-through opacity-70">
+                  <span className="font-medium text-muted-foreground">#{i + 1}</span>
+                  <span>{p.payment_date ? formatDatePT(p.payment_date) : "—"}</span>
+                  {p.financial_accounts?.name && (
+                    <span className="text-muted-foreground truncate max-w-[120px]">· {p.financial_accounts.name}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span
+                    className="rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] text-destructive"
+                    title={[
+                      p.reversal_reason ? `Motivo: ${p.reversal_reason}` : null,
+                      p.reversed_at ? `Estornado em ${formatDatePT(p.reversed_at.split("T")[0])}` : null,
+                    ].filter(Boolean).join(" · ")}
+                  >
+                    ↩ Estornado (saldo reposto)
+                  </span>
+                  <span className="font-mono font-semibold line-through opacity-60">{formatCurrency(Number(p.amount))}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
+
       {/* Listas de pagamento */}
       {paymentListItems.length > 0 && (
         <Section icon={<ListChecks className="h-3.5 w-3.5" />} title={`Em lista de pagamento (${paymentListItems.length})`}>
