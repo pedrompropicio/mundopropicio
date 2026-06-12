@@ -18,6 +18,7 @@ import {
 import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsListModal";
 import { MarkInstallmentPaidModal } from "@/components/MarkInstallmentPaidModal";
 import { ReversePaymentDialog } from "@/components/ReversePaymentDialog";
+import { ReverseTransactionDialog } from "@/components/ReverseTransactionDialog";
 
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -61,6 +62,7 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [markInstallment, setMarkInstallment] = useState<any | null>(null);
   const [reversePayment, setReversePayment] = useState<any | null>(null);
+  const [reverseTxOpen, setReverseTxOpen] = useState(false);
 
 
   const { data, isLoading } = useQuery({
@@ -353,11 +355,48 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
         </div>
       </div>
 
-      {/* Admin: Desfazer liquidação */}
-      {isAdmin && (transaction.status === "paid" || Number(transaction.paid_amount ?? 0) > 0) && (
+      {/* Estado: já estornada */}
+      {transaction.status === "reversed" && (
+        <div className="rounded-lg border border-orange-500/40 bg-orange-500/10 px-3 py-2 text-xs">
+          <div className="flex items-center gap-2 font-semibold text-orange-500">
+            ↩ Transação Estornada
+            {transaction.reversal_kind === "supplier_credit" && (
+              <span className="rounded bg-orange-500/20 px-1.5 py-0.5 text-[10px]">Crédito do fornecedor</span>
+            )}
+            {transaction.reversal_kind === "cash_refund" && (
+              <span className="rounded bg-orange-500/20 px-1.5 py-0.5 text-[10px]">Devolução em dinheiro</span>
+            )}
+          </div>
+          {transaction.reversal_reason && (
+            <div className="mt-1 text-muted-foreground">Motivo: {transaction.reversal_reason}</div>
+          )}
+          {transaction.reversed_at && (
+            <div className="text-muted-foreground">Em {formatDatePT(String(transaction.reversed_at).split("T")[0])}</div>
+          )}
+        </div>
+      )}
+
+      {/* Admin: Estornar transação (duplicado/devolvido) */}
+      {isAdmin && transaction.status !== "reversed" && (transaction.status === "paid" || Number(transaction.paid_amount ?? 0) > 0) && (
+        <div className="flex items-center justify-between rounded-lg border border-orange-500/40 bg-orange-500/5 px-3 py-2 text-xs">
+          <div className="text-muted-foreground">
+            <span className="font-semibold text-orange-500">Estornar:</span> o pagamento foi devolvido (em dinheiro ou como crédito do fornecedor). A transação fica como <strong>Estornada</strong> — não volta a "A Pagar".
+          </div>
+          <button
+            type="button"
+            onClick={() => setReverseTxOpen(true)}
+            className="shrink-0 rounded bg-orange-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-orange-600"
+          >
+            ↩ Estornar
+          </button>
+        </div>
+      )}
+
+      {/* Admin: Desfazer liquidação (marcada por engano → volta a A Pagar) */}
+      {isAdmin && transaction.status !== "reversed" && (transaction.status === "paid" || Number(transaction.paid_amount ?? 0) > 0) && (
         <div className="flex items-center justify-between rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs">
           <div className="text-muted-foreground">
-            <span className="font-semibold text-destructive">Admin:</span> reverter esta liquidação devolve a transação a "aprovada / aguarda pagamento" e remove a ligação a listas de pagamento.
+            <span className="font-semibold text-destructive">Desfazer:</span> a liquidação foi marcada por engano. Reverte a transação a "aprovada / aguarda pagamento" e remove a ligação a listas de pagamento.
           </div>
           <button
             type="button"
@@ -753,6 +792,18 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
         transactionId={txId}
         supplierAvailable={!!transaction.supplier_id}
       />
+
+      <ReverseTransactionDialog
+        open={reverseTxOpen}
+        onClose={() => setReverseTxOpen(false)}
+        transaction={transaction ? {
+          id: transaction.id,
+          description: transaction.description,
+          paid_amount: Number(transaction.paid_amount ?? 0),
+          supplier_id: transaction.supplier_id,
+        } : null}
+      />
+
 
     </div>
   );

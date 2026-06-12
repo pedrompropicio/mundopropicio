@@ -622,7 +622,7 @@ export default function Transactions() {
       return false;
     })
     .filter((t) => {
-      if (t.status === "paid") return false;
+      if (t.status === "paid" || t.status === "reversed") return false;
       const paidAmount = Number(t.paid_amount ?? 0);
       const amount = Number(t.amount);
       return paidAmount < amount - 0.01;
@@ -747,6 +747,7 @@ export default function Transactions() {
         return false;
       })
       .filter((t) => {
+        if (t.status === "reversed") return true; // estornadas aparecem na vista de "liquidadas"
         const paidAmount = Number(t.paid_amount ?? 0);
         const amount = Number(t.amount);
         return paidAmount >= amount - 0.01 || t.status === "paid";
