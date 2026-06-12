@@ -961,9 +961,7 @@ export function TransactionRow({ transaction: t, isAdmin, selectable, selected, 
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-3 text-xs">
                     <span className="whitespace-nowrap font-mono text-muted-foreground">
-                      {formatDatePTOptions(t.created_at, { day: "2-digit", month: "2-digit", year: "numeric" })}
-                      {" "}
-                      {new Date(t.created_at).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
+                      {formatTimestampPT(t.created_at)}
                     </span>
                     <span className="inline-flex rounded-full px-2 py-0.5 font-medium bg-secondary text-muted-foreground">
                       Criação
