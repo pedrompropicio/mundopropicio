@@ -18,6 +18,7 @@ import {
 import { TransactionPaymentsListModal } from "@/components/TransactionPaymentsListModal";
 import { MarkInstallmentPaidModal } from "@/components/MarkInstallmentPaidModal";
 import { ReversePaymentDialog } from "@/components/ReversePaymentDialog";
+import { ReverseTransactionDialog } from "@/components/ReverseTransactionDialog";
 
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
