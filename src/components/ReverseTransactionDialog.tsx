@@ -1,16 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/mock-data";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { X } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -45,6 +39,14 @@ export function ReverseTransactionDialog({ open, onClose, transaction }: Props) 
 
   const supplierAvailable = !!transaction?.supplier_id;
   const amount = Number(transaction?.paid_amount ?? 0);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -91,20 +93,28 @@ export function ReverseTransactionDialog({ open, onClose, transaction }: Props) 
     onClose();
   }
 
-  if (!transaction) return null;
+  if (!open || !transaction) return null;
 
-  return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Estornar transação</DialogTitle>
-          <DialogDescription>
-            <span className="font-medium">{transaction.description ?? "—"}</span> — pago{" "}
-            <span className="font-mono font-semibold">{formatCurrency(amount)}</span>.
-            <br />
-            A transação ficará marcada como <strong className="text-orange-500">Estornada</strong> (não volta a "A Pagar").
-          </DialogDescription>
-        </DialogHeader>
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
+    >
+      <div className="w-full max-w-lg rounded-lg border border-border bg-background p-6 shadow-2xl">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold">Estornar transação</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              <span className="font-medium">{transaction.description ?? "—"}</span> — pago{" "}
+              <span className="font-mono font-semibold">{formatCurrency(amount)}</span>.
+              <br />
+              A transação ficará marcada como <strong className="text-orange-500">Estornada</strong> (não volta a "A Pagar").
+            </p>
+          </div>
+          <button onClick={handleClose} className="text-muted-foreground hover:text-foreground">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
 
         <div className="space-y-4">
           <div className="space-y-2">
@@ -167,7 +177,7 @@ export function ReverseTransactionDialog({ open, onClose, transaction }: Props) 
           )}
         </div>
 
-        <DialogFooter>
+        <div className="flex justify-end gap-2 mt-6">
           <Button variant="outline" onClick={handleClose} disabled={mutation.isPending}>Cancelar</Button>
           <Button
             onClick={() => mutation.mutate()}
@@ -176,8 +186,9 @@ export function ReverseTransactionDialog({ open, onClose, transaction }: Props) 
           >
             {mutation.isPending ? "A estornar…" : "Confirmar estorno"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
