@@ -287,8 +287,9 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
   }
 
   const allPayments = data?.payments ?? [];
-  const paidPayments = allPayments.filter((p: any) => (p.status === "paid" || !p.status) && p.reversal_kind !== "supplier_credit");
-  const creditConvertedPayments = allPayments.filter((p: any) => p.status === "paid" && p.reversal_kind === "supplier_credit");
+  // Pagas inclui pagas normais + convertidas em crédito (V2 — TX continua paga, marca-se com badge)
+  const paidPayments = allPayments.filter((p: any) => (p.status === "paid" || !p.status));
+
   const reversedPayments = allPayments.filter((p: any) => p.status === "reversed");
   const plannedPayments = allPayments.filter((p: any) => p.status === "planned");
   const cancelledPayments = allPayments.filter((p: any) => p.status === "cancelled");
