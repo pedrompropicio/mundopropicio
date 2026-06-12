@@ -450,28 +450,52 @@ export function PaymentTimeline({ transaction, isAdmin = false }: Props) {
           ) : undefined}
         >
           <ul className="divide-y divide-border/40">
-            {payments.map((p, i) => (
-              <li key={p.id} className="flex items-center justify-between py-1.5 text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-muted-foreground">#{i + 1}</span>
-                  <span>{formatDatePT(p.payment_date)}</span>
-                  <span className="text-muted-foreground">·</span>
-                  <span className="text-muted-foreground">
-                    {methodLabels[p.payment_method] ?? p.payment_method}
-                  </span>
-                  {p.financial_accounts?.name && (
-                    <>
-                      <span className="text-muted-foreground">·</span>
-                      <span className="text-muted-foreground truncate max-w-[120px]">
-                        {p.financial_accounts.name}
+            {payments.map((p: any, i: number) => {
+              const isCreditConverted = p.reversal_kind === "supplier_credit";
+              return (
+                <li key={p.id} className="flex items-center justify-between py-1.5 text-xs gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                    <span className="font-medium text-muted-foreground">#{i + 1}</span>
+                    <span>{formatDatePT(p.payment_date)}</span>
+                    <span className="text-muted-foreground">·</span>
+                    <span className="text-muted-foreground">
+                      {methodLabels[p.payment_method] ?? p.payment_method}
+                    </span>
+                    {p.financial_accounts?.name && (
+                      <>
+                        <span className="text-muted-foreground">·</span>
+                        <span className="text-muted-foreground truncate max-w-[120px]">
+                          {p.financial_accounts.name}
+                        </span>
+                      </>
+                    )}
+                    {isCreditConverted && (
+                      <span
+                        className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary"
+                        title={p.reversal_reason ? `Convertida em crédito do fornecedor — ${p.reversal_reason}` : "Convertida em crédito do fornecedor"}
+                      >
+                        ↻ Crédito fornecedor
                       </span>
-                    </>
-                  )}
-                </div>
-                <span className="font-mono font-semibold">{formatCurrency(Number(p.amount))}</span>
-              </li>
-            ))}
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-mono font-semibold">{formatCurrency(Number(p.amount))}</span>
+                    {isAdmin && !isCreditConverted && (
+                      <button
+                        type="button"
+                        onClick={() => setReversePayment(p)}
+                        className="rounded px-1.5 py-0.5 text-[10px] text-destructive hover:bg-destructive/10"
+                        title="Estornar pagamento"
+                      >
+                        ↩ Estornar
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
+
         </Section>
       )}
 
