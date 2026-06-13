@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, Users, Inbox, Target } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 
 type Stat = {
+  to: string;
   key: string;
   label: string;
   icon: typeof CalendarDays;
@@ -52,10 +54,10 @@ export default function CrmDashboard() {
   });
 
   const stats: Stat[] = [
-    { key: "events", label: "Eventos com Marketing", icon: CalendarDays, value: eventsMk ?? null },
-    { key: "contacts", label: "Contactos", icon: Users, value: contacts ?? null },
-    { key: "leads", label: "Leads (30 dias)", icon: Inbox, value: leads ?? null },
-    { key: "audiences", label: "Audiências", icon: Target, value: audiences ?? null },
+    { to: "/crm/eventos", key: "events", label: "Eventos com Marketing", icon: CalendarDays, value: eventsMk ?? null },
+    { to: "/crm/contactos", key: "contacts", label: "Contactos", icon: Users, value: contacts ?? null },
+    { to: "/crm/leads", key: "leads", label: "Leads (30 dias)", icon: Inbox, value: leads ?? null },
+    { to: "/crm/audiences", key: "audiences", label: "Audiências", icon: Target, value: audiences ?? null },
   ];
 
   return (
@@ -69,21 +71,28 @@ export default function CrmDashboard() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
-          <Card key={s.key}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {s.label}
-              </CardTitle>
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/30">
-                <s.icon className="h-4 w-4 text-emerald-600" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-foreground">
-                {s.value === null ? "—" : s.value.toLocaleString("pt-PT")}
-              </div>
-            </CardContent>
-          </Card>
+          <Link
+            key={s.key}
+            to={s.to}
+            aria-label={`Abrir ${s.label}`}
+            className="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <Card className="h-full cursor-pointer transition-all hover:border-emerald-500/40 hover:shadow-md hover:-translate-y-0.5">
+              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  {s.label}
+                </CardTitle>
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                  <s.icon className="h-4 w-4 text-emerald-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-foreground">
+                  {s.value === null ? "—" : s.value.toLocaleString("pt-PT")}
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
 
