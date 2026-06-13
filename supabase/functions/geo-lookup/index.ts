@@ -34,8 +34,8 @@ function corsHeadersFor(origin: string | null): Record<string, string> {
   const allowed = isOriginAllowed(origin);
   return {
     "Access-Control-Allow-Origin": allowed ? origin! : "null",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin",
   };
