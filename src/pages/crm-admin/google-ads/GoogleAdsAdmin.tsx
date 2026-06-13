@@ -481,7 +481,7 @@ export default function GoogleAdsAdmin() {
                               </TableCell>
                             </TableRow>
                           )}
-                        </>
+                        </Fragment>
                       );
                     })}
                   </TableBody>
