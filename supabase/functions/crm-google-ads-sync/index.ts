@@ -5,8 +5,9 @@
 // Flow:
 // 1. Auth via service account (GOOGLE_SA_KEY_JSON secret) → sign RS256 JWT
 //    with scope adwords, exchange at https://oauth2.googleapis.com/token.
-// 2. Call Google Ads REST: POST /v17/customers/<cid>/googleAds:search with
-//    GAQL pulling campaign fields + metrics for LAST_30_DAYS.
+// 2. Call Google Ads REST: POST /<version>/customers/<cid>/googleAds:search
+//    with GAQL pulling campaign fields + metrics for LAST_30_DAYS.
+//    Version comes from secret GOOGLE_ADS_API_VERSION (fallback "v24").
 //    Headers: Authorization Bearer, developer-token, login-customer-id (MCC).
 // 3. Upsert into crm.google_campaign via service_role on conflict
 //    (connection_id, external_campaign_id).
