@@ -152,6 +152,16 @@ A área admin `/crm/google-ads` mostra estas dependências como pendentes.
 Edge function de leitura. Disparo manual (sem cron). Numa única invocação,
 com o mesmo access token de service account, sincroniza quatro recursos:
 
+> **Dashboard.** Existe um dashboard read-only de visualização em
+> `/crm/google-ads` (`src/pages/crm-admin/google-ads/GoogleAdsAdmin.tsx`)
+> dentro do MP Audience, com toggle no topo a alternar para o Dashboard
+> Meta Live (`/crm`). Mostra cards KPI agregados dos últimos 30 dias
+> (Gasto, Impressões, Cliques, CTR, CPC, Conversões, Valor de conversão),
+> tabela de campanhas com drill-down ad group → keyword e botão
+> **"Sincronizar agora"** que invoca esta edge function. RBAC: admin /
+> marketing_manager / platform_admin.
+
+
 | Recurso        | GAQL FROM        | Tabela destino           | Conflict target                                                  |
 |----------------|------------------|--------------------------|------------------------------------------------------------------|
 | Campanhas      | `campaign`       | `crm.google_campaign`    | `(connection_id, external_campaign_id)`                          |
