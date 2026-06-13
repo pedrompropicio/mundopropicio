@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, Users, Inbox, Target } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 
 type Stat = {
+  to: string;
   key: string;
   label: string;
   icon: typeof CalendarDays;
