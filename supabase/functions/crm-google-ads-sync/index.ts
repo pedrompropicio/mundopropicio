@@ -24,7 +24,10 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
-const GOOGLE_ADS_API_VERSION = "v17";
+// Google passou a cadência mensal de versões em 2026. v24 é estável (sunset
+// mai/2027). Para subir de versão sem alterar código, define o secret
+// GOOGLE_ADS_API_VERSION (ex.: "v25"); fallback para "v24".
+const GOOGLE_ADS_API_VERSION = Deno.env.get("GOOGLE_ADS_API_VERSION") ?? "v24";
 const LOGIN_CUSTOMER_ID = "9743221780";
 const CUSTOMER_ID = "2200043144";
 const COMPANY_ID = "7c858982-6ccd-47ca-bd65-e0dd3eebf01c";
