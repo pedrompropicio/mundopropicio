@@ -2116,9 +2116,25 @@ export default function CrmCampaigns() {
 
   return (
     <div className="space-y-5">
-      
+
+      {/* Toggle plataforma (Meta ↔ Google) */}
+      <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1 w-fit">
+        <div className="px-3 py-1.5 rounded-md text-xs font-medium bg-sky-500/10 text-sky-600 border border-sky-500/30">
+          <Sparkles className="h-3.5 w-3.5 inline-block mr-1.5" />
+          Meta Live
+        </div>
+        <a
+          href="/crm/google-ads"
+          className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
+        >
+          <Sparkles className="h-3.5 w-3.5 inline-block mr-1.5" />
+          Google Ads
+        </a>
+      </div>
+
       {/* Sticky header */}
       <div className="sticky top-16 z-30 -mx-6 px-6 py-4 bg-background/95 backdrop-blur border-b border-border">
+
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div className="flex items-center gap-3">
