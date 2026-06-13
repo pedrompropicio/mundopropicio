@@ -259,3 +259,85 @@ falta (`missing_secret`).
 **Ambientes:** o secret `GOOGLE_SA_KEY_JSON` existe apenas em Live, por isso
 em Test a função compila mas devolve `google_sa_auth_failed` /
 `missing_secret`. Validação real só após Publish.
+
+---
+
+## 8. Envio de conversões offline — `crm-google-conversion-upload`
+
+Sprint 2, peça 4. Envia para o Google Ads as conversões de venda já
+atribuídas a um clique Google (gclid/gbraid/wbraid capturado na landing
+e gravado em `crm.google_click`). Disparo manual a partir da tab
+"Conversões" do dashboard `/crm/google-ads`.
+
+**Ficheiro:** `supabase/functions/crm-google-conversion-upload/index.ts`.
+
+**Endpoint Google:**
+`POST https://googleads.googleapis.com/v24/customers/2200043144:uploadClickConversions`
+com `partialFailure: true`. Reusa o mesmo padrão de auth da
+`crm-google-ads-sync` (service account → JWT RS256 → access token,
+headers `developer-token` + `login-customer-id=9743221780`, validação
+de `Content-Type` antes de `res.json()`).
+
+**Origem dos dados:** lê `crm.google_conversion` onde `status='pending'`,
+até 2000 linhas por invocação, ordenadas por `conversion_datetime` asc.
+Linhas sem nenhum identificador de clique são marcadas `failed` com
+`error_detail='sem_identificador_clique'` e não são enviadas.
+
+**Montagem da `ClickConversion`:**
+- `conversionAction`: se `conversion_action_ref` começa por `customers/`,
+  usa-se tal como está; caso contrário constrói-se
+  `customers/2200043144/conversionActions/{ref}`.
+- Identificador do clique: `gclid` se presente; senão `gbraid`; senão
+  `wbraid` (exatamente um, mesma regra do CHECK em `google_click`).
+- `conversionDateTime`: formato **exato** exigido pela Google —
+  `"yyyy-MM-dd HH:mm:ss+HH:mm"` (com offset de timezone explícito,
+  ex.: `"2026-06-13 16:30:00+00:00"`). Não enviamos ISO com `T` nem `Z`
+  — a Google rejeita. Como `conversion_datetime` é `timestamptz`
+  armazenado em UTC, o offset é sempre `+00:00`.
+- `conversionValue` + `currencyCode` (default `EUR`) quando há valor.
+- `orderId`: o `order_id` da linha (= `transaction_id` Ticketline/Fever).
+  É a chave de dedup do lado da Google e está protegida em BD por
+  UNIQUE `(company_id, conversion_action_ref, order_id)`.
+
+**Mapeamento de resultados:** com `partialFailure: true`, a Google
+devolve `results[]` com o mesmo comprimento do `conversions[]` enviado;
+entradas rejeitadas aparecem vazias. Os erros vêm em
+`partialFailureError.details[].errors[]` com
+`location.fieldPathElements[].index` a apontar para a posição da
+conversão rejeitada. A função mapeia índice→linha, atualiza:
+- aceites: `status='sent'`, `sent_at=now()`, `raw` com payload+result;
+- rejeitadas: `status='failed'`, `error_detail` com a mensagem da Google,
+  `raw` com payload+error.
+
+`data_manager_job_id` fica `null` neste endpoint (Click Conversions não
+devolve job id — só o caminho Data Manager assíncrono devolve).
+
+**Auth do caller:** exige JWT de admin (`has_role admin`); responde
+`403 forbidden_admin_only` caso contrário. Mesmos secrets que a sync
+(`GOOGLE_SA_KEY_JSON`, `GOOGLE_ADS_DEVELOPER_TOKEN`,
+`GOOGLE_ADS_API_VERSION` opcional).
+
+**Estados da fila `crm.google_conversion.status`:**
+- `pending` — pronta a enviar (criada por upstream de vendas; ainda não
+  implementado o produtor — esta função só consome).
+- `sent` — aceite pela Google.
+- `failed` — rejeitada (ver `error_detail`) ou sem identificador.
+
+**Retorno:**
+
+```json
+{
+  "read": N,
+  "sent": N,
+  "failed": N,
+  "errors": [],
+  "customer_id": "2200043144"
+}
+```
+
+**UI:** tab "Conversões" do dashboard `/crm/google-ads` mostra KPIs
+(Pendentes / Enviadas / Falhadas / Valor pendente), tabela com data,
+order_id, valor, identificador de clique (badge `gclid`/`gbraid`/`wbraid`
+truncado + tooltip com valor completo), badge de status e tooltip com o
+`error_detail` da Google. Botão "Enviar pendentes" invoca esta edge
+function e mostra toast com o sumário.
