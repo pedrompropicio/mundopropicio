@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, Users, Inbox, Target } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -27,6 +28,110 @@ async function safeCount(
   }
 }
 
+const NO_LOC_LABEL = "Sem localização";
+
+function getCountryName(code: string): string {
+  try {
+    const dn = new Intl.DisplayNames(["pt"], { type: "region" });
+    return dn.of(code.toUpperCase()) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+type RankRow = { key: string; label: string; count: number; pct: number; isNoLoc: boolean };
+
+function buildRanking(
+  items: Array<{ key: string; label: string; isNoLoc: boolean }>,
+  total: number,
+  maxRows = 8,
+): RankRow[] {
+  const counts = new Map<string, { label: string; count: number; isNoLoc: boolean }>();
+  for (const it of items) {
+    const cur = counts.get(it.key);
+    if (cur) cur.count += 1;
+    else counts.set(it.key, { label: it.label, count: 1, isNoLoc: it.isNoLoc });
+  }
+  const sorted = [...counts.entries()]
+    .map(([key, v]) => ({ key, ...v }))
+    .sort((a, b) => b.count - a.count);
+
+  const noLoc = sorted.filter((r) => r.isNoLoc);
+  const real = sorted.filter((r) => !r.isNoLoc);
+
+  const top = real.slice(0, maxRows);
+  const rest = real.slice(maxRows);
+  const rows: RankRow[] = top.map((r) => ({
+    key: r.key,
+    label: r.label,
+    count: r.count,
+    pct: total > 0 ? (r.count / total) * 100 : 0,
+    isNoLoc: false,
+  }));
+  if (rest.length > 0) {
+    const restCount = rest.reduce((s, r) => s + r.count, 0);
+    rows.push({
+      key: "__others__",
+      label: `Outros (${rest.length})`,
+      count: restCount,
+      pct: total > 0 ? (restCount / total) * 100 : 0,
+      isNoLoc: false,
+    });
+  }
+  for (const nl of noLoc) {
+    if (nl.count > 0) {
+      rows.push({
+        key: nl.key,
+        label: nl.label,
+        count: nl.count,
+        pct: total > 0 ? (nl.count / total) * 100 : 0,
+        isNoLoc: true,
+      });
+    }
+  }
+  return rows;
+}
+
+function RankingList({ rows }: { rows: RankRow[] }) {
+  if (rows.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">Ainda sem dados de localização.</p>
+    );
+  }
+  return (
+    <ul className="space-y-2">
+      {rows.map((r) => (
+        <li key={r.key} className="space-y-1">
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span
+              className={
+                r.isNoLoc
+                  ? "truncate text-muted-foreground italic"
+                  : "truncate text-foreground"
+              }
+            >
+              {r.label}
+            </span>
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+              {r.count.toLocaleString("pt-PT")} · {r.pct.toFixed(1)}%
+            </span>
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className={
+                r.isNoLoc
+                  ? "h-full rounded-full bg-muted-foreground/40"
+                  : "h-full rounded-full bg-emerald-500/70"
+              }
+              style={{ width: `${Math.min(100, Math.max(r.pct, r.count > 0 ? 2 : 0))}%` }}
+            />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default function CrmDashboard() {
   const { data: eventsMk } = useQuery({
     queryKey: ["crm-stats", "event_marketing"],
@@ -52,6 +157,46 @@ export default function CrmDashboard() {
     queryFn: () => safeCount("audiences"),
     staleTime: 60_000,
   });
+
+  const { data: leadGeo } = useQuery({
+    queryKey: ["crm-stats", "leads-geo"],
+    staleTime: 60_000,
+    queryFn: async (): Promise<Array<{ geo_country: string | null; geo_city: string | null }>> => {
+      try {
+        const { data, error } = await (supabase as any)
+          .from("leads")
+          .select("geo_country, geo_city")
+          .limit(10000);
+        if (error) return [];
+        return (data ?? []) as Array<{ geo_country: string | null; geo_city: string | null }>;
+      } catch {
+        return [];
+      }
+    },
+  });
+
+  const { countryRows, cityRows, total } = useMemo(() => {
+    const rows = leadGeo ?? [];
+    const total = rows.length;
+
+    const countryItems = rows.map((r) => {
+      const code = (r.geo_country ?? "").trim();
+      if (!code) return { key: "__none__", label: NO_LOC_LABEL, isNoLoc: true };
+      const up = code.toUpperCase();
+      return { key: up, label: getCountryName(up), isNoLoc: false };
+    });
+    const cityItems = rows.map((r) => {
+      const city = (r.geo_city ?? "").trim();
+      if (!city) return { key: "__none__", label: NO_LOC_LABEL, isNoLoc: true };
+      return { key: city.toLowerCase(), label: city, isNoLoc: false };
+    });
+
+    return {
+      total,
+      countryRows: buildRanking(countryItems, total),
+      cityRows: buildRanking(cityItems, total),
+    };
+  }, [leadGeo]);
 
   const stats: Stat[] = [
     { to: "/crm/eventos", key: "events", label: "Eventos com Marketing", icon: CalendarDays, value: eventsMk ?? null },
@@ -96,13 +241,49 @@ export default function CrmDashboard() {
         ))}
       </div>
 
-      <Card>
-        <CardContent className="p-6 text-sm text-muted-foreground">
-          Módulo em fase inicial. Próximas secções: editor de marketing por evento, blog, páginas
-          estáticas, contactos, leads e audiências. Esta dashboard será enriquecida ao longo das
-          fases seguintes.
-        </CardContent>
-      </Card>
+      <div className="space-y-2">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Leads por país
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {total === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Ainda sem dados de localização.
+                </p>
+              ) : (
+                <RankingList rows={countryRows} />
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Leads por cidade
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {total === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Ainda sem dados de localização.
+                </p>
+              ) : (
+                <RankingList rows={cityRows} />
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <p className="text-[11px] leading-relaxed text-muted-foreground px-1">
+          A localização é estimada por IP e só é registada para leads que aceitaram
+          cookies. A cidade é aproximada — em tráfego móvel pode refletir a localização
+          da operadora, não a do utilizador. O país é fiável.
+        </p>
+      </div>
     </div>
   );
 }
