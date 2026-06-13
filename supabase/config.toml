@@ -82,3 +82,8 @@ verify_jwt = false
 [functions.crm-google-click-ingest]
 verify_jwt = false
 
+
+# Lookup público de geolocalização por IP (chamado pelo portal client-side).
+# Auth via Origin allowlist + CORS no handler.
+[functions.geo-lookup]
+verify_jwt = false
