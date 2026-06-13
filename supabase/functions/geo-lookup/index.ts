@@ -136,7 +136,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: "forbidden_origin" }, 403, origin);
   }
 
-  if (req.method !== "GET") {
+  if (req.method !== "GET" && req.method !== "POST") {
     return json({ error: "method_not_allowed" }, 405, origin);
   }
 
