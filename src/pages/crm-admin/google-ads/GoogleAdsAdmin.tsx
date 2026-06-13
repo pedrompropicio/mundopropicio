@@ -378,9 +378,8 @@ export default function GoogleAdsAdmin() {
                       const isOpen = !!expanded[c.external_campaign_id];
                       const ags = adGroupsByCampaign.get(c.external_campaign_id) ?? [];
                       return (
-                        <>
+                        <Fragment key={c.id}>
                           <TableRow
-                            key={c.id}
                             className="cursor-pointer"
                             onClick={() => setExpanded((p) => ({ ...p, [c.external_campaign_id]: !p[c.external_campaign_id] }))}
                           >
