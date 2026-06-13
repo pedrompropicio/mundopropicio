@@ -167,14 +167,18 @@ há muito e `v20` sunset 10/06/2026). Para subir de versão basta definir o
 secret (ex.: `v25`) sem alterar código.
 `POST /<version>/customers/2200043144/googleAds:search` com GAQL a pedir
 `campaign.{id,name,status,advertising_channel_type,bidding_strategy_type,
-start_date,end_date,resource_name}`, `campaign_budget.amount_micros` e
+resource_name}`, `campaign_budget.amount_micros` e
 `metrics.{impressions,clicks,cost_micros,conversions,conversions_value}`
-em `segments.date DURING LAST_30_DAYS`. O corpo do pedido é apenas
-`{ query }` — a v24 deixou de suportar `pageSize` em `googleAds:search`
-(page size fixo de 10000; enviá-lo devolve
-`INVALID_ARGUMENT / PAGE_SIZE_NOT_SUPPORTED`). Headers obrigatórios:
-`Authorization`, `developer-token` (secret `GOOGLE_ADS_DEVELOPER_TOKEN`),
-`login-customer-id` = `9743221780` (MCC, sem hífens).
+em `segments.date DURING LAST_30_DAYS`. Nota: a v24 já não reconhece
+`campaign.start_date` nem `campaign.end_date` em `googleAds:search`
+(devolve `UNRECOGNIZED_FIELD`), pelo que foram removidos da query — as
+colunas `start_date`/`end_date` em `crm.google_campaign` ficam gravadas
+como `null`. O corpo do pedido é apenas `{ query }` — a v24 deixou de
+suportar `pageSize` em `googleAds:search` (page size fixo de 10000;
+enviá-lo devolve `INVALID_ARGUMENT / PAGE_SIZE_NOT_SUPPORTED`). Headers
+obrigatórios: `Authorization`, `developer-token` (secret
+`GOOGLE_ADS_DEVELOPER_TOKEN`), `login-customer-id` = `9743221780` (MCC,
+sem hífens).
 
 **Robustez de resposta:** tanto a troca OAuth (`oauth2.googleapis.com/token`)
 como a chamada `googleads.googleapis.com` validam `Content-Type` antes de
