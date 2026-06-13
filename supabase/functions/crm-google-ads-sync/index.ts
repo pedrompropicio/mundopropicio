@@ -199,6 +199,13 @@ async function fetchCampaigns(accessToken: string, devToken: string): Promise<{
     },
     body: JSON.stringify({ query, pageSize: 1000 }),
   });
+  const ct = res.headers.get("content-type") ?? "";
+  if (!ct.includes("application/json")) {
+    const text = await res.text();
+    throw new Error(
+      `google_ads_api_non_json:${res.status}:${ct}:${text.slice(0, 300)}`,
+    );
+  }
   const data = await res.json();
   if (!res.ok) {
     throw new Error(
