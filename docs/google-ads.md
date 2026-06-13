@@ -167,6 +167,10 @@ há muito e `v20` sunset 10/06/2026). Para subir de versão basta definir o
 secret (ex.: `v25`) sem alterar código.
 `POST /<version>/customers/2200043144/googleAds:search` com GAQL a pedir
 `campaign.{id,name,status,advertising_channel_type,bidding_strategy_type,
+start_date,end_date,resource_name}` (sem `pageSize` no corpo — a v24 deixou
+de suportar esse parâmetro em `googleAds:search`, page size fixo de 10000;
+enviá-lo devolve `INVALID_ARGUMENT / PAGE_SIZE_NOT_SUPPORTED`).
+`campaign.{id,name,status,advertising_channel_type,bidding_strategy_type,
 start_date,end_date,resource_name}`, `campaign_budget.amount_micros` e
 `metrics.{impressions,clicks,cost_micros,conversions,conversions_value}`
 em `segments.date DURING LAST_30_DAYS`. Headers obrigatórios: `Authorization`,
