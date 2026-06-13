@@ -54,10 +54,10 @@ export default function CrmDashboard() {
   });
 
   const stats: Stat[] = [
-    { key: "events", label: "Eventos com Marketing", icon: CalendarDays, value: eventsMk ?? null },
-    { key: "contacts", label: "Contactos", icon: Users, value: contacts ?? null },
-    { key: "leads", label: "Leads (30 dias)", icon: Inbox, value: leads ?? null },
-    { key: "audiences", label: "Audiências", icon: Target, value: audiences ?? null },
+    { to: "/crm/eventos", key: "events", label: "Eventos com Marketing", icon: CalendarDays, value: eventsMk ?? null },
+    { to: "/crm/contactos", key: "contacts", label: "Contactos", icon: Users, value: contacts ?? null },
+    { to: "/crm/leads", key: "leads", label: "Leads (30 dias)", icon: Inbox, value: leads ?? null },
+    { to: "/crm/audiences", key: "audiences", label: "Audiências", icon: Target, value: audiences ?? null },
   ];
 
   return (
