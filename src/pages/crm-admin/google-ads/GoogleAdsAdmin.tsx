@@ -495,16 +495,7 @@ export default function GoogleAdsAdmin() {
 
         {/* ---------------- placeholders existentes ---------------- */}
         <TabsContent value="conversoes" className="mt-4">
-          <PlaceholderCard
-            icon={MousePointerClick}
-            titulo="Conversões offline (Data Manager API)"
-            descricao="Fila crm.google_conversion — conversões de venda (transaction_id Ticketline/Fever) atribuídas a um clique (gclid/gbraid/wbraid) e enviadas à Google. Espelha a lógica do purchase do CAPI Meta."
-            itens={[
-              "Monitor de estado (pending / sent / failed) e data_manager_job_id.",
-              "Deduplicação por order_id (transaction_id da venda).",
-              "Reenvio manual de falhas e detalhe de erro.",
-            ]}
-          />
+          <ConversoesTab />
         </TabsContent>
         <TabsContent value="audiences" className="mt-4">
           <PlaceholderCard
