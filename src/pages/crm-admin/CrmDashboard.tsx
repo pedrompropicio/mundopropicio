@@ -71,12 +71,13 @@ export default function CrmDashboard() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
-          <Card
+          <Link
             key={s.key}
-            asChild
-            className="transition-all hover:border-emerald-500/40 hover:shadow-md hover:-translate-y-0.5 focus-within:ring-2 focus-within:ring-emerald-500/40 cursor-pointer"
+            to={s.to}
+            aria-label={`Abrir ${s.label}`}
+            className="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
-            <Link to={s.to} aria-label={`Abrir ${s.label}`}>
+            <Card className="h-full cursor-pointer transition-all hover:border-emerald-500/40 hover:shadow-md hover:-translate-y-0.5">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {s.label}
@@ -90,8 +91,8 @@ export default function CrmDashboard() {
                   {s.value === null ? "—" : s.value.toLocaleString("pt-PT")}
                 </div>
               </CardContent>
-            </Link>
-          </Card>
+            </Card>
+          </Link>
         ))}
       </div>
 
