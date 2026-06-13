@@ -2116,7 +2116,7 @@ export default function CrmCampaigns() {
 
   return (
     <div className="space-y-5">
-      <GoogleAdsSyncDebugButton />
+      
       {/* Sticky header */}
       <div className="sticky top-16 z-30 -mx-6 px-6 py-4 bg-background/95 backdrop-blur border-b border-border">
         <div className="flex items-start justify-between gap-4 flex-wrap">
