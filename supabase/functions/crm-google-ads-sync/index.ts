@@ -198,7 +198,10 @@ async function fetchCampaigns(accessToken: string, devToken: string): Promise<{
       "login-customer-id": LOGIN_CUSTOMER_ID,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ query, pageSize: 1000 }),
+    // Nota: a Google Ads API v24 não suporta `pageSize` em googleAds:search
+    // (page size fixo de 10000). Enviar o campo devolve INVALID_ARGUMENT /
+    // PAGE_SIZE_NOT_SUPPORTED.
+    body: JSON.stringify({ query }),
   });
   const ct = res.headers.get("content-type") ?? "";
   if (!ct.includes("application/json")) {
