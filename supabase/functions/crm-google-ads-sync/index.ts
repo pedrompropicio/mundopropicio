@@ -5,8 +5,9 @@
 // Flow:
 // 1. Auth via service account (GOOGLE_SA_KEY_JSON secret) → sign RS256 JWT
 //    with scope adwords, exchange at https://oauth2.googleapis.com/token.
-// 2. Call Google Ads REST: POST /v17/customers/<cid>/googleAds:search with
-//    GAQL pulling campaign fields + metrics for LAST_30_DAYS.
+// 2. Call Google Ads REST: POST /<version>/customers/<cid>/googleAds:search
+//    with GAQL pulling campaign fields + metrics for LAST_30_DAYS.
+//    Version comes from secret GOOGLE_ADS_API_VERSION (fallback "v24").
 //    Headers: Authorization Bearer, developer-token, login-customer-id (MCC).
 // 3. Upsert into crm.google_campaign via service_role on conflict
 //    (connection_id, external_campaign_id).
@@ -24,7 +25,10 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
-const GOOGLE_ADS_API_VERSION = "v17";
+// Google passou a cadência mensal de versões em 2026. v24 é estável (sunset
+// mai/2027). Para subir de versão sem alterar código, define o secret
+// GOOGLE_ADS_API_VERSION (ex.: "v25"); fallback para "v24".
+const GOOGLE_ADS_API_VERSION = Deno.env.get("GOOGLE_ADS_API_VERSION") ?? "v24";
 const LOGIN_CUSTOMER_ID = "9743221780";
 const CUSTOMER_ID = "2200043144";
 const COMPANY_ID = "7c858982-6ccd-47ca-bd65-e0dd3eebf01c";
@@ -121,6 +125,13 @@ async function getGoogleAccessToken(): Promise<string> {
       assertion: jwt,
     }),
   });
+  const ct = res.headers.get("content-type") ?? "";
+  if (!ct.includes("application/json")) {
+    const text = await res.text();
+    throw new Error(
+      `google_oauth_non_json:${res.status}:${ct}:${text.slice(0, 300)}`,
+    );
+  }
   const data = await res.json();
   if (!res.ok || !data.access_token) {
     throw new Error(
@@ -189,6 +200,13 @@ async function fetchCampaigns(accessToken: string, devToken: string): Promise<{
     },
     body: JSON.stringify({ query, pageSize: 1000 }),
   });
+  const ct = res.headers.get("content-type") ?? "";
+  if (!ct.includes("application/json")) {
+    const text = await res.text();
+    throw new Error(
+      `google_ads_api_non_json:${res.status}:${ct}:${text.slice(0, 300)}`,
+    );
+  }
   const data = await res.json();
   if (!res.ok) {
     throw new Error(

@@ -160,14 +160,26 @@ do Google Cloud, com `client_email` + `private_key`). A função normaliza o
 `https://www.googleapis.com/auth/adwords` e troca-o por um `access_token` em
 `https://oauth2.googleapis.com/token` (grant `jwt-bearer`).
 
-**Chamada à Google Ads API:** REST `v17`,
-`POST /customers/2200043144/googleAds:search` com GAQL a pedir
+**Chamada à Google Ads API:** REST na versão lida do secret
+`GOOGLE_ADS_API_VERSION` (fallback `v24`, estável até sunset mai/2027 —
+Google passou a cadência mensal de versões em 2026; `v17` foi descontinuada
+há muito e `v20` sunset 10/06/2026). Para subir de versão basta definir o
+secret (ex.: `v25`) sem alterar código.
+`POST /<version>/customers/2200043144/googleAds:search` com GAQL a pedir
 `campaign.{id,name,status,advertising_channel_type,bidding_strategy_type,
 start_date,end_date,resource_name}`, `campaign_budget.amount_micros` e
 `metrics.{impressions,clicks,cost_micros,conversions,conversions_value}`
 em `segments.date DURING LAST_30_DAYS`. Headers obrigatórios: `Authorization`,
 `developer-token` (secret `GOOGLE_ADS_DEVELOPER_TOKEN`), `login-customer-id`
 = `9743221780` (MCC, sem hífens).
+
+**Robustez de resposta:** tanto a troca OAuth (`oauth2.googleapis.com/token`)
+como a chamada `googleads.googleapis.com` validam `Content-Type` antes de
+`res.json()`. Se vier algo não-JSON (típico quando Google devolve HTML por
+versão sunset / URL inválido / 5xx atrás de proxy), a função devolve erro
+explícito `google_oauth_non_json:<status>:<ct>:<body[:300]>` ou
+`google_ads_api_non_json:<status>:<ct>:<body[:300]>` em vez de rebentar com
+"Unexpected token '<'".
 
 **Persistência:** upsert em `crm.google_campaign` via `service_role` com
 conflict target `(connection_id, external_campaign_id)` — índice único já
@@ -182,9 +194,10 @@ sensíveis); responde `403 forbidden_admin_only` caso contrário.
 **Secrets esperados:**
 - `GOOGLE_SA_KEY_JSON` (Live only nesta fase)
 - `GOOGLE_ADS_DEVELOPER_TOKEN`
+- `GOOGLE_ADS_API_VERSION` (opcional; fallback `v24`)
 
-A função falha cedo e claramente se algum estiver em falta
-(`missing_secret`).
+A função falha cedo e claramente se algum dos dois primeiros estiver em
+falta (`missing_secret`).
 
 **Retorno:** `{ read, campaigns, upserted, errors, customer_id,
 login_customer_id }`.
