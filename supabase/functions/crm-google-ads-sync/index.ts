@@ -124,6 +124,13 @@ async function getGoogleAccessToken(): Promise<string> {
       assertion: jwt,
     }),
   });
+  const ct = res.headers.get("content-type") ?? "";
+  if (!ct.includes("application/json")) {
+    const text = await res.text();
+    throw new Error(
+      `google_oauth_non_json:${res.status}:${ct}:${text.slice(0, 300)}`,
+    );
+  }
   const data = await res.json();
   if (!res.ok || !data.access_token) {
     throw new Error(
