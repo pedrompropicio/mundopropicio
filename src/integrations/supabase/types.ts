@@ -5500,6 +5500,9 @@ export type Database = {
           event_slug: string | null
           fbc: string | null
           fbp: string | null
+          geo_city: string | null
+          geo_country: string | null
+          geo_region: string | null
           id: string
           ip_inet: unknown
           name: string | null
@@ -5524,6 +5527,9 @@ export type Database = {
           event_slug?: string | null
           fbc?: string | null
           fbp?: string | null
+          geo_city?: string | null
+          geo_country?: string | null
+          geo_region?: string | null
           id?: string
           ip_inet?: unknown
           name?: string | null
@@ -5548,6 +5554,9 @@ export type Database = {
           event_slug?: string | null
           fbc?: string | null
           fbp?: string | null
+          geo_city?: string | null
+          geo_country?: string | null
+          geo_region?: string | null
           id?: string
           ip_inet?: unknown
           name?: string | null
@@ -5573,6 +5582,9 @@ export type Database = {
           event_id: string | null
           fbc: string | null
           fbp: string | null
+          geo_city: string | null
+          geo_country: string | null
+          geo_region: string | null
           id: string
           ip_inet: unknown
           kind: string
@@ -5592,6 +5604,9 @@ export type Database = {
           event_id?: string | null
           fbc?: string | null
           fbp?: string | null
+          geo_city?: string | null
+          geo_country?: string | null
+          geo_region?: string | null
           id?: string
           ip_inet?: unknown
           kind: string
@@ -5611,6 +5626,9 @@ export type Database = {
           event_id?: string | null
           fbc?: string | null
           fbp?: string | null
+          geo_city?: string | null
+          geo_country?: string | null
+          geo_region?: string | null
           id?: string
           ip_inet?: unknown
           kind?: string
@@ -7406,6 +7424,9 @@ export type Database = {
           event_slug: string
           fbc: string | null
           fbp: string | null
+          geo_city: string | null
+          geo_country: string | null
+          geo_region: string | null
           id: string
           ip_inet: unknown
           mp_click_id: string | null
@@ -7423,6 +7444,9 @@ export type Database = {
           event_slug: string
           fbc?: string | null
           fbp?: string | null
+          geo_city?: string | null
+          geo_country?: string | null
+          geo_region?: string | null
           id?: string
           ip_inet?: unknown
           mp_click_id?: string | null
@@ -7440,6 +7464,9 @@ export type Database = {
           event_slug?: string
           fbc?: string | null
           fbp?: string | null
+          geo_city?: string | null
+          geo_country?: string | null
+          geo_region?: string | null
           id?: string
           ip_inet?: unknown
           mp_click_id?: string | null
