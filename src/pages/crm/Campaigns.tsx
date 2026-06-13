@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from "react";
+import { GoogleAdsSyncDebugButton } from "@/components/debug/GoogleAdsSyncDebugButton";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow, parseISO, subDays, differenceInDays, startOfDay } from "date-fns";
@@ -2115,6 +2116,7 @@ export default function CrmCampaigns() {
 
   return (
     <div className="space-y-5">
+      <GoogleAdsSyncDebugButton />
       {/* Sticky header */}
       <div className="sticky top-16 z-30 -mx-6 px-6 py-4 bg-background/95 backdrop-blur border-b border-border">
         <div className="flex items-start justify-between gap-4 flex-wrap">
