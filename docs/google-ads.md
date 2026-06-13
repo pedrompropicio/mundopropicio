@@ -144,3 +144,51 @@ A área admin `/crm/google-ads` mostra estas dependências como pendentes.
 - `src/App.tsx` — rota `/crm/google-ads`.
 - `src/components/CrmSidebar.tsx` — entrada de navegação.
 - `DATABASE.md`, `SCREENS.md` — documentação.
+
+---
+
+## 7. Sync de campanhas — `crm-google-ads-sync` (Sprint 2, MVP read-only)
+
+Primeira edge function de leitura. Disparo manual (sem cron). Só campanhas
+(ad groups / keywords / asset groups ficam para iterações seguintes).
+
+**Ficheiro:** `supabase/functions/crm-google-ads-sync/index.ts`.
+
+**Auth para Google:** service account via `GOOGLE_SA_KEY_JSON` (JSON completo
+do Google Cloud, com `client_email` + `private_key`). A função normaliza o
+`private_key` com `.replace(/\\n/g, "\n")`, assina um JWT RS256 com scope
+`https://www.googleapis.com/auth/adwords` e troca-o por um `access_token` em
+`https://oauth2.googleapis.com/token` (grant `jwt-bearer`).
+
+**Chamada à Google Ads API:** REST `v17`,
+`POST /customers/2200043144/googleAds:search` com GAQL a pedir
+`campaign.{id,name,status,advertising_channel_type,bidding_strategy_type,
+start_date,end_date,resource_name}`, `campaign_budget.amount_micros` e
+`metrics.{impressions,clicks,cost_micros,conversions,conversions_value}`
+em `segments.date DURING LAST_30_DAYS`. Headers obrigatórios: `Authorization`,
+`developer-token` (secret `GOOGLE_ADS_DEVELOPER_TOKEN`), `login-customer-id`
+= `9743221780` (MCC, sem hífens).
+
+**Persistência:** upsert em `crm.google_campaign` via `service_role` com
+conflict target `(connection_id, external_campaign_id)` — índice único já
+existe na tabela. Inclui métricas agregadas + payload cru em `raw`. O
+`connection_id` é uma linha "âncora" de service account semeada por
+migration (`c0000000-0000-4000-a000-000022000431`) — quando existir OAuth
+real, substitui-se sem alterar o schema.
+
+**Auth do caller:** exige JWT de admin (mesmo padrão das outras fns
+sensíveis); responde `403 forbidden_admin_only` caso contrário.
+
+**Secrets esperados:**
+- `GOOGLE_SA_KEY_JSON` (Live only nesta fase)
+- `GOOGLE_ADS_DEVELOPER_TOKEN`
+
+A função falha cedo e claramente se algum estiver em falta
+(`missing_secret`).
+
+**Retorno:** `{ read, campaigns, upserted, errors, customer_id,
+login_customer_id }`.
+
+**Ambientes:** o secret `GOOGLE_SA_KEY_JSON` existe apenas em Live, por isso
+em Test a função compila mas devolve `google_sa_auth_failed` /
+`missing_secret`. Validação real só após Publish.
