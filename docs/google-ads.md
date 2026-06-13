@@ -147,10 +147,23 @@ A área admin `/crm/google-ads` mostra estas dependências como pendentes.
 
 ---
 
-## 7. Sync de campanhas — `crm-google-ads-sync` (Sprint 2, MVP read-only)
+## 7. Sync Google Ads — `crm-google-ads-sync` (Sprint 2, read-only)
 
-Primeira edge function de leitura. Disparo manual (sem cron). Só campanhas
-(ad groups / keywords / asset groups ficam para iterações seguintes).
+Edge function de leitura. Disparo manual (sem cron). Numa única invocação,
+com o mesmo access token de service account, sincroniza quatro recursos:
+
+| Recurso        | GAQL FROM        | Tabela destino           | Conflict target                                                  |
+|----------------|------------------|--------------------------|------------------------------------------------------------------|
+| Campanhas      | `campaign`       | `crm.google_campaign`    | `(connection_id, external_campaign_id)`                          |
+| Ad groups      | `ad_group`       | `crm.google_ad_group`    | `(connection_id, external_ad_group_id)`                          |
+| Keywords       | `keyword_view`   | `crm.google_keyword`     | `(connection_id, external_ad_group_id, external_criterion_id)`  |
+| Asset groups   | `asset_group`    | `crm.google_asset_group` | `(connection_id, external_asset_group_id)`                       |
+
+Cada um dos quatro blocos tem `try/catch` isolado — se um recurso falhar
+(ex.: query rejeitada), os outros continuam e o erro é registado no array
+`errors` do sumário. Asset groups devolve tipicamente 0 linhas: a conta
+atual não tem campanhas Performance Max, o que é tratado como caso normal
+(0 upserts, sem erro).
 
 **Ficheiro:** `supabase/functions/crm-google-ads-sync/index.ts`.
 
@@ -165,35 +178,48 @@ do Google Cloud, com `client_email` + `private_key`). A função normaliza o
 Google passou a cadência mensal de versões em 2026; `v17` foi descontinuada
 há muito e `v20` sunset 10/06/2026). Para subir de versão basta definir o
 secret (ex.: `v25`) sem alterar código.
-`POST /<version>/customers/2200043144/googleAds:search` com GAQL a pedir
-`campaign.{id,name,status,advertising_channel_type,bidding_strategy_type,
-resource_name}`, `campaign_budget.amount_micros` e
-`metrics.{impressions,clicks,cost_micros,conversions,conversions_value}`
-em `segments.date DURING LAST_30_DAYS`. Nota: a v24 já não reconhece
-`campaign.start_date` nem `campaign.end_date` em `googleAds:search`
-(devolve `UNRECOGNIZED_FIELD`), pelo que foram removidos da query — as
-colunas `start_date`/`end_date` em `crm.google_campaign` ficam gravadas
-como `null`. O corpo do pedido é apenas `{ query }` — a v24 deixou de
-suportar `pageSize` em `googleAds:search` (page size fixo de 10000;
-enviá-lo devolve `INVALID_ARGUMENT / PAGE_SIZE_NOT_SUPPORTED`). Headers
-obrigatórios: `Authorization`, `developer-token` (secret
-`GOOGLE_ADS_DEVELOPER_TOKEN`), `login-customer-id` = `9743221780` (MCC,
-sem hífens).
+
+Todos os POSTs vão para
+`POST /<version>/customers/2200043144/googleAds:search` com helper único
+`googleAdsSearch(query)`. Headers obrigatórios: `Authorization`,
+`developer-token` (secret `GOOGLE_ADS_DEVELOPER_TOKEN`), `login-customer-id`
+= `9743221780` (MCC, sem hífens). O corpo do pedido é apenas `{ query }`
+— a v24 deixou de suportar `pageSize` em `googleAds:search` (page size fixo
+de 10000; enviá-lo devolve `INVALID_ARGUMENT / PAGE_SIZE_NOT_SUPPORTED`).
+
+**GAQL usado:** todas as queries pedem
+`metrics.{impressions,clicks,cost_micros,conversions,conversions_value}` em
+`segments.date DURING LAST_30_DAYS`. Campos específicos por recurso:
+
+- **Campanhas:** `campaign.{id,name,status,advertising_channel_type,
+  bidding_strategy_type,resource_name}` + `campaign_budget.amount_micros`.
+  Nota: v24 já não reconhece `campaign.start_date` nem `campaign.end_date`
+  em `googleAds:search` (devolve `UNRECOGNIZED_FIELD`), pelo que foram
+  removidos — as colunas `start_date`/`end_date` em `crm.google_campaign`
+  ficam `null`. Por precaução, o mesmo princípio conservador (só campos
+  garantidamente reconhecidos) é aplicado aos novos recursos.
+- **Ad groups:** `ad_group.{id,name,status,type,resource_name}` +
+  `campaign.id` (para ligar ao `external_campaign_id`).
+- **Keywords:** `ad_group_criterion.{criterion_id,status,resource_name,
+  keyword.text,keyword.match_type}` + `ad_group.id`.
+- **Asset groups:** `asset_group.{id,name,status,resource_name}` +
+  `campaign.id`.
 
 **Robustez de resposta:** tanto a troca OAuth (`oauth2.googleapis.com/token`)
-como a chamada `googleads.googleapis.com` validam `Content-Type` antes de
+como cada chamada `googleads.googleapis.com` validam `Content-Type` antes de
 `res.json()`. Se vier algo não-JSON (típico quando Google devolve HTML por
 versão sunset / URL inválido / 5xx atrás de proxy), a função devolve erro
 explícito `google_oauth_non_json:<status>:<ct>:<body[:300]>` ou
 `google_ads_api_non_json:<status>:<ct>:<body[:300]>` em vez de rebentar com
 "Unexpected token '<'".
 
-**Persistência:** upsert em `crm.google_campaign` via `service_role` com
-conflict target `(connection_id, external_campaign_id)` — índice único já
-existe na tabela. Inclui métricas agregadas + payload cru em `raw`. O
-`connection_id` é uma linha "âncora" de service account semeada por
-migration (`c0000000-0000-4000-a000-000022000431`) — quando existir OAuth
-real, substitui-se sem alterar o schema.
+**Persistência:** upsert em cada tabela `crm.google_*` via `service_role`
+com o conflict target da tabela acima. Métricas são agregadas defensivamente
+por chave (campaign.id / ad_group.id / (ad_group.id, criterion_id) /
+asset_group.id), com payload cru em `raw`. O `connection_id` é uma linha
+"âncora" de service account semeada por migration
+(`c0000000-0000-4000-a000-000022000431`) — quando existir OAuth real,
+substitui-se sem alterar o schema.
 
 **Auth do caller:** exige JWT de admin (mesmo padrão das outras fns
 sensíveis); responde `403 forbidden_admin_only` caso contrário.
@@ -206,8 +232,19 @@ sensíveis); responde `403 forbidden_admin_only` caso contrário.
 A função falha cedo e claramente se algum dos dois primeiros estiver em
 falta (`missing_secret`).
 
-**Retorno:** `{ read, campaigns, upserted, errors, customer_id,
-login_customer_id }`.
+**Retorno (sumário consolidado):**
+
+```json
+{
+  "campaigns":    { "read": N, "upserted": N },
+  "ad_groups":    { "read": N, "upserted": N },
+  "keywords":     { "read": N, "upserted": N },
+  "asset_groups": { "read": N, "upserted": N },
+  "errors": [],
+  "customer_id": "2200043144",
+  "login_customer_id": "9743221780"
+}
+```
 
 **Ambientes:** o secret `GOOGLE_SA_KEY_JSON` existe apenas em Live, por isso
 em Test a função compila mas devolve `google_sa_auth_failed` /
