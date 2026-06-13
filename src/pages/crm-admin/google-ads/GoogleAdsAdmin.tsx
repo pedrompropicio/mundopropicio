@@ -4,7 +4,7 @@
 // dark theme, badges, tabela com drill-down). Apenas leitura — não escreve
 // no Google. RBAC: admin / marketing_manager.
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
