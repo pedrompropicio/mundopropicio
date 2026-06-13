@@ -123,16 +123,15 @@ function KpiCard({ label, big, subtitle, accent = "default" }: {
 type SecaoId = "dashboard" | "conversoes" | "audiences" | "definicoes";
 
 export default function GoogleAdsAdmin() {
-  const { profile } = useAuth() as any;
+  const { role, loading: authLoading } = useAuth();
   const qc = useQueryClient();
   const [secao, setSecao] = useState<SecaoId>("dashboard");
   const [syncing, setSyncing] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [expandedAg, setExpandedAg] = useState<Record<string, boolean>>({});
 
-  // RBAC — mesmo padrão do resto do MP Audience
-  const role: string | undefined = profile?.role;
-  if (profile && !["admin", "marketing_manager", "platform_admin"].includes(role ?? "")) {
+  // RBAC — admin / marketing_manager / platform_admin
+  if (!authLoading && role && !["admin", "marketing_manager", "platform_admin"].includes(role)) {
     return <Navigate to="/crm" replace />;
   }
 
