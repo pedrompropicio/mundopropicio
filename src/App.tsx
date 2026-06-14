@@ -179,7 +179,9 @@ import PressList from "./pages/crm-admin/press/PressList";
 import PortalSettings from "./pages/crm-admin/portal-settings/PortalSettings";
 import MetaCapiMonitor from "./pages/crm-admin/meta-capi/MetaCapiMonitor";
 import MetaAudiencesList from "./pages/crm-admin/meta-audiences/MetaAudiencesList";
-import GoogleAdsAdmin from "./pages/crm-admin/google-ads/GoogleAdsAdmin";
+import GoogleAdsDashboard from "./pages/crm/GoogleAdsDashboard";
+import GoogleConversoesPage from "./pages/crm-admin/google-conversoes/GoogleConversoesPage";
+import GoogleAudiencesPage from "./pages/crm-admin/google-audiences/GoogleAudiencesPage";
 import { useLocation } from "react-router-dom";
 
 const queryClient = new QueryClient({
@@ -590,6 +592,7 @@ function App() {
                     <Route path="audit/funnel-test" element={<CrmFunnelTest />} />
                     <Route path="audit/:contextType/:contextId" element={<CrmAudit />} />
                     <Route path="audit/:contextType" element={<CrmAudit />} />
+                    <Route path="google-ads" element={<GoogleAdsDashboard />} />
                   </Route>
                   <Route path="/audience/strategies/:id/print" element={<CrmStrategyPrint />} />
                   <Route path="/audience/print/:type" element={<AudiencePrint />} />
@@ -615,7 +618,9 @@ function App() {
                     <Route path="portal-settings" element={<PortalSettings />} />
                     <Route path="meta-capi" element={<MetaCapiMonitor />} />
                     <Route path="meta-audiences" element={<MetaAudiencesList />} />
-                    <Route path="google-ads" element={<GoogleAdsAdmin />} />
+                    <Route path="google-conversoes" element={<GoogleConversoesPage />} />
+                    <Route path="google-audiences" element={<GoogleAudiencesPage />} />
+                    <Route path="google-ads" element={<Navigate to="/audience/google-ads" replace />} />
                   </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
