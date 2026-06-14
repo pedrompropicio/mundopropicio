@@ -68,6 +68,7 @@ Header fixo: `BrandedLogo`, `CompanySwitcher` (PA), `GlobalSearch`, `Notificatio
 | `/iva` | `IvaManagement.tsx` | A,M (`manage_iva`) | Regimes IVA |
 | `/contas` | `FinancialAccounts.tsx` | A,M (`manage_accounts`); V (`view_balances`) | CRUD bancos/cartões/ticket-office, AccountAccessModal, hidden flag, balanços |
 | `/tesouraria` | `Treasury.tsx` | A,M (`manage_accounts` ou `view_balances`) | Posição no pool por evento (RPC `get_event_cash_position`), retido em bilheteira, toggle tempo real / período, Master consolidado com expand, drill-down "Onde está o dinheiro" (bridge) e drill-down de Comuns (transações sem evento) |
+| `/tesouraria/alocacao` | `TreasuryAllocations.tsx` | A,M (`manage_accounts` ou `view_balances`) | Overlay manual de quem-financia-quem entre eventos (`event_cash_allocations`). Credores (livre>0) vs devedores (défice), com composição firme/por entrar e sinal de prioridade para sócios externos por liquidar. Criar/editar/marcar equalizada/remover. Não move dinheiro nem altera DRE/BP/Acerto |
 
 ### 2.5 Fornecedores / Cotações
 
