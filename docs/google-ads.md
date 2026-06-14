@@ -315,7 +315,7 @@ devolve job id — só o caminho Data Manager assíncrono devolve).
 **Auth do caller:** exige JWT de admin (`has_role admin`); responde
 `403 forbidden_admin_only` caso contrário. Mesmos secrets que a sync
 (`GOOGLE_SA_KEY_JSON`, `GOOGLE_ADS_DEVELOPER_TOKEN`,
-`GOOGLE_ADS_API_VERSION` opcional).
+`GOOGLE_ADS_API_VERSION` opcional). Desde a auth v2 (ver §10), aceita também `service_role` para invocação por cron, mantendo intacto o caminho admin.
 
 **Estados da fila `crm.google_conversion.status`:**
 - `pending` — pronta a enviar (criada por upstream de vendas; ainda não
