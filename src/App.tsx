@@ -35,6 +35,7 @@ import Quotations from "./pages/Quotations";
 import AccountCategories from "./pages/AccountCategories";
 import FinancialAccounts from "./pages/FinancialAccounts";
 import Treasury from "./pages/Treasury";
+import TreasuryAllocations from "./pages/TreasuryAllocations";
 import UserManagement from "./pages/UserManagement";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
