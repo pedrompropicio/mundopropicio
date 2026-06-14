@@ -10111,6 +10111,13 @@ export type Database = {
         Args: { _description?: string; _name: string; _value: string }
         Returns: string
       }
+      crm_auto_link_meta_campaigns_to_events: {
+        Args: { p_company_id: string }
+        Returns: {
+          total_active_campaigns: number
+          updated_count: number
+        }[]
+      }
       crm_consume_oauth_state: {
         Args: { p_state_id: string }
         Returns: {
