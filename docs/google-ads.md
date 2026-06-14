@@ -388,10 +388,9 @@ objeto JSONB `{ "value": 123 }`.
   1. **Filtro de query** — lê os `order_id` já existentes em
      `crm.google_conversion` para a mesma `conversion_action_ref` e
      descarta candidatos cujo `lead_capture_id` já lá está.
-  2. **Rede de segurança em BD** — índice UNIQUE parcial
-     `google_conversion_dedup_uidx` em
-     `(company_id, conversion_action_ref, order_id) WHERE order_id IS NOT NULL`
-     (migration `2026-06-…_google_conversion_dedup_uidx`). O insert usa
+  2. **Rede de segurança em BD** — índice UNIQUE pré-existente
+     `uq_google_conversion_order` em
+     `(company_id, conversion_action_ref, order_id)`. O insert usa
      `upsert` com `onConflict: 'company_id,conversion_action_ref,order_id'`
      e `ignoreDuplicates: true`, portanto re-correr é seguro.
 
