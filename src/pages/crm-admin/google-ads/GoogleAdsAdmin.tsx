@@ -877,12 +877,17 @@ function AudiencesTab() {
       toast.error("Indica um nome para a audiência.");
       return;
     }
+    if (!companyId) {
+      toast.error("Empresa ativa não resolvida — recarrega a página.");
+      return;
+    }
     setCreating(true);
     try {
       const { error } = await (supabase as any)
         .schema("crm")
         .from("google_user_list")
         .insert({
+          company_id: companyId,
           name,
           description: newDesc.trim() || null,
           status: "draft",
