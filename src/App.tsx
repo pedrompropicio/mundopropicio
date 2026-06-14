@@ -621,9 +621,6 @@ function App() {
                     <Route path="google-audiences" element={<GoogleAudiencesPage />} />
                     <Route path="google-ads" element={<Navigate to="/audience/google-ads" replace />} />
                   </Route>
-                  <Route path="/audience" element={<AudienceLayout />}>
-                    <Route path="google-ads" element={<GoogleAdsDashboard />} />
-                  </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
               </BrowserRouter>
