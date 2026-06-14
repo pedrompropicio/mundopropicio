@@ -180,19 +180,19 @@ export default function ReportDREGeralMensalPage() {
   });
 
   // ── Sócios externos por liquidar (todos, sem filtro de mês — saldo "agora") ──
-  // partner_paid_expenses NÃO tem coluna `amount`; o valor vem da transação ligada.
-  // Excluímos transitórios/excluídos do resultado, à imagem das restantes leituras.
+  // partner_paid_expenses NÃO tem coluna `amount`; o valor vem da transação ligada
+  // (mesmo padrão do TreasuryBridgeSheet/PartnerSettlement).
   const { data: sociosPorLiquidar = 0 } = useQuery<number>({
     queryKey: ["dre-geral-partner-paid", companyId],
     enabled: !!companyId && canView,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_paid_expenses")
-        .select("transactions(amount, is_transitory, exclude_from_result)");
+        .select("transactions(amount, exclude_from_result)");
       if (error) throw error;
       return (data ?? []).reduce((s: number, r: any) => {
         const t = r.transactions;
-        if (!t || t.is_transitory || t.exclude_from_result) return s;
+        if (!t || t.exclude_from_result) return s;
         return s + Number(t.amount || 0);
       }, 0);
     },
