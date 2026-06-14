@@ -465,6 +465,8 @@ Migration `20260610011843_e60a623e-9f5a-4791-9c90-4f2333bb2b3d.sql`. Espelha o p
 | `crm.google_ad_group` | Espelho de ad groups (Sprint 2). |
 | `crm.google_keyword` | Espelho de keywords Search (Sprint 2). |
 | `crm.google_asset_group` | Espelho de asset groups Performance Max (Sprint 2). |
+| `crm.google_user_list` | Customer Match user list (Google Ads). `connection_id`→`ad_platform_connections`, `name`, `description`, `list_type` default `CUSTOMER_MATCH`, `upload_key_type` default `CONTACT_INFO`, `membership_life_span` default 540 dias, `external_user_list_id`/`external_resource_name` (null até criada no Google), `status` draft/active/error, `member_count`, `last_synced_at`, `raw`. UNIQUE `(company_id, name)` e UNIQUE parcial `(company_id, external_user_list_id)` WHERE not null. |
+| `crm.google_user_list_job` | Corrida de OfflineUserDataJob (upload de membros a uma user list). `user_list_id`→`google_user_list` ON DELETE CASCADE, `external_job_resource`, `operation` add/remove, `members_submitted`, `members_matched`, `status` pending/running/success/failed, `error_detail`, `started_at`, `completed_at`, `raw`. Índice `(company_id, user_list_id, created_at DESC)`. |
 
 As tabelas-espelho referenciam `crm.ad_platform_connections` (que já aceita
 `platform='google'`). Detalhe em `docs/google-ads.md`.
