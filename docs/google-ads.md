@@ -315,7 +315,7 @@ devolve job id — só o caminho Data Manager assíncrono devolve).
 **Auth do caller:** exige JWT de admin (`has_role admin`); responde
 `403 forbidden_admin_only` caso contrário. Mesmos secrets que a sync
 (`GOOGLE_SA_KEY_JSON`, `GOOGLE_ADS_DEVELOPER_TOKEN`,
-`GOOGLE_ADS_API_VERSION` opcional).
+`GOOGLE_ADS_API_VERSION` opcional). Desde a auth v2 (ver §10), aceita também `service_role` para invocação por cron, mantendo intacto o caminho admin.
 
 **Estados da fila `crm.google_conversion.status`:**
 - `pending` — pronta a enviar (criada por upstream de vendas; ainda não
@@ -427,8 +427,47 @@ construção (escolhemos exatamente um identificador por linha).
 
 ### Operação
 
-- Sem cron por enquanto — invocação manual (crons não propagam
-  Test → Live via Publish; serão agendados à parte).
+- **Agendada por cron (15 em 15 min)** desde jun/2026 — ver §10. Mantém também a invocação manual via UI (caminho admin).
 - Em Test corre sem precisar dos secrets da Google (não chama a Google,
   só escreve em BD). Os secrets `GOOGLE_*` continuam só relevantes para
   o consumidor `crm-google-conversion-upload`.
+
+---
+
+## 10. Automação por cron — produtor + consumidor (Sprint 2, peça 6)
+
+O ciclo de conversões de lead corre automaticamente via `pg_cron` em Live, sem intervenção manual. Dois jobs encadeados temporalmente:
+
+| jobname (jobid) | schedule | minutos | função alvo |
+|---|---|---|---|
+| `crm-google-lead-conversion-enqueue` (42) | `*/15 * * * *` | 00,15,30,45 | produtor (§9) — enfileira `pending` |
+| `crm-google-conversion-upload` (43) | `7-59/15 * * * *` | 07,22,37,52 | consumidor (§8) — envia à Google |
+
+O consumidor corre ~7 min depois do produtor para dar tempo ao enqueue. A janela de clique da Google é 90 dias, por isso a cadência de 15 min é folgada — prioriza sinal fresco para Smart Bidding durante on-sales sem ser pesada.
+
+### Auth v2 — caminho service_role (cron-callable)
+
+Ambas as funções (§8 e §9) ganharam um **segundo caminho de auth** para serem invocáveis por cron, mantendo intacto o caminho admin (botões manuais da UI):
+
+- Descodifica manualmente o payload do JWT do Bearer (split por `.`, base64url → `atob`), como em `crm-measure-action-impact`.
+- Se `payload.role === 'service_role'` → autorizado, salta `getClaims`/`has_role`.
+- Caso contrário → caminho admin original (`getClaims` → `claims.sub` → `has_role admin` → 401/403).
+
+Marcadores de versão no arranque (verificação de deploy em Live): `lead-producer-v2-cronauth` e `conv-upload-v2-cronauth`.
+
+### Comando do cron (padrão dos crons `crm-*`)
+
+Cada job é um `net.http_post` que lê a **service_role key do Vault** (`vault.decrypted_secrets WHERE name = 'email_queue_service_role_key'`) e a passa como `Authorization: Bearer`. Mesmo padrão de `crm-measure-action-impact` e `crm-meta-audiences-daily-sync`.
+
+### Regras operacionais
+
+- **Crons NÃO propagam Test → Live via Publish.** Foram criados direto no SQL Editor de Live com `cron.schedule(jobname, schedule, command)` (idempotente — re-correr atualiza o mesmo job). `cron.alter_job`/unschedule exigem ser owner (postgres). Identificar sempre por `jobname` (jobid não é consistente cross-env).
+- A **edição das edge functions** (auth v2) propaga normalmente via Publish (deploy de funções, ao contrário de crons/DML).
+- Verificação de uma corrida: `net._http_response` (status_code real da função, 200 esperado) + `cron.job_run_details` (sucesso do agendamento). Nota: o `pg_net` tem timeout de 5 s; se a função demorar mais, `status_code` pode vir `NULL` — validar pelo estado em BD (`crm.google_conversion`).
+
+### Config aplicada (Live)
+
+`public.portal_settings` (Mundo Propício, `company_id = 7c858982-…`):
+- `google_lead_conversion_action_id` = `7648181457` (ação "Enviar formulário de lead", offline upload, conta `220-004-3144`).
+- `google_lead_conversion_value` = `0`.
+
