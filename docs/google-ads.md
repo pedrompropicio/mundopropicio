@@ -341,3 +341,95 @@ order_id, valor, identificador de clique (badge `gclid`/`gbraid`/`wbraid`
 truncado + tooltip com valor completo), badge de status e tooltip com o
 `error_detail` da Google. Botão "Enviar pendentes" invoca esta edge
 function e mostra toast com o sumário.
+
+---
+
+## 9. Produtor de conversões de LEAD — `crm-google-lead-conversion-enqueue`
+
+Sprint 2, peça 5. **Produtor** da fila `crm.google_conversion`. Varre os
+cliques Google atribuíveis a um lead na landing e cria uma linha `pending`
+por lead. O consumidor que envia depois para a Google é o já existente
+`crm-google-conversion-upload` (secção 8).
+
+### Por que atribuir ao LEAD, não à venda
+
+As vendas chegam-nos agregadas pelos parceiros de bilhética (Ticketline,
+Fever) — **não temos o comprador individual**, logo não conseguimos
+casar `transaction_id` ↔ `gclid`. O sinal possível de atribuição é o
+**lead** que o utilizador deixou na landing logo após o clique Google.
+
+Implicação: o conversion action no Google Ads associado a este produtor
+deve ser de **categoria "Lead"** (não "Purchase"), com `count = "One"`
+e janela de atribuição compatível com a janela típica entre clique e
+formulário. O valor por conversão é configurável (ver abaixo).
+
+### Configuração — `public.portal_settings`
+
+Escopo: empresa Mundo Propício (`company_id = 7c858982-…`).
+
+| `key`                              | Tipo  | Significado                                              |
+|------------------------------------|-------|----------------------------------------------------------|
+| `google_lead_conversion_action_id` | text  | ID/recurso da ação de conversão "Lead" no Google Ads     |
+| `google_lead_conversion_value`     | numeric | Valor por conversão (€). Default `0` se ausente.       |
+
+Se `google_lead_conversion_action_id` estiver vazio/ausente, a função
+**não enfileira nada** e devolve `{ enqueued: 0, skipped_no_action: true }`.
+
+Aceita o valor da `value` quer como escalar (`"123"`, `123`) quer como
+objeto JSONB `{ "value": 123 }`.
+
+### Mecânica de varrimento
+
+- Auth do caller: JWT de admin (`has_role admin`); senão `403 forbidden_admin_only`.
+- Candidatos: `crm.google_click` com `company_id = MP`, `consent_granted = true`,
+  `lead_capture_id IS NOT NULL` e pelo menos um de `gclid/gbraid/wbraid`,
+  ordenados por `captured_at` ASC, até **5000** por corrida.
+- Dedup em duas camadas:
+  1. **Filtro de query** — lê os `order_id` já existentes em
+     `crm.google_conversion` para a mesma `conversion_action_ref` e
+     descarta candidatos cujo `lead_capture_id` já lá está.
+  2. **Rede de segurança em BD** — índice UNIQUE parcial
+     `google_conversion_dedup_uidx` em
+     `(company_id, conversion_action_ref, order_id) WHERE order_id IS NOT NULL`
+     (migration `2026-06-…_google_conversion_dedup_uidx`). O insert usa
+     `upsert` com `onConflict: 'company_id,conversion_action_ref,order_id'`
+     e `ignoreDuplicates: true`, portanto re-correr é seguro.
+
+### Mapeamento `google_click` → `google_conversion`
+
+| campo destino           | origem                                                              |
+|-------------------------|---------------------------------------------------------------------|
+| `company_id`            | MP (`7c858982-…`)                                                   |
+| `conversion_action_ref` | Portal setting `google_lead_conversion_action_id`                   |
+| `gclid` / `gbraid` / `wbraid` | exatamente um, prioridade `gclid > gbraid > wbraid`           |
+| `google_click_id`       | `google_click.id`                                                    |
+| `conversion_value`      | Portal setting `google_lead_conversion_value` (ou 0)                |
+| `currency_code`         | `"EUR"`                                                              |
+| `order_id`              | **`lead_capture_id`** — chave de dedup (um lead = uma conversão)     |
+| `conversion_datetime`   | `google_click.captured_at` (timestamptz UTC)                         |
+| `status`                | `'pending'`                                                          |
+
+O CHECK existente `google_conversion_exactly_one_id` é respeitado por
+construção (escolhemos exatamente um identificador por linha).
+
+### Retorno
+
+```json
+{
+  "candidates": N,
+  "enqueued": N,
+  "skipped_existing": N,
+  "errors": [ { "google_click_id": "…", "reason": "…" } ],
+  "company_id": "7c858982-…",
+  "conversion_action_ref": "…",
+  "conversion_value": 0
+}
+```
+
+### Operação
+
+- Sem cron por enquanto — invocação manual (crons não propagam
+  Test → Live via Publish; serão agendados à parte).
+- Em Test corre sem precisar dos secrets da Google (não chama a Google,
+  só escreve em BD). Os secrets `GOOGLE_*` continuam só relevantes para
+  o consumidor `crm-google-conversion-upload`.
