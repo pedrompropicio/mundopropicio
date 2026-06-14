@@ -2500,6 +2500,32 @@ export default function CrmCampaigns() {
                                 Com herança<span className="hidden sm:inline">&nbsp;(wizard)</span>
                               </Button>
                             )}
+                            {drawerIsReplaced && drawerCampaign && isAuthorized && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  if (!confirm("Reverter substituição? A campanha volta a contar como activa no dashboard.")) return;
+                                  const { error } = await (supabase as any)
+                                    .schema("crm")
+                                    .from("meta_campaign_snapshot")
+                                    .update({ replaced_by_strategy_id: null })
+                                    .eq("id", drawerCampaign.id);
+                                  if (error) {
+                                    toast.error("Falha a reverter substituição: " + error.message);
+                                    return;
+                                  }
+                                  toast.success("Substituição revertida.");
+                                  qc.invalidateQueries({ queryKey: ["crm-meta-campaigns", companyId, adAccountId] });
+                                }}
+                                disabled={analyzeLoading || redesignLoading}
+                                className="flex-1 sm:flex-initial sm:w-auto border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+                                title="Limpa a flag replaced_by_strategy_id desta campanha"
+                              >
+                                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                                Reverter substituição
+                              </Button>
+                            )}
                           </>
                         );
                       })()}
