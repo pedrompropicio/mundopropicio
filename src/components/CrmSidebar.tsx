@@ -41,7 +41,8 @@ export function CrmSidebar() {
     { to: "/crm/portal-settings", icon: Settings, label: "Config. portal" },
     { to: "/crm/meta-capi", icon: Activity, label: "Meta CAPI" },
     { to: "/crm/meta-audiences", icon: Target, label: "Meta Audiences" },
-    { to: "/crm/google-ads", icon: Sparkles, label: "Google Ads" },
+    { to: "/crm/google-conversoes", icon: MousePointerClick, label: "Google Conversões" },
+    { to: "/crm/google-audiences", icon: Users, label: "Google Audiences" },
   ];
 
   const isItemActive = (to: string, end?: boolean) => {
