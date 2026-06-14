@@ -504,16 +504,7 @@ export default function GoogleAdsAdmin() {
           <ConversoesTab />
         </TabsContent>
         <TabsContent value="audiences" className="mt-4">
-          <PlaceholderCard
-            icon={Users}
-            titulo="Audiences / Customer Match"
-            descricao="Listas de Customer Match a partir da audiência primária do Portal (à semelhança das Custom Audiences do Meta), respeitando consentimento e hashing."
-            itens={[
-              "Construção de listas a partir de contactos/leads.",
-              "Upload e estado de match (Sprint 2).",
-              "Lookalike / segmentos derivados.",
-            ]}
-          />
+          <AudiencesTab />
         </TabsContent>
         <TabsContent value="definicoes" className="mt-4">
           <PlaceholderCard
