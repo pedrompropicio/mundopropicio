@@ -2123,13 +2123,13 @@ export default function CrmCampaigns() {
           <Sparkles className="h-3.5 w-3.5 inline-block mr-1.5" />
           Meta Live
         </div>
-        <a
-          href="/crm/google-ads"
+        <Link
+          to="/audience/google-ads"
           className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
         >
           <Sparkles className="h-3.5 w-3.5 inline-block mr-1.5" />
           Google Ads
-        </a>
+        </Link>
       </div>
 
       {/* Sticky header */}
