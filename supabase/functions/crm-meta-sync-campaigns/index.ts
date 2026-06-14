@@ -67,6 +67,7 @@ interface GraphCampaignsResponse {
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
+  console.log("[crm-meta-sync-campaigns] BUILD_VERSION=autolink-clearflag-v1", new Date().toISOString());
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -270,6 +271,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
   } catch (e) {
     console.error("[crm-meta-sync-campaigns] auto-link threw:", e);
   }
+
+  // 5) Auto-clear replaced flag para campanhas reactivadas na Meta (best-effort)
+  try {
+    const { error: clearErr } = await supabase
+      .schema("crm")
+      .from("meta_campaign_snapshot")
+      .update({ replaced_by_strategy_id: null })
+      .eq("connection_id", connectionId)
+      .eq("effective_status", "ACTIVE")
+      .not("replaced_by_strategy_id", "is", null);
+    if (clearErr) console.error("[crm-meta-sync-campaigns] clear-replaced failed:", clearErr);
+  } catch (e) {
+    console.error("[crm-meta-sync-campaigns] clear-replaced threw:", e);
+  }
+
+
 
   return json({
     synced_count: rows.length,
