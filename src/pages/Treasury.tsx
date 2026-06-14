@@ -147,14 +147,19 @@ export default function Treasury() {
 
   return (
     <div className="space-y-4 p-3 sm:p-6 max-w-[1400px] mx-auto">
-      <div className="space-y-1">
-        <h1 className="text-xl font-bold tracking-tight lg:text-2xl flex items-center gap-2">
-          Tesouraria
-          <HelpTooltip text="Camada paralela ao DRE/BP: mostra onde está o caixa por evento (pool comum) e o que está retido em bilheteira. Posições negativas são esperadas — a receita de bilheteira vive fora do pool até ser repassada." />
-        </h1>
-        <p className="text-xs text-muted-foreground">
-          Posição no pool ({"contas líquidas: bank · cash · prepaid_card"}) por evento, mais retido em bilheteiras.
-        </p>
+      <div className="flex items-start justify-between gap-2 flex-wrap">
+        <div className="space-y-1">
+          <h1 className="text-xl font-bold tracking-tight lg:text-2xl flex items-center gap-2">
+            Tesouraria
+            <HelpTooltip text="Camada paralela ao DRE/BP: mostra onde está o caixa por evento (pool comum) e o que está retido em bilheteira. Posições negativas são esperadas — a receita de bilheteira vive fora do pool até ser repassada." />
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            Posição no pool ({"contas líquidas: bank · cash · prepaid_card"}) por evento, mais retido em bilheteiras.
+          </p>
+        </div>
+        <Button asChild variant="outline" size="sm">
+          <a href="/tesouraria/alocacao">Alocação gerencial →</a>
+        </Button>
       </div>
 
       {/* Controlos */}
