@@ -15,17 +15,23 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronRight,
+  CloudUpload,
   Inbox,
+  Info,
   KeyRound,
   Loader2,
   Megaphone,
   MousePointerClick,
+  Plus,
   RefreshCw,
   Send,
   Settings,
   Sparkles,
+  UploadCloud,
   Users,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
