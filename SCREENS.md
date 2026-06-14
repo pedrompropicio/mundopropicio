@@ -98,6 +98,7 @@ Todos requerem `view_reports`. Sub-rotas:
 |---|---|
 | `dre` | DRE PT |
 | `dre-empresarial` | DRE Empresarial |
+| `dre-geral-mensal` | DRE Geral Mensal (Sócios) — folha de síntese 1 página com Resultado + Disposição de Caixa, exportável PDF |
 | `dre-brasil` | DRE Brasil |
 | `pl` | P&L por evento |
 | `fluxo-caixa` | Cashflow projetado |
