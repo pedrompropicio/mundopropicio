@@ -87,9 +87,52 @@ líquidas com `event_id IS NULL`. Ferramenta de disciplina de dados — inclui
 pernas de transferência por classificar; cada linha abre `/transacoes?id=…`.
 Limite 500 linhas.
 
+## Fase 2 — DRE Geral Mensal (folha de síntese para sócios)
+
+Rota: `/relatorios/dre-geral-mensal`. Permissão `view_balances | manage_accounts | admin`.
+Página única A4 (mobile-first), seletor de mês (default mês corrente), botão **Exportar PDF**.
+
+### Conteúdo (1 página)
+
+1. **Resultado do Mês** — reutiliza `computeDREEmpresarialMonthly` (helper extraído
+   de `ReportDREEmpresarial.tsx` para `src/lib/dre-empresarial-compute.ts` — fonte
+   única de verdade, mesmo cálculo do `/relatorios/dre-empresarial`). Lê a coluna
+   do mês escolhido: Receitas, Custos Directos, Resultado de Eventos, (se houver
+   sócios externos) Distribuição + Margem, Custos Corporativos, **Resultado da
+   Empresa**.
+
+2. **Disposição de Caixa** — bridge a nível empresa, 2 subtotais:
+
+   ```
+   Realizado de caixa (pool)                ← Σ realized da RPC Fase 1
+   − Despesas comprometidas                 ← derivado: receitasAReceber − Σ committed (signed)
+   − Sócios externos por liquidar           ← Σ partner_paid_expenses
+   = Caixa firme disponível                 ← caixa real agora
+   + Receitas a receber                     ← approved income c/ paid_amount<amount no mês
+   + Retido em bilheteira                   ← helper fetchTicketOfficeRetainedByEvent
+   = Caixa potencial para distribuição      ← inclui condicionada
+   ```
+
+   "Receitas a receber" e "Retido bilheteira" entram com sinal **positivo**
+   (parcelas condicionadas) — não se subtraem. Dupla contagem evitada
+   calculando despesas comprometidas a partir de `Σ committed` da RPC menos
+   as receitas a receber já contabilizadas separadamente.
+
+3. **Nota de reconciliação** curta a explicar porque RESULTADO ≠ CAIXA.
+
+### PDF — `src/lib/export-dre-geral-mensal.ts`
+
+jsPDF portrait A4, uma página, cabeçalho com `branding.displayName` + mês +
+duas secções idênticas ao ecrã + nota. Filename `DRE-Geral-Mensal-YYYY-MM.pdf`.
+
+### Princípio (mantido)
+
+**Não altera DRE, BP, Acerto de Sócios nem Resultado.** Só lê e agrega.
+Sem SQL novo, sem migrations — toda a Fase 2 é frontend.
+
 ## Fora desta iteração
 
-- PDF / export do ecrã.
+- Detalhe por evento dentro do PDF de síntese (apenas totais empresa).
 - Toggle "ver tesouraria" no DRE.
-- DRE Geral Mensal (Fase 2).
 - Alocação gerencial `event_cash_allocations` (Fase 3).
+

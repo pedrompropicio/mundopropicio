@@ -61,6 +61,7 @@ const allReportGroups: ReportGroup[] = [
     items: [
       { to: "/relatorios/dre", icon: BarChart3, label: "DRE", permission: "view_report_dre", managementOnly: true },
       { to: "/relatorios/dre-empresarial", icon: Landmark, label: "DRE Empresarial", permission: "view_report_dre", managementOnly: true },
+      { to: "/relatorios/dre-geral-mensal", icon: Wallet, label: "DRE Geral Mensal (Sócios)", permission: "view_balances", managementOnly: true },
       { to: "/relatorios/dre-brasil", icon: Globe, label: "DRE Brasil", permission: "view_report_dre_brasil", managementOnly: true },
       { to: "/relatorios/pl", icon: TrendingUp, label: "Business Plan", permission: "view_report_pl", managementOnly: true },
       { to: "/relatorios/rentabilidade", icon: Target, label: "Rentabilidade Artista/Venue", permission: "view_report_dre", managementOnly: true },

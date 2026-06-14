@@ -46,6 +46,7 @@ import EventCalendar from "./pages/EventCalendar";
 import Reports from "./pages/Reports";
 import ReportDREPage from "./pages/ReportDREPage";
 import ReportDREEmpresarialPage from "./pages/ReportDREEmpresarialPage";
+import ReportDREGeralMensalPage from "./pages/ReportDREGeralMensalPage";
 import ReportDREBrasilPage from "./pages/ReportDREBrasilPage";
 import ReportPLPage from "./pages/ReportPLPage";
 import ReportBankStatementPage from "./pages/ReportBankStatementPage";
@@ -463,6 +464,7 @@ function ProtectedLayout() {
                 <Route index element={<Navigate to="/relatorios/dre" replace />} />
                 <Route path="dre" element={<ReportDREPage />} />
                 <Route path="dre-empresarial" element={<ReportDREEmpresarialPage />} />
+                <Route path="dre-geral-mensal" element={<ReportDREGeralMensalPage />} />
                 <Route path="dre-brasil" element={<ReportDREBrasilPage />} />
                 <Route path="pl" element={<ReportPLPage />} />
                 <Route path="fluxo-caixa" element={<ReportCashFlowPage />} />
