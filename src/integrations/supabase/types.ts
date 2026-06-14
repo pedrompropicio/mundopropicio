@@ -2968,6 +2968,70 @@ export type Database = {
           },
         ]
       }
+      event_cash_allocations: {
+        Row: {
+          allocation_date: string
+          amount: number
+          company_id: string
+          created_at: string
+          created_by: string | null
+          from_event_id: string
+          id: string
+          reason: string | null
+          status: string
+          to_event_id: string
+          updated_at: string
+        }
+        Insert: {
+          allocation_date?: string
+          amount: number
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          from_event_id: string
+          id?: string
+          reason?: string | null
+          status?: string
+          to_event_id: string
+          updated_at?: string
+        }
+        Update: {
+          allocation_date?: string
+          amount?: number
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          from_event_id?: string
+          id?: string
+          reason?: string | null
+          status?: string
+          to_event_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_cash_allocations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cash_allocations_from_event_id_fkey"
+            columns: ["from_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cash_allocations_to_event_id_fkey"
+            columns: ["to_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_closing_costs: {
         Row: {
           amount: number

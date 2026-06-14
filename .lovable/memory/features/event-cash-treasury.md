@@ -130,11 +130,44 @@ duas secções idênticas ao ecrã + nota. Filename `DRE-Geral-Mensal-YYYY-MM.pd
 **Não altera DRE, BP, Acerto de Sócios nem Resultado.** Só lê e agrega.
 Sem SQL novo, sem migrations — toda a Fase 2 é frontend.
 
+## Fase 3 — Alocação gerencial entre eventos (overlay manual)
+
+Rota: `/tesouraria/alocacao`. Mesmas permissões (`view_balances | manage_accounts | admin`).
+Tabela `public.event_cash_allocations` (id, company_id, from_event_id, to_event_id,
+amount>0, allocation_date, reason, status ∈ {`active`,`equalized`}, created_by).
+RLS padrão: SELECT por `current_company_id()`, writes só admin/manager,
+RESTRICTIVE `company_isolation_*`. `from≠to` por CHECK. Desenhada com `event_id`
+para permitir generalizar intercompany no futuro (trocar por `company_id`) —
+intercompany NÃO está implementado.
+
+**Princípio**: overlay 100% manual de DOCUMENTAÇÃO. Não move dinheiro, não
+altera DRE, BP, Acerto, Resultado nem a Fase 1.
+
+**Cálculo (frontend, sobre `get_event_cash_position`)**:
+- `excedente_total = realized + committed` (a diretoria aloca contra firme E por entrar).
+- `livre = excedente_total − Σ alocações ativas onde from=evento` (sem reserva para sócios).
+- `défice = max(0, −excedente_total)`; `necessidade = max(0, défice − Σ alocações ativas onde to=evento)`.
+- A composição `realized` vs `committed` é SEMPRE mostrada para a diretoria
+  decidir consciente do risco — não se esconde que parte do livre é expectativa.
+
+**Ecrã**:
+- Coluna esquerda: eventos credores (livre>0), com livre + composição.
+- Coluna direita: eventos devedores (necessidade>0), ordenados com prioridade
+  para os que têm `partner_paid_expenses` sem `paid_date` (sócios externos por
+  liquidar — sinal informativo).
+- Diálogo "Nova alocação" pré-preenchido pelo lado clicado; bloqueia exceder
+  livre da origem ou necessidade do destino; aviso quando origem fica em
+  livre=0.
+- Lista de alocações: editar valor/data/motivo, marcar `equalized` (manual),
+  remover com confirmação. Sem sugestão automática nem equalização automática.
+
+**Fora desta Fase**: equalização automática, intercompany, qualquer efeito em
+DRE/posições/Acerto.
+
 ## Fora desta iteração
 
 - Detalhe por evento dentro do PDF de síntese (apenas totais empresa).
 - Toggle "ver tesouraria" no DRE.
-- Alocação gerencial `event_cash_allocations` (Fase 3).
 
 
 ## Notas operacionais de teste
