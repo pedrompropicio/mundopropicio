@@ -826,6 +826,7 @@ function jobStatusBadge(s: string) {
 
 function AudiencesTab() {
   const qc = useQueryClient();
+  const { companyId } = useCompany();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
