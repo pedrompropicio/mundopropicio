@@ -63,7 +63,7 @@ interface ClickRow {
 
 Deno.serve(async (req: Request): Promise<Response> => {
   console.log(
-    "[crm-google-lead-conversion-enqueue] BUILD_VERSION=lead-producer-v1",
+    "[crm-google-lead-conversion-enqueue] BUILD_VERSION=lead-producer-v2-cronauth",
     new Date().toISOString(),
   );
   if (req.method === "OPTIONS") {
@@ -78,23 +78,40 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-  // 1) Auth admin
-  const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const token = authHeader.replace(/^Bearer\s+/i, "");
-  const { data: claimsData, error: claimsErr } = await userClient.auth
-    .getClaims(token);
-  if (claimsErr || !claimsData?.claims?.sub) {
-    return json({ error: "unauthorized" }, 401);
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+
+  // Caminho service_role (cron) — descodificação manual do payload do JWT.
+  let isServiceRole = false;
+  try {
+    const parts = token.split(".");
+    if (parts.length >= 2) {
+      const payload = JSON.parse(
+        atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")),
+      );
+      if (payload?.role === "service_role") isServiceRole = true;
+    }
+  } catch {
+    // ignora — cai no caminho admin
   }
-  const userId = claimsData.claims.sub as string;
-  const { data: isAdmin } = await userClient.rpc("has_role", {
-    _user_id: userId,
-    _role: "admin",
-  });
-  if (!isAdmin) return json({ error: "forbidden_admin_only" }, 403);
+
+  if (!isServiceRole) {
+    // 1) Auth admin
+    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: claimsData, error: claimsErr } = await userClient.auth
+      .getClaims(token);
+    if (claimsErr || !claimsData?.claims?.sub) {
+      return json({ error: "unauthorized" }, 401);
+    }
+    const userId = claimsData.claims.sub as string;
+    const { data: isAdmin } = await userClient.rpc("has_role", {
+      _user_id: userId,
+      _role: "admin",
+    });
+    if (!isAdmin) return json({ error: "forbidden_admin_only" }, 403);
+  }
 
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
