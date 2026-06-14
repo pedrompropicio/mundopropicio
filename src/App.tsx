@@ -617,7 +617,12 @@ function App() {
                     <Route path="portal-settings" element={<PortalSettings />} />
                     <Route path="meta-capi" element={<MetaCapiMonitor />} />
                     <Route path="meta-audiences" element={<MetaAudiencesList />} />
-                    <Route path="google-ads" element={<GoogleAdsAdmin />} />
+                    <Route path="google-conversoes" element={<GoogleConversoesPage />} />
+                    <Route path="google-audiences" element={<GoogleAudiencesPage />} />
+                    <Route path="google-ads" element={<Navigate to="/audience/google-ads" replace />} />
+                  </Route>
+                  <Route path="/audience" element={<AudienceLayout />}>
+                    <Route path="google-ads" element={<GoogleAdsDashboard />} />
                   </Route>
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
