@@ -34,6 +34,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/hooks/useCompany";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -826,6 +827,7 @@ function jobStatusBadge(s: string) {
 
 function AudiencesTab() {
   const qc = useQueryClient();
+  const { companyId } = useCompany();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
@@ -875,12 +877,17 @@ function AudiencesTab() {
       toast.error("Indica um nome para a audiência.");
       return;
     }
+    if (!companyId) {
+      toast.error("Empresa ativa não resolvida — recarrega a página.");
+      return;
+    }
     setCreating(true);
     try {
       const { error } = await (supabase as any)
         .schema("crm")
         .from("google_user_list")
         .insert({
+          company_id: companyId,
           name,
           description: newDesc.trim() || null,
           status: "draft",
