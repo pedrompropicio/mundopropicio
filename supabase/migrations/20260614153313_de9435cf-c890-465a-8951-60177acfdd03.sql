@@ -1,0 +1,112 @@
+-- Tabelas para Customer Match user lists (Google Ads) — espelham convenções
+-- de crm.google_conversion: RLS company-scoped + service_role bypass,
+-- GRANT SELECT/INSERT/UPDATE a authenticated+service_role, trigger
+-- crm.touch_updated_at() (já existente desde 2026-05-10).
+
+GRANT USAGE ON SCHEMA crm TO authenticated, service_role;
+
+-- ============================================================================
+-- 1) crm.google_user_list
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS crm.google_user_list (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id uuid NOT NULL,
+  connection_id uuid NULL REFERENCES crm.ad_platform_connections(id) ON DELETE SET NULL,
+  name text NOT NULL,
+  description text NULL,
+  list_type text NOT NULL DEFAULT 'CUSTOMER_MATCH',
+  upload_key_type text NOT NULL DEFAULT 'CONTACT_INFO',
+  membership_life_span integer NOT NULL DEFAULT 540,
+  external_user_list_id text NULL,
+  external_resource_name text NULL,
+  status text NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft','active','error')),
+  member_count integer NULL,
+  last_synced_at timestamptz NULL,
+  raw jsonb NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT uq_google_user_list_name UNIQUE (company_id, name)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_google_user_list_external
+  ON crm.google_user_list(company_id, external_user_list_id)
+  WHERE external_user_list_id IS NOT NULL;
+
+COMMENT ON TABLE crm.google_user_list IS
+  'Customer Match user lists (Google Ads). Uma linha por audiência sincronizada.';
+
+ALTER TABLE crm.google_user_list ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation_select ON crm.google_user_list;
+DROP POLICY IF EXISTS tenant_isolation_insert ON crm.google_user_list;
+DROP POLICY IF EXISTS tenant_isolation_update ON crm.google_user_list;
+DROP POLICY IF EXISTS service_role_bypass ON crm.google_user_list;
+CREATE POLICY tenant_isolation_select ON crm.google_user_list
+  FOR SELECT TO authenticated USING (company_id = public.current_company_id());
+CREATE POLICY tenant_isolation_insert ON crm.google_user_list
+  FOR INSERT TO authenticated WITH CHECK (company_id = public.current_company_id());
+CREATE POLICY tenant_isolation_update ON crm.google_user_list
+  FOR UPDATE TO authenticated USING (company_id = public.current_company_id())
+  WITH CHECK (company_id = public.current_company_id());
+CREATE POLICY service_role_bypass ON crm.google_user_list
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+GRANT SELECT, INSERT, UPDATE ON crm.google_user_list TO authenticated, service_role;
+
+DROP TRIGGER IF EXISTS trg_google_user_list_touch_updated_at ON crm.google_user_list;
+CREATE TRIGGER trg_google_user_list_touch_updated_at
+BEFORE UPDATE ON crm.google_user_list
+FOR EACH ROW EXECUTE FUNCTION crm.touch_updated_at();
+
+-- ============================================================================
+-- 2) crm.google_user_list_job
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS crm.google_user_list_job (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id uuid NOT NULL,
+  user_list_id uuid NOT NULL
+    REFERENCES crm.google_user_list(id) ON DELETE CASCADE,
+  external_job_resource text NULL,
+  operation text NOT NULL DEFAULT 'add'
+    CHECK (operation IN ('add','remove')),
+  members_submitted integer NULL,
+  members_matched integer NULL,
+  status text NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending','running','success','failed')),
+  error_detail text NULL,
+  started_at timestamptz NULL,
+  completed_at timestamptz NULL,
+  raw jsonb NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_google_user_list_job_company_list_created
+  ON crm.google_user_list_job(company_id, user_list_id, created_at DESC);
+
+COMMENT ON TABLE crm.google_user_list_job IS
+  'OfflineUserDataJob runs (Google Ads). Uma linha por upload de membros a uma user list.';
+
+ALTER TABLE crm.google_user_list_job ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation_select ON crm.google_user_list_job;
+DROP POLICY IF EXISTS tenant_isolation_insert ON crm.google_user_list_job;
+DROP POLICY IF EXISTS tenant_isolation_update ON crm.google_user_list_job;
+DROP POLICY IF EXISTS service_role_bypass ON crm.google_user_list_job;
+CREATE POLICY tenant_isolation_select ON crm.google_user_list_job
+  FOR SELECT TO authenticated USING (company_id = public.current_company_id());
+CREATE POLICY tenant_isolation_insert ON crm.google_user_list_job
+  FOR INSERT TO authenticated WITH CHECK (company_id = public.current_company_id());
+CREATE POLICY tenant_isolation_update ON crm.google_user_list_job
+  FOR UPDATE TO authenticated USING (company_id = public.current_company_id())
+  WITH CHECK (company_id = public.current_company_id());
+CREATE POLICY service_role_bypass ON crm.google_user_list_job
+  FOR ALL TO service_role USING (true) WITH CHECK (true);
+
+GRANT SELECT, INSERT, UPDATE ON crm.google_user_list_job TO authenticated, service_role;
+
+DROP TRIGGER IF EXISTS trg_google_user_list_job_touch_updated_at ON crm.google_user_list_job;
+CREATE TRIGGER trg_google_user_list_job_touch_updated_at
+BEFORE UPDATE ON crm.google_user_list_job
+FOR EACH ROW EXECUTE FUNCTION crm.touch_updated_at();
+
+NOTIFY pgrst, 'reload schema';
