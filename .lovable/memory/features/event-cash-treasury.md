@@ -136,3 +136,9 @@ Sem SQL novo, sem migrations — toda a Fase 2 é frontend.
 - Toggle "ver tesouraria" no DRE.
 - Alocação gerencial `event_cash_allocations` (Fase 3).
 
+
+## Notas operacionais de teste
+
+- **company_id da MP difere entre ambientes**: Live = `7c858982-6ccd-47ca-bd65-e0dd3eebf01c`, Test = `975254b9-6b92-4cdd-a971-36e4a4f98525`. Documentação interna costuma citar o de Live; em Test usar sempre o de Test.
+- **Regra de marcação de seeds**: marcar e limpar dados de teste **sempre por nome semântico** (`name/description LIKE '%[TESTE-…]%'`), **nunca por prefixo de id**. Já houve um caso em que `DELETE … WHERE id LIKE 'f2%'` colidiu com IDs reais (ex.: evento `f2b628bf-…` "Maiara e Maraisa Lisboa") e o cascade rebentou no trigger `tickets_v2_sync_lot` (NOT NULL `sync_mode`).
+- **Cenário canónico de validação Fase 2** (Setembro 2026, isolado): evento standalone + master com 2 subs; T1 −1000 paga, T2 +2000 income aprovado por receber, T3 −500 aprovada por pagar, T4 −300 paga em Agosto e vinculada a `partner_paid_expenses`, T5/T6 −100 cada nos subs em Setembro, venda bilheteira 1500. Esperado: realized=−1200, receitas a receber=2000, despesas comprometidas=500, sócios por liquidar=300, retido=1500, caixa firme=−2000, caixa potencial=1500, resultado empresa=1800.
