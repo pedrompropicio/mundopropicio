@@ -429,6 +429,7 @@ function ProtectedLayout() {
               <Route path="/plano-contas" element={<AccountCategories />} />
               <Route path="/contas" element={<FinancialAccounts />} />
               <Route path="/tesouraria" element={<Treasury />} />
+              <Route path="/tesouraria/alocacao" element={<TreasuryAllocations />} />
               <Route path="/fornecedores" element={<Suppliers />} />
               <Route path="/cotacoes" element={<Quotations />} />
               <Route path="/bilhetes" element={<Navigate to="/bilheteiras" replace />} />
