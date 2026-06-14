@@ -592,6 +592,7 @@ function App() {
                     <Route path="audit/funnel-test" element={<CrmFunnelTest />} />
                     <Route path="audit/:contextType/:contextId" element={<CrmAudit />} />
                     <Route path="audit/:contextType" element={<CrmAudit />} />
+                    <Route path="google-ads" element={<GoogleAdsDashboard />} />
                   </Route>
                   <Route path="/audience/strategies/:id/print" element={<CrmStrategyPrint />} />
                   <Route path="/audience/print/:type" element={<AudiencePrint />} />
