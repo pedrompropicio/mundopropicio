@@ -2968,6 +2968,70 @@ export type Database = {
           },
         ]
       }
+      event_cash_allocations: {
+        Row: {
+          allocation_date: string
+          amount: number
+          company_id: string
+          created_at: string
+          created_by: string | null
+          from_event_id: string
+          id: string
+          reason: string | null
+          status: string
+          to_event_id: string
+          updated_at: string
+        }
+        Insert: {
+          allocation_date?: string
+          amount: number
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          from_event_id: string
+          id?: string
+          reason?: string | null
+          status?: string
+          to_event_id: string
+          updated_at?: string
+        }
+        Update: {
+          allocation_date?: string
+          amount?: number
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          from_event_id?: string
+          id?: string
+          reason?: string | null
+          status?: string
+          to_event_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_cash_allocations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cash_allocations_from_event_id_fkey"
+            columns: ["from_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_cash_allocations_to_event_id_fkey"
+            columns: ["to_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_closing_costs: {
         Row: {
           amount: number
@@ -5500,6 +5564,9 @@ export type Database = {
           event_slug: string | null
           fbc: string | null
           fbp: string | null
+          geo_city: string | null
+          geo_country: string | null
+          geo_region: string | null
           id: string
           ip_inet: unknown
           name: string | null
@@ -5524,6 +5591,9 @@ export type Database = {
           event_slug?: string | null
           fbc?: string | null
           fbp?: string | null
+          geo_city?: string | null
+          geo_country?: string | null
+          geo_region?: string | null
           id?: string
           ip_inet?: unknown
           name?: string | null
@@ -5548,6 +5618,9 @@ export type Database = {
           event_slug?: string | null
           fbc?: string | null
           fbp?: string | null
+          geo_city?: string | null
+          geo_country?: string | null
+          geo_region?: string | null
           id?: string
           ip_inet?: unknown
           name?: string | null
@@ -5573,6 +5646,9 @@ export type Database = {
           event_id: string | null
           fbc: string | null
           fbp: string | null
+          geo_city: string | null
+          geo_country: string | null
+          geo_region: string | null
           id: string
           ip_inet: unknown
           kind: string
@@ -5592,6 +5668,9 @@ export type Database = {
           event_id?: string | null
           fbc?: string | null
           fbp?: string | null
+          geo_city?: string | null
+          geo_country?: string | null
+          geo_region?: string | null
           id?: string
           ip_inet?: unknown
           kind: string
@@ -5611,6 +5690,9 @@ export type Database = {
           event_id?: string | null
           fbc?: string | null
           fbp?: string | null
+          geo_city?: string | null
+          geo_country?: string | null
+          geo_region?: string | null
           id?: string
           ip_inet?: unknown
           kind?: string
@@ -7406,6 +7488,9 @@ export type Database = {
           event_slug: string
           fbc: string | null
           fbp: string | null
+          geo_city: string | null
+          geo_country: string | null
+          geo_region: string | null
           id: string
           ip_inet: unknown
           mp_click_id: string | null
@@ -7423,6 +7508,9 @@ export type Database = {
           event_slug: string
           fbc?: string | null
           fbp?: string | null
+          geo_city?: string | null
+          geo_country?: string | null
+          geo_region?: string | null
           id?: string
           ip_inet?: unknown
           mp_click_id?: string | null
@@ -7440,6 +7528,9 @@ export type Database = {
           event_slug?: string
           fbc?: string | null
           fbp?: string | null
+          geo_city?: string | null
+          geo_country?: string | null
+          geo_region?: string | null
           id?: string
           ip_inet?: unknown
           mp_click_id?: string | null
@@ -8913,8 +9004,13 @@ export type Database = {
           payment_entity: string | null
           payment_method: string
           payment_reference: string | null
+          reversal_kind: string | null
+          reversal_reason: string | null
+          reversed_at: string | null
+          reversed_by: string | null
           scheduled_date: string | null
           status: string
+          supplier_credit_id: string | null
           transaction_id: string
           updated_at: string
           withholding_amount: number
@@ -8933,8 +9029,13 @@ export type Database = {
           payment_entity?: string | null
           payment_method?: string
           payment_reference?: string | null
+          reversal_kind?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
           scheduled_date?: string | null
           status?: string
+          supplier_credit_id?: string | null
           transaction_id: string
           updated_at?: string
           withholding_amount?: number
@@ -8953,8 +9054,13 @@ export type Database = {
           payment_entity?: string | null
           payment_method?: string
           payment_reference?: string | null
+          reversal_kind?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
           scheduled_date?: string | null
           status?: string
+          supplier_credit_id?: string | null
           transaction_id?: string
           updated_at?: string
           withholding_amount?: number
@@ -8972,6 +9078,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_payments_supplier_credit_id_fkey"
+            columns: ["supplier_credit_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_credits"
             referencedColumns: ["id"]
           },
           {
@@ -9017,12 +9130,17 @@ export type Database = {
           payment_reference: string | null
           pl_override_note: string | null
           reimbursement_to: string | null
+          reversal_kind: string | null
+          reversal_reason: string | null
+          reversed_at: string | null
+          reversed_by: string | null
           settlement_id: string | null
           specification: string | null
           split_amount: number | null
           split_mode: string | null
           split_percentage: number | null
           status: string
+          supplier_credit_id: string | null
           supplier_id: string | null
           type: string
           updated_at: string
@@ -9060,12 +9178,17 @@ export type Database = {
           payment_reference?: string | null
           pl_override_note?: string | null
           reimbursement_to?: string | null
+          reversal_kind?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
           settlement_id?: string | null
           specification?: string | null
           split_amount?: number | null
           split_mode?: string | null
           split_percentage?: number | null
           status?: string
+          supplier_credit_id?: string | null
           supplier_id?: string | null
           type: string
           updated_at?: string
@@ -9103,12 +9226,17 @@ export type Database = {
           payment_reference?: string | null
           pl_override_note?: string | null
           reimbursement_to?: string | null
+          reversal_kind?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
           settlement_id?: string | null
           specification?: string | null
           split_amount?: number | null
           split_mode?: string | null
           split_percentage?: number | null
           status?: string
+          supplier_credit_id?: string | null
           supplier_id?: string | null
           type?: string
           updated_at?: string
@@ -9154,6 +9282,13 @@ export type Database = {
             columns: ["settlement_id"]
             isOneToOne: false
             referencedRelation: "ticket_office_settlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_supplier_credit_id_fkey"
+            columns: ["supplier_credit_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_credits"
             referencedColumns: ["id"]
           },
           {
@@ -10040,6 +10175,13 @@ export type Database = {
         Args: { _description?: string; _name: string; _value: string }
         Returns: string
       }
+      crm_auto_link_meta_campaigns_to_events: {
+        Args: { p_company_id: string }
+        Returns: {
+          total_active_campaigns: number
+          updated_count: number
+        }[]
+      }
       crm_consume_oauth_state: {
         Args: { p_state_id: string }
         Returns: {
@@ -10153,6 +10295,32 @@ export type Database = {
         }[]
       }
       get_app_secret: { Args: { _name: string }; Returns: string }
+      get_event_cash_position: {
+        Args: { p_company_id: string; p_date_from?: string; p_date_to?: string }
+        Returns: {
+          committed: number
+          event_date: string
+          event_id: string
+          event_name: string
+          is_sub: boolean
+          level: string
+          master_event_id: string
+          parent_event_id: string
+          pending: number
+          realized: number
+        }[]
+      }
+      get_event_cash_position_invariant: {
+        Args: { p_company_id: string }
+        Returns: {
+          diff: number
+          is_balanced: boolean
+          lhs: number
+          rhs_computebalance: number
+          sum_initial: number
+          sum_realized: number
+        }[]
+      }
       get_user_max_daily_budget_eur: {
         Args: { _user_id: string }
         Returns: number
@@ -10368,6 +10536,33 @@ export type Database = {
         Args: { _trash_id: string }
         Returns: Json
       }
+      reverse_payment: {
+        Args: {
+          p_kind: string
+          p_payment_id: string
+          p_reason: string
+          p_valid_until?: string
+        }
+        Returns: Json
+      }
+      reverse_transaction:
+        | {
+            Args: {
+              p_reason: string
+              p_reversal_kind: string
+              p_transaction_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_kind: string
+              p_reason: string
+              p_tx_id: string
+              p_valid_until?: string
+            }
+            Returns: Json
+          }
       revert_to_bp_version: {
         Args: {
           _force?: boolean
