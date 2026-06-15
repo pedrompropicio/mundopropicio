@@ -1,0 +1,1 @@
+UPDATE crm.google_user_list SET connection_id='c0000000-0000-4000-a000-000022000431' WHERE id='fc1c186b-17b3-4632-99f7-581e136cd452';
