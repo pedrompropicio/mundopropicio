@@ -424,6 +424,7 @@ Sistema de email (Lovable Email + suppression).
   - PERMISSIVE INSERT/UPDATE/DELETE: por role (admin/manager/editor)
   - **RESTRICTIVE `company_isolation_*`**: `company_id = current_company_id()` em todas as multi-tenant
 - Storage: 8 buckets privados (camarim-documents, transaction-docs, supplier-docs, ticket-imports, backups, company-logos, etc.) — Signed URLs 1h.
+- **`portal_settings` — leitura pública (`anon`)**: a view `public.portal_settings_public` é `security_invoker` e lê `public.portal_settings` sem filtro. Como o portal público lê como `anon`, é obrigatória uma política PERMISSIVE de SELECT para esse role: `portal_settings_select_public` (`FOR SELECT TO anon USING (true)`). Sem ela o portal recebe zero linhas e o `gtm_container_id` (GTM), rodapé, redes sociais, texto "Sobre", cupão e pixel deixam de ser injetados. Migração: `20260615120000_portal_settings_anon_select.sql`. As políticas `portal_settings_*_company` continuam a cobrir o role `authenticated` (escrita/leitura por empresa).
 
 ---
 
