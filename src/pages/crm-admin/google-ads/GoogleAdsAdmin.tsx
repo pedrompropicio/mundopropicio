@@ -137,14 +137,15 @@ export default function GoogleAdsAdmin() {
           />
         </TabsContent>
 
-        <TabsContent value="audiences" className="mt-4">
+        <TabsContent value="audiences" className="mt-4 space-y-4">
+          <CustomerMatchEnsure />
           <Placeholder
             icon={Users}
-            titulo="Audiences / Customer Match"
+            titulo="Audiences / Customer Match — próximos passos"
             descricao="Listas de Customer Match a partir da audiência primária do Portal (à semelhança das Custom Audiences do Meta), respeitando consentimento e hashing."
             itens={[
               "Construção de listas a partir de contactos/leads.",
-              "Upload e estado de match (Sprint 2).",
+              "Upload e estado de match (Sprint 2, gated na Data Manager API).",
               "Lookalike / segmentos derivados.",
             ]}
           />
