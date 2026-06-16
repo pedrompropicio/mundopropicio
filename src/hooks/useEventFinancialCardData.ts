@@ -69,7 +69,7 @@ export function useEventFinancialCardData(args: UseEventFinancialCardDataArgs): 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("event_forecasts")
-        .select("id, event_id, type, status, amount, category_id, formalidade, is_transitory, exclude_from_result")
+        .select("id, event_id, type, status, amount, category_id, formalidade, is_transitory, exclude_from_result, iva_rate")
         .in("event_id", ids)
         .is("version_id", null)
         .eq("type", kind);
