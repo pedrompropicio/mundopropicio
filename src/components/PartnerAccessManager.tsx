@@ -45,6 +45,48 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
     },
   });
 
+  // Resolve effective permissions per partner user (same precedence as AuthContext):
+  // admin/platform_admin → all; else role_permissions baseline ± user_permissions overrides.
+  const accessUserIds = Array.from(new Set(accessRecords.map((r: any) => r.user_id)));
+  const { data: permsByUser = {} as Record<string, Set<string>> } = useQuery({
+    queryKey: ["partner_access_perms", eventId, accessUserIds.sort().join(",")],
+    enabled: accessUserIds.length > 0,
+    queryFn: async () => {
+      const RELEVANT = ["view_bp", "view_partner_transactions"] as const;
+      const { data: roleRows } = await supabase
+        .from("user_roles").select("user_id, role").in("user_id", accessUserIds);
+      const rolesByUser: Record<string, string[]> = {};
+      (roleRows ?? []).forEach((r: any) => {
+        (rolesByUser[r.user_id] ||= []).push(r.role);
+      });
+      const allRoles = Array.from(new Set((roleRows ?? []).map((r: any) => r.role)));
+      const rolePermsRes = allRoles.length
+        ? await supabase.from("role_permissions").select("role, permission").in("role", allRoles as any)
+        : { data: [] as any[] };
+      const rolePermMap: Record<string, Set<string>> = {};
+      ((rolePermsRes.data as any[]) ?? []).forEach((r: any) => {
+        (rolePermMap[r.role] ||= new Set()).add(r.permission);
+      });
+      const { data: userPerms } = await supabase
+        .from("user_permissions").select("user_id, permission, granted").in("user_id", accessUserIds);
+      const out: Record<string, Set<string>> = {};
+      for (const uid of accessUserIds) {
+        const roles = rolesByUser[uid] || [];
+        if (roles.includes("admin") || roles.includes("platform_admin")) {
+          out[uid] = new Set(RELEVANT);
+          continue;
+        }
+        const set = new Set<string>();
+        for (const role of roles) (rolePermMap[role] || new Set()).forEach((p) => set.add(p));
+        (userPerms ?? [])
+          .filter((u: any) => u.user_id === uid)
+          .forEach((u: any) => { if (u.granted) set.add(u.permission); else set.delete(u.permission); });
+        out[uid] = new Set(RELEVANT.filter((p) => set.has(p)));
+      }
+      return out;
+    },
+  });
+
   const addAccessMutation = useMutation({
     mutationFn: async () => {
       const idsToGrant = selectedEventIds.length > 0 ? selectedEventIds : [eventId];
