@@ -96,19 +96,21 @@ export default function PartnerEventDetail() {
   const [paidByPartnerOpen, setPaidByPartnerOpen] = useState(false);
 
   // ── Batch 1: parallel independent queries ──
-  const { data: accessList = [], isLoading: isLoadingAccess } = useQuery({
-    queryKey: ["partner_access_ids", user?.id],
+  const { data: accessRows = [], isLoading: isLoadingAccess } = useQuery({
+    queryKey: ["partner_access_rows", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_event_access")
-        .select("event_id")
+        .select("event_id, can_edit_bp")
         .eq("user_id", user!.id)
         .eq("is_active", true);
       if (error) throw error;
-      return (data ?? []).map((a: any) => a.event_id);
+      return (data ?? []) as { event_id: string; can_edit_bp: boolean }[];
     },
     enabled: !!user,
   });
+  const accessList = accessRows.map((a) => a.event_id);
+  const canEditBpForActive = (activeId: string) => accessRows.some((a) => a.event_id === activeId && a.can_edit_bp);
 
   const { data: allCategories = [] } = useQuery({
     queryKey: ["all_categories"],
