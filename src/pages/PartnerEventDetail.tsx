@@ -365,6 +365,7 @@ export default function PartnerEventDetail() {
   const activeBPVersion = eventData?.activeBPVersion ?? null;
   const overheads = eventData?.overheads ?? [];
   const bpExpenses: any[] = (eventData as any)?.bpExpenses ?? [];
+  const bpIncomes: any[] = (eventData as any)?.bpIncomes ?? [];
   const perCityBreakdown = eventData?.perCityBreakdown ?? [];
 
   // Última importação/criação de vendas de bilhetes (MAX(created_at)) — aba Bilhetes
