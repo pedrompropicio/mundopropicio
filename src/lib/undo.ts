@@ -123,6 +123,9 @@ export async function executeUndo(
     case "pay_transaction":
       await revertTransactionStatusChange(r);
       break;
+    case "bp_grid_batch_save":
+      await revertBPGridBatchSave(r);
+      break;
     case "delete_forecast":
     case "delete_transaction":
       throw new Error(
