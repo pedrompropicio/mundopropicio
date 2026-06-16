@@ -99,6 +99,8 @@ export const ALL_PERMISSIONS = [
   { key: "view_report_accounting_export", label: "Relatório Exportação Contábil", group: "Relatórios" },
   { key: "view_report_artist_cache", label: "Relatório Cachê do Artista", group: "Relatórios" },
   { key: "edit_approved_bp", label: "Editar BP Aprovado (Em Curso)", group: "Operacional" },
+  { key: "view_partner_transactions", label: "Portal Sócio — Ver Transações Reais", group: "Portal Sócio" },
+  { key: "view_partner_documents", label: "Portal Sócio — Ver Faturas/Anexos", group: "Portal Sócio" },
   { key: "camarim_team", label: "Camarim — Equipa de Montagem", group: "Operacional" },
   { key: "camarim_manage", label: "Camarim — Gerir Sessões (criar/aprovar/fechar)", group: "Operacional" },
   { key: "crm.audience.view", label: "MP Audience — Ver Dashboards", group: "MP Audience" },
