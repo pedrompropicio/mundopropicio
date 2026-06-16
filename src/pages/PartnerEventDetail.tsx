@@ -360,6 +360,37 @@ export default function PartnerEventDetail() {
   const bpExpenses: any[] = (eventData as any)?.bpExpenses ?? [];
   const perCityBreakdown = eventData?.perCityBreakdown ?? [];
 
+  // Última importação/criação de vendas de bilhetes (MAX(created_at)) — aba Bilhetes
+  const zoneIdsForSales = useMemo(
+    () => (eventData?.ticketZones ?? []).map((z: any) => z.id),
+    [eventData?.ticketZones],
+  );
+  const { data: lastSaleAt } = useQuery({
+    queryKey: ["partner_last_sale_created_at", zoneIdsForSales.join(",")],
+    queryFn: async () => {
+      if (zoneIdsForSales.length === 0) return null;
+      const { data, error } = await supabase
+        .from("ticket_sales")
+        .select("created_at")
+        .in("zone_id", zoneIdsForSales)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) return null;
+      return (data?.created_at as string | undefined) ?? null;
+    },
+    enabled: zoneIdsForSales.length > 0,
+  });
+
+  const bpVersionLabel = activeBPVersion
+    ? `Business Plan — versão v${activeBPVersion.version_number}${
+        activeBPVersion.approved_at
+          ? ` (${new Date(activeBPVersion.approved_at).toLocaleDateString("pt-PT")})`
+          : ""
+      }`
+    : null;
+
+
   // ── Extras / Despesas pagas pelo Sócio (Master view = todos os sub-eventos) ──
   const partnerEventIds = useMemo(
     () => (isMasterView ? [id!, ...visibleSubEvents.map((s: any) => s.id)] : [activeEventId!].filter(Boolean)),
