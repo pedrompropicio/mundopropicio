@@ -100,6 +100,7 @@ export default function PartnerEventDetail() {
   const effectiveBpViewMode: "grouped" | "grid" = isMobile ? "grouped" : bpViewMode;
   const [advancesOpen, setAdvancesOpen] = useState(false);
   const [paidByPartnerOpen, setPaidByPartnerOpen] = useState(false);
+  const [incomeMode, setIncomeMode] = useState<"forecast" | "sold">("forecast");
 
   // ── Batch 1: parallel independent queries ──
   const { data: accessRows = [], isLoading: isLoadingAccess } = useQuery({
