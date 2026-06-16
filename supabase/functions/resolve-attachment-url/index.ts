@@ -162,6 +162,36 @@ async function resolveCamarimItemDocument(adminClient: any, documentId: string, 
   };
 }
 
+async function resolveForecastAttachment(adminClient: any, documentId: string, callerCtx: any) {
+  const { data: doc, error } = await adminClient
+    .from("event_forecast_attachments")
+    .select("id,file_name,storage_path,mime_type,company_id,forecast_id")
+    .eq("id", documentId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!doc) return { error: "Documento não encontrado", status: 404 };
+  if (!doc.storage_path) return { error: "Documento sem caminho de ficheiro", status: 404 };
+
+  let ownerCompanyId: string | null = doc.company_id ?? null;
+  if (!ownerCompanyId && doc.forecast_id) {
+    const { data: fc } = await adminClient
+      .from("event_forecasts")
+      .select("company_id")
+      .eq("id", doc.forecast_id)
+      .maybeSingle();
+    ownerCompanyId = fc?.company_id ?? null;
+  }
+  if (!canAccessCompany(callerCtx, ownerCompanyId)) return { error: "Sem permissão para abrir este documento", status: 403 };
+
+  return {
+    bucket: "event-forecast-attachments",
+    candidates: buildCandidates(doc.storage_path, ownerCompanyId),
+    filename: doc.file_name ?? doc.storage_path.split("/").pop(),
+    contentType: doc.mime_type ?? undefined,
+  };
+}
+
 function contentDisposition(filename?: string | null) {
   const clean = (filename ?? "anexo").replace(/[\r\n"\\]/g, "_");
   // ASCII-only fallback para a parte filename="..." (HTTP header values são ByteString = latin-1)
