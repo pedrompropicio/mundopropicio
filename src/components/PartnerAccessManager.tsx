@@ -209,8 +209,20 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
                       <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium ${r.is_active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
                         {r.is_active ? "Ativo" : "Bloqueado"}
                       </span>
+                      {r.can_edit_bp && (
+                        <span className="inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-primary/15 text-primary">
+                          Edita BP
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => toggleEditBpMutation.mutate({ id: r.id, canEdit: !!r.can_edit_bp })}
+                        className="p-1 rounded hover:bg-muted transition-colors"
+                        title={r.can_edit_bp ? "Retirar edição do BP" : "Permitir editar BP"}
+                      >
+                        {r.can_edit_bp ? <Pencil className="h-4 w-4 text-primary" /> : <PencilOff className="h-4 w-4 text-muted-foreground" />}
+                      </button>
                       <button
                         onClick={() => toggleAccessMutation.mutate({ id: r.id, isActive: r.is_active })}
                         className="p-1 rounded hover:bg-muted transition-colors"
