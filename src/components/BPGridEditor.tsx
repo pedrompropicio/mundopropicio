@@ -33,6 +33,60 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { deleteTransactionCascade } from "@/lib/delete-transaction-cascade";
 import { moveToTrash } from "@/lib/trash";
 import { useAuth } from "@/contexts/AuthContext";
+import { compareHierarchicalCodes } from "@/lib/utils";
+
+const EUR_FMT = new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function parseAmountInput(raw: string): number {
+  const cleaned = raw
+    .replace(/[€\s]/g, "")
+    .replace(/[^\d,.\-]/g, "")
+    .replace(/\.(?=\d{3}(\D|$))/g, "")
+    .replace(",", ".");
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+interface AmountCellProps {
+  value: number;
+  onCommit: (n: number) => void;
+  onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
+  disabled?: boolean;
+  hasError?: boolean;
+  title?: string;
+}
+
+function AmountCell({ value, onCommit, onPaste, disabled, hasError, title }: AmountCellProps) {
+  const [focused, setFocused] = useState(false);
+  const [draft, setDraft] = useState("");
+  const num = Number(value) || 0;
+  const display = focused ? draft : EUR_FMT.format(num);
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      disabled={disabled}
+      value={display}
+      title={title}
+      onFocus={(e) => {
+        setFocused(true);
+        setDraft(num ? String(num).replace(".", ",") : "");
+        // select all for fast overwrite
+        requestAnimationFrame(() => e.target.select());
+      }}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        setFocused(false);
+        const n = parseAmountInput(draft);
+        if (n !== num) onCommit(n);
+      }}
+      onPaste={onPaste}
+      className={`w-full rounded-md border bg-background px-2 py-1 text-right font-mono text-xs disabled:cursor-not-allowed disabled:opacity-60 ${
+        hasError ? "border-destructive" : "border-border/60"
+      }`}
+    />
+  );
+}
 
 type Forecast = any;
 type Category = { id: string; code: string; name: string; type: string; parent_id: string | null };
