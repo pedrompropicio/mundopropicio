@@ -934,12 +934,47 @@ export default function PartnerEventDetail() {
                                 <span className="text-[10px] font-medium text-foreground/80">{l3.code} · {l3.name}</span>
                                 <span className="text-[10px] font-medium font-mono text-amber-500">{formatCurrency(l3.total)}</span>
                               </div>
-                              {l3.items.map((it) => (
-                                <div key={it.id} className="flex items-center justify-between px-4 pl-16 py-1.5 border-b border-border/15 gap-2">
-                                  <span className="text-xs truncate flex-1">{it.description}</span>
-                                  <span className="text-xs font-mono font-semibold whitespace-nowrap text-amber-500">{formatCurrency(it.amount)}</span>
-                                </div>
-                              ))}
+                              {l3.items.map((it) => {
+                                const atts = bpAttachmentsByForecast[it.id] ?? [];
+                                return (
+                                  <div key={it.id} className="flex items-center justify-between px-4 pl-16 py-1.5 border-b border-border/15 gap-2">
+                                    <span className="text-xs truncate flex-1">{it.description}</span>
+                                    {atts.length > 0 && (
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <button
+                                            type="button"
+                                            className="inline-flex items-center gap-1 rounded p-1 text-primary hover:bg-primary/10 transition-colors"
+                                            title={`${atts.length} anexo(s)`}
+                                          >
+                                            <Paperclip className="h-3.5 w-3.5" />
+                                            <span className="text-[10px] font-semibold">{atts.length}</span>
+                                          </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent side="left" align="end" className="w-72 p-2">
+                                          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                            Anexos ({atts.length})
+                                          </p>
+                                          <div className="space-y-1 max-h-60 overflow-y-auto">
+                                            {atts.map((a) => (
+                                              <button
+                                                key={a.document_id}
+                                                type="button"
+                                                onClick={() => openBpAttachment(a.kind, a.document_id)}
+                                                className="flex items-center gap-2 w-full text-left rounded px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
+                                              >
+                                                <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                                <span className="truncate flex-1">{a.file_name}</span>
+                                              </button>
+                                            ))}
+                                          </div>
+                                        </PopoverContent>
+                                      </Popover>
+                                    )}
+                                    <span className="text-xs font-mono font-semibold whitespace-nowrap text-amber-500">{formatCurrency(it.amount)}</span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           ))}
                         </div>
