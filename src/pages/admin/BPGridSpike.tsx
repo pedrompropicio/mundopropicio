@@ -64,36 +64,36 @@ function CategoryCellComponent({
   focus,
   stopEditing,
   options,
+  labelById,
 }: {
   rowData: string | null;
   setRowData: (v: string | null) => void;
   focus: boolean;
   stopEditing: (opts?: { nextRow?: boolean }) => void;
   options: { value: string; label: string }[];
+  labelById: Map<string, string>;
 }) {
-  // Open the popover as soon as the cell enters edit mode
-  const [open, setOpen] = React.useState(false);
-  React.useEffect(() => {
-    if (focus) setOpen(true);
-  }, [focus]);
+  // Display mode: render plain text only. No interactive element = arrow keys reach the grid.
+  if (!focus) {
+    const label = rowData ? labelById.get(rowData) ?? "" : "";
+    return (
+      <div className="w-full truncate px-2 py-1 text-sm">
+        {label || <span className="text-muted-foreground italic">—</span>}
+      </div>
+    );
+  }
 
+  // Edit mode only: mount popover and stop the grid from hijacking typed search keys.
   return (
     <div
       className="w-full px-1"
-      // Prevent the grid from intercepting keys while the popover handles search
-      onKeyDown={(e) => {
-        if (open) e.stopPropagation();
-      }}
-      onMouseDown={(e) => {
-        // Avoid grid losing focus when interacting with the popover content
-        e.stopPropagation();
-      }}
+      onKeyDown={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       <SearchableSelect
         value={rowData ?? ""}
         onValueChange={(v) => {
           setRowData(v || null);
-          setOpen(false);
           stopEditing({ nextRow: false });
         }}
         options={options}
@@ -115,6 +115,7 @@ function makeCategoryColumn(
         focus={focus}
         stopEditing={stopEditing}
         options={options}
+        labelById={labelById}
       />
     ),
     deleteValue: () => null,
