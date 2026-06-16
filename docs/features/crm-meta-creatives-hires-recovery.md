@@ -97,8 +97,15 @@ dimensões devolvidas pela Meta antes de fazer overwrite.
 ## Bucket público versionado
 
 O flag `public:true` do bucket `crm-meta-creatives` foi revertido em
-publishes anteriores. Está agora versionado na migration
-`supabase/migrations/<ts>_crm_meta_creatives_public_bucket.sql` (idempotente).
+publishes anteriores. Tentou-se versionar via migration
+`supabase/migrations/...` mas o runner da Lovable **bloqueia SQL sobre
+`storage.buckets`** (tanto via `supabase--migration` como via ficheiro
+direto). Alternativa registada:
+
+- **Test:** aplicado já via tool `supabase--storage_update_bucket` (idempotente).
+- **Live:** correr `supabase/manual/crm_meta_creatives_public_bucket.sql`
+  no SQL Editor do dashboard após cada Publish em que o bucket volte a
+  ficar privado. Script é idempotente (`UPDATE ... WHERE public IS DISTINCT FROM true`).
 
 ## Não corrige o bug de origem
 
