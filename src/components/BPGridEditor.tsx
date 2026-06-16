@@ -115,6 +115,18 @@ interface PendingInsert {
   iva_rate: number;
   formalidade: string;
   notes: string;
+  /** false until the user edits any field — pristine rows don't count as validation errors */
+  touched: boolean;
+}
+
+function isPendingPristine(p: PendingInsert): boolean {
+  return (
+    !p.touched &&
+    (p.description ?? "").trim() === "" &&
+    !p.category_id &&
+    (!Number.isFinite(p.amount) || p.amount === 0) &&
+    (p.notes ?? "") === ""
+  );
 }
 
 const IVA_OPTIONS = [0, 6, 13, 23];
