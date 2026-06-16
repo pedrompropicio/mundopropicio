@@ -10,7 +10,7 @@ const corsHeaders = {
 
 const UUID_PREFIX_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\//i;
 
-type AttachmentKind = "transaction_document" | "camarim_item_document";
+type AttachmentKind = "transaction_document" | "camarim_item_document" | "event_forecast_attachment";
 
 function json(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
