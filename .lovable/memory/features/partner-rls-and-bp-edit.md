@@ -39,11 +39,7 @@ Policies legacy `auth.uid() IS NOT NULL` **mantidas intactas** (tech debt separa
 ## Audit BP
 - Trigger `audit_event_forecasts_changes AFTER INSERT/UPDATE/DELETE` → `log_table_change()` → `system_audit_log` com `entity_type='event_forecasts'`, `changed_by=auth.uid()`, old/new jsonb. Captura **todos** os perfis (admin/manager/editor/parceiro).
 
-## UI partner
-- `BPPartnerEditDialog.tsx` — listagem editável de linhas do BP (description/amount/iva_rate/formalidade); save via RPC; linhas bloqueadas (overhead/master/retroactivo) ficam read-only com badge
-- Botão "Editar BP" aparece em `PartnerEventDetail` apenas quando `can_edit_bp=true` para o evento ativo (não no Master view de turnês)
+## Não tocar
+- Limpeza das 54 policies legacy `auth.uid() IS NOT NULL` (tech debt separado)
+- Modelo de propostas (Via 2) — descartado: usamos Via 1 com audit
 
-## Não tocar (Fase 2b ou outra)
-- Criar/apagar linhas BP por partner (modelo de propostas pendente)
-- INSERT/DELETE em `event_forecasts` para role partner
-- Limpeza das 54 policies legacy `auth.uid() IS NOT NULL`
