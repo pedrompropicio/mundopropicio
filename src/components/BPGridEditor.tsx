@@ -115,6 +115,18 @@ interface PendingInsert {
   iva_rate: number;
   formalidade: string;
   notes: string;
+  /** false until the user edits any field — pristine rows don't count as validation errors */
+  touched: boolean;
+}
+
+function isPendingPristine(p: PendingInsert): boolean {
+  return (
+    !p.touched &&
+    (p.description ?? "").trim() === "" &&
+    !p.category_id &&
+    (!Number.isFinite(p.amount) || p.amount === 0) &&
+    (p.notes ?? "") === ""
+  );
 }
 
 const IVA_OPTIONS = [0, 6, 13, 23];
@@ -162,6 +174,7 @@ const newPending = (type: "income" | "expense"): PendingInsert => ({
   iva_rate: 23,
   formalidade: "estimado",
   notes: "",
+  touched: false,
 });
 
 export default function BPGridEditor({
@@ -285,12 +298,40 @@ export default function BPGridEditor({
   }, []);
 
   const updatePending = useCallback((tempId: string, field: keyof PendingInsert, value: any) => {
-    setPendingInserts((prev) => prev.map((r) => (r.tempId === tempId ? { ...r, [field]: value } : r)));
+    setPendingInserts((prev) =>
+      prev.map((r) => (r.tempId === tempId ? { ...r, [field]: value, touched: true } : r)),
+    );
+  }, []);
+
+  // Focus + scroll-to-top tracking for newly added pending rows
+  const [focusTempId, setFocusTempId] = useState<string | null>(null);
+  const addPending = useCallback((type: "income" | "expense") => {
+    const p = newPending(type);
+    setPendingInserts((prev) => [p, ...prev]);
+    setFocusTempId(p.tempId);
   }, []);
 
   const removePending = useCallback((tempId: string) => {
     setPendingInserts((prev) => prev.filter((r) => r.tempId !== tempId));
   }, []);
+
+  // After adding a pending row, scroll to top and focus its description input
+  useEffect(() => {
+    if (!focusTempId) return;
+    const raf = requestAnimationFrame(() => {
+      const container = document.querySelector(`[data-pending-temp-id="${focusTempId}"]`) as HTMLElement | null;
+      if (container) {
+        container.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        const input = container.querySelector("input[data-pending-desc-input]") as HTMLInputElement | null;
+        input?.focus();
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setFocusTempId(null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [focusTempId]);
+
+
 
   const discardAll = useCallback(() => {
     const total = Object.keys(dirty).length + pendingInserts.length;
@@ -327,9 +368,12 @@ export default function BPGridEditor({
     return m;
   }, [dirty, editableRows, l3Set, categoryTypeById]);
 
+  // Errors shown in the UI / counted in the badge — pristine new rows are
+  // considered "work in progress" and don't count until the user types something.
   const pendingErrors = useMemo(() => {
     const m = new Map<string, Partial<Record<EditableField, string>>>();
     for (const p of pendingInserts) {
+      if (isPendingPristine(p)) continue;
       const errs = validateRow(
         { type: p.type, description: p.description, category_id: p.category_id, amount: p.amount, iva_rate: p.iva_rate },
         l3Set,
@@ -340,14 +384,33 @@ export default function BPGridEditor({
     return m;
   }, [pendingInserts, l3Set, categoryTypeById]);
 
+  // Save-blocking errors: validate ALL pending rows (including pristine empty ones),
+  // so saving with a brand-new empty row is still blocked.
+  const pendingSaveErrorsCount = useMemo(() => {
+    let count = 0;
+    for (const p of pendingInserts) {
+      const errs = validateRow(
+        { type: p.type, description: p.description, category_id: p.category_id, amount: p.amount, iva_rate: p.iva_rate },
+        l3Set,
+        categoryTypeById,
+      );
+      if (Object.keys(errs).length > 0) count++;
+    }
+    return count;
+  }, [pendingInserts, l3Set, categoryTypeById]);
+
   const totalErrors = rowErrors.size + pendingErrors.size;
+  const saveBlockingErrors = rowErrors.size + pendingSaveErrorsCount;
 
   // --- SAVE (inserts + updates, atomic per RPC) ---
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (totalErrors > 0) {
-        throw new Error(`${totalErrors} linha(s) com erros de validação`);
+      if (saveBlockingErrors > 0) {
+        // Surface pristine rows so the user sees the error before submitting
+        setPendingInserts((prev) => prev.map((r) => ({ ...r, touched: true })));
+        throw new Error(`${saveBlockingErrors} linha(s) com erros de validação`);
       }
+
 
       // Capture "before" snapshots of edited fields for post-save undo
       const editedFieldsByRow = new Map<string, EditableField[]>();
@@ -649,7 +712,7 @@ export default function BPGridEditor({
           canEditBP={canEditBP}
           isSaving={false}
           isDeleting={false}
-          onAdd={(t) => setPendingInserts((prev) => [...prev, newPending(t)])}
+          onAdd={addPending}
           onDeleteSelected={confirmAndDelete}
           onSave={() => saveMutation.mutate()}
           onDiscard={discardAll}
@@ -672,7 +735,7 @@ export default function BPGridEditor({
         canEditBP={canEditBP}
         isSaving={saveMutation.isPending}
         isDeleting={deleteMutation.isPending}
-        onAdd={(t) => setPendingInserts((prev) => [...prev, newPending(t)])}
+        onAdd={addPending}
         onDeleteSelected={confirmAndDelete}
         onSave={() => saveMutation.mutate()}
         onDiscard={discardAll}
@@ -703,6 +766,121 @@ export default function BPGridEditor({
         <div className="text-center" title="Notas">N</div>
         <div />
       </div>
+
+      {/* Pending inserts — rendered ABOVE existing rows so new entries are visible without scrolling */}
+      {pendingInserts.length > 0 && (
+        <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 py-2">
+          <div className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-primary">
+            Novas linhas ({pendingInserts.length}) — guardar para confirmar
+          </div>
+          {pendingInserts.map((p) => {
+            const errs = pendingErrors.get(p.tempId) ?? {};
+            const opts = l3CategoriesByType[p.type] ?? [];
+            const notesVal = p.notes || "";
+            return (
+              <div
+                key={p.tempId}
+                data-pending-temp-id={p.tempId}
+                className="grid w-full grid-cols-[20px_16px_minmax(180px,2fr)_minmax(140px,1.5fr)_96px_56px_104px_28px_28px] items-center gap-1.5 px-3 py-1.5 text-xs"
+              >
+                <div />
+                <div />
+                <div className="min-w-0">
+                  <SearchableSelect
+                    value={p.category_id ?? ""}
+                    onValueChange={(v: string) => updatePending(p.tempId, "category_id", v || null)}
+                    options={opts}
+                    placeholder="Selecionar L3…"
+                  />
+                  {errs.category_id && (
+                    <span className="mt-0.5 block text-[10px] text-destructive">{errs.category_id}</span>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <input
+                    type="text"
+                    data-pending-desc-input
+                    value={p.description}
+                    onChange={(e) => updatePending(p.tempId, "description", e.target.value)}
+                    placeholder={`${p.type === "income" ? "Receita" : "Despesa"} — descrição*`}
+                    className={`w-full rounded-md border bg-background px-2 py-1 text-xs ${
+                      errs.description ? "border-destructive" : "border-border/60"
+                    }`}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <AmountCell
+                    value={p.amount}
+                    onCommit={(n) => updatePending(p.tempId, "amount", n)}
+                    hasError={!!errs.amount}
+                  />
+                </div>
+                <div>
+                  <select
+                    value={p.iva_rate}
+                    onChange={(e) => updatePending(p.tempId, "iva_rate", parseInt(e.target.value))}
+                    className="w-full rounded-md border border-border/60 bg-background px-1.5 py-1 text-right text-xs"
+                  >
+                    {IVA_OPTIONS.map((v) => (
+                      <option key={v} value={v}>
+                        {v}%
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <select
+                    value={p.formalidade}
+                    onChange={(e) => updatePending(p.tempId, "formalidade", e.target.value)}
+                    className="w-full rounded-md border border-border/60 bg-background px-1.5 py-1 text-xs"
+                  >
+                    {FORMALIDADE_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex justify-center">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        title={notesVal ? notesVal.slice(0, 120) : "Adicionar notas"}
+                        className={`rounded p-1 transition-colors ${
+                          notesVal ? "text-primary hover:bg-primary/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                      >
+                        <StickyNote className="h-3.5 w-3.5" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent side="left" align="start" className="w-72 p-2">
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Notas</p>
+                      <Textarea
+                        value={notesVal}
+                        onChange={(e) => updatePending(p.tempId, "notes", e.target.value)}
+                        rows={4}
+                        placeholder="Notas internas…"
+                        className="text-xs"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => removePending(p.tempId)}
+                    className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    title="Remover esta linha pendente"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Virtualized list — interleaves L1/L2 group headers and editable rows */}
       <div
@@ -894,118 +1072,6 @@ export default function BPGridEditor({
       </div>
 
 
-      {/* Pending inserts (rendered below the virtualized list, not virtualized) */}
-      {pendingInserts.length > 0 && (
-        <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 py-2">
-          <div className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-primary">
-            Novas linhas ({pendingInserts.length}) — guardar para confirmar
-          </div>
-          {pendingInserts.map((p) => {
-            const errs = pendingErrors.get(p.tempId) ?? {};
-            const opts = l3CategoriesByType[p.type] ?? [];
-            const notesVal = p.notes || "";
-            return (
-              <div
-                key={p.tempId}
-                className="grid w-full grid-cols-[20px_16px_minmax(180px,2fr)_minmax(140px,1.5fr)_96px_56px_104px_28px_28px] items-center gap-1.5 px-3 py-1.5 text-xs"
-              >
-                <div />
-                <div />
-                <div className="min-w-0">
-                  <SearchableSelect
-                    value={p.category_id ?? ""}
-                    onValueChange={(v: string) => updatePending(p.tempId, "category_id", v || null)}
-                    options={opts}
-                    placeholder="Selecionar L3…"
-                  />
-                  {errs.category_id && (
-                    <span className="mt-0.5 block text-[10px] text-destructive">{errs.category_id}</span>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <input
-                    type="text"
-                    value={p.description}
-                    onChange={(e) => updatePending(p.tempId, "description", e.target.value)}
-                    placeholder={`${p.type === "income" ? "Receita" : "Despesa"} — descrição*`}
-                    className={`w-full rounded-md border bg-background px-2 py-1 text-xs ${
-                      errs.description ? "border-destructive" : "border-border/60"
-                    }`}
-                  />
-                </div>
-                <div className="min-w-0">
-                  <AmountCell
-                    value={p.amount}
-                    onCommit={(n) => updatePending(p.tempId, "amount", n)}
-                    hasError={!!errs.amount}
-                  />
-                </div>
-                <div>
-                  <select
-                    value={p.iva_rate}
-                    onChange={(e) => updatePending(p.tempId, "iva_rate", parseInt(e.target.value))}
-                    className="w-full rounded-md border border-border/60 bg-background px-1.5 py-1 text-right text-xs"
-                  >
-                    {IVA_OPTIONS.map((v) => (
-                      <option key={v} value={v}>
-                        {v}%
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <select
-                    value={p.formalidade}
-                    onChange={(e) => updatePending(p.tempId, "formalidade", e.target.value)}
-                    className="w-full rounded-md border border-border/60 bg-background px-1.5 py-1 text-xs"
-                  >
-                    {FORMALIDADE_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex justify-center">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        title={notesVal ? notesVal.slice(0, 120) : "Adicionar notas"}
-                        className={`rounded p-1 transition-colors ${
-                          notesVal ? "text-primary hover:bg-primary/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                        }`}
-                      >
-                        <StickyNote className="h-3.5 w-3.5" />
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent side="left" align="start" className="w-72 p-2">
-                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Notas</p>
-                      <Textarea
-                        value={notesVal}
-                        onChange={(e) => updatePending(p.tempId, "notes", e.target.value)}
-                        rows={4}
-                        placeholder="Notas internas…"
-                        className="text-xs"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => removePending(p.tempId)}
-                    className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                    title="Remover esta linha pendente"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
 
       <p className="text-[11px] text-muted-foreground">
         Fase A.2 — edição, criação e eliminação em lote. Cole TSV (Excel/Sheets) numa célula para preencher a coluna para baixo. Atalho:{" "}
