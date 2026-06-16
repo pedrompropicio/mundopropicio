@@ -1143,6 +1143,7 @@ export default function PartnerEventDetail() {
             </div>
           )}
         </TabsContent>
+        )}
       </Tabs>
       )}
 
