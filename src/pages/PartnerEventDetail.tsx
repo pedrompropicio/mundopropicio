@@ -639,7 +639,7 @@ export default function PartnerEventDetail() {
       return { l1: gp || null, l2: parent, l3: cat };
     };
 
-    type Item = { id: string; description: string; amount: number; viaMaster?: boolean };
+    type Item = { id: string; description: string; specification: string | null; amount: number; viaMaster?: boolean };
     type L3G = { code: string; name: string; items: Item[]; total: number };
     type L2G = { code: string; name: string; l3Groups: L3G[]; total: number };
     type L1G = { code: string; name: string; l2Groups: L2G[]; total: number };
@@ -659,7 +659,7 @@ export default function PartnerEventDetail() {
       if (!l2) { l2 = { code: l2Code, name: l2Name, l3Groups: [], total: 0 }; l1Map[l1Name].l2Groups.push(l2); }
       let l3 = l2.l3Groups.find((g) => g.name === l3Name);
       if (!l3) { l3 = { code: l3Code, name: l3Name, items: [], total: 0 }; l2.l3Groups.push(l3); }
-      l3.items.push({ id: f.id, description: f.description || "—", amount: grossAmount, viaMaster: !!f._viaMaster });
+      l3.items.push({ id: f.id, description: f.description || "—", specification: (f.specification ?? null), amount: grossAmount, viaMaster: !!f._viaMaster });
       l3.total += grossAmount;
       l2.total += grossAmount;
       l1Map[l1Name].total += grossAmount;
