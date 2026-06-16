@@ -775,7 +775,7 @@ export default function BPGridEditor({
             return (
               <div
                 key={p.tempId}
-                className="grid grid-cols-[28px_24px_80px_minmax(200px,2fr)_minmax(220px,2fr)_120px_80px_140px_minmax(160px,1fr)_28px] items-center gap-2 px-3 py-1.5 text-xs"
+                className="grid w-full grid-cols-[24px_20px_64px_minmax(180px,1.3fr)_minmax(180px,2fr)_110px_64px_120px_minmax(120px,1.4fr)_24px] items-center gap-2 px-3 py-1.5 text-xs"
               >
                 <div />
                 <div />
@@ -793,18 +793,7 @@ export default function BPGridEditor({
                     <option value="expense">Despesa</option>
                   </select>
                 </div>
-                <div>
-                  <input
-                    type="text"
-                    value={p.description}
-                    onChange={(e) => updatePending(p.tempId, "description", e.target.value)}
-                    placeholder="Descrição*"
-                    className={`w-full rounded-md border bg-background px-2 py-1 text-xs ${
-                      errs.description ? "border-destructive" : "border-border/60"
-                    }`}
-                  />
-                </div>
-                <div>
+                <div className="min-w-0">
                   <SearchableSelect
                     value={p.category_id ?? ""}
                     onValueChange={(v: string) => updatePending(p.tempId, "category_id", v || null)}
@@ -815,23 +804,29 @@ export default function BPGridEditor({
                     <span className="mt-0.5 block text-[10px] text-destructive">{errs.category_id}</span>
                   )}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={p.amount}
-                    onChange={(e) => updatePending(p.tempId, "amount", parseFloat(e.target.value) || 0)}
-                    className={`w-full rounded-md border bg-background px-2 py-1 text-right font-mono text-xs ${
-                      errs.amount ? "border-destructive" : "border-border/60"
+                    type="text"
+                    value={p.description}
+                    onChange={(e) => updatePending(p.tempId, "description", e.target.value)}
+                    placeholder="Descrição*"
+                    className={`w-full rounded-md border bg-background px-2 py-1 text-xs ${
+                      errs.description ? "border-destructive" : "border-border/60"
                     }`}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <AmountCell
+                    value={p.amount}
+                    onCommit={(n) => updatePending(p.tempId, "amount", n)}
+                    hasError={!!errs.amount}
                   />
                 </div>
                 <div>
                   <select
                     value={p.iva_rate}
                     onChange={(e) => updatePending(p.tempId, "iva_rate", parseInt(e.target.value))}
-                    className="w-full rounded-md border border-border/60 bg-background px-2 py-1 text-right text-xs"
+                    className="w-full rounded-md border border-border/60 bg-background px-1.5 py-1 text-right text-xs"
                   >
                     {IVA_OPTIONS.map((v) => (
                       <option key={v} value={v}>
@@ -844,7 +839,7 @@ export default function BPGridEditor({
                   <select
                     value={p.formalidade}
                     onChange={(e) => updatePending(p.tempId, "formalidade", e.target.value)}
-                    className="w-full rounded-md border border-border/60 bg-background px-2 py-1 text-xs"
+                    className="w-full rounded-md border border-border/60 bg-background px-1.5 py-1 text-xs"
                   >
                     {FORMALIDADE_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
@@ -853,7 +848,7 @@ export default function BPGridEditor({
                     ))}
                   </select>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <input
                     type="text"
                     value={p.notes}
