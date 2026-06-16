@@ -672,6 +672,23 @@ export default function PartnerEventDetail() {
     [bpGroupedHier],
   );
 
+  const handleExportBPPdf = async () => {
+    if (!event) return;
+    try {
+      await exportPartnerBPPdf({
+        eventName: event.name,
+        eventDate: event.date ?? null,
+        eventLocation: (event as any).location ?? null,
+        cityLabel: (event as any).cities?.name ?? null,
+        bpVersionLabel,
+        bpVersionDescription: activeBPVersion?.description ?? null,
+        groups: bpGroupedHier as any,
+        totalExpense: bpTotalExpense,
+      });
+    } catch (err: any) {
+      toast.error("Erro ao exportar PDF", { description: err?.message });
+    }
+  };
 
 
   if (isLoading || isLoadingAccess) {
