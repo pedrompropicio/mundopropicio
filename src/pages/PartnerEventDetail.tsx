@@ -319,6 +319,7 @@ export default function PartnerEventDetail() {
   const sessions = eventData?.sessions ?? [];
   void eventData?.activeBPVersion;
   const overheads = eventData?.overheads ?? [];
+  const bpExpenses: any[] = (eventData as any)?.bpExpenses ?? [];
   const perCityBreakdown = eventData?.perCityBreakdown ?? [];
 
   // ── Extras / Despesas pagas pelo Sócio (Master view = todos os sub-eventos) ──
