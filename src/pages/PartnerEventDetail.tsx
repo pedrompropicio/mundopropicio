@@ -632,6 +632,11 @@ export default function PartnerEventDetail() {
             <Badge variant="secondary" className="ml-2">{partnerPaidExpenses.length}</Badge>
           )}
         </Button>
+        {canEditBpForActive(activeEventId!) && (
+          <Button size="sm" variant="outline" onClick={() => setBpEditOpen(true)} disabled={!activeEventId || isMasterView}>
+            <Pencil className="mr-1.5 h-4 w-4" /> Editar BP
+          </Button>
+        )}
         <Button size="sm" onClick={() => setDreOpen(true)} disabled={!activeEventId}>
           <FileText className="mr-1.5 h-4 w-4" /> DRE
         </Button>
