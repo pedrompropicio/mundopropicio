@@ -819,7 +819,48 @@ export default function PartnerEventDetail() {
         {/* ═══════ BP DE CUSTOS (planeado, agrupado L1>L2>L3) ═══════ */}
         {hasPermission("view_bp") && (
         <TabsContent value="bp">
-          {bpGroupedHier.length === 0 ? (
+          {/* Toggle Agrupada ↔ Grelha (Fase 2b — só visível com permissão de edição) */}
+          {canEditBpHere && (
+            <div className="flex items-center justify-end mb-3">
+              <div className="inline-flex rounded-md border border-border/60 bg-background/60 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setBpViewMode("grouped")}
+                  className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
+                    bpViewMode === "grouped"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <LayoutList className="h-3.5 w-3.5" />
+                  Agrupada
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBpViewMode("grid")}
+                  className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
+                    bpViewMode === "grid"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="Editor em grelha — edição em massa"
+                >
+                  <Table2 className="h-3.5 w-3.5" />
+                  Grelha
+                </button>
+              </div>
+            </div>
+          )}
+
+          {canEditBpHere && bpViewMode === "grid" ? (
+            <BPGridEditor
+              eventId={activeEventId!}
+              forecasts={bpGridForecasts}
+              categories={allCategories as any}
+              canEditBP={true}
+              selectedVersionId={bpActiveVersionId ?? null}
+            />
+          ) : bpGroupedHier.length === 0 ? (
             <Card className="p-8 text-center">
               <p className="text-muted-foreground">Sem previsões de custos aprovadas para este evento.</p>
             </Card>
@@ -872,6 +913,7 @@ export default function PartnerEventDetail() {
           )}
         </TabsContent>
         )}
+
 
 
         {/* ═══════ BILHETES ═══════ */}
