@@ -372,6 +372,12 @@ export default function PartnerEventDetail() {
   const bpIncomes: any[] = (eventData as any)?.bpIncomes ?? [];
   const perCityBreakdown = eventData?.perCityBreakdown ?? [];
 
+  // Forecasts combinados (income + expense) para os cards financeiros do sócio.
+  const partnerForecasts = useMemo(
+    () => [...(bpIncomes ?? []), ...(bpExpenses ?? [])] as any[],
+    [bpIncomes, bpExpenses],
+  );
+
   // Última importação/criação de vendas de bilhetes (MAX(created_at)) — aba Bilhetes
   const zoneIdsForSales = useMemo(
     () => (eventData?.ticketZones ?? []).map((z: any) => z.id),
