@@ -1100,7 +1100,7 @@ export default function PartnerEventDetail() {
                                           <span className="text-xs truncate">{t.description || "—"}</span>
                                         </div>
                                         {t.date && <span className="text-[10px] text-muted-foreground">{formatDate(t.date)}</span>}
-                                        {t.docs.length > 0 && (
+                                        {hasPermission("view_partner_documents") && t.docs.length > 0 && (
                                           <div className="flex flex-wrap gap-1 mt-1">
                                             {t.docs.map((d: any) => (
                                               <button
