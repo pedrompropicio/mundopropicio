@@ -758,6 +758,31 @@ export default function PartnerEventDetail() {
     return s + gross / (1 + iva / 100);
   }, 0);
 
+  // ─── Receita: PREVISTO (cargas) vs VENDIDO (real), em NET ───
+  // Bilheteira prevista NET = Σ lotes (qty×price)/(1+iva/100), com filteredZones (respeita Master/cidade)
+  const totalLotRevenueNet = filteredZones.reduce(
+    (s: number, z: any) => s + (z.event_ticket_lots || []).reduce(
+      (ls: number, l: any) => ls + (l.quantity * Number(l.price)) / (1 + Number(l.iva_rate ?? 6) / 100),
+      0,
+    ),
+    0,
+  );
+  // Patrocínio previsto NET = Σ event_forecasts income com código que começa em "1.2" (amount já é NET)
+  const sponsorshipForecast = bpIncomes
+    .filter((f: any) => String(f.account_categories?.code ?? "").startsWith("1.2"))
+    .reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
+  // Patrocínio real NET = Σ transactions income L1=1.2 (já filtradas paid+approved em effectiveTransactions)
+  const sponsorshipReal = transactions
+    .filter((t: any) => t.type === "income" && String(t.account_categories?.code ?? "").startsWith("1.2"))
+    .reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
+
+  const incomeForecast = totalLotRevenueNet + sponsorshipForecast;
+  const incomeSold = ticketRevenueNet + sponsorshipReal;
+  const displayIncome = incomeMode === "forecast" ? incomeForecast : incomeSold;
+  const displayResult = displayIncome - bpTotalExpense;
+  const displayBilheteira = incomeMode === "forecast" ? totalLotRevenueNet : ticketRevenueNet;
+  const displayPatrocinio = incomeMode === "forecast" ? sponsorshipForecast : sponsorshipReal;
+
   // ─── Cards (vista do sócio / Brasil) ───
   // Receitas: NET (alinhado com getPartnerRevenueBase). Despesas: BRUTO c/IVA
   // (alinhado com calcBasis Brasil em buildPartnerSettlementReportData).
