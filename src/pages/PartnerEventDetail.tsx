@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArrowLeft, Loader2, Ticket, Calendar, Layers, Route, TrendingUp, TrendingDown, FileText, Paperclip, Pencil, ClipboardList } from "lucide-react";
+import { ArrowLeft, Loader2, Ticket, Calendar, Layers, Route, TrendingUp, TrendingDown, FileText, Paperclip, ClipboardList, LayoutList, Table2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +17,7 @@ import { type CategoryNode } from "@/lib/category-hierarchy";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { calcTotalWithIva } from "@/lib/iva";
 import PartnerDREDialog from "@/components/PartnerDREDialog";
-import BPPartnerEditDialog from "@/components/BPPartnerEditDialog";
+import BPGridEditor from "@/components/BPGridEditor";
 import { withCompanyPath } from "@/lib/storage";
 import { toast } from "sonner";
 
@@ -91,7 +91,7 @@ export default function PartnerEventDetail() {
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [dreOpen, setDreOpen] = useState(false);
-  const [bpEditOpen, setBpEditOpen] = useState(false);
+  const [bpViewMode, setBpViewMode] = useState<"grouped" | "grid">("grouped");
   const [advancesOpen, setAdvancesOpen] = useState(false);
   const [paidByPartnerOpen, setPaidByPartnerOpen] = useState(false);
 
@@ -119,9 +119,9 @@ export default function PartnerEventDetail() {
   const { data: allCategories = [] } = useQuery({
     queryKey: ["all_categories"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("account_categories").select("id, code, name, parent_id");
+      const { data, error } = await supabase.from("account_categories").select("id, code, name, parent_id, type, is_active");
       if (error) throw error;
-      return data as CategoryNode[];
+      return data as (CategoryNode & { type: string; is_active: boolean })[];
     },
     staleTime: 5 * 60_000, // categories rarely change
   });
