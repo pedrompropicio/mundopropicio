@@ -236,7 +236,7 @@ export default function PartnerEventDetail() {
         supabase.from("bp_versions").select("version_number, approved_at, description").eq("event_id", activeEventId).eq("state", "active").maybeSingle(),
         supabase
           .from("event_forecasts")
-          .select("id, event_id, amount, iva_rate, description, category_id, status, type, is_overhead, account_categories(id, code, name, parent_id)")
+          .select("id, event_id, amount, iva_rate, description, specification, category_id, status, type, is_overhead, account_categories(id, code, name, parent_id)")
           .in("event_id", overheadEventIds)
           .eq("status", "approved")
           .is("version_id", null),
@@ -639,7 +639,7 @@ export default function PartnerEventDetail() {
       return { l1: gp || null, l2: parent, l3: cat };
     };
 
-    type Item = { id: string; description: string; amount: number; viaMaster?: boolean };
+    type Item = { id: string; description: string; specification: string | null; amount: number; viaMaster?: boolean };
     type L3G = { code: string; name: string; items: Item[]; total: number };
     type L2G = { code: string; name: string; l3Groups: L3G[]; total: number };
     type L1G = { code: string; name: string; l2Groups: L2G[]; total: number };
@@ -659,7 +659,7 @@ export default function PartnerEventDetail() {
       if (!l2) { l2 = { code: l2Code, name: l2Name, l3Groups: [], total: 0 }; l1Map[l1Name].l2Groups.push(l2); }
       let l3 = l2.l3Groups.find((g) => g.name === l3Name);
       if (!l3) { l3 = { code: l3Code, name: l3Name, items: [], total: 0 }; l2.l3Groups.push(l3); }
-      l3.items.push({ id: f.id, description: f.description || "—", amount: grossAmount, viaMaster: !!f._viaMaster });
+      l3.items.push({ id: f.id, description: f.description || "—", specification: (f.specification ?? null), amount: grossAmount, viaMaster: !!f._viaMaster });
       l3.total += grossAmount;
       l2.total += grossAmount;
       l1Map[l1Name].total += grossAmount;
@@ -1052,7 +1052,12 @@ export default function PartnerEventDetail() {
                                 const atts = bpAttachmentsByForecast[it.id] ?? [];
                                 return (
                                   <div key={it.id} className="flex items-center justify-between px-4 pl-16 py-1.5 border-b border-border/15 gap-2">
-                                    <span className="text-xs truncate flex-1">{it.description}</span>
+                                    <span className="text-xs flex-1 min-w-0 truncate">
+                                      {it.description}
+                                      {it.specification && (
+                                        <span className="text-muted-foreground italic ml-1.5">· {it.specification}</span>
+                                      )}
+                                    </span>
                                     {atts.length > 0 && (
                                       <Popover>
                                         <PopoverTrigger asChild>

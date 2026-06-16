@@ -103,13 +103,14 @@ interface BPGridEditorProps {
   selectedVersionId: string | null;
 }
 
-type EditableField = "description" | "category_id" | "amount" | "iva_rate" | "formalidade" | "notes";
+type EditableField = "description" | "specification" | "category_id" | "amount" | "iva_rate" | "formalidade" | "notes";
 type DirtyMap = Record<string, Partial<Record<EditableField, any>>>;
 
 interface PendingInsert {
   tempId: string;
   type: "income" | "expense";
   description: string;
+  specification: string;
   category_id: string | null;
   amount: number;
   iva_rate: number;
@@ -123,6 +124,7 @@ function isPendingPristine(p: PendingInsert): boolean {
   return (
     !p.touched &&
     (p.description ?? "").trim() === "" &&
+    (p.specification ?? "").trim() === "" &&
     !p.category_id &&
     (!Number.isFinite(p.amount) || p.amount === 0) &&
     (p.notes ?? "") === ""
@@ -169,6 +171,7 @@ const newPending = (type: "income" | "expense"): PendingInsert => ({
   tempId: `tmp_${Math.random().toString(36).slice(2)}`,
   type,
   description: "",
+  specification: "",
   category_id: null,
   amount: 0,
   iva_rate: 23,
@@ -444,6 +447,7 @@ export default function BPGridEditor({
         const payload = pendingInserts.map((p) => ({
           type: p.type,
           description: p.description.trim(),
+          specification: p.specification?.trim() || null,
           category_id: p.category_id || null,
           amount: p.amount,
           iva_rate: p.iva_rate,
@@ -742,7 +746,7 @@ export default function BPGridEditor({
       />
 
       {/* Header (sem coluna Tipo: inferida pela categoria) */}
-      <div className="grid w-full grid-cols-[20px_16px_minmax(180px,2fr)_minmax(140px,1.5fr)_96px_56px_104px_28px_28px] gap-1.5 rounded-md bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="grid w-full grid-cols-[20px_16px_minmax(170px,1.6fr)_minmax(140px,1.4fr)_minmax(140px,1.3fr)_96px_56px_104px_28px_28px] gap-1.5 rounded-md bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         <div>
           <input
             type="checkbox"
@@ -760,6 +764,7 @@ export default function BPGridEditor({
         <div />
         <div>Categoria (L3)</div>
         <div>Descrição</div>
+        <div>Especificação</div>
         <div className="text-right">Valor</div>
         <div className="text-right">IVA %</div>
         <div>Formalidade</div>
@@ -781,7 +786,7 @@ export default function BPGridEditor({
               <div
                 key={p.tempId}
                 data-pending-temp-id={p.tempId}
-                className="grid w-full grid-cols-[20px_16px_minmax(180px,2fr)_minmax(140px,1.5fr)_96px_56px_104px_28px_28px] items-center gap-1.5 px-3 py-1.5 text-xs"
+                className="grid w-full grid-cols-[20px_16px_minmax(170px,1.6fr)_minmax(140px,1.4fr)_minmax(140px,1.3fr)_96px_56px_104px_28px_28px] items-center gap-1.5 px-3 py-1.5 text-xs"
               >
                 <div />
                 <div />
@@ -806,6 +811,15 @@ export default function BPGridEditor({
                     className={`w-full rounded-md border bg-background px-2 py-1 text-xs ${
                       errs.description ? "border-destructive" : "border-border/60"
                     }`}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <input
+                    type="text"
+                    value={p.specification}
+                    onChange={(e) => updatePending(p.tempId, "specification", e.target.value)}
+                    placeholder="Especificação (opcional)"
+                    className="w-full rounded-md border border-border/60 bg-background px-2 py-1 text-xs"
                   />
                 </div>
                 <div className="min-w-0">
@@ -950,7 +964,7 @@ export default function BPGridEditor({
                   width: "100%",
                   transform: `translateY(${virtual.start}px)`,
                 }}
-                className={`grid w-full grid-cols-[20px_16px_minmax(180px,2fr)_minmax(140px,1.5fr)_96px_56px_104px_28px_28px] items-center gap-1.5 border-b border-border/40 px-3 py-2 text-xs ${
+                className={`grid w-full grid-cols-[20px_16px_minmax(170px,1.6fr)_minmax(140px,1.4fr)_minmax(140px,1.3fr)_96px_56px_104px_28px_28px] items-center gap-1.5 border-b border-border/40 px-3 py-2 text-xs ${
                   Object.keys(rowDirty).length > 0 ? "bg-primary/5" : ""
                 } ${isSelected ? "bg-destructive/5" : ""}`}
               >
@@ -995,6 +1009,16 @@ export default function BPGridEditor({
                       errs.description ? "border-destructive" : "border-border/60"
                     }`}
                     title={errs.description ?? ""}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <input
+                    type="text"
+                    disabled={lock.locked}
+                    value={currentVal("specification", row.specification ?? "") ?? ""}
+                    onChange={(e) => updateField(row.id, "specification", e.target.value, row.specification ?? "")}
+                    placeholder="Especificação"
+                    className="w-full rounded-md border border-border/60 bg-background px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
                   />
                 </div>
                 <div className="min-w-0">
