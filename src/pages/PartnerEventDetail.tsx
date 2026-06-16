@@ -354,7 +354,7 @@ export default function PartnerEventDetail() {
   const transactions = eventData?.transactions ?? [];
   const transactionDocs = eventData?.transactionDocs ?? [];
   const sessions = eventData?.sessions ?? [];
-  void eventData?.activeBPVersion;
+  const activeBPVersion = eventData?.activeBPVersion ?? null;
   const overheads = eventData?.overheads ?? [];
   const bpExpenses: any[] = (eventData as any)?.bpExpenses ?? [];
   const perCityBreakdown = eventData?.perCityBreakdown ?? [];
