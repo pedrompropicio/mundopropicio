@@ -814,6 +814,15 @@ export default function BPGridEditor({
                   />
                 </div>
                 <div className="min-w-0">
+                  <input
+                    type="text"
+                    value={p.specification}
+                    onChange={(e) => updatePending(p.tempId, "specification", e.target.value)}
+                    placeholder="Especificação (opcional)"
+                    className="w-full rounded-md border border-border/60 bg-background px-2 py-1 text-xs"
+                  />
+                </div>
+                <div className="min-w-0">
                   <AmountCell
                     value={p.amount}
                     onCommit={(n) => updatePending(p.tempId, "amount", n)}
