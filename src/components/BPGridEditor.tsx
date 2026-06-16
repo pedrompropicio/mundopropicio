@@ -786,7 +786,7 @@ export default function BPGridEditor({
               <div
                 key={p.tempId}
                 data-pending-temp-id={p.tempId}
-                className="grid w-full grid-cols-[20px_16px_minmax(180px,2fr)_minmax(140px,1.5fr)_96px_56px_104px_28px_28px] items-center gap-1.5 px-3 py-1.5 text-xs"
+                className="grid w-full grid-cols-[20px_16px_minmax(170px,1.6fr)_minmax(140px,1.4fr)_minmax(140px,1.3fr)_96px_56px_104px_28px_28px] items-center gap-1.5 px-3 py-1.5 text-xs"
               >
                 <div />
                 <div />
