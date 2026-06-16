@@ -694,7 +694,7 @@ export default function BPGridEditor({
           canEditBP={canEditBP}
           isSaving={false}
           isDeleting={false}
-          onAdd={(t) => setPendingInserts((prev) => [...prev, newPending(t)])}
+          onAdd={addPending}
           onDeleteSelected={confirmAndDelete}
           onSave={() => saveMutation.mutate()}
           onDiscard={discardAll}
