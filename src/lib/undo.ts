@@ -8,12 +8,14 @@ export type UndoActionType =
   | "approve_transaction"
   | "pay_transaction"
   | "edit_forecast"
-  | "edit_transaction";
+  | "edit_transaction"
+  | "bp_grid_batch_save";
 
 export type UndoEntityType =
   | "event_forecast"
   | "transaction"
-  | "event_forecast_master";
+  | "event_forecast_master"
+  | "event_forecast_batch";
 
 export interface UndoActionInput {
   action_type: UndoActionType;
