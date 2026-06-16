@@ -530,13 +530,13 @@ export default function BPGridEditor({
         description: `${dirtyUpdates.length} célula(s) preenchida(s) na coluna.`,
       });
     },
-    [editableRows, canEditBP],
+    [sortedEditableRows, canEditBP],
   );
 
   // Virtualization
   const parentRef = useRef<HTMLDivElement>(null);
   const rowVirtualizer = useVirtualizer({
-    count: editableRows.length,
+    count: sortedEditableRows.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 56,
     overscan: 8,
