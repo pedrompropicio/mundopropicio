@@ -242,5 +242,50 @@ async function revertTransactionStatusChange(r: UndoActionRecord) {
   if (error) throw error;
 }
 
+/**
+ * Reverts a BPGridEditor batch save (updates + inserts).
+ * Payload:
+ *  - snapshots: Array<{ id: string; before: Record<string, any> }>
+ *  - insertedIds: string[]
+ * Deletes the inserted rows and restores each updated row's previous field values.
+ * RLS/locks/cascade are enforced by the DB (a partner with can_edit_bp can undo what
+ * they were allowed to save). Linked-transaction cascade is NOT triggered on insert
+ * deletion because new BP lines have no `transaction_id` back-link by construction.
+ */
+async function revertBPGridBatchSave(r: UndoActionRecord) {
+  const snapshots: Array<{ id: string; before: Record<string, any> }> =
+    r.payload.snapshots ?? [];
+  const insertedIds: string[] = r.payload.insertedIds ?? [];
+
+  // 1) Delete inserted rows (best-effort; skip those that already have a paid tx)
+  if (insertedIds.length > 0) {
+    const { data: linked } = await (supabase as any)
+      .from("event_forecasts")
+      .select("id, transaction_id")
+      .in("id", insertedIds);
+    const safeIds = (linked ?? [])
+      .filter((r: any) => !r.transaction_id)
+      .map((r: any) => r.id);
+    if (safeIds.length > 0) {
+      const { error } = await (supabase as any)
+        .from("event_forecasts")
+        .delete()
+        .in("id", safeIds);
+      if (error) throw error;
+    }
+  }
+
+  // 2) Restore previous values for each updated row
+  for (const snap of snapshots) {
+    if (!snap?.id || !snap.before) continue;
+    const { error } = await (supabase as any)
+      .from("event_forecasts")
+      .update(snap.before)
+      .eq("id", snap.id);
+    if (error) throw error;
+  }
+}
+
 // UI helpers live in src/hooks/useUndoToast.tsx (JSX requires .tsx file).
+
 
