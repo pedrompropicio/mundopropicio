@@ -242,20 +242,23 @@ export default function PartnerEventDetail() {
           : Promise.resolve({ data: [], error: null }),
       ]);
 
-      const overheadsRaw = (overheadsRes.data ?? []) as any[];
-      let overheadsForActive: any[];
-      if (isMasterView) {
-        // Master: inclui todos (Master + sub-eventos) sem rateio
-        overheadsForActive = overheadsRaw;
-      } else {
-        overheadsForActive = overheadsRaw.flatMap((o: any) => {
+      const allForecastsRaw = (overheadsRes.data ?? []) as any[];
+      const overheadsRaw = allForecastsRaw.filter((f: any) => f.is_overhead === true);
+      // Para a aba BP de custos: todas as previsões de despesa (overhead ou não).
+      const bpExpensesRaw = allForecastsRaw.filter((f: any) => f.type === "expense");
+
+      const rateForActive = (raw: any[]) => {
+        if (isMasterView) return raw;
+        return raw.flatMap((o: any) => {
           if (o.event_id === activeEventId) return [o];
           if (o.event_id === parentEventId) {
             return [{ ...o, amount: Number(o.amount) / siblingCount, _viaMaster: true }];
           }
           return [];
         });
-      }
+      };
+      const overheadsForActive: any[] = rateForActive(overheadsRaw);
+      const bpExpensesForActive: any[] = rateForActive(bpExpensesRaw);
 
       // Para vista Master: calcular per-city (ratear Master ÷N nos sub-eventos)
       const perCityBreakdown = isMasterView
@@ -302,6 +305,7 @@ export default function PartnerEventDetail() {
         sessions: (sessionsRes.data ?? []) as any[],
         activeBPVersion: (activeVersionRes.data ?? null) as { version_number: number; approved_at: string | null; description: string | null } | null,
         overheads: overheadsForActive,
+        bpExpenses: bpExpensesForActive,
         perCityBreakdown,
       };
     },
