@@ -1100,6 +1100,14 @@ export default function PartnerEventDetail() {
                 </div>
               )}
 
+              {/* Última importação/sincronização de vendas */}
+              <div className="flex justify-end text-[10px] text-muted-foreground">
+                {lastSaleAt
+                  ? <span>Vendas atualizadas até {new Date(lastSaleAt).toLocaleString("pt-PT", { dateStyle: "short", timeStyle: "short" })}</span>
+                  : <span className="italic opacity-70">Sem vendas importadas</span>
+                }
+              </div>
+
               {/* Summary cards - responsive text */}
               <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
                 <Card>
