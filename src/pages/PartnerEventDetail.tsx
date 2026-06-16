@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArrowLeft, Loader2, Ticket, Calendar, Layers, Route, TrendingUp, TrendingDown, FileText, Paperclip, Pencil } from "lucide-react";
+import { ArrowLeft, Loader2, Ticket, Calendar, Layers, Route, TrendingUp, TrendingDown, FileText, Paperclip, Pencil, ClipboardList } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -101,16 +101,20 @@ export default function PartnerEventDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_event_access")
-        .select("event_id, can_edit_bp")
+        .select("event_id, can_edit_bp, default_tab")
         .eq("user_id", user!.id)
         .eq("is_active", true);
       if (error) throw error;
-      return (data ?? []) as { event_id: string; can_edit_bp: boolean }[];
+      return (data ?? []) as { event_id: string; can_edit_bp: boolean; default_tab: string | null }[];
     },
     enabled: !!user,
   });
   const accessList = accessRows.map((a) => a.event_id);
   const canEditBpForActive = (activeId: string) => accessRows.some((a) => a.event_id === activeId && a.can_edit_bp);
+  const defaultTabForActive = (activeId: string): string => {
+    const row = accessRows.find((a) => a.event_id === activeId);
+    return row?.default_tab || "bp";
+  };
 
   const { data: allCategories = [] } = useQuery({
     queryKey: ["all_categories"],
