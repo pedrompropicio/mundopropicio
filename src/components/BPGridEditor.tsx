@@ -1102,7 +1102,7 @@ function Toolbar(props: {
             className="flex items-center gap-1.5 rounded-md border border-border/60 bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
           >
             <Undo2 className="h-3.5 w-3.5" />
-            Descartar
+            Desfazer alterações
           </button>
         )}
         <button
