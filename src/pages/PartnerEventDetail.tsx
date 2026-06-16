@@ -936,36 +936,37 @@ export default function PartnerEventDetail() {
                 </Button>
               )}
               {canEditBpHere && (
-            <div className="flex items-center justify-end mb-3">
-              <div className="inline-flex rounded-md border border-border/60 bg-background/60 p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setBpViewMode("grouped")}
-                  className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
-                    bpViewMode === "grouped"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <LayoutList className="h-3.5 w-3.5" />
-                  Agrupada
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBpViewMode("grid")}
-                  className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
-                    bpViewMode === "grid"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  title="Editor em grelha — edição em massa"
-                >
-                  <Table2 className="h-3.5 w-3.5" />
-                  Grelha
-                </button>
-              </div>
+                <div className="inline-flex rounded-md border border-border/60 bg-background/60 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setBpViewMode("grouped")}
+                    className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
+                      bpViewMode === "grouped"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <LayoutList className="h-3.5 w-3.5" />
+                    Agrupada
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBpViewMode("grid")}
+                    className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
+                      bpViewMode === "grid"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    title="Editor em grelha — edição em massa"
+                  >
+                    <Table2 className="h-3.5 w-3.5" />
+                    Grelha
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+          </div>
+
 
           {canEditBpHere && bpViewMode === "grid" ? (
             <BPGridEditor
