@@ -575,12 +575,12 @@ export default function BPGridEditor({
     [sortedEditableRows, canEditBP],
   );
 
-  // Virtualization
+  // Virtualization (variable size: 32px for L1/L2 headers, 56px for editable rows)
   const parentRef = useRef<HTMLDivElement>(null);
   const rowVirtualizer = useVirtualizer({
-    count: sortedEditableRows.length,
+    count: gridItems.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 56,
+    estimateSize: (i) => (gridItems[i]?.kind === "header" ? 32 : 56),
     overscan: 8,
   });
 
