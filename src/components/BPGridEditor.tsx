@@ -491,8 +491,8 @@ export default function BPGridEditor({
       const dirtyUpdates: { id: string; field: typeof field; value: any; original: any }[] = [];
 
       for (const cols of matrix) {
-        if (i >= editableRows.length) break;
-        const row = editableRows[i];
+        if (i >= sortedEditableRows.length) break;
+        const row = sortedEditableRows[i];
         const lock = isRowLocked(row, canEditBP);
         if (lock.locked) {
           i++;
