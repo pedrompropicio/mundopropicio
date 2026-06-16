@@ -584,15 +584,15 @@ export default function BPGridEditor({
       />
 
       {/* Header */}
-      <div className="grid grid-cols-[28px_24px_80px_minmax(200px,2fr)_minmax(220px,2fr)_120px_80px_140px_minmax(160px,1fr)_28px] gap-2 rounded-md bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="grid w-full grid-cols-[24px_20px_64px_minmax(180px,1.3fr)_minmax(180px,2fr)_110px_64px_120px_minmax(120px,1.4fr)_24px] gap-2 rounded-md bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         <div>
           <input
             type="checkbox"
-            disabled={!canEditBP || editableRows.length === 0}
-            checked={selected.size > 0 && selected.size === editableRows.filter((r) => !isRowLocked(r, canEditBP).locked).length}
+            disabled={!canEditBP || sortedEditableRows.length === 0}
+            checked={selected.size > 0 && selected.size === sortedEditableRows.filter((r) => !isRowLocked(r, canEditBP).locked).length}
             onChange={(e) => {
               if (e.target.checked) {
-                setSelected(new Set(editableRows.filter((r) => !isRowLocked(r, canEditBP).locked).map((r) => r.id)));
+                setSelected(new Set(sortedEditableRows.filter((r) => !isRowLocked(r, canEditBP).locked).map((r) => r.id)));
               } else {
                 setSelected(new Set());
               }
@@ -601,8 +601,8 @@ export default function BPGridEditor({
         </div>
         <div />
         <div>Tipo</div>
-        <div>Descrição</div>
         <div>Categoria (L3)</div>
+        <div>Descrição</div>
         <div className="text-right">Valor</div>
         <div className="text-right">IVA %</div>
         <div>Formalidade</div>
@@ -613,7 +613,7 @@ export default function BPGridEditor({
       {/* Virtualized existing rows */}
       <div
         ref={parentRef}
-        className="max-h-[600px] overflow-auto rounded-lg border border-border/60 bg-background/40"
+        className="max-h-[600px] overflow-y-auto overflow-x-hidden rounded-lg border border-border/60 bg-background/40"
       >
         <div
           style={{
@@ -623,7 +623,7 @@ export default function BPGridEditor({
           }}
         >
           {rowVirtualizer.getVirtualItems().map((virtual) => {
-            const row = editableRows[virtual.index];
+            const row = sortedEditableRows[virtual.index];
             const lock = isRowLocked(row, canEditBP);
             const rowDirty = dirty[row.id] ?? {};
             const errs = rowErrors.get(row.id) ?? {};
@@ -632,6 +632,10 @@ export default function BPGridEditor({
               field in rowDirty ? rowDirty[field] : fallback;
 
             const opts = l3CategoriesByType[row.type] ?? [];
+            // Indentation by Chart-of-Accounts depth (number of dots in code)
+            const code = categoryCodeById.get(row.category_id ?? "") ?? "";
+            const depth = code ? Math.max(0, code.split(".").length - 1) : 0;
+            const indentPx = Math.min(depth, 3) * 12;
 
             return (
               <div
@@ -644,7 +648,7 @@ export default function BPGridEditor({
                   width: "100%",
                   transform: `translateY(${virtual.start}px)`,
                 }}
-                className={`grid grid-cols-[28px_24px_80px_minmax(200px,2fr)_minmax(220px,2fr)_120px_80px_140px_minmax(160px,1fr)_28px] items-center gap-2 border-b border-border/40 px-3 py-2 text-xs ${
+                className={`grid w-full grid-cols-[24px_20px_64px_minmax(180px,1.3fr)_minmax(180px,2fr)_110px_64px_120px_minmax(120px,1.4fr)_24px] items-center gap-2 border-b border-border/40 px-3 py-2 text-xs ${
                   Object.keys(rowDirty).length > 0 ? "bg-primary/5" : ""
                 } ${isSelected ? "bg-destructive/5" : ""}`}
               >
@@ -675,7 +679,19 @@ export default function BPGridEditor({
                     {row.type === "income" ? "Receita" : "Despesa"}
                   </span>
                 </div>
-                <div>
+                <div className="min-w-0" style={{ paddingLeft: indentPx }}>
+                  <SearchableSelect
+                    value={currentVal("category_id", row.category_id ?? "")}
+                    onValueChange={(v: string) => updateField(row.id, "category_id", v || null, row.category_id)}
+                    options={opts}
+                    placeholder="Selecionar L3…"
+                    disabled={lock.locked}
+                  />
+                  {errs.category_id && (
+                    <span className="mt-0.5 block text-[10px] text-destructive">{errs.category_id}</span>
+                  )}
+                </div>
+                <div className="min-w-0">
                   <input
                     type="text"
                     disabled={lock.locked}
@@ -688,33 +704,13 @@ export default function BPGridEditor({
                     title={errs.description ?? ""}
                   />
                 </div>
-                <div>
-                  <SearchableSelect
-                    value={currentVal("category_id", row.category_id ?? "")}
-                    onValueChange={(v: string) => updateField(row.id, "category_id", v || null, row.category_id)}
-                    options={opts}
-                    placeholder="Selecionar L3…"
-                    disabled={lock.locked}
-                  />
-                  {errs.category_id && (
-                    <span className="mt-0.5 block text-[10px] text-destructive">{errs.category_id}</span>
-                  )}
-                </div>
-                <div>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    disabled={lock.locked}
-                    value={currentVal("amount", row.amount ?? 0)}
-                    onChange={(e) => {
-                      const n = e.target.value === "" ? 0 : parseFloat(e.target.value);
-                      updateField(row.id, "amount", Number.isFinite(n) ? n : 0, Number(row.amount));
-                    }}
+                <div className="min-w-0">
+                  <AmountCell
+                    value={Number(currentVal("amount", row.amount ?? 0))}
+                    onCommit={(n) => updateField(row.id, "amount", n, Number(row.amount))}
                     onPaste={(e) => handlePaste(e, virtual.index, "amount")}
-                    className={`w-full rounded-md border bg-background px-2 py-1 text-right font-mono text-xs disabled:cursor-not-allowed disabled:opacity-60 ${
-                      errs.amount ? "border-destructive" : "border-border/60"
-                    }`}
+                    disabled={lock.locked}
+                    hasError={!!errs.amount}
                     title={errs.amount ?? ""}
                   />
                 </div>
@@ -723,7 +719,7 @@ export default function BPGridEditor({
                     disabled={lock.locked}
                     value={currentVal("iva_rate", row.iva_rate ?? 23)}
                     onChange={(e) => updateField(row.id, "iva_rate", parseInt(e.target.value), row.iva_rate)}
-                    className={`w-full rounded-md border bg-background px-2 py-1 text-right text-xs disabled:cursor-not-allowed disabled:opacity-60 ${
+                    className={`w-full rounded-md border bg-background px-1.5 py-1 text-right text-xs disabled:cursor-not-allowed disabled:opacity-60 ${
                       errs.iva_rate ? "border-destructive" : "border-border/60"
                     }`}
                   >
@@ -739,7 +735,7 @@ export default function BPGridEditor({
                     disabled={lock.locked}
                     value={currentVal("formalidade", row.formalidade ?? "estimado")}
                     onChange={(e) => updateField(row.id, "formalidade", e.target.value, row.formalidade)}
-                    className="w-full rounded-md border border-border/60 bg-background px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-md border border-border/60 bg-background px-1.5 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {FORMALIDADE_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
@@ -748,7 +744,7 @@ export default function BPGridEditor({
                     ))}
                   </select>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <input
                     type="text"
                     disabled={lock.locked}
@@ -765,6 +761,7 @@ export default function BPGridEditor({
           })}
         </div>
       </div>
+
 
       {/* Pending inserts (rendered below the virtualized list, not virtualized) */}
       {pendingInserts.length > 0 && (
