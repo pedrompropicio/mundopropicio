@@ -1018,6 +1018,16 @@ export default function PartnerEventDetail() {
         ) : null;
       })()}
 
+      {/* Editor BP do Parceiro */}
+      {activeEventId && !isMasterView && canEditBpForActive(activeEventId) && (
+        <BPPartnerEditDialog
+          open={bpEditOpen}
+          onOpenChange={setBpEditOpen}
+          eventId={activeEventId}
+          eventName={event?.name ?? ""}
+        />
+      )}
+
       {/* Extras Sócios Dialog */}
       <Dialog open={advancesOpen} onOpenChange={setAdvancesOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
