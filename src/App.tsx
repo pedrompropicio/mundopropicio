@@ -129,7 +129,7 @@ import Notifications from "./pages/admin/Notifications";
 import DiagnosisTest from "./pages/admin/DiagnosisTest";
 import IbanDuplicates from "./pages/admin/IbanDuplicates";
 import AuditDownloads from "./pages/admin/AuditDownloads";
-import BPGridSpike from "./pages/admin/BPGridSpike";
+
 import AccountantHome from "./pages/contabilidade/AccountantHome";
 
 
@@ -506,7 +506,7 @@ function ProtectedLayout() {
               <Route path="/admin/reconciliacao-bp-tx" element={<ReconciliacaoBpTx />} />
               <Route path="/admin/empresas" element={<Companies />} />
               <Route path="/admin/lembretes" element={<Reminders />} />
-              <Route path="/admin/bp-grid-spike" element={<BPGridSpike />} />
+              
               <Route path="/admin/auditoria-rls" element={<RlsLegacyAudit />} />
               <Route path="/admin/upload-coala-fotos" element={<UploadCoalaFotos />} />
               <Route path="/admin/sync-health" element={<SyncHealth />} />
