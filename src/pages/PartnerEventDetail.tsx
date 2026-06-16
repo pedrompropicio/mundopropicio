@@ -288,6 +288,7 @@ export default function PartnerEventDetail() {
       const overheadsRaw = allForecastsRaw.filter((f: any) => f.is_overhead === true);
       // Para a aba BP de custos: todas as previsões de despesa (overhead ou não).
       const bpExpensesRaw = allForecastsRaw.filter((f: any) => f.type === "expense");
+      const bpIncomesRaw = allForecastsRaw.filter((f: any) => f.type === "income");
 
       const rateForActive = (raw: any[]) => {
         if (isMasterView) return raw;
@@ -301,6 +302,7 @@ export default function PartnerEventDetail() {
       };
       const overheadsForActive: any[] = rateForActive(overheadsRaw);
       const bpExpensesForActive: any[] = rateForActive(bpExpensesRaw);
+      const bpIncomesForActive: any[] = rateForActive(bpIncomesRaw);
 
       // Para vista Master: calcular per-city (ratear Master ÷N nos sub-eventos)
       const perCityBreakdown = isMasterView
