@@ -22,6 +22,7 @@ import BPGridEditor from "@/components/BPGridEditor";
 import { withCompanyPath } from "@/lib/storage";
 import { exportPartnerBPPdf } from "@/lib/export-partner-bp-pdf";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 /** Resolve um file_url de transaction_documents em URL clicável.
  *  - ref://http(s)://… → link externo direto
@@ -94,6 +95,9 @@ export default function PartnerEventDetail() {
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [dreOpen, setDreOpen] = useState(false);
   const [bpViewMode, setBpViewMode] = useState<"grouped" | "grid">("grouped");
+  const isMobile = useIsMobile();
+  // No mobile a edição em grelha não cabe — força sempre vista Agrupada.
+  const effectiveBpViewMode: "grouped" | "grid" = isMobile ? "grouped" : bpViewMode;
   const [advancesOpen, setAdvancesOpen] = useState(false);
   const [paidByPartnerOpen, setPaidByPartnerOpen] = useState(false);
 
@@ -284,6 +288,7 @@ export default function PartnerEventDetail() {
       const overheadsRaw = allForecastsRaw.filter((f: any) => f.is_overhead === true);
       // Para a aba BP de custos: todas as previsões de despesa (overhead ou não).
       const bpExpensesRaw = allForecastsRaw.filter((f: any) => f.type === "expense");
+      const bpIncomesRaw = allForecastsRaw.filter((f: any) => f.type === "income");
 
       const rateForActive = (raw: any[]) => {
         if (isMasterView) return raw;
@@ -297,6 +302,7 @@ export default function PartnerEventDetail() {
       };
       const overheadsForActive: any[] = rateForActive(overheadsRaw);
       const bpExpensesForActive: any[] = rateForActive(bpExpensesRaw);
+      const bpIncomesForActive: any[] = rateForActive(bpIncomesRaw);
 
       // Para vista Master: calcular per-city (ratear Master ÷N nos sub-eventos)
       const perCityBreakdown = isMasterView
@@ -344,6 +350,7 @@ export default function PartnerEventDetail() {
         activeBPVersion: (activeVersionRes.data ?? null) as { version_number: number; approved_at: string | null; description: string | null } | null,
         overheads: overheadsForActive,
         bpExpenses: bpExpensesForActive,
+        bpIncomes: bpIncomesForActive,
         perCityBreakdown,
       };
     },
@@ -358,6 +365,7 @@ export default function PartnerEventDetail() {
   const activeBPVersion = eventData?.activeBPVersion ?? null;
   const overheads = eventData?.overheads ?? [];
   const bpExpenses: any[] = (eventData as any)?.bpExpenses ?? [];
+  const bpIncomes: any[] = (eventData as any)?.bpIncomes ?? [];
   const perCityBreakdown = eventData?.perCityBreakdown ?? [];
 
   // Última importação/criação de vendas de bilhetes (MAX(created_at)) — aba Bilhetes
@@ -671,6 +679,12 @@ export default function PartnerEventDetail() {
     () => bpGroupedHier.reduce((s, g) => s + g.total, 0),
     [bpGroupedHier],
   );
+  // Receitas previstas (BP type=income) com IVA — mesma base dos cards de despesas.
+  const bpTotalIncome = useMemo(
+    () => bpIncomes.reduce((s: number, f: any) => s + calcTotalWithIva(Number(f.amount || 0), Number(f.iva_rate || 0)), 0),
+    [bpIncomes],
+  );
+  const bpTotalResult = bpTotalIncome - bpTotalExpense;
 
   const handleExportBPPdf = async () => {
     if (!event) return;
@@ -935,7 +949,7 @@ export default function PartnerEventDetail() {
                   Exportar PDF
                 </Button>
               )}
-              {canEditBpHere && (
+              {canEditBpHere && !isMobile && (
                 <div className="inline-flex rounded-md border border-border/60 bg-background/60 p-0.5">
                   <button
                     type="button"
@@ -967,8 +981,31 @@ export default function PartnerEventDetail() {
             </div>
           </div>
 
+          {/* 3 cards de resumo (Previsto) — atualizam ao guardar via invalidateQueries */}
+          <div className="mb-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <Card className="border-emerald-500/30 bg-emerald-500/5">
+              <CardContent className="p-3 flex items-center justify-between gap-2">
+                <span className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">Receitas (previsto)</span>
+                <span className="text-sm sm:text-base font-bold font-mono text-emerald-500 truncate">{formatCurrency(bpTotalIncome)}</span>
+              </CardContent>
+            </Card>
+            <Card className="border-amber-500/30 bg-amber-500/5">
+              <CardContent className="p-3 flex items-center justify-between gap-2">
+                <span className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">Despesas (previsto)</span>
+                <span className="text-sm sm:text-base font-bold font-mono text-amber-500 truncate">{formatCurrency(bpTotalExpense)}</span>
+              </CardContent>
+            </Card>
+            <Card className={bpTotalResult >= 0 ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}>
+              <CardContent className="p-3 flex items-center justify-between gap-2">
+                <span className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">Resultado (previsto)</span>
+                <span className={`text-sm sm:text-base font-bold font-mono truncate ${bpTotalResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                  {formatCurrency(bpTotalResult)}
+                </span>
+              </CardContent>
+            </Card>
+          </div>
 
-          {canEditBpHere && bpViewMode === "grid" ? (
+          {canEditBpHere && effectiveBpViewMode === "grid" ? (
             <BPGridEditor
               eventId={activeEventId!}
               forecasts={bpGridForecasts}
