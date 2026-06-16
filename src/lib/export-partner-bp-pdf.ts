@@ -17,7 +17,7 @@ export interface PartnerBPGroupL3 {
   code: string;
   name: string;
   total: number;
-  items: { id: string; description: string; amount: number }[];
+  items: { id: string; description: string; specification?: string | null; amount: number }[];
 }
 export interface PartnerBPGroupL2 {
   code: string;
