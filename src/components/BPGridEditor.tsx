@@ -964,7 +964,7 @@ export default function BPGridEditor({
                   width: "100%",
                   transform: `translateY(${virtual.start}px)`,
                 }}
-                className={`grid w-full grid-cols-[20px_16px_minmax(180px,2fr)_minmax(140px,1.5fr)_96px_56px_104px_28px_28px] items-center gap-1.5 border-b border-border/40 px-3 py-2 text-xs ${
+                className={`grid w-full grid-cols-[20px_16px_minmax(170px,1.6fr)_minmax(140px,1.4fr)_minmax(140px,1.3fr)_96px_56px_104px_28px_28px] items-center gap-1.5 border-b border-border/40 px-3 py-2 text-xs ${
                   Object.keys(rowDirty).length > 0 ? "bg-primary/5" : ""
                 } ${isSelected ? "bg-destructive/5" : ""}`}
               >
