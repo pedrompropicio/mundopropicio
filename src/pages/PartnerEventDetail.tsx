@@ -95,6 +95,9 @@ export default function PartnerEventDetail() {
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [dreOpen, setDreOpen] = useState(false);
   const [bpViewMode, setBpViewMode] = useState<"grouped" | "grid">("grouped");
+  const isMobile = useIsMobile();
+  // No mobile a edição em grelha não cabe — força sempre vista Agrupada.
+  const effectiveBpViewMode: "grouped" | "grid" = isMobile ? "grouped" : bpViewMode;
   const [advancesOpen, setAdvancesOpen] = useState(false);
   const [paidByPartnerOpen, setPaidByPartnerOpen] = useState(false);
 
