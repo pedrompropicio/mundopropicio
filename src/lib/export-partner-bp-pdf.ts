@@ -123,8 +123,11 @@ export async function exportPartnerBPPdf(input: PartnerBPExportInput): Promise<v
           { content: fmt(l3.total), styles: { fontStyle: "bold", halign: "right", textColor: 90, fontSize: 8.5 } },
         ]);
         for (const it of l3.items) {
+          const label = it.specification
+            ? `         ${it.description} · ${it.specification}`
+            : `         ${it.description}`;
           body.push([
-            { content: `         ${it.description}`, styles: { fontSize: 8, textColor: 60 } },
+            { content: label, styles: { fontSize: 8, textColor: 60 } },
             { content: fmt(it.amount), styles: { halign: "right", fontSize: 8, textColor: 60 } },
           ]);
         }
