@@ -274,6 +274,28 @@ function makeSelectColumn(
 }
 
 // ============================================================
+// MINIMAL TEST: only native textColumn — decisive arrow-keys test
+// ============================================================
+function MinimalTextGrid() {
+  const [data, setData] = React.useState([
+    { a: "alpha", b: "1", c: "x" },
+    { a: "beta", b: "2", c: "y" },
+    { a: "gamma", b: "3", c: "z" },
+    { a: "delta", b: "4", c: "w" },
+  ]);
+  const cols = React.useMemo(
+    () => [
+      { ...keyColumn("a", textColumn), title: "A" },
+      { ...keyColumn("b", textColumn), title: "B" },
+      { ...keyColumn("c", textColumn), title: "C" },
+    ],
+    [],
+  );
+  return <DataSheetGrid value={data} onChange={setData as any} columns={cols as any} height={220} />;
+}
+
+
+// ============================================================
 // Page
 // ============================================================
 export default function BPGridSpike() {
