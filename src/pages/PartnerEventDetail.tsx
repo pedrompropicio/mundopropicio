@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArrowLeft, Loader2, Ticket, Calendar, Layers, Route, TrendingUp, TrendingDown, FileText, Paperclip, Pencil } from "lucide-react";
+import { ArrowLeft, Loader2, Ticket, Calendar, Layers, Route, TrendingUp, TrendingDown, FileText, Paperclip, Pencil, ClipboardList } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -87,7 +87,7 @@ const statusLabels: Record<string, string> = {
 
 export default function PartnerEventDetail() {
   const { id } = useParams();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [dreOpen, setDreOpen] = useState(false);
@@ -101,16 +101,20 @@ export default function PartnerEventDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_event_access")
-        .select("event_id, can_edit_bp")
+        .select("event_id, can_edit_bp, default_tab")
         .eq("user_id", user!.id)
         .eq("is_active", true);
       if (error) throw error;
-      return (data ?? []) as { event_id: string; can_edit_bp: boolean }[];
+      return (data ?? []) as { event_id: string; can_edit_bp: boolean; default_tab: string | null }[];
     },
     enabled: !!user,
   });
   const accessList = accessRows.map((a) => a.event_id);
   const canEditBpForActive = (activeId: string) => accessRows.some((a) => a.event_id === activeId && a.can_edit_bp);
+  const defaultTabForActive = (activeId: string): string => {
+    const row = accessRows.find((a) => a.event_id === activeId);
+    return row?.default_tab || "bp";
+  };
 
   const { data: allCategories = [] } = useQuery({
     queryKey: ["all_categories"],
@@ -190,9 +194,8 @@ export default function PartnerEventDetail() {
         supabase.from("bp_versions").select("version_number, approved_at, description").eq("event_id", activeEventId).eq("state", "active").maybeSingle(),
         supabase
           .from("event_forecasts")
-          .select("id, event_id, amount, iva_rate, description, category_id, status, account_categories(id, code, name, parent_id)")
+          .select("id, event_id, amount, iva_rate, description, category_id, status, type, is_overhead, account_categories(id, code, name, parent_id)")
           .in("event_id", overheadEventIds)
-          .eq("is_overhead", true)
           .eq("status", "approved")
           .is("version_id", null),
       ]);
@@ -239,20 +242,23 @@ export default function PartnerEventDetail() {
           : Promise.resolve({ data: [], error: null }),
       ]);
 
-      const overheadsRaw = (overheadsRes.data ?? []) as any[];
-      let overheadsForActive: any[];
-      if (isMasterView) {
-        // Master: inclui todos (Master + sub-eventos) sem rateio
-        overheadsForActive = overheadsRaw;
-      } else {
-        overheadsForActive = overheadsRaw.flatMap((o: any) => {
+      const allForecastsRaw = (overheadsRes.data ?? []) as any[];
+      const overheadsRaw = allForecastsRaw.filter((f: any) => f.is_overhead === true);
+      // Para a aba BP de custos: todas as previsões de despesa (overhead ou não).
+      const bpExpensesRaw = allForecastsRaw.filter((f: any) => f.type === "expense");
+
+      const rateForActive = (raw: any[]) => {
+        if (isMasterView) return raw;
+        return raw.flatMap((o: any) => {
           if (o.event_id === activeEventId) return [o];
           if (o.event_id === parentEventId) {
             return [{ ...o, amount: Number(o.amount) / siblingCount, _viaMaster: true }];
           }
           return [];
         });
-      }
+      };
+      const overheadsForActive: any[] = rateForActive(overheadsRaw);
+      const bpExpensesForActive: any[] = rateForActive(bpExpensesRaw);
 
       // Para vista Master: calcular per-city (ratear Master ÷N nos sub-eventos)
       const perCityBreakdown = isMasterView
@@ -299,6 +305,7 @@ export default function PartnerEventDetail() {
         sessions: (sessionsRes.data ?? []) as any[],
         activeBPVersion: (activeVersionRes.data ?? null) as { version_number: number; approved_at: string | null; description: string | null } | null,
         overheads: overheadsForActive,
+        bpExpenses: bpExpensesForActive,
         perCityBreakdown,
       };
     },
@@ -312,6 +319,7 @@ export default function PartnerEventDetail() {
   const sessions = eventData?.sessions ?? [];
   void eventData?.activeBPVersion;
   const overheads = eventData?.overheads ?? [];
+  const bpExpenses: any[] = (eventData as any)?.bpExpenses ?? [];
   const perCityBreakdown = eventData?.perCityBreakdown ?? [];
 
   // ── Extras / Despesas pagas pelo Sócio (Master view = todos os sub-eventos) ──
@@ -499,6 +507,65 @@ export default function PartnerEventDetail() {
     return { income: buildForType("income"), expense: buildForType("expense") };
   }, [transactions, overheads, allCategories, docsByTx]);
 
+  // ─── BP de custos agrupado L1>L2>L3 (vista do parceiro) ───
+  const bpGroupedHier = useMemo(() => {
+    const byId: Record<string, CategoryNode> = {};
+    allCategories.forEach((c) => { byId[c.id] = c; });
+    const getChain = (catId: string | null) => {
+      if (!catId || !byId[catId]) return { l1: null as any, l2: null as any, l3: null as any };
+      const cat = byId[catId];
+      const pid = cat.parent_id ?? null;
+      if (!pid) return { l1: cat, l2: null, l3: null };
+      const parent = byId[pid];
+      if (!parent) return { l1: null, l2: null, l3: cat };
+      const gpid = parent.parent_id ?? null;
+      if (!gpid) return { l1: parent, l2: cat, l3: null };
+      const gp = byId[gpid];
+      return { l1: gp || null, l2: parent, l3: cat };
+    };
+
+    type Item = { id: string; description: string; amount: number; viaMaster?: boolean };
+    type L3G = { code: string; name: string; items: Item[]; total: number };
+    type L2G = { code: string; name: string; l3Groups: L3G[]; total: number };
+    type L1G = { code: string; name: string; l2Groups: L2G[]; total: number };
+
+    const l1Map: Record<string, L1G> = {};
+    bpExpenses.forEach((f: any) => {
+      const chain = getChain(f.category_id);
+      const l1Name = chain.l1?.name ?? "Sem Grupo";
+      const l1Code = chain.l1?.code ?? "Z";
+      const l2Name = chain.l2?.name ?? chain.l1?.name ?? "Geral";
+      const l2Code = chain.l2?.code ?? chain.l1?.code ?? "Z.Z";
+      const l3Name = chain.l3?.name ?? chain.l2?.name ?? chain.l1?.name ?? (f.description || "—");
+      const l3Code = chain.l3?.code ?? chain.l2?.code ?? chain.l1?.code ?? "";
+      const grossAmount = calcTotalWithIva(Number(f.amount || 0), Number(f.iva_rate || 0));
+      if (!l1Map[l1Name]) l1Map[l1Name] = { code: l1Code, name: l1Name, l2Groups: [], total: 0 };
+      let l2 = l1Map[l1Name].l2Groups.find((g) => g.name === l2Name);
+      if (!l2) { l2 = { code: l2Code, name: l2Name, l3Groups: [], total: 0 }; l1Map[l1Name].l2Groups.push(l2); }
+      let l3 = l2.l3Groups.find((g) => g.name === l3Name);
+      if (!l3) { l3 = { code: l3Code, name: l3Name, items: [], total: 0 }; l2.l3Groups.push(l3); }
+      l3.items.push({ id: f.id, description: f.description || "—", amount: grossAmount, viaMaster: !!f._viaMaster });
+      l3.total += grossAmount;
+      l2.total += grossAmount;
+      l1Map[l1Name].total += grossAmount;
+    });
+
+    return Object.values(l1Map)
+      .map((g) => ({
+        ...g,
+        l2Groups: g.l2Groups
+          .map((l2) => ({ ...l2, l3Groups: l2.l3Groups.sort((a, b) => compareHierarchicalCodes(a.code, b.code)) }))
+          .sort((a, b) => compareHierarchicalCodes(a.code, b.code)),
+      }))
+      .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
+  }, [bpExpenses, allCategories]);
+
+  const bpTotalExpense = useMemo(
+    () => bpGroupedHier.reduce((s, g) => s + g.total, 0),
+    [bpGroupedHier],
+  );
+
+
 
   if (isLoading || isLoadingAccess) {
     return (
@@ -632,14 +699,16 @@ export default function PartnerEventDetail() {
             <Badge variant="secondary" className="ml-2">{partnerPaidExpenses.length}</Badge>
           )}
         </Button>
-        {canEditBpForActive(activeEventId!) && (
+        {canEditBpForActive(activeEventId!) && hasPermission("edit_approved_bp") && (
           <Button size="sm" variant="outline" onClick={() => setBpEditOpen(true)} disabled={!activeEventId || isMasterView}>
             <Pencil className="mr-1.5 h-4 w-4" /> Editar BP
           </Button>
         )}
-        <Button size="sm" onClick={() => setDreOpen(true)} disabled={!activeEventId}>
-          <FileText className="mr-1.5 h-4 w-4" /> DRE
-        </Button>
+        {hasPermission("view_report_dre") && (
+          <Button size="sm" onClick={() => setDreOpen(true)} disabled={!activeEventId}>
+            <FileText className="mr-1.5 h-4 w-4" /> DRE
+          </Button>
+        )}
       </div>
 
       {/* Em vista Master só mostramos os cards (sem tabs nem listas detalhadas) */}
@@ -697,11 +766,82 @@ export default function PartnerEventDetail() {
           )}
         </div>
       ) : (
-      <Tabs defaultValue="ticketing" className="space-y-4">
+      <Tabs defaultValue={(() => {
+        const want = defaultTabForActive(activeEventId!);
+        // fallback se a aba escolhida não estiver acessível
+        if (want === "bp" && hasPermission("view_bp")) return "bp";
+        if (want === "transactions" && hasPermission("view_partner_transactions")) return "transactions";
+        if (want === "tickets") return "ticketing";
+        if (hasPermission("view_bp")) return "bp";
+        return "ticketing";
+      })()} className="space-y-4">
         <TabsList className="w-full">
+          {hasPermission("view_bp") && (
+            <TabsTrigger value="bp" className="gap-1.5 flex-1"><ClipboardList className="h-3.5 w-3.5" /> BP</TabsTrigger>
+          )}
           <TabsTrigger value="ticketing" className="gap-1.5 flex-1"><Ticket className="h-3.5 w-3.5" /> Bilhetes</TabsTrigger>
-          <TabsTrigger value="transactions" className="gap-1.5 flex-1"><TrendingDown className="h-3.5 w-3.5" /> Transações</TabsTrigger>
+          {hasPermission("view_partner_transactions") && (
+            <TabsTrigger value="transactions" className="gap-1.5 flex-1"><TrendingDown className="h-3.5 w-3.5" /> Transações</TabsTrigger>
+          )}
         </TabsList>
+
+        {/* ═══════ BP DE CUSTOS (planeado, agrupado L1>L2>L3) ═══════ */}
+        {hasPermission("view_bp") && (
+        <TabsContent value="bp">
+          {bpGroupedHier.length === 0 ? (
+            <Card className="p-8 text-center">
+              <p className="text-muted-foreground">Sem previsões de custos aprovadas para este evento.</p>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              <Card className="border-primary/30 bg-primary/5">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <span className="text-sm font-bold">Total previsto (despesas, c/IVA)</span>
+                  <span className="text-lg font-bold font-mono text-amber-500">{formatCurrency(bpTotalExpense)}</span>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-0 px-4 pt-4">
+                  <CardTitle className="text-sm text-amber-500 flex items-center gap-1.5"><ClipboardList className="h-4 w-4" /> Business Plan — Custos</CardTitle>
+                </CardHeader>
+                <CardContent className="px-0 pb-0">
+                  {bpGroupedHier.map((l1) => (
+                    <div key={l1.name} className="mb-2">
+                      <div className="bg-muted/40 px-4 py-1.5 flex items-center justify-between">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">{l1.code} · {l1.name}</span>
+                        <span className="text-[11px] font-bold font-mono text-amber-500">{formatCurrency(l1.total)}</span>
+                      </div>
+                      {l1.l2Groups.map((l2) => (
+                        <div key={l2.name}>
+                          <div className="bg-muted/20 px-4 pl-8 py-1 flex items-center justify-between border-b border-border/40">
+                            <span className="text-[10px] font-semibold text-muted-foreground">{l2.code} · {l2.name}</span>
+                            <span className="text-[10px] font-semibold font-mono text-amber-500">{formatCurrency(l2.total)}</span>
+                          </div>
+                          {l2.l3Groups.map((l3) => (
+                            <div key={l3.name}>
+                              <div className="px-4 pl-12 py-1 flex items-center justify-between border-b border-border/20 bg-muted/5">
+                                <span className="text-[10px] font-medium text-foreground/80">{l3.code} · {l3.name}</span>
+                                <span className="text-[10px] font-medium font-mono text-amber-500">{formatCurrency(l3.total)}</span>
+                              </div>
+                              {l3.items.map((it) => (
+                                <div key={it.id} className="flex items-center justify-between px-4 pl-16 py-1.5 border-b border-border/15 gap-2">
+                                  <span className="text-xs truncate flex-1">{it.description}</span>
+                                  <span className="text-xs font-mono font-semibold whitespace-nowrap text-amber-500">{formatCurrency(it.amount)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
+        )}
+
 
         {/* ═══════ BILHETES ═══════ */}
         <TabsContent value="ticketing">
@@ -886,6 +1026,7 @@ export default function PartnerEventDetail() {
         </TabsContent>
 
         {/* ═══════ TRANSAÇÕES (com overheads embutidos) ═══════ */}
+        {hasPermission("view_partner_transactions") && (
         <TabsContent value="transactions">
           {transactions.length === 0 && overheads.length === 0 ? (
             <Card className="p-8 text-center">
@@ -959,7 +1100,7 @@ export default function PartnerEventDetail() {
                                           <span className="text-xs truncate">{t.description || "—"}</span>
                                         </div>
                                         {t.date && <span className="text-[10px] text-muted-foreground">{formatDate(t.date)}</span>}
-                                        {t.docs.length > 0 && (
+                                        {hasPermission("view_partner_documents") && t.docs.length > 0 && (
                                           <div className="flex flex-wrap gap-1 mt-1">
                                             {t.docs.map((d: any) => (
                                               <button
@@ -1002,6 +1143,7 @@ export default function PartnerEventDetail() {
             </div>
           )}
         </TabsContent>
+        )}
       </Tabs>
       )}
 

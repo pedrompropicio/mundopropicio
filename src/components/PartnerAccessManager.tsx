@@ -88,6 +88,17 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
     },
   });
 
+  const updateDefaultTabMutation = useMutation({
+    mutationFn: async ({ id, defaultTab }: { id: string; defaultTab: string }) => {
+      const { error } = await supabase.from("partner_event_access").update({ default_tab: defaultTab } as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["partner_event_access", eventId] });
+      toast({ title: "Aba inicial atualizada." });
+    },
+  });
+
   const removeAccessMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("partner_event_access").delete().eq("id", id);
@@ -216,6 +227,16 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
                       )}
                     </div>
                     <div className="flex items-center gap-1">
+                      <select
+                        value={r.default_tab || "bp"}
+                        onChange={(e) => updateDefaultTabMutation.mutate({ id: r.id, defaultTab: e.target.value })}
+                        className="text-[10px] rounded border border-input bg-background px-1.5 py-0.5"
+                        title="Aba que abre por defeito"
+                      >
+                        <option value="bp">BP</option>
+                        <option value="tickets">Bilhetes</option>
+                        <option value="transactions">Transações</option>
+                      </select>
                       <button
                         onClick={() => toggleEditBpMutation.mutate({ id: r.id, canEdit: !!r.can_edit_bp })}
                         className="p-1 rounded hover:bg-muted transition-colors"
