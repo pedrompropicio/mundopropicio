@@ -26,10 +26,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Save, Lock, AlertTriangle, Undo2, Plus, Trash2 } from "lucide-react";
+import { Save, Lock, AlertTriangle, Undo2, Plus, Trash2, StickyNote } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
 import { deleteTransactionCascade } from "@/lib/delete-transaction-cascade";
 import { moveToTrash } from "@/lib/trash";
 import { useAuth } from "@/contexts/AuthContext";
