@@ -699,11 +699,6 @@ export default function PartnerEventDetail() {
             <Badge variant="secondary" className="ml-2">{partnerPaidExpenses.length}</Badge>
           )}
         </Button>
-        {canEditBpForActive(activeEventId!) && hasPermission("edit_approved_bp") && (
-          <Button size="sm" variant="outline" onClick={() => setBpEditOpen(true)} disabled={!activeEventId || isMasterView}>
-            <Pencil className="mr-1.5 h-4 w-4" /> Editar BP
-          </Button>
-        )}
         {hasPermission("view_report_dre") && (
           <Button size="sm" onClick={() => setDreOpen(true)} disabled={!activeEventId}>
             <FileText className="mr-1.5 h-4 w-4" /> DRE
@@ -1160,15 +1155,6 @@ export default function PartnerEventDetail() {
         ) : null;
       })()}
 
-      {/* Editor BP do Parceiro */}
-      {activeEventId && !isMasterView && canEditBpForActive(activeEventId) && (
-        <BPPartnerEditDialog
-          open={bpEditOpen}
-          onOpenChange={setBpEditOpen}
-          eventId={activeEventId}
-          eventName={event?.name ?? ""}
-        />
-      )}
 
       {/* Extras Sócios Dialog */}
       <Dialog open={advancesOpen} onOpenChange={setAdvancesOpen}>
