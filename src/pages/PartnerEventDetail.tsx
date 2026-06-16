@@ -1051,7 +1051,7 @@ export default function PartnerEventDetail() {
                               {l3.items.map((it) => {
                                 const atts = bpAttachmentsByForecast[it.id] ?? [];
                                 return (
-                                  <div className="flex items-center justify-between px-4 pl-16 py-1.5 border-b border-border/15 gap-2">
+                                  <div key={it.id} className="flex items-center justify-between px-4 pl-16 py-1.5 border-b border-border/15 gap-2">
                                     <span className="text-xs flex-1 min-w-0 truncate">
                                       {it.description}
                                       {it.specification && (
