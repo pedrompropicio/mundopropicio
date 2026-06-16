@@ -103,13 +103,14 @@ interface BPGridEditorProps {
   selectedVersionId: string | null;
 }
 
-type EditableField = "description" | "category_id" | "amount" | "iva_rate" | "formalidade" | "notes";
+type EditableField = "description" | "specification" | "category_id" | "amount" | "iva_rate" | "formalidade" | "notes";
 type DirtyMap = Record<string, Partial<Record<EditableField, any>>>;
 
 interface PendingInsert {
   tempId: string;
   type: "income" | "expense";
   description: string;
+  specification: string;
   category_id: string | null;
   amount: number;
   iva_rate: number;
@@ -123,6 +124,7 @@ function isPendingPristine(p: PendingInsert): boolean {
   return (
     !p.touched &&
     (p.description ?? "").trim() === "" &&
+    (p.specification ?? "").trim() === "" &&
     !p.category_id &&
     (!Number.isFinite(p.amount) || p.amount === 0) &&
     (p.notes ?? "") === ""
