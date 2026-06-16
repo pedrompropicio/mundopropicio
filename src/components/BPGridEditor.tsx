@@ -1012,6 +1012,16 @@ export default function BPGridEditor({
                   />
                 </div>
                 <div className="min-w-0">
+                  <input
+                    type="text"
+                    disabled={lock.locked}
+                    value={currentVal("specification", row.specification ?? "") ?? ""}
+                    onChange={(e) => updateField(row.id, "specification", e.target.value, row.specification ?? "")}
+                    placeholder="Especificação"
+                    className="w-full rounded-md border border-border/60 bg-background px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                  />
+                </div>
+                <div className="min-w-0">
                   <AmountCell
                     value={Number(currentVal("amount", row.amount ?? 0))}
                     onCommit={(n) => updateField(row.id, "amount", n, Number(row.amount))}
