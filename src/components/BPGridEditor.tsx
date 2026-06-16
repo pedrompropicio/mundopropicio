@@ -34,6 +34,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea";
 import { deleteTransactionCascade } from "@/lib/delete-transaction-cascade";
 import { moveToTrash } from "@/lib/trash";
+import { recordUndo } from "@/lib/undo";
+import { showUndoToast } from "@/hooks/useUndoToast";
 import { useAuth } from "@/contexts/AuthContext";
 import { compareHierarchicalCodes } from "@/lib/utils";
 
