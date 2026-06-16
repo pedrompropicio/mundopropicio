@@ -625,8 +625,8 @@ export default function BPGridEditor({
         onDiscard={discardAll}
       />
 
-      {/* Header */}
-      <div className="grid w-full grid-cols-[24px_20px_64px_minmax(180px,1.3fr)_minmax(180px,2fr)_110px_64px_120px_minmax(120px,1.4fr)_24px] gap-2 rounded-md bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      {/* Header (sem coluna Tipo: inferida pela categoria) */}
+      <div className="grid w-full grid-cols-[24px_20px_minmax(220px,2.2fr)_minmax(180px,2fr)_110px_64px_120px_32px_24px] gap-2 rounded-md bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         <div>
           <input
             type="checkbox"
@@ -642,17 +642,16 @@ export default function BPGridEditor({
           />
         </div>
         <div />
-        <div>Tipo</div>
         <div>Categoria (L3)</div>
         <div>Descrição</div>
         <div className="text-right">Valor</div>
         <div className="text-right">IVA %</div>
         <div>Formalidade</div>
-        <div>Notas</div>
+        <div className="text-center" title="Notas">N</div>
         <div />
       </div>
 
-      {/* Virtualized existing rows */}
+      {/* Virtualized list — interleaves L1/L2 group headers and editable rows */}
       <div
         ref={parentRef}
         className="max-h-[600px] overflow-y-auto overflow-x-hidden rounded-lg border border-border/60 bg-background/40"
@@ -665,7 +664,37 @@ export default function BPGridEditor({
           }}
         >
           {rowVirtualizer.getVirtualItems().map((virtual) => {
-            const row = sortedEditableRows[virtual.index];
+            const item = gridItems[virtual.index];
+            if (!item) return null;
+
+            // ── Group header (L1/L2) ──
+            if (item.kind === "header") {
+              const isL1 = item.level === 1;
+              return (
+                <div
+                  key={item.key}
+                  data-index={virtual.index}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${virtual.start}px)`,
+                    height: 32,
+                  }}
+                  className={`flex items-center border-b border-border/40 px-3 ${
+                    isL1
+                      ? "bg-muted/60 text-[11px] font-bold uppercase tracking-wider text-foreground"
+                      : "bg-muted/30 pl-7 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                  }`}
+                >
+                  <span>{item.code} · {item.name}</span>
+                </div>
+              );
+            }
+
+            // ── Editable forecast row ──
+            const row = item.row;
             const lock = isRowLocked(row, canEditBP);
             const rowDirty = dirty[row.id] ?? {};
             const errs = rowErrors.get(row.id) ?? {};
@@ -674,10 +703,10 @@ export default function BPGridEditor({
               field in rowDirty ? rowDirty[field] : fallback;
 
             const opts = l3CategoriesByType[row.type] ?? [];
-            // Indentation by Chart-of-Accounts depth (number of dots in code)
             const code = categoryCodeById.get(row.category_id ?? "") ?? "";
             const depth = code ? Math.max(0, code.split(".").length - 1) : 0;
             const indentPx = Math.min(depth, 3) * 12;
+            const notesVal = (currentVal("notes", row.notes ?? "") as string) || "";
 
             return (
               <div
@@ -690,7 +719,7 @@ export default function BPGridEditor({
                   width: "100%",
                   transform: `translateY(${virtual.start}px)`,
                 }}
-                className={`grid w-full grid-cols-[24px_20px_64px_minmax(180px,1.3fr)_minmax(180px,2fr)_110px_64px_120px_minmax(120px,1.4fr)_24px] items-center gap-2 border-b border-border/40 px-3 py-2 text-xs ${
+                className={`grid w-full grid-cols-[24px_20px_minmax(220px,2.2fr)_minmax(180px,2fr)_110px_64px_120px_32px_24px] items-center gap-2 border-b border-border/40 px-3 py-2 text-xs ${
                   Object.keys(rowDirty).length > 0 ? "bg-primary/5" : ""
                 } ${isSelected ? "bg-destructive/5" : ""}`}
               >
@@ -712,15 +741,6 @@ export default function BPGridEditor({
                 <div title={lock.reason ?? ""}>
                   {lock.locked && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
                 </div>
-                <div>
-                  <span
-                    className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
-                      row.type === "income" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"
-                    }`}
-                  >
-                    {row.type === "income" ? "Receita" : "Despesa"}
-                  </span>
-                </div>
                 <div className="min-w-0" style={{ paddingLeft: indentPx }}>
                   <SearchableSelect
                     value={currentVal("category_id", row.category_id ?? "")}
@@ -739,7 +759,7 @@ export default function BPGridEditor({
                     disabled={lock.locked}
                     value={currentVal("description", row.description ?? "")}
                     onChange={(e) => updateField(row.id, "description", e.target.value, row.description)}
-                    onPaste={(e) => handlePaste(e, virtual.index, "description")}
+                    onPaste={(e) => handlePaste(e, item.rowIndex, "description")}
                     className={`w-full rounded-md border bg-background px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60 ${
                       errs.description ? "border-destructive" : "border-border/60"
                     }`}
@@ -750,7 +770,7 @@ export default function BPGridEditor({
                   <AmountCell
                     value={Number(currentVal("amount", row.amount ?? 0))}
                     onCommit={(n) => updateField(row.id, "amount", n, Number(row.amount))}
-                    onPaste={(e) => handlePaste(e, virtual.index, "amount")}
+                    onPaste={(e) => handlePaste(e, item.rowIndex, "amount")}
                     disabled={lock.locked}
                     hasError={!!errs.amount}
                     title={errs.amount ?? ""}
@@ -786,16 +806,32 @@ export default function BPGridEditor({
                     ))}
                   </select>
                 </div>
-                <div className="min-w-0">
-                  <input
-                    type="text"
-                    disabled={lock.locked}
-                    value={currentVal("notes", row.notes ?? "")}
-                    onChange={(e) => updateField(row.id, "notes", e.target.value, row.notes ?? "")}
-                    onPaste={(e) => handlePaste(e, virtual.index, "notes")}
-                    placeholder="—"
-                    className="w-full rounded-md border border-border/60 bg-background px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
-                  />
+                <div className="flex justify-center">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={lock.locked}
+                        title={notesVal ? notesVal.slice(0, 120) : "Adicionar notas"}
+                        className={`rounded p-1 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                          notesVal ? "text-primary hover:bg-primary/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                      >
+                        <StickyNote className="h-3.5 w-3.5" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent side="left" align="start" className="w-72 p-2">
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Notas</p>
+                      <Textarea
+                        value={notesVal}
+                        disabled={lock.locked}
+                        onChange={(e) => updateField(row.id, "notes", e.target.value, row.notes ?? "")}
+                        rows={4}
+                        placeholder="Notas internas…"
+                        className="text-xs"
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div />
               </div>
@@ -814,27 +850,14 @@ export default function BPGridEditor({
           {pendingInserts.map((p) => {
             const errs = pendingErrors.get(p.tempId) ?? {};
             const opts = l3CategoriesByType[p.type] ?? [];
+            const notesVal = p.notes || "";
             return (
               <div
                 key={p.tempId}
-                className="grid w-full grid-cols-[24px_20px_64px_minmax(180px,1.3fr)_minmax(180px,2fr)_110px_64px_120px_minmax(120px,1.4fr)_24px] items-center gap-2 px-3 py-1.5 text-xs"
+                className="grid w-full grid-cols-[24px_20px_minmax(220px,2.2fr)_minmax(180px,2fr)_110px_64px_120px_32px_24px] items-center gap-2 px-3 py-1.5 text-xs"
               >
                 <div />
                 <div />
-                <div>
-                  <select
-                    value={p.type}
-                    onChange={(e) => {
-                      // changing type clears category to avoid mismatch
-                      updatePending(p.tempId, "type", e.target.value);
-                      updatePending(p.tempId, "category_id", null);
-                    }}
-                    className="rounded border border-border/60 bg-background px-1 py-0.5 text-[10px]"
-                  >
-                    <option value="income">Receita</option>
-                    <option value="expense">Despesa</option>
-                  </select>
-                </div>
                 <div className="min-w-0">
                   <SearchableSelect
                     value={p.category_id ?? ""}
@@ -851,7 +874,7 @@ export default function BPGridEditor({
                     type="text"
                     value={p.description}
                     onChange={(e) => updatePending(p.tempId, "description", e.target.value)}
-                    placeholder="Descrição*"
+                    placeholder={`${p.type === "income" ? "Receita" : "Despesa"} — descrição*`}
                     className={`w-full rounded-md border bg-background px-2 py-1 text-xs ${
                       errs.description ? "border-destructive" : "border-border/60"
                     }`}
@@ -890,14 +913,30 @@ export default function BPGridEditor({
                     ))}
                   </select>
                 </div>
-                <div className="min-w-0">
-                  <input
-                    type="text"
-                    value={p.notes}
-                    onChange={(e) => updatePending(p.tempId, "notes", e.target.value)}
-                    placeholder="—"
-                    className="w-full rounded-md border border-border/60 bg-background px-2 py-1 text-xs"
-                  />
+                <div className="flex justify-center">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        title={notesVal ? notesVal.slice(0, 120) : "Adicionar notas"}
+                        className={`rounded p-1 transition-colors ${
+                          notesVal ? "text-primary hover:bg-primary/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                      >
+                        <StickyNote className="h-3.5 w-3.5" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent side="left" align="start" className="w-72 p-2">
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Notas</p>
+                      <Textarea
+                        value={notesVal}
+                        onChange={(e) => updatePending(p.tempId, "notes", e.target.value)}
+                        rows={4}
+                        placeholder="Notas internas…"
+                        className="text-xs"
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div>
                   <button
