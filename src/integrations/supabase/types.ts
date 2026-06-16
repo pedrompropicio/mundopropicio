@@ -6892,6 +6892,7 @@ export type Database = {
       }
       partner_event_access: {
         Row: {
+          can_edit_bp: boolean
           company_id: string
           created_at: string
           event_id: string
@@ -6902,6 +6903,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          can_edit_bp?: boolean
           company_id?: string
           created_at?: string
           event_id: string
@@ -6912,6 +6914,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          can_edit_bp?: boolean
           company_id?: string
           created_at?: string
           event_id?: string

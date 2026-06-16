@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArrowLeft, Loader2, Ticket, Calendar, Layers, Route, TrendingUp, TrendingDown, FileText, Paperclip } from "lucide-react";
+import { ArrowLeft, Loader2, Ticket, Calendar, Layers, Route, TrendingUp, TrendingDown, FileText, Paperclip, Pencil } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +17,7 @@ import { type CategoryNode } from "@/lib/category-hierarchy";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { calcTotalWithIva } from "@/lib/iva";
 import PartnerDREDialog from "@/components/PartnerDREDialog";
+import BPPartnerEditDialog from "@/components/BPPartnerEditDialog";
 import { withCompanyPath } from "@/lib/storage";
 import { toast } from "sonner";
 
@@ -90,23 +91,26 @@ export default function PartnerEventDetail() {
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [dreOpen, setDreOpen] = useState(false);
+  const [bpEditOpen, setBpEditOpen] = useState(false);
   const [advancesOpen, setAdvancesOpen] = useState(false);
   const [paidByPartnerOpen, setPaidByPartnerOpen] = useState(false);
 
   // ── Batch 1: parallel independent queries ──
-  const { data: accessList = [], isLoading: isLoadingAccess } = useQuery({
-    queryKey: ["partner_access_ids", user?.id],
+  const { data: accessRows = [], isLoading: isLoadingAccess } = useQuery({
+    queryKey: ["partner_access_rows", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("partner_event_access")
-        .select("event_id")
+        .select("event_id, can_edit_bp")
         .eq("user_id", user!.id)
         .eq("is_active", true);
       if (error) throw error;
-      return (data ?? []).map((a: any) => a.event_id);
+      return (data ?? []) as { event_id: string; can_edit_bp: boolean }[];
     },
     enabled: !!user,
   });
+  const accessList = accessRows.map((a) => a.event_id);
+  const canEditBpForActive = (activeId: string) => accessRows.some((a) => a.event_id === activeId && a.can_edit_bp);
 
   const { data: allCategories = [] } = useQuery({
     queryKey: ["all_categories"],
@@ -628,6 +632,11 @@ export default function PartnerEventDetail() {
             <Badge variant="secondary" className="ml-2">{partnerPaidExpenses.length}</Badge>
           )}
         </Button>
+        {canEditBpForActive(activeEventId!) && (
+          <Button size="sm" variant="outline" onClick={() => setBpEditOpen(true)} disabled={!activeEventId || isMasterView}>
+            <Pencil className="mr-1.5 h-4 w-4" /> Editar BP
+          </Button>
+        )}
         <Button size="sm" onClick={() => setDreOpen(true)} disabled={!activeEventId}>
           <FileText className="mr-1.5 h-4 w-4" /> DRE
         </Button>
@@ -1008,6 +1017,16 @@ export default function PartnerEventDetail() {
           />
         ) : null;
       })()}
+
+      {/* Editor BP do Parceiro */}
+      {activeEventId && !isMasterView && canEditBpForActive(activeEventId) && (
+        <BPPartnerEditDialog
+          open={bpEditOpen}
+          onOpenChange={setBpEditOpen}
+          eventId={activeEventId}
+          eventName={event?.name ?? ""}
+        />
+      )}
 
       {/* Extras Sócios Dialog */}
       <Dialog open={advancesOpen} onOpenChange={setAdvancesOpen}>
