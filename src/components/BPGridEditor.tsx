@@ -186,25 +186,46 @@ export default function BPGridEditor({
   const insertCount = pendingInserts.length;
   const hasUnsaved = dirtyCount > 0 || insertCount > 0;
 
-  // L3 category lookups
-  const { l3CategoriesByType, l3Set, categoryTypeById } = useMemo(() => {
+  // L3 category lookups + code map for ordering / display
+  const { l3CategoriesByType, l3Set, categoryTypeById, categoryCodeById } = useMemo(() => {
     const childOf = new Set(categories.map((c) => c.parent_id).filter(Boolean) as string[]);
     const byType: Record<string, { value: string; label: string }[]> = { income: [], expense: [] };
     const l3 = new Set<string>();
     const typeById = new Map<string, string>();
+    const codeById = new Map<string, string>();
     categories.forEach((c) => {
       typeById.set(c.id, c.type);
+      codeById.set(c.id, c.code);
       if (!childOf.has(c.id) || !categories.some((x) => x.parent_id === c.id)) {
-        // leaf
         if (!categories.some((x) => x.parent_id === c.id)) {
           l3.add(c.id);
           (byType[c.type] || (byType[c.type] = [])).push({ value: c.id, label: `${c.code} — ${c.name}` });
         }
       }
     });
-    Object.values(byType).forEach((arr) => arr.sort((a, b) => a.label.localeCompare(b.label)));
-    return { l3CategoriesByType: byType, l3Set: l3, categoryTypeById: typeById };
+    Object.values(byType).forEach((arr) =>
+      arr.sort((a, b) => compareHierarchicalCodes(a.label.split(" — ")[0], b.label.split(" — ")[0])),
+    );
+    return { l3CategoriesByType: byType, l3Set: l3, categoryTypeById: typeById, categoryCodeById: codeById };
   }, [categories]);
+
+  // Stable ordering by chart-of-accounts code. We sort on the ORIGINAL
+  // category_id (ignoring dirty edits) to prevent rows from jumping while
+  // the user is editing a category mid-session.
+  const sortedEditableRows = useMemo(() => {
+    const arr = [...editableRows];
+    arr.sort((a, b) => {
+      const ca = categoryCodeById.get(a.category_id ?? "") ?? "";
+      const cb = categoryCodeById.get(b.category_id ?? "") ?? "";
+      if (!ca && !cb) return (a.id ?? "").localeCompare(b.id ?? "");
+      if (!ca) return 1; // uncategorized at the bottom
+      if (!cb) return -1;
+      const cmp = compareHierarchicalCodes(ca, cb);
+      if (cmp !== 0) return cmp;
+      return (a.description ?? "").localeCompare(b.description ?? "");
+    });
+    return arr;
+  }, [editableRows, categoryCodeById]);
 
   const updateField = useCallback((id: string, field: EditableField, value: any, original: any) => {
     setDirty((prev) => {
