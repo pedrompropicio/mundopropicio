@@ -507,6 +507,65 @@ export default function PartnerEventDetail() {
     return { income: buildForType("income"), expense: buildForType("expense") };
   }, [transactions, overheads, allCategories, docsByTx]);
 
+  // ─── BP de custos agrupado L1>L2>L3 (vista do parceiro) ───
+  const bpGroupedHier = useMemo(() => {
+    const byId: Record<string, CategoryNode> = {};
+    allCategories.forEach((c) => { byId[c.id] = c; });
+    const getChain = (catId: string | null) => {
+      if (!catId || !byId[catId]) return { l1: null as any, l2: null as any, l3: null as any };
+      const cat = byId[catId];
+      const pid = cat.parent_id ?? null;
+      if (!pid) return { l1: cat, l2: null, l3: null };
+      const parent = byId[pid];
+      if (!parent) return { l1: null, l2: null, l3: cat };
+      const gpid = parent.parent_id ?? null;
+      if (!gpid) return { l1: parent, l2: cat, l3: null };
+      const gp = byId[gpid];
+      return { l1: gp || null, l2: parent, l3: cat };
+    };
+
+    type Item = { id: string; description: string; amount: number; viaMaster?: boolean };
+    type L3G = { code: string; name: string; items: Item[]; total: number };
+    type L2G = { code: string; name: string; l3Groups: L3G[]; total: number };
+    type L1G = { code: string; name: string; l2Groups: L2G[]; total: number };
+
+    const l1Map: Record<string, L1G> = {};
+    bpExpenses.forEach((f: any) => {
+      const chain = getChain(f.category_id);
+      const l1Name = chain.l1?.name ?? "Sem Grupo";
+      const l1Code = chain.l1?.code ?? "Z";
+      const l2Name = chain.l2?.name ?? chain.l1?.name ?? "Geral";
+      const l2Code = chain.l2?.code ?? chain.l1?.code ?? "Z.Z";
+      const l3Name = chain.l3?.name ?? chain.l2?.name ?? chain.l1?.name ?? (f.description || "—");
+      const l3Code = chain.l3?.code ?? chain.l2?.code ?? chain.l1?.code ?? "";
+      const grossAmount = calcTotalWithIva(Number(f.amount || 0), Number(f.iva_rate || 0));
+      if (!l1Map[l1Name]) l1Map[l1Name] = { code: l1Code, name: l1Name, l2Groups: [], total: 0 };
+      let l2 = l1Map[l1Name].l2Groups.find((g) => g.name === l2Name);
+      if (!l2) { l2 = { code: l2Code, name: l2Name, l3Groups: [], total: 0 }; l1Map[l1Name].l2Groups.push(l2); }
+      let l3 = l2.l3Groups.find((g) => g.name === l3Name);
+      if (!l3) { l3 = { code: l3Code, name: l3Name, items: [], total: 0 }; l2.l3Groups.push(l3); }
+      l3.items.push({ id: f.id, description: f.description || "—", amount: grossAmount, viaMaster: !!f._viaMaster });
+      l3.total += grossAmount;
+      l2.total += grossAmount;
+      l1Map[l1Name].total += grossAmount;
+    });
+
+    return Object.values(l1Map)
+      .map((g) => ({
+        ...g,
+        l2Groups: g.l2Groups
+          .map((l2) => ({ ...l2, l3Groups: l2.l3Groups.sort((a, b) => compareHierarchicalCodes(a.code, b.code)) }))
+          .sort((a, b) => compareHierarchicalCodes(a.code, b.code)),
+      }))
+      .sort((a, b) => compareHierarchicalCodes(a.code, b.code));
+  }, [bpExpenses, allCategories]);
+
+  const bpTotalExpense = useMemo(
+    () => bpGroupedHier.reduce((s, g) => s + g.total, 0),
+    [bpGroupedHier],
+  );
+
+
 
   if (isLoading || isLoadingAccess) {
     return (
