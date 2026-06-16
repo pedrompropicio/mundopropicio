@@ -115,6 +115,7 @@ function makeCategoryColumn(
         focus={focus}
         stopEditing={stopEditing}
         options={options}
+        labelById={labelById}
       />
     ),
     deleteValue: () => null,
