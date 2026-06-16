@@ -174,6 +174,7 @@ const newPending = (type: "income" | "expense"): PendingInsert => ({
   iva_rate: 23,
   formalidade: "estimado",
   notes: "",
+  touched: false,
 });
 
 export default function BPGridEditor({
