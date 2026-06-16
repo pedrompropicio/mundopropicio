@@ -10645,6 +10645,11 @@ export type Database = {
         Args: { _description?: string; _name: string; _value: string }
         Returns: string
       }
+      user_has_event_access: {
+        Args: { p_event_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      user_supplier_id: { Args: { p_user_id: string }; Returns: string }
       validate_trusted_device: {
         Args: { _token_hash: string }
         Returns: boolean
