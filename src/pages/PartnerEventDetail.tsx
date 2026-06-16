@@ -699,14 +699,16 @@ export default function PartnerEventDetail() {
             <Badge variant="secondary" className="ml-2">{partnerPaidExpenses.length}</Badge>
           )}
         </Button>
-        {canEditBpForActive(activeEventId!) && (
+        {canEditBpForActive(activeEventId!) && hasPermission("edit_approved_bp") && (
           <Button size="sm" variant="outline" onClick={() => setBpEditOpen(true)} disabled={!activeEventId || isMasterView}>
             <Pencil className="mr-1.5 h-4 w-4" /> Editar BP
           </Button>
         )}
-        <Button size="sm" onClick={() => setDreOpen(true)} disabled={!activeEventId}>
-          <FileText className="mr-1.5 h-4 w-4" /> DRE
-        </Button>
+        {hasPermission("view_report_dre") && (
+          <Button size="sm" onClick={() => setDreOpen(true)} disabled={!activeEventId}>
+            <FileText className="mr-1.5 h-4 w-4" /> DRE
+          </Button>
+        )}
       </div>
 
       {/* Em vista Master só mostramos os cards (sem tabs nem listas detalhadas) */}
