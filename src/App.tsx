@@ -129,6 +129,7 @@ import Notifications from "./pages/admin/Notifications";
 import DiagnosisTest from "./pages/admin/DiagnosisTest";
 import IbanDuplicates from "./pages/admin/IbanDuplicates";
 import AuditDownloads from "./pages/admin/AuditDownloads";
+import BPGridSpike from "./pages/admin/BPGridSpike";
 import AccountantHome from "./pages/contabilidade/AccountantHome";
 
 
