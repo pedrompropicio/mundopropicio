@@ -1026,6 +1026,7 @@ export default function PartnerEventDetail() {
         </TabsContent>
 
         {/* ═══════ TRANSAÇÕES (com overheads embutidos) ═══════ */}
+        {hasPermission("view_partner_transactions") && (
         <TabsContent value="transactions">
           {transactions.length === 0 && overheads.length === 0 ? (
             <Card className="p-8 text-center">
