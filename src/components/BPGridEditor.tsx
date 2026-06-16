@@ -298,7 +298,17 @@ export default function BPGridEditor({
   }, []);
 
   const updatePending = useCallback((tempId: string, field: keyof PendingInsert, value: any) => {
-    setPendingInserts((prev) => prev.map((r) => (r.tempId === tempId ? { ...r, [field]: value } : r)));
+    setPendingInserts((prev) =>
+      prev.map((r) => (r.tempId === tempId ? { ...r, [field]: value, touched: true } : r)),
+    );
+  }, []);
+
+  // Focus + scroll-to-top tracking for newly added pending rows
+  const [focusTempId, setFocusTempId] = useState<string | null>(null);
+  const addPending = useCallback((type: "income" | "expense") => {
+    const p = newPending(type);
+    setPendingInserts((prev) => [p, ...prev]);
+    setFocusTempId(p.tempId);
   }, []);
 
   const removePending = useCallback((tempId: string) => {
