@@ -153,6 +153,42 @@ export default function PartnerEventDetail() {
   const activeEventId = selectedSubEvent || (eventType === "multi_day" ? defaultMultiDayId : id!);
   const isMasterView = eventType === "multi_day" && activeEventId === id;
 
+  // ── Fase 2b: edição do BP em grelha (estilo planilha) ──
+  const canEditBpHere = !!activeEventId && !isMasterView
+    && canEditBpForActive(activeEventId)
+    && hasPermission("edit_approved_bp");
+
+  const { data: bpActiveVersionId } = useQuery({
+    queryKey: ["bp_active_version_id_partner", activeEventId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("bp_versions")
+        .select("id")
+        .eq("event_id", activeEventId!)
+        .eq("state", "active")
+        .maybeSingle();
+      return (data?.id as string | undefined) ?? null;
+    },
+    enabled: canEditBpHere,
+  });
+
+  const { data: bpGridForecasts = [] } = useQuery({
+    queryKey: ["event_forecasts", "partner_grid", activeEventId, bpActiveVersionId ?? null],
+    queryFn: async () => {
+      const q = supabase
+        .from("event_forecasts")
+        .select("*, account_categories(id, code, name, parent_id, type)")
+        .eq("event_id", activeEventId!)
+        .order("type", { ascending: true });
+      const { data, error } = bpActiveVersionId
+        ? await q.eq("version_id", bpActiveVersionId)
+        : await q.is("version_id", null);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: canEditBpHere && bpViewMode === "grid",
+  });
+
   // ── Batch 2: all event-specific data in parallel ──
   const shouldFetchEventData = !!activeEventId;
 
