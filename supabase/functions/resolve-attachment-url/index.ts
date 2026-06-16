@@ -225,12 +225,14 @@ Deno.serve(async (req) => {
     const kind = body.kind as AttachmentKind;
     const documentId = body.documentId as string | undefined;
     const mode = body.mode === "download" ? "download" : "signed-url";
-    if (!documentId || !["transaction_document", "camarim_item_document"].includes(kind)) {
+    if (!documentId || !["transaction_document", "camarim_item_document", "event_forecast_attachment"].includes(kind)) {
       return json({ error: "Pedido inválido" }, 400);
     }
 
     const resolved = kind === "transaction_document"
       ? await resolveTransactionDocument(adminClient, documentId, callerCtx)
+      : kind === "event_forecast_attachment"
+      ? await resolveForecastAttachment(adminClient, documentId, callerCtx)
       : await resolveCamarimItemDocument(adminClient, documentId, callerCtx);
 
     if (resolved.signedUrl) return json({ signedUrl: resolved.signedUrl });
