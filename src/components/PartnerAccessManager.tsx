@@ -77,6 +77,17 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
     },
   });
 
+  const toggleEditBpMutation = useMutation({
+    mutationFn: async ({ id, canEdit }: { id: string; canEdit: boolean }) => {
+      const { error } = await supabase.from("partner_event_access").update({ can_edit_bp: !canEdit } as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["partner_event_access", eventId] });
+      toast({ title: "Permissão de edição do BP atualizada." });
+    },
+  });
+
   const removeAccessMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("partner_event_access").delete().eq("id", id);
