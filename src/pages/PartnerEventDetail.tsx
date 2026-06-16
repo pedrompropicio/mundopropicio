@@ -433,6 +433,8 @@ export default function PartnerEventDetail() {
     }
   };
 
+  const eventNameById = useMemo(() => {
+
     const map: Record<string, string> = {};
     if (event) map[id!] = event.name;
     visibleSubEvents.forEach((s: any) => { map[s.id] = s.name; });
