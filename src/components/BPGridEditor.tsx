@@ -350,9 +350,12 @@ export default function BPGridEditor({
     return m;
   }, [dirty, editableRows, l3Set, categoryTypeById]);
 
+  // Errors shown in the UI / counted in the badge — pristine new rows are
+  // considered "work in progress" and don't count until the user types something.
   const pendingErrors = useMemo(() => {
     const m = new Map<string, Partial<Record<EditableField, string>>>();
     for (const p of pendingInserts) {
+      if (isPendingPristine(p)) continue;
       const errs = validateRow(
         { type: p.type, description: p.description, category_id: p.category_id, amount: p.amount, iva_rate: p.iva_rate },
         l3Set,
@@ -363,14 +366,33 @@ export default function BPGridEditor({
     return m;
   }, [pendingInserts, l3Set, categoryTypeById]);
 
+  // Save-blocking errors: validate ALL pending rows (including pristine empty ones),
+  // so saving with a brand-new empty row is still blocked.
+  const pendingSaveErrorsCount = useMemo(() => {
+    let count = 0;
+    for (const p of pendingInserts) {
+      const errs = validateRow(
+        { type: p.type, description: p.description, category_id: p.category_id, amount: p.amount, iva_rate: p.iva_rate },
+        l3Set,
+        categoryTypeById,
+      );
+      if (Object.keys(errs).length > 0) count++;
+    }
+    return count;
+  }, [pendingInserts, l3Set, categoryTypeById]);
+
   const totalErrors = rowErrors.size + pendingErrors.size;
+  const saveBlockingErrors = rowErrors.size + pendingSaveErrorsCount;
 
   // --- SAVE (inserts + updates, atomic per RPC) ---
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (totalErrors > 0) {
-        throw new Error(`${totalErrors} linha(s) com erros de validação`);
+      if (saveBlockingErrors > 0) {
+        // Surface pristine rows so the user sees the error before submitting
+        setPendingInserts((prev) => prev.map((r) => ({ ...r, touched: true })));
+        throw new Error(`${saveBlockingErrors} linha(s) com erros de validação`);
       }
+
 
       // Capture "before" snapshots of edited fields for post-save undo
       const editedFieldsByRow = new Map<string, EditableField[]>();
