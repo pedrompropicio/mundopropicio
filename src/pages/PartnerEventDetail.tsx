@@ -237,7 +237,7 @@ export default function PartnerEventDetail() {
         supabase.from("bp_versions").select("version_number, approved_at, description").eq("event_id", activeEventId).eq("state", "active").maybeSingle(),
         supabase
           .from("event_forecasts")
-          .select("id, event_id, amount, iva_rate, description, specification, category_id, status, type, is_overhead, account_categories(id, code, name, parent_id)")
+          .select("id, event_id, amount, iva_rate, description, specification, category_id, status, type, is_overhead, formalidade, is_transitory, exclude_from_result, account_categories(id, code, name, parent_id)")
           .in("event_id", overheadEventIds)
           .eq("status", "approved")
           .is("version_id", null),
