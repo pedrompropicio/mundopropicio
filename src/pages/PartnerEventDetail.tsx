@@ -766,11 +766,82 @@ export default function PartnerEventDetail() {
           )}
         </div>
       ) : (
-      <Tabs defaultValue="ticketing" className="space-y-4">
+      <Tabs defaultValue={(() => {
+        const want = defaultTabForActive(activeEventId!);
+        // fallback se a aba escolhida não estiver acessível
+        if (want === "bp" && hasPermission("view_bp")) return "bp";
+        if (want === "transactions" && hasPermission("view_partner_transactions")) return "transactions";
+        if (want === "tickets") return "ticketing";
+        if (hasPermission("view_bp")) return "bp";
+        return "ticketing";
+      })()} className="space-y-4">
         <TabsList className="w-full">
+          {hasPermission("view_bp") && (
+            <TabsTrigger value="bp" className="gap-1.5 flex-1"><ClipboardList className="h-3.5 w-3.5" /> BP</TabsTrigger>
+          )}
           <TabsTrigger value="ticketing" className="gap-1.5 flex-1"><Ticket className="h-3.5 w-3.5" /> Bilhetes</TabsTrigger>
-          <TabsTrigger value="transactions" className="gap-1.5 flex-1"><TrendingDown className="h-3.5 w-3.5" /> Transações</TabsTrigger>
+          {hasPermission("view_partner_transactions") && (
+            <TabsTrigger value="transactions" className="gap-1.5 flex-1"><TrendingDown className="h-3.5 w-3.5" /> Transações</TabsTrigger>
+          )}
         </TabsList>
+
+        {/* ═══════ BP DE CUSTOS (planeado, agrupado L1>L2>L3) ═══════ */}
+        {hasPermission("view_bp") && (
+        <TabsContent value="bp">
+          {bpGroupedHier.length === 0 ? (
+            <Card className="p-8 text-center">
+              <p className="text-muted-foreground">Sem previsões de custos aprovadas para este evento.</p>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              <Card className="border-primary/30 bg-primary/5">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <span className="text-sm font-bold">Total previsto (despesas, c/IVA)</span>
+                  <span className="text-lg font-bold font-mono text-amber-500">{formatCurrency(bpTotalExpense)}</span>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-0 px-4 pt-4">
+                  <CardTitle className="text-sm text-amber-500 flex items-center gap-1.5"><ClipboardList className="h-4 w-4" /> Business Plan — Custos</CardTitle>
+                </CardHeader>
+                <CardContent className="px-0 pb-0">
+                  {bpGroupedHier.map((l1) => (
+                    <div key={l1.name} className="mb-2">
+                      <div className="bg-muted/40 px-4 py-1.5 flex items-center justify-between">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-foreground">{l1.code} · {l1.name}</span>
+                        <span className="text-[11px] font-bold font-mono text-amber-500">{formatCurrency(l1.total)}</span>
+                      </div>
+                      {l1.l2Groups.map((l2) => (
+                        <div key={l2.name}>
+                          <div className="bg-muted/20 px-4 pl-8 py-1 flex items-center justify-between border-b border-border/40">
+                            <span className="text-[10px] font-semibold text-muted-foreground">{l2.code} · {l2.name}</span>
+                            <span className="text-[10px] font-semibold font-mono text-amber-500">{formatCurrency(l2.total)}</span>
+                          </div>
+                          {l2.l3Groups.map((l3) => (
+                            <div key={l3.name}>
+                              <div className="px-4 pl-12 py-1 flex items-center justify-between border-b border-border/20 bg-muted/5">
+                                <span className="text-[10px] font-medium text-foreground/80">{l3.code} · {l3.name}</span>
+                                <span className="text-[10px] font-medium font-mono text-amber-500">{formatCurrency(l3.total)}</span>
+                              </div>
+                              {l3.items.map((it) => (
+                                <div key={it.id} className="flex items-center justify-between px-4 pl-16 py-1.5 border-b border-border/15 gap-2">
+                                  <span className="text-xs truncate flex-1">{it.description}</span>
+                                  <span className="text-xs font-mono font-semibold whitespace-nowrap text-amber-500">{formatCurrency(it.amount)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
+        )}
+
 
         {/* ═══════ BILHETES ═══════ */}
         <TabsContent value="ticketing">
