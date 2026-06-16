@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArrowLeft, Loader2, Ticket, Calendar, Layers, Route, TrendingUp, TrendingDown, FileText, Paperclip, Pencil, ClipboardList } from "lucide-react";
+import { ArrowLeft, Loader2, Ticket, Calendar, Layers, Route, TrendingUp, TrendingDown, FileText, Paperclip, ClipboardList, LayoutList, Table2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +17,7 @@ import { type CategoryNode } from "@/lib/category-hierarchy";
 import { compareHierarchicalCodes } from "@/lib/utils";
 import { calcTotalWithIva } from "@/lib/iva";
 import PartnerDREDialog from "@/components/PartnerDREDialog";
-import BPPartnerEditDialog from "@/components/BPPartnerEditDialog";
+import BPGridEditor from "@/components/BPGridEditor";
 import { withCompanyPath } from "@/lib/storage";
 import { toast } from "sonner";
 
@@ -91,7 +91,7 @@ export default function PartnerEventDetail() {
   const [selectedSubEvent, setSelectedSubEvent] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [dreOpen, setDreOpen] = useState(false);
-  const [bpEditOpen, setBpEditOpen] = useState(false);
+  const [bpViewMode, setBpViewMode] = useState<"grouped" | "grid">("grouped");
   const [advancesOpen, setAdvancesOpen] = useState(false);
   const [paidByPartnerOpen, setPaidByPartnerOpen] = useState(false);
 
@@ -119,9 +119,9 @@ export default function PartnerEventDetail() {
   const { data: allCategories = [] } = useQuery({
     queryKey: ["all_categories"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("account_categories").select("id, code, name, parent_id");
+      const { data, error } = await supabase.from("account_categories").select("id, code, name, parent_id, type, is_active");
       if (error) throw error;
-      return data as CategoryNode[];
+      return data as (CategoryNode & { type: string; is_active: boolean })[];
     },
     staleTime: 5 * 60_000, // categories rarely change
   });
@@ -152,6 +152,42 @@ export default function PartnerEventDetail() {
   const defaultMultiDayId = id!;
   const activeEventId = selectedSubEvent || (eventType === "multi_day" ? defaultMultiDayId : id!);
   const isMasterView = eventType === "multi_day" && activeEventId === id;
+
+  // ── Fase 2b: edição do BP em grelha (estilo planilha) ──
+  const canEditBpHere = !!activeEventId && !isMasterView
+    && canEditBpForActive(activeEventId)
+    && hasPermission("edit_approved_bp");
+
+  const { data: bpActiveVersionId } = useQuery({
+    queryKey: ["bp_active_version_id_partner", activeEventId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("bp_versions")
+        .select("id")
+        .eq("event_id", activeEventId!)
+        .eq("state", "active")
+        .maybeSingle();
+      return (data?.id as string | undefined) ?? null;
+    },
+    enabled: canEditBpHere,
+  });
+
+  const { data: bpGridForecasts = [] } = useQuery({
+    queryKey: ["event_forecasts", "partner_grid", activeEventId, bpActiveVersionId ?? null],
+    queryFn: async () => {
+      const q = supabase
+        .from("event_forecasts")
+        .select("*, account_categories(id, code, name, parent_id, type)")
+        .eq("event_id", activeEventId!)
+        .order("type", { ascending: true });
+      const { data, error } = bpActiveVersionId
+        ? await q.eq("version_id", bpActiveVersionId)
+        : await q.is("version_id", null);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+    enabled: canEditBpHere && bpViewMode === "grid",
+  });
 
   // ── Batch 2: all event-specific data in parallel ──
   const shouldFetchEventData = !!activeEventId;
@@ -699,11 +735,6 @@ export default function PartnerEventDetail() {
             <Badge variant="secondary" className="ml-2">{partnerPaidExpenses.length}</Badge>
           )}
         </Button>
-        {canEditBpForActive(activeEventId!) && hasPermission("edit_approved_bp") && (
-          <Button size="sm" variant="outline" onClick={() => setBpEditOpen(true)} disabled={!activeEventId || isMasterView}>
-            <Pencil className="mr-1.5 h-4 w-4" /> Editar BP
-          </Button>
-        )}
         {hasPermission("view_report_dre") && (
           <Button size="sm" onClick={() => setDreOpen(true)} disabled={!activeEventId}>
             <FileText className="mr-1.5 h-4 w-4" /> DRE
@@ -788,7 +819,48 @@ export default function PartnerEventDetail() {
         {/* ═══════ BP DE CUSTOS (planeado, agrupado L1>L2>L3) ═══════ */}
         {hasPermission("view_bp") && (
         <TabsContent value="bp">
-          {bpGroupedHier.length === 0 ? (
+          {/* Toggle Agrupada ↔ Grelha (Fase 2b — só visível com permissão de edição) */}
+          {canEditBpHere && (
+            <div className="flex items-center justify-end mb-3">
+              <div className="inline-flex rounded-md border border-border/60 bg-background/60 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setBpViewMode("grouped")}
+                  className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
+                    bpViewMode === "grouped"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <LayoutList className="h-3.5 w-3.5" />
+                  Agrupada
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBpViewMode("grid")}
+                  className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
+                    bpViewMode === "grid"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="Editor em grelha — edição em massa"
+                >
+                  <Table2 className="h-3.5 w-3.5" />
+                  Grelha
+                </button>
+              </div>
+            </div>
+          )}
+
+          {canEditBpHere && bpViewMode === "grid" ? (
+            <BPGridEditor
+              eventId={activeEventId!}
+              forecasts={bpGridForecasts}
+              categories={allCategories as any}
+              canEditBP={true}
+              selectedVersionId={bpActiveVersionId ?? null}
+            />
+          ) : bpGroupedHier.length === 0 ? (
             <Card className="p-8 text-center">
               <p className="text-muted-foreground">Sem previsões de custos aprovadas para este evento.</p>
             </Card>
@@ -841,6 +913,7 @@ export default function PartnerEventDetail() {
           )}
         </TabsContent>
         )}
+
 
 
         {/* ═══════ BILHETES ═══════ */}
@@ -1160,15 +1233,6 @@ export default function PartnerEventDetail() {
         ) : null;
       })()}
 
-      {/* Editor BP do Parceiro */}
-      {activeEventId && !isMasterView && canEditBpForActive(activeEventId) && (
-        <BPPartnerEditDialog
-          open={bpEditOpen}
-          onOpenChange={setBpEditOpen}
-          eventId={activeEventId}
-          eventName={event?.name ?? ""}
-        />
-      )}
 
       {/* Extras Sócios Dialog */}
       <Dialog open={advancesOpen} onOpenChange={setAdvancesOpen}>
