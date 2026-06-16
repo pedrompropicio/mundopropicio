@@ -626,7 +626,7 @@ export default function BPGridEditor({
       />
 
       {/* Header (sem coluna Tipo: inferida pela categoria) */}
-      <div className="grid w-full grid-cols-[24px_20px_minmax(240px,2fr)_minmax(180px,2fr)_110px_64px_120px_32px_24px] gap-2 rounded-md bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="grid w-full grid-cols-[20px_16px_minmax(180px,2fr)_minmax(140px,1.5fr)_96px_56px_104px_28px_28px] gap-1.5 rounded-md bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         <div>
           <input
             type="checkbox"
