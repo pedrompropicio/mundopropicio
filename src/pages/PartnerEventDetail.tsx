@@ -907,8 +907,35 @@ export default function PartnerEventDetail() {
         {/* ═══════ BP DE CUSTOS (planeado, agrupado L1>L2>L3) ═══════ */}
         {hasPermission("view_bp") && (
         <TabsContent value="bp">
-          {/* Toggle Agrupada ↔ Grelha (Fase 2b — só visível com permissão de edição) */}
-          {canEditBpHere && (
+          {/* Cabeçalho aba BP: versão + botão Exportar PDF */}
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {bpVersionLabel ? (
+                <>
+                  <History className="h-3.5 w-3.5" />
+                  <span className="font-medium">{bpVersionLabel}</span>
+                  {activeBPVersion?.description && (
+                    <span className="italic opacity-80">— {activeBPVersion.description}</span>
+                  )}
+                </>
+              ) : (
+                <span className="italic opacity-70">Sem versão ativa registada</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {bpGroupedHier.length > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportBPPdf}
+                  className="h-7 gap-1.5 text-xs"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Exportar PDF
+                </Button>
+              )}
+              {canEditBpHere && (
             <div className="flex items-center justify-end mb-3">
               <div className="inline-flex rounded-md border border-border/60 bg-background/60 p-0.5">
                 <button
