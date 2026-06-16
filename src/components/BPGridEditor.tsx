@@ -171,6 +171,7 @@ const newPending = (type: "income" | "expense"): PendingInsert => ({
   tempId: `tmp_${Math.random().toString(36).slice(2)}`,
   type,
   description: "",
+  specification: "",
   category_id: null,
   amount: 0,
   iva_rate: 23,
