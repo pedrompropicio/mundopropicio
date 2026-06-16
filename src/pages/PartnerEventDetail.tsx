@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { ArrowLeft, Loader2, Ticket, Calendar, Layers, Route, TrendingUp, TrendingDown, FileText, Paperclip, ClipboardList, LayoutList, Table2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell, TableFooter } from "@/components/ui/table";
@@ -395,7 +396,45 @@ export default function PartnerEventDetail() {
     enabled: partnerEventIds.length > 0,
   });
 
+  // ── Anexos do BP (RPC SECURITY DEFINER — mostra sempre na Agrupada, ignora gate view_partner_documents)
+  const { data: bpAttachmentsRaw = [] } = useQuery({
+    queryKey: ["bp_line_attachments_partner", partnerEventIdsKey],
+    queryFn: async () => {
+      if (partnerEventIds.length === 0) return [];
+      const { data, error } = await supabase.rpc("get_bp_line_attachments" as any, {
+        _event_ids: partnerEventIds,
+      } as any);
+      if (error) throw error;
+      return (data ?? []) as Array<{ forecast_id: string; kind: string; document_id: string; file_name: string }>;
+    },
+    enabled: partnerEventIds.length > 0,
+  });
+
+  const bpAttachmentsByForecast = useMemo(() => {
+    const m: Record<string, Array<{ kind: string; document_id: string; file_name: string }>> = {};
+    bpAttachmentsRaw.forEach((a) => {
+      if (!m[a.forecast_id]) m[a.forecast_id] = [];
+      m[a.forecast_id].push({ kind: a.kind, document_id: a.document_id, file_name: a.file_name });
+    });
+    return m;
+  }, [bpAttachmentsRaw]);
+
+  const openBpAttachment = async (kind: string, documentId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("resolve-attachment-url", {
+        body: { kind, documentId, mode: "signed-url" },
+      });
+      if (error) throw error;
+      const url = (data as any)?.signedUrl;
+      if (!url) throw new Error("Sem URL");
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err: any) {
+      toast.error(err?.message || "Não foi possível abrir o anexo");
+    }
+  };
+
   const eventNameById = useMemo(() => {
+
     const map: Record<string, string> = {};
     if (event) map[id!] = event.name;
     visibleSubEvents.forEach((s: any) => { map[s.id] = s.name; });
@@ -895,12 +934,47 @@ export default function PartnerEventDetail() {
                                 <span className="text-[10px] font-medium text-foreground/80">{l3.code} · {l3.name}</span>
                                 <span className="text-[10px] font-medium font-mono text-amber-500">{formatCurrency(l3.total)}</span>
                               </div>
-                              {l3.items.map((it) => (
-                                <div key={it.id} className="flex items-center justify-between px-4 pl-16 py-1.5 border-b border-border/15 gap-2">
-                                  <span className="text-xs truncate flex-1">{it.description}</span>
-                                  <span className="text-xs font-mono font-semibold whitespace-nowrap text-amber-500">{formatCurrency(it.amount)}</span>
-                                </div>
-                              ))}
+                              {l3.items.map((it) => {
+                                const atts = bpAttachmentsByForecast[it.id] ?? [];
+                                return (
+                                  <div key={it.id} className="flex items-center justify-between px-4 pl-16 py-1.5 border-b border-border/15 gap-2">
+                                    <span className="text-xs truncate flex-1">{it.description}</span>
+                                    {atts.length > 0 && (
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <button
+                                            type="button"
+                                            className="inline-flex items-center gap-1 rounded p-1 text-primary hover:bg-primary/10 transition-colors"
+                                            title={`${atts.length} anexo(s)`}
+                                          >
+                                            <Paperclip className="h-3.5 w-3.5" />
+                                            <span className="text-[10px] font-semibold">{atts.length}</span>
+                                          </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent side="left" align="end" className="w-72 p-2">
+                                          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                            Anexos ({atts.length})
+                                          </p>
+                                          <div className="space-y-1 max-h-60 overflow-y-auto">
+                                            {atts.map((a) => (
+                                              <button
+                                                key={a.document_id}
+                                                type="button"
+                                                onClick={() => openBpAttachment(a.kind, a.document_id)}
+                                                className="flex items-center gap-2 w-full text-left rounded px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
+                                              >
+                                                <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                                <span className="truncate flex-1">{a.file_name}</span>
+                                              </button>
+                                            ))}
+                                          </div>
+                                        </PopoverContent>
+                                      </Popover>
+                                    )}
+                                    <span className="text-xs font-mono font-semibold whitespace-nowrap text-amber-500">{formatCurrency(it.amount)}</span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           ))}
                         </div>

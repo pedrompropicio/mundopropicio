@@ -26,10 +26,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Save, Lock, AlertTriangle, Undo2, Plus, Trash2 } from "lucide-react";
+import { Save, Lock, AlertTriangle, Undo2, Plus, Trash2, StickyNote } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
 import { deleteTransactionCascade } from "@/lib/delete-transaction-cascade";
 import { moveToTrash } from "@/lib/trash";
 import { useAuth } from "@/contexts/AuthContext";
@@ -187,15 +189,17 @@ export default function BPGridEditor({
   const hasUnsaved = dirtyCount > 0 || insertCount > 0;
 
   // L3 category lookups + code map for ordering / display
-  const { l3CategoriesByType, l3Set, categoryTypeById, categoryCodeById } = useMemo(() => {
+  const { l3CategoriesByType, l3Set, categoryTypeById, categoryCodeById, categoryById } = useMemo(() => {
     const childOf = new Set(categories.map((c) => c.parent_id).filter(Boolean) as string[]);
     const byType: Record<string, { value: string; label: string }[]> = { income: [], expense: [] };
     const l3 = new Set<string>();
     const typeById = new Map<string, string>();
     const codeById = new Map<string, string>();
+    const byId = new Map<string, Category>();
     categories.forEach((c) => {
       typeById.set(c.id, c.type);
       codeById.set(c.id, c.code);
+      byId.set(c.id, c);
       if (!childOf.has(c.id) || !categories.some((x) => x.parent_id === c.id)) {
         if (!categories.some((x) => x.parent_id === c.id)) {
           l3.add(c.id);
@@ -206,19 +210,32 @@ export default function BPGridEditor({
     Object.values(byType).forEach((arr) =>
       arr.sort((a, b) => compareHierarchicalCodes(a.label.split(" — ")[0], b.label.split(" — ")[0])),
     );
-    return { l3CategoriesByType: byType, l3Set: l3, categoryTypeById: typeById, categoryCodeById: codeById };
+    return { l3CategoriesByType: byType, l3Set: l3, categoryTypeById: typeById, categoryCodeById: codeById, categoryById: byId };
   }, [categories]);
 
-  // Stable ordering by chart-of-accounts code. We sort on the ORIGINAL
-  // category_id (ignoring dirty edits) to prevent rows from jumping while
-  // the user is editing a category mid-session.
+  // Chain helper: given an L3 category id, return its L1 + L2 ancestors.
+  const chainFor = useCallback(
+    (catId: string | null) => {
+      if (!catId) return { l1: null as Category | null, l2: null as Category | null };
+      const c3 = categoryById.get(catId);
+      if (!c3) return { l1: null, l2: null };
+      const c2 = c3.parent_id ? categoryById.get(c3.parent_id) ?? null : null;
+      const c1 = c2?.parent_id ? categoryById.get(c2.parent_id) ?? null : c2 && !c2.parent_id ? c2 : null;
+      // Normalize: if c2 has no parent, c2 is actually L1
+      if (c2 && !c2.parent_id) return { l1: c2, l2: null };
+      return { l1: c1, l2: c2 };
+    },
+    [categoryById],
+  );
+
+  // Stable ordering by chart-of-accounts code (ignoring dirty edits → no jumping).
   const sortedEditableRows = useMemo(() => {
     const arr = [...editableRows];
     arr.sort((a, b) => {
       const ca = categoryCodeById.get(a.category_id ?? "") ?? "";
       const cb = categoryCodeById.get(b.category_id ?? "") ?? "";
       if (!ca && !cb) return (a.id ?? "").localeCompare(b.id ?? "");
-      if (!ca) return 1; // uncategorized at the bottom
+      if (!ca) return 1;
       if (!cb) return -1;
       const cmp = compareHierarchicalCodes(ca, cb);
       if (cmp !== 0) return cmp;
@@ -226,6 +243,31 @@ export default function BPGridEditor({
     });
     return arr;
   }, [editableRows, categoryCodeById]);
+
+  // Interleave L1/L2 group headers in the virtualized list.
+  type GridItem =
+    | { kind: "header"; level: 1 | 2; code: string; name: string; key: string }
+    | { kind: "row"; row: Forecast; rowIndex: number };
+  const gridItems: GridItem[] = useMemo(() => {
+    const out: GridItem[] = [];
+    let lastL1 = "", lastL2 = "";
+    sortedEditableRows.forEach((row, idx) => {
+      const ch = chainFor(row.category_id ?? null);
+      const l1c = ch.l1?.code ?? "";
+      const l2c = ch.l2?.code ?? "";
+      if (l1c && l1c !== lastL1) {
+        out.push({ kind: "header", level: 1, code: l1c, name: ch.l1!.name, key: `h1-${l1c}` });
+        lastL1 = l1c;
+        lastL2 = "";
+      }
+      if (l2c && l2c !== lastL2) {
+        out.push({ kind: "header", level: 2, code: l2c, name: ch.l2!.name, key: `h2-${l2c}` });
+        lastL2 = l2c;
+      }
+      out.push({ kind: "row", row, rowIndex: idx });
+    });
+    return out;
+  }, [sortedEditableRows, chainFor]);
 
   const updateField = useCallback((id: string, field: EditableField, value: any, original: any) => {
     setDirty((prev) => {
@@ -533,12 +575,12 @@ export default function BPGridEditor({
     [sortedEditableRows, canEditBP],
   );
 
-  // Virtualization
+  // Virtualization (variable size: 32px for L1/L2 headers, 56px for editable rows)
   const parentRef = useRef<HTMLDivElement>(null);
   const rowVirtualizer = useVirtualizer({
-    count: sortedEditableRows.length,
+    count: gridItems.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 56,
+    estimateSize: (i) => (gridItems[i]?.kind === "header" ? 32 : 56),
     overscan: 8,
   });
 
@@ -583,8 +625,8 @@ export default function BPGridEditor({
         onDiscard={discardAll}
       />
 
-      {/* Header */}
-      <div className="grid w-full grid-cols-[24px_20px_64px_minmax(180px,1.3fr)_minmax(180px,2fr)_110px_64px_120px_minmax(120px,1.4fr)_24px] gap-2 rounded-md bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      {/* Header (sem coluna Tipo: inferida pela categoria) */}
+      <div className="grid w-full grid-cols-[24px_20px_minmax(220px,2.2fr)_minmax(180px,2fr)_110px_64px_120px_32px_24px] gap-2 rounded-md bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         <div>
           <input
             type="checkbox"
@@ -600,17 +642,16 @@ export default function BPGridEditor({
           />
         </div>
         <div />
-        <div>Tipo</div>
         <div>Categoria (L3)</div>
         <div>Descrição</div>
         <div className="text-right">Valor</div>
         <div className="text-right">IVA %</div>
         <div>Formalidade</div>
-        <div>Notas</div>
+        <div className="text-center" title="Notas">N</div>
         <div />
       </div>
 
-      {/* Virtualized existing rows */}
+      {/* Virtualized list — interleaves L1/L2 group headers and editable rows */}
       <div
         ref={parentRef}
         className="max-h-[600px] overflow-y-auto overflow-x-hidden rounded-lg border border-border/60 bg-background/40"
@@ -623,7 +664,37 @@ export default function BPGridEditor({
           }}
         >
           {rowVirtualizer.getVirtualItems().map((virtual) => {
-            const row = sortedEditableRows[virtual.index];
+            const item = gridItems[virtual.index];
+            if (!item) return null;
+
+            // ── Group header (L1/L2) ──
+            if (item.kind === "header") {
+              const isL1 = item.level === 1;
+              return (
+                <div
+                  key={item.key}
+                  data-index={virtual.index}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${virtual.start}px)`,
+                    height: 32,
+                  }}
+                  className={`flex items-center border-b border-border/40 px-3 ${
+                    isL1
+                      ? "bg-muted/60 text-[11px] font-bold uppercase tracking-wider text-foreground"
+                      : "bg-muted/30 pl-7 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                  }`}
+                >
+                  <span>{item.code} · {item.name}</span>
+                </div>
+              );
+            }
+
+            // ── Editable forecast row ──
+            const row = item.row;
             const lock = isRowLocked(row, canEditBP);
             const rowDirty = dirty[row.id] ?? {};
             const errs = rowErrors.get(row.id) ?? {};
@@ -632,10 +703,10 @@ export default function BPGridEditor({
               field in rowDirty ? rowDirty[field] : fallback;
 
             const opts = l3CategoriesByType[row.type] ?? [];
-            // Indentation by Chart-of-Accounts depth (number of dots in code)
             const code = categoryCodeById.get(row.category_id ?? "") ?? "";
             const depth = code ? Math.max(0, code.split(".").length - 1) : 0;
             const indentPx = Math.min(depth, 3) * 12;
+            const notesVal = (currentVal("notes", row.notes ?? "") as string) || "";
 
             return (
               <div
@@ -648,7 +719,7 @@ export default function BPGridEditor({
                   width: "100%",
                   transform: `translateY(${virtual.start}px)`,
                 }}
-                className={`grid w-full grid-cols-[24px_20px_64px_minmax(180px,1.3fr)_minmax(180px,2fr)_110px_64px_120px_minmax(120px,1.4fr)_24px] items-center gap-2 border-b border-border/40 px-3 py-2 text-xs ${
+                className={`grid w-full grid-cols-[24px_20px_minmax(220px,2.2fr)_minmax(180px,2fr)_110px_64px_120px_32px_24px] items-center gap-2 border-b border-border/40 px-3 py-2 text-xs ${
                   Object.keys(rowDirty).length > 0 ? "bg-primary/5" : ""
                 } ${isSelected ? "bg-destructive/5" : ""}`}
               >
@@ -670,15 +741,6 @@ export default function BPGridEditor({
                 <div title={lock.reason ?? ""}>
                   {lock.locked && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
                 </div>
-                <div>
-                  <span
-                    className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
-                      row.type === "income" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"
-                    }`}
-                  >
-                    {row.type === "income" ? "Receita" : "Despesa"}
-                  </span>
-                </div>
                 <div className="min-w-0" style={{ paddingLeft: indentPx }}>
                   <SearchableSelect
                     value={currentVal("category_id", row.category_id ?? "")}
@@ -697,7 +759,7 @@ export default function BPGridEditor({
                     disabled={lock.locked}
                     value={currentVal("description", row.description ?? "")}
                     onChange={(e) => updateField(row.id, "description", e.target.value, row.description)}
-                    onPaste={(e) => handlePaste(e, virtual.index, "description")}
+                    onPaste={(e) => handlePaste(e, item.rowIndex, "description")}
                     className={`w-full rounded-md border bg-background px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60 ${
                       errs.description ? "border-destructive" : "border-border/60"
                     }`}
@@ -708,7 +770,7 @@ export default function BPGridEditor({
                   <AmountCell
                     value={Number(currentVal("amount", row.amount ?? 0))}
                     onCommit={(n) => updateField(row.id, "amount", n, Number(row.amount))}
-                    onPaste={(e) => handlePaste(e, virtual.index, "amount")}
+                    onPaste={(e) => handlePaste(e, item.rowIndex, "amount")}
                     disabled={lock.locked}
                     hasError={!!errs.amount}
                     title={errs.amount ?? ""}
@@ -744,16 +806,32 @@ export default function BPGridEditor({
                     ))}
                   </select>
                 </div>
-                <div className="min-w-0">
-                  <input
-                    type="text"
-                    disabled={lock.locked}
-                    value={currentVal("notes", row.notes ?? "")}
-                    onChange={(e) => updateField(row.id, "notes", e.target.value, row.notes ?? "")}
-                    onPaste={(e) => handlePaste(e, virtual.index, "notes")}
-                    placeholder="—"
-                    className="w-full rounded-md border border-border/60 bg-background px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
-                  />
+                <div className="flex justify-center">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={lock.locked}
+                        title={notesVal ? notesVal.slice(0, 120) : "Adicionar notas"}
+                        className={`rounded p-1 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                          notesVal ? "text-primary hover:bg-primary/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                      >
+                        <StickyNote className="h-3.5 w-3.5" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent side="left" align="start" className="w-72 p-2">
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Notas</p>
+                      <Textarea
+                        value={notesVal}
+                        disabled={lock.locked}
+                        onChange={(e) => updateField(row.id, "notes", e.target.value, row.notes ?? "")}
+                        rows={4}
+                        placeholder="Notas internas…"
+                        className="text-xs"
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div />
               </div>
@@ -772,27 +850,14 @@ export default function BPGridEditor({
           {pendingInserts.map((p) => {
             const errs = pendingErrors.get(p.tempId) ?? {};
             const opts = l3CategoriesByType[p.type] ?? [];
+            const notesVal = p.notes || "";
             return (
               <div
                 key={p.tempId}
-                className="grid w-full grid-cols-[24px_20px_64px_minmax(180px,1.3fr)_minmax(180px,2fr)_110px_64px_120px_minmax(120px,1.4fr)_24px] items-center gap-2 px-3 py-1.5 text-xs"
+                className="grid w-full grid-cols-[24px_20px_minmax(220px,2.2fr)_minmax(180px,2fr)_110px_64px_120px_32px_24px] items-center gap-2 px-3 py-1.5 text-xs"
               >
                 <div />
                 <div />
-                <div>
-                  <select
-                    value={p.type}
-                    onChange={(e) => {
-                      // changing type clears category to avoid mismatch
-                      updatePending(p.tempId, "type", e.target.value);
-                      updatePending(p.tempId, "category_id", null);
-                    }}
-                    className="rounded border border-border/60 bg-background px-1 py-0.5 text-[10px]"
-                  >
-                    <option value="income">Receita</option>
-                    <option value="expense">Despesa</option>
-                  </select>
-                </div>
                 <div className="min-w-0">
                   <SearchableSelect
                     value={p.category_id ?? ""}
@@ -809,7 +874,7 @@ export default function BPGridEditor({
                     type="text"
                     value={p.description}
                     onChange={(e) => updatePending(p.tempId, "description", e.target.value)}
-                    placeholder="Descrição*"
+                    placeholder={`${p.type === "income" ? "Receita" : "Despesa"} — descrição*`}
                     className={`w-full rounded-md border bg-background px-2 py-1 text-xs ${
                       errs.description ? "border-destructive" : "border-border/60"
                     }`}
@@ -848,14 +913,30 @@ export default function BPGridEditor({
                     ))}
                   </select>
                 </div>
-                <div className="min-w-0">
-                  <input
-                    type="text"
-                    value={p.notes}
-                    onChange={(e) => updatePending(p.tempId, "notes", e.target.value)}
-                    placeholder="—"
-                    className="w-full rounded-md border border-border/60 bg-background px-2 py-1 text-xs"
-                  />
+                <div className="flex justify-center">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        title={notesVal ? notesVal.slice(0, 120) : "Adicionar notas"}
+                        className={`rounded p-1 transition-colors ${
+                          notesVal ? "text-primary hover:bg-primary/10" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                      >
+                        <StickyNote className="h-3.5 w-3.5" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent side="left" align="start" className="w-72 p-2">
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Notas</p>
+                      <Textarea
+                        value={notesVal}
+                        onChange={(e) => updatePending(p.tempId, "notes", e.target.value)}
+                        rows={4}
+                        placeholder="Notas internas…"
+                        className="text-xs"
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div>
                   <button

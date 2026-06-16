@@ -10301,6 +10301,15 @@ export type Database = {
         }[]
       }
       get_app_secret: { Args: { _name: string }; Returns: string }
+      get_bp_line_attachments: {
+        Args: { _event_ids: string[] }
+        Returns: {
+          document_id: string
+          file_name: string
+          forecast_id: string
+          kind: string
+        }[]
+      }
       get_event_cash_position: {
         Args: { p_company_id: string; p_date_from?: string; p_date_to?: string }
         Returns: {
