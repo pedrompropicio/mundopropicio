@@ -88,6 +88,17 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
     },
   });
 
+  const updateDefaultTabMutation = useMutation({
+    mutationFn: async ({ id, defaultTab }: { id: string; defaultTab: string }) => {
+      const { error } = await supabase.from("partner_event_access").update({ default_tab: defaultTab } as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["partner_event_access", eventId] });
+      toast({ title: "Aba inicial atualizada." });
+    },
+  });
+
   const removeAccessMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("partner_event_access").delete().eq("id", id);
