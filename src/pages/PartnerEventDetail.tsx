@@ -949,7 +949,7 @@ export default function PartnerEventDetail() {
                   Exportar PDF
                 </Button>
               )}
-              {canEditBpHere && (
+              {canEditBpHere && !isMobile && (
                 <div className="inline-flex rounded-md border border-border/60 bg-background/60 p-0.5">
                   <button
                     type="button"
@@ -981,8 +981,31 @@ export default function PartnerEventDetail() {
             </div>
           </div>
 
+          {/* 3 cards de resumo (Previsto) — atualizam ao guardar via invalidateQueries */}
+          <div className="mb-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <Card className="border-emerald-500/30 bg-emerald-500/5">
+              <CardContent className="p-3 flex items-center justify-between gap-2">
+                <span className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">Receitas (previsto)</span>
+                <span className="text-sm sm:text-base font-bold font-mono text-emerald-500 truncate">{formatCurrency(bpTotalIncome)}</span>
+              </CardContent>
+            </Card>
+            <Card className="border-amber-500/30 bg-amber-500/5">
+              <CardContent className="p-3 flex items-center justify-between gap-2">
+                <span className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">Despesas (previsto)</span>
+                <span className="text-sm sm:text-base font-bold font-mono text-amber-500 truncate">{formatCurrency(bpTotalExpense)}</span>
+              </CardContent>
+            </Card>
+            <Card className={bpTotalResult >= 0 ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}>
+              <CardContent className="p-3 flex items-center justify-between gap-2">
+                <span className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">Resultado (previsto)</span>
+                <span className={`text-sm sm:text-base font-bold font-mono truncate ${bpTotalResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                  {formatCurrency(bpTotalResult)}
+                </span>
+              </CardContent>
+            </Card>
+          </div>
 
-          {canEditBpHere && bpViewMode === "grid" ? (
+          {canEditBpHere && effectiveBpViewMode === "grid" ? (
             <BPGridEditor
               eventId={activeEventId!}
               forecasts={bpGridForecasts}
