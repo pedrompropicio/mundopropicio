@@ -350,6 +350,7 @@ export default function PartnerEventDetail() {
         activeBPVersion: (activeVersionRes.data ?? null) as { version_number: number; approved_at: string | null; description: string | null } | null,
         overheads: overheadsForActive,
         bpExpenses: bpExpensesForActive,
+        bpIncomes: bpIncomesForActive,
         perCityBreakdown,
       };
     },
