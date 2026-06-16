@@ -414,9 +414,19 @@ export default function BPGridSpike() {
         {(lForecasts || lCats) && <Badge>A carregar…</Badge>}
       </div>
 
+      {/* DECISIVE TEST: minimal grid with only native text columns */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Grelha</CardTitle>
+          <CardTitle className="text-base">TESTE MÍNIMO — só textColumn nativo (sem células custom)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MinimalTextGrid />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Grelha completa (com células custom)</CardTitle>
         </CardHeader>
         <CardContent>
           <DataSheetGrid<Row>
