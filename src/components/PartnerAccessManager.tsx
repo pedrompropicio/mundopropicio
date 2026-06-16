@@ -269,16 +269,33 @@ export function PartnerAccessManager({ eventId, eventName, subEvents = [] }: Par
                       )}
                     </div>
                     <div className="flex items-center gap-1">
-                      <select
-                        value={r.default_tab || "bp"}
-                        onChange={(e) => updateDefaultTabMutation.mutate({ id: r.id, defaultTab: e.target.value })}
-                        className="text-[10px] rounded border border-input bg-background px-1.5 py-0.5"
-                        title="Aba que abre por defeito"
-                      >
-                        <option value="bp">BP</option>
-                        <option value="tickets">Bilhetes</option>
-                        <option value="transactions">Transações</option>
-                      </select>
+                      {(() => {
+                        const perms = (permsByUser as Record<string, Set<string>>)[r.user_id] || new Set<string>();
+                        const showBp = perms.has("view_bp");
+                        const showTx = perms.has("view_partner_transactions");
+                        const current = r.default_tab || "bp";
+                        const accessible: Record<string, boolean> = {
+                          bp: showBp, tickets: true, transactions: showTx,
+                        };
+                        const currentInaccessible = !accessible[current];
+                        return (
+                          <select
+                            value={current}
+                            onChange={(e) => updateDefaultTabMutation.mutate({ id: r.id, defaultTab: e.target.value })}
+                            className={`text-[10px] rounded border bg-background px-1.5 py-0.5 ${currentInaccessible ? "border-amber-500 text-amber-500" : "border-input"}`}
+                            title={currentInaccessible ? "Aba escolhida não está acessível com as permissões atuais do parceiro" : "Aba que abre por defeito"}
+                          >
+                            {showBp && <option value="bp">BP</option>}
+                            <option value="tickets">Bilhetes</option>
+                            {showTx && <option value="transactions">Transações</option>}
+                            {currentInaccessible && (
+                              <option value={current}>
+                                {current === "bp" ? "BP" : current === "transactions" ? "Transações" : current} (inacessível)
+                              </option>
+                            )}
+                          </select>
+                        );
+                      })()}
                       <button
                         onClick={() => toggleEditBpMutation.mutate({ id: r.id, canEdit: !!r.can_edit_bp })}
                         className="p-1 rounded hover:bg-muted transition-colors"
