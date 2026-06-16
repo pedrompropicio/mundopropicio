@@ -293,9 +293,16 @@ export default function BPGridEditor({
   }, []);
 
   const discardAll = useCallback(() => {
+    const total = Object.keys(dirty).length + pendingInserts.length;
+    if (total > 5) {
+      const ok = window.confirm(
+        `Descartar ${total} alteração(ões) não guardada(s)? Esta ação não pode ser desfeita.`,
+      );
+      if (!ok) return;
+    }
     setDirty({});
     setPendingInserts([]);
-  }, []);
+  }, [dirty, pendingInserts]);
 
   // --- VALIDATION ---
   const rowEffective = (row: Forecast) => {
