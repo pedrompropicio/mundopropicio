@@ -6895,6 +6895,7 @@ export type Database = {
           can_edit_bp: boolean
           company_id: string
           created_at: string
+          default_tab: string
           event_id: string
           granted_by: string
           id: string
@@ -6906,6 +6907,7 @@ export type Database = {
           can_edit_bp?: boolean
           company_id?: string
           created_at?: string
+          default_tab?: string
           event_id: string
           granted_by?: string
           id?: string
@@ -6917,6 +6919,7 @@ export type Database = {
           can_edit_bp?: boolean
           company_id?: string
           created_at?: string
+          default_tab?: string
           event_id?: string
           granted_by?: string
           id?: string
