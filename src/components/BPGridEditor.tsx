@@ -341,6 +341,21 @@ export default function BPGridEditor({
       if (totalErrors > 0) {
         throw new Error(`${totalErrors} linha(s) com erros de validação`);
       }
+
+      // Capture "before" snapshots of edited fields for post-save undo
+      const editedFieldsByRow = new Map<string, EditableField[]>();
+      for (const [id, fields] of Object.entries(dirty)) {
+        editedFieldsByRow.set(id, Object.keys(fields) as EditableField[]);
+      }
+      const undoSnapshots: Array<{ id: string; before: Record<string, any> }> = [];
+      for (const row of editableRows) {
+        const fields = editedFieldsByRow.get(row.id);
+        if (!fields || fields.length === 0) continue;
+        const before: Record<string, any> = {};
+        for (const f of fields) before[f] = (row as any)[f] ?? null;
+        undoSnapshots.push({ id: row.id, before });
+      }
+
       // Snapshot once on Active before any writes
       if (selectedVersionId === null && hasUnsaved) {
         try {
@@ -386,9 +401,9 @@ export default function BPGridEditor({
         updated = (data as any)?.updated ?? 0;
       }
 
-      return { updated, inserted: insertedIds.length };
+      return { updated, inserted: insertedIds.length, insertedIds, undoSnapshots };
     },
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
       setDirty({});
       setPendingInserts([]);
       queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
@@ -396,6 +411,35 @@ export default function BPGridEditor({
         title: "BP guardado",
         description: `${res.inserted} inserida(s) · ${res.updated} atualizada(s).`,
       });
+
+      // Post-save Undo (60s window) — reuses undo_actions infra
+      if (user?.id && (res.undoSnapshots.length > 0 || res.insertedIds.length > 0)) {
+        const undoRec = await recordUndo({
+          action_type: "bp_grid_batch_save",
+          entity_type: "event_forecast_batch",
+          entity_id: null,
+          payload: {
+            eventId,
+            snapshots: res.undoSnapshots,
+            insertedIds: res.insertedIds,
+          },
+          description: `Grelha BP — ${res.inserted} inserida(s) + ${res.updated} atualizada(s)`,
+          performed_by: user.id,
+          performed_by_name: user.email ?? undefined,
+        });
+        if (undoRec) {
+          showUndoToast({
+            message: "BP guardado",
+            description: "Toque em Desfazer nos próximos 60 segundos para reverter.",
+            undoId: undoRec.id,
+            user: { id: user.id, name: user.email ?? undefined },
+            onUndone: () => {
+              queryClient.invalidateQueries({ queryKey: ["event_forecasts"] });
+            },
+            durationMs: 60000,
+          });
+        }
+      }
     },
     onError: (err: any) => {
       toast({
