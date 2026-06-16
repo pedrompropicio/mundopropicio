@@ -189,15 +189,17 @@ export default function BPGridEditor({
   const hasUnsaved = dirtyCount > 0 || insertCount > 0;
 
   // L3 category lookups + code map for ordering / display
-  const { l3CategoriesByType, l3Set, categoryTypeById, categoryCodeById } = useMemo(() => {
+  const { l3CategoriesByType, l3Set, categoryTypeById, categoryCodeById, categoryById } = useMemo(() => {
     const childOf = new Set(categories.map((c) => c.parent_id).filter(Boolean) as string[]);
     const byType: Record<string, { value: string; label: string }[]> = { income: [], expense: [] };
     const l3 = new Set<string>();
     const typeById = new Map<string, string>();
     const codeById = new Map<string, string>();
+    const byId = new Map<string, Category>();
     categories.forEach((c) => {
       typeById.set(c.id, c.type);
       codeById.set(c.id, c.code);
+      byId.set(c.id, c);
       if (!childOf.has(c.id) || !categories.some((x) => x.parent_id === c.id)) {
         if (!categories.some((x) => x.parent_id === c.id)) {
           l3.add(c.id);
@@ -208,19 +210,32 @@ export default function BPGridEditor({
     Object.values(byType).forEach((arr) =>
       arr.sort((a, b) => compareHierarchicalCodes(a.label.split(" — ")[0], b.label.split(" — ")[0])),
     );
-    return { l3CategoriesByType: byType, l3Set: l3, categoryTypeById: typeById, categoryCodeById: codeById };
+    return { l3CategoriesByType: byType, l3Set: l3, categoryTypeById: typeById, categoryCodeById: codeById, categoryById: byId };
   }, [categories]);
 
-  // Stable ordering by chart-of-accounts code. We sort on the ORIGINAL
-  // category_id (ignoring dirty edits) to prevent rows from jumping while
-  // the user is editing a category mid-session.
+  // Chain helper: given an L3 category id, return its L1 + L2 ancestors.
+  const chainFor = useCallback(
+    (catId: string | null) => {
+      if (!catId) return { l1: null as Category | null, l2: null as Category | null };
+      const c3 = categoryById.get(catId);
+      if (!c3) return { l1: null, l2: null };
+      const c2 = c3.parent_id ? categoryById.get(c3.parent_id) ?? null : null;
+      const c1 = c2?.parent_id ? categoryById.get(c2.parent_id) ?? null : c2 && !c2.parent_id ? c2 : null;
+      // Normalize: if c2 has no parent, c2 is actually L1
+      if (c2 && !c2.parent_id) return { l1: c2, l2: null };
+      return { l1: c1, l2: c2 };
+    },
+    [categoryById],
+  );
+
+  // Stable ordering by chart-of-accounts code (ignoring dirty edits → no jumping).
   const sortedEditableRows = useMemo(() => {
     const arr = [...editableRows];
     arr.sort((a, b) => {
       const ca = categoryCodeById.get(a.category_id ?? "") ?? "";
       const cb = categoryCodeById.get(b.category_id ?? "") ?? "";
       if (!ca && !cb) return (a.id ?? "").localeCompare(b.id ?? "");
-      if (!ca) return 1; // uncategorized at the bottom
+      if (!ca) return 1;
       if (!cb) return -1;
       const cmp = compareHierarchicalCodes(ca, cb);
       if (cmp !== 0) return cmp;
@@ -228,6 +243,31 @@ export default function BPGridEditor({
     });
     return arr;
   }, [editableRows, categoryCodeById]);
+
+  // Interleave L1/L2 group headers in the virtualized list.
+  type GridItem =
+    | { kind: "header"; level: 1 | 2; code: string; name: string; key: string }
+    | { kind: "row"; row: Forecast; rowIndex: number };
+  const gridItems: GridItem[] = useMemo(() => {
+    const out: GridItem[] = [];
+    let lastL1 = "", lastL2 = "";
+    sortedEditableRows.forEach((row, idx) => {
+      const ch = chainFor(row.category_id ?? null);
+      const l1c = ch.l1?.code ?? "";
+      const l2c = ch.l2?.code ?? "";
+      if (l1c && l1c !== lastL1) {
+        out.push({ kind: "header", level: 1, code: l1c, name: ch.l1!.name, key: `h1-${l1c}` });
+        lastL1 = l1c;
+        lastL2 = "";
+      }
+      if (l2c && l2c !== lastL2) {
+        out.push({ kind: "header", level: 2, code: l2c, name: ch.l2!.name, key: `h2-${l2c}` });
+        lastL2 = l2c;
+      }
+      out.push({ kind: "row", row, rowIndex: idx });
+    });
+    return out;
+  }, [sortedEditableRows, chainFor]);
 
   const updateField = useCallback((id: string, field: EditableField, value: any, original: any) => {
     setDirty((prev) => {
