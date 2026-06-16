@@ -315,6 +315,24 @@ export default function BPGridEditor({
     setPendingInserts((prev) => prev.filter((r) => r.tempId !== tempId));
   }, []);
 
+  // After adding a pending row, scroll to top and focus its description input
+  useEffect(() => {
+    if (!focusTempId) return;
+    const raf = requestAnimationFrame(() => {
+      const container = document.querySelector(`[data-pending-temp-id="${focusTempId}"]`) as HTMLElement | null;
+      if (container) {
+        container.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        const input = container.querySelector("input[data-pending-desc-input]") as HTMLInputElement | null;
+        input?.focus();
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      setFocusTempId(null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [focusTempId]);
+
+
+
   const discardAll = useCallback(() => {
     const total = Object.keys(dirty).length + pendingInserts.length;
     if (total > 5) {
