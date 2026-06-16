@@ -447,6 +447,7 @@ export default function BPGridEditor({
         const payload = pendingInserts.map((p) => ({
           type: p.type,
           description: p.description.trim(),
+          specification: p.specification?.trim() || null,
           category_id: p.category_id || null,
           amount: p.amount,
           iva_rate: p.iva_rate,
