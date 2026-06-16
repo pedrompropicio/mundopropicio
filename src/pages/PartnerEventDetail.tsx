@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArrowLeft, Loader2, Ticket, Calendar, Layers, Route, TrendingUp, TrendingDown, FileText, Paperclip, ClipboardList, LayoutList, Table2 } from "lucide-react";
+import { ArrowLeft, Loader2, Ticket, Calendar, Layers, Route, TrendingUp, TrendingDown, FileText, Paperclip, ClipboardList, LayoutList, Table2, Download, History } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -20,6 +20,7 @@ import { calcTotalWithIva } from "@/lib/iva";
 import PartnerDREDialog from "@/components/PartnerDREDialog";
 import BPGridEditor from "@/components/BPGridEditor";
 import { withCompanyPath } from "@/lib/storage";
+import { exportPartnerBPPdf } from "@/lib/export-partner-bp-pdf";
 import { toast } from "sonner";
 
 /** Resolve um file_url de transaction_documents em URL clicável.
@@ -354,10 +355,41 @@ export default function PartnerEventDetail() {
   const transactions = eventData?.transactions ?? [];
   const transactionDocs = eventData?.transactionDocs ?? [];
   const sessions = eventData?.sessions ?? [];
-  void eventData?.activeBPVersion;
+  const activeBPVersion = eventData?.activeBPVersion ?? null;
   const overheads = eventData?.overheads ?? [];
   const bpExpenses: any[] = (eventData as any)?.bpExpenses ?? [];
   const perCityBreakdown = eventData?.perCityBreakdown ?? [];
+
+  // Última importação/criação de vendas de bilhetes (MAX(created_at)) — aba Bilhetes
+  const zoneIdsForSales = useMemo(
+    () => (eventData?.ticketZones ?? []).map((z: any) => z.id),
+    [eventData?.ticketZones],
+  );
+  const { data: lastSaleAt } = useQuery({
+    queryKey: ["partner_last_sale_created_at", zoneIdsForSales.join(",")],
+    queryFn: async () => {
+      if (zoneIdsForSales.length === 0) return null;
+      const { data, error } = await supabase
+        .from("ticket_sales")
+        .select("created_at")
+        .in("zone_id", zoneIdsForSales)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) return null;
+      return (data?.created_at as string | undefined) ?? null;
+    },
+    enabled: zoneIdsForSales.length > 0,
+  });
+
+  const bpVersionLabel = activeBPVersion
+    ? `Business Plan — versão v${activeBPVersion.version_number}${
+        activeBPVersion.approved_at
+          ? ` (${new Date(activeBPVersion.approved_at).toLocaleDateString("pt-PT")})`
+          : ""
+      }`
+    : null;
+
 
   // ── Extras / Despesas pagas pelo Sócio (Master view = todos os sub-eventos) ──
   const partnerEventIds = useMemo(
@@ -640,6 +672,23 @@ export default function PartnerEventDetail() {
     [bpGroupedHier],
   );
 
+  const handleExportBPPdf = async () => {
+    if (!event) return;
+    try {
+      await exportPartnerBPPdf({
+        eventName: event.name,
+        eventDate: event.date ?? null,
+        eventLocation: (event as any).location ?? null,
+        cityLabel: (event as any).cities?.name ?? null,
+        bpVersionLabel,
+        bpVersionDescription: activeBPVersion?.description ?? null,
+        groups: bpGroupedHier as any,
+        totalExpense: bpTotalExpense,
+      });
+    } catch (err: any) {
+      toast.error("Erro ao exportar PDF", { description: err?.message });
+    }
+  };
 
 
   if (isLoading || isLoadingAccess) {
@@ -858,38 +907,66 @@ export default function PartnerEventDetail() {
         {/* ═══════ BP DE CUSTOS (planeado, agrupado L1>L2>L3) ═══════ */}
         {hasPermission("view_bp") && (
         <TabsContent value="bp">
-          {/* Toggle Agrupada ↔ Grelha (Fase 2b — só visível com permissão de edição) */}
-          {canEditBpHere && (
-            <div className="flex items-center justify-end mb-3">
-              <div className="inline-flex rounded-md border border-border/60 bg-background/60 p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setBpViewMode("grouped")}
-                  className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
-                    bpViewMode === "grouped"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <LayoutList className="h-3.5 w-3.5" />
-                  Agrupada
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBpViewMode("grid")}
-                  className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
-                    bpViewMode === "grid"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  title="Editor em grelha — edição em massa"
-                >
-                  <Table2 className="h-3.5 w-3.5" />
-                  Grelha
-                </button>
-              </div>
+          {/* Cabeçalho aba BP: versão + botão Exportar PDF */}
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {bpVersionLabel ? (
+                <>
+                  <History className="h-3.5 w-3.5" />
+                  <span className="font-medium">{bpVersionLabel}</span>
+                  {activeBPVersion?.description && (
+                    <span className="italic opacity-80">— {activeBPVersion.description}</span>
+                  )}
+                </>
+              ) : (
+                <span className="italic opacity-70">Sem versão ativa registada</span>
+              )}
             </div>
-          )}
+            <div className="flex items-center gap-2">
+              {bpGroupedHier.length > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportBPPdf}
+                  className="h-7 gap-1.5 text-xs"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Exportar PDF
+                </Button>
+              )}
+              {canEditBpHere && (
+                <div className="inline-flex rounded-md border border-border/60 bg-background/60 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setBpViewMode("grouped")}
+                    className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
+                      bpViewMode === "grouped"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <LayoutList className="h-3.5 w-3.5" />
+                    Agrupada
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBpViewMode("grid")}
+                    className={`flex items-center gap-1.5 rounded px-3 py-1 text-xs font-medium transition-colors ${
+                      bpViewMode === "grid"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    title="Editor em grelha — edição em massa"
+                  >
+                    <Table2 className="h-3.5 w-3.5" />
+                    Grelha
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
 
           {canEditBpHere && bpViewMode === "grid" ? (
             <BPGridEditor
@@ -1022,6 +1099,14 @@ export default function PartnerEventDetail() {
                   ))}
                 </div>
               )}
+
+              {/* Última importação/sincronização de vendas */}
+              <div className="flex justify-end text-[10px] text-muted-foreground">
+                {lastSaleAt
+                  ? <span>Vendas atualizadas até {new Date(lastSaleAt).toLocaleString("pt-PT", { dateStyle: "short", timeStyle: "short" })}</span>
+                  : <span className="italic opacity-70">Sem vendas importadas</span>
+                }
+              </div>
 
               {/* Summary cards - responsive text */}
               <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
