@@ -396,7 +396,43 @@ export default function PartnerEventDetail() {
     enabled: partnerEventIds.length > 0,
   });
 
-  const eventNameById = useMemo(() => {
+  // ── Anexos do BP (RPC SECURITY DEFINER — mostra sempre na Agrupada, ignora gate view_partner_documents)
+  const { data: bpAttachmentsRaw = [] } = useQuery({
+    queryKey: ["bp_line_attachments_partner", partnerEventIdsKey],
+    queryFn: async () => {
+      if (partnerEventIds.length === 0) return [];
+      const { data, error } = await supabase.rpc("get_bp_line_attachments" as any, {
+        _event_ids: partnerEventIds,
+      } as any);
+      if (error) throw error;
+      return (data ?? []) as Array<{ forecast_id: string; kind: string; document_id: string; file_name: string }>;
+    },
+    enabled: partnerEventIds.length > 0,
+  });
+
+  const bpAttachmentsByForecast = useMemo(() => {
+    const m: Record<string, Array<{ kind: string; document_id: string; file_name: string }>> = {};
+    bpAttachmentsRaw.forEach((a) => {
+      if (!m[a.forecast_id]) m[a.forecast_id] = [];
+      m[a.forecast_id].push({ kind: a.kind, document_id: a.document_id, file_name: a.file_name });
+    });
+    return m;
+  }, [bpAttachmentsRaw]);
+
+  const openBpAttachment = async (kind: string, documentId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("resolve-attachment-url", {
+        body: { kind, documentId, mode: "signed-url" },
+      });
+      if (error) throw error;
+      const url = (data as any)?.signedUrl;
+      if (!url) throw new Error("Sem URL");
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err: any) {
+      toast.error(err?.message || "Não foi possível abrir o anexo");
+    }
+  };
+
     const map: Record<string, string> = {};
     if (event) map[id!] = event.name;
     visibleSubEvents.forEach((s: any) => { map[s.id] = s.name; });
