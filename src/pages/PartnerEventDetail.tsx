@@ -995,61 +995,40 @@ export default function PartnerEventDetail() {
             </div>
           </div>
 
-          {/* 3 cards de resumo — Receita com toggle Previsto/Vendido */}
+          {/* 3 cards de resumo — modelo 4 modos (Auto / Realizado / Comprometido / Forecast) */}
           <div className="mb-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <Card className="border-emerald-500/30 bg-emerald-500/5">
-              <CardContent className="p-3 space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">Receitas</span>
-                    <Badge variant="outline" className="h-4 px-1.5 text-[9px] uppercase">
-                      {incomeMode === "forecast" ? "Previsto" : "Vendido"}
-                    </Badge>
-                  </div>
-                  <div className="inline-flex rounded-md border border-border/60 overflow-hidden shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setIncomeMode("forecast")}
-                      className={`px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider transition-colors ${
-                        incomeMode === "forecast" ? "bg-emerald-500/20 text-emerald-400" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      Prev
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIncomeMode("sold")}
-                      className={`px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider transition-colors border-l border-border/60 ${
-                        incomeMode === "sold" ? "bg-emerald-500/20 text-emerald-400" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      Vend
-                    </button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[9px] text-muted-foreground truncate">
-                    Bilh. {formatCurrency(displayBilheteira)} · Patroc. {formatCurrency(displayPatrocinio)}
-                  </span>
-                  <span className="text-sm sm:text-base font-bold font-mono text-emerald-500 truncate">{formatCurrency(displayIncome)}</span>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-amber-500/30 bg-amber-500/5">
-              <CardContent className="p-3 flex items-center justify-between gap-2">
-                <span className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">Despesas (previsto)</span>
-                <span className="text-sm sm:text-base font-bold font-mono text-amber-500 truncate">{formatCurrency(bpTotalExpense)}</span>
-              </CardContent>
-            </Card>
-            <Card className={displayResult >= 0 ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}>
-              <CardContent className="p-3 flex items-center justify-between gap-2">
-                <span className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">Resultado</span>
-                <span className={`text-sm sm:text-base font-bold font-mono truncate ${displayResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                  {formatCurrency(displayResult)}
+            <PartnerFinancialCard
+              kind="income"
+              eventId={activeEventId!}
+              userId={user?.id ?? "anon"}
+              eventStatus={event?.status}
+              primaryEventDate={event?.date}
+              transactions={transactions}
+              forecasts={partnerForecasts}
+              ticketRevenueNet={ticketRevenueNet}
+              ticketCargasNet={totalLotRevenueNet}
+              onValueChange={setPartnerIncomeValue}
+            />
+            <PartnerFinancialCard
+              kind="expense"
+              eventId={activeEventId!}
+              userId={user?.id ?? "anon"}
+              eventStatus={event?.status}
+              primaryEventDate={event?.date}
+              transactions={transactions}
+              forecasts={partnerForecasts}
+              onValueChange={setPartnerExpenseValue}
+            />
+            <Card className={partnerResultValue >= 0 ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}>
+              <CardContent className="p-4 flex flex-col justify-between h-full gap-2">
+                <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Resultado</span>
+                <span className={`text-xl sm:text-2xl font-bold font-mono ${partnerResultValue >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                  {formatCurrency(partnerResultValue)}
                 </span>
               </CardContent>
             </Card>
           </div>
+
 
 
           {canEditBpHere && effectiveBpViewMode === "grid" ? (
