@@ -729,7 +729,8 @@ export default function BPGridEditor({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 overflow-x-auto">
+
       <Toolbar
         editableCount={editableRows.length}
         dirtyCount={dirtyCount}
