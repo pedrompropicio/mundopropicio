@@ -23,6 +23,7 @@ import { withCompanyPath } from "@/lib/storage";
 import { exportPartnerBPPdf } from "@/lib/export-partner-bp-pdf";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { PartnerFinancialCard } from "@/components/partner/PartnerFinancialCard";
 
 /** Resolve um file_url de transaction_documents em URL clicável.
  *  - ref://http(s)://… → link externo direto
@@ -100,7 +101,10 @@ export default function PartnerEventDetail() {
   const effectiveBpViewMode: "grouped" | "grid" = isMobile ? "grouped" : bpViewMode;
   const [advancesOpen, setAdvancesOpen] = useState(false);
   const [paidByPartnerOpen, setPaidByPartnerOpen] = useState(false);
-  const [incomeMode, setIncomeMode] = useState<"forecast" | "sold">("forecast");
+  // Estado dos cards financeiros do sócio (preenchido via onValueChange dos PartnerFinancialCard).
+  const [partnerIncomeValue, setPartnerIncomeValue] = useState(0);
+  const [partnerExpenseValue, setPartnerExpenseValue] = useState(0);
+  const partnerResultValue = partnerIncomeValue - partnerExpenseValue;
 
   // ── Batch 1: parallel independent queries ──
   const { data: accessRows = [], isLoading: isLoadingAccess } = useQuery({
@@ -237,7 +241,7 @@ export default function PartnerEventDetail() {
         supabase.from("bp_versions").select("version_number, approved_at, description").eq("event_id", activeEventId).eq("state", "active").maybeSingle(),
         supabase
           .from("event_forecasts")
-          .select("id, event_id, amount, iva_rate, description, specification, category_id, status, type, is_overhead, account_categories(id, code, name, parent_id)")
+          .select("id, event_id, amount, iva_rate, description, specification, category_id, status, type, is_overhead, formalidade, is_transitory, exclude_from_result, account_categories(id, code, name, parent_id)")
           .in("event_id", overheadEventIds)
           .eq("status", "approved")
           .is("version_id", null),
@@ -368,6 +372,12 @@ export default function PartnerEventDetail() {
   const bpExpenses: any[] = (eventData as any)?.bpExpenses ?? [];
   const bpIncomes: any[] = (eventData as any)?.bpIncomes ?? [];
   const perCityBreakdown = eventData?.perCityBreakdown ?? [];
+
+  // Forecasts combinados (income + expense) para os cards financeiros do sócio.
+  const partnerForecasts = useMemo(
+    () => [...(bpIncomes ?? []), ...(bpExpenses ?? [])] as any[],
+    [bpIncomes, bpExpenses],
+  );
 
   // Última importação/criação de vendas de bilhetes (MAX(created_at)) — aba Bilhetes
   const zoneIdsForSales = useMemo(
@@ -767,25 +777,8 @@ export default function PartnerEventDetail() {
     ),
     0,
   );
-  // Patrocínio previsto NET = Σ event_forecasts income com código que começa em "1.2" (amount já é NET)
-  const sponsorshipForecast = bpIncomes
-    .filter((f: any) => String(f.account_categories?.code ?? "").startsWith("1.2"))
-    .reduce((s: number, f: any) => s + Number(f.amount || 0), 0);
-  // Patrocínio real NET = Σ transactions income L1=1.2 (já filtradas paid+approved em effectiveTransactions)
-  const sponsorshipReal = transactions
-    .filter((t: any) => t.type === "income" && String(t.account_categories?.code ?? "").startsWith("1.2"))
-    .reduce((s: number, t: any) => s + Number(t.amount || 0), 0);
-
-  const incomeForecast = totalLotRevenueNet + sponsorshipForecast;
-  const incomeSold = ticketRevenueNet + sponsorshipReal;
-  const displayIncome = incomeMode === "forecast" ? incomeForecast : incomeSold;
-  const displayResult = displayIncome - bpTotalExpense;
-  const displayBilheteira = incomeMode === "forecast" ? totalLotRevenueNet : ticketRevenueNet;
-  const displayPatrocinio = incomeMode === "forecast" ? sponsorshipForecast : sponsorshipReal;
-
-  // ─── Cards (vista do sócio / Brasil) ───
-  // Receitas: NET (alinhado com getPartnerRevenueBase). Despesas: BRUTO c/IVA
-  // (alinhado com calcBasis Brasil em buildPartnerSettlementReportData).
+  // ─── Cards (vista do sócio / Brasil) — usados apenas no bloco Master ───
+  // Receitas: NET. Despesas: BRUTO c/IVA (alinhado com calcBasis Brasil).
   const transactionIncomeOnly = transactions
     .filter((t: any) => t.type === "income")
     .reduce((s: number, t: any) => s + Number(t.amount), 0);
@@ -797,10 +790,6 @@ export default function PartnerEventDetail() {
     .reduce((s: number, o: any) => s + calcTotalWithIva(Number(o.amount || 0), Number(o.iva_rate || 0)), 0);
   const transactionExpense = transactionsExpenseGross + overheadExpenseGross;
   const transactionResult = transactionIncome - transactionExpense;
-  // "Pago" = paid_amount já é bruto (com IVA) por convenção; somar direto.
-  const paidExpenses = transactions
-    .filter((t: any) => t.type === "expense")
-    .reduce((s: number, t: any) => s + Number(t.paid_amount || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -1007,61 +996,40 @@ export default function PartnerEventDetail() {
             </div>
           </div>
 
-          {/* 3 cards de resumo — Receita com toggle Previsto/Vendido */}
+          {/* 3 cards de resumo — modelo 4 modos (Auto / Realizado / Comprometido / Forecast) */}
           <div className="mb-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <Card className="border-emerald-500/30 bg-emerald-500/5">
-              <CardContent className="p-3 space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">Receitas</span>
-                    <Badge variant="outline" className="h-4 px-1.5 text-[9px] uppercase">
-                      {incomeMode === "forecast" ? "Previsto" : "Vendido"}
-                    </Badge>
-                  </div>
-                  <div className="inline-flex rounded-md border border-border/60 overflow-hidden shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setIncomeMode("forecast")}
-                      className={`px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider transition-colors ${
-                        incomeMode === "forecast" ? "bg-emerald-500/20 text-emerald-400" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      Prev
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIncomeMode("sold")}
-                      className={`px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider transition-colors border-l border-border/60 ${
-                        incomeMode === "sold" ? "bg-emerald-500/20 text-emerald-400" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      Vend
-                    </button>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[9px] text-muted-foreground truncate">
-                    Bilh. {formatCurrency(displayBilheteira)} · Patroc. {formatCurrency(displayPatrocinio)}
-                  </span>
-                  <span className="text-sm sm:text-base font-bold font-mono text-emerald-500 truncate">{formatCurrency(displayIncome)}</span>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-amber-500/30 bg-amber-500/5">
-              <CardContent className="p-3 flex items-center justify-between gap-2">
-                <span className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">Despesas (previsto)</span>
-                <span className="text-sm sm:text-base font-bold font-mono text-amber-500 truncate">{formatCurrency(bpTotalExpense)}</span>
-              </CardContent>
-            </Card>
-            <Card className={displayResult >= 0 ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}>
-              <CardContent className="p-3 flex items-center justify-between gap-2">
-                <span className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground">Resultado</span>
-                <span className={`text-sm sm:text-base font-bold font-mono truncate ${displayResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                  {formatCurrency(displayResult)}
+            <PartnerFinancialCard
+              kind="income"
+              eventId={activeEventId!}
+              userId={user?.id ?? "anon"}
+              eventStatus={event?.status}
+              primaryEventDate={event?.date}
+              transactions={transactions}
+              forecasts={partnerForecasts}
+              ticketRevenueNet={ticketRevenueNet}
+              ticketCargasNet={totalLotRevenueNet}
+              onValueChange={setPartnerIncomeValue}
+            />
+            <PartnerFinancialCard
+              kind="expense"
+              eventId={activeEventId!}
+              userId={user?.id ?? "anon"}
+              eventStatus={event?.status}
+              primaryEventDate={event?.date}
+              transactions={transactions}
+              forecasts={partnerForecasts}
+              onValueChange={setPartnerExpenseValue}
+            />
+            <Card className={partnerResultValue >= 0 ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}>
+              <CardContent className="p-4 flex flex-col justify-between h-full gap-2">
+                <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Resultado</span>
+                <span className={`text-xl sm:text-2xl font-bold font-mono ${partnerResultValue >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                  {formatCurrency(partnerResultValue)}
                 </span>
               </CardContent>
             </Card>
           </div>
+
 
 
           {canEditBpHere && effectiveBpViewMode === "grid" ? (
@@ -1368,28 +1336,39 @@ export default function PartnerEventDetail() {
           ) : (
             <div className="space-y-4">
               {/* Cards Receitas / Despesas / Resultado (vista cidade ou evento simples) */}
-              <div className="grid gap-2 sm:gap-3 grid-cols-3">
-                <Card>
-                  <CardContent className="p-2 sm:p-4 text-center">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receitas</p>
-                    <p className="text-[11px] sm:text-xl font-bold font-mono text-emerald-500 truncate">{formatCurrency(transactionIncome)}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-2 sm:p-4 text-center">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Despesas</p>
-                    <p className="text-[11px] sm:text-xl font-bold font-mono text-amber-500 truncate">{formatCurrency(transactionExpense)}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-2 sm:p-4 text-center">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
-                    <p className={`text-[11px] sm:text-xl font-bold font-mono truncate ${transactionResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                      {formatCurrency(transactionResult)}
-                    </p>
+              <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-3">
+                <PartnerFinancialCard
+                  kind="income"
+                  eventId={activeEventId!}
+                  userId={user?.id ?? "anon"}
+                  eventStatus={event?.status}
+                  primaryEventDate={event?.date}
+                  transactions={transactions}
+                  forecasts={partnerForecasts}
+                  ticketRevenueNet={ticketRevenueNet}
+                  ticketCargasNet={totalLotRevenueNet}
+                  onValueChange={setPartnerIncomeValue}
+                />
+                <PartnerFinancialCard
+                  kind="expense"
+                  eventId={activeEventId!}
+                  userId={user?.id ?? "anon"}
+                  eventStatus={event?.status}
+                  primaryEventDate={event?.date}
+                  transactions={transactions}
+                  forecasts={partnerForecasts}
+                  onValueChange={setPartnerExpenseValue}
+                />
+                <Card className={partnerResultValue >= 0 ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}>
+                  <CardContent className="p-4 flex flex-col justify-between h-full gap-2">
+                    <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Resultado</span>
+                    <span className={`text-xl sm:text-2xl font-bold font-mono ${partnerResultValue >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                      {formatCurrency(partnerResultValue)}
+                    </span>
                   </CardContent>
                 </Card>
               </div>
+
 
               {(["income", "expense"] as const).map((kind) => {
                 const groups = txGroupedHier[kind];
@@ -1465,11 +1444,11 @@ export default function PartnerEventDetail() {
               })}
 
               {/* Result */}
-              <Card className="border-primary/30 bg-primary/5">
+              <Card className={partnerResultValue >= 0 ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}>
                 <CardContent className="p-4 flex items-center justify-between">
                   <span className="text-sm font-bold">Resultado</span>
-                  <span className={`text-lg font-bold font-mono ${transactionResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                    {formatCurrency(transactionResult)}
+                  <span className={`text-lg font-bold font-mono ${partnerResultValue >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                    {formatCurrency(partnerResultValue)}
                   </span>
                 </CardContent>
               </Card>
