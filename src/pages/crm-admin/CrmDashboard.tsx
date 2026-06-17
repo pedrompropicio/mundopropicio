@@ -1,9 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, Users, Inbox, Target } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { supabase } from "@/integrations/supabase/client";
+
+type GeoPeriod = "all" | "30d";
 
 type Stat = {
   to: string;
@@ -133,16 +136,20 @@ function RankingList({ rows }: { rows: RankRow[] }) {
 }
 
 export default function CrmDashboard() {
+  const [geoPeriod, setGeoPeriod] = useState<GeoPeriod>("all");
+
   const { data: eventsMk } = useQuery({
     queryKey: ["crm-stats", "event_marketing"],
     queryFn: () =>
       safeCount("event_marketing", (q) => q.eq("status", "published")),
     staleTime: 60_000,
+    refetchOnMount: "always",
   });
   const { data: contacts } = useQuery({
     queryKey: ["crm-stats", "contacts"],
     queryFn: () => safeCount("contacts", (q) => q.eq("is_active", true)),
     staleTime: 60_000,
+    refetchOnMount: "always",
   });
   const { data: leads } = useQuery({
     queryKey: ["crm-stats", "leads-30d"],
@@ -151,24 +158,28 @@ export default function CrmDashboard() {
       return safeCount("leads", (q) => q.gte("created_at", since));
     },
     staleTime: 60_000,
+    refetchOnMount: "always",
   });
   const { data: audiences } = useQuery({
     queryKey: ["crm-stats", "audiences"],
     queryFn: () => safeCount("audiences"),
     staleTime: 60_000,
+    refetchOnMount: "always",
   });
 
   const { data: leadGeo } = useQuery({
     queryKey: ["crm-stats", "leads-geo"],
-    staleTime: 60_000,
-    queryFn: async (): Promise<Array<{ geo_country: string | null; geo_city: string | null }>> => {
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    queryFn: async (): Promise<Array<{ geo_country: string | null; geo_city: string | null; created_at: string | null }>> => {
       try {
         const { data, error } = await (supabase as any)
           .from("leads")
-          .select("geo_country, geo_city")
+          .select("geo_country, geo_city, created_at")
           .limit(10000);
         if (error) return [];
-        return (data ?? []) as Array<{ geo_country: string | null; geo_city: string | null }>;
+        return (data ?? []) as Array<{ geo_country: string | null; geo_city: string | null; created_at: string | null }>;
       } catch {
         return [];
       }
@@ -176,7 +187,15 @@ export default function CrmDashboard() {
   });
 
   const { countryRows, cityRows, total } = useMemo(() => {
-    const rows = leadGeo ?? [];
+    const all = leadGeo ?? [];
+    const cutoff = Date.now() - 30 * 24 * 3600 * 1000;
+    const rows = geoPeriod === "30d"
+      ? all.filter((r) => {
+          if (!r.created_at) return false;
+          const t = new Date(r.created_at).getTime();
+          return Number.isFinite(t) && t >= cutoff;
+        })
+      : all;
     const total = rows.length;
 
     const countryItems = rows.map((r) => {
@@ -196,7 +215,7 @@ export default function CrmDashboard() {
       countryRows: buildRanking(countryItems, total),
       cityRows: buildRanking(cityItems, total),
     };
-  }, [leadGeo]);
+  }, [leadGeo, geoPeriod]);
 
   const stats: Stat[] = [
     { to: "/crm/eventos", key: "events", label: "Eventos com Marketing", icon: CalendarDays, value: eventsMk ?? null },
@@ -242,6 +261,27 @@ export default function CrmDashboard() {
       </div>
 
       <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3 px-1">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            Geografia dos leads
+          </h2>
+          <ToggleGroup
+            type="single"
+            size="sm"
+            value={geoPeriod}
+            onValueChange={(v) => {
+              if (v === "all" || v === "30d") setGeoPeriod(v);
+            }}
+            className="gap-1"
+          >
+            <ToggleGroupItem value="all" className="h-7 px-3 text-xs">
+              Todos
+            </ToggleGroupItem>
+            <ToggleGroupItem value="30d" className="h-7 px-3 text-xs">
+              30 dias
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Card>
             <CardHeader className="pb-3">
