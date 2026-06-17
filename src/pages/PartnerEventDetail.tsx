@@ -1444,11 +1444,11 @@ export default function PartnerEventDetail() {
               })}
 
               {/* Result */}
-              <Card className="border-primary/30 bg-primary/5">
+              <Card className={partnerResultValue >= 0 ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}>
                 <CardContent className="p-4 flex items-center justify-between">
                   <span className="text-sm font-bold">Resultado</span>
-                  <span className={`text-lg font-bold font-mono ${transactionResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                    {formatCurrency(transactionResult)}
+                  <span className={`text-lg font-bold font-mono ${partnerResultValue >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                    {formatCurrency(partnerResultValue)}
                   </span>
                 </CardContent>
               </Card>
