@@ -32,6 +32,7 @@ interface SearchableSelectProps {
   searchPlaceholder?: string;
   emptyMessage?: string;
   className?: string;
+  triggerClassName?: string;
   disabled?: boolean;
 }
 
