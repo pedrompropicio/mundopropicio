@@ -23,6 +23,8 @@ import { MultiImageUploader } from "../components/MultiImageUploader";
 import { MP_COMPANY_ID } from "../constants";
 import type { EventMarketingRow, EventRow, TicketExperience } from "../types";
 import { Trash2, Plus, ArrowUp, ArrowDown } from "lucide-react";
+import { FaqsTab } from "./FaqsTab";
+import { LineupTab } from "./LineupTab";
 
 type FormState = Omit<
   EventMarketingRow,
@@ -73,7 +75,7 @@ export default function EventMarketingEditor() {
     queryFn: async (): Promise<any> => {
       const { data, error } = await (supabase as any)
         .from("events")
-        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until")
+        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until, venue_map_url, venue_directions_url")
         .eq("id", eventId)
         .maybeSingle();
       if (error) throw error;
@@ -235,6 +237,8 @@ export default function EventMarketingEditor() {
           <TabsTrigger value="experiencias">Experiências</TabsTrigger>
           <TabsTrigger value="cta">CTA &amp; Urgência</TabsTrigger>
           <TabsTrigger value="imprensa">Imprensa &amp; Performer</TabsTrigger>
+          <TabsTrigger value="faq">FAQ</TabsTrigger>
+          <TabsTrigger value="lineup">Line-up</TabsTrigger>
           <TabsTrigger value="oferta">Oferta</TabsTrigger>
           <TabsTrigger value="seo">SEO</TabsTrigger>
         </TabsList>
