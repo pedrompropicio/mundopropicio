@@ -1298,7 +1298,7 @@ export default function PartnerEventDetail() {
                 <CardContent className="p-4">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                     <div>
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Planeado</p>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Planeados em Lotes</p>
                       <p className="text-xs font-mono">{totalLotQty.toLocaleString()} bilhetes</p>
                       <p className="text-sm sm:text-base font-bold font-mono">{formatCurrency(totalLotRevenue)}</p>
                     </div>
