@@ -1041,11 +1041,13 @@ export default function PartnerEventDetail() {
               selectedVersionId={bpActiveVersionId ?? null}
             />
           ) : bpGroupedHier.length === 0 ? (
-            <Card className="p-8 text-center">
-              <p className="text-muted-foreground">Sem previsões de custos aprovadas para este evento.</p>
-            </Card>
+            <div className="max-w-4xl mx-auto">
+              <Card className="p-8 text-center">
+                <p className="text-muted-foreground">Sem previsões de custos aprovadas para este evento.</p>
+              </Card>
+            </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 max-w-4xl mx-auto">
               <Card className="border-primary/30 bg-primary/5">
                 <CardContent className="p-4 flex items-center justify-between">
                   <span className="text-sm font-bold">Total previsto (despesas, c/IVA)</span>
