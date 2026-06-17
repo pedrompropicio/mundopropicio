@@ -662,6 +662,8 @@ function GestaoTab({
     setVipValidUntil(
       ev?.vip_coupon_valid_until ? String(ev.vip_coupon_valid_until).slice(0, 10) : "",
     );
+    setVenueMapUrl(ev?.venue_map_url ?? "");
+    setVenueDirectionsUrl(ev?.venue_directions_url ?? "");
   }, [ev]);
 
   // Pré-preenche validade com hoje+7 quando o utilizador começa a preencher o código
@@ -690,6 +692,8 @@ function GestaoTab({
           vip_coupon_code: vipCode.trim() || null,
           vip_coupon_discount_label: vipLabel.trim() || null,
           vip_coupon_valid_until: vipValidUntil ? `${vipValidUntil}T23:59:59Z` : null,
+          venue_map_url: venueMapUrl.trim() || null,
+          venue_directions_url: venueDirectionsUrl.trim() || null,
         })
         .eq("id", eventId);
       if (error) throw error;
