@@ -793,7 +793,7 @@ export default function BPGridEditor({
                 <div />
                 <div className="min-w-0">
                   <SearchableSelect
-                    className="[&>button]:text-xs"
+                    triggerClassName="text-xs px-2 py-1"
                     value={p.category_id ?? ""}
                     onValueChange={(v: string) => updatePending(p.tempId, "category_id", v || null)}
                     options={opts}
