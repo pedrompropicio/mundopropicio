@@ -746,6 +746,35 @@ function GestaoTab({
         </Field>
       </div>
 
+      <div className="space-y-3 rounded-md border border-border bg-muted/20 p-3">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Local &amp; Direções</h3>
+          <p className="text-xs text-muted-foreground">
+            Cole aqui os links do Google Maps (localização e direções). Ambos opcionais.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Link do mapa">
+            <Input
+              type="url"
+              value={venueMapUrl}
+              onChange={(e) => setVenueMapUrl(e.target.value)}
+              placeholder="https://maps.google.com/…"
+              disabled={disabled}
+            />
+          </Field>
+          <Field label="Link de direções / como chegar">
+            <Input
+              type="url"
+              value={venueDirectionsUrl}
+              onChange={(e) => setVenueDirectionsUrl(e.target.value)}
+              placeholder="https://maps.app.goo.gl/…"
+              disabled={disabled}
+            />
+          </Field>
+        </div>
+      </div>
+
       <div className="flex flex-wrap gap-6 pt-2">
         <label className="flex items-center gap-2 text-sm">
           <Switch checked={portalVisible} onCheckedChange={setPortalVisible} disabled={disabled} />
