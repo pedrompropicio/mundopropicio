@@ -642,6 +642,8 @@ function GestaoTab({
   const [portalFeatured, setPortalFeatured] = useState<boolean>(!!ev?.portal_featured);
   const [vipCode, setVipCode] = useState<string>(ev?.vip_coupon_code ?? "");
   const [vipLabel, setVipLabel] = useState<string>(ev?.vip_coupon_discount_label ?? "");
+  const [venueMapUrl, setVenueMapUrl] = useState<string>(ev?.venue_map_url ?? "");
+  const [venueDirectionsUrl, setVenueDirectionsUrl] = useState<string>(ev?.venue_directions_url ?? "");
   // Guardamos como YYYY-MM-DD (input date). Convertemos para timestamptz no save.
   const [vipValidUntil, setVipValidUntil] = useState<string>(
     ev?.vip_coupon_valid_until ? String(ev.vip_coupon_valid_until).slice(0, 10) : "",
