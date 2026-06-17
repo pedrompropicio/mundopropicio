@@ -1140,6 +1140,7 @@ export default function PartnerEventDetail() {
 
         {/* ═══════ BILHETES ═══════ */}
         <TabsContent value="ticketing">
+          <div className="max-w-5xl mx-auto">
           {ticketZones.length === 0 ? (
             <Card className="p-8 text-center">
               <p className="text-muted-foreground">Sem bilheteira configurada para este evento.</p>
@@ -1326,6 +1327,7 @@ export default function PartnerEventDetail() {
               </Card>
             </div>
           )}
+          </div>
         </TabsContent>
 
         {/* ═══════ TRANSAÇÕES (com overheads embutidos) ═══════ */}
