@@ -44,6 +44,7 @@ export function SearchableSelect({
   searchPlaceholder = "Pesquisar…",
   emptyMessage = "Nenhum resultado.",
   className,
+  triggerClassName,
   disabled,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
