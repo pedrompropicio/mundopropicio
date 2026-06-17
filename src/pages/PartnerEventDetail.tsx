@@ -1336,28 +1336,39 @@ export default function PartnerEventDetail() {
           ) : (
             <div className="space-y-4">
               {/* Cards Receitas / Despesas / Resultado (vista cidade ou evento simples) */}
-              <div className="grid gap-2 sm:gap-3 grid-cols-3">
-                <Card>
-                  <CardContent className="p-2 sm:p-4 text-center">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Receitas</p>
-                    <p className="text-[11px] sm:text-xl font-bold font-mono text-emerald-500 truncate">{formatCurrency(transactionIncome)}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-2 sm:p-4 text-center">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Despesas</p>
-                    <p className="text-[11px] sm:text-xl font-bold font-mono text-amber-500 truncate">{formatCurrency(transactionExpense)}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-2 sm:p-4 text-center">
-                    <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Resultado</p>
-                    <p className={`text-[11px] sm:text-xl font-bold font-mono truncate ${transactionResult >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                      {formatCurrency(transactionResult)}
-                    </p>
+              <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-3">
+                <PartnerFinancialCard
+                  kind="income"
+                  eventId={activeEventId!}
+                  userId={user?.id ?? "anon"}
+                  eventStatus={event?.status}
+                  primaryEventDate={event?.date}
+                  transactions={transactions}
+                  forecasts={partnerForecasts}
+                  ticketRevenueNet={ticketRevenueNet}
+                  ticketCargasNet={totalLotRevenueNet}
+                  onValueChange={setPartnerIncomeValue}
+                />
+                <PartnerFinancialCard
+                  kind="expense"
+                  eventId={activeEventId!}
+                  userId={user?.id ?? "anon"}
+                  eventStatus={event?.status}
+                  primaryEventDate={event?.date}
+                  transactions={transactions}
+                  forecasts={partnerForecasts}
+                  onValueChange={setPartnerExpenseValue}
+                />
+                <Card className={partnerResultValue >= 0 ? "border-emerald-500/30 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"}>
+                  <CardContent className="p-4 flex flex-col justify-between h-full gap-2">
+                    <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Resultado</span>
+                    <span className={`text-xl sm:text-2xl font-bold font-mono ${partnerResultValue >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                      {formatCurrency(partnerResultValue)}
+                    </span>
                   </CardContent>
                 </Card>
               </div>
+
 
               {(["income", "expense"] as const).map((kind) => {
                 const groups = txGroupedHier[kind];
