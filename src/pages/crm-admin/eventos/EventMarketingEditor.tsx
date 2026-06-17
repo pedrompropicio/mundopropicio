@@ -422,6 +422,14 @@ export default function EventMarketingEditor() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="faq">
+          <FaqsTab eventId={eventId} companyId={ev.company_id} disabled={!!isForeign} />
+        </TabsContent>
+
+        <TabsContent value="lineup">
+          <LineupTab eventId={eventId} companyId={ev.company_id} disabled={!!isForeign} />
+        </TabsContent>
+
         <TabsContent value="oferta">
           <Card className="space-y-4 p-4">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
