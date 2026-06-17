@@ -1327,6 +1327,7 @@ export default function PartnerEventDetail() {
               </Card>
             </div>
           )}
+          </div>
         </TabsContent>
 
         {/* ═══════ TRANSAÇÕES (com overheads embutidos) ═══════ */}
