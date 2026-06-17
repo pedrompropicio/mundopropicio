@@ -60,7 +60,7 @@ export function PartnerLayout() {
         </div>
       </header>
       <main className="pt-14">
-        <div className="mx-auto max-w-5xl p-4 lg:p-6">
+        <div className="mx-auto w-full max-w-[1600px] p-4 lg:px-8 lg:py-6 2xl:max-w-[95vw]">
           <Routes>
             <Route path="/" element={<PartnerPortal />} />
             <Route path="/evento/:id" element={<PartnerEventDetail />} />

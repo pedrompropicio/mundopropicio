@@ -747,7 +747,7 @@ export default function BPGridEditor({
       />
 
       {/* Header (sem coluna Tipo: inferida pela categoria) */}
-      <div className="grid w-full grid-cols-[20px_16px_minmax(220px,2fr)_minmax(140px,1.3fr)_minmax(120px,1.1fr)_88px_52px_96px_28px_28px] gap-1.5 rounded-md bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="grid w-full grid-cols-[20px_16px_minmax(280px,2.4fr)_minmax(180px,1.5fr)_minmax(150px,1.2fr)_104px_64px_120px_28px_28px] gap-1.5 rounded-md bg-muted/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         <div>
           <input
             type="checkbox"
@@ -787,7 +787,7 @@ export default function BPGridEditor({
               <div
                 key={p.tempId}
                 data-pending-temp-id={p.tempId}
-                className="grid w-full grid-cols-[20px_16px_minmax(220px,2fr)_minmax(140px,1.3fr)_minmax(120px,1.1fr)_88px_52px_96px_28px_28px] items-center gap-1.5 px-3 py-1.5 text-xs"
+                className="grid w-full grid-cols-[20px_16px_minmax(280px,2.4fr)_minmax(180px,1.5fr)_minmax(150px,1.2fr)_104px_64px_120px_28px_28px] items-center gap-1.5 px-3 py-1.5 text-xs"
               >
                 <div />
                 <div />
@@ -965,7 +965,7 @@ export default function BPGridEditor({
                   width: "100%",
                   transform: `translateY(${virtual.start}px)`,
                 }}
-                className={`grid w-full grid-cols-[20px_16px_minmax(220px,2fr)_minmax(140px,1.3fr)_minmax(120px,1.1fr)_88px_52px_96px_28px_28px] items-center gap-1.5 border-b border-border/40 px-3 py-2 text-xs ${
+                className={`grid w-full grid-cols-[20px_16px_minmax(280px,2.4fr)_minmax(180px,1.5fr)_minmax(150px,1.2fr)_104px_64px_120px_28px_28px] items-center gap-1.5 border-b border-border/40 px-3 py-2 text-xs ${
                   Object.keys(rowDirty).length > 0 ? "bg-primary/5" : ""
                 } ${isSelected ? "bg-destructive/5" : ""}`}
               >
