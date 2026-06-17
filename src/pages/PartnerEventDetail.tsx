@@ -1068,14 +1068,14 @@ export default function PartnerEventDetail() {
                       {l1.l2Groups.map((l2) => (
                         <div key={l2.name}>
                           <div className="bg-muted/20 px-4 pl-8 py-1 flex items-center justify-between border-b border-border/40">
-                            <span className="text-[10px] font-semibold text-muted-foreground">{l2.code} · {l2.name}</span>
-                            <span className="text-[10px] font-semibold font-mono text-amber-500">{formatCurrency(l2.total)}</span>
+                            <span className="text-[11px] font-semibold text-muted-foreground">{l2.code} · {l2.name}</span>
+                            <span className="text-[11px] font-semibold font-mono text-amber-500">{formatCurrency(l2.total)}</span>
                           </div>
                           {l2.l3Groups.map((l3) => (
                             <div key={l3.name}>
                               <div className="px-4 pl-12 py-1 flex items-center justify-between border-b border-border/20 bg-muted/5">
-                                <span className="text-[10px] font-medium text-foreground/80">{l3.code} · {l3.name}</span>
-                                <span className="text-[10px] font-medium font-mono text-amber-500">{formatCurrency(l3.total)}</span>
+                                <span className="text-[11px] font-semibold text-foreground">{l3.code} · {l3.name}</span>
+                                <span className="text-[11px] font-semibold font-mono text-amber-500">{formatCurrency(l3.total)}</span>
                               </div>
                               {l3.items.map((it) => {
                                 const atts = bpAttachmentsByForecast[it.id] ?? [];
