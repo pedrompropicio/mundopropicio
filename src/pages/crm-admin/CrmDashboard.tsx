@@ -261,6 +261,27 @@ export default function CrmDashboard() {
       </div>
 
       <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3 px-1">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            Geografia dos leads
+          </h2>
+          <ToggleGroup
+            type="single"
+            size="sm"
+            value={geoPeriod}
+            onValueChange={(v) => {
+              if (v === "all" || v === "30d") setGeoPeriod(v);
+            }}
+            className="gap-1"
+          >
+            <ToggleGroupItem value="all" className="h-7 px-3 text-xs">
+              Todos
+            </ToggleGroupItem>
+            <ToggleGroupItem value="30d" className="h-7 px-3 text-xs">
+              30 dias
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Card>
             <CardHeader className="pb-3">
