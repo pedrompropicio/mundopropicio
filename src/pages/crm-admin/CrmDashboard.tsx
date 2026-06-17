@@ -136,16 +136,20 @@ function RankingList({ rows }: { rows: RankRow[] }) {
 }
 
 export default function CrmDashboard() {
+  const [geoPeriod, setGeoPeriod] = useState<GeoPeriod>("all");
+
   const { data: eventsMk } = useQuery({
     queryKey: ["crm-stats", "event_marketing"],
     queryFn: () =>
       safeCount("event_marketing", (q) => q.eq("status", "published")),
     staleTime: 60_000,
+    refetchOnMount: "always",
   });
   const { data: contacts } = useQuery({
     queryKey: ["crm-stats", "contacts"],
     queryFn: () => safeCount("contacts", (q) => q.eq("is_active", true)),
     staleTime: 60_000,
+    refetchOnMount: "always",
   });
   const { data: leads } = useQuery({
     queryKey: ["crm-stats", "leads-30d"],
@@ -154,24 +158,28 @@ export default function CrmDashboard() {
       return safeCount("leads", (q) => q.gte("created_at", since));
     },
     staleTime: 60_000,
+    refetchOnMount: "always",
   });
   const { data: audiences } = useQuery({
     queryKey: ["crm-stats", "audiences"],
     queryFn: () => safeCount("audiences"),
     staleTime: 60_000,
+    refetchOnMount: "always",
   });
 
   const { data: leadGeo } = useQuery({
     queryKey: ["crm-stats", "leads-geo"],
-    staleTime: 60_000,
-    queryFn: async (): Promise<Array<{ geo_country: string | null; geo_city: string | null }>> => {
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    queryFn: async (): Promise<Array<{ geo_country: string | null; geo_city: string | null; created_at: string | null }>> => {
       try {
         const { data, error } = await (supabase as any)
           .from("leads")
-          .select("geo_country, geo_city")
+          .select("geo_country, geo_city, created_at")
           .limit(10000);
         if (error) return [];
-        return (data ?? []) as Array<{ geo_country: string | null; geo_city: string | null }>;
+        return (data ?? []) as Array<{ geo_country: string | null; geo_city: string | null; created_at: string | null }>;
       } catch {
         return [];
       }
@@ -179,7 +187,15 @@ export default function CrmDashboard() {
   });
 
   const { countryRows, cityRows, total } = useMemo(() => {
-    const rows = leadGeo ?? [];
+    const all = leadGeo ?? [];
+    const cutoff = Date.now() - 30 * 24 * 3600 * 1000;
+    const rows = geoPeriod === "30d"
+      ? all.filter((r) => {
+          if (!r.created_at) return false;
+          const t = new Date(r.created_at).getTime();
+          return Number.isFinite(t) && t >= cutoff;
+        })
+      : all;
     const total = rows.length;
 
     const countryItems = rows.map((r) => {
@@ -199,7 +215,7 @@ export default function CrmDashboard() {
       countryRows: buildRanking(countryItems, total),
       cityRows: buildRanking(cityItems, total),
     };
-  }, [leadGeo]);
+  }, [leadGeo, geoPeriod]);
 
   const stats: Stat[] = [
     { to: "/crm/eventos", key: "events", label: "Eventos com Marketing", icon: CalendarDays, value: eventsMk ?? null },
