@@ -23,6 +23,8 @@ import { MultiImageUploader } from "../components/MultiImageUploader";
 import { MP_COMPANY_ID } from "../constants";
 import type { EventMarketingRow, EventRow, TicketExperience } from "../types";
 import { Trash2, Plus, ArrowUp, ArrowDown } from "lucide-react";
+import { FaqsTab } from "./FaqsTab";
+import { LineupTab } from "./LineupTab";
 
 type FormState = Omit<
   EventMarketingRow,
@@ -73,7 +75,7 @@ export default function EventMarketingEditor() {
     queryFn: async (): Promise<any> => {
       const { data, error } = await (supabase as any)
         .from("events")
-        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until")
+        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until, venue_map_url, venue_directions_url")
         .eq("id", eventId)
         .maybeSingle();
       if (error) throw error;
@@ -235,6 +237,8 @@ export default function EventMarketingEditor() {
           <TabsTrigger value="experiencias">Experiências</TabsTrigger>
           <TabsTrigger value="cta">CTA &amp; Urgência</TabsTrigger>
           <TabsTrigger value="imprensa">Imprensa &amp; Performer</TabsTrigger>
+          <TabsTrigger value="faq">FAQ</TabsTrigger>
+          <TabsTrigger value="lineup">Line-up</TabsTrigger>
           <TabsTrigger value="oferta">Oferta</TabsTrigger>
           <TabsTrigger value="seo">SEO</TabsTrigger>
         </TabsList>
@@ -416,6 +420,14 @@ export default function EventMarketingEditor() {
               </Field>
             </div>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="faq">
+          <FaqsTab eventId={eventId} companyId={ev.company_id} disabled={!!isForeign} />
+        </TabsContent>
+
+        <TabsContent value="lineup">
+          <LineupTab eventId={eventId} companyId={ev.company_id} disabled={!!isForeign} />
         </TabsContent>
 
         <TabsContent value="oferta">
@@ -630,6 +642,8 @@ function GestaoTab({
   const [portalFeatured, setPortalFeatured] = useState<boolean>(!!ev?.portal_featured);
   const [vipCode, setVipCode] = useState<string>(ev?.vip_coupon_code ?? "");
   const [vipLabel, setVipLabel] = useState<string>(ev?.vip_coupon_discount_label ?? "");
+  const [venueMapUrl, setVenueMapUrl] = useState<string>(ev?.venue_map_url ?? "");
+  const [venueDirectionsUrl, setVenueDirectionsUrl] = useState<string>(ev?.venue_directions_url ?? "");
   // Guardamos como YYYY-MM-DD (input date). Convertemos para timestamptz no save.
   const [vipValidUntil, setVipValidUntil] = useState<string>(
     ev?.vip_coupon_valid_until ? String(ev.vip_coupon_valid_until).slice(0, 10) : "",
@@ -648,6 +662,8 @@ function GestaoTab({
     setVipValidUntil(
       ev?.vip_coupon_valid_until ? String(ev.vip_coupon_valid_until).slice(0, 10) : "",
     );
+    setVenueMapUrl(ev?.venue_map_url ?? "");
+    setVenueDirectionsUrl(ev?.venue_directions_url ?? "");
   }, [ev]);
 
   // Pré-preenche validade com hoje+7 quando o utilizador começa a preencher o código
@@ -676,6 +692,8 @@ function GestaoTab({
           vip_coupon_code: vipCode.trim() || null,
           vip_coupon_discount_label: vipLabel.trim() || null,
           vip_coupon_valid_until: vipValidUntil ? `${vipValidUntil}T23:59:59Z` : null,
+          venue_map_url: venueMapUrl.trim() || null,
+          venue_directions_url: venueDirectionsUrl.trim() || null,
         })
         .eq("id", eventId);
       if (error) throw error;
@@ -726,6 +744,35 @@ function GestaoTab({
         <Field label="Ticketing provider">
           <Input value={ticketingProvider} onChange={(e) => setTicketingProvider(e.target.value)} disabled={disabled} />
         </Field>
+      </div>
+
+      <div className="space-y-3 rounded-md border border-border bg-muted/20 p-3">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Local &amp; Direções</h3>
+          <p className="text-xs text-muted-foreground">
+            Cole aqui os links do Google Maps (localização e direções). Ambos opcionais.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Link do mapa">
+            <Input
+              type="url"
+              value={venueMapUrl}
+              onChange={(e) => setVenueMapUrl(e.target.value)}
+              placeholder="https://maps.google.com/…"
+              disabled={disabled}
+            />
+          </Field>
+          <Field label="Link de direções / como chegar">
+            <Input
+              type="url"
+              value={venueDirectionsUrl}
+              onChange={(e) => setVenueDirectionsUrl(e.target.value)}
+              placeholder="https://maps.app.goo.gl/…"
+              disabled={disabled}
+            />
+          </Field>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-6 pt-2">
