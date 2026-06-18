@@ -1080,60 +1080,68 @@ export default function PartnerEventDetail() {
                             <span className="text-[11px] font-semibold text-muted-foreground">{l2.code} · {l2.name}</span>
                             <span className="text-[11px] font-semibold font-mono text-amber-500">{formatCurrency(l2.total)}</span>
                           </div>
-                          {l2.l3Groups.map((l3) => (
+                          {l2.l3Groups.map((l3) => {
+                            const l3Atts = l3.id ? (bpAttachmentsByCategory[l3.id] ?? []) : [];
+                            return (
                             <div key={l3.name}>
-                              <div className="px-4 pl-12 py-1 flex items-center justify-between border-b border-border/20 bg-muted/5">
-                                <span className="text-[11px] font-semibold text-foreground">{l3.code} · {l3.name}</span>
-                                <span className="text-[11px] font-semibold font-mono text-amber-500">{formatCurrency(l3.total)}</span>
-                              </div>
-                              {l3.items.map((it) => {
-                                const atts = bpAttachmentsByForecast[it.id] ?? [];
-                                return (
-                                  <div key={it.id} className="flex items-center justify-between px-4 pl-16 py-1.5 border-b border-border/15 gap-2">
-                                    <span className="text-xs flex-1 min-w-0 truncate">
-                                      {it.description}
-                                      {it.specification && (
-                                        <span className="text-muted-foreground italic ml-1.5">· {it.specification}</span>
-                                      )}
-                                    </span>
-                                    {atts.length > 0 && (
-                                      <Popover>
-                                        <PopoverTrigger asChild>
+                              <div className="px-4 pl-12 py-1 flex items-center justify-between border-b border-border/20 bg-muted/5 gap-2">
+                                <span className="text-[11px] font-semibold text-foreground flex-1 min-w-0 truncate">{l3.code} · {l3.name}</span>
+                                {l3Atts.length > 0 && (
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <button
+                                        type="button"
+                                        className="inline-flex items-center gap-1 rounded p-1 text-primary hover:bg-primary/10 transition-colors"
+                                        title={`${l3Atts.length} anexo(s) na rubrica ${l3.name}`}
+                                      >
+                                        <Paperclip className="h-3.5 w-3.5" />
+                                        <span className="text-[10px] font-semibold">{l3Atts.length}</span>
+                                      </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="left" align="end" className="w-80 p-2">
+                                      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                        {l3.code} · {l3.name} — {l3Atts.length} anexo(s)
+                                      </p>
+                                      <div className="space-y-1 max-h-72 overflow-y-auto">
+                                        {l3Atts.map((a) => (
                                           <button
+                                            key={a.document_id}
                                             type="button"
-                                            className="inline-flex items-center gap-1 rounded p-1 text-primary hover:bg-primary/10 transition-colors"
-                                            title={`${atts.length} anexo(s)`}
+                                            onClick={() => openBpAttachment(a.kind, a.document_id)}
+                                            className="flex items-center gap-2 w-full text-left rounded px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
                                           >
-                                            <Paperclip className="h-3.5 w-3.5" />
-                                            <span className="text-[10px] font-semibold">{atts.length}</span>
+                                            <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                            <span className="truncate flex-1">{a.file_name}</span>
                                           </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent side="left" align="end" className="w-72 p-2">
-                                          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                            Anexos ({atts.length})
-                                          </p>
-                                          <div className="space-y-1 max-h-60 overflow-y-auto">
-                                            {atts.map((a) => (
-                                              <button
-                                                key={a.document_id}
-                                                type="button"
-                                                onClick={() => openBpAttachment(a.kind, a.document_id)}
-                                                className="flex items-center gap-2 w-full text-left rounded px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
-                                              >
-                                                <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                                <span className="truncate flex-1">{a.file_name}</span>
-                                              </button>
-                                            ))}
-                                          </div>
-                                        </PopoverContent>
-                                      </Popover>
+                                        ))}
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                )}
+                                <span className="text-[11px] font-semibold font-mono text-amber-500 whitespace-nowrap">{formatCurrency(l3.total)}</span>
+                              </div>
+                              {l3.items.map((it) => (
+                                <div key={it.id} className="flex items-center justify-between px-4 pl-16 py-1.5 border-b border-border/15 gap-2">
+                                  <span className="text-xs flex-1 min-w-0 truncate">
+                                    {it.description}
+                                    {it.specification && (
+                                      <span className="text-muted-foreground italic ml-1.5">· {it.specification}</span>
                                     )}
-                                    <span className="text-xs font-mono font-semibold whitespace-nowrap text-amber-500">{formatCurrency(it.amount)}</span>
-                                  </div>
-                                );
-                              })}
+                                  </span>
+                                  <FormalidadeBadge
+                                    forecastId={it.id}
+                                    eventId={activeEventId!}
+                                    current={(it.formalidade ?? "estimado") as any}
+                                    readOnly
+                                    compact
+                                  />
+                                  <span className="text-xs font-mono font-semibold whitespace-nowrap text-amber-500">{formatCurrency(it.amount)}</span>
+                                </div>
+                              ))}
                             </div>
-                          ))}
+                            );
+                          })}
+
                         </div>
                       ))}
                     </div>
