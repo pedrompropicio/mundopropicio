@@ -447,28 +447,33 @@ export default function PartnerEventDetail() {
     enabled: partnerEventIds.length > 0,
   });
 
-  // ── Anexos do BP (RPC SECURITY DEFINER — mostra sempre na Agrupada, ignora gate view_partner_documents)
+  // ── Anexos do BP agregados por categoria L3 (RPC SECURITY DEFINER — mostra sempre na Agrupada, ignora gate view_partner_documents)
   const { data: bpAttachmentsRaw = [] } = useQuery({
-    queryKey: ["bp_line_attachments_partner", partnerEventIdsKey],
+    queryKey: ["bp_l3_attachments_partner", partnerEventIdsKey],
     queryFn: async () => {
       if (partnerEventIds.length === 0) return [];
-      const { data, error } = await supabase.rpc("get_bp_line_attachments" as any, {
+      const { data, error } = await supabase.rpc("get_bp_l3_attachments" as any, {
         _event_ids: partnerEventIds,
       } as any);
       if (error) throw error;
-      return (data ?? []) as Array<{ forecast_id: string; kind: string; document_id: string; file_name: string }>;
+      return (data ?? []) as Array<{ event_id: string; category_id: string; kind: string; document_id: string; file_name: string }>;
     },
     enabled: partnerEventIds.length > 0,
   });
 
-  const bpAttachmentsByForecast = useMemo(() => {
+  const bpAttachmentsByCategory = useMemo(() => {
     const m: Record<string, Array<{ kind: string; document_id: string; file_name: string }>> = {};
     bpAttachmentsRaw.forEach((a) => {
-      if (!m[a.forecast_id]) m[a.forecast_id] = [];
-      m[a.forecast_id].push({ kind: a.kind, document_id: a.document_id, file_name: a.file_name });
+      if (!a.category_id) return;
+      // De-dup por document_id (mesmo doc pode aparecer em > 1 evento no Master view se categoria repetida)
+      if (!m[a.category_id]) m[a.category_id] = [];
+      if (!m[a.category_id].some((x) => x.document_id === a.document_id)) {
+        m[a.category_id].push({ kind: a.kind, document_id: a.document_id, file_name: a.file_name });
+      }
     });
     return m;
   }, [bpAttachmentsRaw]);
+
 
   const openBpAttachment = async (kind: string, documentId: string) => {
     try {
