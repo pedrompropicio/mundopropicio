@@ -655,8 +655,8 @@ export default function PartnerEventDetail() {
       return { l1: gp || null, l2: parent, l3: cat };
     };
 
-    type Item = { id: string; description: string; specification: string | null; amount: number; viaMaster?: boolean };
-    type L3G = { code: string; name: string; items: Item[]; total: number };
+    type Item = { id: string; description: string; specification: string | null; amount: number; viaMaster?: boolean; formalidade?: string | null };
+    type L3G = { id: string | null; code: string; name: string; items: Item[]; total: number };
     type L2G = { code: string; name: string; l3Groups: L3G[]; total: number };
     type L1G = { code: string; name: string; l2Groups: L2G[]; total: number };
 
@@ -669,17 +669,19 @@ export default function PartnerEventDetail() {
       const l2Code = chain.l2?.code ?? chain.l1?.code ?? "Z.Z";
       const l3Name = chain.l3?.name ?? chain.l2?.name ?? chain.l1?.name ?? (f.description || "—");
       const l3Code = chain.l3?.code ?? chain.l2?.code ?? chain.l1?.code ?? "";
+      const l3Id = (chain.l3?.id ?? chain.l2?.id ?? chain.l1?.id ?? f.category_id ?? null) as string | null;
       const grossAmount = calcTotalWithIva(Number(f.amount || 0), Number(f.iva_rate || 0));
       if (!l1Map[l1Name]) l1Map[l1Name] = { code: l1Code, name: l1Name, l2Groups: [], total: 0 };
       let l2 = l1Map[l1Name].l2Groups.find((g) => g.name === l2Name);
       if (!l2) { l2 = { code: l2Code, name: l2Name, l3Groups: [], total: 0 }; l1Map[l1Name].l2Groups.push(l2); }
       let l3 = l2.l3Groups.find((g) => g.name === l3Name);
-      if (!l3) { l3 = { code: l3Code, name: l3Name, items: [], total: 0 }; l2.l3Groups.push(l3); }
-      l3.items.push({ id: f.id, description: f.description || "—", specification: (f.specification ?? null), amount: grossAmount, viaMaster: !!f._viaMaster });
+      if (!l3) { l3 = { id: l3Id, code: l3Code, name: l3Name, items: [], total: 0 }; l2.l3Groups.push(l3); }
+      l3.items.push({ id: f.id, description: f.description || "—", specification: (f.specification ?? null), amount: grossAmount, viaMaster: !!f._viaMaster, formalidade: f.formalidade ?? null });
       l3.total += grossAmount;
       l2.total += grossAmount;
       l1Map[l1Name].total += grossAmount;
     });
+
 
     return Object.values(l1Map)
       .map((g) => ({
