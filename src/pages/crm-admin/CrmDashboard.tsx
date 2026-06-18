@@ -45,15 +45,16 @@ function getCountryName(code: string): string {
 type RankRow = { key: string; label: string; count: number; pct: number; isNoLoc: boolean };
 
 function buildRanking(
-  items: Array<{ key: string; label: string; isNoLoc: boolean }>,
+  items: Array<{ key: string; label: string; isNoLoc: boolean; count?: number }>,
   total: number,
   maxRows = 8,
 ): RankRow[] {
   const counts = new Map<string, { label: string; count: number; isNoLoc: boolean }>();
   for (const it of items) {
+    const inc = it.count ?? 1;
     const cur = counts.get(it.key);
-    if (cur) cur.count += 1;
-    else counts.set(it.key, { label: it.label, count: 1, isNoLoc: it.isNoLoc });
+    if (cur) cur.count += inc;
+    else counts.set(it.key, { label: it.label, count: inc, isNoLoc: it.isNoLoc });
   }
   const sorted = [...counts.entries()]
     .map(([key, v]) => ({ key, ...v }))
