@@ -24,6 +24,8 @@ import { exportPartnerBPPdf } from "@/lib/export-partner-bp-pdf";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PartnerFinancialCard } from "@/components/partner/PartnerFinancialCard";
+import { FormalidadeBadge } from "@/components/bp-versions/FormalidadeBadge";
+
 
 /** Resolve um file_url de transaction_documents em URL clicável.
  *  - ref://http(s)://… → link externo direto
@@ -447,28 +449,33 @@ export default function PartnerEventDetail() {
     enabled: partnerEventIds.length > 0,
   });
 
-  // ── Anexos do BP (RPC SECURITY DEFINER — mostra sempre na Agrupada, ignora gate view_partner_documents)
+  // ── Anexos do BP agregados por categoria L3 (RPC SECURITY DEFINER — mostra sempre na Agrupada, ignora gate view_partner_documents)
   const { data: bpAttachmentsRaw = [] } = useQuery({
-    queryKey: ["bp_line_attachments_partner", partnerEventIdsKey],
+    queryKey: ["bp_l3_attachments_partner", partnerEventIdsKey],
     queryFn: async () => {
       if (partnerEventIds.length === 0) return [];
-      const { data, error } = await supabase.rpc("get_bp_line_attachments" as any, {
+      const { data, error } = await supabase.rpc("get_bp_l3_attachments" as any, {
         _event_ids: partnerEventIds,
       } as any);
       if (error) throw error;
-      return (data ?? []) as Array<{ forecast_id: string; kind: string; document_id: string; file_name: string }>;
+      return (data ?? []) as Array<{ event_id: string; category_id: string; kind: string; document_id: string; file_name: string }>;
     },
     enabled: partnerEventIds.length > 0,
   });
 
-  const bpAttachmentsByForecast = useMemo(() => {
+  const bpAttachmentsByCategory = useMemo(() => {
     const m: Record<string, Array<{ kind: string; document_id: string; file_name: string }>> = {};
     bpAttachmentsRaw.forEach((a) => {
-      if (!m[a.forecast_id]) m[a.forecast_id] = [];
-      m[a.forecast_id].push({ kind: a.kind, document_id: a.document_id, file_name: a.file_name });
+      if (!a.category_id) return;
+      // De-dup por document_id (mesmo doc pode aparecer em > 1 evento no Master view se categoria repetida)
+      if (!m[a.category_id]) m[a.category_id] = [];
+      if (!m[a.category_id].some((x) => x.document_id === a.document_id)) {
+        m[a.category_id].push({ kind: a.kind, document_id: a.document_id, file_name: a.file_name });
+      }
     });
     return m;
   }, [bpAttachmentsRaw]);
+
 
   const openBpAttachment = async (kind: string, documentId: string) => {
     try {
@@ -650,8 +657,8 @@ export default function PartnerEventDetail() {
       return { l1: gp || null, l2: parent, l3: cat };
     };
 
-    type Item = { id: string; description: string; specification: string | null; amount: number; viaMaster?: boolean };
-    type L3G = { code: string; name: string; items: Item[]; total: number };
+    type Item = { id: string; description: string; specification: string | null; amount: number; viaMaster?: boolean; formalidade?: string | null };
+    type L3G = { id: string | null; code: string; name: string; items: Item[]; total: number };
     type L2G = { code: string; name: string; l3Groups: L3G[]; total: number };
     type L1G = { code: string; name: string; l2Groups: L2G[]; total: number };
 
@@ -664,17 +671,19 @@ export default function PartnerEventDetail() {
       const l2Code = chain.l2?.code ?? chain.l1?.code ?? "Z.Z";
       const l3Name = chain.l3?.name ?? chain.l2?.name ?? chain.l1?.name ?? (f.description || "—");
       const l3Code = chain.l3?.code ?? chain.l2?.code ?? chain.l1?.code ?? "";
+      const l3Id = (chain.l3?.id ?? chain.l2?.id ?? chain.l1?.id ?? f.category_id ?? null) as string | null;
       const grossAmount = calcTotalWithIva(Number(f.amount || 0), Number(f.iva_rate || 0));
       if (!l1Map[l1Name]) l1Map[l1Name] = { code: l1Code, name: l1Name, l2Groups: [], total: 0 };
       let l2 = l1Map[l1Name].l2Groups.find((g) => g.name === l2Name);
       if (!l2) { l2 = { code: l2Code, name: l2Name, l3Groups: [], total: 0 }; l1Map[l1Name].l2Groups.push(l2); }
       let l3 = l2.l3Groups.find((g) => g.name === l3Name);
-      if (!l3) { l3 = { code: l3Code, name: l3Name, items: [], total: 0 }; l2.l3Groups.push(l3); }
-      l3.items.push({ id: f.id, description: f.description || "—", specification: (f.specification ?? null), amount: grossAmount, viaMaster: !!f._viaMaster });
+      if (!l3) { l3 = { id: l3Id, code: l3Code, name: l3Name, items: [], total: 0 }; l2.l3Groups.push(l3); }
+      l3.items.push({ id: f.id, description: f.description || "—", specification: (f.specification ?? null), amount: grossAmount, viaMaster: !!f._viaMaster, formalidade: f.formalidade ?? null });
       l3.total += grossAmount;
       l2.total += grossAmount;
       l1Map[l1Name].total += grossAmount;
     });
+
 
     return Object.values(l1Map)
       .map((g) => ({
@@ -1071,60 +1080,68 @@ export default function PartnerEventDetail() {
                             <span className="text-[11px] font-semibold text-muted-foreground">{l2.code} · {l2.name}</span>
                             <span className="text-[11px] font-semibold font-mono text-amber-500">{formatCurrency(l2.total)}</span>
                           </div>
-                          {l2.l3Groups.map((l3) => (
+                          {l2.l3Groups.map((l3) => {
+                            const l3Atts = l3.id ? (bpAttachmentsByCategory[l3.id] ?? []) : [];
+                            return (
                             <div key={l3.name}>
-                              <div className="px-4 pl-12 py-1 flex items-center justify-between border-b border-border/20 bg-muted/5">
-                                <span className="text-[11px] font-semibold text-foreground">{l3.code} · {l3.name}</span>
-                                <span className="text-[11px] font-semibold font-mono text-amber-500">{formatCurrency(l3.total)}</span>
-                              </div>
-                              {l3.items.map((it) => {
-                                const atts = bpAttachmentsByForecast[it.id] ?? [];
-                                return (
-                                  <div key={it.id} className="flex items-center justify-between px-4 pl-16 py-1.5 border-b border-border/15 gap-2">
-                                    <span className="text-xs flex-1 min-w-0 truncate">
-                                      {it.description}
-                                      {it.specification && (
-                                        <span className="text-muted-foreground italic ml-1.5">· {it.specification}</span>
-                                      )}
-                                    </span>
-                                    {atts.length > 0 && (
-                                      <Popover>
-                                        <PopoverTrigger asChild>
+                              <div className="px-4 pl-12 py-1 flex items-center justify-between border-b border-border/20 bg-muted/5 gap-2">
+                                <span className="text-[11px] font-semibold text-foreground flex-1 min-w-0 truncate">{l3.code} · {l3.name}</span>
+                                {l3Atts.length > 0 && (
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <button
+                                        type="button"
+                                        className="inline-flex items-center gap-1 rounded p-1 text-primary hover:bg-primary/10 transition-colors"
+                                        title={`${l3Atts.length} anexo(s) na rubrica ${l3.name}`}
+                                      >
+                                        <Paperclip className="h-3.5 w-3.5" />
+                                        <span className="text-[10px] font-semibold">{l3Atts.length}</span>
+                                      </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="left" align="end" className="w-80 p-2">
+                                      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                        {l3.code} · {l3.name} — {l3Atts.length} anexo(s)
+                                      </p>
+                                      <div className="space-y-1 max-h-72 overflow-y-auto">
+                                        {l3Atts.map((a) => (
                                           <button
+                                            key={a.document_id}
                                             type="button"
-                                            className="inline-flex items-center gap-1 rounded p-1 text-primary hover:bg-primary/10 transition-colors"
-                                            title={`${atts.length} anexo(s)`}
+                                            onClick={() => openBpAttachment(a.kind, a.document_id)}
+                                            className="flex items-center gap-2 w-full text-left rounded px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
                                           >
-                                            <Paperclip className="h-3.5 w-3.5" />
-                                            <span className="text-[10px] font-semibold">{atts.length}</span>
+                                            <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                            <span className="truncate flex-1">{a.file_name}</span>
                                           </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent side="left" align="end" className="w-72 p-2">
-                                          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                            Anexos ({atts.length})
-                                          </p>
-                                          <div className="space-y-1 max-h-60 overflow-y-auto">
-                                            {atts.map((a) => (
-                                              <button
-                                                key={a.document_id}
-                                                type="button"
-                                                onClick={() => openBpAttachment(a.kind, a.document_id)}
-                                                className="flex items-center gap-2 w-full text-left rounded px-2 py-1.5 text-xs hover:bg-muted/50 transition-colors"
-                                              >
-                                                <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                                <span className="truncate flex-1">{a.file_name}</span>
-                                              </button>
-                                            ))}
-                                          </div>
-                                        </PopoverContent>
-                                      </Popover>
+                                        ))}
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                )}
+                                <span className="text-[11px] font-semibold font-mono text-amber-500 whitespace-nowrap">{formatCurrency(l3.total)}</span>
+                              </div>
+                              {l3.items.map((it) => (
+                                <div key={it.id} className="flex items-center justify-between px-4 pl-16 py-1.5 border-b border-border/15 gap-2">
+                                  <span className="text-xs flex-1 min-w-0 truncate">
+                                    {it.description}
+                                    {it.specification && (
+                                      <span className="text-muted-foreground italic ml-1.5">· {it.specification}</span>
                                     )}
-                                    <span className="text-xs font-mono font-semibold whitespace-nowrap text-amber-500">{formatCurrency(it.amount)}</span>
-                                  </div>
-                                );
-                              })}
+                                  </span>
+                                  <FormalidadeBadge
+                                    forecastId={it.id}
+                                    eventId={activeEventId!}
+                                    current={(it.formalidade ?? "estimado") as any}
+                                    readOnly
+                                    compact
+                                  />
+                                  <span className="text-xs font-mono font-semibold whitespace-nowrap text-amber-500">{formatCurrency(it.amount)}</span>
+                                </div>
+                              ))}
                             </div>
-                          ))}
+                            );
+                          })}
+
                         </div>
                       ))}
                     </div>
