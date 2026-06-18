@@ -45,15 +45,16 @@ function getCountryName(code: string): string {
 type RankRow = { key: string; label: string; count: number; pct: number; isNoLoc: boolean };
 
 function buildRanking(
-  items: Array<{ key: string; label: string; isNoLoc: boolean }>,
+  items: Array<{ key: string; label: string; isNoLoc: boolean; count?: number }>,
   total: number,
   maxRows = 8,
 ): RankRow[] {
   const counts = new Map<string, { label: string; count: number; isNoLoc: boolean }>();
   for (const it of items) {
+    const inc = it.count ?? 1;
     const cur = counts.get(it.key);
-    if (cur) cur.count += 1;
-    else counts.set(it.key, { label: it.label, count: 1, isNoLoc: it.isNoLoc });
+    if (cur) cur.count += inc;
+    else counts.set(it.key, { label: it.label, count: inc, isNoLoc: it.isNoLoc });
   }
   const sorted = [...counts.entries()]
     .map(([key, v]) => ({ key, ...v }))
@@ -167,47 +168,34 @@ export default function CrmDashboard() {
     refetchOnMount: "always",
   });
 
-  const { data: leadGeo } = useQuery({
-    queryKey: ["crm-stats", "leads-geo"],
+  const { data: geoStats } = useQuery({
+    queryKey: ["crm-stats", "leads-geo", geoPeriod],
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
-    queryFn: async (): Promise<Array<{ geo_country: string | null; geo_city: string | null; created_at: string | null }>> => {
+    queryFn: async (): Promise<{ total: number; by_country: Array<{ key: string; count: number }>; by_city: Array<{ key: string; count: number }> }> => {
       try {
-        const { data, error } = await (supabase as any)
-          .from("leads")
-          .select("geo_country, geo_city, created_at")
-          .limit(10000);
-        if (error) return [];
-        return (data ?? []) as Array<{ geo_country: string | null; geo_city: string | null; created_at: string | null }>;
+        const { data, error } = await (supabase as any).rpc("get_leads_geo_stats", {
+          p_period: geoPeriod === "30d" ? "30d" : "all",
+        });
+        if (error) return { total: 0, by_country: [], by_city: [] };
+        return (data as any) ?? { total: 0, by_country: [], by_city: [] };
       } catch {
-        return [];
+        return { total: 0, by_country: [], by_city: [] };
       }
     },
   });
 
   const { countryRows, cityRows, total } = useMemo(() => {
-    const all = leadGeo ?? [];
-    const cutoff = Date.now() - 30 * 24 * 3600 * 1000;
-    const rows = geoPeriod === "30d"
-      ? all.filter((r) => {
-          if (!r.created_at) return false;
-          const t = new Date(r.created_at).getTime();
-          return Number.isFinite(t) && t >= cutoff;
-        })
-      : all;
-    const total = rows.length;
-
-    const countryItems = rows.map((r) => {
-      const code = (r.geo_country ?? "").trim();
-      if (!code) return { key: "__none__", label: NO_LOC_LABEL, isNoLoc: true };
-      const up = code.toUpperCase();
-      return { key: up, label: getCountryName(up), isNoLoc: false };
+    const total = geoStats?.total ?? 0;
+    const countryItems = (geoStats?.by_country ?? []).map((r) => {
+      if (r.key === "__none__") return { key: "__none__", label: NO_LOC_LABEL, isNoLoc: true, count: r.count };
+      const up = r.key.toUpperCase();
+      return { key: up, label: getCountryName(up), isNoLoc: false, count: r.count };
     });
-    const cityItems = rows.map((r) => {
-      const city = (r.geo_city ?? "").trim();
-      if (!city) return { key: "__none__", label: NO_LOC_LABEL, isNoLoc: true };
-      return { key: city.toLowerCase(), label: city, isNoLoc: false };
+    const cityItems = (geoStats?.by_city ?? []).map((r) => {
+      if (r.key === "__none__") return { key: "__none__", label: NO_LOC_LABEL, isNoLoc: true, count: r.count };
+      return { key: r.key.toLowerCase(), label: r.key, isNoLoc: false, count: r.count };
     });
 
     return {
@@ -215,7 +203,7 @@ export default function CrmDashboard() {
       countryRows: buildRanking(countryItems, total),
       cityRows: buildRanking(cityItems, total),
     };
-  }, [leadGeo, geoPeriod]);
+  }, [geoStats]);
 
   const stats: Stat[] = [
     { to: "/crm/eventos", key: "events", label: "Eventos com Marketing", icon: CalendarDays, value: eventsMk ?? null },

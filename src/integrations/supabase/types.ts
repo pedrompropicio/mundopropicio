@@ -10336,6 +10336,7 @@ export type Database = {
           sum_realized: number
         }[]
       }
+      get_leads_geo_stats: { Args: { p_period?: string }; Returns: Json }
       get_user_max_daily_budget_eur: {
         Args: { _user_id: string }
         Returns: number
