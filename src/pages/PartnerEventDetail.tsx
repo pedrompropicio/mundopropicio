@@ -24,6 +24,8 @@ import { exportPartnerBPPdf } from "@/lib/export-partner-bp-pdf";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PartnerFinancialCard } from "@/components/partner/PartnerFinancialCard";
+import { FormalidadeBadge } from "@/components/bp-versions/FormalidadeBadge";
+
 
 /** Resolve um file_url de transaction_documents em URL clicável.
  *  - ref://http(s)://… → link externo direto
