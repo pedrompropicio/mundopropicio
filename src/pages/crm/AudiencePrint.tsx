@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { formatMoney } from "@/lib/currency";
 import "./audience-print.css";
 
 const STORAGE_KEY = "audience-print-data";
