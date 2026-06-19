@@ -631,7 +631,7 @@ function AuditReportView({ context, generated_at, verdict, landing, funnel, pixe
                     {data.rows.slice(0, 30).map((r: any, i: number) => (
                       <tr key={i} style={{ borderBottom: "1px solid #e5e7eb" }}>
                         <td style={{ padding: 3 }}>{r.label}</td>
-                        <td style={{ padding: 3, textAlign: "right" }} className="mono">€{r.spend_eur}</td>
+                        <td style={{ padding: 3, textAlign: "right" }} className="mono">{formatEur(Number(r.spend_eur), cur)}</td>
                         <td style={{ padding: 3, textAlign: "right" }} className="mono">{r.link_clicks}</td>
                         <td style={{ padding: 3, textAlign: "right" }} className="mono">{r.lpv}</td>
                         <td style={{ padding: 3, textAlign: "right" }} className="mono">{r.atc}</td>
