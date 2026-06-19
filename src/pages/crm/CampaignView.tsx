@@ -6,6 +6,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import { pt } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { formatMoney } from "@/lib/currency";
+import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -420,6 +421,7 @@ function aggregateTargeting(adsets: AdsetSnap[]) {
 
 export default function CrmCampaignView() {
   const { id } = useParams<{ id: string }>(); // external_campaign_id
+  const displayCurrency = useDisplayCurrency();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [toggling, setToggling] = useState(false);
@@ -651,9 +653,9 @@ export default function CrmCampaignView() {
     const revenue = rows.reduce((s, r) => s + (r.purchases_value_cents ?? 0), 0);
     const conversions = rows.reduce((s, r) => s + (r.purchases_count ?? 0), 0);
     const roas = spend > 0 ? revenue / spend : null;
-    const currency = rows.find((r) => r.currency)?.currency ?? "EUR";
+    const currency = rows.find((r) => r.currency)?.currency ?? displayCurrency;
     return { spend, revenue, conversions, roas, currency };
-  }, [insights]);
+  }, [insights, displayCurrency]);
 
   const targeting = useMemo(() => aggregateTargeting(adsets ?? []), [adsets]);
 
@@ -1381,7 +1383,7 @@ export default function CrmCampaignView() {
             </div>
           ) : !surgicalData ? null : (() => {
             const s = surgicalData.summary;
-            const cur = s.currency ?? "EUR";
+            const cur = s.currency ?? displayCurrency;
             const executable = surgicalData.proposed_actions.filter((a) => a.executable && !a.blocked);
             const selectedCount = executable.filter((a) => selectedActions.has(a.action_index)).length;
             return (

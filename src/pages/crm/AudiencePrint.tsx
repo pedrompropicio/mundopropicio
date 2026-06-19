@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { formatMoney } from "@/lib/currency";
+import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
 import "./audience-print.css";
 
 const STORAGE_KEY = "audience-print-data";
@@ -246,8 +247,9 @@ function CampaignAnalysisView({ analyzeData }: { analyzeData: any }) {
   const m = analyzeData.metrics ?? {};
   const f = analyzeData.funnel ?? {};
   const p = analyzeData.period ?? {};
-  // Moeda segue o ad account; cai para EUR se não vier no payload.
-  const cur: string = m.currency ?? c.currency ?? analyzeData.currency ?? "EUR";
+  // Moeda segue o ad account; senão cai para a empresa ativa, e só por último "EUR".
+  const displayCurrency = useDisplayCurrency();
+  const cur: string = m.currency ?? c.currency ?? analyzeData.currency ?? displayCurrency;
 
   const verdictCls = a.verdict === "excelente" || a.verdict === "bom" ? "success" : a.verdict === "regular" ? "warn" : "danger";
   const verdictBadge = a.verdict === "excelente" || a.verdict === "bom" ? "success" : a.verdict === "regular" ? "medium" : "danger";
@@ -486,8 +488,9 @@ function AuditReportView({ context, generated_at, verdict, landing, funnel, pixe
     if (s === "landing" || s === "mixed") return "warn";
     return "danger";
   };
-  // Audit pode futuramente trazer currency no context; default EUR mantém comportamento atual.
-  const cur: string = context?.currency ?? "EUR";
+  // Audit pode futuramente trazer currency no context; senão cai para a empresa ativa.
+  const displayCurrency = useDisplayCurrency();
+  const cur: string = context?.currency ?? displayCurrency;
   return (
     <>
       <h1>Auditoria técnica — {context.title}</h1>
