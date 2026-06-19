@@ -246,6 +246,8 @@ function CampaignAnalysisView({ analyzeData }: { analyzeData: any }) {
   const m = analyzeData.metrics ?? {};
   const f = analyzeData.funnel ?? {};
   const p = analyzeData.period ?? {};
+  // Moeda segue o ad account; cai para EUR se não vier no payload.
+  const cur: string = m.currency ?? c.currency ?? analyzeData.currency ?? "EUR";
 
   const verdictCls = a.verdict === "excelente" || a.verdict === "bom" ? "success" : a.verdict === "regular" ? "warn" : "danger";
   const verdictBadge = a.verdict === "excelente" || a.verdict === "bom" ? "success" : a.verdict === "regular" ? "medium" : "danger";
