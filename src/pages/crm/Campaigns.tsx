@@ -2772,12 +2772,12 @@ export default function CrmCampaigns() {
                                 <div className="text-[10px] text-muted-foreground/80 font-mono">
                                   {c.before_jsonb?.status ?? "?"} → {c.after_jsonb?.status ?? "?"}
                                   {c.before_jsonb?.daily_budget_cents !== c.after_jsonb?.daily_budget_cents && (
-                                    <> · budget {((c.before_jsonb?.daily_budget_cents ?? 0) / 100).toFixed(2)}€ → {((c.after_jsonb?.daily_budget_cents ?? 0) / 100).toFixed(2)}€</>
+                                    <> · budget {formatMoney(c.before_jsonb?.daily_budget_cents ?? 0, currency, { fromCents: true })} → {formatMoney(c.after_jsonb?.daily_budget_cents ?? 0, currency, { fromCents: true })}</>
                                   )}
                                 </div>
                                 {impact ? (
                                   <p className="text-emerald-400 mt-1">
-                                    Impacto D+7: ΔROAS {(impact.roas_abs ?? 0).toFixed(2)}x · ΔSpend €{(impact.spend_eur ?? 0).toFixed(2)} · ΔPurchases {impact.purchases_abs ?? 0}
+                                    Impacto D+7: ΔROAS {(impact.roas_abs ?? 0).toFixed(2)}x · ΔSpend {formatMoney(impact.spend_eur ?? 0, currency)} · ΔPurchases {impact.purchases_abs ?? 0}
                                   </p>
                                 ) : c.measure_impact_requested ? (
                                   <p className="text-muted-foreground/70 mt-1">A aguardar medição de impacto (D+7)…</p>
