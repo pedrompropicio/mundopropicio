@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { MoneyInput } from "@/components/ui/money-input";
 import { formatMoney } from "@/lib/currency";
+import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
 
 interface Props {
   open: boolean;
@@ -44,7 +45,8 @@ export function EditAdsetBudgetDialog({
   const initialEur = (adset.daily_budget_cents ?? 0) / 100;
   const [valueEur, setValueEur] = useState<number>(initialEur);
   const [saving, setSaving] = useState(false);
-  const currency = adset.currency ?? "EUR";
+  const displayCurrency = useDisplayCurrency();
+  const currency = adset.currency ?? displayCurrency;
 
   // Re-sincroniza ao reabrir com outro adset
   function handleOpenChange(v: boolean) {
