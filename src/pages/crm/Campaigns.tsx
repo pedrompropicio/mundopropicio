@@ -58,6 +58,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency";
 
 // ============================================================
 // Types
