@@ -382,7 +382,7 @@ export function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: (
       const attemptedEur = updates.daily_budget_cents / 100;
       if (attemptedEur > capEur) {
         toast.error("Verba diária excede o limite", {
-          description: `Verba diária €${attemptedEur} excede o limite de €${capEur}/dia para o teu role. Pede revisão a um admin.`,
+          description: `Verba diária ${formatMoney(attemptedEur, c.currency)} excede o limite de ${formatMoney(capEur, c.currency)}/dia para o teu role. Pede revisão a um admin.`,
         });
         return;
       }
