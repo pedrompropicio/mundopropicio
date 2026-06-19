@@ -445,7 +445,7 @@ export function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: (
             <Input id={`edit-name-${c.id}`} value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor={`edit-daily-${c.id}`} className="text-xs">Verba diária (€)</Label>
+            <Label htmlFor={`edit-daily-${c.id}`} className="text-xs">Verba diária ({c.currency ?? "EUR"})</Label>
             <Input
               id={`edit-daily-${c.id}`}
               type="number"
@@ -459,7 +459,7 @@ export function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: (
             ) : capEur === 0 ? (
               <p className="text-[11px] text-destructive">Sem autoridade para alterar verba</p>
             ) : typeof capEur === "number" ? (
-              <p className="text-[11px] text-muted-foreground">Limite: €{capEur}/dia</p>
+              <p className="text-[11px] text-muted-foreground">Limite: {formatMoney(capEur, c.currency)}/dia</p>
             ) : null}
           </div>
           <div className="space-y-1">
