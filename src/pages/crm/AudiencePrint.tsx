@@ -276,11 +276,11 @@ function CampaignAnalysisView({ analyzeData }: { analyzeData: any }) {
         </div>
         <div className="stat-box">
           <div className="label">Gasto</div>
-          <div className="value">{formatEur(m.spend_eur)}</div>
+          <div className="value">{formatEur(m.spend_eur, cur)}</div>
         </div>
         <div className="stat-box">
           <div className="label">Receita</div>
-          <div className="value" style={{ color: "#059669" }}>{formatEur(m.revenue_eur)}</div>
+          <div className="value" style={{ color: "#059669" }}>{formatEur(m.revenue_eur, cur)}</div>
         </div>
         <div className="stat-box">
           <div className="label">Conversões</div>
@@ -296,9 +296,9 @@ function CampaignAnalysisView({ analyzeData }: { analyzeData: any }) {
       </div>
 
       <div className="grid grid-3" style={{ marginTop: 8 }}>
-        <div className="stat-box"><div className="label">CPC médio</div><div className="value">{formatEur(m.cpc_eur)}</div></div>
+        <div className="stat-box"><div className="label">CPC médio</div><div className="value">{formatEur(m.cpc_eur, cur)}</div></div>
         <div className="stat-box"><div className="label">Frequência</div><div className="value">{m.frequency != null ? m.frequency.toFixed(2) : "—"}</div></div>
-        <div className="stat-box"><div className="label">CPM</div><div className="value">{m.impressions > 0 ? formatEur((m.spend_eur ?? 0) / (m.impressions / 1000)) : "—"}</div></div>
+        <div className="stat-box"><div className="label">CPM</div><div className="value">{m.impressions > 0 ? formatEur((m.spend_eur ?? 0) / (m.impressions / 1000), cur) : "—"}</div></div>
       </div>
 
       {(f.view_content > 0 || f.purchases > 0 || f.add_to_cart > 0) && (
