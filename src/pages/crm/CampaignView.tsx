@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { pt } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
+import { formatMoney } from "@/lib/currency";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -207,10 +208,8 @@ interface ProfileRow {
 }
 
 // ── Helpers de formatação ───────────────────────────────────────────────────
-const eur = (cents: number | null | undefined, currency = "EUR") =>
-  cents == null
-    ? "—"
-    : new Intl.NumberFormat("pt-PT", { style: "currency", currency }).format(cents / 100);
+const eur = (cents: number | null | undefined, currency?: string | null) =>
+  cents == null ? "—" : formatMoney(cents, currency, { fromCents: true });
 const intFmt = (n: number | null | undefined) =>
   n == null ? "—" : new Intl.NumberFormat("pt-PT").format(n);
 const dateFmt = (s: string | null) =>
@@ -1423,7 +1422,7 @@ export default function CrmCampaignView() {
                     </>
                   )}
                   <Badge variant="outline" className="border-border">
-                    Cap: {s.cap_eur == null ? "sem limite" : `€${s.cap_eur}/dia`}
+                    Cap: {s.cap_eur == null ? "sem limite" : `${formatMoney(s.cap_eur, cur)}/dia`}
                   </Badge>
                   {s.learning_adsets_count > 0 && (
                     <Badge variant="outline" className="border-sky-500/40 text-sky-300 bg-sky-500/10">

@@ -58,6 +58,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency";
 
 // ============================================================
 // Types
@@ -135,17 +136,11 @@ import { periodFromMode } from "@/lib/crm/period";
 // ============================================================
 // Helpers
 // ============================================================
-function formatCurrency(cents: number | null | undefined, currency = "EUR"): string {
+function formatCurrency(cents: number | null | undefined, currency?: string | null): string {
   if (cents === null || cents === undefined || Number.isNaN(cents)) return "—";
-  try {
-    return new Intl.NumberFormat("pt-PT", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 2,
-    }).format(cents / 100);
-  } catch {
-    return `${(cents / 100).toFixed(2)} ${currency}`;
-  }
+  // Canonical formatter: locale derives from currency (BRL→pt-BR, etc).
+  // Falls back to EUR when currency is missing (preserves legacy output).
+  return formatMoney(cents, currency, { fromCents: true });
 }
 function formatCompact(n: number | null | undefined): string {
   if (n === null || n === undefined) return "—";
@@ -387,7 +382,7 @@ export function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: (
       const attemptedEur = updates.daily_budget_cents / 100;
       if (attemptedEur > capEur) {
         toast.error("Verba diária excede o limite", {
-          description: `Verba diária €${attemptedEur} excede o limite de €${capEur}/dia para o teu role. Pede revisão a um admin.`,
+          description: `Verba diária ${formatMoney(attemptedEur, c.currency)} excede o limite de ${formatMoney(capEur, c.currency)}/dia para o teu role. Pede revisão a um admin.`,
         });
         return;
       }
@@ -450,7 +445,7 @@ export function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: (
             <Input id={`edit-name-${c.id}`} value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor={`edit-daily-${c.id}`} className="text-xs">Verba diária (€)</Label>
+            <Label htmlFor={`edit-daily-${c.id}`} className="text-xs">Verba diária ({c.currency ?? "EUR"})</Label>
             <Input
               id={`edit-daily-${c.id}`}
               type="number"
@@ -464,7 +459,7 @@ export function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: (
             ) : capEur === 0 ? (
               <p className="text-[11px] text-destructive">Sem autoridade para alterar verba</p>
             ) : typeof capEur === "number" ? (
-              <p className="text-[11px] text-muted-foreground">Limite: €{capEur}/dia</p>
+              <p className="text-[11px] text-muted-foreground">Limite: {formatMoney(capEur, c.currency)}/dia</p>
             ) : null}
           </div>
           <div className="space-y-1">
@@ -2777,12 +2772,12 @@ export default function CrmCampaigns() {
                                 <div className="text-[10px] text-muted-foreground/80 font-mono">
                                   {c.before_jsonb?.status ?? "?"} → {c.after_jsonb?.status ?? "?"}
                                   {c.before_jsonb?.daily_budget_cents !== c.after_jsonb?.daily_budget_cents && (
-                                    <> · budget {((c.before_jsonb?.daily_budget_cents ?? 0) / 100).toFixed(2)}€ → {((c.after_jsonb?.daily_budget_cents ?? 0) / 100).toFixed(2)}€</>
+                                    <> · budget {formatMoney(c.before_jsonb?.daily_budget_cents ?? 0, currency, { fromCents: true })} → {formatMoney(c.after_jsonb?.daily_budget_cents ?? 0, currency, { fromCents: true })}</>
                                   )}
                                 </div>
                                 {impact ? (
                                   <p className="text-emerald-400 mt-1">
-                                    Impacto D+7: ΔROAS {(impact.roas_abs ?? 0).toFixed(2)}x · ΔSpend €{(impact.spend_eur ?? 0).toFixed(2)} · ΔPurchases {impact.purchases_abs ?? 0}
+                                    Impacto D+7: ΔROAS {(impact.roas_abs ?? 0).toFixed(2)}x · ΔSpend {formatMoney(impact.spend_eur ?? 0, currency)} · ΔPurchases {impact.purchases_abs ?? 0}
                                   </p>
                                 ) : c.measure_impact_requested ? (
                                   <p className="text-muted-foreground/70 mt-1">A aguardar medição de impacto (D+7)…</p>
@@ -2966,7 +2961,7 @@ export default function CrmCampaigns() {
             </div>
             {!rdKeepBudget && (
               <div className="space-y-1.5">
-                <Label htmlFor="rd-daily" className="text-xs">Verba diária (€)</Label>
+                <Label htmlFor="rd-daily" className="text-xs">Verba diária ({currency})</Label>
                 <Input
                   id="rd-daily"
                   type="number"

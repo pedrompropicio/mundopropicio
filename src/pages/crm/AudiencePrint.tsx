@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { formatMoney } from "@/lib/currency";
 import "./audience-print.css";
 
 const STORAGE_KEY = "audience-print-data";
@@ -24,9 +25,11 @@ function loadPayload(expectedType: string): StoredPayload | null {
   }
 }
 
-function formatEur(v: number | null | undefined): string {
+function formatEur(v: number | null | undefined, currency?: string | null): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return "—";
-  return new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(v);
+  // Mantém nome legacy "formatEur" para compatibilidade; passa currency do ad
+  // account quando disponível (regra: moeda segue o ad account).
+  return formatMoney(v, currency);
 }
 function formatNum(v: number | null | undefined): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return "—";
@@ -243,6 +246,8 @@ function CampaignAnalysisView({ analyzeData }: { analyzeData: any }) {
   const m = analyzeData.metrics ?? {};
   const f = analyzeData.funnel ?? {};
   const p = analyzeData.period ?? {};
+  // Moeda segue o ad account; cai para EUR se não vier no payload.
+  const cur: string = m.currency ?? c.currency ?? analyzeData.currency ?? "EUR";
 
   const verdictCls = a.verdict === "excelente" || a.verdict === "bom" ? "success" : a.verdict === "regular" ? "warn" : "danger";
   const verdictBadge = a.verdict === "excelente" || a.verdict === "bom" ? "success" : a.verdict === "regular" ? "medium" : "danger";
@@ -271,11 +276,11 @@ function CampaignAnalysisView({ analyzeData }: { analyzeData: any }) {
         </div>
         <div className="stat-box">
           <div className="label">Gasto</div>
-          <div className="value">{formatEur(m.spend_eur)}</div>
+          <div className="value">{formatEur(m.spend_eur, cur)}</div>
         </div>
         <div className="stat-box">
           <div className="label">Receita</div>
-          <div className="value" style={{ color: "#059669" }}>{formatEur(m.revenue_eur)}</div>
+          <div className="value" style={{ color: "#059669" }}>{formatEur(m.revenue_eur, cur)}</div>
         </div>
         <div className="stat-box">
           <div className="label">Conversões</div>
@@ -291,9 +296,9 @@ function CampaignAnalysisView({ analyzeData }: { analyzeData: any }) {
       </div>
 
       <div className="grid grid-3" style={{ marginTop: 8 }}>
-        <div className="stat-box"><div className="label">CPC médio</div><div className="value">{formatEur(m.cpc_eur)}</div></div>
+        <div className="stat-box"><div className="label">CPC médio</div><div className="value">{formatEur(m.cpc_eur, cur)}</div></div>
         <div className="stat-box"><div className="label">Frequência</div><div className="value">{m.frequency != null ? m.frequency.toFixed(2) : "—"}</div></div>
-        <div className="stat-box"><div className="label">CPM</div><div className="value">{m.impressions > 0 ? formatEur((m.spend_eur ?? 0) / (m.impressions / 1000)) : "—"}</div></div>
+        <div className="stat-box"><div className="label">CPM</div><div className="value">{m.impressions > 0 ? formatEur((m.spend_eur ?? 0) / (m.impressions / 1000), cur) : "—"}</div></div>
       </div>
 
       {(f.view_content > 0 || f.purchases > 0 || f.add_to_cart > 0) && (
@@ -481,6 +486,8 @@ function AuditReportView({ context, generated_at, verdict, landing, funnel, pixe
     if (s === "landing" || s === "mixed") return "warn";
     return "danger";
   };
+  // Audit pode futuramente trazer currency no context; default EUR mantém comportamento atual.
+  const cur: string = context?.currency ?? "EUR";
   return (
     <>
       <h1>Auditoria técnica — {context.title}</h1>
@@ -624,7 +631,7 @@ function AuditReportView({ context, generated_at, verdict, landing, funnel, pixe
                     {data.rows.slice(0, 30).map((r: any, i: number) => (
                       <tr key={i} style={{ borderBottom: "1px solid #e5e7eb" }}>
                         <td style={{ padding: 3 }}>{r.label}</td>
-                        <td style={{ padding: 3, textAlign: "right" }} className="mono">€{r.spend_eur}</td>
+                        <td style={{ padding: 3, textAlign: "right" }} className="mono">{formatEur(Number(r.spend_eur), cur)}</td>
                         <td style={{ padding: 3, textAlign: "right" }} className="mono">{r.link_clicks}</td>
                         <td style={{ padding: 3, textAlign: "right" }} className="mono">{r.lpv}</td>
                         <td style={{ padding: 3, textAlign: "right" }} className="mono">{r.atc}</td>
