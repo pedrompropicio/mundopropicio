@@ -486,6 +486,8 @@ function AuditReportView({ context, generated_at, verdict, landing, funnel, pixe
     if (s === "landing" || s === "mixed") return "warn";
     return "danger";
   };
+  // Audit pode futuramente trazer currency no context; default EUR mantém comportamento atual.
+  const cur: string = context?.currency ?? "EUR";
   return (
     <>
       <h1>Auditoria técnica — {context.title}</h1>
