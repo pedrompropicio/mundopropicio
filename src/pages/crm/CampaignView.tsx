@@ -208,10 +208,8 @@ interface ProfileRow {
 }
 
 // ── Helpers de formatação ───────────────────────────────────────────────────
-const eur = (cents: number | null | undefined, currency = "EUR") =>
-  cents == null
-    ? "—"
-    : new Intl.NumberFormat("pt-PT", { style: "currency", currency }).format(cents / 100);
+const eur = (cents: number | null | undefined, currency?: string | null) =>
+  cents == null ? "—" : formatMoney(cents, currency, { fromCents: true });
 const intFmt = (n: number | null | undefined) =>
   n == null ? "—" : new Intl.NumberFormat("pt-PT").format(n);
 const dateFmt = (s: string | null) =>
