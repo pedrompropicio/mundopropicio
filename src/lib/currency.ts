@@ -26,6 +26,42 @@ export function formatInCurrency(value: number, code: CurrencyCode): string {
   return new Intl.NumberFormat(meta.locale, { style: "currency", currency: code }).format(value);
 }
 
+/**
+ * Canonical money formatter for the whole app.
+ *
+ * Rule (MP CRM / MP Audience): the displayed currency must follow the
+ * AD ACCOUNT (never hardcode "EUR"). Thin wrapper around Intl.NumberFormat
+ * that derives a sensible locale from the currency code (BRL → pt-BR,
+ * USD → en-US, default pt-PT) unless `opts.locale` overrides it.
+ *
+ * Does NOT convert values (no FX). `opts.fromCents` divides by 100 for fields
+ * stored as cents (Meta insights' `spend_cents`, `purchases_value_cents`, …).
+ *
+ * Backward-compat: if `currency` is empty/undefined falls back to "EUR" so
+ * old call sites without an ad-account context render exactly as before.
+ */
+export function formatMoney(
+  value: number | null | undefined,
+  currency: string | null | undefined,
+  opts: { locale?: string; fromCents?: boolean; maximumFractionDigits?: number } = {},
+): string {
+  if (value === null || value === undefined || Number.isNaN(value as number)) return "—";
+  const code = (currency && currency.trim()) || "EUR";
+  const fallbackLocale =
+    code === "BRL" ? "pt-BR" : code === "USD" ? "en-US" : "pt-PT";
+  const locale = opts.locale ?? fallbackLocale;
+  const amount = opts.fromCents ? (value as number) / 100 : (value as number);
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: code,
+      maximumFractionDigits: opts.maximumFractionDigits ?? 2,
+    }).format(amount);
+  } catch {
+    return `${amount.toFixed(2)} ${code}`;
+  }
+}
+
 /** Convert an original amount to EUR using fx_rate (1 unit of currency = fx_rate EUR). */
 export function convertToEur(originalAmount: number, fxRate: number): number {
   return Math.round(originalAmount * fxRate * 100) / 100;
