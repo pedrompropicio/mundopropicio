@@ -45,6 +45,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRoleBudgetCap } from "@/hooks/useRoleBudgetCap";
 import { useCompany } from "@/hooks/useCompany";
+import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
 import { useAdAccountSelection } from "@/hooks/useAdAccountSelection";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -1358,6 +1359,7 @@ export default function CrmCampaigns() {
   const { companyId, isLoading: companyLoading } = useCompany();
   const qc = useQueryClient();
   const { active } = useAdAccountSelection();
+  const displayCurrency = useDisplayCurrency();
 
   const [period, setPeriod] = useState<PeriodState>(periodFromMode("30d"));
   const [customRange, setCustomRange] = useState<{ from?: Date; to?: Date }>({});
@@ -1631,7 +1633,8 @@ export default function CrmCampaigns() {
   // ---------- Active ad account (multi-account support) ----------
   const adAccountId = active?.ad_account_id ?? null;
   const connectionId = active?.connection_id ?? null;
-  const currency = active?.ad_account_currency || "EUR";
+  // Hierarquia: ad account → empresa ativa → "EUR" (defesa em profundidade no formatMoney).
+  const currency = active?.ad_account_currency || displayCurrency;
 
   // ---------- Toggle status (Pause/Activate) ----------
   const [togglingCampaignId, setTogglingCampaignId] = useState<string | null>(null);
