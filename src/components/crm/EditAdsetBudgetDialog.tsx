@@ -126,7 +126,7 @@ export function EditAdsetBudgetDialog({
               disabled={saving}
             />
             <p className="text-[11px] text-muted-foreground">
-              Valor atual: {new Intl.NumberFormat("pt-PT", { style: "currency", currency }).format(initialEur)}
+              Valor atual: {formatMoney(initialEur, currency)}
             </p>
           </div>
         </div>
