@@ -81,7 +81,7 @@ export function EditAdsetBudgetDialog({
           try {
             const b = await (ctx.clone ? ctx.clone() : ctx).json();
             if (b?.error === "budget_cap_exceeded") {
-              detail = `Excede o teu limite (€${b.cap_eur}/dia). Tentaste €${b.attempted_eur}.`;
+              detail = `Excede o teu limite (${formatMoney(b.cap_eur, currency)}/dia). Tentaste ${formatMoney(b.attempted_eur, currency)}.`;
             } else if (b?.error === "no_budget_authority") {
               detail = "Não tens permissão para alterar orçamento.";
             } else {
