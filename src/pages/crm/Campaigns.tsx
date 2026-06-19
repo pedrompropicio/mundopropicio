@@ -135,17 +135,11 @@ import { periodFromMode } from "@/lib/crm/period";
 // ============================================================
 // Helpers
 // ============================================================
-function formatCurrency(cents: number | null | undefined, currency = "EUR"): string {
+function formatCurrency(cents: number | null | undefined, currency?: string | null): string {
   if (cents === null || cents === undefined || Number.isNaN(cents)) return "—";
-  try {
-    return new Intl.NumberFormat("pt-PT", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 2,
-    }).format(cents / 100);
-  } catch {
-    return `${(cents / 100).toFixed(2)} ${currency}`;
-  }
+  // Canonical formatter: locale derives from currency (BRL→pt-BR, etc).
+  // Falls back to EUR when currency is missing (preserves legacy output).
+  return formatMoney(cents, currency, { fromCents: true });
 }
 function formatCompact(n: number | null | undefined): string {
   if (n === null || n === undefined) return "—";
