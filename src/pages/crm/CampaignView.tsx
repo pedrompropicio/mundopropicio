@@ -1422,7 +1422,7 @@ export default function CrmCampaignView() {
                     </>
                   )}
                   <Badge variant="outline" className="border-border">
-                    Cap: {s.cap_eur == null ? "sem limite" : `€${s.cap_eur}/dia`}
+                    Cap: {s.cap_eur == null ? "sem limite" : `${formatMoney(s.cap_eur, cur)}/dia`}
                   </Badge>
                   {s.learning_adsets_count > 0 && (
                     <Badge variant="outline" className="border-sky-500/40 text-sky-300 bg-sky-500/10">
