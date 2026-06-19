@@ -25,9 +25,11 @@ function loadPayload(expectedType: string): StoredPayload | null {
   }
 }
 
-function formatEur(v: number | null | undefined): string {
+function formatEur(v: number | null | undefined, currency?: string | null): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return "—";
-  return new Intl.NumberFormat("pt-PT", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(v);
+  // Mantém nome legacy "formatEur" para compatibilidade; passa currency do ad
+  // account quando disponível (regra: moeda segue o ad account).
+  return formatMoney(v, currency);
 }
 function formatNum(v: number | null | undefined): string {
   if (v === null || v === undefined || !Number.isFinite(v)) return "—";
