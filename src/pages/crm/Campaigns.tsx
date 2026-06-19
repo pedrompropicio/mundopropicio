@@ -2961,7 +2961,7 @@ export default function CrmCampaigns() {
             </div>
             {!rdKeepBudget && (
               <div className="space-y-1.5">
-                <Label htmlFor="rd-daily" className="text-xs">Verba diária (€)</Label>
+                <Label htmlFor="rd-daily" className="text-xs">Verba diária ({currency})</Label>
                 <Input
                   id="rd-daily"
                   type="number"
