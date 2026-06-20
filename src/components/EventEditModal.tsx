@@ -6,6 +6,7 @@ import { toast } from "@/hooks/use-toast";
 import { CityVenueSelector } from "@/components/CityVenueSelector";
 import { DatePicker } from "@/components/ui/date-picker";
 import { formatDate } from "@/lib/mock-data";
+import { formatCityLabel } from "@/lib/country";
 
 interface EventEditModalProps {
   event: any;

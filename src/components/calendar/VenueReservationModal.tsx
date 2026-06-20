@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "sonner";
+import { formatCityLabel } from "@/lib/country";
 import { Plus, Pencil } from "lucide-react";
 
 interface EditReservation {
@@ -53,7 +54,7 @@ export function VenueReservationModal({ open, onOpenChange, defaultDate, editRes
   const { data: cities = [] } = useQuery({
     queryKey: ["calendar-cities"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("cities").select("id, name").order("name");
+      const { data, error } = await supabase.from("cities").select("id, name, state").order("name");
       if (error) throw error;
       return data;
     },
@@ -73,7 +74,7 @@ export function VenueReservationModal({ open, onOpenChange, defaultDate, editRes
     return venues.filter((v) => v.city_id === cityId);
   }, [venues, cityId]);
 
-  const cityOptions = cities.map((c) => ({ value: c.id, label: c.name }));
+  const cityOptions = cities.map((c: any) => ({ value: c.id, label: formatCityLabel(c.name, c.state) }));
   const venueOptions = filteredVenues.map((v) => ({ value: v.id, label: v.name }));
 
   const handleSave = async () => {
