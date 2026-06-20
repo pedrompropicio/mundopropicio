@@ -78,4 +78,4 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.crm-meta-diagnose-ig]
-verify_jwt = true
+verify_jwt = false
