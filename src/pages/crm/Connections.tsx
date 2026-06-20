@@ -43,8 +43,11 @@ const META_REDIRECT_URI =
 //   pages_show_list       — listar Pages do utilizador (para escolher publisher dos Ads)
 //   pages_manage_ads      — usar Page como publisher do Ad (obrigatório para criar AdCreative)
 //   pages_read_engagement — ler insights da Page (futuro: post promoção)
-//   instagram_basic       — listar contas Instagram Business associadas às Pages
-const META_SCOPES = "public_profile,ads_management,ads_read,business_management,pages_show_list,pages_read_engagement,instagram_basic,instagram_manage_insights";
+// NOTA: instagram_basic / instagram_manage_insights NÃO são pedidos porque não
+// pertencem ao caso de uso "Criar e gerenciar anúncios" do App (exigiriam App
+// Review). Ads no Instagram são entregues via Page como publisher — o IG é
+// resolvido automaticamente na criação da campanha, sem necessidade deste scope.
+const META_SCOPES = "public_profile,ads_management,ads_read,business_management,pages_show_list,pages_read_engagement";
 
 type Platform = "meta" | "google" | "tiktok";
 
@@ -692,8 +695,9 @@ export default function CrmConnections() {
                                       Instagram: <strong>@{selectedPage.instagram_business_account.username}</strong>
                                     </div>
                                   ) : (
-                                    <div className="text-amber-500 flex items-center gap-1.5">
-                                      ⚠️ Sem Instagram Business associado a esta Page. Ads só correm no Facebook.
+                                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                                      <Instagram className="h-3 w-3 text-muted-foreground" />
+                                      O Instagram associado a esta Page é resolvido automaticamente na criação da campanha. Não é necessária ação aqui.
                                     </div>
                                   )}
                                 </div>
