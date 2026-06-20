@@ -161,6 +161,33 @@ export default function CrmConnections() {
       const pages = data?.pages ?? [];
       setPagesCache((s) => ({ ...s, [conn.id]: pages }));
       setAutoFetchPagesError((s) => ({ ...s, [conn.id]: false }));
+
+      // Reconcilia selected_instagram_id com o IG que o Graph devolve agora
+      // para a Page já selecionada. Cobre o caso de o IG ter sido ligado à Page
+      // DEPOIS da 1ª conexão (Atualizar/Reconectar deixa de exigir reseleção).
+      if (conn.selected_page_id) {
+        const sel = pages.find((p: any) => p.id === conn.selected_page_id);
+        if (sel) {
+          const igId = sel.instagram_business_account?.id ?? null;
+          const current = conn.selected_instagram_id ?? null;
+          if (igId !== current) {
+            const { error: upErr } = await (supabase as any)
+              .schema("crm")
+              .from("ad_platform_connections")
+              .update({ selected_instagram_id: igId })
+              .eq("id", conn.id);
+            if (upErr) {
+              console.warn("[crm/connections] reconcile IG failed:", upErr.message);
+            } else {
+              qc.invalidateQueries({ queryKey: ["crm-connections"] });
+              if (!silent && igId) {
+                toast.success(`Instagram @${sel.instagram_business_account.username} associado`);
+              }
+            }
+          }
+        }
+      }
+
       if (!silent) toast.success(`${pages.length} página(s) carregada(s)`);
     } catch (e: any) {
       if (!silent) {
