@@ -752,6 +752,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
       meta_image_hash: parsed.image_hash,
       // v2: file_url vem do parser (video_data.image_url, link_data.picture, carousel child, dpa images[0], etc).
       // Para image_data e qualquer outro com hash mas sem file_url, batch resolve abaixo.
+      // storage_bucket é NOT NULL na DB (default 'crm-meta-creatives'). Garantimos
+      // sempre um valor já aqui para nenhum caminho (incluindo rehost falhado) chegar
+      // ao UPSERT com null e disparar 23502 a abortar o chunk inteiro.
+      storage_bucket: REHOST_BUCKET,
       storage_path: null,
       file_url: parsed.file_url ?? null,
       file_mime_type: null,
