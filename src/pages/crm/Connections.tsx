@@ -382,6 +382,7 @@ export default function CrmConnections() {
         `&redirect_uri=${encodeURIComponent(META_REDIRECT_URI)}` +
         `&state=${state.id}` +
         `&scope=${encodeURIComponent(META_SCOPES)}` +
+        `&auth_type=rerequest` +
         `&response_type=code`;
 
       window.location.href = url;
