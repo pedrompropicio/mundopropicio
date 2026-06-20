@@ -155,8 +155,9 @@ export default function CrmConnections() {
     try {
       const { data, error } = await supabase.functions.invoke(
         "crm-meta-fetch-pages",
-        { body: { connection_id: conn.id } },
+        { body: { connection_id: conn.id, page_id: conn.selected_page_id ?? undefined } },
       );
+
       if (error) throw error;
       const pages = data?.pages ?? [];
       setPagesCache((s) => ({ ...s, [conn.id]: pages }));

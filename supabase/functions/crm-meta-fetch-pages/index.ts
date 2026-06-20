@@ -28,9 +28,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
-  let body: { connection_id?: string };
+  let body: { connection_id?: string; page_id?: string };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
-  const { connection_id } = body;
+  const { connection_id, page_id: hintedPageId } = body;
   if (!connection_id) return json({ error: "missing_connection_id" }, 400);
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -47,6 +47,42 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   const { access_token: accessToken } = tokenRows[0] as { access_token: string };
 
+  // Helper: resolve uma Page directamente pelo seu node. Útil para Pages dentro
+  // de Business Manager/portfólio empresarial, que podem não aparecer em
+  // /me/accounts ou aparecer sem instagram_business_account anexado.
+  async function fetchPageNode(pageId: string): Promise<any | null> {
+    const u = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${pageId}`);
+    u.searchParams.set("fields", "id,name,picture{url},instagram_business_account{id,username,profile_picture_url}");
+    u.searchParams.set("access_token", accessToken);
+    try {
+      const rr = await fetch(u);
+      const jj: any = await rr.json();
+      if (!rr.ok || jj.error) {
+        console.warn("[crm-meta-fetch-pages] page node fetch failed", pageId, jj?.error?.message);
+        return null;
+      }
+      return jj;
+    } catch (e) {
+      console.warn("[crm-meta-fetch-pages] page node fetch threw", pageId, String(e));
+      return null;
+    }
+  }
+
+  function shapePage(p: any) {
+    return {
+      id: p.id,
+      name: p.name,
+      picture_url: p.picture?.data?.url ?? null,
+      instagram_business_account: p.instagram_business_account
+        ? {
+            id: p.instagram_business_account.id,
+            username: p.instagram_business_account.username,
+            profile_picture_url: p.instagram_business_account.profile_picture_url ?? null,
+          }
+        : null,
+    };
+  }
+
   const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/me/accounts`);
   url.searchParams.set("fields", "id,name,picture{url},instagram_business_account{id,username,profile_picture_url}");
   url.searchParams.set("limit", "200");
@@ -60,18 +96,34 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({ error: "graph_api_error", status: r.status, detail: j.error?.message }, 502);
   }
 
-  const pages = (j.data ?? []).map((p: any) => ({
-    id: p.id,
-    name: p.name,
-    picture_url: p.picture?.data?.url ?? null,
-    instagram_business_account: p.instagram_business_account
-      ? {
-          id: p.instagram_business_account.id,
-          username: p.instagram_business_account.username,
-          profile_picture_url: p.instagram_business_account.profile_picture_url ?? null,
-        }
-      : null,
-  }));
+  const pagesById = new Map<string, any>();
+  for (const p of (j.data ?? [])) {
+    pagesById.set(p.id, shapePage(p));
+  }
 
-  return json({ pages });
+  // Se nos foi indicada uma page (tipicamente conn.selected_page_id), garante
+  // que existe na resposta E que vem sempre resolvida via node directo — para
+  // apanhar IG ligado por Business Manager que /me/accounts não devolve.
+  if (hintedPageId) {
+    const existing = pagesById.get(hintedPageId);
+    if (!existing || !existing.instagram_business_account) {
+      const node = await fetchPageNode(hintedPageId);
+      if (node) pagesById.set(hintedPageId, shapePage(node));
+    }
+  }
+
+  // Para qualquer outra Page sem IG, tenta resolver via node directo (em
+  // paralelo, com tecto razoável para não estourar o Graph).
+  const needsNode = Array.from(pagesById.values())
+    .filter((p) => !p.instagram_business_account && p.id !== hintedPageId)
+    .slice(0, 25);
+  if (needsNode.length > 0) {
+    const results = await Promise.all(needsNode.map((p) => fetchPageNode(p.id)));
+    results.forEach((node, i) => {
+      if (node) pagesById.set(needsNode[i].id, shapePage(node));
+    });
+  }
+
+  return json({ pages: Array.from(pagesById.values()) });
 });
+
