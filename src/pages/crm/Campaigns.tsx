@@ -2071,13 +2071,46 @@ export default function CrmCampaigns() {
       errors.push(`insights: ${e?.message ?? String(e)}`);
     }
 
+    // Step 5: criativos (depende de meta_ad_snapshot já preenchido por Step 3).
+    // Incluído no Full Sync para conexões novas não ficarem à espera do cron
+    // diário (cap 100/dia). Cap por run = 2000 (máximo aceite pela função).
+    let crData: any = null;
+    const t5 = toast.loading(`A sincronizar criativos (${modeLabel})…`);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-sync-creatives", {
+        body: {
+          ...params,
+          mode: "incremental",
+          max_creatives_per_run: 2000,
+          triggered_by: "full-sync-ui",
+        },
+      });
+      if (error) throw error;
+      crData = data;
+      const remaining = data?.remaining_to_sync ?? 0;
+      toast.success(
+        remaining > 0
+          ? `${data?.synced_count ?? 0} criativos · ${remaining} em fila`
+          : `${data?.synced_count ?? 0} criativos`,
+        { id: t5 },
+      );
+    } catch (e: any) {
+      console.error("[crm/campaigns] sync creatives failed:", e);
+      toast.error("Falha em criativos", { id: t5, description: e?.message ?? String(e) });
+      errors.push(`criativos: ${e?.message ?? String(e)}`);
+    }
+
     if (errors.length === 0) {
+      const creativesPart = crData
+        ? ` · ${crData?.synced_count ?? 0} criativos${(crData?.remaining_to_sync ?? 0) > 0 ? ` (${crData.remaining_to_sync} em fila)` : ""}`
+        : "";
       toast.success(`Sync ${modeLabel} completa`, {
-        description: `${cData?.synced_count ?? 0} campanhas · ${asData?.synced_count ?? 0} adsets · ${adData?.synced_count ?? 0} ads · ${iData?.synced_rows ?? 0} insights${cData?.auto_linked_count ? ` · ${cData.auto_linked_count} vinculadas a evento` : ""}`,
+        description: `${cData?.synced_count ?? 0} campanhas · ${asData?.synced_count ?? 0} adsets · ${adData?.synced_count ?? 0} ads · ${iData?.synced_rows ?? 0} insights${creativesPart}${cData?.auto_linked_count ? ` · ${cData.auto_linked_count} vinculadas a evento` : ""}`,
       });
     } else {
       toast.error(`Sync com ${errors.length} erro(s)`, { description: errors.join(" · ") });
     }
+
 
     qc.invalidateQueries({ queryKey: ["crm-meta-campaigns"] });
     qc.invalidateQueries({ queryKey: ["crm-meta-insights"] });
