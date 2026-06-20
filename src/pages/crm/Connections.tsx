@@ -44,7 +44,7 @@ const META_REDIRECT_URI =
 //   pages_manage_ads      — usar Page como publisher do Ad (obrigatório para criar AdCreative)
 //   pages_read_engagement — ler insights da Page (futuro: post promoção)
 //   instagram_basic       — listar contas Instagram Business associadas às Pages
-const META_SCOPES = "public_profile,ads_management,ads_read,business_management,pages_show_list,pages_read_engagement";
+const META_SCOPES = "public_profile,ads_management,ads_read,business_management,pages_show_list,pages_read_engagement,instagram_basic,instagram_manage_insights";
 
 type Platform = "meta" | "google" | "tiktok";
 
@@ -382,6 +382,7 @@ export default function CrmConnections() {
         `&redirect_uri=${encodeURIComponent(META_REDIRECT_URI)}` +
         `&state=${state.id}` +
         `&scope=${encodeURIComponent(META_SCOPES)}` +
+        `&auth_type=rerequest` +
         `&response_type=code`;
 
       window.location.href = url;
