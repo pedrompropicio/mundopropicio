@@ -231,3 +231,12 @@ a par das de portal. Entradas de marketing/ads:
 | `/crm/meta-capi` | `MetaCapiMonitor.tsx` | Monitor server-side do Meta Pixel + CAPI. |
 | `/crm/meta-audiences` | `MetaAudiencesList.tsx` | Custom Audiences Meta. |
 | `/crm/google-ads` | `crm-admin/google-ads/GoogleAdsAdmin.tsx` | **Google Ads (Sprint 1 — esqueleto).** Navegação por secção (Conversões, Campanhas, Audiences/Customer Match, Definições) com placeholders; sem lógica de API (gate do developer token + Data Manager API no Sprint 2). |
+
+---
+
+## 9. Cidades multi-país
+
+`CityVenueSelector` filtra `public.cities` pela country da empresa ativa
+(`companies.country` ISO → nome via `src/lib/country.ts`: `PT→Portugal`, `BR→Brasil`).
+Brasil mostra UF no formato `"Cidade - UF"` (coluna `cities.state`). Criar cidade
+nova grava `country` da empresa ativa; em BR o input pede também a UF (obrigatória).

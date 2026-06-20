@@ -11,6 +11,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { useAuth } from "@/contexts/AuthContext";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
+import { formatCityLabel } from "@/lib/country";
 
 type EventType = "simple" | "festival" | "multi_day" | "tour" | "master" | "split";
 
@@ -102,7 +103,7 @@ export default function Events() {
     queryFn: async () => {
       const { data } = await supabase.from("cities" as any).select("*");
       const map: Record<string, string> = {};
-      (data ?? []).forEach((c: any) => { map[c.id] = c.name; });
+      (data ?? []).forEach((c: any) => { map[c.id] = formatCityLabel(c.name, c.state); });
       return map;
     },
   });

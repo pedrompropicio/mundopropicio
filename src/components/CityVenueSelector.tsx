@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus } from "lucide-react";
+import { useCompany } from "@/hooks/useCompany";
+import { countryIsoToName, formatCityLabel } from "@/lib/country";
 
 interface CityVenueSelectorProps {
   cityId: string;
@@ -15,13 +17,20 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
   const [showNewCity, setShowNewCity] = useState(false);
   const [showNewVenue, setShowNewVenue] = useState(false);
   const [newCityName, setNewCityName] = useState("");
+  const [newCityState, setNewCityState] = useState("");
   const [newVenueName, setNewVenueName] = useState("");
   const queryClient = useQueryClient();
 
+  const { company } = useCompany();
+  const countryName = countryIsoToName(company?.country); // 'Portugal' | 'Brasil' | null
+  const isBR = countryName === "Brasil";
+
   const { data: cities = [] } = useQuery({
-    queryKey: ["cities"],
+    queryKey: ["cities", countryName ?? "all"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("cities" as any).select("*").order("name");
+      let q = supabase.from("cities" as any).select("*").order("name");
+      if (countryName) q = q.eq("country", countryName);
+      const { data, error } = await q;
       if (error) throw error;
       return data as any[];
     },
@@ -41,20 +50,31 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
   });
 
   const handleCreateCity = async () => {
-    if (!newCityName.trim()) return;
-    const { data, error } = await supabase.from("cities" as any).insert({ name: newCityName.trim() } as any).select().single();
+    const name = newCityName.trim();
+    if (!name) return;
+    if (isBR && newCityState.trim().length !== 2) return; // UF obrigatória no BR
+    const state = isBR ? newCityState.trim().toUpperCase() : null;
+    const country = countryName ?? "Portugal";
+
+    const payload: any = { name, country };
+    if (state) payload.state = state;
+
+    const { data, error } = await supabase.from("cities" as any).insert(payload).select().single();
     if (error) {
-      // Might already exist
-      const { data: existing } = await (supabase.from("cities" as any).select("*") as any).eq("name", newCityName.trim()).single();
-      if (existing) {
-        onCityChange(existing.id);
-      }
+      // Pode já existir — tenta procurar (case-insensitive + state)
+      let qy: any = (supabase.from("cities" as any).select("*") as any)
+        .eq("country", country)
+        .ilike("name", name);
+      qy = state ? qy.eq("state", state) : qy.is("state", null);
+      const { data: existing } = await qy.maybeSingle();
+      if (existing) onCityChange((existing as any).id);
     } else {
       onCityChange((data as any).id);
     }
     queryClient.invalidateQueries({ queryKey: ["cities"] });
     queryClient.invalidateQueries({ queryKey: ["cities_map"] });
     setNewCityName("");
+    setNewCityState("");
     setShowNewCity(false);
   };
 
@@ -67,7 +87,7 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
         .eq("name", newVenueName.trim())
         .single();
       if (existing) {
-        onVenueChange(existing.id);
+        onVenueChange((existing as any).id);
       }
     } else {
       onVenueChange((data as any).id);
@@ -97,10 +117,20 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
               autoFocus
               onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleCreateCity())}
             />
+            {isBR && (
+              <input
+                value={newCityState}
+                onChange={(e) => setNewCityState(e.target.value.toUpperCase().slice(0, 2))}
+                className={`${inputClass} !w-16 shrink-0 uppercase`}
+                placeholder="UF"
+                maxLength={2}
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleCreateCity())}
+              />
+            )}
             <button type="button" onClick={handleCreateCity} className="rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90">
               OK
             </button>
-            <button type="button" onClick={() => setShowNewCity(false)} className="text-xs text-muted-foreground hover:text-foreground">
+            <button type="button" onClick={() => { setShowNewCity(false); setNewCityState(""); }} className="text-xs text-muted-foreground hover:text-foreground">
               ✕
             </button>
           </div>
@@ -113,7 +143,7 @@ export function CityVenueSelector({ cityId, venueId, onCityChange, onVenueChange
             >
               <option value="">Selecionar cidade…</option>
               {cities.map((c: any) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id}>{formatCityLabel(c.name, c.state)}</option>
               ))}
             </select>
             <button

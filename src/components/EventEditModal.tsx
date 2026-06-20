@@ -6,6 +6,7 @@ import { toast } from "@/hooks/use-toast";
 import { CityVenueSelector } from "@/components/CityVenueSelector";
 import { DatePicker } from "@/components/ui/date-picker";
 import { formatDate } from "@/lib/mock-data";
+import { formatCityLabel } from "@/lib/country";
 
 interface EventEditModalProps {
   event: any;
@@ -71,7 +72,7 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
     queryFn: async () => {
       const { data } = await supabase.from("cities" as any).select("*");
       const map: Record<string, string> = {};
-      (data ?? []).forEach((c: any) => { map[c.id] = c.name; });
+      (data ?? []).forEach((c: any) => { map[c.id] = formatCityLabel(c.name, c.state); });
       return map;
     },
   });

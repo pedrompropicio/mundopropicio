@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { VenueReservationModal } from "@/components/calendar/VenueReservationModal";
 import { ScheduledEventsPanel } from "@/components/calendar/ScheduledEventsPanel";
 import { VenueReservationsPanel } from "@/components/calendar/VenueReservationsPanel";
+import { formatCityLabel } from "@/lib/country";
 import { WeeklyView } from "@/components/calendar/WeeklyView";
 import { AgendaView } from "@/components/calendar/AgendaView";
 import { AnnualView } from "@/components/calendar/AnnualView";
@@ -103,7 +104,7 @@ export default function EventCalendar() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("cities")
-        .select("id, name");
+        .select("id, name, state");
       if (error) throw error;
       return data;
     },
@@ -277,7 +278,7 @@ export default function EventCalendar() {
         const city = r.city_id
           ? cities.find((c) => c.id === r.city_id)
           : venue ? cities.find((c) => c.id === venue.city_id) : null;
-        return { ...r, venue_name: venue?.name || "", city_name: city?.name || "" };
+        return { ...r, venue_name: venue?.name || "", city_name: city ? formatCityLabel(city.name, (city as any).state) : "" };
       })
       .sort((a, b) => a.date.localeCompare(b.date));
 
@@ -683,7 +684,7 @@ export default function EventCalendar() {
             venue_id: r.venue_id,
             city_id: r.city_id,
             venue_name: venue?.name || "Sala",
-            city_name: city?.name || "",
+            city_name: city ? formatCityLabel(city.name, (city as any).state) : "",
             notes: r.notes,
           };
         })}
