@@ -71,7 +71,7 @@ export function EventEditModal({ event, onClose }: EventEditModalProps) {
     queryFn: async () => {
       const { data } = await supabase.from("cities" as any).select("*");
       const map: Record<string, string> = {};
-      (data ?? []).forEach((c: any) => { map[c.id] = c.name; });
+      (data ?? []).forEach((c: any) => { map[c.id] = formatCityLabel(c.name, c.state); });
       return map;
     },
   });

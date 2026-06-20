@@ -11,6 +11,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { useAuth } from "@/contexts/AuthContext";
 import HelpTooltip from "@/components/HelpTooltip";
 import helpTexts from "@/lib/help-texts";
+import { formatCityLabel } from "@/lib/country";
 
 type EventType = "simple" | "festival" | "multi_day" | "tour" | "master" | "split";
 
