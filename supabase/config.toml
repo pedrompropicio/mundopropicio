@@ -76,3 +76,6 @@ verify_jwt = false
 
 [functions.capi-meta-events]
 verify_jwt = false
+
+[functions.crm-meta-diagnose-ig]
+verify_jwt = true
