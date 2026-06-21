@@ -8,11 +8,12 @@
 // Decisão sobre ad_groups: NESTE PASSO só sincroniza campanhas. Ad groups
 // ficam para um próximo passo (manter scope curto + observar quotas antes).
 //
-// Versão Google Ads API: v17 (estável, suporta DEMAND_GEN).
+// Versão Google Ads API: v20 (estável atual; v17 foi descontinuada em jun/2025).
+// v20 mantém o endpoint googleAds:searchStream e suporta DEMAND_GEN.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
-const GOOGLE_ADS_API_VERSION = "v17";
+const GOOGLE_ADS_API_VERSION = "v20";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
