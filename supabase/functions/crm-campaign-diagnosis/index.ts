@@ -71,6 +71,18 @@ const WINDDOWN_PAUSED_ADSET_RATIO = 0.5; // > 50% dos adsets PAUSED → campanha
 // OTIMIZAÇÃO por adset / 7 dias (ao nível do adset e do evento que o adset
 // optimiza). Calibrável.
 const LEARNING_EVENTS_THRESHOLD = 50;
+// Idade máxima da campanha (em dias de histórico disponível) durante a qual o
+// portão de maturação ainda pode classificá-la como "em_maturacao". Acima
+// deste limiar, mesmo que nenhum adset tenha atingido LEARNING_EVENTS_THRESHOLD,
+// considera-se que a campanha já teve tempo suficiente para sair de learning e
+// passa a ser classificada normalmente por ROAS (classifyCampaign).
+//
+// IMPORTANTE: este limiar é INDEPENDENTE do history_warning (30d). São
+// conceitos diferentes:
+//   - MATURATION_MAX_AGE_DAYS = 14  → "teve tempo de sair de learning phase"
+//   - history_warning < 30d         → "histórico curto, projecção menos fiável"
+// Não reutilizar nem confundir os dois.
+const MATURATION_MAX_AGE_DAYS = 14;
 // Tipos estritos: o compilador valida que a função só produz estes valores
 // (e que batem com a coluna source_campaign_class text da tabela).
 type SourceCampaignClass =
@@ -540,20 +552,26 @@ type MaturationAdset = {
 };
 type MaturationGate = {
   applies: boolean;              // há >=1 adset de conversão
-  is_immature: boolean;         // applies && nenhum adset atingiu o limiar
+  is_immature: boolean;         // applies && nenhum atingiu o limiar && dentro da janela de idade
   threshold: number;            // LEARNING_EVENTS_THRESHOLD
   conversion_adsets_count: number;
   conversion_adsets: MaturationAdset[];
+  history_days_available: number; // dias de histórico disponível recebidos
+  max_age_days: number;            // = MATURATION_MAX_AGE_DAYS
+  learning_limited: boolean;       // applies && !anyMature && historyDaysAvailable >= MAX
   reason: string;
 };
 
 // Conta, por adset de CONVERSÃO, os eventos do seu goal na janela last_7d.
 // adsetSnaps: snapshot fresco (external_adset_id + optimization_goal).
 // adsetGroups: linhas de insight agrupadas por adset (Fase 1B). Determinístico.
+// historyDaysAvailable: idade efectiva da campanha em dias (governa só a
+// aplicabilidade do portão — nunca a classe final, que continua a sair da 1D).
 function computeMaturationGate(
   adsetSnaps: Array<{ external_adset_id: string; optimization_goal: string | null }>,
   adsetGroups: Map<string, any[]>,
   last7: Window,
+  historyDaysAvailable: number,
 ): MaturationGate {
   const conversionAdsets: MaturationAdset[] = [];
   for (const snap of adsetSnaps) {
@@ -576,18 +594,25 @@ function computeMaturationGate(
   }
   const applies = conversionAdsets.length > 0;
   const anyMature = conversionAdsets.some((a) => a.reached_threshold);
-  const isImmature = applies && !anyMature;
+  const withinAgeWindow = historyDaysAvailable < MATURATION_MAX_AGE_DAYS;
+  const isImmature = applies && !anyMature && withinAgeWindow;
+  const learningLimited = applies && !anyMature && !withinAgeWindow;
   const reason = !applies
     ? "sem adsets de conversão — portão de maturação não aplicável"
-    : isImmature
-      ? `nenhum dos ${conversionAdsets.length} adset(s) de conversão atingiu ${LEARNING_EVENTS_THRESHOLD} eventos do seu goal em 7d — campanha em learning phase`
-      : `pelo menos um adset de conversão atingiu ${LEARNING_EVENTS_THRESHOLD} eventos em 7d — campanha madura para classificação por ROAS`;
+    : anyMature
+      ? `pelo menos um adset de conversão atingiu ${LEARNING_EVENTS_THRESHOLD} eventos em 7d — campanha madura para classificação por ROAS`
+      : withinAgeWindow
+        ? `nenhum dos ${conversionAdsets.length} adset(s) de conversão atingiu ${LEARNING_EVENTS_THRESHOLD} eventos do seu goal em 7d — campanha em learning phase (${historyDaysAvailable} de ${MATURATION_MAX_AGE_DAYS} dias da janela de aprendizagem)`
+        : `campanha já tem ${historyDaysAvailable} dias (>= ${MATURATION_MAX_AGE_DAYS}) e continua sem nenhum adset de conversão a atingir ${LEARNING_EVENTS_THRESHOLD} eventos em 7d — learning limited estrutural, encaminhada para classificação por ROAS`;
   return {
     applies,
     is_immature: isImmature,
     threshold: LEARNING_EVENTS_THRESHOLD,
     conversion_adsets_count: conversionAdsets.length,
     conversion_adsets: conversionAdsets,
+    history_days_available: historyDaysAvailable,
+    max_age_days: MATURATION_MAX_AGE_DAYS,
+    learning_limited: learningLimited,
     reason,
   };
 }
@@ -802,6 +827,7 @@ async function readInsightWindows(
     (adsetSnaps ?? []) as Array<{ external_adset_id: string; optimization_goal: string | null }>,
     adsetGroups,
     windows.last_7d,
+    historyDaysAvailable,
   );
 
   // ── FASE 1D: classificação da campanha (apenas nível campaign) ──
@@ -865,6 +891,9 @@ async function readInsightWindows(
     is_immature: maturationGate.is_immature,
     threshold: maturationGate.threshold,
     conversion_adsets: maturationGate.conversion_adsets_count,
+    history_days_available: maturationGate.history_days_available,
+    max_age_days: maturationGate.max_age_days,
+    learning_limited: maturationGate.learning_limited,
     events_by_adset: maturationGate.conversion_adsets.map((a) => ({
       adset: a.external_adset_id,
       goal: a.optimization_goal,
@@ -908,6 +937,7 @@ async function readInsightWindows(
 // Handler
 // ──────────────────────────────────────────────────────────────────────────
 Deno.serve(async (req: Request): Promise<Response> => {
+  console.log("[campaign-diagnosis] BUILD_VERSION=maturation-age-gate-v1");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
