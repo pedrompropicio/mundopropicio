@@ -61,7 +61,7 @@ import { ReactivateCampaignDialog } from "@/components/crm/ReactivateCampaignDia
 import { PeriodSelector } from "@/components/crm/PeriodSelector";
 import { EditAdsetBudgetDialog } from "@/components/crm/EditAdsetBudgetDialog";
 import { periodFromMode, type PeriodState } from "@/lib/crm/period";
-import { EventCommercialContextCard } from "@/components/crm/EventCommercialContextCard";
+import { StrategicTriggersCard } from "@/components/crm/StrategicTriggersCard";
 
 // ── Tipos (subset dos snapshots; só o que a página usa) ─────────────────────
 interface CampaignSnap {
@@ -1922,8 +1922,8 @@ export default function CrmCampaignView() {
       </Card>
 
 
-      {/* Contexto Comercial do Evento */}
-      <EventCommercialContextCard
+      {/* Gatilhos Estratégicos do Evento */}
+      <StrategicTriggersCard
         eventId={campaign.linked_event_id ?? null}
         companyId={campaign.company_id ?? null}
       />
