@@ -1959,6 +1959,57 @@ export default function CrmCampaignView() {
                       </Badge>
                     )}
 
+                    {/* Camada 2 — semáforo de validação de mensagem */}
+                    {cr && eventIdForValidation && (() => {
+                      const val = validationByCreativeId.get(cr.id);
+                      if (!val) {
+                        return (
+                          <Badge variant="outline" className="border text-[10px] gap-1 border-muted-foreground/30 text-muted-foreground">
+                            <ShieldQuestion className="h-3 w-3" /> Mensagem por validar
+                          </Badge>
+                        );
+                      }
+                      const sem = val.semaforo;
+                      const meta =
+                        sem === "coerente"
+                          ? { icon: CheckCircle2, label: "Mensagem coerente", color: "border-emerald-500/40 text-emerald-400" }
+                          : sem === "atencao"
+                          ? { icon: AlertCircle, label: "Mensagem com atenção", color: "border-amber-500/40 text-amber-400" }
+                          : { icon: XCircle, label: "Mensagem contradiz", color: "border-rose-500/40 text-rose-400" };
+                      const Icon = meta.icon;
+                      const opportunity = sem === "coerente" && !val.aproveita_gatilhos;
+                      return (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="inline-flex items-center gap-1 flex-wrap">
+                                <Badge variant="outline" className={cn("border text-[10px] gap-1 cursor-help", meta.color)}>
+                                  <Icon className="h-3 w-3" /> {meta.label}
+                                </Badge>
+                                {opportunity && (
+                                  <Badge variant="outline" className="border text-[10px] gap-1 border-orange-400/40 text-orange-300 cursor-help">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-orange-400" /> Oportunidade
+                                  </Badge>
+                                )}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs space-y-1 text-xs">
+                              {val.explicacao && <p>{val.explicacao}</p>}
+                              {val.sugestao_copy && (
+                                <div className="border-t border-border/40 pt-1">
+                                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Sugestão (editável, não aplicada)</p>
+                                  <p className="italic">{val.sugestao_copy}</p>
+                                </div>
+                              )}
+                              <p className="text-[10px] text-muted-foreground pt-1">
+                                Validado {formatDistanceToNow(new Date(val.validated_at), { locale: pt, addSuffix: true })}
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    })()}
+
                     <div className="flex items-center gap-1.5 flex-wrap pt-1">
                       {(isActive || isPaused) && (
                         <Button
