@@ -458,6 +458,8 @@ export default function CrmCampaignView() {
   const [assemblyFlow, setAssemblyFlow] = useState<"redesign" | "from_scratch">("redesign");
   // Estúdio de Desenho de Campanha (Camada 5 PARTE 2)
   const [designStudioOpen, setDesignStudioOpen] = useState(false);
+  // Preparar publicação no Meta (Elo de Publicação — FASE 1)
+  const [metaPublishOpen, setMetaPublishOpen] = useState(false);
 
   // 1) Campanha
   const { data: campaign, isLoading: loadingCampaign, error: campaignError } =
