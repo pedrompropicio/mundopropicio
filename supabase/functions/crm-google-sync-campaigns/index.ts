@@ -160,6 +160,10 @@ async function searchStreamCampaigns(
   });
   const text = await resp.text();
   if (!resp.ok) {
+    // Loga corpo COMPLETO no edge function log para diagnóstico
+    console.error(
+      `[google-ads-api] ${resp.status} customer=${customerId} login=${loginCustomerId} body=${text}`,
+    );
     throw new Error(`google_ads_api ${resp.status}: ${text.slice(0, 2000)}`);
   }
   let parsed: unknown;
