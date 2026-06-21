@@ -45,9 +45,12 @@ type AdsetDraft = {
   roas_agregado: number | null;
   fiavel: boolean;
 };
+const isUuid = (s: unknown): s is string =>
+  typeof s === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[assisted-assembly] BUILD_VERSION=assembly-compute-v1");
+  console.log("[assisted-assembly] BUILD_VERSION=assembly-compute-v2");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -363,7 +366,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .insert({
       company_id,
       event_id,
-      source_campaign_id: source_campaign_id ?? null,
+      source_campaign_id: isUuid(source_campaign_id) ? source_campaign_id : null,
       flow,
       adsets: adsetsOut,
       total_creatives: adsetsOut.reduce((a, b) => a + b.creative_ids.length, 0),
