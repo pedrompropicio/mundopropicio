@@ -47,7 +47,7 @@ type AdsetDraft = {
 };
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[assisted-assembly] BUILD_VERSION=assembly-compute-v1");
+  console.log("[assisted-assembly] BUILD_VERSION=assembly-compute-v2");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
