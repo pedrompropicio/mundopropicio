@@ -232,16 +232,28 @@ Deno.serve(async (req) => {
     let isPlatformAdmin = false;
 
     if (isMachine) {
-      // Cron gate Lisbon 03:00 (sem bypass — execuções manuais devem usar
-      // role admin via UI/CLI, não JWT anon)
+      // Cron gate: janela 02:00-05:00 Europe/Lisbon (cobre inverno UTC+0 e
+      // verão UTC+1 quando o cron dispara às 03:00 UTC). Sem bypass — execuções
+      // manuais devem usar role admin via UI/CLI, não JWT anon.
       const lisbonHour = Number(
         new Intl.DateTimeFormat("en-GB", {
           timeZone: "Europe/Lisbon", hour: "2-digit", hour12: false,
         }).format(new Date()),
       );
-      if (lisbonHour !== 3) {
+      if (lisbonHour < 2 || lisbonHour > 5) {
         return new Response(
-          JSON.stringify({ skipped: true, reason: "outside Europe/Lisbon 03:00", lisbonHour }),
+          JSON.stringify({ skipped: true, reason: "outside backup window (Europe/Lisbon 02:00-05:00)", lisbonHour }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      // Guarda idempotente: se já existe um backup-global de hoje (UTC), saltar
+      const todayUtc = new Date().toISOString().slice(0, 10);
+      const { data: existingToday } = await adminClient.storage
+        .from("database-backups")
+        .list("", { limit: 1000, search: `backup-global-${todayUtc}` });
+      if ((existingToday ?? []).some((f: any) => f.name?.startsWith(`backup-global-${todayUtc}`))) {
+        return new Response(
+          JSON.stringify({ skipped: true, reason: "already ran today", date: todayUtc }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
