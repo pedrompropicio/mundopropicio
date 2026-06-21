@@ -658,22 +658,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .maybeSingle();
   if (campErr || !campaign) return json({ error: "campaign_not_found", detail: campErr?.message }, 404);
 
-  // 2) Diagnóstico (fornecido ou mais recente)
+  // 2) Diagnóstico 360 (fornecido ou mais recente) — fonte exclusiva: crm.campaign_diagnosis_360.
   let diagnosis: any = null;
   if (body.diagnosis_id) {
     const { data: d } = await (supabase as any)
-      .schema("crm").from("meta_campaign_diagnoses")
+      .schema("crm").from("campaign_diagnosis_360")
       .select("*").eq("id", body.diagnosis_id).maybeSingle();
     diagnosis = d ?? null;
   } else {
     const { data: d } = await (supabase as any)
-      .schema("crm").from("meta_campaign_diagnoses")
+      .schema("crm").from("campaign_diagnosis_360")
       .select("*").eq("external_campaign_id", campaignId)
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
     diagnosis = d ?? null;
   }
   if (!diagnosis) {
-    return json({ error: "no_diagnosis", message: "Faz primeiro um diagnóstico desta campanha." }, 422);
+    return json({ error: "no_diagnosis", message: "Faz primeiro um diagnóstico 360 desta campanha." }, 422);
   }
   const diagnosisId = diagnosis.id;
 
