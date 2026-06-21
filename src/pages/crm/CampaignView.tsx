@@ -69,6 +69,7 @@ import { EditAdsetBudgetDialog } from "@/components/crm/EditAdsetBudgetDialog";
 import { periodFromMode, type PeriodState } from "@/lib/crm/period";
 import { StrategicTriggersCard } from "@/components/crm/StrategicTriggersCard";
 import { AssistedAssemblyPanel } from "@/components/crm/AssistedAssemblyPanel";
+import { CampaignDesignStudio } from "@/components/crm/CampaignDesignStudio";
 
 // ── Tipos (subset dos snapshots; só o que a página usa) ─────────────────────
 interface CampaignSnap {
@@ -455,6 +456,8 @@ export default function CrmCampaignView() {
   // Montagem Assistida (Camada 4 PARTE 2) — Sheet a tela cheia.
   const [assemblyOpen, setAssemblyOpen] = useState(false);
   const [assemblyFlow, setAssemblyFlow] = useState<"redesign" | "from_scratch">("redesign");
+  // Estúdio de Desenho de Campanha (Camada 5 PARTE 2)
+  const [designStudioOpen, setDesignStudioOpen] = useState(false);
 
   // 1) Campanha
   const { data: campaign, isLoading: loadingCampaign, error: campaignError } =
@@ -2130,6 +2133,17 @@ export default function CrmCampaignView() {
         creativeIds={creativeIdList}
       />
 
+      {/* Estúdio de Desenho de Campanha (Camada 5 PARTE 2) */}
+      {campaign.linked_event_id && (
+        <DesignStudioEntry
+          eventId={campaign.linked_event_id}
+          companyId={campaign.company_id ?? null}
+          onOpen={() => setDesignStudioOpen(true)}
+          designStudioOpen={designStudioOpen}
+          onOpenChange={setDesignStudioOpen}
+        />
+      )}
+
       {/* Histórico */}
       <Card className="p-5">
 
@@ -2262,3 +2276,79 @@ function PillRow({
     </div>
   );
 }
+
+// ── Estúdio de Desenho de Campanha — wrapper que resolve o assemblyId mais recente
+function DesignStudioEntry({
+  eventId,
+  companyId,
+  onOpen,
+  designStudioOpen,
+  onOpenChange,
+}: {
+  eventId: string;
+  companyId: string | null;
+  onOpen: () => void;
+  designStudioOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { data: latestAssemblyId, isLoading } = useQuery({
+    queryKey: ["crm-latest-assembly", eventId, companyId],
+    enabled: !!eventId && !!companyId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm").from("assisted_assembly")
+        .select("id")
+        .eq("event_id", eventId)
+        .eq("company_id", companyId)
+        .order("generated_at", { ascending: false })
+        .limit(1);
+      if (error) throw new Error(error.message);
+      return ((data ?? [])[0]?.id as string | undefined) ?? null;
+    },
+  });
+
+  const disabled = isLoading || !latestAssemblyId;
+  const tip = !latestAssemblyId ? "Cria primeiro uma montagem assistida" : undefined;
+
+  return (
+    <>
+      <Card className="p-5">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex-1 min-w-[220px]">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" /> Estúdio de Desenho de Campanha
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Veste a montagem com textos por adset (auto-classificados). Editas à mão e o semáforo é re-validado pelo servidor — nunca pelo cliente.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {tip ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span tabIndex={0}>
+                      <Button size="sm" variant="outline" disabled><Wand2 className="h-4 w-4 mr-1" /> Desenhar campanha</Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent><p className="text-xs">{tip}</p></TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <Button size="sm" variant="outline" onClick={onOpen} disabled={disabled}>
+                <Wand2 className="h-4 w-4 mr-1" /> Desenhar campanha
+              </Button>
+            )}
+          </div>
+        </div>
+      </Card>
+      <CampaignDesignStudio
+        open={designStudioOpen}
+        onOpenChange={onOpenChange}
+        companyId={companyId}
+        assemblyId={latestAssemblyId ?? null}
+      />
+    </>
+  );
+}
+
