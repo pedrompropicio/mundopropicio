@@ -2,18 +2,22 @@
 // Lê campanhas reais da Google Ads API (GAQL searchStream) e popula
 // crm.google_campaign. Read-only — não cria nem edita nada no Google Ads.
 //
+// ATENÇÃO: a Google Ads API faz sunset de versões com frequência (cadência
+// mensal desde 2026). Se aparecer erro 400 UNSUPPORTED_VERSION, atualizar
+// GOOGLE_ADS_API_VERSION para a versão estável atual.
+//
 // Auth: aceita service_role (cron) ou JWT de utilizador autenticado (manual).
 // Por connection google em crm.ad_platform_connections (status=active).
 //
 // Decisão sobre ad_groups: NESTE PASSO só sincroniza campanhas. Ad groups
 // ficam para um próximo passo (manter scope curto + observar quotas antes).
 //
-// Versão Google Ads API: v20 (estável atual; v17 foi descontinuada em jun/2025).
-// v20 mantém o endpoint googleAds:searchStream e suporta DEMAND_GEN.
+// Versão Google Ads API: v24 (estável atual em jun/2026).
+// v24 mantém o endpoint googleAds:searchStream e suporta DEMAND_GEN.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
-const GOOGLE_ADS_API_VERSION = "v20";
+const GOOGLE_ADS_API_VERSION = "v24";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
