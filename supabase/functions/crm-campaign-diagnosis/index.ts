@@ -827,6 +827,7 @@ async function readInsightWindows(
     (adsetSnaps ?? []) as Array<{ external_adset_id: string; optimization_goal: string | null }>,
     adsetGroups,
     windows.last_7d,
+    historyDaysAvailable,
   );
 
   // ── FASE 1D: classificação da campanha (apenas nível campaign) ──
