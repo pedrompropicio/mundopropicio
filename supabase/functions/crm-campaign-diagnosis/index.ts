@@ -891,6 +891,9 @@ async function readInsightWindows(
     is_immature: maturationGate.is_immature,
     threshold: maturationGate.threshold,
     conversion_adsets: maturationGate.conversion_adsets_count,
+    history_days_available: maturationGate.history_days_available,
+    max_age_days: maturationGate.max_age_days,
+    learning_limited: maturationGate.learning_limited,
     events_by_adset: maturationGate.conversion_adsets.map((a) => ({
       adset: a.external_adset_id,
       goal: a.optimization_goal,
