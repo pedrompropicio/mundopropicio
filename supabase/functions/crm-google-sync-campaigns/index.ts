@@ -111,6 +111,10 @@ async function getGoogleAccessToken(): Promise<string> {
 
 // ---------------- Google Ads searchStream ----------------
 
+// NOTA: `campaign.resource_name` NÃO é selecionável em GAQL — o resourceName
+// é devolvido automaticamente em cada row da resource principal (campaign).
+// Incluí-lo no SELECT dispara INVALID_ARGUMENT / BAD_FIELD_NAME.
+// Ref: https://developers.google.com/google-ads/api/fields/v20/campaign
 const GAQL_CAMPAIGNS = `
   SELECT
     campaign.id,
@@ -120,7 +124,6 @@ const GAQL_CAMPAIGNS = `
     campaign.bidding_strategy_type,
     campaign.start_date,
     campaign.end_date,
-    campaign.resource_name,
     campaign_budget.amount_micros,
     metrics.impressions,
     metrics.clicks,
@@ -157,6 +160,10 @@ async function searchStreamCampaigns(
   });
   const text = await resp.text();
   if (!resp.ok) {
+    // Loga corpo COMPLETO no edge function log para diagnóstico
+    console.error(
+      `[google-ads-api] ${resp.status} customer=${customerId} login=${loginCustomerId} body=${text}`,
+    );
     throw new Error(`google_ads_api ${resp.status}: ${text.slice(0, 2000)}`);
   }
   let parsed: unknown;
