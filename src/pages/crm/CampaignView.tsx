@@ -1136,7 +1136,55 @@ export default function CrmCampaignView() {
                 <p className="text-xs text-muted-foreground">{m.tagline}</p>
                 {isRec && (
                   <div className="mt-3">
-                    {m.kind === "redesign" ? (
+                    {cls === "fraca" || cls === "morta" ? (
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        {cls === "fraca" ? (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className={cn("h-7 px-2 text-[11px] flex-1", ac.btn)}
+                              onClick={goRedesign}
+                            >
+                              <Wand2 className="h-3 w-3 mr-1" /> Redesenhar
+                              <Badge variant="outline" className={cn("ml-2 border text-[10px] gap-0.5", ac.badge)}>
+                                <Star className="h-3 w-3" /> Recomendado
+                              </Badge>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className={cn("h-7 px-2 text-[11px] flex-1", ac.btn)}
+                              onClick={goNewDesign}
+                            >
+                              <Sparkles className="h-3 w-3 mr-1" /> Começar do zero
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className={cn("h-7 px-2 text-[11px] flex-1", ac.btn)}
+                              onClick={goNewDesign}
+                            >
+                              <Sparkles className="h-3 w-3 mr-1" /> Começar do zero
+                              <Badge variant="outline" className={cn("ml-2 border text-[10px] gap-0.5", ac.badge)}>
+                                <Star className="h-3 w-3" /> Recomendado
+                              </Badge>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className={cn("h-7 px-2 text-[11px] flex-1", ac.btn)}
+                              onClick={goRedesign}
+                            >
+                              <Wand2 className="h-3 w-3 mr-1" /> Redesenhar
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    ) : m.kind === "redesign" ? (
                       <Button
                         size="sm"
                         variant="outline"
