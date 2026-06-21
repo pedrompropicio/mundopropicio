@@ -71,6 +71,18 @@ const WINDDOWN_PAUSED_ADSET_RATIO = 0.5; // > 50% dos adsets PAUSED → campanha
 // OTIMIZAÇÃO por adset / 7 dias (ao nível do adset e do evento que o adset
 // optimiza). Calibrável.
 const LEARNING_EVENTS_THRESHOLD = 50;
+// Idade máxima da campanha (em dias de histórico disponível) durante a qual o
+// portão de maturação ainda pode classificá-la como "em_maturacao". Acima
+// deste limiar, mesmo que nenhum adset tenha atingido LEARNING_EVENTS_THRESHOLD,
+// considera-se que a campanha já teve tempo suficiente para sair de learning e
+// passa a ser classificada normalmente por ROAS (classifyCampaign).
+//
+// IMPORTANTE: este limiar é INDEPENDENTE do history_warning (30d). São
+// conceitos diferentes:
+//   - MATURATION_MAX_AGE_DAYS = 14  → "teve tempo de sair de learning phase"
+//   - history_warning < 30d         → "histórico curto, projecção menos fiável"
+// Não reutilizar nem confundir os dois.
+const MATURATION_MAX_AGE_DAYS = 14;
 // Tipos estritos: o compilador valida que a função só produz estes valores
 // (e que batem com a coluna source_campaign_class text da tabela).
 type SourceCampaignClass =
