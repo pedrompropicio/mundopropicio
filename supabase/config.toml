@@ -76,3 +76,12 @@ verify_jwt = false
 
 [functions.capi-meta-events]
 verify_jwt = false
+
+[functions.crm-google-lead-conversion-enqueue]
+verify_jwt = false
+
+[functions.crm-google-conversion-upload]
+verify_jwt = false
+
+[functions.crm-google-user-list-ensure]
+verify_jwt = false
