@@ -452,6 +452,9 @@ export default function CrmCampaignView() {
   const [selectedActions, setSelectedActions] = useState<Set<number>>(new Set());
   const [applyingSurgical, setApplyingSurgical] = useState(false);
   const [prescKind, setPrescKind] = useState<PrescriptionKind>("surgical");
+  // Montagem Assistida (Camada 4 PARTE 2) — Sheet a tela cheia.
+  const [assemblyOpen, setAssemblyOpen] = useState(false);
+  const [assemblyFlow, setAssemblyFlow] = useState<"redesign" | "from_scratch">("redesign");
 
   // 1) Campanha
   const { data: campaign, isLoading: loadingCampaign, error: campaignError } =
