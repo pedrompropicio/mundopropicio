@@ -2133,6 +2133,17 @@ export default function CrmCampaignView() {
         creativeIds={creativeIdList}
       />
 
+      {/* Estúdio de Desenho de Campanha (Camada 5 PARTE 2) */}
+      {campaign.linked_event_id && (
+        <DesignStudioEntry
+          eventId={campaign.linked_event_id}
+          companyId={campaign.company_id ?? null}
+          onOpen={() => setDesignStudioOpen(true)}
+          designStudioOpen={designStudioOpen}
+          onOpenChange={setDesignStudioOpen}
+        />
+      )}
+
       {/* Histórico */}
       <Card className="p-5">
 
