@@ -596,6 +596,7 @@ function resolveEffectiveEventDate(
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
+  console.log("[redesign] BUILD_VERSION=redesign-360-v1", new Date().toISOString());
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   if (!LOVABLE_API_KEY) return json({ error: "lovable_ai_not_configured" }, 500);
@@ -657,22 +658,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .maybeSingle();
   if (campErr || !campaign) return json({ error: "campaign_not_found", detail: campErr?.message }, 404);
 
-  // 2) Diagnóstico (fornecido ou mais recente)
+  // 2) Diagnóstico 360 (fornecido ou mais recente) — fonte exclusiva: crm.campaign_diagnosis_360.
   let diagnosis: any = null;
   if (body.diagnosis_id) {
     const { data: d } = await (supabase as any)
-      .schema("crm").from("meta_campaign_diagnoses")
+      .schema("crm").from("campaign_diagnosis_360")
       .select("*").eq("id", body.diagnosis_id).maybeSingle();
     diagnosis = d ?? null;
   } else {
     const { data: d } = await (supabase as any)
-      .schema("crm").from("meta_campaign_diagnoses")
+      .schema("crm").from("campaign_diagnosis_360")
       .select("*").eq("external_campaign_id", campaignId)
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
     diagnosis = d ?? null;
   }
   if (!diagnosis) {
-    return json({ error: "no_diagnosis", message: "Faz primeiro um diagnóstico desta campanha." }, 422);
+    return json({ error: "no_diagnosis", message: "Faz primeiro um diagnóstico 360 desta campanha." }, 422);
   }
   const diagnosisId = diagnosis.id;
 
@@ -1444,6 +1445,7 @@ INSTRUÇÕES DE USO DESTAS MÉTRICAS:
 
   // 6) Prompt
   const diagJsonStr = JSON.stringify(diagnosis.diagnosis_jsonb ?? {}).slice(0, 12000);
+  const classReason = diagnosis?.diagnosis_jsonb?.levels?.campaign?.classification?.classification_reason ?? null;
   const countries = ["PT", "BR"];
 
   // 6a) Inheritance decisions text — só quando body.inheritance_decisions presente.
@@ -1621,8 +1623,8 @@ ${eventCtx.name ? `- Nome: ${eventCtx.name}
 - Capacidade: ${eventCtx.tickets_total ?? "N/A"}
 - URL de bilheteira: ${eventCtx.ticketing_url ?? "(não definido)"}` : "(campanha sem evento vinculado)"}
 
-== DIAGNÓSTICO ANTERIOR (severity=${diagnosis.severity}, score=${diagnosis.overall_score}) ==
-${diagJsonStr}
+== DIAGNÓSTICO 360 (classe=${diagnosis.source_campaign_class ?? "n/a"}, baseline_projetado=${diagnosis.projected_baseline_roas ?? "n/a"}x) ==
+${classReason ? `Razão da classificação: ${classReason}\n` : ""}${diagJsonStr}
 ${inheritedBlock}
 ${customAudiencesBlock}
 ${crossEventContextText}
