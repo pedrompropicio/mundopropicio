@@ -455,6 +455,8 @@ export default function CrmCampaignView() {
   // Montagem Assistida (Camada 4 PARTE 2) — Sheet a tela cheia.
   const [assemblyOpen, setAssemblyOpen] = useState(false);
   const [assemblyFlow, setAssemblyFlow] = useState<"redesign" | "from_scratch">("redesign");
+  // Estúdio de Desenho de Campanha (Camada 5 PARTE 2)
+  const [designStudioOpen, setDesignStudioOpen] = useState(false);
 
   // 1) Campanha
   const { data: campaign, isLoading: loadingCampaign, error: campaignError } =
