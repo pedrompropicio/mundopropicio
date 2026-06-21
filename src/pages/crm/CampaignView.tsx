@@ -70,6 +70,7 @@ import { periodFromMode, type PeriodState } from "@/lib/crm/period";
 import { StrategicTriggersCard } from "@/components/crm/StrategicTriggersCard";
 import { AssistedAssemblyPanel } from "@/components/crm/AssistedAssemblyPanel";
 import { CampaignDesignStudio } from "@/components/crm/CampaignDesignStudio";
+import { MetaPublishPanel } from "@/components/crm/MetaPublishPanel";
 
 // ── Tipos (subset dos snapshots; só o que a página usa) ─────────────────────
 interface CampaignSnap {
@@ -458,6 +459,8 @@ export default function CrmCampaignView() {
   const [assemblyFlow, setAssemblyFlow] = useState<"redesign" | "from_scratch">("redesign");
   // Estúdio de Desenho de Campanha (Camada 5 PARTE 2)
   const [designStudioOpen, setDesignStudioOpen] = useState(false);
+  // Preparar publicação no Meta (Elo de Publicação — FASE 1)
+  const [metaPublishOpen, setMetaPublishOpen] = useState(false);
 
   // 1) Campanha
   const { data: campaign, isLoading: loadingCampaign, error: campaignError } =
@@ -2141,6 +2144,9 @@ export default function CrmCampaignView() {
           onOpen={() => setDesignStudioOpen(true)}
           designStudioOpen={designStudioOpen}
           onOpenChange={setDesignStudioOpen}
+          onOpenMetaPublish={() => setMetaPublishOpen(true)}
+          metaPublishOpen={metaPublishOpen}
+          onMetaPublishOpenChange={setMetaPublishOpen}
         />
       )}
 
@@ -2284,12 +2290,18 @@ function DesignStudioEntry({
   onOpen,
   designStudioOpen,
   onOpenChange,
+  onOpenMetaPublish,
+  metaPublishOpen,
+  onMetaPublishOpenChange,
 }: {
   eventId: string;
   companyId: string | null;
   onOpen: () => void;
   designStudioOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  onOpenMetaPublish: () => void;
+  metaPublishOpen: boolean;
+  onMetaPublishOpenChange: (open: boolean) => void;
 }) {
   const { data: latestAssemblyId, isLoading } = useQuery({
     queryKey: ["crm-latest-assembly", eventId, companyId],
@@ -2307,8 +2319,26 @@ function DesignStudioEntry({
     },
   });
 
+  const { data: latestDesignId } = useQuery({
+    queryKey: ["crm-latest-design", eventId, companyId],
+    enabled: !!eventId && !!companyId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm").from("campaign_design")
+        .select("id")
+        .eq("event_id", eventId)
+        .eq("company_id", companyId)
+        .order("generated_at", { ascending: false })
+        .limit(1);
+      if (error) throw new Error(error.message);
+      return ((data ?? [])[0]?.id as string | undefined) ?? null;
+    },
+  });
+
   const disabled = isLoading || !latestAssemblyId;
   const tip = !latestAssemblyId ? "Cria primeiro uma montagem assistida" : undefined;
+  const publishDisabled = !latestDesignId;
+  const publishTip = !latestDesignId ? "Gera primeiro um desenho de campanha" : undefined;
 
   return (
     <>
@@ -2322,7 +2352,7 @@ function DesignStudioEntry({
               Veste a montagem com textos por adset (auto-classificados). Editas à mão e o semáforo é re-validado pelo servidor — nunca pelo cliente.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {tip ? (
               <TooltipProvider>
                 <Tooltip>
@@ -2339,6 +2369,22 @@ function DesignStudioEntry({
                 <Wand2 className="h-4 w-4 mr-1" /> Desenhar campanha
               </Button>
             )}
+            {publishTip ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span tabIndex={0}>
+                      <Button size="sm" disabled>Preparar publicação</Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent><p className="text-xs">{publishTip}</p></TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <Button size="sm" onClick={onOpenMetaPublish} disabled={publishDisabled}>
+                Preparar publicação
+              </Button>
+            )}
           </div>
         </div>
       </Card>
@@ -2348,7 +2394,14 @@ function DesignStudioEntry({
         companyId={companyId}
         assemblyId={latestAssemblyId ?? null}
       />
+      <MetaPublishPanel
+        open={metaPublishOpen}
+        onOpenChange={onMetaPublishOpenChange}
+        companyId={companyId}
+        designId={latestDesignId ?? null}
+      />
     </>
   );
 }
+
 
