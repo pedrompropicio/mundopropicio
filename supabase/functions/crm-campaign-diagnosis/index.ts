@@ -937,6 +937,7 @@ async function readInsightWindows(
 // Handler
 // ──────────────────────────────────────────────────────────────────────────
 Deno.serve(async (req: Request): Promise<Response> => {
+  console.log("[campaign-diagnosis] BUILD_VERSION=maturation-age-gate-v1");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
