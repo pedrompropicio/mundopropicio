@@ -53,7 +53,13 @@ import {
   Star,
   Info,
   Scissors,
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
+  ShieldQuestion,
+  MessageSquareWarning,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { classifyCreative, metaAdsManagerUrl } from "@/lib/creative-media";
 import { EditCampaignPopover, type CampaignRow } from "@/pages/crm/Campaigns";
@@ -669,6 +675,75 @@ export default function CrmCampaignView() {
     });
     return m;
   }, [creatives]);
+
+  // ── Camada 2: Validação de mensagem dos criativos ──────────────────────────
+  type MessageValidationRow = {
+    creative_id: string;
+    semaforo: "coerente" | "atencao" | "contradiz";
+    aproveita_gatilhos: boolean;
+    explicacao: string | null;
+    sugestao_copy: string | null;
+    validated_at: string;
+    analysis_model: string | null;
+  };
+
+  const creativeIdList = useMemo(
+    () => (creatives ?? []).map((c) => c.id).sort(),
+    [creatives],
+  );
+  const eventIdForValidation = campaign?.linked_event_id ?? null;
+  const companyIdForValidation = campaign?.company_id ?? null;
+
+  const { data: messageValidations } = useQuery({
+    queryKey: ["crm-campaign-view-msg-validation", eventIdForValidation, creativeIdList.join(",")],
+    enabled: !!eventIdForValidation && creativeIdList.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("creative_message_validation")
+        .select("creative_id, semaforo, aproveita_gatilhos, explicacao, sugestao_copy, validated_at, analysis_model")
+        .eq("event_id", eventIdForValidation)
+        .in("creative_id", creativeIdList);
+      if (error) throw error;
+      return (data ?? []) as MessageValidationRow[];
+    },
+  });
+
+  const validationByCreativeId = useMemo(() => {
+    const m = new Map<string, MessageValidationRow>();
+    (messageValidations ?? []).forEach((v) => m.set(v.creative_id, v));
+    return m;
+  }, [messageValidations]);
+
+  const [validatingMessages, setValidatingMessages] = useState(false);
+
+  async function runValidateMessages() {
+    if (!eventIdForValidation || !companyIdForValidation || creativeIdList.length === 0) return;
+    setValidatingMessages(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-validate-creative-messages", {
+        body: {
+          company_id: companyIdForValidation,
+          event_id: eventIdForValidation,
+          creative_ids: creativeIdList,
+        },
+      });
+      if (error) throw error;
+      const errCount = (data?.results ?? []).filter((r: any) => r.error).length;
+      const okCount = (data?.results ?? []).filter((r: any) => !r.error).length;
+      if (errCount > 0) {
+        toast.warning(`Validação concluída: ${okCount} OK, ${errCount} com erro.`);
+      } else {
+        toast.success(`Mensagens validadas (${okCount}).`);
+      }
+      await qc.invalidateQueries({ queryKey: ["crm-campaign-view-msg-validation"] });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Falha ao validar mensagens");
+    } finally {
+      setValidatingMessages(false);
+    }
+  }
+
 
   // ── ABO vs CBO detection ─────────────────────────────────────────────────
   // CBO: orçamento ao nível da campanha. ABO: orçamento ao nível dos adsets.
@@ -1777,7 +1852,34 @@ export default function CrmCampaignView() {
 
       {/* Ads — criativo, link, pausar/ativar */}
       <Card className="p-5">
-        <h2 className="text-lg font-semibold mb-3">Anúncios ({(ads ?? []).length})</h2>
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <h2 className="text-lg font-semibold">Anúncios ({(ads ?? []).length})</h2>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!eventIdForValidation || validatingMessages || creativeIdList.length === 0}
+                    onClick={runValidateMessages}
+                    className="h-8 text-xs"
+                  >
+                    {validatingMessages ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    ) : (
+                      <MessageSquareWarning className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    Validar mensagens
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!eventIdForValidation && (
+                <TooltipContent>associe um evento para validar mensagens</TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+        </div>
         {(ads ?? []).length === 0 ? (
           <p className="text-sm text-muted-foreground">Sem anúncios sincronizados.</p>
         ) : (
@@ -1856,6 +1958,57 @@ export default function CrmCampaignView() {
                         )}
                       </Badge>
                     )}
+
+                    {/* Camada 2 — semáforo de validação de mensagem */}
+                    {cr && eventIdForValidation && (() => {
+                      const val = validationByCreativeId.get(cr.id);
+                      if (!val) {
+                        return (
+                          <Badge variant="outline" className="border text-[10px] gap-1 border-muted-foreground/30 text-muted-foreground">
+                            <ShieldQuestion className="h-3 w-3" /> Mensagem por validar
+                          </Badge>
+                        );
+                      }
+                      const sem = val.semaforo;
+                      const meta =
+                        sem === "coerente"
+                          ? { icon: CheckCircle2, label: "Mensagem coerente", color: "border-emerald-500/40 text-emerald-400" }
+                          : sem === "atencao"
+                          ? { icon: AlertCircle, label: "Mensagem com atenção", color: "border-amber-500/40 text-amber-400" }
+                          : { icon: XCircle, label: "Mensagem contradiz", color: "border-rose-500/40 text-rose-400" };
+                      const Icon = meta.icon;
+                      const opportunity = sem === "coerente" && !val.aproveita_gatilhos;
+                      return (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="inline-flex items-center gap-1 flex-wrap">
+                                <Badge variant="outline" className={cn("border text-[10px] gap-1 cursor-help", meta.color)}>
+                                  <Icon className="h-3 w-3" /> {meta.label}
+                                </Badge>
+                                {opportunity && (
+                                  <Badge variant="outline" className="border text-[10px] gap-1 border-orange-400/40 text-orange-300 cursor-help">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-orange-400" /> Oportunidade
+                                  </Badge>
+                                )}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs space-y-1 text-xs">
+                              {val.explicacao && <p>{val.explicacao}</p>}
+                              {val.sugestao_copy && (
+                                <div className="border-t border-border/40 pt-1">
+                                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Sugestão (editável, não aplicada)</p>
+                                  <p className="italic">{val.sugestao_copy}</p>
+                                </div>
+                              )}
+                              <p className="text-[10px] text-muted-foreground pt-1">
+                                Validado {formatDistanceToNow(new Date(val.validated_at), { locale: pt, addSuffix: true })}
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    })()}
 
                     <div className="flex items-center gap-1.5 flex-wrap pt-1">
                       {(isActive || isPaused) && (
