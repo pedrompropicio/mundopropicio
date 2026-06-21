@@ -1852,7 +1852,34 @@ export default function CrmCampaignView() {
 
       {/* Ads — criativo, link, pausar/ativar */}
       <Card className="p-5">
-        <h2 className="text-lg font-semibold mb-3">Anúncios ({(ads ?? []).length})</h2>
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <h2 className="text-lg font-semibold">Anúncios ({(ads ?? []).length})</h2>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!eventIdForValidation || validatingMessages || creativeIdList.length === 0}
+                    onClick={runValidateMessages}
+                    className="h-8 text-xs"
+                  >
+                    {validatingMessages ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    ) : (
+                      <MessageSquareWarning className="h-3.5 w-3.5 mr-1.5" />
+                    )}
+                    Validar mensagens
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!eventIdForValidation && (
+                <TooltipContent>associe um evento para validar mensagens</TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+        </div>
         {(ads ?? []).length === 0 ? (
           <p className="text-sm text-muted-foreground">Sem anúncios sincronizados.</p>
         ) : (
