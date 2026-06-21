@@ -60,17 +60,33 @@ Por adset de conversão, conta os eventos do **seu** goal na janela `last_7d` j�
 calculada (Fase 1B/1C). 100% determinística — sem LLM, sem Graph API. Re-runs
 idênticos.
 
-### Limiar
+### Limiar de eventos
 `LEARNING_EVENTS_THRESHOLD = 50` (constante calibrável em `crm-campaign-diagnosis`).
 
+### Limiar de idade (NOVO — v1 maturation-age-gate)
+`MATURATION_MAX_AGE_DAYS = 14` (constante calibrável). Governa **apenas se o
+portão se aplica como imaturo**, nunca a classe final. Acima deste limiar de
+dias de histórico disponível, a campanha cai para `classifyCampaign` (Fase 1D)
+mesmo que continue sem nenhum adset de conversão a atingir 50 eventos/7d — uma
+campanha com >=14d e ROAS óptimo deve sair saudável da 1D; uma com >=14d e ROAS
+fraco deve sair fraca/morta da 1D. É o comportamento desejado.
+
+**Distinção crítica face ao `history_warning`** (não confundir nem reutilizar):
+- `MATURATION_MAX_AGE_DAYS = 14` → "teve tempo de sair de learning phase".
+- `history_warning < 30d` → "histórico curto, projecção menos fiável".
+São conceitos diferentes, com limiares diferentes e razões diferentes.
+
 ### Régua de decisão
-- **Há >=1 adset de conversão** MAS **nenhum** atingiu o limiar de eventos em 7d
-  → campanha **imatura**.
-- Imatura → força `source_campaign_class = "em_maturacao"` e
-  `recommended_posture = "aguardar_maturacao"`, curto-circuitando a classificação
-  por ROAS.
-- **Sem nenhum adset de conversão** → portão **não se aplica** (comportamento
-  atual mantido; segue para `classifyCampaign`).
+- **Sem nenhum adset de conversão** → portão **não se aplica** (segue para `classifyCampaign`).
+- **>=1 adset de conversão**, **nenhum atingiu o limiar** de eventos em 7d, e
+  `history_days_available < MATURATION_MAX_AGE_DAYS` → campanha **imatura** →
+  força `source_campaign_class = "em_maturacao"` e
+  `recommended_posture = "aguardar_maturacao"`, curto-circuitando a Fase 1D.
+- **>=1 adset de conversão**, **nenhum atingiu o limiar**, e
+  `history_days_available >= MATURATION_MAX_AGE_DAYS` → `learning_limited =
+  true` mas `is_immature = false`: NÃO força nada, deixa cair para
+  `classifyCampaign` (ROAS).
+- **>=1 adset atingiu o limiar** → portão não força → Fase 1D.
 
 ## Nova classe e postura
 - `SourceCampaignClass` += `"em_maturacao"`.
@@ -92,9 +108,18 @@ por isso o novo valor cabe sem alteração de schema.
   conversion_adsets: [
     { external_adset_id, optimization_goal, event_field, events_last_7d, reached_threshold }
   ],
+  history_days_available,   // dias de histórico recebidos
+  max_age_days,             // = MATURATION_MAX_AGE_DAYS (14)
+  learning_limited,         // applies && !anyMature && history_days_available >= max_age_days
   reason
 }
 ```
+
+`computeMaturationGate(adsetSnaps, adsetGroups, last7, historyDaysAvailable)` —
+o 4º parâmetro foi adicionado em `maturation-age-gate-v1`.
+
+Marcador de versão actual (`Deno.serve` handler):
+`[campaign-diagnosis] BUILD_VERSION=maturation-age-gate-v1`.
 
 ## Fecho defensivo no redesign
 `crm-meta-campaign-redesign`, no switch por classe (Fase 3A), tem um `case
