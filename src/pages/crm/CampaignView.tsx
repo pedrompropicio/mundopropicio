@@ -1922,6 +1922,12 @@ export default function CrmCampaignView() {
       </Card>
 
 
+      {/* Contexto Comercial do Evento */}
+      <EventCommercialContextCard
+        eventId={campaign.linked_event_id ?? null}
+        companyId={campaign.company_id ?? null}
+      />
+
       {/* Histórico */}
       <Card className="p-5">
         <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
