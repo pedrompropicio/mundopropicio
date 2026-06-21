@@ -119,6 +119,10 @@ async function getGoogleAccessToken(): Promise<string> {
 // é devolvido automaticamente em cada row da resource principal (campaign).
 // Incluí-lo no SELECT dispara INVALID_ARGUMENT / BAD_FIELD_NAME.
 // Ref: https://developers.google.com/google-ads/api/fields/v20/campaign
+// NOTA v24: campaign.start_date / campaign.end_date foram renomeados para
+// campaign.start_date_time / campaign.end_date_time (datetime, ex.: "2026-01-15 00:00:00").
+// Truncamos para YYYY-MM-DD no aggregate() para caber em start_date/end_date (date).
+// Ref: https://developers.google.com/google-ads/api/fields/v24/campaign
 const GAQL_CAMPAIGNS = `
   SELECT
     campaign.id,
@@ -126,8 +130,8 @@ const GAQL_CAMPAIGNS = `
     campaign.status,
     campaign.advertising_channel_type,
     campaign.bidding_strategy_type,
-    campaign.start_date,
-    campaign.end_date,
+    campaign.start_date_time,
+    campaign.end_date_time,
     campaign_budget.amount_micros,
     metrics.impressions,
     metrics.clicks,
@@ -205,6 +209,17 @@ interface AggCampaign {
   raw_sample: unknown;
 }
 
+// v24 devolve start_date_time / end_date_time como "YYYY-MM-DD HH:MM:SS".
+// Truncamos para YYYY-MM-DD (a coluna start_date/end_date é date).
+function truncToDate(v: unknown): string | null {
+  if (v == null) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  // Aceita "2026-01-15", "2026-01-15 00:00:00", "2026-01-15T00:00:00..."
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : null;
+}
+
 function aggregate(rows: GAdsCampaignRow[]): AggCampaign[] {
   const byId = new Map<string, AggCampaign>();
   for (const r of rows) {
@@ -222,8 +237,8 @@ function aggregate(rows: GAdsCampaignRow[]): AggCampaign[] {
       bidding_strategy_type: (c.biddingStrategyType as string) ?? null,
       budget_amount_micros:
         b.amountMicros != null ? Number(b.amountMicros) : null,
-      start_date: (c.startDate as string) ?? null,
-      end_date: (c.endDate as string) ?? null,
+      start_date: truncToDate(c.startDateTime),
+      end_date: truncToDate(c.endDateTime),
       impressions: 0,
       clicks: 0,
       cost_micros: 0,
@@ -338,10 +353,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   for (const conn of connections) {
     const customerId = String(conn.selected_ad_account_id || "").replace(/-/g, "");
-    const loginCustomerId =
+    const loginCustomerId = String(
       (conn.login_customer_id as string | null) ||
-      GOOGLE_ADS_LOGIN_CUSTOMER_ID_FALLBACK ||
-      "";
+        GOOGLE_ADS_LOGIN_CUSTOMER_ID_FALLBACK ||
+        "",
+    ).replace(/-/g, "");
     if (!customerId || !loginCustomerId) {
       results.push({
         connection_id: conn.id,
@@ -424,6 +440,32 @@ Deno.serve(async (req: Request): Promise<Response> => {
       });
     } catch (e) {
       const msg = (e as Error).message;
+      // Tenta extrair errorCode + requestId do body do erro Google (se houver)
+      let googleErrorCode: string | null = null;
+      let googleErrorMessage: string | null = null;
+      let googleRequestId: string | null = null;
+      try {
+        const jsonStart = msg.indexOf("[");
+        const jsonStart2 = msg.indexOf("{");
+        const start = jsonStart >= 0 && (jsonStart2 < 0 || jsonStart < jsonStart2)
+          ? jsonStart
+          : jsonStart2;
+        if (start >= 0) {
+          const payload = JSON.parse(msg.slice(start));
+          const arr = Array.isArray(payload) ? payload : [payload];
+          const details = arr?.[0]?.error?.details?.[0];
+          const firstErr = details?.errors?.[0];
+          if (firstErr?.errorCode && typeof firstErr.errorCode === "object") {
+            // errorCode é um oneOf: { queryError: "...", requestError: "...", ... }
+            const [k, v] = Object.entries(firstErr.errorCode)[0] ?? [];
+            googleErrorCode = k && v ? `${k}:${v}` : null;
+          }
+          googleErrorMessage = firstErr?.message ?? null;
+          googleRequestId = details?.requestId ?? null;
+        }
+      } catch (_e) {
+        // ignore — devolve só o msg cru
+      }
       await (supabase as any)
         .schema("crm")
         .from("ad_platform_connections")
@@ -432,7 +474,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
           last_error: msg.slice(0, 1000),
         })
         .eq("id", conn.id);
-      results.push({ connection_id: conn.id, ok: false, error: msg });
+      results.push({
+        connection_id: conn.id,
+        ok: false,
+        error: msg,
+        google_error_code: googleErrorCode,
+        google_error_message: googleErrorMessage,
+        google_request_id: googleRequestId,
+      });
     }
   }
 
