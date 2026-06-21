@@ -1445,6 +1445,7 @@ INSTRUÇÕES DE USO DESTAS MÉTRICAS:
 
   // 6) Prompt
   const diagJsonStr = JSON.stringify(diagnosis.diagnosis_jsonb ?? {}).slice(0, 12000);
+  const classReason = diagnosis?.diagnosis_jsonb?.levels?.campaign?.classification?.classification_reason ?? null;
   const countries = ["PT", "BR"];
 
   // 6a) Inheritance decisions text — só quando body.inheritance_decisions presente.
