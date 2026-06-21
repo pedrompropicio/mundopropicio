@@ -45,6 +45,9 @@ type AdsetDraft = {
   roas_agregado: number | null;
   fiavel: boolean;
 };
+const isUuid = (s: unknown): s is string =>
+  typeof s === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+
 
 Deno.serve(async (req: Request): Promise<Response> => {
   console.log("[assisted-assembly] BUILD_VERSION=assembly-compute-v2");
