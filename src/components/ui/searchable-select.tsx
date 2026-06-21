@@ -52,15 +52,24 @@ export function SearchableSelect({
 
   const selectedOption = options.find((o) => o.value === value);
 
+  const normalize = React.useCallback((s: string) =>
+    s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/\s+/g, " ").trim()
+  , []);
+
   const filtered = React.useMemo(() => {
     if (!search.trim()) return options;
-    const q = search.toLowerCase();
-    // Find which non-header items match
+    const qNorm = normalize(search);
+    const tokens = qNorm.split(" ").filter(Boolean);
+    const qNoSpace = qNorm.replace(/\s+/g, "");
     const matchIndices = new Set<number>();
     options.forEach((o, i) => {
       if (o.isHeader) return;
-      const haystack = [o.label, o.searchText, o.description].filter(Boolean).join(" ").toLowerCase();
-      if (haystack.includes(q)) matchIndices.add(i);
+      const raw = [o.label, o.searchText, o.description].filter(Boolean).join(" ");
+      const hayNorm = normalize(raw);
+      const hayNoSpace = hayNorm.replace(/\s+/g, "");
+      const allTokens = tokens.every((t) => hayNorm.includes(t));
+      const noSpaceHit = qNoSpace.length > 0 && hayNoSpace.includes(qNoSpace);
+      if (allTokens || noSpaceHit) matchIndices.add(i);
     });
     // Keep matched items and any preceding headers
     const result: SearchableSelectOption[] = [];
@@ -68,21 +77,19 @@ export function SearchableSelect({
     for (let i = 0; i < options.length; i++) {
       const o = options[i];
       if (o.isHeader) {
-        // Track headers at each indent level
         const lvl = o.indentLevel ?? 0;
-        pendingHeaders.length = lvl; // trim deeper pending headers
+        pendingHeaders.length = lvl;
         pendingHeaders[lvl] = o;
         continue;
       }
       if (matchIndices.has(i)) {
-        // Flush any pending headers
         pendingHeaders.forEach(h => { if (h && !result.includes(h)) result.push(h); });
         pendingHeaders.length = 0;
         result.push(o);
       }
     }
     return result;
-  }, [options, search]);
+  }, [options, search, normalize]);
 
   // Group options
   const groups: { group: string | null; items: SearchableSelectOption[] }[] = [];
