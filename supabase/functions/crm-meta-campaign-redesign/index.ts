@@ -1623,8 +1623,8 @@ ${eventCtx.name ? `- Nome: ${eventCtx.name}
 - Capacidade: ${eventCtx.tickets_total ?? "N/A"}
 - URL de bilheteira: ${eventCtx.ticketing_url ?? "(não definido)"}` : "(campanha sem evento vinculado)"}
 
-== DIAGNÓSTICO ANTERIOR (severity=${diagnosis.severity}, score=${diagnosis.overall_score}) ==
-${diagJsonStr}
+== DIAGNÓSTICO 360 (classe=${diagnosis.source_campaign_class ?? "n/a"}, baseline_projetado=${diagnosis.projected_baseline_roas ?? "n/a"}x) ==
+${classReason ? `Razão da classificação: ${classReason}\n` : ""}${diagJsonStr}
 ${inheritedBlock}
 ${customAudiencesBlock}
 ${crossEventContextText}
