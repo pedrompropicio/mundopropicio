@@ -11,6 +11,7 @@ import {
   KeyRound,
   LogOut,
   Target,
+  Sparkles,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ export function AudienceSidebar() {
     { to: "/audience/creatives", icon: ImageIcon, label: "Criativos" },
     { to: "/audience/insights", icon: Lightbulb, label: "Insights" },
     { to: "/audience/connections", icon: Plug, label: "Conexões" },
+    { to: "/audience/google-ads", icon: Sparkles, label: "Google Ads" },
     { to: "/audience/pixels", icon: Zap, label: "Pixels" },
     { to: "/audience/audit/funnel-test", icon: Target, label: "Funnel Test 360" },
   ];
