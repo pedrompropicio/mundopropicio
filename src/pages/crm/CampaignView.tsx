@@ -53,7 +53,13 @@ import {
   Star,
   Info,
   Scissors,
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
+  ShieldQuestion,
+  MessageSquareWarning,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { classifyCreative, metaAdsManagerUrl } from "@/lib/creative-media";
 import { EditCampaignPopover, type CampaignRow } from "@/pages/crm/Campaigns";
