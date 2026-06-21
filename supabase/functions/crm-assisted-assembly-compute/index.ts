@@ -363,7 +363,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .insert({
       company_id,
       event_id,
-      source_campaign_id: source_campaign_id ?? null,
+      source_campaign_id: isUuid(source_campaign_id) ? source_campaign_id : null,
       flow,
       adsets: adsetsOut,
       total_creatives: adsetsOut.reduce((a, b) => a + b.creative_ids.length, 0),
