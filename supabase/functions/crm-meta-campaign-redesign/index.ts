@@ -596,6 +596,7 @@ function resolveEffectiveEventDate(
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
+  console.log("[redesign] BUILD_VERSION=redesign-360-v1", new Date().toISOString());
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   if (!LOVABLE_API_KEY) return json({ error: "lovable_ai_not_configured" }, 500);
