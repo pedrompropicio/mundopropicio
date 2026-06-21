@@ -2289,12 +2289,18 @@ function DesignStudioEntry({
   onOpen,
   designStudioOpen,
   onOpenChange,
+  onOpenMetaPublish,
+  metaPublishOpen,
+  onMetaPublishOpenChange,
 }: {
   eventId: string;
   companyId: string | null;
   onOpen: () => void;
   designStudioOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  onOpenMetaPublish: () => void;
+  metaPublishOpen: boolean;
+  onMetaPublishOpenChange: (open: boolean) => void;
 }) {
   const { data: latestAssemblyId, isLoading } = useQuery({
     queryKey: ["crm-latest-assembly", eventId, companyId],
@@ -2312,8 +2318,26 @@ function DesignStudioEntry({
     },
   });
 
+  const { data: latestDesignId } = useQuery({
+    queryKey: ["crm-latest-design", eventId, companyId],
+    enabled: !!eventId && !!companyId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm").from("campaign_design")
+        .select("id")
+        .eq("event_id", eventId)
+        .eq("company_id", companyId)
+        .order("generated_at", { ascending: false })
+        .limit(1);
+      if (error) throw new Error(error.message);
+      return ((data ?? [])[0]?.id as string | undefined) ?? null;
+    },
+  });
+
   const disabled = isLoading || !latestAssemblyId;
   const tip = !latestAssemblyId ? "Cria primeiro uma montagem assistida" : undefined;
+  const publishDisabled = !latestDesignId;
+  const publishTip = !latestDesignId ? "Gera primeiro um desenho de campanha" : undefined;
 
   return (
     <>
@@ -2327,7 +2351,7 @@ function DesignStudioEntry({
               Veste a montagem com textos por adset (auto-classificados). Editas à mão e o semáforo é re-validado pelo servidor — nunca pelo cliente.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {tip ? (
               <TooltipProvider>
                 <Tooltip>
@@ -2344,6 +2368,22 @@ function DesignStudioEntry({
                 <Wand2 className="h-4 w-4 mr-1" /> Desenhar campanha
               </Button>
             )}
+            {publishTip ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span tabIndex={0}>
+                      <Button size="sm" disabled>Preparar publicação</Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent><p className="text-xs">{publishTip}</p></TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <Button size="sm" onClick={onOpenMetaPublish} disabled={publishDisabled}>
+                Preparar publicação
+              </Button>
+            )}
           </div>
         </div>
       </Card>
@@ -2353,7 +2393,14 @@ function DesignStudioEntry({
         companyId={companyId}
         assemblyId={latestAssemblyId ?? null}
       />
+      <MetaPublishPanel
+        open={metaPublishOpen}
+        onOpenChange={onMetaPublishOpenChange}
+        companyId={companyId}
+        designId={latestDesignId ?? null}
+      />
     </>
   );
 }
+
 
