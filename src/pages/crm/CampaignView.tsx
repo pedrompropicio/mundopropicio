@@ -68,6 +68,7 @@ import { PeriodSelector } from "@/components/crm/PeriodSelector";
 import { EditAdsetBudgetDialog } from "@/components/crm/EditAdsetBudgetDialog";
 import { periodFromMode, type PeriodState } from "@/lib/crm/period";
 import { StrategicTriggersCard } from "@/components/crm/StrategicTriggersCard";
+import { AssistedAssemblyPanel } from "@/components/crm/AssistedAssemblyPanel";
 
 // ── Tipos (subset dos snapshots; só o que a página usa) ─────────────────────
 interface CampaignSnap {
