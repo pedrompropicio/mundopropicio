@@ -61,6 +61,7 @@ import { ReactivateCampaignDialog } from "@/components/crm/ReactivateCampaignDia
 import { PeriodSelector } from "@/components/crm/PeriodSelector";
 import { EditAdsetBudgetDialog } from "@/components/crm/EditAdsetBudgetDialog";
 import { periodFromMode, type PeriodState } from "@/lib/crm/period";
+import { EventCommercialContextCard } from "@/components/crm/EventCommercialContextCard";
 
 // ── Tipos (subset dos snapshots; só o que a página usa) ─────────────────────
 interface CampaignSnap {
@@ -75,6 +76,8 @@ interface CampaignSnap {
   bid_strategy: string | null;
   start_time: string | null;
   stop_time: string | null;
+  linked_event_id: string | null;
+  company_id: string | null;
 }
 interface AdsetSnap {
   external_adset_id: string;
@@ -1918,6 +1921,12 @@ export default function CrmCampaignView() {
         )}
       </Card>
 
+
+      {/* Contexto Comercial do Evento */}
+      <EventCommercialContextCard
+        eventId={campaign.linked_event_id ?? null}
+        companyId={campaign.company_id ?? null}
+      />
 
       {/* Histórico */}
       <Card className="p-5">
