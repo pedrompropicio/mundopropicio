@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CustomerMatchEnsure from "./CustomerMatchEnsure";
+import GoogleCampaignsTable from "./GoogleCampaignsTable";
 
 type SecaoId = "conversoes" | "campanhas" | "audiences" | "definicoes";
 
@@ -125,16 +126,7 @@ export default function GoogleAdsAdmin() {
         </TabsContent>
 
         <TabsContent value="campanhas" className="mt-4">
-          <Placeholder
-            icon={Megaphone}
-            titulo="Espelho de campanhas"
-            descricao="Snapshot read-only de Campaign → Ad Group → Keyword / Asset Group, com performance e last_synced_at. NÃO é source of truth para status/budget (igual ao espelho Meta)."
-            itens={[
-              "Lista de campanhas Search e Performance Max.",
-              "Performance (impressões, cliques, custo, conversões).",
-              "Sincronização via Google Ads API (Sprint 2).",
-            ]}
-          />
+          <GoogleCampaignsTable />
         </TabsContent>
 
         <TabsContent value="audiences" className="mt-4 space-y-4">
