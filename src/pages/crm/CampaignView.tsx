@@ -2125,7 +2125,8 @@ export default function CrmCampaignView() {
         eventId={campaign.linked_event_id ?? null}
         companyId={campaign.company_id ?? null}
         flow={assemblyFlow}
-        sourceCampaignId={assemblyFlow === "redesign" ? campaign.external_campaign_id : null}
+        // TODO: ligar uuid interno da campanha (meta_campaign_snapshot.id) para auditoria do redesenho
+        sourceCampaignId={null}
         creativeIds={creativeIdList}
       />
 
