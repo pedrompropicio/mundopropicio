@@ -676,6 +676,75 @@ export default function CrmCampaignView() {
     return m;
   }, [creatives]);
 
+  // ── Camada 2: Validação de mensagem dos criativos ──────────────────────────
+  type MessageValidationRow = {
+    creative_id: string;
+    semaforo: "coerente" | "atencao" | "contradiz";
+    aproveita_gatilhos: boolean;
+    explicacao: string | null;
+    sugestao_copy: string | null;
+    validated_at: string;
+    analysis_model: string | null;
+  };
+
+  const creativeIdList = useMemo(
+    () => (creatives ?? []).map((c) => c.id).sort(),
+    [creatives],
+  );
+  const eventIdForValidation = campaign?.linked_event_id ?? null;
+  const companyIdForValidation = campaign?.company_id ?? null;
+
+  const { data: messageValidations } = useQuery({
+    queryKey: ["crm-campaign-view-msg-validation", eventIdForValidation, creativeIdList.join(",")],
+    enabled: !!eventIdForValidation && creativeIdList.length > 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("creative_message_validation")
+        .select("creative_id, semaforo, aproveita_gatilhos, explicacao, sugestao_copy, validated_at, analysis_model")
+        .eq("event_id", eventIdForValidation)
+        .in("creative_id", creativeIdList);
+      if (error) throw error;
+      return (data ?? []) as MessageValidationRow[];
+    },
+  });
+
+  const validationByCreativeId = useMemo(() => {
+    const m = new Map<string, MessageValidationRow>();
+    (messageValidations ?? []).forEach((v) => m.set(v.creative_id, v));
+    return m;
+  }, [messageValidations]);
+
+  const [validatingMessages, setValidatingMessages] = useState(false);
+
+  async function runValidateMessages() {
+    if (!eventIdForValidation || !companyIdForValidation || creativeIdList.length === 0) return;
+    setValidatingMessages(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-validate-creative-messages", {
+        body: {
+          company_id: companyIdForValidation,
+          event_id: eventIdForValidation,
+          creative_ids: creativeIdList,
+        },
+      });
+      if (error) throw error;
+      const errCount = (data?.results ?? []).filter((r: any) => r.error).length;
+      const okCount = (data?.results ?? []).filter((r: any) => !r.error).length;
+      if (errCount > 0) {
+        toast.warning(`Validação concluída: ${okCount} OK, ${errCount} com erro.`);
+      } else {
+        toast.success(`Mensagens validadas (${okCount}).`);
+      }
+      await qc.invalidateQueries({ queryKey: ["crm-campaign-view-msg-validation"] });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Falha ao validar mensagens");
+    } finally {
+      setValidatingMessages(false);
+    }
+  }
+
+
   // ── ABO vs CBO detection ─────────────────────────────────────────────────
   // CBO: orçamento ao nível da campanha. ABO: orçamento ao nível dos adsets.
   // Regra prática: se a campanha tem daily/lifetime_budget_cents → CBO; senão
