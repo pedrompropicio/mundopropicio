@@ -61,6 +61,7 @@ import { ReactivateCampaignDialog } from "@/components/crm/ReactivateCampaignDia
 import { PeriodSelector } from "@/components/crm/PeriodSelector";
 import { EditAdsetBudgetDialog } from "@/components/crm/EditAdsetBudgetDialog";
 import { periodFromMode, type PeriodState } from "@/lib/crm/period";
+import { EventCommercialContextCard } from "@/components/crm/EventCommercialContextCard";
 
 // ── Tipos (subset dos snapshots; só o que a página usa) ─────────────────────
 interface CampaignSnap {
