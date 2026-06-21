@@ -2143,6 +2143,9 @@ export default function CrmCampaignView() {
           onOpen={() => setDesignStudioOpen(true)}
           designStudioOpen={designStudioOpen}
           onOpenChange={setDesignStudioOpen}
+          onOpenMetaPublish={() => setMetaPublishOpen(true)}
+          metaPublishOpen={metaPublishOpen}
+          onMetaPublishOpenChange={setMetaPublishOpen}
         />
       )}
 
