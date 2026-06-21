@@ -179,6 +179,7 @@ import PortalSettings from "./pages/crm-admin/portal-settings/PortalSettings";
 import MetaCapiMonitor from "./pages/crm-admin/meta-capi/MetaCapiMonitor";
 import MetaAudiencesList from "./pages/crm-admin/meta-audiences/MetaAudiencesList";
 import GoogleAdsAdmin from "./pages/crm-admin/google-ads/GoogleAdsAdmin";
+import AudienceGoogleAds from "./pages/audience/AudienceGoogleAds";
 import { useLocation } from "react-router-dom";
 
 const queryClient = new QueryClient({
@@ -585,6 +586,7 @@ function App() {
                     <Route path="creatives" element={<CrmCreatives />} />
                     <Route path="creatives/new" element={<CrmCreativeNew />} />
                     <Route path="creatives/:id" element={<CrmCreativeView />} />
+                    <Route path="google-ads" element={<AudienceGoogleAds />} />
                     <Route path="audit/funnel-test" element={<CrmFunnelTest />} />
                     <Route path="audit/:contextType/:contextId" element={<CrmAudit />} />
                     <Route path="audit/:contextType" element={<CrmAudit />} />
