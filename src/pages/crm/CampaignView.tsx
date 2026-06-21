@@ -75,6 +75,8 @@ interface CampaignSnap {
   bid_strategy: string | null;
   start_time: string | null;
   stop_time: string | null;
+  linked_event_id: string | null;
+  company_id: string | null;
 }
 interface AdsetSnap {
   external_adset_id: string;
