@@ -368,18 +368,12 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   const [lightboxCreativeId, setLightboxCreativeId] = useState<string | null>(null);
   const lightboxCreative = lightboxCreativeId ? creativesById.get(lightboxCreativeId) ?? null : null;
   const lightboxTemporalHits = lightboxCreative ? detectTemporalSnippets(lightboxCreative.text_snippets) : [];
-  const lightboxIsImage = (() => {
-    if (!lightboxCreative) return false;
-    const t = (lightboxCreative.type ?? "").toLowerCase();
-    const m = (lightboxCreative.file_mime_type ?? "").toLowerCase();
-    return t.includes("image") || m.startsWith("image/");
+  const lightboxMediaType = (() => {
+    if (!lightboxCreative) return { kind: "unknown", label: "—" } as const;
+    return getEffectiveMediaType(lightboxCreative.file_url, lightboxCreative.file_mime_type, lightboxCreative.type);
   })();
-  const lightboxIsVideo = (() => {
-    if (!lightboxCreative) return false;
-    const t = (lightboxCreative.type ?? "").toLowerCase();
-    const m = (lightboxCreative.file_mime_type ?? "").toLowerCase();
-    return t.includes("video") || m.startsWith("video/");
-  })();
+  const lightboxIsImage = lightboxMediaType.kind === "image";
+  const lightboxIsVideo = lightboxMediaType.kind === "video";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -641,24 +635,24 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                   <img
                     src={lightboxCreative.file_url}
                     alt={lightboxCreative.name ?? ""}
-                    className="max-h-full max-w-full object-contain"
+                    className="w-full h-full object-contain"
                   />
                 ) : lightboxIsVideo && lightboxCreative.file_url ? (
                   <video
                     controls
                     playsInline
                     src={lightboxCreative.file_url}
-                    className="max-h-full max-w-full object-contain"
+                    className="w-full h-full object-contain"
                   />
                 ) : (
                   <div className="p-12 text-sm text-muted-foreground">
-                    Sem pré-visualização disponível ({lightboxCreative.type ?? "?"})
+                    Sem pré-visualização disponível ({lightboxMediaType.label})
                   </div>
                 )}
               </div>
 
               <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-                <div><span className="text-foreground">Tipo:</span> {lightboxCreative.type ?? "—"}{lightboxCreative.file_mime_type ? ` · ${lightboxCreative.file_mime_type}` : ""}</div>
+                <div><span className="text-foreground">Tipo:</span> {lightboxMediaType.label}{lightboxCreative.file_mime_type ? ` · ${lightboxCreative.file_mime_type}` : ""}</div>
                 <div><span className="text-foreground">Dimensões:</span> {lightboxCreative.width && lightboxCreative.height ? `${lightboxCreative.width}×${lightboxCreative.height}` : "—"}</div>
                 {lightboxIsVideo && (
                   <div><span className="text-foreground">Duração:</span> {lightboxCreative.duration_seconds ? `${lightboxCreative.duration_seconds}s` : "—"}</div>
