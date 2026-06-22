@@ -12,7 +12,7 @@ Tira a campanha do PAUSE no Meta (e volta a pôr no PAUSE) sem recriar nada. Mec
 - `activated_at timestamptz` — quando foi ativada com sucesso a última vez
 - `activated_by uuid` — utilizador que ativou
 - `activation_error jsonb` — último erro Meta na ativação/pausa (limpa em sucesso)
-- Coluna `estado` (texto livre, sem constraint) passa a aceitar também `ativo` e `pausado`.
+- Coluna `estado` com CHECK constraint `meta_publish_plan_estado_check` que tem de incluir OBRIGATORIAMENTE `ativo`, `pausado` e `cancelado` além dos originais (`rascunho`, `pronto_a_publicar`, `a_publicar`, `publicado`, `falhado`). Sem isto, a Fase 3 ativa a campanha no Meta mas falha o UPDATE final → estado inconsistente (Meta ACTIVE, BD `publicado`).
 
 ## Edge function: `crm-meta-publish-activate`
 - Log marker: `[meta-publish-activate] BUILD_VERSION=activate-v1`
