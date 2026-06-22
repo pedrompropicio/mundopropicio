@@ -34,6 +34,35 @@ function normalizeAdAccountId(raw: string): string {
   return c.startsWith("act_") ? c : `act_${c}`;
 }
 
+// Meta exige códigos ISO-2 em geo_locations.countries.
+const COUNTRY_NAME_TO_ISO2: Record<string, string> = {
+  "portugal": "PT",
+  "brasil": "BR", "brazil": "BR",
+  "espanha": "ES", "spain": "ES",
+  "frança": "FR", "franca": "FR", "france": "FR",
+  "reino unido": "GB", "united kingdom": "GB",
+  "alemanha": "DE", "germany": "DE",
+  "itália": "IT", "italia": "IT", "italy": "IT",
+};
+function normalizeCountries(
+  arr: unknown,
+  warn?: (codigo: string, detalhe: string) => void,
+): string[] {
+  if (!Array.isArray(arr) || arr.length === 0) return ["PT"];
+  const out: string[] = [];
+  for (const raw of arr) {
+    if (typeof raw !== "string" || !raw.trim()) continue;
+    const v = raw.trim();
+    if (/^[A-Z]{2}$/.test(v)) { out.push(v); continue; }
+    const key = v.toLowerCase();
+    if (COUNTRY_NAME_TO_ISO2[key]) { out.push(COUNTRY_NAME_TO_ISO2[key]); continue; }
+    const fallback = v.slice(0, 2).toUpperCase();
+    warn?.("geo_nao_normalizada", v);
+    out.push(fallback);
+  }
+  return out.length > 0 ? out : ["PT"];
+}
+
 // Meta é rígido. Defaults seguros.
 function mapObjective(objetivo: string): { optimization_goal: string; billing_event: string } {
   switch (objetivo) {
