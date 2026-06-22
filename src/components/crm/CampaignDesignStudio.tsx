@@ -609,7 +609,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                             >
                               <div className="relative">
                                 {isImage && c?.file_url ? (
-                                  <img src={c.file_url} alt={c.name ?? ""} className="w-full h-24 object-cover rounded mb-2" />
+                                  <img src={withCacheBust(c.file_url, c.updated_at) ?? undefined} alt={c.name ?? ""} className="w-full h-24 object-cover rounded mb-2" />
                                 ) : (
                                   <div className="w-full h-24 rounded mb-2 bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">
                                     {(c?.type ?? "?").toString()}
