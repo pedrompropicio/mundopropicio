@@ -1,4 +1,4 @@
-console.log("[diag-video-source] BUILD_VERSION=diag-video-v2");
+console.log("[diag-video-source] BUILD_VERSION=diag-video-v3");
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
