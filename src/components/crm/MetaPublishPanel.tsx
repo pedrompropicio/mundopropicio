@@ -107,6 +107,7 @@ export function MetaPublishPanel({
   const [plano, setPlano] = useState<PlanoResposta | null>(null);
   const [objetivo, setObjetivo] = useState<string>("OUTCOME_SALES");
   const [orcamentoEuros, setOrcamentoEuros] = useState<string>("");
+  const [linkDestino, setLinkDestino] = useState<string>("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
 
   // FASE 2 — publicação real
