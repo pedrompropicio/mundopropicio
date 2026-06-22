@@ -17,7 +17,7 @@ import {
   TooltipProvider, Tooltip, TooltipTrigger, TooltipContent,
 } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, AlertTriangle, Save, Send, Info, ExternalLink, CheckCircle2 } from "lucide-react";
+import { Loader2, AlertTriangle, Save, Send, Info, ExternalLink, CheckCircle2, Lightbulb, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { OBJETIVO_LABELS_PT, labelCta, labelObjetivo } from "@/lib/meta-labels";
 
@@ -120,6 +120,71 @@ export function MetaPublishPanel({
   const [estadoPlano, setEstadoPlano] = useState<string>("rascunho");
   const [metaCampaignIdPub, setMetaCampaignIdPub] = useState<string | null>(null);
   const [adAccountNumeric, setAdAccountNumeric] = useState<string | null>(null);
+
+  // Recomendações vivas da Meta (leitura — nunca escreve no Meta)
+  type RecomendacaoUI = {
+    tipo: string | null;
+    titulo: string | null;
+    corpo: string | null;
+    lift_estimate: string | null;
+    url: string | null;
+    aplicavel: boolean;
+    acao_sugerida: { campo: string; valor: string } | null;
+  };
+  type RecosResposta = {
+    ok: boolean;
+    conta: RecomendacaoUI[];
+    campanha: RecomendacaoUI[];
+    adsets: Array<{ adset_id: string; nome: string | null; recomendacoes: RecomendacaoUI[] }>;
+    erros?: { conta: any; campanha: any; adsets: any };
+    gerado_em?: string;
+  };
+  const [recosLoading, setRecosLoading] = useState(false);
+  const [recos, setRecos] = useState<RecosResposta | null>(null);
+  const [recosErro, setRecosErro] = useState<string | null>(null);
+
+  async function carregarRecomendacoes() {
+    if (!companyId) return;
+    setRecosLoading(true);
+    setRecosErro(null);
+    try {
+      const { data, error: invErr } = await supabase.functions.invoke("crm-meta-recommendations", {
+        body: {
+          company_id: companyId,
+          campaign_external_id: metaCampaignIdPub ?? undefined,
+        },
+      });
+      if (invErr) {
+        setRecosErro((invErr as any).message ?? "Não foi possível obter recomendações agora.");
+      } else if ((data as any)?.error) {
+        setRecosErro(`${(data as any).error}: ${(data as any).message ?? (data as any).detail ?? ""}`);
+      } else {
+        setRecos(data as RecosResposta);
+      }
+    } catch (e: any) {
+      setRecosErro(e?.message ?? "Não foi possível obter recomendações agora.");
+    } finally {
+      setRecosLoading(false);
+    }
+  }
+
+  // Carrega recomendações quando o plano fica disponível (ou quando muda o id da campanha publicada)
+  useEffect(() => {
+    if (!plano || !companyId) return;
+    void carregarRecomendacoes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plano?.plan_id, companyId, metaCampaignIdPub]);
+
+  function aplicarRecomendacaoAoPlano(r: RecomendacaoUI) {
+    if (!r.aplicavel || !r.acao_sugerida) return;
+    if (r.acao_sugerida.campo === "objetivo") {
+      setObjetivo(r.acao_sugerida.valor);
+      toast({
+        title: "Objetivo alterado no plano",
+        description: "Mudámos o objetivo para Conversões só no plano local. Revê e publica quando quiseres — nada foi enviado ao Meta.",
+      });
+    }
+  }
 
   // Load plano when opening
   useEffect(() => {
@@ -305,6 +370,122 @@ export function MetaPublishPanel({
                 {saveState === "saved" && <span className="text-emerald-600 dark:text-emerald-400">Guardado</span>}
                 {saveState === "idle" && <span className="text-muted-foreground">—</span>}
               </div>
+            </Card>
+
+            {/* Recomendações vivas da Meta — leitura. "Aplicar" mexe SÓ no plano local, NUNCA no Meta. */}
+            <Card className="p-4 space-y-3 border-amber-500/30">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Lightbulb className="h-4 w-4 text-amber-500" />
+                  <h3 className="font-semibold">Recomendações da Meta</h3>
+                  {recos?.gerado_em && (
+                    <span className="text-[11px] text-muted-foreground">
+                      atualizado {new Date(recos.gerado_em).toLocaleTimeString("pt-PT")}
+                    </span>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={recosLoading}
+                  onClick={() => void carregarRecomendacoes()}
+                >
+                  {recosLoading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                  Atualizar
+                </Button>
+              </div>
+
+              <p className="text-[11px] text-muted-foreground">
+                Vêm da Meta. "Aplicar ao plano" só muda este plano local — nada é enviado ao Meta até carregares em publicar.
+              </p>
+
+              {recosErro && (
+                <div className="text-xs text-muted-foreground border rounded p-2">
+                  Não foi possível obter recomendações agora. <span className="opacity-60">({recosErro})</span>
+                </div>
+              )}
+
+              {recosLoading && !recos && (
+                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="h-3 w-3 animate-spin" /> A consultar a Meta…
+                </div>
+              )}
+
+              {recos && (
+                <>
+                  {/* Conta */}
+                  {recos.conta.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">A Meta não tem recomendações para a conta de momento.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {recos.conta.map((r, idx) => (
+                        <div key={`conta-${idx}`} className="border rounded-md p-3 bg-muted/30 text-sm">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="space-y-1 min-w-0">
+                              {r.titulo && <div className="font-medium">💡 {r.titulo}</div>}
+                              {r.corpo && <div className="text-muted-foreground text-xs whitespace-pre-wrap">{r.corpo}</div>}
+                              {r.lift_estimate && (
+                                <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                  {r.lift_estimate}
+                                </div>
+                              )}
+                              {r.url && (
+                                <a
+                                  href={r.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-[11px] text-muted-foreground underline inline-flex items-center gap-1"
+                                >
+                                  Ver no Ads Manager <ExternalLink className="h-3 w-3" />
+                                </a>
+                              )}
+                            </div>
+                            {r.aplicavel && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => aplicarRecomendacaoAoPlano(r)}
+                              >
+                                Aplicar ao plano
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Campanha + adsets (só aparece se houver) */}
+                  {(recos.campanha.length > 0 || recos.adsets.length > 0) && (
+                    <div className="space-y-2 pt-2 border-t">
+                      <div className="text-xs font-medium">Específicas desta campanha</div>
+                      {recos.campanha.map((r, idx) => (
+                        <div key={`camp-${idx}`} className="border rounded-md p-2 bg-muted/20 text-xs">
+                          {r.titulo && <div className="font-medium">💡 {r.titulo}</div>}
+                          {r.corpo && <div className="text-muted-foreground whitespace-pre-wrap">{r.corpo}</div>}
+                          {r.lift_estimate && (
+                            <div className="font-medium text-emerald-600 dark:text-emerald-400">{r.lift_estimate}</div>
+                          )}
+                        </div>
+                      ))}
+                      {recos.adsets.map((g) => (
+                        <div key={g.adset_id} className="border rounded-md p-2 bg-muted/20 text-xs space-y-1">
+                          <div className="font-medium">Adset: {g.nome ?? g.adset_id}</div>
+                          {g.recomendacoes.map((r, idx) => (
+                            <div key={idx} className="pl-2">
+                              {r.titulo && <div>💡 {r.titulo}</div>}
+                              {r.corpo && <div className="text-muted-foreground whitespace-pre-wrap">{r.corpo}</div>}
+                              {r.lift_estimate && (
+                                <div className="text-emerald-600 dark:text-emerald-400">{r.lift_estimate}</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </Card>
 
             {/* Adsets */}
