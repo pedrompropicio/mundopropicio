@@ -85,7 +85,16 @@ type CreativeMini = {
   body: string | null;
   cta_type: string | null;
   text_snippets: string[];
+  updated_at: string | null;
 };
+
+// Cache-busting: força browser a buscar nova versão quando a peça é re-hospedada.
+function withCacheBust(fileUrl: string | null, updatedAt: string | null): string | null {
+  if (!fileUrl) return fileUrl;
+  if (!updatedAt) return fileUrl;
+  const sep = fileUrl.includes("?") ? "&" : "?";
+  return `${fileUrl}${sep}v=${encodeURIComponent(updatedAt)}`;
+}
 
 // ─── Deteção determinística de texto temporal queimado na peça ───
 const TEMPORAL_KEYWORDS = [
