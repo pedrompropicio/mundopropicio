@@ -69,7 +69,7 @@ type ResultadoItem = {
 };
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[meta-publish-activate] BUILD_VERSION=activate-v1");
+  console.log("[meta-publish-activate] BUILD_VERSION=activate-v2");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error_user_msg: "Método não permitido." }, 405);
 
