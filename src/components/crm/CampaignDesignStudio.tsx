@@ -768,7 +768,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                   <video
                     controls
                     playsInline
-                    src={lightboxCreative.file_url}
+                    src={withCacheBust(lightboxCreative.file_url, lightboxCreative.updated_at) ?? undefined}
                     className="w-full h-full object-contain"
                   />
                 ) : (
