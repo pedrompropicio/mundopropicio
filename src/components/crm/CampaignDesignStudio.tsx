@@ -284,7 +284,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     if (ids.length === 0) return new Map<string, CreativeMini>();
     const { data, error } = await (supabase as any)
       .schema("crm").from("meta_creatives")
-      .select("id, name, type, file_url, width, height, duration_seconds, file_mime_type, headline, body, cta_type, analysis_jsonb")
+      .select("id, name, type, file_url, width, height, duration_seconds, file_mime_type, headline, body, cta_type, analysis_jsonb, updated_at")
       .in("id", ids);
     if (error) {
       console.warn("[design-studio] fetch creatives failed", error);
@@ -305,6 +305,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
         body: r.body,
         cta_type: r.cta_type,
         text_snippets: extractSnippets(r.analysis_jsonb),
+        updated_at: r.updated_at ?? null,
       }),
     );
     return m;
