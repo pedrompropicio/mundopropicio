@@ -545,6 +545,12 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                     🔧 Diag resolução
                   </Button>
                   {/* END TEMP DIAG */}
+                  {/* TEMP DIAG — REMOVER */}
+                  <Button size="sm" variant="outline" onClick={runRehostOne} disabled={rehostLoading}>
+                    {rehostLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+                    🖼️ Re-host 1 (teste)
+                  </Button>
+                  {/* END TEMP DIAG */}
                   <Button size="sm" variant="outline" onClick={runGenerate} disabled={generating}>
                     {generating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
                     Re-pedir ao LLM (regenera tudo)
