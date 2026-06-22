@@ -104,7 +104,7 @@ async function graphPOST(path: string, body: Record<string, unknown>, accessToke
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v7");
+  console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v8");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -289,6 +289,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       daily_budget: Math.max(0, Number(a.orcamento_cents ?? 0)),
       billing_event,
       optimization_goal: goal,
+      bid_strategy: "LOWEST_COST_WITHOUT_CAP",
       status: "PAUSED",
       targeting,
     };
