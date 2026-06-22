@@ -336,7 +336,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // ─── ESCRITA REAL ───────────────────────────────────────────────────
   // Estado: a_publicar
   await (admin as any).schema("crm").from("meta_publish_plan")
-    .update({ estado: "a_publicar", publish_error: null }).eq("id", planId);
+    .update({ estado: "a_publicar", publish_error: null, publish_started_at: new Date().toISOString() }).eq("id", planId);
 
   async function failAndStop(passo: string, err: any, extra?: Record<string, unknown>): Promise<Response> {
     const payload = { passo, error: err, ...(extra ?? {}) };
