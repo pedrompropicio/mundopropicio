@@ -87,7 +87,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const companyIdIn = body.company_id;
   const planId = body.plan_id;
-  const dryRun = body.dry_run === true;
+  // SALVAGUARDA P0: dry_run default = TRUE. Só escreve no Meta se vier explicitamente false.
+  const dryRun = body.dry_run !== false;
   if (!companyIdIn || !planId) {
     return json({ error: "missing_params", required: ["company_id", "plan_id"] }, 400);
   }
@@ -335,7 +336,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // ─── ESCRITA REAL ───────────────────────────────────────────────────
   // Estado: a_publicar
   await (admin as any).schema("crm").from("meta_publish_plan")
-    .update({ estado: "a_publicar", publish_error: null }).eq("id", planId);
+    .update({ estado: "a_publicar", publish_error: null, publish_started_at: new Date().toISOString() }).eq("id", planId);
 
   async function failAndStop(passo: string, err: any, extra?: Record<string, unknown>): Promise<Response> {
     const payload = { passo, error: err, ...(extra ?? {}) };
@@ -416,7 +417,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // 7c) Estado final
   await (admin as any).schema("crm").from("meta_publish_plan")
-    .update({ estado: "publicado", published_at: new Date().toISOString(), publish_error: null, adsets: adsetsOut })
+    .update({ estado: "publicado", published_at: new Date().toISOString(), publish_finished_at: new Date().toISOString(), publish_error: null, adsets: adsetsOut })
     .eq("id", planId);
 
   return json({
