@@ -1,4 +1,4 @@
-console.log("[diag-meta-recos] BUILD_VERSION=diag-recos-v1");
+console.log("[diag-meta-recos] BUILD_VERSION=diag-recos-v2");
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -61,17 +61,18 @@ Deno.serve(async (req) => {
     }
 
     const masterKey = Deno.env.get("ENCRYPTION_MASTER_KEY");
-    const { data: token, error: tokErr } = await supabase.rpc("crm_get_meta_decrypted_token", {
+    const { data: tokenRows, error: tokErr } = await supabase.rpc("crm_get_meta_decrypted_token", {
       p_connection_id: connection_id,
       p_master_key: masterKey,
     });
-    if (tokErr || !token) {
-      return new Response(JSON.stringify({ error: "falha a decifrar token", detalhe: tokErr?.message ?? null }), {
+    if (tokErr || !Array.isArray(tokenRows) || tokenRows.length === 0) {
+      return new Response(JSON.stringify({ error: "decrypt_failed", detalhe: tokErr?.message ?? null }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const accessToken = (tokenRows[0] as { access_token: string }).access_token;
 
-    const at = encodeURIComponent(token as string);
+    const at = encodeURIComponent(accessToken);
     const acc = ad_account_id;
 
     // A
