@@ -19,8 +19,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { CheckCircle2, Loader2, RefreshCw, Sparkles, Wand2, AlertTriangle, Info } from "lucide-react";
+import { CheckCircle2, Loader2, RefreshCw, Sparkles, Wand2, AlertTriangle, Info, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -71,7 +72,58 @@ type Adset = {
   variacoes_texto: Variacao[];
 };
 
-type CreativeMini = { id: string; name: string | null; type: string | null; file_url: string | null };
+type CreativeMini = {
+  id: string;
+  name: string | null;
+  type: string | null;
+  file_url: string | null;
+  width: number | null;
+  height: number | null;
+  duration_seconds: number | null;
+  file_mime_type: string | null;
+  headline: string | null;
+  body: string | null;
+  cta_type: string | null;
+  text_snippets: string[];
+};
+
+// ─── Deteção determinística de texto temporal queimado na peça ───
+const TEMPORAL_KEYWORDS = [
+  "ultimas horas", "ultima hora", "ultimas vagas", "hoje", "amanha",
+  "termina", "acaba", "acaba hoje", "ultimos dias", "ultimo dia",
+  "so ate", "ate dia", "resta", "restam", "ultima chance",
+  "agora", "ja", "nao percas tempo", "contagem", "encerra",
+];
+const MONTH_NAMES = [
+  "janeiro", "fevereiro", "marco", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+const MONTH_ABBR_RE = /\b\d{1,2}\s*(de\s*)?(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/i;
+const DATE_NUM_RE = /\b\d{1,2}\/\d{1,2}\b/;
+
+function normalize(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function detectTemporalSnippets(snippets: string[]): string[] {
+  const hits: string[] = [];
+  for (const raw of snippets ?? []) {
+    if (typeof raw !== "string" || !raw.trim()) continue;
+    const n = normalize(raw);
+    const matched =
+      TEMPORAL_KEYWORDS.some((k) => n.includes(k)) ||
+      MONTH_NAMES.some((m) => n.includes(m)) ||
+      MONTH_ABBR_RE.test(n) ||
+      DATE_NUM_RE.test(n);
+    if (matched) hits.push(raw.trim());
+  }
+  return hits;
+}
+
+function extractSnippets(analysis: any): string[] {
+  const arr = analysis?.detected?.text_content_snippets;
+  return Array.isArray(arr) ? arr.filter((x) => typeof x === "string") : [];
+}
 
 function SemaforoBadge({ s }: { s: Variacao["semaforo"] }) {
   if (s === "coerente") return <Badge className="bg-emerald-500/10 text-emerald-300 border-emerald-500/40">🟢 Coerente</Badge>;
@@ -117,14 +169,29 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     if (ids.length === 0) return new Map<string, CreativeMini>();
     const { data, error } = await (supabase as any)
       .schema("crm").from("meta_creatives")
-      .select("id, name, type, file_url")
+      .select("id, name, type, file_url, width, height, duration_seconds, file_mime_type, headline, body, cta_type, analysis_jsonb")
       .in("id", ids);
     if (error) {
       console.warn("[design-studio] fetch creatives failed", error);
       return new Map<string, CreativeMini>();
     }
     const m = new Map<string, CreativeMini>();
-    (data ?? []).forEach((r: any) => m.set(r.id, { id: r.id, name: r.name, type: r.type, file_url: r.file_url }));
+    (data ?? []).forEach((r: any) =>
+      m.set(r.id, {
+        id: r.id,
+        name: r.name,
+        type: r.type,
+        file_url: r.file_url,
+        width: r.width,
+        height: r.height,
+        duration_seconds: r.duration_seconds,
+        file_mime_type: r.file_mime_type,
+        headline: r.headline,
+        body: r.body,
+        cta_type: r.cta_type,
+        text_snippets: extractSnippets(r.analysis_jsonb),
+      }),
+    );
     return m;
   }
 
@@ -290,6 +357,30 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     [adsets]
   );
 
+  // Derivado dos próprios adsets do desenho: a campanha tem gatilho temporal
+  // se algum adset escolhido for de tipo 'calendario' ou 'contagem_regressiva'.
+  const campanhaTemGatilhoTemporal = useMemo(
+    () => adsets.some((a) => a.trigger_tipo === "calendario" || a.trigger_tipo === "contagem_regressiva"),
+    [adsets]
+  );
+
+  // Lightbox
+  const [lightboxCreativeId, setLightboxCreativeId] = useState<string | null>(null);
+  const lightboxCreative = lightboxCreativeId ? creativesById.get(lightboxCreativeId) ?? null : null;
+  const lightboxTemporalHits = lightboxCreative ? detectTemporalSnippets(lightboxCreative.text_snippets) : [];
+  const lightboxIsImage = (() => {
+    if (!lightboxCreative) return false;
+    const t = (lightboxCreative.type ?? "").toLowerCase();
+    const m = (lightboxCreative.file_mime_type ?? "").toLowerCase();
+    return t.includes("image") || m.startsWith("image/");
+  })();
+  const lightboxIsVideo = (() => {
+    if (!lightboxCreative) return false;
+    const t = (lightboxCreative.type ?? "").toLowerCase();
+    const m = (lightboxCreative.file_mime_type ?? "").toLowerCase();
+    return t.includes("video") || m.startsWith("video/");
+  })();
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-full p-0 flex flex-col">
@@ -379,21 +470,41 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                       <div className="flex flex-wrap gap-3">
                         {(adset.pecas ?? []).map((p) => {
                           const c = creativesById.get(p.creative_id);
-                          const isImage = (c?.type ?? "").toLowerCase().includes("image");
+                          const isImage = ((c?.type ?? "").toLowerCase().includes("image"))
+                            || ((c?.file_mime_type ?? "").toLowerCase().startsWith("image/"));
+                          const temporalHits = c ? detectTemporalSnippets(c.text_snippets) : [];
+                          const warn = temporalHits.length > 0 && !campanhaTemGatilhoTemporal;
                           return (
-                            <div key={p.creative_id} className="border rounded-lg p-2 w-[180px] bg-card/40">
-                              {isImage && c?.file_url ? (
-                                <img src={c.file_url} alt={c.name ?? ""} className="w-full h-24 object-cover rounded mb-2" />
-                              ) : (
-                                <div className="w-full h-24 rounded mb-2 bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">
-                                  {(c?.type ?? "?").toString()}
-                                </div>
+                            <button
+                              key={p.creative_id}
+                              type="button"
+                              onClick={() => setLightboxCreativeId(p.creative_id)}
+                              className={cn(
+                                "group text-left border rounded-lg p-2 w-[180px] bg-card/40 cursor-pointer transition hover:bg-card/70 hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/40",
+                                warn && "border-amber-500/60",
                               )}
+                              title="Ampliar peça"
+                            >
+                              <div className="relative">
+                                {isImage && c?.file_url ? (
+                                  <img src={c.file_url} alt={c.name ?? ""} className="w-full h-24 object-cover rounded mb-2" />
+                                ) : (
+                                  <div className="w-full h-24 rounded mb-2 bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">
+                                    {(c?.type ?? "?").toString()}
+                                  </div>
+                                )}
+                                <Maximize2 className="h-3.5 w-3.5 absolute top-1 right-1 text-white/90 drop-shadow opacity-0 group-hover:opacity-100 transition" />
+                              </div>
                               <div className="text-xs font-medium truncate" title={c?.name ?? p.creative_id}>{c?.name ?? p.creative_id.slice(0, 8)}</div>
+                              {warn && (
+                                <Badge className="mt-1 bg-amber-500/15 text-amber-300 border-amber-500/40 text-[10px] gap-1">
+                                  <AlertTriangle className="h-3 w-3" /> texto temporal na imagem
+                                </Badge>
+                              )}
                               {p.motivo_escolha && (
                                 <div className="text-[11px] text-muted-foreground mt-1 line-clamp-3">{p.motivo_escolha}</div>
                               )}
-                            </div>
+                            </button>
                           );
                         })}
                         {(adset.pecas ?? []).length === 0 && (
@@ -503,6 +614,93 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
           )}
         </div>
       </SheetContent>
+
+      {/* Lightbox da peça */}
+      <Dialog open={!!lightboxCreativeId} onOpenChange={(o) => { if (!o) setLightboxCreativeId(null); }}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="truncate">
+              {lightboxCreative?.name ?? lightboxCreativeId?.slice(0, 8) ?? "Peça"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {lightboxCreative && (
+            <div className="space-y-4">
+              {lightboxTemporalHits.length > 0 && !campanhaTemGatilhoTemporal && (
+                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200 flex gap-2 items-start">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div>
+                    Esta peça mostra texto temporal (ex.: «{lightboxTemporalHits.slice(0, 3).join("», «")}»).
+                    A campanha não tem gatilho de calendário/contagem ativo — pode não ser reutilizável.
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-center bg-black/40 rounded-md overflow-hidden">
+                {lightboxIsImage && lightboxCreative.file_url ? (
+                  <img
+                    src={lightboxCreative.file_url}
+                    alt={lightboxCreative.name ?? ""}
+                    className="object-contain max-h-[70vh] w-auto"
+                  />
+                ) : lightboxIsVideo && lightboxCreative.file_url ? (
+                  <video
+                    controls
+                    src={lightboxCreative.file_url}
+                    className="object-contain max-h-[70vh] w-auto"
+                  />
+                ) : (
+                  <div className="p-12 text-sm text-muted-foreground">
+                    Sem pré-visualização disponível ({lightboxCreative.type ?? "?"})
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                <div><span className="text-foreground">Tipo:</span> {lightboxCreative.type ?? "—"}{lightboxCreative.file_mime_type ? ` · ${lightboxCreative.file_mime_type}` : ""}</div>
+                <div><span className="text-foreground">Dimensões:</span> {lightboxCreative.width && lightboxCreative.height ? `${lightboxCreative.width}×${lightboxCreative.height}` : "—"}</div>
+                {lightboxIsVideo && (
+                  <div><span className="text-foreground">Duração:</span> {lightboxCreative.duration_seconds ? `${lightboxCreative.duration_seconds}s` : "—"}</div>
+                )}
+                {lightboxCreative.cta_type && (
+                  <div><span className="text-foreground">CTA original:</span> {lightboxCreative.cta_type}</div>
+                )}
+              </div>
+
+              {(lightboxCreative.headline || lightboxCreative.body) && (
+                <div className="space-y-1 border-t pt-3">
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Texto original da peça</div>
+                  {lightboxCreative.headline && <div className="text-sm font-medium">{lightboxCreative.headline}</div>}
+                  {lightboxCreative.body && <div className="text-xs text-muted-foreground whitespace-pre-wrap">{lightboxCreative.body}</div>}
+                </div>
+              )}
+
+              {lightboxCreative.text_snippets.length > 0 && (
+                <div className="space-y-2 border-t pt-3">
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Texto detetado na peça</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {lightboxCreative.text_snippets.map((s, i) => {
+                      const isTemporal = detectTemporalSnippets([s]).length > 0;
+                      return (
+                        <Badge
+                          key={i}
+                          variant="outline"
+                          className={cn(
+                            "text-[11px]",
+                            isTemporal && "border-amber-500/50 text-amber-300 bg-amber-500/10",
+                          )}
+                        >
+                          {s}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }
