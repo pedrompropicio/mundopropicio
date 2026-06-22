@@ -98,6 +98,16 @@ Deno.serve(async (req) => {
       });
     }
 
+    // SONDAGEM 2 — permissões do token
+    const meResp = await gget(`${GRAPH}/me?fields=id,name&access_token=${encodeURIComponent(token)}`);
+    const permsResp = await gget(`${GRAPH}/me/permissions?access_token=${encodeURIComponent(token)}`);
+    const token_info: any = {
+      me: meResp.ok ? meResp.json : { erro: meResp.json?.error ?? meResp.raw ?? `HTTP ${meResp.status}` },
+      permissions: permsResp.ok ? (permsResp.json?.data ?? permsResp.json) : { erro: permsResp.json?.error ?? permsResp.raw ?? `HTTP ${permsResp.status}` },
+    };
+    // SONDAGEM 3 — tipo de token (simplificado via /me)
+    const token_tipo = meResp.ok && meResp.json?.id && meResp.json?.name ? "user" : "desconhecido";
+
     const results: any[] = [];
 
     for (const mcid of ids) {
