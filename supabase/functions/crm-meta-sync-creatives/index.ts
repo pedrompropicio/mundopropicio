@@ -363,15 +363,16 @@ async function resolveStoryMediaUrl(objectId: string, accessToken: string): Prom
 // v2: batch resolve image_hash → URL via Graph API (chunks de 10).
 // Endpoint /act_{id}/adimages?hashes=[...]. Retry 1x por chunk em 429/500.
 // Retorna Map vazio se input vazio. Hashes sem match silenciosos (ausentes do map).
-async function resolveImageHashes(adAccountId: string, hashes: string[], accessToken: string): Promise<Map<string, string>> {
-  const out = new Map<string, string>();
+// v5: devolve url + width + height por hash (alta resolução do /adimages).
+async function resolveImageHashes(adAccountId: string, hashes: string[], accessToken: string): Promise<Map<string, { url: string; width: number | null; height: number | null }>> {
+  const out = new Map<string, { url: string; width: number | null; height: number | null }>();
   if (hashes.length === 0) return out;
   const CHUNK = 10;
   for (let i = 0; i < hashes.length; i += CHUNK) {
     const slice = hashes.slice(i, i + CHUNK);
     const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${adAccountId}/adimages`);
     url.searchParams.set("hashes", JSON.stringify(slice));
-    url.searchParams.set("fields", "hash,url,permalink_url");
+    url.searchParams.set("fields", "hash,url,permalink_url,width,height");
     url.searchParams.set("access_token", accessToken);
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
@@ -388,7 +389,13 @@ async function resolveImageHashes(adAccountId: string, hashes: string[], accessT
         }
         for (const item of (j.data ?? [])) {
           const resolved = item.url ?? item.permalink_url;
-          if (item.hash && resolved) out.set(item.hash, resolved);
+          if (item.hash && resolved) {
+            out.set(item.hash, {
+              url: resolved,
+              width: typeof item.width === "number" ? item.width : null,
+              height: typeof item.height === "number" ? item.height : null,
+            });
+          }
         }
         break;
       } catch (e) {
@@ -402,7 +409,7 @@ async function resolveImageHashes(adAccountId: string, hashes: string[], accessT
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[crm-meta-sync-creatives] BUILD_VERSION=ig-native-v4 deployed", new Date().toISOString());
+  console.log("[crm-meta-sync-creatives] BUILD_VERSION=ig-native-v5 deployed", new Date().toISOString());
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -775,10 +782,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
     );
   }
 
-  // ── 3b) v2: batch resolve image_hash → URL para rows ainda sem file_url ──
-  // Só chama API para hashes onde file_url ficou null depois dos passos 1-5
-  // (evita chamadas desnecessárias para criativos já resolvidos directamente).
-  const rowsNeedingHash = rows.filter((r) => r.file_url === null && r.meta_image_hash);
+  // ── 3b) v5: /adimages tem PRIORIDADE para imagens com hash ───────────────
+  // Antes (v4): só corria quando file_url era null (fallback). Resultado: para
+  // type=image/banner/carousel/dpa, o parser preenchia file_url com a MINIATURA
+  // do object_story_spec (link_data.picture, etc.) — pequena, ~600×... — e o
+  // /adimages (que devolve a imagem em alta, ex. 1080×1440) nunca era chamado.
+  // v5: para qualquer row cujo type seja imagem (image/banner/carousel/dpa) E
+  // que tenha meta_image_hash, resolvemos SEMPRE via /adimages e usamos esse url,
+  // mesmo que já houvesse file_url. Persistimos também width/height do /adimages.
+  // VÍDEOS NÃO ENTRAM AQUI: o file_url de vídeo é o poster (resolveVideoThumbnail).
+  const IMAGE_TYPES = new Set(["image", "banner", "carousel", "dpa"]);
+  const rowsNeedingHash = rows.filter((r) => IMAGE_TYPES.has(r.type) && r.meta_image_hash);
   const hashesToResolve = Array.from(new Set(rowsNeedingHash.map((r) => r.meta_image_hash as string)));
   if (hashesToResolve.length > 0) {
     stats.meta_api_calls.adimages_batch_count = Math.ceil(hashesToResolve.length / 10);
@@ -787,7 +801,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       for (const row of rowsNeedingHash) {
         const resolved = resolvedMap.get(row.meta_image_hash);
         if (resolved) {
-          row.file_url = resolved;
+          row.file_url = resolved.url; // prioridade /adimages sobre miniatura do parser
+          if (resolved.width != null) row.width = resolved.width;
+          if (resolved.height != null) row.height = resolved.height;
           stats.file_url_resolved_via_hash++;
         }
       }

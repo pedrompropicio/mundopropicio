@@ -22,3 +22,26 @@ Inicializar `storage_bucket: REHOST_BUCKET` na construção do `row` (linha ~755
 - Paginação / set-diff.
 - Comportamento de `file_url` original do Meta em falhas de rehost.
 - Cron diário.
+
+---
+
+## Correção resolução de imagem v5 (2026-06-22)
+
+### Causa
+Em `crm-meta-sync-creatives`, o parser do `object_story_spec` preenchia `file_url` com a **miniatura** (`link_data.picture`, `child_attachments[0].image_url/picture`, `image_data.image_url`, etc.) — imagens pequenas servidas pela Meta para preview. O bloco `3b` que resolve via `/adimages` só corria como **fallback** (`file_url === null`), pelo que para imagens onde o spec trazia miniatura, a versão em **alta resolução** nunca era usada. Diagnóstico via `crm-diag-image-resolution` confirmou: `/adimages` devolve 1080×1440 ~180–340 KB, enquanto o que era guardado era miniatura.
+
+### Fix
+- Para rows cujo `type ∈ {image, banner, carousel, dpa}` E que tenham `meta_image_hash`, o sync passa a chamar **sempre** `/adimages` e a usar esse URL como `file_url`, **mesmo que o parser já tivesse preenchido um** (miniatura). `/adimages` tem prioridade sobre o `picture` do spec para imagens com hash.
+- `resolveImageHashes` agora pede também `width,height` e devolve `{ url, width, height }` por hash; quando aplicado, persiste `row.width`/`row.height` (antes ficavam `null`).
+- **Vídeos não são afectados:** `type='video'` continua a usar o poster via `resolveVideoThumbnail`. A regra do bloco `3b` exclui `video`.
+- `BUILD_VERSION=ig-native-v5` para validar deploy nos logs.
+
+### Não alterado
+- `_shared/rehost-creative.ts` (grava byte-a-byte o que recebe — já estava correcto).
+- Tratamento de vídeos (poster mantém-se).
+- Paginação, set-diff, event-scoping, cron.
+- `file_size_bytes` continua `null` (HEAD por imagem fica para outra fase).
+- Schema (`width`/`height` já existiam em `crm.meta_creatives`).
+
+### Como aplicar à Ivete / criativos antigos
+Re-sync controlado manualmente (`force_resync=true` via service_role) — não é feito automaticamente.
