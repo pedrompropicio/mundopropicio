@@ -170,6 +170,7 @@ export function MetaPublishPanel({
       const payload = {
         objetivo,
         orcamento_total_cents: parseEuros(orcamentoEuros) || null,
+        link_destino: linkDestino.trim() ? linkDestino.trim() : null,
         adsets: plano.adsets.map(({ _ajustado_a_mao, ...a }) => a),
       };
       const { error: upErr } = await (supabase as any)
@@ -186,7 +187,7 @@ export function MetaPublishPanel({
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plano, objetivo, orcamentoEuros]);
+  }, [plano, objetivo, orcamentoEuros, linkDestino]);
 
   // Quando o orçamento total muda, reparte (mas só nos adsets que NÃO foram ajustados à mão)
   useEffect(() => {
