@@ -178,6 +178,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
 
   // TEMP DIAG — REMOVER
   const [diagLoading, setDiagLoading] = useState(false);
+  const [rehostLoading, setRehostLoading] = useState(false);
   const [diagOpen, setDiagOpen] = useState(false);
   const [diagResult, setDiagResult] = useState<string>("");
   async function runDiagImageResolution() {
@@ -222,6 +223,27 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
       setDiagOpen(true);
     } finally {
       setDiagLoading(false);
+    }
+  }
+  async function runRehostOne() {
+    try {
+      setRehostLoading(true);
+      setDiagResult("");
+      const { data, error: invErr } = await supabase.functions.invoke("crm-meta-rehost-images-targeted", {
+        body: {
+          connection_id: "3c234235-0ac5-4afc-a06e-259bdea0ae7a",
+          ad_account_id: "act_5094207367314169",
+          creative_ids: ["1e6a1993-7b5a-4e3f-a1a9-e94479e7085d"],
+        },
+      });
+      const payload = { data, invErr: invErr ? String(invErr?.message ?? invErr) : null };
+      setDiagResult(JSON.stringify(payload, null, 2));
+      setDiagOpen(true);
+    } catch (e: any) {
+      setDiagResult(JSON.stringify({ erro: String(e?.message ?? e) }, null, 2));
+      setDiagOpen(true);
+    } finally {
+      setRehostLoading(false);
     }
   }
   // END TEMP DIAG
@@ -521,6 +543,12 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                   <Button size="sm" variant="outline" onClick={runDiagImageResolution} disabled={diagLoading}>
                     {diagLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
                     🔧 Diag resolução
+                  </Button>
+                  {/* END TEMP DIAG */}
+                  {/* TEMP DIAG — REMOVER */}
+                  <Button size="sm" variant="outline" onClick={runRehostOne} disabled={rehostLoading}>
+                    {rehostLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+                    🖼️ Re-host 1 (teste)
                   </Button>
                   {/* END TEMP DIAG */}
                   <Button size="sm" variant="outline" onClick={runGenerate} disabled={generating}>
