@@ -103,6 +103,17 @@ export function MetaPublishPanel({
   const [orcamentoEuros, setOrcamentoEuros] = useState<string>("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
 
+  // FASE 2 — publicação real
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [dryRunLoading, setDryRunLoading] = useState(false);
+  const [dryRunPayloads, setDryRunPayloads] = useState<any | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [publishResult, setPublishResult] = useState<any | null>(null);
+  const [publishError, setPublishError] = useState<any | null>(null);
+  const [estadoPlano, setEstadoPlano] = useState<string>("rascunho");
+  const [metaCampaignIdPub, setMetaCampaignIdPub] = useState<string | null>(null);
+  const [adAccountNumeric, setAdAccountNumeric] = useState<string | null>(null);
+
   // Load plano when opening
   useEffect(() => {
     if (!open || !companyId || !designId) return;
