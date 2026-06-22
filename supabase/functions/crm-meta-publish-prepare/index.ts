@@ -98,7 +98,7 @@ async function callGeminiJSON(prompt: string): Promise<any> {
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[meta-publish-prepare] BUILD_VERSION=publish-prepare-v3");
+  console.log("[meta-publish-prepare] BUILD_VERSION=publish-prepare-v4");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -278,23 +278,87 @@ Responde APENAS JSON puro com este shape:
     };
   });
 
-  // 6) Persiste plano
-  const { data: ins, error: insErr } = await (adminClient as any)
+  // 6) Persiste plano — IDEMPOTENTE por design_id.
+  //    Se já existir um plano para este design_id em estado não-publicado, faz UPDATE
+  //    (preservando meta_campaign_id e os meta_*_id já gravados nos adsets/anuncios — chave
+  //    da idempotência da execute). Só faz INSERT se não houver, ou se o último estiver publicado.
+  const { data: existing, error: exErr } = await (adminClient as any)
     .schema("crm").from("meta_publish_plan")
-    .insert({
-      company_id,
-      event_id: design.event_id,
-      design_id,
-      objetivo: objetivo,
-      orcamento_total_cents: orcamentoTotal,
-      moeda: "EUR",
-      link_destino: linkDestinoEvento,
-      adsets: adsetsOut,
-      estado: "rascunho",
-    })
-    .select("id, link_destino")
-    .single();
-  if (insErr) return json({ error: "persist_failed", detail: insErr.message }, 500);
+    .select("id, estado, meta_campaign_id, adsets")
+    .eq("design_id", design_id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (exErr) return json({ error: "plan_lookup_failed", detail: exErr.message }, 500);
+
+  const reusableStates = ["rascunho", "pronto_a_publicar", "a_publicar", "falhado"];
+  const shouldReuse = existing && reusableStates.includes(existing.estado);
+
+  // Helper para preservar meta_*_id já gravados, indexando por trigger_id (fallback trigger_nome).
+  function mergeAdsetsPreservingMetaIds(prev: any[], next: any[]): any[] {
+    const prevArr = Array.isArray(prev) ? prev : [];
+    const keyOf = (a: any) => a?.trigger_id ? `id:${a.trigger_id}` : `nome:${a?.trigger_nome ?? ""}`;
+    const prevByKey = new Map(prevArr.map((a) => [keyOf(a), a]));
+    return next.map((a) => {
+      const p = prevByKey.get(keyOf(a));
+      if (!p) return a;
+      const merged: any = { ...a };
+      if (p.meta_adset_id) merged.meta_adset_id = p.meta_adset_id;
+      const prevAds: any[] = Array.isArray(p.anuncios) ? p.anuncios : [];
+      const nextAds: any[] = Array.isArray(a.anuncios) ? a.anuncios : [];
+      merged.anuncios = nextAds.map((an, idx) => {
+        const pAd = prevAds.find((x) => x?.origem_variacao_idx === an?.origem_variacao_idx) ?? prevAds[idx];
+        if (!pAd) return an;
+        const m: any = { ...an };
+        if (pAd.meta_ad_id) m.meta_ad_id = pAd.meta_ad_id;
+        if (pAd.meta_creative_id) m.meta_creative_id = pAd.meta_creative_id;
+        return m;
+      });
+      return merged;
+    });
+  }
+
+  let ins: any;
+  if (shouldReuse) {
+    const mergedAdsets = mergeAdsetsPreservingMetaIds(existing.adsets, adsetsOut);
+    const { data: upd, error: updErr } = await (adminClient as any)
+      .schema("crm").from("meta_publish_plan")
+      .update({
+        company_id,
+        event_id: design.event_id,
+        objetivo: objetivo,
+        orcamento_total_cents: orcamentoTotal,
+        moeda: "EUR",
+        link_destino: linkDestinoEvento,
+        adsets: mergedAdsets,
+        // NÃO mexe em estado nem em meta_campaign_id — preservados.
+      })
+      .eq("id", existing.id)
+      .select("id, link_destino")
+      .single();
+    if (updErr) return json({ error: "persist_failed", detail: updErr.message }, 500);
+    ins = upd;
+    console.log("[meta-publish-prepare] REUSED_PLAN", JSON.stringify({ plan_id: existing.id, design_id, meta_campaign_id_preserved: existing.meta_campaign_id ?? null }));
+  } else {
+    const { data: insNew, error: insErr } = await (adminClient as any)
+      .schema("crm").from("meta_publish_plan")
+      .insert({
+        company_id,
+        event_id: design.event_id,
+        design_id,
+        objetivo: objetivo,
+        orcamento_total_cents: orcamentoTotal,
+        moeda: "EUR",
+        link_destino: linkDestinoEvento,
+        adsets: adsetsOut,
+        estado: "rascunho",
+      })
+      .select("id, link_destino")
+      .single();
+    if (insErr) return json({ error: "persist_failed", detail: insErr.message }, 500);
+    ins = insNew;
+    console.log("[meta-publish-prepare] NEW_PLAN", JSON.stringify({ plan_id: ins.id, design_id, reason: existing ? `last_estado=${existing.estado}` : "no_existing" }));
+  }
 
   return json({
     plan_id: ins.id,
