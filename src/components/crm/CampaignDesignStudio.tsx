@@ -514,6 +514,12 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                     {generating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
                     Re-pedir ao LLM (regenera tudo)
                   </Button>
+                  {/* TEMP DIAG VIDEO — REMOVER */}
+                  <Button size="sm" variant="outline" onClick={runDiagVideo} disabled={diagVideoLoading}>
+                    {diagVideoLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <span className="mr-1">🎬</span>}
+                    Diag vídeo
+                  </Button>
+                  {/* END TEMP DIAG VIDEO */}
                   <Button size="sm" onClick={finalizar} disabled={estado === "finalizado"}>
                     <CheckCircle2 className="h-4 w-4 mr-1" /> Finalizar desenho
                   </Button>
