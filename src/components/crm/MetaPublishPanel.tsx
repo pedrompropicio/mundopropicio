@@ -17,7 +17,7 @@ import {
   TooltipProvider, Tooltip, TooltipTrigger, TooltipContent,
 } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, AlertTriangle, Save, Send, Info, ExternalLink, CheckCircle2 } from "lucide-react";
+import { Loader2, AlertTriangle, Save, Send, Info, ExternalLink, CheckCircle2, Lightbulb, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { OBJETIVO_LABELS_PT, labelCta, labelObjetivo } from "@/lib/meta-labels";
 
