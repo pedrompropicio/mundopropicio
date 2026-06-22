@@ -363,15 +363,16 @@ async function resolveStoryMediaUrl(objectId: string, accessToken: string): Prom
 // v2: batch resolve image_hash → URL via Graph API (chunks de 10).
 // Endpoint /act_{id}/adimages?hashes=[...]. Retry 1x por chunk em 429/500.
 // Retorna Map vazio se input vazio. Hashes sem match silenciosos (ausentes do map).
-async function resolveImageHashes(adAccountId: string, hashes: string[], accessToken: string): Promise<Map<string, string>> {
-  const out = new Map<string, string>();
+// v5: devolve url + width + height por hash (alta resolução do /adimages).
+async function resolveImageHashes(adAccountId: string, hashes: string[], accessToken: string): Promise<Map<string, { url: string; width: number | null; height: number | null }>> {
+  const out = new Map<string, { url: string; width: number | null; height: number | null }>();
   if (hashes.length === 0) return out;
   const CHUNK = 10;
   for (let i = 0; i < hashes.length; i += CHUNK) {
     const slice = hashes.slice(i, i + CHUNK);
     const url = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${adAccountId}/adimages`);
     url.searchParams.set("hashes", JSON.stringify(slice));
-    url.searchParams.set("fields", "hash,url,permalink_url");
+    url.searchParams.set("fields", "hash,url,permalink_url,width,height");
     url.searchParams.set("access_token", accessToken);
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
@@ -388,7 +389,13 @@ async function resolveImageHashes(adAccountId: string, hashes: string[], accessT
         }
         for (const item of (j.data ?? [])) {
           const resolved = item.url ?? item.permalink_url;
-          if (item.hash && resolved) out.set(item.hash, resolved);
+          if (item.hash && resolved) {
+            out.set(item.hash, {
+              url: resolved,
+              width: typeof item.width === "number" ? item.width : null,
+              height: typeof item.height === "number" ? item.height : null,
+            });
+          }
         }
         break;
       } catch (e) {
