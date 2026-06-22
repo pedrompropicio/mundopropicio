@@ -171,11 +171,32 @@ Deno.serve(async (req) => {
         }
       }
 
+      // SONDAGEM 1 — source isolado
+      const sIso = await gget(
+        `${GRAPH}/${encodeURIComponent(picked.video_id)}?fields=source&access_token=${encodeURIComponent(token)}`,
+      );
+      const isoErr = sIso.json?.error ?? null;
+      const isoMsg = String(isoErr?.message ?? "").toLowerCase();
+      const isoPermCode = isoErr && [10, 200, 294].includes(Number(isoErr.code));
+      const isoPermMsg = isoMsg.includes("permission") || isoMsg.includes("requires");
+      const isoSourcePresent = !!sIso.json?.source;
+      let veredicto: string;
+      if (isoSourcePresent) veredicto = "source_presente";
+      else if (isoErr && (isoPermCode || isoPermMsg)) veredicto = "erro_permissao_explicito";
+      else veredicto = "omitido_silenciosamente";
+      out.sonda_source_isolado = {
+        http_status: sIso.status,
+        tem_source: isoSourcePresent,
+        source_presente: isoSourcePresent,
+        erro: isoErr,
+      };
+      out.veredicto_sonda1 = veredicto;
+
       results.push(out);
     }
 
     return new Response(
-      JSON.stringify({ ad_account_id, count: results.length, results }, null, 2),
+      JSON.stringify({ ad_account_id, token_info, token_tipo, count: results.length, results }, null, 2),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e: any) {
