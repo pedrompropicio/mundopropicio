@@ -131,6 +131,17 @@ export function MetaPublishPanel({
           setError(`${data.error}: ${data.message ?? data.detail ?? ""}`);
         } else {
           setPlano(data as PlanoResposta);
+          // Após receber o plano, lê estado/meta_campaign_id da BD para o painel.
+          try {
+            const { data: row } = await (supabase as any)
+              .schema("crm").from("meta_publish_plan")
+              .select("estado, meta_campaign_id")
+              .eq("id", (data as any).plan_id).maybeSingle();
+            if (!cancel && row) {
+              setEstadoPlano(row.estado ?? "rascunho");
+              setMetaCampaignIdPub(row.meta_campaign_id ?? null);
+            }
+          } catch { /* ignore */ }
         }
       } catch (e: any) {
         if (!cancel) setError(e?.message ?? "Falha de rede.");
