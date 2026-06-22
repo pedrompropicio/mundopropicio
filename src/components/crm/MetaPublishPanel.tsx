@@ -121,6 +121,71 @@ export function MetaPublishPanel({
   const [metaCampaignIdPub, setMetaCampaignIdPub] = useState<string | null>(null);
   const [adAccountNumeric, setAdAccountNumeric] = useState<string | null>(null);
 
+  // Recomendações vivas da Meta (leitura — nunca escreve no Meta)
+  type RecomendacaoUI = {
+    tipo: string | null;
+    titulo: string | null;
+    corpo: string | null;
+    lift_estimate: string | null;
+    url: string | null;
+    aplicavel: boolean;
+    acao_sugerida: { campo: string; valor: string } | null;
+  };
+  type RecosResposta = {
+    ok: boolean;
+    conta: RecomendacaoUI[];
+    campanha: RecomendacaoUI[];
+    adsets: Array<{ adset_id: string; nome: string | null; recomendacoes: RecomendacaoUI[] }>;
+    erros?: { conta: any; campanha: any; adsets: any };
+    gerado_em?: string;
+  };
+  const [recosLoading, setRecosLoading] = useState(false);
+  const [recos, setRecos] = useState<RecosResposta | null>(null);
+  const [recosErro, setRecosErro] = useState<string | null>(null);
+
+  async function carregarRecomendacoes() {
+    if (!companyId) return;
+    setRecosLoading(true);
+    setRecosErro(null);
+    try {
+      const { data, error: invErr } = await supabase.functions.invoke("crm-meta-recommendations", {
+        body: {
+          company_id: companyId,
+          campaign_external_id: metaCampaignIdPub ?? undefined,
+        },
+      });
+      if (invErr) {
+        setRecosErro((invErr as any).message ?? "Não foi possível obter recomendações agora.");
+      } else if ((data as any)?.error) {
+        setRecosErro(`${(data as any).error}: ${(data as any).message ?? (data as any).detail ?? ""}`);
+      } else {
+        setRecos(data as RecosResposta);
+      }
+    } catch (e: any) {
+      setRecosErro(e?.message ?? "Não foi possível obter recomendações agora.");
+    } finally {
+      setRecosLoading(false);
+    }
+  }
+
+  // Carrega recomendações quando o plano fica disponível (ou quando muda o id da campanha publicada)
+  useEffect(() => {
+    if (!plano || !companyId) return;
+    void carregarRecomendacoes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plano?.plan_id, companyId, metaCampaignIdPub]);
+
+  function aplicarRecomendacaoAoPlano(r: RecomendacaoUI) {
+    if (!r.aplicavel || !r.acao_sugerida) return;
+    if (r.acao_sugerida.campo === "objetivo") {
+      setObjetivo(r.acao_sugerida.valor);
+      toast({
+        title: "Objetivo alterado no plano",
+        description: "Mudámos o objetivo para Conversões só no plano local. Revê e publica quando quiseres — nada foi enviado ao Meta.",
+      });
+    }
+  }
+
   // Load plano when opening
   useEffect(() => {
     if (!open || !companyId || !designId) return;
