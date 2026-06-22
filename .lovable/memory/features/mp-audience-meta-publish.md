@@ -231,7 +231,46 @@ nos `<Select>` e nos textos "CTA: …" / "objetivo: …".
 - ✅ Confirmação em 2 passos no painel.
 - ✅ `creative_id` enviado ao Meta é o **`meta_creative_id`**, nunca o uuid interno.
 
+## Recomendações vivas da Meta (leitura)
+
+Edge function `crm-meta-recommendations` (marcador `recommendations-v1`). POST
+`{ company_id, ad_account_id?, campaign_external_id? }`. Resolve a conexão Meta
+activa (mesma origem que `crm-meta-publish-execute`: `ad_platform_account_links`
+enabled, `is_primary` primeiro), decifra o token via
+`crm_get_meta_decrypted_token` extraindo **`tokenRows[0].access_token`** (valida
+que é array não-vazio), e faz três sondagens GET à Graph API:
+
+1. `/{ad_account_id}/recommendations` — conta (devolve `data[].recommendations[]`).
+2. `/{campaign_external_id}?fields=recommendations` — campanha (se passado).
+3. `/{campaign_external_id}/adsets?fields=recommendations,name` — adsets (idem).
+
+Cada recomendação é normalizada com `{ tipo, titulo, corpo, lift_estimate,
+stage, url, time, aplicavel, acao_sugerida }`. Heurística inicial: se o tipo ou
+o corpo mencionam conversões (`OFFSITE_CONVERSION`, "conversões",
+"Maximizar o número de conversões", etc.), marca `aplicavel=true` com
+`acao_sugerida = { campo:"objetivo", valor:"OUTCOME_SALES" }`; restantes são
+informativas com link para o Ads Manager. Erros por sondagem são isolados — uma
+falhar não rebenta as outras.
+
+**NÃO persiste nada. NÃO escreve no Meta.**
+
+No `MetaPublishPanel` há um bloco "Recomendações da Meta" (após o cabeçalho
+global) que carrega ao abrir o plano e tem botão "Atualizar". Para cada
+recomendação aplicável mostra "Aplicar ao plano" — esse botão muda **só** o
+estado local do plano (ex.: `objetivo → OUTCOME_SALES`), deixa o auto-save
+debounced gravar em `crm.meta_publish_plan`, e exibe toast a confirmar que
+nada foi enviado ao Meta. Se `campaign_external_id` (= `meta_campaign_id`
+gravado no plano) estiver disponível, também pede recomendações de
+campanha/adset.
+
+### Regra P0
+As recomendações vêm da Meta (facto externo). Mostramo-las e podemos aplicá-las
+**ao plano local** (`crm.meta_publish_plan`) — **nunca** ao Meta. A publicação
+real continua a ser um passo à parte, confirmado pelo gestor, através do
+`crm-meta-publish-execute`.
+
 ## Próxima fase
 
 FASE 3: medições e activação assistida (sair da pausa de forma controlada).
+
 
