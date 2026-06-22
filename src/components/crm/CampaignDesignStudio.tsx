@@ -19,8 +19,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { CheckCircle2, Loader2, RefreshCw, Sparkles, Wand2, AlertTriangle, Info } from "lucide-react";
+import { CheckCircle2, Loader2, RefreshCw, Sparkles, Wand2, AlertTriangle, Info, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
