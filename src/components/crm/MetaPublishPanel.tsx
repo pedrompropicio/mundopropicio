@@ -19,6 +19,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, AlertTriangle, Save, Send, Info, ExternalLink, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { OBJETIVO_LABELS_PT, labelCta, labelObjetivo } from "@/lib/meta-labels";
 
 type PublicoSugerido = {
   resumo: string;
@@ -46,12 +47,14 @@ type AdsetPlano = {
   publico_sugerido: PublicoSugerido;
   publico_custom_audience_id: string | null;
   anuncios: Anuncio[];
+  link_destino?: string | null;
   _ajustado_a_mao?: boolean; // local-only
 };
 
 type PlanoResposta = {
   plan_id: string;
   design_id: string;
+  link_destino?: string | null;
   adsets: AdsetPlano[];
   totais: { adsets: number; anuncios_elegiveis: number; variacoes_excluidas: number };
   estado?: string;
@@ -59,12 +62,15 @@ type PlanoResposta = {
   ad_account_numeric?: string | null;
 };
 
-const OBJETIVOS = [
-  { value: "OUTCOME_SALES", label: "Vendas" },
-  { value: "OUTCOME_TRAFFIC", label: "Tráfego" },
-  { value: "OUTCOME_AWARENESS", label: "Notoriedade" },
-  { value: "OUTCOME_ENGAGEMENT", label: "Interacção" },
-];
+const OBJETIVOS = (Object.keys(OBJETIVO_LABELS_PT) as Array<keyof typeof OBJETIVO_LABELS_PT>).map(
+  (value) => ({ value, label: OBJETIVO_LABELS_PT[value] }),
+);
+
+function isValidHttpsUrl(s: string | null | undefined): boolean {
+  if (!s || typeof s !== "string") return false;
+  if (!s.startsWith("https://")) return false;
+  try { new URL(s); return true; } catch { return false; }
+}
 
 function euros(cents: number): string {
   return (cents / 100).toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -101,6 +107,7 @@ export function MetaPublishPanel({
   const [plano, setPlano] = useState<PlanoResposta | null>(null);
   const [objetivo, setObjetivo] = useState<string>("OUTCOME_SALES");
   const [orcamentoEuros, setOrcamentoEuros] = useState<string>("");
+  const [linkDestino, setLinkDestino] = useState<string>("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
 
   // FASE 2 — publicação real
@@ -131,6 +138,7 @@ export function MetaPublishPanel({
           setError(`${data.error}: ${data.message ?? data.detail ?? ""}`);
         } else {
           setPlano(data as PlanoResposta);
+          setLinkDestino(((data as any)?.link_destino as string | null) ?? "");
           // Após receber o plano, lê estado/meta_campaign_id da BD para o painel.
           try {
             const { data: row } = await (supabase as any)
@@ -162,6 +170,7 @@ export function MetaPublishPanel({
       const payload = {
         objetivo,
         orcamento_total_cents: parseEuros(orcamentoEuros) || null,
+        link_destino: linkDestino.trim() ? linkDestino.trim() : null,
         adsets: plano.adsets.map(({ _ajustado_a_mao, ...a }) => a),
       };
       const { error: upErr } = await (supabase as any)
@@ -178,7 +187,7 @@ export function MetaPublishPanel({
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plano, objetivo, orcamentoEuros]);
+  }, [plano, objetivo, orcamentoEuros, linkDestino]);
 
   // Quando o orçamento total muda, reparte (mas só nos adsets que NÃO foram ajustados à mão)
   useEffect(() => {
@@ -271,6 +280,21 @@ export function MetaPublishPanel({
                   />
                 </div>
               </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Link de destino (página de bilhetes)</label>
+                <Input
+                  type="url"
+                  placeholder="https://..."
+                  value={linkDestino}
+                  onChange={(e) => setLinkDestino(e.target.value)}
+                />
+                <div className="text-[11px] text-muted-foreground mt-1">
+                  Para onde o anúncio leva ao clicar.
+                  {linkDestino.trim() && !isValidHttpsUrl(linkDestino.trim()) && (
+                    <span className="ml-2 text-amber-600 dark:text-amber-400">URL inválido (tem de começar por https://).</span>
+                  )}
+                </div>
+              </div>
               <div className="text-xs text-muted-foreground flex items-center gap-2">
                 <Info className="h-3 w-3" />
                 Os pesos vêm da Montagem Assistida e não são tocados pela UI. O orçamento é repartido em código por esses pesos.
@@ -308,6 +332,23 @@ export function MetaPublishPanel({
                         updateAdset(i, (x) => { x.orcamento_cents = cents; }, true);
                       }}
                     />
+                  </div>
+
+                  {/* Link específico (override do link do plano) */}
+                  <div>
+                    <label className="text-xs text-muted-foreground">Link específico deste adset (opcional)</label>
+                    <Input
+                      type="url"
+                      placeholder="https://... (deixa vazio para usar o link do topo)"
+                      value={a.link_destino ?? ""}
+                      onChange={(e) => updateAdset(i, (x) => {
+                        const v = e.target.value.trim();
+                        x.link_destino = v ? v : null;
+                      })}
+                    />
+                    {a.link_destino && !isValidHttpsUrl(a.link_destino) && (
+                      <div className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">URL inválido (tem de começar por https://).</div>
+                    )}
                   </div>
 
                   {/* Público */}
@@ -383,7 +424,7 @@ export function MetaPublishPanel({
                       <div key={k} className="border rounded-md p-3 text-sm space-y-1 bg-muted/30">
                         <div className="font-medium">{an.headline}</div>
                         <div className="text-muted-foreground whitespace-pre-wrap">{an.corpo}</div>
-                        <div className="text-xs text-muted-foreground">CTA: {an.cta} · {an.creative_ids.length} peça(s)</div>
+                        <div className="text-xs text-muted-foreground">CTA: {labelCta(an.cta)} · {an.creative_ids.length} peça(s)</div>
                       </div>
                     ))}
                   </div>
@@ -395,7 +436,7 @@ export function MetaPublishPanel({
             <Card className="p-4 sticky bottom-0 bg-background/95 backdrop-blur border-primary/30">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-sm">
-                  Vais criar <b>1 campanha em PAUSA</b> · <b>{plano.adsets.length}</b> adsets · <b>{totalAnuncios}</b> anúncios · orçamento total <b>{euros(totalCents)} €</b> · objetivo <b>{objetivo}</b>
+                  Vais criar <b>1 campanha em PAUSA</b> · <b>{plano.adsets.length}</b> adsets · <b>{totalAnuncios}</b> anúncios · orçamento total <b>{euros(totalCents)} €</b> · objetivo <b>{labelObjetivo(objetivo)}</b>
                   {totalCents > 0 && Math.abs(somaAdsetsCents - totalCents) > 1 && (
                     <span className="ml-2 text-amber-600 dark:text-amber-400">
                       (soma dos adsets = {euros(somaAdsetsCents)} € — não bate)
@@ -410,11 +451,13 @@ export function MetaPublishPanel({
                 <div className="flex items-center gap-2">
                   {(() => {
                     const jaPublicado = estadoPlano === "publicado";
+                    const linkTopoOk = isValidHttpsUrl(linkDestino.trim());
                     const podePublicar =
                       !jaPublicado &&
                       !!objetivo &&
                       totalCents > 0 &&
                       totalAnuncios > 0 &&
+                      linkTopoOk &&
                       !!plano.plan_id &&
                       !!companyId;
                     const tooltipMsg = jaPublicado
@@ -425,7 +468,9 @@ export function MetaPublishPanel({
                           ? "Define um orçamento total."
                           : totalAnuncios === 0
                             ? "Nenhum anúncio elegível (variações coerentes)."
-                            : "Pronto a publicar — fica tudo em pausa.";
+                            : !linkTopoOk
+                              ? "Falta o link de destino."
+                              : "Pronto a publicar — fica tudo em pausa.";
                     return (
                       <TooltipProvider>
                         <Tooltip>

@@ -23,6 +23,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CheckCircle2, Loader2, RefreshCw, Sparkles, Wand2, AlertTriangle, Info, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { labelCta } from "@/lib/meta-labels";
 import { toast } from "sonner";
 
 export interface CampaignDesignStudioProps {
@@ -590,12 +591,12 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                                   <div className="space-y-1">
                                     <label className="text-[11px] text-muted-foreground">CTA</label>
                                     <Select value={v.cta} onValueChange={(val) => editarCampo(ai, vi, "cta", val)}>
-                                      <SelectTrigger><SelectValue /></SelectTrigger>
+                                      <SelectTrigger><SelectValue>{labelCta(v.cta)}</SelectValue></SelectTrigger>
                                       <SelectContent>
                                         {CTA_OPTIONS.includes(v.cta) ? null : (
-                                          <SelectItem value={v.cta}>{v.cta}</SelectItem>
+                                          <SelectItem value={v.cta}>{labelCta(v.cta)}</SelectItem>
                                         )}
-                                        {CTA_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                                        {CTA_OPTIONS.map((o) => <SelectItem key={o} value={o}>{labelCta(o)}</SelectItem>)}
                                       </SelectContent>
                                     </Select>
                                   </div>
@@ -604,7 +605,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                                 <>
                                   <div className="text-sm font-medium">{v.headline || <span className="text-muted-foreground italic">(sem headline)</span>}</div>
                                   <div className="text-xs text-muted-foreground whitespace-pre-wrap">{v.corpo || "(sem corpo)"}</div>
-                                  <div className="text-[11px] text-muted-foreground">CTA: {v.cta}</div>
+                                  <div className="text-[11px] text-muted-foreground">CTA: {labelCta(v.cta)}</div>
                                 </>
                               )}
 

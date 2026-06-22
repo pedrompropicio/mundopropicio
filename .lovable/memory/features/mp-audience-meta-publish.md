@@ -1,6 +1,6 @@
 ---
 name: MP Audience — Elo de Publicação no Meta (FASES 1+2)
-description: FASE 1 (preparação/revisão) com crm-meta-publish-prepare + crm.meta_publish_plan + MetaPublishPanel. FASE 2 (escrita real) com crm-meta-publish-execute (ABO, tudo PAUSED, idempotente, dry-run). Botão "Publicar no Meta (em pausa)" agora activo com confirmação em 2 passos.
+description: FASE 1 (preparação/revisão) com crm-meta-publish-prepare + crm.meta_publish_plan + MetaPublishPanel. FASE 2 (escrita real) com crm-meta-publish-execute — agora CRIA criativo NOVO (object_story_spec.link_data) aplicando copy e link_destino ao anúncio, com fallback para vídeo / imagem sem image_hash. Etiquetas PT-PT de CTA e objetivo (valores em BD continuam enum Meta). Marcadores publish-prepare-v2 e publish-execute-v2.
 type: feature
 ---
 
@@ -175,6 +175,61 @@ e pelo menos 1 anúncio elegível. Ao clicar abre `Dialog` de revisão:
 
 Depois de publicado, o botão troca para **"Publicado (em pausa)"** desactivado e o
 rodapé mostra o link directo para o Ads Manager.
+
+## Actualização — Criação NOVA de criativo + link de destino (publish-execute-v2)
+
+A FASE 2 deixou de ser apenas "reutilizar criativo existente". Agora **cria criativo NOVO**
+inline no payload do anúncio (via `object_story_spec.link_data`) aplicando ao anúncio
+o **copy gerado na Camada 5** (`headline` → `name`, `corpo` → `message`, `cta` →
+`call_to_action.type`) e um **link de destino** inserível.
+
+### Link de destino
+
+- Coluna nova `crm.meta_publish_plan.link_destino text NULL` (migration nova em Test;
+  **DDL tem de ir a Live à mão** — `ALTER TABLE crm.meta_publish_plan ADD COLUMN IF NOT EXISTS link_destino text NULL;`).
+- Override opcional por adset em `adsets[].link_destino` no JSONB (sem DDL).
+- `crm-meta-publish-prepare` (marcador `publish-prepare-v2`) pré-preenche `link_destino`
+  do plano com `events.ticketing_url` se for `https://...`; caso contrário deixa `null`.
+- O painel `MetaPublishPanel` mostra um input "Link de destino (página de bilhetes)" no topo
+  (obrigatório, validação `https://...`) e um input opcional por adset "Link específico
+  deste adset (opcional)" que sobrepõe o link do topo só nesse adset. Ambos vão ao auto-save.
+- O botão "Publicar no Meta (em pausa)" só fica activo se houver objetivo, orçamento > 0,
+  ≥1 anúncio elegível **e** link de destino válido no topo. Sem link: tooltip "Falta o link de destino.".
+
+### `crm-meta-publish-execute` (marcador `publish-execute-v2`)
+
+- Lê `selected_page_id` e `selected_instagram_id` de `crm.ad_platform_connections` pelo
+  `connection_id` da ligação activa. Se `selected_page_id` for `null`, falha cedo com
+  `{error:"sem_pagina_facebook"}` **antes** de qualquer escrita no Meta.
+- Resolve o **link efectivo** de cada anúncio: `adset.link_destino || plano.link_destino`.
+  Se ambos forem `null`, falha cedo com `{error:"sem_link_destino"}` antes de escrever.
+- Lê também `meta_image_hash` e `type` de `crm.meta_creatives`.
+- Em `buildAdPayload`:
+  - Se o criativo for `type='image'` E tiver `meta_image_hash`: cria criativo NOVO via
+    `creative.object_story_spec = { page_id, instagram_actor_id?, link_data:{ image_hash, message:corpo, name:headline, link, call_to_action:{ type:cta, value:{ link } } } }`.
+    Assim o copy e o link gerados são mesmo aplicados ao anúncio.
+  - Caso contrário (vídeo, ou imagem sem `meta_image_hash`): mantém o comportamento
+    antigo `creative:{ creative_id: meta_creative_id }` e regista o aviso
+    `{ codigo:"copy_e_link_nao_aplicados", detalhe:"criativo reutilizado inteiro" }`.
+    **Não bloqueia** — degrada com aviso.
+- O `dry-run` reflete os novos payloads `object_story_spec`.
+
+### Etiquetas PT-PT (display only)
+
+Módulo `src/lib/meta-labels.ts` com `CTA_LABELS_PT`, `OBJETIVO_LABELS_PT` e helpers
+`labelCta()` / `labelObjetivo()`. Os valores guardados em BD (em `crm.campaign_design`
+e em `crm.meta_publish_plan`) continuam a ser os enums Meta (`SHOP_NOW`, `OUTCOME_SALES`,
+etc.). O `CampaignDesignStudio` e o `MetaPublishPanel` passam a mostrar a etiqueta PT
+nos `<Select>` e nos textos "CTA: …" / "objetivo: …".
+
+### Garantias mantidas
+
+- ✅ Tudo PAUSED (campanha, adsets, ads).
+- ✅ ABO (orçamento nos adsets, campanha sem budget).
+- ✅ Idempotência via IDs gravados (`meta_campaign_id`, `meta_adset_id`, `meta_ad_id`).
+- ✅ Dry-run disponível.
+- ✅ Confirmação em 2 passos no painel.
+- ✅ `creative_id` enviado ao Meta é o **`meta_creative_id`**, nunca o uuid interno.
 
 ## Próxima fase
 

@@ -98,7 +98,7 @@ async function callGeminiJSON(prompt: string): Promise<any> {
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[meta-publish-prepare] BUILD_VERSION=publish-prepare-v1");
+  console.log("[meta-publish-prepare] BUILD_VERSION=publish-prepare-v2");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -135,11 +135,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // Valida via RLS do user (lê evento)
   const { data: evRow, error: evErr } = await userClient
-    .from("events").select("id, name, company_id, start_date, end_date").eq("id", design.event_id).maybeSingle();
+    .from("events").select("id, name, company_id, start_date, end_date, ticketing_url").eq("id", design.event_id).maybeSingle();
   if (evErr) return json({ error: "db_error", detail: evErr.message }, 500);
   if (!evRow || evRow.company_id !== company_id) {
     return json({ error: "forbidden", message: "evento não pertence ao company_id indicado ou sem acesso" }, 403);
   }
+  const linkDestinoEvento: string | null =
+    typeof (evRow as any).ticketing_url === "string" && (evRow as any).ticketing_url.startsWith("https://")
+      ? (evRow as any).ticketing_url
+      : null;
 
   const adsetsIn: any[] = Array.isArray(design.adsets) ? design.adsets : [];
   if (adsetsIn.length === 0) return json({ error: "empty_design", message: "design sem adsets" }, 400);
@@ -284,16 +288,18 @@ Responde APENAS JSON puro com este shape:
       objetivo: objetivo,
       orcamento_total_cents: orcamentoTotal,
       moeda: "EUR",
+      link_destino: linkDestinoEvento,
       adsets: adsetsOut,
       estado: "rascunho",
     })
-    .select("id")
+    .select("id, link_destino")
     .single();
   if (insErr) return json({ error: "persist_failed", detail: insErr.message }, 500);
 
   return json({
     plan_id: ins.id,
     design_id,
+    link_destino: (ins as any).link_destino ?? linkDestinoEvento,
     adsets: adsetsOut,
     totais: {
       adsets: adsetsOut.length,

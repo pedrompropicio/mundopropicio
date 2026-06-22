@@ -75,7 +75,7 @@ async function graphPOST(path: string, body: Record<string, unknown>, accessToke
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v1");
+  console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v2");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -103,7 +103,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // 1) Lê o plano (RLS user — valida pertença ao company)
   const { data: planRow, error: planErr } = await (supabase as any)
     .schema("crm").from("meta_publish_plan")
-    .select("id, company_id, event_id, design_id, objetivo, orcamento_total_cents, moeda, adsets, estado, meta_campaign_id")
+    .select("id, company_id, event_id, design_id, objetivo, orcamento_total_cents, moeda, link_destino, adsets, estado, meta_campaign_id")
     .eq("id", planId)
     .maybeSingle();
   if (planErr) return json({ error: "plan_query_failed", detail: planErr.message }, 500);
@@ -132,6 +132,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const connectionId = linkRow.connection_id as string;
   const adAccountId = normalizeAdAccountId(linkRow.ad_account_id as string);
   const adAccountNumeric = adAccountId.replace(/^act_/, "");
+
+  // 2b) Página de Facebook e (opcional) Instagram associados à conexão.
+  //     Sem page_id NÃO conseguimos criar criativo novo (object_story_spec exige page_id).
+  //     Falhamos cedo, ANTES de qualquer escrita no Meta.
+  const { data: connRow, error: connErr } = await (admin as any)
+    .schema("crm").from("ad_platform_connections")
+    .select("selected_page_id, selected_instagram_id")
+    .eq("id", connectionId)
+    .maybeSingle();
+  if (connErr) return json({ error: "connection_query_failed", detail: connErr.message }, 500);
+  const selectedPageId: string | null = (connRow as any)?.selected_page_id ?? null;
+  const selectedInstagramId: string | null = (connRow as any)?.selected_instagram_id ?? null;
+  if (!selectedPageId) {
+    return json({ error: "sem_pagina_facebook", message: "A conexão Meta não tem página de Facebook selecionada." }, 412);
+  }
+
+  // 2c) Link de destino do plano. Se faltar e nenhum adset tiver override, falha cedo.
+  const planoLinkDestino: string | null = typeof planRow.link_destino === "string" && planRow.link_destino.length > 0
+    ? planRow.link_destino
+    : null;
+  const adsetsPreview: any[] = Array.isArray(planRow.adsets) ? planRow.adsets : [];
+  const algumLink = adsetsPreview.some((a) => typeof a?.link_destino === "string" && a.link_destino.length > 0);
+  if (!planoLinkDestino && !algumLink) {
+    return json({ error: "sem_link_destino", message: "Define o link de destino no painel (https://...) antes de publicar." }, 412);
+  }
 
   // 3) Decifra access_token (idêntico ao crm-meta-sync-creatives).
   const { data: tokenRows, error: tokenErr } = await supabase.rpc(
@@ -164,27 +189,29 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   }
   const creativeUuids = Array.from(creativeUuidSet);
-  const resolvedCreatives = new Map<string, string | null>();
+  type CreativeInfo = { meta_creative_id: string | null; meta_image_hash: string | null; type: string | null };
+  const resolvedCreatives = new Map<string, CreativeInfo>();
   if (creativeUuids.length > 0) {
     const { data: rows, error: cErr } = await (admin as any)
       .schema("crm").from("meta_creatives")
-      .select("id, meta_creative_id")
+      .select("id, meta_creative_id, meta_image_hash, type")
       .in("id", creativeUuids);
     if (cErr) return json({ error: "creatives_query_failed", detail: cErr.message }, 500);
     for (const r of (rows ?? [])) {
-      resolvedCreatives.set(r.id as string, (r as any).meta_creative_id ?? null);
+      resolvedCreatives.set(r.id as string, {
+        meta_creative_id: (r as any).meta_creative_id ?? null,
+        meta_image_hash: (r as any).meta_image_hash ?? null,
+        type: (r as any).type ?? null,
+      });
     }
     for (const u of creativeUuids) {
-      if (!resolvedCreatives.has(u)) resolvedCreatives.set(u, null);
+      if (!resolvedCreatives.has(u)) resolvedCreatives.set(u, { meta_creative_id: null, meta_image_hash: null, type: null });
     }
   }
 
   // 6) Monta payloads.
   const objetivo = planRow.objetivo ?? "OUTCOME_TRAFFIC";
   let { optimization_goal, billing_event } = mapObjective(objetivo);
-  // Fallback seguro: OUTCOME_SALES/OFFSITE_CONVERSIONS sem pixel rebentava — usar LINK_CLICKS.
-  // Como não validamos pixel aqui (não temos esse signal), avisamos e mantemos OFFSITE_CONVERSIONS.
-  // Se a criação do adset falhar com "pixel required", o erro é capturado e o plano fica em "falhado".
 
   const campaignPayload = {
     name: `[MP Audience] ${nomeEvento}${dataEvento ? ` - ${dataEvento}` : ""}`,
@@ -205,10 +232,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (a.publico_custom_audience_id) {
       targeting.custom_audiences = [{ id: String(a.publico_custom_audience_id) }];
     }
-    // Interesses POR NOME ficam de fora: a Graph API exige IDs de interesse,
-    // não nomes. Esta versão não tem mapeamento nome→id; documentado.
     let goal = optimization_goal;
-    // (placeholder p/ futura validação de pixel)
     const payload: Record<string, unknown> = {
       name: a.trigger_nome || "Adset",
       campaign_id: campaignIdParaPayload,
@@ -221,20 +245,59 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return { payload, goal_used: goal };
   }
 
-  function buildAdPayload(adsetIdParaPayload: string, anuncio: any): { payload: Record<string, unknown> | null; aviso?: { codigo: string; detalhe?: string } } {
+  // Resolve link efetivo: override do adset > link do plano.
+  function resolveLink(a: any): string | null {
+    if (typeof a?.link_destino === "string" && a.link_destino.length > 0) return a.link_destino;
+    return planoLinkDestino;
+  }
+
+  function buildAdPayload(adsetIdParaPayload: string, anuncio: any, link: string): { payload: Record<string, unknown> | null; aviso?: { codigo: string; detalhe?: string } } {
     const firstCid = (anuncio.creative_ids ?? [])[0];
     if (!firstCid) return { payload: null, aviso: { codigo: "creative_sem_id" } };
-    const metaCid = resolvedCreatives.get(firstCid);
-    if (!metaCid) return { payload: null, aviso: { codigo: "creative_sem_meta_id", detalhe: firstCid } };
+    const info = resolvedCreatives.get(firstCid);
+    if (!info || !info.meta_creative_id) {
+      return { payload: null, aviso: { codigo: "creative_sem_meta_id", detalhe: firstCid } };
+    }
+    const cta = String(anuncio.cta || "LEARN_MORE");
+    const isImagem = (info.type ?? "").toLowerCase() === "image";
+
+    // Caminho preferido: criativo NOVO com copy+link aplicados ao anúncio.
+    if (isImagem && info.meta_image_hash) {
+      const linkData: Record<string, unknown> = {
+        image_hash: info.meta_image_hash,
+        message: String(anuncio.corpo ?? "").slice(0, 2000),
+        name: String(anuncio.headline ?? "").slice(0, 200),
+        link,
+        call_to_action: { type: cta, value: { link } },
+      };
+      const objectStorySpec: Record<string, unknown> = {
+        page_id: selectedPageId,
+        link_data: linkData,
+      };
+      if (selectedInstagramId) objectStorySpec.instagram_actor_id = selectedInstagramId;
+
+      return {
+        payload: {
+          name: (anuncio.headline ?? "Anúncio").slice(0, 200),
+          adset_id: adsetIdParaPayload,
+          status: "PAUSED",
+          creative: { object_story_spec: objectStorySpec },
+        },
+      };
+    }
+
+    // Fallback: vídeo, ou imagem sem image_hash → reutiliza creative inteiro.
     return {
       payload: {
         name: (anuncio.headline ?? "Anúncio").slice(0, 200),
         adset_id: adsetIdParaPayload,
         status: "PAUSED",
-        creative: { creative_id: metaCid },
+        creative: { creative_id: info.meta_creative_id },
       },
+      aviso: { codigo: "copy_e_link_nao_aplicados", detalhe: "criativo reutilizado inteiro" },
     };
   }
+
 
   // ─── DRY-RUN ─────────────────────────────────────────────────────────
   if (dryRun) {
@@ -242,11 +305,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const dryAds: any[] = [];
     for (let i = 0; i < adsets.length; i++) {
       const a = adsets[i];
+      const linkEf = resolveLink(a);
       const { payload: adsetPayload, goal_used } = buildAdsetPayload(a, "<CAMPAIGN_ID>");
-      dryAdsets.push({ trigger_nome: a.trigger_nome, optimization_goal_used: goal_used, payload: adsetPayload });
+      dryAdsets.push({ trigger_nome: a.trigger_nome, optimization_goal_used: goal_used, link_destino_efetivo: linkEf, payload: adsetPayload });
       for (let k = 0; k < (a.anuncios ?? []).length; k++) {
         const an = a.anuncios[k];
-        const { payload, aviso } = buildAdPayload("<ADSET_ID>", an);
+        if (!linkEf) {
+          avisos.push({ codigo: "sem_link_destino", adset: a.trigger_nome, ad_idx: k });
+          continue;
+        }
+        const { payload, aviso } = buildAdPayload("<ADSET_ID>", an, linkEf);
         if (aviso) avisos.push({ ...aviso, adset: a.trigger_nome, ad_idx: k });
         if (payload) dryAds.push({ adset: a.trigger_nome, ad_idx: k, payload });
       }
@@ -319,14 +387,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     // Ads
     const adsIds: string[] = [];
+    const linkEf = resolveLink(a);
+    if (!linkEf) {
+      avisos.push({ codigo: "sem_link_destino", adset: a.trigger_nome });
+      respAdsets.push({ trigger_nome: a.trigger_nome, meta_adset_id: metaAdsetId!, ads: adsIds });
+      continue;
+    }
     for (let k = 0; k < a.anuncios.length; k++) {
       const an = a.anuncios[k];
       if (an.meta_ad_id) { adsIds.push(an.meta_ad_id); continue; }
-      const { payload, aviso } = buildAdPayload(metaAdsetId!, an);
-      if (aviso) {
-        avisos.push({ ...aviso, adset: a.trigger_nome, ad_idx: k });
-        continue;
-      }
+      const { payload, aviso } = buildAdPayload(metaAdsetId!, an, linkEf);
+      if (aviso) avisos.push({ ...aviso, adset: a.trigger_nome, ad_idx: k });
       if (!payload) continue;
       const r = await graphPOST(`/${adAccountId}/ads`, payload, accessToken);
       if (!r.ok) {
