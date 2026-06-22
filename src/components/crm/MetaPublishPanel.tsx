@@ -424,7 +424,7 @@ export function MetaPublishPanel({
                       <div key={k} className="border rounded-md p-3 text-sm space-y-1 bg-muted/30">
                         <div className="font-medium">{an.headline}</div>
                         <div className="text-muted-foreground whitespace-pre-wrap">{an.corpo}</div>
-                        <div className="text-xs text-muted-foreground">CTA: {an.cta} · {an.creative_ids.length} peça(s)</div>
+                        <div className="text-xs text-muted-foreground">CTA: {labelCta(an.cta)} · {an.creative_ids.length} peça(s)</div>
                       </div>
                     ))}
                   </div>
