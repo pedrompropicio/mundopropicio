@@ -104,7 +104,7 @@ async function graphPOST(path: string, body: Record<string, unknown>, accessToke
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v5");
+  console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v6");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -200,7 +200,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // 4) Dados do evento (para nome da campanha + pixel para conversões).
   const { data: eventRow, error: eventErr } = await admin
-    .from("events").select("title, name, date, meta_pixel_id").eq("id", planRow.event_id).maybeSingle();
+    .from("events").select("name, date, meta_pixel_id").eq("id", planRow.event_id).maybeSingle();
   console.log("[publish-execute] EVENT_DEBUG", JSON.stringify({
     event_id_usado: planRow.event_id,
     eventRow_raw: eventRow,
@@ -212,14 +212,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!eventRow && !eventErr) {
     const { data: eventRowPub, error: eventErrPub } = await (admin as any)
       .schema("public").from("events")
-      .select("title, name, date, meta_pixel_id").eq("id", planRow.event_id).maybeSingle();
+      .select("name, date, meta_pixel_id").eq("id", planRow.event_id).maybeSingle();
     console.log("[publish-execute] EVENT_DEBUG_PUBLIC_FALLBACK", JSON.stringify({
       eventRowPub, eventErrPub: eventErrPub ?? "no_error",
     }));
     eventRowFinal = eventRowPub;
   }
-  const nomeEvento =
-    (eventRowFinal as any)?.name ?? (eventRowFinal as any)?.title ?? "Evento";
+  const nomeEvento = (eventRowFinal as any)?.name ?? "Evento";
   const dataEvento = (eventRowFinal as any)?.date ?? "";
   const eventPixelId: string | null = (eventRowFinal as any)?.meta_pixel_id ?? null;
 
