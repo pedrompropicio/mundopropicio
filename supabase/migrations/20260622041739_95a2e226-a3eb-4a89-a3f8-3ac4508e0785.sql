@@ -1,0 +1,1 @@
+ALTER TABLE crm.meta_publish_plan ADD COLUMN IF NOT EXISTS link_destino text NULL;
