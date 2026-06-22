@@ -98,7 +98,7 @@ async function callGeminiJSON(prompt: string): Promise<any> {
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[meta-publish-prepare] BUILD_VERSION=publish-prepare-v2");
+  console.log("[meta-publish-prepare] BUILD_VERSION=publish-prepare-v3");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -135,7 +135,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // Valida via RLS do user (lê evento)
   const { data: evRow, error: evErr } = await userClient
-    .from("events").select("id, name, company_id, start_date, end_date, ticketing_url").eq("id", design.event_id).maybeSingle();
+    .from("events").select("id, name, company_id, date, ticketing_url").eq("id", design.event_id).maybeSingle();
   if (evErr) return json({ error: "db_error", detail: evErr.message }, 500);
   if (!evRow || evRow.company_id !== company_id) {
     return json({ error: "forbidden", message: "evento não pertence ao company_id indicado ou sem acesso" }, 403);
@@ -191,7 +191,7 @@ Estás a sugerir um PÚBLICO Meta para UM adset de uma campanha. Sugere idade, g
 NÃO sugiras orçamento. NÃO inventes números de audiência. Não cites preços nem datas concretas.
 
 DADOS:
-- Evento: ${evRow.name ?? "(sem nome)"} (id=${evRow.id})${evRow.start_date ? ` — começa ${evRow.start_date}` : ""}${evRow.end_date ? ` — acaba ${evRow.end_date}` : ""}
+- Evento: ${evRow.name ?? "(sem nome)"} (id=${evRow.id})${(evRow as any).date ? ` — data ${(evRow as any).date}` : ""}
 - Gatilho deste adset: ${adset.trigger_nome} (tipo=${adset.trigger_tipo})
 - Peso do adset na campanha: ${adset.peso_pct}% (informativo)
 
