@@ -121,6 +121,12 @@ export function MetaPublishPanel({
   const [metaCampaignIdPub, setMetaCampaignIdPub] = useState<string | null>(null);
   const [adAccountNumeric, setAdAccountNumeric] = useState<string | null>(null);
 
+  // TEMP DIAG RECOS — REMOVER
+  const [diagRecosLoading, setDiagRecosLoading] = useState(false);
+  const [diagRecosOpen, setDiagRecosOpen] = useState(false);
+  const [diagRecosResult, setDiagRecosResult] = useState<any>(null);
+  // TEMP DIAG RECOS — REMOVER (fim)
+
   // Load plano when opening
   useEffect(() => {
     if (!open || !companyId || !designId) return;
