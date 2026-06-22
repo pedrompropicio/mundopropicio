@@ -176,6 +176,56 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   const [estado, setEstado] = useState<"rascunho" | "finalizado">("rascunho");
   const [creativesById, setCreativesById] = useState<Map<string, CreativeMini>>(new Map());
 
+  // TEMP DIAG — REMOVER
+  const [diagLoading, setDiagLoading] = useState(false);
+  const [diagOpen, setDiagOpen] = useState(false);
+  const [diagResult, setDiagResult] = useState<string>("");
+  async function runDiagImageResolution() {
+    try {
+      setDiagLoading(true);
+      setDiagResult("");
+      const creativeIds = Array.from(new Set(
+        adsets.flatMap((a) => (a.pecas ?? []).map((p: any) => p.creative_id).filter(Boolean))
+      ));
+      if (creativeIds.length === 0) {
+        toast.warning("nenhuma peça neste desenho");
+        setDiagLoading(false);
+        return;
+      }
+      const { data: rows, error: fetchErr } = await (supabase as any)
+        .schema("crm").from("meta_creatives")
+        .select("id, type, meta_image_hash")
+        .in("id", creativeIds);
+      if (fetchErr) throw fetchErr;
+      const hashes = Array.from(new Set(
+        (rows ?? [])
+          .filter((r: any) => r.meta_image_hash && (r.type === "image" || !r.type))
+          .map((r: any) => r.meta_image_hash as string)
+      )).slice(0, 5);
+      if (hashes.length === 0) {
+        toast.warning("nenhuma peça com image_hash neste desenho");
+        setDiagLoading(false);
+        return;
+      }
+      const { data, error: invErr } = await supabase.functions.invoke("crm-diag-image-resolution", {
+        body: {
+          connection_id: "3c234235-0ac5-4afc-a06e-259bdea0ae7a",
+          ad_account_id: "act_5094207367314169",
+          image_hashes: hashes,
+        },
+      });
+      const payload = { hashes_enviados: hashes, data, invErr: invErr ? String(invErr?.message ?? invErr) : null };
+      setDiagResult(JSON.stringify(payload, null, 2));
+      setDiagOpen(true);
+    } catch (e: any) {
+      setDiagResult(JSON.stringify({ erro: String(e?.message ?? e) }, null, 2));
+      setDiagOpen(true);
+    } finally {
+      setDiagLoading(false);
+    }
+  }
+  // END TEMP DIAG
+
   // Validação por variação
   const [validatingKey, setValidatingKey] = useState<string | null>(null);
 
