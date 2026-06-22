@@ -142,11 +142,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .schema("crm").from("ad_platform_account_links")
     .select("connection_id, is_primary, enabled")
     .eq("enabled", true)
+    .eq("company_id", planRow.company_id)
     .order("is_primary", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (linkErr) return json({ ok: false, error_user_msg: `Falha a ler conexão Meta: ${linkErr.message}` }, 200);
-  if (!linkRow) return json({ ok: false, error_user_msg: "Sem conexão Meta ativa." }, 200);
+  if (!linkRow) return json({ ok: false, error_user_msg: "Sem conexão Meta ativa para esta empresa." }, 200);
   const connectionId = linkRow.connection_id as string;
 
   // 3) Decifra access_token
