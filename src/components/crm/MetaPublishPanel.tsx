@@ -19,6 +19,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, AlertTriangle, Save, Send, Info, ExternalLink, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { OBJETIVO_LABELS_PT, labelCta, labelObjetivo } from "@/lib/meta-labels";
 
 type PublicoSugerido = {
   resumo: string;
