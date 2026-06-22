@@ -315,7 +315,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const CTA_ALIASES: Record<string, string> = {
     "GET_TICKETS": "BUY_TICKETS",
     "BUY_TICKET": "BUY_TICKETS",
-    "TICKETS": "GET_EVENT_TICKETS",
+    "TICKETS": "BUY_TICKETS",
     "GET_EVENT_TICKET": "GET_EVENT_TICKETS",
     "COMPRAR": "SHOP_NOW",
     "COMPRAR_AGORA": "SHOP_NOW",
