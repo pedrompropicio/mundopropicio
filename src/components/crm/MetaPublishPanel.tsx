@@ -138,6 +138,7 @@ export function MetaPublishPanel({
           setError(`${data.error}: ${data.message ?? data.detail ?? ""}`);
         } else {
           setPlano(data as PlanoResposta);
+          setLinkDestino(((data as any)?.link_destino as string | null) ?? "");
           // Após receber o plano, lê estado/meta_campaign_id da BD para o painel.
           try {
             const { data: row } = await (supabase as any)
