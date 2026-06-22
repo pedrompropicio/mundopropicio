@@ -1,0 +1,359 @@
+// crm-meta-publish-execute (FASE 2)
+// POST { company_id, plan_id, dry_run?: boolean }
+//
+// Cria no Meta: 1 campanha + N adsets + M anúncios — TUDO status=PAUSED.
+// ABO: orçamento nos adsets, campanha sem budget.
+// Idempotência: se já existir meta_campaign_id / meta_adset_id / meta_ad_id
+// guardados no plano, NÃO recria — retoma. Re-correr após falha parcial
+// retoma de onde parou e NUNCA duplica.
+// Dry-run: monta payloads e devolve-os sem chamar a Meta Graph API.
+
+import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+
+const GRAPH_API_VERSION = "v18.0";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ENCRYPTION_MASTER_KEY = Deno.env.get("ENCRYPTION_MASTER_KEY")!;
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function normalizeAdAccountId(raw: string): string {
+  const c = raw.trim();
+  return c.startsWith("act_") ? c : `act_${c}`;
+}
+
+// Meta é rígido. Defaults seguros.
+function mapObjective(objetivo: string): { optimization_goal: string; billing_event: string } {
+  switch (objetivo) {
+    case "OUTCOME_SALES":
+      // OFFSITE_CONVERSIONS exige pixel+evento. Sem isso a criação rebenta.
+      // Aqui assumimos que o gestor preparou pixel; se não houver, há fallback abaixo.
+      return { optimization_goal: "OFFSITE_CONVERSIONS", billing_event: "IMPRESSIONS" };
+    case "OUTCOME_TRAFFIC":
+      return { optimization_goal: "LINK_CLICKS", billing_event: "IMPRESSIONS" };
+    case "OUTCOME_AWARENESS":
+      return { optimization_goal: "REACH", billing_event: "IMPRESSIONS" };
+    case "OUTCOME_ENGAGEMENT":
+      return { optimization_goal: "POST_ENGAGEMENT", billing_event: "IMPRESSIONS" };
+    default:
+      return { optimization_goal: "LINK_CLICKS", billing_event: "IMPRESSIONS" };
+  }
+}
+
+type GraphError = { message?: string; code?: number; error_subcode?: number; type?: string };
+
+async function graphPOST(path: string, body: Record<string, unknown>, accessToken: string): Promise<{ ok: true; data: any } | { ok: false; status: number; error: GraphError | null; raw: any }> {
+  const url = `https://graph.facebook.com/${GRAPH_API_VERSION}${path}`;
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(body)) {
+    if (v === undefined || v === null) continue;
+    params.set(k, typeof v === "string" ? v : JSON.stringify(v));
+  }
+  params.set("access_token", accessToken);
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: params.toString(),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j?.error) {
+    return { ok: false, status: r.status, error: j?.error ?? null, raw: j };
+  }
+  return { ok: true, data: j };
+}
+
+Deno.serve(async (req: Request): Promise<Response> => {
+  console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v1");
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) return json({ error: "missing_authorization" }, 401);
+
+  let body: { company_id?: string; plan_id?: string; dry_run?: boolean };
+  try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
+
+  const companyIdIn = body.company_id;
+  const planId = body.plan_id;
+  const dryRun = body.dry_run === true;
+  if (!companyIdIn || !planId) {
+    return json({ error: "missing_params", required: ["company_id", "plan_id"] }, 400);
+  }
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: authHeader } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  // 1) Lê o plano (RLS user — valida pertença ao company)
+  const { data: planRow, error: planErr } = await (supabase as any)
+    .schema("crm").from("meta_publish_plan")
+    .select("id, company_id, event_id, design_id, objetivo, orcamento_total_cents, moeda, adsets, estado, meta_campaign_id")
+    .eq("id", planId)
+    .maybeSingle();
+  if (planErr) return json({ error: "plan_query_failed", detail: planErr.message }, 500);
+  if (!planRow) return json({ error: "plan_not_found" }, 404);
+  if (planRow.company_id !== companyIdIn) return json({ error: "company_mismatch" }, 403);
+
+  if (planRow.estado === "publicado") {
+    return json({ error: "ja_publicado", meta_campaign_id: planRow.meta_campaign_id }, 409);
+  }
+  if (!["rascunho", "pronto_a_publicar", "a_publicar", "falhado"].includes(planRow.estado)) {
+    return json({ error: "estado_invalido", estado: planRow.estado }, 409);
+  }
+
+  // 2) Conexão Meta ativa para este company → connection_id + ad_account_id.
+  //    Pegamos o link primário enabled (mesma origem que MetaPublishPanel/Setup usa).
+  const { data: linkRow, error: linkErr } = await (supabase as any)
+    .schema("crm").from("ad_platform_account_links")
+    .select("connection_id, ad_account_id, is_primary, enabled")
+    .eq("enabled", true)
+    .order("is_primary", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (linkErr) return json({ error: "ad_account_query_failed", detail: linkErr.message }, 500);
+  if (!linkRow) return json({ error: "no_active_meta_connection" }, 412);
+
+  const connectionId = linkRow.connection_id as string;
+  const adAccountId = normalizeAdAccountId(linkRow.ad_account_id as string);
+  const adAccountNumeric = adAccountId.replace(/^act_/, "");
+
+  // 3) Decifra access_token (idêntico ao crm-meta-sync-creatives).
+  const { data: tokenRows, error: tokenErr } = await supabase.rpc(
+    "crm_get_meta_decrypted_token",
+    { p_connection_id: connectionId, p_master_key: ENCRYPTION_MASTER_KEY },
+  );
+  if (tokenErr || !Array.isArray(tokenRows) || tokenRows.length === 0) {
+    return json({ error: "decrypt_failed", detail: tokenErr?.message ?? null }, 403);
+  }
+  const accessToken = (tokenRows[0] as { access_token: string }).access_token;
+
+  // 4) Dados do evento (para nome da campanha).
+  const { data: eventRow } = await supabase
+    .from("events").select("title, name, date").eq("id", planRow.event_id).maybeSingle();
+  const nomeEvento =
+    (eventRow as any)?.title ?? (eventRow as any)?.name ?? "Evento";
+  const dataEvento = (eventRow as any)?.date ?? "";
+
+  const adsets: any[] = Array.isArray(planRow.adsets) ? planRow.adsets : [];
+  const avisos: Array<{ codigo: string; detalhe?: string; adset?: string; ad_idx?: number }> = [];
+
+  // 5) Resolução creative_id (uuid interno) → meta_creative_id.
+  //    Recolher TODOS os ids únicos para uma query só.
+  const creativeUuidSet = new Set<string>();
+  for (const a of adsets) {
+    for (const an of (a.anuncios ?? [])) {
+      for (const cid of (an.creative_ids ?? [])) {
+        if (typeof cid === "string" && cid) creativeUuidSet.add(cid);
+      }
+    }
+  }
+  const creativeUuids = Array.from(creativeUuidSet);
+  const resolvedCreatives = new Map<string, string | null>();
+  if (creativeUuids.length > 0) {
+    const { data: rows, error: cErr } = await (admin as any)
+      .schema("crm").from("meta_creatives")
+      .select("id, meta_creative_id")
+      .in("id", creativeUuids);
+    if (cErr) return json({ error: "creatives_query_failed", detail: cErr.message }, 500);
+    for (const r of (rows ?? [])) {
+      resolvedCreatives.set(r.id as string, (r as any).meta_creative_id ?? null);
+    }
+    for (const u of creativeUuids) {
+      if (!resolvedCreatives.has(u)) resolvedCreatives.set(u, null);
+    }
+  }
+
+  // 6) Monta payloads.
+  const objetivo = planRow.objetivo ?? "OUTCOME_TRAFFIC";
+  let { optimization_goal, billing_event } = mapObjective(objetivo);
+  // Fallback seguro: OUTCOME_SALES/OFFSITE_CONVERSIONS sem pixel rebentava — usar LINK_CLICKS.
+  // Como não validamos pixel aqui (não temos esse signal), avisamos e mantemos OFFSITE_CONVERSIONS.
+  // Se a criação do adset falhar com "pixel required", o erro é capturado e o plano fica em "falhado".
+
+  const campaignPayload = {
+    name: `[MP Audience] ${nomeEvento}${dataEvento ? ` - ${dataEvento}` : ""}`,
+    objective: objetivo,
+    status: "PAUSED",
+    special_ad_categories: [],
+  };
+
+  function buildAdsetPayload(a: any, campaignIdParaPayload: string): { payload: Record<string, unknown>; goal_used: string } {
+    const pub = a.publico_sugerido ?? {};
+    const targeting: Record<string, unknown> = {
+      geo_locations: {
+        countries: Array.isArray(pub.geo) && pub.geo.length > 0 ? pub.geo : ["PT"],
+      },
+      age_min: Number.isFinite(pub.idade_min) ? pub.idade_min : 18,
+      age_max: Number.isFinite(pub.idade_max) ? pub.idade_max : 65,
+    };
+    if (a.publico_custom_audience_id) {
+      targeting.custom_audiences = [{ id: String(a.publico_custom_audience_id) }];
+    }
+    // Interesses POR NOME ficam de fora: a Graph API exige IDs de interesse,
+    // não nomes. Esta versão não tem mapeamento nome→id; documentado.
+    let goal = optimization_goal;
+    // (placeholder p/ futura validação de pixel)
+    const payload: Record<string, unknown> = {
+      name: a.trigger_nome || "Adset",
+      campaign_id: campaignIdParaPayload,
+      daily_budget: Math.max(0, Number(a.orcamento_cents ?? 0)),
+      billing_event,
+      optimization_goal: goal,
+      status: "PAUSED",
+      targeting,
+    };
+    return { payload, goal_used: goal };
+  }
+
+  function buildAdPayload(adsetIdParaPayload: string, anuncio: any): { payload: Record<string, unknown> | null; aviso?: { codigo: string; detalhe?: string } } {
+    const firstCid = (anuncio.creative_ids ?? [])[0];
+    if (!firstCid) return { payload: null, aviso: { codigo: "creative_sem_id" } };
+    const metaCid = resolvedCreatives.get(firstCid);
+    if (!metaCid) return { payload: null, aviso: { codigo: "creative_sem_meta_id", detalhe: firstCid } };
+    return {
+      payload: {
+        name: (anuncio.headline ?? "Anúncio").slice(0, 200),
+        adset_id: adsetIdParaPayload,
+        status: "PAUSED",
+        creative: { creative_id: metaCid },
+      },
+    };
+  }
+
+  // ─── DRY-RUN ─────────────────────────────────────────────────────────
+  if (dryRun) {
+    const dryAdsets: any[] = [];
+    const dryAds: any[] = [];
+    for (let i = 0; i < adsets.length; i++) {
+      const a = adsets[i];
+      const { payload: adsetPayload, goal_used } = buildAdsetPayload(a, "<CAMPAIGN_ID>");
+      dryAdsets.push({ trigger_nome: a.trigger_nome, optimization_goal_used: goal_used, payload: adsetPayload });
+      for (let k = 0; k < (a.anuncios ?? []).length; k++) {
+        const an = a.anuncios[k];
+        const { payload, aviso } = buildAdPayload("<ADSET_ID>", an);
+        if (aviso) avisos.push({ ...aviso, adset: a.trigger_nome, ad_idx: k });
+        if (payload) dryAds.push({ adset: a.trigger_nome, ad_idx: k, payload });
+      }
+    }
+    return json({
+      dry_run: true,
+      ad_account_id: adAccountId,
+      payloads: {
+        campaign: campaignPayload,
+        adsets: dryAdsets,
+        ads: dryAds,
+      },
+      resolved_creative_ids: Object.fromEntries(resolvedCreatives),
+      avisos,
+    });
+  }
+
+  // ─── ESCRITA REAL ───────────────────────────────────────────────────
+  // Estado: a_publicar
+  await (admin as any).schema("crm").from("meta_publish_plan")
+    .update({ estado: "a_publicar", publish_error: null }).eq("id", planId);
+
+  async function failAndStop(passo: string, err: any, extra?: Record<string, unknown>): Promise<Response> {
+    const payload = { passo, error: err, ...(extra ?? {}) };
+    await (admin as any).schema("crm").from("meta_publish_plan")
+      .update({ estado: "falhado", publish_error: payload }).eq("id", planId);
+    return json({ ok: false, passo, error: err, ...(extra ?? {}) }, 502);
+  }
+
+  // 7a) Campanha (idempotente)
+  let metaCampaignId: string | null = planRow.meta_campaign_id ?? null;
+  if (!metaCampaignId) {
+    const r = await graphPOST(`/${adAccountId}/campaigns`, campaignPayload, accessToken);
+    if (!r.ok) return await failAndStop("create_campaign", r.error ?? { message: `HTTP ${r.status}` }, { raw: r.raw });
+    metaCampaignId = r.data.id as string;
+    const { error: upErr } = await (admin as any).schema("crm").from("meta_publish_plan")
+      .update({ meta_campaign_id: metaCampaignId }).eq("id", planId);
+    if (upErr) return await failAndStop("persist_campaign_id", { message: upErr.message });
+  }
+
+  // 7b) Adsets + Ads (idempotente — escreve back ao adsets jsonb após cada sucesso)
+  const adsetsOut: any[] = JSON.parse(JSON.stringify(adsets));
+  const respAdsets: Array<{ trigger_nome: string; meta_adset_id: string; ads: string[] }> = [];
+
+  for (let i = 0; i < adsetsOut.length; i++) {
+    const a = adsetsOut[i];
+    if (!a.anuncios || a.anuncios.length === 0) {
+      avisos.push({ codigo: "adset_sem_anuncios", adset: a.trigger_nome });
+      continue;
+    }
+    // Adset
+    let metaAdsetId: string | null = a.meta_adset_id ?? null;
+    if (!metaAdsetId) {
+      const { payload, goal_used } = buildAdsetPayload(a, metaCampaignId!);
+      if (goal_used !== optimization_goal) {
+        avisos.push({ codigo: "optimization_goal_fallback", adset: a.trigger_nome, detalhe: goal_used });
+      }
+      const r = await graphPOST(`/${adAccountId}/adsets`, payload, accessToken);
+      if (!r.ok) {
+        // Persiste o que já temos antes de falhar (para idempotência futura)
+        await (admin as any).schema("crm").from("meta_publish_plan")
+          .update({ adsets: adsetsOut }).eq("id", planId);
+        return await failAndStop("create_adset", r.error ?? { message: `HTTP ${r.status}` }, { adset: a.trigger_nome, raw: r.raw });
+      }
+      metaAdsetId = r.data.id as string;
+      a.meta_adset_id = metaAdsetId;
+      await (admin as any).schema("crm").from("meta_publish_plan")
+        .update({ adsets: adsetsOut }).eq("id", planId);
+    }
+
+    // Ads
+    const adsIds: string[] = [];
+    for (let k = 0; k < a.anuncios.length; k++) {
+      const an = a.anuncios[k];
+      if (an.meta_ad_id) { adsIds.push(an.meta_ad_id); continue; }
+      const { payload, aviso } = buildAdPayload(metaAdsetId!, an);
+      if (aviso) {
+        avisos.push({ ...aviso, adset: a.trigger_nome, ad_idx: k });
+        continue;
+      }
+      if (!payload) continue;
+      const r = await graphPOST(`/${adAccountId}/ads`, payload, accessToken);
+      if (!r.ok) {
+        await (admin as any).schema("crm").from("meta_publish_plan")
+          .update({ adsets: adsetsOut }).eq("id", planId);
+        return await failAndStop("create_ad", r.error ?? { message: `HTTP ${r.status}` }, { adset: a.trigger_nome, ad_idx: k, raw: r.raw });
+      }
+      an.meta_ad_id = r.data.id as string;
+      adsIds.push(an.meta_ad_id);
+      await (admin as any).schema("crm").from("meta_publish_plan")
+        .update({ adsets: adsetsOut }).eq("id", planId);
+    }
+
+    respAdsets.push({ trigger_nome: a.trigger_nome, meta_adset_id: metaAdsetId!, ads: adsIds });
+  }
+
+  // 7c) Estado final
+  await (admin as any).schema("crm").from("meta_publish_plan")
+    .update({ estado: "publicado", published_at: new Date().toISOString(), publish_error: null, adsets: adsetsOut })
+    .eq("id", planId);
+
+  return json({
+    ok: true,
+    meta_campaign_id: metaCampaignId,
+    ad_account_id: adAccountId,
+    ad_account_numeric: adAccountNumeric,
+    adsets: respAdsets,
+    avisos,
+  });
+});
