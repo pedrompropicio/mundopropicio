@@ -251,12 +251,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     special_ad_categories: [],
   };
 
-  function buildAdsetPayload(a: any, campaignIdParaPayload: string): { payload: Record<string, unknown>; goal_used: string } {
+  function buildAdsetPayload(a: any, campaignIdParaPayload: string): { payload: Record<string, unknown>; goal_used: string; sem_pixel?: boolean } {
     const pub = a.publico_sugerido ?? {};
+    const countries = normalizeCountries(
+      Array.isArray(pub.geo) && pub.geo.length > 0 ? pub.geo : ["PT"],
+      (codigo, detalhe) => avisos.push({ codigo, adset: a.trigger_nome, detalhe }),
+    );
     const targeting: Record<string, unknown> = {
-      geo_locations: {
-        countries: Array.isArray(pub.geo) && pub.geo.length > 0 ? pub.geo : ["PT"],
-      },
+      geo_locations: { countries },
       age_min: Number.isFinite(pub.idade_min) ? pub.idade_min : 18,
       age_max: Number.isFinite(pub.idade_max) ? pub.idade_max : 65,
     };
@@ -273,7 +275,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
       status: "PAUSED",
       targeting,
     };
-    return { payload, goal_used: goal };
+    let sem_pixel = false;
+    if (goal === "OFFSITE_CONVERSIONS") {
+      if (eventPixelId) {
+        payload.promoted_object = { pixel_id: eventPixelId, custom_event_type: "PURCHASE" };
+      } else {
+        sem_pixel = true;
+      }
+    }
+    return { payload, goal_used: goal, sem_pixel };
   }
 
   // Resolve link efetivo: override do adset > link do plano.
