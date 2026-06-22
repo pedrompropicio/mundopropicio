@@ -1,6 +1,6 @@
 ---
-name: MP Audience — Elo de Publicação no Meta (FASE 1)
-description: FASE 1 (preparação/revisão) do elo de publicação. Tabela crm.meta_publish_plan + edge function crm-meta-publish-prepare (publish-prepare-v1) + UI MetaPublishPanel. NADA é escrito no Meta nesta fase. Botão de publicar está desactivado à espera da FASE 2.
+name: MP Audience — Elo de Publicação no Meta (FASES 1+2)
+description: FASE 1 (preparação/revisão) com crm-meta-publish-prepare + crm.meta_publish_plan + MetaPublishPanel. FASE 2 (escrita real) com crm-meta-publish-execute (ABO, tudo PAUSED, idempotente, dry-run). Botão "Publicar no Meta (em pausa)" agora activo com confirmação em 2 passos.
 type: feature
 ---
 
@@ -91,6 +91,92 @@ Resposta: `{ plan_id, design_id, adsets, totais: { adsets, anuncios_elegiveis, v
 - ✅ Pesos `peso_pct` vêm do desenho (Camada 5) → da montagem (Camada 4). A UI não os recalcula.
 - ✅ Botão de publicar está **desactivado** à espera da FASE 2.
 
-## Próxima fase (não nesta)
+## FASE 2 — Escrita real no Meta
 
-FASE 2: criar campanha em PAUSA + adsets + anúncios no Meta via Graph API, ler o plano persistido. FASE 3: medições. Esta memória só descreve a FASE 1.
+Edge function nova `crm-meta-publish-execute` (marcador `BUILD_VERSION=publish-execute-v1`).
+Input: `{ company_id, plan_id, dry_run?: boolean }`. Auth user JWT; decifra token Meta via
+RPC `crm_get_meta_decrypted_token` (mesmo padrão do `crm-meta-sync-creatives`). Lê o
+`ad_account_id` activo a partir de `crm.ad_platform_account_links` (link enabled, primário).
+
+### Princípios
+
+- **Tudo PAUSED.** Campanha, adsets e anúncios nascem `status="PAUSED"`. Nada arranca a gastar.
+- **ABO.** Orçamento vive nos adsets (`daily_budget` em cents). Campanha SEM `daily_budget`/`lifetime_budget`.
+- **Idempotência.** IDs do Meta ficam guardados: `meta_campaign_id` na linha do plano,
+  `meta_adset_id` e `meta_ad_id` no jsonb `adsets[]`. Se a função for re-chamada após
+  falha parcial, salta o que já tem ID e retoma. NUNCA duplica.
+- **Dry-run.** Com `dry_run:true` monta os payloads (campanha/adsets/ads) e devolve-os
+  sem chamar a Graph API; não altera estado nem persiste IDs.
+- **Estado intermédio `a_publicar`** (CHECK estendido). No início da escrita real, marca
+  `a_publicar`. No fim: `publicado` + `published_at=now()`. Em qualquer falha: `falhado`
+  + `publish_error jsonb` com `{passo, error, raw, ...}` e a função pára (não deixa lixo).
+- **Validação.** Só publica se `estado in ('rascunho','pronto_a_publicar','a_publicar','falhado')`.
+  Se já `publicado`, devolve `409 ja_publicado` com o `meta_campaign_id` existente.
+
+### Mapeamento objetivo → optimization_goal / billing_event
+
+- `OUTCOME_SALES` → `OFFSITE_CONVERSIONS` / `IMPRESSIONS` (exige pixel; se falhar, o erro
+  Meta vem em `publish_error`).
+- `OUTCOME_TRAFFIC` → `LINK_CLICKS` / `IMPRESSIONS`.
+- `OUTCOME_AWARENESS` → `REACH` / `IMPRESSIONS`.
+- `OUTCOME_ENGAGEMENT` → `POST_ENGAGEMENT` / `IMPRESSIONS`.
+- Default (objetivo desconhecido) → `LINK_CLICKS` / `IMPRESSIONS` (fallback seguro).
+
+### Targeting
+
+- Geo (`countries`), `age_min`/`age_max`, `custom_audiences` (se `publico_custom_audience_id`).
+- **Interesses POR NOME ficam de fora** desta versão — a Graph API exige IDs de interesse,
+  não nomes. Há aviso registado; mapeamento nome→id pode entrar em fase futura.
+
+### Criativos
+
+- O `creative_id` enviado ao Meta é o **`meta_creative_id`** (ID do Meta) lido de
+  `crm.meta_creatives` pelo `id` (uuid interno) que vem no plano. **Nunca** se envia o uuid.
+- Anúncio cujo creative não tem `meta_creative_id` (ex.: upload manual ainda não publicado)
+  é **pulado** com aviso `creative_sem_meta_id`. Não bloqueia o resto.
+
+### Resposta
+
+- Dry-run: `{ dry_run:true, payloads:{campaign,adsets,ads}, resolved_creative_ids, avisos }`.
+- Real: `{ ok:true, meta_campaign_id, ad_account_id, ad_account_numeric, adsets:[{trigger_nome, meta_adset_id, ads:[meta_ad_id...]}], avisos }`.
+- Falha: `{ ok:false, passo, error, raw }` + estado='falhado' persistido.
+
+## DDL FASE 2
+
+Migration `20260622*_meta_publish_plan_fase2` em Test. **Tem de ir a Live à mão** (Publish
+não propaga DDL):
+
+```sql
+ALTER TABLE crm.meta_publish_plan
+  ADD COLUMN IF NOT EXISTS meta_campaign_id text NULL,
+  ADD COLUMN IF NOT EXISTS published_at timestamptz NULL,
+  ADD COLUMN IF NOT EXISTS publish_error jsonb NULL;
+ALTER TABLE crm.meta_publish_plan DROP CONSTRAINT IF EXISTS meta_publish_plan_estado_check;
+ALTER TABLE crm.meta_publish_plan
+  ADD CONSTRAINT meta_publish_plan_estado_check
+  CHECK (estado IN ('rascunho','pronto_a_publicar','a_publicar','publicado','falhado'));
+```
+
+Dentro de cada elemento de `adsets` jsonb (sem DDL): `meta_adset_id text`, e em cada
+elemento de `anuncios`: `meta_ad_id text`.
+
+## UI — confirmação em 2 passos
+
+`MetaPublishPanel` agora tem o botão **activo** quando há objetivo, orçamento total > 0
+e pelo menos 1 anúncio elegível. Ao clicar abre `Dialog` de revisão:
+
+- Resumo "Vais criar 1 campanha EM PAUSA, N adsets (X €), M anúncios. Nada será ativado."
+- Botão **"Ver payloads (dry-run)"** invoca `crm-meta-publish-execute` com `dry_run:true`
+  e mostra o JSON em `<pre>` para inspeção.
+- Botão **"Confirmar e criar no Meta"** invoca com `dry_run:false` (loading). No fim
+  mostra `meta_campaign_id`, contagem adsets/ads e link **"Abrir no Ads Manager"**
+  (`https://adsmanager.facebook.com/.../?act={num}&selected_campaign_ids={id}`).
+- Se falhar: card de erro com `passo` + JSON completo do `publish_error`.
+
+Depois de publicado, o botão troca para **"Publicado (em pausa)"** desactivado e o
+rodapé mostra o link directo para o Ads Manager.
+
+## Próxima fase
+
+FASE 3: medições e activação assistida (sair da pausa de forma controlada).
+

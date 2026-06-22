@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,7 +17,7 @@ import {
   TooltipProvider, Tooltip, TooltipTrigger, TooltipContent,
 } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, AlertTriangle, Save, Send, Info } from "lucide-react";
+import { Loader2, AlertTriangle, Save, Send, Info, ExternalLink, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type PublicoSugerido = {
@@ -51,6 +54,9 @@ type PlanoResposta = {
   design_id: string;
   adsets: AdsetPlano[];
   totais: { adsets: number; anuncios_elegiveis: number; variacoes_excluidas: number };
+  estado?: string;
+  meta_campaign_id?: string | null;
+  ad_account_numeric?: string | null;
 };
 
 const OBJETIVOS = [
@@ -97,6 +103,17 @@ export function MetaPublishPanel({
   const [orcamentoEuros, setOrcamentoEuros] = useState<string>("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
 
+  // FASE 2 — publicação real
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [dryRunLoading, setDryRunLoading] = useState(false);
+  const [dryRunPayloads, setDryRunPayloads] = useState<any | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [publishResult, setPublishResult] = useState<any | null>(null);
+  const [publishError, setPublishError] = useState<any | null>(null);
+  const [estadoPlano, setEstadoPlano] = useState<string>("rascunho");
+  const [metaCampaignIdPub, setMetaCampaignIdPub] = useState<string | null>(null);
+  const [adAccountNumeric, setAdAccountNumeric] = useState<string | null>(null);
+
   // Load plano when opening
   useEffect(() => {
     if (!open || !companyId || !designId) return;
@@ -114,6 +131,17 @@ export function MetaPublishPanel({
           setError(`${data.error}: ${data.message ?? data.detail ?? ""}`);
         } else {
           setPlano(data as PlanoResposta);
+          // Após receber o plano, lê estado/meta_campaign_id da BD para o painel.
+          try {
+            const { data: row } = await (supabase as any)
+              .schema("crm").from("meta_publish_plan")
+              .select("estado, meta_campaign_id")
+              .eq("id", (data as any).plan_id).maybeSingle();
+            if (!cancel && row) {
+              setEstadoPlano(row.estado ?? "rascunho");
+              setMetaCampaignIdPub(row.meta_campaign_id ?? null);
+            }
+          } catch { /* ignore */ }
         }
       } catch (e: any) {
         if (!cancel) setError(e?.message ?? "Falha de rede.");
@@ -380,28 +408,201 @@ export function MetaPublishPanel({
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span tabIndex={0}>
-                          <Button disabled className="opacity-70">
-                            <Send className="h-4 w-4 mr-1" /> Publicar no Meta (em pausa)
-                          </Button>
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="text-xs">Escrita no Meta — Fase 2 (ainda não disponível)</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  {(() => {
+                    const jaPublicado = estadoPlano === "publicado";
+                    const podePublicar =
+                      !jaPublicado &&
+                      !!objetivo &&
+                      totalCents > 0 &&
+                      totalAnuncios > 0 &&
+                      !!plano.plan_id &&
+                      !!companyId;
+                    const tooltipMsg = jaPublicado
+                      ? "Plano já publicado no Meta (em pausa)."
+                      : !objetivo
+                        ? "Escolhe um objetivo."
+                        : totalCents <= 0
+                          ? "Define um orçamento total."
+                          : totalAnuncios === 0
+                            ? "Nenhum anúncio elegível (variações coerentes)."
+                            : "Pronto a publicar — fica tudo em pausa.";
+                    return (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span tabIndex={0}>
+                              <Button
+                                disabled={!podePublicar}
+                                onClick={() => {
+                                  setPublishResult(null);
+                                  setPublishError(null);
+                                  setDryRunPayloads(null);
+                                  setConfirmOpen(true);
+                                }}
+                              >
+                                {jaPublicado ? (
+                                  <><CheckCircle2 className="h-4 w-4 mr-1" /> Publicado (em pausa)</>
+                                ) : (
+                                  <><Send className="h-4 w-4 mr-1" /> Publicar no Meta (em pausa)</>
+                                )}
+                              </Button>
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">{tooltipMsg}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    );
+                  })()}
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                <Save className="h-3 w-3" /> Esta fase prepara e revê o plano. A criação real no Meta chega na próxima fase.
+                <Save className="h-3 w-3" /> Nada fica ativo — campanha, adsets e anúncios nascem em PAUSA. A ativação faz-se à parte (Ads Manager / fase seguinte).
               </p>
+              {estadoPlano === "publicado" && metaCampaignIdPub && (
+                <p className="text-xs mt-2">
+                  <a
+                    className="underline inline-flex items-center gap-1"
+                    target="_blank"
+                    rel="noreferrer"
+                    href={`https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${adAccountNumeric ?? ""}&selected_campaign_ids=${metaCampaignIdPub}`}
+                  >
+                    Abrir campanha no Ads Manager <ExternalLink className="h-3 w-3" />
+                  </a>
+                </p>
+              )}
             </Card>
           </div>
         )}
+
+        {/* Confirmação em 2 passos — Publicação no Meta */}
+        <Dialog open={confirmOpen} onOpenChange={(v) => { if (!publishing) setConfirmOpen(v); }}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Confirmar criação no Meta</DialogTitle>
+              <DialogDescription>
+                Vais criar no Meta: <b>1 campanha EM PAUSA</b>, <b>{plano?.adsets.length ?? 0} adsets</b>{" "}
+                (orçamento total {euros(totalCents)} €), <b>{totalAnuncios} anúncios</b>.
+                Nada será ativado — fica tudo em pausa.
+              </DialogDescription>
+            </DialogHeader>
+
+            {dryRunPayloads && (
+              <div className="mt-2">
+                <div className="text-xs text-muted-foreground mb-1">Payloads (dry-run, não enviado ao Meta):</div>
+                <pre className="text-[10px] bg-muted/40 p-3 rounded max-h-80 overflow-auto whitespace-pre-wrap break-all">
+{JSON.stringify(dryRunPayloads, null, 2)}
+                </pre>
+              </div>
+            )}
+
+            {publishError && (
+              <div className="mt-2 border border-destructive/50 bg-destructive/5 rounded p-3 text-sm">
+                <div className="flex items-center gap-2 text-destructive font-medium">
+                  <AlertTriangle className="h-4 w-4" /> Falhou no passo: {publishError.passo ?? "?"}
+                </div>
+                <pre className="text-[10px] mt-1 whitespace-pre-wrap break-all">
+{JSON.stringify(publishError, null, 2)}
+                </pre>
+              </div>
+            )}
+
+            {publishResult && (
+              <div className="mt-2 border border-emerald-500/40 bg-emerald-500/5 rounded p-3 text-sm space-y-1">
+                <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-medium">
+                  <CheckCircle2 className="h-4 w-4" /> Criado no Meta (em pausa)
+                </div>
+                <div>Campanha: <code className="text-xs">{publishResult.meta_campaign_id}</code></div>
+                <div className="text-xs text-muted-foreground">
+                  {publishResult.adsets?.length ?? 0} adsets · {(publishResult.adsets ?? []).reduce((s: number, a: any) => s + (a.ads?.length ?? 0), 0)} anúncios criados.
+                </div>
+                <a
+                  className="text-xs underline inline-flex items-center gap-1"
+                  target="_blank" rel="noreferrer"
+                  href={`https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${publishResult.ad_account_numeric ?? ""}&selected_campaign_ids=${publishResult.meta_campaign_id}`}
+                >
+                  Abrir no Ads Manager <ExternalLink className="h-3 w-3" />
+                </a>
+                {Array.isArray(publishResult.avisos) && publishResult.avisos.length > 0 && (
+                  <div className="text-xs text-amber-600 dark:text-amber-400">
+                    Avisos: {publishResult.avisos.length} (ver consola).
+                  </div>
+                )}
+              </div>
+            )}
+
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button
+                variant="outline"
+                disabled={publishing || dryRunLoading}
+                onClick={async () => {
+                  if (!plano || !companyId) return;
+                  setDryRunLoading(true);
+                  setPublishError(null);
+                  try {
+                    const { data, error: invErr } = await supabase.functions.invoke("crm-meta-publish-execute", {
+                      body: { company_id: companyId, plan_id: plano.plan_id, dry_run: true },
+                    });
+                    if (invErr) {
+                      setPublishError({ passo: "dry_run", error: { message: (invErr as any).message } });
+                    } else if ((data as any)?.error) {
+                      setPublishError({ passo: "dry_run", error: data });
+                    } else {
+                      setDryRunPayloads(data);
+                    }
+                  } catch (e: any) {
+                    setPublishError({ passo: "dry_run", error: { message: e?.message } });
+                  } finally {
+                    setDryRunLoading(false);
+                  }
+                }}
+              >
+                {dryRunLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+                Ver payloads (dry-run)
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={publishing}
+                onClick={() => setConfirmOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                disabled={publishing || estadoPlano === "publicado" || !!publishResult}
+                onClick={async () => {
+                  if (!plano || !companyId) return;
+                  setPublishing(true);
+                  setPublishError(null);
+                  setPublishResult(null);
+                  try {
+                    const { data, error: invErr } = await supabase.functions.invoke("crm-meta-publish-execute", {
+                      body: { company_id: companyId, plan_id: plano.plan_id, dry_run: false },
+                    });
+                    if (invErr) {
+                      setPublishError({ passo: "invoke", error: { message: (invErr as any).message } });
+                    } else if ((data as any)?.ok === true) {
+                      setPublishResult(data);
+                      setEstadoPlano("publicado");
+                      setMetaCampaignIdPub((data as any).meta_campaign_id ?? null);
+                      setAdAccountNumeric((data as any).ad_account_numeric ?? null);
+                      toast({ title: "Publicado no Meta (em pausa)", description: `Campanha ${(data as any).meta_campaign_id}` });
+                    } else {
+                      setPublishError(data);
+                    }
+                  } catch (e: any) {
+                    setPublishError({ passo: "invoke", error: { message: e?.message } });
+                  } finally {
+                    setPublishing(false);
+                  }
+                }}
+              >
+                {publishing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
+                Confirmar e criar no Meta
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </SheetContent>
     </Sheet>
   );
