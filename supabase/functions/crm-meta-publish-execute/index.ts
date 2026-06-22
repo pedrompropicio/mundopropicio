@@ -387,14 +387,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     // Ads
     const adsIds: string[] = [];
+    const linkEf = resolveLink(a);
+    if (!linkEf) {
+      avisos.push({ codigo: "sem_link_destino", adset: a.trigger_nome });
+      respAdsets.push({ trigger_nome: a.trigger_nome, meta_adset_id: metaAdsetId!, ads: adsIds });
+      continue;
+    }
     for (let k = 0; k < a.anuncios.length; k++) {
       const an = a.anuncios[k];
       if (an.meta_ad_id) { adsIds.push(an.meta_ad_id); continue; }
-      const { payload, aviso } = buildAdPayload(metaAdsetId!, an);
-      if (aviso) {
-        avisos.push({ ...aviso, adset: a.trigger_nome, ad_idx: k });
-        continue;
-      }
+      const { payload, aviso } = buildAdPayload(metaAdsetId!, an, linkEf);
+      if (aviso) avisos.push({ ...aviso, adset: a.trigger_nome, ad_idx: k });
       if (!payload) continue;
       const r = await graphPOST(`/${adAccountId}/ads`, payload, accessToken);
       if (!r.ok) {
