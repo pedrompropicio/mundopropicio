@@ -334,6 +334,23 @@ export function MetaPublishPanel({
                     />
                   </div>
 
+                  {/* Link específico (override do link do plano) */}
+                  <div>
+                    <label className="text-xs text-muted-foreground">Link específico deste adset (opcional)</label>
+                    <Input
+                      type="url"
+                      placeholder="https://... (deixa vazio para usar o link do topo)"
+                      value={a.link_destino ?? ""}
+                      onChange={(e) => updateAdset(i, (x) => {
+                        const v = e.target.value.trim();
+                        x.link_destino = v ? v : null;
+                      })}
+                    />
+                    {a.link_destino && !isValidHttpsUrl(a.link_destino) && (
+                      <div className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">URL inválido (tem de começar por https://).</div>
+                    )}
+                  </div>
+
                   {/* Público */}
                   <div className="space-y-2">
                     <div className="text-sm font-medium">Público sugerido</div>
