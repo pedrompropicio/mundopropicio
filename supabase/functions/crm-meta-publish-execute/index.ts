@@ -87,7 +87,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const companyIdIn = body.company_id;
   const planId = body.plan_id;
-  const dryRun = body.dry_run === true;
+  // SALVAGUARDA P0: dry_run default = TRUE. Só escreve no Meta se vier explicitamente false.
+  const dryRun = body.dry_run !== false;
   if (!companyIdIn || !planId) {
     return json({ error: "missing_params", required: ["company_id", "plan_id"] }, 400);
   }
