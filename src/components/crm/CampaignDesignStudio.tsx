@@ -357,6 +357,30 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     [adsets]
   );
 
+  // Derivado dos próprios adsets do desenho: a campanha tem gatilho temporal
+  // se algum adset escolhido for de tipo 'calendario' ou 'contagem_regressiva'.
+  const campanhaTemGatilhoTemporal = useMemo(
+    () => adsets.some((a) => a.trigger_tipo === "calendario" || a.trigger_tipo === "contagem_regressiva"),
+    [adsets]
+  );
+
+  // Lightbox
+  const [lightboxCreativeId, setLightboxCreativeId] = useState<string | null>(null);
+  const lightboxCreative = lightboxCreativeId ? creativesById.get(lightboxCreativeId) ?? null : null;
+  const lightboxTemporalHits = lightboxCreative ? detectTemporalSnippets(lightboxCreative.text_snippets) : [];
+  const lightboxIsImage = (() => {
+    if (!lightboxCreative) return false;
+    const t = (lightboxCreative.type ?? "").toLowerCase();
+    const m = (lightboxCreative.file_mime_type ?? "").toLowerCase();
+    return t.includes("image") || m.startsWith("image/");
+  })();
+  const lightboxIsVideo = (() => {
+    if (!lightboxCreative) return false;
+    const t = (lightboxCreative.type ?? "").toLowerCase();
+    const m = (lightboxCreative.file_mime_type ?? "").toLowerCase();
+    return t.includes("video") || m.startsWith("video/");
+  })();
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-full p-0 flex flex-col">
