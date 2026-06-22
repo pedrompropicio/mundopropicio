@@ -126,6 +126,50 @@ export function MetaPublishPanel({
   const [metaCampaignIdPub, setMetaCampaignIdPub] = useState<string | null>(null);
   const [adAccountNumeric, setAdAccountNumeric] = useState<string | null>(null);
 
+  // FASE 3 — Ativação / kill switch
+  const [activateOpen, setActivateOpen] = useState(false);
+  const [activateAck, setActivateAck] = useState(false);
+  const [pauseOpen, setPauseOpen] = useState(false);
+  const [activating, setActivating] = useState(false);
+  const [pausing, setPausing] = useState(false);
+  const [activateError, setActivateError] = useState<{ msg: string; resultado?: any[] } | null>(null);
+  const [activateResult, setActivateResult] = useState<{ resultado: any[]; estado: string } | null>(null);
+
+  async function chamarActivate(acao: "ativar" | "pausar") {
+    if (!plano || !companyId) return;
+    const isAtivar = acao === "ativar";
+    if (isAtivar) setActivating(true); else setPausing(true);
+    setActivateError(null);
+    try {
+      const { data, error: invErr } = await supabase.functions.invoke("crm-meta-publish-activate", {
+        body: { company_id: companyId, plan_id: plano.plan_id, acao },
+      });
+      if (invErr) {
+        setActivateError({ msg: (invErr as any).message ?? "Falha de rede." });
+      } else if ((data as any)?.ok === true) {
+        setActivateResult({ resultado: (data as any).resultado ?? [], estado: (data as any).estado });
+        setEstadoPlano((data as any).estado);
+        if (isAtivar) {
+          setActivateOpen(false);
+          setActivateAck(false);
+          toast({ title: "Campanha ATIVA no Meta", description: "Começou a publicar." });
+        } else {
+          setPauseOpen(false);
+          toast({ title: "Campanha em pausa", description: "Parou de gastar." });
+        }
+      } else {
+        setActivateError({
+          msg: (data as any)?.error_user_msg ?? "O Meta rejeitou a operação.",
+          resultado: (data as any)?.resultado,
+        });
+      }
+    } catch (e: any) {
+      setActivateError({ msg: e?.message ?? "Falha de rede." });
+    } finally {
+      if (isAtivar) setActivating(false); else setPausing(false);
+    }
+  }
+
   // Recomendações vivas da Meta (leitura — nunca escreve no Meta)
   type RecomendacaoUI = {
     tipo: string | null;
