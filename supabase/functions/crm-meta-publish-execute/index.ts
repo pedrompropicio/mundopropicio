@@ -417,7 +417,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // 7c) Estado final
   await (admin as any).schema("crm").from("meta_publish_plan")
-    .update({ estado: "publicado", published_at: new Date().toISOString(), publish_error: null, adsets: adsetsOut })
+    .update({ estado: "publicado", published_at: new Date().toISOString(), publish_finished_at: new Date().toISOString(), publish_error: null, adsets: adsetsOut })
     .eq("id", planId);
 
   return json({
