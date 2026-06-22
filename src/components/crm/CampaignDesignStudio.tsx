@@ -786,6 +786,19 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
           )}
         </DialogContent>
       </Dialog>
+
+      {/* TEMP DIAG — REMOVER */}
+      <Dialog open={diagOpen} onOpenChange={setDiagOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Diag resolução de imagem (temporário)</DialogTitle>
+          </DialogHeader>
+          <pre className="text-xs font-mono bg-muted/40 p-3 rounded max-h-[70vh] overflow-auto whitespace-pre-wrap break-all">
+{diagResult}
+          </pre>
+        </DialogContent>
+      </Dialog>
+      {/* END TEMP DIAG */}
     </Sheet>
   );
 }
