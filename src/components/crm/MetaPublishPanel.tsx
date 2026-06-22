@@ -121,6 +121,12 @@ export function MetaPublishPanel({
   const [metaCampaignIdPub, setMetaCampaignIdPub] = useState<string | null>(null);
   const [adAccountNumeric, setAdAccountNumeric] = useState<string | null>(null);
 
+  // TEMP DIAG RECOS — REMOVER
+  const [diagRecosLoading, setDiagRecosLoading] = useState(false);
+  const [diagRecosOpen, setDiagRecosOpen] = useState(false);
+  const [diagRecosResult, setDiagRecosResult] = useState<any>(null);
+  // TEMP DIAG RECOS — REMOVER (fim)
+
   // Load plano when opening
   useEffect(() => {
     if (!open || !companyId || !designId) return;
@@ -240,6 +246,48 @@ export function MetaPublishPanel({
             Esta fase prepara e revê o plano. A criação real no Meta chega na próxima fase.
           </SheetDescription>
         </SheetHeader>
+
+        {/* TEMP DIAG RECOS — REMOVER */}
+        <div className="mt-3">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={diagRecosLoading}
+            onClick={async () => {
+              setDiagRecosLoading(true);
+              setDiagRecosResult(null);
+              setDiagRecosOpen(true);
+              try {
+                const { data, error } = await supabase.functions.invoke("crm-diag-meta-recommendations", {
+                  body: {
+                    connection_id: "3c234235-0ac5-4afc-a06e-259bdea0ae7a",
+                    ad_account_id: "act_5094207367314169",
+                  },
+                });
+                setDiagRecosResult(error ? { error: (error as any).message ?? String(error) } : data);
+              } catch (e: any) {
+                setDiagRecosResult({ error: e?.message ?? String(e) });
+              } finally {
+                setDiagRecosLoading(false);
+              }
+            }}
+          >
+            {diagRecosLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+            🔍 Diag recomendações Meta
+          </Button>
+        </div>
+        <Dialog open={diagRecosOpen} onOpenChange={setDiagRecosOpen}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Diag — recomendações Meta</DialogTitle>
+              <DialogDescription>Resposta crua da edge function (descartável).</DialogDescription>
+            </DialogHeader>
+            <pre className="max-h-[70vh] overflow-auto text-xs whitespace-pre-wrap break-all bg-muted p-3 rounded">
+              {diagRecosLoading ? "A invocar…" : JSON.stringify(diagRecosResult, null, 2)}
+            </pre>
+          </DialogContent>
+        </Dialog>
+        {/* TEMP DIAG RECOS — REMOVER (fim) */}
 
         {loading && (
           <div className="py-12 flex items-center justify-center text-muted-foreground gap-2">
