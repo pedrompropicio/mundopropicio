@@ -47,12 +47,14 @@ type AdsetPlano = {
   publico_sugerido: PublicoSugerido;
   publico_custom_audience_id: string | null;
   anuncios: Anuncio[];
+  link_destino?: string | null;
   _ajustado_a_mao?: boolean; // local-only
 };
 
 type PlanoResposta = {
   plan_id: string;
   design_id: string;
+  link_destino?: string | null;
   adsets: AdsetPlano[];
   totais: { adsets: number; anuncios_elegiveis: number; variacoes_excluidas: number };
   estado?: string;
@@ -60,12 +62,15 @@ type PlanoResposta = {
   ad_account_numeric?: string | null;
 };
 
-const OBJETIVOS = [
-  { value: "OUTCOME_SALES", label: "Vendas" },
-  { value: "OUTCOME_TRAFFIC", label: "Tráfego" },
-  { value: "OUTCOME_AWARENESS", label: "Notoriedade" },
-  { value: "OUTCOME_ENGAGEMENT", label: "Interacção" },
-];
+const OBJETIVOS = (Object.keys(OBJETIVO_LABELS_PT) as Array<keyof typeof OBJETIVO_LABELS_PT>).map(
+  (value) => ({ value, label: OBJETIVO_LABELS_PT[value] }),
+);
+
+function isValidHttpsUrl(s: string | null | undefined): boolean {
+  if (!s || typeof s !== "string") return false;
+  if (!s.startsWith("https://")) return false;
+  try { new URL(s); return true; } catch { return false; }
+}
 
 function euros(cents: number): string {
   return (cents / 100).toLocaleString("pt-PT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
