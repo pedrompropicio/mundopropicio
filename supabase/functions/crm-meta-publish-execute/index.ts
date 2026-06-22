@@ -169,12 +169,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   const accessToken = (tokenRows[0] as { access_token: string }).access_token;
 
-  // 4) Dados do evento (para nome da campanha).
+  // 4) Dados do evento (para nome da campanha + pixel para conversões).
   const { data: eventRow } = await supabase
-    .from("events").select("title, name, date").eq("id", planRow.event_id).maybeSingle();
+    .from("events").select("title, name, date, meta_pixel_id").eq("id", planRow.event_id).maybeSingle();
   const nomeEvento =
-    (eventRow as any)?.title ?? (eventRow as any)?.name ?? "Evento";
+    (eventRow as any)?.name ?? (eventRow as any)?.title ?? "Evento";
   const dataEvento = (eventRow as any)?.date ?? "";
+  const eventPixelId: string | null = (eventRow as any)?.meta_pixel_id ?? null;
 
   const adsets: any[] = Array.isArray(planRow.adsets) ? planRow.adsets : [];
   const avisos: Array<{ codigo: string; detalhe?: string; adset?: string; ad_idx?: number }> = [];
