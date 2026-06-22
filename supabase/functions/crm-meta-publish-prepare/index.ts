@@ -288,16 +288,18 @@ Responde APENAS JSON puro com este shape:
       objetivo: objetivo,
       orcamento_total_cents: orcamentoTotal,
       moeda: "EUR",
+      link_destino: linkDestinoEvento,
       adsets: adsetsOut,
       estado: "rascunho",
     })
-    .select("id")
+    .select("id, link_destino")
     .single();
   if (insErr) return json({ error: "persist_failed", detail: insErr.message }, 500);
 
   return json({
     plan_id: ins.id,
     design_id,
+    link_destino: (ins as any).link_destino ?? linkDestinoEvento,
     adsets: adsetsOut,
     totais: {
       adsets: adsetsOut.length,
