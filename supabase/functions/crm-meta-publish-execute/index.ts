@@ -189,27 +189,29 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   }
   const creativeUuids = Array.from(creativeUuidSet);
-  const resolvedCreatives = new Map<string, string | null>();
+  type CreativeInfo = { meta_creative_id: string | null; meta_image_hash: string | null; type: string | null };
+  const resolvedCreatives = new Map<string, CreativeInfo>();
   if (creativeUuids.length > 0) {
     const { data: rows, error: cErr } = await (admin as any)
       .schema("crm").from("meta_creatives")
-      .select("id, meta_creative_id")
+      .select("id, meta_creative_id, meta_image_hash, type")
       .in("id", creativeUuids);
     if (cErr) return json({ error: "creatives_query_failed", detail: cErr.message }, 500);
     for (const r of (rows ?? [])) {
-      resolvedCreatives.set(r.id as string, (r as any).meta_creative_id ?? null);
+      resolvedCreatives.set(r.id as string, {
+        meta_creative_id: (r as any).meta_creative_id ?? null,
+        meta_image_hash: (r as any).meta_image_hash ?? null,
+        type: (r as any).type ?? null,
+      });
     }
     for (const u of creativeUuids) {
-      if (!resolvedCreatives.has(u)) resolvedCreatives.set(u, null);
+      if (!resolvedCreatives.has(u)) resolvedCreatives.set(u, { meta_creative_id: null, meta_image_hash: null, type: null });
     }
   }
 
   // 6) Monta payloads.
   const objetivo = planRow.objetivo ?? "OUTCOME_TRAFFIC";
   let { optimization_goal, billing_event } = mapObjective(objetivo);
-  // Fallback seguro: OUTCOME_SALES/OFFSITE_CONVERSIONS sem pixel rebentava — usar LINK_CLICKS.
-  // Como não validamos pixel aqui (não temos esse signal), avisamos e mantemos OFFSITE_CONVERSIONS.
-  // Se a criação do adset falhar com "pixel required", o erro é capturado e o plano fica em "falhado".
 
   const campaignPayload = {
     name: `[MP Audience] ${nomeEvento}${dataEvento ? ` - ${dataEvento}` : ""}`,
@@ -230,10 +232,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (a.publico_custom_audience_id) {
       targeting.custom_audiences = [{ id: String(a.publico_custom_audience_id) }];
     }
-    // Interesses POR NOME ficam de fora: a Graph API exige IDs de interesse,
-    // não nomes. Esta versão não tem mapeamento nome→id; documentado.
     let goal = optimization_goal;
-    // (placeholder p/ futura validação de pixel)
     const payload: Record<string, unknown> = {
       name: a.trigger_nome || "Adset",
       campaign_id: campaignIdParaPayload,
@@ -246,20 +245,59 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return { payload, goal_used: goal };
   }
 
-  function buildAdPayload(adsetIdParaPayload: string, anuncio: any): { payload: Record<string, unknown> | null; aviso?: { codigo: string; detalhe?: string } } {
+  // Resolve link efetivo: override do adset > link do plano.
+  function resolveLink(a: any): string | null {
+    if (typeof a?.link_destino === "string" && a.link_destino.length > 0) return a.link_destino;
+    return planoLinkDestino;
+  }
+
+  function buildAdPayload(adsetIdParaPayload: string, anuncio: any, link: string): { payload: Record<string, unknown> | null; aviso?: { codigo: string; detalhe?: string } } {
     const firstCid = (anuncio.creative_ids ?? [])[0];
     if (!firstCid) return { payload: null, aviso: { codigo: "creative_sem_id" } };
-    const metaCid = resolvedCreatives.get(firstCid);
-    if (!metaCid) return { payload: null, aviso: { codigo: "creative_sem_meta_id", detalhe: firstCid } };
+    const info = resolvedCreatives.get(firstCid);
+    if (!info || !info.meta_creative_id) {
+      return { payload: null, aviso: { codigo: "creative_sem_meta_id", detalhe: firstCid } };
+    }
+    const cta = String(anuncio.cta || "LEARN_MORE");
+    const isImagem = (info.type ?? "").toLowerCase() === "image";
+
+    // Caminho preferido: criativo NOVO com copy+link aplicados ao anúncio.
+    if (isImagem && info.meta_image_hash) {
+      const linkData: Record<string, unknown> = {
+        image_hash: info.meta_image_hash,
+        message: String(anuncio.corpo ?? "").slice(0, 2000),
+        name: String(anuncio.headline ?? "").slice(0, 200),
+        link,
+        call_to_action: { type: cta, value: { link } },
+      };
+      const objectStorySpec: Record<string, unknown> = {
+        page_id: selectedPageId,
+        link_data: linkData,
+      };
+      if (selectedInstagramId) objectStorySpec.instagram_actor_id = selectedInstagramId;
+
+      return {
+        payload: {
+          name: (anuncio.headline ?? "Anúncio").slice(0, 200),
+          adset_id: adsetIdParaPayload,
+          status: "PAUSED",
+          creative: { object_story_spec: objectStorySpec },
+        },
+      };
+    }
+
+    // Fallback: vídeo, ou imagem sem image_hash → reutiliza creative inteiro.
     return {
       payload: {
         name: (anuncio.headline ?? "Anúncio").slice(0, 200),
         adset_id: adsetIdParaPayload,
         status: "PAUSED",
-        creative: { creative_id: metaCid },
+        creative: { creative_id: info.meta_creative_id },
       },
+      aviso: { codigo: "copy_e_link_nao_aplicados", detalhe: "criativo reutilizado inteiro" },
     };
   }
+
 
   // ─── DRY-RUN ─────────────────────────────────────────────────────────
   if (dryRun) {
