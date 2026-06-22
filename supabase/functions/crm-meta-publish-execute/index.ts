@@ -199,7 +199,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const accessToken = (tokenRows[0] as { access_token: string }).access_token;
 
   // 4) Dados do evento (para nome da campanha + pixel para conversões).
-  const { data: eventRow } = await supabase
+  const { data: eventRow } = await admin
     .from("events").select("title, name, date, meta_pixel_id").eq("id", planRow.event_id).maybeSingle();
   const nomeEvento =
     (eventRow as any)?.name ?? (eventRow as any)?.title ?? "Evento";
