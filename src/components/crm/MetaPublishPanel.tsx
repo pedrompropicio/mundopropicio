@@ -451,11 +451,13 @@ export function MetaPublishPanel({
                 <div className="flex items-center gap-2">
                   {(() => {
                     const jaPublicado = estadoPlano === "publicado";
+                    const linkTopoOk = isValidHttpsUrl(linkDestino.trim());
                     const podePublicar =
                       !jaPublicado &&
                       !!objetivo &&
                       totalCents > 0 &&
                       totalAnuncios > 0 &&
+                      linkTopoOk &&
                       !!plano.plan_id &&
                       !!companyId;
                     const tooltipMsg = jaPublicado
@@ -466,7 +468,9 @@ export function MetaPublishPanel({
                           ? "Define um orçamento total."
                           : totalAnuncios === 0
                             ? "Nenhum anúncio elegível (variações coerentes)."
-                            : "Pronto a publicar — fica tudo em pausa.";
+                            : !linkTopoOk
+                              ? "Falta o link de destino."
+                              : "Pronto a publicar — fica tudo em pausa.";
                     return (
                       <TooltipProvider>
                         <Tooltip>
