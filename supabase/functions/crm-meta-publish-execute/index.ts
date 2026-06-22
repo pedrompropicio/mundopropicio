@@ -375,6 +375,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // ─── ESCRITA REAL ───────────────────────────────────────────────────
+  // Pré-check: se objetivo é conversões e o evento não tem pixel, falha ANTES de qualquer escrita.
+  if (optimization_goal === "OFFSITE_CONVERSIONS" && !eventPixelId) {
+    return json({
+      error: "sem_pixel_para_conversoes",
+      message: "Objetivo Vendas exige pixel; o evento não tem meta_pixel_id. Usa Tráfego ou configura o pixel.",
+    }, 412);
+  }
+
   // Estado: a_publicar
   await (admin as any).schema("crm").from("meta_publish_plan")
     .update({ estado: "a_publicar", publish_error: null, publish_started_at: new Date().toISOString() }).eq("id", planId);
