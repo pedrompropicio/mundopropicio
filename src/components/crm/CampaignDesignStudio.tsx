@@ -23,6 +23,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CheckCircle2, Loader2, RefreshCw, Sparkles, Wand2, AlertTriangle, Info, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { labelCta } from "@/lib/meta-labels";
 import { toast } from "sonner";
 
 export interface CampaignDesignStudioProps {
