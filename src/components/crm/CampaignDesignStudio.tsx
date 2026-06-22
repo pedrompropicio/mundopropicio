@@ -125,6 +125,40 @@ function extractSnippets(analysis: any): string[] {
   return Array.isArray(arr) ? arr.filter((x) => typeof x === "string") : [];
 }
 
+// ─── Deteção robusta do tipo efectivo de media ───
+// A BD pode ter type/file_mime_type inconsistentes com o ficheiro real.
+// A extensão do file_url tem prioridade sobre mime/type.
+const VIDEO_EXTENSIONS = [".mp4", ".mov", ".webm", ".m4v", ".avi"];
+const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif"];
+
+function urlPathname(fileUrl: string): string {
+  const noFragment = fileUrl.split("#")[0];
+  const noQuery = noFragment.split("?")[0];
+  return noQuery.toLowerCase();
+}
+
+function getEffectiveMediaType(
+  fileUrl: string | null | undefined,
+  mimeType: string | null | undefined,
+  type: string | null | undefined,
+): { kind: "image" | "video" | "unknown"; label: string } {
+  const path = (fileUrl ?? "").split("?")[0].split("#")[0].toLowerCase();
+  if (VIDEO_EXTENSIONS.some((ext) => path.endsWith(ext))) {
+    return { kind: "video", label: "vídeo" };
+  }
+  if (IMAGE_EXTENSIONS.some((ext) => path.endsWith(ext))) {
+    return { kind: "image", label: "imagem" };
+  }
+  const m = (mimeType ?? "").toLowerCase();
+  if (m.startsWith("video/")) return { kind: "video", label: "vídeo" };
+  if (m.startsWith("image/")) return { kind: "image", label: "imagem" };
+  const t = (type ?? "").toLowerCase();
+  if (t.includes("video")) return { kind: "video", label: "vídeo" };
+  if (t.includes("image")) return { kind: "image", label: "imagem" };
+  return { kind: "unknown", label: type ?? mimeType ?? "—" };
+}
+
+
 function SemaforoBadge({ s }: { s: Variacao["semaforo"] }) {
   if (s === "coerente") return <Badge className="bg-emerald-500/10 text-emerald-300 border-emerald-500/40">🟢 Coerente</Badge>;
   if (s === "atencao") return <Badge className="bg-amber-500/10 text-amber-300 border-amber-500/40">🟡 Atenção</Badge>;
@@ -368,18 +402,12 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   const [lightboxCreativeId, setLightboxCreativeId] = useState<string | null>(null);
   const lightboxCreative = lightboxCreativeId ? creativesById.get(lightboxCreativeId) ?? null : null;
   const lightboxTemporalHits = lightboxCreative ? detectTemporalSnippets(lightboxCreative.text_snippets) : [];
-  const lightboxIsImage = (() => {
-    if (!lightboxCreative) return false;
-    const t = (lightboxCreative.type ?? "").toLowerCase();
-    const m = (lightboxCreative.file_mime_type ?? "").toLowerCase();
-    return t.includes("image") || m.startsWith("image/");
+  const lightboxMediaType = (() => {
+    if (!lightboxCreative) return { kind: "unknown", label: "—" } as const;
+    return getEffectiveMediaType(lightboxCreative.file_url, lightboxCreative.file_mime_type, lightboxCreative.type);
   })();
-  const lightboxIsVideo = (() => {
-    if (!lightboxCreative) return false;
-    const t = (lightboxCreative.type ?? "").toLowerCase();
-    const m = (lightboxCreative.file_mime_type ?? "").toLowerCase();
-    return t.includes("video") || m.startsWith("video/");
-  })();
+  const lightboxIsImage = lightboxMediaType.kind === "image";
+  const lightboxIsVideo = lightboxMediaType.kind === "video";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -641,24 +669,24 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                   <img
                     src={lightboxCreative.file_url}
                     alt={lightboxCreative.name ?? ""}
-                    className="max-h-full max-w-full object-contain"
+                    className="w-full h-full object-contain"
                   />
                 ) : lightboxIsVideo && lightboxCreative.file_url ? (
                   <video
                     controls
                     playsInline
                     src={lightboxCreative.file_url}
-                    className="max-h-full max-w-full object-contain"
+                    className="w-full h-full object-contain"
                   />
                 ) : (
                   <div className="p-12 text-sm text-muted-foreground">
-                    Sem pré-visualização disponível ({lightboxCreative.type ?? "?"})
+                    Sem pré-visualização disponível ({lightboxMediaType.label})
                   </div>
                 )}
               </div>
 
               <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-                <div><span className="text-foreground">Tipo:</span> {lightboxCreative.type ?? "—"}{lightboxCreative.file_mime_type ? ` · ${lightboxCreative.file_mime_type}` : ""}</div>
+                <div><span className="text-foreground">Tipo:</span> {lightboxMediaType.label}{lightboxCreative.file_mime_type ? ` · ${lightboxCreative.file_mime_type}` : ""}</div>
                 <div><span className="text-foreground">Dimensões:</span> {lightboxCreative.width && lightboxCreative.height ? `${lightboxCreative.width}×${lightboxCreative.height}` : "—"}</div>
                 {lightboxIsVideo && (
                   <div><span className="text-foreground">Duração:</span> {lightboxCreative.duration_seconds ? `${lightboxCreative.duration_seconds}s` : "—"}</div>
