@@ -89,11 +89,10 @@ type CreativeMini = {
 };
 
 // Cache-busting: força browser a buscar nova versão quando a peça é re-hospedada.
-function withCacheBust(fileUrl: string | null, updatedAt: string | null): string | null {
-  if (!fileUrl) return fileUrl;
-  if (!updatedAt) return fileUrl;
-  const sep = fileUrl.includes("?") ? "&" : "?";
-  return `${fileUrl}${sep}v=${encodeURIComponent(updatedAt)}`;
+function withCacheBust(url: string | null | undefined, version: string | null | undefined): string | null {
+  if (!url) return null;
+  const v = version ? new Date(version).getTime() : Date.now();
+  return url.includes("?") ? `${url}&v=${v}` : `${url}?v=${v}`;
 }
 
 // ─── Deteção determinística de texto temporal queimado na peça ───
@@ -769,7 +768,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                   <video
                     controls
                     playsInline
-                    src={lightboxCreative.file_url}
+                    src={withCacheBust(lightboxCreative.file_url, lightboxCreative.updated_at) ?? undefined}
                     className="w-full h-full object-contain"
                   />
                 ) : (
