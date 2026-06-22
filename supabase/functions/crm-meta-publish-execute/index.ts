@@ -311,11 +311,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return planoLinkDestino;
   }
 
-  const META_VALID_CTAS = new Set(["BOOK_TRAVEL","CONTACT_US","DONATE","DONATE_NOW","DOWNLOAD","GET_DIRECTIONS","LEARN_MORE","SEE_DETAILS","SIGN_UP","SHOP_NOW","SUBSCRIBE","BUY_TICKETS","GET_EVENT_TICKETS","BUY_NOW","ORDER_NOW","GET_OFFER","BOOK_NOW","LISTEN_NOW","WATCH_MORE","APPLY_NOW","GET_QUOTE","NO_BUTTON","SEE_MENU"]);
+  const META_VALID_CTAS = new Set(["BOOK_TRAVEL","CONTACT_US","DONATE","DONATE_NOW","DOWNLOAD","GET_DIRECTIONS","LEARN_MORE","SEE_DETAILS","SEE_MORE","SIGN_UP","SHOP_NOW","SUBSCRIBE","BUY_TICKETS","GET_EVENT_TICKETS","BUY_NOW","ORDER_NOW","GET_OFFER","BOOK_NOW","LISTEN_NOW","WATCH_MORE","APPLY_NOW","GET_QUOTE","NO_BUTTON","SEE_MENU","SEND_MESSAGE","WHATSAPP_MESSAGE","CALL_NOW"]);
   const CTA_ALIASES: Record<string, string> = {
-    "GET_TICKETS": "BUY_TICKETS",
+    "GET_TICKETS": "GET_EVENT_TICKETS",
     "BUY_TICKET": "BUY_TICKETS",
-    "TICKETS": "BUY_TICKETS",
+    "TICKETS": "GET_EVENT_TICKETS",
     "GET_EVENT_TICKET": "GET_EVENT_TICKETS",
     "COMPRAR": "SHOP_NOW",
     "COMPRAR_AGORA": "SHOP_NOW",
@@ -323,8 +323,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   };
   function normalizeCta(raw: string): string {
     const v = String(raw || "").toUpperCase().trim();
-    if (META_VALID_CTAS.has(v)) return v;
     if (CTA_ALIASES[v]) return CTA_ALIASES[v];
+    if (META_VALID_CTAS.has(v)) return v;
     return "SHOP_NOW";
   }
 
