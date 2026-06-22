@@ -188,6 +188,12 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   // Validação por variação
   const [validatingKey, setValidatingKey] = useState<string | null>(null);
 
+  // TEMP DIAG VIDEO — REMOVER
+  const [diagVideoLoading, setDiagVideoLoading] = useState(false);
+  const [diagVideoOpen, setDiagVideoOpen] = useState(false);
+  const [diagVideoResult, setDiagVideoResult] = useState<string | null>(null);
+  // END TEMP DIAG VIDEO
+
   // Auto-save (debounce)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "dirty" | "saving" | "saved">("idle");
@@ -396,6 +402,33 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     toast.success("Desenho finalizado", { description: "Marcador interno — não publica em lado nenhum." });
   }
 
+  // TEMP DIAG VIDEO — REMOVER
+  async function runDiagVideo() {
+    setDiagVideoLoading(true);
+    setDiagVideoResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-diag-video-source", {
+        body: {
+          connection_id: "3c234235-0ac5-4afc-a06e-259bdea0ae7a",
+          ad_account_id: "act_5094207367314169",
+          meta_creative_ids: ["1000944802441633", "1009447748179915", "1015095407616091"],
+        },
+      });
+      if (error) throw new Error(error.message);
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setDiagVideoResult(JSON.stringify(data, null, 2));
+      setDiagVideoOpen(true);
+    } catch (e: any) {
+      const msg = e?.message ?? String(e);
+      setDiagVideoResult(JSON.stringify({ error: msg }, null, 2));
+      setDiagVideoOpen(true);
+    } finally {
+      setDiagVideoLoading(false);
+    }
+  }
+  // END TEMP DIAG VIDEO
+
+
   const totalVariacoes = useMemo(
     () => adsets.reduce((acc, a) => acc + (a.variacoes_texto?.length ?? 0), 0),
     [adsets]
@@ -481,6 +514,12 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                     {generating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
                     Re-pedir ao LLM (regenera tudo)
                   </Button>
+                  {/* TEMP DIAG VIDEO — REMOVER */}
+                  <Button size="sm" variant="outline" onClick={runDiagVideo} disabled={diagVideoLoading}>
+                    {diagVideoLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <span className="mr-1">🎬</span>}
+                    Diag vídeo
+                  </Button>
+                  {/* END TEMP DIAG VIDEO */}
                   <Button size="sm" onClick={finalizar} disabled={estado === "finalizado"}>
                     <CheckCircle2 className="h-4 w-4 mr-1" /> Finalizar desenho
                   </Button>
@@ -740,6 +779,19 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
           )}
         </DialogContent>
       </Dialog>
+
+      {/* TEMP DIAG VIDEO — REMOVER */}
+      <Dialog open={diagVideoOpen} onOpenChange={setDiagVideoOpen}>
+        <DialogContent className="max-w-4xl max-h-[70vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Diagnóstico vídeo (Meta)</DialogTitle>
+          </DialogHeader>
+          <pre className="text-xs whitespace-pre-wrap break-all">
+            {diagVideoResult ?? "Sem resultado"}
+          </pre>
+        </DialogContent>
+      </Dialog>
+      {/* END TEMP DIAG VIDEO */}
 
     </Sheet>
   );
