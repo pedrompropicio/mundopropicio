@@ -1,6 +1,6 @@
 ---
 name: MP Audience — Elo de Publicação no Meta (FASES 1+2)
-description: FASE 1 (preparação/revisão) com crm-meta-publish-prepare + crm.meta_publish_plan + MetaPublishPanel. FASE 2 (escrita real) com crm-meta-publish-execute (ABO, tudo PAUSED, idempotente, dry-run). Botão "Publicar no Meta (em pausa)" agora activo com confirmação em 2 passos.
+description: FASE 1 (preparação/revisão) com crm-meta-publish-prepare + crm.meta_publish_plan + MetaPublishPanel. FASE 2 (escrita real) com crm-meta-publish-execute — agora CRIA criativo NOVO (object_story_spec.link_data) aplicando copy e link_destino ao anúncio, com fallback para vídeo / imagem sem image_hash. Etiquetas PT-PT de CTA e objetivo (valores em BD continuam enum Meta). Marcadores publish-prepare-v2 e publish-execute-v2.
 type: feature
 ---
 
