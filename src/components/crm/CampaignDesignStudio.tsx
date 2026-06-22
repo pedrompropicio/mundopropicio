@@ -188,6 +188,12 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   // Validação por variação
   const [validatingKey, setValidatingKey] = useState<string | null>(null);
 
+  // TEMP DIAG VIDEO — REMOVER
+  const [diagVideoLoading, setDiagVideoLoading] = useState(false);
+  const [diagVideoOpen, setDiagVideoOpen] = useState(false);
+  const [diagVideoResult, setDiagVideoResult] = useState<string | null>(null);
+  // END TEMP DIAG VIDEO
+
   // Auto-save (debounce)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "dirty" | "saving" | "saved">("idle");
