@@ -72,7 +72,58 @@ type Adset = {
   variacoes_texto: Variacao[];
 };
 
-type CreativeMini = { id: string; name: string | null; type: string | null; file_url: string | null };
+type CreativeMini = {
+  id: string;
+  name: string | null;
+  type: string | null;
+  file_url: string | null;
+  width: number | null;
+  height: number | null;
+  duration_seconds: number | null;
+  file_mime_type: string | null;
+  headline: string | null;
+  body: string | null;
+  cta_type: string | null;
+  text_snippets: string[];
+};
+
+// ─── Deteção determinística de texto temporal queimado na peça ───
+const TEMPORAL_KEYWORDS = [
+  "ultimas horas", "ultima hora", "ultimas vagas", "hoje", "amanha",
+  "termina", "acaba", "acaba hoje", "ultimos dias", "ultimo dia",
+  "so ate", "ate dia", "resta", "restam", "ultima chance",
+  "agora", "ja", "nao percas tempo", "contagem", "encerra",
+];
+const MONTH_NAMES = [
+  "janeiro", "fevereiro", "marco", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+const MONTH_ABBR_RE = /\b\d{1,2}\s*(de\s*)?(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)\b/i;
+const DATE_NUM_RE = /\b\d{1,2}\/\d{1,2}\b/;
+
+function normalize(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function detectTemporalSnippets(snippets: string[]): string[] {
+  const hits: string[] = [];
+  for (const raw of snippets ?? []) {
+    if (typeof raw !== "string" || !raw.trim()) continue;
+    const n = normalize(raw);
+    const matched =
+      TEMPORAL_KEYWORDS.some((k) => n.includes(k)) ||
+      MONTH_NAMES.some((m) => n.includes(m)) ||
+      MONTH_ABBR_RE.test(n) ||
+      DATE_NUM_RE.test(n);
+    if (matched) hits.push(raw.trim());
+  }
+  return hits;
+}
+
+function extractSnippets(analysis: any): string[] {
+  const arr = analysis?.detected?.text_content_snippets;
+  return Array.isArray(arr) ? arr.filter((x) => typeof x === "string") : [];
+}
 
 function SemaforoBadge({ s }: { s: Variacao["semaforo"] }) {
   if (s === "coerente") return <Badge className="bg-emerald-500/10 text-emerald-300 border-emerald-500/40">🟢 Coerente</Badge>;
