@@ -104,7 +104,7 @@ async function graphPOST(path: string, body: Record<string, unknown>, accessToke
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v4");
+  console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v5");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -199,12 +199,29 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const accessToken = (tokenRows[0] as { access_token: string }).access_token;
 
   // 4) Dados do evento (para nome da campanha + pixel para conversões).
-  const { data: eventRow } = await admin
+  const { data: eventRow, error: eventErr } = await admin
     .from("events").select("title, name, date, meta_pixel_id").eq("id", planRow.event_id).maybeSingle();
+  console.log("[publish-execute] EVENT_DEBUG", JSON.stringify({
+    event_id_usado: planRow.event_id,
+    eventRow_raw: eventRow,
+    eventErr: eventErr ?? "no_error",
+    admin_schema_note: "admin createClient sem db.schema => default public",
+  }));
+  // Fallback explícito a public caso por algum motivo venha vazio sem erro
+  let eventRowFinal: any = eventRow;
+  if (!eventRow && !eventErr) {
+    const { data: eventRowPub, error: eventErrPub } = await (admin as any)
+      .schema("public").from("events")
+      .select("title, name, date, meta_pixel_id").eq("id", planRow.event_id).maybeSingle();
+    console.log("[publish-execute] EVENT_DEBUG_PUBLIC_FALLBACK", JSON.stringify({
+      eventRowPub, eventErrPub: eventErrPub ?? "no_error",
+    }));
+    eventRowFinal = eventRowPub;
+  }
   const nomeEvento =
-    (eventRow as any)?.name ?? (eventRow as any)?.title ?? "Evento";
-  const dataEvento = (eventRow as any)?.date ?? "";
-  const eventPixelId: string | null = (eventRow as any)?.meta_pixel_id ?? null;
+    (eventRowFinal as any)?.name ?? (eventRowFinal as any)?.title ?? "Evento";
+  const dataEvento = (eventRowFinal as any)?.date ?? "";
+  const eventPixelId: string | null = (eventRowFinal as any)?.meta_pixel_id ?? null;
 
   const adsets: any[] = Array.isArray(planRow.adsets) ? planRow.adsets : [];
   const avisos: Array<{ codigo: string; detalhe?: string; adset?: string; ad_idx?: number }> = [];
