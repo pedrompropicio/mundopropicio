@@ -135,11 +135,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // Valida via RLS do user (lê evento)
   const { data: evRow, error: evErr } = await userClient
-    .from("events").select("id, name, company_id, start_date, end_date").eq("id", design.event_id).maybeSingle();
+    .from("events").select("id, name, company_id, start_date, end_date, ticketing_url").eq("id", design.event_id).maybeSingle();
   if (evErr) return json({ error: "db_error", detail: evErr.message }, 500);
   if (!evRow || evRow.company_id !== company_id) {
     return json({ error: "forbidden", message: "evento não pertence ao company_id indicado ou sem acesso" }, 403);
   }
+  const linkDestinoEvento: string | null =
+    typeof (evRow as any).ticketing_url === "string" && (evRow as any).ticketing_url.startsWith("https://")
+      ? (evRow as any).ticketing_url
+      : null;
 
   const adsetsIn: any[] = Array.isArray(design.adsets) ? design.adsets : [];
   if (adsetsIn.length === 0) return json({ error: "empty_design", message: "design sem adsets" }, 400);
