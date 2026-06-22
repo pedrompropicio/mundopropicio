@@ -780,6 +780,19 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
         </DialogContent>
       </Dialog>
 
+      {/* TEMP DIAG VIDEO — REMOVER */}
+      <Dialog open={diagVideoOpen} onOpenChange={setDiagVideoOpen}>
+        <DialogContent className="max-w-4xl max-h-[70vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Diagnóstico vídeo (Meta)</DialogTitle>
+          </DialogHeader>
+          <pre className="text-xs whitespace-pre-wrap break-all">
+            {diagVideoResult ?? "Sem resultado"}
+          </pre>
+        </DialogContent>
+      </Dialog>
+      {/* END TEMP DIAG VIDEO */}
+
     </Sheet>
   );
 }
