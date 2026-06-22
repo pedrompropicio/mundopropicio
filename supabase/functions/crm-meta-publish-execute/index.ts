@@ -34,6 +34,35 @@ function normalizeAdAccountId(raw: string): string {
   return c.startsWith("act_") ? c : `act_${c}`;
 }
 
+// Meta exige códigos ISO-2 em geo_locations.countries.
+const COUNTRY_NAME_TO_ISO2: Record<string, string> = {
+  "portugal": "PT",
+  "brasil": "BR", "brazil": "BR",
+  "espanha": "ES", "spain": "ES",
+  "frança": "FR", "franca": "FR", "france": "FR",
+  "reino unido": "GB", "united kingdom": "GB",
+  "alemanha": "DE", "germany": "DE",
+  "itália": "IT", "italia": "IT", "italy": "IT",
+};
+function normalizeCountries(
+  arr: unknown,
+  warn?: (codigo: string, detalhe: string) => void,
+): string[] {
+  if (!Array.isArray(arr) || arr.length === 0) return ["PT"];
+  const out: string[] = [];
+  for (const raw of arr) {
+    if (typeof raw !== "string" || !raw.trim()) continue;
+    const v = raw.trim();
+    if (/^[A-Z]{2}$/.test(v)) { out.push(v); continue; }
+    const key = v.toLowerCase();
+    if (COUNTRY_NAME_TO_ISO2[key]) { out.push(COUNTRY_NAME_TO_ISO2[key]); continue; }
+    const fallback = v.slice(0, 2).toUpperCase();
+    warn?.("geo_nao_normalizada", v);
+    out.push(fallback);
+  }
+  return out.length > 0 ? out : ["PT"];
+}
+
 // Meta é rígido. Defaults seguros.
 function mapObjective(objetivo: string): { optimization_goal: string; billing_event: string } {
   switch (objetivo) {
@@ -75,7 +104,7 @@ async function graphPOST(path: string, body: Record<string, unknown>, accessToke
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v2");
+  console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v3");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -169,12 +198,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   const accessToken = (tokenRows[0] as { access_token: string }).access_token;
 
-  // 4) Dados do evento (para nome da campanha).
+  // 4) Dados do evento (para nome da campanha + pixel para conversões).
   const { data: eventRow } = await supabase
-    .from("events").select("title, name, date").eq("id", planRow.event_id).maybeSingle();
+    .from("events").select("title, name, date, meta_pixel_id").eq("id", planRow.event_id).maybeSingle();
   const nomeEvento =
-    (eventRow as any)?.title ?? (eventRow as any)?.name ?? "Evento";
+    (eventRow as any)?.name ?? (eventRow as any)?.title ?? "Evento";
   const dataEvento = (eventRow as any)?.date ?? "";
+  const eventPixelId: string | null = (eventRow as any)?.meta_pixel_id ?? null;
 
   const adsets: any[] = Array.isArray(planRow.adsets) ? planRow.adsets : [];
   const avisos: Array<{ codigo: string; detalhe?: string; adset?: string; ad_idx?: number }> = [];
@@ -221,12 +251,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     special_ad_categories: [],
   };
 
-  function buildAdsetPayload(a: any, campaignIdParaPayload: string): { payload: Record<string, unknown>; goal_used: string } {
+  function buildAdsetPayload(a: any, campaignIdParaPayload: string): { payload: Record<string, unknown>; goal_used: string; sem_pixel?: boolean } {
     const pub = a.publico_sugerido ?? {};
+    const countries = normalizeCountries(
+      Array.isArray(pub.geo) && pub.geo.length > 0 ? pub.geo : ["PT"],
+      (codigo, detalhe) => avisos.push({ codigo, adset: a.trigger_nome, detalhe }),
+    );
     const targeting: Record<string, unknown> = {
-      geo_locations: {
-        countries: Array.isArray(pub.geo) && pub.geo.length > 0 ? pub.geo : ["PT"],
-      },
+      geo_locations: { countries },
       age_min: Number.isFinite(pub.idade_min) ? pub.idade_min : 18,
       age_max: Number.isFinite(pub.idade_max) ? pub.idade_max : 65,
     };
@@ -243,7 +275,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
       status: "PAUSED",
       targeting,
     };
-    return { payload, goal_used: goal };
+    let sem_pixel = false;
+    if (goal === "OFFSITE_CONVERSIONS") {
+      if (eventPixelId) {
+        payload.promoted_object = { pixel_id: eventPixelId, custom_event_type: "PURCHASE" };
+      } else {
+        sem_pixel = true;
+      }
+    }
+    return { payload, goal_used: goal, sem_pixel };
   }
 
   // Resolve link efetivo: override do adset > link do plano.
@@ -307,7 +347,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     for (let i = 0; i < adsets.length; i++) {
       const a = adsets[i];
       const linkEf = resolveLink(a);
-      const { payload: adsetPayload, goal_used } = buildAdsetPayload(a, "<CAMPAIGN_ID>");
+      const { payload: adsetPayload, goal_used, sem_pixel } = buildAdsetPayload(a, "<CAMPAIGN_ID>");
+      if (sem_pixel) avisos.push({ codigo: "sem_pixel_para_conversoes", adset: a.trigger_nome, detalhe: "objetivo Vendas exige meta_pixel_id no evento" });
       dryAdsets.push({ trigger_nome: a.trigger_nome, optimization_goal_used: goal_used, link_destino_efetivo: linkEf, payload: adsetPayload });
       for (let k = 0; k < (a.anuncios ?? []).length; k++) {
         const an = a.anuncios[k];
@@ -334,6 +375,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // ─── ESCRITA REAL ───────────────────────────────────────────────────
+  // Pré-check: se objetivo é conversões e o evento não tem pixel, falha ANTES de qualquer escrita.
+  if (optimization_goal === "OFFSITE_CONVERSIONS" && !eventPixelId) {
+    return json({
+      error: "sem_pixel_para_conversoes",
+      message: "Objetivo Vendas exige pixel; o evento não tem meta_pixel_id. Usa Tráfego ou configura o pixel.",
+    }, 412);
+  }
+
   // Estado: a_publicar
   await (admin as any).schema("crm").from("meta_publish_plan")
     .update({ estado: "a_publicar", publish_error: null, publish_started_at: new Date().toISOString() }).eq("id", planId);
