@@ -176,6 +176,56 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   const [estado, setEstado] = useState<"rascunho" | "finalizado">("rascunho");
   const [creativesById, setCreativesById] = useState<Map<string, CreativeMini>>(new Map());
 
+  // TEMP DIAG — REMOVER
+  const [diagLoading, setDiagLoading] = useState(false);
+  const [diagOpen, setDiagOpen] = useState(false);
+  const [diagResult, setDiagResult] = useState<string>("");
+  async function runDiagImageResolution() {
+    try {
+      setDiagLoading(true);
+      setDiagResult("");
+      const creativeIds = Array.from(new Set(
+        adsets.flatMap((a) => (a.pecas ?? []).map((p: any) => p.creative_id).filter(Boolean))
+      ));
+      if (creativeIds.length === 0) {
+        toast.warning("nenhuma peça neste desenho");
+        setDiagLoading(false);
+        return;
+      }
+      const { data: rows, error: fetchErr } = await (supabase as any)
+        .schema("crm").from("meta_creatives")
+        .select("id, type, meta_image_hash")
+        .in("id", creativeIds);
+      if (fetchErr) throw fetchErr;
+      const hashes = Array.from(new Set(
+        (rows ?? [])
+          .filter((r: any) => r.meta_image_hash && (r.type === "image" || !r.type))
+          .map((r: any) => r.meta_image_hash as string)
+      )).slice(0, 5);
+      if (hashes.length === 0) {
+        toast.warning("nenhuma peça com image_hash neste desenho");
+        setDiagLoading(false);
+        return;
+      }
+      const { data, error: invErr } = await supabase.functions.invoke("crm-diag-image-resolution", {
+        body: {
+          connection_id: "3c234235-0ac5-4afc-a06e-259bdea0ae7a",
+          ad_account_id: "act_5094207367314169",
+          image_hashes: hashes,
+        },
+      });
+      const payload = { hashes_enviados: hashes, data, invErr: invErr ? String(invErr?.message ?? invErr) : null };
+      setDiagResult(JSON.stringify(payload, null, 2));
+      setDiagOpen(true);
+    } catch (e: any) {
+      setDiagResult(JSON.stringify({ erro: String(e?.message ?? e) }, null, 2));
+      setDiagOpen(true);
+    } finally {
+      setDiagLoading(false);
+    }
+  }
+  // END TEMP DIAG
+
   // Validação por variação
   const [validatingKey, setValidatingKey] = useState<string | null>(null);
 
@@ -467,6 +517,12 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                   {adsets.length} adsets · {totalVariacoes} variações
                 </div>
                 <div className="flex gap-2">
+                  {/* TEMP DIAG — REMOVER */}
+                  <Button size="sm" variant="outline" onClick={runDiagImageResolution} disabled={diagLoading}>
+                    {diagLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+                    🔧 Diag resolução
+                  </Button>
+                  {/* END TEMP DIAG */}
                   <Button size="sm" variant="outline" onClick={runGenerate} disabled={generating}>
                     {generating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
                     Re-pedir ao LLM (regenera tudo)
@@ -730,6 +786,19 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
           )}
         </DialogContent>
       </Dialog>
+
+      {/* TEMP DIAG — REMOVER */}
+      <Dialog open={diagOpen} onOpenChange={setDiagOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Diag resolução de imagem (temporário)</DialogTitle>
+          </DialogHeader>
+          <pre className="text-xs font-mono bg-muted/40 p-3 rounded max-h-[70vh] overflow-auto whitespace-pre-wrap break-all">
+{diagResult}
+          </pre>
+        </DialogContent>
+      </Dialog>
+      {/* END TEMP DIAG */}
     </Sheet>
   );
 }
