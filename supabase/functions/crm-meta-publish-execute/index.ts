@@ -311,6 +311,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return planoLinkDestino;
   }
 
+  const META_VALID_CTAS = new Set(["BOOK_TRAVEL","CONTACT_US","DONATE","DONATE_NOW","DOWNLOAD","GET_DIRECTIONS","LEARN_MORE","SEE_DETAILS","SIGN_UP","SHOP_NOW","SUBSCRIBE","BUY_TICKETS","GET_EVENT_TICKETS","BUY_NOW","ORDER_NOW","GET_OFFER","BOOK_NOW","LISTEN_NOW","WATCH_MORE","APPLY_NOW","GET_QUOTE","NO_BUTTON","SEE_MENU"]);
+  const CTA_ALIASES: Record<string, string> = {
+    "GET_TICKETS": "BUY_TICKETS",
+    "BUY_TICKET": "BUY_TICKETS",
+    "TICKETS": "BUY_TICKETS",
+    "GET_EVENT_TICKET": "GET_EVENT_TICKETS",
+    "COMPRAR": "SHOP_NOW",
+    "COMPRAR_AGORA": "SHOP_NOW",
+    "SABER_MAIS": "LEARN_MORE",
+  };
+  function normalizeCta(raw: string): string {
+    const v = String(raw || "").toUpperCase().trim();
+    if (META_VALID_CTAS.has(v)) return v;
+    if (CTA_ALIASES[v]) return CTA_ALIASES[v];
+    return "SHOP_NOW";
+  }
+
   function buildAdPayload(adsetIdParaPayload: string, anuncio: any, link: string): { payload: Record<string, unknown> | null; aviso?: { codigo: string; detalhe?: string } } {
     const firstCid = (anuncio.creative_ids ?? [])[0];
     if (!firstCid) return { payload: null, aviso: { codigo: "creative_sem_id" } };
@@ -318,7 +335,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (!info || !info.meta_creative_id) {
       return { payload: null, aviso: { codigo: "creative_sem_meta_id", detalhe: firstCid } };
     }
-    const cta = String(anuncio.cta || "LEARN_MORE");
+    const cta = normalizeCta(anuncio.cta || "LEARN_MORE");
     const isImagem = (info.type ?? "").toLowerCase() === "image";
 
     // Caminho preferido: criativo NOVO com copy+link aplicados ao anúncio.
