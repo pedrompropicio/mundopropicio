@@ -85,7 +85,16 @@ type CreativeMini = {
   body: string | null;
   cta_type: string | null;
   text_snippets: string[];
+  updated_at: string | null;
 };
+
+// Cache-busting: força browser a buscar nova versão quando a peça é re-hospedada.
+function withCacheBust(fileUrl: string | null, updatedAt: string | null): string | null {
+  if (!fileUrl) return fileUrl;
+  if (!updatedAt) return fileUrl;
+  const sep = fileUrl.includes("?") ? "&" : "?";
+  return `${fileUrl}${sep}v=${encodeURIComponent(updatedAt)}`;
+}
 
 // ─── Deteção determinística de texto temporal queimado na peça ───
 const TEMPORAL_KEYWORDS = [
@@ -275,7 +284,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     if (ids.length === 0) return new Map<string, CreativeMini>();
     const { data, error } = await (supabase as any)
       .schema("crm").from("meta_creatives")
-      .select("id, name, type, file_url, width, height, duration_seconds, file_mime_type, headline, body, cta_type, analysis_jsonb")
+      .select("id, name, type, file_url, width, height, duration_seconds, file_mime_type, headline, body, cta_type, analysis_jsonb, updated_at")
       .in("id", ids);
     if (error) {
       console.warn("[design-studio] fetch creatives failed", error);
@@ -296,6 +305,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
         body: r.body,
         cta_type: r.cta_type,
         text_snippets: extractSnippets(r.analysis_jsonb),
+        updated_at: r.updated_at ?? null,
       }),
     );
     return m;
@@ -599,7 +609,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                             >
                               <div className="relative">
                                 {isImage && c?.file_url ? (
-                                  <img src={c.file_url} alt={c.name ?? ""} className="w-full h-24 object-cover rounded mb-2" />
+                                  <img src={withCacheBust(c.file_url, c.updated_at) ?? undefined} alt={c.name ?? ""} className="w-full h-24 object-cover rounded mb-2" />
                                 ) : (
                                   <div className="w-full h-24 rounded mb-2 bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">
                                     {(c?.type ?? "?").toString()}
@@ -751,7 +761,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
               <div className="flex items-center justify-center bg-black/40 rounded-md overflow-hidden h-[60vh]">
                 {lightboxIsImage && lightboxCreative.file_url ? (
                   <img
-                    src={lightboxCreative.file_url}
+                    src={withCacheBust(lightboxCreative.file_url, lightboxCreative.updated_at) ?? undefined}
                     alt={lightboxCreative.name ?? ""}
                     className="w-full h-full object-contain"
                   />
