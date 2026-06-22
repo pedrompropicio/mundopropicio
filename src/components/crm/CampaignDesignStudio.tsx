@@ -233,7 +233,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
         body: {
           connection_id: "3c234235-0ac5-4afc-a06e-259bdea0ae7a",
           ad_account_id: "act_5094207367314169",
-          creative_ids: ["1e6a1993-7b5a-4e3f-a1a9-e94479e7085d"],
+          creative_ids: ["dde73511-23ba-47a3-96d5-820d28abdcef","9ff31e2c-5f1c-44f5-a232-d0132bdd822c","21b45363-f46d-47e5-98f8-3ececb10b8d1","30ef903b-35d6-455f-8248-7386a4c98df2","593c4b68-e4d6-4aef-aad7-1ffb225f1188","e80eee95-3283-44c4-9e9d-ec2cc0210cd8","1e6a1993-7b5a-4e3f-a1a9-e94479e7085d","087787b8-b26e-4c90-b06e-222bdecad272","d11f59ac-b96f-4a44-9b21-b1aaaa92e5a9","6e0ae146-526d-4539-a28f-c0701e5f06bb","f6042603-8858-410c-8af3-6ed21190f6bd","c1d98009-f426-48f7-953d-e39ff23c5e57","85de9a86-6535-48c9-8ffc-5936b5843f79","6a9b7f1f-5395-44ae-9a46-1e20418b2ebc","1c4c649e-c272-49a5-b68d-f150b5875610","cdf451ce-375a-40e7-8f00-ab364e16c38d","d6717743-47e4-4fb3-a01c-7577ec0b1e40","84205fd7-c6db-4e91-a665-a302d57b28d2","3530a62e-619d-45f3-bae5-8d77ba366a0e","c67f51b0-53cf-4cf4-a437-3f92a0158e39","ecdc730d-6e2b-4c1d-9936-7bb5ff4debda","83937c8f-a0fc-4e6b-a579-ff5b0414fa7e","003d61f6-c97d-4c1d-95b7-d5f8596c6dc3","637e787a-24ba-4559-92f3-bf1d581e9769","6f6c8056-d36d-4183-9993-63b35da38288","48212b83-5434-4be8-9523-10ab08d965fb","ee84b572-9fcc-4289-acda-a17c83b52dc8","10b4a257-c8b4-4730-bbaa-728766d8c440","1534fb5a-aa54-4d19-bed0-9fc35c15d2fe","b924e837-0bbd-4115-a9ac-4acc03671537","4a23c756-578a-4617-8df3-1c312f2d91d9","9da93d19-0176-40db-99e7-1edf7573560d","3bddfe2e-9ba8-4e41-b672-bb8ea8c370d8","036f79db-440b-4067-8c36-a09ba10cef2f","7c2859d3-2159-453d-8cc4-cd274f1167bb","943aa1f0-087f-4781-a8a5-1ab9b93a4a3c","5dbe03c1-5b75-4efe-8760-5af3fc86584a","aa65d165-09d2-4ace-a480-0a6d46fac6b6","434a458b-f327-4cca-b53b-00872331c844","688ba74b-a31a-43db-9631-7adc8c865627"],
         },
       });
       const payload = { data, invErr: invErr ? String(invErr?.message ?? invErr) : null };
@@ -548,7 +548,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                   {/* TEMP DIAG — REMOVER */}
                   <Button size="sm" variant="outline" onClick={runRehostOne} disabled={rehostLoading}>
                     {rehostLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
-                    🖼️ Re-host 1 (teste)
+                    🖼️ Re-host 40 (Ivete)
                   </Button>
                   {/* END TEMP DIAG */}
                   <Button size="sm" variant="outline" onClick={runGenerate} disabled={generating}>
