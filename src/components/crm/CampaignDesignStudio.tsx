@@ -470,21 +470,41 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                       <div className="flex flex-wrap gap-3">
                         {(adset.pecas ?? []).map((p) => {
                           const c = creativesById.get(p.creative_id);
-                          const isImage = (c?.type ?? "").toLowerCase().includes("image");
+                          const isImage = ((c?.type ?? "").toLowerCase().includes("image"))
+                            || ((c?.file_mime_type ?? "").toLowerCase().startsWith("image/"));
+                          const temporalHits = c ? detectTemporalSnippets(c.text_snippets) : [];
+                          const warn = temporalHits.length > 0 && !campanhaTemGatilhoTemporal;
                           return (
-                            <div key={p.creative_id} className="border rounded-lg p-2 w-[180px] bg-card/40">
-                              {isImage && c?.file_url ? (
-                                <img src={c.file_url} alt={c.name ?? ""} className="w-full h-24 object-cover rounded mb-2" />
-                              ) : (
-                                <div className="w-full h-24 rounded mb-2 bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">
-                                  {(c?.type ?? "?").toString()}
-                                </div>
+                            <button
+                              key={p.creative_id}
+                              type="button"
+                              onClick={() => setLightboxCreativeId(p.creative_id)}
+                              className={cn(
+                                "group text-left border rounded-lg p-2 w-[180px] bg-card/40 cursor-pointer transition hover:bg-card/70 hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/40",
+                                warn && "border-amber-500/60",
                               )}
+                              title="Ampliar peça"
+                            >
+                              <div className="relative">
+                                {isImage && c?.file_url ? (
+                                  <img src={c.file_url} alt={c.name ?? ""} className="w-full h-24 object-cover rounded mb-2" />
+                                ) : (
+                                  <div className="w-full h-24 rounded mb-2 bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">
+                                    {(c?.type ?? "?").toString()}
+                                  </div>
+                                )}
+                                <Maximize2 className="h-3.5 w-3.5 absolute top-1 right-1 text-white/90 drop-shadow opacity-0 group-hover:opacity-100 transition" />
+                              </div>
                               <div className="text-xs font-medium truncate" title={c?.name ?? p.creative_id}>{c?.name ?? p.creative_id.slice(0, 8)}</div>
+                              {warn && (
+                                <Badge className="mt-1 bg-amber-500/15 text-amber-300 border-amber-500/40 text-[10px] gap-1">
+                                  <AlertTriangle className="h-3 w-3" /> texto temporal na imagem
+                                </Badge>
+                              )}
                               {p.motivo_escolha && (
                                 <div className="text-[11px] text-muted-foreground mt-1 line-clamp-3">{p.motivo_escolha}</div>
                               )}
-                            </div>
+                            </button>
                           );
                         })}
                         {(adset.pecas ?? []).length === 0 && (
