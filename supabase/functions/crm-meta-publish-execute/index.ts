@@ -104,7 +104,7 @@ async function graphPOST(path: string, body: Record<string, unknown>, accessToke
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v6");
+  console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v7");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -265,6 +265,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     objective: objetivo,
     status: "PAUSED",
     special_ad_categories: [],
+    is_adset_budget_sharing_enabled: false,
   };
 
   function buildAdsetPayload(a: any, campaignIdParaPayload: string): { payload: Record<string, unknown>; goal_used: string; sem_pixel?: boolean } {
