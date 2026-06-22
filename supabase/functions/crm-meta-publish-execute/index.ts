@@ -133,6 +133,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const adAccountId = normalizeAdAccountId(linkRow.ad_account_id as string);
   const adAccountNumeric = adAccountId.replace(/^act_/, "");
 
+  // 2b) Página de Facebook e (opcional) Instagram associados à conexão.
+  //     Sem page_id NÃO conseguimos criar criativo novo (object_story_spec exige page_id).
+  //     Falhamos cedo, ANTES de qualquer escrita no Meta.
+  const { data: connRow, error: connErr } = await (admin as any)
+    .schema("crm").from("ad_platform_connections")
+    .select("selected_page_id, selected_instagram_id")
+    .eq("id", connectionId)
+    .maybeSingle();
+  if (connErr) return json({ error: "connection_query_failed", detail: connErr.message }, 500);
+  const selectedPageId: string | null = (connRow as any)?.selected_page_id ?? null;
+  const selectedInstagramId: string | null = (connRow as any)?.selected_instagram_id ?? null;
+  if (!selectedPageId) {
+    return json({ error: "sem_pagina_facebook", message: "A conexão Meta não tem página de Facebook selecionada." }, 412);
+  }
+
+  // 2c) Link de destino do plano. Se faltar e nenhum adset tiver override, falha cedo.
+  const planoLinkDestino: string | null = typeof planRow.link_destino === "string" && planRow.link_destino.length > 0
+    ? planRow.link_destino
+    : null;
+  const adsetsPreview: any[] = Array.isArray(planRow.adsets) ? planRow.adsets : [];
+  const algumLink = adsetsPreview.some((a) => typeof a?.link_destino === "string" && a.link_destino.length > 0);
+  if (!planoLinkDestino && !algumLink) {
+    return json({ error: "sem_link_destino", message: "Define o link de destino no painel (https://...) antes de publicar." }, 412);
+  }
+
   // 3) Decifra access_token (idêntico ao crm-meta-sync-creatives).
   const { data: tokenRows, error: tokenErr } = await supabase.rpc(
     "crm_get_meta_decrypted_token",
