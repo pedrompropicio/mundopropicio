@@ -782,10 +782,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
     );
   }
 
-  // ── 3b) v2: batch resolve image_hash → URL para rows ainda sem file_url ──
-  // Só chama API para hashes onde file_url ficou null depois dos passos 1-5
-  // (evita chamadas desnecessárias para criativos já resolvidos directamente).
-  const rowsNeedingHash = rows.filter((r) => r.file_url === null && r.meta_image_hash);
+  // ── 3b) v5: /adimages tem PRIORIDADE para imagens com hash ───────────────
+  // Antes (v4): só corria quando file_url era null (fallback). Resultado: para
+  // type=image/banner/carousel/dpa, o parser preenchia file_url com a MINIATURA
+  // do object_story_spec (link_data.picture, etc.) — pequena, ~600×... — e o
+  // /adimages (que devolve a imagem em alta, ex. 1080×1440) nunca era chamado.
+  // v5: para qualquer row cujo type seja imagem (image/banner/carousel/dpa) E
+  // que tenha meta_image_hash, resolvemos SEMPRE via /adimages e usamos esse url,
+  // mesmo que já houvesse file_url. Persistimos também width/height do /adimages.
+  // VÍDEOS NÃO ENTRAM AQUI: o file_url de vídeo é o poster (resolveVideoThumbnail).
+  const IMAGE_TYPES = new Set(["image", "banner", "carousel", "dpa"]);
+  const rowsNeedingHash = rows.filter((r) => IMAGE_TYPES.has(r.type) && r.meta_image_hash);
   const hashesToResolve = Array.from(new Set(rowsNeedingHash.map((r) => r.meta_image_hash as string)));
   if (hashesToResolve.length > 0) {
     stats.meta_api_calls.adimages_batch_count = Math.ceil(hashesToResolve.length / 10);
@@ -794,7 +801,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       for (const row of rowsNeedingHash) {
         const resolved = resolvedMap.get(row.meta_image_hash);
         if (resolved) {
-          row.file_url = resolved;
+          row.file_url = resolved.url; // prioridade /adimages sobre miniatura do parser
+          if (resolved.width != null) row.width = resolved.width;
+          if (resolved.height != null) row.height = resolved.height;
           stats.file_url_resolved_via_hash++;
         }
       }
