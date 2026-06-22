@@ -169,14 +169,29 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     if (ids.length === 0) return new Map<string, CreativeMini>();
     const { data, error } = await (supabase as any)
       .schema("crm").from("meta_creatives")
-      .select("id, name, type, file_url")
+      .select("id, name, type, file_url, width, height, duration_seconds, file_mime_type, headline, body, cta_type, analysis_jsonb")
       .in("id", ids);
     if (error) {
       console.warn("[design-studio] fetch creatives failed", error);
       return new Map<string, CreativeMini>();
     }
     const m = new Map<string, CreativeMini>();
-    (data ?? []).forEach((r: any) => m.set(r.id, { id: r.id, name: r.name, type: r.type, file_url: r.file_url }));
+    (data ?? []).forEach((r: any) =>
+      m.set(r.id, {
+        id: r.id,
+        name: r.name,
+        type: r.type,
+        file_url: r.file_url,
+        width: r.width,
+        height: r.height,
+        duration_seconds: r.duration_seconds,
+        file_mime_type: r.file_mime_type,
+        headline: r.headline,
+        body: r.body,
+        cta_type: r.cta_type,
+        text_snippets: extractSnippets(r.analysis_jsonb),
+      }),
+    );
     return m;
   }
 
