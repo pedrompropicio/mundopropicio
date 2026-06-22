@@ -104,7 +104,7 @@ async function graphPOST(path: string, body: Record<string, unknown>, accessToke
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v8");
+  console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v9");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -278,6 +278,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       geo_locations: { countries },
       age_min: Number.isFinite(pub.idade_min) ? pub.idade_min : 18,
       age_max: Number.isFinite(pub.idade_max) ? pub.idade_max : 65,
+      targeting_automation: { advantage_audience: 0 },
     };
     if (a.publico_custom_audience_id) {
       targeting.custom_audiences = [{ id: String(a.publico_custom_audience_id) }];
