@@ -1,4 +1,4 @@
-console.log("[diag-video-source] BUILD_VERSION=diag-video-v1");
+console.log("[diag-video-source] BUILD_VERSION=diag-video-v2");
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -29,6 +29,23 @@ async function gget(url: string) {
   } catch (e: any) {
     return { ok: false, status: 0, json: null, raw: String(e?.message ?? e) };
   }
+}
+
+function extractThumbMaior(thumbnails: any): { uri: string | null; width: number | null; height: number | null } | null {
+  const arr = Array.isArray(thumbnails?.data)
+    ? thumbnails.data
+    : Array.isArray(thumbnails)
+      ? thumbnails
+      : [];
+  if (arr.length === 0) return null;
+  // pick largest width
+  const sorted = [...arr].sort((a: any, b: any) => (b.width ?? 0) - (a.width ?? 0));
+  const best = sorted[0];
+  return {
+    uri: best.uri ?? best.source ?? null,
+    width: best.width ?? null,
+    height: best.height ?? null,
+  };
 }
 
 Deno.serve(async (req) => {
@@ -104,15 +121,18 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // tenta com source
       let v = await gget(
-        `${GRAPH}/${encodeURIComponent(picked.video_id)}?fields=source,picture,thumbnails,format,length,width,height,status&access_token=${encodeURIComponent(token)}`,
+        `${GRAPH}/${encodeURIComponent(picked.video_id)}?fields=source,picture,thumbnails,length,status,created_time&access_token=${encodeURIComponent(token)}`,
       );
       let usedFallback = false;
-      if (!v.ok || v.json?.error) {
+      // se falhou POR CAUSA do campo source (permission), retry sem source
+      const sourceError = v.json?.error?.code === 100 || v.json?.error?.message?.toLowerCase().includes("source");
+      if (!v.ok || (v.json?.error && sourceError)) {
         out.erro_source = v.json?.error ?? v.raw ?? `HTTP ${v.status}`;
         usedFallback = true;
         v = await gget(
-          `${GRAPH}/${encodeURIComponent(picked.video_id)}?fields=picture,thumbnails,format,width,height,length,status&access_token=${encodeURIComponent(token)}`,
+          `${GRAPH}/${encodeURIComponent(picked.video_id)}?fields=picture,thumbnails,length,status,created_time&access_token=${encodeURIComponent(token)}`,
         );
       }
       out.fallback_sem_source = usedFallback;
@@ -121,13 +141,14 @@ Deno.serve(async (req) => {
       out.tem_source = !!vd.source;
       out.source = vd.source ?? null;
       out.picture = vd.picture ?? null;
-      out.thumbnails_count = Array.isArray(vd.thumbnails?.data) ? vd.thumbnails.data.length : (Array.isArray(vd.thumbnails) ? vd.thumbnails.length : 0);
-      const fmts = Array.isArray(vd.format) ? vd.format : [];
-      out.format_resumo = fmts.map((f: any) => ({ width: f.width, height: f.height, filter: f.filter, picture: !!f.picture }));
-      out.width = vd.width ?? null;
-      out.height = vd.height ?? null;
+      const thumbs = extractThumbMaior(vd.thumbnails);
+      out.thumb_maior = thumbs;
+      out.thumbnails_count = Array.isArray(vd.thumbnails?.data)
+        ? vd.thumbnails.data.length
+        : (Array.isArray(vd.thumbnails) ? vd.thumbnails.length : 0);
       out.length_seg = vd.length ?? null;
       out.status = vd.status ?? null;
+      out.created_time = vd.created_time ?? null;
 
       if (vd.source) {
         try {
