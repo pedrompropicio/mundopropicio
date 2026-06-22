@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,7 +17,7 @@ import {
   TooltipProvider, Tooltip, TooltipTrigger, TooltipContent,
 } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, AlertTriangle, Save, Send, Info } from "lucide-react";
+import { Loader2, AlertTriangle, Save, Send, Info, ExternalLink, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type PublicoSugerido = {
