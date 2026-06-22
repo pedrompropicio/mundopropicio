@@ -517,6 +517,12 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                   {adsets.length} adsets · {totalVariacoes} variações
                 </div>
                 <div className="flex gap-2">
+                  {/* TEMP DIAG — REMOVER */}
+                  <Button size="sm" variant="outline" onClick={runDiagImageResolution} disabled={diagLoading}>
+                    {diagLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+                    🔧 Diag resolução
+                  </Button>
+                  {/* END TEMP DIAG */}
                   <Button size="sm" variant="outline" onClick={runGenerate} disabled={generating}>
                     {generating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
                     Re-pedir ao LLM (regenera tudo)
