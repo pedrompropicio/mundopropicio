@@ -614,6 +614,93 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
           )}
         </div>
       </SheetContent>
+
+      {/* Lightbox da peça */}
+      <Dialog open={!!lightboxCreativeId} onOpenChange={(o) => { if (!o) setLightboxCreativeId(null); }}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="truncate">
+              {lightboxCreative?.name ?? lightboxCreativeId?.slice(0, 8) ?? "Peça"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {lightboxCreative && (
+            <div className="space-y-4">
+              {lightboxTemporalHits.length > 0 && !campanhaTemGatilhoTemporal && (
+                <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200 flex gap-2 items-start">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div>
+                    Esta peça mostra texto temporal (ex.: «{lightboxTemporalHits.slice(0, 3).join("», «")}»).
+                    A campanha não tem gatilho de calendário/contagem ativo — pode não ser reutilizável.
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-center bg-black/40 rounded-md overflow-hidden">
+                {lightboxIsImage && lightboxCreative.file_url ? (
+                  <img
+                    src={lightboxCreative.file_url}
+                    alt={lightboxCreative.name ?? ""}
+                    className="object-contain max-h-[70vh] w-auto"
+                  />
+                ) : lightboxIsVideo && lightboxCreative.file_url ? (
+                  <video
+                    controls
+                    src={lightboxCreative.file_url}
+                    className="object-contain max-h-[70vh] w-auto"
+                  />
+                ) : (
+                  <div className="p-12 text-sm text-muted-foreground">
+                    Sem pré-visualização disponível ({lightboxCreative.type ?? "?"})
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                <div><span className="text-foreground">Tipo:</span> {lightboxCreative.type ?? "—"}{lightboxCreative.file_mime_type ? ` · ${lightboxCreative.file_mime_type}` : ""}</div>
+                <div><span className="text-foreground">Dimensões:</span> {lightboxCreative.width && lightboxCreative.height ? `${lightboxCreative.width}×${lightboxCreative.height}` : "—"}</div>
+                {lightboxIsVideo && (
+                  <div><span className="text-foreground">Duração:</span> {lightboxCreative.duration_seconds ? `${lightboxCreative.duration_seconds}s` : "—"}</div>
+                )}
+                {lightboxCreative.cta_type && (
+                  <div><span className="text-foreground">CTA original:</span> {lightboxCreative.cta_type}</div>
+                )}
+              </div>
+
+              {(lightboxCreative.headline || lightboxCreative.body) && (
+                <div className="space-y-1 border-t pt-3">
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Texto original da peça</div>
+                  {lightboxCreative.headline && <div className="text-sm font-medium">{lightboxCreative.headline}</div>}
+                  {lightboxCreative.body && <div className="text-xs text-muted-foreground whitespace-pre-wrap">{lightboxCreative.body}</div>}
+                </div>
+              )}
+
+              {lightboxCreative.text_snippets.length > 0 && (
+                <div className="space-y-2 border-t pt-3">
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Texto detetado na peça</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {lightboxCreative.text_snippets.map((s, i) => {
+                      const isTemporal = detectTemporalSnippets([s]).length > 0;
+                      return (
+                        <Badge
+                          key={i}
+                          variant="outline"
+                          className={cn(
+                            "text-[11px]",
+                            isTemporal && "border-amber-500/50 text-amber-300 bg-amber-500/10",
+                          )}
+                        >
+                          {s}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }
