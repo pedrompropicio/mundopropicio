@@ -280,6 +280,21 @@ export function MetaPublishPanel({
                   />
                 </div>
               </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Link de destino (página de bilhetes)</label>
+                <Input
+                  type="url"
+                  placeholder="https://..."
+                  value={linkDestino}
+                  onChange={(e) => setLinkDestino(e.target.value)}
+                />
+                <div className="text-[11px] text-muted-foreground mt-1">
+                  Para onde o anúncio leva ao clicar.
+                  {linkDestino.trim() && !isValidHttpsUrl(linkDestino.trim()) && (
+                    <span className="ml-2 text-amber-600 dark:text-amber-400">URL inválido (tem de começar por https://).</span>
+                  )}
+                </div>
+              </div>
               <div className="text-xs text-muted-foreground flex items-center gap-2">
                 <Info className="h-3 w-3" />
                 Os pesos vêm da Montagem Assistida e não são tocados pela UI. O orçamento é repartido em código por esses pesos.
