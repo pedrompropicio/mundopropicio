@@ -99,3 +99,20 @@ Publish **não propaga DDL**. A tabela `crm.campaign_design` existe em Test via 
 - ✅ Regra de urgência temporal (calendário/contagem) está nos prompts da geração e da validação.
 - ✅ Pesos `peso_pct` vêm exclusivamente da Camada 4 — a UI nunca os toca.
 - ✅ Auto-save preserva escolhas e re-validações entre sessões.
+
+## Melhoria — Lightbox de peça + aviso de texto temporal queimado
+
+### Lightbox (visualização completa)
+- Cada miniatura de peça no `CampaignDesignStudio` é clicável (`button` com ícone `Maximize2` no hover). Abre `Dialog` (lightbox) com:
+  - Imagem grande (`object-contain`, `max-h-[70vh]`) se `type` ou `file_mime_type` for imagem; `<video controls>` se vídeo; placeholder caso contrário.
+  - Metadados: tipo + mime, dimensões `WxH`, duração (vídeo), CTA original, headline/body originais.
+  - Secção **"Texto detetado na peça"** com chips dos `analysis_jsonb.detected.text_content_snippets`. Chips de marcas temporais ficam destacadas a âmbar.
+- É só visualização. Não persiste nada. Não muda `incluida`, `peso_pct` nem estado.
+
+### Aviso de texto temporal queimado (determinístico, no cliente)
+- Lista de termos detetados (case-insensitive, **acentos normalizados via NFD**): `ultimas horas`, `ultima hora`, `ultimas vagas`, `hoje`, `amanha`, `termina`, `acaba`, `acaba hoje`, `ultimos dias`, `ultimo dia`, `so ate`, `ate dia`, `resta`, `restam`, `ultima chance`, `agora`, `ja`, `nao percas tempo`, `contagem`, `encerra`.
+- Padrões de data: nomes de mês PT (`janeiro`..`dezembro`), `\d{1,2}\s*(de\s*)?(jan|fev|...|dez)`, `\d{1,2}/\d{1,2}`.
+- Flag `campanhaTemGatilhoTemporal` é derivado dos próprios adsets do desenho: `true` se algum `trigger_tipo` for `calendario` ou `contagem_regressiva`.
+- **Regra:** peça com snippet temporal detetado **E** `campanhaTemGatilhoTemporal === false` → badge âmbar `⚠️ texto temporal na imagem` no cartão + faixa âmbar no lightbox com os snippets que dispararam. Caso contrário, sem aviso.
+- **É APENAS aviso visual.** Nunca exclui a peça, nunca altera `incluida`, nunca bloqueia publicação. Sem `text_content_snippets` no `analysis_jsonb` ⇒ sem aviso (não inventamos dados).
+- Deteção é **determinística em código** (helper `detectTemporalSnippets`), **não** LLM.
