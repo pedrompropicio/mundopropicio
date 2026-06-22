@@ -54,6 +54,9 @@ type PlanoResposta = {
   design_id: string;
   adsets: AdsetPlano[];
   totais: { adsets: number; anuncios_elegiveis: number; variacoes_excluidas: number };
+  estado?: string;
+  meta_campaign_id?: string | null;
+  ad_account_numeric?: string | null;
 };
 
 const OBJETIVOS = [
