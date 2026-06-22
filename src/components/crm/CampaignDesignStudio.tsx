@@ -402,6 +402,33 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     toast.success("Desenho finalizado", { description: "Marcador interno — não publica em lado nenhum." });
   }
 
+  // TEMP DIAG VIDEO — REMOVER
+  async function runDiagVideo() {
+    setDiagVideoLoading(true);
+    setDiagVideoResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-diag-video-source", {
+        body: {
+          connection_id: "3c234235-0ac5-4afc-a06e-259bdea0ae7a",
+          ad_account_id: "act_5094207367314169",
+          meta_creative_ids: ["1000944802441633", "1009447748179915", "1015095407616091"],
+        },
+      });
+      if (error) throw new Error(error.message);
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setDiagVideoResult(JSON.stringify(data, null, 2));
+      setDiagVideoOpen(true);
+    } catch (e: any) {
+      const msg = e?.message ?? String(e);
+      setDiagVideoResult(JSON.stringify({ error: msg }, null, 2));
+      setDiagVideoOpen(true);
+    } finally {
+      setDiagVideoLoading(false);
+    }
+  }
+  // END TEMP DIAG VIDEO
+
+
   const totalVariacoes = useMemo(
     () => adsets.reduce((acc, a) => acc + (a.variacoes_texto?.length ?? 0), 0),
     [adsets]
