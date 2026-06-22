@@ -1,4 +1,4 @@
-console.log("[diag-meta-recos] BUILD_VERSION=diag-recos-v1");
+console.log("[diag-meta-recos] BUILD_VERSION=diag-recos-v2");
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
