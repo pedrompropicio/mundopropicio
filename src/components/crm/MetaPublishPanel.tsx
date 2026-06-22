@@ -436,7 +436,7 @@ export function MetaPublishPanel({
             <Card className="p-4 sticky bottom-0 bg-background/95 backdrop-blur border-primary/30">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-sm">
-                  Vais criar <b>1 campanha em PAUSA</b> · <b>{plano.adsets.length}</b> adsets · <b>{totalAnuncios}</b> anúncios · orçamento total <b>{euros(totalCents)} €</b> · objetivo <b>{objetivo}</b>
+                  Vais criar <b>1 campanha em PAUSA</b> · <b>{plano.adsets.length}</b> adsets · <b>{totalAnuncios}</b> anúncios · orçamento total <b>{euros(totalCents)} €</b> · objetivo <b>{labelObjetivo(objetivo)}</b>
                   {totalCents > 0 && Math.abs(somaAdsetsCents - totalCents) > 1 && (
                     <span className="ml-2 text-amber-600 dark:text-amber-400">
                       (soma dos adsets = {euros(somaAdsetsCents)} € — não bate)
