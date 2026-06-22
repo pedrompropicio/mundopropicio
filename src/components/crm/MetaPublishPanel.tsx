@@ -5,6 +5,11 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,7 +22,7 @@ import {
   TooltipProvider, Tooltip, TooltipTrigger, TooltipContent,
 } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, AlertTriangle, Save, Send, Info, ExternalLink, CheckCircle2, Lightbulb, RefreshCw } from "lucide-react";
+import { Loader2, AlertTriangle, Save, Send, Info, ExternalLink, CheckCircle2, Lightbulb, RefreshCw, Zap, PauseCircle, PlayCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { OBJETIVO_LABELS_PT, labelCta, labelObjetivo } from "@/lib/meta-labels";
 
