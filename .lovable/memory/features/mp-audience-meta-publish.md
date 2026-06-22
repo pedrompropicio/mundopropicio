@@ -1,6 +1,6 @@
 ---
-name: MP Audience — Elo de Publicação no Meta (FASE 1)
-description: FASE 1 (preparação/revisão) do elo de publicação. Tabela crm.meta_publish_plan + edge function crm-meta-publish-prepare (publish-prepare-v1) + UI MetaPublishPanel. NADA é escrito no Meta nesta fase. Botão de publicar está desactivado à espera da FASE 2.
+name: MP Audience — Elo de Publicação no Meta (FASES 1+2)
+description: FASE 1 (preparação/revisão) com crm-meta-publish-prepare + crm.meta_publish_plan + MetaPublishPanel. FASE 2 (escrita real) com crm-meta-publish-execute (ABO, tudo PAUSED, idempotente, dry-run). Botão "Publicar no Meta (em pausa)" agora activo com confirmação em 2 passos.
 type: feature
 ---
 
