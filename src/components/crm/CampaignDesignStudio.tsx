@@ -761,7 +761,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
               <div className="flex items-center justify-center bg-black/40 rounded-md overflow-hidden h-[60vh]">
                 {lightboxIsImage && lightboxCreative.file_url ? (
                   <img
-                    src={lightboxCreative.file_url}
+                    src={withCacheBust(lightboxCreative.file_url, lightboxCreative.updated_at) ?? undefined}
                     alt={lightboxCreative.name ?? ""}
                     className="w-full h-full object-contain"
                   />
