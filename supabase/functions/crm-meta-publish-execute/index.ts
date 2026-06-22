@@ -305,11 +305,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const dryAds: any[] = [];
     for (let i = 0; i < adsets.length; i++) {
       const a = adsets[i];
+      const linkEf = resolveLink(a);
       const { payload: adsetPayload, goal_used } = buildAdsetPayload(a, "<CAMPAIGN_ID>");
-      dryAdsets.push({ trigger_nome: a.trigger_nome, optimization_goal_used: goal_used, payload: adsetPayload });
+      dryAdsets.push({ trigger_nome: a.trigger_nome, optimization_goal_used: goal_used, link_destino_efetivo: linkEf, payload: adsetPayload });
       for (let k = 0; k < (a.anuncios ?? []).length; k++) {
         const an = a.anuncios[k];
-        const { payload, aviso } = buildAdPayload("<ADSET_ID>", an);
+        if (!linkEf) {
+          avisos.push({ codigo: "sem_link_destino", adset: a.trigger_nome, ad_idx: k });
+          continue;
+        }
+        const { payload, aviso } = buildAdPayload("<ADSET_ID>", an, linkEf);
         if (aviso) avisos.push({ ...aviso, adset: a.trigger_nome, ad_idx: k });
         if (payload) dryAds.push({ adset: a.trigger_nome, ad_idx: k, payload });
       }
