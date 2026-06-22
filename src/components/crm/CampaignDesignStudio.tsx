@@ -636,18 +636,19 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                 </div>
               )}
 
-              <div className="flex items-center justify-center bg-black/40 rounded-md overflow-hidden">
+              <div className="flex items-center justify-center bg-black/40 rounded-md overflow-hidden h-[60vh]">
                 {lightboxIsImage && lightboxCreative.file_url ? (
                   <img
                     src={lightboxCreative.file_url}
                     alt={lightboxCreative.name ?? ""}
-                    className="object-contain max-h-[70vh] w-auto"
+                    className="max-h-full max-w-full object-contain"
                   />
                 ) : lightboxIsVideo && lightboxCreative.file_url ? (
                   <video
                     controls
+                    playsInline
                     src={lightboxCreative.file_url}
-                    className="object-contain max-h-[70vh] w-auto"
+                    className="max-h-full max-w-full object-contain"
                   />
                 ) : (
                   <div className="p-12 text-sm text-muted-foreground">
