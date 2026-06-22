@@ -605,7 +605,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                                 <>
                                   <div className="text-sm font-medium">{v.headline || <span className="text-muted-foreground italic">(sem headline)</span>}</div>
                                   <div className="text-xs text-muted-foreground whitespace-pre-wrap">{v.corpo || "(sem corpo)"}</div>
-                                  <div className="text-[11px] text-muted-foreground">CTA: {v.cta}</div>
+                                  <div className="text-[11px] text-muted-foreground">CTA: {labelCta(v.cta)}</div>
                                 </>
                               )}
 
