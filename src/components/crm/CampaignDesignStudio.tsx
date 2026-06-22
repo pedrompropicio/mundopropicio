@@ -591,12 +591,12 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                                   <div className="space-y-1">
                                     <label className="text-[11px] text-muted-foreground">CTA</label>
                                     <Select value={v.cta} onValueChange={(val) => editarCampo(ai, vi, "cta", val)}>
-                                      <SelectTrigger><SelectValue /></SelectTrigger>
+                                      <SelectTrigger><SelectValue>{labelCta(v.cta)}</SelectValue></SelectTrigger>
                                       <SelectContent>
                                         {CTA_OPTIONS.includes(v.cta) ? null : (
-                                          <SelectItem value={v.cta}>{v.cta}</SelectItem>
+                                          <SelectItem value={v.cta}>{labelCta(v.cta)}</SelectItem>
                                         )}
-                                        {CTA_OPTIONS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                                        {CTA_OPTIONS.map((o) => <SelectItem key={o} value={o}>{labelCta(o)}</SelectItem>)}
                                       </SelectContent>
                                     </Select>
                                   </div>
