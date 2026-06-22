@@ -748,8 +748,168 @@ export function MetaPublishPanel({
                 </p>
               )}
             </Card>
+
+            {/* ── FASE 3 — Ativação / Kill switch ─────────────────────────── */}
+            {(estadoPlano === "publicado" || estadoPlano === "pausado" || estadoPlano === "ativo") && metaCampaignIdPub && (
+              <Card className={`p-4 border-2 ${estadoPlano === "ativo" ? "border-emerald-500/60 bg-emerald-500/5" : "border-amber-500/60 bg-amber-500/5"}`}>
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      {estadoPlano === "ativo" ? (
+                        <><CheckCircle2 className="h-5 w-5 text-emerald-600" /> <span className="font-semibold text-emerald-700 dark:text-emerald-400">Campanha ATIVA — está a gastar</span></>
+                      ) : estadoPlano === "pausado" ? (
+                        <><PauseCircle className="h-5 w-5 text-amber-600" /> <span className="font-semibold text-amber-700 dark:text-amber-400">Em pausa</span></>
+                      ) : (
+                        <><PauseCircle className="h-5 w-5 text-amber-600" /> <span className="font-semibold text-amber-700 dark:text-amber-400">Publicada em PAUSA</span></>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Campanha: <code>{metaCampaignIdPub}</code>
+                    </div>
+                    <div className="text-xs">
+                      Orçamento total <b>{euros(totalCents)} €/dia</b> · {plano.adsets.length} adsets · {totalAnuncios} anúncios
+                    </div>
+                    <a
+                      className="text-xs underline inline-flex items-center gap-1"
+                      target="_blank" rel="noreferrer"
+                      href={`https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=${adAccountNumeric ?? ""}&selected_campaign_ids=${metaCampaignIdPub}`}
+                    >
+                      Abrir no Ads Manager <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                  <div className="flex flex-col items-stretch gap-2">
+                    {estadoPlano === "ativo" ? (
+                      <Button
+                        variant="outline"
+                        className="border-amber-600 text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950"
+                        onClick={() => { setActivateError(null); setPauseOpen(true); }}
+                        disabled={pausing}
+                      >
+                        {pausing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <PauseCircle className="h-4 w-4 mr-1" />}
+                        Pausar campanha
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="destructive"
+                        onClick={() => { setActivateAck(false); setActivateError(null); setActivateOpen(true); }}
+                        disabled={activating}
+                      >
+                        {activating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Zap className="h-4 w-4 mr-1" />}
+                        {estadoPlano === "pausado" ? "Reativar campanha — começa a gastar" : "Ativar campanha — começa a gastar"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {activateError && (
+                  <div className="mt-3 border border-destructive/50 bg-destructive/5 rounded p-3 text-sm">
+                    <div className="flex items-center gap-2 text-destructive font-medium">
+                      <AlertTriangle className="h-4 w-4" /> {activateError.msg}
+                    </div>
+                    {Array.isArray(activateError.resultado) && activateError.resultado.length > 0 && (
+                      <ul className="mt-2 text-xs space-y-0.5">
+                        {activateError.resultado.map((r: any, i: number) => (
+                          <li key={i}>
+                            <b>{r.nivel}</b> <code>{r.id}</code> → <span className={r.status === "failed" ? "text-destructive" : ""}>{r.status}</span>
+                            {r.detalhe ? ` — ${r.detalhe}` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
+                {activateResult && (
+                  <div className="mt-3 text-xs text-muted-foreground">
+                    Última operação: {activateResult.resultado.length} flips · estado <b>{activateResult.estado}</b>.
+                  </div>
+                )}
+              </Card>
+            )}
           </div>
         )}
+
+        {/* FASE 3 — Modal de ATIVAÇÃO com checkbox obrigatória */}
+        <Dialog open={activateOpen} onOpenChange={(v) => { if (!activating) { setActivateOpen(v); if (!v) setActivateAck(false); } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Ativar campanha no Meta</DialogTitle>
+              <DialogDescription>
+                Campanha <code>{metaCampaignIdPub}</code> · {plano?.adsets.length ?? 0} adsets · orçamento <b>{euros(totalCents)} €/dia</b>.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="rounded border border-destructive/40 bg-destructive/5 p-3 text-sm">
+                <div className="flex items-center gap-2 font-medium text-destructive">
+                  <AlertTriangle className="h-4 w-4" /> Atenção
+                </div>
+                <p className="mt-1">Isto ATIVA a campanha no Meta agora e vai começar a gastar dinheiro.</p>
+              </div>
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <Checkbox checked={activateAck} onCheckedChange={(v) => setActivateAck(v === true)} />
+                <span>Compreendo que a campanha vai começar a gastar.</span>
+              </label>
+              {activateError && (
+                <div className="border border-destructive/50 bg-destructive/5 rounded p-3 text-xs">
+                  <div className="flex items-center gap-2 text-destructive font-medium">
+                    <AlertTriangle className="h-4 w-4" /> {activateError.msg}
+                  </div>
+                  {Array.isArray(activateError.resultado) && activateError.resultado.length > 0 && (
+                    <ul className="mt-2 space-y-0.5">
+                      {activateError.resultado.map((r: any, i: number) => (
+                        <li key={i}>
+                          <b>{r.nivel}</b> <code>{r.id}</code> → {r.status}{r.detalhe ? ` — ${r.detalhe}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" disabled={activating} onClick={() => setActivateOpen(false)}>Cancelar</Button>
+              <Button
+                variant="destructive"
+                disabled={!activateAck || activating}
+                onClick={() => chamarActivate("ativar")}
+              >
+                {activating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Zap className="h-4 w-4 mr-1" />}
+                Ativar agora
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* FASE 3 — Kill switch: confirmação simples para PAUSAR */}
+        <AlertDialog open={pauseOpen} onOpenChange={(v) => { if (!pausing) setPauseOpen(v); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Pausar a campanha?</AlertDialogTitle>
+              <AlertDialogDescription>
+                A campanha <code>{metaCampaignIdPub}</code> vai parar de publicar e deixa de gastar. Podes reativar a qualquer momento.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {activateError && (
+              <div className="border border-destructive/50 bg-destructive/5 rounded p-3 text-xs">
+                <div className="flex items-center gap-2 text-destructive font-medium">
+                  <AlertTriangle className="h-4 w-4" /> {activateError.msg}
+                </div>
+              </div>
+            )}
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={pausing}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={pausing}
+                onClick={(e) => { e.preventDefault(); void chamarActivate("pausar"); }}
+              >
+                {pausing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <PauseCircle className="h-4 w-4 mr-1" />}
+                Pausar agora
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+
 
         {/* Confirmação em 2 passos — Publicação no Meta */}
         <Dialog open={confirmOpen} onOpenChange={(v) => { if (!publishing) setConfirmOpen(v); }}>
