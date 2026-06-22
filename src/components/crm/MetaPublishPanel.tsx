@@ -372,6 +372,122 @@ export function MetaPublishPanel({
               </div>
             </Card>
 
+            {/* Recomendações vivas da Meta — leitura. "Aplicar" mexe SÓ no plano local, NUNCA no Meta. */}
+            <Card className="p-4 space-y-3 border-amber-500/30">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Lightbulb className="h-4 w-4 text-amber-500" />
+                  <h3 className="font-semibold">Recomendações da Meta</h3>
+                  {recos?.gerado_em && (
+                    <span className="text-[11px] text-muted-foreground">
+                      atualizado {new Date(recos.gerado_em).toLocaleTimeString("pt-PT")}
+                    </span>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={recosLoading}
+                  onClick={() => void carregarRecomendacoes()}
+                >
+                  {recosLoading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                  Atualizar
+                </Button>
+              </div>
+
+              <p className="text-[11px] text-muted-foreground">
+                Vêm da Meta. "Aplicar ao plano" só muda este plano local — nada é enviado ao Meta até carregares em publicar.
+              </p>
+
+              {recosErro && (
+                <div className="text-xs text-muted-foreground border rounded p-2">
+                  Não foi possível obter recomendações agora. <span className="opacity-60">({recosErro})</span>
+                </div>
+              )}
+
+              {recosLoading && !recos && (
+                <div className="text-xs text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="h-3 w-3 animate-spin" /> A consultar a Meta…
+                </div>
+              )}
+
+              {recos && (
+                <>
+                  {/* Conta */}
+                  {recos.conta.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">A Meta não tem recomendações para a conta de momento.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {recos.conta.map((r, idx) => (
+                        <div key={`conta-${idx}`} className="border rounded-md p-3 bg-muted/30 text-sm">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="space-y-1 min-w-0">
+                              {r.titulo && <div className="font-medium">💡 {r.titulo}</div>}
+                              {r.corpo && <div className="text-muted-foreground text-xs whitespace-pre-wrap">{r.corpo}</div>}
+                              {r.lift_estimate && (
+                                <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                  {r.lift_estimate}
+                                </div>
+                              )}
+                              {r.url && (
+                                <a
+                                  href={r.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-[11px] text-muted-foreground underline inline-flex items-center gap-1"
+                                >
+                                  Ver no Ads Manager <ExternalLink className="h-3 w-3" />
+                                </a>
+                              )}
+                            </div>
+                            {r.aplicavel && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => aplicarRecomendacaoAoPlano(r)}
+                              >
+                                Aplicar ao plano
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Campanha + adsets (só aparece se houver) */}
+                  {(recos.campanha.length > 0 || recos.adsets.length > 0) && (
+                    <div className="space-y-2 pt-2 border-t">
+                      <div className="text-xs font-medium">Específicas desta campanha</div>
+                      {recos.campanha.map((r, idx) => (
+                        <div key={`camp-${idx}`} className="border rounded-md p-2 bg-muted/20 text-xs">
+                          {r.titulo && <div className="font-medium">💡 {r.titulo}</div>}
+                          {r.corpo && <div className="text-muted-foreground whitespace-pre-wrap">{r.corpo}</div>}
+                          {r.lift_estimate && (
+                            <div className="font-medium text-emerald-600 dark:text-emerald-400">{r.lift_estimate}</div>
+                          )}
+                        </div>
+                      ))}
+                      {recos.adsets.map((g) => (
+                        <div key={g.adset_id} className="border rounded-md p-2 bg-muted/20 text-xs space-y-1">
+                          <div className="font-medium">Adset: {g.nome ?? g.adset_id}</div>
+                          {g.recomendacoes.map((r, idx) => (
+                            <div key={idx} className="pl-2">
+                              {r.titulo && <div>💡 {r.titulo}</div>}
+                              {r.corpo && <div className="text-muted-foreground whitespace-pre-wrap">{r.corpo}</div>}
+                              {r.lift_estimate && (
+                                <div className="text-emerald-600 dark:text-emerald-400">{r.lift_estimate}</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </Card>
+
             {/* Adsets */}
             {plano.adsets.map((a, i) => {
               const semElegiveis = a.anuncios.length === 0;
