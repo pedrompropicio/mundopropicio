@@ -103,7 +103,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // 1) Lê o plano (RLS user — valida pertença ao company)
   const { data: planRow, error: planErr } = await (supabase as any)
     .schema("crm").from("meta_publish_plan")
-    .select("id, company_id, event_id, design_id, objetivo, orcamento_total_cents, moeda, adsets, estado, meta_campaign_id")
+    .select("id, company_id, event_id, design_id, objetivo, orcamento_total_cents, moeda, link_destino, adsets, estado, meta_campaign_id")
     .eq("id", planId)
     .maybeSingle();
   if (planErr) return json({ error: "plan_query_failed", detail: planErr.message }, 500);
