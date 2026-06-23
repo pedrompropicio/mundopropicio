@@ -261,7 +261,7 @@ Deno.serve(async (req: Request) => {
     dry_run: dryRun,
     n_campanhas_listadas: campanhasCrudas.length,
     janela: { offset, limit, fatia_size: fatia.length },
-    processadas: 0, upserts_campaign: 0, upserts_element: 0,
+    processadas: 0, upserts_campaign: 0, upserts_element: 0, n_erros_elementos: 0,
     verdict_dist: { positivo:0, neutro:0, fraco:0, null:0 } as Record<string, number>,
     funnel_dist: { frio:0, quente:0, null:0 } as Record<string, number>,
     archetype_dist: { advantage_plus:0, interesse:0, lookalike:0, retargeting:0, broad:0 } as Record<string, number>,
