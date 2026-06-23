@@ -2106,13 +2106,13 @@ export default function CrmCampaignView() {
 
       <AssistedAssemblyPanel
         open={assemblyOpen}
-        onOpenChange={setAssemblyOpen}
+        onOpenChange={(o) => { setAssemblyOpen(o); if (!o) setReviewAssemblyId(null); }}
         eventId={campaign.linked_event_id ?? null}
         companyId={campaign.company_id ?? null}
         flow={assemblyFlow}
-        // TODO: ligar uuid interno da campanha (meta_campaign_snapshot.id) para auditoria do redesenho
         sourceCampaignId={null}
         creativeIds={creativeIdList}
+        initialAssemblyId={reviewAssemblyId}
       />
 
       {/* Estúdio de Desenho de Campanha (Camada 5 PARTE 2) */}
