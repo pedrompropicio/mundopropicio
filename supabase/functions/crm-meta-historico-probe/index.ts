@@ -129,13 +129,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   console.log("[crm-meta-historico-probe] início");
 
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) return json({ error: "missing_authorization" }, 401);
-
-  // Mesmo padrão de crm-meta-sync-insights: anon key + forward do Authorization do caller.
-  // A RPC crm_get_meta_decrypted_token autoriza via current_company_id() do JWT.
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
+  // Service-role: a RPC tem branch específica para JWT role=service_role
+  // que lê a connection sem exigir current_company_id() (igual ao caminho do cron).
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
