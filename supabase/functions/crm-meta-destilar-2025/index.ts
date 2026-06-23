@@ -198,6 +198,7 @@ Deno.serve(async (req: Request) => {
   let dryRun = false;
   let offset = 0;
   let limit = 9999;
+  let batchSize: number | null = null;
   if (req.method === "POST") {
     try { const b = await req.json();
       if (typeof b?.company_id === "string") companyId = b.company_id;
