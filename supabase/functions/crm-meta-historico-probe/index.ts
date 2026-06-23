@@ -7,7 +7,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ENCRYPTION_MASTER_KEY = Deno.env.get("ENCRYPTION_MASTER_KEY")!;
 
 const CONNECTION_ID = "3c234235-0ac5-4afc-a06e-259bdea0ae7a";
