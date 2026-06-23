@@ -205,8 +205,10 @@ Deno.serve(async (req: Request) => {
       if (b?.dry_run === true) dryRun = true;
       if (typeof b?.offset === "number") offset = b.offset;
       if (typeof b?.limit === "number") limit = b.limit;
+      if (typeof b?.batch_size === "number") batchSize = b.batch_size;
     } catch {}
   }
+  if (batchSize !== null) limit = batchSize;
 
   const sbCrm = createClient(SUPABASE_URL, SRK, {
     auth: { persistSession: false, autoRefreshToken: false },
