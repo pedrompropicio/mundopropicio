@@ -400,7 +400,7 @@ Deno.serve(async (req: Request) => {
         result.upserts_element++;
       }
       // pequeno delay entre adsets para aliviar rate-limit
-      await new Promise(r => setTimeout(r, 60));
+      await new Promise(r => setTimeout(r, 20));
     }
   }
 
