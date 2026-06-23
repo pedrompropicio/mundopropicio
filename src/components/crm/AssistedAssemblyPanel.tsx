@@ -73,7 +73,7 @@ type ExcluidoContradiz = { creative_id: string; name?: string | null };
 
 type Narrativa = { trigger_id: string | null; trigger_nome: string; texto: string };
 
-type CreativeMini = { id: string; name: string | null; thumbnail_url?: string | null };
+type CreativeMini = { id: string; name: string | null; file_url?: string | null };
 
 export function AssistedAssemblyPanel({
   open, onOpenChange, eventId, companyId, flow, sourceCampaignId, creativeIds,
@@ -113,7 +113,7 @@ export function AssistedAssemblyPanel({
       const { data, error } = await (supabase as any)
         .schema("crm")
         .from("meta_creatives")
-        .select("id, name, thumbnail_url")
+        .select("id, name, file_url")
         .eq("company_id", companyId)
         .order("created_at", { ascending: false });
       if (error) {
