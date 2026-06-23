@@ -19,7 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { AlertTriangle, Check, Info, Loader2, Replace, Sparkles, Trash2, Wand2, X } from "lucide-react";
+import { AlertTriangle, Info, Loader2, Replace, Sparkles, Trash2, Wand2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
