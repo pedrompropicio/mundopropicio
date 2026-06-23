@@ -18,55 +18,89 @@ const cors = {
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b, null, 2), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
-const FESTIVALS = new Set(["newgang","santa festa","sotrap","só trap","festyvybbe","coala","bloquinho de verao","bloquinho de verão"]);
-const STYLE_MAP: Record<string, string> = {
-  // festivais
-  "newgang":"trap/rap/funk","santa festa":"trap/rap/funk","sotrap":"trap/rap/funk","só trap":"trap/rap/funk",
-  "festyvybbe":"forró/piseiro","coala":"mpb/indie/alternativo",
-  "bloquinho de verao":"axé/pagode","bloquinho de verão":"axé/pagode",
-  // artistas mais frequentes (extensível)
-  "maiara e maraisa":"sertanejo","chitãozinho & xororó":"sertanejo","chitaozinho & xororo":"sertanejo",
-  "chitãozinho e xororó":"sertanejo","felipe amorim":"forró/piseiro","veigh":"trap/rap/funk",
-  "ivete sangalo":"axé/pagode","gilsons":"mpb/indie/alternativo","henrique e juliano":"sertanejo",
-  "péricles":"pagode","pericles":"pagode","ferrugem":"pagode","thiaguinho":"pagode",
-  "jorge & mateus":"sertanejo","jorge e mateus":"sertanejo","gusttavo lima":"sertanejo",
-  "luan santana":"sertanejo","henrique & juliano":"sertanejo","matheus & kauan":"sertanejo",
-  "mc daniel":"trap/rap/funk","oruam":"trap/rap/funk","matuê":"trap/rap/funk","matue":"trap/rap/funk",
-  "cortella":"humor", // user disse Cortella=outro mas style? deixar humor; entity_type=outro
-};
+// Normalização robusta: lowercase, sem acentos, sem "festival/fest", espaços colapsados.
+function norm(s: string): string {
+  return s.toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/\b(festival|fest)\b/g, " ")
+    .replace(/[^a-z0-9& ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-const SALES_OBJECTIVES = new Set([
-  "OUTCOME_SALES","CONVERSIONS","PRODUCT_CATALOG_SALES",
-]);
+// Mapa estilo: chave normalizada -> género. Match por igualdade OU CONTÉM.
+const STYLE_MAP: Array<[string, string]> = [
+  // sertanejo
+  ["simone mendes", "sertanejo"],
+  ["chitaozinho & xororo", "sertanejo"], ["chitaozinho e xororo", "sertanejo"],
+  ["maiara e maraisa", "sertanejo"],
+  ["matheus e kauan", "sertanejo"], ["matheus & kauan", "sertanejo"],
+  ["henrique e juliano", "sertanejo"], ["henrique & juliano", "sertanejo"],
+  ["jorge e mateus", "sertanejo"], ["jorge & mateus", "sertanejo"],
+  ["gusttavo lima", "sertanejo"], ["luan santana", "sertanejo"],
+  // pagode
+  ["zeca pagodinho", "pagode"], ["pixote", "pagode"],
+  ["pericles", "pagode"], ["ferrugem", "pagode"], ["thiaguinho", "pagode"],
+  // axé
+  ["ivete sangalo", "axé"], ["ivete clareou", "axé"], ["saulo fernandes", "axé"],
+  // pop/funk/axé
+  ["ensaios da anitta", "pop/funk/axé"], ["anitta", "pop/funk/axé"],
+  // mpb/forró
+  ["elba ramalho & geraldo azevedo", "mpb/forró"],
+  ["elba ramalho e geraldo azevedo", "mpb/forró"],
+  ["elba ramalho", "mpb/forró"], ["geraldo azevedo", "mpb/forró"],
+  // mpb/romântico
+  ["roberto carlos", "mpb/romântico"],
+  // trap/funk
+  ["mc cabelinho", "trap/funk"], ["mc daniel", "trap/funk"],
+  // trap
+  ["veigh", "trap"], ["oruam", "trap"], ["matue", "trap"],
+  // humor
+  ["whindersson nunes", "humor"], ["igor guimaraes", "humor"],
+  ["gio lisboa", "humor"], ["raphael ghanem", "humor"],
+  // palestra
+  ["cortella", "palestra"],
+  // infantil
+  ["luccas neto", "infantil"], ["enaldinho", "infantil"],
+  // festivais
+  ["festyvybbe", "forró/piseiro"],
+  ["newgang", "trap/rap/funk"],
+  ["santa festa", "trap/rap/funk"],
+  ["sotrap", "trap/rap/funk"], ["so trap", "trap/rap/funk"],
+  ["coala", "mpb/indie/alternativo"],
+  ["bloquinho de verao", "axé/pagode"],
+];
+
+const FESTIVAL_KEYS = ["newgang","santa festa","sotrap","so trap","festyvybbe","coala","bloquinho de verao"];
+const OUTRO_KEYS = ["cortella"];
+
+function lookupStyle(entityNorm: string): string | null {
+  for (const [k, v] of STYLE_MAP) {
+    if (entityNorm === k || entityNorm.includes(k)) return v;
+  }
+  return null;
+}
+
+const SALES_OBJECTIVES = new Set(["OUTCOME_SALES","CONVERSIONS","PRODUCT_CATALOG_SALES"]);
 
 type Arch = "advantage_plus"|"interesse"|"lookalike"|"retargeting"|"broad";
-
-function normalizeKey(s: string): string {
-  return s.toLowerCase().trim()
-    .replace(/\s+/g," ")
-    .normalize("NFD").replace(/[\u0300-\u036f]/g,"");
-}
 
 function parseName(name: string): { entity: string|null; city: string|null; year: number|null; funnel: "frio"|"quente"|null } {
   const fq = name.match(/\[(F|Q)\]/);
   const funnel = fq ? (fq[1]==="F" ? "frio" : "quente") : null;
-  // tentar regex completa
-  // [LS] [Vendas] [X] <Entity> - <City> <Year> - ...
   const m = name.match(/\]\s*\[(?:F|Q)\]\s*(.+?)\s*-\s*([^-]+?)\s+(\d{4})\s*-/);
-  if (m) {
-    return { entity: m[1].trim(), city: m[2].trim(), year: parseInt(m[3]), funnel };
-  }
-  // fallback: pegar tudo entre [F|Q] e primeiro " - "
+  if (m) return { entity: m[1].trim(), city: m[2].trim(), year: parseInt(m[3]), funnel };
   const m2 = name.match(/\]\s*\[(?:F|Q)\]\s*(.+?)\s*-/);
   if (m2) return { entity: m2[1].trim(), city: null, year: null, funnel };
   return { entity: null, city: null, year: null, funnel };
 }
 
 function entityType(entityNorm: string): "festival"|"artista"|"outro" {
-  if (FESTIVALS.has(entityNorm)) return "festival";
-  if (entityNorm === "cortella") return "outro";
+  if (FESTIVAL_KEYS.some(k => entityNorm === k || entityNorm.includes(k))) return "festival";
+  if (OUTRO_KEYS.some(k => entityNorm === k || entityNorm.includes(k))) return "outro";
   return "artista";
 }
+
 
 function classifyTargeting(t: Record<string, unknown> | null | undefined): Arch {
   if (!t) return "broad";
@@ -236,9 +270,9 @@ Deno.serve(async (req: Request) => {
     result.processadas++;
     const parsed = parseName(c.campaign_name);
     if (!parsed.entity) result.entity_null.push(c.campaign_name);
-    const entityNorm = parsed.entity ? normalizeKey(parsed.entity) : null;
+    const entityNorm = parsed.entity ? norm(parsed.entity) : null;
     const et = entityNorm ? entityType(entityNorm) : null;
-    const style = entityNorm ? (STYLE_MAP[entityNorm] ?? null) : null;
+    const style = entityNorm ? lookupStyle(entityNorm) : null;
     if (entityNorm && !style) result.style_null.push(parsed.entity!);
 
     result.funnel_dist[parsed.funnel ?? "null"]++;
@@ -310,7 +344,8 @@ Deno.serve(async (req: Request) => {
         roas: m.roas,
         roas_source: "meta",
         verdict: vd,
-        diagnosis_class: parsed.funnel, // 'frio' | 'quente' | null
+        diagnosis_class: null,
+        funnel_stage: parsed.funnel, // 'frio' | 'quente' | null (coluna dedicada)
         is_provisional: false,
         matured_at: parsed.year ? `${parsed.year}-12-31T23:59:59Z` : null,
         distilled_at: new Date().toISOString(),
@@ -369,7 +404,7 @@ Deno.serve(async (req: Request) => {
   (result as Record<string, unknown>).campaign_memory_total_apos = count;
 
   result.notes = {
-    funnel_storage: "diagnosis_class guarda 'frio'/'quente' (schema não tem coluna funnel_stage)",
+    funnel_storage: "funnel_stage grava 'frio'/'quente'",
     purchase_metric: "só omni_purchase usado (não somar variantes)",
     bruto_persistido: false,
   };
