@@ -359,6 +359,31 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     }));
   }
 
+  // Troca o creative_id de uma peça por outro da empresa.
+  // Mantém incluida=true e marca motivo_escolha de forma honesta.
+  // Auto-save existente (useEffect [adsets]) persiste em crm.campaign_design.
+  async function substituirPeca(adsetIdx: number, oldCreativeId: string, newCreativeId: string) {
+    if (oldCreativeId === newCreativeId) return;
+    updateAdset(adsetIdx, (a) => ({
+      ...a,
+      pecas: (a.pecas ?? []).map((p) =>
+        p.creative_id === oldCreativeId
+          ? { ...p, creative_id: newCreativeId, incluida: true, motivo_escolha: "Substituído manualmente pelo gestor" }
+          : p
+      ),
+    }));
+    // Garante metadata do novo criativo no cache do lightbox
+    if (!creativesById.has(newCreativeId)) {
+      const meta = await fetchCreativeMeta([newCreativeId]);
+      setCreativesById((prev) => {
+        const m = new Map(prev);
+        meta.forEach((v, k) => m.set(k, v));
+        return m;
+      });
+    }
+  }
+
+
   function editarCampo(adsetIdx: number, varIdx: number, campo: "headline" | "corpo" | "cta", valor: string) {
     updateAdset(adsetIdx, (a) => ({
       ...a,
