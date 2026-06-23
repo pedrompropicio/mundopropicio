@@ -457,6 +457,8 @@ export default function CrmCampaignView() {
   // Montagem Assistida (Camada 4 PARTE 2) — Sheet a tela cheia.
   const [assemblyOpen, setAssemblyOpen] = useState(false);
   const [assemblyFlow, setAssemblyFlow] = useState<"redesign" | "from_scratch">("redesign");
+  // Quando preenchido, o painel CARREGA esta assembly em vez de recomputar.
+  const [reviewAssemblyId, setReviewAssemblyId] = useState<string | null>(null);
   // Estúdio de Desenho de Campanha (Camada 5 PARTE 2)
   const [designStudioOpen, setDesignStudioOpen] = useState(false);
   // Preparar publicação no Meta (Elo de Publicação — FASE 1)
@@ -2093,47 +2095,24 @@ export default function CrmCampaignView() {
 
       {/* Montagem Assistida (Camada 4) — passo dedicado, abre em tela cheia */}
       {campaign.linked_event_id && (
-        <Card className="p-5">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div className="flex-1 min-w-[220px]">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Wand2 className="h-4 w-4 text-primary" /> Montagem Assistida
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Agrupa criativos por gatilho e propõe proporções de investimento. Os pesos vêm do motor (determinístico); a explicação por adset é gerada pelo modelo e só cita esses números.
-              </p>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => { setAssemblyFlow("redesign"); setAssemblyOpen(true); }}
-                disabled={creativeIdList.length === 0}
-              >
-                <Wand2 className="h-4 w-4 mr-1" /> Montar como redesenho
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => { setAssemblyFlow("from_scratch"); setAssemblyOpen(true); }}
-                disabled={creativeIdList.length === 0}
-              >
-                <Sparkles className="h-4 w-4 mr-1" /> Montar do zero
-              </Button>
-            </div>
-          </div>
-        </Card>
+        <MontagemAssistidaCard
+          eventId={campaign.linked_event_id}
+          companyId={campaign.company_id ?? null}
+          creativeIdListLen={creativeIdList.length}
+          onMontar={(flow) => { setReviewAssemblyId(null); setAssemblyFlow(flow); setAssemblyOpen(true); }}
+          onReview={(assemblyId) => { setReviewAssemblyId(assemblyId); setAssemblyFlow("from_scratch"); setAssemblyOpen(true); }}
+        />
       )}
 
       <AssistedAssemblyPanel
         open={assemblyOpen}
-        onOpenChange={setAssemblyOpen}
+        onOpenChange={(o) => { setAssemblyOpen(o); if (!o) setReviewAssemblyId(null); }}
         eventId={campaign.linked_event_id ?? null}
         companyId={campaign.company_id ?? null}
         flow={assemblyFlow}
-        // TODO: ligar uuid interno da campanha (meta_campaign_snapshot.id) para auditoria do redesenho
         sourceCampaignId={null}
         creativeIds={creativeIdList}
+        initialAssemblyId={reviewAssemblyId}
       />
 
       {/* Estúdio de Desenho de Campanha (Camada 5 PARTE 2) */}
@@ -2282,6 +2261,90 @@ function PillRow({
     </div>
   );
 }
+
+// ── Card da Montagem Assistida — resolve a assembly mais recente do evento
+//    e expõe o botão "Rever Síntese / Aprovar criativos" quando existe.
+function MontagemAssistidaCard({
+  eventId,
+  companyId,
+  creativeIdListLen,
+  onMontar,
+  onReview,
+}: {
+  eventId: string;
+  companyId: string | null;
+  creativeIdListLen: number;
+  onMontar: (flow: "redesign" | "from_scratch") => void;
+  onReview: (assemblyId: string) => void;
+}) {
+  const { data: latestAssembly, isLoading } = useQuery({
+    queryKey: ["crm-latest-assembly-card", eventId, companyId],
+    enabled: !!eventId && !!companyId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("assisted_assembly")
+        .select("id, generated_at")
+        .eq("event_id", eventId)
+        .eq("company_id", companyId)
+        .order("generated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { id: string; generated_at: string } | null;
+    },
+  });
+
+  return (
+    <Card className="p-5">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex-1 min-w-[220px]">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Wand2 className="h-4 w-4 text-primary" /> Montagem Assistida
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Agrupa criativos por gatilho e propõe proporções de investimento. Os pesos vêm do motor (determinístico); a explicação por adset é gerada pelo modelo e só cita esses números.
+          </p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {latestAssembly?.id ? (
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => onReview(latestAssembly.id)}
+              title={`Carrega a Síntese mais recente (${new Date(latestAssembly.generated_at).toLocaleString("pt-PT")})`}
+            >
+              <Sparkles className="h-4 w-4 mr-1" /> Rever Síntese / Aprovar criativos
+            </Button>
+          ) : (
+            !isLoading && (
+              <Button size="sm" variant="default" disabled title="Sem Síntese montada para este evento">
+                <Sparkles className="h-4 w-4 mr-1" /> Rever Síntese / Aprovar criativos
+              </Button>
+            )
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onMontar("redesign")}
+            disabled={creativeIdListLen === 0}
+          >
+            <Wand2 className="h-4 w-4 mr-1" /> Montar como redesenho
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onMontar("from_scratch")}
+            disabled={creativeIdListLen === 0}
+          >
+            <Sparkles className="h-4 w-4 mr-1" /> Montar do zero
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 
 // ── Estúdio de Desenho de Campanha — wrapper que resolve o assemblyId mais recente
 function DesignStudioEntry({
