@@ -457,6 +457,8 @@ export default function CrmCampaignView() {
   // Montagem Assistida (Camada 4 PARTE 2) — Sheet a tela cheia.
   const [assemblyOpen, setAssemblyOpen] = useState(false);
   const [assemblyFlow, setAssemblyFlow] = useState<"redesign" | "from_scratch">("redesign");
+  // Quando preenchido, o painel CARREGA esta assembly em vez de recomputar.
+  const [reviewAssemblyId, setReviewAssemblyId] = useState<string | null>(null);
   // Estúdio de Desenho de Campanha (Camada 5 PARTE 2)
   const [designStudioOpen, setDesignStudioOpen] = useState(false);
   // Preparar publicação no Meta (Elo de Publicação — FASE 1)
