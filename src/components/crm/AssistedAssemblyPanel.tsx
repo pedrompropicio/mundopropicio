@@ -441,8 +441,6 @@ export function AssistedAssemblyPanel({
             const ac = triggerAccent(a.trigger_tipo);
             const narr = narrByKey.get(adsetKey(a));
             const n_criativos = a.creative_ids.length;
-            const approvedInVisible = a.creative_ids.filter((id) => isApproved(a, id)).length;
-            const allApproved = n_criativos > 0 && approvedInVisible === n_criativos;
             return (
               <Card key={adsetKey(a)} className="overflow-hidden">
                 <div className="flex">
@@ -471,19 +469,8 @@ export function AssistedAssemblyPanel({
                             </Badge>
                           ) : null}
                           <span className="text-xs text-muted-foreground">· {n_criativos} criativo(s)</span>
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-[10px]",
-                              allApproved
-                                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                                : "border-amber-500/40 bg-amber-500/10 text-amber-300"
-                            )}
-                            title="Criativos aprovados / total"
-                          >
-                            {approvedInVisible}/{n_criativos} aprovados
-                          </Badge>
                         </div>
+
                         <div className="mt-1 text-xl font-bold tabular-nums">{a.peso_pct}%</div>
                       </div>
                       <Button size="sm" variant="ghost" onClick={() => removeAdset(a)} title="Remover adset" className="text-muted-foreground hover:text-destructive">
