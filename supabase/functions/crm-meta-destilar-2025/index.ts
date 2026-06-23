@@ -199,6 +199,7 @@ Deno.serve(async (req: Request) => {
   let offset = 0;
   let limit = 9999;
   let batchSize: number | null = null;
+  let onlyMissing = false;
   if (req.method === "POST") {
     try { const b = await req.json();
       if (typeof b?.company_id === "string") companyId = b.company_id;
@@ -206,6 +207,7 @@ Deno.serve(async (req: Request) => {
       if (typeof b?.offset === "number") offset = b.offset;
       if (typeof b?.limit === "number") limit = b.limit;
       if (typeof b?.batch_size === "number") batchSize = b.batch_size;
+      if (b?.only_missing_adsets === true) onlyMissing = true;
     } catch {}
   }
   if (batchSize !== null) limit = batchSize;
@@ -228,6 +230,98 @@ Deno.serve(async (req: Request) => {
   const token = (tokRows[0] as { access_token: string }).access_token;
   const adAct = conn.selected_ad_account_id;
   const tr = JSON.stringify({ since: "2025-01-01", until: "2025-12-31" });
+
+  // ============== BRANCH: only_missing_adsets ==============
+  // Processa SÓ adsets para campanhas já em campaign_memory que não têm elementos.
+  if (onlyMissing) {
+    // Lista campanhas em campaign_memory desta empresa e separa as que ainda não têm elementos.
+    const { data: cmRows, error: cmErr } = await sbCrm.from("campaign_memory")
+      .select("id, external_campaign_id, campaign_name, objective")
+      .eq("company_id", companyId)
+      .order("external_campaign_id", { ascending: true });
+    if (cmErr) return json({ error: "cm_list_failed", detail: cmErr.message }, 500);
+
+    const { data: elRows, error: elErr } = await sbCrm.from("campaign_memory_element")
+      .select("campaign_memory_id");
+    if (elErr) return json({ error: "el_list_failed", detail: elErr.message }, 500);
+    const withEl = new Set((elRows ?? []).map((r: { campaign_memory_id: string }) => r.campaign_memory_id));
+    const alvo = (cmRows ?? []).filter((r: { id: string }) => !withEl.has(r.id));
+    const fatia = alvo.slice(offset, offset + (batchSize ?? 15));
+
+    let nElem = 0;
+    let nErr = 0;
+    const errs: Array<{campaign_id: string; adset_id?: string; err: string}> = [];
+    const archDist: Record<string, number> = { advantage_plus:0, interesse:0, lookalike:0, retargeting:0, broad:0 };
+
+    for (const c of fatia as Array<{id:string;external_campaign_id:string;campaign_name:string;objective:string|null}>) {
+      const isSales = c.objective ? SALES_OBJECTIVES.has(c.objective) : false;
+      const uAds = new URL(`https://graph.facebook.com/${GRAPH}/${c.external_campaign_id}/adsets`);
+      uAds.searchParams.set("fields", "id,name,optimization_goal,targeting,daily_budget");
+      uAds.searchParams.set("limit", "50"); uAds.searchParams.set("access_token", token);
+      const uAdsIns = new URL(`https://graph.facebook.com/${GRAPH}/${c.external_campaign_id}/insights`);
+      uAdsIns.searchParams.set("level", "adset"); uAdsIns.searchParams.set("time_range", tr);
+      uAdsIns.searchParams.set("fields", "adset_id,spend,actions,action_values,purchase_roas");
+      uAdsIns.searchParams.set("limit", "100"); uAdsIns.searchParams.set("access_token", token);
+      const [rAds, rAdsIns] = await Promise.all([gfetchWithRetry(uAds.toString()), gfetchWithRetry(uAdsIns.toString())]);
+
+      const adsets = (rAds.json?.data ?? []) as Array<{id:string;name:string;optimization_goal:string;targeting:Record<string,unknown>;daily_budget?:string}>;
+      const insMap = new Map<string, Record<string, unknown>>();
+      for (const r of (rAdsIns.json?.data ?? []) as Array<Record<string, unknown>>) insMap.set(r.adset_id as string, r);
+
+      for (const a of adsets) {
+        const arch = classifyTargeting(a.targeting);
+        archDist[arch]++;
+        const ak = audienceKey(arch, a.targeting, a.name);
+        const ins = insMap.get(a.id) ?? {};
+        const aSpend = parseFloat((ins.spend as string) ?? "0");
+        const am = actionsToMetrics(ins.actions as never, ins.action_values as never, ins.purchase_roas as never, aSpend);
+        const aVd = verdict(am.roas, isSales);
+        const dailyB = a.daily_budget ? Math.round(parseInt(a.daily_budget)) : null;
+        if (!dryRun) {
+          const { error: eErr } = await sbCrm.from("campaign_memory_element").upsert({
+            campaign_memory_id: c.id,
+            external_adset_id: a.id,
+            adset_name: a.name,
+            audience_archetype: arch,
+            audience_key: ak,
+            optimization_goal: a.optimization_goal ?? null,
+            daily_budget_cents: dailyB,
+            spend_cents: Math.round(aSpend * 100),
+            revenue_cents: am.revenue_cents,
+            roas: am.roas,
+            verdict: aVd,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "campaign_memory_id,external_adset_id" });
+          if (eErr) {
+            console.error("UPSERT_ELEMENT_ERR", c.external_campaign_id, a.id, eErr.message);
+            nErr++;
+            errs.push({campaign_id: c.external_campaign_id, adset_id: a.id, err: eErr.message});
+            continue;
+          }
+        }
+        nElem++;
+        await new Promise(r => setTimeout(r, 20));
+      }
+    }
+
+    const proximo = offset + fatia.length;
+    return json({
+      mode: "only_missing_adsets",
+      company_id: companyId,
+      total_alvo: alvo.length,
+      janela: { offset, batch_size: batchSize ?? 15, fatia_size: fatia.length },
+      processadas: fatia.length,
+      n_elementos_gravados: nElem,
+      n_erros_elementos: nErr,
+      archetype_dist: archDist,
+      proximo_offset: proximo,
+      terminou: proximo >= alvo.length,
+      errors_sample: errs.slice(0, 10),
+      
+    });
+  }
+  // ============== FIM BRANCH ==============
+
 
   // PASSO 1 — paginação completa de campanhas 2025
   const campanhasCrudas: Array<{campaign_id:string;campaign_name:string;spend:string}> = [];
