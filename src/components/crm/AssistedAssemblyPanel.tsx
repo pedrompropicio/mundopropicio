@@ -19,7 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { AlertTriangle, Check, Info, Loader2, Replace, Sparkles, Trash2, Wand2, X } from "lucide-react";
+import { AlertTriangle, Info, Loader2, Replace, Sparkles, Trash2, Wand2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -441,8 +441,6 @@ export function AssistedAssemblyPanel({
             const ac = triggerAccent(a.trigger_tipo);
             const narr = narrByKey.get(adsetKey(a));
             const n_criativos = a.creative_ids.length;
-            const approvedInVisible = a.creative_ids.filter((id) => isApproved(a, id)).length;
-            const allApproved = n_criativos > 0 && approvedInVisible === n_criativos;
             return (
               <Card key={adsetKey(a)} className="overflow-hidden">
                 <div className="flex">
@@ -471,19 +469,8 @@ export function AssistedAssemblyPanel({
                             </Badge>
                           ) : null}
                           <span className="text-xs text-muted-foreground">· {n_criativos} criativo(s)</span>
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-[10px]",
-                              allApproved
-                                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                                : "border-amber-500/40 bg-amber-500/10 text-amber-300"
-                            )}
-                            title="Criativos aprovados / total"
-                          >
-                            {approvedInVisible}/{n_criativos} aprovados
-                          </Badge>
                         </div>
+
                         <div className="mt-1 text-xl font-bold tabular-nums">{a.peso_pct}%</div>
                       </div>
                       <Button size="sm" variant="ghost" onClick={() => removeAdset(a)} title="Remover adset" className="text-muted-foreground hover:text-destructive">
@@ -507,26 +494,19 @@ export function AssistedAssemblyPanel({
 
                     <Separator className="my-3" />
 
-                    {/* Lista de criativos com Aprovar / Substituir / Remover */}
+                    {/* Lista de criativos com Substituir / Remover */}
                     <div className="space-y-1.5">
                       {a.creative_ids.map((cid) => {
                         const mini = creativesById.get(cid);
                         const name = mini?.name ?? cid.slice(0, 8);
-                        const approved = isApproved(a, cid);
                         const slotKey = `${adsetKey(a)}::${cid}`;
                         const saving =
-                          savingKey === `${adsetKey(a)}::approve::${cid}` ||
                           savingKey === `${adsetKey(a)}::replace::${cid}` ||
                           savingKey === `${adsetKey(a)}::remove::${cid}`;
                         return (
                           <div
                             key={slotKey}
-                            className={cn(
-                              "flex items-center gap-2 px-2 py-1.5 rounded border text-xs",
-                              approved
-                                ? "border-emerald-500/40 bg-emerald-500/5"
-                                : "border-border/60 bg-muted/20"
-                            )}
+                            className="flex items-center gap-2 px-2 py-1.5 rounded border text-xs border-border/60 bg-muted/20"
                           >
                             {mini?.file_url ? (
                               <img
@@ -538,21 +518,7 @@ export function AssistedAssemblyPanel({
                               <div className="h-8 w-8 rounded bg-muted shrink-0" />
                             )}
                             <span className="flex-1 truncate" title={name}>{name}</span>
-                            {approved && (
-                              <Badge variant="outline" className="text-[10px] border-emerald-500/40 bg-emerald-500/10 text-emerald-300 gap-1">
-                                <Check className="h-3 w-3" /> aprovado
-                              </Badge>
-                            )}
-                            <Button
-                              size="sm"
-                              variant={approved ? "secondary" : "outline"}
-                              className="h-7 px-2 text-[11px]"
-                              disabled={saving || !assemblyId}
-                              onClick={() => toggleApproved(a, cid)}
-                              title={approved ? "Desfazer aprovação" : "Aprovar criativo"}
-                            >
-                              {approved ? "Desaprovar" : "Aprovar"}
-                            </Button>
+
                             <Popover>
                               <PopoverTrigger asChild>
                                 <Button

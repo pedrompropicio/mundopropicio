@@ -20,8 +20,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { CheckCircle2, Loader2, RefreshCw, Sparkles, Wand2, AlertTriangle, Info, Maximize2 } from "lucide-react";
+import { CheckCircle2, Loader2, RefreshCw, Replace, Sparkles, Wand2, AlertTriangle, Info, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { labelCta } from "@/lib/meta-labels";
 import { toast } from "sonner";
@@ -184,6 +185,8 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   const [adsets, setAdsets] = useState<Adset[]>([]);
   const [estado, setEstado] = useState<"rascunho" | "finalizado">("rascunho");
   const [creativesById, setCreativesById] = useState<Map<string, CreativeMini>>(new Map());
+  // Catálogo da empresa para o Popover "Substituir"
+  const [companyCreatives, setCompanyCreatives] = useState<Array<{ id: string; name: string | null; file_url: string | null }>>([]);
 
 
   // Validação por variação
@@ -209,6 +212,20 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     if (!open || !assemblyId || !companyId) return;
     void loadLatestDesign();
   }, [open, assemblyId, companyId]);
+
+  // Carrega catálogo da company para substituição
+  useEffect(() => {
+    if (!open || !companyId) return;
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm").from("meta_creatives")
+        .select("id, name, file_url")
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
+      if (error) { console.warn("[design-studio] fetch company creatives failed", error); return; }
+      setCompanyCreatives((data ?? []) as Array<{ id: string; name: string | null; file_url: string | null }>);
+    })();
+  }, [open, companyId]);
 
   async function fetchCreativeMeta(ids: string[]) {
     if (ids.length === 0) return new Map<string, CreativeMini>();
@@ -341,6 +358,31 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
       variacoes_texto: a.variacoes_texto.map((v, j) => ({ ...v, escolhida: j === varIdx })),
     }));
   }
+
+  // Troca o creative_id de uma peça por outro da empresa.
+  // Mantém incluida=true e marca motivo_escolha de forma honesta.
+  // Auto-save existente (useEffect [adsets]) persiste em crm.campaign_design.
+  async function substituirPeca(adsetIdx: number, oldCreativeId: string, newCreativeId: string) {
+    if (oldCreativeId === newCreativeId) return;
+    updateAdset(adsetIdx, (a) => ({
+      ...a,
+      pecas: (a.pecas ?? []).map((p) =>
+        p.creative_id === oldCreativeId
+          ? { ...p, creative_id: newCreativeId, incluida: true, motivo_escolha: "Substituído manualmente pelo gestor" }
+          : p
+      ),
+    }));
+    // Garante metadata do novo criativo no cache do lightbox
+    if (!creativesById.has(newCreativeId)) {
+      const meta = await fetchCreativeMeta([newCreativeId]);
+      setCreativesById((prev) => {
+        const m = new Map(prev);
+        meta.forEach((v, k) => m.set(k, v));
+        return m;
+      });
+    }
+  }
+
 
   function editarCampo(adsetIdx: number, varIdx: number, campo: "headline" | "corpo" | "cta", valor: string) {
     updateAdset(adsetIdx, (a) => ({
@@ -516,38 +558,95 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                             || ((c?.file_mime_type ?? "").toLowerCase().startsWith("image/"));
                           const temporalHits = c ? detectTemporalSnippets(c.text_snippets) : [];
                           const warn = temporalHits.length > 0 && !campanhaTemGatilhoTemporal;
+                          const usedInThisAdset = new Set((adset.pecas ?? []).map((pp) => pp.creative_id));
                           return (
-                            <button
+                            <div
                               key={p.creative_id}
-                              type="button"
-                              onClick={() => setLightboxCreativeId(p.creative_id)}
                               className={cn(
-                                "group text-left border rounded-lg p-2 w-[180px] bg-card/40 cursor-pointer transition hover:bg-card/70 hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/40",
+                                "group relative border rounded-lg p-2 w-[180px] bg-card/40 transition hover:bg-card/70 hover:border-primary/50",
                                 warn && "border-amber-500/60",
                               )}
-                              title="Ampliar peça"
                             >
-                              <div className="relative">
-                                {isImage && c?.file_url ? (
-                                  <img src={withCacheBust(c.file_url, c.updated_at) ?? undefined} alt={c.name ?? ""} className="w-full h-24 object-cover rounded mb-2" />
-                                ) : (
-                                  <div className="w-full h-24 rounded mb-2 bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">
-                                    {(c?.type ?? "?").toString()}
-                                  </div>
+                              <button
+                                type="button"
+                                onClick={() => setLightboxCreativeId(p.creative_id)}
+                                className="w-full text-left focus:outline-none focus:ring-2 focus:ring-primary/40 rounded"
+                                title="Ampliar peça"
+                              >
+                                <div className="relative">
+                                  {isImage && c?.file_url ? (
+                                    <img src={withCacheBust(c.file_url, c.updated_at) ?? undefined} alt={c.name ?? ""} className="w-full h-24 object-cover rounded mb-2" />
+                                  ) : (
+                                    <div className="w-full h-24 rounded mb-2 bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">
+                                      {(c?.type ?? "?").toString()}
+                                    </div>
+                                  )}
+                                  <Maximize2 className="h-3.5 w-3.5 absolute top-1 right-1 text-white/90 drop-shadow opacity-0 group-hover:opacity-100 transition" />
+                                </div>
+                                <div className="text-xs font-medium truncate" title={c?.name ?? p.creative_id}>{c?.name ?? p.creative_id.slice(0, 8)}</div>
+                                {warn && (
+                                  <Badge className="mt-1 bg-amber-500/15 text-amber-300 border-amber-500/40 text-[10px] gap-1">
+                                    <AlertTriangle className="h-3 w-3" /> texto temporal na imagem
+                                  </Badge>
                                 )}
-                                <Maximize2 className="h-3.5 w-3.5 absolute top-1 right-1 text-white/90 drop-shadow opacity-0 group-hover:opacity-100 transition" />
+                                {p.motivo_escolha && (
+                                  <div className="text-[11px] text-muted-foreground mt-1 line-clamp-3">{p.motivo_escolha}</div>
+                                )}
+                              </button>
+                              <div className="mt-2 flex justify-end">
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 px-2 text-[11px] gap-1"
+                                      title="Substituir por outro criativo da empresa"
+                                    >
+                                      <Replace className="h-3 w-3" />
+                                      Substituir
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-80 p-0" align="end">
+                                    <div className="p-2 border-b text-xs font-medium">
+                                      Substituir "{c?.name ?? p.creative_id.slice(0, 8)}"
+                                    </div>
+                                    <div className="max-h-72 overflow-y-auto">
+                                      {companyCreatives.length === 0 && (
+                                        <div className="p-3 text-xs text-muted-foreground">Sem criativos disponíveis.</div>
+                                      )}
+                                      {companyCreatives.map((cc) => {
+                                        const inUse = usedInThisAdset.has(cc.id);
+                                        const disabled = inUse;
+                                        return (
+                                          <button
+                                            key={cc.id}
+                                            type="button"
+                                            disabled={disabled}
+                                            onClick={() => substituirPeca(ai, p.creative_id, cc.id)}
+                                            className={cn(
+                                              "w-full text-left flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 border-b last:border-b-0",
+                                              disabled && "opacity-40 cursor-not-allowed",
+                                            )}
+                                          >
+                                            {cc.file_url ? (
+                                              <img src={cc.file_url} alt="" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
+                                            ) : (
+                                              <div className="h-7 w-7 rounded bg-muted shrink-0" />
+                                            )}
+                                            <span className="flex-1 truncate text-xs" title={cc.name ?? cc.id}>
+                                              {cc.name ?? cc.id.slice(0, 8)}
+                                            </span>
+                                            {inUse && <span className="text-[10px] text-muted-foreground">em uso</span>}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
                               </div>
-                              <div className="text-xs font-medium truncate" title={c?.name ?? p.creative_id}>{c?.name ?? p.creative_id.slice(0, 8)}</div>
-                              {warn && (
-                                <Badge className="mt-1 bg-amber-500/15 text-amber-300 border-amber-500/40 text-[10px] gap-1">
-                                  <AlertTriangle className="h-3 w-3" /> texto temporal na imagem
-                                </Badge>
-                              )}
-                              {p.motivo_escolha && (
-                                <div className="text-[11px] text-muted-foreground mt-1 line-clamp-3">{p.motivo_escolha}</div>
-                              )}
-                            </button>
+                            </div>
                           );
+
                         })}
                         {(adset.pecas ?? []).length === 0 && (
                           <span className="text-xs text-muted-foreground">(sem peças)</span>
