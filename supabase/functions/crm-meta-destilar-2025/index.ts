@@ -250,6 +250,9 @@ Deno.serve(async (req: Request) => {
     pages++;
   }
 
+  // ordenação estável por campaign_id (paginação determinística entre invocações)
+  campanhasCrudas.sort((a, b) => a.campaign_id.localeCompare(b.campaign_id));
+
   const fatia = campanhasCrudas.slice(offset, offset + limit);
 
   const result = {
