@@ -52,12 +52,21 @@ type AdsetOut = {
   trigger_nome: string;
   trigger_tipo: string;
   creative_ids: string[];
+  /** Campo paralelo (extensão): subconjunto de creative_ids aprovados pelo Pedro.
+   *  Camada 5 (crm-campaign-design-generate) NÃO lê este campo — fica retrocompatível. */
+  approved_creative_ids?: string[];
   peso_pct: number;
-  peso_origem: "roas" | "fallback_criativos";
+  peso_origem: "roas" | "fallback_criativos" | "sintese_duelo" | string;
   roas_agregado: number | null;
   dias_dados: number;
   conversoes: number;
   fiavel: boolean;
+  // Campos de extensão (Síntese do duelo)
+  arquetipo?: string;
+  funil?: string;
+  orcamento_dia_eur?: number;
+  interesses?: string[];
+  gatilhos_extra?: string[];
 };
 
 type ExcluidoContradiz = { creative_id: string; name?: string | null };
