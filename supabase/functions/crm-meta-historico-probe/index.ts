@@ -1,12 +1,13 @@
 // crm-meta-historico-probe
 // Sonda read-only: mede até onde a Graph API devolve insights históricos.
 // NÃO escreve em tabelas. NÃO regista o token. Só agrega.
+// Padrão de auth/token espelhado de crm-meta-sync-insights (anon key + forward Authorization).
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const ENCRYPTION_MASTER_KEY = Deno.env.get("ENCRYPTION_MASTER_KEY")!;
 
 const CONNECTION_ID = "3c234235-0ac5-4afc-a06e-259bdea0ae7a";
@@ -86,7 +87,6 @@ async function sondaIntervalo(
           const maxVal = Math.max(
             Number(th.app_id_util_pct ?? 0),
             Number(th.acc_id_util_pct ?? 0),
-            Number(th.ads_api_access_tier ? 0 : 0),
           );
           if (!result.throttle_max || maxVal > result.throttle_max) {
             result.throttle_max = maxVal;
@@ -129,17 +129,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   console.log("[crm-meta-historico-probe] início");
 
-  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) return json({ error: "missing_authorization" }, 401);
+
+  // Mesmo padrão de crm-meta-sync-insights: anon key + forward do Authorization do caller.
+  // A RPC crm_get_meta_decrypted_token autoriza via current_company_id() do JWT.
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: authHeader } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: tokenRows, error: tokenErr } = await admin.rpc(
+  const { data: tokenRows, error: tokenErr } = await supabase.rpc(
     "crm_get_meta_decrypted_token",
     { p_connection_id: CONNECTION_ID, p_master_key: ENCRYPTION_MASTER_KEY },
   );
   if (tokenErr || !Array.isArray(tokenRows) || tokenRows.length === 0) {
     console.error("[crm-meta-historico-probe] decrypt falhou:", tokenErr?.message);
-    return json({ error: "token_decrypt_failed", detail: tokenErr?.message ?? "sem linhas" }, 500);
+    return json({ error: "token_decrypt_failed", detail: tokenErr?.message ?? "sem linhas" }, 403);
   }
   const accessToken = (tokenRows[0] as { access_token: string }).access_token;
   console.log("[crm-meta-historico-probe] token obtido (não logado)");
@@ -152,7 +158,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
     console.log(
       `[probe ${intervalo.id}] n_campanhas=${r.n_campanhas} spend_cents=${r.spend_total_cents} paginas=${r.paginas} erro=${r.houve_erro}`,
     );
-    // backoff se throttle alto
     if (r.throttle_max && r.throttle_max >= 75) {
       console.log(`[probe] throttle alto (${r.throttle_max}%), backoff 5s`);
       await new Promise((res) => setTimeout(res, 5000));
