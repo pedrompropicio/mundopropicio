@@ -213,6 +213,20 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     void loadLatestDesign();
   }, [open, assemblyId, companyId]);
 
+  // Carrega catálogo da company para substituição
+  useEffect(() => {
+    if (!open || !companyId) return;
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm").from("meta_creatives")
+        .select("id, name, file_url")
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
+      if (error) { console.warn("[design-studio] fetch company creatives failed", error); return; }
+      setCompanyCreatives((data ?? []) as Array<{ id: string; name: string | null; file_url: string | null }>);
+    })();
+  }, [open, companyId]);
+
   async function fetchCreativeMeta(ids: string[]) {
     if (ids.length === 0) return new Map<string, CreativeMini>();
     const { data, error } = await (supabase as any)
