@@ -237,6 +237,76 @@ export function AssistedAssemblyPanel({
     setRemovedCreativeIds((prev) => new Set(prev).add(creativeId));
   }
 
+  // ---- Persistência do estado de aprovação/substituição/remoção --------------
+  // Estratégia: mutamos `adsets` localmente e gravamos o jsonb inteiro na linha
+  // crm.assisted_assembly por id. NÃO muda a forma de `creative_ids` (continua
+  // string[]); aprovação vive em `approved_creative_ids` paralelo.
+  async function persistAdsets(next: AdsetOut[], key: string) {
+    if (!assemblyId) return;
+    setSavingKey(key);
+    try {
+      const { error } = await (supabase as any)
+        .schema("crm")
+        .from("assisted_assembly")
+        .update({ adsets: next })
+        .eq("id", assemblyId);
+      if (error) throw error;
+    } catch (e: any) {
+      toast.error("Falha a gravar", { description: e?.message ?? String(e) });
+    } finally {
+      setSavingKey(null);
+    }
+  }
+
+  function isApproved(a: AdsetOut, cid: string) {
+    return (a.approved_creative_ids ?? []).includes(cid);
+  }
+
+  async function toggleApproved(a: AdsetOut, cid: string) {
+    const key = `${adsetKey(a)}::approve::${cid}`;
+    const next = adsets.map((x) => {
+      if (adsetKey(x) !== adsetKey(a)) return x;
+      const cur = new Set(x.approved_creative_ids ?? []);
+      if (cur.has(cid)) cur.delete(cid); else cur.add(cid);
+      return { ...x, approved_creative_ids: [...cur].filter((id) => x.creative_ids.includes(id)) };
+    });
+    setAdsets(next);
+    await persistAdsets(next, key);
+  }
+
+  async function replaceCreative(a: AdsetOut, oldId: string, newId: string) {
+    if (oldId === newId) return;
+    const key = `${adsetKey(a)}::replace::${oldId}`;
+    const next = adsets.map((x) => {
+      if (adsetKey(x) !== adsetKey(a)) return x;
+      const newCreatives = x.creative_ids.map((id) => (id === oldId ? newId : id));
+      const newApproved = (x.approved_creative_ids ?? []).filter((id) => id !== oldId && newCreatives.includes(id));
+      return { ...x, creative_ids: newCreatives, approved_creative_ids: newApproved };
+    });
+    if (!creativesById.has(newId)) {
+      const found = companyCreatives.find((c) => c.id === newId);
+      if (found) {
+        setCreativesById((prev) => { const m = new Map(prev); m.set(newId, found); return m; });
+      }
+    }
+    setAdsets(next);
+    await persistAdsets(next, key);
+  }
+
+  async function removeCreativePersist(a: AdsetOut, cid: string) {
+    const key = `${adsetKey(a)}::remove::${cid}`;
+    const next = adsets.map((x) => {
+      if (adsetKey(x) !== adsetKey(a)) return x;
+      return {
+        ...x,
+        creative_ids: x.creative_ids.filter((id) => id !== cid),
+        approved_creative_ids: (x.approved_creative_ids ?? []).filter((id) => id !== cid),
+      };
+    });
+    setAdsets(next);
+    await persistAdsets(next, key);
+  }
+
   // Vista filtrada por remoções locais
   const visibleAdsets = useMemo(() => {
     return adsets
