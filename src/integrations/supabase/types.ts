@@ -10692,11 +10692,11 @@ export type Database = {
       app_role:
         | "admin"
         | "user"
-        | "manager"
-        | "marketing_manager"
-        | "editor"
         | "viewer"
         | "partner"
+        | "marketing_manager"
+        | "editor"
+        | "manager"
         | "platform_admin"
         | "field_producer"
         | "producer"
@@ -10857,11 +10857,11 @@ export const Constants = {
       app_role: [
         "admin",
         "user",
-        "manager",
-        "marketing_manager",
-        "editor",
         "viewer",
         "partner",
+        "marketing_manager",
+        "editor",
+        "manager",
         "platform_admin",
         "field_producer",
         "producer",

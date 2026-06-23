@@ -1,0 +1,1 @@
+comment on table crm.campaign_memory is 'Memória de campanhas MP Audience — validação de pipeline pós base-única (23/jun/2026).';
