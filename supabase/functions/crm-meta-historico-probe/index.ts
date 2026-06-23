@@ -1,6 +1,7 @@
 // crm-meta-historico-probe
 // Sonda read-only: mede até onde a Graph API devolve insights históricos.
 // NÃO escreve em tabelas. NÃO regista o token. Só agrega.
+// Padrão de auth/token espelhado de crm-meta-sync-insights (anon key + forward Authorization).
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
@@ -86,7 +87,6 @@ async function sondaIntervalo(
           const maxVal = Math.max(
             Number(th.app_id_util_pct ?? 0),
             Number(th.acc_id_util_pct ?? 0),
-            Number(th.ads_api_access_tier ? 0 : 0),
           );
           if (!result.throttle_max || maxVal > result.throttle_max) {
             result.throttle_max = maxVal;
@@ -129,17 +129,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   console.log("[crm-meta-historico-probe] início");
 
-  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  // Service-role: a RPC tem branch específica para JWT role=service_role
+  // que lê a connection sem exigir current_company_id() (igual ao caminho do cron).
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: tokenRows, error: tokenErr } = await admin.rpc(
+  const { data: tokenRows, error: tokenErr } = await supabase.rpc(
     "crm_get_meta_decrypted_token",
     { p_connection_id: CONNECTION_ID, p_master_key: ENCRYPTION_MASTER_KEY },
   );
   if (tokenErr || !Array.isArray(tokenRows) || tokenRows.length === 0) {
     console.error("[crm-meta-historico-probe] decrypt falhou:", tokenErr?.message);
-    return json({ error: "token_decrypt_failed", detail: tokenErr?.message ?? "sem linhas" }, 500);
+    return json({ error: "token_decrypt_failed", detail: tokenErr?.message ?? "sem linhas" }, 403);
   }
   const accessToken = (tokenRows[0] as { access_token: string }).access_token;
   console.log("[crm-meta-historico-probe] token obtido (não logado)");
@@ -152,7 +154,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
     console.log(
       `[probe ${intervalo.id}] n_campanhas=${r.n_campanhas} spend_cents=${r.spend_total_cents} paginas=${r.paginas} erro=${r.houve_erro}`,
     );
-    // backoff se throttle alto
     if (r.throttle_max && r.throttle_max >= 75) {
       console.log(`[probe] throttle alto (${r.throttle_max}%), backoff 5s`);
       await new Promise((res) => setTimeout(res, 5000));
