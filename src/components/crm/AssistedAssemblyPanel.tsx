@@ -17,8 +17,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertTriangle, Info, Loader2, Sparkles, Trash2, Wand2, X } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { AlertTriangle, Check, Info, Loader2, Replace, Sparkles, Trash2, Wand2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -30,6 +31,10 @@ export interface AssistedAssemblyPanelProps {
   flow: "redesign" | "from_scratch";
   sourceCampaignId?: string | null;
   creativeIds: string[];
+  /** Se passado, o painel CARREGA esta assembly da BD em vez de recomputar.
+   *  Permite revisitar uma Síntese travada (ex.: ad98d128) e persistir
+   *  aprovações/substituições/remoções directamente no registo. */
+  initialAssemblyId?: string | null;
 }
 
 // Cor por tipo de gatilho — barra accent à esquerda do bloco de adset.
@@ -47,22 +52,32 @@ type AdsetOut = {
   trigger_nome: string;
   trigger_tipo: string;
   creative_ids: string[];
+  /** Campo paralelo (extensão): subconjunto de creative_ids aprovados pelo Pedro.
+   *  Camada 5 (crm-campaign-design-generate) NÃO lê este campo — fica retrocompatível. */
+  approved_creative_ids?: string[];
   peso_pct: number;
-  peso_origem: "roas" | "fallback_criativos";
+  peso_origem: "roas" | "fallback_criativos" | "sintese_duelo" | string;
   roas_agregado: number | null;
   dias_dados: number;
   conversoes: number;
   fiavel: boolean;
+  // Campos de extensão (Síntese do duelo)
+  arquetipo?: string;
+  funil?: string;
+  orcamento_dia_eur?: number;
+  interesses?: string[];
+  gatilhos_extra?: string[];
 };
 
 type ExcluidoContradiz = { creative_id: string; name?: string | null };
 
 type Narrativa = { trigger_id: string | null; trigger_nome: string; texto: string };
 
-type CreativeMini = { id: string; name: string | null };
+type CreativeMini = { id: string; name: string | null; file_url?: string | null };
 
 export function AssistedAssemblyPanel({
   open, onOpenChange, eventId, companyId, flow, sourceCampaignId, creativeIds,
+  initialAssemblyId,
 }: AssistedAssemblyPanelProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +89,10 @@ export function AssistedAssemblyPanel({
   // Edição local — guarda IDs removidos para sinalizar "Montagem editada".
   const [removedAdsetKeys, setRemovedAdsetKeys] = useState<Set<string>>(new Set());
   const [removedCreativeIds, setRemovedCreativeIds] = useState<Set<string>>(new Set());
+  // Catálogo de criativos da company (para o seletor de substituição).
+  const [companyCreatives, setCompanyCreatives] = useState<CreativeMini[]>([]);
+  // Indicador de gravação por par adset+slot.
+  const [savingKey, setSavingKey] = useState<string | null>(null);
 
   const adsetKey = (a: AdsetOut) => `${a.trigger_id ?? "generic"}::${a.trigger_nome}`;
   const edited = removedAdsetKeys.size > 0 || removedCreativeIds.size > 0;
@@ -83,9 +102,58 @@ export function AssistedAssemblyPanel({
     if (!open) {
       setAssemblyId(null); setAdsets([]); setExcluidos([]); setNarrativas([]);
       setRemovedAdsetKeys(new Set()); setRemovedCreativeIds(new Set());
-      setError(null);
+      setError(null); setCompanyCreatives([]);
     }
   }, [open]);
+
+  // Carrega catálogo de criativos da company (para Substituir)
+  useEffect(() => {
+    if (!open || !companyId) return;
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_creatives")
+        .select("id, name, file_url")
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.warn("[assembly-panel] fetch company creatives failed", error);
+        return;
+      }
+      setCompanyCreatives((data ?? []) as CreativeMini[]);
+    })();
+  }, [open, companyId]);
+
+  // Carrega assembly existente quando initialAssemblyId é passada
+  useEffect(() => {
+    if (!open || !initialAssemblyId) return;
+    (async () => {
+      setLoading(true); setError(null);
+      try {
+        const { data, error } = await (supabase as any)
+          .schema("crm")
+          .from("assisted_assembly")
+          .select("id, adsets, snapshot")
+          .eq("id", initialAssemblyId)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) throw new Error("Assembly não encontrada");
+        const _adsets: AdsetOut[] = (data.adsets ?? []) as AdsetOut[];
+        const ids = new Set<string>();
+        _adsets.forEach((a) => (a.creative_ids || []).forEach((id) => ids.add(id)));
+        const names = await fetchCreativeNames([...ids]);
+        setAssemblyId(data.id);
+        setAdsets(_adsets);
+        setCreativesById(names);
+      } catch (e: any) {
+        setError(e?.message ?? String(e));
+      } finally {
+        setLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialAssemblyId]);
+
 
   async function fetchCreativeNames(ids: string[]) {
     if (ids.length === 0) return new Map<string, CreativeMini>();
@@ -167,6 +235,76 @@ export function AssistedAssemblyPanel({
   }
   function removeCreative(creativeId: string) {
     setRemovedCreativeIds((prev) => new Set(prev).add(creativeId));
+  }
+
+  // ---- Persistência do estado de aprovação/substituição/remoção --------------
+  // Estratégia: mutamos `adsets` localmente e gravamos o jsonb inteiro na linha
+  // crm.assisted_assembly por id. NÃO muda a forma de `creative_ids` (continua
+  // string[]); aprovação vive em `approved_creative_ids` paralelo.
+  async function persistAdsets(next: AdsetOut[], key: string) {
+    if (!assemblyId) return;
+    setSavingKey(key);
+    try {
+      const { error } = await (supabase as any)
+        .schema("crm")
+        .from("assisted_assembly")
+        .update({ adsets: next })
+        .eq("id", assemblyId);
+      if (error) throw error;
+    } catch (e: any) {
+      toast.error("Falha a gravar", { description: e?.message ?? String(e) });
+    } finally {
+      setSavingKey(null);
+    }
+  }
+
+  function isApproved(a: AdsetOut, cid: string) {
+    return (a.approved_creative_ids ?? []).includes(cid);
+  }
+
+  async function toggleApproved(a: AdsetOut, cid: string) {
+    const key = `${adsetKey(a)}::approve::${cid}`;
+    const next = adsets.map((x) => {
+      if (adsetKey(x) !== adsetKey(a)) return x;
+      const cur = new Set(x.approved_creative_ids ?? []);
+      if (cur.has(cid)) cur.delete(cid); else cur.add(cid);
+      return { ...x, approved_creative_ids: [...cur].filter((id) => x.creative_ids.includes(id)) };
+    });
+    setAdsets(next);
+    await persistAdsets(next, key);
+  }
+
+  async function replaceCreative(a: AdsetOut, oldId: string, newId: string) {
+    if (oldId === newId) return;
+    const key = `${adsetKey(a)}::replace::${oldId}`;
+    const next = adsets.map((x) => {
+      if (adsetKey(x) !== adsetKey(a)) return x;
+      const newCreatives = x.creative_ids.map((id) => (id === oldId ? newId : id));
+      const newApproved = (x.approved_creative_ids ?? []).filter((id) => id !== oldId && newCreatives.includes(id));
+      return { ...x, creative_ids: newCreatives, approved_creative_ids: newApproved };
+    });
+    if (!creativesById.has(newId)) {
+      const found = companyCreatives.find((c) => c.id === newId);
+      if (found) {
+        setCreativesById((prev) => { const m = new Map(prev); m.set(newId, found); return m; });
+      }
+    }
+    setAdsets(next);
+    await persistAdsets(next, key);
+  }
+
+  async function removeCreativePersist(a: AdsetOut, cid: string) {
+    const key = `${adsetKey(a)}::remove::${cid}`;
+    const next = adsets.map((x) => {
+      if (adsetKey(x) !== adsetKey(a)) return x;
+      return {
+        ...x,
+        creative_ids: x.creative_ids.filter((id) => id !== cid),
+        approved_creative_ids: (x.approved_creative_ids ?? []).filter((id) => id !== cid),
+      };
+    });
+    setAdsets(next);
+    await persistAdsets(next, key);
   }
 
   // Vista filtrada por remoções locais
@@ -303,6 +441,8 @@ export function AssistedAssemblyPanel({
             const ac = triggerAccent(a.trigger_tipo);
             const narr = narrByKey.get(adsetKey(a));
             const n_criativos = a.creative_ids.length;
+            const approvedInVisible = a.creative_ids.filter((id) => isApproved(a, id)).length;
+            const allApproved = n_criativos > 0 && approvedInVisible === n_criativos;
             return (
               <Card key={adsetKey(a)} className="overflow-hidden">
                 <div className="flex">
@@ -313,16 +453,36 @@ export function AssistedAssemblyPanel({
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-base font-semibold">{a.trigger_nome}</h3>
                           <Badge variant="outline" className={cn("text-[10px] border", ac.chip)}>{ac.label}</Badge>
+                          {a.arquetipo && (
+                            <Badge variant="outline" className="text-[10px] border-primary/40 bg-primary/10 text-primary">
+                              {a.arquetipo}{a.funil ? ` · ${a.funil}` : ""}
+                            </Badge>
+                          )}
+                          {typeof a.orcamento_dia_eur === "number" && (
+                            <Badge variant="outline" className="text-[10px]">€{a.orcamento_dia_eur}/dia</Badge>
+                          )}
                           {a.peso_origem === "roas" ? (
                             <Badge variant="outline" className="text-[10px] border-emerald-500/40 bg-emerald-500/10 text-emerald-300">
                               performance · ROAS {a.roas_agregado}x
                             </Badge>
-                          ) : (
+                          ) : a.peso_origem === "fallback_criativos" ? (
                             <Badge variant="outline" className="text-[10px] border-amber-500/40 bg-amber-500/10 text-amber-300">
                               sem dados suficientes
                             </Badge>
-                          )}
+                          ) : null}
                           <span className="text-xs text-muted-foreground">· {n_criativos} criativo(s)</span>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[10px]",
+                              allApproved
+                                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                                : "border-amber-500/40 bg-amber-500/10 text-amber-300"
+                            )}
+                            title="Criativos aprovados / total"
+                          >
+                            {approvedInVisible}/{n_criativos} aprovados
+                          </Badge>
                         </div>
                         <div className="mt-1 text-xl font-bold tabular-nums">{a.peso_pct}%</div>
                       </div>
@@ -339,25 +499,125 @@ export function AssistedAssemblyPanel({
                       </p>
                     ) : null}
 
+                    {a.interesses && a.interesses.length > 0 && (
+                      <p className="mt-2 text-[11px] text-muted-foreground">
+                        Interesses: {a.interesses.join(", ")}
+                      </p>
+                    )}
+
                     <Separator className="my-3" />
 
-                    <div className="flex flex-wrap gap-1.5">
+                    {/* Lista de criativos com Aprovar / Substituir / Remover */}
+                    <div className="space-y-1.5">
                       {a.creative_ids.map((cid) => {
-                        const name = creativesById.get(cid)?.name ?? cid.slice(0, 8);
+                        const mini = creativesById.get(cid);
+                        const name = mini?.name ?? cid.slice(0, 8);
+                        const approved = isApproved(a, cid);
+                        const slotKey = `${adsetKey(a)}::${cid}`;
+                        const saving =
+                          savingKey === `${adsetKey(a)}::approve::${cid}` ||
+                          savingKey === `${adsetKey(a)}::replace::${cid}` ||
+                          savingKey === `${adsetKey(a)}::remove::${cid}`;
                         return (
-                          <span key={cid} className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-border/60 bg-muted/30">
-                            {name}
-                            <button
-                              type="button"
-                              onClick={() => removeCreative(cid)}
-                              className="opacity-60 hover:opacity-100 hover:text-destructive"
+                          <div
+                            key={slotKey}
+                            className={cn(
+                              "flex items-center gap-2 px-2 py-1.5 rounded border text-xs",
+                              approved
+                                ? "border-emerald-500/40 bg-emerald-500/5"
+                                : "border-border/60 bg-muted/20"
+                            )}
+                          >
+                            {mini?.file_url ? (
+                              <img
+                                src={mini.file_url}
+                                alt=""
+                                className="h-8 w-8 rounded object-cover bg-muted shrink-0"
+                              />
+                            ) : (
+                              <div className="h-8 w-8 rounded bg-muted shrink-0" />
+                            )}
+                            <span className="flex-1 truncate" title={name}>{name}</span>
+                            {approved && (
+                              <Badge variant="outline" className="text-[10px] border-emerald-500/40 bg-emerald-500/10 text-emerald-300 gap-1">
+                                <Check className="h-3 w-3" /> aprovado
+                              </Badge>
+                            )}
+                            <Button
+                              size="sm"
+                              variant={approved ? "secondary" : "outline"}
+                              className="h-7 px-2 text-[11px]"
+                              disabled={saving || !assemblyId}
+                              onClick={() => toggleApproved(a, cid)}
+                              title={approved ? "Desfazer aprovação" : "Aprovar criativo"}
+                            >
+                              {approved ? "Desaprovar" : "Aprovar"}
+                            </Button>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-[11px] gap-1"
+                                  disabled={saving || !assemblyId}
+                                  title="Substituir por outro criativo da empresa"
+                                >
+                                  <Replace className="h-3 w-3" />
+                                  Substituir
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-80 p-0" align="end">
+                                <div className="p-2 border-b text-xs font-medium">
+                                  Substituir "{name}"
+                                </div>
+                                <div className="max-h-72 overflow-y-auto">
+                                  {companyCreatives.length === 0 && (
+                                    <div className="p-3 text-xs text-muted-foreground">Sem criativos disponíveis.</div>
+                                  )}
+                                  {companyCreatives.map((c) => {
+                                    const inUse = a.creative_ids.includes(c.id);
+                                    return (
+                                      <button
+                                        key={c.id}
+                                        type="button"
+                                        disabled={inUse || c.id === cid}
+                                        onClick={() => replaceCreative(a, cid, c.id)}
+                                        className={cn(
+                                          "w-full text-left flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 border-b last:border-b-0",
+                                          (inUse || c.id === cid) && "opacity-40 cursor-not-allowed"
+                                        )}
+                                      >
+                                        {c.file_url ? (
+                                          <img src={c.file_url} alt="" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
+                                        ) : (
+                                          <div className="h-7 w-7 rounded bg-muted shrink-0" />
+                                        )}
+                                        <span className="flex-1 truncate text-xs" title={c.name ?? c.id}>
+                                          {c.name ?? c.id.slice(0, 8)}
+                                        </span>
+                                        {inUse && <span className="text-[10px] text-muted-foreground">em uso</span>}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                              disabled={saving}
+                              onClick={() => (assemblyId ? removeCreativePersist(a, cid) : removeCreative(cid))}
                               title="Remover criativo"
                             >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </span>
+                              {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                            </Button>
+                          </div>
                         );
                       })}
+                      {a.creative_ids.length === 0 && (
+                        <p className="text-xs text-muted-foreground italic">Sem criativos atribuídos.</p>
+                      )}
                     </div>
                   </div>
                 </div>
