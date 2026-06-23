@@ -6,9 +6,9 @@ const SRK = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
-// Modelos escolhidos (catálogo Lovable AI Gateway): melhor Gemini Pro + melhor GPT.
-const GEMINI_MODEL = "google/gemini-3.1-pro-preview";
-const GPT_MODEL = "openai/gpt-5.5-pro";
+// Modelos escolhidos (catálogo Lovable AI Gateway): melhor Gemini Pro + melhor GPT chat.
+const GEMINI_MODEL = "google/gemini-2.5-pro";
+const GPT_MODEL = "openai/gpt-5";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
