@@ -10,8 +10,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ENCRYPTION_MASTER_KEY = Deno.env.get("ENCRYPTION_MASTER_KEY")!;
 
-const CONNECTION_ID = "3c234235-0ac5-4afc-a06e-259bdea0ae7a";
-const AD_ACCOUNT_ID = "act_5094207367314169";
+const DEFAULT_COMPANY_ID = "7c858982-6ccd-47ca-bd65-e0dd3eebf01c"; // MP (retrocompat)
 
 const INTERVALOS = [
   { id: "A", since: "2025-01-01", until: "2025-12-31" },
@@ -46,6 +45,7 @@ interface IntervaloResultado {
 
 async function sondaIntervalo(
   accessToken: string,
+  adAccountId: string,
   intervalo: { id: string; since: string; until: string },
 ): Promise<IntervaloResultado> {
   const result: IntervaloResultado = {
@@ -63,7 +63,7 @@ async function sondaIntervalo(
   const campanhasVistas = new Set<string>();
   let url: string | null = (() => {
     const u = new URL(
-      `https://graph.facebook.com/${GRAPH_API_VERSION}/${AD_ACCOUNT_ID}/insights`,
+      `https://graph.facebook.com/${GRAPH_API_VERSION}/${adAccountId}/insights`,
     );
     u.searchParams.set("level", "campaign");
     u.searchParams.set("time_range", JSON.stringify({ since: intervalo.since, until: intervalo.until }));
@@ -127,35 +127,76 @@ async function sondaIntervalo(
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  console.log("[crm-meta-historico-probe] início");
+  let companyId = DEFAULT_COMPANY_ID;
+  if (req.method === "POST") {
+    try {
+      const body = await req.json();
+      if (body && typeof body.company_id === "string" && body.company_id.length > 0) {
+        companyId = body.company_id;
+      }
+    } catch { /* body opcional */ }
+  }
 
-  // Service-role: a RPC tem branch específica para JWT role=service_role
-  // que lê a connection sem exigir current_company_id() (igual ao caminho do cron).
+  console.log(`[crm-meta-historico-probe] início company_id=${companyId}`);
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
+    db: { schema: "crm" as never },
   });
 
-  const { data: tokenRows, error: tokenErr } = await supabase.rpc(
+  // Resolver connection + ad account da empresa pedida
+  const { data: connRow, error: connErr } = await supabase
+    .from("ad_platform_connections")
+    .select("id, selected_ad_account_id, status")
+    .eq("company_id", companyId)
+    .eq("platform", "meta")
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (connErr || !connRow) {
+    return json({
+      error: "connection_not_found",
+      company_id: companyId,
+      detail: connErr?.message ?? "sem conexão Meta activa",
+    }, 404);
+  }
+  if (!connRow.selected_ad_account_id) {
+    return json({ error: "no_selected_ad_account", company_id: companyId, connection_id: connRow.id }, 400);
+  }
+
+  const adAccountId: string = connRow.selected_ad_account_id;
+  const connectionId: string = connRow.id;
+
+  // Descodificar token (RPC vive em public)
+  const publicClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: tokenRows, error: tokenErr } = await publicClient.rpc(
     "crm_get_meta_decrypted_token",
-    { p_connection_id: CONNECTION_ID, p_master_key: ENCRYPTION_MASTER_KEY },
+    { p_connection_id: connectionId, p_master_key: ENCRYPTION_MASTER_KEY },
   );
   if (tokenErr || !Array.isArray(tokenRows) || tokenRows.length === 0) {
     console.error("[crm-meta-historico-probe] decrypt falhou:", tokenErr?.message);
-    return json({ error: "token_decrypt_failed", detail: tokenErr?.message ?? "sem linhas" }, 403);
+    return json({
+      error: "token_decrypt_failed",
+      company_id: companyId,
+      connection_id: connectionId,
+      detail: tokenErr?.message ?? "sem linhas",
+      token_decrypted: false,
+    }, 403);
   }
   const accessToken = (tokenRows[0] as { access_token: string }).access_token;
-  console.log("[crm-meta-historico-probe] token obtido (não logado)");
+  const tokenLooksOk = typeof accessToken === "string" && accessToken.startsWith("EAA");
+  console.log(`[crm-meta-historico-probe] token obtido prefixo_ok=${tokenLooksOk}`);
 
   const resultados: IntervaloResultado[] = [];
   for (const intervalo of INTERVALOS) {
-    console.log(`[probe] a sondar intervalo ${intervalo.id} (${intervalo.since} → ${intervalo.until})`);
-    const r = await sondaIntervalo(accessToken, intervalo);
+    const r = await sondaIntervalo(accessToken, adAccountId, intervalo);
     resultados.push(r);
     console.log(
-      `[probe ${intervalo.id}] n_campanhas=${r.n_campanhas} spend_cents=${r.spend_total_cents} paginas=${r.paginas} erro=${r.houve_erro}`,
+      `[probe ${intervalo.id}] n_campanhas=${r.n_campanhas} spend_cents=${r.spend_total_cents} erro=${r.houve_erro}`,
     );
     if (r.throttle_max && r.throttle_max >= 75) {
-      console.log(`[probe] throttle alto (${r.throttle_max}%), backoff 5s`);
       await new Promise((res) => setTimeout(res, 5000));
     } else {
       await new Promise((res) => setTimeout(res, 1000));
@@ -163,8 +204,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   return json({
-    ad_account_id: AD_ACCOUNT_ID,
+    company_id: companyId,
+    connection_id: connectionId,
+    ad_account_id: adAccountId,
     graph_api_version: GRAPH_API_VERSION,
+    token_decrypted: true,
+    token_prefix_ok: tokenLooksOk,
     intervalos: resultados,
   });
 });
