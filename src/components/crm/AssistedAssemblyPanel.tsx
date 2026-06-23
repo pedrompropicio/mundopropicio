@@ -73,10 +73,11 @@ type ExcluidoContradiz = { creative_id: string; name?: string | null };
 
 type Narrativa = { trigger_id: string | null; trigger_nome: string; texto: string };
 
-type CreativeMini = { id: string; name: string | null };
+type CreativeMini = { id: string; name: string | null; thumbnail_url?: string | null };
 
 export function AssistedAssemblyPanel({
   open, onOpenChange, eventId, companyId, flow, sourceCampaignId, creativeIds,
+  initialAssemblyId,
 }: AssistedAssemblyPanelProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +89,10 @@ export function AssistedAssemblyPanel({
   // Edição local — guarda IDs removidos para sinalizar "Montagem editada".
   const [removedAdsetKeys, setRemovedAdsetKeys] = useState<Set<string>>(new Set());
   const [removedCreativeIds, setRemovedCreativeIds] = useState<Set<string>>(new Set());
+  // Catálogo de criativos da company (para o seletor de substituição).
+  const [companyCreatives, setCompanyCreatives] = useState<CreativeMini[]>([]);
+  // Indicador de gravação por par adset+slot.
+  const [savingKey, setSavingKey] = useState<string | null>(null);
 
   const adsetKey = (a: AdsetOut) => `${a.trigger_id ?? "generic"}::${a.trigger_nome}`;
   const edited = removedAdsetKeys.size > 0 || removedCreativeIds.size > 0;
@@ -97,9 +102,58 @@ export function AssistedAssemblyPanel({
     if (!open) {
       setAssemblyId(null); setAdsets([]); setExcluidos([]); setNarrativas([]);
       setRemovedAdsetKeys(new Set()); setRemovedCreativeIds(new Set());
-      setError(null);
+      setError(null); setCompanyCreatives([]);
     }
   }, [open]);
+
+  // Carrega catálogo de criativos da company (para Substituir)
+  useEffect(() => {
+    if (!open || !companyId) return;
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_creatives")
+        .select("id, name, thumbnail_url")
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
+      if (error) {
+        console.warn("[assembly-panel] fetch company creatives failed", error);
+        return;
+      }
+      setCompanyCreatives((data ?? []) as CreativeMini[]);
+    })();
+  }, [open, companyId]);
+
+  // Carrega assembly existente quando initialAssemblyId é passada
+  useEffect(() => {
+    if (!open || !initialAssemblyId) return;
+    (async () => {
+      setLoading(true); setError(null);
+      try {
+        const { data, error } = await (supabase as any)
+          .schema("crm")
+          .from("assisted_assembly")
+          .select("id, adsets, snapshot")
+          .eq("id", initialAssemblyId)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) throw new Error("Assembly não encontrada");
+        const _adsets: AdsetOut[] = (data.adsets ?? []) as AdsetOut[];
+        const ids = new Set<string>();
+        _adsets.forEach((a) => (a.creative_ids || []).forEach((id) => ids.add(id)));
+        const names = await fetchCreativeNames([...ids]);
+        setAssemblyId(data.id);
+        setAdsets(_adsets);
+        setCreativesById(names);
+      } catch (e: any) {
+        setError(e?.message ?? String(e));
+      } finally {
+        setLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialAssemblyId]);
+
 
   async function fetchCreativeNames(ids: string[]) {
     if (ids.length === 0) return new Map<string, CreativeMini>();
