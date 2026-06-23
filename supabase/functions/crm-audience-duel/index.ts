@@ -82,7 +82,7 @@ Desenha a estrutura completa da campanha. Responde EXCLUSIVAMENTE em JSON válid
 }`;
 }
 
-async function callModel(model: string, prompt: string, timeoutMs = 30000): Promise<{ ok: true; data: unknown } | { ok: false; err: string }> {
+async function callModel(model: string, prompt: string, timeoutMs = 55000): Promise<{ ok: true; data: unknown } | { ok: false; err: string }> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
