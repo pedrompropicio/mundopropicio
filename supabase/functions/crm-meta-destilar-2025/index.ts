@@ -389,11 +389,18 @@ Deno.serve(async (req: Request) => {
           verdict: aVd,
           updated_at: new Date().toISOString(),
         }, { onConflict: "campaign_memory_id,external_adset_id" });
-        if (eErr) { result.errors.push({campaign:c.campaign_name,step:`upsert_element ${a.name}`,err:eErr.message}); continue; }
+        if (eErr) {
+          console.error("UPSERT_ELEMENT_ERR", c.campaign_id, a.id, eErr.message);
+          result.errors.push({campaign:c.campaign_name,step:`upsert_element ${a.name}`,err:eErr.message});
+          result.n_erros_elementos++;
+          continue;
+        }
         result.upserts_element++;
       } else {
         result.upserts_element++;
       }
+      // pequeno delay entre adsets para aliviar rate-limit
+      await new Promise(r => setTimeout(r, 60));
     }
   }
 
