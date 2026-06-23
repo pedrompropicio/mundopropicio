@@ -2095,36 +2095,13 @@ export default function CrmCampaignView() {
 
       {/* Montagem Assistida (Camada 4) — passo dedicado, abre em tela cheia */}
       {campaign.linked_event_id && (
-        <Card className="p-5">
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div className="flex-1 min-w-[220px]">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Wand2 className="h-4 w-4 text-primary" /> Montagem Assistida
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Agrupa criativos por gatilho e propõe proporções de investimento. Os pesos vêm do motor (determinístico); a explicação por adset é gerada pelo modelo e só cita esses números.
-              </p>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => { setAssemblyFlow("redesign"); setAssemblyOpen(true); }}
-                disabled={creativeIdList.length === 0}
-              >
-                <Wand2 className="h-4 w-4 mr-1" /> Montar como redesenho
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => { setAssemblyFlow("from_scratch"); setAssemblyOpen(true); }}
-                disabled={creativeIdList.length === 0}
-              >
-                <Sparkles className="h-4 w-4 mr-1" /> Montar do zero
-              </Button>
-            </div>
-          </div>
-        </Card>
+        <MontagemAssistidaCard
+          eventId={campaign.linked_event_id}
+          companyId={campaign.company_id ?? null}
+          creativeIdListLen={creativeIdList.length}
+          onMontar={(flow) => { setReviewAssemblyId(null); setAssemblyFlow(flow); setAssemblyOpen(true); }}
+          onReview={(assemblyId) => { setReviewAssemblyId(assemblyId); setAssemblyFlow("from_scratch"); setAssemblyOpen(true); }}
+        />
       )}
 
       <AssistedAssemblyPanel
