@@ -31,6 +31,10 @@ export interface AssistedAssemblyPanelProps {
   flow: "redesign" | "from_scratch";
   sourceCampaignId?: string | null;
   creativeIds: string[];
+  /** Se passado, o painel CARREGA esta assembly da BD em vez de recomputar.
+   *  Permite revisitar uma Síntese travada (ex.: ad98d128) e persistir
+   *  aprovações/substituições/remoções directamente no registo. */
+  initialAssemblyId?: string | null;
 }
 
 // Cor por tipo de gatilho — barra accent à esquerda do bloco de adset.
