@@ -415,6 +415,10 @@ Deno.serve(async (req: Request) => {
   // contagem final
   const { count } = await sbCrm.from("campaign_memory").select("*", { count:"exact", head:true }).eq("company_id", companyId);
   (result as Record<string, unknown>).campaign_memory_total_apos = count;
+  const proximoOffset = offset + fatia.length;
+  (result as Record<string, unknown>).total_campanhas = campanhasCrudas.length;
+  (result as Record<string, unknown>).proximo_offset = proximoOffset;
+  (result as Record<string, unknown>).terminou = proximoOffset >= campanhasCrudas.length;
 
   result.notes = {
     funnel_storage: "funnel_stage grava 'frio'/'quente'",
