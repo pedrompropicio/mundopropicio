@@ -221,6 +221,57 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   const [uploadStatus, setUploadStatus] = useState<UploadState>({ state: "idle" });
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Apagar criativo do pool (definitivo)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function confirmDeleteCreative() {
+    if (!deleteTarget) return;
+    const id = deleteTarget.id;
+    setDeleting(true);
+    try {
+      // Buscar bucket+path (pode não vir no pool)
+      const { data: row, error: selErr } = await (supabase as any)
+        .schema("crm").from("meta_creatives")
+        .select("storage_bucket,storage_path")
+        .eq("id", id)
+        .maybeSingle();
+      if (selErr) throw selErr;
+
+      const bucket = (row as any)?.storage_bucket as string | null;
+      const path = (row as any)?.storage_path as string | null;
+      if (bucket && path) {
+        const { error: rmErr } = await supabase.storage.from(bucket).remove([path]);
+        if (rmErr) console.warn("[design-studio] storage remove failed", rmErr);
+      }
+
+      const { error: delErr } = await (supabase as any)
+        .schema("crm").from("meta_creatives").delete().eq("id", id);
+      if (delErr) throw delErr;
+
+      // Remover do estado local
+      setPoolCreatives((prev) => prev.filter((c) => c.id !== id));
+      setCreativesById((prev) => {
+        const next = new Map(prev);
+        next.delete(id);
+        return next;
+      });
+      setAdsets((prev) =>
+        prev.map((a) => ({
+          ...a,
+          pecas: (a.pecas ?? []).filter((p) => p.creative_id !== id),
+        })),
+      );
+      toast.success("Criativo apagado");
+      setDeleteTarget(null);
+    } catch (e: any) {
+      toast.error(`Falha a apagar: ${e?.message ?? String(e)}`);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+
 
   // Validação por variação
   const [validatingKey, setValidatingKey] = useState<string | null>(null);
