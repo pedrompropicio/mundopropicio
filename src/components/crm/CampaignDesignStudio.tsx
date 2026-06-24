@@ -1512,14 +1512,15 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                     <img src={uploadPreviewUrl ?? undefined} alt="" className="w-full max-h-64 object-contain" />
                   )}
                 </div>
-                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <div className="truncate">
+                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground min-w-0">
+                  <div className="truncate min-w-0 flex-1">
                     {uploadFile.name} · {(uploadFile.size / 1024 / 1024).toFixed(2)} MB
                     {uploadMeta && <> · {uploadMeta.width}×{uploadMeta.height}{uploadMeta.duration ? ` · ${uploadMeta.duration.toFixed(1)}s` : ""}</>}
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="shrink-0"
                     disabled={uploadStatus.state === "uploading" || uploadStatus.state === "metapush"}
                     onClick={() => {
                       if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
