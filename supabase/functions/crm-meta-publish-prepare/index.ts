@@ -337,6 +337,8 @@ Responde APENAS JSON puro com este shape:
         moeda: "EUR",
         link_destino: linkDestinoEvento,
         adsets: mergedAdsets,
+        start_time: startTimeIn,
+        end_time: endTimeIn,
         // NÃO mexe em estado nem em meta_campaign_id — preservados.
       })
       .eq("id", existing.id)
@@ -358,6 +360,8 @@ Responde APENAS JSON puro com este shape:
         link_destino: linkDestinoEvento,
         adsets: adsetsOut,
         estado: "rascunho",
+        start_time: startTimeIn,
+        end_time: endTimeIn,
       })
       .select("id, link_destino")
       .single();
@@ -365,6 +369,7 @@ Responde APENAS JSON puro com este shape:
     ins = insNew;
     console.log("[meta-publish-prepare] NEW_PLAN", JSON.stringify({ plan_id: ins.id, design_id, reason: existing ? `last_estado=${existing.estado}` : "no_existing" }));
   }
+
 
   return json({
     plan_id: ins.id,
