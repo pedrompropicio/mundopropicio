@@ -771,28 +771,21 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                                 )}
                               </button>
                               <div className="mt-2 flex justify-end">
-                                <Popover>
-                                  <PopoverTrigger asChild>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-7 px-2 text-[11px] gap-1"
-                                      title="Substituir por outro criativo do pool"
-                                    >
-                                      <Replace className="h-3 w-3" />
-                                      Substituir
-                                    </Button>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="w-80 p-0" align="end">
-                                    <div className="p-2 border-b text-xs font-medium">
-                                      Substituir "{c?.name ?? p.creative_id.slice(0, 8)}"
-                                    </div>
-                                    <CreativeSelectorList
-                                      disabledIds={usedInThisAdset}
-                                      onPick={(cid) => substituirPeca(ai, p.creative_id, cid)}
-                                    />
-                                  </PopoverContent>
-                                </Popover>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-[11px] gap-1"
+                                  title="Substituir por outro criativo do pool"
+                                  onClick={() => openSelector({
+                                    title: `Substituir "${c?.name ?? p.creative_id.slice(0, 8)}"`,
+                                    disabledIds: usedInThisAdset,
+                                    onPick: (cid) => substituirPeca(ai, p.creative_id, cid),
+                                  })}
+                                >
+                                  <Replace className="h-3 w-3" />
+                                  Substituir
+                                </Button>
+
                               </div>
                             </div>
                           );
