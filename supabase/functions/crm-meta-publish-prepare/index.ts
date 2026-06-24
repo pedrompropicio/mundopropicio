@@ -331,20 +331,21 @@ Responde APENAS JSON puro com este shape:
   let ins: any;
   if (shouldReuse) {
     const mergedAdsets = mergeAdsetsPreservingMetaIds(existing.adsets, adsetsOut);
+    const updateRow: Record<string, unknown> = {
+      company_id,
+      event_id: design.event_id,
+      objetivo: objetivo,
+      orcamento_total_cents: orcamentoTotal,
+      moeda: "EUR",
+      link_destino: linkDestinoEvento,
+      adsets: mergedAdsets,
+      // NÃO mexe em estado nem em meta_campaign_id — preservados.
+    };
+    if (startTimePresent) updateRow.start_time = startTimeIn;
+    if (endTimePresent) updateRow.end_time = endTimeIn;
     const { data: upd, error: updErr } = await (adminClient as any)
       .schema("crm").from("meta_publish_plan")
-      .update({
-        company_id,
-        event_id: design.event_id,
-        objetivo: objetivo,
-        orcamento_total_cents: orcamentoTotal,
-        moeda: "EUR",
-        link_destino: linkDestinoEvento,
-        adsets: mergedAdsets,
-        start_time: startTimeIn,
-        end_time: endTimeIn,
-        // NÃO mexe em estado nem em meta_campaign_id — preservados.
-      })
+      .update(updateRow)
       .eq("id", existing.id)
       .select("id, link_destino")
       .single();
@@ -352,27 +353,29 @@ Responde APENAS JSON puro com este shape:
     ins = upd;
     console.log("[meta-publish-prepare] REUSED_PLAN", JSON.stringify({ plan_id: existing.id, design_id, meta_campaign_id_preserved: existing.meta_campaign_id ?? null }));
   } else {
+    const insertRow: Record<string, unknown> = {
+      company_id,
+      event_id: design.event_id,
+      design_id,
+      objetivo: objetivo,
+      orcamento_total_cents: orcamentoTotal,
+      moeda: "EUR",
+      link_destino: linkDestinoEvento,
+      adsets: adsetsOut,
+      estado: "rascunho",
+    };
+    if (startTimePresent) insertRow.start_time = startTimeIn;
+    if (endTimePresent) insertRow.end_time = endTimeIn;
     const { data: insNew, error: insErr } = await (adminClient as any)
       .schema("crm").from("meta_publish_plan")
-      .insert({
-        company_id,
-        event_id: design.event_id,
-        design_id,
-        objetivo: objetivo,
-        orcamento_total_cents: orcamentoTotal,
-        moeda: "EUR",
-        link_destino: linkDestinoEvento,
-        adsets: adsetsOut,
-        estado: "rascunho",
-        start_time: startTimeIn,
-        end_time: endTimeIn,
-      })
+      .insert(insertRow)
       .select("id, link_destino")
       .single();
     if (insErr) return json({ error: "persist_failed", detail: insErr.message }, 500);
     ins = insNew;
     console.log("[meta-publish-prepare] NEW_PLAN", JSON.stringify({ plan_id: ins.id, design_id, reason: existing ? `last_estado=${existing.estado}` : "no_existing" }));
   }
+
 
 
   return json({
