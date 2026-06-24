@@ -240,7 +240,7 @@ Deno.serve(async (req: Request) => {
 
   // c) duelo paralelo
   const [gem, gpt] = await Promise.all([
-    callModel(GEMINI_MODEL, prompt),
+    callModelWithRetry(GEMINI_MODEL, prompt, 2),
     callModel(GPT_MODEL, prompt),
   ]);
 
