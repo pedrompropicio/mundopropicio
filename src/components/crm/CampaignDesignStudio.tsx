@@ -584,9 +584,14 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
       // Push para o Meta (não bloqueia).
       setUploadStatus({ state: "metapush" });
       try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
         const { data: pushRes, error: pushErr } = await supabase.functions.invoke(
           "crm-meta-upload-creative",
-          { body: { company_id: companyId, creative_id: newId } },
+          {
+            body: { company_id: companyId, creative_id: newId },
+            headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+          },
         );
         if (pushRes?.ok === true) {
           const metaId = pushRes.type === "image" ? pushRes.meta_image_hash : pushRes.meta_video_id;
@@ -615,9 +620,14 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   async function retryUploadMetaPush(creativeIdToRetry: string) {
     setUploadStatus({ state: "metapush" });
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
       const { data: pushRes, error: pushErr } = await supabase.functions.invoke(
         "crm-meta-upload-creative",
-        { body: { company_id: companyId, creative_id: creativeIdToRetry, force: true } },
+        {
+          body: { company_id: creativeIdToRetry ? companyId : companyId, creative_id: creativeIdToRetry, force: true },
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+        },
       );
       if (pushRes?.ok === true) {
         const metaId = pushRes.type === "image" ? pushRes.meta_image_hash : pushRes.meta_video_id;

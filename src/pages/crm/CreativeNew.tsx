@@ -234,9 +234,14 @@ export default function CrmCreativeNew() {
       // Empurra para o Meta (não bloqueia — fica re-tentável).
       setMetaPush({ state: "uploading" });
       try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
         const { data: pushRes, error: pushErr } = await supabase.functions.invoke(
           "crm-meta-upload-creative",
-          { body: { company_id: companyId, creative_id: inserted.id } },
+          {
+            body: { company_id: companyId, creative_id: inserted.id },
+            headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+          },
         );
         if (pushRes?.ok === true) {
           if (pushRes.type === "image") {
@@ -270,9 +275,14 @@ export default function CrmCreativeNew() {
   const retryMetaPush = async (creativeIdToRetry: string) => {
     setMetaPush({ state: "uploading" });
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
       const { data: pushRes, error: pushErr } = await supabase.functions.invoke(
         "crm-meta-upload-creative",
-        { body: { company_id: companyId, creative_id: creativeIdToRetry, force: true } },
+        {
+          body: { company_id: companyId, creative_id: creativeIdToRetry, force: true },
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+        },
       );
       if (pushRes?.ok === true) {
         if (pushRes.type === "image") {
