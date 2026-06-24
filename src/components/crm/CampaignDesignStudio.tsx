@@ -370,6 +370,31 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     })();
   }, [open, assemblyId]);
 
+  // Carregar Custom Audiences disponíveis para a empresa
+  useEffect(() => {
+    if (!open || !companyId) { setAvailableAudiences([]); setAudiencesTruncated(false); return; }
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .from("meta_custom_audiences")
+        .select("id,audience_id_meta,name,total_records_meta,enabled,filters")
+        .eq("company_id", companyId)
+        .eq("enabled", true)
+        .order("total_records_meta", { ascending: false, nullsFirst: false })
+        .limit(1000);
+      if (error) {
+        console.warn("[design-studio] fetch audiences failed", error);
+        toast.error(`Falha a carregar audiências: ${error.message ?? String(error)}`);
+        setAvailableAudiences([]); setAudiencesTruncated(false);
+        return;
+      }
+      const rows = (data ?? []) as AvailableAudience[];
+      setAvailableAudiences(rows);
+      setAudiencesTruncated(rows.length >= 1000);
+    })();
+  }, [open, companyId]);
+
+
+
   async function fetchCreativeMeta(ids: string[]) {
     if (ids.length === 0) return new Map<string, CreativeMini>();
     const { data, error } = await (supabase as any)
