@@ -1058,6 +1058,46 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                                   <Maximize2 className="h-3.5 w-3.5 absolute top-1 right-1 text-white/90 drop-shadow opacity-0 group-hover:opacity-100 transition" />
                                 </div>
                                 <div className="text-xs font-medium truncate" title={c?.name ?? p.creative_id}>{c?.name ?? p.creative_id.slice(0, 8)}</div>
+                                {(() => {
+                                  if (!c) return null;
+                                  const ev = evaluatePiece({
+                                    type: c.type,
+                                    width: c.width,
+                                    height: c.height,
+                                    duration_seconds: c.duration_seconds,
+                                    file_mime_type: c.file_mime_type,
+                                  });
+                                  const placementBadge = ev.placement === "vertical" ? "9:16" : ev.placement === "feed" ? "Feed" : "—";
+                                  const placementClass = ev.placement === "vertical"
+                                    ? "bg-purple-500/10 text-purple-300 border-purple-500/40"
+                                    : ev.placement === "feed"
+                                    ? "bg-sky-500/10 text-sky-300 border-sky-500/40"
+                                    : "bg-zinc-500/10 text-zinc-300 border-zinc-500/40";
+                                  const avisos = ev.badges.filter((b) => b.nivel === "aviso");
+                                  return (
+                                    <div className="mt-1 flex items-center gap-1 flex-wrap">
+                                      <Badge variant="outline" className={cn("border text-[10px]", placementClass)}>{placementBadge}</Badge>
+                                      {avisos.length === 0 ? (
+                                        <Badge variant="outline" className="border bg-emerald-500/10 text-emerald-300 border-emerald-500/40 text-[10px]">ok</Badge>
+                                      ) : (
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Badge variant="outline" className="border bg-amber-500/10 text-amber-300 border-amber-500/40 text-[10px] gap-1 cursor-help">
+                                                <AlertTriangle className="h-3 w-3" /> {avisos.length}
+                                              </Badge>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom" className="max-w-xs">
+                                              <ul className="text-xs space-y-1 list-disc pl-4">
+                                                {avisos.map((b) => <li key={b.codigo}>{b.dica ?? b.label}</li>)}
+                                              </ul>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                                 {warn && (
                                   <Badge className="mt-1 bg-amber-500/15 text-amber-300 border-amber-500/40 text-[10px] gap-1">
                                     <AlertTriangle className="h-3 w-3" /> texto temporal na imagem
