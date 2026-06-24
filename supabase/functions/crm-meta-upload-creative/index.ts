@@ -7,14 +7,15 @@
 // Input: { company_id, creative_id, force? }
 // Auth user JWT obrigatório.
 //
-// OBSERVABILIDADE (v2): erros de negócio devolvem HTTP 200 com { ok:false, error, detail, fb_error? }
+// OBSERVABILIDADE (v3): erros de negócio devolvem HTTP 200 com { ok:false, error, detail, fb_error? }
 // para que supabase.functions.invoke entregue o body ao front em vez de mascarar como erro de transporte.
+// Além disso, grava telemetria em crm.upload_creative_debug a cada marco relevante.
 // Auth real continua 401.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
-const BUILD_VERSION = "upload-creative-v2-observability 2026-06-24";
-const GRAPH_API_VERSION = "v18.0";
+const BUILD_VERSION = "upload-creative-v3-dbtrace 2026-06-24";
+const GRAPH_API_VERSION = "v21.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SRK = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -36,6 +37,17 @@ const bizErr = (payload: { error: string; detail?: unknown; fb_error?: unknown }
   console.log("[upload-creative] FAIL", JSON.stringify(payload));
   return json({ ok: false, ...payload }, 200);
 };
+
+function detailToText(detail: unknown): string | null {
+  if (detail == null) return null;
+  if (typeof detail === "string") return detail;
+  if (detail instanceof Error) return detail.message;
+  try {
+    return JSON.stringify(detail);
+  } catch {
+    return String(detail);
+  }
+}
 
 function normalizeAdAccountId(raw: string): string {
   const v = String(raw || "").trim();
@@ -60,13 +72,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const { data: userData, error: userErr } = await userClient.auth.getUser();
   if (userErr || !userData?.user) return json({ ok: false, error: "auth_failed", detail: userErr?.message }, 401);
 
-  let body: { company_id?: string; creative_id?: string; force?: boolean } = {};
-  try { body = await req.json(); } catch {}
-  const companyId = body.company_id;
-  const creativeId = body.creative_id;
-  const force = !!body.force;
-  if (!companyId || !creativeId) return bizErr({ error: "missing_params" });
-
   const admin = createClient(SUPABASE_URL, SRK, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -75,57 +80,102 @@ Deno.serve(async (req: Request): Promise<Response> => {
     db: { schema: "crm" as never },
   });
 
-  // 1) Criativo
-  const { data: cre, error: creErr } = await (sbCrm as any)
-    .from("meta_creatives")
-    .select("id, company_id, type, file_url, file_mime_type, storage_bucket, storage_path, meta_image_hash, meta_video_id")
-    .eq("id", creativeId)
-    .maybeSingle();
-  if (creErr || !cre) return bizErr({ error: "creative_not_found", detail: creErr?.message });
-  if (cre.company_id !== companyId) return bizErr({ error: "company_mismatch" });
-  const type = String(cre.type ?? "").toLowerCase();
-  if (type !== "image" && type !== "video") return bizErr({ error: "tipo_invalido", detail: type });
+  let companyId: string | undefined;
+  let creativeId: string | undefined;
+  let adAccountId: string | undefined;
 
-  // Idempotência
-  if (!force) {
-    if (type === "image" && cre.meta_image_hash) {
-      return json({ ok: true, creative_id: creativeId, type, meta_image_hash: cre.meta_image_hash, skipped: "already_uploaded" });
+  const dbg = async (step: string, extra: {
+    creative_id?: string | null;
+    company_id?: string | null;
+    ok?: boolean | null;
+    http_status?: number | null;
+    detail?: unknown;
+    fb_error?: unknown;
+    ad_account?: string | null;
+    graph_api_version?: string | null;
+  } = {}) => {
+    try {
+      const { error: dbgInsertErr } = await (sbCrm as any).from("upload_creative_debug").insert({
+        creative_id: extra.creative_id ?? creativeId ?? null,
+        company_id: extra.company_id ?? companyId ?? null,
+        step,
+        ok: extra.ok ?? null,
+        http_status: extra.http_status ?? null,
+        detail: detailToText(extra.detail),
+        fb_error: extra.fb_error ?? null,
+        ad_account: extra.ad_account ?? adAccountId ?? null,
+        graph_api_version: extra.graph_api_version ?? GRAPH_API_VERSION,
+      });
+      if (dbgInsertErr) {
+        console.log("[upload-creative] debug_insert_failed", JSON.stringify({ step, detail: dbgInsertErr.message }));
+      }
+    } catch (dbgErr) {
+      console.log("[upload-creative] debug_insert_failed", JSON.stringify({ step, detail: detailToText(dbgErr) }));
     }
-    if (type === "video" && cre.meta_video_id) {
-      return json({ ok: true, creative_id: creativeId, type, meta_video_id: cre.meta_video_id, skipped: "already_uploaded" });
-    }
-  }
+  };
 
-  // 2) Conexão Meta + ad_account
-  const { data: conn, error: connErr } = await sbCrm
-    .from("ad_platform_connections")
-    .select("id")
-    .eq("company_id", companyId).eq("platform", "meta").eq("status", "active")
-    .maybeSingle();
-  if (connErr || !conn?.id) return bizErr({ error: "connection_not_found", detail: connErr?.message });
-
-  const { data: linkRows, error: linkErr } = await (sbCrm as any)
-    .from("ad_platform_account_links")
-    .select("connection_id, ad_account_id, is_primary, enabled")
-    .eq("connection_id", conn.id)
-    .eq("enabled", true)
-    .order("is_primary", { ascending: false });
-  if (linkErr) return bizErr({ error: "ad_account_query_failed", detail: linkErr.message });
-  const linkRow = (linkRows ?? [])[0];
-  if (!linkRow?.ad_account_id) return bizErr({ error: "sem_ad_account" });
-  const adAccountId = normalizeAdAccountId(linkRow.ad_account_id as string);
-
-  // 3) Token desencriptado
-  const { data: tokRows, error: tokErr } = await admin.rpc("crm_get_meta_decrypted_token", {
-    p_connection_id: conn.id, p_master_key: KEY,
-  });
-  if (tokErr || !Array.isArray(tokRows) || tokRows.length === 0) {
-    return bizErr({ error: "token_decrypt_failed", detail: tokErr?.message });
-  }
-  const token = (tokRows[0] as { access_token: string }).access_token;
-
-  // 4) Upload por tipo
   try {
+    let body: { company_id?: string; creative_id?: string; force?: boolean } = {};
+    try { body = await req.json(); } catch {}
+    companyId = body.company_id;
+    creativeId = body.creative_id;
+    const force = !!body.force;
+    await dbg("start", { creative_id: creativeId ?? null, company_id: companyId ?? null });
+    if (!companyId || !creativeId) return bizErr({ error: "missing_params" });
+
+    // 1) Criativo
+    const { data: cre, error: creErr } = await (sbCrm as any)
+      .from("meta_creatives")
+      .select("id, company_id, type, file_url, file_mime_type, storage_bucket, storage_path, meta_image_hash, meta_video_id")
+      .eq("id", creativeId)
+      .maybeSingle();
+    if (creErr || !cre) return bizErr({ error: "creative_not_found", detail: creErr?.message });
+    if (cre.company_id !== companyId) return bizErr({ error: "company_mismatch" });
+    const type = String(cre.type ?? "").toLowerCase();
+    await dbg("got_creative", { ok: true, detail: type });
+    if (type !== "image" && type !== "video") return bizErr({ error: "tipo_invalido", detail: type });
+
+    // Idempotência
+    if (!force) {
+      if (type === "image" && cre.meta_image_hash) {
+        return json({ ok: true, creative_id: creativeId, type, meta_image_hash: cre.meta_image_hash, skipped: "already_uploaded" });
+      }
+      if (type === "video" && cre.meta_video_id) {
+        return json({ ok: true, creative_id: creativeId, type, meta_video_id: cre.meta_video_id, skipped: "already_uploaded" });
+      }
+    }
+
+    // 2) Conexão Meta + ad_account
+    const { data: conn, error: connErr } = await sbCrm
+      .from("ad_platform_connections")
+      .select("id")
+      .eq("company_id", companyId).eq("platform", "meta").eq("status", "active")
+      .maybeSingle();
+    if (connErr || !conn?.id) return bizErr({ error: "connection_not_found", detail: connErr?.message });
+
+    const { data: linkRows, error: linkErr } = await (sbCrm as any)
+      .from("ad_platform_account_links")
+      .select("connection_id, ad_account_id, is_primary, enabled")
+      .eq("connection_id", conn.id)
+      .eq("enabled", true)
+      .order("is_primary", { ascending: false });
+    if (linkErr) return bizErr({ error: "ad_account_query_failed", detail: linkErr.message });
+    const linkRow = (linkRows ?? [])[0];
+    if (!linkRow?.ad_account_id) return bizErr({ error: "sem_ad_account" });
+    adAccountId = normalizeAdAccountId(linkRow.ad_account_id as string);
+    await dbg("got_link", { ok: true, ad_account: adAccountId });
+
+    // 3) Token desencriptado
+    const { data: tokRows, error: tokErr } = await admin.rpc("crm_get_meta_decrypted_token", {
+      p_connection_id: conn.id, p_master_key: KEY,
+    });
+    if (tokErr || !Array.isArray(tokRows) || tokRows.length === 0) {
+      return bizErr({ error: "token_decrypt_failed", detail: tokErr?.message });
+    }
+    const token = (tokRows[0] as { access_token: string }).access_token;
+    await dbg("got_token", { ok: true });
+
+    // 4) Upload por tipo
     if (type === "image") {
       // Descarrega bytes (do storage se possível, caso contrário do file_url)
       let bytes: Uint8Array | null = null;
@@ -145,18 +195,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
       } else {
         return bizErr({ error: "sem_origem_de_bytes" });
       }
+      await dbg("downloaded", { ok: true, detail: `${bytes.length} bytes, mime=${mime}` });
       const fileName = (cre.storage_path?.split("/").pop()) || `${creativeId}.jpg`;
       const fd = new FormData();
       fd.append("access_token", token);
       fd.append("filename", new Blob([bytes!], { type: mime }), fileName);
 
       const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/act_${adAccountId}/adimages`;
+      await dbg("fb_called", { ad_account: adAccountId, graph_api_version: GRAPH_API_VERSION, detail: url });
       const resp = await fetch(url, { method: "POST", body: fd });
       const j = await resp.json().catch(() => ({}));
       if (!resp.ok || j?.error) {
         console.log("[upload-creative] adimages_falhou raw", JSON.stringify({
           adAccountId, graph_api_version: GRAPH_API_VERSION, http_status: resp.status, fb_response: j,
         }));
+        await dbg("fb_error", { ok: false, http_status: resp.status, detail: j?.error?.message, fb_error: j?.error ?? null });
         return bizErr({
           error: "adimages_falhou",
           detail: j?.error?.message ?? `http_${resp.status}`,
@@ -167,6 +220,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const firstKey = Object.keys(images)[0];
       const hash = firstKey ? images[firstKey]?.hash : null;
       if (!hash) return bizErr({ error: "adimages_sem_hash", detail: JSON.stringify(j) });
+      await dbg("fb_ok", { ok: true, http_status: resp.status, detail: hash });
 
       const { error: uErr } = await (sbCrm as any).from("meta_creatives")
         .update({ meta_image_hash: hash, updated_at: new Date().toISOString() })
@@ -182,12 +236,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     fd.append("access_token", token);
     fd.append("file_url", cre.file_url);
     const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/act_${adAccountId}/advideos`;
+    await dbg("fb_called", { ad_account: adAccountId, graph_api_version: GRAPH_API_VERSION, detail: url });
     const resp = await fetch(url, { method: "POST", body: fd });
     const j = await resp.json().catch(() => ({}));
     if (!resp.ok || j?.error) {
       console.log("[upload-creative] advideos_falhou raw", JSON.stringify({
         adAccountId, graph_api_version: GRAPH_API_VERSION, http_status: resp.status, fb_response: j,
       }));
+      await dbg("fb_error", { ok: false, http_status: resp.status, detail: j?.error?.message, fb_error: j?.error ?? null });
       return bizErr({
         error: "advideos_falhou",
         detail: j?.error?.message ?? `http_${resp.status}`,
@@ -196,6 +252,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
     const videoId = j?.id ? String(j.id) : null;
     if (!videoId) return bizErr({ error: "advideos_sem_id", detail: JSON.stringify(j) });
+    await dbg("fb_ok", { ok: true, http_status: resp.status, detail: videoId });
 
     const { error: uErr } = await (sbCrm as any).from("meta_creatives")
       .update({ meta_video_id: videoId, updated_at: new Date().toISOString() })
@@ -204,6 +261,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     return json({ ok: true, creative_id: creativeId, type, meta_video_id: videoId, nota: "vídeo entra em processamento no Meta" });
   } catch (e) {
+    await dbg("threw", { ok: false, detail: (e as Error).message });
     return bizErr({ error: "threw", detail: (e as Error).message });
   }
 });
