@@ -190,6 +190,24 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   // Pool curado de criativos do evento (RPC crm.assembly_creative_pool)
   type PoolCreative = { id: string; name: string | null; file_url: string | null; type: string | null; file_mime_type: string | null };
   const [poolCreatives, setPoolCreatives] = useState<PoolCreative[]>([]);
+  // ticketing_url do evento — usado como link_url do criativo carregado (para entrar no pool por link).
+  const [eventTicketingUrl, setEventTicketingUrl] = useState<string | null>(null);
+
+  // Upload "Carregar novo criativo" (dentro do estúdio)
+  type UploadState =
+    | { state: "idle" }
+    | { state: "uploading"; pct: number; phase: string }
+    | { state: "metapush" }
+    | { state: "ok"; creativeId: string; kind: "image" | "video"; metaId: string | null }
+    | { state: "err"; msg: string; creativeId?: string };
+  const [uploadDialog, setUploadDialog] = useState<{ open: boolean; adsetIdx: number | null }>({ open: false, adsetIdx: null });
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadPreviewUrl, setUploadPreviewUrl] = useState<string | null>(null);
+  const [uploadMeta, setUploadMeta] = useState<{ width: number; height: number; duration: number | null; type: "image" | "video" } | null>(null);
+  const [uploadName, setUploadName] = useState("");
+  const [uploadLinkOverride, setUploadLinkOverride] = useState("");
+  const [uploadStatus, setUploadStatus] = useState<UploadState>({ state: "idle" });
+  const uploadFileInputRef = useRef<HTMLInputElement>(null);
 
 
   // Validação por variação
