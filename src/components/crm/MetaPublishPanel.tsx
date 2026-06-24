@@ -98,6 +98,34 @@ function repartir(total: number, pesos: number[]): number[] {
   return floor;
 }
 
+// "YYYY-MM-DDTHH:mm" (local) ⇄ ISO UTC
+function isoToLocalInput(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function localInputToIso(v: string): string | null {
+  if (!v) return null;
+  const d = new Date(v); // interpretado como hora local
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+function fmtJanela(startLocal: string, endLocal: string): string {
+  const fmt = (s: string) => {
+    if (!s) return "";
+    const d = new Date(s);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  if (startLocal && endLocal) return `De ${fmt(startLocal)} a ${fmt(endLocal)}`;
+  if (startLocal) return `A partir de ${fmt(startLocal)} (sem fim)`;
+  if (endLocal) return `Até ${fmt(endLocal)} (sem início)`;
+  return "Sem janela definida";
+}
+
+
 export function MetaPublishPanel({
   open, onOpenChange, companyId, designId,
 }: {
