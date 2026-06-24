@@ -228,6 +228,157 @@ function SemaforoBadge({ s }: { s: Variacao["semaforo"] }) {
   return <Badge variant="outline" className="text-muted-foreground">⚪ Por revalidar</Badge>;
 }
 
+type SubtypeFilter = "all" | "WEBSITE" | "LOOKALIKE" | "IG_BUSINESS" | "ENGAGEMENT" | "CUSTOM";
+
+function SearchableAudienceDialog({
+  open,
+  onOpenChange,
+  audiences,
+  truncated,
+  alreadySelected,
+  onPick,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  audiences: AvailableAudience[];
+  truncated: boolean;
+  alreadySelected: Set<string>;
+  onPick: (a: AvailableAudience) => void;
+}) {
+  const [q, setQ] = useState("");
+  const [subtype, setSubtype] = useState<SubtypeFilter>("all");
+  const [onlyReady, setOnlyReady] = useState(true);
+
+  useEffect(() => {
+    if (open) { setQ(""); setSubtype("all"); setOnlyReady(true); }
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    const qn = q.trim().toLowerCase();
+    const list = audiences.filter((a) => {
+      if (subtype !== "all" && audienceSubtype(a) !== subtype) return false;
+      if (onlyReady && audienceDeliveryCode(a) !== "200") return false;
+      if (qn && !(a.name ?? "").toLowerCase().includes(qn)) return false;
+      return true;
+    });
+    list.sort((a, b) => (b.total_records_meta ?? -1) - (a.total_records_meta ?? -1));
+    return list;
+  }, [audiences, q, subtype, onlyReady]);
+
+  const visible = filtered.slice(0, 100);
+  const overflowed = filtered.length > visible.length;
+
+  const FILTERS: { key: SubtypeFilter; label: string }[] = [
+    { key: "all", label: "Todos" },
+    { key: "WEBSITE", label: "Pixel" },
+    { key: "LOOKALIKE", label: "Lookalike" },
+    { key: "IG_BUSINESS", label: "Instagram" },
+    { key: "ENGAGEMENT", label: "Facebook" },
+    { key: "CUSTOM", label: "Listas" },
+  ];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl w-full max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Adicionar audiência ao adset</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Procurar por nome…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {FILTERS.map((f) => (
+              <Button
+                key={f.key}
+                type="button"
+                size="sm"
+                variant={subtype === f.key ? "default" : "outline"}
+                className="h-7 text-xs"
+                onClick={() => setSubtype(f.key)}
+              >
+                {f.label}
+              </Button>
+            ))}
+            <div className="ml-auto">
+              <Button
+                type="button"
+                size="sm"
+                variant={onlyReady ? "default" : "outline"}
+                className="h-7 text-xs"
+                onClick={() => setOnlyReady((v) => !v)}
+              >
+                {onlyReady ? <Check className="h-3 w-3 mr-1" /> : null}
+                Só prontas para uso
+              </Button>
+            </div>
+          </div>
+          <div className="text-[11px] text-muted-foreground">
+            {filtered.length} {filtered.length === 1 ? "audiência" : "audiências"}
+            {truncated && " · a mostrar as primeiras 1000 sincronizadas"}
+            {overflowed && ` · a mostrar 100 — refina a busca para ver mais`}
+          </div>
+          <div className="border rounded-md divide-y divide-border max-h-[50vh] overflow-y-auto">
+            {visible.length === 0 ? (
+              <div className="p-4 text-center text-xs text-muted-foreground">Nada encontrado.</div>
+            ) : visible.map((a) => {
+              const sub = audienceSubtype(a);
+              const subLabel = sub ? (SUBTYPE_LABEL[sub] ?? sub) : "—";
+              const code = audienceDeliveryCode(a);
+              const isReady = code === "200";
+              const picked = alreadySelected.has(a.audience_id_meta);
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  disabled={picked}
+                  onClick={() => onPick(a)}
+                  className={cn(
+                    "w-full text-left flex items-center gap-2 p-2.5 hover:bg-muted/40 transition",
+                    picked && "opacity-60 cursor-default hover:bg-transparent",
+                  )}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium truncate" title={a.name}>{a.name}</div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <Badge variant="outline" className="text-[10px] border-border">{subLabel}</Badge>
+                      <span className="text-[10px] text-muted-foreground">{formatAudienceSize(a.total_records_meta)}</span>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-[10px] border",
+                          isReady
+                            ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/40"
+                            : "bg-amber-500/10 text-amber-300 border-amber-500/40",
+                        )}
+                      >
+                        {isReady ? "pronta" : "pequena"}
+                      </Badge>
+                    </div>
+                  </div>
+                  {picked ? (
+                    <Check className="h-4 w-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <Plus className="h-4 w-4 text-muted-foreground shrink-0" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+
 export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId }: CampaignDesignStudioProps) {
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
