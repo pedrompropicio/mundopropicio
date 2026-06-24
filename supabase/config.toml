@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.crm-meta-upload-creative-v2]
 verify_jwt = true
+
+[functions.crm-meta-list-audiences]
+verify_jwt = true
