@@ -21,6 +21,7 @@ const json = (b: unknown, s = 200) =>
 type Briefing = {
   artist?: string;
   music_style?: string;
+  music_styles?: string[];
   entity_type?: string;
   cidade: string;
   dias_evento: number;
