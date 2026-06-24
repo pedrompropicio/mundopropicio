@@ -186,7 +186,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   const [estado, setEstado] = useState<"rascunho" | "finalizado">("rascunho");
   const [creativesById, setCreativesById] = useState<Map<string, CreativeMini>>(new Map());
   // Catálogo da empresa para o Popover "Substituir"
-  const [companyCreatives, setCompanyCreatives] = useState<Array<{ id: string; name: string | null; file_url: string | null }>>([]);
+  const [companyCreatives, setCompanyCreatives] = useState<Array<{ id: string; name: string | null; file_url: string | null; type: string | null; file_mime_type: string | null }>>([]);
 
 
   // Validação por variação
@@ -219,11 +219,11 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     (async () => {
       const { data, error } = await (supabase as any)
         .schema("crm").from("meta_creatives")
-        .select("id, name, file_url")
+        .select("id, name, file_url, type, file_mime_type")
         .eq("company_id", companyId)
         .order("created_at", { ascending: false });
       if (error) { console.warn("[design-studio] fetch company creatives failed", error); return; }
-      setCompanyCreatives((data ?? []) as Array<{ id: string; name: string | null; file_url: string | null }>);
+      setCompanyCreatives((data ?? []) as Array<{ id: string; name: string | null; file_url: string | null; type: string | null; file_mime_type: string | null }>);
     })();
   }, [open, companyId]);
 
@@ -554,8 +554,9 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                       <div className="flex flex-wrap gap-3">
                         {(adset.pecas ?? []).map((p) => {
                           const c = creativesById.get(p.creative_id);
-                          const isImage = ((c?.type ?? "").toLowerCase().includes("image"))
-                            || ((c?.file_mime_type ?? "").toLowerCase().startsWith("image/"));
+                          const mediaKind = getEffectiveMediaType(c?.file_url, c?.file_mime_type, c?.type).kind;
+                          const isImage = mediaKind === "image";
+                          const isVideo = mediaKind === "video";
                           const temporalHits = c ? detectTemporalSnippets(c.text_snippets) : [];
                           const warn = temporalHits.length > 0 && !campanhaTemGatilhoTemporal;
                           const usedInThisAdset = new Set((adset.pecas ?? []).map((pp) => pp.creative_id));
@@ -576,6 +577,14 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                                 <div className="relative">
                                   {isImage && c?.file_url ? (
                                     <img src={withCacheBust(c.file_url, c.updated_at) ?? undefined} alt={c.name ?? ""} className="w-full h-24 object-cover rounded mb-2" />
+                                  ) : isVideo && c?.file_url ? (
+                                    <video
+                                      src={`${withCacheBust(c.file_url, c.updated_at)}#t=0.1`}
+                                      muted
+                                      playsInline
+                                      preload="metadata"
+                                      className="w-full h-24 object-cover rounded mb-2 pointer-events-none"
+                                    />
                                   ) : (
                                     <div className="w-full h-24 rounded mb-2 bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">
                                       {(c?.type ?? "?").toString()}
@@ -629,7 +638,17 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                                             )}
                                           >
                                             {cc.file_url ? (
-                                              <img src={cc.file_url} alt="" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
+                                              getEffectiveMediaType(cc.file_url, cc.file_mime_type, cc.type).kind === "video" ? (
+                                                <video
+                                                  src={`${cc.file_url}#t=0.1`}
+                                                  muted
+                                                  playsInline
+                                                  preload="metadata"
+                                                  className="h-7 w-7 rounded object-cover bg-muted shrink-0 pointer-events-none"
+                                                />
+                                              ) : (
+                                                <img src={cc.file_url} alt="" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
+                                              )
                                             ) : (
                                               <div className="h-7 w-7 rounded bg-muted shrink-0" />
                                             )}

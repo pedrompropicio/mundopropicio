@@ -73,7 +73,14 @@ type ExcluidoContradiz = { creative_id: string; name?: string | null };
 
 type Narrativa = { trigger_id: string | null; trigger_nome: string; texto: string };
 
-type CreativeMini = { id: string; name: string | null; file_url?: string | null };
+type CreativeMini = { id: string; name: string | null; file_url?: string | null; type?: string | null; file_mime_type?: string | null };
+
+function isVideoCreative(c: { file_url?: string | null; file_mime_type?: string | null; type?: string | null } | null | undefined): boolean {
+  if (!c) return false;
+  if ((c.type || "").toLowerCase() === "video") return true;
+  if ((c.file_mime_type || "").toLowerCase().startsWith("video/")) return true;
+  return /\.mp4($|\?|#)/i.test(c.file_url || "");
+}
 
 export function AssistedAssemblyPanel({
   open, onOpenChange, eventId, companyId, flow, sourceCampaignId, creativeIds,
@@ -113,7 +120,7 @@ export function AssistedAssemblyPanel({
       const { data, error } = await (supabase as any)
         .schema("crm")
         .from("meta_creatives")
-        .select("id, name, file_url")
+        .select("id, name, file_url, type, file_mime_type")
         .eq("company_id", companyId)
         .order("created_at", { ascending: false });
       if (error) {
@@ -160,14 +167,14 @@ export function AssistedAssemblyPanel({
     const { data, error } = await (supabase as any)
       .schema("crm")
       .from("meta_creatives")
-      .select("id, name")
+      .select("id, name, file_url, type, file_mime_type")
       .in("id", ids);
     if (error) {
       console.warn("[assembly-panel] fetch creative names failed", error);
       return new Map<string, CreativeMini>();
     }
     const m = new Map<string, CreativeMini>();
-    (data ?? []).forEach((r: any) => m.set(r.id, { id: r.id, name: r.name }));
+    (data ?? []).forEach((r: any) => m.set(r.id, { id: r.id, name: r.name, file_url: r.file_url, type: r.type, file_mime_type: r.file_mime_type }));
     return m;
   }
 
@@ -509,11 +516,21 @@ export function AssistedAssemblyPanel({
                             className="flex items-center gap-2 px-2 py-1.5 rounded border text-xs border-border/60 bg-muted/20"
                           >
                             {mini?.file_url ? (
-                              <img
-                                src={mini.file_url}
-                                alt=""
-                                className="h-8 w-8 rounded object-cover bg-muted shrink-0"
-                              />
+                              isVideoCreative(mini) ? (
+                                <video
+                                  src={`${mini.file_url}#t=0.1`}
+                                  muted
+                                  playsInline
+                                  preload="metadata"
+                                  className="h-8 w-8 rounded object-cover bg-muted shrink-0 pointer-events-none"
+                                />
+                              ) : (
+                                <img
+                                  src={mini.file_url}
+                                  alt=""
+                                  className="h-8 w-8 rounded object-cover bg-muted shrink-0"
+                                />
+                              )
                             ) : (
                               <div className="h-8 w-8 rounded bg-muted shrink-0" />
                             )}
@@ -554,7 +571,17 @@ export function AssistedAssemblyPanel({
                                         )}
                                       >
                                         {c.file_url ? (
-                                          <img src={c.file_url} alt="" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
+                                          isVideoCreative(c) ? (
+                                            <video
+                                              src={`${c.file_url}#t=0.1`}
+                                              muted
+                                              playsInline
+                                              preload="metadata"
+                                              className="h-7 w-7 rounded object-cover bg-muted shrink-0 pointer-events-none"
+                                            />
+                                          ) : (
+                                            <img src={c.file_url} alt="" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
+                                          )
                                         ) : (
                                           <div className="h-7 w-7 rounded bg-muted shrink-0" />
                                         )}
