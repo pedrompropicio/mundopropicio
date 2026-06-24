@@ -243,6 +243,13 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   // ticketing_url do evento — usado como link_url do criativo carregado (para entrar no pool por link).
   const [eventTicketingUrl, setEventTicketingUrl] = useState<string | null>(null);
 
+  // Audiências Meta disponíveis (custom audiences sincronizadas)
+  const [availableAudiences, setAvailableAudiences] = useState<AvailableAudience[]>([]);
+  const [audiencesTruncated, setAudiencesTruncated] = useState(false);
+  const [audienceDialog, setAudienceDialog] = useState<{ open: boolean; adsetIdx: number | null }>({ open: false, adsetIdx: null });
+
+
+
   // Upload "Carregar novo criativo" (dentro do estúdio)
   type UploadState =
     | { state: "idle" }
