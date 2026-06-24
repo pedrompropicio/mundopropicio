@@ -1430,6 +1430,45 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
       {/* Seletor de criativos (Adicionar / Substituir) */}
       <CreativeSelectorDialog />
 
+      {/* Confirmação para apagar criativo definitivamente */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => { if (!o && !deleting) setDeleteTarget(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar definitivamente «{deleteTarget?.name}»?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>Esta ação remove o ficheiro e o registo. Não pode ser desfeita.</p>
+                {(() => {
+                  if (!deleteTarget) return null;
+                  const usedIn = adsets.filter((a) => (a.pecas ?? []).some((p) => p.creative_id === deleteTarget.id)).length;
+                  if (usedIn === 0) return null;
+                  return (
+                    <p className="text-amber-400 flex items-start gap-1">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <span>Este criativo está em uso em {usedIn} adset{usedIn === 1 ? "" : "s"} e será removido deles.</span>
+                    </p>
+                  );
+                })()}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={(e) => { e.preventDefault(); void confirmDeleteCreative(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />}
+              Apagar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Upload de criativo novo dentro do Estúdio */}
       <Dialog
         open={uploadDialog.open}
@@ -1437,7 +1476,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
           if (!o) closeUploadDialog();
         }}
       >
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl w-full max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base flex items-center gap-2">
               <Upload className="h-4 w-4" /> Carregar novo criativo
