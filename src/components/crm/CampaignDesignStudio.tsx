@@ -924,21 +924,32 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="text-xs uppercase tracking-wide text-muted-foreground">Peças</h4>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2 text-[11px] gap-1"
-                          title="Adicionar criativo do pool curado do evento"
-                          onClick={() => openSelector({
-                            title: "Adicionar criativo",
-                            disabledIds: usedInThisAdset,
-                            onPick: (cid) => adicionarPeca(ai, cid),
-                          })}
-                        >
-                          <Plus className="h-3 w-3" />
-                          Adicionar criativo
-                        </Button>
-
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-[11px] gap-1"
+                            title="Adicionar criativo do pool curado do evento"
+                            onClick={() => openSelector({
+                              title: "Adicionar criativo",
+                              disabledIds: usedInThisAdset,
+                              onPick: (cid) => adicionarPeca(ai, cid),
+                            })}
+                          >
+                            <Plus className="h-3 w-3" />
+                            Adicionar criativo
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-[11px] gap-1"
+                            title="Carregar criativo novo do disco e adicionar a este adset"
+                            onClick={() => openUploadDialog(ai)}
+                          >
+                            <Upload className="h-3 w-3" />
+                            Carregar novo
+                          </Button>
+                        </div>
                       </div>
                       <div className="flex flex-wrap gap-3">
                         {(adset.pecas ?? []).map((p) => {
