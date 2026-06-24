@@ -554,8 +554,9 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                       <div className="flex flex-wrap gap-3">
                         {(adset.pecas ?? []).map((p) => {
                           const c = creativesById.get(p.creative_id);
-                          const isImage = ((c?.type ?? "").toLowerCase().includes("image"))
-                            || ((c?.file_mime_type ?? "").toLowerCase().startsWith("image/"));
+                          const mediaKind = getEffectiveMediaType(c?.file_url, c?.file_mime_type, c?.type).kind;
+                          const isImage = mediaKind === "image";
+                          const isVideo = mediaKind === "video";
                           const temporalHits = c ? detectTemporalSnippets(c.text_snippets) : [];
                           const warn = temporalHits.length > 0 && !campanhaTemGatilhoTemporal;
                           const usedInThisAdset = new Set((adset.pecas ?? []).map((pp) => pp.creative_id));
@@ -576,6 +577,14 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                                 <div className="relative">
                                   {isImage && c?.file_url ? (
                                     <img src={withCacheBust(c.file_url, c.updated_at) ?? undefined} alt={c.name ?? ""} className="w-full h-24 object-cover rounded mb-2" />
+                                  ) : isVideo && c?.file_url ? (
+                                    <video
+                                      src={`${withCacheBust(c.file_url, c.updated_at)}#t=0.1`}
+                                      muted
+                                      playsInline
+                                      preload="metadata"
+                                      className="w-full h-24 object-cover rounded mb-2 pointer-events-none"
+                                    />
                                   ) : (
                                     <div className="w-full h-24 rounded mb-2 bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">
                                       {(c?.type ?? "?").toString()}
