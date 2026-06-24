@@ -462,6 +462,26 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }, 412);
   }
 
+  // Pré-check: orçamentos por adset abaixo do mínimo (lifetime ou daily). Falha cedo com lista clara.
+  const adsetsAbaixoMin: Array<{ adset: string; orcamento_cents: number; minimo_cents: number; modo: string }> = [];
+  for (const a of (adsets as any[])) {
+    const orc = Math.max(0, Number(a.orcamento_cents ?? 0));
+    if (usaLifetime) {
+      if (orc < MIN_LIFETIME_CENTS) adsetsAbaixoMin.push({ adset: a.trigger_nome, orcamento_cents: orc, minimo_cents: MIN_LIFETIME_CENTS, modo: "lifetime" });
+    } else {
+      if (orc < MIN_DAILY_CENTS) adsetsAbaixoMin.push({ adset: a.trigger_nome, orcamento_cents: orc, minimo_cents: MIN_DAILY_CENTS, modo: "daily" });
+    }
+  }
+  if (adsetsAbaixoMin.length > 0) {
+    return json({
+      error: "orcamento_abaixo_minimo",
+      message: `Algum(s) adset(s) têm orçamento abaixo do mínimo Meta (${usaLifetime ? `lifetime min ≈ ${MIN_LIFETIME_CENTS} cents para janela de ${diasJanela} dia(s)` : `daily min ≈ ${MIN_DAILY_CENTS} cents`}). Aumenta o total ou redistribui os pesos.`,
+      adsets: adsetsAbaixoMin,
+      janela: { start_time: planStartTime, end_time: planEndTime, dias: diasJanela, budget_mode: usaLifetime ? "lifetime" : "daily" },
+    }, 412);
+  }
+
+
   // Estado: a_publicar
   await (admin as any).schema("crm").from("meta_publish_plan")
     .update({ estado: "a_publicar", publish_error: null, publish_started_at: new Date().toISOString() }).eq("id", planId);
