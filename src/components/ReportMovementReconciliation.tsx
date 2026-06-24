@@ -18,6 +18,7 @@ export default function ReportMovementReconciliation() {
   const { isAdmin } = useAuth();
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>("");
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [dateFromOpen, setDateFromOpen] = useState(false);
