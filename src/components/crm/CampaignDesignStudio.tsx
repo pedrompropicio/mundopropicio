@@ -625,7 +625,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
       const { data: pushRes, error: pushErr } = await supabase.functions.invoke(
         "crm-meta-upload-creative",
         {
-          body: { company_id: creativeIdToRetry ? companyId : companyId, creative_id: creativeIdToRetry, force: true },
+          body: { company_id: companyId, creative_id: creativeIdToRetry, force: true },
           headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
         },
       );
