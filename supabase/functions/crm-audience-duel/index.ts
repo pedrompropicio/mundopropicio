@@ -127,25 +127,25 @@ async function fetchAudienceInventory(sbPublic: ReturnType<typeof createClient>)
 
   // 1) prioridade: nomes que casam com artistas/parceiros do evento
   for (const r of rows) {
-    if (out.length >= 60) break;
+    if (out.length >= 35) break;
     const n = (r.name ?? "").toLowerCase();
     if (PRIORITY_PATTERNS.some((p) => n.includes(p))) push(r);
   }
   // 2) lookalikes
   for (const r of rows) {
-    if (out.length >= 60) break;
+    if (out.length >= 35) break;
     const sub = String((r.filters as Record<string, unknown> | null)?.["subtype"] ?? "").toUpperCase();
     if (sub === "LOOKALIKE") push(r);
   }
   // 3) completa com as maiores
   for (const r of rows) {
-    if (out.length >= 60) break;
+    if (out.length >= 35) break;
     push(r);
   }
   return out;
 }
 
-async function callModel(model: string, prompt: string, timeoutMs = 110000): Promise<{ ok: true; data: unknown } | { ok: false; err: string }> {
+async function callModel(model: string, prompt: string, timeoutMs = 280000): Promise<{ ok: true; data: unknown } | { ok: false; err: string }> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
