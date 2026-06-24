@@ -245,6 +245,23 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     })();
   }, [open, assemblyId]);
 
+  // Deriva ticketing_url do evento (assembly → event_id → events.ticketing_url) para usar
+  // como link_url default ao carregar criativos novos a partir do Estúdio.
+  useEffect(() => {
+    if (!open || !assemblyId) { setEventTicketingUrl(null); return; }
+    (async () => {
+      const { data: aa } = await (supabase as any)
+        .schema("crm").from("assisted_assembly")
+        .select("event_id").eq("id", assemblyId).maybeSingle();
+      const eventId = (aa as any)?.event_id ?? null;
+      if (!eventId) { setEventTicketingUrl(null); return; }
+      const { data: ev } = await supabase
+        .from("events").select("ticketing_url").eq("id", eventId).maybeSingle();
+      const url = (ev as any)?.ticketing_url ?? null;
+      setEventTicketingUrl(typeof url === "string" && url.trim() ? url.trim() : null);
+    })();
+  }, [open, assemblyId]);
+
   async function fetchCreativeMeta(ids: string[]) {
     if (ids.length === 0) return new Map<string, CreativeMini>();
     const { data, error } = await (supabase as any)
