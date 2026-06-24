@@ -274,8 +274,7 @@ export default function CrmCreativeNew() {
         "crm-meta-upload-creative",
         { body: { company_id: companyId, creative_id: creativeIdToRetry, force: true } },
       );
-      if (pushErr) throw pushErr;
-      if (pushRes?.ok) {
+      if (pushRes?.ok === true) {
         if (pushRes.type === "image") {
           setMetaPush({ state: "ok", kind: "image", id: pushRes.meta_image_hash });
         } else {
@@ -283,12 +282,19 @@ export default function CrmCreativeNew() {
         }
         toast.success("Push para Meta concluído");
       } else {
-        setMetaPush({ state: "err", msg: pushRes?.error || "falhou", creativeId: creativeIdToRetry });
+        const err = pushRes?.error || pushErr?.message || "falhou";
+        const detail = pushRes?.detail || pushRes?.fb_error?.message || "";
+        const msg = detail ? `Push falhou: ${err} — ${detail}` : `Push falhou: ${err}`;
+        setMetaPush({ state: "err", msg, creativeId: creativeIdToRetry });
+        toast.warning(msg);
       }
     } catch (e: any) {
-      setMetaPush({ state: "err", msg: e?.message ?? String(e), creativeId: creativeIdToRetry });
+      const msg = `Push falhou: ${e?.message ?? String(e)}`;
+      setMetaPush({ state: "err", msg, creativeId: creativeIdToRetry });
+      toast.warning(msg);
     }
   };
+
 
   const canSubmit = !!file && !!name.trim() && !uploading;
 
