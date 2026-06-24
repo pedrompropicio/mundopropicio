@@ -58,7 +58,8 @@ async function resolveVideoId(metaCreativeId: string, token: string): Promise<st
 interface VideoMeta { source: string | null; width: number | null; height: number | null; }
 async function resolveVideoSource(videoId: string, token: string): Promise<VideoMeta> {
   const u = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${videoId}`);
-  u.searchParams.set("fields", "source,width,height");
+  // width/height não existem em /video — só /source. Pedimos só source.
+  u.searchParams.set("fields", "source");
   u.searchParams.set("access_token", token);
   const j = await gget(u);
   if (j?.error) {
