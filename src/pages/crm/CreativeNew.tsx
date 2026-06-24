@@ -92,6 +92,12 @@ export default function CrmCreativeNew() {
 
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [metaPush, setMetaPush] = useState<
+    | { state: "idle" }
+    | { state: "uploading" }
+    | { state: "ok"; kind: "image" | "video"; id: string }
+    | { state: "err"; msg: string; creativeId: string }
+  >({ state: "idle" });
 
   useEffect(() => {
     return () => {
@@ -224,12 +230,61 @@ export default function CrmCreativeNew() {
 
       setProgress(100);
       toast.success("Criativo guardado");
-      navigate(`/audience/creatives/${inserted.id}`);
+
+      // Empurra para o Meta (não bloqueia — fica re-tentável).
+      setMetaPush({ state: "uploading" });
+      try {
+        const { data: pushRes, error: pushErr } = await supabase.functions.invoke(
+          "crm-meta-upload-creative",
+          { body: { company_id: companyId, creative_id: inserted.id } },
+        );
+        if (pushErr) throw pushErr;
+        if (pushRes?.ok) {
+          if (pushRes.type === "image") {
+            setMetaPush({ state: "ok", kind: "image", id: pushRes.meta_image_hash });
+            toast.success("No Meta (pronto a publicar)");
+          } else {
+            setMetaPush({ state: "ok", kind: "video", id: pushRes.meta_video_id });
+            toast.success("No Meta — vídeo em processamento");
+          }
+        } else {
+          const msg = pushRes?.error || "falhou";
+          setMetaPush({ state: "err", msg, creativeId: inserted.id });
+          toast.warning("Criativo guardado, mas falhou push para Meta", { description: msg });
+        }
+      } catch (e: any) {
+        const msg = e?.message ?? String(e);
+        setMetaPush({ state: "err", msg, creativeId: inserted.id });
+        toast.warning("Criativo guardado, mas falhou push para Meta", { description: msg });
+      }
     } catch (e: any) {
       console.error("[creative/new] failed:", e);
       toast.error("Falha a guardar criativo", { description: e?.message ?? String(e) });
       setUploading(false);
       setProgress(0);
+    }
+  };
+
+  const retryMetaPush = async (creativeIdToRetry: string) => {
+    setMetaPush({ state: "uploading" });
+    try {
+      const { data: pushRes, error: pushErr } = await supabase.functions.invoke(
+        "crm-meta-upload-creative",
+        { body: { company_id: companyId, creative_id: creativeIdToRetry, force: true } },
+      );
+      if (pushErr) throw pushErr;
+      if (pushRes?.ok) {
+        if (pushRes.type === "image") {
+          setMetaPush({ state: "ok", kind: "image", id: pushRes.meta_image_hash });
+        } else {
+          setMetaPush({ state: "ok", kind: "video", id: pushRes.meta_video_id });
+        }
+        toast.success("Push para Meta concluído");
+      } else {
+        setMetaPush({ state: "err", msg: pushRes?.error || "falhou", creativeId: creativeIdToRetry });
+      }
+    } catch (e: any) {
+      setMetaPush({ state: "err", msg: e?.message ?? String(e), creativeId: creativeIdToRetry });
     }
   };
 
@@ -466,13 +521,52 @@ export default function CrmCreativeNew() {
         </Card>
       </div>
 
+      {metaPush.state !== "idle" && (
+        <Card className="p-4">
+          {metaPush.state === "uploading" && (
+            <div className="flex items-center gap-2 text-sm">
+              <Loader2 className="h-4 w-4 animate-spin text-cyan-500" />
+              A carregar no Meta…
+            </div>
+          )}
+          {metaPush.state === "ok" && (
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm">
+                ✓ No Meta (pronto a publicar){" "}
+                <span className="text-xs text-muted-foreground ml-1">
+                  {metaPush.kind === "image" ? `image_hash=${metaPush.id}` : `video_id=${metaPush.id} (em processamento)`}
+                </span>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => navigate("/audience/creatives")}>
+                Ver lista
+              </Button>
+            </div>
+          )}
+          {metaPush.state === "err" && (
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm text-amber-600">
+                ⚠ Falhou push para Meta: <span className="text-xs">{metaPush.msg}</span>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => retryMetaPush(metaPush.creativeId)}>
+                  Tentar novamente
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => navigate(`/audience/creatives/${metaPush.creativeId}`)}>
+                  Ir para o criativo
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
+
       <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={() => navigate("/audience/creatives")} disabled={uploading}>
-          Cancelar
+        <Button variant="outline" onClick={() => navigate("/audience/creatives")} disabled={uploading || metaPush.state === "uploading"}>
+          {metaPush.state === "ok" ? "Fechar" : "Cancelar"}
         </Button>
         <Button
           onClick={handleSubmit}
-          disabled={!canSubmit}
+          disabled={!canSubmit || metaPush.state === "uploading" || metaPush.state === "ok"}
           className="bg-cyan-500 hover:bg-cyan-600 text-white"
         >
           {uploading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : null}
