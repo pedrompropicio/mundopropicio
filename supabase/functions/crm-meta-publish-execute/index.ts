@@ -133,7 +133,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // 1) Lê o plano (RLS user — valida pertença ao company)
   const { data: planRow, error: planErr } = await (supabase as any)
     .schema("crm").from("meta_publish_plan")
-    .select("id, company_id, event_id, design_id, objetivo, orcamento_total_cents, moeda, link_destino, adsets, estado, meta_campaign_id")
+    .select("id, company_id, event_id, design_id, objetivo, orcamento_total_cents, moeda, link_destino, adsets, estado, meta_campaign_id, start_time, end_time")
     .eq("id", planId)
     .maybeSingle();
   if (planErr) return json({ error: "plan_query_failed", detail: planErr.message }, 500);
@@ -146,6 +146,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!["rascunho", "pronto_a_publicar", "a_publicar", "falhado"].includes(planRow.estado)) {
     return json({ error: "estado_invalido", estado: planRow.estado }, 409);
   }
+
+  // 1b) Janela de datas e regra orçamento: com end_time → lifetime_budget; sem → daily_budget.
+  const planStartTime: string | null = (planRow as any).start_time ?? null;
+  const planEndTime: string | null = (planRow as any).end_time ?? null;
+  const usaLifetime = !!planEndTime;
+  if (usaLifetime && !planStartTime) {
+    return json({
+      error: "sem_start_time_para_lifetime",
+      message: "Campanha com data de fim exige também data de início (o Meta requer start_time + end_time quando o adset usa lifetime_budget).",
+    }, 400);
+  }
+  if (planStartTime && planEndTime && new Date(planEndTime).getTime() <= new Date(planStartTime).getTime()) {
+    return json({ error: "janela_invalida", message: "end_time tem de ser depois de start_time" }, 400);
+  }
+  // Nº de dias da janela (mínimo 1) — usado para mínimo de lifetime_budget.
+  const diasJanela = (planStartTime && planEndTime)
+    ? Math.max(1, Math.ceil((new Date(planEndTime).getTime() - new Date(planStartTime).getTime()) / 86400000))
+    : 1;
+  // Mínimo Meta conservador: 1€/dia (100 cents). Para lifetime, 100 cents × dias.
+  const MIN_DAILY_CENTS = 100;
+  const MIN_LIFETIME_CENTS = MIN_DAILY_CENTS * diasJanela;
+
 
   // 2) Conexão Meta ativa para este company → connection_id + ad_account_id.
   //    Pegamos o link primário enabled (mesma origem que MetaPublishPanel/Setup usa).
