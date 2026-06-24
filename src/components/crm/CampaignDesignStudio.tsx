@@ -185,8 +185,9 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   const [adsets, setAdsets] = useState<Adset[]>([]);
   const [estado, setEstado] = useState<"rascunho" | "finalizado">("rascunho");
   const [creativesById, setCreativesById] = useState<Map<string, CreativeMini>>(new Map());
-  // Catálogo da empresa para o Popover "Substituir"
-  const [companyCreatives, setCompanyCreatives] = useState<Array<{ id: string; name: string | null; file_url: string | null; type: string | null; file_mime_type: string | null }>>([]);
+  // Pool curado de criativos do evento (RPC crm.assembly_creative_pool)
+  type PoolCreative = { id: string; name: string | null; file_url: string | null; type: string | null; file_mime_type: string | null };
+  const [poolCreatives, setPoolCreatives] = useState<PoolCreative[]>([]);
 
 
   // Validação por variação
