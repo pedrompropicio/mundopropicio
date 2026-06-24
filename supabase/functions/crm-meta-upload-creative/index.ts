@@ -6,10 +6,14 @@
 //
 // Input: { company_id, creative_id, force? }
 // Auth user JWT obrigatório.
+//
+// OBSERVABILIDADE (v2): erros de negócio devolvem HTTP 200 com { ok:false, error, detail, fb_error? }
+// para que supabase.functions.invoke entregue o body ao front em vez de mascarar como erro de transporte.
+// Auth real continua 401.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
-const BUILD_VERSION = "upload-creative-v1 2026-06-24";
+const BUILD_VERSION = "upload-creative-v2-observability 2026-06-24";
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SRK = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -27,6 +31,12 @@ const json = (b: unknown, s = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+// Erro de negócio: log + HTTP 200 com ok:false (para o body chegar ao front)
+const bizErr = (payload: { error: string; detail?: unknown; fb_error?: unknown }) => {
+  console.log("[upload-creative] FAIL", JSON.stringify(payload));
+  return json({ ok: false, ...payload }, 200);
+};
+
 function normalizeAdAccountId(raw: string): string {
   const v = String(raw || "").trim();
   return v.startsWith("act_") ? v.slice(4) : v;
@@ -34,28 +44,28 @@ function normalizeAdAccountId(raw: string): string {
 
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+  if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
 
   console.log(`[crm-meta-upload-creative] BUILD_VERSION=${BUILD_VERSION}`);
 
-  // Auth user JWT
+  // Auth user JWT (mantém 401 real)
   const authHeader = req.headers.get("Authorization") ?? "";
   if (!authHeader.toLowerCase().startsWith("bearer ")) {
-    return json({ error: "missing_authorization" }, 401);
+    return json({ ok: false, error: "missing_authorization" }, 401);
   }
   const userClient = createClient(SUPABASE_URL, ANON, {
     global: { headers: { Authorization: authHeader } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { data: userData, error: userErr } = await userClient.auth.getUser();
-  if (userErr || !userData?.user) return json({ error: "auth_failed", detail: userErr?.message }, 401);
+  if (userErr || !userData?.user) return json({ ok: false, error: "auth_failed", detail: userErr?.message }, 401);
 
   let body: { company_id?: string; creative_id?: string; force?: boolean } = {};
   try { body = await req.json(); } catch {}
   const companyId = body.company_id;
   const creativeId = body.creative_id;
   const force = !!body.force;
-  if (!companyId || !creativeId) return json({ error: "missing_params" }, 400);
+  if (!companyId || !creativeId) return bizErr({ error: "missing_params" });
 
   const admin = createClient(SUPABASE_URL, SRK, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -71,10 +81,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .select("id, company_id, type, file_url, file_mime_type, storage_bucket, storage_path, meta_image_hash, meta_video_id")
     .eq("id", creativeId)
     .maybeSingle();
-  if (creErr || !cre) return json({ error: "creative_not_found", detail: creErr?.message }, 404);
-  if (cre.company_id !== companyId) return json({ error: "company_mismatch" }, 403);
+  if (creErr || !cre) return bizErr({ error: "creative_not_found", detail: creErr?.message });
+  if (cre.company_id !== companyId) return bizErr({ error: "company_mismatch" });
   const type = String(cre.type ?? "").toLowerCase();
-  if (type !== "image" && type !== "video") return json({ error: "tipo_invalido", detail: type }, 400);
+  if (type !== "image" && type !== "video") return bizErr({ error: "tipo_invalido", detail: type });
 
   // Idempotência
   if (!force) {
@@ -92,7 +102,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .select("id")
     .eq("company_id", companyId).eq("platform", "meta").eq("status", "active")
     .maybeSingle();
-  if (connErr || !conn?.id) return json({ error: "connection_not_found", detail: connErr?.message }, 404);
+  if (connErr || !conn?.id) return bizErr({ error: "connection_not_found", detail: connErr?.message });
 
   const { data: linkRows, error: linkErr } = await (sbCrm as any)
     .from("ad_platform_account_links")
@@ -100,9 +110,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .eq("connection_id", conn.id)
     .eq("enabled", true)
     .order("is_primary", { ascending: false });
-  if (linkErr) return json({ error: "ad_account_query_failed", detail: linkErr.message }, 500);
+  if (linkErr) return bizErr({ error: "ad_account_query_failed", detail: linkErr.message });
   const linkRow = (linkRows ?? [])[0];
-  if (!linkRow?.ad_account_id) return json({ error: "sem_ad_account" }, 412);
+  if (!linkRow?.ad_account_id) return bizErr({ error: "sem_ad_account" });
   const adAccountId = normalizeAdAccountId(linkRow.ad_account_id as string);
 
   // 3) Token desencriptado
@@ -110,7 +120,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     p_connection_id: conn.id, p_master_key: KEY,
   });
   if (tokErr || !Array.isArray(tokRows) || tokRows.length === 0) {
-    return json({ error: "token_decrypt_failed", detail: tokErr?.message }, 403);
+    return bizErr({ error: "token_decrypt_failed", detail: tokErr?.message });
   }
   const token = (tokRows[0] as { access_token: string }).access_token;
 
@@ -123,17 +133,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
       if (cre.storage_bucket && cre.storage_path) {
         const { data: dl, error: dlErr } = await admin.storage
           .from(cre.storage_bucket).download(cre.storage_path);
-        if (dlErr || !dl) return json({ error: "download_falhou", detail: dlErr?.message }, 500);
+        if (dlErr || !dl) return bizErr({ error: "download_falhou", detail: dlErr?.message });
         bytes = new Uint8Array(await dl.arrayBuffer());
         if (dl.type) mime = dl.type;
       } else if (cre.file_url) {
         const r = await fetch(cre.file_url);
-        if (!r.ok) return json({ error: "download_falhou", detail: `http_${r.status}` }, 500);
+        if (!r.ok) return bizErr({ error: "download_falhou", detail: `http_${r.status}` });
         bytes = new Uint8Array(await r.arrayBuffer());
         const ct = r.headers.get("content-type");
         if (ct) mime = ct.split(";")[0].trim();
       } else {
-        return json({ error: "sem_origem_de_bytes" }, 400);
+        return bizErr({ error: "sem_origem_de_bytes" });
       }
       const fileName = (cre.storage_path?.split("/").pop()) || `${creativeId}.jpg`;
       const fd = new FormData();
@@ -144,23 +154,30 @@ Deno.serve(async (req: Request): Promise<Response> => {
       const resp = await fetch(url, { method: "POST", body: fd });
       const j = await resp.json().catch(() => ({}));
       if (!resp.ok || j?.error) {
-        return json({ error: "adimages_falhou", detail: j?.error?.message ?? `http_${resp.status}`, fb_error: j?.error ?? null }, 502);
+        console.log("[upload-creative] adimages_falhou raw", JSON.stringify({
+          adAccountId, graph_api_version: GRAPH_API_VERSION, http_status: resp.status, fb_response: j,
+        }));
+        return bizErr({
+          error: "adimages_falhou",
+          detail: j?.error?.message ?? `http_${resp.status}`,
+          fb_error: j?.error ?? null,
+        });
       }
       const images = j?.images ?? {};
       const firstKey = Object.keys(images)[0];
       const hash = firstKey ? images[firstKey]?.hash : null;
-      if (!hash) return json({ error: "adimages_sem_hash", detail: JSON.stringify(j) }, 502);
+      if (!hash) return bizErr({ error: "adimages_sem_hash", detail: JSON.stringify(j) });
 
       const { error: uErr } = await (sbCrm as any).from("meta_creatives")
         .update({ meta_image_hash: hash, updated_at: new Date().toISOString() })
         .eq("id", creativeId);
-      if (uErr) return json({ error: "db_update_falhou", detail: uErr.message }, 500);
+      if (uErr) return bizErr({ error: "db_update_falhou", detail: uErr.message });
 
       return json({ ok: true, creative_id: creativeId, type, meta_image_hash: hash });
     }
 
     // VÍDEO: usa file_url público
-    if (!cre.file_url) return json({ error: "sem_file_url" }, 400);
+    if (!cre.file_url) return bizErr({ error: "sem_file_url" });
     const fd = new FormData();
     fd.append("access_token", token);
     fd.append("file_url", cre.file_url);
@@ -168,18 +185,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const resp = await fetch(url, { method: "POST", body: fd });
     const j = await resp.json().catch(() => ({}));
     if (!resp.ok || j?.error) {
-      return json({ error: "advideos_falhou", detail: j?.error?.message ?? `http_${resp.status}`, fb_error: j?.error ?? null }, 502);
+      console.log("[upload-creative] advideos_falhou raw", JSON.stringify({
+        adAccountId, graph_api_version: GRAPH_API_VERSION, http_status: resp.status, fb_response: j,
+      }));
+      return bizErr({
+        error: "advideos_falhou",
+        detail: j?.error?.message ?? `http_${resp.status}`,
+        fb_error: j?.error ?? null,
+      });
     }
     const videoId = j?.id ? String(j.id) : null;
-    if (!videoId) return json({ error: "advideos_sem_id", detail: JSON.stringify(j) }, 502);
+    if (!videoId) return bizErr({ error: "advideos_sem_id", detail: JSON.stringify(j) });
 
     const { error: uErr } = await (sbCrm as any).from("meta_creatives")
       .update({ meta_video_id: videoId, updated_at: new Date().toISOString() })
       .eq("id", creativeId);
-    if (uErr) return json({ error: "db_update_falhou", detail: uErr.message }, 500);
+    if (uErr) return bizErr({ error: "db_update_falhou", detail: uErr.message });
 
     return json({ ok: true, creative_id: creativeId, type, meta_video_id: videoId, nota: "vídeo entra em processamento no Meta" });
   } catch (e) {
-    return json({ error: "threw", detail: (e as Error).message }, 500);
+    return bizErr({ error: "threw", detail: (e as Error).message });
   }
 });
