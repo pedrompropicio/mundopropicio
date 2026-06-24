@@ -704,25 +704,21 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="text-xs uppercase tracking-wide text-muted-foreground">Peças</h4>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 px-2 text-[11px] gap-1"
-                              title="Adicionar criativo do pool curado do evento"
-                            >
-                              <Plus className="h-3 w-3" />
-                              Adicionar criativo
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-80 p-0" align="end">
-                            <CreativeSelectorList
-                              disabledIds={usedInThisAdset}
-                              onPick={(cid) => adicionarPeca(ai, cid)}
-                            />
-                          </PopoverContent>
-                        </Popover>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[11px] gap-1"
+                          title="Adicionar criativo do pool curado do evento"
+                          onClick={() => openSelector({
+                            title: "Adicionar criativo",
+                            disabledIds: usedInThisAdset,
+                            onPick: (cid) => adicionarPeca(ai, cid),
+                          })}
+                        >
+                          <Plus className="h-3 w-3" />
+                          Adicionar criativo
+                        </Button>
+
                       </div>
                       <div className="flex flex-wrap gap-3">
                         {(adset.pecas ?? []).map((p) => {
