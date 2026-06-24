@@ -73,7 +73,14 @@ type ExcluidoContradiz = { creative_id: string; name?: string | null };
 
 type Narrativa = { trigger_id: string | null; trigger_nome: string; texto: string };
 
-type CreativeMini = { id: string; name: string | null; file_url?: string | null };
+type CreativeMini = { id: string; name: string | null; file_url?: string | null; type?: string | null; file_mime_type?: string | null };
+
+function isVideoCreative(c: { file_url?: string | null; file_mime_type?: string | null; type?: string | null } | null | undefined): boolean {
+  if (!c) return false;
+  if ((c.type || "").toLowerCase() === "video") return true;
+  if ((c.file_mime_type || "").toLowerCase().startsWith("video/")) return true;
+  return /\.mp4($|\?|#)/i.test(c.file_url || "");
+}
 
 export function AssistedAssemblyPanel({
   open, onOpenChange, eventId, companyId, flow, sourceCampaignId, creativeIds,
