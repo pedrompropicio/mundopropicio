@@ -179,6 +179,20 @@ async function callModel(model: string, prompt: string, timeoutMs = 280000): Pro
   }
 }
 
+async function callModelWithRetry(model: string, prompt: string, maxAttempts = 2): Promise<{ ok: true; data: unknown } | { ok: false; err: string }> {
+  let last: { ok: true; data: unknown } | { ok: false; err: string } = { ok: false, err: "no_attempt" };
+  for (let n = 1; n <= maxAttempts; n++) {
+    const res = await callModel(model, prompt);
+    const isParseErr = res.ok && res.data && typeof res.data === "object" && (res.data as { __parse_error?: boolean }).__parse_error === true;
+    const okUseful = res.ok && !isParseErr;
+    console.log(`[duel] ${model} attempt ${n}/${maxAttempts} ok=${okUseful}`);
+    if (okUseful) return res;
+    last = res.ok ? { ok: false, err: `parse_error: ${JSON.stringify((res.data as { raw?: string })?.raw ?? "").slice(0, 400)}` } : res;
+    if (n < maxAttempts) await new Promise((r) => setTimeout(r, 1500));
+  }
+  return last;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -226,7 +240,7 @@ Deno.serve(async (req: Request) => {
 
   // c) duelo paralelo
   const [gem, gpt] = await Promise.all([
-    callModel(GEMINI_MODEL, prompt),
+    callModelWithRetry(GEMINI_MODEL, prompt, 2),
     callModel(GPT_MODEL, prompt),
   ]);
 
