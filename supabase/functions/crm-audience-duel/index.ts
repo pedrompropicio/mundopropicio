@@ -21,6 +21,7 @@ const json = (b: unknown, s = 200) =>
 type Briefing = {
   artist?: string;
   music_style?: string;
+  music_styles?: string[];
   entity_type?: string;
   cidade: string;
   dias_evento: number;
@@ -202,12 +203,14 @@ Deno.serve(async (req: Request) => {
     sbCrm.rpc("audience_retrieve", {
       p_artist: b.artist ?? null,
       p_music_style: b.music_style ?? null,
+      p_music_styles: b.music_styles ?? null,
       p_entity_type: b.entity_type ?? null,
       p_market_scope: market,
     }),
     sbCrm.rpc("audience_retrieve_publics", {
       p_artist: b.artist ?? null,
       p_music_style: b.music_style ?? null,
+      p_music_styles: b.music_styles ?? null,
       p_entity_type: b.entity_type ?? null,
       p_market_scope: market,
     }),
