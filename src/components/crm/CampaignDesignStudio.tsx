@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { CheckCircle2, Loader2, RefreshCw, Replace, Sparkles, Wand2, AlertTriangle, Info, Maximize2, Plus, Search, Upload, X, Lightbulb, Trash2 } from "lucide-react";
+import { CheckCircle2, Loader2, RefreshCw, Replace, Sparkles, Wand2, AlertTriangle, Info, Maximize2, Plus, Search, Upload, X, Lightbulb, Trash2, Users, Check } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
@@ -79,6 +79,13 @@ type Peca = {
   motivo_escolha: string;
 };
 
+type AdsetAudience = {
+  audience_id_meta: string;
+  name: string;
+  subtype: string | null;
+  tamanho: number | null;
+};
+
 type Adset = {
   trigger_id: string | null;
   trigger_nome: string;
@@ -86,6 +93,37 @@ type Adset = {
   peso_pct: number;
   pecas: Peca[];
   variacoes_texto: Variacao[];
+  audiencias?: AdsetAudience[];
+};
+
+type AvailableAudience = {
+  id: string;
+  audience_id_meta: string;
+  name: string;
+  total_records_meta: number | null;
+  enabled: boolean;
+  filters: any;
+};
+
+function audienceSubtype(a: AvailableAudience): string | null {
+  return (a?.filters?.subtype as string | undefined) ?? null;
+}
+function audienceDeliveryCode(a: AvailableAudience): string | null {
+  const c = a?.filters?.delivery_status?.code;
+  return c == null ? null : String(c);
+}
+function formatAudienceSize(n: number | null | undefined): string {
+  if (n == null || n < 0) return "—";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
+}
+const SUBTYPE_LABEL: Record<string, string> = {
+  WEBSITE: "Pixel",
+  LOOKALIKE: "Lookalike",
+  IG_BUSINESS: "Instagram",
+  ENGAGEMENT: "Facebook",
+  CUSTOM: "Lista",
 };
 
 type CreativeMini = {
@@ -190,6 +228,157 @@ function SemaforoBadge({ s }: { s: Variacao["semaforo"] }) {
   return <Badge variant="outline" className="text-muted-foreground">⚪ Por revalidar</Badge>;
 }
 
+type SubtypeFilter = "all" | "WEBSITE" | "LOOKALIKE" | "IG_BUSINESS" | "ENGAGEMENT" | "CUSTOM";
+
+function SearchableAudienceDialog({
+  open,
+  onOpenChange,
+  audiences,
+  truncated,
+  alreadySelected,
+  onPick,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  audiences: AvailableAudience[];
+  truncated: boolean;
+  alreadySelected: Set<string>;
+  onPick: (a: AvailableAudience) => void;
+}) {
+  const [q, setQ] = useState("");
+  const [subtype, setSubtype] = useState<SubtypeFilter>("all");
+  const [onlyReady, setOnlyReady] = useState(true);
+
+  useEffect(() => {
+    if (open) { setQ(""); setSubtype("all"); setOnlyReady(true); }
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    const qn = q.trim().toLowerCase();
+    const list = audiences.filter((a) => {
+      if (subtype !== "all" && audienceSubtype(a) !== subtype) return false;
+      if (onlyReady && audienceDeliveryCode(a) !== "200") return false;
+      if (qn && !(a.name ?? "").toLowerCase().includes(qn)) return false;
+      return true;
+    });
+    list.sort((a, b) => (b.total_records_meta ?? -1) - (a.total_records_meta ?? -1));
+    return list;
+  }, [audiences, q, subtype, onlyReady]);
+
+  const visible = filtered.slice(0, 100);
+  const overflowed = filtered.length > visible.length;
+
+  const FILTERS: { key: SubtypeFilter; label: string }[] = [
+    { key: "all", label: "Todos" },
+    { key: "WEBSITE", label: "Pixel" },
+    { key: "LOOKALIKE", label: "Lookalike" },
+    { key: "IG_BUSINESS", label: "Instagram" },
+    { key: "ENGAGEMENT", label: "Facebook" },
+    { key: "CUSTOM", label: "Listas" },
+  ];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl w-full max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Adicionar audiência ao adset</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Procurar por nome…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {FILTERS.map((f) => (
+              <Button
+                key={f.key}
+                type="button"
+                size="sm"
+                variant={subtype === f.key ? "default" : "outline"}
+                className="h-7 text-xs"
+                onClick={() => setSubtype(f.key)}
+              >
+                {f.label}
+              </Button>
+            ))}
+            <div className="ml-auto">
+              <Button
+                type="button"
+                size="sm"
+                variant={onlyReady ? "default" : "outline"}
+                className="h-7 text-xs"
+                onClick={() => setOnlyReady((v) => !v)}
+              >
+                {onlyReady ? <Check className="h-3 w-3 mr-1" /> : null}
+                Só prontas para uso
+              </Button>
+            </div>
+          </div>
+          <div className="text-[11px] text-muted-foreground">
+            {filtered.length} {filtered.length === 1 ? "audiência" : "audiências"}
+            {truncated && " · a mostrar as primeiras 1000 sincronizadas"}
+            {overflowed && ` · a mostrar 100 — refina a busca para ver mais`}
+          </div>
+          <div className="border rounded-md divide-y divide-border max-h-[50vh] overflow-y-auto">
+            {visible.length === 0 ? (
+              <div className="p-4 text-center text-xs text-muted-foreground">Nada encontrado.</div>
+            ) : visible.map((a) => {
+              const sub = audienceSubtype(a);
+              const subLabel = sub ? (SUBTYPE_LABEL[sub] ?? sub) : "—";
+              const code = audienceDeliveryCode(a);
+              const isReady = code === "200";
+              const picked = alreadySelected.has(a.audience_id_meta);
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  disabled={picked}
+                  onClick={() => onPick(a)}
+                  className={cn(
+                    "w-full text-left flex items-center gap-2 p-2.5 hover:bg-muted/40 transition",
+                    picked && "opacity-60 cursor-default hover:bg-transparent",
+                  )}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium truncate" title={a.name}>{a.name}</div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <Badge variant="outline" className="text-[10px] border-border">{subLabel}</Badge>
+                      <span className="text-[10px] text-muted-foreground">{formatAudienceSize(a.total_records_meta)}</span>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-[10px] border",
+                          isReady
+                            ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/40"
+                            : "bg-amber-500/10 text-amber-300 border-amber-500/40",
+                        )}
+                      >
+                        {isReady ? "pronta" : "pequena"}
+                      </Badge>
+                    </div>
+                  </div>
+                  {picked ? (
+                    <Check className="h-4 w-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <Plus className="h-4 w-4 text-muted-foreground shrink-0" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+
 export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId }: CampaignDesignStudioProps) {
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -204,6 +393,13 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   const [poolCreatives, setPoolCreatives] = useState<PoolCreative[]>([]);
   // ticketing_url do evento — usado como link_url do criativo carregado (para entrar no pool por link).
   const [eventTicketingUrl, setEventTicketingUrl] = useState<string | null>(null);
+
+  // Audiências Meta disponíveis (custom audiences sincronizadas)
+  const [availableAudiences, setAvailableAudiences] = useState<AvailableAudience[]>([]);
+  const [audiencesTruncated, setAudiencesTruncated] = useState(false);
+  const [audienceDialog, setAudienceDialog] = useState<{ open: boolean; adsetIdx: number | null }>({ open: false, adsetIdx: null });
+
+
 
   // Upload "Carregar novo criativo" (dentro do estúdio)
   type UploadState =
@@ -324,6 +520,31 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
       setEventTicketingUrl(typeof url === "string" && url.trim() ? url.trim() : null);
     })();
   }, [open, assemblyId]);
+
+  // Carregar Custom Audiences disponíveis para a empresa
+  useEffect(() => {
+    if (!open || !companyId) { setAvailableAudiences([]); setAudiencesTruncated(false); return; }
+    (async () => {
+      const { data, error } = await (supabase as any)
+        .from("meta_custom_audiences")
+        .select("id,audience_id_meta,name,total_records_meta,enabled,filters")
+        .eq("company_id", companyId)
+        .eq("enabled", true)
+        .order("total_records_meta", { ascending: false, nullsFirst: false })
+        .limit(1000);
+      if (error) {
+        console.warn("[design-studio] fetch audiences failed", error);
+        toast.error(`Falha a carregar audiências: ${error.message ?? String(error)}`);
+        setAvailableAudiences([]); setAudiencesTruncated(false);
+        return;
+      }
+      const rows = (data ?? []) as AvailableAudience[];
+      setAvailableAudiences(rows);
+      setAudiencesTruncated(rows.length >= 1000);
+    })();
+  }, [open, companyId]);
+
+
 
   async function fetchCreativeMeta(ids: string[]) {
     if (ids.length === 0) return new Map<string, CreativeMini>();
@@ -1115,8 +1336,68 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                       );
                     })()}
 
+                    {/* Audiências atribuídas */}
+                    {(() => {
+                      const auds = adset.audiencias ?? [];
+                      const removeAud = (audMetaId: string) => {
+                        setAdsets((prev) => prev.map((a, idx) => idx === ai
+                          ? { ...a, audiencias: (a.audiencias ?? []).filter((x) => x.audience_id_meta !== audMetaId) }
+                          : a));
+                      };
+                      return (
+                        <div className="rounded-md border border-border bg-card/40 p-3 space-y-2">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+                              <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                              Audiências ({auds.length})
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              onClick={() => setAudienceDialog({ open: true, adsetIdx: ai })}
+                            >
+                              <Plus className="h-3 w-3 mr-1" /> Adicionar audiência
+                            </Button>
+                          </div>
+                          {auds.length === 0 ? (
+                            <div className="flex items-start gap-2 text-[11px] text-amber-300">
+                              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                              <span>Sem audiência — usará público amplo (broad).</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-1.5">
+                              {auds.map((a) => {
+                                const subLabel = a.subtype ? (SUBTYPE_LABEL[a.subtype] ?? a.subtype) : null;
+                                return (
+                                  <Badge
+                                    key={a.audience_id_meta}
+                                    variant="outline"
+                                    className="border bg-primary/5 text-foreground text-[10px] gap-1 pl-2 pr-1 py-0.5"
+                                  >
+                                    <span className="truncate max-w-[220px]" title={a.name}>{a.name}</span>
+                                    {subLabel && <span className="text-muted-foreground">· {subLabel}</span>}
+                                    <span className="text-muted-foreground">· {formatAudienceSize(a.tamanho)}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeAud(a.audience_id_meta)}
+                                      className="ml-0.5 rounded hover:bg-muted/60 p-0.5"
+                                      aria-label="Remover audiência"
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Peças */}
+
                     {(() => {
                       const usedInThisAdset = new Set((adset.pecas ?? []).map((pp) => pp.creative_id));
                       return (
@@ -1642,7 +1923,35 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
         </DialogContent>
       </Dialog>
 
+      <SearchableAudienceDialog
+        open={audienceDialog.open}
+        onOpenChange={(v) => setAudienceDialog((prev) => ({ ...prev, open: v }))}
+        audiences={availableAudiences}
+        truncated={audiencesTruncated}
+        alreadySelected={
+          audienceDialog.adsetIdx != null
+            ? new Set((adsets[audienceDialog.adsetIdx]?.audiencias ?? []).map((a) => a.audience_id_meta))
+            : new Set()
+        }
+        onPick={(a) => {
+          const idx = audienceDialog.adsetIdx;
+          if (idx == null) return;
+          setAdsets((prev) => prev.map((ad, i) => {
+            if (i !== idx) return ad;
+            const cur = ad.audiencias ?? [];
+            if (cur.some((x) => x.audience_id_meta === a.audience_id_meta)) return ad;
+            const entry: AdsetAudience = {
+              audience_id_meta: a.audience_id_meta,
+              name: a.name,
+              subtype: audienceSubtype(a),
+              tamanho: a.total_records_meta ?? null,
+            };
+            return { ...ad, audiencias: [...cur, entry] };
+          }));
+        }}
+      />
 
     </Sheet>
+
   );
 }
