@@ -18,6 +18,7 @@ export default function ReportMovementReconciliation() {
   const { isAdmin } = useAuth();
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>("");
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [dateFromOpen, setDateFromOpen] = useState(false);
@@ -39,6 +40,15 @@ export default function ReportMovementReconciliation() {
     queryKey: ["events-list-all"],
     queryFn: async () => {
       const { data, error } = await supabase.from("events").select("id, name, parent_event_id").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["suppliers-list-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("suppliers").select("id, name").order("name");
       if (error) throw error;
       return data;
     },
@@ -151,6 +161,8 @@ export default function ReportMovementReconciliation() {
         if (!hasMatch) return;
       }
 
+      if (selectedSupplierId && tx.supplier_id !== selectedSupplierId) return;
+
       const amount = Number(tx.amount);
       const ivaRate = Number(tx.iva_rate ?? 0);
       const netAmount = ivaRate > 0 ? amount / (1 + ivaRate / 100) : amount;
@@ -190,7 +202,7 @@ export default function ReportMovementReconciliation() {
     });
 
     return result;
-  }, [allTransactions, auditEntries, selectedAccountIds, selectedEventIds, accountNameMap, events]);
+  }, [allTransactions, auditEntries, selectedAccountIds, selectedEventIds, selectedSupplierId, accountNameMap, events]);
 
   const totalExpenses = movements.filter((m) => m.isExpense).reduce((s, m) => s + m.amount, 0);
   const totalIncome = movements.filter((m) => !m.isExpense).reduce((s, m) => s + m.amount, 0);
@@ -292,6 +304,17 @@ export default function ReportMovementReconciliation() {
                 placeholder="Todos os eventos" searchPlaceholder="Pesquisar evento…" />
               {selectedEventIds.length > 0 && (
                 <button onClick={() => { setSelectedEventIds([]); setGenerated(false); }} className="mt-1 text-[10px] text-primary hover:underline">Limpar</button>
+              )}
+            </div>
+            <div className="sm:col-span-2 lg:col-span-3">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Fornecedor (opcional)</label>
+              <SearchableSelect
+                options={suppliers.map((s: any) => ({ value: s.id, label: s.name }))}
+                value={selectedSupplierId}
+                onValueChange={(val) => { setSelectedSupplierId(val); setGenerated(false); }}
+                placeholder="Todos os fornecedores" searchPlaceholder="Pesquisar fornecedor…" />
+              {selectedSupplierId && (
+                <button onClick={() => { setSelectedSupplierId(""); setGenerated(false); }} className="mt-1 text-[10px] text-primary hover:underline">Limpar</button>
               )}
             </div>
             <div className="flex items-end">
