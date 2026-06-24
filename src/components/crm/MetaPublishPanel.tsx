@@ -260,13 +260,16 @@ export function MetaPublishPanel({
           try {
             const { data: row } = await (supabase as any)
               .schema("crm").from("meta_publish_plan")
-              .select("estado, meta_campaign_id")
+              .select("estado, meta_campaign_id, start_time, end_time")
               .eq("id", (data as any).plan_id).maybeSingle();
             if (!cancel && row) {
               setEstadoPlano(row.estado ?? "rascunho");
               setMetaCampaignIdPub(row.meta_campaign_id ?? null);
+              setStartTime(isoToLocalInput(row.start_time));
+              setEndTime(isoToLocalInput(row.end_time));
             }
           } catch { /* ignore */ }
+
         }
       } catch (e: any) {
         if (!cancel) setError(e?.message ?? "Falha de rede.");
