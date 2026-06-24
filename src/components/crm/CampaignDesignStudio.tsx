@@ -1223,6 +1223,147 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
       {/* Seletor de criativos (Adicionar / Substituir) */}
       <CreativeSelectorDialog />
 
+      {/* Upload de criativo novo dentro do Estúdio */}
+      <Dialog
+        open={uploadDialog.open}
+        onOpenChange={(o) => {
+          if (!o) closeUploadDialog();
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="text-base flex items-center gap-2">
+              <Upload className="h-4 w-4" /> Carregar novo criativo
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {!uploadFile ? (
+              <div
+                onClick={() => uploadFileInputRef.current?.click()}
+                className="flex flex-col items-center justify-center h-48 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary/60 hover:bg-muted/30 transition"
+              >
+                <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                <p className="text-sm font-medium">Clica para escolher</p>
+                <p className="text-xs text-muted-foreground mt-1">JPG, PNG, WEBP, GIF, MP4, MOV · máx 50MB</p>
+                <input
+                  ref={uploadFileInputRef}
+                  type="file"
+                  accept={UPLOAD_ACCEPT}
+                  hidden
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleUploadFileChosen(f);
+                    e.target.value = "";
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="relative rounded-lg overflow-hidden bg-muted">
+                  {uploadMeta?.type === "video" ? (
+                    <video src={uploadPreviewUrl ?? undefined} controls className="w-full max-h-64 object-contain" />
+                  ) : (
+                    <img src={uploadPreviewUrl ?? undefined} alt="" className="w-full max-h-64 object-contain" />
+                  )}
+                </div>
+                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <div className="truncate">
+                    {uploadFile.name} · {(uploadFile.size / 1024 / 1024).toFixed(2)} MB
+                    {uploadMeta && <> · {uploadMeta.width}×{uploadMeta.height}{uploadMeta.duration ? ` · ${uploadMeta.duration.toFixed(1)}s` : ""}</>}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={uploadStatus.state === "uploading" || uploadStatus.state === "metapush"}
+                    onClick={() => {
+                      if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+                      setUploadFile(null); setUploadPreviewUrl(null); setUploadMeta(null);
+                    }}
+                  >
+                    <X className="h-3.5 w-3.5 mr-1" /> Remover
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="up-name">Nome *</Label>
+              <Input
+                id="up-name"
+                value={uploadName}
+                onChange={(e) => setUploadName(e.target.value)}
+                disabled={uploadStatus.state === "uploading" || uploadStatus.state === "metapush"}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="up-link" className="flex items-center justify-between">
+                <span>Link do anúncio</span>
+                {eventTicketingUrl
+                  ? <span className="text-[10px] text-emerald-400">derivado do evento</span>
+                  : <span className="text-[10px] text-amber-400 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> sem ticketing_url — pode não entrar no pool</span>}
+              </Label>
+              <Input
+                id="up-link"
+                type="url"
+                placeholder="https://…"
+                value={uploadLinkOverride}
+                onChange={(e) => setUploadLinkOverride(e.target.value)}
+                disabled={uploadStatus.state === "uploading" || uploadStatus.state === "metapush"}
+              />
+            </div>
+
+            {/* Estados */}
+            {uploadStatus.state === "uploading" && (
+              <div className="space-y-1">
+                <Progress value={uploadStatus.pct} />
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> {uploadStatus.phase}
+                </p>
+              </div>
+            )}
+            {uploadStatus.state === "metapush" && (
+              <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" /> A carregar no Meta…
+              </p>
+            )}
+            {uploadStatus.state === "ok" && (
+              <div className="rounded border border-emerald-500/40 bg-emerald-500/10 p-2 text-xs text-emerald-300 flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                {uploadStatus.kind === "video" ? "Vídeo no Meta (em processamento)" : "Imagem no Meta (pronta)"}
+                {uploadStatus.metaId && <span className="font-mono opacity-70 truncate">· {uploadStatus.metaId}</span>}
+              </div>
+            )}
+            {uploadStatus.state === "err" && (
+              <div className="rounded border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-300 space-y-1">
+                <div className="flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5" /> Push para Meta falhou: {uploadStatus.msg}</div>
+                {uploadStatus.creativeId && (
+                  <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => retryUploadMetaPush(uploadStatus.creativeId!)}>
+                    Tentar novamente
+                  </Button>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" onClick={closeUploadDialog}>
+                {uploadStatus.state === "ok" ? "Fechar" : "Cancelar"}
+              </Button>
+              {uploadStatus.state !== "ok" && (
+                <Button
+                  onClick={submitUpload}
+                  disabled={!uploadFile || !uploadName.trim() || uploadStatus.state === "uploading" || uploadStatus.state === "metapush"}
+                >
+                  {(uploadStatus.state === "uploading" || uploadStatus.state === "metapush") && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />}
+                  Carregar e adicionar
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
     </Sheet>
   );
 }
