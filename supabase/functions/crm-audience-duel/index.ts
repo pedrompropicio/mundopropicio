@@ -193,6 +193,77 @@ async function callModelWithRetry(model: string, prompt: string, maxAttempts = 2
   return last;
 }
 
+async function runDuel(run_id: string, b: Briefing, market: string): Promise<void> {
+  const sbCrm = createClient(SUPABASE_URL, SRK, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    db: { schema: "crm" as never },
+  });
+  const sbPublic = createClient(SUPABASE_URL, SRK, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  try {
+    // a) retrieval (evidência histórica + inventário real de audiências)
+    const [rCamp, rPub, evAud] = await Promise.all([
+      sbCrm.rpc("audience_retrieve", {
+        p_artist: b.artist ?? null,
+        p_music_style: b.music_style ?? null,
+        p_music_styles: b.music_styles ?? null,
+        p_entity_type: b.entity_type ?? null,
+        p_market_scope: market,
+      }),
+      sbCrm.rpc("audience_retrieve_publics", {
+        p_artist: b.artist ?? null,
+        p_music_style: b.music_style ?? null,
+        p_music_styles: b.music_styles ?? null,
+        p_entity_type: b.entity_type ?? null,
+        p_market_scope: market,
+      }),
+      fetchAudienceInventory(sbPublic),
+    ]);
+
+    const evCamp = rCamp.error ? { __err: rCamp.error.message } : rCamp.data;
+    const evPub = rPub.error ? { __err: rPub.error.message } : rPub.data;
+    const evidencia = { campanha: evCamp, publicos: evPub, audiencias_disponiveis: evAud };
+
+    // b) prompt
+    const prompt = buildPrompt(b, evCamp, evPub, evAud);
+
+    // c) duelo paralelo
+    const [gem, gpt] = await Promise.all([
+      callModelWithRetry(GEMINI_MODEL, prompt, 2),
+      callModel(GPT_MODEL, prompt),
+    ]);
+
+    const gemProposal = gem.ok ? gem.data : null;
+    const gemError = gem.ok ? null : gem.err;
+    const gptProposal = gpt.ok ? gpt.data : null;
+    const gptError = gpt.ok ? null : gpt.err;
+    const status = (gem.ok || gpt.ok) ? "done" : "error";
+
+    const { error: updErr } = await sbCrm.from("audience_duel_runs").update({
+      evidencia,
+      prompt,
+      gemini_proposal: gemProposal,
+      gemini_error: gemError,
+      gpt_proposal: gptProposal,
+      gpt_error: gptError,
+      status,
+    }).eq("id", run_id);
+
+    if (updErr) console.error(`[duel] run ${run_id} update failed:`, updErr.message);
+    else console.log(`[duel] run ${run_id} finished status=${status} ok_gem=${gem.ok} ok_gpt=${gpt.ok}`);
+  } catch (e) {
+    const msg = (e as Error)?.message ?? String(e);
+    console.error(`[duel] run ${run_id} crashed:`, msg);
+    await sbCrm.from("audience_duel_runs").update({
+      status: "error",
+      gemini_error: `runDuel_crash: ${msg}`,
+      gpt_error: `runDuel_crash: ${msg}`,
+    }).eq("id", run_id);
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -204,73 +275,25 @@ Deno.serve(async (req: Request) => {
   }
   const market = b.market_scope ?? "PT";
 
-  const sbCrm = createClient(SUPABASE_URL, SRK, {
+  // INSERT inicial — regista o duelo como 'running' antes de devolver
+  const sbCrmInit = createClient(SUPABASE_URL, SRK, {
     auth: { persistSession: false, autoRefreshToken: false },
     db: { schema: "crm" as never },
   });
-  const sbPublic = createClient(SUPABASE_URL, SRK, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
-  // a) retrieval (evidência histórica + inventário real de audiências)
-  const [rCamp, rPub, evAud] = await Promise.all([
-    sbCrm.rpc("audience_retrieve", {
-      p_artist: b.artist ?? null,
-      p_music_style: b.music_style ?? null,
-      p_music_styles: b.music_styles ?? null,
-      p_entity_type: b.entity_type ?? null,
-      p_market_scope: market,
-    }),
-    sbCrm.rpc("audience_retrieve_publics", {
-      p_artist: b.artist ?? null,
-      p_music_style: b.music_style ?? null,
-      p_music_styles: b.music_styles ?? null,
-      p_entity_type: b.entity_type ?? null,
-      p_market_scope: market,
-    }),
-    fetchAudienceInventory(sbPublic),
-  ]);
-
-  const evCamp = rCamp.error ? { __err: rCamp.error.message } : rCamp.data;
-  const evPub = rPub.error ? { __err: rPub.error.message } : rPub.data;
-  const evidencia = { campanha: evCamp, publicos: evPub, audiencias_disponiveis: evAud };
-
-  // b) prompt
-  const prompt = buildPrompt(b, evCamp, evPub, evAud);
-
-  // c) duelo paralelo
-  const [gem, gpt] = await Promise.all([
-    callModelWithRetry(GEMINI_MODEL, prompt, 2),
-    callModel(GPT_MODEL, prompt),
-  ]);
-
-  const gemProposal = gem.ok ? gem.data : null;
-  const gemError = gem.ok ? null : gem.err;
-  const gptProposal = gpt.ok ? gpt.data : null;
-  const gptError = gpt.ok ? null : gpt.err;
-
-  // e) gravar
-  const { data: ins, error: insErr } = await sbCrm.from("audience_duel_runs").insert({
+  const { data: ins, error: insErr } = await sbCrmInit.from("audience_duel_runs").insert({
     briefing: b,
-    evidencia,
-    prompt,
+    status: "running",
     gemini_model: GEMINI_MODEL,
-    gemini_proposal: gemProposal,
-    gemini_error: gemError,
     gpt_model: GPT_MODEL,
-    gpt_proposal: gptProposal,
-    gpt_error: gptError,
   }).select("id").single();
 
-  if (insErr) return json({ error: "insert_failed", detail: insErr.message, ok_gemini: gem.ok, ok_gpt: gpt.ok }, 500);
+  if (insErr) return json({ error: "insert_failed", detail: insErr.message }, 500);
+  const run_id = ins.id as string;
 
-  return json({
-    run_id: ins.id,
-    gemini_model: GEMINI_MODEL,
-    gpt_model: GPT_MODEL,
-    ok_gemini: gem.ok,
-    ok_gpt: gpt.ok,
-    ...(gemError ? { gemini_error: gemError } : {}),
-    ...(gptError ? { gpt_error: gptError } : {}),
-  });
+  // Dispara o trabalho pesado em background — devolve já ao cliente
+  // @ts-ignore EdgeRuntime is provided by Supabase Edge runtime
+  EdgeRuntime.waitUntil(runDuel(run_id, b, market));
+
+  return json({ run_id, status: "running", gemini_model: GEMINI_MODEL, gpt_model: GPT_MODEL }, 202);
 });
+

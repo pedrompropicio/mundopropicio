@@ -1,0 +1,1 @@
+ALTER TABLE crm.audience_duel_runs ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'running';
