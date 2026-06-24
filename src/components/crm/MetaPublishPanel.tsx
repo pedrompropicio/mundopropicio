@@ -743,6 +743,9 @@ export function MetaPublishPanel({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-sm">
                   Vais criar <b>1 campanha em PAUSA</b> · <b>{plano.adsets.length}</b> adsets · <b>{totalAnuncios}</b> anúncios · orçamento total <b>{euros(totalCents)} €</b> · objetivo <b>{labelObjetivo(objetivo)}</b>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Janela: <b>{fmtJanela(startTime, endTime)}</b>{endTime ? <> · orçamento <b>lifetime</b> (total da janela)</> : <> · orçamento <b>diário</b></>}
+                  </div>
                   {totalCents > 0 && Math.abs(somaAdsetsCents - totalCents) > 1 && (
                     <span className="ml-2 text-amber-600 dark:text-amber-400">
                       (soma dos adsets = {euros(somaAdsetsCents)} € — não bate)
@@ -758,12 +761,18 @@ export function MetaPublishPanel({
                   {(() => {
                     const jaPublicado = estadoPlano === "publicado";
                     const linkTopoOk = isValidHttpsUrl(linkDestino.trim());
+                    const sIso = localInputToIso(startTime);
+                    const eIso = localInputToIso(endTime);
+                    const janelaInvalida = !!(sIso && eIso && new Date(eIso).getTime() <= new Date(sIso).getTime());
+                    const faltaStartParaLifetime = !!eIso && !sIso;
                     const podePublicar =
                       !jaPublicado &&
                       !!objetivo &&
                       totalCents > 0 &&
                       totalAnuncios > 0 &&
                       linkTopoOk &&
+                      !janelaInvalida &&
+                      !faltaStartParaLifetime &&
                       !!plano.plan_id &&
                       !!companyId;
                     const tooltipMsg = jaPublicado
@@ -776,7 +785,12 @@ export function MetaPublishPanel({
                             ? "Nenhum anúncio elegível (variações coerentes)."
                             : !linkTopoOk
                               ? "Falta o link de destino."
-                              : "Pronto a publicar — fica tudo em pausa.";
+                              : janelaInvalida
+                                ? "Fim da campanha tem de ser depois do início."
+                                : faltaStartParaLifetime
+                                  ? "Para usar data de fim, define também a de início."
+                                  : "Pronto a publicar — fica tudo em pausa.";
+
                     return (
                       <TooltipProvider>
                         <Tooltip>
