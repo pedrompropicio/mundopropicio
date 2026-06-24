@@ -92,6 +92,12 @@ export default function CrmCreativeNew() {
 
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [metaPush, setMetaPush] = useState<
+    | { state: "idle" }
+    | { state: "uploading" }
+    | { state: "ok"; kind: "image" | "video"; id: string }
+    | { state: "err"; msg: string; creativeId: string }
+  >({ state: "idle" });
 
   useEffect(() => {
     return () => {
