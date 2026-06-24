@@ -202,7 +202,7 @@ export default function ReportMovementReconciliation() {
     });
 
     return result;
-  }, [allTransactions, auditEntries, selectedAccountIds, selectedEventIds, accountNameMap, events]);
+  }, [allTransactions, auditEntries, selectedAccountIds, selectedEventIds, selectedSupplierId, accountNameMap, events]);
 
   const totalExpenses = movements.filter((m) => m.isExpense).reduce((s, m) => s + m.amount, 0);
   const totalIncome = movements.filter((m) => !m.isExpense).reduce((s, m) => s + m.amount, 0);
