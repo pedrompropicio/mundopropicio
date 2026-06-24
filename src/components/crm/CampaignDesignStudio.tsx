@@ -588,19 +588,23 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
           "crm-meta-upload-creative",
           { body: { company_id: companyId, creative_id: newId } },
         );
-        if (pushErr) throw pushErr;
-        if (pushRes?.ok) {
+        if (pushRes?.ok === true) {
           const metaId = pushRes.type === "image" ? pushRes.meta_image_hash : pushRes.meta_video_id;
           setUploadStatus({ state: "ok", creativeId: newId, kind: pushRes.type, metaId });
           toast.success(pushRes.type === "video" ? "No Meta — vídeo em processamento" : "No Meta (pronto)");
         } else {
-          setUploadStatus({ state: "err", msg: pushRes?.error || "falhou", creativeId: newId });
-          toast.warning("Criativo guardado, mas falhou push para Meta");
+          const err = pushRes?.error || pushErr?.message || "falhou";
+          const detail = pushRes?.detail || pushRes?.fb_error?.message || "";
+          const msg = detail ? `Push falhou: ${err} — ${detail}` : `Push falhou: ${err}`;
+          setUploadStatus({ state: "err", msg, creativeId: newId });
+          toast.warning("Criativo guardado, mas falhou push para Meta", { description: msg });
         }
       } catch (e: any) {
-        setUploadStatus({ state: "err", msg: e?.message ?? String(e), creativeId: newId });
-        toast.warning("Criativo guardado, mas falhou push para Meta", { description: e?.message });
+        const msg = `Push falhou: ${e?.message ?? String(e)}`;
+        setUploadStatus({ state: "err", msg, creativeId: newId });
+        toast.warning("Criativo guardado, mas falhou push para Meta", { description: msg });
       }
+
     } catch (e: any) {
       console.error("[design-studio] upload failed", e);
       setUploadStatus({ state: "err", msg: e?.message ?? String(e) });
@@ -615,18 +619,24 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
         "crm-meta-upload-creative",
         { body: { company_id: companyId, creative_id: creativeIdToRetry, force: true } },
       );
-      if (pushErr) throw pushErr;
-      if (pushRes?.ok) {
+      if (pushRes?.ok === true) {
         const metaId = pushRes.type === "image" ? pushRes.meta_image_hash : pushRes.meta_video_id;
         setUploadStatus({ state: "ok", creativeId: creativeIdToRetry, kind: pushRes.type, metaId });
         toast.success("Push para Meta concluído");
       } else {
-        setUploadStatus({ state: "err", msg: pushRes?.error || "falhou", creativeId: creativeIdToRetry });
+        const err = pushRes?.error || pushErr?.message || "falhou";
+        const detail = pushRes?.detail || pushRes?.fb_error?.message || "";
+        const msg = detail ? `Push falhou: ${err} — ${detail}` : `Push falhou: ${err}`;
+        setUploadStatus({ state: "err", msg, creativeId: creativeIdToRetry });
+        toast.warning(msg);
       }
     } catch (e: any) {
-      setUploadStatus({ state: "err", msg: e?.message ?? String(e), creativeId: creativeIdToRetry });
+      const msg = `Push falhou: ${e?.message ?? String(e)}`;
+      setUploadStatus({ state: "err", msg, creativeId: creativeIdToRetry });
+      toast.warning(msg);
     }
   }
+
 
 
   function editarCampo(adsetIdx: number, varIdx: number, campo: "headline" | "corpo" | "cta", valor: string) {
