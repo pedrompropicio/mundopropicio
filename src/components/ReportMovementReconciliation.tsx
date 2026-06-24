@@ -45,6 +45,15 @@ export default function ReportMovementReconciliation() {
     },
   });
 
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["suppliers-list-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("suppliers").select("id, name").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const dateFromStr = dateFrom ? format(dateFrom, "yyyy-MM-dd") : "";
   const dateToStr = dateTo ? format(dateTo, "yyyy-MM-dd") : "";
 
