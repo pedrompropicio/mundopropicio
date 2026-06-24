@@ -452,6 +452,39 @@ export function MetaPublishPanel({
                   )}
                 </div>
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Início da campanha (opcional)</label>
+                  <Input
+                    type="datetime-local"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Fim da campanha (opcional)</label>
+                  <Input
+                    type="datetime-local"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                  />
+                </div>
+                <div className="md:col-span-2 text-[11px] text-muted-foreground">
+                  Com data de fim definida, o orçamento de cada adset passa a ser <b>total para toda a janela</b> (lifetime). Sem fim, mantém-se diário.
+                  {(() => {
+                    const sIso = localInputToIso(startTime);
+                    const eIso = localInputToIso(endTime);
+                    if (sIso && eIso && new Date(eIso).getTime() <= new Date(sIso).getTime()) {
+                      return <span className="ml-2 text-amber-600 dark:text-amber-400">A data de fim tem de ser depois do início.</span>;
+                    }
+                    if (eIso && !sIso) {
+                      return <span className="ml-2 text-amber-600 dark:text-amber-400">Para usar data de fim tens de definir também o início (exigência do Meta para lifetime budget).</span>;
+                    }
+                    return null;
+                  })()}
+                </div>
+              </div>
+
               <div className="text-xs text-muted-foreground flex items-center gap-2">
                 <Info className="h-3 w-3" />
                 Os pesos vêm da Montagem Assistida e não são tocados pela UI. O orçamento é repartido em código por esses pesos.
