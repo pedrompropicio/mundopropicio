@@ -22,7 +22,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { CheckCircle2, Loader2, RefreshCw, Replace, Sparkles, Wand2, AlertTriangle, Info, Maximize2, Plus, Search } from "lucide-react";
+import { CheckCircle2, Loader2, RefreshCw, Replace, Sparkles, Wand2, AlertTriangle, Info, Maximize2, Plus, Search, Upload, X } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { labelCta } from "@/lib/meta-labels";
 import { toast } from "sonner";
@@ -188,6 +190,24 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   // Pool curado de criativos do evento (RPC crm.assembly_creative_pool)
   type PoolCreative = { id: string; name: string | null; file_url: string | null; type: string | null; file_mime_type: string | null };
   const [poolCreatives, setPoolCreatives] = useState<PoolCreative[]>([]);
+  // ticketing_url do evento — usado como link_url do criativo carregado (para entrar no pool por link).
+  const [eventTicketingUrl, setEventTicketingUrl] = useState<string | null>(null);
+
+  // Upload "Carregar novo criativo" (dentro do estúdio)
+  type UploadState =
+    | { state: "idle" }
+    | { state: "uploading"; pct: number; phase: string }
+    | { state: "metapush" }
+    | { state: "ok"; creativeId: string; kind: "image" | "video"; metaId: string | null }
+    | { state: "err"; msg: string; creativeId?: string };
+  const [uploadDialog, setUploadDialog] = useState<{ open: boolean; adsetIdx: number | null }>({ open: false, adsetIdx: null });
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadPreviewUrl, setUploadPreviewUrl] = useState<string | null>(null);
+  const [uploadMeta, setUploadMeta] = useState<{ width: number; height: number; duration: number | null; type: "image" | "video" } | null>(null);
+  const [uploadName, setUploadName] = useState("");
+  const [uploadLinkOverride, setUploadLinkOverride] = useState("");
+  const [uploadStatus, setUploadStatus] = useState<UploadState>({ state: "idle" });
+  const uploadFileInputRef = useRef<HTMLInputElement>(null);
 
 
   // Validação por variação
@@ -222,6 +242,23 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
         .schema("crm").rpc("assembly_creative_pool", { p_assembly_id: assemblyId });
       if (error) { console.warn("[design-studio] fetch pool failed", error); return; }
       setPoolCreatives((data ?? []) as PoolCreative[]);
+    })();
+  }, [open, assemblyId]);
+
+  // Deriva ticketing_url do evento (assembly → event_id → events.ticketing_url) para usar
+  // como link_url default ao carregar criativos novos a partir do Estúdio.
+  useEffect(() => {
+    if (!open || !assemblyId) { setEventTicketingUrl(null); return; }
+    (async () => {
+      const { data: aa } = await (supabase as any)
+        .schema("crm").from("assisted_assembly")
+        .select("event_id").eq("id", assemblyId).maybeSingle();
+      const eventId = (aa as any)?.event_id ?? null;
+      if (!eventId) { setEventTicketingUrl(null); return; }
+      const { data: ev } = await supabase
+        .from("events").select("ticketing_url").eq("id", eventId).maybeSingle();
+      const url = (ev as any)?.ticketing_url ?? null;
+      setEventTicketingUrl(typeof url === "string" && url.trim() ? url.trim() : null);
     })();
   }, [open, assemblyId]);
 
@@ -404,6 +441,189 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
         meta.forEach((v, k) => m.set(k, v));
         return m;
       });
+    }
+  }
+
+  // ───────── Upload "Carregar novo criativo" — dentro do Estúdio
+  const UPLOAD_ACCEPT = "image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime";
+  const UPLOAD_MAX_BYTES = 50 * 1024 * 1024;
+
+  async function readUploadMediaMeta(file: File): Promise<{ width: number; height: number; duration: number | null; type: "image" | "video" }> {
+    const isVideo = file.type.startsWith("video/");
+    const url = URL.createObjectURL(file);
+    try {
+      if (isVideo) {
+        return await new Promise((resolve, reject) => {
+          const v = document.createElement("video");
+          v.preload = "metadata";
+          v.onloadedmetadata = () => resolve({ width: v.videoWidth, height: v.videoHeight, duration: v.duration, type: "video" });
+          v.onerror = () => reject(new Error("Falha a ler vídeo"));
+          v.src = url;
+        });
+      }
+      return await new Promise((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve({ width: i.naturalWidth, height: i.naturalHeight, duration: null, type: "image" });
+        i.onerror = () => reject(new Error("Falha a ler imagem"));
+        i.src = url;
+      });
+    } finally {
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    }
+  }
+
+  function openUploadDialog(adsetIdx: number) {
+    if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+    setUploadFile(null);
+    setUploadPreviewUrl(null);
+    setUploadMeta(null);
+    setUploadName("");
+    setUploadLinkOverride(eventTicketingUrl ?? "");
+    setUploadStatus({ state: "idle" });
+    setUploadDialog({ open: true, adsetIdx });
+  }
+
+  function closeUploadDialog() {
+    if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+    setUploadDialog({ open: false, adsetIdx: null });
+    setUploadFile(null);
+    setUploadPreviewUrl(null);
+    setUploadMeta(null);
+    setUploadStatus({ state: "idle" });
+  }
+
+  async function handleUploadFileChosen(f: File) {
+    if (f.size > UPLOAD_MAX_BYTES) { toast.error("Ficheiro demasiado grande (máx 50MB)"); return; }
+    if (!UPLOAD_ACCEPT.split(",").includes(f.type)) { toast.error(`Tipo não suportado: ${f.type}`); return; }
+    try {
+      const m = await readUploadMediaMeta(f);
+      if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+      setUploadFile(f);
+      setUploadPreviewUrl(URL.createObjectURL(f));
+      setUploadMeta(m);
+      if (!uploadName) setUploadName(f.name.replace(/\.[^.]+$/, ""));
+    } catch (e: any) {
+      toast.error("Falha a ler metadados", { description: e?.message });
+    }
+  }
+
+  async function submitUpload() {
+    if (!uploadFile || !uploadMeta || !companyId) { toast.error("Ficheiro ou empresa em falta"); return; }
+    if (!uploadName.trim()) { toast.error("Nome obrigatório"); return; }
+    const adsetIdx = uploadDialog.adsetIdx;
+    if (adsetIdx == null) { toast.error("Adset desconhecido"); return; }
+    const linkFinal = (uploadLinkOverride.trim() || eventTicketingUrl || "").trim() || null;
+
+    setUploadStatus({ state: "uploading", pct: 10, phase: "A enviar ficheiro…" });
+    try {
+      const safeName = uploadFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = `${companyId}/${Date.now()}_${safeName}`;
+
+      setUploadStatus({ state: "uploading", pct: 30, phase: "A enviar ficheiro…" });
+      const { error: upErr } = await supabase.storage
+        .from("crm-meta-creatives")
+        .upload(path, uploadFile, { contentType: uploadFile.type, upsert: false });
+      if (upErr) throw new Error((upErr as any)?.message ?? "Falha no upload");
+
+      const { data: pub } = supabase.storage.from("crm-meta-creatives").getPublicUrl(path);
+      const fileUrl = pub.publicUrl;
+
+      const { data: userRes } = await supabase.auth.getUser();
+      const userId = userRes?.user?.id;
+      if (!userId) throw new Error("Sem utilizador autenticado");
+
+      setUploadStatus({ state: "uploading", pct: 70, phase: "A registar criativo…" });
+      const { data: inserted, error: insErr } = await (supabase as any)
+        .schema("crm").from("meta_creatives")
+        .insert({
+          company_id: companyId,
+          name: uploadName.trim(),
+          type: uploadMeta.type,
+          storage_bucket: "crm-meta-creatives",
+          storage_path: path,
+          file_url: fileUrl,
+          file_size_bytes: uploadFile.size,
+          file_mime_type: uploadFile.type,
+          width: uploadMeta.width,
+          height: uploadMeta.height,
+          duration_seconds: uploadMeta.duration,
+          link_url: linkFinal,
+          created_by: userId,
+        })
+        .select("id, name, file_url, type, file_mime_type")
+        .single();
+      if (insErr) throw new Error(insErr.message);
+
+      // Optimista: adiciona ao adset, ao cache e ao pool já, sem esperar pelo Meta.
+      const newId = (inserted as any).id as string;
+      await adicionarPeca(adsetIdx, newId);
+      setCreativesById((prev) => {
+        const m = new Map(prev);
+        m.set(newId, {
+          id: newId,
+          name: (inserted as any).name ?? uploadName.trim(),
+          type: uploadMeta.type,
+          file_url: fileUrl,
+          width: uploadMeta.width,
+          height: uploadMeta.height,
+          duration_seconds: uploadMeta.duration,
+          file_mime_type: uploadFile.type,
+          headline: null, body: null, cta_type: null,
+          text_snippets: [], updated_at: new Date().toISOString(),
+        });
+        return m;
+      });
+      setPoolCreatives((prev) =>
+        prev.some((p) => p.id === newId) ? prev : [
+          { id: newId, name: (inserted as any).name ?? uploadName.trim(), file_url: fileUrl, type: uploadMeta.type, file_mime_type: uploadFile.type },
+          ...prev,
+        ]
+      );
+
+      // Push para o Meta (não bloqueia).
+      setUploadStatus({ state: "metapush" });
+      try {
+        const { data: pushRes, error: pushErr } = await supabase.functions.invoke(
+          "crm-meta-upload-creative",
+          { body: { company_id: companyId, creative_id: newId } },
+        );
+        if (pushErr) throw pushErr;
+        if (pushRes?.ok) {
+          const metaId = pushRes.type === "image" ? pushRes.meta_image_hash : pushRes.meta_video_id;
+          setUploadStatus({ state: "ok", creativeId: newId, kind: pushRes.type, metaId });
+          toast.success(pushRes.type === "video" ? "No Meta — vídeo em processamento" : "No Meta (pronto)");
+        } else {
+          setUploadStatus({ state: "err", msg: pushRes?.error || "falhou", creativeId: newId });
+          toast.warning("Criativo guardado, mas falhou push para Meta");
+        }
+      } catch (e: any) {
+        setUploadStatus({ state: "err", msg: e?.message ?? String(e), creativeId: newId });
+        toast.warning("Criativo guardado, mas falhou push para Meta", { description: e?.message });
+      }
+    } catch (e: any) {
+      console.error("[design-studio] upload failed", e);
+      setUploadStatus({ state: "err", msg: e?.message ?? String(e) });
+      toast.error("Falha ao carregar criativo", { description: e?.message ?? String(e) });
+    }
+  }
+
+  async function retryUploadMetaPush(creativeIdToRetry: string) {
+    setUploadStatus({ state: "metapush" });
+    try {
+      const { data: pushRes, error: pushErr } = await supabase.functions.invoke(
+        "crm-meta-upload-creative",
+        { body: { company_id: companyId, creative_id: creativeIdToRetry, force: true } },
+      );
+      if (pushErr) throw pushErr;
+      if (pushRes?.ok) {
+        const metaId = pushRes.type === "image" ? pushRes.meta_image_hash : pushRes.meta_video_id;
+        setUploadStatus({ state: "ok", creativeId: creativeIdToRetry, kind: pushRes.type, metaId });
+        toast.success("Push para Meta concluído");
+      } else {
+        setUploadStatus({ state: "err", msg: pushRes?.error || "falhou", creativeId: creativeIdToRetry });
+      }
+    } catch (e: any) {
+      setUploadStatus({ state: "err", msg: e?.message ?? String(e), creativeId: creativeIdToRetry });
     }
   }
 
@@ -704,21 +924,32 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="text-xs uppercase tracking-wide text-muted-foreground">Peças</h4>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2 text-[11px] gap-1"
-                          title="Adicionar criativo do pool curado do evento"
-                          onClick={() => openSelector({
-                            title: "Adicionar criativo",
-                            disabledIds: usedInThisAdset,
-                            onPick: (cid) => adicionarPeca(ai, cid),
-                          })}
-                        >
-                          <Plus className="h-3 w-3" />
-                          Adicionar criativo
-                        </Button>
-
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-[11px] gap-1"
+                            title="Adicionar criativo do pool curado do evento"
+                            onClick={() => openSelector({
+                              title: "Adicionar criativo",
+                              disabledIds: usedInThisAdset,
+                              onPick: (cid) => adicionarPeca(ai, cid),
+                            })}
+                          >
+                            <Plus className="h-3 w-3" />
+                            Adicionar criativo
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-[11px] gap-1"
+                            title="Carregar criativo novo do disco e adicionar a este adset"
+                            onClick={() => openUploadDialog(ai)}
+                          >
+                            <Upload className="h-3 w-3" />
+                            Carregar novo
+                          </Button>
+                        </div>
                       </div>
                       <div className="flex flex-wrap gap-3">
                         {(adset.pecas ?? []).map((p) => {
@@ -991,6 +1222,147 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
 
       {/* Seletor de criativos (Adicionar / Substituir) */}
       <CreativeSelectorDialog />
+
+      {/* Upload de criativo novo dentro do Estúdio */}
+      <Dialog
+        open={uploadDialog.open}
+        onOpenChange={(o) => {
+          if (!o) closeUploadDialog();
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="text-base flex items-center gap-2">
+              <Upload className="h-4 w-4" /> Carregar novo criativo
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {!uploadFile ? (
+              <div
+                onClick={() => uploadFileInputRef.current?.click()}
+                className="flex flex-col items-center justify-center h-48 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary/60 hover:bg-muted/30 transition"
+              >
+                <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                <p className="text-sm font-medium">Clica para escolher</p>
+                <p className="text-xs text-muted-foreground mt-1">JPG, PNG, WEBP, GIF, MP4, MOV · máx 50MB</p>
+                <input
+                  ref={uploadFileInputRef}
+                  type="file"
+                  accept={UPLOAD_ACCEPT}
+                  hidden
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleUploadFileChosen(f);
+                    e.target.value = "";
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="relative rounded-lg overflow-hidden bg-muted">
+                  {uploadMeta?.type === "video" ? (
+                    <video src={uploadPreviewUrl ?? undefined} controls className="w-full max-h-64 object-contain" />
+                  ) : (
+                    <img src={uploadPreviewUrl ?? undefined} alt="" className="w-full max-h-64 object-contain" />
+                  )}
+                </div>
+                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <div className="truncate">
+                    {uploadFile.name} · {(uploadFile.size / 1024 / 1024).toFixed(2)} MB
+                    {uploadMeta && <> · {uploadMeta.width}×{uploadMeta.height}{uploadMeta.duration ? ` · ${uploadMeta.duration.toFixed(1)}s` : ""}</>}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={uploadStatus.state === "uploading" || uploadStatus.state === "metapush"}
+                    onClick={() => {
+                      if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+                      setUploadFile(null); setUploadPreviewUrl(null); setUploadMeta(null);
+                    }}
+                  >
+                    <X className="h-3.5 w-3.5 mr-1" /> Remover
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="up-name">Nome *</Label>
+              <Input
+                id="up-name"
+                value={uploadName}
+                onChange={(e) => setUploadName(e.target.value)}
+                disabled={uploadStatus.state === "uploading" || uploadStatus.state === "metapush"}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="up-link" className="flex items-center justify-between">
+                <span>Link do anúncio</span>
+                {eventTicketingUrl
+                  ? <span className="text-[10px] text-emerald-400">derivado do evento</span>
+                  : <span className="text-[10px] text-amber-400 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> sem ticketing_url — pode não entrar no pool</span>}
+              </Label>
+              <Input
+                id="up-link"
+                type="url"
+                placeholder="https://…"
+                value={uploadLinkOverride}
+                onChange={(e) => setUploadLinkOverride(e.target.value)}
+                disabled={uploadStatus.state === "uploading" || uploadStatus.state === "metapush"}
+              />
+            </div>
+
+            {/* Estados */}
+            {uploadStatus.state === "uploading" && (
+              <div className="space-y-1">
+                <Progress value={uploadStatus.pct} />
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> {uploadStatus.phase}
+                </p>
+              </div>
+            )}
+            {uploadStatus.state === "metapush" && (
+              <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" /> A carregar no Meta…
+              </p>
+            )}
+            {uploadStatus.state === "ok" && (
+              <div className="rounded border border-emerald-500/40 bg-emerald-500/10 p-2 text-xs text-emerald-300 flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                {uploadStatus.kind === "video" ? "Vídeo no Meta (em processamento)" : "Imagem no Meta (pronta)"}
+                {uploadStatus.metaId && <span className="font-mono opacity-70 truncate">· {uploadStatus.metaId}</span>}
+              </div>
+            )}
+            {uploadStatus.state === "err" && (
+              <div className="rounded border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-300 space-y-1">
+                <div className="flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5" /> Push para Meta falhou: {uploadStatus.msg}</div>
+                {uploadStatus.creativeId && (
+                  <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => retryUploadMetaPush(uploadStatus.creativeId!)}>
+                    Tentar novamente
+                  </Button>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" onClick={closeUploadDialog}>
+                {uploadStatus.state === "ok" ? "Fechar" : "Cancelar"}
+              </Button>
+              {uploadStatus.state !== "ok" && (
+                <Button
+                  onClick={submitUpload}
+                  disabled={!uploadFile || !uploadName.trim() || uploadStatus.state === "uploading" || uploadStatus.state === "metapush"}
+                >
+                  {(uploadStatus.state === "uploading" || uploadStatus.state === "metapush") && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />}
+                  Carregar e adicionar
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
 
     </Sheet>
   );
