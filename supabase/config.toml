@@ -2,3 +2,6 @@ project_id = "sfohvvlqccmmebvjgibx"
 
 [functions.crm-meta-upload-creative]
 verify_jwt = true
+
+[functions.crm-meta-upload-creative-v2]
+verify_jwt = true
