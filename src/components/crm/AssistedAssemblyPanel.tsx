@@ -120,7 +120,7 @@ export function AssistedAssemblyPanel({
       const { data, error } = await (supabase as any)
         .schema("crm")
         .from("meta_creatives")
-        .select("id, name, file_url")
+        .select("id, name, file_url, type, file_mime_type")
         .eq("company_id", companyId)
         .order("created_at", { ascending: false });
       if (error) {
