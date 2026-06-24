@@ -161,6 +161,8 @@ export default function ReportMovementReconciliation() {
         if (!hasMatch) return;
       }
 
+      if (selectedSupplierId && tx.supplier_id !== selectedSupplierId) return;
+
       const amount = Number(tx.amount);
       const ivaRate = Number(tx.iva_rate ?? 0);
       const netAmount = ivaRate > 0 ? amount / (1 + ivaRate / 100) : amount;
