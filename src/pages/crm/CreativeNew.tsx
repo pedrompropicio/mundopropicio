@@ -237,7 +237,7 @@ export default function CrmCreativeNew() {
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData?.session?.access_token;
         const { data: pushRes, error: pushErr } = await supabase.functions.invoke(
-          "crm-meta-upload-creative",
+          "crm-meta-upload-creative-v2",
           {
             body: { company_id: companyId, creative_id: inserted.id },
             headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
@@ -278,7 +278,7 @@ export default function CrmCreativeNew() {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
       const { data: pushRes, error: pushErr } = await supabase.functions.invoke(
-        "crm-meta-upload-creative",
+        "crm-meta-upload-creative-v2",
         {
           body: { company_id: companyId, creative_id: creativeIdToRetry, force: true },
           headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
