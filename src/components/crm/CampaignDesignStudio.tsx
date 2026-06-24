@@ -1185,8 +1185,68 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                       );
                     })()}
 
+                    {/* Audiências atribuídas */}
+                    {(() => {
+                      const auds = adset.audiencias ?? [];
+                      const removeAud = (audMetaId: string) => {
+                        setAdsets((prev) => prev.map((a, idx) => idx === ai
+                          ? { ...a, audiencias: (a.audiencias ?? []).filter((x) => x.audience_id_meta !== audMetaId) }
+                          : a));
+                      };
+                      return (
+                        <div className="rounded-md border border-border bg-card/40 p-3 space-y-2">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+                              <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                              Audiências ({auds.length})
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              onClick={() => setAudienceDialog({ open: true, adsetIdx: ai })}
+                            >
+                              <Plus className="h-3 w-3 mr-1" /> Adicionar audiência
+                            </Button>
+                          </div>
+                          {auds.length === 0 ? (
+                            <div className="flex items-start gap-2 text-[11px] text-amber-300">
+                              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                              <span>Sem audiência — usará público amplo (broad).</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-1.5">
+                              {auds.map((a) => {
+                                const subLabel = a.subtype ? (SUBTYPE_LABEL[a.subtype] ?? a.subtype) : null;
+                                return (
+                                  <Badge
+                                    key={a.audience_id_meta}
+                                    variant="outline"
+                                    className="border bg-primary/5 text-foreground text-[10px] gap-1 pl-2 pr-1 py-0.5"
+                                  >
+                                    <span className="truncate max-w-[220px]" title={a.name}>{a.name}</span>
+                                    {subLabel && <span className="text-muted-foreground">· {subLabel}</span>}
+                                    <span className="text-muted-foreground">· {formatAudienceSize(a.tamanho)}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeAud(a.audience_id_meta)}
+                                      className="ml-0.5 rounded hover:bg-muted/60 p-0.5"
+                                      aria-label="Remover audiência"
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Peças */}
+
                     {(() => {
                       const usedInThisAdset = new Set((adset.pecas ?? []).map((pp) => pp.creative_id));
                       return (
