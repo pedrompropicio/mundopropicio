@@ -14,12 +14,12 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
-const BUILD_VERSION = "upload-creative-v3-dbtrace 2026-06-24";
+const BUILD_VERSION = "upload-creative-v4-bootprobe 2026-06-24";
 const GRAPH_API_VERSION = "v21.0";
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SRK = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
-const KEY = Deno.env.get("ENCRYPTION_MASTER_KEY")!;
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SRK = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const ANON = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const KEY = Deno.env.get("ENCRYPTION_MASTER_KEY") ?? "";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -56,6 +56,26 @@ function normalizeAdAccountId(raw: string): string {
 
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // SONDA DE BOOT: antes de qualquer validação, reporta apenas presença das env vars.
+  try {
+    if (SUPABASE_URL && SRK) {
+      const probe = createClient(SUPABASE_URL, SRK, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        db: { schema: "crm" as never },
+      });
+      await (probe as any).from("upload_creative_debug").insert({
+        step: "boot_probe",
+        detail: `url=${!!SUPABASE_URL} srk=${!!SRK} anon=${!!ANON} key=${!!KEY} method=${req.method}`,
+        graph_api_version: GRAPH_API_VERSION,
+      });
+    } else {
+      console.log(`[boot_probe] skipped url=${!!SUPABASE_URL} srk=${!!SRK} anon=${!!ANON} key=${!!KEY} method=${req.method}`);
+    }
+  } catch (e) {
+    console.log("[boot_probe] insert failed", (e as Error).message);
+  }
+
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
 
   console.log(`[crm-meta-upload-creative] BUILD_VERSION=${BUILD_VERSION}`);
