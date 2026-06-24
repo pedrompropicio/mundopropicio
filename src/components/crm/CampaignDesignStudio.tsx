@@ -22,7 +22,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { CheckCircle2, Loader2, RefreshCw, Replace, Sparkles, Wand2, AlertTriangle, Info, Maximize2 } from "lucide-react";
+import { CheckCircle2, Loader2, RefreshCw, Replace, Sparkles, Wand2, AlertTriangle, Info, Maximize2, Plus, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { labelCta } from "@/lib/meta-labels";
 import { toast } from "sonner";
@@ -185,8 +185,9 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   const [adsets, setAdsets] = useState<Adset[]>([]);
   const [estado, setEstado] = useState<"rascunho" | "finalizado">("rascunho");
   const [creativesById, setCreativesById] = useState<Map<string, CreativeMini>>(new Map());
-  // Catálogo da empresa para o Popover "Substituir"
-  const [companyCreatives, setCompanyCreatives] = useState<Array<{ id: string; name: string | null; file_url: string | null; type: string | null; file_mime_type: string | null }>>([]);
+  // Pool curado de criativos do evento (RPC crm.assembly_creative_pool)
+  type PoolCreative = { id: string; name: string | null; file_url: string | null; type: string | null; file_mime_type: string | null };
+  const [poolCreatives, setPoolCreatives] = useState<PoolCreative[]>([]);
 
 
   // Validação por variação
@@ -213,19 +214,16 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     void loadLatestDesign();
   }, [open, assemblyId, companyId]);
 
-  // Carrega catálogo da company para substituição
+  // Carrega POOL CURADO do evento (via RPC crm.assembly_creative_pool)
   useEffect(() => {
-    if (!open || !companyId) return;
+    if (!open || !assemblyId) return;
     (async () => {
       const { data, error } = await (supabase as any)
-        .schema("crm").from("meta_creatives")
-        .select("id, name, file_url, type, file_mime_type")
-        .eq("company_id", companyId)
-        .order("created_at", { ascending: false });
-      if (error) { console.warn("[design-studio] fetch company creatives failed", error); return; }
-      setCompanyCreatives((data ?? []) as Array<{ id: string; name: string | null; file_url: string | null; type: string | null; file_mime_type: string | null }>);
+        .schema("crm").rpc("assembly_creative_pool", { p_assembly_id: assemblyId });
+      if (error) { console.warn("[design-studio] fetch pool failed", error); return; }
+      setPoolCreatives((data ?? []) as PoolCreative[]);
     })();
-  }, [open, companyId]);
+  }, [open, assemblyId]);
 
   async function fetchCreativeMeta(ids: string[]) {
     if (ids.length === 0) return new Map<string, CreativeMini>();
@@ -383,6 +381,32 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     }
   }
 
+  // Adiciona uma nova peça ao adset com um criativo escolhido do pool.
+  // Dispara o auto-save existente (useEffect [adsets]) → persiste em crm.campaign_design.
+  async function adicionarPeca(adsetIdx: number, newCreativeId: string) {
+    let alreadyInAdset = false;
+    updateAdset(adsetIdx, (a) => {
+      const pecas = a.pecas ?? [];
+      if (pecas.some((p) => p.creative_id === newCreativeId)) {
+        alreadyInAdset = true;
+        return a;
+      }
+      return {
+        ...a,
+        pecas: [...pecas, { creative_id: newCreativeId, incluida: true, motivo_escolha: "Adicionado manualmente pelo gestor" }],
+      };
+    });
+    if (alreadyInAdset) return;
+    if (!creativesById.has(newCreativeId)) {
+      const meta = await fetchCreativeMeta([newCreativeId]);
+      setCreativesById((prev) => {
+        const m = new Map(prev);
+        meta.forEach((v, k) => m.set(k, v));
+        return m;
+      });
+    }
+  }
+
 
   function editarCampo(adsetIdx: number, varIdx: number, campo: "headline" | "corpo" | "cta", valor: string) {
     updateAdset(adsetIdx, (a) => ({
@@ -464,6 +488,96 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   })();
   const lightboxIsImage = lightboxMediaType.kind === "image";
   const lightboxIsVideo = lightboxMediaType.kind === "video";
+
+  // Seletor partilhado de criativos (Substituir e Adicionar) com busca + filtro tipo.
+  function CreativeSelectorList({
+    disabledIds, onPick,
+  }: { disabledIds: Set<string>; onPick: (creativeId: string) => void; }) {
+    const [q, setQ] = useState("");
+    const [filter, setFilter] = useState<"all" | "image" | "video">("all");
+    const items = useMemo(() => {
+      const qn = q.trim().toLowerCase();
+      return poolCreatives.filter((cc) => {
+        if (qn && !((cc.name ?? "").toLowerCase().includes(qn))) return false;
+        if (filter !== "all") {
+          const k = getEffectiveMediaType(cc.file_url, cc.file_mime_type, cc.type).kind;
+          if (k !== filter) return false;
+        }
+        return true;
+      });
+    }, [q, filter]);
+    return (
+      <>
+        <div className="p-2 border-b space-y-2">
+          <div className="relative">
+            <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar por nome…"
+              className="h-7 pl-7 text-xs"
+            />
+          </div>
+          <div className="flex gap-1">
+            {(["all", "image", "video"] as const).map((f) => (
+              <Button
+                key={f}
+                type="button"
+                size="sm"
+                variant={filter === f ? "default" : "outline"}
+                className="h-6 px-2 text-[11px] flex-1"
+                onClick={() => setFilter(f)}
+              >
+                {f === "all" ? "Todos" : f === "image" ? "Imagem" : "Vídeo"}
+              </Button>
+            ))}
+          </div>
+        </div>
+        <div className="max-h-72 overflow-y-auto">
+          {items.length === 0 && (
+            <div className="p-3 text-xs text-muted-foreground">Sem criativos no pool.</div>
+          )}
+          {items.map((cc) => {
+            const inUse = disabledIds.has(cc.id);
+            const kind = getEffectiveMediaType(cc.file_url, cc.file_mime_type, cc.type).kind;
+            return (
+              <button
+                key={cc.id}
+                type="button"
+                disabled={inUse}
+                onClick={() => onPick(cc.id)}
+                className={cn(
+                  "w-full text-left flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 border-b last:border-b-0",
+                  inUse && "opacity-40 cursor-not-allowed",
+                )}
+              >
+                {cc.file_url ? (
+                  kind === "video" ? (
+                    <video
+                      src={`${cc.file_url}#t=0.1`}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className="h-7 w-7 rounded object-cover bg-muted shrink-0 pointer-events-none"
+                    />
+                  ) : (
+                    <img src={cc.file_url} alt="" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
+                  )
+                ) : (
+                  <div className="h-7 w-7 rounded bg-muted shrink-0" />
+                )}
+                <span className="flex-1 truncate text-xs" title={cc.name ?? cc.id}>
+                  {cc.name ?? cc.id.slice(0, 8)}
+                </span>
+                {inUse && <span className="text-[10px] text-muted-foreground">em uso</span>}
+              </button>
+            );
+          })}
+        </div>
+      </>
+    );
+  }
+
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -549,8 +663,32 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                     </div>
 
                     {/* Peças */}
+                    {(() => {
+                      const usedInThisAdset = new Set((adset.pecas ?? []).map((pp) => pp.creative_id));
+                      return (
                     <div>
-                      <h4 className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Peças</h4>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-xs uppercase tracking-wide text-muted-foreground">Peças</h4>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-[11px] gap-1"
+                              title="Adicionar criativo do pool curado do evento"
+                            >
+                              <Plus className="h-3 w-3" />
+                              Adicionar criativo
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 p-0" align="end">
+                            <CreativeSelectorList
+                              disabledIds={usedInThisAdset}
+                              onPick={(cid) => adicionarPeca(ai, cid)}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                       <div className="flex flex-wrap gap-3">
                         {(adset.pecas ?? []).map((p) => {
                           const c = creativesById.get(p.creative_id);
@@ -559,7 +697,6 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                           const isVideo = mediaKind === "video";
                           const temporalHits = c ? detectTemporalSnippets(c.text_snippets) : [];
                           const warn = temporalHits.length > 0 && !campanhaTemGatilhoTemporal;
-                          const usedInThisAdset = new Set((adset.pecas ?? []).map((pp) => pp.creative_id));
                           return (
                             <div
                               key={p.creative_id}
@@ -609,7 +746,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                                       size="sm"
                                       variant="outline"
                                       className="h-7 px-2 text-[11px] gap-1"
-                                      title="Substituir por outro criativo da empresa"
+                                      title="Substituir por outro criativo do pool"
                                     >
                                       <Replace className="h-3 w-3" />
                                       Substituir
@@ -619,59 +756,24 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                                     <div className="p-2 border-b text-xs font-medium">
                                       Substituir "{c?.name ?? p.creative_id.slice(0, 8)}"
                                     </div>
-                                    <div className="max-h-72 overflow-y-auto">
-                                      {companyCreatives.length === 0 && (
-                                        <div className="p-3 text-xs text-muted-foreground">Sem criativos disponíveis.</div>
-                                      )}
-                                      {companyCreatives.map((cc) => {
-                                        const inUse = usedInThisAdset.has(cc.id);
-                                        const disabled = inUse;
-                                        return (
-                                          <button
-                                            key={cc.id}
-                                            type="button"
-                                            disabled={disabled}
-                                            onClick={() => substituirPeca(ai, p.creative_id, cc.id)}
-                                            className={cn(
-                                              "w-full text-left flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 border-b last:border-b-0",
-                                              disabled && "opacity-40 cursor-not-allowed",
-                                            )}
-                                          >
-                                            {cc.file_url ? (
-                                              getEffectiveMediaType(cc.file_url, cc.file_mime_type, cc.type).kind === "video" ? (
-                                                <video
-                                                  src={`${cc.file_url}#t=0.1`}
-                                                  muted
-                                                  playsInline
-                                                  preload="metadata"
-                                                  className="h-7 w-7 rounded object-cover bg-muted shrink-0 pointer-events-none"
-                                                />
-                                              ) : (
-                                                <img src={cc.file_url} alt="" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
-                                              )
-                                            ) : (
-                                              <div className="h-7 w-7 rounded bg-muted shrink-0" />
-                                            )}
-                                            <span className="flex-1 truncate text-xs" title={cc.name ?? cc.id}>
-                                              {cc.name ?? cc.id.slice(0, 8)}
-                                            </span>
-                                            {inUse && <span className="text-[10px] text-muted-foreground">em uso</span>}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
+                                    <CreativeSelectorList
+                                      disabledIds={usedInThisAdset}
+                                      onPick={(cid) => substituirPeca(ai, p.creative_id, cid)}
+                                    />
                                   </PopoverContent>
                                 </Popover>
                               </div>
                             </div>
                           );
-
                         })}
                         {(adset.pecas ?? []).length === 0 && (
                           <span className="text-xs text-muted-foreground">(sem peças)</span>
                         )}
                       </div>
                     </div>
+                      );
+                    })()}
+
 
                     <Separator />
 
