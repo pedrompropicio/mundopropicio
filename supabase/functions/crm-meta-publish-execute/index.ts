@@ -104,7 +104,7 @@ async function graphPOST(path: string, body: Record<string, unknown>, accessToke
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v10");
+  console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v11-window");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
