@@ -571,7 +571,17 @@ export function AssistedAssemblyPanel({
                                         )}
                                       >
                                         {c.file_url ? (
-                                          <img src={c.file_url} alt="" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
+                                          isVideoCreative(c) ? (
+                                            <video
+                                              src={`${c.file_url}#t=0.1`}
+                                              muted
+                                              playsInline
+                                              preload="metadata"
+                                              className="h-7 w-7 rounded object-cover bg-muted shrink-0 pointer-events-none"
+                                            />
+                                          ) : (
+                                            <img src={c.file_url} alt="" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
+                                          )
                                         ) : (
                                           <div className="h-7 w-7 rounded bg-muted shrink-0" />
                                         )}
