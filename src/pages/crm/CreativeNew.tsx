@@ -230,12 +230,61 @@ export default function CrmCreativeNew() {
 
       setProgress(100);
       toast.success("Criativo guardado");
-      navigate(`/audience/creatives/${inserted.id}`);
+
+      // Empurra para o Meta (não bloqueia — fica re-tentável).
+      setMetaPush({ state: "uploading" });
+      try {
+        const { data: pushRes, error: pushErr } = await supabase.functions.invoke(
+          "crm-meta-upload-creative",
+          { body: { company_id: companyId, creative_id: inserted.id } },
+        );
+        if (pushErr) throw pushErr;
+        if (pushRes?.ok) {
+          if (pushRes.type === "image") {
+            setMetaPush({ state: "ok", kind: "image", id: pushRes.meta_image_hash });
+            toast.success("No Meta (pronto a publicar)");
+          } else {
+            setMetaPush({ state: "ok", kind: "video", id: pushRes.meta_video_id });
+            toast.success("No Meta — vídeo em processamento");
+          }
+        } else {
+          const msg = pushRes?.error || "falhou";
+          setMetaPush({ state: "err", msg, creativeId: inserted.id });
+          toast.warning("Criativo guardado, mas falhou push para Meta", { description: msg });
+        }
+      } catch (e: any) {
+        const msg = e?.message ?? String(e);
+        setMetaPush({ state: "err", msg, creativeId: inserted.id });
+        toast.warning("Criativo guardado, mas falhou push para Meta", { description: msg });
+      }
     } catch (e: any) {
       console.error("[creative/new] failed:", e);
       toast.error("Falha a guardar criativo", { description: e?.message ?? String(e) });
       setUploading(false);
       setProgress(0);
+    }
+  };
+
+  const retryMetaPush = async (creativeIdToRetry: string) => {
+    setMetaPush({ state: "uploading" });
+    try {
+      const { data: pushRes, error: pushErr } = await supabase.functions.invoke(
+        "crm-meta-upload-creative",
+        { body: { company_id: companyId, creative_id: creativeIdToRetry, force: true } },
+      );
+      if (pushErr) throw pushErr;
+      if (pushRes?.ok) {
+        if (pushRes.type === "image") {
+          setMetaPush({ state: "ok", kind: "image", id: pushRes.meta_image_hash });
+        } else {
+          setMetaPush({ state: "ok", kind: "video", id: pushRes.meta_video_id });
+        }
+        toast.success("Push para Meta concluído");
+      } else {
+        setMetaPush({ state: "err", msg: pushRes?.error || "falhou", creativeId: creativeIdToRetry });
+      }
+    } catch (e: any) {
+      setMetaPush({ state: "err", msg: e?.message ?? String(e), creativeId: creativeIdToRetry });
     }
   };
 
