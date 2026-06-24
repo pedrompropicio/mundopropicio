@@ -98,7 +98,7 @@ async function callGeminiJSON(prompt: string): Promise<any> {
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[meta-publish-prepare] BUILD_VERSION=publish-prepare-v4");
+  console.log("[meta-publish-prepare] BUILD_VERSION=publish-prepare-v5-window");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -106,14 +106,24 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
   if (!LOVABLE_API_KEY) return json({ error: "lovable_ai_not_configured" }, 500);
 
-  let body: { company_id?: string; design_id?: string; orcamento_total_cents?: number; objetivo?: string };
+  let body: { company_id?: string; design_id?: string; orcamento_total_cents?: number; objetivo?: string; start_time?: string | null; end_time?: string | null };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
   const { company_id, design_id } = body;
   const orcamentoTotal = typeof body.orcamento_total_cents === "number" ? Math.max(0, Math.floor(body.orcamento_total_cents)) : null;
   const objetivo = typeof body.objetivo === "string" ? body.objetivo : null;
+  // Distingue ausência (undefined) de limpeza explícita (null). Só toca nos campos se vierem na request.
+  const startTimePresent = Object.prototype.hasOwnProperty.call(body, "start_time");
+  const endTimePresent = Object.prototype.hasOwnProperty.call(body, "end_time");
+  const startTimeIn: string | null = typeof body.start_time === "string" && body.start_time.length > 0 ? body.start_time : null;
+  const endTimeIn: string | null = typeof body.end_time === "string" && body.end_time.length > 0 ? body.end_time : null;
+  if (startTimePresent && endTimePresent && startTimeIn && endTimeIn && new Date(endTimeIn).getTime() <= new Date(startTimeIn).getTime()) {
+    return json({ error: "janela_invalida", message: "end_time tem de ser depois de start_time" }, 400);
+  }
+
   if (!company_id || !design_id) {
     return json({ error: "missing_params", message: "company_id e design_id obrigatórios" }, 400);
   }
+
 
   const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
@@ -321,18 +331,21 @@ Responde APENAS JSON puro com este shape:
   let ins: any;
   if (shouldReuse) {
     const mergedAdsets = mergeAdsetsPreservingMetaIds(existing.adsets, adsetsOut);
+    const updateRow: Record<string, unknown> = {
+      company_id,
+      event_id: design.event_id,
+      objetivo: objetivo,
+      orcamento_total_cents: orcamentoTotal,
+      moeda: "EUR",
+      link_destino: linkDestinoEvento,
+      adsets: mergedAdsets,
+      // NÃO mexe em estado nem em meta_campaign_id — preservados.
+    };
+    if (startTimePresent) updateRow.start_time = startTimeIn;
+    if (endTimePresent) updateRow.end_time = endTimeIn;
     const { data: upd, error: updErr } = await (adminClient as any)
       .schema("crm").from("meta_publish_plan")
-      .update({
-        company_id,
-        event_id: design.event_id,
-        objetivo: objetivo,
-        orcamento_total_cents: orcamentoTotal,
-        moeda: "EUR",
-        link_destino: linkDestinoEvento,
-        adsets: mergedAdsets,
-        // NÃO mexe em estado nem em meta_campaign_id — preservados.
-      })
+      .update(updateRow)
       .eq("id", existing.id)
       .select("id, link_destino")
       .single();
@@ -340,25 +353,30 @@ Responde APENAS JSON puro com este shape:
     ins = upd;
     console.log("[meta-publish-prepare] REUSED_PLAN", JSON.stringify({ plan_id: existing.id, design_id, meta_campaign_id_preserved: existing.meta_campaign_id ?? null }));
   } else {
+    const insertRow: Record<string, unknown> = {
+      company_id,
+      event_id: design.event_id,
+      design_id,
+      objetivo: objetivo,
+      orcamento_total_cents: orcamentoTotal,
+      moeda: "EUR",
+      link_destino: linkDestinoEvento,
+      adsets: adsetsOut,
+      estado: "rascunho",
+    };
+    if (startTimePresent) insertRow.start_time = startTimeIn;
+    if (endTimePresent) insertRow.end_time = endTimeIn;
     const { data: insNew, error: insErr } = await (adminClient as any)
       .schema("crm").from("meta_publish_plan")
-      .insert({
-        company_id,
-        event_id: design.event_id,
-        design_id,
-        objetivo: objetivo,
-        orcamento_total_cents: orcamentoTotal,
-        moeda: "EUR",
-        link_destino: linkDestinoEvento,
-        adsets: adsetsOut,
-        estado: "rascunho",
-      })
+      .insert(insertRow)
       .select("id, link_destino")
       .single();
     if (insErr) return json({ error: "persist_failed", detail: insErr.message }, 500);
     ins = insNew;
     console.log("[meta-publish-prepare] NEW_PLAN", JSON.stringify({ plan_id: ins.id, design_id, reason: existing ? `last_estado=${existing.estado}` : "no_existing" }));
   }
+
+
 
   return json({
     plan_id: ins.id,

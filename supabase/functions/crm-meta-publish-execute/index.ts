@@ -104,7 +104,7 @@ async function graphPOST(path: string, body: Record<string, unknown>, accessToke
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v10");
+  console.log("[meta-publish-execute] BUILD_VERSION=publish-execute-v11-window");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -133,7 +133,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // 1) Lê o plano (RLS user — valida pertença ao company)
   const { data: planRow, error: planErr } = await (supabase as any)
     .schema("crm").from("meta_publish_plan")
-    .select("id, company_id, event_id, design_id, objetivo, orcamento_total_cents, moeda, link_destino, adsets, estado, meta_campaign_id")
+    .select("id, company_id, event_id, design_id, objetivo, orcamento_total_cents, moeda, link_destino, adsets, estado, meta_campaign_id, start_time, end_time")
     .eq("id", planId)
     .maybeSingle();
   if (planErr) return json({ error: "plan_query_failed", detail: planErr.message }, 500);
@@ -146,6 +146,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!["rascunho", "pronto_a_publicar", "a_publicar", "falhado"].includes(planRow.estado)) {
     return json({ error: "estado_invalido", estado: planRow.estado }, 409);
   }
+
+  // 1b) Janela de datas e regra orçamento: com end_time → lifetime_budget; sem → daily_budget.
+  const planStartTime: string | null = (planRow as any).start_time ?? null;
+  const planEndTime: string | null = (planRow as any).end_time ?? null;
+  const usaLifetime = !!planEndTime;
+  if (usaLifetime && !planStartTime) {
+    return json({
+      error: "sem_start_time_para_lifetime",
+      message: "Campanha com data de fim exige também data de início (o Meta requer start_time + end_time quando o adset usa lifetime_budget).",
+    }, 400);
+  }
+  if (planStartTime && planEndTime && new Date(planEndTime).getTime() <= new Date(planStartTime).getTime()) {
+    return json({ error: "janela_invalida", message: "end_time tem de ser depois de start_time" }, 400);
+  }
+  // Nº de dias da janela (mínimo 1) — usado para mínimo de lifetime_budget.
+  const diasJanela = (planStartTime && planEndTime)
+    ? Math.max(1, Math.ceil((new Date(planEndTime).getTime() - new Date(planStartTime).getTime()) / 86400000))
+    : 1;
+  // Mínimo Meta conservador: 1€/dia (100 cents). Para lifetime, 100 cents × dias.
+  const MIN_DAILY_CENTS = 100;
+  const MIN_LIFETIME_CENTS = MIN_DAILY_CENTS * diasJanela;
+
 
   // 2) Conexão Meta ativa para este company → connection_id + ad_account_id.
   //    Pegamos o link primário enabled (mesma origem que MetaPublishPanel/Setup usa).
@@ -268,7 +290,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     is_adset_budget_sharing_enabled: false,
   };
 
-  function buildAdsetPayload(a: any, campaignIdParaPayload: string): { payload: Record<string, unknown>; goal_used: string; sem_pixel?: boolean } {
+  function buildAdsetPayload(a: any, campaignIdParaPayload: string): { payload: Record<string, unknown>; goal_used: string; sem_pixel?: boolean; budget_mode: "lifetime" | "daily"; abaixo_minimo?: { minimo_cents: number; orcamento_cents: number } } {
     const pub = a.publico_sugerido ?? {};
     const countries = normalizeCountries(
       Array.isArray(pub.geo) && pub.geo.length > 0 ? pub.geo : ["PT"],
@@ -284,16 +306,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
       targeting.custom_audiences = [{ id: String(a.publico_custom_audience_id) }];
     }
     let goal = optimization_goal;
+    const orcCents = Math.max(0, Number(a.orcamento_cents ?? 0));
     const payload: Record<string, unknown> = {
       name: a.trigger_nome || "Adset",
       campaign_id: campaignIdParaPayload,
-      daily_budget: Math.max(0, Number(a.orcamento_cents ?? 0)),
       billing_event,
       optimization_goal: goal,
       bid_strategy: "LOWEST_COST_WITHOUT_CAP",
       status: "PAUSED",
       targeting,
     };
+    let abaixo_minimo: { minimo_cents: number; orcamento_cents: number } | undefined;
+    if (usaLifetime) {
+      payload.lifetime_budget = orcCents;
+      // Meta exige start_time + end_time (ISO 8601) com lifetime_budget.
+      payload.start_time = planStartTime;
+      payload.end_time = planEndTime;
+      if (orcCents < MIN_LIFETIME_CENTS) {
+        abaixo_minimo = { minimo_cents: MIN_LIFETIME_CENTS, orcamento_cents: orcCents };
+      }
+    } else {
+      payload.daily_budget = orcCents;
+      // Sem end_time, start_time é opcional; envia se existir (campanha agendada open-ended).
+      if (planStartTime) payload.start_time = planStartTime;
+      if (orcCents < MIN_DAILY_CENTS) {
+        abaixo_minimo = { minimo_cents: MIN_DAILY_CENTS, orcamento_cents: orcCents };
+      }
+    }
     let sem_pixel = false;
     if (goal === "OFFSITE_CONVERSIONS") {
       if (eventPixelId) {
@@ -302,8 +341,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
         sem_pixel = true;
       }
     }
-    return { payload, goal_used: goal, sem_pixel };
+    return { payload, goal_used: goal, sem_pixel, budget_mode: usaLifetime ? "lifetime" : "daily", abaixo_minimo };
   }
+
 
   // Resolve link efetivo: override do adset > link do plano.
   function resolveLink(a: any): string | null {
@@ -383,9 +423,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     for (let i = 0; i < adsets.length; i++) {
       const a = adsets[i];
       const linkEf = resolveLink(a);
-      const { payload: adsetPayload, goal_used, sem_pixel } = buildAdsetPayload(a, "<CAMPAIGN_ID>");
+      const { payload: adsetPayload, goal_used, sem_pixel, budget_mode, abaixo_minimo } = buildAdsetPayload(a, "<CAMPAIGN_ID>");
       if (sem_pixel) avisos.push({ codigo: "sem_pixel_para_conversoes", adset: a.trigger_nome, detalhe: "objetivo Vendas exige meta_pixel_id no evento" });
-      dryAdsets.push({ trigger_nome: a.trigger_nome, optimization_goal_used: goal_used, link_destino_efetivo: linkEf, payload: adsetPayload });
+      if (abaixo_minimo) avisos.push({ codigo: "orcamento_abaixo_minimo", adset: a.trigger_nome, detalhe: `${budget_mode}=${abaixo_minimo.orcamento_cents} cents < mínimo ${abaixo_minimo.minimo_cents} cents (janela ${diasJanela} dia(s))` });
+      dryAdsets.push({ trigger_nome: a.trigger_nome, optimization_goal_used: goal_used, budget_mode, link_destino_efetivo: linkEf, payload: adsetPayload });
       for (let k = 0; k < (a.anuncios ?? []).length; k++) {
         const an = a.anuncios[k];
         if (!linkEf) {
@@ -400,6 +441,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return json({
       dry_run: true,
       ad_account_id: adAccountId,
+      janela: { start_time: planStartTime, end_time: planEndTime, dias: diasJanela, budget_mode: usaLifetime ? "lifetime" : "daily" },
       payloads: {
         campaign: campaignPayload,
         adsets: dryAdsets,
@@ -410,6 +452,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
   }
 
+
   // ─── ESCRITA REAL ───────────────────────────────────────────────────
   // Pré-check: se objetivo é conversões e o evento não tem pixel, falha ANTES de qualquer escrita.
   if (optimization_goal === "OFFSITE_CONVERSIONS" && !eventPixelId) {
@@ -418,6 +461,26 @@ Deno.serve(async (req: Request): Promise<Response> => {
       message: "Objetivo Vendas exige pixel; o evento não tem meta_pixel_id. Usa Tráfego ou configura o pixel.",
     }, 412);
   }
+
+  // Pré-check: orçamentos por adset abaixo do mínimo (lifetime ou daily). Falha cedo com lista clara.
+  const adsetsAbaixoMin: Array<{ adset: string; orcamento_cents: number; minimo_cents: number; modo: string }> = [];
+  for (const a of (adsets as any[])) {
+    const orc = Math.max(0, Number(a.orcamento_cents ?? 0));
+    if (usaLifetime) {
+      if (orc < MIN_LIFETIME_CENTS) adsetsAbaixoMin.push({ adset: a.trigger_nome, orcamento_cents: orc, minimo_cents: MIN_LIFETIME_CENTS, modo: "lifetime" });
+    } else {
+      if (orc < MIN_DAILY_CENTS) adsetsAbaixoMin.push({ adset: a.trigger_nome, orcamento_cents: orc, minimo_cents: MIN_DAILY_CENTS, modo: "daily" });
+    }
+  }
+  if (adsetsAbaixoMin.length > 0) {
+    return json({
+      error: "orcamento_abaixo_minimo",
+      message: `Algum(s) adset(s) têm orçamento abaixo do mínimo Meta (${usaLifetime ? `lifetime min ≈ ${MIN_LIFETIME_CENTS} cents para janela de ${diasJanela} dia(s)` : `daily min ≈ ${MIN_DAILY_CENTS} cents`}). Aumenta o total ou redistribui os pesos.`,
+      adsets: adsetsAbaixoMin,
+      janela: { start_time: planStartTime, end_time: planEndTime, dias: diasJanela, budget_mode: usaLifetime ? "lifetime" : "daily" },
+    }, 412);
+  }
+
 
   // Estado: a_publicar
   await (admin as any).schema("crm").from("meta_publish_plan")

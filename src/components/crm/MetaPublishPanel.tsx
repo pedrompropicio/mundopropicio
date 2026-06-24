@@ -98,6 +98,34 @@ function repartir(total: number, pesos: number[]): number[] {
   return floor;
 }
 
+// "YYYY-MM-DDTHH:mm" (local) ⇄ ISO UTC
+function isoToLocalInput(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function localInputToIso(v: string): string | null {
+  if (!v) return null;
+  const d = new Date(v); // interpretado como hora local
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+function fmtJanela(startLocal: string, endLocal: string): string {
+  const fmt = (s: string) => {
+    if (!s) return "";
+    const d = new Date(s);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  if (startLocal && endLocal) return `De ${fmt(startLocal)} a ${fmt(endLocal)}`;
+  if (startLocal) return `A partir de ${fmt(startLocal)} (sem fim)`;
+  if (endLocal) return `Até ${fmt(endLocal)} (sem início)`;
+  return "Sem janela definida";
+}
+
+
 export function MetaPublishPanel({
   open, onOpenChange, companyId, designId,
 }: {
@@ -113,6 +141,9 @@ export function MetaPublishPanel({
   const [objetivo, setObjetivo] = useState<string>("OUTCOME_SALES");
   const [orcamentoEuros, setOrcamentoEuros] = useState<string>("");
   const [linkDestino, setLinkDestino] = useState<string>("");
+  const [startTime, setStartTime] = useState<string>(""); // datetime-local
+  const [endTime, setEndTime] = useState<string>("");     // datetime-local
+
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
 
   // FASE 2 — publicação real
@@ -257,13 +288,16 @@ export function MetaPublishPanel({
           try {
             const { data: row } = await (supabase as any)
               .schema("crm").from("meta_publish_plan")
-              .select("estado, meta_campaign_id")
+              .select("estado, meta_campaign_id, start_time, end_time")
               .eq("id", (data as any).plan_id).maybeSingle();
             if (!cancel && row) {
               setEstadoPlano(row.estado ?? "rascunho");
               setMetaCampaignIdPub(row.meta_campaign_id ?? null);
+              setStartTime(isoToLocalInput(row.start_time));
+              setEndTime(isoToLocalInput(row.end_time));
             }
           } catch { /* ignore */ }
+
         }
       } catch (e: any) {
         if (!cancel) setError(e?.message ?? "Falha de rede.");
@@ -281,12 +315,20 @@ export function MetaPublishPanel({
     if (debounceRef.current) window.clearTimeout(debounceRef.current);
     setSaveState("saving");
     debounceRef.current = window.setTimeout(async () => {
-      const payload = {
+      const startIso = localInputToIso(startTime);
+      const endIso = localInputToIso(endTime);
+      // Validação: se ambos definidos, fim > início. Senão NÃO grava janela inválida.
+      const janelaInvalida = !!(startIso && endIso && new Date(endIso).getTime() <= new Date(startIso).getTime());
+      const payload: Record<string, unknown> = {
         objetivo,
         orcamento_total_cents: parseEuros(orcamentoEuros) || null,
         link_destino: linkDestino.trim() ? linkDestino.trim() : null,
         adsets: plano.adsets.map(({ _ajustado_a_mao, ...a }) => a),
       };
+      if (!janelaInvalida) {
+        payload.start_time = startIso;
+        payload.end_time = endIso;
+      }
       const { error: upErr } = await (supabase as any)
         .schema("crm").from("meta_publish_plan")
         .update(payload).eq("id", plano.plan_id);
@@ -301,7 +343,8 @@ export function MetaPublishPanel({
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plano, objetivo, orcamentoEuros, linkDestino]);
+  }, [plano, objetivo, orcamentoEuros, linkDestino, startTime, endTime]);
+
 
   // Quando o orçamento total muda, reparte (mas só nos adsets que NÃO foram ajustados à mão)
   useEffect(() => {
@@ -409,6 +452,39 @@ export function MetaPublishPanel({
                   )}
                 </div>
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Início da campanha (opcional)</label>
+                  <Input
+                    type="datetime-local"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Fim da campanha (opcional)</label>
+                  <Input
+                    type="datetime-local"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                  />
+                </div>
+                <div className="md:col-span-2 text-[11px] text-muted-foreground">
+                  Com data de fim definida, o orçamento de cada adset passa a ser <b>total para toda a janela</b> (lifetime). Sem fim, mantém-se diário.
+                  {(() => {
+                    const sIso = localInputToIso(startTime);
+                    const eIso = localInputToIso(endTime);
+                    if (sIso && eIso && new Date(eIso).getTime() <= new Date(sIso).getTime()) {
+                      return <span className="ml-2 text-amber-600 dark:text-amber-400">A data de fim tem de ser depois do início.</span>;
+                    }
+                    if (eIso && !sIso) {
+                      return <span className="ml-2 text-amber-600 dark:text-amber-400">Para usar data de fim tens de definir também o início (exigência do Meta para lifetime budget).</span>;
+                    }
+                    return null;
+                  })()}
+                </div>
+              </div>
+
               <div className="text-xs text-muted-foreground flex items-center gap-2">
                 <Info className="h-3 w-3" />
                 Os pesos vêm da Montagem Assistida e não são tocados pela UI. O orçamento é repartido em código por esses pesos.
@@ -667,6 +743,9 @@ export function MetaPublishPanel({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-sm">
                   Vais criar <b>1 campanha em PAUSA</b> · <b>{plano.adsets.length}</b> adsets · <b>{totalAnuncios}</b> anúncios · orçamento total <b>{euros(totalCents)} €</b> · objetivo <b>{labelObjetivo(objetivo)}</b>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Janela: <b>{fmtJanela(startTime, endTime)}</b>{endTime ? <> · orçamento <b>lifetime</b> (total da janela)</> : <> · orçamento <b>diário</b></>}
+                  </div>
                   {totalCents > 0 && Math.abs(somaAdsetsCents - totalCents) > 1 && (
                     <span className="ml-2 text-amber-600 dark:text-amber-400">
                       (soma dos adsets = {euros(somaAdsetsCents)} € — não bate)
@@ -682,12 +761,18 @@ export function MetaPublishPanel({
                   {(() => {
                     const jaPublicado = estadoPlano === "publicado";
                     const linkTopoOk = isValidHttpsUrl(linkDestino.trim());
+                    const sIso = localInputToIso(startTime);
+                    const eIso = localInputToIso(endTime);
+                    const janelaInvalida = !!(sIso && eIso && new Date(eIso).getTime() <= new Date(sIso).getTime());
+                    const faltaStartParaLifetime = !!eIso && !sIso;
                     const podePublicar =
                       !jaPublicado &&
                       !!objetivo &&
                       totalCents > 0 &&
                       totalAnuncios > 0 &&
                       linkTopoOk &&
+                      !janelaInvalida &&
+                      !faltaStartParaLifetime &&
                       !!plano.plan_id &&
                       !!companyId;
                     const tooltipMsg = jaPublicado
@@ -700,7 +785,12 @@ export function MetaPublishPanel({
                             ? "Nenhum anúncio elegível (variações coerentes)."
                             : !linkTopoOk
                               ? "Falta o link de destino."
-                              : "Pronto a publicar — fica tudo em pausa.";
+                              : janelaInvalida
+                                ? "Fim da campanha tem de ser depois do início."
+                                : faltaStartParaLifetime
+                                  ? "Para usar data de fim, define também a de início."
+                                  : "Pronto a publicar — fica tudo em pausa.";
+
                     return (
                       <TooltipProvider>
                         <Tooltip>
