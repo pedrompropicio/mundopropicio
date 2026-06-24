@@ -193,9 +193,12 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
     db: { schema: "crm" as never },
   });
+  const sbPublic = createClient(SUPABASE_URL, SRK, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
-  // a) retrieval
-  const [rCamp, rPub] = await Promise.all([
+  // a) retrieval (evidência histórica + inventário real de audiências)
+  const [rCamp, rPub, evAud] = await Promise.all([
     sbCrm.rpc("audience_retrieve", {
       p_artist: b.artist ?? null,
       p_music_style: b.music_style ?? null,
@@ -208,14 +211,15 @@ Deno.serve(async (req: Request) => {
       p_entity_type: b.entity_type ?? null,
       p_market_scope: market,
     }),
+    fetchAudienceInventory(sbPublic),
   ]);
 
   const evCamp = rCamp.error ? { __err: rCamp.error.message } : rCamp.data;
   const evPub = rPub.error ? { __err: rPub.error.message } : rPub.data;
-  const evidencia = { campanha: evCamp, publicos: evPub };
+  const evidencia = { campanha: evCamp, publicos: evPub, audiencias_disponiveis: evAud };
 
   // b) prompt
-  const prompt = buildPrompt(b, evCamp, evPub);
+  const prompt = buildPrompt(b, evCamp, evPub, evAud);
 
   // c) duelo paralelo
   const [gem, gpt] = await Promise.all([
