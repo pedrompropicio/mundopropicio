@@ -14,7 +14,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
-const BUILD_VERSION = "upload-creative-v5-authtrace 2026-06-24";
+const BUILD_VERSION = "upload-creative-v2fn 2026-06-24";
 const GRAPH_API_VERSION = "v21.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SRK = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
