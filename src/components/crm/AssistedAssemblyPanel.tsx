@@ -167,14 +167,14 @@ export function AssistedAssemblyPanel({
     const { data, error } = await (supabase as any)
       .schema("crm")
       .from("meta_creatives")
-      .select("id, name")
+      .select("id, name, file_url, type, file_mime_type")
       .in("id", ids);
     if (error) {
       console.warn("[assembly-panel] fetch creative names failed", error);
       return new Map<string, CreativeMini>();
     }
     const m = new Map<string, CreativeMini>();
-    (data ?? []).forEach((r: any) => m.set(r.id, { id: r.id, name: r.name }));
+    (data ?? []).forEach((r: any) => m.set(r.id, { id: r.id, name: r.name, file_url: r.file_url, type: r.type, file_mime_type: r.file_mime_type }));
     return m;
   }
 
