@@ -444,6 +444,189 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     }
   }
 
+  // ───────── Upload "Carregar novo criativo" — dentro do Estúdio
+  const UPLOAD_ACCEPT = "image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime";
+  const UPLOAD_MAX_BYTES = 50 * 1024 * 1024;
+
+  async function readUploadMediaMeta(file: File): Promise<{ width: number; height: number; duration: number | null; type: "image" | "video" }> {
+    const isVideo = file.type.startsWith("video/");
+    const url = URL.createObjectURL(file);
+    try {
+      if (isVideo) {
+        return await new Promise((resolve, reject) => {
+          const v = document.createElement("video");
+          v.preload = "metadata";
+          v.onloadedmetadata = () => resolve({ width: v.videoWidth, height: v.videoHeight, duration: v.duration, type: "video" });
+          v.onerror = () => reject(new Error("Falha a ler vídeo"));
+          v.src = url;
+        });
+      }
+      return await new Promise((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve({ width: i.naturalWidth, height: i.naturalHeight, duration: null, type: "image" });
+        i.onerror = () => reject(new Error("Falha a ler imagem"));
+        i.src = url;
+      });
+    } finally {
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    }
+  }
+
+  function openUploadDialog(adsetIdx: number) {
+    if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+    setUploadFile(null);
+    setUploadPreviewUrl(null);
+    setUploadMeta(null);
+    setUploadName("");
+    setUploadLinkOverride(eventTicketingUrl ?? "");
+    setUploadStatus({ state: "idle" });
+    setUploadDialog({ open: true, adsetIdx });
+  }
+
+  function closeUploadDialog() {
+    if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+    setUploadDialog({ open: false, adsetIdx: null });
+    setUploadFile(null);
+    setUploadPreviewUrl(null);
+    setUploadMeta(null);
+    setUploadStatus({ state: "idle" });
+  }
+
+  async function handleUploadFileChosen(f: File) {
+    if (f.size > UPLOAD_MAX_BYTES) { toast.error("Ficheiro demasiado grande (máx 50MB)"); return; }
+    if (!UPLOAD_ACCEPT.split(",").includes(f.type)) { toast.error(`Tipo não suportado: ${f.type}`); return; }
+    try {
+      const m = await readUploadMediaMeta(f);
+      if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
+      setUploadFile(f);
+      setUploadPreviewUrl(URL.createObjectURL(f));
+      setUploadMeta(m);
+      if (!uploadName) setUploadName(f.name.replace(/\.[^.]+$/, ""));
+    } catch (e: any) {
+      toast.error("Falha a ler metadados", { description: e?.message });
+    }
+  }
+
+  async function submitUpload() {
+    if (!uploadFile || !uploadMeta || !companyId) { toast.error("Ficheiro ou empresa em falta"); return; }
+    if (!uploadName.trim()) { toast.error("Nome obrigatório"); return; }
+    const adsetIdx = uploadDialog.adsetIdx;
+    if (adsetIdx == null) { toast.error("Adset desconhecido"); return; }
+    const linkFinal = (uploadLinkOverride.trim() || eventTicketingUrl || "").trim() || null;
+
+    setUploadStatus({ state: "uploading", pct: 10, phase: "A enviar ficheiro…" });
+    try {
+      const safeName = uploadFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = `${companyId}/${Date.now()}_${safeName}`;
+
+      setUploadStatus({ state: "uploading", pct: 30, phase: "A enviar ficheiro…" });
+      const { error: upErr } = await supabase.storage
+        .from("crm-meta-creatives")
+        .upload(path, uploadFile, { contentType: uploadFile.type, upsert: false });
+      if (upErr) throw new Error((upErr as any)?.message ?? "Falha no upload");
+
+      const { data: pub } = supabase.storage.from("crm-meta-creatives").getPublicUrl(path);
+      const fileUrl = pub.publicUrl;
+
+      const { data: userRes } = await supabase.auth.getUser();
+      const userId = userRes?.user?.id;
+      if (!userId) throw new Error("Sem utilizador autenticado");
+
+      setUploadStatus({ state: "uploading", pct: 70, phase: "A registar criativo…" });
+      const { data: inserted, error: insErr } = await (supabase as any)
+        .schema("crm").from("meta_creatives")
+        .insert({
+          company_id: companyId,
+          name: uploadName.trim(),
+          type: uploadMeta.type,
+          storage_bucket: "crm-meta-creatives",
+          storage_path: path,
+          file_url: fileUrl,
+          file_size_bytes: uploadFile.size,
+          file_mime_type: uploadFile.type,
+          width: uploadMeta.width,
+          height: uploadMeta.height,
+          duration_seconds: uploadMeta.duration,
+          link_url: linkFinal,
+          created_by: userId,
+        })
+        .select("id, name, file_url, type, file_mime_type")
+        .single();
+      if (insErr) throw new Error(insErr.message);
+
+      // Optimista: adiciona ao adset, ao cache e ao pool já, sem esperar pelo Meta.
+      const newId = (inserted as any).id as string;
+      await adicionarPeca(adsetIdx, newId);
+      setCreativesById((prev) => {
+        const m = new Map(prev);
+        m.set(newId, {
+          id: newId,
+          name: (inserted as any).name ?? uploadName.trim(),
+          type: uploadMeta.type,
+          file_url: fileUrl,
+          width: uploadMeta.width,
+          height: uploadMeta.height,
+          duration_seconds: uploadMeta.duration,
+          file_mime_type: uploadFile.type,
+          headline: null, body: null, cta_type: null,
+          text_snippets: [], updated_at: new Date().toISOString(),
+        });
+        return m;
+      });
+      setPoolCreatives((prev) =>
+        prev.some((p) => p.id === newId) ? prev : [
+          { id: newId, name: (inserted as any).name ?? uploadName.trim(), file_url: fileUrl, type: uploadMeta.type, file_mime_type: uploadFile.type },
+          ...prev,
+        ]
+      );
+
+      // Push para o Meta (não bloqueia).
+      setUploadStatus({ state: "metapush" });
+      try {
+        const { data: pushRes, error: pushErr } = await supabase.functions.invoke(
+          "crm-meta-upload-creative",
+          { body: { company_id: companyId, creative_id: newId } },
+        );
+        if (pushErr) throw pushErr;
+        if (pushRes?.ok) {
+          const metaId = pushRes.type === "image" ? pushRes.meta_image_hash : pushRes.meta_video_id;
+          setUploadStatus({ state: "ok", creativeId: newId, kind: pushRes.type, metaId });
+          toast.success(pushRes.type === "video" ? "No Meta — vídeo em processamento" : "No Meta (pronto)");
+        } else {
+          setUploadStatus({ state: "err", msg: pushRes?.error || "falhou", creativeId: newId });
+          toast.warning("Criativo guardado, mas falhou push para Meta");
+        }
+      } catch (e: any) {
+        setUploadStatus({ state: "err", msg: e?.message ?? String(e), creativeId: newId });
+        toast.warning("Criativo guardado, mas falhou push para Meta", { description: e?.message });
+      }
+    } catch (e: any) {
+      console.error("[design-studio] upload failed", e);
+      setUploadStatus({ state: "err", msg: e?.message ?? String(e) });
+      toast.error("Falha ao carregar criativo", { description: e?.message ?? String(e) });
+    }
+  }
+
+  async function retryUploadMetaPush(creativeIdToRetry: string) {
+    setUploadStatus({ state: "metapush" });
+    try {
+      const { data: pushRes, error: pushErr } = await supabase.functions.invoke(
+        "crm-meta-upload-creative",
+        { body: { company_id: companyId, creative_id: creativeIdToRetry, force: true } },
+      );
+      if (pushErr) throw pushErr;
+      if (pushRes?.ok) {
+        const metaId = pushRes.type === "image" ? pushRes.meta_image_hash : pushRes.meta_video_id;
+        setUploadStatus({ state: "ok", creativeId: creativeIdToRetry, kind: pushRes.type, metaId });
+        toast.success("Push para Meta concluído");
+      } else {
+        setUploadStatus({ state: "err", msg: pushRes?.error || "falhou", creativeId: creativeIdToRetry });
+      }
+    } catch (e: any) {
+      setUploadStatus({ state: "err", msg: e?.message ?? String(e), creativeId: creativeIdToRetry });
+    }
+  }
+
 
   function editarCampo(adsetIdx: number, varIdx: number, campo: "headline" | "corpo" | "cta", valor: string) {
     updateAdset(adsetIdx, (a) => ({
