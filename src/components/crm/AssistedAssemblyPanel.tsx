@@ -516,11 +516,21 @@ export function AssistedAssemblyPanel({
                             className="flex items-center gap-2 px-2 py-1.5 rounded border text-xs border-border/60 bg-muted/20"
                           >
                             {mini?.file_url ? (
-                              <img
-                                src={mini.file_url}
-                                alt=""
-                                className="h-8 w-8 rounded object-cover bg-muted shrink-0"
-                              />
+                              isVideoCreative(mini) ? (
+                                <video
+                                  src={`${mini.file_url}#t=0.1`}
+                                  muted
+                                  playsInline
+                                  preload="metadata"
+                                  className="h-8 w-8 rounded object-cover bg-muted shrink-0 pointer-events-none"
+                                />
+                              ) : (
+                                <img
+                                  src={mini.file_url}
+                                  alt=""
+                                  className="h-8 w-8 rounded object-cover bg-muted shrink-0"
+                                />
+                              )
                             ) : (
                               <div className="h-8 w-8 rounded bg-muted shrink-0" />
                             )}
