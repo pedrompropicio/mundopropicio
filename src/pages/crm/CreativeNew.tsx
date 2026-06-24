@@ -521,13 +521,52 @@ export default function CrmCreativeNew() {
         </Card>
       </div>
 
+      {metaPush.state !== "idle" && (
+        <Card className="p-4">
+          {metaPush.state === "uploading" && (
+            <div className="flex items-center gap-2 text-sm">
+              <Loader2 className="h-4 w-4 animate-spin text-cyan-500" />
+              A carregar no Meta…
+            </div>
+          )}
+          {metaPush.state === "ok" && (
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm">
+                ✓ No Meta (pronto a publicar){" "}
+                <span className="text-xs text-muted-foreground ml-1">
+                  {metaPush.kind === "image" ? `image_hash=${metaPush.id}` : `video_id=${metaPush.id} (em processamento)`}
+                </span>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => navigate("/audience/creatives")}>
+                Ver lista
+              </Button>
+            </div>
+          )}
+          {metaPush.state === "err" && (
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm text-amber-600">
+                ⚠ Falhou push para Meta: <span className="text-xs">{metaPush.msg}</span>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => retryMetaPush(metaPush.creativeId)}>
+                  Tentar novamente
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => navigate(`/audience/creatives/${metaPush.creativeId}`)}>
+                  Ir para o criativo
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
+
       <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={() => navigate("/audience/creatives")} disabled={uploading}>
-          Cancelar
+        <Button variant="outline" onClick={() => navigate("/audience/creatives")} disabled={uploading || metaPush.state === "uploading"}>
+          {metaPush.state === "ok" ? "Fechar" : "Cancelar"}
         </Button>
         <Button
           onClick={handleSubmit}
-          disabled={!canSubmit}
+          disabled={!canSubmit || metaPush.state === "uploading" || metaPush.state === "ok"}
           className="bg-cyan-500 hover:bg-cyan-600 text-white"
         >
           {uploading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : null}
