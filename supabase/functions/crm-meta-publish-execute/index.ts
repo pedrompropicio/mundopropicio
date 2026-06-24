@@ -258,12 +258,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
   }
   const creativeUuids = Array.from(creativeUuidSet);
-  type CreativeInfo = { meta_creative_id: string | null; meta_image_hash: string | null; meta_video_id: string | null; type: string | null; file_url: string | null };
+  type CreativeInfo = { meta_creative_id: string | null; meta_image_hash: string | null; meta_video_id: string | null; type: string | null; file_url: string | null; width: number | null; height: number | null };
   const resolvedCreatives = new Map<string, CreativeInfo>();
   if (creativeUuids.length > 0) {
     const { data: rows, error: cErr } = await (admin as any)
       .schema("crm").from("meta_creatives")
-      .select("id, meta_creative_id, meta_image_hash, meta_video_id, type, file_url")
+      .select("id, meta_creative_id, meta_image_hash, meta_video_id, type, file_url, width, height")
       .in("id", creativeUuids);
     if (cErr) return json({ error: "creatives_query_failed", detail: cErr.message }, 500);
     for (const r of (rows ?? [])) {
@@ -273,10 +273,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
         meta_video_id: (r as any).meta_video_id ?? null,
         type: (r as any).type ?? null,
         file_url: (r as any).file_url ?? null,
+        width: typeof (r as any).width === "number" ? (r as any).width : null,
+        height: typeof (r as any).height === "number" ? (r as any).height : null,
       });
     }
     for (const u of creativeUuids) {
-      if (!resolvedCreatives.has(u)) resolvedCreatives.set(u, { meta_creative_id: null, meta_image_hash: null, meta_video_id: null, type: null, file_url: null });
+      if (!resolvedCreatives.has(u)) resolvedCreatives.set(u, { meta_creative_id: null, meta_image_hash: null, meta_video_id: null, type: null, file_url: null, width: null, height: null });
     }
   }
 
