@@ -214,19 +214,16 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     void loadLatestDesign();
   }, [open, assemblyId, companyId]);
 
-  // Carrega catálogo da company para substituição
+  // Carrega POOL CURADO do evento (via RPC crm.assembly_creative_pool)
   useEffect(() => {
-    if (!open || !companyId) return;
+    if (!open || !assemblyId) return;
     (async () => {
       const { data, error } = await (supabase as any)
-        .schema("crm").from("meta_creatives")
-        .select("id, name, file_url, type, file_mime_type")
-        .eq("company_id", companyId)
-        .order("created_at", { ascending: false });
-      if (error) { console.warn("[design-studio] fetch company creatives failed", error); return; }
-      setCompanyCreatives((data ?? []) as Array<{ id: string; name: string | null; file_url: string | null; type: string | null; file_mime_type: string | null }>);
+        .schema("crm").rpc("assembly_creative_pool", { p_assembly_id: assemblyId });
+      if (error) { console.warn("[design-studio] fetch pool failed", error); return; }
+      setPoolCreatives((data ?? []) as PoolCreative[]);
     })();
-  }, [open, companyId]);
+  }, [open, assemblyId]);
 
   async function fetchCreativeMeta(ids: string[]) {
     if (ids.length === 0) return new Map<string, CreativeMini>();
