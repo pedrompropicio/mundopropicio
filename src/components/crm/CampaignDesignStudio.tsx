@@ -489,92 +489,127 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   const lightboxIsImage = lightboxMediaType.kind === "image";
   const lightboxIsVideo = lightboxMediaType.kind === "video";
 
-  // Seletor partilhado de criativos (Substituir e Adicionar) com busca + filtro tipo.
-  function CreativeSelectorList({
-    disabledIds, onPick,
-  }: { disabledIds: Set<string>; onPick: (creativeId: string) => void; }) {
-    const [q, setQ] = useState("");
-    const [filter, setFilter] = useState<"all" | "image" | "video">("all");
-    const items = useMemo(() => {
-      const qn = q.trim().toLowerCase();
-      return poolCreatives.filter((cc) => {
-        if (qn && !((cc.name ?? "").toLowerCase().includes(qn))) return false;
-        if (filter !== "all") {
-          const k = getEffectiveMediaType(cc.file_url, cc.file_mime_type, cc.type).kind;
-          if (k !== filter) return false;
-        }
-        return true;
-      });
-    }, [q, filter]);
+  // Seletor de criativos (Substituir e Adicionar) num Dialog grande com grelha.
+  // Pool curado por evento + busca + filtro Todos/Imagem/Vídeo. Clicar escolhe e fecha.
+  type SelectorState = {
+    open: boolean;
+    title: string;
+    disabledIds: Set<string>;
+    onPick: (creativeId: string) => void;
+  };
+  const [selector, setSelector] = useState<SelectorState>({
+    open: false, title: "Escolher criativo", disabledIds: new Set(), onPick: () => {},
+  });
+  const [selectorQ, setSelectorQ] = useState("");
+  const [selectorFilter, setSelectorFilter] = useState<"all" | "image" | "video">("all");
+
+  function openSelector(opts: { title: string; disabledIds: Set<string>; onPick: (cid: string) => void }) {
+    setSelectorQ("");
+    setSelectorFilter("all");
+    setSelector({ open: true, title: opts.title, disabledIds: opts.disabledIds, onPick: opts.onPick });
+  }
+
+  const selectorItems = useMemo(() => {
+    const qn = selectorQ.trim().toLowerCase();
+    return poolCreatives.filter((cc) => {
+      if (qn && !((cc.name ?? "").toLowerCase().includes(qn))) return false;
+      if (selectorFilter !== "all") {
+        const k = getEffectiveMediaType(cc.file_url, cc.file_mime_type, cc.type).kind;
+        if (k !== selectorFilter) return false;
+      }
+      return true;
+    });
+  }, [selectorQ, selectorFilter, poolCreatives]);
+
+  function CreativeSelectorDialog() {
     return (
-      <>
-        <div className="p-2 border-b space-y-2">
-          <div className="relative">
-            <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar por nome…"
-              className="h-7 pl-7 text-xs"
-            />
+      <Dialog open={selector.open} onOpenChange={(o) => setSelector((s) => ({ ...s, open: o }))}>
+        <DialogContent className="max-w-3xl p-0 gap-0 flex flex-col max-h-[85vh]">
+          <DialogHeader className="px-5 py-4 border-b">
+            <DialogTitle className="text-base">{selector.title}</DialogTitle>
+          </DialogHeader>
+          <div className="px-5 py-3 border-b space-y-2">
+            <div className="relative">
+              <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={selectorQ}
+                onChange={(e) => setSelectorQ(e.target.value)}
+                placeholder="Buscar por nome…"
+                className="h-9 pl-9 text-sm"
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2">
+              {(["all", "image", "video"] as const).map((f) => (
+                <Button
+                  key={f}
+                  type="button"
+                  size="sm"
+                  variant={selectorFilter === f ? "default" : "outline"}
+                  className="h-8 px-3 text-xs"
+                  onClick={() => setSelectorFilter(f)}
+                >
+                  {f === "all" ? "Todos" : f === "image" ? "Imagem" : "Vídeo"}
+                </Button>
+              ))}
+              <div className="ml-auto text-xs text-muted-foreground self-center">
+                {selectorItems.length} criativo{selectorItems.length === 1 ? "" : "s"}
+              </div>
+            </div>
           </div>
-          <div className="flex gap-1">
-            {(["all", "image", "video"] as const).map((f) => (
-              <Button
-                key={f}
-                type="button"
-                size="sm"
-                variant={filter === f ? "default" : "outline"}
-                className="h-6 px-2 text-[11px] flex-1"
-                onClick={() => setFilter(f)}
-              >
-                {f === "all" ? "Todos" : f === "image" ? "Imagem" : "Vídeo"}
-              </Button>
-            ))}
+          <div className="flex-1 overflow-y-auto p-4">
+            {selectorItems.length === 0 ? (
+              <div className="py-12 text-center text-sm text-muted-foreground">Sem criativos no pool.</div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {selectorItems.map((cc) => {
+                  const inUse = selector.disabledIds.has(cc.id);
+                  const kind = getEffectiveMediaType(cc.file_url, cc.file_mime_type, cc.type).kind;
+                  return (
+                    <button
+                      key={cc.id}
+                      type="button"
+                      disabled={inUse}
+                      onClick={() => {
+                        selector.onPick(cc.id);
+                        setSelector((s) => ({ ...s, open: false }));
+                      }}
+                      className={cn(
+                        "group text-left rounded-lg border bg-card/40 overflow-hidden transition hover:border-primary/60 hover:bg-card/70 focus:outline-none focus:ring-2 focus:ring-primary/40",
+                        inUse && "opacity-40 cursor-not-allowed hover:border-border hover:bg-card/40",
+                      )}
+                    >
+                      <div className="relative w-full aspect-square bg-muted">
+                        {cc.file_url ? (
+                          kind === "video" ? (
+                            <video
+                              src={`${cc.file_url}#t=0.1`}
+                              muted
+                              playsInline
+                              preload="metadata"
+                              className="w-full h-full object-cover pointer-events-none"
+                            />
+                          ) : (
+                            <img src={cc.file_url} alt="" className="w-full h-full object-cover" />
+                          )
+                        ) : null}
+                        {inUse && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                            <Badge variant="outline" className="bg-background/80 text-[10px]">em uso</Badge>
+                          </div>
+                        )}
+                      </div>
+                      <div className="px-2 py-1.5 text-xs truncate" title={cc.name ?? cc.id}>
+                        {cc.name ?? cc.id.slice(0, 8)}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </div>
-        <div className="max-h-72 overflow-y-auto">
-          {items.length === 0 && (
-            <div className="p-3 text-xs text-muted-foreground">Sem criativos no pool.</div>
-          )}
-          {items.map((cc) => {
-            const inUse = disabledIds.has(cc.id);
-            const kind = getEffectiveMediaType(cc.file_url, cc.file_mime_type, cc.type).kind;
-            return (
-              <button
-                key={cc.id}
-                type="button"
-                disabled={inUse}
-                onClick={() => onPick(cc.id)}
-                className={cn(
-                  "w-full text-left flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 border-b last:border-b-0",
-                  inUse && "opacity-40 cursor-not-allowed",
-                )}
-              >
-                {cc.file_url ? (
-                  kind === "video" ? (
-                    <video
-                      src={`${cc.file_url}#t=0.1`}
-                      muted
-                      playsInline
-                      preload="metadata"
-                      className="h-7 w-7 rounded object-cover bg-muted shrink-0 pointer-events-none"
-                    />
-                  ) : (
-                    <img src={cc.file_url} alt="" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
-                  )
-                ) : (
-                  <div className="h-7 w-7 rounded bg-muted shrink-0" />
-                )}
-                <span className="flex-1 truncate text-xs" title={cc.name ?? cc.id}>
-                  {cc.name ?? cc.id.slice(0, 8)}
-                </span>
-                {inUse && <span className="text-[10px] text-muted-foreground">em uso</span>}
-              </button>
-            );
-          })}
-        </div>
-      </>
+        </DialogContent>
+      </Dialog>
     );
   }
 
