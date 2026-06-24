@@ -315,12 +315,20 @@ export function MetaPublishPanel({
     if (debounceRef.current) window.clearTimeout(debounceRef.current);
     setSaveState("saving");
     debounceRef.current = window.setTimeout(async () => {
-      const payload = {
+      const startIso = localInputToIso(startTime);
+      const endIso = localInputToIso(endTime);
+      // Validação: se ambos definidos, fim > início. Senão NÃO grava janela inválida.
+      const janelaInvalida = !!(startIso && endIso && new Date(endIso).getTime() <= new Date(startIso).getTime());
+      const payload: Record<string, unknown> = {
         objetivo,
         orcamento_total_cents: parseEuros(orcamentoEuros) || null,
         link_destino: linkDestino.trim() ? linkDestino.trim() : null,
         adsets: plano.adsets.map(({ _ajustado_a_mao, ...a }) => a),
       };
+      if (!janelaInvalida) {
+        payload.start_time = startIso;
+        payload.end_time = endIso;
+      }
       const { error: upErr } = await (supabase as any)
         .schema("crm").from("meta_publish_plan")
         .update(payload).eq("id", plano.plan_id);
@@ -335,7 +343,8 @@ export function MetaPublishPanel({
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plano, objetivo, orcamentoEuros, linkDestino]);
+  }, [plano, objetivo, orcamentoEuros, linkDestino, startTime, endTime]);
+
 
   // Quando o orçamento total muda, reparte (mas só nos adsets que NÃO foram ajustados à mão)
   useEffect(() => {
