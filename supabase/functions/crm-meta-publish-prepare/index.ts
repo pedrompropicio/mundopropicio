@@ -106,14 +106,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!authHeader) return json({ error: "missing_authorization" }, 401);
   if (!LOVABLE_API_KEY) return json({ error: "lovable_ai_not_configured" }, 500);
 
-  let body: { company_id?: string; design_id?: string; orcamento_total_cents?: number; objetivo?: string };
+  let body: { company_id?: string; design_id?: string; orcamento_total_cents?: number; objetivo?: string; start_time?: string | null; end_time?: string | null };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
   const { company_id, design_id } = body;
   const orcamentoTotal = typeof body.orcamento_total_cents === "number" ? Math.max(0, Math.floor(body.orcamento_total_cents)) : null;
   const objetivo = typeof body.objetivo === "string" ? body.objetivo : null;
+  const startTimeIn: string | null = typeof body.start_time === "string" && body.start_time.length > 0 ? body.start_time : null;
+  const endTimeIn: string | null = typeof body.end_time === "string" && body.end_time.length > 0 ? body.end_time : null;
+  if (startTimeIn && endTimeIn && new Date(endTimeIn).getTime() <= new Date(startTimeIn).getTime()) {
+    return json({ error: "janela_invalida", message: "end_time tem de ser depois de start_time" }, 400);
+  }
   if (!company_id || !design_id) {
     return json({ error: "missing_params", message: "company_id e design_id obrigatórios" }, 400);
   }
+
 
   const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
