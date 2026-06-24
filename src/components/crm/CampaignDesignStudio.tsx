@@ -989,6 +989,9 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
         </DialogContent>
       </Dialog>
 
+      {/* Seletor de criativos (Adicionar / Substituir) */}
+      <CreativeSelectorDialog />
+
     </Sheet>
   );
 }
