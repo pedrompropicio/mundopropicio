@@ -113,6 +113,9 @@ export function MetaPublishPanel({
   const [objetivo, setObjetivo] = useState<string>("OUTCOME_SALES");
   const [orcamentoEuros, setOrcamentoEuros] = useState<string>("");
   const [linkDestino, setLinkDestino] = useState<string>("");
+  const [startTime, setStartTime] = useState<string>(""); // datetime-local
+  const [endTime, setEndTime] = useState<string>("");     // datetime-local
+
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
 
   // FASE 2 — publicação real
