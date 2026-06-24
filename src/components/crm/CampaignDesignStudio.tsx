@@ -1,3 +1,4 @@
+// deploy bump: força redeploy edge crm-meta-upload-creative v6 (2026-06-24)
 // CampaignDesignStudio
 // Camada 5 (PARTE 2) — UI do Estúdio de Desenho de Campanha.
 // Abre em Sheet a tela cheia. Lê / cria desenho via crm-campaign-design-generate,
