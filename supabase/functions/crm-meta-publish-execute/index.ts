@@ -374,18 +374,21 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const firstCid = (anuncio.creative_ids ?? [])[0];
     if (!firstCid) return { payload: null, aviso: { codigo: "creative_sem_id" } };
     const info = resolvedCreatives.get(firstCid);
-    if (!info || !info.meta_creative_id) {
-      return { payload: null, aviso: { codigo: "creative_sem_meta_id", detalhe: firstCid } };
-    }
-    const cta = normalizeCta(anuncio.cta || "LEARN_MORE");
-    const isImagem = (info.type ?? "").toLowerCase() === "image";
+    if (!info) return { payload: null, aviso: { codigo: "creative_sem_meta_id", detalhe: firstCid } };
 
-    // Caminho preferido: criativo NOVO com copy+link aplicados ao anúncio.
+    const cta = normalizeCta(anuncio.cta || "LEARN_MORE");
+    const tipoLower = (info.type ?? "").toLowerCase();
+    const isImagem = tipoLower === "image";
+    const isVideo = tipoLower === "video";
+    const msg = String(anuncio.corpo ?? "").slice(0, 2000);
+    const title = String(anuncio.headline ?? "").slice(0, 200);
+
+    // Caso 1: IMAGEM com image_hash → criativo novo com link_data
     if (isImagem && info.meta_image_hash) {
       const linkData: Record<string, unknown> = {
         image_hash: info.meta_image_hash,
-        message: String(anuncio.corpo ?? "").slice(0, 2000),
-        name: String(anuncio.headline ?? "").slice(0, 200),
+        message: msg,
+        name: title,
         link,
         call_to_action: { type: cta, value: { link } },
       };
@@ -394,7 +397,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
         link_data: linkData,
       };
       if (selectedInstagramId) objectStorySpec.instagram_actor_id = selectedInstagramId;
-
       return {
         payload: {
           name: (anuncio.headline ?? "Anúncio").slice(0, 200),
@@ -405,16 +407,45 @@ Deno.serve(async (req: Request): Promise<Response> => {
       };
     }
 
-    // Fallback: vídeo, ou imagem sem image_hash → reutiliza creative inteiro.
-    return {
-      payload: {
-        name: (anuncio.headline ?? "Anúncio").slice(0, 200),
-        adset_id: adsetIdParaPayload,
-        status: "PAUSED",
-        creative: { creative_id: info.meta_creative_id },
-      },
-      aviso: { codigo: "copy_e_link_nao_aplicados", detalhe: "criativo reutilizado inteiro" },
-    };
+    // Caso 2: VÍDEO com meta_video_id (carregado pelo sistema) → criativo novo com video_data
+    if (isVideo && info.meta_video_id) {
+      const videoData: Record<string, unknown> = {
+        video_id: info.meta_video_id,
+        message: msg,
+        title,
+        call_to_action: { type: cta, value: { link } },
+      };
+      if (info.file_url) videoData.image_url = info.file_url; // poster
+      const objectStorySpec: Record<string, unknown> = {
+        page_id: selectedPageId,
+        video_data: videoData,
+      };
+      if (selectedInstagramId) objectStorySpec.instagram_actor_id = selectedInstagramId;
+      return {
+        payload: {
+          name: (anuncio.headline ?? "Anúncio").slice(0, 200),
+          adset_id: adsetIdParaPayload,
+          status: "PAUSED",
+          creative: { object_story_spec: objectStorySpec },
+        },
+        aviso: { codigo: "video_em_processamento", detalhe: "se Graph rejeitar com 'vídeo não pronto', re-publicar mais tarde" },
+      };
+    }
+
+    // Caso 3: vídeo/imagem importado da Meta com meta_creative_id → reutiliza criativo inteiro
+    if (info.meta_creative_id) {
+      return {
+        payload: {
+          name: (anuncio.headline ?? "Anúncio").slice(0, 200),
+          adset_id: adsetIdParaPayload,
+          status: "PAUSED",
+          creative: { creative_id: info.meta_creative_id },
+        },
+        aviso: { codigo: "copy_e_link_nao_aplicados", detalhe: "criativo reutilizado inteiro" },
+      };
+    }
+
+    return { payload: null, aviso: { codigo: "creative_sem_meta_id", detalhe: firstCid } };
   }
 
 
