@@ -1,0 +1,2 @@
+ALTER TABLE crm.meta_creatives ADD COLUMN IF NOT EXISTS meta_video_id text;
+CREATE INDEX IF NOT EXISTS idx_meta_creatives_meta_video_id ON crm.meta_creatives(meta_video_id) WHERE meta_video_id IS NOT NULL;
