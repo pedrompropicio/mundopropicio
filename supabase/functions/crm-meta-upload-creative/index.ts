@@ -81,7 +81,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // SONDA DE BOOT: antes de qualquer validação, reporta apenas presença das env vars.
   await insertDirectDebug("boot_probe", `url=${!!SUPABASE_URL} srk=${!!SRK} anon=${!!ANON} key=${!!KEY} method=${req.method}`);
 
-  if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
+  if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 200);
   await insertDirectDebug("after_method");
 
   console.log(`[crm-meta-upload-creative] BUILD_VERSION=${BUILD_VERSION}`);
