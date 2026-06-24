@@ -8,3 +8,6 @@ verify_jwt = true
 
 [functions.crm-meta-list-audiences]
 verify_jwt = true
+
+[functions.crm-meta-create-lookalike]
+verify_jwt = true
