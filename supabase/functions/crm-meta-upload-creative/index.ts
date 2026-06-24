@@ -95,7 +95,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     graph_api_version?: string | null;
   } = {}) => {
     try {
-      await (sbCrm as any).from("upload_creative_debug").insert({
+      const { error: dbgInsertErr } = await (sbCrm as any).from("upload_creative_debug").insert({
         creative_id: extra.creative_id ?? creativeId ?? null,
         company_id: extra.company_id ?? companyId ?? null,
         step,
@@ -106,6 +106,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
         ad_account: extra.ad_account ?? adAccountId ?? null,
         graph_api_version: extra.graph_api_version ?? GRAPH_API_VERSION,
       });
+      if (dbgInsertErr) {
+        console.log("[upload-creative] debug_insert_failed", JSON.stringify({ step, detail: dbgInsertErr.message }));
+      }
     } catch (dbgErr) {
       console.log("[upload-creative] debug_insert_failed", JSON.stringify({ step, detail: detailToText(dbgErr) }));
     }
