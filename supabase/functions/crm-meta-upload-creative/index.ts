@@ -7,14 +7,14 @@
 // Input: { company_id, creative_id, force? }
 // Auth user JWT obrigatório.
 //
-// OBSERVABILIDADE (v3): erros de negócio devolvem HTTP 200 com { ok:false, error, detail, fb_error? }
+// OBSERVABILIDADE (v5): erros de negócio devolvem HTTP 200 com { ok:false, error, detail, fb_error? }
 // para que supabase.functions.invoke entregue o body ao front em vez de mascarar como erro de transporte.
 // Além disso, grava telemetria em crm.upload_creative_debug a cada marco relevante.
-// Auth real continua 401.
+// Auth também devolve HTTP 200 ok:false para preservar o detalhe no frontend.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 
-const BUILD_VERSION = "upload-creative-v4-bootprobe 2026-06-24";
+const BUILD_VERSION = "upload-creative-v5-authtrace 2026-06-24";
 const GRAPH_API_VERSION = "v21.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SRK = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -54,43 +54,51 @@ function normalizeAdAccountId(raw: string): string {
   return v.startsWith("act_") ? v.slice(4) : v;
 }
 
+const insertDirectDebug = async (step: string, detail?: unknown) => {
+  try {
+    if (!SUPABASE_URL || !SRK) {
+      console.log(`[${step}] skipped url=${!!SUPABASE_URL} srk=${!!SRK} anon=${!!ANON} key=${!!KEY}`);
+      return;
+    }
+    const direct = createClient(SUPABASE_URL, SRK, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      db: { schema: "crm" as never },
+    });
+    const { error } = await (direct as any).from("upload_creative_debug").insert({
+      step,
+      detail: detailToText(detail),
+      graph_api_version: GRAPH_API_VERSION,
+    });
+    if (error) console.log(`[${step}] insert failed`, error.message);
+  } catch (e) {
+    console.log(`[${step}] insert failed`, (e as Error).message);
+  }
+};
+
 Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   // SONDA DE BOOT: antes de qualquer validação, reporta apenas presença das env vars.
-  try {
-    if (SUPABASE_URL && SRK) {
-      const probe = createClient(SUPABASE_URL, SRK, {
-        auth: { persistSession: false, autoRefreshToken: false },
-        db: { schema: "crm" as never },
-      });
-      await (probe as any).from("upload_creative_debug").insert({
-        step: "boot_probe",
-        detail: `url=${!!SUPABASE_URL} srk=${!!SRK} anon=${!!ANON} key=${!!KEY} method=${req.method}`,
-        graph_api_version: GRAPH_API_VERSION,
-      });
-    } else {
-      console.log(`[boot_probe] skipped url=${!!SUPABASE_URL} srk=${!!SRK} anon=${!!ANON} key=${!!KEY} method=${req.method}`);
-    }
-  } catch (e) {
-    console.log("[boot_probe] insert failed", (e as Error).message);
-  }
+  await insertDirectDebug("boot_probe", `url=${!!SUPABASE_URL} srk=${!!SRK} anon=${!!ANON} key=${!!KEY} method=${req.method}`);
 
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
+  await insertDirectDebug("after_method");
 
   console.log(`[crm-meta-upload-creative] BUILD_VERSION=${BUILD_VERSION}`);
 
-  // Auth user JWT (mantém 401 real)
+  // Auth user JWT
   const authHeader = req.headers.get("Authorization") ?? "";
   if (!authHeader.toLowerCase().startsWith("bearer ")) {
-    return json({ ok: false, error: "missing_authorization" }, 401);
+    await insertDirectDebug("auth_no_header", `hasAuthHeader=${!!authHeader}`);
+    return json({ ok: false, error: "missing_authorization", detail: `hasAuthHeader=${!!authHeader}` }, 200);
   }
   const userClient = createClient(SUPABASE_URL, ANON, {
     global: { headers: { Authorization: authHeader } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { data: userData, error: userErr } = await userClient.auth.getUser();
-  if (userErr || !userData?.user) return json({ ok: false, error: "auth_failed", detail: userErr?.message }, 401);
+  await insertDirectDebug("after_getuser", `hasUser=${!!userData?.user} err=${userErr?.message ?? "none"}`);
+  if (userErr || !userData?.user) return json({ ok: false, error: "auth_failed", detail: userErr?.message }, 200);
 
   const admin = createClient(SUPABASE_URL, SRK, {
     auth: { persistSession: false, autoRefreshToken: false },
