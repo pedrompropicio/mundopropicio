@@ -238,8 +238,7 @@ export default function CrmCreativeNew() {
           "crm-meta-upload-creative",
           { body: { company_id: companyId, creative_id: inserted.id } },
         );
-        if (pushErr) throw pushErr;
-        if (pushRes?.ok) {
+        if (pushRes?.ok === true) {
           if (pushRes.type === "image") {
             setMetaPush({ state: "ok", kind: "image", id: pushRes.meta_image_hash });
             toast.success("No Meta (pronto a publicar)");
@@ -248,15 +247,18 @@ export default function CrmCreativeNew() {
             toast.success("No Meta — vídeo em processamento");
           }
         } else {
-          const msg = pushRes?.error || "falhou";
+          const err = pushRes?.error || pushErr?.message || "falhou";
+          const detail = pushRes?.detail || pushRes?.fb_error?.message || "";
+          const msg = detail ? `Push falhou: ${err} — ${detail}` : `Push falhou: ${err}`;
           setMetaPush({ state: "err", msg, creativeId: inserted.id });
           toast.warning("Criativo guardado, mas falhou push para Meta", { description: msg });
         }
       } catch (e: any) {
-        const msg = e?.message ?? String(e);
+        const msg = `Push falhou: ${e?.message ?? String(e)}`;
         setMetaPush({ state: "err", msg, creativeId: inserted.id });
         toast.warning("Criativo guardado, mas falhou push para Meta", { description: msg });
       }
+
     } catch (e: any) {
       console.error("[creative/new] failed:", e);
       toast.error("Falha a guardar criativo", { description: e?.message ?? String(e) });
