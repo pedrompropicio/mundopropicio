@@ -290,7 +290,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     is_adset_budget_sharing_enabled: false,
   };
 
-  function buildAdsetPayload(a: any, campaignIdParaPayload: string): { payload: Record<string, unknown>; goal_used: string; sem_pixel?: boolean } {
+  function buildAdsetPayload(a: any, campaignIdParaPayload: string): { payload: Record<string, unknown>; goal_used: string; sem_pixel?: boolean; budget_mode: "lifetime" | "daily"; abaixo_minimo?: { minimo_cents: number; orcamento_cents: number } } {
     const pub = a.publico_sugerido ?? {};
     const countries = normalizeCountries(
       Array.isArray(pub.geo) && pub.geo.length > 0 ? pub.geo : ["PT"],
@@ -306,16 +306,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
       targeting.custom_audiences = [{ id: String(a.publico_custom_audience_id) }];
     }
     let goal = optimization_goal;
+    const orcCents = Math.max(0, Number(a.orcamento_cents ?? 0));
     const payload: Record<string, unknown> = {
       name: a.trigger_nome || "Adset",
       campaign_id: campaignIdParaPayload,
-      daily_budget: Math.max(0, Number(a.orcamento_cents ?? 0)),
       billing_event,
       optimization_goal: goal,
       bid_strategy: "LOWEST_COST_WITHOUT_CAP",
       status: "PAUSED",
       targeting,
     };
+    let abaixo_minimo: { minimo_cents: number; orcamento_cents: number } | undefined;
+    if (usaLifetime) {
+      payload.lifetime_budget = orcCents;
+      // Meta exige start_time + end_time (ISO 8601) com lifetime_budget.
+      payload.start_time = planStartTime;
+      payload.end_time = planEndTime;
+      if (orcCents < MIN_LIFETIME_CENTS) {
+        abaixo_minimo = { minimo_cents: MIN_LIFETIME_CENTS, orcamento_cents: orcCents };
+      }
+    } else {
+      payload.daily_budget = orcCents;
+      // Sem end_time, start_time é opcional; envia se existir (campanha agendada open-ended).
+      if (planStartTime) payload.start_time = planStartTime;
+      if (orcCents < MIN_DAILY_CENTS) {
+        abaixo_minimo = { minimo_cents: MIN_DAILY_CENTS, orcamento_cents: orcCents };
+      }
+    }
     let sem_pixel = false;
     if (goal === "OFFSITE_CONVERSIONS") {
       if (eventPixelId) {
@@ -324,8 +341,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
         sem_pixel = true;
       }
     }
-    return { payload, goal_used: goal, sem_pixel };
+    return { payload, goal_used: goal, sem_pixel, budget_mode: usaLifetime ? "lifetime" : "daily", abaixo_minimo };
   }
+
 
   // Resolve link efetivo: override do adset > link do plano.
   function resolveLink(a: any): string | null {
