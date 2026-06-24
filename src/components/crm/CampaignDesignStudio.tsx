@@ -219,11 +219,11 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     (async () => {
       const { data, error } = await (supabase as any)
         .schema("crm").from("meta_creatives")
-        .select("id, name, file_url")
+        .select("id, name, file_url, type, file_mime_type")
         .eq("company_id", companyId)
         .order("created_at", { ascending: false });
       if (error) { console.warn("[design-studio] fetch company creatives failed", error); return; }
-      setCompanyCreatives((data ?? []) as Array<{ id: string; name: string | null; file_url: string | null }>);
+      setCompanyCreatives((data ?? []) as Array<{ id: string; name: string | null; file_url: string | null; type: string | null; file_mime_type: string | null }>);
     })();
   }, [open, companyId]);
 
