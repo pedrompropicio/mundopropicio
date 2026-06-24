@@ -489,6 +489,96 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   const lightboxIsImage = lightboxMediaType.kind === "image";
   const lightboxIsVideo = lightboxMediaType.kind === "video";
 
+  // Seletor partilhado de criativos (Substituir e Adicionar) com busca + filtro tipo.
+  function CreativeSelectorList({
+    disabledIds, onPick,
+  }: { disabledIds: Set<string>; onPick: (creativeId: string) => void; }) {
+    const [q, setQ] = useState("");
+    const [filter, setFilter] = useState<"all" | "image" | "video">("all");
+    const items = useMemo(() => {
+      const qn = q.trim().toLowerCase();
+      return poolCreatives.filter((cc) => {
+        if (qn && !((cc.name ?? "").toLowerCase().includes(qn))) return false;
+        if (filter !== "all") {
+          const k = getEffectiveMediaType(cc.file_url, cc.file_mime_type, cc.type).kind;
+          if (k !== filter) return false;
+        }
+        return true;
+      });
+    }, [q, filter]);
+    return (
+      <>
+        <div className="p-2 border-b space-y-2">
+          <div className="relative">
+            <Search className="h-3.5 w-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar por nome…"
+              className="h-7 pl-7 text-xs"
+            />
+          </div>
+          <div className="flex gap-1">
+            {(["all", "image", "video"] as const).map((f) => (
+              <Button
+                key={f}
+                type="button"
+                size="sm"
+                variant={filter === f ? "default" : "outline"}
+                className="h-6 px-2 text-[11px] flex-1"
+                onClick={() => setFilter(f)}
+              >
+                {f === "all" ? "Todos" : f === "image" ? "Imagem" : "Vídeo"}
+              </Button>
+            ))}
+          </div>
+        </div>
+        <div className="max-h-72 overflow-y-auto">
+          {items.length === 0 && (
+            <div className="p-3 text-xs text-muted-foreground">Sem criativos no pool.</div>
+          )}
+          {items.map((cc) => {
+            const inUse = disabledIds.has(cc.id);
+            const kind = getEffectiveMediaType(cc.file_url, cc.file_mime_type, cc.type).kind;
+            return (
+              <button
+                key={cc.id}
+                type="button"
+                disabled={inUse}
+                onClick={() => onPick(cc.id)}
+                className={cn(
+                  "w-full text-left flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 border-b last:border-b-0",
+                  inUse && "opacity-40 cursor-not-allowed",
+                )}
+              >
+                {cc.file_url ? (
+                  kind === "video" ? (
+                    <video
+                      src={`${cc.file_url}#t=0.1`}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className="h-7 w-7 rounded object-cover bg-muted shrink-0 pointer-events-none"
+                    />
+                  ) : (
+                    <img src={cc.file_url} alt="" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
+                  )
+                ) : (
+                  <div className="h-7 w-7 rounded bg-muted shrink-0" />
+                )}
+                <span className="flex-1 truncate text-xs" title={cc.name ?? cc.id}>
+                  {cc.name ?? cc.id.slice(0, 8)}
+                </span>
+                {inUse && <span className="text-[10px] text-muted-foreground">em uso</span>}
+              </button>
+            );
+          })}
+        </div>
+      </>
+    );
+  }
+
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-full p-0 flex flex-col">
