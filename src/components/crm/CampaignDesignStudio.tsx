@@ -638,7 +638,17 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                                             )}
                                           >
                                             {cc.file_url ? (
-                                              <img src={cc.file_url} alt="" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
+                                              getEffectiveMediaType(cc.file_url, cc.file_mime_type, cc.type).kind === "video" ? (
+                                                <video
+                                                  src={`${cc.file_url}#t=0.1`}
+                                                  muted
+                                                  playsInline
+                                                  preload="metadata"
+                                                  className="h-7 w-7 rounded object-cover bg-muted shrink-0 pointer-events-none"
+                                                />
+                                              ) : (
+                                                <img src={cc.file_url} alt="" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
+                                              )
                                             ) : (
                                               <div className="h-7 w-7 rounded bg-muted shrink-0" />
                                             )}
