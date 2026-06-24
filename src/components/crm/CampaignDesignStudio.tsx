@@ -79,6 +79,13 @@ type Peca = {
   motivo_escolha: string;
 };
 
+type AdsetAudience = {
+  audience_id_meta: string;
+  name: string;
+  subtype: string | null;
+  tamanho: number | null;
+};
+
 type Adset = {
   trigger_id: string | null;
   trigger_nome: string;
@@ -86,6 +93,37 @@ type Adset = {
   peso_pct: number;
   pecas: Peca[];
   variacoes_texto: Variacao[];
+  audiencias?: AdsetAudience[];
+};
+
+type AvailableAudience = {
+  id: string;
+  audience_id_meta: string;
+  name: string;
+  total_records_meta: number | null;
+  enabled: boolean;
+  filters: any;
+};
+
+function audienceSubtype(a: AvailableAudience): string | null {
+  return (a?.filters?.subtype as string | undefined) ?? null;
+}
+function audienceDeliveryCode(a: AvailableAudience): string | null {
+  const c = a?.filters?.delivery_status?.code;
+  return c == null ? null : String(c);
+}
+function formatAudienceSize(n: number | null | undefined): string {
+  if (n == null || n < 0) return "—";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
+}
+const SUBTYPE_LABEL: Record<string, string> = {
+  WEBSITE: "Pixel",
+  LOOKALIKE: "Lookalike",
+  IG_BUSINESS: "Instagram",
+  ENGAGEMENT: "Facebook",
+  CUSTOM: "Lista",
 };
 
 type CreativeMini = {
