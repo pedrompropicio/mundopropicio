@@ -21,9 +21,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { CheckCircle2, Loader2, RefreshCw, Replace, Sparkles, Wand2, AlertTriangle, Info, Maximize2, Plus, Search, Upload, X, Lightbulb } from "lucide-react";
+import { CheckCircle2, Loader2, RefreshCw, Replace, Sparkles, Wand2, AlertTriangle, Info, Maximize2, Plus, Search, Upload, X, Lightbulb, Trash2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
@@ -210,6 +220,57 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   const [uploadLinkOverride, setUploadLinkOverride] = useState("");
   const [uploadStatus, setUploadStatus] = useState<UploadState>({ state: "idle" });
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Apagar criativo do pool (definitivo)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function confirmDeleteCreative() {
+    if (!deleteTarget) return;
+    const id = deleteTarget.id;
+    setDeleting(true);
+    try {
+      // Buscar bucket+path (pode não vir no pool)
+      const { data: row, error: selErr } = await (supabase as any)
+        .schema("crm").from("meta_creatives")
+        .select("storage_bucket,storage_path")
+        .eq("id", id)
+        .maybeSingle();
+      if (selErr) throw selErr;
+
+      const bucket = (row as any)?.storage_bucket as string | null;
+      const path = (row as any)?.storage_path as string | null;
+      if (bucket && path) {
+        const { error: rmErr } = await supabase.storage.from(bucket).remove([path]);
+        if (rmErr) console.warn("[design-studio] storage remove failed", rmErr);
+      }
+
+      const { error: delErr } = await (supabase as any)
+        .schema("crm").from("meta_creatives").delete().eq("id", id);
+      if (delErr) throw delErr;
+
+      // Remover do estado local
+      setPoolCreatives((prev) => prev.filter((c) => c.id !== id));
+      setCreativesById((prev) => {
+        const next = new Map(prev);
+        next.delete(id);
+        return next;
+      });
+      setAdsets((prev) =>
+        prev.map((a) => ({
+          ...a,
+          pecas: (a.pecas ?? []).filter((p) => p.creative_id !== id),
+        })),
+      );
+      toast.success("Criativo apagado");
+      setDeleteTarget(null);
+    } catch (e: any) {
+      toast.error(`Falha a apagar: ${e?.message ?? String(e)}`);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
 
 
   // Validação por variação
@@ -807,46 +868,65 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                 {selectorItems.map((cc) => {
                   const inUse = selector.disabledIds.has(cc.id);
                   const kind = getEffectiveMediaType(cc.file_url, cc.file_mime_type, cc.type).kind;
-                  return (
-                    <button
-                      key={cc.id}
-                      type="button"
-                      disabled={inUse}
-                      onClick={() => {
-                        selector.onPick(cc.id);
-                        setSelector((s) => ({ ...s, open: false }));
-                      }}
-                      className={cn(
-                        "group text-left rounded-lg border bg-card/40 overflow-hidden transition hover:border-primary/60 hover:bg-card/70 focus:outline-none focus:ring-2 focus:ring-primary/40",
-                        inUse && "opacity-40 cursor-not-allowed hover:border-border hover:bg-card/40",
-                      )}
-                    >
-                      <div className="relative w-full aspect-square bg-muted">
-                        {cc.file_url ? (
-                          kind === "video" ? (
-                            <video
-                              src={`${cc.file_url}#t=0.1`}
-                              muted
-                              playsInline
-                              preload="metadata"
-                              className="w-full h-full object-cover pointer-events-none"
-                            />
-                          ) : (
-                            <img src={cc.file_url} alt="" className="w-full h-full object-cover" />
-                          )
-                        ) : null}
-                        {inUse && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                            <Badge variant="outline" className="bg-background/80 text-[10px]">em uso</Badge>
-                          </div>
-                        )}
-                      </div>
-                      <div className="px-2 py-1.5 text-xs truncate" title={cc.name ?? cc.id}>
-                        {cc.name ?? cc.id.slice(0, 8)}
-                      </div>
-                    </button>
-                  );
-                })}
+                   return (
+                     <div
+                       key={cc.id}
+                       className={cn(
+                         "group relative text-left rounded-lg border bg-card/40 overflow-hidden transition hover:border-primary/60 hover:bg-card/70 focus-within:ring-2 focus-within:ring-primary/40",
+                         inUse && "opacity-40 hover:border-border hover:bg-card/40",
+                       )}
+                     >
+                       <button
+                         type="button"
+                         disabled={inUse}
+                         onClick={() => {
+                           selector.onPick(cc.id);
+                           setSelector((s) => ({ ...s, open: false }));
+                         }}
+                         className={cn(
+                           "block w-full text-left focus:outline-none",
+                           inUse && "cursor-not-allowed",
+                         )}
+                       >
+                         <div className="relative w-full aspect-square bg-muted">
+                           {cc.file_url ? (
+                             kind === "video" ? (
+                               <video
+                                 src={`${cc.file_url}#t=0.1`}
+                                 muted
+                                 playsInline
+                                 preload="metadata"
+                                 className="w-full h-full object-cover pointer-events-none"
+                               />
+                             ) : (
+                               <img src={cc.file_url} alt="" className="w-full h-full object-cover" />
+                             )
+                           ) : null}
+                           {inUse && (
+                             <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                               <Badge variant="outline" className="bg-background/80 text-[10px]">em uso</Badge>
+                             </div>
+                           )}
+                         </div>
+                         <div className="px-2 py-1.5 text-xs truncate" title={cc.name ?? cc.id}>
+                           {cc.name ?? cc.id.slice(0, 8)}
+                         </div>
+                       </button>
+                       <button
+                         type="button"
+                         title="Apagar criativo"
+                         aria-label="Apagar criativo"
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           setDeleteTarget({ id: cc.id, name: cc.name ?? cc.id.slice(0, 8) });
+                         }}
+                         className="absolute top-1.5 right-1.5 rounded-md bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-muted-foreground p-1.5 opacity-0 group-hover:opacity-100 focus:opacity-100 transition"
+                       >
+                         <Trash2 className="h-3.5 w-3.5" />
+                       </button>
+                     </div>
+                   );
+                 })}
               </div>
             )}
           </div>
@@ -1350,6 +1430,45 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
       {/* Seletor de criativos (Adicionar / Substituir) */}
       <CreativeSelectorDialog />
 
+      {/* Confirmação para apagar criativo definitivamente */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => { if (!o && !deleting) setDeleteTarget(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar definitivamente «{deleteTarget?.name}»?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>Esta ação remove o ficheiro e o registo. Não pode ser desfeita.</p>
+                {(() => {
+                  if (!deleteTarget) return null;
+                  const usedIn = adsets.filter((a) => (a.pecas ?? []).some((p) => p.creative_id === deleteTarget.id)).length;
+                  if (usedIn === 0) return null;
+                  return (
+                    <p className="text-amber-400 flex items-start gap-1">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <span>Este criativo está em uso em {usedIn} adset{usedIn === 1 ? "" : "s"} e será removido deles.</span>
+                    </p>
+                  );
+                })()}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={(e) => { e.preventDefault(); void confirmDeleteCreative(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />}
+              Apagar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Upload de criativo novo dentro do Estúdio */}
       <Dialog
         open={uploadDialog.open}
@@ -1357,7 +1476,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
           if (!o) closeUploadDialog();
         }}
       >
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl w-full max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base flex items-center gap-2">
               <Upload className="h-4 w-4" /> Carregar novo criativo
@@ -1393,14 +1512,15 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                     <img src={uploadPreviewUrl ?? undefined} alt="" className="w-full max-h-64 object-contain" />
                   )}
                 </div>
-                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <div className="truncate">
+                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground min-w-0">
+                  <div className="truncate min-w-0 flex-1">
                     {uploadFile.name} · {(uploadFile.size / 1024 / 1024).toFixed(2)} MB
                     {uploadMeta && <> · {uploadMeta.width}×{uploadMeta.height}{uploadMeta.duration ? ` · ${uploadMeta.duration.toFixed(1)}s` : ""}</>}
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="shrink-0"
                     disabled={uploadStatus.state === "uploading" || uploadStatus.state === "metapush"}
                     onClick={() => {
                       if (uploadPreviewUrl) URL.revokeObjectURL(uploadPreviewUrl);
