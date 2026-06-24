@@ -1772,7 +1772,35 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
         </DialogContent>
       </Dialog>
 
+      <SearchableAudienceDialog
+        open={audienceDialog.open}
+        onOpenChange={(v) => setAudienceDialog((prev) => ({ ...prev, open: v }))}
+        audiences={availableAudiences}
+        truncated={audiencesTruncated}
+        alreadySelected={
+          audienceDialog.adsetIdx != null
+            ? new Set((adsets[audienceDialog.adsetIdx]?.audiencias ?? []).map((a) => a.audience_id_meta))
+            : new Set()
+        }
+        onPick={(a) => {
+          const idx = audienceDialog.adsetIdx;
+          if (idx == null) return;
+          setAdsets((prev) => prev.map((ad, i) => {
+            if (i !== idx) return ad;
+            const cur = ad.audiencias ?? [];
+            if (cur.some((x) => x.audience_id_meta === a.audience_id_meta)) return ad;
+            const entry: AdsetAudience = {
+              audience_id_meta: a.audience_id_meta,
+              name: a.name,
+              subtype: audienceSubtype(a),
+              tamanho: a.total_records_meta ?? null,
+            };
+            return { ...ad, audiencias: [...cur, entry] };
+          }));
+        }}
+      />
 
     </Sheet>
+
   );
 }
