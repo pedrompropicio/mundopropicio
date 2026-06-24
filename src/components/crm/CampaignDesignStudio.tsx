@@ -381,6 +381,32 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
     }
   }
 
+  // Adiciona uma nova peça ao adset com um criativo escolhido do pool.
+  // Dispara o auto-save existente (useEffect [adsets]) → persiste em crm.campaign_design.
+  async function adicionarPeca(adsetIdx: number, newCreativeId: string) {
+    let alreadyInAdset = false;
+    updateAdset(adsetIdx, (a) => {
+      const pecas = a.pecas ?? [];
+      if (pecas.some((p) => p.creative_id === newCreativeId)) {
+        alreadyInAdset = true;
+        return a;
+      }
+      return {
+        ...a,
+        pecas: [...pecas, { creative_id: newCreativeId, incluida: true, motivo_escolha: "Adicionado manualmente pelo gestor" }],
+      };
+    });
+    if (alreadyInAdset) return;
+    if (!creativesById.has(newCreativeId)) {
+      const meta = await fetchCreativeMeta([newCreativeId]);
+      setCreativesById((prev) => {
+        const m = new Map(prev);
+        meta.forEach((v, k) => m.set(k, v));
+        return m;
+      });
+    }
+  }
+
 
   function editarCampo(adsetIdx: number, varIdx: number, campo: "headline" | "corpo" | "cta", valor: string) {
     updateAdset(adsetIdx, (a) => ({
