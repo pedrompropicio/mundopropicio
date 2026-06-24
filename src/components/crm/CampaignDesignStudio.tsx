@@ -868,46 +868,65 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                 {selectorItems.map((cc) => {
                   const inUse = selector.disabledIds.has(cc.id);
                   const kind = getEffectiveMediaType(cc.file_url, cc.file_mime_type, cc.type).kind;
-                  return (
-                    <button
-                      key={cc.id}
-                      type="button"
-                      disabled={inUse}
-                      onClick={() => {
-                        selector.onPick(cc.id);
-                        setSelector((s) => ({ ...s, open: false }));
-                      }}
-                      className={cn(
-                        "group text-left rounded-lg border bg-card/40 overflow-hidden transition hover:border-primary/60 hover:bg-card/70 focus:outline-none focus:ring-2 focus:ring-primary/40",
-                        inUse && "opacity-40 cursor-not-allowed hover:border-border hover:bg-card/40",
-                      )}
-                    >
-                      <div className="relative w-full aspect-square bg-muted">
-                        {cc.file_url ? (
-                          kind === "video" ? (
-                            <video
-                              src={`${cc.file_url}#t=0.1`}
-                              muted
-                              playsInline
-                              preload="metadata"
-                              className="w-full h-full object-cover pointer-events-none"
-                            />
-                          ) : (
-                            <img src={cc.file_url} alt="" className="w-full h-full object-cover" />
-                          )
-                        ) : null}
-                        {inUse && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                            <Badge variant="outline" className="bg-background/80 text-[10px]">em uso</Badge>
-                          </div>
-                        )}
-                      </div>
-                      <div className="px-2 py-1.5 text-xs truncate" title={cc.name ?? cc.id}>
-                        {cc.name ?? cc.id.slice(0, 8)}
-                      </div>
-                    </button>
-                  );
-                })}
+                   return (
+                     <div
+                       key={cc.id}
+                       className={cn(
+                         "group relative text-left rounded-lg border bg-card/40 overflow-hidden transition hover:border-primary/60 hover:bg-card/70 focus-within:ring-2 focus-within:ring-primary/40",
+                         inUse && "opacity-40 hover:border-border hover:bg-card/40",
+                       )}
+                     >
+                       <button
+                         type="button"
+                         disabled={inUse}
+                         onClick={() => {
+                           selector.onPick(cc.id);
+                           setSelector((s) => ({ ...s, open: false }));
+                         }}
+                         className={cn(
+                           "block w-full text-left focus:outline-none",
+                           inUse && "cursor-not-allowed",
+                         )}
+                       >
+                         <div className="relative w-full aspect-square bg-muted">
+                           {cc.file_url ? (
+                             kind === "video" ? (
+                               <video
+                                 src={`${cc.file_url}#t=0.1`}
+                                 muted
+                                 playsInline
+                                 preload="metadata"
+                                 className="w-full h-full object-cover pointer-events-none"
+                               />
+                             ) : (
+                               <img src={cc.file_url} alt="" className="w-full h-full object-cover" />
+                             )
+                           ) : null}
+                           {inUse && (
+                             <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                               <Badge variant="outline" className="bg-background/80 text-[10px]">em uso</Badge>
+                             </div>
+                           )}
+                         </div>
+                         <div className="px-2 py-1.5 text-xs truncate" title={cc.name ?? cc.id}>
+                           {cc.name ?? cc.id.slice(0, 8)}
+                         </div>
+                       </button>
+                       <button
+                         type="button"
+                         title="Apagar criativo"
+                         aria-label="Apagar criativo"
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           setDeleteTarget({ id: cc.id, name: cc.name ?? cc.id.slice(0, 8) });
+                         }}
+                         className="absolute top-1.5 right-1.5 rounded-md bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-muted-foreground p-1.5 opacity-0 group-hover:opacity-100 focus:opacity-100 transition"
+                       >
+                         <Trash2 className="h-3.5 w-3.5" />
+                       </button>
+                     </div>
+                   );
+                 })}
               </div>
             )}
           </div>
