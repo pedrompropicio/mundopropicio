@@ -1062,6 +1062,37 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                           <div className="flex flex-wrap gap-2">
                             <Badge variant="outline" className={cn("border text-[10px]", cobClass)}>{cobLabel}</Badge>
                             <Badge variant="outline" className={cn("border text-[10px]", adqClass)}>{adqLabel}</Badge>
+                            {(() => {
+                              const nPecas = (adset.pecas ?? []).filter((pp) => pp.incluida === true).length;
+                              const nVar = (adset.variacoes_texto ?? []).filter((v) => v.semaforo === "coerente").length;
+                              const nAds = nPecas * nVar;
+                              let qtdClass = "bg-zinc-500/10 text-zinc-300 border-zinc-500/40";
+                              let qtdHint = "Sem peças incluídas";
+                              if (nPecas === 1) {
+                                qtdClass = "bg-amber-500/10 text-amber-300 border-amber-500/40";
+                                qtdHint = "Cobertura incompleta — falta o outro formato (ideal: 4:5 feed + 9:16 story/reel).";
+                              } else if (nPecas >= 2 && nPecas <= 4) {
+                                qtdClass = "bg-emerald-500/10 text-emerald-300 border-emerald-500/40";
+                                qtdHint = "Quantidade saudável (2 a 4 peças por adset).";
+                              } else if (nPecas > 4) {
+                                qtdClass = "bg-amber-500/10 text-amber-300 border-amber-500/40";
+                                qtdHint = "Muitas peças — considera reduzir para 2-4 (cada peça × variações multiplica o nº de anúncios).";
+                              }
+                              return (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge variant="outline" className={cn("border text-[10px] cursor-help", qtdClass)}>
+                                        {nPecas} {nPecas === 1 ? "peça" : "peças"} × {nVar} {nVar === 1 ? "variação" : "variações"} ≈ {nAds} {nAds === 1 ? "anúncio" : "anúncios"}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="max-w-xs text-xs">
+                                      {qtdHint}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              );
+                            })()}
                             {av.avisos.length > 0 && (
                               <TooltipProvider>
                                 <Tooltip>
@@ -1079,6 +1110,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
                               </TooltipProvider>
                             )}
                           </div>
+
                         </div>
                       );
                     })()}
@@ -1435,9 +1467,9 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
         open={!!deleteTarget}
         onOpenChange={(o) => { if (!o && !deleting) setDeleteTarget(null); }}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Apagar definitivamente «{deleteTarget?.name}»?</AlertDialogTitle>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader className="min-w-0">
+            <AlertDialogTitle className="break-words min-w-0">Apagar definitivamente «{deleteTarget?.name}»?</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2">
                 <p>Esta ação remove o ficheiro e o registo. Não pode ser desfeita.</p>
