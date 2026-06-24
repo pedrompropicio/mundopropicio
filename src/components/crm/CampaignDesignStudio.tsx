@@ -186,7 +186,7 @@ export function CampaignDesignStudio({ open, onOpenChange, companyId, assemblyId
   const [estado, setEstado] = useState<"rascunho" | "finalizado">("rascunho");
   const [creativesById, setCreativesById] = useState<Map<string, CreativeMini>>(new Map());
   // Catálogo da empresa para o Popover "Substituir"
-  const [companyCreatives, setCompanyCreatives] = useState<Array<{ id: string; name: string | null; file_url: string | null }>>([]);
+  const [companyCreatives, setCompanyCreatives] = useState<Array<{ id: string; name: string | null; file_url: string | null; type: string | null; file_mime_type: string | null }>>([]);
 
 
   // Validação por variação
