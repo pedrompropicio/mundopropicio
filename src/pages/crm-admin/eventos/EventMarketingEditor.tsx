@@ -25,6 +25,7 @@ import type { EventMarketingRow, EventRow, TicketExperience } from "../types";
 import { Trash2, Plus, ArrowUp, ArrowDown } from "lucide-react";
 import { FaqsTab } from "./FaqsTab";
 import { LineupTab } from "./LineupTab";
+import { MetaAudienceCard } from "./MetaAudienceCard";
 
 type FormState = Omit<
   EventMarketingRow,
