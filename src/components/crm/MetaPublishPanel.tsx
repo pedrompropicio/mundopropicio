@@ -324,17 +324,26 @@ export function MetaPublishPanel({
         } else {
           setPlano(data as PlanoResposta);
           setLinkDestino(((data as any)?.link_destino as string | null) ?? "");
-          // Após receber o plano, lê estado/meta_campaign_id da BD para o painel.
+          // Após receber o plano, lê estado/meta_campaign_id/orcamento da BD para o painel.
           try {
             const { data: row } = await (supabase as any)
               .schema("crm").from("meta_publish_plan")
-              .select("estado, meta_campaign_id, start_time, end_time")
+              .select("estado, meta_campaign_id, start_time, end_time, orcamento_total_cents")
               .eq("id", (data as any).plan_id).maybeSingle();
             if (!cancel && row) {
               setEstadoPlano(row.estado ?? "rascunho");
               setMetaCampaignIdPub(row.meta_campaign_id ?? null);
               setStartTime(isoToLocalInput(row.start_time));
               setEndTime(isoToLocalInput(row.end_time));
+              // Hidrata orçamento total: (i) BD orcamento_total_cents; (ii) soma adsets; (iii) vazio.
+              const adsetsResp = ((data as any)?.adsets ?? []) as AdsetPlano[];
+              const somaAdsets = adsetsResp.reduce((s, a) => s + (Number(a.orcamento_cents) || 0), 0);
+              const totalCents = Number(row.orcamento_total_cents) > 0
+                ? Number(row.orcamento_total_cents)
+                : (somaAdsets > 0 ? somaAdsets : 0);
+              if (totalCents > 0) {
+                setOrcamentoEuros((totalCents / 100).toFixed(2));
+              }
             }
           } catch { /* ignore */ }
 
@@ -406,7 +415,7 @@ export function MetaPublishPanel({
       return { ...p, adsets: next };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orcamentoEuros]);
+  }, [orcamentoEuros, plano?.plan_id]);
 
   const somaAdsetsCents = useMemo(
     () => (plano?.adsets ?? []).reduce((s, a) => s + (a.orcamento_cents || 0), 0),
