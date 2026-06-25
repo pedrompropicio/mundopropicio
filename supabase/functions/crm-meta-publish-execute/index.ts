@@ -533,77 +533,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return { creative: null, aviso: { codigo: "creative_sem_meta_id" } };
   }
 
-  function buildAdPayload(adsetIdParaPayload: string, anuncio: any, link: string): { payload: Record<string, unknown> | null; aviso?: { codigo: string; detalhe?: string }; avisos_extra?: Array<{ codigo: string; detalhe?: string }> } {
-    const cids: string[] = Array.isArray(anuncio.creative_ids) ? anuncio.creative_ids.filter((x: any) => typeof x === "string" && x) : [];
-    if (cids.length === 0) return { payload: null, aviso: { codigo: "creative_sem_id" } };
-
-    const cta = normalizeCta(anuncio.cta || "LEARN_MORE");
-    const msg = String(anuncio.corpo ?? "").slice(0, 2000);
-    const title = String(anuncio.headline ?? "").slice(0, 200);
-    const nomeAd = (anuncio.headline ?? "Anúncio").slice(0, 200);
-
-    // Resolve infos com asset utilizável (hash, video_id ou meta_creative_id).
-    type Usable = { cid: string; info: CreativeInfo; tipo: "image" | "video" | "other"; bucket: "vertical" | "feed" };
-    const usable: Usable[] = [];
-    for (const cid of cids) {
-      const info = resolvedCreatives.get(cid);
-      if (!info) continue;
-      const tipoLower = (info.type ?? "").toLowerCase();
-      const tipo: "image" | "video" | "other" =
-        (tipoLower === "image" && info.meta_image_hash) ? "image" :
-        (tipoLower === "video" && info.meta_video_id) ? "video" : "other";
-      if (tipo === "other" && !info.meta_creative_id) continue;
-      usable.push({ cid, info, tipo, bucket: classifyRatio(info.width, info.height) });
-    }
-    if (usable.length === 0) return { payload: null, aviso: { codigo: "creative_sem_meta_id", detalhe: cids[0] } };
-
-    const feedAssets = usable.filter((u) => u.bucket === "feed" && (u.tipo === "image" || u.tipo === "video"));
-    const vertAssets = usable.filter((u) => u.bucket === "vertical" && (u.tipo === "image" || u.tipo === "video"));
-
-    // SINGLE-RÁCIO ou só "other" → caminho v12 com o 1º cid (sem regressão).
-    const temAmbosRacios = feedAssets.length > 0 && vertAssets.length > 0;
-    if (!temAmbosRacios) {
-      const first = usable[0];
-      const { creative, aviso } = buildSingleAssetCreative(first.info, cta, msg, title, link);
-      if (!creative) return { payload: null, aviso: aviso ?? { codigo: "creative_sem_meta_id", detalhe: first.cid } };
-      return { payload: { name: nomeAd, adset_id: adsetIdParaPayload, status: "PAUSED", creative }, aviso };
-    }
-
-    // MULTI-FORMATO: ≥1 feed E ≥1 vertical.
-    // Regra imagem-vs-vídeo mista: asset_feed_spec com images+videos+rules por posicionamento
-    // é frágil no Meta. Se um media-type tem assets em AMBOS os rácios, usa esse tipo
-    // (descarta o outro com aviso). Senão, cai em single-asset com `multiformato_misto_nao_suportado`.
-    const avisosExtra: Array<{ codigo: string; detalhe?: string }> = [];
-    const tiposFeed = new Set(feedAssets.map((a) => a.tipo));
-    const tiposVert = new Set(vertAssets.map((a) => a.tipo));
-    let mediaType: "image" | "video" | null = null;
-    if (tiposFeed.has("image") && tiposVert.has("image")) mediaType = "image";
-    else if (tiposFeed.has("video") && tiposVert.has("video")) mediaType = "video";
-
-    if (!mediaType) {
-      const first = usable[0];
-      const { creative, aviso } = buildSingleAssetCreative(first.info, cta, msg, title, link);
-      if (!creative) return { payload: null, aviso: aviso ?? { codigo: "creative_sem_meta_id", detalhe: first.cid } };
-      return {
-        payload: { name: nomeAd, adset_id: adsetIdParaPayload, status: "PAUSED", creative },
-        aviso: { codigo: "multiformato_misto_nao_suportado", detalhe: "imagem num rácio e vídeo no outro — usado 1º criativo em single-asset" },
-      };
-    }
-
-    // Escolhe 1 asset por bucket do mediaType (cada regra liga 1 label = 1 asset).
-    const feedPick = feedAssets.find((a) => a.tipo === mediaType)!;
-    const vertPick = vertAssets.find((a) => a.tipo === mediaType)!;
-    const ignorados: string[] = [];
-    for (const u of usable) {
-      if (u === feedPick || u === vertPick) continue;
-      ignorados.push(u.cid);
-    }
-    if (ignorados.length > 0) avisosExtra.push({ codigo: "multiformato_assets_extra_ignorados", detalhe: ignorados.join(",") });
-    const tiposMisto = (mediaType === "image" ? [...feedAssets, ...vertAssets].filter((a) => a.tipo === "video") : [...feedAssets, ...vertAssets].filter((a) => a.tipo === "image"));
-    if (tiposMisto.length > 0) {
-      avisosExtra.push({ codigo: "multiformato_misto_assets_ignorados", detalhe: `tipo escolhido=${mediaType}; ignorados=${tiposMisto.map((a) => a.cid).join(",")}` });
-    }
-
+  // Constrói o creative multi-placement (asset_feed_spec feed+story do MESMO tipo).
+  // BYTE-IGUAL ao bloco asset_feed_spec da v13 — apenas extraído para função.
+  function buildMultiPlacementCreative(
+    feedInfo: CreativeInfo, vertInfo: CreativeInfo, mediaType: "image" | "video",
+    cta: string, msg: string, title: string, link: string,
+  ): Record<string, unknown> {
     const LABEL_FEED = "mp_feed";
     const LABEL_STORY = "mp_story";
     const assetFeedSpec: Record<string, unknown> = {
@@ -633,31 +568,136 @@ Deno.serve(async (req: Request): Promise<Response> => {
     };
     if (mediaType === "image") {
       assetFeedSpec.images = [
-        { hash: feedPick.info.meta_image_hash, adlabels: [{ name: LABEL_FEED }] },
-        { hash: vertPick.info.meta_image_hash, adlabels: [{ name: LABEL_STORY }] },
+        { hash: feedInfo.meta_image_hash, adlabels: [{ name: LABEL_FEED }] },
+        { hash: vertInfo.meta_image_hash, adlabels: [{ name: LABEL_STORY }] },
       ];
     } else {
-      const v1: Record<string, unknown> = { video_id: feedPick.info.meta_video_id, adlabels: [{ name: LABEL_FEED }] };
-      if (feedPick.info.file_url) v1.thumbnail_url = feedPick.info.file_url;
-      const v2: Record<string, unknown> = { video_id: vertPick.info.meta_video_id, adlabels: [{ name: LABEL_STORY }] };
-      if (vertPick.info.file_url) v2.thumbnail_url = vertPick.info.file_url;
+      const v1: Record<string, unknown> = { video_id: feedInfo.meta_video_id, adlabels: [{ name: LABEL_FEED }] };
+      if (feedInfo.file_url) v1.thumbnail_url = feedInfo.file_url;
+      const v2: Record<string, unknown> = { video_id: vertInfo.meta_video_id, adlabels: [{ name: LABEL_STORY }] };
+      if (vertInfo.file_url) v2.thumbnail_url = vertInfo.file_url;
       assetFeedSpec.videos = [v1, v2];
     }
-
-    const creative: Record<string, unknown> = {
+    return {
       object_story_spec: {
         page_id: selectedPageId,
         ...(selectedInstagramId ? { instagram_actor_id: selectedInstagramId } : {}),
       },
       asset_feed_spec: assetFeedSpec,
     };
-
-    return {
-      payload: { name: nomeAd, adset_id: adsetIdParaPayload, status: "PAUSED", creative },
-      aviso: { codigo: "multiformato_asset_feed_spec", detalhe: `media=${mediaType}; feed=${feedPick.cid}; vertical=${vertPick.cid}` },
-      avisos_extra: avisosExtra.length > 0 ? avisosExtra : undefined,
-    };
   }
+
+  // Agrupa criativos utilizáveis em "ads a criar":
+  // - Empareha 1 feed + 1 vertical do MESMO tipo → grupo multi-placement (1 ad com asset_feed_spec).
+  // - Sobras de feed/vertical (sem par do mesmo tipo) → cada uma vira grupo single-asset.
+  // - "other" (sem hash/video_id mas com meta_creative_id) → cada um vira grupo reused.
+  // Ordem determinística pela ordem original em creative_ids.
+  type Usable = { cid: string; info: CreativeInfo; tipo: "image" | "video" | "other"; bucket: "vertical" | "feed" };
+  type Group =
+    | { kind: "multi"; mediaType: "image" | "video"; feed: Usable; vert: Usable }
+    | { kind: "single"; pick: Usable }
+    | { kind: "reused"; pick: Usable };
+
+  function groupAssets(usable: Usable[]): Group[] {
+    const groups: Group[] = [];
+    const used = new Set<string>();
+    for (const mediaType of ["image", "video"] as const) {
+      // Emparelha por ordem: para cada feed do tipo, procura primeiro vertical livre do mesmo tipo.
+      const feeds = usable.filter((u) => u.tipo === mediaType && u.bucket === "feed");
+      const verts = usable.filter((u) => u.tipo === mediaType && u.bucket === "vertical");
+      let vi = 0;
+      for (const f of feeds) {
+        // avança até próximo vertical livre
+        while (vi < verts.length && used.has(verts[vi].cid)) vi++;
+        if (vi >= verts.length) break;
+        const v = verts[vi++];
+        used.add(f.cid); used.add(v.cid);
+        groups.push({ kind: "multi", mediaType, feed: f, vert: v });
+      }
+    }
+    // Sobras na ordem original
+    for (const u of usable) {
+      if (used.has(u.cid)) continue;
+      if (u.tipo === "other") groups.push({ kind: "reused", pick: u });
+      else groups.push({ kind: "single", pick: u });
+    }
+    return groups;
+  }
+
+  type AdBuild = { payload: Record<string, unknown> | null; aviso?: { codigo: string; detalhe?: string }; avisos_extra?: Array<{ codigo: string; detalhe?: string }> };
+
+  // Devolve UM ARRAY de payloads (1 por grupo). Mantém a semântica anterior em estruturas
+  // single (sem regressão nos quentes G=1).
+  function buildAdPayloads(adsetIdParaPayload: string, anuncio: any, link: string): AdBuild[] {
+    const cids: string[] = Array.isArray(anuncio.creative_ids) ? anuncio.creative_ids.filter((x: any) => typeof x === "string" && x) : [];
+    if (cids.length === 0) return [{ payload: null, aviso: { codigo: "creative_sem_id" } }];
+
+    const cta = normalizeCta(anuncio.cta || "LEARN_MORE");
+    const msg = String(anuncio.corpo ?? "").slice(0, 2000);
+    const title = String(anuncio.headline ?? "").slice(0, 200);
+    const baseNome = String(anuncio.headline ?? "Anúncio");
+
+    const usable: Usable[] = [];
+    for (const cid of cids) {
+      const info = resolvedCreatives.get(cid);
+      if (!info) continue;
+      const tipoLower = (info.type ?? "").toLowerCase();
+      const tipo: "image" | "video" | "other" =
+        (tipoLower === "image" && info.meta_image_hash) ? "image" :
+        (tipoLower === "video" && info.meta_video_id) ? "video" : "other";
+      if (tipo === "other" && !info.meta_creative_id) continue;
+      usable.push({ cid, info, tipo, bucket: classifyRatio(info.width, info.height) });
+    }
+    if (usable.length === 0) return [{ payload: null, aviso: { codigo: "creative_sem_meta_id", detalhe: cids[0] } }];
+
+    const groups = groupAssets(usable);
+    const multiCount = groups.length;
+
+    // Guard tecto Meta (50 ads/adset). Truncamos ao limite com aviso.
+    const META_MAX_ADS_PER_ADSET = 50;
+    let truncated = false;
+    let effectiveGroups = groups;
+    if (multiCount > META_MAX_ADS_PER_ADSET) {
+      effectiveGroups = groups.slice(0, META_MAX_ADS_PER_ADSET);
+      truncated = true;
+    }
+
+    const out: AdBuild[] = [];
+    const G = effectiveGroups.length;
+    for (let gi = 0; gi < G; gi++) {
+      const g = effectiveGroups[gi];
+      const sufixo = G > 1 ? ` · g${gi + 1}` : "";
+      // headline limitado a 180 quando há sufixo para caber "· gN".
+      const nomeAd = (G > 1 ? baseNome.slice(0, 180) : baseNome.slice(0, 200)) + sufixo;
+      const avisosExtra: Array<{ codigo: string; detalhe?: string }> = [];
+      if (truncated && gi === G - 1) {
+        avisosExtra.push({ codigo: "ads_truncados_limite_meta", detalhe: `gerados ${multiCount} grupos; truncado a ${META_MAX_ADS_PER_ADSET}` });
+      }
+
+      if (g.kind === "multi") {
+        const creative = buildMultiPlacementCreative(g.feed.info, g.vert.info, g.mediaType, cta, msg, title, link);
+        out.push({
+          payload: { name: nomeAd, adset_id: adsetIdParaPayload, status: "PAUSED", creative },
+          aviso: { codigo: "multiformato_asset_feed_spec", detalhe: `media=${g.mediaType}; feed=${g.feed.cid}; vertical=${g.vert.cid}` },
+          avisos_extra: avisosExtra.length > 0 ? avisosExtra : undefined,
+        });
+      } else {
+        // single ou reused → ambos passam por buildSingleAssetCreative (que decide o caminho certo)
+        const { creative, aviso } = buildSingleAssetCreative(g.pick.info, cta, msg, title, link);
+        if (!creative) {
+          out.push({ payload: null, aviso: aviso ?? { codigo: "creative_sem_meta_id", detalhe: g.pick.cid }, avisos_extra: avisosExtra.length > 0 ? avisosExtra : undefined });
+          continue;
+        }
+        out.push({
+          payload: { name: nomeAd, adset_id: adsetIdParaPayload, status: "PAUSED", creative },
+          aviso,
+          avisos_extra: avisosExtra.length > 0 ? avisosExtra : undefined,
+        });
+      }
+    }
+    return out;
+  }
+
 
 
   // ─── DRY-RUN ─────────────────────────────────────────────────────────
