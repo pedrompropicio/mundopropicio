@@ -654,7 +654,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     for (let i = 0; i < adsets.length; i++) {
       const a = adsets[i];
       const linkEf = resolveLink(a);
-      const { payload: adsetPayload, goal_used, sem_pixel, budget_mode, abaixo_minimo } = buildAdsetPayload(a, "<CAMPAIGN_ID>");
+      const { payload: adsetPayload, goal_used, sem_pixel, budget_mode, abaixo_minimo } = buildAdsetPayload(a, "<CAMPAIGN_ID>", i);
       if (sem_pixel) avisos.push({ codigo: "sem_pixel_para_conversoes", adset: a.trigger_nome, detalhe: "objetivo Vendas exige meta_pixel_id no evento" });
       if (abaixo_minimo) avisos.push({ codigo: "orcamento_abaixo_minimo", adset: a.trigger_nome, detalhe: `${budget_mode}=${abaixo_minimo.orcamento_cents} cents < mínimo ${abaixo_minimo.minimo_cents} cents (janela ${diasJanela} dia(s))` });
       dryAdsets.push({ trigger_nome: a.trigger_nome, optimization_goal_used: goal_used, budget_mode, link_destino_efetivo: linkEf, payload: adsetPayload });
