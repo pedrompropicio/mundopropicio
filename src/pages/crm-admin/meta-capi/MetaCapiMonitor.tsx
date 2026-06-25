@@ -35,6 +35,8 @@ interface DashboardData {
     date: string | null;
     meta_pixel_id: string | null;
     has_pixel: boolean;
+    meta_audience_id: string | null;
+    meta_audience_name: string | null;
     leads_period: number;
   }>;
   recent_errors: Array<{
