@@ -159,7 +159,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // 6) Cria a audiência no Meta
     const form = new URLSearchParams();
     form.set("name", finalName);
-    form.set("subtype", "WEBSITE");
+    // NOTA: Meta v21.0 recusa subtype=WEBSITE (erro 2654/1870053). A audiência
+    // de site cria-se SEM subtype — o Meta infere a partir da rule (event_sources=pixel).
     form.set("retention_days", String(retentionDays));
     form.set("prefill", "1");
     form.set("rule", JSON.stringify(rule));
