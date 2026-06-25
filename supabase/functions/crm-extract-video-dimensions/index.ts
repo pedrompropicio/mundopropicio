@@ -110,15 +110,15 @@ function parseMp4(buf: Uint8Array): ParseResult | null {
     if (b.type !== "trak") continue;
     const tkhd = findBox(buf, b.bodyStart, b.bodyEnd, "tkhd");
     if (!tkhd) continue;
-    // tkhd body: v(1)+flags(3) + (v0: 4+4+4+4+4 / v1: 8+8+4+4+8) + reserved(8) + layer(2)+altGroup(2)+vol(2)+res(2) + matrix(36) + width(4) + height(4)
-    const v = buf[tkhd.bodyStart];
-    const headerSkip = v === 0 ? 4 + 4 + 4 + 4 + 4 : 4 + 8 + 8 + 4 + 4 + 8;
-    const afterHeader = tkhd.bodyStart + headerSkip;
-    const matrixEnd = afterHeader + 8 + 2 + 2 + 2 + 2 + 36;
-    if (matrixEnd + 8 > tkhd.bodyEnd) continue;
-    // width/height são 16.16 fixed-point — parte inteira nos 2 bytes altos
-    const w = readUint16BE(buf, matrixEnd);
-    const h = readUint16BE(buf, matrixEnd + 4);
+    // width e height são SEMPRE os últimos 8 bytes do corpo da tkhd
+    // (dois campos consecutivos de 4 bytes em 16.16 fixed-point: width, depois height).
+    // Lemos a partir do fim da box — robusto independentemente da versão (v0/v1) e do matrix.
+    if (tkhd.bodyEnd - tkhd.bodyStart < 8) continue;
+    const wOff = tkhd.bodyEnd - 8;
+    const hOff = tkhd.bodyEnd - 4;
+    // parte inteira do 16.16 está nos 2 bytes altos de cada campo de 4 bytes
+    const w = readUint16BE(buf, wOff);
+    const h = readUint16BE(buf, hOff);
     if (w > bestW) bestW = w;
     if (h > bestH) bestH = h;
   }
