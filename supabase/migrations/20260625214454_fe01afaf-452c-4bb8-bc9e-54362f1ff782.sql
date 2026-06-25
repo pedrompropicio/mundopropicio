@@ -1,0 +1,1 @@
+UPDATE crm.meta_publish_plan SET estado = 'pronto_a_publicar', publish_error = NULL WHERE id = '93529702-76c7-491f-95dd-040ed7fcee25';
