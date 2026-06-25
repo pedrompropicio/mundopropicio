@@ -415,7 +415,7 @@ export function MetaPublishPanel({
       return { ...p, adsets: next };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orcamentoEuros]);
+  }, [orcamentoEuros, plano?.plan_id]);
 
   const somaAdsetsCents = useMemo(
     () => (plano?.adsets ?? []).reduce((s, a) => s + (a.orcamento_cents || 0), 0),
