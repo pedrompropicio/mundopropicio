@@ -573,9 +573,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       ];
     } else {
       const v1: Record<string, unknown> = { video_id: feedInfo.meta_video_id, adlabels: [{ name: LABEL_FEED }] };
-      if (feedInfo.file_url) v1.thumbnail_url = feedInfo.file_url;
       const v2: Record<string, unknown> = { video_id: vertInfo.meta_video_id, adlabels: [{ name: LABEL_STORY }] };
-      if (vertInfo.file_url) v2.thumbnail_url = vertInfo.file_url;
       assetFeedSpec.videos = [v1, v2];
     }
     return {
