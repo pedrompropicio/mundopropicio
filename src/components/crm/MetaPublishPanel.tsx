@@ -495,19 +495,11 @@ export function MetaPublishPanel({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground">Início da campanha (opcional)</label>
-                  <Input
-                    type="datetime-local"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                  />
+                  <DateTimeField value={startTime} onChange={setStartTime} />
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground">Fim da campanha (opcional)</label>
-                  <Input
-                    type="datetime-local"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                  />
+                  <DateTimeField value={endTime} onChange={setEndTime} />
                 </div>
                 <div className="md:col-span-2 text-[11px] text-muted-foreground">
                   Com data de fim definida, o orçamento de cada adset passa a ser <b>total para toda a janela</b> (lifetime). Sem fim, mantém-se diário.
