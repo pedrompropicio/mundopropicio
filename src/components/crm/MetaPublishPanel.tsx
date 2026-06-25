@@ -22,6 +22,46 @@ import {
   TooltipProvider, Tooltip, TooltipTrigger, TooltipContent,
 } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
+import { DatePicker } from "@/components/ui/date-picker";
+
+/** Componente padrão: data (DatePicker pt) + hora (HH:mm). Trabalha em "YYYY-MM-DDTHH:mm". */
+function DateTimeField({
+  value,
+  onChange,
+  id,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  id?: string;
+}) {
+  const [datePart, timePart] = (() => {
+    if (!value) return ["", ""];
+    const [d, t] = value.split("T");
+    return [d || "", (t || "").slice(0, 5)];
+  })();
+  const setDate = (d: string) => {
+    if (!d) {
+      onChange("");
+      return;
+    }
+    onChange(`${d}T${timePart || "00:00"}`);
+  };
+  const setTime = (t: string) => {
+    if (!datePart) return;
+    onChange(`${datePart}T${t || "00:00"}`);
+  };
+  return (
+    <div className="flex items-center gap-2">
+      <DatePicker id={id} value={datePart} onChange={setDate} className="flex-1" />
+      <Input
+        type="time"
+        value={timePart}
+        onChange={(e) => setTime(e.target.value)}
+        className="h-10 w-[7.5rem] tabular-nums"
+      />
+    </div>
+  );
+}
 import { Loader2, AlertTriangle, Save, Send, Info, ExternalLink, CheckCircle2, Lightbulb, RefreshCw, Zap, PauseCircle, PlayCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { OBJETIVO_LABELS_PT, labelCta, labelObjetivo } from "@/lib/meta-labels";
