@@ -717,10 +717,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
           avisos.push({ codigo: "sem_link_destino", adset: a.trigger_nome, ad_idx: k });
           continue;
         }
-        const { payload, aviso, avisos_extra } = buildAdPayload("<ADSET_ID>", an, linkEf);
-        if (aviso) avisos.push({ ...aviso, adset: a.trigger_nome, ad_idx: k });
-        if (avisos_extra) for (const ax of avisos_extra) avisos.push({ ...ax, adset: a.trigger_nome, ad_idx: k });
-        if (payload) dryAds.push({ adset: a.trigger_nome, ad_idx: k, payload });
+        const builds = buildAdPayloads("<ADSET_ID>", an, linkEf);
+        for (let gi = 0; gi < builds.length; gi++) {
+          const { payload, aviso, avisos_extra } = builds[gi];
+          if (aviso) avisos.push({ ...aviso, adset: a.trigger_nome, ad_idx: k, group_idx: gi });
+          if (avisos_extra) for (const ax of avisos_extra) avisos.push({ ...ax, adset: a.trigger_nome, ad_idx: k, group_idx: gi });
+          if (payload) dryAds.push({ adset: a.trigger_nome, ad_idx: k, group_idx: gi, payload });
+        }
       }
     }
     return json({
