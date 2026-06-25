@@ -709,6 +709,16 @@ function GestaoTab({
 
   return (
     <Card className="space-y-4 p-4">
+      <MetaAudienceCard
+        eventId={eventId}
+        eventName={ev?.name ?? ""}
+        companyId={ev?.company_id ?? MP_COMPANY_ID}
+        metaPixelId={ev?.meta_pixel_id ?? null}
+        metaAudienceId={ev?.meta_audience_id ?? null}
+        metaAudienceName={ev?.meta_audience_name ?? null}
+        disabled={disabled}
+      />
+
       <Field label="Tipo de gestão">
         <Select value={mgmt} onValueChange={setMgmt} disabled={disabled}>
           <SelectTrigger><SelectValue /></SelectTrigger>
