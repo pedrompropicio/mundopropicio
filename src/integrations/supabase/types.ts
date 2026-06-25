@@ -5044,6 +5044,8 @@ export type Database = {
           location_en: string | null
           location_pt: string | null
           management_type: string
+          meta_audience_id: string | null
+          meta_audience_name: string | null
           meta_pixel_id: string | null
           name: string
           operacao_mode: string | null
@@ -5091,6 +5093,8 @@ export type Database = {
           location_en?: string | null
           location_pt?: string | null
           management_type?: string
+          meta_audience_id?: string | null
+          meta_audience_name?: string | null
           meta_pixel_id?: string | null
           name: string
           operacao_mode?: string | null
@@ -5138,6 +5142,8 @@ export type Database = {
           location_en?: string | null
           location_pt?: string | null
           management_type?: string
+          meta_audience_id?: string | null
+          meta_audience_name?: string | null
           meta_pixel_id?: string | null
           name?: string
           operacao_mode?: string | null
