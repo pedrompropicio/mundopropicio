@@ -522,7 +522,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         title,
         call_to_action: { type: cta, value: { link } },
       };
-      if (info.file_url) videoData.image_url = info.file_url;
+      // image_url/image_hash omitidos de propósito: não temos thumbnail dedicado e o file_url do vídeo é o .mp4 (não serve como imagem). Meta gera a capa automaticamente a partir do video_id. Ver roteiro C4.
       const oss: Record<string, unknown> = { page_id: selectedPageId, video_data: videoData };
       if (selectedInstagramId) oss.instagram_actor_id = selectedInstagramId;
       return { creative: { object_story_spec: oss }, aviso: { codigo: "video_em_processamento", detalhe: "se Graph rejeitar com 'vídeo não pronto', re-publicar mais tarde" } };
