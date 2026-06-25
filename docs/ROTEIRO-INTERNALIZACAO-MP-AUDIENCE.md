@@ -38,6 +38,12 @@ Cada capacidade abaixo foi exercida manualmente (fora da plataforma) durante a p
 - Hoje: manual (comparação de nomes/hashes).
 - Falta: aviso de possíveis duplicados no Estúdio + ação de remover.
 
+**C3. Auto-popular `meta_video_id` no sync/upload de criativos de vídeo** [P1]
+- Hoje: criativos de vídeo importados/sincronizados ficam com `meta_creative_id` mas sem `meta_video_id` em `crm.meta_creatives`. Sem `meta_video_id`, o `crm-meta-publish-execute` cai no fallback "reutiliza criativo inteiro" e o copy/link novo NÃO é aplicado ao ad de vídeo. Resolvido manualmente via backfill (edge `crm-meta-peek-video-ids` lê `object_story_spec.video_data.video_id` e grava).
+- Falta: no fluxo de upload e/ou no sync de criativos, ler o `video_id` do Graph e gravar `meta_video_id` automaticamente, para que o ramo `video_data` do execute seja sempre tomado e o copy/link aplicado.
+
+
+
 ## BLOCO D — Publicação e configuração de campanha vencedora
 **D1. Painel de revisão pré-publicação** [P1]
 - Hoje: parâmetros de "campanha vencedora" vivem no código de crm-meta-publish-execute (objetivo OUTCOME_SALES, attribution_spec 7d/1d, exclusões hierárquicas, promoted_object PURCHASE) sem controlo na UI.
