@@ -257,6 +257,7 @@ export default function MetaCapiMonitor() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Data</TableHead>
                   <TableHead>Pixel</TableHead>
+                  <TableHead>Audiência</TableHead>
                   <TableHead className="text-right">Leads {days}d</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
@@ -276,6 +277,24 @@ export default function MetaCapiMonitor() {
                         <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30">
                           <AlertTriangle className="h-3 w-3 mr-1" /> Sem pixel
                         </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {ev.meta_audience_id ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-emerald-500/10 text-emerald-700 border-emerald-500/30 max-w-[260px]"
+                          title={`ID ${ev.meta_audience_id}`}
+                        >
+                          <CheckCircle2 className="h-3 w-3 mr-1 shrink-0" />
+                          <span className="truncate">{ev.meta_audience_name ?? ev.meta_audience_id}</span>
+                        </Badge>
+                      ) : ev.has_pixel ? (
+                        <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30">
+                          <AlertTriangle className="h-3 w-3 mr-1" /> Sem audiência
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{ev.leads_period}</TableCell>
