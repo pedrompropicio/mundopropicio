@@ -294,7 +294,107 @@ Deno.serve(async (req: Request): Promise<Response> => {
     is_adset_budget_sharing_enabled: false,
   };
 
-  function buildAdsetPayload(a: any, campaignIdParaPayload: string): { payload: Record<string, unknown>; goal_used: string; sem_pixel?: boolean; budget_mode: "lifetime" | "daily"; abaixo_minimo?: { minimo_cents: number; orcamento_cents: number } } {
+  // 6.a) Inclusões e exclusões de custom_audiences por adset (calculadas UMA vez).
+  //
+  // Inclusão: a.audiencias[].audience_id_meta (N por adset). Fallback retrocompat:
+  //   publico_custom_audience_id (1). Vazio → broad (sem custom_audiences).
+  // Exclusões — hierarquia:
+  //   R1 — quente exclui inclusões de quentes com prioridade SUPERIOR (mais cedo no array).
+  //   R2 — frio exclui inclusões de TODOS os quentes.
+  //   R3 — todos os adsets excluem o conjunto COMPRADORES.
+  //   Dedup: nunca incluir e excluir o mesmo id no mesmo adset.
+  //   Interesses/IG sem audience_id_meta são ignorados (só custom audiences).
+  const COMPRADOR_ID_FIXO = "120235894428940595";
+  const inclusionsByIdx: string[][] = adsets.map((a) => {
+    const fromAudiencias: string[] = Array.isArray(a?.audiencias)
+      ? a.audiencias
+          .map((x: any) => (x && x.audience_id_meta != null ? String(x.audience_id_meta) : null))
+          .filter((x: string | null): x is string => x !== null && x.length > 0)
+      : [];
+    if (fromAudiencias.length > 0) return Array.from(new Set(fromAudiencias));
+    if (a?.publico_custom_audience_id) return [String(a.publico_custom_audience_id)];
+    return [];
+  });
+  // Recolhe nomes (de a.audiencias[].nome quando existir, fallback DB).
+  const idsForNameLookup = new Set<string>();
+  for (let i = 0; i < adsets.length; i++) {
+    const a = adsets[i];
+    if (Array.isArray(a?.audiencias)) {
+      for (const x of a.audiencias) {
+        if (x?.audience_id_meta != null) idsForNameLookup.add(String(x.audience_id_meta));
+      }
+    }
+    for (const id of inclusionsByIdx[i]) idsForNameLookup.add(id);
+  }
+  const nameByMetaId = new Map<string, string>();
+  for (const a of adsets) {
+    if (Array.isArray(a?.audiencias)) {
+      for (const x of a.audiencias) {
+        if (x?.audience_id_meta != null && typeof x.nome === "string" && !nameByMetaId.has(String(x.audience_id_meta))) {
+          nameByMetaId.set(String(x.audience_id_meta), x.nome);
+        }
+      }
+    }
+  }
+  const missingNames = Array.from(idsForNameLookup).filter((id) => !nameByMetaId.has(id));
+  if (missingNames.length > 0) {
+    const { data: audRows } = await (admin as any)
+      .schema("crm").from("meta_custom_audiences")
+      .select("audience_id_meta, nome")
+      .in("audience_id_meta", missingNames);
+    for (const r of (audRows ?? [])) {
+      if (r?.audience_id_meta) nameByMetaId.set(String(r.audience_id_meta), String(r.nome ?? ""));
+    }
+  }
+  function isCompradorId(id: string): boolean {
+    if (id === COMPRADOR_ID_FIXO) return true;
+    const nome = (nameByMetaId.get(id) ?? "").toLowerCase();
+    if (!nome) return false;
+    if (nome.includes("[lista] clientes mundo propicio - ticketline")) return true;
+    if (nome.includes("[compra]") && nome.includes("ivete")) return true;
+    return false;
+  }
+  const compradoresSet = new Set<string>();
+  for (const id of idsForNameLookup) if (isCompradorId(id)) compradoresSet.add(id);
+  compradoresSet.add(COMPRADOR_ID_FIXO);
+  // Índices ordenados dos quentes (ordem = prioridade; primeiro = mais prioritário).
+  const hotIdxOrder: number[] = adsets
+    .map((a, i) => ({ i, funil: a?.funil }))
+    .filter((x) => x.funil === "quente")
+    .map((x) => x.i);
+  const exclusionsByIdx: Set<string>[] = adsets.map((a, idx) => {
+    const incl = new Set(inclusionsByIdx[idx]);
+    const excluded = new Set<string>();
+    const funil = a?.funil;
+    if (funil === "quente") {
+      // R1 — cascata: exclui as inclusões dos quentes ANTES deste na ordem.
+      const myPos = hotIdxOrder.indexOf(idx);
+      for (let k = 0; k < myPos; k++) {
+        for (const id of inclusionsByIdx[hotIdxOrder[k]]) excluded.add(id);
+      }
+    } else {
+      // R2 — frio (ou qualquer não-quente): exclui inclusões de TODOS os quentes.
+      for (const hIdx of hotIdxOrder) {
+        for (const id of inclusionsByIdx[hIdx]) excluded.add(id);
+      }
+    }
+    // R3 — compradores em todos.
+    for (const id of compradoresSet) excluded.add(id);
+    // Dedup com a própria inclusão.
+    for (const id of incl) excluded.delete(id);
+    return excluded;
+  });
+  for (let i = 0; i < adsets.length; i++) {
+    console.log("[meta-publish-execute] ADSET_AUDIENCES", JSON.stringify({
+      idx: i,
+      trigger_nome: adsets[i]?.trigger_nome ?? "",
+      funil: adsets[i]?.funil ?? null,
+      custom_audiences: inclusionsByIdx[i],
+      excluded_custom_audiences: Array.from(exclusionsByIdx[i]),
+    }));
+  }
+
+  function buildAdsetPayload(a: any, campaignIdParaPayload: string, adsetIdx: number): { payload: Record<string, unknown>; goal_used: string; sem_pixel?: boolean; budget_mode: "lifetime" | "daily"; abaixo_minimo?: { minimo_cents: number; orcamento_cents: number } } {
     const pub = a.publico_sugerido ?? {};
     const countries = normalizeCountries(
       Array.isArray(pub.geo) && pub.geo.length > 0 ? pub.geo : ["PT"],
@@ -306,8 +406,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
       age_max: Number.isFinite(pub.idade_max) ? pub.idade_max : 65,
       targeting_automation: { advantage_audience: 0 },
     };
-    if (a.publico_custom_audience_id) {
-      targeting.custom_audiences = [{ id: String(a.publico_custom_audience_id) }];
+    const incl = inclusionsByIdx[adsetIdx] ?? [];
+    if (incl.length > 0) {
+      targeting.custom_audiences = incl.map((id) => ({ id: String(id) }));
+    }
+    const excl = exclusionsByIdx[adsetIdx];
+    if (excl && excl.size > 0) {
+      targeting.excluded_custom_audiences = Array.from(excl).map((id) => ({ id: String(id) }));
     }
     let goal = optimization_goal;
     const orcCents = Math.max(0, Number(a.orcamento_cents ?? 0));
