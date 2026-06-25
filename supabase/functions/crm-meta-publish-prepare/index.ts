@@ -98,7 +98,7 @@ async function callGeminiJSON(prompt: string): Promise<any> {
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[meta-publish-prepare] BUILD_VERSION=publish-prepare-v5-window");
+  console.log("[meta-publish-prepare] BUILD_VERSION=publish-prepare-v6-preserve-publico");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
