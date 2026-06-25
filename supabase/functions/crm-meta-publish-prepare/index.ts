@@ -176,6 +176,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     headline: string; corpo: string; cta: string;
     origem_variacao_idx: number;
   };
+  type AudienciaOut = { audience_id_meta: string; nome?: string; funil?: string };
   type AdsetOut = {
     trigger_id: string | null;
     trigger_nome: string;
@@ -184,6 +185,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     orcamento_cents: number;
     publico_sugerido: any;
     publico_custom_audience_id: string | null;
+    audiencias: AudienciaOut[];
+    funil: string;
     anuncios: AnuncioOut[];
   };
 
