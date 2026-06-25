@@ -832,21 +832,38 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
     for (let k = 0; k < a.anuncios.length; k++) {
       const an = a.anuncios[k];
-      if (an.meta_ad_id) { adsIds.push(an.meta_ad_id); continue; }
-      const { payload, aviso, avisos_extra } = buildAdPayload(metaAdsetId!, an, linkEf);
-      if (aviso) avisos.push({ ...aviso, adset: a.trigger_nome, ad_idx: k });
-      if (avisos_extra) for (const ax of avisos_extra) avisos.push({ ...ax, adset: a.trigger_nome, ad_idx: k });
-      if (!payload) continue;
-      const r = await graphPOST(`/${adAccountId}/ads`, payload, accessToken);
-      if (!r.ok) {
+      // Idempotência: meta_ad_ids (novo, array) > meta_ad_id (legado, single).
+      const jaCriados: string[] = Array.isArray(an.meta_ad_ids) ? an.meta_ad_ids.filter((x: any) => typeof x === "string" && x) : [];
+      const builds = buildAdPayloads(metaAdsetId!, an, linkEf);
+      // Se já tem ads criados e a contagem bate com os grupos actuais → skip total.
+      if (jaCriados.length > 0 && jaCriados.length >= builds.length) {
+        for (const id of jaCriados) adsIds.push(id);
+        continue;
+      }
+      // Legado: meta_ad_id single + sem meta_ad_ids → assume 1 ad já criado (grupo 0).
+      const seedLegado = (!an.meta_ad_ids && an.meta_ad_id) ? [an.meta_ad_id as string] : [...jaCriados];
+      const criados: string[] = [...seedLegado];
+      for (let gi = 0; gi < builds.length; gi++) {
+        if (criados[gi]) { adsIds.push(criados[gi]); continue; }
+        const { payload, aviso, avisos_extra } = builds[gi];
+        if (aviso) avisos.push({ ...aviso, adset: a.trigger_nome, ad_idx: k, group_idx: gi });
+        if (avisos_extra) for (const ax of avisos_extra) avisos.push({ ...ax, adset: a.trigger_nome, ad_idx: k, group_idx: gi });
+        if (!payload) continue;
+        const r = await graphPOST(`/${adAccountId}/ads`, payload, accessToken);
+        if (!r.ok) {
+          an.meta_ad_ids = criados;
+          await (admin as any).schema("crm").from("meta_publish_plan")
+            .update({ adsets: adsetsOut }).eq("id", planId);
+          return await failAndStop("create_ad", r.error ?? { message: `HTTP ${r.status}` }, { adset: a.trigger_nome, ad_idx: k, group_idx: gi, raw: r.raw });
+        }
+        const novoId = r.data.id as string;
+        criados[gi] = novoId;
+        adsIds.push(novoId);
+        an.meta_ad_ids = criados;
+        if (gi === 0) an.meta_ad_id = novoId; // back-compat
         await (admin as any).schema("crm").from("meta_publish_plan")
           .update({ adsets: adsetsOut }).eq("id", planId);
-        return await failAndStop("create_ad", r.error ?? { message: `HTTP ${r.status}` }, { adset: a.trigger_nome, ad_idx: k, raw: r.raw });
       }
-      an.meta_ad_id = r.data.id as string;
-      adsIds.push(an.meta_ad_id);
-      await (admin as any).schema("crm").from("meta_publish_plan")
-        .update({ adsets: adsetsOut }).eq("id", planId);
     }
 
     respAdsets.push({ trigger_nome: a.trigger_nome, meta_adset_id: metaAdsetId!, ads: adsIds });
