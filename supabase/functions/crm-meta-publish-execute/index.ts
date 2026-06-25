@@ -446,10 +446,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (goal === "OFFSITE_CONVERSIONS") {
       if (eventPixelId) {
         payload.promoted_object = { pixel_id: eventPixelId, custom_event_type: "PURCHASE" };
+        // Attribution window explícita para compra de bilhetes: 7d clique + 1d view.
+        // SÓ aplicável a adsets de conversão (OFFSITE_CONVERSIONS); para
+        // LINK_CLICKS / REACH / POST_ENGAGEMENT o Meta rejeita este campo.
+        payload.attribution_spec = [
+          { event_type: "CLICK_THROUGH", window_days: 7 },
+          { event_type: "VIEW_THROUGH",  window_days: 1 },
+        ];
       } else {
         sem_pixel = true;
       }
     }
+    // NOTA: frequency_control_specs NÃO é adicionado intencionalmente.
+    // O Meta só aceita esse campo em adsets com optimization_goal=REACH
+    // (e variantes ligadas). Em OFFSITE_CONVERSIONS / LINK_CLICKS a API
+    // rejeita o adset inteiro com "Invalid parameter". Controlo de
+    // frequência aqui = via (i) algoritmo de otimização, (ii) duração +
+    // orçamento, ou (iii) campanha REACH separada.
     return { payload, goal_used: goal, sem_pixel, budget_mode: usaLifetime ? "lifetime" : "daily", abaixo_minimo };
   }
 
