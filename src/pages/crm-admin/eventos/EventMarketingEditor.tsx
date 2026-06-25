@@ -75,7 +75,7 @@ export default function EventMarketingEditor() {
     queryFn: async (): Promise<any> => {
       const { data, error } = await (supabase as any)
         .from("events")
-        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until, venue_map_url, venue_directions_url")
+        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until, venue_map_url, venue_directions_url, meta_pixel_id, meta_audience_id, meta_audience_name")
         .eq("id", eventId)
         .maybeSingle();
       if (error) throw error;
