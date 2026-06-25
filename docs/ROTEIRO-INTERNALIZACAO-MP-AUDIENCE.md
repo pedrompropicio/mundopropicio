@@ -42,6 +42,12 @@ Cada capacidade abaixo foi exercida manualmente (fora da plataforma) durante a p
 - Hoje: criativos de vídeo importados/sincronizados ficam com `meta_creative_id` mas sem `meta_video_id` em `crm.meta_creatives`. Sem `meta_video_id`, o `crm-meta-publish-execute` cai no fallback "reutiliza criativo inteiro" e o copy/link novo NÃO é aplicado ao ad de vídeo. Resolvido manualmente via backfill (edge `crm-meta-peek-video-ids` lê `object_story_spec.video_data.video_id` e grava).
 - Falta: no fluxo de upload e/ou no sync de criativos, ler o `video_id` do Graph e gravar `meta_video_id` automaticamente, para que o ramo `video_data` do execute seja sempre tomado e o copy/link aplicado.
 
+**C4. Thumbnail dedicado para vídeos** [P2]
+- Hoje: no `crm-meta-publish-execute`, ramo `isVideo` do `buildSingleAssetCreative`, `image_url` foi removido (estava a apontar para o `.mp4`, que o Meta não aceita como imagem). O Meta gera capa automática a partir do `video_id` — funciona mas não temos controlo sobre o frame escolhido.
+- Falta: no upload de vídeo, extrair 1 frame do `.mp4` (poster) e guardar em coluna nova em `crm.meta_creatives` (ex.: `thumbnail_url` + `thumbnail_image_hash` já registado no Meta). Usar esse hash em `video_data.image_hash` para capa controlada.
+- Inclui: corrigir o mesmo bug no caminho multi-asset (`thumbnail_url = file_url` em L641/L643 do execute), que sofre do mesmo problema (envia `.mp4` como thumbnail).
+
+
 
 
 ## BLOCO D — Publicação e configuração de campanha vencedora
