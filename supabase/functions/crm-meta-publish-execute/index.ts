@@ -749,7 +749,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // Adset
     let metaAdsetId: string | null = a.meta_adset_id ?? null;
     if (!metaAdsetId) {
-      const { payload, goal_used } = buildAdsetPayload(a, metaCampaignId!);
+      const { payload, goal_used } = buildAdsetPayload(a, metaCampaignId!, i);
       if (goal_used !== optimization_goal) {
         avisos.push({ codigo: "optimization_goal_fallback", adset: a.trigger_nome, detalhe: goal_used });
       }
