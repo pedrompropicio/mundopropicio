@@ -279,6 +279,24 @@ Responde APENAS JSON puro com este shape:
     anunciosElegiveisTot += anuncios.length;
     variacoesExcluidasTot += excluidas;
 
+    // Transporta audiencias (audience_id_meta + nome + funil) do design para o plano.
+    // Filtra entradas sem audience_id_meta (interesses/IG sem id não dão para excluir no Meta).
+    const audienciasRaw: any[] = Array.isArray(adset.audiencias) ? adset.audiencias : [];
+    const audiencias: AudienciaOut[] = audienciasRaw
+      .filter((x) => x && x.audience_id_meta != null && String(x.audience_id_meta).length > 0)
+      .map((x) => ({
+        audience_id_meta: String(x.audience_id_meta),
+        nome: typeof x.nome === "string" ? x.nome : undefined,
+        funil: typeof x.funil === "string" ? x.funil : undefined,
+      }));
+    // Funil predominante: maioria de audiencias[].funil; empate/vazio → "quente" (default seguro).
+    let qCount = 0, fCount = 0;
+    for (const x of audiencias) {
+      if (x.funil === "quente") qCount++;
+      else if (x.funil === "frio") fCount++;
+    }
+    const funil = fCount > qCount ? "frio" : "quente";
+
     return {
       trigger_id: adset.trigger_id ?? null,
       trigger_nome: adset.trigger_nome ?? "",
@@ -286,7 +304,9 @@ Responde APENAS JSON puro com este shape:
       peso_pct: Number(adset.peso_pct) || 0,
       orcamento_cents: orcamentos[i] ?? 0,
       publico_sugerido: (sugestoes as any[])[i],
-      publico_custom_audience_id: null,
+      publico_custom_audience_id: null, // retrocompat — execute prefere audiencias[]
+      audiencias,
+      funil,
       anuncios,
     };
   });
