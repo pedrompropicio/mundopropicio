@@ -5643,6 +5643,8 @@ export type Database = {
       }
       leads: {
         Row: {
+          capi_sent_at: string | null
+          capi_status: string | null
           company_id: string
           contact_id: string | null
           created_at: string
@@ -5665,6 +5667,8 @@ export type Database = {
           utm_source: string | null
         }
         Insert: {
+          capi_sent_at?: string | null
+          capi_status?: string | null
           company_id: string
           contact_id?: string | null
           created_at?: string
@@ -5687,6 +5691,8 @@ export type Database = {
           utm_source?: string | null
         }
         Update: {
+          capi_sent_at?: string | null
+          capi_status?: string | null
           company_id?: string
           contact_id?: string | null
           created_at?: string
@@ -10487,6 +10493,10 @@ export type Database = {
       portal_tick_lead_capture: { Args: never; Returns: Json }
       portal_tick_redirect_log: { Args: never; Returns: Json }
       process_lead_captures_batch: {
+        Args: { p_batch_size?: number }
+        Returns: Json[]
+      }
+      process_leads_capi_batch: {
         Args: { p_batch_size?: number }
         Returns: Json[]
       }
