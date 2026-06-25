@@ -337,6 +337,11 @@ Responde APENAS JSON puro com este shape:
       if (!p) return a;
       const merged: any = { ...a };
       if (p.meta_adset_id) merged.meta_adset_id = p.meta_adset_id;
+      // PRESERVAR publico_sugerido editado pelo utilizador (fonte de verdade).
+      // Só se aceita o output do Gemini quando o plano anterior não tem nada.
+      const prevPub = p.publico_sugerido;
+      const hasPrevPub = prevPub && typeof prevPub === "object" && Object.keys(prevPub).length > 0;
+      if (hasPrevPub) merged.publico_sugerido = prevPub;
       const prevAds: any[] = Array.isArray(p.anuncios) ? p.anuncios : [];
       const nextAds: any[] = Array.isArray(a.anuncios) ? a.anuncios : [];
       merged.anuncios = nextAds.map((an, idx) => {
@@ -349,6 +354,7 @@ Responde APENAS JSON puro com este shape:
       });
       return merged;
     });
+
   }
 
   let ins: any;
