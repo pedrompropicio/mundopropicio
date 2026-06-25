@@ -25,6 +25,7 @@ import type { EventMarketingRow, EventRow, TicketExperience } from "../types";
 import { Trash2, Plus, ArrowUp, ArrowDown } from "lucide-react";
 import { FaqsTab } from "./FaqsTab";
 import { LineupTab } from "./LineupTab";
+import { MetaAudienceCard } from "./MetaAudienceCard";
 
 type FormState = Omit<
   EventMarketingRow,
@@ -75,7 +76,7 @@ export default function EventMarketingEditor() {
     queryFn: async (): Promise<any> => {
       const { data, error } = await (supabase as any)
         .from("events")
-        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until, venue_map_url, venue_directions_url")
+        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until, venue_map_url, venue_directions_url, meta_pixel_id, meta_audience_id, meta_audience_name")
         .eq("id", eventId)
         .maybeSingle();
       if (error) throw error;
@@ -708,6 +709,16 @@ function GestaoTab({
 
   return (
     <Card className="space-y-4 p-4">
+      <MetaAudienceCard
+        eventId={eventId}
+        eventName={ev?.name ?? ""}
+        companyId={ev?.company_id ?? MP_COMPANY_ID}
+        metaPixelId={ev?.meta_pixel_id ?? null}
+        metaAudienceId={ev?.meta_audience_id ?? null}
+        metaAudienceName={ev?.meta_audience_name ?? null}
+        disabled={disabled}
+      />
+
       <Field label="Tipo de gestão">
         <Select value={mgmt} onValueChange={setMgmt} disabled={disabled}>
           <SelectTrigger><SelectValue /></SelectTrigger>
