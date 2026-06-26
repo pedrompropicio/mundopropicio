@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { MoneyInput } from "@/components/ui/money-input";
 import { formatMoney } from "@/lib/currency";
 import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
+import { useConfirmMetaAction } from "@/components/crm/ConfirmMetaActionDialog";
 
 interface Props {
   open: boolean;
