@@ -133,6 +133,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  // GUARDA: se já existe um plano em estado "a_publicar" ou "publicado", recusa regenerar
+  // para não escrever por cima de uma publicação em curso/concluída.
+  {
+    const { data: lockRow } = await (adminClient as any)
+      .schema("crm").from("meta_publish_plan")
+      .select("id, estado")
+      .eq("design_id", design_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lockRow && (lockRow.estado === "a_publicar" || lockRow.estado === "publicado")) {
+      return json({
+        error: "plan_locked",
+        message: `O plano está em estado "${lockRow.estado}" — não pode ser regenerado agora.`,
+        plan_id: lockRow.id,
+        estado: lockRow.estado,
+      }, 409);
+    }
+  }
+
+
   // 1) Lê design via service_role
   const { data: design, error: dErr } = await (adminClient as any)
     .schema("crm").from("campaign_design")
