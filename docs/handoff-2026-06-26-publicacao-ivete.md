@@ -54,3 +54,32 @@ Estado do funil de tracking, etapa a etapa:
 - O Funnel Test 360 só sabe testar bilheteiras externas: só existe 1 preset (TICKETLINE) em supabase/functions/crm-meta-funnel-test-run/presets/index.ts. URLs fora de ticketline.pt → backend devolve 400 "unsupported_provider". Não testa o portal próprio.
 - Além disso, ao selecionar um evento, o front (src/pages/crm/FunnelTest.tsx, useEffect ~L291-301) auto-preenche o campo com events.ticketing_url (Ticketline), o que mascara a limitação e leva o utilizador a pensar que "a ferramenta troca o link do criativo". O backend respeita o target_url do body; a sobreposição é no front (auto-fill + auto-flow por ?campaign_id/?event_id que usa meta_creatives.link_url).
 - Pendência (auditoria): criar preset "portal" (landing → validação PageView/ViewContent) e/ou desacoplar o auto-fill para permitir testar qualquer URL livremente.
+
+## CORREÇÃO DO DIAGNÓSTICO DE TRACKING (26/06, madrugada) — o diagnóstico anterior estava ERRADO
+
+ATENÇÃO: as secções anteriores deste handoff afirmavam que a Ticketline não disparava ViewContent/Purchase e que o funil estava "partido" por CSP. Investigação ao vivo no Events Manager do Meta DESMENTIU isso. O diagnóstico correto é o seguinte:
+
+### O que se provou (com prints do Events Manager, pixel Ivete 1647180363218298, período 29/mai–25/jun):
+- A Ticketline ENVIA o funil completo ao pixel: ViewContent (~10 mil), PageView (~7,2 mil), InitiateCheckout (552), **Compra/Purchase (409, ATIVO)**, AddToCart (316). Tudo "Recebido".
+- O evento Purchase chega via "Navegador" (pixel no browser) e traz os 3 parâmetros corretos: **currency, content_ids, value**. Confirmado no popup "Parâmetros (3)".
+- Logo: a hipótese "Ticketline não envia Purchase / eventos sem value-currency" é FALSA. O CSP detetado pelo Funnel Test 360 era provavelmente artefacto do ambiente headless (Browserless); no browser real os eventos chegam todos.
+
+### O problema REAL (a causa do ROAS subavaliado):
+- Qualidade de correspondência (match quality) baixa: ViewContent 6.1, PageView 6.3, InitiateCheckout 5.9 — todas com "Atualização recomendada".
+- O Purchase faz correspondência avançada por DADOS PESSOAIS (82%: código postal, email, nome, sobrenome, telefone) mas **NÃO inclui o parâmetro fbc** (identificador do clique do anúncio). Sem fbc no Purchase, o Meta liga mal a compra ao clique → atribuição/ROAS subavaliados.
+
+### Correção do portal (FEITA e VALIDADA ao vivo):
+- Causa no nosso lado: o portal anexava o fbclid ao link da Ticketline só via useEffect pós-mount → href inicial (SSR) saía "limpo"; clique rápido abria sem fbclid.
+- Fix (abordagem A, no clique): `src/components/EventPage.tsx`, handler `handleTicketClick` agora reconstrói o href com `appendFbclidToUrl(event.ticketing_url)` + `e.currentTarget.setAttribute("href", ...)` SÍNCRONO no clique, antes da navegação. Aplica-se ao COMPONENTE (todos os eventos). Mantém target=_blank/noopener, sem mismatch SSR; captura à entrada e cookie _fbc intactos. Commit ebefed3ed26e3b31ee9a7d44de963833935dbd43. Pedro fez Publish do PORTAL (projeto 26b95793).
+- Validação ao vivo (browser real): abrir portal com ?fbclid=TESTE_CLAUDE_VALIDACAO_123 → href do botão "Comprar Bilhete" passou a sair com ?fbclid=... → na Ticketline o pixel converteu-o em **fbc=fb.1.<ts>.TESTE_CLAUDE_VALIDACAO_123** (status 200). Antes do fix o link saía limpo e não havia fbc. Os 5 pixels da página da Ticketline já leem o fbclid e geram fbc no PageView.
+- Nota: o fbp diferente na Ticketline NÃO é falha (cookies não cruzam domínios — esperado). Só o fbclid→fbc é vector cross-domain válido.
+
+### O que falta (lado Ticketline):
+- A Ticketline precisa de incluir o fbc (e idealmente o fbp) que já capta no PageView TAMBÉM no evento de Purchase (e em AddToCart/InitiateCheckout). É propagar o fbc para os eventos de conversão do mesmo utilizador. Isto sobe a match quality e a atribuição.
+
+### Email à Ticketline (Luísa Rodrigues / Ana Ribeiro):
+- ENVIADO em 26/jun (madrugada), SEM os anexos. Pendência: amanhã RESPONDER à thread com 2 prints do Events Manager: (1) lista de eventos recebidos incl. Purchase 409; (2) parâmetros do Purchase (currency/content_ids/value; sem fbc). Os ficheiros são screenshots no Mac do Pedro.
+
+### Pendência operacional:
+- Anexar os 2 prints ao email (responder à própria thread) — adiado para 26/jun de dia.
+- Não escalar gasto da campanha até a Ticketline incluir o fbc no Purchase e revalidarmos a match quality.
