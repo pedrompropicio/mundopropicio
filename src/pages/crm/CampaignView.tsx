@@ -437,6 +437,7 @@ export default function CrmCampaignView() {
   const displayCurrency = useDisplayCurrency();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { confirm: confirmMetaAction } = useConfirmMetaAction();
   const [toggling, setToggling] = useState(false);
   const [adsetToggling, setAdsetToggling] = useState<string | null>(null);
   const [adToggling, setAdToggling] = useState<string | null>(null);
