@@ -1672,6 +1672,27 @@ export default function CrmCampaigns() {
       toast.error("Sem ligação Meta ativa.");
       return;
     }
+    // ATIVAR campanha → guard de confirmação partilhado (vai gastar).
+    if (target === "ACTIVE") {
+      const r = await confirmMetaAction(
+        [{
+          connection_id: connectionId,
+          entity_type: "campaign",
+          external_id: c.external_campaign_id,
+          ad_account_id: c.ad_account_id,
+          action: "activate",
+          label: `Campanha «${c.name}»`,
+          triggered_by: "user_manual",
+          reason_text: reasonText ?? null,
+        }],
+        { title: "Ativar campanha", description: "A campanha vai começar a gastar imediatamente." },
+      );
+      if (r.ok > 0) {
+        qc.invalidateQueries({ queryKey: ["crm-meta-campaigns", companyId, adAccountId] });
+      }
+      return;
+    }
+
     setTogglingCampaignId(c.external_campaign_id);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-entity-action", {
@@ -1679,7 +1700,7 @@ export default function CrmCampaigns() {
           connection_id: connectionId,
           entity_type: "campaign",
           external_id: c.external_campaign_id,
-          action: target === "ACTIVE" ? "activate" : "pause",
+          action: "pause",
           ad_account_id: c.ad_account_id,
           ...(reasonText ? { reason_text: reasonText, triggered_by: "user_manual" } : {}),
         },
@@ -1696,11 +1717,7 @@ export default function CrmCampaigns() {
         throw new Error(detail);
       }
       if (data?.ok === false) throw new Error(data?.detail ?? data?.error ?? "Falha");
-      toast.success(
-        target === "ACTIVE"
-          ? `Campanha "${c.name}" activada (${data?.effective_status ?? "ACTIVE"})`
-          : `Campanha "${c.name}" pausada`,
-      );
+      toast.success(`Campanha "${c.name}" pausada`);
       qc.invalidateQueries({ queryKey: ["crm-meta-campaigns", companyId, adAccountId] });
     } catch (e: any) {
       toast.error("Falha a alterar status no Meta", { description: e?.message ?? String(e) });
