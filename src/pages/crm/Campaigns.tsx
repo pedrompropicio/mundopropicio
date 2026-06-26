@@ -348,6 +348,7 @@ export function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: (
   const [roasGoal, setRoasGoal] = useState("");
   const [saving, setSaving] = useState(false);
   const { capEur } = useRoleBudgetCap();
+  const { confirm: confirmMetaAction } = useConfirmMetaAction();
 
   const supportsRoas = c.bid_strategy === "LOWEST_COST_WITH_MIN_ROAS";
 
