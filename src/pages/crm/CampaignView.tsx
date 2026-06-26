@@ -1000,7 +1000,9 @@ export default function CrmCampaignView() {
     }
   }
 
-  // ── Aplicar selecionadas: 1 chamada entity-action por ação (sequencial) ─────
+  // ── Aplicar selecionadas: lote agora passa pelo guard de confirmação ────────
+  // Build dos pending actions → ConfirmMetaActionDialog faz dry_run em batch
+  // → utilizador vê o resumo completo (pausas + deltas de verba) → confirma.
   async function applySurgical() {
     if (!surgicalData) return;
     const toApply = surgicalData.proposed_actions.filter(
@@ -1010,53 +1012,36 @@ export default function CrmCampaignView() {
       toast.error("Nenhuma ação selecionada");
       return;
     }
+    const pending: PendingMetaAction[] = toApply.map((a) => ({
+      connection_id: a.connection_id,
+      entity_type: a.entity_type as "campaign" | "adset" | "ad",
+      external_id: a.external_id,
+      ad_account_id: a.ad_account_id,
+      action: a.entity_action!.action as "pause" | "activate" | "update",
+      updates: a.entity_action!.updates,
+      label: a.entity_name ?? a.external_id,
+      diagnosis_id: surgicalData.diagnosis_id,
+      applied_action_index: a.action_index,
+      triggered_by: "ai_suggestion",
+      reason_text: a.rationale,
+      measure_impact_requested: true,
+    }));
     setApplyingSurgical(true);
-    let okCount = 0;
-    let failCount = 0;
-    for (const a of toApply) {
-      try {
-        const { data, error } = await supabase.functions.invoke("crm-meta-entity-action", {
-          body: {
-            connection_id: a.connection_id,
-            entity_type: a.entity_type,
-            external_id: a.external_id,
-            action: a.entity_action!.action,
-            updates: a.entity_action!.updates,
-            ad_account_id: a.ad_account_id,
-            // Audit (Etapa 3): liga ao diagnóstico 360 e à ação proposta.
-            diagnosis_id: surgicalData.diagnosis_id,
-            applied_action_index: a.action_index,
-            triggered_by: "ai_suggestion",
-            reason_text: a.rationale,
-            measure_impact_requested: true,
-          },
-        });
-        if (error) {
-          let detail = error.message;
-          const ctx = (error as any).context;
-          if (ctx) {
-            try {
-              const b = await (ctx.clone ? ctx.clone() : ctx).json();
-              detail = b?.message || b?.detail || b?.error || detail;
-            } catch {}
-          }
-          throw new Error(detail);
-        }
-        if ((data as any)?.ok === false) throw new Error((data as any)?.detail ?? "Falha");
-        okCount++;
-      } catch (e: any) {
-        failCount++;
-        toast.error(`Falha: ${a.entity_name ?? a.external_id}`, { description: e?.message ?? String(e) });
+    try {
+      const r = await confirmMetaAction(pending, {
+        title: prescKind === "scale" ? "Aplicar plano de escala" : "Aplicar ações cirúrgicas",
+        description: `${pending.length} acção(ões) — revê deltas e bloqueios antes de aplicar no Meta.`,
+      });
+      if (r.fail > 0) toast.error(`${r.fail} ação(ões) falharam`);
+      if (r.ok > 0 || !r.aborted) {
+        await qc.invalidateQueries({ queryKey: ["crm-campaign-view-adsets", id] });
+        await qc.invalidateQueries({ queryKey: ["crm-campaign-view-ads", id] });
+        await qc.invalidateQueries({ queryKey: ["crm-campaign-view-diagnosis", id] });
+        if (r.ok > 0) await runPrescription(prescKind);
       }
+    } finally {
+      setApplyingSurgical(false);
     }
-    if (okCount > 0) toast.success(`${okCount} ação(ões) aplicada(s) no Meta`);
-    if (failCount > 0) toast.error(`${failCount} ação(ões) falharam`);
-    setApplyingSurgical(false);
-    // Refrescar snapshots/diagnóstico e re-correr a engine (estado fresco).
-    await qc.invalidateQueries({ queryKey: ["crm-campaign-view-adsets", id] });
-    await qc.invalidateQueries({ queryKey: ["crm-campaign-view-ads", id] });
-    await qc.invalidateQueries({ queryKey: ["crm-campaign-view-diagnosis", id] });
-    await runPrescription(prescKind);
   }
 
   // ── Estados ──────────────────────────────────────────────────────────────
