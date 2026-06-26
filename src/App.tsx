@@ -622,6 +622,7 @@ function App() {
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
               </BrowserRouter>
+              </ConfirmMetaActionProvider>
             </CompanyBrandingProvider>
           </AuthProvider>
         </TooltipProvider>
