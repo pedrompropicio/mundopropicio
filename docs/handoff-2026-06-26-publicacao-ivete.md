@@ -83,3 +83,17 @@ ATENÇÃO: as secções anteriores deste handoff afirmavam que a Ticketline não
 ### Pendência operacional:
 - Anexar os 2 prints ao email (responder à própria thread) — adiado para 26/jun de dia.
 - Não escalar gasto da campanha até a Ticketline incluir o fbc no Purchase e revalidarmos a match quality.
+
+## PRINCÍPIO PARA A AUDITORIA (a desenhar amanhã) — fonte de verdade vs simulação
+
+Lição da noite (a reter): o Funnel Test 360 deu um FALSO NEGATIVO ("Ticketline não dispara eventos / funil partido") porque corre num browser headless (Browserless), que não reflete o utilizador real. Esse falso negativo foi amplificado num diagnóstico errado e quase gerou um email injusto à Ticketline. As provas reais (Events Manager do Meta) mostraram o contrário: os eventos chegam todos, incl. Purchase com value/currency; o problema real é match quality (~6/10) e falta do fbc no Purchase.
+
+Princípio a aplicar quando desenharmos a auditoria confiável (NÃO desenhar agora — decisão adiada por Pedro):
+1. NÃO se afirma o que se simula; afirma-se o que realmente aconteceu. Simulação headless nunca é prova.
+2. Hierarquia de fontes invertida:
+   - Camada que DECIDE (fonte de verdade): o que o Meta realmente registou (Events Manager / Conversions API) + teste em browser REAL. São factos de utilizadores reais.
+   - Camada de INDÍCIO (Funnel 360 headless): rebaixada a verificações estruturais e binárias — o pixel existe na página? o URL responde? há erro de sintaxe num header/CSP? NUNCA emitir veredito sobre "o evento converte" ou "o parceiro falha".
+3. REGRA DE OURO: nenhuma conclusão sobre tracking — interna ou para parceiro — sai sem confirmação na fonte de verdade (Events Manager). O Funnel 360 levanta hipótese; o Events Manager confirma/desmente. Foi este passo de confirmação que faltou.
+4. Funnel 360 não deve voltar a apresentar resultados de disparo de evento como "falha crítica/critical"; marcar como "ambiente headless — confirmar no Events Manager".
+
+Âmbito da solução (a decidir amanhã): (a) versão mínima — disciplinar o Funnel 360 (despromover vereditos a indício + aviso headless); (b) versão ambiciosa — auditoria assente nos dados reais do Meta (eventos por tipo, match quality, parâmetros presentes/ausentes por evento), com Funnel 360 relegado a verificações estruturais. Pedro vai escolher o nível na auditoria.
