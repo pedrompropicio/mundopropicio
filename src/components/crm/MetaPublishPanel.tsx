@@ -306,47 +306,92 @@ export function MetaPublishPanel({
     }
   }
 
-  // Load plano when opening
+  // Hidrata estado do painel a partir de uma linha de crm.meta_publish_plan + adsets jsonb
+  function hidratarDoPlanoRow(row: any) {
+    const adsetsRow = (Array.isArray(row?.adsets) ? row.adsets : []) as AdsetPlano[];
+    const planoLocal: PlanoResposta = {
+      plan_id: row.id,
+      design_id: row.design_id,
+      link_destino: row.link_destino ?? null,
+      adsets: adsetsRow,
+      totais: {
+        adsets: adsetsRow.length,
+        anuncios_elegiveis: adsetsRow.reduce((s, a) => s + (a.anuncios?.length ?? 0), 0),
+        variacoes_excluidas: 0,
+      },
+      estado: row.estado,
+      meta_campaign_id: row.meta_campaign_id ?? null,
+    };
+    setPlano(planoLocal);
+    setLinkDestino((row.link_destino as string | null) ?? "");
+    setEstadoPlano(row.estado ?? "rascunho");
+    setMetaCampaignIdPub(row.meta_campaign_id ?? null);
+    setStartTime(isoToLocalInput(row.start_time));
+    setEndTime(isoToLocalInput(row.end_time));
+    if (row.objetivo) setObjetivo(row.objetivo);
+    const somaAdsets = adsetsRow.reduce((s, a) => s + (Number(a.orcamento_cents) || 0), 0);
+    const totalCents = Number(row.orcamento_total_cents) > 0
+      ? Number(row.orcamento_total_cents)
+      : (somaAdsets > 0 ? somaAdsets : 0);
+    if (totalCents > 0) setOrcamentoEuros((totalCents / 100).toFixed(2));
+  }
+
+  // Chama o prepare (regenera/cria o plano). Usado na primeira preparação e no botão manual.
+  async function executarPrepare(): Promise<void> {
+    if (!companyId || !designId) return;
+    setLoading(true); setError(null);
+    try {
+      const { data, error: invErr } = await supabase.functions.invoke("crm-meta-publish-prepare", {
+        body: { company_id: companyId, design_id: designId },
+      });
+      if (invErr) {
+        setError((invErr as any).message ?? "Falha ao preparar plano.");
+        return;
+      }
+      if ((data as any)?.error) {
+        setError(`${(data as any).error}: ${(data as any).message ?? (data as any).detail ?? ""}`);
+        return;
+      }
+      // Recarrega da BD para ter shape completo (estado, meta_campaign_id, janelas, etc.)
+      const { data: row } = await (supabase as any)
+        .schema("crm").from("meta_publish_plan")
+        .select("id, design_id, estado, meta_campaign_id, start_time, end_time, orcamento_total_cents, objetivo, link_destino, adsets")
+        .eq("id", (data as any).plan_id).maybeSingle();
+      if (row) hidratarDoPlanoRow(row);
+      else setPlano(data as PlanoResposta);
+    } catch (e: any) {
+      setError(e?.message ?? "Falha de rede.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Load plano when opening: NÃO regenera se já existe um plano para este design.
+  // Só chama o prepare quando NÃO há plano (primeira preparação).
   useEffect(() => {
     if (!open || !companyId || !designId) return;
     let cancel = false;
     setLoading(true); setError(null); setPlano(null);
     (async () => {
       try {
-        const { data, error: invErr } = await supabase.functions.invoke("crm-meta-publish-prepare", {
-          body: { company_id: companyId, design_id: designId },
-        });
+        const { data: row, error: rowErr } = await (supabase as any)
+          .schema("crm").from("meta_publish_plan")
+          .select("id, design_id, estado, meta_campaign_id, start_time, end_time, orcamento_total_cents, objetivo, link_destino, adsets")
+          .eq("design_id", designId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
         if (cancel) return;
-        if (invErr) {
-          setError((invErr as any).message ?? "Falha ao preparar plano.");
-        } else if (data?.error) {
-          setError(`${data.error}: ${data.message ?? data.detail ?? ""}`);
+        if (rowErr) {
+          setError(rowErr.message ?? "Falha ao carregar plano.");
+          return;
+        }
+        if (row && Array.isArray(row.adsets) && row.adsets.length > 0) {
+          // Já existe plano — apenas carrega para exibição. NÃO regenera.
+          hidratarDoPlanoRow(row);
         } else {
-          setPlano(data as PlanoResposta);
-          setLinkDestino(((data as any)?.link_destino as string | null) ?? "");
-          // Após receber o plano, lê estado/meta_campaign_id/orcamento da BD para o painel.
-          try {
-            const { data: row } = await (supabase as any)
-              .schema("crm").from("meta_publish_plan")
-              .select("estado, meta_campaign_id, start_time, end_time, orcamento_total_cents")
-              .eq("id", (data as any).plan_id).maybeSingle();
-            if (!cancel && row) {
-              setEstadoPlano(row.estado ?? "rascunho");
-              setMetaCampaignIdPub(row.meta_campaign_id ?? null);
-              setStartTime(isoToLocalInput(row.start_time));
-              setEndTime(isoToLocalInput(row.end_time));
-              // Hidrata orçamento total: (i) BD orcamento_total_cents; (ii) soma adsets; (iii) vazio.
-              const adsetsResp = ((data as any)?.adsets ?? []) as AdsetPlano[];
-              const somaAdsets = adsetsResp.reduce((s, a) => s + (Number(a.orcamento_cents) || 0), 0);
-              const totalCents = Number(row.orcamento_total_cents) > 0
-                ? Number(row.orcamento_total_cents)
-                : (somaAdsets > 0 ? somaAdsets : 0);
-              if (totalCents > 0) {
-                setOrcamentoEuros((totalCents / 100).toFixed(2));
-              }
-            }
-          } catch { /* ignore */ }
-
+          // Sem plano (ou plano vazio) — primeira preparação: chama o prepare.
+          await executarPrepare();
         }
       } catch (e: any) {
         if (!cancel) setError(e?.message ?? "Falha de rede.");
@@ -355,6 +400,7 @@ export function MetaPublishPanel({
       }
     })();
     return () => { cancel = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, companyId, designId]);
 
   // Auto-save (debounce 800ms)
@@ -441,10 +487,26 @@ export function MetaPublishPanel({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-4xl overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Preparar publicação no Meta</SheetTitle>
-          <SheetDescription>
-            Esta fase prepara e revê o plano. A criação real no Meta chega na próxima fase.
-          </SheetDescription>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <SheetTitle>Preparar publicação no Meta</SheetTitle>
+              <SheetDescription>
+                Esta fase prepara e revê o plano. A criação real no Meta chega na próxima fase.
+              </SheetDescription>
+            </div>
+            {plano && estadoPlano !== "a_publicar" && estadoPlano !== "publicado" && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={loading}
+                onClick={() => void executarPrepare()}
+                title="Regenera o plano a partir do desenho atual (sobrescreve sugestões)."
+              >
+                {loading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                Regenerar plano
+              </Button>
+            )}
+          </div>
         </SheetHeader>
 
         {loading && (
