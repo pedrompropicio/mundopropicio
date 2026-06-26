@@ -47,6 +47,7 @@ export function EditAdsetBudgetDialog({
   const [saving, setSaving] = useState(false);
   const displayCurrency = useDisplayCurrency();
   const currency = adset.currency ?? displayCurrency;
+  const { confirm: confirmMetaAction } = useConfirmMetaAction();
 
   // Re-sincroniza ao reabrir com outro adset
   function handleOpenChange(v: boolean) {
@@ -66,42 +67,24 @@ export function EditAdsetBudgetDialog({
     }
     setSaving(true);
     try {
-      const { data, error } = await supabase.functions.invoke("crm-meta-entity-action", {
-        body: {
+      // Guard partilhado: dry_run → resumo → confirmação → escrita real.
+      const r = await confirmMetaAction(
+        [{
           connection_id: connectionId,
           entity_type: "adset",
           external_id: adset.external_adset_id,
-          action: "update",
           ad_account_id: adAccountId ?? undefined,
+          action: "update",
           updates: { daily_budget_cents: cents },
+          label: `Adset «${adset.name ?? adset.external_adset_id}» — verba diária ${formatMoney(initialEur, currency)} → ${formatMoney(valueEur, currency)}`,
           triggered_by: "user_manual",
-        },
-      });
-      if (error) {
-        let detail = error.message;
-        const ctx = (error as any).context;
-        if (ctx) {
-          try {
-            const b = await (ctx.clone ? ctx.clone() : ctx).json();
-            if (b?.error === "budget_cap_exceeded") {
-              detail = `Excede o teu limite (${formatMoney(b.cap_eur, currency)}/dia). Tentaste ${formatMoney(b.attempted_eur, currency)}.`;
-            } else if (b?.error === "no_budget_authority") {
-              detail = "Não tens permissão para alterar orçamento.";
-            } else {
-              detail = b?.detail || b?.message || b?.error || detail;
-            }
-          } catch {}
-        }
-        throw new Error(detail);
+        }],
+        { title: "Atualizar verba do adset" },
+      );
+      if (r.ok > 0) {
+        onOpenChange(false);
+        onSaved();
       }
-      if ((data as any)?.ok === false) throw new Error((data as any)?.detail ?? "Falha");
-      toast.success(`Orçamento do adset "${adset.name ?? "(sem nome)"}" atualizado`);
-      onOpenChange(false);
-      onSaved();
-    } catch (e: any) {
-      toast.error("Falha a atualizar verba no Meta", {
-        description: e?.message ?? String(e),
-      });
     } finally {
       setSaving(false);
     }
