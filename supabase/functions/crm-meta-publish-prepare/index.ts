@@ -98,7 +98,7 @@ async function callGeminiJSON(prompt: string): Promise<any> {
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  console.log("[meta-publish-prepare] BUILD_VERSION=publish-prepare-v7-guard-a-publicar");
+  console.log("[meta-publish-prepare] BUILD_VERSION=publish-prepare-v8-preserve-publico-noop-lock");
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -133,23 +133,36 @@ Deno.serve(async (req: Request): Promise<Response> => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // GUARDA: se já existe um plano em estado "a_publicar" ou "publicado", recusa regenerar
-  // para não escrever por cima de uma publicação em curso/concluída.
+  // GUARDA: se já existe um plano em publicação ou já publicado/ativado, NÃO regenera.
+  // Devolve o plano atual como no-op para não escrever por cima de uma publicação em curso/concluída.
   {
     const { data: lockRow } = await (adminClient as any)
       .schema("crm").from("meta_publish_plan")
-      .select("id, estado")
+      .select("id, design_id, estado, meta_campaign_id, link_destino, adsets")
       .eq("design_id", design_id)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (lockRow && (lockRow.estado === "a_publicar" || lockRow.estado === "publicado")) {
+    const lockedStates = ["a_publicar", "publicado", "ativo", "pausado", "cancelado"];
+    if (lockRow && lockedStates.includes(lockRow.estado)) {
+      const lockedAdsets = Array.isArray(lockRow.adsets) ? lockRow.adsets : [];
       return json({
-        error: "plan_locked",
-        message: `O plano está em estado "${lockRow.estado}" — não pode ser regenerado agora.`,
+        ok: true,
+        no_op: true,
+        reason: "plan_locked",
+        message: `O plano está em estado "${lockRow.estado}" — prepare não regenerou nem reescreveu adsets.`,
         plan_id: lockRow.id,
+        design_id: lockRow.design_id ?? design_id,
+        link_destino: lockRow.link_destino ?? null,
         estado: lockRow.estado,
-      }, 409);
+        meta_campaign_id: lockRow.meta_campaign_id ?? null,
+        adsets: lockedAdsets,
+        totais: {
+          adsets: lockedAdsets.length,
+          anuncios_elegiveis: lockedAdsets.reduce((s: number, a: any) => s + (Array.isArray(a?.anuncios) ? a.anuncios.length : 0), 0),
+          variacoes_excluidas: 0,
+        },
+      });
     }
   }
 
@@ -345,7 +358,7 @@ Responde APENAS JSON puro com este shape:
     .maybeSingle();
   if (exErr) return json({ error: "plan_lookup_failed", detail: exErr.message }, 500);
 
-  const reusableStates = ["rascunho", "pronto_a_publicar", "a_publicar", "falhado"];
+  const reusableStates = ["rascunho", "pronto_a_publicar", "falhado"];
   const shouldReuse = existing && reusableStates.includes(existing.estado);
 
   // Helper para preservar meta_*_id já gravados, indexando por trigger_id (fallback trigger_nome).
@@ -353,8 +366,8 @@ Responde APENAS JSON puro com este shape:
     const prevArr = Array.isArray(prev) ? prev : [];
     const keyOf = (a: any) => a?.trigger_id ? `id:${a.trigger_id}` : `nome:${a?.trigger_nome ?? ""}`;
     const prevByKey = new Map(prevArr.map((a) => [keyOf(a), a]));
-    return next.map((a) => {
-      const p = prevByKey.get(keyOf(a));
+    return next.map((a, idx) => {
+      const p = prevByKey.get(keyOf(a)) ?? prevArr[idx];
       if (!p) return a;
       const merged: any = { ...a };
       if (p.meta_adset_id) merged.meta_adset_id = p.meta_adset_id;
@@ -379,8 +392,10 @@ Responde APENAS JSON puro com este shape:
   }
 
   let ins: any;
+  let responseAdsets: AdsetOut[] | any[] = adsetsOut;
   if (shouldReuse) {
     const mergedAdsets = mergeAdsetsPreservingMetaIds(existing.adsets, adsetsOut);
+    responseAdsets = mergedAdsets;
     const updateRow: Record<string, unknown> = {
       company_id,
       event_id: design.event_id,
@@ -432,10 +447,10 @@ Responde APENAS JSON puro com este shape:
     plan_id: ins.id,
     design_id,
     link_destino: (ins as any).link_destino ?? linkDestinoEvento,
-    adsets: adsetsOut,
+    adsets: responseAdsets,
     totais: {
-      adsets: adsetsOut.length,
-      anuncios_elegiveis: anunciosElegiveisTot,
+      adsets: responseAdsets.length,
+      anuncios_elegiveis: responseAdsets.reduce((s: number, a: any) => s + (Array.isArray(a?.anuncios) ? a.anuncios.length : 0), 0),
       variacoes_excluidas: variacoesExcluidasTot,
     },
   });
