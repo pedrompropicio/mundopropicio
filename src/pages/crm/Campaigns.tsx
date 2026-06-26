@@ -133,6 +133,7 @@ type DashboardGroup = SimpleGroup | TourGroup;
 
 import type { PeriodMode, PeriodState } from "@/lib/crm/period";
 import { periodFromMode } from "@/lib/crm/period";
+import { useConfirmMetaAction, type PendingMetaAction } from "@/components/crm/ConfirmMetaActionDialog";
 
 // ============================================================
 // Helpers
