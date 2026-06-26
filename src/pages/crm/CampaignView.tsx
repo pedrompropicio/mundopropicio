@@ -795,6 +795,28 @@ export default function CrmCampaignView() {
     target: "ACTIVE" | "PAUSED";
     label: string;
   }) {
+    // ATIVAR passa pelo guard de confirmação (gasta). PAUSAR mantém o caminho directo.
+    if (opts.target === "ACTIVE") {
+      const result = await confirmMetaAction(
+        [{
+          connection_id: opts.connection_id,
+          entity_type: opts.entity_type,
+          external_id: opts.external_id,
+          ad_account_id: opts.ad_account_id,
+          action: "activate",
+          label: opts.label,
+          triggered_by: "user_manual",
+        }],
+        { title: `Ativar ${opts.entity_type}`, description: `${opts.label} vai começar a gastar.` },
+      );
+      if (result.ok > 0) {
+        qc.invalidateQueries({
+          queryKey: [opts.entity_type === "adset" ? "crm-campaign-view-adsets" : "crm-campaign-view-ads", id],
+        });
+      }
+      return;
+    }
+
     const setter = opts.entity_type === "adset" ? setAdsetToggling : setAdToggling;
     setter(opts.external_id);
     try {
@@ -803,7 +825,7 @@ export default function CrmCampaignView() {
           connection_id: opts.connection_id,
           entity_type: opts.entity_type,
           external_id: opts.external_id,
-          action: opts.target === "ACTIVE" ? "activate" : "pause",
+          action: "pause",
           ad_account_id: opts.ad_account_id,
           triggered_by: "user_manual",
         },
@@ -820,11 +842,7 @@ export default function CrmCampaignView() {
         throw new Error(detail);
       }
       if ((data as any)?.ok === false) throw new Error((data as any)?.detail ?? "Falha");
-      toast.success(
-        opts.target === "ACTIVE"
-          ? `${opts.label} ativado`
-          : `${opts.label} pausado`,
-      );
+      toast.success(`${opts.label} pausado`);
       qc.invalidateQueries({
         queryKey: [opts.entity_type === "adset" ? "crm-campaign-view-adsets" : "crm-campaign-view-ads", id],
       });
