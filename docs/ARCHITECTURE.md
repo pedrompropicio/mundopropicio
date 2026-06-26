@@ -77,3 +77,9 @@ A plataforma divide-se em quatro módulos de produto + uma camada transversal. O
 - Quando Pedro define direção, executar sem sugerir parar/adiar — ritmo e prioridades são decisão dele.
 - "Faz Publish" direto quando pronto (não perguntar "queres publicar?"). Todo o output, resumos e documentação em PT-PT.
 - Ações irreversíveis (DELETE/UPDATE Live): SELECT → Pedro confirma → ação cirúrgica.
+
+## 9. MP Audience — caminhos de campanha
+Modelo de 2 faixas (DR-2026-06-26, ver DECISIONS.md):
+- **Faixa A** — editar campanha existente in-place (budget/pausa via Graph). Tem de ganhar dry-run + modal de impacto antes de qualquer escrita (padrão MetaPublishPanel); hoje escreve direto e é o risco vivo do módulo.
+- **Faixa B** — criar campanha nova (gera → review → publish em pausa). Espinha canónica = `meta_publish_plan` + `MetaPublishPanel` (prepare → dry-run → "Confirmar e criar no Meta" → activate). Pista paralela "Strategies" (`strategy-deploy`/`deployment-toggle` + `meta_campaign_strategy_deployments`) é aposentada.
+- **Brief determinístico único** alimenta todos os LLMs (Flash sozinho por defeito; Gemini Pro + GPT-5 quando o toggle de duelo está ON via `crm-audience-duel`). Árbitro é determinístico + escolha humana; parecer textual LLM é opcional e nunca seleciona.
