@@ -392,6 +392,32 @@ export function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: (
     }
     setSaving(true);
     try {
+      // Quando a edição inclui verba, passa pelo guard de confirmação (gasta).
+      // Edição só de nome/end_time/ROAS mantém o caminho directo (sem impacto $).
+      const touchesBudget = typeof updates.daily_budget_cents === "number";
+      if (touchesBudget) {
+        const beforeEur = (c.daily_budget_cents ?? 0) / 100;
+        const afterEur = (updates.daily_budget_cents as number) / 100;
+        const r = await confirmMetaAction(
+          [{
+            connection_id: c.connection_id,
+            entity_type: "campaign",
+            external_id: c.external_campaign_id,
+            ad_account_id: c.ad_account_id,
+            action: "update",
+            updates,
+            label: `Campanha «${c.name}» — verba ${formatMoney(beforeEur, c.currency)} → ${formatMoney(afterEur, c.currency)}`,
+            triggered_by: "user_manual",
+          }],
+          { title: "Atualizar campanha (inclui verba)" },
+        );
+        if (r.ok > 0) {
+          setOpen(false);
+          onSaved();
+        }
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke("crm-meta-entity-action", {
         body: {
           connection_id: c.connection_id,
