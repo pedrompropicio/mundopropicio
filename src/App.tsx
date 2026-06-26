@@ -16,6 +16,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
 import { CompanyBrandingProvider } from "@/contexts/CompanyBrandingContext";
+import { ConfirmMetaActionProvider } from "@/components/crm/ConfirmMetaActionDialog";
 import { useCompany } from "@/hooks/useCompany";
 import { BrandedLogo } from "@/components/BrandedLogo";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
@@ -553,6 +554,7 @@ function App() {
           <Sonner />
           <AuthProvider>
             <CompanyBrandingProvider>
+              <ConfirmMetaActionProvider>
               <BrowserRouter>
                 <ScrollToTop />
                 <Routes>
@@ -620,6 +622,7 @@ function App() {
                   <Route path="/*" element={<ProtectedLayout />} />
                 </Routes>
               </BrowserRouter>
+              </ConfirmMetaActionProvider>
             </CompanyBrandingProvider>
           </AuthProvider>
         </TooltipProvider>

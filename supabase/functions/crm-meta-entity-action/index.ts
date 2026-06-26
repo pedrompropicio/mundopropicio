@@ -66,7 +66,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     connection_id, entity_type, external_id, action, updates,
     // Campos opcionais para o audit trail crm.meta_campaign_changes:
     diagnosis_id, applied_action_index, triggered_by, reason_text, measure_impact_requested,
+    // ── DRY-RUN ── Quando true, valida e devolve o impacto planeado SEM
+    // chamar a Graph API. Usado pelo modal ConfirmMetaActionDialog.
+    dry_run,
   } = body ?? {};
+  const dryRun: boolean = dry_run === true;
   if (!connection_id || !entity_type || !external_id || !action) {
     return json({ error: "missing_fields", required: ["connection_id", "entity_type", "external_id", "action"] }, 400);
   }
@@ -92,6 +96,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // ── GUARDRAIL: cap de budget diário por role ────────────────────────────────
   // Só aplica a updates que mexem na verba diária. Bloqueia ANTES de tocar na Meta.
+  // Em dry_run, em vez de devolver 403 imediato, regista `blockedReason` e devolve
+  // um sumário com `blocked:true` mais à frente — o modal precisa de mostrar o item.
+  let blockedReason: string | null = null;
+  let capEurCached: number | null = null;
+  let attemptedEurCached: number | null = null;
   if (action === "update" && typeof updates?.daily_budget_cents === "number") {
     const { data: capData, error: capErr } = await supabase.rpc(
       "get_user_max_daily_budget_eur",
@@ -104,14 +113,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // numeric vem como string via PostgREST → coerção (preserva null = sem limite).
     const capEur: number | null = capData === null ? null : Number(capData);
     const attemptedEur = updates.daily_budget_cents / 100;
-    console.log("[entity-action] budget cap check", { userId, capEur, attemptedEur });
-    if (capEur === 0) {
-      return json({
-        error: "no_budget_authority",
-        message: "User has no role authorised to set budget.",
-      }, 403);
-    }
-    if (capEur !== null && attemptedEur > capEur) {
+    capEurCached = capEur;
+    attemptedEurCached = attemptedEur;
+    console.log("[entity-action] budget cap check", { userId, capEur, attemptedEur, dryRun });
+    if (capEur === 0) blockedReason = "no_budget_authority";
+    else if (capEur !== null && attemptedEur > capEur) blockedReason = "budget_cap_exceeded";
+
+    // Em modo real, falha já. Em dry_run continuamos para devolver o impacto.
+    if (blockedReason && !dryRun) {
+      if (blockedReason === "no_budget_authority") {
+        return json({ error: "no_budget_authority", message: "User has no role authorised to set budget." }, 403);
+      }
       return json({
         error: "budget_cap_exceeded",
         message: `Daily budget €${attemptedEur} exceeds your limit of €${capEur}/day.`,
@@ -211,7 +223,51 @@ Deno.serve(async (req: Request): Promise<Response> => {
     actionLogged = actionLogged!;
   }
 
+  // ── DRY-RUN: devolve impacto planeado SEM tocar na Graph API ──────────────
+  // NENHUM POST/PATCH ao graph.facebook.com é executado neste branch.
+  if (dryRun) {
+    const before = {
+      name: (snapRow as any)?.name ?? null,
+      status: prevStatus,
+      daily_budget_cents: (snapRow as any)?.daily_budget_cents ?? null,
+      lifetime_budget_cents: (snapRow as any)?.lifetime_budget_cents ?? null,
+      bid_strategy: (snapRow as any)?.bid_strategy ?? null,
+    };
+    const after: any = { ...before };
+    if (action === "pause") after.status = "PAUSED";
+    else if (action === "activate") after.status = "ACTIVE";
+    else {
+      if (typeof updates?.name === "string" && updates.name.trim()) after.name = updates.name.trim();
+      if (typeof updates?.daily_budget_cents === "number") after.daily_budget_cents = updates.daily_budget_cents;
+      if (typeof updates?.lifetime_budget_cents === "number") after.lifetime_budget_cents = updates.lifetime_budget_cents;
+      if (typeof metaParams.bid_strategy === "string") after.bid_strategy = metaParams.bid_strategy;
+    }
+    return json({
+      ok: true,
+      dry_run: true,
+      entity_type,
+      external_id,
+      entity_name: entityName,
+      action: actionLogged,
+      action_kind: actionLogged === "pause" ? "pause"
+        : actionLogged === "activate" ? "activate"
+        : actionLogged === "update_budget" ? "budget"
+        : actionLogged === "update_name" ? "name"
+        : actionLogged === "update_roas_floor" ? "bid"
+        : actionLogged === "update_end_time" ? "end_time"
+        : "other",
+      before,
+      after,
+      blocked: blockedReason !== null,
+      block_reason: blockedReason,
+      cap_eur: capEurCached,
+      attempted_eur: attemptedEurCached,
+      warnings: [],
+    });
+  }
+
   // POST ao Meta
+
   let metaResponse: any = null;
   let newStatus: string | null = null;
   let effectiveStatus: string | null = null;

@@ -71,6 +71,7 @@ import { StrategicTriggersCard } from "@/components/crm/StrategicTriggersCard";
 import { AssistedAssemblyPanel } from "@/components/crm/AssistedAssemblyPanel";
 import { CampaignDesignStudio } from "@/components/crm/CampaignDesignStudio";
 import { MetaPublishPanel } from "@/components/crm/MetaPublishPanel";
+import { useConfirmMetaAction, type PendingMetaAction } from "@/components/crm/ConfirmMetaActionDialog";
 
 // ── Tipos (subset dos snapshots; só o que a página usa) ─────────────────────
 interface CampaignSnap {
@@ -436,6 +437,7 @@ export default function CrmCampaignView() {
   const displayCurrency = useDisplayCurrency();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { confirm: confirmMetaAction } = useConfirmMetaAction();
   const [toggling, setToggling] = useState(false);
   const [adsetToggling, setAdsetToggling] = useState<string | null>(null);
   const [adToggling, setAdToggling] = useState<string | null>(null);
@@ -793,6 +795,28 @@ export default function CrmCampaignView() {
     target: "ACTIVE" | "PAUSED";
     label: string;
   }) {
+    // ATIVAR passa pelo guard de confirmação (gasta). PAUSAR mantém o caminho directo.
+    if (opts.target === "ACTIVE") {
+      const result = await confirmMetaAction(
+        [{
+          connection_id: opts.connection_id,
+          entity_type: opts.entity_type,
+          external_id: opts.external_id,
+          ad_account_id: opts.ad_account_id,
+          action: "activate",
+          label: opts.label,
+          triggered_by: "user_manual",
+        }],
+        { title: `Ativar ${opts.entity_type}`, description: `${opts.label} vai começar a gastar.` },
+      );
+      if (result.ok > 0) {
+        qc.invalidateQueries({
+          queryKey: [opts.entity_type === "adset" ? "crm-campaign-view-adsets" : "crm-campaign-view-ads", id],
+        });
+      }
+      return;
+    }
+
     const setter = opts.entity_type === "adset" ? setAdsetToggling : setAdToggling;
     setter(opts.external_id);
     try {
@@ -801,7 +825,7 @@ export default function CrmCampaignView() {
           connection_id: opts.connection_id,
           entity_type: opts.entity_type,
           external_id: opts.external_id,
-          action: opts.target === "ACTIVE" ? "activate" : "pause",
+          action: "pause",
           ad_account_id: opts.ad_account_id,
           triggered_by: "user_manual",
         },
@@ -818,11 +842,7 @@ export default function CrmCampaignView() {
         throw new Error(detail);
       }
       if ((data as any)?.ok === false) throw new Error((data as any)?.detail ?? "Falha");
-      toast.success(
-        opts.target === "ACTIVE"
-          ? `${opts.label} ativado`
-          : `${opts.label} pausado`,
-      );
+      toast.success(`${opts.label} pausado`);
       qc.invalidateQueries({
         queryKey: [opts.entity_type === "adset" ? "crm-campaign-view-adsets" : "crm-campaign-view-ads", id],
       });
@@ -837,6 +857,25 @@ export default function CrmCampaignView() {
   // ── Ações (duplicação leve do toggle da lista; ver Campaigns.tsx) ───────────
   async function runToggle(target: "ACTIVE" | "PAUSED", reasonText?: string) {
     if (!campaign) return;
+    // ATIVAR campanha → passa pelo guard de confirmação (vai gastar).
+    if (target === "ACTIVE") {
+      const r = await confirmMetaAction(
+        [{
+          connection_id: (campaign as any).connection_id,
+          entity_type: "campaign",
+          external_id: campaign.external_campaign_id,
+          ad_account_id: (campaign as any).ad_account_id,
+          action: "activate",
+          label: `Campanha «${campaign.name}»`,
+          triggered_by: "user_manual",
+          reason_text: reasonText ?? null,
+        }],
+        { title: "Ativar campanha", description: "A campanha vai começar a gastar imediatamente." },
+      );
+      if (r.ok > 0) qc.invalidateQueries({ queryKey: ["crm-campaign-view", id] });
+      return;
+    }
+
     setToggling(true);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-entity-action", {
@@ -844,7 +883,7 @@ export default function CrmCampaignView() {
           connection_id: (campaign as any).connection_id,
           entity_type: "campaign",
           external_id: campaign.external_campaign_id,
-          action: target === "ACTIVE" ? "activate" : "pause",
+          action: "pause",
           ad_account_id: (campaign as any).ad_account_id,
           ...(reasonText ? { reason_text: reasonText, triggered_by: "user_manual" } : {}),
         },
@@ -861,11 +900,7 @@ export default function CrmCampaignView() {
         throw new Error(detail);
       }
       if ((data as any)?.ok === false) throw new Error((data as any)?.detail ?? "Falha");
-      toast.success(
-        target === "ACTIVE"
-          ? `Campanha "${campaign.name}" activada`
-          : `Campanha "${campaign.name}" pausada`,
-      );
+      toast.success(`Campanha "${campaign.name}" pausada`);
       qc.invalidateQueries({ queryKey: ["crm-campaign-view", id] });
     } catch (e: any) {
       toast.error("Falha a alterar status no Meta", { description: e?.message ?? String(e) });
@@ -965,7 +1000,9 @@ export default function CrmCampaignView() {
     }
   }
 
-  // ── Aplicar selecionadas: 1 chamada entity-action por ação (sequencial) ─────
+  // ── Aplicar selecionadas: lote agora passa pelo guard de confirmação ────────
+  // Build dos pending actions → ConfirmMetaActionDialog faz dry_run em batch
+  // → utilizador vê o resumo completo (pausas + deltas de verba) → confirma.
   async function applySurgical() {
     if (!surgicalData) return;
     const toApply = surgicalData.proposed_actions.filter(
@@ -975,53 +1012,36 @@ export default function CrmCampaignView() {
       toast.error("Nenhuma ação selecionada");
       return;
     }
+    const pending: PendingMetaAction[] = toApply.map((a) => ({
+      connection_id: a.connection_id,
+      entity_type: a.entity_type as "campaign" | "adset" | "ad",
+      external_id: a.external_id,
+      ad_account_id: a.ad_account_id,
+      action: a.entity_action!.action as "pause" | "activate" | "update",
+      updates: a.entity_action!.updates,
+      label: a.entity_name ?? a.external_id,
+      diagnosis_id: surgicalData.diagnosis_id,
+      applied_action_index: a.action_index,
+      triggered_by: "ai_suggestion",
+      reason_text: a.rationale,
+      measure_impact_requested: true,
+    }));
     setApplyingSurgical(true);
-    let okCount = 0;
-    let failCount = 0;
-    for (const a of toApply) {
-      try {
-        const { data, error } = await supabase.functions.invoke("crm-meta-entity-action", {
-          body: {
-            connection_id: a.connection_id,
-            entity_type: a.entity_type,
-            external_id: a.external_id,
-            action: a.entity_action!.action,
-            updates: a.entity_action!.updates,
-            ad_account_id: a.ad_account_id,
-            // Audit (Etapa 3): liga ao diagnóstico 360 e à ação proposta.
-            diagnosis_id: surgicalData.diagnosis_id,
-            applied_action_index: a.action_index,
-            triggered_by: "ai_suggestion",
-            reason_text: a.rationale,
-            measure_impact_requested: true,
-          },
-        });
-        if (error) {
-          let detail = error.message;
-          const ctx = (error as any).context;
-          if (ctx) {
-            try {
-              const b = await (ctx.clone ? ctx.clone() : ctx).json();
-              detail = b?.message || b?.detail || b?.error || detail;
-            } catch {}
-          }
-          throw new Error(detail);
-        }
-        if ((data as any)?.ok === false) throw new Error((data as any)?.detail ?? "Falha");
-        okCount++;
-      } catch (e: any) {
-        failCount++;
-        toast.error(`Falha: ${a.entity_name ?? a.external_id}`, { description: e?.message ?? String(e) });
+    try {
+      const r = await confirmMetaAction(pending, {
+        title: prescKind === "scale" ? "Aplicar plano de escala" : "Aplicar ações cirúrgicas",
+        description: `${pending.length} acção(ões) — revê deltas e bloqueios antes de aplicar no Meta.`,
+      });
+      if (r.fail > 0) toast.error(`${r.fail} ação(ões) falharam`);
+      if (r.ok > 0 || !r.aborted) {
+        await qc.invalidateQueries({ queryKey: ["crm-campaign-view-adsets", id] });
+        await qc.invalidateQueries({ queryKey: ["crm-campaign-view-ads", id] });
+        await qc.invalidateQueries({ queryKey: ["crm-campaign-view-diagnosis", id] });
+        if (r.ok > 0) await runPrescription(prescKind);
       }
+    } finally {
+      setApplyingSurgical(false);
     }
-    if (okCount > 0) toast.success(`${okCount} ação(ões) aplicada(s) no Meta`);
-    if (failCount > 0) toast.error(`${failCount} ação(ões) falharam`);
-    setApplyingSurgical(false);
-    // Refrescar snapshots/diagnóstico e re-correr a engine (estado fresco).
-    await qc.invalidateQueries({ queryKey: ["crm-campaign-view-adsets", id] });
-    await qc.invalidateQueries({ queryKey: ["crm-campaign-view-ads", id] });
-    await qc.invalidateQueries({ queryKey: ["crm-campaign-view-diagnosis", id] });
-    await runPrescription(prescKind);
   }
 
   // ── Estados ──────────────────────────────────────────────────────────────
