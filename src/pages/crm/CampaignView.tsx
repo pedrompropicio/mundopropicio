@@ -71,6 +71,7 @@ import { StrategicTriggersCard } from "@/components/crm/StrategicTriggersCard";
 import { AssistedAssemblyPanel } from "@/components/crm/AssistedAssemblyPanel";
 import { CampaignDesignStudio } from "@/components/crm/CampaignDesignStudio";
 import { MetaPublishPanel } from "@/components/crm/MetaPublishPanel";
+import { useConfirmMetaAction, type PendingMetaAction } from "@/components/crm/ConfirmMetaActionDialog";
 
 // ── Tipos (subset dos snapshots; só o que a página usa) ─────────────────────
 interface CampaignSnap {
