@@ -487,10 +487,26 @@ export function MetaPublishPanel({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-4xl overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Preparar publicação no Meta</SheetTitle>
-          <SheetDescription>
-            Esta fase prepara e revê o plano. A criação real no Meta chega na próxima fase.
-          </SheetDescription>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <SheetTitle>Preparar publicação no Meta</SheetTitle>
+              <SheetDescription>
+                Esta fase prepara e revê o plano. A criação real no Meta chega na próxima fase.
+              </SheetDescription>
+            </div>
+            {plano && estadoPlano !== "a_publicar" && estadoPlano !== "publicado" && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={loading}
+                onClick={() => void executarPrepare()}
+                title="Regenera o plano a partir do desenho atual (sobrescreve sugestões)."
+              >
+                {loading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                Regenerar plano
+              </Button>
+            )}
+          </div>
         </SheetHeader>
 
         {loading && (
