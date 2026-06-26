@@ -223,7 +223,51 @@ Deno.serve(async (req: Request): Promise<Response> => {
     actionLogged = actionLogged!;
   }
 
+  // ── DRY-RUN: devolve impacto planeado SEM tocar na Graph API ──────────────
+  // NENHUM POST/PATCH ao graph.facebook.com é executado neste branch.
+  if (dryRun) {
+    const before = {
+      name: (snapRow as any)?.name ?? null,
+      status: prevStatus,
+      daily_budget_cents: (snapRow as any)?.daily_budget_cents ?? null,
+      lifetime_budget_cents: (snapRow as any)?.lifetime_budget_cents ?? null,
+      bid_strategy: (snapRow as any)?.bid_strategy ?? null,
+    };
+    const after: any = { ...before };
+    if (action === "pause") after.status = "PAUSED";
+    else if (action === "activate") after.status = "ACTIVE";
+    else {
+      if (typeof updates?.name === "string" && updates.name.trim()) after.name = updates.name.trim();
+      if (typeof updates?.daily_budget_cents === "number") after.daily_budget_cents = updates.daily_budget_cents;
+      if (typeof updates?.lifetime_budget_cents === "number") after.lifetime_budget_cents = updates.lifetime_budget_cents;
+      if (typeof metaParams.bid_strategy === "string") after.bid_strategy = metaParams.bid_strategy;
+    }
+    return json({
+      ok: true,
+      dry_run: true,
+      entity_type,
+      external_id,
+      entity_name: entityName,
+      action: actionLogged,
+      action_kind: actionLogged === "pause" ? "pause"
+        : actionLogged === "activate" ? "activate"
+        : actionLogged === "update_budget" ? "budget"
+        : actionLogged === "update_name" ? "name"
+        : actionLogged === "update_roas_floor" ? "bid"
+        : actionLogged === "update_end_time" ? "end_time"
+        : "other",
+      before,
+      after,
+      blocked: blockedReason !== null,
+      block_reason: blockedReason,
+      cap_eur: capEurCached,
+      attempted_eur: attemptedEurCached,
+      warnings: [],
+    });
+  }
+
   // POST ao Meta
+
   let metaResponse: any = null;
   let newStatus: string | null = null;
   let effectiveStatus: string | null = null;
