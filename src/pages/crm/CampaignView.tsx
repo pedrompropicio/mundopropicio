@@ -857,6 +857,25 @@ export default function CrmCampaignView() {
   // ── Ações (duplicação leve do toggle da lista; ver Campaigns.tsx) ───────────
   async function runToggle(target: "ACTIVE" | "PAUSED", reasonText?: string) {
     if (!campaign) return;
+    // ATIVAR campanha → passa pelo guard de confirmação (vai gastar).
+    if (target === "ACTIVE") {
+      const r = await confirmMetaAction(
+        [{
+          connection_id: (campaign as any).connection_id,
+          entity_type: "campaign",
+          external_id: campaign.external_campaign_id,
+          ad_account_id: (campaign as any).ad_account_id,
+          action: "activate",
+          label: `Campanha «${campaign.name}»`,
+          triggered_by: "user_manual",
+          reason_text: reasonText ?? null,
+        }],
+        { title: "Ativar campanha", description: "A campanha vai começar a gastar imediatamente." },
+      );
+      if (r.ok > 0) qc.invalidateQueries({ queryKey: ["crm-campaign-view", id] });
+      return;
+    }
+
     setToggling(true);
     try {
       const { data, error } = await supabase.functions.invoke("crm-meta-entity-action", {
@@ -864,7 +883,7 @@ export default function CrmCampaignView() {
           connection_id: (campaign as any).connection_id,
           entity_type: "campaign",
           external_id: campaign.external_campaign_id,
-          action: target === "ACTIVE" ? "activate" : "pause",
+          action: "pause",
           ad_account_id: (campaign as any).ad_account_id,
           ...(reasonText ? { reason_text: reasonText, triggered_by: "user_manual" } : {}),
         },
@@ -881,11 +900,7 @@ export default function CrmCampaignView() {
         throw new Error(detail);
       }
       if ((data as any)?.ok === false) throw new Error((data as any)?.detail ?? "Falha");
-      toast.success(
-        target === "ACTIVE"
-          ? `Campanha "${campaign.name}" activada`
-          : `Campanha "${campaign.name}" pausada`,
-      );
+      toast.success(`Campanha "${campaign.name}" pausada`);
       qc.invalidateQueries({ queryKey: ["crm-campaign-view", id] });
     } catch (e: any) {
       toast.error("Falha a alterar status no Meta", { description: e?.message ?? String(e) });
