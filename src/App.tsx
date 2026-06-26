@@ -554,6 +554,7 @@ function App() {
           <Sonner />
           <AuthProvider>
             <CompanyBrandingProvider>
+              <ConfirmMetaActionProvider>
               <BrowserRouter>
                 <ScrollToTop />
                 <Routes>
