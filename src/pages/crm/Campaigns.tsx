@@ -1386,6 +1386,7 @@ export default function CrmCampaigns() {
   const { role, hasPermission, loading: authLoading } = useAuth();
   const { companyId, isLoading: companyLoading } = useCompany();
   const qc = useQueryClient();
+  const { confirm: confirmMetaAction } = useConfirmMetaAction();
   const { active } = useAdAccountSelection();
   const displayCurrency = useDisplayCurrency();
 
