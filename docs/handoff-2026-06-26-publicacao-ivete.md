@@ -30,3 +30,9 @@ Correções deployadas (Pedro fez Publish):
 3. Confirmar no Events Manager que o pixel Ivete (`1647180363218298`) recebe Purchase via portal→Ticketline.
 4. Avaliar os 3 avisos da publicação (recomendações Meta — provavelmente cosméticos).
 5. Verificação de Anunciante Google Ads — prazo 21/jul/2026 (ação manual de Pedro).
+
+## Notas de pré-ativação (verificações no Ads Manager)
+- Pontuação de oportunidade = 2: é normal e esperado. Mede só a adesão às recomendações da Meta (Advantage+), não a qualidade da campanha. Mantido baixo de propósito — funil curado à mão. NÃO aplicar "Aplicar agora" das recomendações de público nem os aprimoramentos Advantage+ de criativo nesta campanha-piloto (target ROAS 8x, teste limpo).
+- Aviso "anúncio não veiculado em 15 posicionamentos": NÃO é erro. Cada criativo serve os posicionamentos compatíveis com o seu rácio. Ex.: a imagem estática "Virada de Lote" (0b95f27b, 1080×1440 / 4:5) serve feeds mas não Reels/Stories (querem 9:16). Dentro de cada adset frio os 2 vídeos verticais cobrem Reels/Stories e a imagem cobre os feeds — complementam-se, nenhum posicionamento fica descoberto no conjunto. Melhoria opcional futura: adicionar versão 9:16 da imagem estática.
+- Link de destino confirmado no editor do Meta = portal (https://www.mundopropicio.com/pt/eventos/ivete-clareou-2026), Destino principal "Site", "Todos os erros foram solucionados".
+- Toggle "Anúncios com vários anunciantes": estava marcado; para teste mais limpo pode ser desmarcado por adset, mas não é crítico.
