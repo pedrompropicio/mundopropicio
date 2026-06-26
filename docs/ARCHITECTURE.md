@@ -7,6 +7,15 @@
 ## 1. O que é
 MP Gestão Eventos — SaaS multi-tenant de gestão de eventos (ticketing, BP, simulador financeiro, A&B, patrocínios, financeiro). MP Audience — módulo interno de audience/marketing intelligence para campanhas Meta de artistas brasileiros. Owner: Pedro Neto / Mundo Propício (produção de eventos em Portugal e Brasil).
 
+### 1.1 Módulos
+A plataforma divide-se em quatro módulos de produto + uma camada transversal. Os labels de módulo nas GitHub Issues seguem esta taxonomia (MP-ERP, MP-CRM, MP-AUDIENCE, MP-PRODUCAO, transversal).
+
+- **MP ERP** — gestão operacional do evento: ticketing, BP (business plan), simulador financeiro, A&B (food & beverage), patrocínios, financeiro. Domínio mpgestaoeventos.com.
+- **MP CRM** — relação com clientes/leads/promotores. Módulo DISTINTO do MP Audience. ⚠️ Armadilha de nomenclatura: o schema `crm.*` na base de dados é onde vive o MP AUDIENCE (campanhas Meta), e NÃO o módulo MP CRM. Nomes iguais, coisas diferentes.
+- **MP AUDIENCE** — marketing intelligence: campanhas Meta/Google, tracking, pixels, diagnóstico de campanhas, motor de redesign (P0). Vive no schema crm.*.
+- **MP PRODUÇÃO** — produção de eventos no terreno (a detalhar).
+- **transversal** — infraestrutura que cruza todos os módulos: sistema de pendências (GitHub Issues), documentação viva, auditoria da plataforma.
+
 ## 2. Stack & infraestrutura
 - Frontend + edge functions + BD: Lovable Cloud (Supabase por baixo). Decisão permanente (mai/2026) — ver DECISIONS.md.
 - Repo: GitHub pedrompropicio/mundopropicio. Repo local: /Users/pedroneto/Documents/mundopropicio.
