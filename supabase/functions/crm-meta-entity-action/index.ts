@@ -66,7 +66,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     connection_id, entity_type, external_id, action, updates,
     // Campos opcionais para o audit trail crm.meta_campaign_changes:
     diagnosis_id, applied_action_index, triggered_by, reason_text, measure_impact_requested,
+    // ── DRY-RUN ── Quando true, valida e devolve o impacto planeado SEM
+    // chamar a Graph API. Usado pelo modal ConfirmMetaActionDialog.
+    dry_run,
   } = body ?? {};
+  const dryRun: boolean = dry_run === true;
   if (!connection_id || !entity_type || !external_id || !action) {
     return json({ error: "missing_fields", required: ["connection_id", "entity_type", "external_id", "action"] }, 400);
   }
