@@ -96,6 +96,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // ── GUARDRAIL: cap de budget diário por role ────────────────────────────────
   // Só aplica a updates que mexem na verba diária. Bloqueia ANTES de tocar na Meta.
+  // Em dry_run, em vez de devolver 403 imediato, regista `blockedReason` e devolve
+  // um sumário com `blocked:true` mais à frente — o modal precisa de mostrar o item.
+  let blockedReason: string | null = null;
+  let capEurCached: number | null = null;
+  let attemptedEurCached: number | null = null;
   if (action === "update" && typeof updates?.daily_budget_cents === "number") {
     const { data: capData, error: capErr } = await supabase.rpc(
       "get_user_max_daily_budget_eur",
@@ -108,14 +113,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // numeric vem como string via PostgREST → coerção (preserva null = sem limite).
     const capEur: number | null = capData === null ? null : Number(capData);
     const attemptedEur = updates.daily_budget_cents / 100;
-    console.log("[entity-action] budget cap check", { userId, capEur, attemptedEur });
-    if (capEur === 0) {
-      return json({
-        error: "no_budget_authority",
-        message: "User has no role authorised to set budget.",
-      }, 403);
-    }
-    if (capEur !== null && attemptedEur > capEur) {
+    capEurCached = capEur;
+    attemptedEurCached = attemptedEur;
+    console.log("[entity-action] budget cap check", { userId, capEur, attemptedEur, dryRun });
+    if (capEur === 0) blockedReason = "no_budget_authority";
+    else if (capEur !== null && attemptedEur > capEur) blockedReason = "budget_cap_exceeded";
+
+    // Em modo real, falha já. Em dry_run continuamos para devolver o impacto.
+    if (blockedReason && !dryRun) {
+      if (blockedReason === "no_budget_authority") {
+        return json({ error: "no_budget_authority", message: "User has no role authorised to set budget." }, 403);
+      }
       return json({
         error: "budget_cap_exceeded",
         message: `Daily budget €${attemptedEur} exceeds your limit of €${capEur}/day.`,
