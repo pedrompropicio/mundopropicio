@@ -8,7 +8,7 @@
 ## Transversal / Infraestrutura
 
 ### D1 — Lovable Cloud é permanente (mai/2026)
-**Decisão:** A stack assenta em Lovable Cloud (Supabase por baixo); não migrar para Supabase直接 nem outra infra.
+**Decisão:** A stack assenta em Lovable Cloud (Supabase por baixo); não migrar para Supabase direto nem outra infra.
 **Porquê:** Pedro orquestra IA sem escrever código; o Lovable dá o fluxo propor→executar→Publish. Migrar acrescentaria complexidade sem ganho.
 **Reavaliar só se:** 500+ promotores ativos ou $5M+ ARR.
 **Estado:** vigente.
