@@ -125,6 +125,42 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return json({ number: res.body.number, state: res.body.state });
     }
 
+    if (action === "update") {
+      // PATCH /repos/{owner}/{repo}/issues/{number}
+      // NOTA IMPORTANTE: no GitHub REST API, enviar "labels" num PATCH SUBSTITUI
+      // o conjunto completo de labels da issue (não é aditivo). Quem chamar
+      // tem de enviar a lista final desejada. Labels inexistentes no repo são
+      // criados automaticamente pelo GitHub com cor default.
+      const { number, title, body: issueBody, labels, state } = body;
+      if (!Number.isInteger(number)) return json({ error: "missing number" }, 400);
+
+      const payload: Record<string, unknown> = {};
+      if (typeof title === "string") payload.title = title;
+      if (typeof issueBody === "string") payload.body = issueBody;
+      if (Array.isArray(labels)) payload.labels = labels;
+      if (state === "open" || state === "closed") payload.state = state;
+
+      if (Object.keys(payload).length === 0) {
+        return json({ error: "no editable field provided (expected one of: title, body, labels, state)" }, 400);
+      }
+
+      const res = await gh(token, `/repos/${OWNER}/${REPO}/issues/${number}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        return json({ error: "github_api_error", github_status: res.status, github_body: res.body }, 502);
+      }
+      return json({
+        number: res.body.number,
+        html_url: res.body.html_url,
+        state: res.body.state,
+        labels: Array.isArray(res.body.labels)
+          ? res.body.labels.map((l: any) => ({ name: typeof l === "string" ? l : l?.name }))
+          : [],
+      });
+    }
+
     return json({ error: `unknown action: ${action}` }, 400);
   } catch (e) {
     return json({ error: "internal_error", detail: String(e) }, 500);
