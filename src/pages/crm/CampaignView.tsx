@@ -1654,9 +1654,9 @@ export default function CrmCampaignView() {
                   const fmtPct = (x: any) => (x == null ? "—" : `${(Number(x) * 100).toFixed(2)}%`);
                   const fmtEur = (x: any) => (x == null ? "—" : `${Number(x).toFixed(2)}€`);
                   const sevColor = (s: string) =>
-                    s === "critical" ? "bg-red-500/20 text-red-300 border-red-500/40"
-                    : s === "high" ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                    : s === "medium" ? "bg-yellow-500/15 text-yellow-300 border-yellow-500/30"
+                    s === "unrealistic" ? "bg-red-500/20 text-red-300 border-red-500/40"
+                    : s === "aggressive" ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                    : s === "stretch" ? "bg-yellow-500/15 text-yellow-300 border-yellow-500/30"
                     : "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
 
                   return (
@@ -1672,8 +1672,8 @@ export default function CrmCampaignView() {
                               <div key={i} className="flex items-center justify-between gap-2 text-[11px] bg-muted/30 rounded px-2 py-1">
                                 <span className="truncate flex-1" title={it?.name}>{it?.name ?? "—"}</span>
                                 <Badge variant="outline" className="text-[10px] font-mono">{fmtRoas(it?.roas)}</Badge>
-                                <span className="text-muted-foreground tabular-nums">{it?.purchases ?? 0} compras</span>
-                                <span className="text-muted-foreground tabular-nums">{fmtEur(it?.spend)}</span>
+                                <span className="text-muted-foreground tabular-nums">{it?.purchases_count ?? 0} compras</span>
+                                <span className="text-muted-foreground tabular-nums">{fmtEur(it?.spend_eur)}</span>
                                 {it?.label && <span className="text-[10px] text-muted-foreground italic">{it.label}</span>}
                               </div>
                             ))}
@@ -1692,7 +1692,7 @@ export default function CrmCampaignView() {
                                 <span className="truncate flex-1" title={a?.name}>{a?.name ?? "—"}</span>
                                 <span className="text-muted-foreground tabular-nums">freq {Number(a?.frequency_b ?? 0).toFixed(2)}</span>
                                 <span className="text-muted-foreground tabular-nums">CTR {fmtPct(a?.ctr_b)}</span>
-                                <span className="text-muted-foreground tabular-nums">CPM {fmtEur(a?.cpm_b)}</span>
+                                <span className="text-muted-foreground tabular-nums">CPM {fmtEur(a?.cpm_b_eur)}</span>
                               </div>
                             ))}
                           </div>
@@ -1706,8 +1706,8 @@ export default function CrmCampaignView() {
                             {winners.map((w: any, i: number) => (
                               <div key={i} className="flex items-center justify-between gap-2 text-[11px] bg-muted/30 rounded px-2 py-1">
                                 <span className="truncate flex-1" title={w?.ad_name}>{w?.ad_name ?? "—"}</span>
-                                {w?.creative_type && <Badge variant="outline" className="text-[10px]">{w.creative_type}</Badge>}
-                                <Badge variant="outline" className="text-[10px] font-mono">{fmtRoas(w?.roas)}</Badge>
+                                {w?.library?.type && <Badge variant="outline" className="text-[10px]">{w.library.type}</Badge>}
+                                <Badge variant="outline" className="text-[10px] font-mono">{fmtRoas(w?.performance?.roas)}</Badge>
                               </div>
                             ))}
                           </div>
@@ -1779,7 +1779,7 @@ export default function CrmCampaignView() {
                               </Badge>
                             )}
                             <span className="text-muted-foreground">spend/dia necessário:</span>
-                            <span className="font-mono tabular-nums">{fmtEur(via.daily_spend_needed)}</span>
+                            <span className="font-mono tabular-nums">{fmtEur(via.daily_spend_needed_eur)}</span>
                             <span className="text-muted-foreground">piso estatístico:</span>
                             <Badge variant="outline" className={cn("text-[10px]", via.meets_statistical_floor ? "border-emerald-500/40 text-emerald-300" : "border-amber-500/40 text-amber-300")}>
                               {via.meets_statistical_floor ? "ok" : "não atinge"}
