@@ -793,7 +793,15 @@ function buildViability(args: {
 
 export async function buildCampaignBrief(args: BuildBriefArgs): Promise<CampaignBrief> {
   const { supabase, campaign_id, caps, reference_campaign_id, period_days, meta_access_token } = args;
-  if (!campaign_id) throw new Error("missing_campaign_id");
+  const mode: BuildBriefMode = args.mode ?? "full";
+  // Validação por modo (DR-2026-06-27e Fase 1)
+  if (mode === "full") {
+    if (!campaign_id) throw new Error("missing_campaign_id");
+  } else if (mode === "reference_only") {
+    if (!reference_campaign_id) throw new Error("missing_reference_campaign_id");
+  } else if (mode === "blank") {
+    if (!args.event_id) throw new Error("missing_event_id");
+  }
   if (!caps || typeof caps.target_blended_roas !== "number" || !(caps.target_blended_roas > 0)) {
     throw new Error("missing_or_invalid_caps.target_blended_roas");
   }
