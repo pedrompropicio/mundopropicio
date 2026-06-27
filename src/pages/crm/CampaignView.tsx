@@ -1672,8 +1672,8 @@ export default function CrmCampaignView() {
                               <div key={i} className="flex items-center justify-between gap-2 text-[11px] bg-muted/30 rounded px-2 py-1">
                                 <span className="truncate flex-1" title={it?.name}>{it?.name ?? "—"}</span>
                                 <Badge variant="outline" className="text-[10px] font-mono">{fmtRoas(it?.roas)}</Badge>
-                                <span className="text-muted-foreground tabular-nums">{it?.purchases ?? 0} compras</span>
-                                <span className="text-muted-foreground tabular-nums">{fmtEur(it?.spend)}</span>
+                                <span className="text-muted-foreground tabular-nums">{it?.purchases_count ?? 0} compras</span>
+                                <span className="text-muted-foreground tabular-nums">{fmtEur(it?.spend_eur)}</span>
                                 {it?.label && <span className="text-[10px] text-muted-foreground italic">{it.label}</span>}
                               </div>
                             ))}
