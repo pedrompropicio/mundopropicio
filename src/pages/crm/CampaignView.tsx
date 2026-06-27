@@ -451,6 +451,45 @@ export default function CrmCampaignView() {
   // DR-2026-06-27d — modo duelo (default OFF)
   const [duelMode, setDuelMode] = useState(false);
   const [duelLaunching, setDuelLaunching] = useState(false);
+  // Peça 3 sub-tarefa 6 — Evidência histórica (brief) lazy-loaded
+  const [briefLoading, setBriefLoading] = useState(false);
+  const [briefData, setBriefData] = useState<any | null>(null);
+  const [briefError, setBriefError] = useState<string | null>(null);
+  const [briefFetched, setBriefFetched] = useState(false);
+  async function loadBrief() {
+    if (briefFetched || briefLoading || !campaign) return;
+    setBriefLoading(true);
+    setBriefError(null);
+    try {
+      const target = Number(diagnosis?.target_roas) || 8;
+      const { data, error } = await supabase.functions.invoke("crm-campaign-brief", {
+        body: {
+          campaign_id: campaign.external_campaign_id,
+          caps: { target_blended_roas: target },
+        },
+      });
+      if (error) {
+        let detail = error.message;
+        const ctx = (error as any).context;
+        if (ctx) {
+          try {
+            const b = await (ctx.clone ? ctx.clone() : ctx).json();
+            detail = b?.detail || b?.error || detail;
+          } catch { /* noop */ }
+        }
+        setBriefError(detail || "erro desconhecido");
+      } else if (data?.ok === false) {
+        setBriefError(data?.detail || data?.error || "falha ao construir");
+      } else {
+        setBriefData(data?.brief ?? null);
+      }
+    } catch (e: any) {
+      setBriefError(e?.message ?? String(e));
+    } finally {
+      setBriefLoading(false);
+      setBriefFetched(true);
+    }
+  }
   // Intervenção cirúrgica (Etapa 3): prescrição on-demand + aprovação por ação.
   // Painel de prescrição partilhado pelo cirúrgico (Etapa 3) e pela escala (Etapa 4).
   const [surgicalOpen, setSurgicalOpen] = useState(false);
