@@ -1066,11 +1066,11 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
     warnings.push("audiences_skipped_no_ad_account");
   }
 
-  // 10) Viabilidade (Onda 1) — só se houver insights da campanha-fonte
+  // 10) Viabilidade (Onda 1) — preservado idêntico em modo full (corre sempre se houver campanha)
   let viability: Viability | null = null;
-  if (campaign_id && aLegacy.spendCents > 0) {
+  if (campaign_id) {
     try {
-      const currentRoas = aLegacy.purchasesValueCents / aLegacy.spendCents;
+      const currentRoas = aLegacy.spendCents > 0 ? aLegacy.purchasesValueCents / aLegacy.spendCents : 0;
       viability = buildViability({
         targetRoas: caps.target_blended_roas,
         currentRoas,
@@ -1086,6 +1086,7 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
       warnings.push(`viability_failed:${(e as Error).message}`);
     }
   }
+
 
   // 11) audience_ranking + adset_saturation (Onda 1) — só com campanha-fonte
   let audience_ranking: AudienceRanking = {
