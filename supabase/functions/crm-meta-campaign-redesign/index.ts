@@ -629,6 +629,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // DR-2026-06-27c — opt-in: override de modelo + modo dry_run (não persiste).
     model?: string;
     dry_run?: boolean;
+    // DR-2026-06-27d — modo async_persist: responde 202, corre em waitUntil, insere candidato
+    // via service_role e actualiza crm.audience_duel_runs nas colunas do modelo. Exclusivo de dry_run.
+    async_persist?: boolean;
+    duel_id?: string;
+    source_model?: string;
+    reference_campaign_id?: string | null;
     // PAS — flags internas para chamada recursiva auto-gerada (não documentado em API pública).
     [PAS_RECURSION_GUARD_FIELD]?: boolean;
     _pas_source_proposal_id?: string;
