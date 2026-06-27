@@ -2327,6 +2327,18 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       // TEMP — reduzida vs 0.4 anterior para baixar variância nos números do plano.
       body.temperature = TEMPERATURE_REDESIGN_LLM;
     }
+    // DR-2026-06-27d — teto explícito de output por família.
+    // Sem teto, o GPT-5 consome o orçamento default em reasoning_tokens (invisíveis)
+    // e o JSON corta a meio → ai_invalid_json. Gateway é OpenAI-compatible:
+    // - openai/* (gpt-5 reasoning): max_completion_tokens (campo canónico nos modelos
+    //   reasoning da OpenAI; max_tokens é legacy e ignorado em alguns SKUs).
+    // - google/gemini-*: max_tokens (mapeado pelo gateway para maxOutputTokens).
+    const mid = (modelId || "").toLowerCase();
+    if (mid.startsWith("openai/")) {
+      body.max_completion_tokens = 24000;
+    } else if (mid.startsWith("google/gemini")) {
+      body.max_tokens = 12000;
+    }
     return JSON.stringify(body);
   };
 
