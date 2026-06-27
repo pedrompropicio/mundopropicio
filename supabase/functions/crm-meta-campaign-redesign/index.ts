@@ -1357,7 +1357,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         user_notes: `Re-design abortado (${skip.reason}) — campanha ${campaign.external_campaign_id}`,
         detected_artist: null,
         generated_plan: stubPlan,
-        generation_model: AI_MODEL,
+        generation_model: modelId,
         generation_tokens_used: 0,
         generated_at: new Date().toISOString(),
         status: "generated",
