@@ -199,15 +199,18 @@ ADIAMENTO EXPLÍCITO: nesta entrega os candidatos saem do PROMPT ATUAL do redesi
 
 Esquema simples do duelo (estrategia_geral/divisao_orcamento/adsets/conceitos_criativos/roas_esperado) é ABANDONADO — substituído pelo schema canónico.
 
-## DR-2026-06-27d — Duelo assíncrono (Opção A): redesign persiste candidato em background
-Problema: o GPT-5 grande a correr o pipeline completo do redesign excede o IDLE_TIMEOUT (150s) do gateway ai.gateway.lovable.dev quando chamado de forma síncrona pelo duelo → 504. O limite é da infraestrutura Lovable, não configurável. Validado: Gemini Pro PASSOU e gravou candidato CANÓNICO (phases, recommended_campaigns, creative_brief, summary, gates a funcionar — feasibility='impossible' no caso Simone). Só falta o GPT-5 não depender da janela síncrona.
+## DR-2026-06-27d — Duelo assíncrono (Opção A): redesign persiste o candidato em background
+Problema: o duelo chamava o redesign ×2 e ficava preso à resposta HTTP; o gateway de IA da Lovable corta a 150s (IDLE_TIMEOUT). O GPT-5 grande, a correr o pipeline completo do redesign, excede isso (504). O Gemini Pro cabe. Não há como aumentar o timeout (limite da infra Lovable).
 
-Decisão (Opção A): o crm-meta-campaign-redesign ganha um modo async_persist. Body novo: { async_persist:true, duel_id, source_model } (+ campaign_id, model). Responde 202 { accepted:true, duel_id, source_model } em <1s; corre o pipeline em EdgeRuntime.waitUntil; no fim faz ELE o INSERT do candidato em crm.meta_campaign_strategies (status='candidate', duel_id, source_model, generated_plan, reference_campaign_id, created_by=user.id capturado ANTES do 202) usando service_role (já tem GRANT SELECT/INSERT/UPDATE da sub-tarefa 4). async_persist é exclusivo de dry_run (ambos→400). Caminho síncrono/dry_run/default 100% inalterado.
+Decisão: tornar a geração ASSÍNCRONA. O redesign ganha um modo async_persist e passa a inserir ELE o candidato em background; a janela de 150s deixa de bloquear (resposta 202 imediata).
 
-Duelo (crm-audience-duel): deixa de fazer Promise.all síncrono e deixa de inserir candidatos. Cria o run em audience_duel_runs (status='running'), dispara 2 fetch ao redesign com async_persist (aguarda só o 202), devolve 202 { run_id, duel_id, status:'running', mode:'canonical' }. A persistência dos candidatos passa para o redesign.
+Contrato:
+- Request ao redesign: { campaign_id, model, async_persist:true, duel_id, source_model } + Bearer do user. async_persist é exclusivo com dry_run (ambos = 400). duel_id+source_model obrigatórios quando async_persist.
+- Redesign: valida auth, captura user.id, devolve 202 { accepted:true, duel_id, source_model } em <1s. Em EdgeRuntime.waitUntil corre o pipeline completo (igual ao dry_run). No fim: sucesso → INSERT em meta_campaign_strategies (status='candidate', duel_id, source_model, generated_plan=plan, reference_campaign_id, created_by=user.id) via SERVICE_ROLE (GRANTs já concedidos na sub-tarefa 4) + UPDATE só das colunas do modelo em audience_duel_runs; falha → UPDATE só de <modelo>_error. Mantém intactos os caminhos default/dry_run.
+- Duelo: cria audience_duel_runs (status='running'), dispara 2 fetch async_persist ao redesign (aguarda só o 202), devolve 202 { run_id, duel_id, status:'running', mode:'canonical' }. Deixa de fazer INSERT de candidatos (responsabilidade passa ao redesign).
 
-Anti-corrida em audience_duel_runs: cada modelo escreve só as SUAS colunas (gemini_*, gpt_*). Adicionar colunas dedicadas se faltarem: gemini_finished_at, gpt_finished_at, gemini_candidate_id, gpt_candidate_id. O status agregado NÃO é escrito pelos dois — é DERIVADO (a UI/consulta calcula: 2 finished→done/error; 1→partial; 0→running; >5min sem finished e sem candidatos→timeout). Sem locks: colunas disjuntas + estado agregado como função pura.
+Anti-corrida (2 redesigns terminam em paralelo): cada modelo escreve só as SUAS colunas em audience_duel_runs (gemini_* / gpt_* — disjuntas; adicionar gemini_finished_at/gpt_finished_at/gemini_candidate_id/gpt_candidate_id se faltarem). O status agregado é DERIVADO (running/partial/done/error) a partir das colunas, nunca escrito pelos dois.
 
-Timeout: SEM cron watchdog. A UI deriva 'expirado' quando passam >5min sem candidatos nem finished_at. Cron fica como follow-up só se necessário.
+Timeout: SEM cron watchdog. A UI deriva 'expirado' quando passam >5 min sem candidatos nem *_finished_at. Cron fica como follow-up só se necessário.
 
-Modelos do duelo: google/gemini-2.5-pro × openai/gpt-5 (grande, agora viável via assíncrono). O fix de temperature condicional + retry 502/empty no redesign (DR-2026-06-27c continuação) mantém-se.
+Modelos do duelo: google/gemini-2.5-pro × openai/gpt-5 (grande, agora viável pela via assíncrona). temperature condicional já tratada (omitida para openai/*). Retry de 502/empty no redesign já aplicado.
