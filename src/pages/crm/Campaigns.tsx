@@ -339,11 +339,31 @@ function deltaPct(curr: number, prev: number): number | null {
 // ============================================================
 // Edit Campaign Popover (inline)
 // ============================================================
-export function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: () => void }) {
+export function EditCampaignPopover({
+  c,
+  onSaved,
+  budgetMode,
+}: {
+  c: CampaignRow;
+  onSaved: () => void;
+  /** ABO/CBO determinado pelo caller (CampaignView passa budgetSummary.mode).
+   *  Quando ausente, deriva heuristicamente do próprio c. */
+  budgetMode?: "ABO" | "CBO" | "unknown";
+}) {
+  // Sinal canónico ABO/CBO: se o caller passou, usa; senão deriva
+  // (CBO ⇔ campanha tem budget > 0; ABO ⇔ não tem).
+  const resolvedMode: "ABO" | "CBO" | "unknown" =
+    budgetMode ??
+    ((c.daily_budget_cents ?? 0) > 0 || (c.lifetime_budget_cents ?? 0) > 0
+      ? "CBO"
+      : "ABO");
+  const isAbo = resolvedMode === "ABO";
+
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(c.name);
+  // Em ABO não mostramos o campo; mantemos estado vazio para o payload não enviar verba.
   const [dailyEur, setDailyEur] = useState(
-    c.daily_budget_cents ? (c.daily_budget_cents / 100).toFixed(2) : "",
+    !isAbo && c.daily_budget_cents ? (c.daily_budget_cents / 100).toFixed(2) : "",
   );
   const [endDate, setEndDate] = useState(c.stop_time ? c.stop_time.slice(0, 10) : "");
   const [roasGoal, setRoasGoal] = useState("");
