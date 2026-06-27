@@ -1809,7 +1809,7 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
     method: "POST",
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: AI_MODEL,
+      model: modelId,
       // TEMP — reduzida vs 0.4 anterior para baixar variância nos números do plano.
       temperature: TEMPERATURE_REDESIGN_LLM,
       messages: [
