@@ -1843,6 +1843,7 @@ async function runGenerationPipeline(
     diagBaselineRoas, diagSourceClass,
     isDowntrend, downtrendPreWarnings, downtrendDropPct,
     modelId,
+    asyncPersist: isAsyncMode,
   } = ctx;
 
   // 6) Prompt
