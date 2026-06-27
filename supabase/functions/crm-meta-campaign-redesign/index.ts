@@ -2062,7 +2062,7 @@ REGRAS RÍGIDAS:
     if (winners.length) {
       lines.push("");
       lines.push("-- CRIATIVOS VENCEDORES (candidatos a reutilizar) --");
-      for (const w of winners.slice(0, 10)) {
+      for (const w of winners.slice(0, 5)) {
         const roas = w.performance?.roas != null ? `${w.performance.roas.toFixed(2)}x` : "n/a";
         const type = w.library?.type ?? "?";
         const head = w.library?.headline ? ` | hook="${w.library.headline}"` : "";
