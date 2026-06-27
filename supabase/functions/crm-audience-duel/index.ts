@@ -144,6 +144,41 @@ Desenha a estrutura completa da campanha. Responde EXCLUSIVAMENTE em JSON válid
 }`;
 }
 
+// Mapa determinístico classe → postura. Lido de brief.diagnosis_360.source_campaign_class.
+// Valores conhecidos: 'fraca' | 'em_maturacao' | 'saudavel_subindo' | 'saudavel_caindo' | null.
+function posturaPorClasse(brief: CampaignBrief): { classe: string | null; postura: string } {
+  const diag = brief.diagnosis_360 as Record<string, unknown> | null;
+  const classe = diag && typeof diag["source_campaign_class"] === "string"
+    ? (diag["source_campaign_class"] as string)
+    : null;
+
+  switch (classe) {
+    case "fraca":
+      return { classe, postura:
+        "POSTURA (classe=fraca): a campanha-fonte está MAL CONFIGURADA. Redesenha do ZERO. "
+        + "Apoia-te sobretudo na campanha-referência (quando exista) e em best-practice de mercado. "
+        + "Da campanha atual usa SÓ os vencedores determinísticos do pacote [7]. NÃO preserves a estrutura, "
+        + "nº de adsets, audiências ou divisão de verba atuais — provavelmente são parte do problema. "
+        + "No racional explica o que estava errado e porquê o novo desenho é melhor." };
+    case "em_maturacao":
+      return { classe, postura:
+        "POSTURA (classe=em_maturacao): a campanha ainda está a aprender. NÃO redesenhes do zero — "
+        + "propõe mudanças CIRÚRGICAS. Preserva o que está em fase de aprendizagem; corrige só o que "
+        + "está claramente mal. Adicionar/cortar verba é OK; trocar audiências/criativos só com justificação forte." };
+    case "saudavel_subindo":
+    case "saudavel_caindo":
+      return { classe, postura:
+        "POSTURA (classe=saudavel): há um motor a funcionar. PRESERVA e ESCALA o que já ganha "
+        + "(vencedores do pacote [7], audiências/adsets com ROAS acima do alvo). Muda apenas o que está "
+        + "claramente a arrastar a campanha (losers, audiências saturadas). Não redesenhes por redesenhar." };
+    default:
+      return { classe, postura:
+        "POSTURA (SEM diagnóstico determinístico disponível): não há classificação 360 da campanha-fonte. "
+        + "Assume postura conservadora: redesenho apoiado na campanha-referência (se existir) e em normas "
+        + "gerais de mercado. Diz EXPLICITAMENTE no racional que não há diagnóstico." };
+  }
+}
+
 function buildPromptFromBrief(brief: CampaignBrief, evCamp: unknown, evPub: unknown, evAud: unknown[]): string {
   // D4: trunca o diagnosis_360 ao serializar
   let diagStr = "(sem diagnóstico 360 — usar normas gerais e indicá-lo no racional)";
@@ -155,6 +190,7 @@ function buildPromptFromBrief(brief: CampaignBrief, evCamp: unknown, evPub: unkn
   }
 
   const totalBudgetEur = deriveTotalBudgetEur(brief);
+  const { classe, postura } = posturaPorClasse(brief);
 
   const eventInfo = {
     name: brief.event.name,
@@ -166,6 +202,19 @@ function buildPromptFromBrief(brief: CampaignBrief, evCamp: unknown, evPub: unkn
 
   return `[1 PAPEL]
 És estratega sénior de tráfego pago para eventos de música brasileira em Portugal. Respeitas FACTOS DETERMINÍSTICOS fornecidos e NUNCA inventas números, criativos, audiências ou IDs. A tua criatividade está na ESTRATÉGIA, no RACIONAL e nos conceitos criativos — não em fabricar dados.
+
+[1b ENQUADRAMENTO — EVIDÊNCIA, NÃO MOLDE]
+A campanha-fonte e o seu histórico são EVIDÊNCIA do que funcionou e do que falhou — NÃO são um molde a preservar. O OBJETIVO é desenhar a campanha ÓTIMA para o evento, com liberdade TOTAL sobre estrutura, número de adsets, divisão de verba, audiências e criativos.
+
+Ancora APENAS a três fontes:
+(1) o pacote de vencedores DETERMINÍSTICO [7] — criativos winner e audience_id_meta reais que converteram;
+(2) a campanha-referência [8] quando exista;
+(3) boas práticas de mercado e o playbook [12].
+
+NÃO replicar a estrutura/config atuais [2]/[6] só porque existem. Se a configuração atual parece mal montada, DIZ-LO no racional e propõe melhor. P0: usar SÓ meta_creative_id e audience_id_meta REAIS; nunca inventar IDs ou métricas.
+
+[1c POSTURA DETERMINÍSTICA (classe=${classe ?? "n/d"})]
+${postura}
 
 [2 CAMPANHA EM FOCO]
 ${JSON.stringify({
@@ -196,7 +245,7 @@ ${diagStr}
 [5 ROAS BUCKETS]
 ${JSON.stringify(brief.roas_buckets, null, 2)}
 
-[6 ADSETS ATUAIS]
+[6 ADSETS ATUAIS (referência factual — NÃO molde)]
 ${JSON.stringify(brief.adsets, null, 2)}
 
 [7 PACOTE DE VENCEDORES (determinístico — P0)]
@@ -234,7 +283,7 @@ ${JSON.stringify(brief.peers ?? [], null, 2)}
 - NUNCA inventes IDs, nomes ou métricas.
 
 [13 TAREFA + FORMATO]
-Desenha a estrutura completa da campanha. Responde EXCLUSIVAMENTE em JSON válido com este schema:
+Desenha a estrutura ÓTIMA da campanha (não a atual). Responde EXCLUSIVAMENTE em JSON válido com este schema:
 {
   "estrategia_geral": "string",
   "divisao_orcamento": { "frio_pct": int, "quente_pct": int, "justificacao": "string" },
@@ -246,6 +295,7 @@ Desenha a estrutura completa da campanha. Responde EXCLUSIVAMENTE em JSON válid
   "roas_esperado": { "frio": number, "quente": number, "blended": number }
 }`;
 }
+
 
 function deriveTotalBudgetEur(brief: CampaignBrief): number {
   // Heurística determinística para popular goal_revenue_eur:
@@ -328,26 +378,37 @@ async function callModel(model: string, prompt: string, timeoutMs = 280000): Pro
     let parsed: Record<string, unknown>;
     try { parsed = JSON.parse(txt); } catch { return { ok: false, err: `bad_gateway_json: ${txt.slice(0, 400)}` }; }
     const content = (parsed?.choices as Array<{message?:{content?:string}}>)?.[0]?.message?.content ?? "";
-    if (!content) return { ok: false, err: `empty_content: ${txt.slice(0, 400)}` };
+    if (!content) {
+      console.error(`[duel][gateway-empty] model=${model} status=${r.status} body=${txt.slice(0, 800)}`);
+      return { ok: false, err: `empty_content: ${txt.slice(0, 400)}` };
+    }
     return { ok: true, data: parseProposal(content) };
   } catch (e) {
     return { ok: false, err: (e as Error)?.message ?? String(e) };
   } finally { clearTimeout(t); }
 }
 
-async function callModelWithRetry(model: string, prompt: string, maxAttempts = 2): Promise<{ ok: true; data: unknown } | { ok: false; err: string }> {
+async function callModelWithRetry(model: string, prompt: string, maxAttempts = 3): Promise<{ ok: true; data: unknown } | { ok: false; err: string }> {
   let last: { ok: true; data: unknown } | { ok: false; err: string } = { ok: false, err: "no_attempt" };
+  const backoffs = [1500, 3000, 6000];
   for (let n = 1; n <= maxAttempts; n++) {
     const res = await callModel(model, prompt);
     const isParseErr = res.ok && res.data && typeof res.data === "object" && (res.data as { __parse_error?: boolean }).__parse_error === true;
     const okUseful = res.ok && !isParseErr;
     console.log(`[duel] ${model} attempt ${n}/${maxAttempts} ok=${okUseful}`);
     if (okUseful) return res;
-    last = res.ok ? { ok: false, err: `parse_error: ${JSON.stringify((res.data as { raw?: string })?.raw ?? "").slice(0, 400)}` } : res;
-    if (n < maxAttempts) await new Promise((r) => setTimeout(r, 1500));
+    if (res.ok && isParseErr) {
+      const raw = String((res.data as { raw?: string })?.raw ?? "");
+      console.error(`[duel][gateway-empty] kind=parse_error model=${model} attempt=${n} raw=${raw.slice(0, 800)}`);
+      last = { ok: false, err: `parse_error: ${raw.slice(0, 400)}` };
+    } else {
+      last = res as { ok: false; err: string };
+    }
+    if (n < maxAttempts) await new Promise((r) => setTimeout(r, backoffs[n - 1] ?? 3000));
   }
   return last;
 }
+
 
 // ────────────────────────────────────────────────────────────────────────────
 // Persistência candidatos
@@ -512,8 +573,8 @@ async function runDuel(run_id: string, duel_id: string, args: RunArgs): Promise<
 
     // duelo paralelo — simetria: ambos com retry
     const [gem, gpt] = await Promise.all([
-      callModelWithRetry(GEMINI_MODEL, prompt, 2),
-      callModelWithRetry(GPT_MODEL, prompt, 2),
+      callModelWithRetry(GEMINI_MODEL, prompt, 3),
+      callModelWithRetry(GPT_MODEL, prompt, 3),
     ]);
 
     const gemProposal = gem.ok ? gem.data : null;
