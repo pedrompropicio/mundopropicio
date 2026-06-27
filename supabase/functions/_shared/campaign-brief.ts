@@ -302,13 +302,20 @@ export type CampaignBrief = {
   };
 };
 
+export type BuildBriefMode = "full" | "reference_only" | "blank";
+
 export type BuildBriefArgs = {
   supabase: SupabaseClient;
-  campaign_id: string;
+  campaign_id: string | null;
   caps: BudgetCaps;
   reference_campaign_id?: string | null;
   period_days?: number;
   meta_access_token?: string | null;
+  // From-scratch (DR-2026-06-27e Fase 1)
+  mode?: BuildBriefMode;            // default 'full' — byte-equivalente ao comportamento anterior
+  event_id?: string | null;          // obrigatório em 'blank'; opcional em 'reference_only'
+  ad_account_id?: string | null;     // para custom audiences quando não há campanha-fonte
+  company_id?: string | null;        // para stub do objeto campaign{}
 };
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -786,7 +793,15 @@ function buildViability(args: {
 
 export async function buildCampaignBrief(args: BuildBriefArgs): Promise<CampaignBrief> {
   const { supabase, campaign_id, caps, reference_campaign_id, period_days, meta_access_token } = args;
-  if (!campaign_id) throw new Error("missing_campaign_id");
+  const mode: BuildBriefMode = args.mode ?? "full";
+  // Validação por modo (DR-2026-06-27e Fase 1)
+  if (mode === "full") {
+    if (!campaign_id) throw new Error("missing_campaign_id");
+  } else if (mode === "reference_only") {
+    if (!reference_campaign_id) throw new Error("missing_reference_campaign_id");
+  } else if (mode === "blank") {
+    if (!args.event_id) throw new Error("missing_event_id");
+  }
   if (!caps || typeof caps.target_blended_roas !== "number" || !(caps.target_blended_roas > 0)) {
     throw new Error("missing_or_invalid_caps.target_blended_roas");
   }
@@ -795,22 +810,31 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
   const warnings: string[] = [];
   const sb: any = supabase;
 
-  // 1) Snapshot da campanha
-  const { data: campaign, error: campErr } = await sb
-    .schema("crm").from("meta_campaign_snapshot")
-    .select("company_id, connection_id, ad_account_id, external_campaign_id, name, status, effective_status, objective, currency, linked_event_id, daily_budget_cents, lifetime_budget_cents")
-    .eq("external_campaign_id", campaign_id)
-    .maybeSingle();
-  if (campErr || !campaign) throw new Error(`campaign_not_found: ${campErr?.message ?? campaign_id}`);
+  // 1) Snapshot da campanha (só se campaign_id existir — modo full continua a falhar duro)
+  let campaign: any = null;
+  if (campaign_id) {
+    const { data: c, error: campErr } = await sb
+      .schema("crm").from("meta_campaign_snapshot")
+      .select("company_id, connection_id, ad_account_id, external_campaign_id, name, status, effective_status, objective, currency, linked_event_id, daily_budget_cents, lifetime_budget_cents")
+      .eq("external_campaign_id", campaign_id)
+      .maybeSingle();
+    if (campErr || !c) throw new Error(`campaign_not_found: ${campErr?.message ?? campaign_id}`);
+    campaign = c;
+  }
 
   // 2) Diagnóstico 360 — COMPLETO (D4)
-  const { data: diagRow } = await sb
-    .schema("crm").from("campaign_diagnosis_360")
-    .select("*")
-    .eq("external_campaign_id", campaign_id)
-    .order("created_at", { ascending: false })
-    .limit(1).maybeSingle();
-  if (!diagRow) warnings.push("no_diagnosis_360");
+  let diagRow: any = null;
+  if (campaign_id) {
+    const { data: d } = await sb
+      .schema("crm").from("campaign_diagnosis_360")
+      .select("*")
+      .eq("external_campaign_id", campaign_id)
+      .order("created_at", { ascending: false })
+      .limit(1).maybeSingle();
+    diagRow = d ?? null;
+    if (!diagRow) warnings.push("no_diagnosis_360");
+  }
+
 
   // 3) Insights diários da campanha — query ÚNICA com colunas alargadas (Onda 1).
   //    Reutilizada para: roas_buckets, daily_series, viability.
@@ -824,64 +848,72 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
   const sinceLegacy = new Date(today); sinceLegacy.setUTCDate(sinceLegacy.getUTCDate() - (periodDays - 1));
   const cLegacy = sinceLegacy.toISOString().slice(0, 10);
 
-  const { data: campInsights } = await sb
-    .schema("crm").from("meta_campaign_insights_daily")
-    .select("date_start, spend_cents, purchases_count, purchases_value_cents, impressions, reach, frequency, clicks")
-    .eq("external_campaign_id", campaign_id)
-    .order("date_start", { ascending: false });
-
   const a7 = emptyAgg(), a28 = emptyAgg(), aLife = emptyAgg(), aLegacy = emptyAgg();
   const daily_series: DailyPoint[] = [];
-  for (const r of campInsights ?? []) {
-    const d = r.date_start as string;
-    aggregateInto(aLife, r);
-    if (d >= c28) aggregateInto(a28, r);
-    if (d >= c7) aggregateInto(a7, r);
-    if (d >= cLegacy) aggregateInto(aLegacy, r);
-    if (d >= cSeries) {
-      daily_series.push({
-        date_start: d,
-        spend_cents: Number(r.spend_cents ?? 0),
-        purchases_count: Number(r.purchases_count ?? 0),
-        purchases_value_cents: Number(r.purchases_value_cents ?? 0),
-        impressions: Number(r.impressions ?? 0),
-        reach: Number(r.reach ?? 0),
-        frequency: r.frequency != null ? Number(r.frequency) : null,
-        clicks: Number(r.clicks ?? 0),
-      });
+  let roas_buckets: ROASBuckets = { roas_7d: null, roas_28d: null, roas_lifetime: null };
+  let trajectory: TrajectoryString = "insufficient_data";
+  let adsets: AdsetSummary[] = [];
+  let winners_packet: WinnerPacket[] = [];
+
+  if (campaign_id) {
+    const { data: campInsights } = await sb
+      .schema("crm").from("meta_campaign_insights_daily")
+      .select("date_start, spend_cents, purchases_count, purchases_value_cents, impressions, reach, frequency, clicks")
+      .eq("external_campaign_id", campaign_id)
+      .order("date_start", { ascending: false });
+
+    for (const r of campInsights ?? []) {
+      const d = r.date_start as string;
+      aggregateInto(aLife, r);
+      if (d >= c28) aggregateInto(a28, r);
+      if (d >= c7) aggregateInto(a7, r);
+      if (d >= cLegacy) aggregateInto(aLegacy, r);
+      if (d >= cSeries) {
+        daily_series.push({
+          date_start: d,
+          spend_cents: Number(r.spend_cents ?? 0),
+          purchases_count: Number(r.purchases_count ?? 0),
+          purchases_value_cents: Number(r.purchases_value_cents ?? 0),
+          impressions: Number(r.impressions ?? 0),
+          reach: Number(r.reach ?? 0),
+          frequency: r.frequency != null ? Number(r.frequency) : null,
+          clicks: Number(r.clicks ?? 0),
+        });
+      }
+    }
+    daily_series.sort((x, y) => x.date_start.localeCompare(y.date_start));
+
+    roas_buckets = {
+      roas_7d: roasOf(a7),
+      roas_28d: roasOf(a28),
+      roas_lifetime: roasOf(aLife),
+    };
+    trajectory = classifyTrajectory(roas_buckets.roas_7d, roas_buckets.roas_28d);
+
+    // 4) Adsets da campanha (resumo)
+    adsets = await loadAdsets(supabase, campaign_id);
+
+    // 5) Criativos classificados (D1) + fatigue (Onda 1)
+    try {
+      winners_packet = await classifyCreativesForCampaign(
+        supabase, campaign.company_id, campaign_id, winnerRoasThreshold, true,
+      );
+    } catch (e) {
+      warnings.push(`winners_packet_failed:${(e as Error).message}`);
     }
   }
-  daily_series.sort((x, y) => x.date_start.localeCompare(y.date_start));
 
-  const roas_buckets: ROASBuckets = {
-    roas_7d: roasOf(a7),
-    roas_28d: roasOf(a28),
-    roas_lifetime: roasOf(aLife),
-  };
-  const trajectory = classifyTrajectory(roas_buckets.roas_7d, roas_buckets.roas_28d);
 
-  // 4) Adsets da campanha (resumo)
-  const adsets = await loadAdsets(supabase, campaign_id);
-
-  // 5) Criativos classificados (D1) + fatigue (Onda 1)
-  let winners_packet: WinnerPacket[] = [];
-  try {
-    winners_packet = await classifyCreativesForCampaign(
-      supabase, campaign.company_id, campaign_id, winnerRoasThreshold, true,
-    );
-  } catch (e) {
-    warnings.push(`winners_packet_failed:${(e as Error).message}`);
-  }
-
-  // 6) Evento + data efetiva
+  // 6) Evento + data efetiva — event_id vem da campanha (modo full) OU dos args (from-scratch)
+  const effectiveEventId: string | null = campaign?.linked_event_id ?? args.event_id ?? null;
   let event: EventContext = {
     id: null, name: null, date: null, effective_date: null, event_date_source: null,
     days_until: null, tickets_total: null, location: null, ticketing_url: null,
   };
-  if (campaign.linked_event_id) {
+  if (effectiveEventId) {
     const { data: e } = await supabase.from("events")
       .select("id, name, date, location, tickets_total, ticketing_url")
-      .eq("id", campaign.linked_event_id).maybeSingle();
+      .eq("id", effectiveEventId).maybeSingle();
     if (e) {
       const [{ data: children }, { data: dates }] = await Promise.all([
         supabase.from("events").select("date").eq("parent_event_id", (e as any).id),
@@ -913,16 +945,16 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
 
   // 7) Peers do mesmo evento (janela periodDays) — enriquecidos (Onda 1).
   const peers: PeerSummary[] = [];
-  if (campaign.linked_event_id) {
+  if (effectiveEventId) {
     const toDate = today.toISOString().slice(0, 10);
     const fromDate = cLegacy;
 
-    const { data: peersRaw } = await sb
+    let peersQuery = sb
       .schema("crm").from("meta_campaign_snapshot")
       .select("external_campaign_id, name, status, effective_status")
-      .eq("linked_event_id", campaign.linked_event_id)
-      .neq("external_campaign_id", campaign_id)
-      .limit(10);
+      .eq("linked_event_id", effectiveEventId);
+    if (campaign_id) peersQuery = peersQuery.neq("external_campaign_id", campaign_id);
+    const { data: peersRaw } = await peersQuery.limit(10);
     const peerIds: string[] = (peersRaw ?? []).map((p: any) => p.external_campaign_id);
 
     type PeerAgg = Agg & { impressions: number; reach: number; clicks: number; freqSum: number; freqN: number };
@@ -971,9 +1003,10 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
     }
   }
 
+
   // 8) Reference campaign (opcional) — mesma classificação D1 + fatigue.
   let reference: CampaignBrief["reference"] = null;
-  if (reference_campaign_id && reference_campaign_id !== campaign_id) {
+  if (reference_campaign_id && (campaign_id == null || reference_campaign_id !== campaign_id)) {
     const { data: ref } = await sb
       .schema("crm").from("meta_campaign_snapshot")
       .select("company_id, external_campaign_id, name")
@@ -999,11 +1032,12 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
     }
   }
 
-  // 9) Custom audiences (Graph API, best-effort)
+  // 9) Custom audiences (Graph API, best-effort) — ad_account vem da campanha OU dos args
+  const effectiveAdAccount: string | null = campaign?.ad_account_id ?? args.ad_account_id ?? null;
   const audiences: AudiencePacket[] = [];
-  if (meta_access_token && campaign.ad_account_id) {
+  if (meta_access_token && effectiveAdAccount) {
     try {
-      const adAcc = normalizeAdAccountId(campaign.ad_account_id);
+      const adAcc = normalizeAdAccountId(effectiveAdAccount);
       const u = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${adAcc}/customaudiences`);
       u.searchParams.set("fields", "id,name,subtype,approximate_count_lower_bound,approximate_count_upper_bound");
       u.searchParams.set("limit", "100");
@@ -1028,40 +1062,48 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
     }
   } else if (!meta_access_token) {
     warnings.push("audiences_skipped_no_token");
+  } else if (!effectiveAdAccount) {
+    warnings.push("audiences_skipped_no_ad_account");
   }
 
-  // 10) Viabilidade (Onda 1)
+  // 10) Viabilidade (Onda 1) — preservado idêntico em modo full (corre sempre se houver campanha)
   let viability: Viability | null = null;
-  try {
-    const currentRoas = aLegacy.spendCents > 0 ? aLegacy.purchasesValueCents / aLegacy.spendCents : 0;
-    viability = buildViability({
-      targetRoas: caps.target_blended_roas,
-      currentRoas,
-      buckets: roas_buckets,
-      trajectory,
-      ticketsTotal: event.tickets_total,
-      daysUntil: event.days_until,
-      campSpendCents: aLegacy.spendCents,
-      campPurchases: aLegacy.purchases,
-      periodDays,
-    });
-  } catch (e) {
-    warnings.push(`viability_failed:${(e as Error).message}`);
+  if (campaign_id) {
+    try {
+      const currentRoas = aLegacy.spendCents > 0 ? aLegacy.purchasesValueCents / aLegacy.spendCents : 0;
+      viability = buildViability({
+        targetRoas: caps.target_blended_roas,
+        currentRoas,
+        buckets: roas_buckets,
+        trajectory,
+        ticketsTotal: event.tickets_total,
+        daysUntil: event.days_until,
+        campSpendCents: aLegacy.spendCents,
+        campPurchases: aLegacy.purchases,
+        periodDays,
+      });
+    } catch (e) {
+      warnings.push(`viability_failed:${(e as Error).message}`);
+    }
   }
 
-  // 11) audience_ranking + adset_saturation (Onda 1)
+
+  // 11) audience_ranking + adset_saturation (Onda 1) — só com campanha-fonte
   let audience_ranking: AudienceRanking = {
-    note: "Sem dados suficientes.",
+    note: campaign_id ? "Sem dados suficientes." : "Sem campanha-fonte (modo from-scratch).",
     items: [],
   };
   let adset_saturation: AdsetSaturationItem[] = [];
-  try {
-    const r = await buildAdsetSignals(supabase, campaign.company_id, campaign_id, winnerRoasThreshold);
-    audience_ranking = r.audience_ranking;
-    adset_saturation = r.adset_saturation;
-  } catch (e) {
-    warnings.push(`adset_signals_failed:${(e as Error).message}`);
+  if (campaign_id) {
+    try {
+      const r = await buildAdsetSignals(supabase, campaign.company_id, campaign_id, winnerRoasThreshold);
+      audience_ranking = r.audience_ranking;
+      adset_saturation = r.adset_saturation;
+    } catch (e) {
+      warnings.push(`adset_signals_failed:${(e as Error).message}`);
+    }
   }
+
 
   // 12) format_gaps (Onda 1)
   const format_gaps = buildFormatGaps(winners_packet);
@@ -1070,18 +1112,18 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
     generated_at: new Date().toISOString(),
     schema_version: 2,
     campaign: {
-      external_campaign_id: campaign.external_campaign_id,
-      company_id: campaign.company_id,
-      connection_id: campaign.connection_id,
-      ad_account_id: campaign.ad_account_id,
-      name: campaign.name ?? null,
-      status: campaign.status ?? null,
-      effective_status: campaign.effective_status ?? null,
-      objective: campaign.objective ?? null,
-      currency: campaign.currency ?? null,
-      linked_event_id: campaign.linked_event_id ?? null,
-      daily_budget_cents: campaign.daily_budget_cents ?? null,
-      lifetime_budget_cents: campaign.lifetime_budget_cents ?? null,
+      external_campaign_id: campaign?.external_campaign_id ?? campaign_id ?? "",
+      company_id: campaign?.company_id ?? args.company_id ?? "",
+      connection_id: campaign?.connection_id ?? "",
+      ad_account_id: campaign?.ad_account_id ?? args.ad_account_id ?? "",
+      name: campaign?.name ?? null,
+      status: campaign?.status ?? null,
+      effective_status: campaign?.effective_status ?? null,
+      objective: campaign?.objective ?? null,
+      currency: campaign?.currency ?? null,
+      linked_event_id: campaign?.linked_event_id ?? args.event_id ?? null,
+      daily_budget_cents: campaign?.daily_budget_cents ?? null,
+      lifetime_budget_cents: campaign?.lifetime_budget_cents ?? null,
     },
     caps,
     winner_roas_threshold: round4(winnerRoasThreshold),
