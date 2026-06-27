@@ -848,54 +848,61 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
   const sinceLegacy = new Date(today); sinceLegacy.setUTCDate(sinceLegacy.getUTCDate() - (periodDays - 1));
   const cLegacy = sinceLegacy.toISOString().slice(0, 10);
 
-  const { data: campInsights } = await sb
-    .schema("crm").from("meta_campaign_insights_daily")
-    .select("date_start, spend_cents, purchases_count, purchases_value_cents, impressions, reach, frequency, clicks")
-    .eq("external_campaign_id", campaign_id)
-    .order("date_start", { ascending: false });
-
   const a7 = emptyAgg(), a28 = emptyAgg(), aLife = emptyAgg(), aLegacy = emptyAgg();
   const daily_series: DailyPoint[] = [];
-  for (const r of campInsights ?? []) {
-    const d = r.date_start as string;
-    aggregateInto(aLife, r);
-    if (d >= c28) aggregateInto(a28, r);
-    if (d >= c7) aggregateInto(a7, r);
-    if (d >= cLegacy) aggregateInto(aLegacy, r);
-    if (d >= cSeries) {
-      daily_series.push({
-        date_start: d,
-        spend_cents: Number(r.spend_cents ?? 0),
-        purchases_count: Number(r.purchases_count ?? 0),
-        purchases_value_cents: Number(r.purchases_value_cents ?? 0),
-        impressions: Number(r.impressions ?? 0),
-        reach: Number(r.reach ?? 0),
-        frequency: r.frequency != null ? Number(r.frequency) : null,
-        clicks: Number(r.clicks ?? 0),
-      });
+  let roas_buckets: ROASBuckets = { roas_7d: null, roas_28d: null, roas_lifetime: null };
+  let trajectory: TrajectoryString = "insufficient_data";
+  let adsets: AdsetSummary[] = [];
+  let winners_packet: WinnerPacket[] = [];
+
+  if (campaign_id) {
+    const { data: campInsights } = await sb
+      .schema("crm").from("meta_campaign_insights_daily")
+      .select("date_start, spend_cents, purchases_count, purchases_value_cents, impressions, reach, frequency, clicks")
+      .eq("external_campaign_id", campaign_id)
+      .order("date_start", { ascending: false });
+
+    for (const r of campInsights ?? []) {
+      const d = r.date_start as string;
+      aggregateInto(aLife, r);
+      if (d >= c28) aggregateInto(a28, r);
+      if (d >= c7) aggregateInto(a7, r);
+      if (d >= cLegacy) aggregateInto(aLegacy, r);
+      if (d >= cSeries) {
+        daily_series.push({
+          date_start: d,
+          spend_cents: Number(r.spend_cents ?? 0),
+          purchases_count: Number(r.purchases_count ?? 0),
+          purchases_value_cents: Number(r.purchases_value_cents ?? 0),
+          impressions: Number(r.impressions ?? 0),
+          reach: Number(r.reach ?? 0),
+          frequency: r.frequency != null ? Number(r.frequency) : null,
+          clicks: Number(r.clicks ?? 0),
+        });
+      }
+    }
+    daily_series.sort((x, y) => x.date_start.localeCompare(y.date_start));
+
+    roas_buckets = {
+      roas_7d: roasOf(a7),
+      roas_28d: roasOf(a28),
+      roas_lifetime: roasOf(aLife),
+    };
+    trajectory = classifyTrajectory(roas_buckets.roas_7d, roas_buckets.roas_28d);
+
+    // 4) Adsets da campanha (resumo)
+    adsets = await loadAdsets(supabase, campaign_id);
+
+    // 5) Criativos classificados (D1) + fatigue (Onda 1)
+    try {
+      winners_packet = await classifyCreativesForCampaign(
+        supabase, campaign.company_id, campaign_id, winnerRoasThreshold, true,
+      );
+    } catch (e) {
+      warnings.push(`winners_packet_failed:${(e as Error).message}`);
     }
   }
-  daily_series.sort((x, y) => x.date_start.localeCompare(y.date_start));
 
-  const roas_buckets: ROASBuckets = {
-    roas_7d: roasOf(a7),
-    roas_28d: roasOf(a28),
-    roas_lifetime: roasOf(aLife),
-  };
-  const trajectory = classifyTrajectory(roas_buckets.roas_7d, roas_buckets.roas_28d);
-
-  // 4) Adsets da campanha (resumo)
-  const adsets = await loadAdsets(supabase, campaign_id);
-
-  // 5) Criativos classificados (D1) + fatigue (Onda 1)
-  let winners_packet: WinnerPacket[] = [];
-  try {
-    winners_packet = await classifyCreativesForCampaign(
-      supabase, campaign.company_id, campaign_id, winnerRoasThreshold, true,
-    );
-  } catch (e) {
-    warnings.push(`winners_packet_failed:${(e as Error).message}`);
-  }
 
   // 6) Evento + data efetiva
   let event: EventContext = {
