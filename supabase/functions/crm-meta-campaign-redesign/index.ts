@@ -653,6 +653,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const requestedModel = (typeof body.model === "string" && body.model.trim()) ? body.model.trim() : null;
   const modelId = requestedModel && MODEL_ALLOWLIST.has(requestedModel) ? requestedModel : AI_MODEL;
   const dryRun = body.dry_run === true;
+  // DR-2026-06-27d — async_persist: validações (exclusivo de dry_run; exige duel_id+source_model).
+  const asyncPersist = body.async_persist === true;
+  const asyncDuelId = typeof body.duel_id === "string" ? body.duel_id.trim() : "";
+  const asyncSourceModel = typeof body.source_model === "string" ? body.source_model.trim() : "";
+  const asyncReferenceCampaignId = typeof body.reference_campaign_id === "string" && body.reference_campaign_id.trim()
+    ? body.reference_campaign_id.trim()
+    : null;
+  if (asyncPersist && dryRun) {
+    return json({ error: "async_persist_and_dry_run_exclusive" }, 400);
+  }
+  if (asyncPersist && (!asyncDuelId || !asyncSourceModel)) {
+    return json({ error: "missing_async_persist_fields", required: ["duel_id", "source_model"] }, 400);
+  }
   const ctIn = body.constraints ?? {};
   const inh = body.inheritance_decisions ?? null;
   const pauseOriginalMode: "immediate" | "delayed_7d" | "manual" =
