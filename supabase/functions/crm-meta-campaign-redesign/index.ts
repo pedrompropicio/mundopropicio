@@ -1612,6 +1612,223 @@ INSTRUÇÕES DE USO DESTAS MÉTRICAS:
 5. **feasibility_reason DEVE citar números concretos do contexto acima.** Ex: "ROAS actual 1.89x vs alvo 8x = gap 4.2x (unrealistic). Sem recalibração criativa profunda e expansão de audience, target não é atingível mesmo com 5x mais spend."
 `;
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // DR-2026-06-27d Fase 1 — pipeline de geração extraído para runGenerationPipeline
+  // (declarada no fim do ficheiro). Extracção pura, sem mudança de lógica/ordem.
+  // Caminho síncrono normal: usa esta função. Ramo async_persist: continua via
+  // self-fetch HTTP nesta fase; Fase 2 ligá-lo-á inline (sem HTTP).
+  // ─────────────────────────────────────────────────────────────────────────
+  const pipelineResult = await runGenerationPipeline({
+    authHeader,
+    apikey: req.headers.get("apikey") ?? "",
+    body,
+    supabase,
+    campaign,
+    diagnosis,
+    inh,
+    inheritedCreatives,
+    adsetIds,
+    campMetrics,
+    lifetimeAgg,
+    fromDate,
+    toDate,
+    eventCtx,
+    targetBlendedRoas,
+    constraintsBlock,
+    viabilityBlock,
+    downtrendInstructionsBlock,
+    crossEventContextText,
+    viability,
+    useDeterministicBudget,
+    budgetDet,
+    effDailyCents,
+    effRoasFloor,
+    effEndTime,
+    diagIsWinddown,
+    diagCleanBaseNumber,
+    diagCleanBand,
+    diagBaselineRoas,
+    diagSourceClass,
+    isDowntrend,
+    downtrendPreWarnings,
+    downtrendDropPct,
+    modelId,
+  });
+  if (pipelineResult instanceof Response) return pipelineResult;
+  const { plan, rationale, usageTokens, constraintViolations, countries } = pipelineResult;
+
+  const appliedConstraints = {
+    keep_original_budget: keepOriginal,
+    daily_budget_cents: effDailyCents,
+    lifetime_budget_cents: effLifetimeCents,
+    roas_floor: effRoasFloor,
+    end_time: effEndTime,
+    violations_corrected: constraintViolations,
+    pause_original_mode: pauseOriginalMode, // duplicado em coluna dedicada, mantido aqui para leitura retrocompatível
+    viability_analysis: viability, // Sprint 3c-2 — audit trail do contexto de viabilidade
+  };
+
+  // PAS-SKIP-PERSIST — alternativa não vai para a UI nem para meta_campaign_strategies.
+  // Volta apenas o generated_plan para o caller (o run principal) anexar como alternative_plan.
+  // Evita row órfão em DB e duplicação de ticket_avg/source_diagnosis_id.
+  // DR-2026-06-27c — PAS recursion guard OU dry_run: devolve plano canónico final SEM persistir.
+  if (body[PAS_RECURSION_GUARD_FIELD] === true || dryRun) {
+    console.log("[redesign] skip_persist", {
+      reason: body[PAS_RECURSION_GUARD_FIELD] === true ? "pas_alternative" : "dry_run",
+      model: modelId,
+      source_proposal_id: body._pas_source_proposal_id ?? null,
+      feasibility: plan?.summary?.feasibility ?? null,
+      expected_overall_roas: plan?.summary?.expected_overall_roas ?? null,
+    });
+    return json({
+      generated_plan: plan,
+      redesign_rationale: rationale,
+      viability_analysis: viability,
+      source: {
+        campaign_id: campaign.external_campaign_id,
+        campaign_name: campaign.name,
+        diagnosis_id: diagnosisId,
+      },
+    });
+  }
+
+  // 8) Persistir nova strategy
+  const stratName = `Re-design — ${campaign.name}`.slice(0, 200);
+  const adAccountId = campaign.ad_account_id?.startsWith("act_") ? campaign.ad_account_id : `act_${campaign.ad_account_id}`;
+
+  const { data: inserted, error: insErr } = await (supabase as any)
+    .schema("crm").from("meta_campaign_strategies")
+    .insert({
+      company_id: campaign.company_id,
+      connection_id: campaign.connection_id,
+      ad_account_id: adAccountId,
+      event_id: campaign.linked_event_id ?? null,
+      name: stratName,
+      goal_revenue_eur: plan?.summary?.expected_revenue_eur ?? 0,
+      ticket_avg_eur: null,
+      total_budget_eur: plan?.summary?.recommended_total_budget_eur ?? null,
+      target_roas: plan?.summary?.expected_overall_roas ?? null,
+      days_until_event: eventCtx.daysUntil ?? null,
+      country_codes: countries,
+      user_notes: `Re-design da campanha ${campaign.external_campaign_id} (${campaign.name})`,
+      detected_artist: null,
+      generated_plan: plan,
+      generation_model: modelId,
+      generation_tokens_used: usageTokens,
+      generated_at: new Date().toISOString(),
+      status: "generated",
+      source_campaign_id: campaign.external_campaign_id,
+      source_diagnosis_id: diagnosisId,
+      redesign_rationale: rationale,
+      applied_constraints: appliedConstraints,
+      pause_original_mode: pauseOriginalMode,
+      inheritance_decisions: inh ?? null,
+      created_by: userId,
+    })
+    .select("id").single();
+
+  if (insErr || !inserted) {
+    console.error("[redesign] persist failed", insErr);
+    return json({ error: "persist_failed", detail: insErr?.message, plan }, 500);
+  }
+
+  return json({
+    strategy_id: inserted.id,
+    generated_plan: plan,
+    redesign_rationale: rationale,
+    viability_analysis: viability, // Sprint 3c-2 — frontend pode renderizar diferenças vs IA
+    source: {
+      campaign_id: campaign.external_campaign_id,
+      campaign_name: campaign.name,
+      diagnosis_id: diagnosisId,
+    },
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// DR-2026-06-27d Fase 1 — Pipeline de geração extraído (extracção pura).
+// Corresponde verbatim ao antigo bloco L1615..L2924 do handler. Sem mudanças
+// de lógica, ordem ou nomes. Única mudança: 2 leituras de `req.headers` no
+// ramo PAS passaram a usar `authHeader`/`apikey` recebidos via ctx. Recebe
+// TODO o estado preparado pelo handler (campaign/diagnosis/viability/...) e
+// devolve { plan, rationale, usageTokens, constraintViolations, countries }
+// ou directamente uma `Response` quando o LLM falha (credits/rate_limit/5xx)
+// — preservando os early-returns originais.
+// ─────────────────────────────────────────────────────────────────────────
+type GenerationPipelineCtx = {
+  authHeader: string;
+  apikey: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  body: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  campaign: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  diagnosis: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  inh: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  inheritedCreatives: any[];
+  adsetIds: string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  campMetrics: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  lifetimeAgg: any;
+  fromDate: string;
+  toDate: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  eventCtx: any;
+  targetBlendedRoas: number;
+  constraintsBlock: string;
+  viabilityBlock: string;
+  downtrendInstructionsBlock: string;
+  crossEventContextText: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  viability: any;
+  useDeterministicBudget: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  budgetDet: any;
+  effDailyCents: number | null;
+  effRoasFloor: number | null;
+  effEndTime: string | null;
+  diagIsWinddown: boolean;
+  diagCleanBaseNumber: number | null;
+  diagCleanBand: string | null;
+  diagBaselineRoas: number | null;
+  diagSourceClass: string | null;
+  isDowntrend: boolean;
+  downtrendPreWarnings: Array<{ type?: string; severity: "high" | "medium"; title: string; description: string }>;
+  downtrendDropPct: number | null;
+  modelId: string;
+};
+
+type GenerationPipelineResult = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  plan: any;
+  rationale: string;
+  usageTokens: number | null;
+  constraintViolations: string[];
+  countries: string[];
+};
+
+async function runGenerationPipeline(
+  ctx: GenerationPipelineCtx,
+): Promise<Response | GenerationPipelineResult> {
+  const {
+    authHeader, apikey, body, supabase,
+    campaign, diagnosis, inh, inheritedCreatives, adsetIds,
+    campMetrics, lifetimeAgg, fromDate, toDate, eventCtx,
+    targetBlendedRoas, constraintsBlock, viabilityBlock,
+    downtrendInstructionsBlock, crossEventContextText, viability,
+    useDeterministicBudget, budgetDet,
+    effDailyCents, effRoasFloor, effEndTime,
+    diagIsWinddown, diagCleanBaseNumber, diagCleanBand,
+    diagBaselineRoas, diagSourceClass,
+    isDowntrend, downtrendPreWarnings, downtrendDropPct,
+    modelId,
+  } = ctx;
+
   // 6) Prompt
   const diagJsonStr = JSON.stringify(diagnosis.diagnosis_jsonb ?? {}).slice(0, 12000);
   const classReason = diagnosis?.diagnosis_jsonb?.levels?.campaign?.classification?.classification_reason ?? null;
@@ -2322,9 +2539,9 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       const altResp = await fetch(selfUrl, {
         method: "POST",
         headers: {
-          "Authorization": req.headers.get("Authorization") ?? "",
+          "Authorization": authHeader,
           "Content-Type": "application/json",
-          "apikey": req.headers.get("apikey") ?? "",
+          "apikey": apikey,
         },
         body: JSON.stringify(altBody),
       });
@@ -2923,90 +3140,5 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
   // C3 captura o redesign_rationale FINAL (pode ter sido overwritten por FIX 1 com template determinístico).
   const rationale: string = String(plan.redesign_rationale ?? "").slice(0, 4000);
 
-  const appliedConstraints = {
-    keep_original_budget: keepOriginal,
-    daily_budget_cents: effDailyCents,
-    lifetime_budget_cents: effLifetimeCents,
-    roas_floor: effRoasFloor,
-    end_time: effEndTime,
-    violations_corrected: constraintViolations,
-    pause_original_mode: pauseOriginalMode, // duplicado em coluna dedicada, mantido aqui para leitura retrocompatível
-    viability_analysis: viability, // Sprint 3c-2 — audit trail do contexto de viabilidade
-  };
-
-  // PAS-SKIP-PERSIST — alternativa não vai para a UI nem para meta_campaign_strategies.
-  // Volta apenas o generated_plan para o caller (o run principal) anexar como alternative_plan.
-  // Evita row órfão em DB e duplicação de ticket_avg/source_diagnosis_id.
-  // DR-2026-06-27c — PAS recursion guard OU dry_run: devolve plano canónico final SEM persistir.
-  if (body[PAS_RECURSION_GUARD_FIELD] === true || dryRun) {
-    console.log("[redesign] skip_persist", {
-      reason: body[PAS_RECURSION_GUARD_FIELD] === true ? "pas_alternative" : "dry_run",
-      model: modelId,
-      source_proposal_id: body._pas_source_proposal_id ?? null,
-      feasibility: plan?.summary?.feasibility ?? null,
-      expected_overall_roas: plan?.summary?.expected_overall_roas ?? null,
-    });
-    return json({
-      generated_plan: plan,
-      redesign_rationale: rationale,
-      viability_analysis: viability,
-      source: {
-        campaign_id: campaign.external_campaign_id,
-        campaign_name: campaign.name,
-        diagnosis_id: diagnosisId,
-      },
-    });
-  }
-
-  // 8) Persistir nova strategy
-  const stratName = `Re-design — ${campaign.name}`.slice(0, 200);
-  const adAccountId = campaign.ad_account_id?.startsWith("act_") ? campaign.ad_account_id : `act_${campaign.ad_account_id}`;
-
-  const { data: inserted, error: insErr } = await (supabase as any)
-    .schema("crm").from("meta_campaign_strategies")
-    .insert({
-      company_id: campaign.company_id,
-      connection_id: campaign.connection_id,
-      ad_account_id: adAccountId,
-      event_id: campaign.linked_event_id ?? null,
-      name: stratName,
-      goal_revenue_eur: plan?.summary?.expected_revenue_eur ?? 0,
-      ticket_avg_eur: null,
-      total_budget_eur: plan?.summary?.recommended_total_budget_eur ?? null,
-      target_roas: plan?.summary?.expected_overall_roas ?? null,
-      days_until_event: eventCtx.daysUntil ?? null,
-      country_codes: countries,
-      user_notes: `Re-design da campanha ${campaign.external_campaign_id} (${campaign.name})`,
-      detected_artist: null,
-      generated_plan: plan,
-      generation_model: modelId,
-      generation_tokens_used: usageTokens,
-      generated_at: new Date().toISOString(),
-      status: "generated",
-      source_campaign_id: campaign.external_campaign_id,
-      source_diagnosis_id: diagnosisId,
-      redesign_rationale: rationale,
-      applied_constraints: appliedConstraints,
-      pause_original_mode: pauseOriginalMode,
-      inheritance_decisions: inh ?? null,
-      created_by: userId,
-    })
-    .select("id").single();
-
-  if (insErr || !inserted) {
-    console.error("[redesign] persist failed", insErr);
-    return json({ error: "persist_failed", detail: insErr?.message, plan }, 500);
-  }
-
-  return json({
-    strategy_id: inserted.id,
-    generated_plan: plan,
-    redesign_rationale: rationale,
-    viability_analysis: viability, // Sprint 3c-2 — frontend pode renderizar diferenças vs IA
-    source: {
-      campaign_id: campaign.external_campaign_id,
-      campaign_name: campaign.name,
-      diagnosis_id: diagnosisId,
-    },
-  });
-});
+  return { plan, rationale, usageTokens, constraintViolations, countries };
+}
