@@ -2020,7 +2020,8 @@ REGRAS RÍGIDAS:
       "Usa-os para INFORMAR escolhas de audiências, criativos e formatos — NÃO copies cegamente. " +
       "Se a evidência for fraca/escassa, confia no teu julgamento estratégico. " +
       "Audiências/criativos com bom desempenho são candidatos fortes a reutilizar; saturados/fatigados devem ser evitados ou renovados; formatos em falta são oportunidades. " +
-      "Tu desenhas a estratégia; a evidência só informa.",
+      "Tu desenhas a estratégia; a evidência só informa. " +
+      "Sê selectivo: usa os 2-3 sinais mais fortes, não tens de incorporar todos. Mantém o plano conciso e o JSON válido.",
     );
 
     // Audience ranking — top 8 por ROAS
