@@ -684,122 +684,36 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const userId = userData.user.id;
 
   // ─────────────────────────────────────────────────────────────────────────
-  // DR-2026-06-27d — async_persist: responde 202 e corre o pipeline em background.
-  // Estratégia: self-fetch a esta própria função com { ...body, async_persist:false,
-  // dry_run:true } reencaminhando o Authorization. Reutiliza o pipeline canónico
-  // (anchoring, 20 pós-passos, gates, retry, temp-fix) sem cópia nem drift. No fim
-  // do background, INSERT do candidato em crm.meta_campaign_strategies via service_role
-  // e UPDATE só das colunas do modelo em crm.audience_duel_runs.
+  // DR-2026-06-27d Fase 2 — async_persist passa a INLINE no waitUntil.
+  // Aqui só declaramos o helper updateModelCol (escreve só gemini_* OU gpt_*
+  // conforme source_model). O 202 + waitUntil é dado MAIS À FRENTE: ou no
+  // skip block (early-abort por gate), ou na fronteira prep↔pipeline (L1621).
+  // O bloco de self-fetch HTTP foi REMOVIDO (batia nos 150s edge→edge).
   // ─────────────────────────────────────────────────────────────────────────
-  if (asyncPersist) {
-    const selfUrl = `${SUPABASE_URL}/functions/v1/crm-meta-campaign-redesign`;
-    const selfPayload: Record<string, unknown> = { ...body, async_persist: false, dry_run: true };
-    delete selfPayload.duel_id;
-    delete selfPayload.source_model;
-    delete selfPayload.reference_campaign_id;
+  const isAsyncGem = asyncSourceModel.toLowerCase().includes("gemini");
+  const isAsyncGpt = asyncSourceModel.toLowerCase().includes("gpt");
+  const updateModelCol = async (
+    sbAdmin: ReturnType<typeof createClient>,
+    fields: { candidate_id?: string | null; error?: string | null },
+  ) => {
+    const fin = new Date().toISOString();
+    const upd: Record<string, unknown> = {};
+    if (isAsyncGem) {
+      upd.gemini_finished_at = fin;
+      if (fields.candidate_id !== undefined) upd.gemini_candidate_id = fields.candidate_id;
+      if (fields.error !== undefined) upd.gemini_error = fields.error;
+    } else if (isAsyncGpt) {
+      upd.gpt_finished_at = fin;
+      if (fields.candidate_id !== undefined) upd.gpt_candidate_id = fields.candidate_id;
+      if (fields.error !== undefined) upd.gpt_error = fields.error;
+    } else {
+      console.warn(`[redesign][async] source_model nao reconhecido (nem gemini nem gpt): ${asyncSourceModel}`);
+      return;
+    }
+    await (sbAdmin as any).from("audience_duel_runs").update(upd).eq("duel_id", asyncDuelId);
+  };
 
-    const isGem = asyncSourceModel.toLowerCase().includes("gemini");
-    const isGpt = asyncSourceModel.toLowerCase().includes("gpt");
-    const updateModelCol = async (
-      sbAdmin: ReturnType<typeof createClient>,
-      fields: { candidate_id?: string | null; error?: string | null },
-    ) => {
-      const fin = new Date().toISOString();
-      const upd: Record<string, unknown> = {};
-      if (isGem) {
-        upd.gemini_finished_at = fin;
-        if (fields.candidate_id !== undefined) upd.gemini_candidate_id = fields.candidate_id;
-        if (fields.error !== undefined) upd.gemini_error = fields.error;
-      } else if (isGpt) {
-        upd.gpt_finished_at = fin;
-        if (fields.candidate_id !== undefined) upd.gpt_candidate_id = fields.candidate_id;
-        if (fields.error !== undefined) upd.gpt_error = fields.error;
-      } else {
-        console.warn(`[redesign][async] source_model nao reconhecido (nem gemini nem gpt): ${asyncSourceModel}`);
-        return;
-      }
-      await (sbAdmin as any).from("audience_duel_runs").update(upd).eq("duel_id", asyncDuelId);
-    };
 
-    // @ts-ignore EdgeRuntime
-    EdgeRuntime.waitUntil((async () => {
-      const sbAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-        auth: { persistSession: false, autoRefreshToken: false },
-        db: { schema: "crm" as never },
-      });
-      try {
-        const r = await fetch(selfUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": authHeader },
-          body: JSON.stringify(selfPayload),
-        });
-        const txt = await r.text();
-        if (!r.ok) throw new Error(`self_fetch_http_${r.status}: ${txt.slice(0, 600)}`);
-        let parsed: Record<string, unknown>;
-        try { parsed = JSON.parse(txt); }
-        catch { throw new Error(`self_fetch_bad_json: ${txt.slice(0, 400)}`); }
-        const plan = (parsed as any)?.generated_plan;
-        if (!plan) throw new Error(`no_generated_plan: ${txt.slice(0, 400)}`);
-
-        const { data: snap, error: snapErr } = await (sbAdmin as any)
-          .from("meta_campaign_snapshot")
-          .select("company_id, connection_id, ad_account_id, linked_event_id, name")
-          .eq("external_campaign_id", campaignId)
-          .maybeSingle();
-        if (snapErr || !snap) throw new Error(`snapshot_missing: ${snapErr?.message ?? "no_row"}`);
-
-        const rawAd = (snap as any).ad_account_id;
-        const adAccountId = rawAd
-          ? (String(rawAd).startsWith("act_") ? rawAd : `act_${rawAd}`)
-          : null;
-
-        const summary = (plan as any)?.summary ?? {};
-        const capsRoas = (body.constraints as any)?.target_blended_roas;
-        const target_roas =
-          typeof summary.expected_overall_roas === "number" ? summary.expected_overall_roas :
-          (typeof capsRoas === "number" ? capsRoas : null);
-        const goal_revenue_eur =
-          typeof summary.expected_revenue_eur === "number" ? summary.expected_revenue_eur : 0;
-        const total_budget_eur =
-          typeof summary.recommended_total_budget_eur === "number" ? summary.recommended_total_budget_eur : null;
-
-        const row = {
-          duel_id: asyncDuelId,
-          source_model: asyncSourceModel,
-          status: "candidate",
-          company_id: (snap as any).company_id,
-          connection_id: (snap as any).connection_id ?? null,
-          ad_account_id: adAccountId,
-          event_id: (snap as any).linked_event_id ?? null,
-          name: `[Duelo] ${(snap as any).name ?? campaignId} — ${asyncSourceModel}`.slice(0, 200),
-          goal_revenue_eur,
-          total_budget_eur,
-          target_roas,
-          generated_plan: plan,
-          generation_model: asyncSourceModel,
-          generated_at: new Date().toISOString(),
-          source_campaign_id: campaignId,
-          reference_campaign_id: asyncReferenceCampaignId,
-          created_by: userId,
-          pause_original_mode: "manual",
-        };
-        const { data: insData, error: insErr } = await (sbAdmin as any)
-          .from("meta_campaign_strategies").insert(row).select("id").single();
-        if (insErr) throw new Error(`insert_failed: ${insErr.message}`);
-        const candidateId = (insData as any)?.id as string;
-
-        await updateModelCol(sbAdmin, { candidate_id: candidateId, error: null });
-        console.log(`[redesign][async] ok duel=${asyncDuelId} model=${asyncSourceModel} candidate=${candidateId}`);
-      } catch (e) {
-        const msg = ((e as Error)?.message ?? String(e)).slice(0, 500);
-        console.error(`[redesign][async] erro duel=${asyncDuelId} model=${asyncSourceModel}: ${msg}`);
-        try { await updateModelCol(sbAdmin, { error: msg }); }
-        catch (e2) { console.error(`[redesign][async] update-erro falhou: ${(e2 as Error)?.message ?? e2}`); }
-      }
-    })());
-
-    return json({ accepted: true, duel_id: asyncDuelId, source_model: asyncSourceModel }, 202);
-  }
 
 
 
@@ -1411,8 +1325,24 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   if (skip) {
+    // DR-2026-06-27d Fase 2 — async_persist: nunca responder após o 202.
+    // Skip no modo async = grava <modelo>_error e termina, sem candidato.
+    if (asyncPersist) {
+      console.log(`[redesign][async] early-abort skip duel=${asyncDuelId} model=${asyncSourceModel} reason=${skip.reason}`);
+      // @ts-ignore EdgeRuntime
+      EdgeRuntime.waitUntil((async () => {
+        const sbAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+          auth: { persistSession: false, autoRefreshToken: false },
+          db: { schema: "crm" as never },
+        });
+        try { await updateModelCol(sbAdmin, { error: `skip: ${skip.reason}` }); }
+        catch (e) { console.error(`[redesign][async] skip update falhou: ${(e as Error)?.message ?? e}`); }
+      })());
+      return json({ accepted: true, duel_id: asyncDuelId, source_model: asyncSourceModel }, 202);
+    }
     // Stub plan: mesma shape do output normal mas com phases vazias + flags de skip.
     // Front renderiza graciosamente via skip_llm flag (assumido — não verificado).
+
     const stubPlan = {
       skip_llm: true,
       skip_reason: skip.reason,
@@ -1613,12 +1543,13 @@ INSTRUÇÕES DE USO DESTAS MÉTRICAS:
 `;
 
   // ─────────────────────────────────────────────────────────────────────────
-  // DR-2026-06-27d Fase 1 — pipeline de geração extraído para runGenerationPipeline
-  // (declarada no fim do ficheiro). Extracção pura, sem mudança de lógica/ordem.
-  // Caminho síncrono normal: usa esta função. Ramo async_persist: continua via
-  // self-fetch HTTP nesta fase; Fase 2 ligá-lo-á inline (sem HTTP).
+  // DR-2026-06-27d Fase 2 — fronteira prep↔pipeline.
+  // ctx capturado UMA vez; usado tanto no caminho síncrono como no async inline.
+  // async_persist: responde 202 AGORA (prep já correu) e corre o pipeline INLINE
+  // no waitUntil (sem self-fetch HTTP). Sucesso → INSERT do candidato via
+  // service_role + UPDATE das colunas do modelo. Falha → grava <modelo>_error.
   // ─────────────────────────────────────────────────────────────────────────
-  const pipelineResult = await runGenerationPipeline({
+  const pipelineCtx = {
     authHeader,
     apikey: req.headers.get("apikey") ?? "",
     body,
@@ -1653,9 +1584,92 @@ INSTRUÇÕES DE USO DESTAS MÉTRICAS:
     downtrendPreWarnings,
     downtrendDropPct,
     modelId,
-  });
+  };
+
+  if (asyncPersist) {
+    console.log(`[redesign][async] start inline duel=${asyncDuelId} model=${asyncSourceModel}`);
+    // @ts-ignore EdgeRuntime
+    EdgeRuntime.waitUntil((async () => {
+      const sbAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        db: { schema: "crm" as never },
+      });
+      try {
+        const result = await runGenerationPipeline(pipelineCtx);
+        if (result instanceof Response) {
+          let snippet = "";
+          try { snippet = (await result.text()).slice(0, 300); } catch { /* noop */ }
+          const msg = `pipeline_response_${result.status}: ${snippet}`;
+          console.error(`[redesign][async] pipeline devolveu Response duel=${asyncDuelId} model=${asyncSourceModel}: ${msg}`);
+          try { await updateModelCol(sbAdmin, { error: msg }); }
+          catch (e2) { console.error(`[redesign][async] update-erro falhou: ${(e2 as Error)?.message ?? e2}`); }
+          return;
+        }
+        const { plan } = result;
+
+        const { data: snap, error: snapErr } = await (sbAdmin as any)
+          .from("meta_campaign_snapshot")
+          .select("company_id, connection_id, ad_account_id, linked_event_id, name")
+          .eq("external_campaign_id", campaignId)
+          .maybeSingle();
+        if (snapErr || !snap) throw new Error(`snapshot_missing: ${snapErr?.message ?? "no_row"}`);
+
+        const rawAd = (snap as any).ad_account_id;
+        const adAccountIdAsync = rawAd
+          ? (String(rawAd).startsWith("act_") ? rawAd : `act_${rawAd}`)
+          : null;
+
+        const summary = (plan as any)?.summary ?? {};
+        const capsRoas = (body.constraints as any)?.target_blended_roas;
+        const target_roas =
+          typeof summary.expected_overall_roas === "number" ? summary.expected_overall_roas :
+          (typeof capsRoas === "number" ? capsRoas : null);
+        const goal_revenue_eur =
+          typeof summary.expected_revenue_eur === "number" ? summary.expected_revenue_eur : 0;
+        const total_budget_eur =
+          typeof summary.recommended_total_budget_eur === "number" ? summary.recommended_total_budget_eur : null;
+
+        const row = {
+          duel_id: asyncDuelId,
+          source_model: asyncSourceModel,
+          status: "candidate",
+          company_id: (snap as any).company_id,
+          connection_id: (snap as any).connection_id ?? null,
+          ad_account_id: adAccountIdAsync,
+          event_id: (snap as any).linked_event_id ?? null,
+          name: `[Duelo] ${(snap as any).name ?? campaignId} — ${asyncSourceModel}`.slice(0, 200),
+          goal_revenue_eur,
+          total_budget_eur,
+          target_roas,
+          generated_plan: plan,
+          generation_model: asyncSourceModel,
+          generated_at: new Date().toISOString(),
+          source_campaign_id: campaignId,
+          reference_campaign_id: asyncReferenceCampaignId,
+          created_by: userId,
+          pause_original_mode: "manual",
+        };
+        const { data: insData, error: insErr } = await (sbAdmin as any)
+          .from("meta_campaign_strategies").insert(row).select("id").single();
+        if (insErr) throw new Error(`insert_failed: ${insErr.message}`);
+        const candidateId = (insData as any)?.id as string;
+
+        await updateModelCol(sbAdmin, { candidate_id: candidateId, error: null });
+        console.log(`[redesign][async] ok duel=${asyncDuelId} model=${asyncSourceModel} candidate=${candidateId}`);
+      } catch (e) {
+        const msg = ((e as Error)?.message ?? String(e)).slice(0, 500);
+        console.error(`[redesign][async] erro duel=${asyncDuelId} model=${asyncSourceModel}: ${msg}`);
+        try { await updateModelCol(sbAdmin, { error: msg }); }
+        catch (e2) { console.error(`[redesign][async] update-erro falhou: ${(e2 as Error)?.message ?? e2}`); }
+      }
+    })());
+    return json({ accepted: true, duel_id: asyncDuelId, source_model: asyncSourceModel }, 202);
+  }
+
+  const pipelineResult = await runGenerationPipeline(pipelineCtx);
   if (pipelineResult instanceof Response) return pipelineResult;
   const { plan, rationale, usageTokens, constraintViolations, countries } = pipelineResult;
+
 
   const appliedConstraints = {
     keep_original_budget: keepOriginal,
