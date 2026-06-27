@@ -1584,6 +1584,7 @@ INSTRUÇÕES DE USO DESTAS MÉTRICAS:
     downtrendPreWarnings,
     downtrendDropPct,
     modelId,
+    asyncPersist,
   };
 
   if (asyncPersist) {
