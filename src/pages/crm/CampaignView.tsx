@@ -1692,7 +1692,7 @@ export default function CrmCampaignView() {
                                 <span className="truncate flex-1" title={a?.name}>{a?.name ?? "—"}</span>
                                 <span className="text-muted-foreground tabular-nums">freq {Number(a?.frequency_b ?? 0).toFixed(2)}</span>
                                 <span className="text-muted-foreground tabular-nums">CTR {fmtPct(a?.ctr_b)}</span>
-                                <span className="text-muted-foreground tabular-nums">CPM {fmtEur(a?.cpm_b)}</span>
+                                <span className="text-muted-foreground tabular-nums">CPM {fmtEur(a?.cpm_b_eur)}</span>
                               </div>
                             ))}
                           </div>
