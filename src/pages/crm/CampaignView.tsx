@@ -1779,7 +1779,7 @@ export default function CrmCampaignView() {
                               </Badge>
                             )}
                             <span className="text-muted-foreground">spend/dia necessário:</span>
-                            <span className="font-mono tabular-nums">{fmtEur(via.daily_spend_needed)}</span>
+                            <span className="font-mono tabular-nums">{fmtEur(via.daily_spend_needed_eur)}</span>
                             <span className="text-muted-foreground">piso estatístico:</span>
                             <Badge variant="outline" className={cn("text-[10px]", via.meets_statistical_floor ? "border-emerald-500/40 text-emerald-300" : "border-amber-500/40 text-amber-300")}>
                               {via.meets_statistical_floor ? "ok" : "não atinge"}
