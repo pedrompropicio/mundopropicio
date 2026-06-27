@@ -1218,18 +1218,56 @@ export default function CrmCampaignView() {
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <Activity className="h-4 w-4 text-cyan-400" /> Diagnóstico &amp; Decisão
           </h2>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={diagnosing}
-            onClick={runDiagnose}
-            className="h-7 px-2 text-[11px]"
-          >
-            {diagnosing
-              ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-              : <RefreshCw className="h-3 w-3 mr-1" />}
-            {diagnosis ? "Re-diagnosticar" : "Diagnosticar agora"}
-          </Button>
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* DR-2026-06-27d — toggle Modo duelo */}
+            <TooltipProvider delayDuration={150}>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="duel-mode"
+                  checked={duelMode}
+                  onCheckedChange={setDuelMode}
+                />
+                <label htmlFor="duel-mode" className="text-[11px] text-muted-foreground cursor-pointer select-none">
+                  Modo duelo
+                </label>
+              </div>
+              {duelMode && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        disabled={!diagnosis || duelLaunching}
+                        onClick={launchDuel}
+                        className="h-7 px-2 text-[11px] bg-cyan-500 hover:bg-cyan-600 text-white"
+                      >
+                        {duelLaunching
+                          ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          : <Sparkles className="h-3 w-3 mr-1" />}
+                        Gerar duelo (Gemini-Pro × GPT-5)
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {!diagnosis && (
+                    <TooltipContent>Faz primeiro o diagnóstico 360</TooltipContent>
+                  )}
+                </Tooltip>
+              )}
+            </TooltipProvider>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={diagnosing}
+              onClick={runDiagnose}
+              className="h-7 px-2 text-[11px]"
+            >
+              {diagnosing
+                ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                : <RefreshCw className="h-3 w-3 mr-1" />}
+              {diagnosis ? "Re-diagnosticar" : "Diagnosticar agora"}
+            </Button>
+          </div>
         </div>
 
         {!diagnosis ? (
