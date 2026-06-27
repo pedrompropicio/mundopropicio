@@ -1805,34 +1805,98 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
 }`;
 
   // 6) Lovable AI
-  const callAI = () => fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
+  // DR-2026-06-27c (fix multi-modelo): temperature condicional + retry para 502/empty/5xx.
+  // - GPT-5 (e qualquer openai/*) rejeita temperature!=1 → não enviar o campo.
+  // - Gemini Pro intermitente (502/empty) → backoff 3 tentativas.
+  const modelSupportsTemperature = (m: string): boolean => {
+    const id = (m || "").toLowerCase();
+    if (id.includes("gpt-5") || id.startsWith("openai/gpt-5")) return false;
+    if (id.startsWith("openai/")) return false; // reasoning models OpenAI não aceitam override
+    if (id.startsWith("google/gemini")) return true;
+    return true;
+  };
+
+  const buildBody = () => {
+    const body: Record<string, unknown> = {
       model: modelId,
-      // TEMP — reduzida vs 0.4 anterior para baixar variância nos números do plano.
-      temperature: TEMPERATURE_REDESIGN_LLM,
       messages: [
         { role: "system", content: "És um especialista sênior em Meta Ads para eventos ao vivo. Respondes SEMPRE com JSON puro (sem fences) e em PT-BR." },
         { role: "user", content: prompt },
       ],
-    }),
+    };
+    if (modelSupportsTemperature(modelId)) {
+      // TEMP — reduzida vs 0.4 anterior para baixar variância nos números do plano.
+      body.temperature = TEMPERATURE_REDESIGN_LLM;
+    }
+    return JSON.stringify(body);
+  };
+
+  const callAI = () => fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    body: buildBody(),
   });
 
-  let aiResp = await callAI();
-  if (aiResp.status === 429) { await new Promise((r) => setTimeout(r, 1500)); aiResp = await callAI(); }
-  if (aiResp.status === 429) return json({ error: "rate_limit", message: "Lovable AI rate limit; tenta de novo em alguns segundos." }, 429);
-  if (aiResp.status === 402) return json({ error: "credits_exhausted", message: "Sem créditos no Lovable AI." }, 402);
-  if (!aiResp.ok) {
-    const t = await aiResp.text();
-    console.error("[redesign] AI error", aiResp.status, t.slice(0, 300));
-    return json({ error: "ai_failed", detail: t.slice(0, 200) }, 502);
-  }
+  const RETRY_BACKOFF_MS = [1500, 3000, 6000];
+  let aiResp: Response | null = null;
+  let aiJson: any = null;
+  let content = "";
+  let usageTokens: number | null = null;
+  let lastErrorKind: "rate_limit" | "ai_failed" | "ai_empty_response" | null = null;
+  let lastErrorDetail = "";
+  let lastStatus = 0;
 
-  const aiJson = await aiResp.json();
-  const content: string = aiJson?.choices?.[0]?.message?.content ?? "";
-  const usageTokens: number | null = aiJson?.usage?.total_tokens ?? null;
-  if (!content) return json({ error: "ai_empty_response" }, 502);
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    aiResp = await callAI();
+    lastStatus = aiResp.status;
+
+    // 402 — terminal, não retry.
+    if (aiResp.status === 402) {
+      return json({ error: "credits_exhausted", message: "Sem créditos no Lovable AI." }, 402);
+    }
+
+    // 429 — retryable.
+    if (aiResp.status === 429) {
+      lastErrorKind = "rate_limit";
+      const t = await aiResp.text().catch(() => "");
+      lastErrorDetail = t.slice(0, 200);
+      console.error(`[redesign][gateway-retry] { model: "${modelId}", status: 429, attempt: ${attempt}, snippet: ${JSON.stringify(t.slice(0, 200))} }`);
+      if (attempt < 3) { await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS[attempt - 1])); continue; }
+      return json({ error: "rate_limit", message: "Lovable AI rate limit; tenta de novo em alguns segundos." }, 429);
+    }
+
+    // 5xx — retryable.
+    if (aiResp.status >= 500) {
+      lastErrorKind = "ai_failed";
+      const t = await aiResp.text().catch(() => "");
+      lastErrorDetail = t.slice(0, 200);
+      console.error(`[redesign][gateway-retry] { model: "${modelId}", status: ${aiResp.status}, attempt: ${attempt}, snippet: ${JSON.stringify(t.slice(0, 200))} }`);
+      if (attempt < 3) { await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS[attempt - 1])); continue; }
+      console.error("[redesign] AI error", aiResp.status, t.slice(0, 300));
+      return json({ error: "ai_failed", detail: lastErrorDetail }, 502);
+    }
+
+    // Outros 4xx não-429 — terminal.
+    if (!aiResp.ok) {
+      const t = await aiResp.text().catch(() => "");
+      console.error("[redesign] AI error", aiResp.status, t.slice(0, 300));
+      return json({ error: "ai_failed", detail: t.slice(0, 200) }, 502);
+    }
+
+    // ok — verifica content vazio (retryable).
+    aiJson = await aiResp.json();
+    content = aiJson?.choices?.[0]?.message?.content ?? "";
+    usageTokens = aiJson?.usage?.total_tokens ?? null;
+    if (!content) {
+      lastErrorKind = "ai_empty_response";
+      lastErrorDetail = "empty content";
+      console.error(`[redesign][gateway-retry] { model: "${modelId}", status: 200, attempt: ${attempt}, snippet: "ai_empty_response" }`);
+      if (attempt < 3) { await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS[attempt - 1])); continue; }
+      return json({ error: "ai_empty_response" }, 502);
+    }
+    // sucesso
+    break;
+  }
 
   let plan: any;
   try { plan = JSON.parse(stripJsonFences(content)); }
