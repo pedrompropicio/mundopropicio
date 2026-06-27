@@ -184,6 +184,19 @@ function stripJsonFences(text: string): string {
   return t.trim();
 }
 
+// Endurecimento do parse: corrige escapes \u malformados sem tocar nos válidos.
+// Um \u válido é exatamente \u seguido de 4 hex. Tudo o resto é neutralizado
+// transformando o backslash em literal (\\u). Também remove \u pendente no fim.
+function sanitizeJsonEscapes(s: string): string {
+  let out = s;
+  // \u no fim da string (cortado, sem 4 hex possíveis) → remove a sequência
+  out = out.replace(/\\u[0-9a-fA-F]{0,3}$/g, "");
+  // \u órfão (não seguido de 4 hex) → escapa o backslash para virar literal "\u"
+  out = out.replace(/\\u(?![0-9a-fA-F]{4})/g, "\\\\u");
+  return out;
+}
+
+
 type Agg = {
   impressions: number; reach: number; clicks: number;
   spendCents: number; purchases: number; purchasesValueCents: number;
@@ -2437,11 +2450,18 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
   }
 
   let plan: any;
-  try { plan = JSON.parse(stripJsonFences(content)); }
-  catch (e) {
-    console.error("[redesign] parse error:", e, content.slice(0, 500));
-    return json({ error: "ai_invalid_json", detail: content.slice(0, 200) }, 502);
+  try {
+    plan = JSON.parse(stripJsonFences(content));
+  } catch (_e1) {
+    try {
+      plan = JSON.parse(sanitizeJsonEscapes(stripJsonFences(content)));
+      console.log("[redesign] json recuperado via sanitize de escapes");
+    } catch (e2) {
+      console.error("[redesign] parse error:", e2, content.slice(0, 500));
+      return json({ error: "ai_invalid_json", detail: content.slice(0, 200) }, 502);
+    }
   }
+
 
   // Normalização determinística pós-LLM (P2+P3 backstop, partilhada com generate).
   // Se o LLM ignorar as regras do prompt (exclusions array, ids inventados), corrige
