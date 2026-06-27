@@ -2178,7 +2178,7 @@ ${crossEventContextText}
 ${inheritanceDecisionsText}
 ${viabilityBlock}
 ${downtrendInstructionsBlock}
-${briefBlock ? briefBlock + "\n" : ""}== META PRINCIPAL ==
+${postureBlock ? postureBlock + "\n" : ""}${briefBlock ? briefBlock + "\n" : ""}== META PRINCIPAL ==
 ROAS alvo BLENDED do evento: ${targetBlendedRoas.toFixed(1)}x (agregado entre TODAS as fases — não por campanha/adset individual).
 Avaliação por fase: fases REACH/AWARENESS/VIDEO_VIEWS terão ROAS individual baixo (esperado 0–2x); fases CONVERSIONS/SALES devem entregar ROAS >=${targetBlendedRoas.toFixed(1)}x para puxar o blended; retargeting deve entregar 10–20x.
 ROAS floor é HARD CONSTRAINT: nenhuma phase com peso >${(HIGH_BUDGET_SHARE_THRESHOLD * 100).toFixed(0)}% do budget total pode propor target_kpis.roas_min inferior a ${targetBlendedRoas.toFixed(1)}x.
