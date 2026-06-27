@@ -2011,6 +2011,24 @@ REGRAS RÍGIDAS:
 
   // Serializa o brief num bloco compacto (~4000 chars cap). Selecciona só o
   // que importa para o DESENHO; resto do JSON fica de fora.
+  // [Peça 2 sub-tarefa 6] Bloco POSTURA: orienta o tom estratégico de COMO usar
+  // a evidência, conforme a classe da campanha-fonte (vinda do diagnóstico 360).
+  // Classe nula/desconhecida = sem bloco (string vazia).
+  const postureBlock: string = (() => {
+    switch (diagSourceClass) {
+      case "fraca":
+        return "== POSTURA: RECONSTRUÇÃO ==\nEsta campanha está classificada como FRACA. A estrutura atual não está a funcionar. Tens liberdade para reconstruir de raiz — muda audiências, fases e ângulos sem receio. A evidência histórica mostra o que falhou; evita repetir o que não resultou. Procura combinações novas, não otimizações marginais do que já existe.";
+      case "em_maturacao":
+        return "== POSTURA: MATURAÇÃO ==\nEsta campanha é JOVEM e ainda está a aprender. NÃO vires tudo do avesso. Dá tempo ao que está a ganhar tração, faz ajustes pontuais e reforça os sinais iniciais positivos. Evita mudanças estruturais grandes que reiniciem a aprendizagem do algoritmo.";
+      case "saudavel_subindo":
+        return "== POSTURA: ESCALAR ==\nEsta campanha está SAUDÁVEL e a MELHORAR. Escala o que ganha — não estragues. Mexe o mínimo na estrutura vencedora; foca-te em amplificar verba e em duplicar os criativos e audiências que estão a subir. Mudanças agressivas aqui destroem valor.";
+      case "saudavel_caindo":
+        return "== POSTURA: RENOVAR ==\nEsta campanha foi BOA mas está a PERDER FORÇA (fadiga). Renova os criativos gastos e refresca as audiências saturadas, mas PRESERVA o esqueleto que já provou resultados. O objetivo é refrescar, não reinventar — mantém o que funcionou e injeta novidade onde há desgaste.";
+      default:
+        return "";
+    }
+  })();
+
   const briefBlock: string = (() => {
     if (!brief) return "";
     const lines: string[] = [];
@@ -2160,7 +2178,7 @@ ${crossEventContextText}
 ${inheritanceDecisionsText}
 ${viabilityBlock}
 ${downtrendInstructionsBlock}
-${briefBlock ? briefBlock + "\n" : ""}== META PRINCIPAL ==
+${postureBlock ? postureBlock + "\n" : ""}${briefBlock ? briefBlock + "\n" : ""}== META PRINCIPAL ==
 ROAS alvo BLENDED do evento: ${targetBlendedRoas.toFixed(1)}x (agregado entre TODAS as fases — não por campanha/adset individual).
 Avaliação por fase: fases REACH/AWARENESS/VIDEO_VIEWS terão ROAS individual baixo (esperado 0–2x); fases CONVERSIONS/SALES devem entregar ROAS >=${targetBlendedRoas.toFixed(1)}x para puxar o blended; retargeting deve entregar 10–20x.
 ROAS floor é HARD CONSTRAINT: nenhuma phase com peso >${(HIGH_BUDGET_SHARE_THRESHOLD * 100).toFixed(0)}% do budget total pode propor target_kpis.roas_min inferior a ${targetBlendedRoas.toFixed(1)}x.
