@@ -625,6 +625,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       new_audiences_to_create?: Array<{ phase_id: string; type: string; description: string; gap_tag: string }>;
     };
     pause_original_mode?: "immediate" | "delayed_7d" | "manual";
+    // DR-2026-06-27c — opt-in: override de modelo + modo dry_run (não persiste).
+    model?: string;
+    dry_run?: boolean;
     // PAS — flags internas para chamada recursiva auto-gerada (não documentado em API pública).
     [PAS_RECURSION_GUARD_FIELD]?: boolean;
     _pas_source_proposal_id?: string;
@@ -633,6 +636,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const campaignId = body.campaign_id;
   if (!campaignId) return json({ error: "missing_campaign_id" }, 400);
   const periodDays = Math.min(Math.max(body.period_days ?? 30, 7), 90);
+  // DR-2026-06-27c — modelId opt-in com allowlist; fallback silencioso para AI_MODEL.
+  const MODEL_ALLOWLIST = new Set([
+    "google/gemini-2.5-pro",
+    "google/gemini-2.5-flash",
+    "openai/gpt-5",
+    "openai/gpt-5-mini",
+  ]);
+  const requestedModel = (typeof body.model === "string" && body.model.trim()) ? body.model.trim() : null;
+  const modelId = requestedModel && MODEL_ALLOWLIST.has(requestedModel) ? requestedModel : AI_MODEL;
+  const dryRun = body.dry_run === true;
   const ctIn = body.constraints ?? {};
   const inh = body.inheritance_decisions ?? null;
   const pauseOriginalMode: "immediate" | "delayed_7d" | "manual" =
@@ -1311,6 +1324,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const adAccountIdSkip = campaign.ad_account_id?.startsWith("act_")
       ? campaign.ad_account_id
       : `act_${campaign.ad_account_id}`;
+    // DR-2026-06-27c — dry_run: devolve stub sem persistir.
+    if (dryRun) {
+      console.log(`[redesign] dry_run early-abort skip: ${skip.reason}`);
+      return json({
+        generated_plan: stubPlan,
+        redesign_rationale: skip.message,
+        viability_analysis: viability,
+        skip_llm: true,
+        skip_reason: skip.reason,
+        source: {
+          campaign_id: campaign.external_campaign_id,
+          campaign_name: campaign.name,
+          diagnosis_id: diagnosisId,
+        },
+      });
+    }
     const { data: skipInserted, error: skipInsErr } = await (supabase as any)
       .schema("crm").from("meta_campaign_strategies")
       .insert({
@@ -1328,7 +1357,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         user_notes: `Re-design abortado (${skip.reason}) — campanha ${campaign.external_campaign_id}`,
         detected_artist: null,
         generated_plan: stubPlan,
-        generation_model: AI_MODEL,
+        generation_model: modelId,
         generation_tokens_used: 0,
         generated_at: new Date().toISOString(),
         status: "generated",
@@ -1780,7 +1809,7 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
     method: "POST",
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: AI_MODEL,
+      model: modelId,
       // TEMP — reduzida vs 0.4 anterior para baixar variância nos números do plano.
       temperature: TEMPERATURE_REDESIGN_LLM,
       messages: [
@@ -2704,14 +2733,18 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
   // PAS-SKIP-PERSIST — alternativa não vai para a UI nem para meta_campaign_strategies.
   // Volta apenas o generated_plan para o caller (o run principal) anexar como alternative_plan.
   // Evita row órfão em DB e duplicação de ticket_avg/source_diagnosis_id.
-  if (body[PAS_RECURSION_GUARD_FIELD] === true) {
-    console.log("[redesign] PAS_alternative_run_skip_persist", {
+  // DR-2026-06-27c — PAS recursion guard OU dry_run: devolve plano canónico final SEM persistir.
+  if (body[PAS_RECURSION_GUARD_FIELD] === true || dryRun) {
+    console.log("[redesign] skip_persist", {
+      reason: body[PAS_RECURSION_GUARD_FIELD] === true ? "pas_alternative" : "dry_run",
+      model: modelId,
       source_proposal_id: body._pas_source_proposal_id ?? null,
       feasibility: plan?.summary?.feasibility ?? null,
       expected_overall_roas: plan?.summary?.expected_overall_roas ?? null,
     });
     return json({
       generated_plan: plan,
+      redesign_rationale: rationale,
       viability_analysis: viability,
       source: {
         campaign_id: campaign.external_campaign_id,
@@ -2742,7 +2775,7 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       user_notes: `Re-design da campanha ${campaign.external_campaign_id} (${campaign.name})`,
       detected_artist: null,
       generated_plan: plan,
-      generation_model: AI_MODEL,
+      generation_model: modelId,
       generation_tokens_used: usageTokens,
       generated_at: new Date().toISOString(),
       status: "generated",
