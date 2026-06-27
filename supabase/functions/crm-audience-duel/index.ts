@@ -523,8 +523,8 @@ async function runDuel(run_id: string, duel_id: string, args: RunArgs): Promise<
 
     // duelo paralelo — simetria: ambos com retry
     const [gem, gpt] = await Promise.all([
-      callModelWithRetry(GEMINI_MODEL, prompt, 2),
-      callModelWithRetry(GPT_MODEL, prompt, 2),
+      callModelWithRetry(GEMINI_MODEL, prompt, 3),
+      callModelWithRetry(GPT_MODEL, prompt, 3),
     ]);
 
     const gemProposal = gem.ok ? gem.data : null;
