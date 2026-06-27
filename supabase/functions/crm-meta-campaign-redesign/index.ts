@@ -2020,7 +2020,8 @@ REGRAS RÍGIDAS:
       "Usa-os para INFORMAR escolhas de audiências, criativos e formatos — NÃO copies cegamente. " +
       "Se a evidência for fraca/escassa, confia no teu julgamento estratégico. " +
       "Audiências/criativos com bom desempenho são candidatos fortes a reutilizar; saturados/fatigados devem ser evitados ou renovados; formatos em falta são oportunidades. " +
-      "Tu desenhas a estratégia; a evidência só informa.",
+      "Tu desenhas a estratégia; a evidência só informa. " +
+      "Sê selectivo: usa os 2-3 sinais mais fortes, não tens de incorporar todos. Mantém o plano conciso e o JSON válido.",
     );
 
     // Audience ranking — top 8 por ROAS
@@ -2028,7 +2029,7 @@ REGRAS RÍGIDAS:
     if (ar?.items?.length) {
       const top = [...ar.items]
         .sort((a, b) => (b.roas ?? -1) - (a.roas ?? -1))
-        .slice(0, 8);
+        .slice(0, 4);
       lines.push("");
       lines.push("-- AUDIENCE_RANKING (top por ROAS; atribuição co-presença) --");
       lines.push(`nota: ${ar.note}`);
@@ -2046,7 +2047,7 @@ REGRAS RÍGIDAS:
     if (sat.length) {
       lines.push("");
       lines.push("-- ADSETS A SATURAR (evita repetir esta receita) --");
-      for (const s of sat.slice(0, 10)) {
+      for (const s of sat.slice(0, 5)) {
         const fb = s.frequency_b != null ? s.frequency_b.toFixed(2) : "n/a";
         const ctrb = s.ctr_b != null ? (s.ctr_b * 100).toFixed(2) + "%" : "n/a";
         const cpmb = s.cpm_b_eur != null ? `€${s.cpm_b_eur.toFixed(2)}` : "n/a";
@@ -2061,7 +2062,7 @@ REGRAS RÍGIDAS:
     if (winners.length) {
       lines.push("");
       lines.push("-- CRIATIVOS VENCEDORES (candidatos a reutilizar) --");
-      for (const w of winners.slice(0, 10)) {
+      for (const w of winners.slice(0, 5)) {
         const roas = w.performance?.roas != null ? `${w.performance.roas.toFixed(2)}x` : "n/a";
         const type = w.library?.type ?? "?";
         const head = w.library?.headline ? ` | hook="${w.library.headline}"` : "";
@@ -2072,7 +2073,7 @@ REGRAS RÍGIDAS:
     if (fatigued.length) {
       lines.push("");
       lines.push("-- CRIATIVOS FATIGADOS (evita ou renova) --");
-      for (const f of fatigued.slice(0, 10)) {
+      for (const f of fatigued.slice(0, 5)) {
         const r7 = (f.fatigue as any)?.roas_7d;
         const rp = (f.fatigue as any)?.roas_prev7d;
         const fmt = (x: any) => (typeof x === "number" ? `${x.toFixed(2)}x` : "n/a");
@@ -2100,8 +2101,8 @@ REGRAS RÍGIDAS:
     }
 
     let out = lines.join("\n");
-    if (out.length > 4000) {
-      out = out.slice(0, 3980) + "\n…[truncado]";
+    if (out.length > 2800) {
+      out = out.slice(0, 2780) + "\n…[truncado]";
     }
     return out;
   })();
@@ -2326,6 +2327,18 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
     if (modelSupportsTemperature(modelId)) {
       // TEMP — reduzida vs 0.4 anterior para baixar variância nos números do plano.
       body.temperature = TEMPERATURE_REDESIGN_LLM;
+    }
+    // DR-2026-06-27d — teto explícito de output por família.
+    // Sem teto, o GPT-5 consome o orçamento default em reasoning_tokens (invisíveis)
+    // e o JSON corta a meio → ai_invalid_json. Gateway é OpenAI-compatible:
+    // - openai/* (gpt-5 reasoning): max_completion_tokens (campo canónico nos modelos
+    //   reasoning da OpenAI; max_tokens é legacy e ignorado em alguns SKUs).
+    // - google/gemini-*: max_tokens (mapeado pelo gateway para maxOutputTokens).
+    const mid = (modelId || "").toLowerCase();
+    if (mid.startsWith("openai/")) {
+      body.max_completion_tokens = 24000;
+    } else if (mid.startsWith("google/gemini")) {
+      body.max_tokens = 12000;
     }
     return JSON.stringify(body);
   };
