@@ -184,6 +184,19 @@ function stripJsonFences(text: string): string {
   return t.trim();
 }
 
+// Endurecimento do parse: corrige escapes \u malformados sem tocar nos válidos.
+// Um \u válido é exatamente \u seguido de 4 hex. Tudo o resto é neutralizado
+// transformando o backslash em literal (\\u). Também remove \u pendente no fim.
+function sanitizeJsonEscapes(s: string): string {
+  let out = s;
+  // \u no fim da string (cortado, sem 4 hex possíveis) → remove a sequência
+  out = out.replace(/\\u[0-9a-fA-F]{0,3}$/g, "");
+  // \u órfão (não seguido de 4 hex) → escapa o backslash para virar literal "\u"
+  out = out.replace(/\\u(?![0-9a-fA-F]{4})/g, "\\\\u");
+  return out;
+}
+
+
 type Agg = {
   impressions: number; reach: number; clicks: number;
   spendCents: number; purchases: number; purchasesValueCents: number;
