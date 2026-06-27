@@ -376,7 +376,8 @@ export function EditCampaignPopover({
   const handleApply = async () => {
     const updates: any = {};
     if (name.trim() && name.trim() !== c.name) updates.name = name.trim();
-    if (dailyEur) {
+    // Em ABO o campo de verba não é mostrado e nunca é enviado.
+    if (!isAbo && dailyEur) {
       const n = parseFloat(dailyEur.replace(",", "."));
       if (Number.isFinite(n) && n > 0) {
         const cents = Math.round(n * 100);
