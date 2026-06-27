@@ -2450,11 +2450,18 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
   }
 
   let plan: any;
-  try { plan = JSON.parse(stripJsonFences(content)); }
-  catch (e) {
-    console.error("[redesign] parse error:", e, content.slice(0, 500));
-    return json({ error: "ai_invalid_json", detail: content.slice(0, 200) }, 502);
+  try {
+    plan = JSON.parse(stripJsonFences(content));
+  } catch (_e1) {
+    try {
+      plan = JSON.parse(sanitizeJsonEscapes(stripJsonFences(content)));
+      console.log("[redesign] json recuperado via sanitize de escapes");
+    } catch (e2) {
+      console.error("[redesign] parse error:", e2, content.slice(0, 500));
+      return json({ error: "ai_invalid_json", detail: content.slice(0, 200) }, 502);
+    }
   }
+
 
   // Normalização determinística pós-LLM (P2+P3 backstop, partilhada com generate).
   // Se o LLM ignorar as regras do prompt (exclusions array, ids inventados), corrige
