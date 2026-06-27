@@ -2733,14 +2733,18 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
   // PAS-SKIP-PERSIST — alternativa não vai para a UI nem para meta_campaign_strategies.
   // Volta apenas o generated_plan para o caller (o run principal) anexar como alternative_plan.
   // Evita row órfão em DB e duplicação de ticket_avg/source_diagnosis_id.
-  if (body[PAS_RECURSION_GUARD_FIELD] === true) {
-    console.log("[redesign] PAS_alternative_run_skip_persist", {
+  // DR-2026-06-27c — PAS recursion guard OU dry_run: devolve plano canónico final SEM persistir.
+  if (body[PAS_RECURSION_GUARD_FIELD] === true || dryRun) {
+    console.log("[redesign] skip_persist", {
+      reason: body[PAS_RECURSION_GUARD_FIELD] === true ? "pas_alternative" : "dry_run",
+      model: modelId,
       source_proposal_id: body._pas_source_proposal_id ?? null,
       feasibility: plan?.summary?.feasibility ?? null,
       expected_overall_roas: plan?.summary?.expected_overall_roas ?? null,
     });
     return json({
       generated_plan: plan,
+      redesign_rationale: rationale,
       viability_analysis: viability,
       source: {
         campaign_id: campaign.external_campaign_id,
