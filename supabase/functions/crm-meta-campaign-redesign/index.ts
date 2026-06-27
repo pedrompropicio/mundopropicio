@@ -2771,7 +2771,7 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       user_notes: `Re-design da campanha ${campaign.external_campaign_id} (${campaign.name})`,
       detected_artist: null,
       generated_plan: plan,
-      generation_model: AI_MODEL,
+      generation_model: modelId,
       generation_tokens_used: usageTokens,
       generated_at: new Date().toISOString(),
       status: "generated",
