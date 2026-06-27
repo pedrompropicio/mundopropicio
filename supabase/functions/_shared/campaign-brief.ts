@@ -1006,7 +1006,7 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
 
   // 8) Reference campaign (opcional) — mesma classificação D1 + fatigue.
   let reference: CampaignBrief["reference"] = null;
-  if (reference_campaign_id && reference_campaign_id !== campaign_id) {
+  if (reference_campaign_id && (campaign_id == null || reference_campaign_id !== campaign_id)) {
     const { data: ref } = await sb
       .schema("crm").from("meta_campaign_snapshot")
       .select("company_id, external_campaign_id, name")
