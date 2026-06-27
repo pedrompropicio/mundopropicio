@@ -1325,8 +1325,24 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   if (skip) {
+    // DR-2026-06-27d Fase 2 — async_persist: nunca responder após o 202.
+    // Skip no modo async = grava <modelo>_error e termina, sem candidato.
+    if (asyncPersist) {
+      console.log(`[redesign][async] early-abort skip duel=${asyncDuelId} model=${asyncSourceModel} reason=${skip.reason}`);
+      // @ts-ignore EdgeRuntime
+      EdgeRuntime.waitUntil((async () => {
+        const sbAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+          auth: { persistSession: false, autoRefreshToken: false },
+          db: { schema: "crm" as never },
+        });
+        try { await updateModelCol(sbAdmin, { error: `skip: ${skip.reason}` }); }
+        catch (e) { console.error(`[redesign][async] skip update falhou: ${(e as Error)?.message ?? e}`); }
+      })());
+      return json({ accepted: true, duel_id: asyncDuelId, source_model: asyncSourceModel }, 202);
+    }
     // Stub plan: mesma shape do output normal mas com phases vazias + flags de skip.
     // Front renderiza graciosamente via skip_llm flag (assumido — não verificado).
+
     const stubPlan = {
       skip_llm: true,
       skip_reason: skip.reason,
