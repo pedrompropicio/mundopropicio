@@ -1032,11 +1032,12 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
     }
   }
 
-  // 9) Custom audiences (Graph API, best-effort)
+  // 9) Custom audiences (Graph API, best-effort) — ad_account vem da campanha OU dos args
+  const effectiveAdAccount: string | null = campaign?.ad_account_id ?? args.ad_account_id ?? null;
   const audiences: AudiencePacket[] = [];
-  if (meta_access_token && campaign.ad_account_id) {
+  if (meta_access_token && effectiveAdAccount) {
     try {
-      const adAcc = normalizeAdAccountId(campaign.ad_account_id);
+      const adAcc = normalizeAdAccountId(effectiveAdAccount);
       const u = new URL(`https://graph.facebook.com/${GRAPH_API_VERSION}/${adAcc}/customaudiences`);
       u.searchParams.set("fields", "id,name,subtype,approximate_count_lower_bound,approximate_count_upper_bound");
       u.searchParams.set("limit", "100");
@@ -1061,40 +1062,47 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
     }
   } else if (!meta_access_token) {
     warnings.push("audiences_skipped_no_token");
+  } else if (!effectiveAdAccount) {
+    warnings.push("audiences_skipped_no_ad_account");
   }
 
-  // 10) Viabilidade (Onda 1)
+  // 10) Viabilidade (Onda 1) — só se houver insights da campanha-fonte
   let viability: Viability | null = null;
-  try {
-    const currentRoas = aLegacy.spendCents > 0 ? aLegacy.purchasesValueCents / aLegacy.spendCents : 0;
-    viability = buildViability({
-      targetRoas: caps.target_blended_roas,
-      currentRoas,
-      buckets: roas_buckets,
-      trajectory,
-      ticketsTotal: event.tickets_total,
-      daysUntil: event.days_until,
-      campSpendCents: aLegacy.spendCents,
-      campPurchases: aLegacy.purchases,
-      periodDays,
-    });
-  } catch (e) {
-    warnings.push(`viability_failed:${(e as Error).message}`);
+  if (campaign_id && aLegacy.spendCents > 0) {
+    try {
+      const currentRoas = aLegacy.purchasesValueCents / aLegacy.spendCents;
+      viability = buildViability({
+        targetRoas: caps.target_blended_roas,
+        currentRoas,
+        buckets: roas_buckets,
+        trajectory,
+        ticketsTotal: event.tickets_total,
+        daysUntil: event.days_until,
+        campSpendCents: aLegacy.spendCents,
+        campPurchases: aLegacy.purchases,
+        periodDays,
+      });
+    } catch (e) {
+      warnings.push(`viability_failed:${(e as Error).message}`);
+    }
   }
 
-  // 11) audience_ranking + adset_saturation (Onda 1)
+  // 11) audience_ranking + adset_saturation (Onda 1) — só com campanha-fonte
   let audience_ranking: AudienceRanking = {
-    note: "Sem dados suficientes.",
+    note: campaign_id ? "Sem dados suficientes." : "Sem campanha-fonte (modo from-scratch).",
     items: [],
   };
   let adset_saturation: AdsetSaturationItem[] = [];
-  try {
-    const r = await buildAdsetSignals(supabase, campaign.company_id, campaign_id, winnerRoasThreshold);
-    audience_ranking = r.audience_ranking;
-    adset_saturation = r.adset_saturation;
-  } catch (e) {
-    warnings.push(`adset_signals_failed:${(e as Error).message}`);
+  if (campaign_id) {
+    try {
+      const r = await buildAdsetSignals(supabase, campaign.company_id, campaign_id, winnerRoasThreshold);
+      audience_ranking = r.audience_ranking;
+      adset_saturation = r.adset_saturation;
+    } catch (e) {
+      warnings.push(`adset_signals_failed:${(e as Error).message}`);
+    }
   }
+
 
   // 12) format_gaps (Onda 1)
   const format_gaps = buildFormatGaps(winners_packet);
