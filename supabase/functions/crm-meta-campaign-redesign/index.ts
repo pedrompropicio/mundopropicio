@@ -2101,8 +2101,8 @@ REGRAS RÍGIDAS:
     }
 
     let out = lines.join("\n");
-    if (out.length > 4000) {
-      out = out.slice(0, 3980) + "\n…[truncado]";
+    if (out.length > 2800) {
+      out = out.slice(0, 2780) + "\n…[truncado]";
     }
     return out;
   })();
