@@ -2047,7 +2047,7 @@ REGRAS RÍGIDAS:
     if (sat.length) {
       lines.push("");
       lines.push("-- ADSETS A SATURAR (evita repetir esta receita) --");
-      for (const s of sat.slice(0, 10)) {
+      for (const s of sat.slice(0, 5)) {
         const fb = s.frequency_b != null ? s.frequency_b.toFixed(2) : "n/a";
         const ctrb = s.ctr_b != null ? (s.ctr_b * 100).toFixed(2) + "%" : "n/a";
         const cpmb = s.cpm_b_eur != null ? `€${s.cpm_b_eur.toFixed(2)}` : "n/a";
