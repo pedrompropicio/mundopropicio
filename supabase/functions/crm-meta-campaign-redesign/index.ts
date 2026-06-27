@@ -1324,6 +1324,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const adAccountIdSkip = campaign.ad_account_id?.startsWith("act_")
       ? campaign.ad_account_id
       : `act_${campaign.ad_account_id}`;
+    // DR-2026-06-27c — dry_run: devolve stub sem persistir.
+    if (dryRun) {
+      console.log(`[redesign] dry_run early-abort skip: ${skip.reason}`);
+      return json({
+        generated_plan: stubPlan,
+        redesign_rationale: skip.message,
+        viability_analysis: viability,
+        skip_llm: true,
+        skip_reason: skip.reason,
+        source: {
+          campaign_id: campaign.external_campaign_id,
+          campaign_name: campaign.name,
+          diagnosis_id: diagnosisId,
+        },
+      });
+    }
     const { data: skipInserted, error: skipInsErr } = await (supabase as any)
       .schema("crm").from("meta_campaign_strategies")
       .insert({
