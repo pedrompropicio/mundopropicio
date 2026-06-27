@@ -1706,8 +1706,8 @@ export default function CrmCampaignView() {
                             {winners.map((w: any, i: number) => (
                               <div key={i} className="flex items-center justify-between gap-2 text-[11px] bg-muted/30 rounded px-2 py-1">
                                 <span className="truncate flex-1" title={w?.ad_name}>{w?.ad_name ?? "—"}</span>
-                                {w?.creative_type && <Badge variant="outline" className="text-[10px]">{w.creative_type}</Badge>}
-                                <Badge variant="outline" className="text-[10px] font-mono">{fmtRoas(w?.roas)}</Badge>
+                                {w?.library?.type && <Badge variant="outline" className="text-[10px]">{w.library.type}</Badge>}
+                                <Badge variant="outline" className="text-[10px] font-mono">{fmtRoas(w?.performance?.roas)}</Badge>
                               </div>
                             ))}
                           </div>
