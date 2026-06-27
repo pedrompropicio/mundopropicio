@@ -810,22 +810,31 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
   const warnings: string[] = [];
   const sb: any = supabase;
 
-  // 1) Snapshot da campanha
-  const { data: campaign, error: campErr } = await sb
-    .schema("crm").from("meta_campaign_snapshot")
-    .select("company_id, connection_id, ad_account_id, external_campaign_id, name, status, effective_status, objective, currency, linked_event_id, daily_budget_cents, lifetime_budget_cents")
-    .eq("external_campaign_id", campaign_id)
-    .maybeSingle();
-  if (campErr || !campaign) throw new Error(`campaign_not_found: ${campErr?.message ?? campaign_id}`);
+  // 1) Snapshot da campanha (só se campaign_id existir — modo full continua a falhar duro)
+  let campaign: any = null;
+  if (campaign_id) {
+    const { data: c, error: campErr } = await sb
+      .schema("crm").from("meta_campaign_snapshot")
+      .select("company_id, connection_id, ad_account_id, external_campaign_id, name, status, effective_status, objective, currency, linked_event_id, daily_budget_cents, lifetime_budget_cents")
+      .eq("external_campaign_id", campaign_id)
+      .maybeSingle();
+    if (campErr || !c) throw new Error(`campaign_not_found: ${campErr?.message ?? campaign_id}`);
+    campaign = c;
+  }
 
   // 2) Diagnóstico 360 — COMPLETO (D4)
-  const { data: diagRow } = await sb
-    .schema("crm").from("campaign_diagnosis_360")
-    .select("*")
-    .eq("external_campaign_id", campaign_id)
-    .order("created_at", { ascending: false })
-    .limit(1).maybeSingle();
-  if (!diagRow) warnings.push("no_diagnosis_360");
+  let diagRow: any = null;
+  if (campaign_id) {
+    const { data: d } = await sb
+      .schema("crm").from("campaign_diagnosis_360")
+      .select("*")
+      .eq("external_campaign_id", campaign_id)
+      .order("created_at", { ascending: false })
+      .limit(1).maybeSingle();
+    diagRow = d ?? null;
+    if (!diagRow) warnings.push("no_diagnosis_360");
+  }
+
 
   // 3) Insights diários da campanha — query ÚNICA com colunas alargadas (Onda 1).
   //    Reutilizada para: roas_buckets, daily_series, viability.
