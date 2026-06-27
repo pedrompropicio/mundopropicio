@@ -152,6 +152,7 @@ import CrmCreatives from "./pages/crm/Creatives";
 import CrmCreativeNew from "./pages/crm/CreativeNew";
 import CrmCreativeView from "./pages/crm/CreativeView";
 import CrmCampaignView from "./pages/crm/CampaignView";
+import CrmDuelView from "./pages/crm/DuelView";
 import CrmAudit from "./pages/crm/Audit";
 import CrmFunnelTest from "./pages/crm/FunnelTest";
 import ModuleSelector from "./pages/ModuleSelector";
@@ -585,6 +586,7 @@ function App() {
                     <Route path="strategies/redesign/:campaignId" element={<CrmStrategyRedesign />} />
                     <Route path="strategies/new-design/:campaignId" element={<CrmStrategyNewDesign />} />
                     <Route path="strategies/:id" element={<CrmStrategyView />} />
+                    <Route path="duels/:duel_id" element={<CrmDuelView />} />
                     <Route path="creatives" element={<CrmCreatives />} />
                     <Route path="creatives/new" element={<CrmCreativeNew />} />
                     <Route path="creatives/:id" element={<CrmCreativeView />} />
