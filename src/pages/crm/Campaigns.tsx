@@ -702,6 +702,7 @@ function CampaignTableRow({
   const isPaused = (c.effective_status ?? c.status) === "PAUSED";
   const isReplaced = c.replaced_by_strategy_id != null;
   const navigate = useNavigate();
+  const budgetModeByCampaign = useContext(BudgetModeContext);
   const agg = useMemo(() => aggregate(insights), [insights]);
   const aggPrev = useMemo(() => aggregate(prevInsights), [prevInsights]);
   const cpcAvg = agg.clicks > 0 ? Math.round(agg.spendCents / agg.clicks) : null;
