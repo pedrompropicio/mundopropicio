@@ -494,24 +494,31 @@ export function EditCampaignPopover({
             <Label htmlFor={`edit-name-${c.id}`} className="text-xs">Nome</Label>
             <Input id={`edit-name-${c.id}`} value={name} onChange={(e) => setName(e.target.value)} />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor={`edit-daily-${c.id}`} className="text-xs">Verba diária ({c.currency ?? "EUR"})</Label>
-            <Input
-              id={`edit-daily-${c.id}`}
-              type="number"
-              step="0.01"
-              min="0"
-              value={dailyEur}
-              onChange={(e) => setDailyEur(e.target.value)}
-            />
-            {capEur === null ? (
-              <p className="text-[11px] text-muted-foreground">Limite: sem restrição</p>
-            ) : capEur === 0 ? (
-              <p className="text-[11px] text-destructive">Sem autoridade para alterar verba</p>
-            ) : typeof capEur === "number" ? (
-              <p className="text-[11px] text-muted-foreground">Limite: {formatMoney(capEur, c.currency)}/dia</p>
-            ) : null}
-          </div>
+          {isAbo ? (
+            <div className="rounded-md border border-border/60 bg-muted/30 p-2 text-[11px] text-muted-foreground">
+              Campanha <span className="font-medium text-foreground">ABO</span> — a verba é
+              gerida por adset. Edita a verba em cada adset.
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <Label htmlFor={`edit-daily-${c.id}`} className="text-xs">Verba diária ({c.currency ?? "EUR"})</Label>
+              <Input
+                id={`edit-daily-${c.id}`}
+                type="number"
+                step="0.01"
+                min="0"
+                value={dailyEur}
+                onChange={(e) => setDailyEur(e.target.value)}
+              />
+              {capEur === null ? (
+                <p className="text-[11px] text-muted-foreground">Limite: sem restrição</p>
+              ) : capEur === 0 ? (
+                <p className="text-[11px] text-destructive">Sem autoridade para alterar verba</p>
+              ) : typeof capEur === "number" ? (
+                <p className="text-[11px] text-muted-foreground">Limite: {formatMoney(capEur, c.currency)}/dia</p>
+              ) : null}
+            </div>
+          )}
           <div className="space-y-1">
             <Label className="text-xs">Data de fim (opcional)</Label>
             <DatePicker value={endDate} onChange={setEndDate} />
