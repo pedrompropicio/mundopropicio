@@ -13,6 +13,7 @@ import { resolveCustomLocationsInPlace } from "../_shared/resolve-geo.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const ENCRYPTION_MASTER_KEY = Deno.env.get("ENCRYPTION_MASTER_KEY")!;
 const GRAPH_API_VERSION = "v18.0";
@@ -628,6 +629,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // DR-2026-06-27c — opt-in: override de modelo + modo dry_run (não persiste).
     model?: string;
     dry_run?: boolean;
+    // DR-2026-06-27d — modo async_persist: responde 202, corre em waitUntil, insere candidato
+    // via service_role e actualiza crm.audience_duel_runs nas colunas do modelo. Exclusivo de dry_run.
+    async_persist?: boolean;
+    duel_id?: string;
+    source_model?: string;
+    reference_campaign_id?: string | null;
     // PAS — flags internas para chamada recursiva auto-gerada (não documentado em API pública).
     [PAS_RECURSION_GUARD_FIELD]?: boolean;
     _pas_source_proposal_id?: string;
@@ -646,6 +653,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const requestedModel = (typeof body.model === "string" && body.model.trim()) ? body.model.trim() : null;
   const modelId = requestedModel && MODEL_ALLOWLIST.has(requestedModel) ? requestedModel : AI_MODEL;
   const dryRun = body.dry_run === true;
+  // DR-2026-06-27d — async_persist: validações (exclusivo de dry_run; exige duel_id+source_model).
+  const asyncPersist = body.async_persist === true;
+  const asyncDuelId = typeof body.duel_id === "string" ? body.duel_id.trim() : "";
+  const asyncSourceModel = typeof body.source_model === "string" ? body.source_model.trim() : "";
+  const asyncReferenceCampaignId = typeof body.reference_campaign_id === "string" && body.reference_campaign_id.trim()
+    ? body.reference_campaign_id.trim()
+    : null;
+  if (asyncPersist && dryRun) {
+    return json({ error: "async_persist_and_dry_run_exclusive" }, 400);
+  }
+  if (asyncPersist && (!asyncDuelId || !asyncSourceModel)) {
+    return json({ error: "missing_async_persist_fields", required: ["duel_id", "source_model"] }, 400);
+  }
   const ctIn = body.constraints ?? {};
   const inh = body.inheritance_decisions ?? null;
   const pauseOriginalMode: "immediate" | "delayed_7d" | "manual" =
