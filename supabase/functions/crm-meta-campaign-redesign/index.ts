@@ -2526,11 +2526,17 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
   // chamada interna falhar, o plano principal volta normalmente sem alternative_plan.
   // Custo: 2 chamadas LLM por redesign impossible (+30-60s latência).
   const isAlternativeRun = body?.[PAS_RECURSION_GUARD_FIELD] === true;
+  // DR-2026-06-27d P1 — no modo async (duelo), saltar PAS: duplica geração e
+  // reintroduz self-fetch HTTP edge→edge dentro do waitUntil.
+  if (isAsyncMode && plan?.summary?.feasibility === "impossible" && Array.isArray(plan?.counter_proposals) && plan.counter_proposals.length > 0 && !isAlternativeRun) {
+    console.log("[redesign][async] PAS skipped (async mode)");
+  }
   if (
     plan?.summary?.feasibility === "impossible"
     && Array.isArray(plan.counter_proposals)
     && plan.counter_proposals.length > 0
     && !isAlternativeRun
+    && !isAsyncMode
   ) {
     try {
       const topProposal = [...plan.counter_proposals]
