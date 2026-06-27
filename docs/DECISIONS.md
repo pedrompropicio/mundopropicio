@@ -214,3 +214,26 @@ Anti-corrida (2 redesigns terminam em paralelo): cada modelo escreve só as SUAS
 Timeout: SEM cron watchdog. A UI deriva 'expirado' quando passam >5 min sem candidatos nem *_finished_at. Cron fica como follow-up só se necessário.
 
 Modelos do duelo: google/gemini-2.5-pro × openai/gpt-5 (grande, agora viável pela via assíncrona). temperature condicional já tratada (omitida para openai/*). Retry de 502/empty no redesign já aplicado.
+
+## DR-2026-06-27e — From-scratch é função SEPARADA, não ramificação do redesign
+
+**Contexto:** A sub-tarefa 8 (criar campanha do zero usando uma campanha vencedora como referência, ou sem referência nenhuma para evento novo) exige um motor que corra SEM campanha-fonte. O mapeamento read-only do crm-meta-campaign-redesign revelou 9 pontos de acoplamento à campanha-fonte (R1-R9): entrada/validação exige campaign_id; carregamento de meta_campaign_snapshot; diagnóstico 360 hard-fail 422; anchoring/viability vivem do histórico da campanha; gate de feasibility compara baseline vs target; criativos herdados vêm da fonte; custom audiences via connection_id/ad_account_id da fonte; brief v2 exige campaign_id; persistência usa source_campaign_id.
+
+**Decisão:** Criar uma edge function SEPARADA `crm-meta-campaign-from-scratch` em vez de ramificar o redesign com `if (fromScratch)`. Razão: o redesign está construído à volta de "tenho campanha, vou melhorá-la"; o from-scratch é conceptualmente diferente (sem baseline, sem diagnóstico, sem anchoring de campanha morta). Ramificar encheria o motor crítico de condicionais frágeis e arriscaria o redesenho já validado. A função separada reusa HELPERS PUROS partilhados (montagem de prompt, normalização de plano, resolveEffectiveEventDate, buildCampaignBrief em modo ref/blank) mas tem o seu próprio fluxo.
+
+**Três cenários suportados:**
+1. From-scratch COM referência (evento novo + campanha vencedora como molde): ancora ao ROAS REAL da campanha de referência (não inventado).
+2. From-scratch SEM referência (evento novo sem histórico): SEM âncora; ROAS-alvo é INPUT do Pedro; plano marcado "estrutura de arranque" (não é projeção).
+3. Recomeçar o mesmo evento do zero (campanha esgotada): usa a própria campanha como referência. Já tem botão na UI ("Começar do zero"/"Novo desenho").
+
+**Três estados de anchoring (P0 mantido — LLM nunca inventa número):**
+- redesign → ancora à própria campanha (histórico real)
+- from_scratch_ref → ancora ao ROAS da campanha de referência (histórico real dela)
+- from_scratch_blank → sem âncora; ROAS-alvo vem do input do Pedro; confidence cap baixo + statistical floor sobre o BUDGET planeado (não sobre histórico)
+
+**Entrada:** nova opção no menu lateral do MP Audience ("Criar campanha") + formulário único. Evento-alvo: escolher evento existente OU criar à mão (nome/data/local/meta de bilhetes). Referência: opcional, escolhida de uma lista de campanhas boas. Botões dentro da campanha mantêm-se para o cenário 3.
+
+**Helpers a partilhar (extrair para _shared se preciso, sem tocar no comportamento do redesign):** montagem do bloco de prompt comum, normalizePlanInPlace, resolveEffectiveEventDate, buildCampaignBrief (com modo ref-only/blank a adicionar), persistência em meta_campaign_strategies.
+
+**Plano de construção por fases:** (F1) brief v2 ganha modo ref-only/blank sem partir o uso atual; (F2) edge function from-scratch nova com os 3 cenários, reusando helpers; (F3) UI — entrada no menu + formulário; (F4) ligar botões existentes da campanha ao cenário 3. Cada fase verificada por diff/BD antes da seguinte.
+
