@@ -1832,10 +1832,11 @@ export default function CrmCampaigns() {
         (c.daily_budget_cents ?? 0) > 0 ||
         (c.lifetime_budget_cents ?? 0) > 0;
       const adsetsHaveBudget = (adsetSums.get(c.external_campaign_id) ?? 0) > 0;
-      const mode: BudgetMode = campaignHasBudget
-        ? "CBO"
-        : adsetsHaveBudget
-          ? "ABO"
+      // Precedência: ABO ganha sobre budget stale na campanha (ver CampaignView L762-790).
+      const mode: BudgetMode = adsetsHaveBudget
+        ? "ABO"
+        : campaignHasBudget
+          ? "CBO"
           : "unknown";
       map.set(c.external_campaign_id, mode);
     }
