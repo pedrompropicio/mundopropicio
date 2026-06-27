@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Accordion,
   AccordionContent,
@@ -447,6 +448,9 @@ export default function CrmCampaignView() {
   // Tela de decisão: diagnóstico on-demand + escolha de acção (postura).
   const [diagnosing, setDiagnosing] = useState(false);
   const [selectedAlt, setSelectedAlt] = useState<string | null>(null);
+  // DR-2026-06-27d — modo duelo (default OFF)
+  const [duelMode, setDuelMode] = useState(false);
+  const [duelLaunching, setDuelLaunching] = useState(false);
   // Intervenção cirúrgica (Etapa 3): prescrição on-demand + aprovação por ação.
   // Painel de prescrição partilhado pelo cirúrgico (Etapa 3) e pela escala (Etapa 4).
   const [surgicalOpen, setSurgicalOpen] = useState(false);
@@ -949,6 +953,40 @@ export default function CrmCampaignView() {
     }
   }
 
+  // DR-2026-06-27d — dispara duelo Gemini-Pro × GPT-5 e navega para /audience/duels/:duel_id
+  async function launchDuel() {
+    if (!campaign || !diagnosis) return;
+    setDuelLaunching(true);
+    try {
+      const target = Number(diagnosis?.target_roas) || 8;
+      const { data, error } = await supabase.functions.invoke("crm-audience-duel", {
+        body: {
+          campaign_id: campaign.external_campaign_id,
+          caps: { target_blended_roas: target },
+        },
+      });
+      if (error) {
+        let detail = error.message;
+        const ctx = (error as any).context;
+        if (ctx) {
+          try {
+            const b = await (ctx.clone ? ctx.clone() : ctx).json();
+            detail = b?.detail || b?.error || detail;
+          } catch {}
+        }
+        throw new Error(detail);
+      }
+      const duelId = (data as any)?.duel_id;
+      if (!duelId) throw new Error("Resposta sem duel_id");
+      toast.success("Duelo iniciado");
+      navigate(`/audience/duels/${duelId}`);
+    } catch (e: any) {
+      toast.error("Falha a iniciar duelo", { description: e?.message ?? String(e) });
+    } finally {
+      setDuelLaunching(false);
+    }
+  }
+
   function goRedesign() {
     if (!campaign) return;
     navigate(`/audience/strategies/redesign/${campaign.external_campaign_id}`);
@@ -1180,18 +1218,56 @@ export default function CrmCampaignView() {
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <Activity className="h-4 w-4 text-cyan-400" /> Diagnóstico &amp; Decisão
           </h2>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={diagnosing}
-            onClick={runDiagnose}
-            className="h-7 px-2 text-[11px]"
-          >
-            {diagnosing
-              ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-              : <RefreshCw className="h-3 w-3 mr-1" />}
-            {diagnosis ? "Re-diagnosticar" : "Diagnosticar agora"}
-          </Button>
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* DR-2026-06-27d — toggle Modo duelo */}
+            <TooltipProvider delayDuration={150}>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="duel-mode"
+                  checked={duelMode}
+                  onCheckedChange={setDuelMode}
+                />
+                <label htmlFor="duel-mode" className="text-[11px] text-muted-foreground cursor-pointer select-none">
+                  Modo duelo
+                </label>
+              </div>
+              {duelMode && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        disabled={!diagnosis || duelLaunching}
+                        onClick={launchDuel}
+                        className="h-7 px-2 text-[11px] bg-cyan-500 hover:bg-cyan-600 text-white"
+                      >
+                        {duelLaunching
+                          ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          : <Sparkles className="h-3 w-3 mr-1" />}
+                        Gerar duelo (Gemini-Pro × GPT-5)
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {!diagnosis && (
+                    <TooltipContent>Faz primeiro o diagnóstico 360</TooltipContent>
+                  )}
+                </Tooltip>
+              )}
+            </TooltipProvider>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={diagnosing}
+              onClick={runDiagnose}
+              className="h-7 px-2 text-[11px]"
+            >
+              {diagnosing
+                ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                : <RefreshCw className="h-3 w-3 mr-1" />}
+              {diagnosis ? "Re-diagnosticar" : "Diagnosticar agora"}
+            </Button>
+          </div>
         </div>
 
         {!diagnosis ? (
