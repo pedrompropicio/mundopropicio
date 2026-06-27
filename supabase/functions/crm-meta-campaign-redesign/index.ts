@@ -2029,7 +2029,7 @@ REGRAS RÍGIDAS:
     if (ar?.items?.length) {
       const top = [...ar.items]
         .sort((a, b) => (b.roas ?? -1) - (a.roas ?? -1))
-        .slice(0, 8);
+        .slice(0, 4);
       lines.push("");
       lines.push("-- AUDIENCE_RANKING (top por ROAS; atribuição co-presença) --");
       lines.push(`nota: ${ar.note}`);
