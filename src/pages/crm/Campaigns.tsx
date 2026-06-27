@@ -1,4 +1,14 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useRef } from "react";
+
+// ============================================================
+// BudgetMode context — replica do critério canónico do detalhe
+// (CampaignView.tsx L766-787): CBO ⇔ campanha tem budget>0;
+// ABO ⇔ soma de budgets dos adsets>0; senão unknown.
+// Resolve o falso CBO causado por daily_budget_cents stale ao
+// nível da campanha em campanhas ABO.
+// ============================================================
+type BudgetMode = "ABO" | "CBO" | "unknown";
+const BudgetModeContext = createContext<Map<string, BudgetMode>>(new Map());
 import { Navigate, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow, parseISO, subDays, differenceInDays, startOfDay } from "date-fns";
@@ -692,6 +702,7 @@ function CampaignTableRow({
   const isPaused = (c.effective_status ?? c.status) === "PAUSED";
   const isReplaced = c.replaced_by_strategy_id != null;
   const navigate = useNavigate();
+  const budgetModeByCampaign = useContext(BudgetModeContext);
   const agg = useMemo(() => aggregate(insights), [insights]);
   const aggPrev = useMemo(() => aggregate(prevInsights), [prevInsights]);
   const cpcAvg = agg.clicks > 0 ? Math.round(agg.spendCents / agg.clicks) : null;
@@ -962,7 +973,13 @@ function CampaignTableRow({
               onReassigned={tourContext.onReassigned}
             />
           )}
-          {onEdited && <EditCampaignPopover c={c} onSaved={onEdited} />}
+          {onEdited && (
+            <EditCampaignPopover
+              c={c}
+              onSaved={onEdited}
+              budgetMode={budgetModeByCampaign.get(c.external_campaign_id)}
+            />
+          )}
         </div>
       </td>
     </tr>
@@ -1776,7 +1793,55 @@ export default function CrmCampaigns() {
     },
   });
 
-  // ---------- Insights (last 60d to support sparkline + period + previous period) ----------
+  // ---------- Adset budgets (apenas p/ derivar ABO/CBO real por campanha) ----------
+  // Critério canónico replicado de CampaignView.tsx L766-787:
+  // CBO ⇔ campanha tem budget>0; ABO ⇔ soma de budgets dos adsets>0; senão unknown.
+  // Necessário porque o Meta devolve daily_budget_cents stale ao nível da campanha
+  // em ABO — não dá para confiar só em campaigns.daily_budget_cents.
+  const { data: adsetBudgetRows } = useQuery({
+    queryKey: ["crm-meta-adset-budgets", companyId, adAccountId],
+    enabled: isAuthorized && !!companyId && !!adAccountId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_adset_snapshot")
+        .select("external_campaign_id, daily_budget_cents, lifetime_budget_cents")
+        .eq("ad_account_id", adAccountId);
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        external_campaign_id: string;
+        daily_budget_cents: number | null;
+        lifetime_budget_cents: number | null;
+      }>;
+    },
+  });
+
+  const budgetModeByCampaign = useMemo(() => {
+    const adsetSums = new Map<string, number>();
+    for (const r of adsetBudgetRows ?? []) {
+      const sum =
+        (r.daily_budget_cents ?? 0) + (r.lifetime_budget_cents ?? 0);
+      adsetSums.set(
+        r.external_campaign_id,
+        (adsetSums.get(r.external_campaign_id) ?? 0) + sum,
+      );
+    }
+    const map = new Map<string, BudgetMode>();
+    for (const c of campaigns ?? []) {
+      const campaignHasBudget =
+        (c.daily_budget_cents ?? 0) > 0 ||
+        (c.lifetime_budget_cents ?? 0) > 0;
+      const adsetsHaveBudget = (adsetSums.get(c.external_campaign_id) ?? 0) > 0;
+      const mode: BudgetMode = campaignHasBudget
+        ? "CBO"
+        : adsetsHaveBudget
+          ? "ABO"
+          : "unknown";
+      map.set(c.external_campaign_id, mode);
+    }
+    return map;
+  }, [campaigns, adsetBudgetRows]);
+
   const { data: insights, isLoading: insightsLoading } = useQuery({
     queryKey: ["crm-meta-insights", companyId, adAccountId],
     enabled: isAuthorized && !!companyId && !!adAccountId,
@@ -2219,6 +2284,7 @@ export default function CrmCampaigns() {
   const loadingAny = campaignsLoading || insightsLoading;
 
   return (
+    <BudgetModeContext.Provider value={budgetModeByCampaign}>
     <div className="space-y-5">
       {/* Sticky header */}
       <div className="sticky top-16 z-30 -mx-6 px-6 py-4 bg-background/95 backdrop-blur border-b border-border">
@@ -3208,6 +3274,7 @@ export default function CrmCampaigns() {
         }
       />
     </div>
+    </BudgetModeContext.Provider>
   );
 }
 
