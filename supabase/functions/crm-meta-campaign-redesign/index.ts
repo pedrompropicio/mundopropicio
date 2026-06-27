@@ -1816,6 +1816,7 @@ type GenerationPipelineCtx = {
   downtrendPreWarnings: Array<{ type?: string; severity: "high" | "medium"; title: string; description: string }>;
   downtrendDropPct: number | null;
   modelId: string;
+  asyncPersist: boolean;
 };
 
 type GenerationPipelineResult = {
