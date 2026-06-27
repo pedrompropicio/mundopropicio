@@ -2073,7 +2073,7 @@ REGRAS RÍGIDAS:
     if (fatigued.length) {
       lines.push("");
       lines.push("-- CRIATIVOS FATIGADOS (evita ou renova) --");
-      for (const f of fatigued.slice(0, 10)) {
+      for (const f of fatigued.slice(0, 5)) {
         const r7 = (f.fatigue as any)?.roas_7d;
         const rp = (f.fatigue as any)?.roas_prev7d;
         const fmt = (x: any) => (typeof x === "number" ? `${x.toFixed(2)}x` : "n/a");
