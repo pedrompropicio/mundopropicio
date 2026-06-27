@@ -328,26 +328,37 @@ async function callModel(model: string, prompt: string, timeoutMs = 280000): Pro
     let parsed: Record<string, unknown>;
     try { parsed = JSON.parse(txt); } catch { return { ok: false, err: `bad_gateway_json: ${txt.slice(0, 400)}` }; }
     const content = (parsed?.choices as Array<{message?:{content?:string}}>)?.[0]?.message?.content ?? "";
-    if (!content) return { ok: false, err: `empty_content: ${txt.slice(0, 400)}` };
+    if (!content) {
+      console.error(`[duel][gateway-empty] model=${model} status=${r.status} body=${txt.slice(0, 800)}`);
+      return { ok: false, err: `empty_content: ${txt.slice(0, 400)}` };
+    }
     return { ok: true, data: parseProposal(content) };
   } catch (e) {
     return { ok: false, err: (e as Error)?.message ?? String(e) };
   } finally { clearTimeout(t); }
 }
 
-async function callModelWithRetry(model: string, prompt: string, maxAttempts = 2): Promise<{ ok: true; data: unknown } | { ok: false; err: string }> {
+async function callModelWithRetry(model: string, prompt: string, maxAttempts = 3): Promise<{ ok: true; data: unknown } | { ok: false; err: string }> {
   let last: { ok: true; data: unknown } | { ok: false; err: string } = { ok: false, err: "no_attempt" };
+  const backoffs = [1500, 3000, 6000];
   for (let n = 1; n <= maxAttempts; n++) {
     const res = await callModel(model, prompt);
     const isParseErr = res.ok && res.data && typeof res.data === "object" && (res.data as { __parse_error?: boolean }).__parse_error === true;
     const okUseful = res.ok && !isParseErr;
     console.log(`[duel] ${model} attempt ${n}/${maxAttempts} ok=${okUseful}`);
     if (okUseful) return res;
-    last = res.ok ? { ok: false, err: `parse_error: ${JSON.stringify((res.data as { raw?: string })?.raw ?? "").slice(0, 400)}` } : res;
-    if (n < maxAttempts) await new Promise((r) => setTimeout(r, 1500));
+    if (res.ok && isParseErr) {
+      const raw = String((res.data as { raw?: string })?.raw ?? "");
+      console.error(`[duel][gateway-empty] kind=parse_error model=${model} attempt=${n} raw=${raw.slice(0, 800)}`);
+      last = { ok: false, err: `parse_error: ${raw.slice(0, 400)}` };
+    } else {
+      last = res as { ok: false; err: string };
+    }
+    if (n < maxAttempts) await new Promise((r) => setTimeout(r, backoffs[n - 1] ?? 3000));
   }
   return last;
 }
+
 
 // ────────────────────────────────────────────────────────────────────────────
 // Persistência candidatos
