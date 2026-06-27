@@ -10,6 +10,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { normalizePlanInPlace } from "../_shared/plan-normalize.ts";
 import { resolveInterestsInPlace } from "../_shared/resolve-interests.ts";
 import { resolveCustomLocationsInPlace } from "../_shared/resolve-geo.ts";
+import { buildCampaignBrief, type CampaignBrief } from "../_shared/campaign-brief.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -1981,6 +1982,130 @@ REGRAS RÍGIDAS:
       `\n(usa estes ids VERBATIM em targeting_json.custom_audiences[].id e exclusions.custom_audiences[].id)\n`
     : `\n== CUSTOM AUDIENCES ==\n(nenhuma audience disponível ou fetch falhou — NÃO uses custom_audiences nem exclusions com ids inventados)\n`;
 
+  // ───────────────────────────────────────────────────────────────────────
+  // CampaignBrief v2 (DR-2026-06-27b) — evidência histórica, não molde.
+  // Construído fresco a cada chamada. Falha do brief NÃO bloqueia a geração:
+  // se rebentar, log + brief=null + fallback silencioso (prompt antigo).
+  // P0 mantido: o brief INFORMA o desenho; números/gates não são tocados.
+  // ───────────────────────────────────────────────────────────────────────
+  let brief: CampaignBrief | null = null;
+  try {
+    brief = await buildCampaignBrief({
+      supabase,
+      campaign_id: campaign.external_campaign_id,
+      caps: {
+        target_blended_roas: targetBlendedRoas,
+        daily_budget_cents: effDailyCents,
+        roas_floor: effRoasFloor,
+        end_time: effEndTime,
+      },
+      meta_access_token: accessToken ?? undefined,
+      reference_campaign_id: (typeof body?.reference_campaign_id === "string" && body.reference_campaign_id.trim())
+        ? body.reference_campaign_id.trim()
+        : undefined,
+    });
+  } catch (e) {
+    console.warn(`[redesign] brief build failed: ${(e as Error).message}`);
+    brief = null;
+  }
+
+  // Serializa o brief num bloco compacto (~4000 chars cap). Selecciona só o
+  // que importa para o DESENHO; resto do JSON fica de fora.
+  const briefBlock: string = (() => {
+    if (!brief) return "";
+    const lines: string[] = [];
+    lines.push("== EVIDÊNCIA HISTÓRICA (não é molde) ==");
+    lines.push(
+      "Os blocos abaixo são o que os dados REAIS desta conta mostram que funcionou ou saturou. " +
+      "Usa-os para INFORMAR escolhas de audiências, criativos e formatos — NÃO copies cegamente. " +
+      "Se a evidência for fraca/escassa, confia no teu julgamento estratégico. " +
+      "Audiências/criativos com bom desempenho são candidatos fortes a reutilizar; saturados/fatigados devem ser evitados ou renovados; formatos em falta são oportunidades. " +
+      "Tu desenhas a estratégia; a evidência só informa.",
+    );
+
+    // Audience ranking — top 8 por ROAS
+    const ar = brief.audience_ranking;
+    if (ar?.items?.length) {
+      const top = [...ar.items]
+        .sort((a, b) => (b.roas ?? -1) - (a.roas ?? -1))
+        .slice(0, 8);
+      lines.push("");
+      lines.push("-- AUDIENCE_RANKING (top por ROAS; atribuição co-presença) --");
+      lines.push(`nota: ${ar.note}`);
+      for (const it of top) {
+        const roas = it.roas != null ? `${it.roas.toFixed(2)}x` : "n/a";
+        const used = (it.used_in_adsets ?? []).slice(0, 3).join(",");
+        lines.push(
+          `- "${it.name ?? it.audience_id}" — roas=${roas} | purchases=${it.purchases_count} | spend=€${it.spend_eur.toFixed(2)} | label=${it.label} | used_in_adsets=[${used}${(it.used_in_adsets?.length ?? 0) > 3 ? "…" : ""}]`,
+        );
+      }
+    }
+
+    // Adset saturation — só os saturating
+    const sat = (brief.adset_saturation ?? []).filter((s) => s.saturating);
+    if (sat.length) {
+      lines.push("");
+      lines.push("-- ADSETS A SATURAR (evita repetir esta receita) --");
+      for (const s of sat.slice(0, 10)) {
+        const fb = s.frequency_b != null ? s.frequency_b.toFixed(2) : "n/a";
+        const ctrb = s.ctr_b != null ? (s.ctr_b * 100).toFixed(2) + "%" : "n/a";
+        const cpmb = s.cpm_b_eur != null ? `€${s.cpm_b_eur.toFixed(2)}` : "n/a";
+        lines.push(`- "${s.name ?? s.external_adset_id}" — freq=${fb} | ctr=${ctrb} | cpm=${cpmb}`);
+      }
+    }
+
+    // Winners packet — winners + fatigued
+    const wp = brief.winners_packet ?? [];
+    const winners = wp.filter((w) => w.label === "winner");
+    const fatigued = wp.filter((w) => w.fatigue?.fatigued === true);
+    if (winners.length) {
+      lines.push("");
+      lines.push("-- CRIATIVOS VENCEDORES (candidatos a reutilizar) --");
+      for (const w of winners.slice(0, 10)) {
+        const roas = w.performance?.roas != null ? `${w.performance.roas.toFixed(2)}x` : "n/a";
+        const type = w.library?.type ?? "?";
+        const head = w.library?.headline ? ` | hook="${w.library.headline}"` : "";
+        const cta = w.library?.cta_type ? ` | cta=${w.library.cta_type}` : "";
+        lines.push(`- ${w.meta_creative_id} (${type}) "${w.ad_name ?? w.library?.name ?? "?"}" — roas=${roas}${head}${cta}`);
+      }
+    }
+    if (fatigued.length) {
+      lines.push("");
+      lines.push("-- CRIATIVOS FATIGADOS (evita ou renova) --");
+      for (const f of fatigued.slice(0, 10)) {
+        const r7 = (f.fatigue as any)?.roas_7d;
+        const rp = (f.fatigue as any)?.roas_prev7d;
+        const fmt = (x: any) => (typeof x === "number" ? `${x.toFixed(2)}x` : "n/a");
+        lines.push(`- ${f.meta_creative_id} "${f.ad_name ?? "?"}" — roas_7d=${fmt(r7)} vs roas_prev7d=${fmt(rp)}`);
+      }
+    }
+
+    // Format gaps
+    const fg = brief.format_gaps;
+    if (fg) {
+      lines.push("");
+      lines.push("-- FORMAT_GAPS --");
+      lines.push(`winners_by_type=${JSON.stringify(fg.winners_by_type)}`);
+      lines.push(`types_missing=[${(fg.types_missing ?? []).join(",")}] | types_underrepresented=[${(fg.types_underrepresented ?? []).join(",")}]`);
+    }
+
+    // Viability snapshot
+    const v = brief.viability;
+    if (v) {
+      lines.push("");
+      lines.push("-- VIABILITY (contexto de gap face ao alvo) --");
+      const gap = v.roas_gap != null ? v.roas_gap.toFixed(2) + "x" : "n/a";
+      const dsn = v.daily_spend_needed_eur != null ? `€${v.daily_spend_needed_eur.toFixed(2)}/dia` : "n/a";
+      lines.push(`roas_gap=${gap} | severity=${v.gap_severity} | daily_spend_needed=${dsn} | meets_statistical_floor=${v.meets_statistical_floor}`);
+    }
+
+    let out = lines.join("\n");
+    if (out.length > 4000) {
+      out = out.slice(0, 3980) + "\n…[truncado]";
+    }
+    return out;
+  })();
+
   const inheritedBlock = inheritedCreatives.length > 0
     ? `\n== CRIATIVOS DISPONÍVEIS (REAPROVEITAR POR DEFEITO) ==
 A campanha original tem ${inheritedCreatives.length} criativo(s) que JÁ EXISTEM no Meta. **Reaproveita-os por defeito** — não peças briefs novos para o que já está bom.
@@ -2034,7 +2159,7 @@ ${crossEventContextText}
 ${inheritanceDecisionsText}
 ${viabilityBlock}
 ${downtrendInstructionsBlock}
-== META PRINCIPAL ==
+${briefBlock ? briefBlock + "\n" : ""}== META PRINCIPAL ==
 ROAS alvo BLENDED do evento: ${targetBlendedRoas.toFixed(1)}x (agregado entre TODAS as fases — não por campanha/adset individual).
 Avaliação por fase: fases REACH/AWARENESS/VIDEO_VIEWS terão ROAS individual baixo (esperado 0–2x); fases CONVERSIONS/SALES devem entregar ROAS >=${targetBlendedRoas.toFixed(1)}x para puxar o blended; retargeting deve entregar 10–20x.
 ROAS floor é HARD CONSTRAINT: nenhuma phase com peso >${(HIGH_BUDGET_SHARE_THRESHOLD * 100).toFixed(0)}% do budget total pode propor target_kpis.roas_min inferior a ${targetBlendedRoas.toFixed(1)}x.
