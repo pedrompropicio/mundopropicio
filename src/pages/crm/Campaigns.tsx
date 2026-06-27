@@ -339,11 +339,31 @@ function deltaPct(curr: number, prev: number): number | null {
 // ============================================================
 // Edit Campaign Popover (inline)
 // ============================================================
-export function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: () => void }) {
+export function EditCampaignPopover({
+  c,
+  onSaved,
+  budgetMode,
+}: {
+  c: CampaignRow;
+  onSaved: () => void;
+  /** ABO/CBO determinado pelo caller (CampaignView passa budgetSummary.mode).
+   *  Quando ausente, deriva heuristicamente do próprio c. */
+  budgetMode?: "ABO" | "CBO" | "unknown";
+}) {
+  // Sinal canónico ABO/CBO: se o caller passou, usa; senão deriva
+  // (CBO ⇔ campanha tem budget > 0; ABO ⇔ não tem).
+  const resolvedMode: "ABO" | "CBO" | "unknown" =
+    budgetMode ??
+    ((c.daily_budget_cents ?? 0) > 0 || (c.lifetime_budget_cents ?? 0) > 0
+      ? "CBO"
+      : "ABO");
+  const isAbo = resolvedMode === "ABO";
+
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(c.name);
+  // Em ABO não mostramos o campo; mantemos estado vazio para o payload não enviar verba.
   const [dailyEur, setDailyEur] = useState(
-    c.daily_budget_cents ? (c.daily_budget_cents / 100).toFixed(2) : "",
+    !isAbo && c.daily_budget_cents ? (c.daily_budget_cents / 100).toFixed(2) : "",
   );
   const [endDate, setEndDate] = useState(c.stop_time ? c.stop_time.slice(0, 10) : "");
   const [roasGoal, setRoasGoal] = useState("");
@@ -356,7 +376,8 @@ export function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: (
   const handleApply = async () => {
     const updates: any = {};
     if (name.trim() && name.trim() !== c.name) updates.name = name.trim();
-    if (dailyEur) {
+    // Em ABO o campo de verba não é mostrado e nunca é enviado.
+    if (!isAbo && dailyEur) {
       const n = parseFloat(dailyEur.replace(",", "."));
       if (Number.isFinite(n) && n > 0) {
         const cents = Math.round(n * 100);
@@ -473,24 +494,31 @@ export function EditCampaignPopover({ c, onSaved }: { c: CampaignRow; onSaved: (
             <Label htmlFor={`edit-name-${c.id}`} className="text-xs">Nome</Label>
             <Input id={`edit-name-${c.id}`} value={name} onChange={(e) => setName(e.target.value)} />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor={`edit-daily-${c.id}`} className="text-xs">Verba diária ({c.currency ?? "EUR"})</Label>
-            <Input
-              id={`edit-daily-${c.id}`}
-              type="number"
-              step="0.01"
-              min="0"
-              value={dailyEur}
-              onChange={(e) => setDailyEur(e.target.value)}
-            />
-            {capEur === null ? (
-              <p className="text-[11px] text-muted-foreground">Limite: sem restrição</p>
-            ) : capEur === 0 ? (
-              <p className="text-[11px] text-destructive">Sem autoridade para alterar verba</p>
-            ) : typeof capEur === "number" ? (
-              <p className="text-[11px] text-muted-foreground">Limite: {formatMoney(capEur, c.currency)}/dia</p>
-            ) : null}
-          </div>
+          {isAbo ? (
+            <div className="rounded-md border border-border/60 bg-muted/30 p-2 text-[11px] text-muted-foreground">
+              Campanha <span className="font-medium text-foreground">ABO</span> — a verba é
+              gerida por adset. Edita a verba em cada adset.
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <Label htmlFor={`edit-daily-${c.id}`} className="text-xs">Verba diária ({c.currency ?? "EUR"})</Label>
+              <Input
+                id={`edit-daily-${c.id}`}
+                type="number"
+                step="0.01"
+                min="0"
+                value={dailyEur}
+                onChange={(e) => setDailyEur(e.target.value)}
+              />
+              {capEur === null ? (
+                <p className="text-[11px] text-muted-foreground">Limite: sem restrição</p>
+              ) : capEur === 0 ? (
+                <p className="text-[11px] text-destructive">Sem autoridade para alterar verba</p>
+              ) : typeof capEur === "number" ? (
+                <p className="text-[11px] text-muted-foreground">Limite: {formatMoney(capEur, c.currency)}/dia</p>
+              ) : null}
+            </div>
+          )}
           <div className="space-y-1">
             <Label className="text-xs">Data de fim (opcional)</Label>
             <DatePicker value={endDate} onChange={setEndDate} />
