@@ -2284,6 +2284,7 @@ export default function CrmCampaigns() {
   const loadingAny = campaignsLoading || insightsLoading;
 
   return (
+    <BudgetModeContext.Provider value={budgetModeByCampaign}>
     <div className="space-y-5">
       {/* Sticky header */}
       <div className="sticky top-16 z-30 -mx-6 px-6 py-4 bg-background/95 backdrop-blur border-b border-border">
