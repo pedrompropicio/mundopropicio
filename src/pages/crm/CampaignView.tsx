@@ -760,9 +760,12 @@ export default function CrmCampaignView() {
 
 
   // ── ABO vs CBO detection ─────────────────────────────────────────────────
-  // CBO: orçamento ao nível da campanha. ABO: orçamento ao nível dos adsets.
-  // Regra prática: se a campanha tem daily/lifetime_budget_cents → CBO; senão
-  // se a soma dos adsets > 0 → ABO; caso contrário, unknown.
+  // Precedência: ABO ganha. Razão: no Meta, ABO = budget vive nos adsets;
+  // a campanha pode reter um daily/lifetime stale ao nível da campanha que
+  // NÃO reflete o orçamento real. Se os adsets têm budget próprio é ABO.
+  //   adsetsHaveBudget > 0  → ABO
+  //   senão campaignHasBudget → CBO
+  //   senão unknown
   const budgetSummary = useMemo(() => {
     const list = adsets ?? [];
     const sumDaily = list.reduce((s, a) => s + (a.daily_budget_cents ?? 0), 0);
@@ -771,17 +774,17 @@ export default function CrmCampaignView() {
       (campaign?.daily_budget_cents ?? 0) > 0 ||
       (campaign?.lifetime_budget_cents ?? 0) > 0;
     const adsetsHaveBudget = sumDaily > 0 || sumLifetime > 0;
-    const mode: "CBO" | "ABO" | "unknown" = campaignHasBudget
-      ? "CBO"
-      : adsetsHaveBudget
-        ? "ABO"
+    const mode: "CBO" | "ABO" | "unknown" = adsetsHaveBudget
+      ? "ABO"
+      : campaignHasBudget
+        ? "CBO"
         : "unknown";
     return {
       mode,
       daily_cents:
-        mode === "CBO" ? campaign?.daily_budget_cents ?? null : sumDaily || null,
+        mode === "ABO" ? sumDaily || null : campaign?.daily_budget_cents ?? null,
       lifetime_cents:
-        mode === "CBO" ? campaign?.lifetime_budget_cents ?? null : sumLifetime || null,
+        mode === "ABO" ? sumLifetime || null : campaign?.lifetime_budget_cents ?? null,
       adsetCount: list.length,
     };
   }, [campaign, adsets]);
