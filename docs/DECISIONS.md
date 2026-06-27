@@ -130,3 +130,43 @@ D4. buildCampaignBrief devolve o diagnosis_jsonb COMPLETO; cada caller trunca
     ao serializar para o prompt.
 D5. targetBlendedRoas é passado pelo caller em caps (não calculado dentro do
     brief).
+
+## DR-2026-06-27 — Duelo produz o schema CANÓNICO (não o esboço simples)
+
+### Contexto
+Na sub-tarefa 4 o `crm-audience-duel` foi construído a emitir um schema simples
+(`estrategia_geral`, `divisao_orcamento`, `adsets`, `conceitos_criativos`,
+`roas_esperado`). Verificou-se que NÃO corresponde ao schema canónico das
+estratégias (`phases`, `recommended_campaigns`, `creative_brief`,
+`inherited_creatives`, `kpis_global`, `budget_recommendation`, `scaling_rules`,
+`automation_metadata`, `risks_and_warnings`, `summary`, `redesign_rationale`)
+que o `StrategyView` renderiza e o pipeline de publicação consome.
+
+### Decisão
+O duelo passa a produzir o MESMO schema canónico que o gerador single-model
+(`crm-meta-campaign-redesign` / `strategy-generate`), alimentado pelo brief
+determinístico enriquecido, corrido com 2 modelos.
+
+### Razão
+O sentido do duelo é dois estrategas seniores a desenharem campanhas
+COMPLETAS e PUBLICÁVEIS sobre os mesmos factos — não um esboço genérico
+que qualquer gestor faz à mão. Um candidato do duelo fica indistinguível
+de uma estratégia normal exceto por `source_model` / `duel_id`.
+
+### Consequências
+- `StrategyView` renderiza candidatos sem adaptação.
+- Árbitro determinístico valida campos canónicos (anti-alucinação em
+  `recommended_campaigns[].adsets[].targeting_json.custom_audiences[].id`,
+  `inherited_creatives[].meta_creative_id`, `ads[].existing_creative_id`).
+- Selecionado é publicável: a ponte da sub-tarefa 6 (candidate→strategy
+  ativa→publish) fica trivial (basta promover `status='candidate'`→`'selected'`
+  e reusar o pipeline `MetaPublishPanel` existente).
+
+### Mantêm-se reaproveitados
+Brief determinístico único, enquadramento "evidência não molde", postura
+por classe (`source_campaign_class`), robustez Gemini (maxAttempts=3,
+backoff, log gateway-empty), persistência `duel_id` / `source_model` em
+`crm.meta_campaign_strategies` com `status='candidate'`.
+
+### Muda
+Só o bloco de instruções de schema que o LLM é instruído a produzir.
