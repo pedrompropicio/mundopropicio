@@ -1,0 +1,1 @@
+GRANT SELECT, INSERT, UPDATE ON crm.meta_campaign_strategies TO service_role;
