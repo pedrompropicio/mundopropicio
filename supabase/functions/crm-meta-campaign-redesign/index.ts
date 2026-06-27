@@ -1543,12 +1543,13 @@ INSTRUÇÕES DE USO DESTAS MÉTRICAS:
 `;
 
   // ─────────────────────────────────────────────────────────────────────────
-  // DR-2026-06-27d Fase 1 — pipeline de geração extraído para runGenerationPipeline
-  // (declarada no fim do ficheiro). Extracção pura, sem mudança de lógica/ordem.
-  // Caminho síncrono normal: usa esta função. Ramo async_persist: continua via
-  // self-fetch HTTP nesta fase; Fase 2 ligá-lo-á inline (sem HTTP).
+  // DR-2026-06-27d Fase 2 — fronteira prep↔pipeline.
+  // ctx capturado UMA vez; usado tanto no caminho síncrono como no async inline.
+  // async_persist: responde 202 AGORA (prep já correu) e corre o pipeline INLINE
+  // no waitUntil (sem self-fetch HTTP). Sucesso → INSERT do candidato via
+  // service_role + UPDATE das colunas do modelo. Falha → grava <modelo>_error.
   // ─────────────────────────────────────────────────────────────────────────
-  const pipelineResult = await runGenerationPipeline({
+  const pipelineCtx = {
     authHeader,
     apikey: req.headers.get("apikey") ?? "",
     body,
@@ -1583,9 +1584,92 @@ INSTRUÇÕES DE USO DESTAS MÉTRICAS:
     downtrendPreWarnings,
     downtrendDropPct,
     modelId,
-  });
+  };
+
+  if (asyncPersist) {
+    console.log(`[redesign][async] start inline duel=${asyncDuelId} model=${asyncSourceModel}`);
+    // @ts-ignore EdgeRuntime
+    EdgeRuntime.waitUntil((async () => {
+      const sbAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        db: { schema: "crm" as never },
+      });
+      try {
+        const result = await runGenerationPipeline(pipelineCtx);
+        if (result instanceof Response) {
+          let snippet = "";
+          try { snippet = (await result.text()).slice(0, 300); } catch { /* noop */ }
+          const msg = `pipeline_response_${result.status}: ${snippet}`;
+          console.error(`[redesign][async] pipeline devolveu Response duel=${asyncDuelId} model=${asyncSourceModel}: ${msg}`);
+          try { await updateModelCol(sbAdmin, { error: msg }); }
+          catch (e2) { console.error(`[redesign][async] update-erro falhou: ${(e2 as Error)?.message ?? e2}`); }
+          return;
+        }
+        const { plan } = result;
+
+        const { data: snap, error: snapErr } = await (sbAdmin as any)
+          .from("meta_campaign_snapshot")
+          .select("company_id, connection_id, ad_account_id, linked_event_id, name")
+          .eq("external_campaign_id", campaignId)
+          .maybeSingle();
+        if (snapErr || !snap) throw new Error(`snapshot_missing: ${snapErr?.message ?? "no_row"}`);
+
+        const rawAd = (snap as any).ad_account_id;
+        const adAccountIdAsync = rawAd
+          ? (String(rawAd).startsWith("act_") ? rawAd : `act_${rawAd}`)
+          : null;
+
+        const summary = (plan as any)?.summary ?? {};
+        const capsRoas = (body.constraints as any)?.target_blended_roas;
+        const target_roas =
+          typeof summary.expected_overall_roas === "number" ? summary.expected_overall_roas :
+          (typeof capsRoas === "number" ? capsRoas : null);
+        const goal_revenue_eur =
+          typeof summary.expected_revenue_eur === "number" ? summary.expected_revenue_eur : 0;
+        const total_budget_eur =
+          typeof summary.recommended_total_budget_eur === "number" ? summary.recommended_total_budget_eur : null;
+
+        const row = {
+          duel_id: asyncDuelId,
+          source_model: asyncSourceModel,
+          status: "candidate",
+          company_id: (snap as any).company_id,
+          connection_id: (snap as any).connection_id ?? null,
+          ad_account_id: adAccountIdAsync,
+          event_id: (snap as any).linked_event_id ?? null,
+          name: `[Duelo] ${(snap as any).name ?? campaignId} — ${asyncSourceModel}`.slice(0, 200),
+          goal_revenue_eur,
+          total_budget_eur,
+          target_roas,
+          generated_plan: plan,
+          generation_model: asyncSourceModel,
+          generated_at: new Date().toISOString(),
+          source_campaign_id: campaignId,
+          reference_campaign_id: asyncReferenceCampaignId,
+          created_by: userId,
+          pause_original_mode: "manual",
+        };
+        const { data: insData, error: insErr } = await (sbAdmin as any)
+          .from("meta_campaign_strategies").insert(row).select("id").single();
+        if (insErr) throw new Error(`insert_failed: ${insErr.message}`);
+        const candidateId = (insData as any)?.id as string;
+
+        await updateModelCol(sbAdmin, { candidate_id: candidateId, error: null });
+        console.log(`[redesign][async] ok duel=${asyncDuelId} model=${asyncSourceModel} candidate=${candidateId}`);
+      } catch (e) {
+        const msg = ((e as Error)?.message ?? String(e)).slice(0, 500);
+        console.error(`[redesign][async] erro duel=${asyncDuelId} model=${asyncSourceModel}: ${msg}`);
+        try { await updateModelCol(sbAdmin, { error: msg }); }
+        catch (e2) { console.error(`[redesign][async] update-erro falhou: ${(e2 as Error)?.message ?? e2}`); }
+      }
+    })());
+    return json({ accepted: true, duel_id: asyncDuelId, source_model: asyncSourceModel }, 202);
+  }
+
+  const pipelineResult = await runGenerationPipeline(pipelineCtx);
   if (pipelineResult instanceof Response) return pipelineResult;
   const { plan, rationale, usageTokens, constraintViolations, countries } = pipelineResult;
+
 
   const appliedConstraints = {
     keep_original_budget: keepOriginal,
