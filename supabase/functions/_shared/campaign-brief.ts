@@ -302,13 +302,20 @@ export type CampaignBrief = {
   };
 };
 
+export type BuildBriefMode = "full" | "reference_only" | "blank";
+
 export type BuildBriefArgs = {
   supabase: SupabaseClient;
-  campaign_id: string;
+  campaign_id: string | null;
   caps: BudgetCaps;
   reference_campaign_id?: string | null;
   period_days?: number;
   meta_access_token?: string | null;
+  // From-scratch (DR-2026-06-27e Fase 1)
+  mode?: BuildBriefMode;            // default 'full' — byte-equivalente ao comportamento anterior
+  event_id?: string | null;          // obrigatório em 'blank'; opcional em 'reference_only'
+  ad_account_id?: string | null;     // para custom audiences quando não há campanha-fonte
+  company_id?: string | null;        // para stub do objeto campaign{}
 };
 
 // ────────────────────────────────────────────────────────────────────────────
