@@ -301,93 +301,62 @@ async function runDuel(run_id: string, duel_id: string, args: RunArgs): Promise<
 
   try {
     if (args.mode === "canonical") {
-      const { authHeader, input, created_by } = args;
-      const basePayload: Record<string, unknown> = { campaign_id: input.campaign_id, dry_run: true };
+      // DR-2026-06-27d — fire-202: dispara 2 fetch ao redesign em modo async_persist.
+      // O redesign responde 202, corre o pipeline em background e faz ELE o INSERT
+      // do candidato + UPDATE das colunas do modelo em audience_duel_runs.
+      // Aqui só aguardamos o ACK (2xx) de cada chamada; se falhar, marcamos o erro
+      // de arranque na coluna do modelo (gemini_error/gpt_error + finished_at).
+      const { authHeader, input } = args;
+      const basePayload: Record<string, unknown> = {
+        campaign_id: input.campaign_id,
+        async_persist: true,
+        duel_id,
+      };
+      if (input.reference_campaign_id) basePayload.reference_campaign_id = input.reference_campaign_id;
       if (input.constraints) basePayload.constraints = input.constraints;
       if (typeof input.period_days === "number") basePayload.period_days = input.period_days;
 
-      const [gem, gpt] = await Promise.all([
-        callRedesign(authHeader, { ...basePayload, model: GEMINI_MODEL }),
-        callRedesign(authHeader, { ...basePayload, model: GPT_MODEL }),
-      ]);
-
-      // Resolve contexto da campanha-fonte para persistir candidatos
-      const { data: snap } = await (sbCrm as any)
-        .from("meta_campaign_snapshot")
-        .select("company_id, connection_id, ad_account_id, linked_event_id, name")
-        .eq("external_campaign_id", input.campaign_id)
-        .maybeSingle();
-
-      if (!snap) {
-        await sbCrm.from("audience_duel_runs").update({
-          status: "error",
-          gemini_error: gem.ok ? "snapshot_missing" : gem.err,
-          gpt_error: gpt.ok ? "snapshot_missing" : gpt.err,
-        }).eq("id", run_id);
-        return;
-      }
-
-      const adAccountId = (snap as any).ad_account_id?.startsWith?.("act_")
-        ? (snap as any).ad_account_id
-        : (snap as any).ad_account_id ? `act_${(snap as any).ad_account_id}` : null;
-
-      const targetRoas = input.caps?.target_blended_roas ?? null;
-      // Plano canónico traz summary.recommended_total_budget_eur e summary.expected_revenue_eur
-      const extractBudget = (plan: unknown): number | null => {
-        const s = (plan as { summary?: { recommended_total_budget_eur?: number } })?.summary;
-        return typeof s?.recommended_total_budget_eur === "number" ? s.recommended_total_budget_eur : null;
-      };
-      const extractRevenue = (plan: unknown): number | null => {
-        const s = (plan as { summary?: { expected_revenue_eur?: number } })?.summary;
-        return typeof s?.expected_revenue_eur === "number" ? s.expected_revenue_eur : null;
-      };
-      const extractRoas = (plan: unknown): number | null => {
-        const s = (plan as { summary?: { expected_overall_roas?: number } })?.summary;
-        return typeof s?.expected_overall_roas === "number" ? s.expected_overall_roas : null;
+      const fireOne = async (model: string): Promise<{ ok: true } | { ok: false; err: string }> => {
+        const ctrl = new AbortController();
+        // Ack do redesign deve ser <1s; damos margem generosa para arranque a frio.
+        const t = setTimeout(() => ctrl.abort(), 20_000);
+        try {
+          const r = await fetch(REDESIGN_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": authHeader },
+            body: JSON.stringify({ ...basePayload, model, source_model: model }),
+            signal: ctrl.signal,
+          });
+          const txt = await r.text();
+          if (r.status < 200 || r.status >= 300) {
+            return { ok: false, err: `ack_http_${r.status}: ${txt.slice(0, 400)}` };
+          }
+          return { ok: true };
+        } catch (e) {
+          return { ok: false, err: `ack_fetch_failed: ${(e as Error)?.message ?? String(e)}` };
+        } finally { clearTimeout(t); }
       };
 
-      const mkCtx = (plan: unknown): CandidateContext => ({
-        company_id: (snap as any).company_id,
-        connection_id: (snap as any).connection_id ?? null,
-        ad_account_id: adAccountId,
-        event_id: (snap as any).linked_event_id ?? null,
-        campaign_name: (snap as any).name ?? null,
-        target_roas: extractRoas(plan) ?? targetRoas,
-        total_budget_eur: extractBudget(plan),
-        goal_revenue_eur: extractRevenue(plan),
-        days_until_event: null,
-        source_campaign_id: input.campaign_id,
-        reference_campaign_id: input.reference_campaign_id ?? null,
-        created_by,
-        detected_artist: null,
-      });
+      const [gemAck, gptAck] = await Promise.allSettled([fireOne(GEMINI_MODEL), fireOne(GPT_MODEL)]);
+      const gem = gemAck.status === "fulfilled" ? gemAck.value : { ok: false as const, err: `settled_rejected: ${String((gemAck as PromiseRejectedResult).reason)}` };
+      const gpt = gptAck.status === "fulfilled" ? gptAck.value : { ok: false as const, err: `settled_rejected: ${String((gptAck as PromiseRejectedResult).reason)}` };
 
-      const candidateIds: Record<string, string | null> = { gemini: null, gpt: null };
-      const candidateErrors: Record<string, string | null> = { gemini: null, gpt: null };
-
-      if (gem.ok) {
-        const r = await insertCandidate(sbCrm, duel_id, GEMINI_MODEL, gem.plan, mkCtx(gem.plan));
-        if (r.ok) candidateIds.gemini = r.id; else candidateErrors.gemini = r.err;
-      }
-      if (gpt.ok) {
-        const r = await insertCandidate(sbCrm, duel_id, GPT_MODEL, gpt.plan, mkCtx(gpt.plan));
-        if (r.ok) candidateIds.gpt = r.id; else candidateErrors.gpt = r.err;
+      // Se o ack falhou, marca já o erro de arranque na coluna do modelo (o redesign
+      // não vai poder fazer o UPDATE porque nunca chegou a aceitar o trabalho).
+      const nowIso = new Date().toISOString();
+      const startupUpd: Record<string, unknown> = {};
+      if (!gem.ok) { startupUpd.gemini_error = gem.err.slice(0, 500); startupUpd.gemini_finished_at = nowIso; }
+      if (!gpt.ok) { startupUpd.gpt_error = gpt.err.slice(0, 500); startupUpd.gpt_finished_at = nowIso; }
+      if (Object.keys(startupUpd).length > 0) {
+        await sbCrm.from("audience_duel_runs").update(startupUpd).eq("id", run_id);
       }
 
-      const persistedAny = !!(candidateIds.gemini || candidateIds.gpt);
-      const status = persistedAny ? "done" : "failed";
-
-      await sbCrm.from("audience_duel_runs").update({
-        gemini_proposal: gem.ok ? { generated_plan: gem.plan, redesign_rationale: gem.rationale, viability_analysis: gem.viability } : null,
-        gemini_error: gem.ok ? (candidateErrors.gemini ? `insert: ${candidateErrors.gemini}` : null) : gem.err,
-        gpt_proposal: gpt.ok ? { generated_plan: gpt.plan, redesign_rationale: gpt.rationale, viability_analysis: gpt.viability } : null,
-        gpt_error: gpt.ok ? (candidateErrors.gpt ? `insert: ${candidateErrors.gpt}` : null) : gpt.err,
-        status,
-      }).eq("id", run_id);
-
-      console.log(`[duel] canonical run=${run_id} duel=${duel_id} status=${status} gem_ok=${gem.ok} gpt_ok=${gpt.ok} cand_gem=${candidateIds.gemini} cand_gpt=${candidateIds.gpt}`);
+      console.log(`[duel] canonical fire-202 run=${run_id} duel=${duel_id} gem_ack=${gem.ok} gpt_ack=${gpt.ok}`);
+      // NÃO marcamos status='done' nem 'failed' aqui — status agregado é derivado
+      // (DR-2026-06-27d): UI conta candidatos por duel_id + finished_at por coluna.
       return;
     }
+
 
     // ── LEGACY ────────────────────────────────────────────────────────────
     const sbPublic = createClient(SUPABASE_URL, SRK, { auth: { persistSession: false, autoRefreshToken: false } });
