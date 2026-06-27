@@ -3274,6 +3274,7 @@ export default function CrmCampaigns() {
         }
       />
     </div>
+    </BudgetModeContext.Provider>
   );
 }
 
