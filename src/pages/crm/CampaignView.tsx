@@ -1131,8 +1131,10 @@ export default function CrmCampaignView() {
                 )}
                 <EditCampaignPopover
                   c={campaign as unknown as CampaignRow}
+                  budgetMode={budgetSummary.mode}
                   onSaved={() => qc.invalidateQueries({ queryKey: ["crm-campaign-view", id] })}
                 />
+
               </div>
             );
           })()}
