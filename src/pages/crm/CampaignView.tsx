@@ -953,6 +953,40 @@ export default function CrmCampaignView() {
     }
   }
 
+  // DR-2026-06-27d — dispara duelo Gemini-Pro × GPT-5 e navega para /audience/duels/:duel_id
+  async function launchDuel() {
+    if (!campaign || !diagnosis) return;
+    setDuelLaunching(true);
+    try {
+      const target = Number(diagnosis?.target_roas) || 8;
+      const { data, error } = await supabase.functions.invoke("crm-audience-duel", {
+        body: {
+          campaign_id: campaign.external_campaign_id,
+          caps: { target_blended_roas: target },
+        },
+      });
+      if (error) {
+        let detail = error.message;
+        const ctx = (error as any).context;
+        if (ctx) {
+          try {
+            const b = await (ctx.clone ? ctx.clone() : ctx).json();
+            detail = b?.detail || b?.error || detail;
+          } catch {}
+        }
+        throw new Error(detail);
+      }
+      const duelId = (data as any)?.duel_id;
+      if (!duelId) throw new Error("Resposta sem duel_id");
+      toast.success("Duelo iniciado");
+      navigate(`/audience/duels/${duelId}`);
+    } catch (e: any) {
+      toast.error("Falha a iniciar duelo", { description: e?.message ?? String(e) });
+    } finally {
+      setDuelLaunching(false);
+    }
+  }
+
   function goRedesign() {
     if (!campaign) return;
     navigate(`/audience/strategies/redesign/${campaign.external_campaign_id}`);
