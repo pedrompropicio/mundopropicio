@@ -10,6 +10,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { normalizePlanInPlace } from "../_shared/plan-normalize.ts";
 import { resolveInterestsInPlace } from "../_shared/resolve-interests.ts";
 import { resolveCustomLocationsInPlace } from "../_shared/resolve-geo.ts";
+import { buildCampaignBrief, type CampaignBrief } from "../_shared/campaign-brief.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
