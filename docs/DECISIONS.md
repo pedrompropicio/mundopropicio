@@ -113,3 +113,20 @@ meta_campaign_strategies += duel_id, source_model, reference_campaign_id.
 
 ### Consequências
 Deprecar Pista "Strategies" e o schema meta_campaign_strategy_deployments. Absorve issue #8. Toca #11 (limpeza strategies), #17/#18 (UI).
+
+## DR-2026-06-26b — Decisões do brief determinístico único (sub-tarefa 3 de #19)
+
+D1. Definição ÚNICA de "vencedor" = rácio ROAS puro (lógica do redesign):
+    winner se creative_roas >= targetBlendedRoas*0.6, com gates spend>=€50 e
+    purchases>=3; abaixo dos gates de volume = "inconclusive"; senão "loser".
+    A lógica de "score IA primário" da inventory é abandonada para
+    classificação de vencedor (fica como metadado, não decide). Alinha com P0
+    (classificação 100% determinística).
+D2. crm-audience-duel passará a aceitar CampaignBrief como input (mantendo o
+    Briefing legacy). [implementação na sub-tarefa 4]
+D3. company_id hardcoded no duel passa a vir do brief. [corrigir na
+    sub-tarefa 4, quando tocarmos no duel]
+D4. buildCampaignBrief devolve o diagnosis_jsonb COMPLETO; cada caller trunca
+    ao serializar para o prompt.
+D5. targetBlendedRoas é passado pelo caller em caps (não calculado dentro do
+    brief).
