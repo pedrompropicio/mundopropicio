@@ -1654,9 +1654,9 @@ export default function CrmCampaignView() {
                   const fmtPct = (x: any) => (x == null ? "—" : `${(Number(x) * 100).toFixed(2)}%`);
                   const fmtEur = (x: any) => (x == null ? "—" : `${Number(x).toFixed(2)}€`);
                   const sevColor = (s: string) =>
-                    s === "critical" ? "bg-red-500/20 text-red-300 border-red-500/40"
-                    : s === "high" ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                    : s === "medium" ? "bg-yellow-500/15 text-yellow-300 border-yellow-500/30"
+                    s === "unrealistic" ? "bg-red-500/20 text-red-300 border-red-500/40"
+                    : s === "aggressive" ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                    : s === "stretch" ? "bg-yellow-500/15 text-yellow-300 border-yellow-500/30"
                     : "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
 
                   return (
