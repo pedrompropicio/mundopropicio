@@ -1612,6 +1612,188 @@ export default function CrmCampaignView() {
             </>
           );
         })()}
+
+        {diagnosis && (
+          <Accordion
+            type="single"
+            collapsible
+            className="border-t border-border pt-2"
+            onValueChange={(v) => { if (v === "brief") void loadBrief(); }}
+          >
+            <AccordionItem value="brief" className="border-none">
+              <AccordionTrigger className="text-sm font-medium hover:no-underline py-2">
+                <span className="flex items-center gap-2">
+                  <Database className="h-4 w-4 text-muted-foreground" />
+                  Evidência histórica (o que o motor vê)
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="pt-2">
+                <p className="text-[11px] text-muted-foreground mb-3">
+                  Esta é a evidência objetiva que o motor de estratégias usa para informar
+                  as propostas. São dados reais desta campanha/conta.
+                </p>
+                {briefLoading && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> A carregar evidência…
+                  </div>
+                )}
+                {!briefLoading && briefError && (
+                  <div className="text-[11px] text-amber-300/80">
+                    Não foi possível carregar a evidência: {briefError}
+                  </div>
+                )}
+                {!briefLoading && !briefError && briefData && (() => {
+                  const b: any = briefData;
+                  const ranking = Array.isArray(b?.audience_ranking?.items) ? b.audience_ranking.items.slice(0, 6) : [];
+                  const saturating = Array.isArray(b?.adset_saturation) ? b.adset_saturation.filter((a: any) => a?.saturating) : [];
+                  const winners = Array.isArray(b?.winners_packet) ? b.winners_packet.filter((w: any) => w?.label === "winner").slice(0, 6) : [];
+                  const fatigued = Array.isArray(b?.winners_packet) ? b.winners_packet.filter((w: any) => w?.fatigue?.fatigued) : [];
+                  const gaps = b?.format_gaps ?? null;
+                  const via = b?.viability ?? null;
+                  const fmtRoas = (x: any) => (x == null ? "—" : `${Number(x).toFixed(2)}x`);
+                  const fmtPct = (x: any) => (x == null ? "—" : `${(Number(x) * 100).toFixed(2)}%`);
+                  const fmtEur = (x: any) => (x == null ? "—" : `${Number(x).toFixed(2)}€`);
+                  const sevColor = (s: string) =>
+                    s === "critical" ? "bg-red-500/20 text-red-300 border-red-500/40"
+                    : s === "high" ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                    : s === "medium" ? "bg-yellow-500/15 text-yellow-300 border-yellow-500/30"
+                    : "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
+
+                  return (
+                    <div className="space-y-5">
+                      {ranking.length > 0 && (
+                        <div className="space-y-1.5">
+                          <div className="text-xs font-semibold">Audiências por desempenho</div>
+                          {b?.audience_ranking?.note && (
+                            <div className="text-[10px] text-muted-foreground">{b.audience_ranking.note}</div>
+                          )}
+                          <div className="space-y-1">
+                            {ranking.map((it: any, i: number) => (
+                              <div key={i} className="flex items-center justify-between gap-2 text-[11px] bg-muted/30 rounded px-2 py-1">
+                                <span className="truncate flex-1" title={it?.name}>{it?.name ?? "—"}</span>
+                                <Badge variant="outline" className="text-[10px] font-mono">{fmtRoas(it?.roas)}</Badge>
+                                <span className="text-muted-foreground tabular-nums">{it?.purchases ?? 0} compras</span>
+                                <span className="text-muted-foreground tabular-nums">{fmtEur(it?.spend)}</span>
+                                {it?.label && <span className="text-[10px] text-muted-foreground italic">{it.label}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-1.5">
+                        <div className="text-xs font-semibold">Adsets a saturar</div>
+                        {saturating.length === 0 ? (
+                          <div className="text-[11px] text-muted-foreground italic">Nenhum adset em saturação.</div>
+                        ) : (
+                          <div className="space-y-1">
+                            {saturating.map((a: any, i: number) => (
+                              <div key={i} className="flex items-center justify-between gap-2 text-[11px] bg-muted/30 rounded px-2 py-1">
+                                <span className="truncate flex-1" title={a?.name}>{a?.name ?? "—"}</span>
+                                <span className="text-muted-foreground tabular-nums">freq {Number(a?.frequency_b ?? 0).toFixed(2)}</span>
+                                <span className="text-muted-foreground tabular-nums">CTR {fmtPct(a?.ctr_b)}</span>
+                                <span className="text-muted-foreground tabular-nums">CPM {fmtEur(a?.cpm_b)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {winners.length > 0 && (
+                        <div className="space-y-1.5">
+                          <div className="text-xs font-semibold">Criativos vencedores</div>
+                          <div className="space-y-1">
+                            {winners.map((w: any, i: number) => (
+                              <div key={i} className="flex items-center justify-between gap-2 text-[11px] bg-muted/30 rounded px-2 py-1">
+                                <span className="truncate flex-1" title={w?.ad_name}>{w?.ad_name ?? "—"}</span>
+                                {w?.creative_type && <Badge variant="outline" className="text-[10px]">{w.creative_type}</Badge>}
+                                <Badge variant="outline" className="text-[10px] font-mono">{fmtRoas(w?.roas)}</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-1.5">
+                        <div className="text-xs font-semibold">Criativos fatigados</div>
+                        {fatigued.length === 0 ? (
+                          <div className="text-[11px] text-muted-foreground italic">Sem fadiga detetada.</div>
+                        ) : (
+                          <div className="space-y-1">
+                            {fatigued.map((w: any, i: number) => (
+                              <div key={i} className="flex items-center justify-between gap-2 text-[11px] bg-muted/30 rounded px-2 py-1">
+                                <span className="truncate flex-1" title={w?.ad_name}>{w?.ad_name ?? "—"}</span>
+                                <span className="text-muted-foreground tabular-nums">7d {fmtRoas(w?.fatigue?.roas_7d)}</span>
+                                <span className="text-muted-foreground tabular-nums">vs prev {fmtRoas(w?.fatigue?.roas_prev7d)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {gaps && (Array.isArray(gaps.types_missing) || Array.isArray(gaps.types_underrepresented) || gaps.winners_by_type) && (
+                        <div className="space-y-1.5">
+                          <div className="text-xs font-semibold">Lacunas de formato</div>
+                          <div className="flex flex-wrap gap-1.5 text-[11px]">
+                            {Array.isArray(gaps.types_missing) && gaps.types_missing.length > 0 && (
+                              <>
+                                <span className="text-muted-foreground">Em falta:</span>
+                                {gaps.types_missing.map((t: string) => (
+                                  <Badge key={`m-${t}`} variant="outline" className="text-[10px] border-amber-500/40 text-amber-300">{t}</Badge>
+                                ))}
+                              </>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 text-[11px]">
+                            {Array.isArray(gaps.types_underrepresented) && gaps.types_underrepresented.length > 0 && (
+                              <>
+                                <span className="text-muted-foreground">Sub-representados:</span>
+                                {gaps.types_underrepresented.map((t: string) => (
+                                  <Badge key={`u-${t}`} variant="outline" className="text-[10px]">{t}</Badge>
+                                ))}
+                              </>
+                            )}
+                          </div>
+                          {gaps.winners_by_type && Object.keys(gaps.winners_by_type).length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 text-[11px]">
+                              <span className="text-muted-foreground">Vencedores por tipo:</span>
+                              {Object.entries(gaps.winners_by_type).map(([k, v]) => (
+                                <Badge key={`w-${k}`} variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-300">
+                                  {k}: {String(v)}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {via && (
+                        <div className="space-y-1.5">
+                          <div className="text-xs font-semibold">Viabilidade</div>
+                          <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                            <span className="text-muted-foreground">ROAS gap:</span>
+                            <span className="font-mono tabular-nums">{fmtRoas(via.roas_gap)}</span>
+                            {via.gap_severity && (
+                              <Badge variant="outline" className={cn("text-[10px]", sevColor(String(via.gap_severity)))}>
+                                {via.gap_severity}
+                              </Badge>
+                            )}
+                            <span className="text-muted-foreground">spend/dia necessário:</span>
+                            <span className="font-mono tabular-nums">{fmtEur(via.daily_spend_needed)}</span>
+                            <span className="text-muted-foreground">piso estatístico:</span>
+                            <Badge variant="outline" className={cn("text-[10px]", via.meets_statistical_floor ? "border-emerald-500/40 text-emerald-300" : "border-amber-500/40 text-amber-300")}>
+                              {via.meets_statistical_floor ? "ok" : "não atinge"}
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        )}
       </Card>
 
       {/* Vista de ações propostas — partilhada: cirúrgico (Etapa 3) e escala (Etapa 4) */}
