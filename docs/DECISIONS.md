@@ -198,3 +198,16 @@ Lado do duelo (crm-audience-duel): substitui o gerador de esboço simples por 2 
 ADIAMENTO EXPLÍCITO: nesta entrega os candidatos saem do PROMPT ATUAL do redesign (que já lê o diagnóstico 360). O CampaignBrief v2 enriquecido (Onda 1: trajectory, viability, audience_ranking, adset_saturation, fatigue, format_gaps) + o enquadramento 'evidência não molde' + postura por classe NÃO alimentam ainda os candidatos — isso entra na sub-tarefa 6 (migração do redesign para consumir o brief v2 + extração para _shared/). O brief v2 fica construído e verificado, à espera. Overlap de audiências (Onda 2/Graph) também fica para depois.
 
 Esquema simples do duelo (estrategia_geral/divisao_orcamento/adsets/conceitos_criativos/roas_esperado) é ABANDONADO — substituído pelo schema canónico.
+
+## DR-2026-06-27d — Duelo assíncrono (Opção A): redesign persiste candidato em background
+Problema: o GPT-5 grande a correr o pipeline completo do redesign excede o IDLE_TIMEOUT (150s) do gateway ai.gateway.lovable.dev quando chamado de forma síncrona pelo duelo → 504. O limite é da infraestrutura Lovable, não configurável. Validado: Gemini Pro PASSOU e gravou candidato CANÓNICO (phases, recommended_campaigns, creative_brief, summary, gates a funcionar — feasibility='impossible' no caso Simone). Só falta o GPT-5 não depender da janela síncrona.
+
+Decisão (Opção A): o crm-meta-campaign-redesign ganha um modo async_persist. Body novo: { async_persist:true, duel_id, source_model } (+ campaign_id, model). Responde 202 { accepted:true, duel_id, source_model } em <1s; corre o pipeline em EdgeRuntime.waitUntil; no fim faz ELE o INSERT do candidato em crm.meta_campaign_strategies (status='candidate', duel_id, source_model, generated_plan, reference_campaign_id, created_by=user.id capturado ANTES do 202) usando service_role (já tem GRANT SELECT/INSERT/UPDATE da sub-tarefa 4). async_persist é exclusivo de dry_run (ambos→400). Caminho síncrono/dry_run/default 100% inalterado.
+
+Duelo (crm-audience-duel): deixa de fazer Promise.all síncrono e deixa de inserir candidatos. Cria o run em audience_duel_runs (status='running'), dispara 2 fetch ao redesign com async_persist (aguarda só o 202), devolve 202 { run_id, duel_id, status:'running', mode:'canonical' }. A persistência dos candidatos passa para o redesign.
+
+Anti-corrida em audience_duel_runs: cada modelo escreve só as SUAS colunas (gemini_*, gpt_*). Adicionar colunas dedicadas se faltarem: gemini_finished_at, gpt_finished_at, gemini_candidate_id, gpt_candidate_id. O status agregado NÃO é escrito pelos dois — é DERIVADO (a UI/consulta calcula: 2 finished→done/error; 1→partial; 0→running; >5min sem finished e sem candidatos→timeout). Sem locks: colunas disjuntas + estado agregado como função pura.
+
+Timeout: SEM cron watchdog. A UI deriva 'expirado' quando passam >5min sem candidatos nem finished_at. Cron fica como follow-up só se necessário.
+
+Modelos do duelo: google/gemini-2.5-pro × openai/gpt-5 (grande, agora viável via assíncrono). O fix de temperature condicional + retry 502/empty no redesign (DR-2026-06-27c continuação) mantém-se.
