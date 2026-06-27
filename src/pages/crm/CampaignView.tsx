@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Accordion,
   AccordionContent,
@@ -447,6 +448,9 @@ export default function CrmCampaignView() {
   // Tela de decisão: diagnóstico on-demand + escolha de acção (postura).
   const [diagnosing, setDiagnosing] = useState(false);
   const [selectedAlt, setSelectedAlt] = useState<string | null>(null);
+  // DR-2026-06-27d — modo duelo (default OFF)
+  const [duelMode, setDuelMode] = useState(false);
+  const [duelLaunching, setDuelLaunching] = useState(false);
   // Intervenção cirúrgica (Etapa 3): prescrição on-demand + aprovação por ação.
   // Painel de prescrição partilhado pelo cirúrgico (Etapa 3) e pela escala (Etapa 4).
   const [surgicalOpen, setSurgicalOpen] = useState(false);
