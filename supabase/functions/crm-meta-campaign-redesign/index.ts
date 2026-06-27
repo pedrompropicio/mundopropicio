@@ -2220,12 +2220,16 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
   let lastErrorDetail = "";
   let lastStatus = 0;
 
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  // DR-2026-06-27d P1 — no modo async, reduzir retries para falhar dentro do
+  // wall-time do waitUntil e gravar <modelo>_error em vez de ficar órfão.
+  const maxAttempts = isAsyncMode ? 2 : 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     aiResp = await callAI();
     lastStatus = aiResp.status;
 
     // 402 — terminal, não retry.
     if (aiResp.status === 402) {
+      if (isAsyncMode) throw new Error("credits_exhausted");
       return json({ error: "credits_exhausted", message: "Sem créditos no Lovable AI." }, 402);
     }
 
@@ -2235,7 +2239,8 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       const t = await aiResp.text().catch(() => "");
       lastErrorDetail = t.slice(0, 200);
       console.error(`[redesign][gateway-retry] { model: "${modelId}", status: 429, attempt: ${attempt}, snippet: ${JSON.stringify(t.slice(0, 200))} }`);
-      if (attempt < 3) { await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS[attempt - 1])); continue; }
+      if (attempt < maxAttempts) { await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS[attempt - 1])); continue; }
+      if (isAsyncMode) throw new Error(`rate_limit after ${maxAttempts} attempts`);
       return json({ error: "rate_limit", message: "Lovable AI rate limit; tenta de novo em alguns segundos." }, 429);
     }
 
@@ -2245,8 +2250,9 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       const t = await aiResp.text().catch(() => "");
       lastErrorDetail = t.slice(0, 200);
       console.error(`[redesign][gateway-retry] { model: "${modelId}", status: ${aiResp.status}, attempt: ${attempt}, snippet: ${JSON.stringify(t.slice(0, 200))} }`);
-      if (attempt < 3) { await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS[attempt - 1])); continue; }
+      if (attempt < maxAttempts) { await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS[attempt - 1])); continue; }
       console.error("[redesign] AI error", aiResp.status, t.slice(0, 300));
+      if (isAsyncMode) throw new Error(`ai_failed_${aiResp.status} after ${maxAttempts} attempts: ${lastErrorDetail}`);
       return json({ error: "ai_failed", detail: lastErrorDetail }, 502);
     }
 
@@ -2254,6 +2260,7 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
     if (!aiResp.ok) {
       const t = await aiResp.text().catch(() => "");
       console.error("[redesign] AI error", aiResp.status, t.slice(0, 300));
+      if (isAsyncMode) throw new Error(`ai_failed_${aiResp.status}: ${t.slice(0, 200)}`);
       return json({ error: "ai_failed", detail: t.slice(0, 200) }, 502);
     }
 
@@ -2265,7 +2272,8 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       lastErrorKind = "ai_empty_response";
       lastErrorDetail = "empty content";
       console.error(`[redesign][gateway-retry] { model: "${modelId}", status: 200, attempt: ${attempt}, snippet: "ai_empty_response" }`);
-      if (attempt < 3) { await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS[attempt - 1])); continue; }
+      if (attempt < maxAttempts) { await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS[attempt - 1])); continue; }
+      if (isAsyncMode) throw new Error(`ai_empty_response after ${maxAttempts} attempts`);
       return json({ error: "ai_empty_response" }, 502);
     }
     // sucesso
