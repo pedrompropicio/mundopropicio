@@ -1793,7 +1793,55 @@ export default function CrmCampaigns() {
     },
   });
 
-  // ---------- Insights (last 60d to support sparkline + period + previous period) ----------
+  // ---------- Adset budgets (apenas p/ derivar ABO/CBO real por campanha) ----------
+  // Critério canónico replicado de CampaignView.tsx L766-787:
+  // CBO ⇔ campanha tem budget>0; ABO ⇔ soma de budgets dos adsets>0; senão unknown.
+  // Necessário porque o Meta devolve daily_budget_cents stale ao nível da campanha
+  // em ABO — não dá para confiar só em campaigns.daily_budget_cents.
+  const { data: adsetBudgetRows } = useQuery({
+    queryKey: ["crm-meta-adset-budgets", companyId, adAccountId],
+    enabled: isAuthorized && !!companyId && !!adAccountId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_adset_snapshot")
+        .select("external_campaign_id, daily_budget_cents, lifetime_budget_cents")
+        .eq("ad_account_id", adAccountId);
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        external_campaign_id: string;
+        daily_budget_cents: number | null;
+        lifetime_budget_cents: number | null;
+      }>;
+    },
+  });
+
+  const budgetModeByCampaign = useMemo(() => {
+    const adsetSums = new Map<string, number>();
+    for (const r of adsetBudgetRows ?? []) {
+      const sum =
+        (r.daily_budget_cents ?? 0) + (r.lifetime_budget_cents ?? 0);
+      adsetSums.set(
+        r.external_campaign_id,
+        (adsetSums.get(r.external_campaign_id) ?? 0) + sum,
+      );
+    }
+    const map = new Map<string, BudgetMode>();
+    for (const c of campaigns ?? []) {
+      const campaignHasBudget =
+        (c.daily_budget_cents ?? 0) > 0 ||
+        (c.lifetime_budget_cents ?? 0) > 0;
+      const adsetsHaveBudget = (adsetSums.get(c.external_campaign_id) ?? 0) > 0;
+      const mode: BudgetMode = campaignHasBudget
+        ? "CBO"
+        : adsetsHaveBudget
+          ? "ABO"
+          : "unknown";
+      map.set(c.external_campaign_id, mode);
+    }
+    return map;
+  }, [campaigns, adsetBudgetRows]);
+
   const { data: insights, isLoading: insightsLoading } = useQuery({
     queryKey: ["crm-meta-insights", companyId, adAccountId],
     enabled: isAuthorized && !!companyId && !!adAccountId,
