@@ -904,15 +904,16 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
   }
 
 
-  // 6) Evento + data efetiva
+  // 6) Evento + data efetiva — event_id vem da campanha (modo full) OU dos args (from-scratch)
+  const effectiveEventId: string | null = campaign?.linked_event_id ?? args.event_id ?? null;
   let event: EventContext = {
     id: null, name: null, date: null, effective_date: null, event_date_source: null,
     days_until: null, tickets_total: null, location: null, ticketing_url: null,
   };
-  if (campaign.linked_event_id) {
+  if (effectiveEventId) {
     const { data: e } = await supabase.from("events")
       .select("id, name, date, location, tickets_total, ticketing_url")
-      .eq("id", campaign.linked_event_id).maybeSingle();
+      .eq("id", effectiveEventId).maybeSingle();
     if (e) {
       const [{ data: children }, { data: dates }] = await Promise.all([
         supabase.from("events").select("date").eq("parent_event_id", (e as any).id),
@@ -944,16 +945,16 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
 
   // 7) Peers do mesmo evento (janela periodDays) — enriquecidos (Onda 1).
   const peers: PeerSummary[] = [];
-  if (campaign.linked_event_id) {
+  if (effectiveEventId) {
     const toDate = today.toISOString().slice(0, 10);
     const fromDate = cLegacy;
 
-    const { data: peersRaw } = await sb
+    let peersQuery = sb
       .schema("crm").from("meta_campaign_snapshot")
       .select("external_campaign_id, name, status, effective_status")
-      .eq("linked_event_id", campaign.linked_event_id)
-      .neq("external_campaign_id", campaign_id)
-      .limit(10);
+      .eq("linked_event_id", effectiveEventId);
+    if (campaign_id) peersQuery = peersQuery.neq("external_campaign_id", campaign_id);
+    const { data: peersRaw } = await peersQuery.limit(10);
     const peerIds: string[] = (peersRaw ?? []).map((p: any) => p.external_campaign_id);
 
     type PeerAgg = Agg & { impressions: number; reach: number; clicks: number; freqSum: number; freqN: number };
@@ -1001,6 +1002,7 @@ export async function buildCampaignBrief(args: BuildBriefArgs): Promise<Campaign
       });
     }
   }
+
 
   // 8) Reference campaign (opcional) — mesma classificação D1 + fatigue.
   let reference: CampaignBrief["reference"] = null;
