@@ -43,13 +43,27 @@ function deriveState(s: StatusResp | undefined | null): DerivedState {
   const pErr = !!s.gpt_error;
   const gOk = !!s.gemini_candidate_id;
   const pOk = !!s.gpt_candidate_id;
+
+  // 1) ambos com erro
   if (gErr && pErr) return "error";
+  // 2) um candidato + outro com erro explícito
   if ((gOk && pErr) || (pOk && gErr)) return "mixed";
+  // 3) ambos prontos
   if (gOk && pOk) return "done";
-  if (gFin || pFin) return "partial";
-  // timeout: >5min sem ambos finished_at
+
+  // 4) timeout: >5min sem ambos finished_at — antes de partial/running
   const startedMs = new Date(s.created_at).getTime();
-  if (!Number.isNaN(startedMs) && Date.now() - startedMs > 5 * 60_000) return "timeout";
+  const ageMs = Number.isNaN(startedMs) ? 0 : Date.now() - startedMs;
+  if (ageMs > 5 * 60_000 && !(gFin && pFin)) {
+    // exatamente 1 candidato existe e o outro está órfão (sem error, sem finished_at)
+    if ((gOk && !pOk) || (pOk && !gOk)) return "mixed";
+    // 0 candidatos, ambos órfãos
+    return "timeout";
+  }
+
+  // 5) parcial: pelo menos um finished_at sem condição terminal
+  if (gFin || pFin) return "partial";
+  // 6) ainda a correr
   return "running";
 }
 
