@@ -3,7 +3,7 @@
 // edge function crm-meta-campaign-from-scratch. PT-PT. Padrão visual MP Audience
 // (cyan-500). A Parte 2 (duelo from-scratch) NÃO está aqui.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Sparkles, ExternalLink, Info } from "lucide-react";
