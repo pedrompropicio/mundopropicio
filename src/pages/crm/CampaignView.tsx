@@ -138,6 +138,44 @@ interface InsightRow {
   roas: number | null;
   currency: string | null;
 }
+// Linhas das tabelas de insights granulares (subset usado na UI)
+interface AdsetInsightRow {
+  external_adset_id: string;
+  date_start: string;
+  spend_cents: number | null;
+  impressions: number | null;
+  reach: number | null;
+  clicks: number | null;
+  purchases_count: number | null;
+  purchases_value_cents: number | null;
+  currency: string | null;
+}
+interface AdInsightRow {
+  external_ad_id: string;
+  date_start: string;
+  spend_cents: number | null;
+  impressions: number | null;
+  reach: number | null;
+  clicks: number | null;
+  purchases_count: number | null;
+  purchases_value_cents: number | null;
+  currency: string | null;
+}
+// Métricas agregadas por entidade (adset ou ad), com divisões protegidas
+interface EntityMetrics {
+  spend: number;
+  impressions: number;
+  reach: number;
+  clicks: number;
+  purchases: number;
+  revenue: number;
+  cpc: number | null;
+  cpm: number | null;
+  ctr: number | null;
+  frequency: number | null;
+  roas: number | null;
+  currency: string | null;
+}
 interface DiagnosisRow {
   target_roas: number | null;
   source_campaign_class: string | null;
