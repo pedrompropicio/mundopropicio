@@ -173,6 +173,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (!strategy.generated_plan) return json({ error: "plan_not_generated" }, 400);
     if (!strategy.connection_id) return json({ error: "connection_missing" }, 400);
 
+    // ── Pixel do EVENTO (precedência sobre o pixel da campanha-fonte) ─────────
+    // events.meta_pixel_id é a fonte de verdade do pixel de tracking de
+    // bilheteira. Se preenchido, manda sobre o pixel herdado da fonte (que
+    // continua a ser populado abaixo como fallback). strategy.event_id pode ser
+    // null em planos manuais sem evento — aí cai-se silenciosamente no fallback.
+    let eventPixelId: string | null = null;
+    if (strategy.event_id) {
+      const { data: eventRow } = await (supabase as any)
+        .schema("public").from("events")
+        .select("meta_pixel_id").eq("id", strategy.event_id).maybeSingle();
+      eventPixelId = (eventRow as any)?.meta_pixel_id ?? null;
+    }
+
     // ── LOCK — recusar se já há deployment desta strategy a correr há <10min ──
     // Usa o status='running' da row de deployment como mutex distribuído. TTL
     // de 10min evita lock permanente em caso de crash do edge function sem
