@@ -804,6 +804,56 @@ export default function CrmCampaignView() {
     return { spend, revenue, conversions, roas, currency };
   }, [insights, displayCurrency]);
 
+  // Agregação por entidade (mesma lógica do `metrics` da mãe, replicada um
+  // nível abaixo). Divisões protegidas: numerador/denominador inválido → null
+  // (renderiza "—") em vez de 0/NaN, para distinguir "sem dados" de "zero real".
+  function aggregateRows<T extends {
+    spend_cents: number | null; impressions: number | null; reach: number | null;
+    clicks: number | null; purchases_count: number | null;
+    purchases_value_cents: number | null; currency: string | null;
+  }>(rows: T[]): EntityMetrics {
+    const spend = rows.reduce((s, r) => s + (r.spend_cents ?? 0), 0);
+    const impressions = rows.reduce((s, r) => s + (r.impressions ?? 0), 0);
+    const reach = rows.reduce((s, r) => s + (r.reach ?? 0), 0);
+    const clicks = rows.reduce((s, r) => s + (r.clicks ?? 0), 0);
+    const purchases = rows.reduce((s, r) => s + (r.purchases_count ?? 0), 0);
+    const revenue = rows.reduce((s, r) => s + (r.purchases_value_cents ?? 0), 0);
+    return {
+      spend, impressions, reach, clicks, purchases, revenue,
+      cpc: clicks > 0 ? spend / clicks : null,
+      cpm: impressions > 0 ? (spend / impressions) * 1000 : null,
+      ctr: impressions > 0 ? clicks / impressions : null,
+      frequency: reach > 0 ? impressions / reach : null,
+      roas: spend > 0 ? revenue / spend : null,
+      currency: rows.find((r) => r.currency)?.currency ?? null,
+    };
+  }
+  const adsetMetricsMap = useMemo(() => {
+    const m = new Map<string, EntityMetrics>();
+    const byId = new Map<string, AdsetInsightRow[]>();
+    for (const r of adsetInsights ?? []) {
+      const k = r.external_adset_id;
+      const arr = byId.get(k) ?? [];
+      arr.push(r);
+      byId.set(k, arr);
+    }
+    for (const [k, arr] of byId) m.set(k, aggregateRows(arr));
+    return m;
+  }, [adsetInsights]);
+  const adMetricsMap = useMemo(() => {
+    const m = new Map<string, EntityMetrics>();
+    const byId = new Map<string, AdInsightRow[]>();
+    for (const r of adInsights ?? []) {
+      const k = r.external_ad_id;
+      const arr = byId.get(k) ?? [];
+      arr.push(r);
+      byId.set(k, arr);
+    }
+    for (const [k, arr] of byId) m.set(k, aggregateRows(arr));
+    return m;
+  }, [adInsights]);
+
+
   const targeting = useMemo(() => aggregateTargeting(adsets ?? []), [adsets]);
 
   const creativeByMetaId = useMemo(() => {
