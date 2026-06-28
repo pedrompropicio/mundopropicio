@@ -170,7 +170,7 @@ export function scoreCandidate(
   const window = extractWindowDays(n);
   score += window / 10; // 180D → +18; 30D → +3
 
-  if (n.includes("novo") || n.includes(" new ") || n.endsWith(" new")) score += 5;
+  if (n.includes("novo") || n.includes(" new ") || n.endsWith(" new")) score += 20;
 
   return { score, window_days: window, hasNegative };
 }
