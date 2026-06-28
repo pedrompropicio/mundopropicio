@@ -505,6 +505,19 @@ export function AssistedAssemblyPanel({
           </SheetHeader>
         </div>
 
+        {/* Input file partilhado para Upload (alvo gerido por uploadTargetRef) */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={CREATIVE_UPLOAD_ACCEPT}
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = "";
+            if (f) void handleUploadFile(f);
+          }}
+        />
+
         <div className="p-5 space-y-4">
           {/* Acção principal */}
           <Card className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
