@@ -2277,6 +2277,8 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       "adsets": [
         {
           "adset_name": "Broad PT/BR 18-55",
+          "budget_weight": 0.5,
+          "_budget_weight_doc": "número 0..1 — peso RELATIVO dentro desta campanha; ver REGRA de BUDGET_WEIGHT abaixo",
           "targeting_json": {
             "age_min": 18, "age_max": 55,
             "geo_locations": {"countries": ["PT","BR"]},
