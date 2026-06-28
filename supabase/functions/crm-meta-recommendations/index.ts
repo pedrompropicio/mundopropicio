@@ -132,7 +132,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader) return json({ error: "missing_authorization" }, 401);
 
   let body: { company_id?: string; ad_account_id?: string; campaign_external_id?: string };
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
@@ -140,15 +139,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const companyId = body.company_id;
   if (!companyId) return json({ error: "missing_params", required: ["company_id"] }, 400);
 
-  // Cliente "user" (para RPC do token, respeita auth)
-  const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  // Cliente "service" (para upsert na tabela protegida)
+  // Cliente "service" (upsert na tabela protegida + RPC de token)
   const supabaseSvc = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  // Cliente "user" se vier auth (preserva compat com chamadas autenticadas da UI)
+  const supabaseTokenClient = authHeader
+    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: authHeader } },
+        auth: { persistSession: false, autoRefreshToken: false },
+      })
+    : supabaseSvc;
 
   // 1) Resolve ad_account_id + connection_id — AGORA filtrado por company_id
   let adAccountId = body.ad_account_id ? normalizeAdAccountId(body.ad_account_id) : null;
