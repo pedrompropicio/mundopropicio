@@ -10,7 +10,7 @@
 //   - Edições locais (remover adset / criativo) NÃO recalculam pesos: mostram
 //     aviso e exigem "Voltar a montar" para reinvocar o motor.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,9 +19,10 @@ import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { AlertTriangle, Info, Loader2, Replace, Sparkles, Trash2, Wand2, X } from "lucide-react";
+import { AlertTriangle, ArrowUpToLine, Info, Loader2, Replace, Sparkles, Trash2, Upload, Wand2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { uploadCreativeFile, CREATIVE_UPLOAD_ACCEPT } from "@/lib/creative-upload";
 
 export interface AssistedAssemblyPanelProps {
   open: boolean;
@@ -73,13 +74,28 @@ type ExcluidoContradiz = { creative_id: string; name?: string | null };
 
 type Narrativa = { trigger_id: string | null; trigger_nome: string; texto: string };
 
-type CreativeMini = { id: string; name: string | null; file_url?: string | null; type?: string | null; file_mime_type?: string | null };
+type CreativeMini = {
+  id: string;
+  name: string | null;
+  file_url?: string | null;
+  type?: string | null;
+  file_mime_type?: string | null;
+  meta_image_hash?: string | null;
+  meta_video_id?: string | null;
+};
 
 function isVideoCreative(c: { file_url?: string | null; file_mime_type?: string | null; type?: string | null } | null | undefined): boolean {
   if (!c) return false;
   if ((c.type || "").toLowerCase() === "video") return true;
   if ((c.file_mime_type || "").toLowerCase().startsWith("video/")) return true;
   return /\.mp4($|\?|#)/i.test(c.file_url || "");
+}
+
+/** Cache-bust transiente — APENAS no render. NUNCA persistido em file_url. */
+function bustUrl(url: string | null | undefined, ts: number | undefined): string {
+  if (!url) return "";
+  if (!ts) return url;
+  return url + (url.includes("?") ? "&" : "?") + "v=" + ts;
 }
 
 export function AssistedAssemblyPanel({
@@ -100,6 +116,13 @@ export function AssistedAssemblyPanel({
   const [companyCreatives, setCompanyCreatives] = useState<CreativeMini[]>([]);
   // Indicador de gravação por par adset+slot.
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  // Hires/Upload — estado por creative_id
+  const [hiresLoading, setHiresLoading] = useState<Set<string>>(new Set());
+  const [uploadLoading, setUploadLoading] = useState<Set<string>>(new Set());
+  const [bustedAt, setBustedAt] = useState<Map<string, number>>(new Map());
+  // Input file partilhado para Upload (alvo + se é substituição ou catálogo)
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadTargetRef = useRef<{ adsetKey: string | null; replaceCid: string | null } | null>(null);
 
   const adsetKey = (a: AdsetOut) => `${a.trigger_id ?? "generic"}::${a.trigger_nome}`;
   const edited = removedAdsetKeys.size > 0 || removedCreativeIds.size > 0;
@@ -110,6 +133,7 @@ export function AssistedAssemblyPanel({
       setAssemblyId(null); setAdsets([]); setExcluidos([]); setNarrativas([]);
       setRemovedAdsetKeys(new Set()); setRemovedCreativeIds(new Set());
       setError(null); setCompanyCreatives([]);
+      setHiresLoading(new Set()); setUploadLoading(new Set()); setBustedAt(new Map());
     }
   }, [open]);
 
@@ -120,7 +144,7 @@ export function AssistedAssemblyPanel({
       const { data, error } = await (supabase as any)
         .schema("crm")
         .from("meta_creatives")
-        .select("id, name, file_url, type, file_mime_type")
+        .select("id, name, file_url, type, file_mime_type, meta_image_hash, meta_video_id")
         .eq("company_id", companyId)
         .order("created_at", { ascending: false });
       if (error) {
@@ -167,15 +191,150 @@ export function AssistedAssemblyPanel({
     const { data, error } = await (supabase as any)
       .schema("crm")
       .from("meta_creatives")
-      .select("id, name, file_url, type, file_mime_type")
+      .select("id, name, file_url, type, file_mime_type, meta_image_hash, meta_video_id")
       .in("id", ids);
     if (error) {
       console.warn("[assembly-panel] fetch creative names failed", error);
       return new Map<string, CreativeMini>();
     }
     const m = new Map<string, CreativeMini>();
-    (data ?? []).forEach((r: any) => m.set(r.id, { id: r.id, name: r.name, file_url: r.file_url, type: r.type, file_mime_type: r.file_mime_type }));
+    (data ?? []).forEach((r: any) => m.set(r.id, {
+      id: r.id, name: r.name, file_url: r.file_url, type: r.type,
+      file_mime_type: r.file_mime_type, meta_image_hash: r.meta_image_hash, meta_video_id: r.meta_video_id,
+    }));
     return m;
+  }
+
+  /** Refetch 1 criativo + cache-bust transiente (NUNCA escrito em file_url da BD). */
+  async function refetchCreative(cid: string) {
+    const { data } = await (supabase as any)
+      .schema("crm")
+      .from("meta_creatives")
+      .select("id, name, file_url, type, file_mime_type, meta_image_hash, meta_video_id")
+      .eq("id", cid)
+      .maybeSingle();
+    if (data) {
+      setCreativesById((prev) => {
+        const m = new Map(prev);
+        m.set(cid, data as CreativeMini);
+        return m;
+      });
+      setCompanyCreatives((prev) => prev.map((c) => (c.id === cid ? { ...c, ...(data as any) } : c)));
+      setBustedAt((prev) => {
+        const m = new Map(prev);
+        m.set(cid, Date.now());
+        return m;
+      });
+    }
+  }
+
+  function canBringHires(c: CreativeMini | undefined | null): { ok: boolean; reason?: string } {
+    if (!c) return { ok: false, reason: "Sem metadados do criativo." };
+    if (c.meta_image_hash) return { ok: true };
+    if (isVideoCreative(c)) {
+      if (c.meta_video_id) return { ok: true };
+      return { ok: false, reason: "Vídeo sem identificador Meta — não é possível recuperar do Meta." };
+    }
+    return { ok: false, reason: "Criativo sem hash de imagem nem vídeo Meta — não é possível recuperar." };
+  }
+
+  async function bringHires(cid: string) {
+    setHiresLoading((prev) => new Set(prev).add(cid));
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-creatives-recover-hires", {
+        body: { creative_ids: [cid] },
+      });
+      if (error) throw new Error(error.message || "Falha ao invocar a função");
+      const r = (data?.results ?? []).find((x: any) => x.creative_id === cid);
+      if (!r) {
+        toast.warning("Sem resultado para este criativo.");
+        return;
+      }
+      const dims = r.width && r.height ? `${r.width}×${r.height}` : null;
+      const kb = r.file_size_bytes ? `${Math.round(r.file_size_bytes / 1024)}KB` : null;
+      switch (r.status) {
+        case "upgraded":
+          toast.success("Atualizado para alta", { description: [dims, kb].filter(Boolean).join(" · ") || undefined });
+          await refetchCreative(cid);
+          break;
+        case "upgraded_video_source":
+          toast.success("Vídeo original trazido do Meta", { description: [dims, kb].filter(Boolean).join(" · ") || undefined });
+          await refetchCreative(cid);
+          break;
+        case "upgraded_video_thumbnail":
+          toast.success("Thumbnail em alta atualizada", {
+            description: `Vídeo original não disponível na Meta — pôster em ${dims ?? "alta"}.`,
+          });
+          await refetchCreative(cid);
+          break;
+        case "no_hires_available":
+          toast.message("Sem versão em alta disponível", {
+            description: "A Meta não devolveu MP4 nem thumbnail ≥ 600px.",
+          });
+          break;
+        case "no_source":
+          toast.warning("Criativo sem identificador Meta", {
+            description: "Não foi possível tentar.",
+          });
+          break;
+        case "width_below_min":
+          toast.warning("Imagem na Meta está abaixo de 600px", {
+            description: "Mantido o ficheiro atual.",
+          });
+          break;
+        default:
+          toast.error("Falha a trazer do Meta", { description: r.reason ?? r.status });
+      }
+    } catch (e: any) {
+      toast.error("Falha a trazer do Meta", { description: e?.message ?? String(e) });
+    } finally {
+      setHiresLoading((prev) => {
+        const s = new Set(prev);
+        s.delete(cid);
+        return s;
+      });
+    }
+  }
+
+  function openUploadFor(args: { adsetKey: string | null; replaceCid: string | null }) {
+    uploadTargetRef.current = args;
+    fileInputRef.current?.click();
+  }
+
+  async function handleUploadFile(file: File) {
+    const target = uploadTargetRef.current;
+    uploadTargetRef.current = null;
+    if (!companyId) {
+      toast.error("Empresa em falta.");
+      return;
+    }
+    const replaceCid = target?.replaceCid ?? null;
+    const trackKey = replaceCid ?? "__catalog__";
+    setUploadLoading((prev) => new Set(prev).add(trackKey));
+    try {
+      const created = await uploadCreativeFile({ file, companyId });
+      toast.success("Upload concluído", { description: created.name });
+      // Atualizar caches locais
+      setCreativesById((prev) => {
+        const m = new Map(prev);
+        m.set(created.id, created as unknown as CreativeMini);
+        return m;
+      });
+      setCompanyCreatives((prev) => [created as unknown as CreativeMini, ...prev.filter((c) => c.id !== created.id)]);
+      // Se foi substituição num adset → ligar
+      if (target?.adsetKey && replaceCid) {
+        const ad = adsets.find((a) => adsetKey(a) === target.adsetKey);
+        if (ad) await replaceCreative(ad, replaceCid, created.id);
+      }
+    } catch (e: any) {
+      toast.error("Falha no upload", { description: e?.message ?? String(e) });
+    } finally {
+      setUploadLoading((prev) => {
+        const s = new Set(prev);
+        s.delete(trackKey);
+        return s;
+      });
+    }
   }
 
   async function runAssembly() {
@@ -346,6 +505,19 @@ export function AssistedAssemblyPanel({
           </SheetHeader>
         </div>
 
+        {/* Input file partilhado para Upload (alvo gerido por uploadTargetRef) */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={CREATIVE_UPLOAD_ACCEPT}
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = "";
+            if (f) void handleUploadFile(f);
+          }}
+        />
+
         <div className="p-5 space-y-4">
           {/* Acção principal */}
           <Card className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -510,6 +682,11 @@ export function AssistedAssemblyPanel({
                         const saving =
                           savingKey === `${adsetKey(a)}::replace::${cid}` ||
                           savingKey === `${adsetKey(a)}::remove::${cid}`;
+                        const hiresState = canBringHires(mini);
+                        const hiresBusy = hiresLoading.has(cid);
+                        const uploadBusy = uploadLoading.has(cid);
+                        const bust = bustedAt.get(cid);
+                        const thumbUrl = bustUrl(mini?.file_url ?? null, bust);
                         return (
                           <div
                             key={slotKey}
@@ -518,7 +695,7 @@ export function AssistedAssemblyPanel({
                             {mini?.file_url ? (
                               isVideoCreative(mini) ? (
                                 <video
-                                  src={`${mini.file_url}#t=0.1`}
+                                  src={`${thumbUrl}#t=0.1`}
                                   muted
                                   playsInline
                                   preload="metadata"
@@ -526,7 +703,7 @@ export function AssistedAssemblyPanel({
                                 />
                               ) : (
                                 <img
-                                  src={mini.file_url}
+                                  src={thumbUrl}
                                   alt=""
                                   className="h-8 w-8 rounded object-cover bg-muted shrink-0"
                                 />
@@ -535,6 +712,48 @@ export function AssistedAssemblyPanel({
                               <div className="h-8 w-8 rounded bg-muted shrink-0" />
                             )}
                             <span className="flex-1 truncate" title={name}>{name}</span>
+
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 px-2 text-[11px] gap-1"
+                                    disabled={!hiresState.ok || hiresBusy}
+                                    onClick={() => bringHires(cid)}
+                                  >
+                                    {hiresBusy
+                                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                                      : <ArrowUpToLine className="h-3 w-3" />}
+                                    Em alta
+                                  </Button>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {hiresState.ok ? "Trazer versão em alta do Meta" : (hiresState.reason ?? "Indisponível")}
+                              </TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 px-2 text-[11px] gap-1"
+                                    disabled={uploadBusy}
+                                    onClick={() => openUploadFor({ adsetKey: adsetKey(a), replaceCid: cid })}
+                                  >
+                                    {uploadBusy
+                                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                                      : <Upload className="h-3 w-3" />}
+                                    Upload
+                                  </Button>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>Carregar ficheiro e substituir este criativo</TooltipContent>
+                            </Tooltip>
 
                             <Popover>
                               <PopoverTrigger asChild>
@@ -549,7 +768,7 @@ export function AssistedAssemblyPanel({
                                   Substituir
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent className="w-80 p-0" align="end">
+                              <PopoverContent className="w-96 p-0" align="end">
                                 <div className="p-2 border-b text-xs font-medium">
                                   Substituir "{name}"
                                 </div>
@@ -559,39 +778,80 @@ export function AssistedAssemblyPanel({
                                   )}
                                   {companyCreatives.map((c) => {
                                     const inUse = a.creative_ids.includes(c.id);
+                                    const cHires = canBringHires(c);
+                                    const cHiresBusy = hiresLoading.has(c.id);
+                                    const cBust = bustedAt.get(c.id);
+                                    const cThumb = bustUrl(c.file_url ?? null, cBust);
                                     return (
-                                      <button
+                                      <div
                                         key={c.id}
-                                        type="button"
-                                        disabled={inUse || c.id === cid}
-                                        onClick={() => replaceCreative(a, cid, c.id)}
                                         className={cn(
-                                          "w-full text-left flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 border-b last:border-b-0",
-                                          (inUse || c.id === cid) && "opacity-40 cursor-not-allowed"
+                                          "flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50 border-b last:border-b-0",
+                                          (inUse || c.id === cid) && "opacity-40"
                                         )}
                                       >
-                                        {c.file_url ? (
-                                          isVideoCreative(c) ? (
-                                            <video
-                                              src={`${c.file_url}#t=0.1`}
-                                              muted
-                                              playsInline
-                                              preload="metadata"
-                                              className="h-7 w-7 rounded object-cover bg-muted shrink-0 pointer-events-none"
-                                            />
+                                        <button
+                                          type="button"
+                                          disabled={inUse || c.id === cid}
+                                          onClick={() => replaceCreative(a, cid, c.id)}
+                                          className={cn(
+                                            "flex-1 flex items-center gap-2 text-left",
+                                            (inUse || c.id === cid) && "cursor-not-allowed"
+                                          )}
+                                        >
+                                          {c.file_url ? (
+                                            isVideoCreative(c) ? (
+                                              <video
+                                                src={`${cThumb}#t=0.1`}
+                                                muted
+                                                playsInline
+                                                preload="metadata"
+                                                className="h-7 w-7 rounded object-cover bg-muted shrink-0 pointer-events-none"
+                                              />
+                                            ) : (
+                                              <img src={cThumb} alt="" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
+                                            )
                                           ) : (
-                                            <img src={c.file_url} alt="" className="h-7 w-7 rounded object-cover bg-muted shrink-0" />
-                                          )
-                                        ) : (
-                                          <div className="h-7 w-7 rounded bg-muted shrink-0" />
-                                        )}
-                                        <span className="flex-1 truncate text-xs" title={c.name ?? c.id}>
-                                          {c.name ?? c.id.slice(0, 8)}
-                                        </span>
-                                        {inUse && <span className="text-[10px] text-muted-foreground">em uso</span>}
-                                      </button>
+                                            <div className="h-7 w-7 rounded bg-muted shrink-0" />
+                                          )}
+                                          <span className="flex-1 truncate text-xs" title={c.name ?? c.id}>
+                                            {c.name ?? c.id.slice(0, 8)}
+                                          </span>
+                                          {inUse && <span className="text-[10px] text-muted-foreground">em uso</span>}
+                                        </button>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span>
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="h-6 w-6 p-0"
+                                                disabled={!cHires.ok || cHiresBusy}
+                                                onClick={(e) => { e.stopPropagation(); bringHires(c.id); }}
+                                              >
+                                                {cHiresBusy
+                                                  ? <Loader2 className="h-3 w-3 animate-spin" />
+                                                  : <ArrowUpToLine className="h-3 w-3" />}
+                                              </Button>
+                                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            {cHires.ok ? "Trazer versão em alta do Meta" : (cHires.reason ?? "Indisponível")}
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </div>
                                     );
                                   })}
+                                </div>
+                                <div className="border-t p-2 flex justify-end">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 px-2 text-[11px] gap-1"
+                                    onClick={() => openUploadFor({ adsetKey: null, replaceCid: null })}
+                                  >
+                                    <Upload className="h-3 w-3" /> Carregar novo
+                                  </Button>
                                 </div>
                               </PopoverContent>
                             </Popover>
