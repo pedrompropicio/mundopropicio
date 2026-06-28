@@ -632,7 +632,7 @@ Schema de saída (JSON puro):
 
     // Normalização determinística pós-LLM (mesmo helper do redesign).
     try {
-      normalizePlanInPlace(plan, { customAudienceIds: customAudienceList.map((c) => c.id) });
+      normalizePlanInPlace(plan);
     } catch (e) {
       console.warn("[from-scratch] normalize failed (non-fatal):", String(e));
     }
