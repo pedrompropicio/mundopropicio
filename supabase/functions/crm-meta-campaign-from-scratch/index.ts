@@ -86,6 +86,7 @@ type Body = {
   target_roas?: number;
   total_budget_eur?: number | null;
   country_codes?: string[] | null;
+  connection_id?: string | null;
   model?: string | null;
   dry_run?: boolean;
   // Para futuro duelo from-scratch (mesma mecânica do redesign):
