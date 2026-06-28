@@ -73,6 +73,7 @@ import { AssistedAssemblyPanel } from "@/components/crm/AssistedAssemblyPanel";
 import { CampaignDesignStudio } from "@/components/crm/CampaignDesignStudio";
 import { MetaPublishPanel } from "@/components/crm/MetaPublishPanel";
 import { useConfirmMetaAction, type PendingMetaAction } from "@/components/crm/ConfirmMetaActionDialog";
+import { RecommendationsPanel } from "@/components/crm/RecommendationsPanel";
 
 // ── Tipos (subset dos snapshots; só o que a página usa) ─────────────────────
 interface CampaignSnap {
@@ -855,6 +856,16 @@ export default function CrmCampaignView() {
 
 
   const targeting = useMemo(() => aggregateTargeting(adsets ?? []), [adsets]);
+
+  // Mapa external_adset_id → nome (usado pelo RecommendationsPanel para
+  // agrupar recomendações por adset com label legível).
+  const adsetNameMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const a of adsets ?? []) {
+      if (a.external_adset_id) m[a.external_adset_id] = a.name ?? a.external_adset_id;
+    }
+    return m;
+  }, [adsets]);
 
   const creativeByMetaId = useMemo(() => {
     const m = new Map<string, CreativeRow>();
@@ -1940,6 +1951,13 @@ export default function CrmCampaignView() {
           </Accordion>
         )}
       </Card>
+
+      {/* Recomendações da Meta — decisão assistida (P0: só muda status, NÃO age no Meta) */}
+      <RecommendationsPanel
+        externalCampaignId={id!}
+        companyId={campaign.company_id ?? null}
+        adsetNames={adsetNameMap}
+      />
 
       {/* Vista de ações propostas — partilhada: cirúrgico (Etapa 3) e escala (Etapa 4) */}
       {surgicalOpen && (
