@@ -511,8 +511,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
             meta_campaign_id: metaCampaignId,
           });
 
-          for (const planAdset of planCampaign.adsets ?? []) {
+          // ── Budget split por adset (fix bug #21 #12) ───────────────────
+          // Antes: dailyBudgetCents da campanha era aplicado a CADA adset →
+          // campanha com N adsets gastava N× o previsto. Agora reparte por
+          // PESO (budget_weight sugerido pelo LLM) com fallback determinístico
+          // a divisão igual; soma exacta == total via largest-remainder; clamp
+          // ao mínimo da Meta (100c). Decisão fica SEMPRE no código.
+          const split = computePerAdsetCents(planCampaign);
+          addLog(
+            "info",
+            `Budget split: campanha "${planCampaign.campaign_name}" total=${split.totalCents}c em ${planCampaign.adsets?.length ?? 0} adsets · modo=${split.mode} · soma_final=${split.sumFinal}c`,
+            { per_adset_cents: split.perAdsetCents, warnings: split.warnings },
+          );
+          if (split.sumFinal !== split.totalCents) {
+            addLog(
+              "warn",
+              `Budget split: soma_final (${split.sumFinal}c) ≠ total (${split.totalCents}c) — ver warnings`,
+              { warnings: split.warnings },
+            );
+          }
+          for (const [adsetIdx, planAdset] of (planCampaign.adsets ?? []).entries()) {
             try {
+
               // ERRO 2 fix (subcode 1870227): a Meta exige targeting_automation.
               // advantage_audience explícito (0 ou 1, integer) em todos os adsets.
               // 0 = Advantage audience desativado (público fica como definido,
