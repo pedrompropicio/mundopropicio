@@ -339,15 +339,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         addLog("info", `purchase_audience: connection ${strategy.connection_id} → ad-account link ${audienceLinkId} (${audienceCatalog.length} audiences in catalog)`);
       }
 
-      audienceCatalog = ((catRows ?? []) as any[])
-        .filter((r) => r?.audience_id_meta && r?.name)
-        .map((r) => ({
-          audience_id_meta: String(r.audience_id_meta),
-          name: String(r.name),
-          event_id: r.event_id ?? null,
-          is_primary_purchase: r.is_primary_purchase === true,
-          total_records_meta: typeof r.total_records_meta === "number" ? r.total_records_meta : null,
-        }));
+
       const decision = resolvePurchaseAudience({
         catalog: audienceCatalog,
         eventId: strategy.event_id ?? null,
