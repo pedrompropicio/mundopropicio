@@ -2398,7 +2398,7 @@ export default function CrmCampaignView() {
                     </div>
 
                     {/* Mini-stats do anúncio — janela do PeriodSelector global */}
-                    <EntityStatsGrid metrics={adMetricsMap.get(ad.external_ad_id)} currency={cr?.link_url ? cur : cur} variant="ad" />
+                    <EntityStatsGrid metrics={adMetricsMap.get(ad.external_ad_id)} currency={cur} variant="ad" />
 
 
 
