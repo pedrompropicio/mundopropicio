@@ -2690,6 +2690,53 @@ function MetricCard({ icon: Icon, label, value }: { icon: any; label: string; va
   );
 }
 
+// Grelha compacta de métricas por entidade (adset ou ad).
+// Reaproveita `eur`/`intFmt` da página e o estilo dos MetricCard em compacto.
+function EntityStatsGrid({
+  metrics,
+  currency,
+  variant,
+}: {
+  metrics: EntityMetrics | undefined;
+  currency: string | null | undefined;
+  variant: "adset" | "ad";
+}) {
+  if (!metrics) {
+    return (
+      <div className="text-[11px] text-muted-foreground italic border-t border-border/40 pt-2">
+        Sem dados no período.
+      </div>
+    );
+  }
+  const pct = (v: number | null) => (v == null ? "—" : `${(v * 100).toFixed(2)}%`);
+  const num = (v: number | null) => (v == null ? "—" : v.toFixed(2));
+  const items: Array<{ label: string; value: string }> = [
+    { label: "Gasto", value: eur(metrics.spend, currency) },
+    { label: "Impressões", value: intFmt(metrics.impressions) },
+    ...(variant === "adset" ? [{ label: "Alcance", value: intFmt(metrics.reach) }] : []),
+    { label: "Cliques", value: intFmt(metrics.clicks) },
+    { label: "CPC", value: eur(metrics.cpc == null ? null : Math.round(metrics.cpc), currency) },
+    { label: "CPM", value: eur(metrics.cpm == null ? null : Math.round(metrics.cpm), currency) },
+    ...(variant === "adset" ? [
+      { label: "CTR", value: pct(metrics.ctr) },
+      { label: "Frequência", value: num(metrics.frequency) },
+    ] : []),
+    { label: "Compras", value: intFmt(metrics.purchases) },
+    { label: "ROAS", value: metrics.roas == null ? "—" : `${metrics.roas.toFixed(2)}x` },
+  ];
+  const cols = variant === "adset" ? "grid-cols-3 sm:grid-cols-5" : "grid-cols-3";
+  return (
+    <div className={cn("grid gap-2 text-xs border-t border-border/40 pt-2", cols)}>
+      {items.map((it) => (
+        <div key={it.label} className="flex flex-col">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{it.label}</span>
+          <span className="font-medium tabular-nums">{it.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ConfigRow({ label, value }: { label: string; value: string | null | undefined }) {
   return (
     <div className="flex justify-between gap-3 border-b border-border/50 py-1">
