@@ -94,7 +94,7 @@ const TYPE_LABEL: Record<string, string> = {
 };
 function prettyType(t: string | null): string {
   if (!t) return "—";
-  return TYPE_LABEL[t] ?? t.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  return TYPE_LABEL[t] ?? t.split("_").join(" ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 const CATEGORY_STYLE: Record<Category, string> = {
@@ -163,13 +163,13 @@ export function RecommendationsPanel({
   // Decisão — SÓ muda o status na BD. NÃO age no Meta.
   const decide = useMutation({
     mutationFn: async ({ id, decision }: { id: string; decision: "aplicada" | "ignorada" | "nova" }) => {
-      const patch: Record<string, any> = {
+      const { data: auth } = await supabase.auth.getUser();
+      const patch = {
         status: decision,
         decided_at: decision === "nova" ? null : new Date().toISOString(),
+        decided_by: decision === "nova" ? null : auth?.user?.id ?? null,
       };
-      const { data: auth } = await supabase.auth.getUser();
-      if (auth?.user?.id && decision !== "nova") patch.decided_by = auth.user.id;
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("meta_campaign_recommendations")
         .update(patch)
         .eq("id", id)
