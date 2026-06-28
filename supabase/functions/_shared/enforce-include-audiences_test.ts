@@ -109,7 +109,7 @@ Deno.test("remove ids que colidem com a Purchase do próprio evento", () => {
 
 Deno.test("retira do exclusions os ids que vão entrar em include", () => {
   // Plano onde o LLM, por erro, colocou A1 em exclusions do adset de prospeção.
-  const plan = {
+  const plan: any = {
     recommended_campaigns: [
       {
         phase_id: "awareness",
@@ -139,7 +139,7 @@ Deno.test("retira do exclusions os ids que vão entrar em include", () => {
 Deno.test("fallback quando nenhum adset tem goal/sinal de prospeção claro", () => {
   // Adsets sem optimization_goal, sem palavras-chave de prospeção nem retarget,
   // numa campanha que não é OUTCOME_SALES puro.
-  const plan = {
+  const plan: any = {
     recommended_campaigns: [
       {
         phase_id: "consideration",
@@ -164,7 +164,7 @@ Deno.test("fallback quando nenhum adset tem goal/sinal de prospeção claro", ()
 });
 
 Deno.test("fallback NÃO injeta em adsets retarget mesmo quando ativo", () => {
-  const plan = {
+  const plan: any = {
     recommended_campaigns: [
       {
         phase_id: "consideration",
