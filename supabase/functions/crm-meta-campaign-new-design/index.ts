@@ -314,7 +314,7 @@ Desenha uma estratégia COMPLETA em FASES (3-5 conforme o tempo até ao evento).
 1. Learning Phase: cada adset de conversão (OFFSITE_CONVERSIONS) precisa ~50 conv/7d.
 2. Escalar verba gradualmente (não >5% do total/dia no arranque).
 3. Audiences por fase: awareness=broad; engagement=interesses+LAL; conversão=custom/retargeting; final=warm retargeting (VC30d/ATC14d/IC7d) com urgência.
-4. custom_audiences/exclusions: usa APENAS ids reais da lista acima, verbatim. exclusions é um OBJETO, nunca array. NUNCA inventes ids/placeholders.
+4. custom_audiences/exclusions: usa APENAS ids reais da lista acima, verbatim. exclusions é um OBJETO, nunca array. NUNCA inventes ids/placeholders. EM ADSETS DE CONVERSÃO (OFFSITE_CONVERSIONS|CONVERSIONS|VALUE) inclui SEMPRE a audiência de "Compradores/Purchase" deste evento em exclusions.custom_audiences[].id (mesmo em prospeção fria e lookalike — nunca pagar para reconverter compradores). FREQUENCY_CAP: emite \`"frequency_cap": {"max_frequency": 3, "interval_days": 7}\` no adset APENAS quando optimization_goal="REACH"; em qualquer outro goal NÃO emitas o campo.
 5. interests: emite \`{name:"<nome real>"}\` (sem id; o sistema resolve). Nunca strings nuas nem ids inventados.
 6. Cada ad usa existing_creative_id (herdado) OU creative_brief (novo), nunca ambos. Distribui pelo menos 1 ad por adset.
 7. creative_brief (ads novos): headline_suggestion (30-50 chars), primary_text_suggestion (80-180 chars), cta_suggestion (GET_TICKETS|LEARN_MORE|SHOP_NOW|SIGN_UP) são OBRIGATÓRIOS.

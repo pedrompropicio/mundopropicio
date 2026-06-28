@@ -6,6 +6,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
 import { computePerAdsetCents } from "../_shared/budget-split.ts";
+import { resolvePurchaseAudience, type CatalogAudience } from "../_shared/purchase-audience-match.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -182,14 +183,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
     let eventAdDestinationUrl: string | null = null;
     let eventTicketingUrl: string | null = null;
     let eventName: string | null = null;
+    let eventSlug: string | null = null;
     if (strategy.event_id) {
       const { data: eventRow } = await (supabase as any)
         .schema("public").from("events")
-        .select("name, meta_pixel_id, ad_destination_url, ticketing_url").eq("id", strategy.event_id).maybeSingle();
+        .select("name, slug, meta_pixel_id, ad_destination_url, ticketing_url").eq("id", strategy.event_id).maybeSingle();
       eventPixelId = (eventRow as any)?.meta_pixel_id ?? null;
       eventAdDestinationUrl = (eventRow as any)?.ad_destination_url ?? null;
       eventTicketingUrl = (eventRow as any)?.ticketing_url ?? null;
       eventName = (eventRow as any)?.name ?? null;
+      eventSlug = (eventRow as any)?.slug ?? null;
     }
 
     // ── LOCK — recusar se já há deployment desta strategy a correr há <10min ──
@@ -288,6 +291,42 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const adAccountId = strategy.ad_account_id.startsWith("act_")
       ? strategy.ad_account_id
       : `act_${strategy.ad_account_id}`;
+
+    // ── Catálogo de custom audiences + match determinístico de COMPRADORES ────
+    // Issue #21 #4 alavanca B: aplica excluded_custom_audiences (PURCHASE do
+    // evento) em todos os adsets de CONVERSÃO (CONVERSION_GOALS), por UNIÃO,
+    // como rede de segurança ao LLM. Match por nome (catálogo não tem event_id);
+    // regra de ouro: ambiguidade/none → NÃO exclui (ver helper).
+    let audienceCatalog: CatalogAudience[] = [];
+    let resolvedPurchaseAudienceId: string | null = null;
+    try {
+      const { data: catRows } = await (supabase as any)
+        .schema("public").from("meta_custom_audiences")
+        .select("audience_id_meta, name")
+        .eq("company_id", companyId)
+        .eq("connection_id", strategy.connection_id)
+        .eq("enabled", true);
+      audienceCatalog = ((catRows ?? []) as any[])
+        .filter((r) => r?.audience_id_meta && r?.name)
+        .map((r) => ({ audience_id_meta: String(r.audience_id_meta), name: String(r.name) }));
+      const decision = resolvePurchaseAudience({
+        catalog: audienceCatalog,
+        eventName,
+        eventSlug,
+      });
+      if (decision.status === "matched") {
+        resolvedPurchaseAudienceId = decision.audience_id_meta;
+        addLog("info", `purchase_audience_match: TOP id=${decision.audience_id_meta} name="${decision.audience_name}" score=${decision.score} margin=${decision.margin}`, decision);
+      } else if (decision.status === "ambiguous") {
+        addLog("warn", `purchase_audience_match: AMBIGUOUS for event "${eventName}" (slug=${eventSlug}) — NOT excluding by match`, decision);
+      } else {
+        addLog("info", `purchase_audience_match: NONE for event "${eventName}" (slug=${eventSlug}) — reason=${decision.reason}`, decision);
+      }
+    } catch (e) {
+      addLog("warn", `purchase_audience_match: catalog load failed (non-fatal) — ${String(e)}`);
+    }
+    const catalogIdSet = new Set(audienceCatalog.map((a) => a.audience_id_meta));
+
 
     // ── IDEMPOTÊNCIA — lookup de ids JÁ deployados desta strategy ─────────────
     // Lê todos os deployments anteriores com status success/partial e agrega
@@ -597,6 +636,53 @@ Deno.serve(async (req: Request): Promise<Response> => {
                 addLog("warn", `    ⚠ Targeting.exclusions removidas do adset ${planAdset.adset_name} (estrutura array inválida — Meta espera objeto)`, { original_exclusions: (targeting as any).exclusions });
                 delete (targeting as any).exclusions;
               }
+              // ── Issue #21 #4 alavanca B — Exclusão de COMPRADORES em adsets de CONVERSÃO ─
+              // Critério (afinação Pedro): goal ∈ CONVERSION_GOALS, sem heurística de
+              // retargeting. Excluir compradores num adset de conversão nunca faz mal:
+              // não queres reconverter quem já tem bilhete. UNIÃO (não substitui) com
+              // as exclusions emitidas pelo LLM; valida que ids LLM existem no catálogo.
+              {
+                const goal = String(planAdset.optimization_goal ?? "").toUpperCase();
+                if (CONVERSION_GOALS.has(goal)) {
+                  const t: any = targeting;
+                  t.exclusions = (t.exclusions && typeof t.exclusions === "object" && !Array.isArray(t.exclusions)) ? t.exclusions : {};
+                  const existingExcl: any[] = Array.isArray(t.exclusions.custom_audiences) ? t.exclusions.custom_audiences : [];
+                  // Validação de ids emitidos pelo LLM contra o catálogo (drop inválidos)
+                  const validated: any[] = [];
+                  for (const item of existingExcl) {
+                    const id = String(item?.id ?? "");
+                    if (!id) continue;
+                    if (catalogIdSet.size > 0 && !catalogIdSet.has(id)) {
+                      addLog("warn", `    ⚠ exclusion id "${id}" emitido pelo LLM não existe no catálogo — descartado (adset ${planAdset.adset_name})`);
+                      continue;
+                    }
+                    validated.push({ id });
+                  }
+                  // União com purchase audience (sem duplicar)
+                  if (resolvedPurchaseAudienceId) {
+                    if (!validated.some((x) => String(x.id) === String(resolvedPurchaseAudienceId))) {
+                      validated.push({ id: resolvedPurchaseAudienceId });
+                      addLog("info", `    ✓ purchase_audience_excluded: adset="${planAdset.adset_name}" goal=${goal} id=${resolvedPurchaseAudienceId}`);
+                    } else {
+                      addLog("info", `    ⊙ purchase_audience already in LLM exclusions: adset="${planAdset.adset_name}" id=${resolvedPurchaseAudienceId}`);
+                    }
+                    // Garantir que não está também no include (Meta rejeita)
+                    if (Array.isArray(t.custom_audiences)) {
+                      const before = t.custom_audiences.length;
+                      t.custom_audiences = t.custom_audiences.filter((x: any) => String(x?.id) !== String(resolvedPurchaseAudienceId));
+                      if (t.custom_audiences.length !== before) {
+                        addLog("warn", `    ⚠ purchase_audience removida do INCLUDE do adset ${planAdset.adset_name} (não pode estar em include+exclude)`);
+                      }
+                    }
+                  }
+                  if (validated.length > 0) {
+                    t.exclusions.custom_audiences = validated;
+                  } else {
+                    delete t.exclusions.custom_audiences;
+                    if (Object.keys(t.exclusions).length === 0) delete t.exclusions;
+                  }
+                }
+              }
               // Fix 3 (guard) — custom_locations sem lat/lng → HTTP 500 da Meta.
               // Planos NOVOS já vêm resolvidos da geração (resolve-geo.ts). Aqui
               // protegemos planos ANTIGOS / editados à mão que nunca passaram por
@@ -700,6 +786,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
                   reason: campaignObjective !== "OUTCOME_SALES"
                     ? "campaign_not_sales"
                     : "adset_goal_not_conversion",
+                });
+              }
+              // ── Issue #21 #4 alavanca A — Frequency cap em REACH ─────────────
+              // Meta só aceita frequency_control_specs em adsets REACH (rejeita
+              // em CONVERSIONS/LINK_CLICKS/etc). Default conservador 3 imp / 7d
+              // se o LLM não emitir cap válido. Em qualquer outro goal: NUNCA.
+              if (adsetGoal === "REACH") {
+                const cap = (planAdset as any).frequency_cap;
+                const maxF = Number(cap?.max_frequency);
+                const intD = Number(cap?.interval_days);
+                const valid = Number.isFinite(maxF) && maxF >= 1 && maxF <= 10
+                           && Number.isFinite(intD) && intD >= 1 && intD <= 90;
+                const finalCap = valid
+                  ? { event: "IMPRESSIONS", max_frequency: maxF, interval_days: intD }
+                  : { event: "IMPRESSIONS", max_frequency: 3, interval_days: 7 };
+                adsetParams.frequency_control_specs = JSON.stringify([finalCap]);
+                addLog("info", `  ✓ frequency_cap aplicado no adset ${planAdset.adset_name} (REACH)`, {
+                  source: valid ? "llm" : "default_3_per_7d",
+                  cap: finalCap,
                 });
               }
               // Instrumentação 1487916 / debug de targeting:

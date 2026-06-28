@@ -358,8 +358,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const customAudiencesBlock = customAudienceList.length > 0
     ? `\n== CUSTOM AUDIENCES disponíveis nesta ad account ==\n` +
       customAudienceList.map((c) => `- id="${c.id}" name="${c.name}"`).join("\n") +
-      `\n(usa estes ids VERBATIM em targeting_json.custom_audiences[].id e exclusions.custom_audiences[].id)\n`
-    : `\n== CUSTOM AUDIENCES ==\n(nenhuma audience disponível — NÃO uses custom_audiences nem exclusions com ids inventados)\n`;
+      `\n(usa estes ids VERBATIM em targeting_json.custom_audiences[].id e exclusions.custom_audiences[].id)\n` +
+      `\n== REGRAS CRÍTICAS DE CONTROLO DE DESPERDÍCIO (issue #21 #4) ==\n` +
+      `1. EXCLUSÃO DE COMPRADORES: Em TODOS os adsets com optimization_goal de CONVERSÃO (OFFSITE_CONVERSIONS, CONVERSIONS, VALUE), inclui a audiência de "Compradores/Purchase" deste evento (procura nomes tipo "Purchase" / "Compras" + nome do evento) em exclusions.custom_audiences[].id — verbatim do catálogo acima. Mesmo em adsets de prospeção fria/lookalike: nunca pagar para reconverter quem já comprou.\n` +
+      `2. FREQUENCY CAP: Emite "frequency_cap": {"max_frequency": N, "interval_days": D} APENAS em adsets com optimization_goal="REACH". Default razoável: 3 impressões / 7 dias. Em QUALQUER outro goal NÃO emitas frequency_cap (a Meta rejeita).\n`
+    : `\n== CUSTOM AUDIENCES ==\n(nenhuma audience disponível — NÃO uses custom_audiences nem exclusions com ids inventados)\n` +
+      `\n== FREQUENCY CAP (issue #21 #4) ==\nEmite "frequency_cap": {"max_frequency": N, "interval_days": D} APENAS em adsets com optimization_goal="REACH". Default: 3 imp / 7 dias.\n`;
 
   // ── 7) Brief (reference_only OU blank) ────────────────────────────────
   let brief: CampaignBrief | null = null;
@@ -604,6 +608,8 @@ Schema de saída (JSON puro):
             "geo_locations": {"countries": ["PT","BR",...]}
           },
           "placements": ["..."],
+          "optimization_goal": "<REACH|LINK_CLICKS|OFFSITE_CONVERSIONS|CONVERSIONS|VALUE|...>",
+          "frequency_cap": {"max_frequency": <int 1..10>, "interval_days": <int 1..90>},
           "creatives": [
             {
               "type": "image|video|carousel|reels",
