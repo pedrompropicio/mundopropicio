@@ -1033,7 +1033,21 @@ export default function CrmCampaignView() {
 
   function goNewDesign() {
     if (!campaign) return;
-    navigate(`/audience/strategies/new-design/${campaign.external_campaign_id}`);
+    // Fase 4 (cenário C): navega para o from-scratch unificado com o contexto da
+    // campanha diagnosticada. A StrategyNewDesign antiga fica como fallback até
+    // ao deprecate na Peça 2 (herança seletiva de criativos).
+    const params = new URLSearchParams();
+    const evId = (campaign as any).linked_event_id;
+    if (evId) params.set("event_id", String(evId));
+    if (campaign.external_campaign_id) {
+      params.set("reference_campaign_id", String(campaign.external_campaign_id));
+    }
+    const tr = Number((diagnosis as any)?.target_roas) || 8;
+    if (Number.isFinite(tr) && tr > 0) params.set("target_roas", String(tr));
+    const connId = (campaign as any).connection_id;
+    if (connId) params.set("connection_id", String(connId));
+    params.set("source", "campaign_view");
+    navigate(`/audience/campaigns/new?${params.toString()}`);
   }
 
   // ── Gerar prescrição (cirúrgico OU escala — mesma vista, função conforme kind) ──

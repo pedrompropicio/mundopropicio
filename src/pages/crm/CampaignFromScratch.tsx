@@ -4,7 +4,7 @@
 // (cyan-500). A Parte 2 (duelo from-scratch) NÃO está aqui.
 
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Sparkles, ExternalLink, Info } from "lucide-react";
 import { toast } from "sonner";
@@ -82,13 +82,27 @@ function feasibilityNote(f: string | undefined | null): string | null {
 export default function CampaignFromScratch() {
   const navigate = useNavigate();
   const { companyId } = useCompany();
+  const [searchParams] = useSearchParams();
 
-  // ── Form state ───────────────────────────────────────────────
-  const [sourceMode, setSourceMode] = useState<SourceMode>("from_scratch_ref");
-  const [eventPick, setEventPick] = useState<EventPick>("existing");
+  // ── Prefill via query string (cenário C: recomeçar do zero a partir de uma campanha) ──
+  const qpEventId = searchParams.get("event_id") || "";
+  const qpReferenceCampaignId = searchParams.get("reference_campaign_id") || "";
+  const qpTargetRoas = searchParams.get("target_roas") || "";
+  const qpConnectionId = searchParams.get("connection_id") || "";
+  const qpSource = searchParams.get("source") || "";
+  const cameFromCampaignView = qpSource === "campaign_view";
+
+
+  // ── Form state (lazy init aplica prefill da query string UMA vez) ──
+  const [sourceMode, setSourceMode] = useState<SourceMode>(
+    () => (qpReferenceCampaignId ? "from_scratch_ref" : "from_scratch_ref"),
+  );
+  const [eventPick, setEventPick] = useState<EventPick>(
+    () => (qpEventId ? "existing" : "existing"),
+  );
   const [campaignMoment, setCampaignMoment] = useState<CampaignMoment>("funil_completo");
 
-  const [eventId, setEventId] = useState<string>("");
+  const [eventId, setEventId] = useState<string>(() => qpEventId);
 
   const [emName, setEmName] = useState("");
   const [emDate, setEmDate] = useState("");
@@ -96,11 +110,15 @@ export default function CampaignFromScratch() {
   const [emTickets, setEmTickets] = useState<string>("");
   const [emGoal, setEmGoal] = useState<string>("");
 
-  const [referenceCampaignId, setReferenceCampaignId] = useState<string>("");
-  const [connectionId, setConnectionId] = useState<string>("");
-  const [targetRoas, setTargetRoas] = useState<string>("8");
+  const [referenceCampaignId, setReferenceCampaignId] = useState<string>(() => qpReferenceCampaignId);
+  const [connectionId, setConnectionId] = useState<string>(() => qpConnectionId);
+  const [targetRoas, setTargetRoas] = useState<string>(() => {
+    const n = Number(qpTargetRoas);
+    return Number.isFinite(n) && n > 0 ? String(n) : "8";
+  });
   const [totalBudget, setTotalBudget] = useState<string>("");
   const [countriesRaw, setCountriesRaw] = useState<string>("PT");
+
 
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<GenerationResult | null>(null);
@@ -277,6 +295,13 @@ export default function CampaignFromScratch() {
           O modelo só escreve linguagem; os números são ancorados em dados reais.
         </p>
       </div>
+
+      {cameFromCampaignView && (
+        <div className="text-xs px-3 py-2 rounded-md border border-cyan-500/30 bg-cyan-500/5 text-cyan-200 flex items-center gap-2">
+          <Info className="h-3.5 w-3.5" />
+          A recomeçar a partir da campanha diagnosticada. Ajusta o que precisares.
+        </div>
+      )}
 
       {/* ── FORMULÁRIO ── */}
       <Card className="p-5 space-y-6 border-cyan-500/20">
