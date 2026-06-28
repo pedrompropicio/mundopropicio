@@ -318,6 +318,8 @@ Desenha uma estratégia COMPLETA em FASES (3-5 conforme o tempo até ao evento).
 5. interests: emite \`{name:"<nome real>"}\` (sem id; o sistema resolve). Nunca strings nuas nem ids inventados.
 6. Cada ad usa existing_creative_id (herdado) OU creative_brief (novo), nunca ambos. Distribui pelo menos 1 ad por adset.
 7. creative_brief (ads novos): headline_suggestion (30-50 chars), primary_text_suggestion (80-180 chars), cta_suggestion (GET_TICKETS|LEARN_MORE|SHOP_NOW|SIGN_UP) são OBRIGATÓRIOS.
+8. BUDGET_WEIGHT POR ADSET (sugestão de proporção, NÃO euros): em cada adset emite \`budget_weight\` ∈ [0,1]. A soma dentro da mesma campanha deve aproximar-se de 1.0 (o sistema normaliza). NÃO emitas valores absolutos por adset — o euro é decidido pelo CÓDIGO a partir de daily_budget_eur da campanha × budget_weight. Se inseguro, OMITE em TODOS os adsets dessa campanha (o sistema reparte igualmente). Heurística: retargeting > prospecção; lookalike compradores > interesses frios.
+
 
 == FORMATO DE RESPOSTA ==
 APENAS JSON puro (sem markdown) com este schema EXATO:
