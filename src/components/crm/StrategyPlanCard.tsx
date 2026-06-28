@@ -198,9 +198,31 @@ export default function StrategyPlanCard({
             <Target className="h-3.5 w-3.5 text-cyan-400" /> Fases ({phases.length})
           </h3>
           <div className="space-y-2">
-            {phases.map((p: any, idx: number) => (
+            {phases.map((p: any, idx: number) => {
+              // Fallbacks redesign → from-scratch
+              const phaseName = p.name ?? p.phase_label;
+              const phaseStart = p.days_from_event_start ?? p.start_days_before_event;
+              const phaseObjective = p.objective ?? p.objective_meta;
+              const phaseEnd = p.days_from_event_end ?? (
+                phaseStart != null && p.duration_days != null
+                  ? phaseStart - p.duration_days
+                  : undefined
+              );
+              // Budget da fase: redesign → directo; from-scratch → budget_share × total
+              let phaseDaily = p.daily_budget_eur;
+              let phaseTotal = p.total_phase_budget_eur;
+              if (phaseDaily == null && phaseTotal == null &&
+                  typeof p.budget_share === "number" &&
+                  typeof summary.recommended_total_budget_eur === "number") {
+                phaseTotal = p.budget_share * summary.recommended_total_budget_eur;
+                if (typeof p.duration_days === "number" && p.duration_days > 0) {
+                  phaseDaily = phaseTotal / p.duration_days;
+                }
+              }
+              const hasBudget = phaseDaily != null || phaseTotal != null;
+              return (
               <Card
-                key={p.id ?? idx}
+                key={p.id ?? p.phase_id ?? idx}
                 className={cn(
                   "p-3 border-l-4",
                   PHASE_BORDERS[idx % PHASE_BORDERS.length]
@@ -211,18 +233,24 @@ export default function StrategyPlanCard({
                     <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
                       Fase {idx + 1}
                     </div>
-                    <h4 className="text-sm font-semibold">{p.name}</h4>
+                    <h4 className="text-sm font-semibold">{phaseName}</h4>
                     <div className="text-[11px] text-muted-foreground mt-0.5">
-                      D-{p.days_from_event_start} → D-{p.days_from_event_end} ({p.duration_days}d)
-                      · {p.objective}
+                      {phaseStart != null && phaseEnd != null
+                        ? `D-${phaseStart} → D-${phaseEnd} (${p.duration_days}d)`
+                        : phaseStart != null
+                          ? `D-${phaseStart}${p.duration_days != null ? ` (${p.duration_days}d)` : ""}`
+                          : p.duration_days != null ? `${p.duration_days}d` : ""}
+                      {phaseObjective ? ` · ${phaseObjective}` : ""}
                     </div>
                   </div>
-                  <div className="text-right text-[11px]">
-                    <div className="text-muted-foreground">Daily / Total</div>
-                    <div className="font-semibold">
-                      {fmtEur(p.daily_budget_eur, 0)} / {fmtEur(p.total_phase_budget_eur, 0)}
+                  {hasBudget && (
+                    <div className="text-right text-[11px]">
+                      <div className="text-muted-foreground">Daily / Total</div>
+                      <div className="font-semibold">
+                        {fmtEur(phaseDaily, 0)} / {fmtEur(phaseTotal, 0)}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
                 {p.primary_audiences?.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
@@ -254,7 +282,8 @@ export default function StrategyPlanCard({
                   </div>
                 )}
               </Card>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
