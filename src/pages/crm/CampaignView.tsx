@@ -73,6 +73,7 @@ import { AssistedAssemblyPanel } from "@/components/crm/AssistedAssemblyPanel";
 import { CampaignDesignStudio } from "@/components/crm/CampaignDesignStudio";
 import { MetaPublishPanel } from "@/components/crm/MetaPublishPanel";
 import { useConfirmMetaAction, type PendingMetaAction } from "@/components/crm/ConfirmMetaActionDialog";
+import { RecommendationsPanel } from "@/components/crm/RecommendationsPanel";
 
 // ── Tipos (subset dos snapshots; só o que a página usa) ─────────────────────
 interface CampaignSnap {
