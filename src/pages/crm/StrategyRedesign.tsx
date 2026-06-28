@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import PurchaseAudienceCard from "@/components/crm/PurchaseAudienceCard";
+
 
 // ============================================================
 // Types (matches crm-meta-redesign-inventory output)
@@ -728,6 +730,11 @@ export default function CrmStrategyRedesign() {
                   </div>
                 </div>
               </Card>
+
+              {campaignSnap?.linked_event_id ? (
+                <PurchaseAudienceCard eventId={campaignSnap.linked_event_id} variant="inline" />
+              ) : null}
+
 
               <Card className="p-4 space-y-3">
                 <div>

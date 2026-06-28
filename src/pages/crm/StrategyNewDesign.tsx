@@ -20,6 +20,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Sparkles, Loader2, Info, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
+import PurchaseAudienceCard from "@/components/crm/PurchaseAudienceCard";
+
 
 const COUNTRY_OPTIONS = [
   { code: "PT", label: "Portugal" },
@@ -288,6 +290,12 @@ export default function CrmStrategyNewDesign() {
           </div>
         )}
       </Card>
+
+      {eventId ? (
+        <PurchaseAudienceCard eventId={eventId} variant="inline" />
+      ) : null}
+
+
 
       {/* Herança seletiva */}
       <Card className="p-5 space-y-4">

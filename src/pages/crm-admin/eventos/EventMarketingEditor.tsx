@@ -26,6 +26,8 @@ import { Trash2, Plus, ArrowUp, ArrowDown } from "lucide-react";
 import { FaqsTab } from "./FaqsTab";
 import { LineupTab } from "./LineupTab";
 import { MetaAudienceCard } from "./MetaAudienceCard";
+import PurchaseAudienceCard from "@/components/crm/PurchaseAudienceCard";
+
 
 type FormState = Omit<
   EventMarketingRow,
@@ -721,6 +723,14 @@ function GestaoTab({
         metaAudienceName={ev?.meta_audience_name ?? null}
         disabled={disabled}
       />
+
+      <PurchaseAudienceCard
+        eventId={eventId}
+        companyId={ev?.company_id ?? MP_COMPANY_ID}
+        metaPixelId={ev?.meta_pixel_id ?? null}
+        variant="card"
+      />
+
 
       <Field label="Tipo de gestão">
         <Select value={mgmt} onValueChange={setMgmt} disabled={disabled}>

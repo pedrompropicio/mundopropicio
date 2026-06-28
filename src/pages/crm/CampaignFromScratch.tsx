@@ -24,6 +24,8 @@ import {
   RadioGroup, RadioGroupItem,
 } from "@/components/ui/radio-group";
 import StrategyPlanCard from "@/components/crm/StrategyPlanCard";
+import PurchaseAudienceCard from "@/components/crm/PurchaseAudienceCard";
+
 
 type SourceMode = "from_scratch_ref" | "from_scratch_blank";
 type EventPick = "existing" | "manual";
@@ -353,18 +355,23 @@ export default function CampaignFromScratch() {
           </RadioGroup>
 
           {eventPick === "existing" ? (
-            <Select value={eventId} onValueChange={setEventId}>
-              <SelectTrigger>
-                <SelectValue placeholder={eventsQ.isLoading ? "A carregar…" : "Escolhe um evento"} />
-              </SelectTrigger>
-              <SelectContent className="max-h-[320px]">
-                {(eventsQ.data ?? []).map((e) => (
-                  <SelectItem key={e.id} value={e.id}>
-                    {e.name}{e.date ? ` — ${e.date}` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <>
+              <Select value={eventId} onValueChange={setEventId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={eventsQ.isLoading ? "A carregar…" : "Escolhe um evento"} />
+                </SelectTrigger>
+                <SelectContent className="max-h-[320px]">
+                  {(eventsQ.data ?? []).map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.name}{e.date ? ` — ${e.date}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {eventId ? (
+                <PurchaseAudienceCard eventId={eventId} variant="inline" />
+              ) : null}
+            </>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -389,6 +396,7 @@ export default function CampaignFromScratch() {
               </div>
             </div>
           )}
+
         </div>
 
         {/* Momento da campanha */}
