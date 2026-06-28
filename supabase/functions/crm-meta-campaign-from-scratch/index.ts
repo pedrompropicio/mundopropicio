@@ -604,6 +604,8 @@ Schema de saída (JSON puro):
             "geo_locations": {"countries": ["PT","BR",...]}
           },
           "placements": ["..."],
+          "optimization_goal": "<REACH|LINK_CLICKS|OFFSITE_CONVERSIONS|CONVERSIONS|VALUE|...>",
+          "frequency_cap": {"max_frequency": <int 1..10>, "interval_days": <int 1..90>},
           "creatives": [
             {
               "type": "image|video|carousel|reels",
