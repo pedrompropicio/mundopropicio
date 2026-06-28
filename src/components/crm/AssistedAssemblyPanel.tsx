@@ -191,15 +191,150 @@ export function AssistedAssemblyPanel({
     const { data, error } = await (supabase as any)
       .schema("crm")
       .from("meta_creatives")
-      .select("id, name, file_url, type, file_mime_type")
+      .select("id, name, file_url, type, file_mime_type, meta_image_hash, meta_video_id")
       .in("id", ids);
     if (error) {
       console.warn("[assembly-panel] fetch creative names failed", error);
       return new Map<string, CreativeMini>();
     }
     const m = new Map<string, CreativeMini>();
-    (data ?? []).forEach((r: any) => m.set(r.id, { id: r.id, name: r.name, file_url: r.file_url, type: r.type, file_mime_type: r.file_mime_type }));
+    (data ?? []).forEach((r: any) => m.set(r.id, {
+      id: r.id, name: r.name, file_url: r.file_url, type: r.type,
+      file_mime_type: r.file_mime_type, meta_image_hash: r.meta_image_hash, meta_video_id: r.meta_video_id,
+    }));
     return m;
+  }
+
+  /** Refetch 1 criativo + cache-bust transiente (NUNCA escrito em file_url da BD). */
+  async function refetchCreative(cid: string) {
+    const { data } = await (supabase as any)
+      .schema("crm")
+      .from("meta_creatives")
+      .select("id, name, file_url, type, file_mime_type, meta_image_hash, meta_video_id")
+      .eq("id", cid)
+      .maybeSingle();
+    if (data) {
+      setCreativesById((prev) => {
+        const m = new Map(prev);
+        m.set(cid, data as CreativeMini);
+        return m;
+      });
+      setCompanyCreatives((prev) => prev.map((c) => (c.id === cid ? { ...c, ...(data as any) } : c)));
+      setBustedAt((prev) => {
+        const m = new Map(prev);
+        m.set(cid, Date.now());
+        return m;
+      });
+    }
+  }
+
+  function canBringHires(c: CreativeMini | undefined | null): { ok: boolean; reason?: string } {
+    if (!c) return { ok: false, reason: "Sem metadados do criativo." };
+    if (c.meta_image_hash) return { ok: true };
+    if (isVideoCreative(c)) {
+      if (c.meta_video_id) return { ok: true };
+      return { ok: false, reason: "Vídeo sem identificador Meta — não é possível recuperar do Meta." };
+    }
+    return { ok: false, reason: "Criativo sem hash de imagem nem vídeo Meta — não é possível recuperar." };
+  }
+
+  async function bringHires(cid: string) {
+    setHiresLoading((prev) => new Set(prev).add(cid));
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-creatives-recover-hires", {
+        body: { creative_ids: [cid] },
+      });
+      if (error) throw new Error(error.message || "Falha ao invocar a função");
+      const r = (data?.results ?? []).find((x: any) => x.creative_id === cid);
+      if (!r) {
+        toast.warning("Sem resultado para este criativo.");
+        return;
+      }
+      const dims = r.width && r.height ? `${r.width}×${r.height}` : null;
+      const kb = r.file_size_bytes ? `${Math.round(r.file_size_bytes / 1024)}KB` : null;
+      switch (r.status) {
+        case "upgraded":
+          toast.success("Atualizado para alta", { description: [dims, kb].filter(Boolean).join(" · ") || undefined });
+          await refetchCreative(cid);
+          break;
+        case "upgraded_video_source":
+          toast.success("Vídeo original trazido do Meta", { description: [dims, kb].filter(Boolean).join(" · ") || undefined });
+          await refetchCreative(cid);
+          break;
+        case "upgraded_video_thumbnail":
+          toast.success("Thumbnail em alta atualizada", {
+            description: `Vídeo original não disponível na Meta — pôster em ${dims ?? "alta"}.`,
+          });
+          await refetchCreative(cid);
+          break;
+        case "no_hires_available":
+          toast.message("Sem versão em alta disponível", {
+            description: "A Meta não devolveu MP4 nem thumbnail ≥ 600px.",
+          });
+          break;
+        case "no_source":
+          toast.warning("Criativo sem identificador Meta", {
+            description: "Não foi possível tentar.",
+          });
+          break;
+        case "width_below_min":
+          toast.warning("Imagem na Meta está abaixo de 600px", {
+            description: "Mantido o ficheiro atual.",
+          });
+          break;
+        default:
+          toast.error("Falha a trazer do Meta", { description: r.reason ?? r.status });
+      }
+    } catch (e: any) {
+      toast.error("Falha a trazer do Meta", { description: e?.message ?? String(e) });
+    } finally {
+      setHiresLoading((prev) => {
+        const s = new Set(prev);
+        s.delete(cid);
+        return s;
+      });
+    }
+  }
+
+  function openUploadFor(args: { adsetKey: string | null; replaceCid: string | null }) {
+    uploadTargetRef.current = args;
+    fileInputRef.current?.click();
+  }
+
+  async function handleUploadFile(file: File) {
+    const target = uploadTargetRef.current;
+    uploadTargetRef.current = null;
+    if (!companyId) {
+      toast.error("Empresa em falta.");
+      return;
+    }
+    const replaceCid = target?.replaceCid ?? null;
+    const trackKey = replaceCid ?? "__catalog__";
+    setUploadLoading((prev) => new Set(prev).add(trackKey));
+    try {
+      const created = await uploadCreativeFile({ file, companyId });
+      toast.success("Upload concluído", { description: created.name });
+      // Atualizar caches locais
+      setCreativesById((prev) => {
+        const m = new Map(prev);
+        m.set(created.id, created as unknown as CreativeMini);
+        return m;
+      });
+      setCompanyCreatives((prev) => [created as unknown as CreativeMini, ...prev.filter((c) => c.id !== created.id)]);
+      // Se foi substituição num adset → ligar
+      if (target?.adsetKey && replaceCid) {
+        const ad = adsets.find((a) => adsetKey(a) === target.adsetKey);
+        if (ad) await replaceCreative(ad, replaceCid, created.id);
+      }
+    } catch (e: any) {
+      toast.error("Falha no upload", { description: e?.message ?? String(e) });
+    } finally {
+      setUploadLoading((prev) => {
+        const s = new Set(prev);
+        s.delete(trackKey);
+        return s;
+      });
+    }
   }
 
   async function runAssembly() {
