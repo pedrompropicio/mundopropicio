@@ -300,21 +300,46 @@ Deno.serve(async (req: Request): Promise<Response> => {
     let audienceCatalog: CatalogAudience[] = [];
     let resolvedPurchaseAudienceId: string | null = null;
     try {
-      const { data: catRows } = await (supabase as any)
-        .schema("public").from("meta_custom_audiences")
-        .select("audience_id_meta, name, event_id, is_primary_purchase, total_records_meta")
-        .eq("company_id", companyId)
-        .eq("connection_id", strategy.connection_id)
-        .eq("enabled", true);
-      audienceCatalog = ((catRows ?? []) as any[])
-        .filter((r) => r?.audience_id_meta && r?.name)
-        .map((r) => ({
-          audience_id_meta: String(r.audience_id_meta),
-          name: String(r.name),
-          event_id: r.event_id ?? null,
-          is_primary_purchase: r.is_primary_purchase === true,
-          total_records_meta: typeof r.total_records_meta === "number" ? r.total_records_meta : null,
-        }));
+      // BUGFIX (#21 #4): meta_custom_audiences.connection_id guarda o ID do LINK
+      // (crm.ad_platform_account_links.id), mas strategy.connection_id é o ID da
+      // CONNECTION (crm.ad_platform_connections.id). Sem traduzir, o filtro nunca
+      // casa e o catálogo vem vazio. Resolve o link primário desta connection.
+      let audienceLinkId: string | null = null;
+      try {
+        const { data: linkRow } = await (supabase as any)
+          .schema("crm").from("ad_platform_account_links")
+          .select("id")
+          .eq("connection_id", strategy.connection_id)
+          .eq("enabled", true)
+          .order("is_primary", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        audienceLinkId = linkRow?.id ?? null;
+      } catch (e) {
+        addLog("warn", `purchase_audience: link lookup failed — ${String(e)}`);
+      }
+      if (!audienceLinkId) {
+        addLog("warn", `purchase_audience: no primary ad-account link for connection ${strategy.connection_id} — catalog empty`);
+      } else {
+        const { data: catRows } = await (supabase as any)
+          .schema("public").from("meta_custom_audiences")
+          .select("audience_id_meta, name, event_id, is_primary_purchase, total_records_meta")
+          .eq("company_id", companyId)
+          .eq("connection_id", audienceLinkId)
+          .eq("enabled", true);
+        audienceCatalog = ((catRows ?? []) as any[])
+          .filter((r) => r?.audience_id_meta && r?.name)
+          .map((r) => ({
+            audience_id_meta: String(r.audience_id_meta),
+            name: String(r.name),
+            event_id: r.event_id ?? null,
+            is_primary_purchase: r.is_primary_purchase === true,
+            total_records_meta: typeof r.total_records_meta === "number" ? r.total_records_meta : null,
+          }));
+        addLog("info", `purchase_audience: connection ${strategy.connection_id} → ad-account link ${audienceLinkId} (${audienceCatalog.length} audiences in catalog)`);
+      }
+
+
       const decision = resolvePurchaseAudience({
         catalog: audienceCatalog,
         eventId: strategy.event_id ?? null,
