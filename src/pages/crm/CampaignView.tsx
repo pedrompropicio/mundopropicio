@@ -583,7 +583,47 @@ export default function CrmCampaignView() {
       if (error) throw error;
       return (data ?? []) as InsightRow[];
     },
+
+  // 2b) Insights por ADSET — mesma janela do PeriodSelector da campanha mãe.
+  // Uma só query por campanha (índice idx_adset_insights_campaign_date) e
+  // agregamos no cliente por external_adset_id (ver adsetMetricsMap abaixo).
+  const { data: adsetInsights } = useQuery({
+    queryKey: ["crm-campaign-view-adset-insights", id, periodFromStr, periodToStr],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_adset_insights_daily")
+        .select(
+          "external_adset_id, date_start, spend_cents, impressions, reach, clicks, purchases_count, purchases_value_cents, currency",
+        )
+        .eq("external_campaign_id", id)
+        .gte("date_start", periodFromStr)
+        .lte("date_start", periodToStr);
+      if (error) throw error;
+      return (data ?? []) as AdsetInsightRow[];
+    },
   });
+
+  // 2c) Insights por ANÚNCIO — idêntico ao adset (índice idx_ad_insights_campaign_date).
+  const { data: adInsights } = useQuery({
+    queryKey: ["crm-campaign-view-ad-insights", id, periodFromStr, periodToStr],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_ad_insights_daily")
+        .select(
+          "external_ad_id, date_start, spend_cents, impressions, reach, clicks, purchases_count, purchases_value_cents, currency",
+        )
+        .eq("external_campaign_id", id)
+        .gte("date_start", periodFromStr)
+        .lte("date_start", periodToStr);
+      if (error) throw error;
+      return (data ?? []) as AdInsightRow[];
+    },
+  });
+
 
   // 3) Adsets — incluímos connection_id/ad_account_id p/ poder chamar entity-action
   const { data: adsets } = useQuery({
