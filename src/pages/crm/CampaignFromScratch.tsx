@@ -249,7 +249,8 @@ export default function CampaignFromScratch() {
   const conns = connectionsQ.data ?? [];
   const showConnectionPicker = conns.length > 1;
   const an = result?.anchored_numbers;
-  const note = an ? feasibilityNote(an) : null;
+  const feasibility: string | undefined = result?.generated_plan?.summary?.feasibility;
+  const note = feasibilityNote(feasibility);
 
   return (
     <div className="space-y-6 max-w-5xl">
