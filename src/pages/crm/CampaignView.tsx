@@ -583,6 +583,9 @@ export default function CrmCampaignView() {
       if (error) throw error;
       return (data ?? []) as InsightRow[];
     },
+  });
+
+
 
   // 2b) Insights por ADSET — mesma janela do PeriodSelector da campanha mãe.
   // Uma só query por campanha (índice idx_adset_insights_campaign_date) e
