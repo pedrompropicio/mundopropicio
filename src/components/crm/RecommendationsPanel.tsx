@@ -329,6 +329,7 @@ export function RecommendationsPanel({
               recs={recs}
               onDecide={(id, decision) => decide.mutate({ id, decision })}
               onApplyAplus={(rec) => setAplusConfirm(rec)}
+              onPickReels={(rec) => setReelsPicker(rec)}
               decidingId={decide.isPending ? decide.variables?.id : undefined}
             />
           ))}
@@ -339,6 +340,7 @@ export function RecommendationsPanel({
               recs={groups.accountLevel}
               onDecide={(id, decision) => decide.mutate({ id, decision })}
               onApplyAplus={(rec) => setAplusConfirm(rec)}
+              onPickReels={(rec) => setReelsPicker(rec)}
               decidingId={decide.isPending ? decide.variables?.id : undefined}
             />
           )}
