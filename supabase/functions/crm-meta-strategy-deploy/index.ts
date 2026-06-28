@@ -173,6 +173,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (!strategy.generated_plan) return json({ error: "plan_not_generated" }, 400);
     if (!strategy.connection_id) return json({ error: "connection_missing" }, 400);
 
+    // ── Pixel do EVENTO (precedência sobre o pixel da campanha-fonte) ─────────
+    // events.meta_pixel_id é a fonte de verdade do pixel de tracking de
+    // bilheteira. Se preenchido, manda sobre o pixel herdado da fonte (que
+    // continua a ser populado abaixo como fallback). strategy.event_id pode ser
+    // null em planos manuais sem evento — aí cai-se silenciosamente no fallback.
+    let eventPixelId: string | null = null;
+    if (strategy.event_id) {
+      const { data: eventRow } = await (supabase as any)
+        .schema("public").from("events")
+        .select("meta_pixel_id").eq("id", strategy.event_id).maybeSingle();
+      eventPixelId = (eventRow as any)?.meta_pixel_id ?? null;
+    }
+
     // ── LOCK — recusar se já há deployment desta strategy a correr há <10min ──
     // Usa o status='running' da row de deployment como mutex distribuído. TTL
     // de 10min evita lock permanente em caso de crash do edge function sem
@@ -405,7 +418,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     );
 
     let sourcePromotedObject: any = null;
-    if (strategy.source_campaign_id) {
+    // Só consulta a fonte se o evento NÃO tiver pixel (precedência evento-primeiro).
+    // Quando o evento tem pixel, ignoramos a fonte por completo — e a validação
+    // de consistência da fonte (source_pixel_inconsistent) deixa de bloquear o
+    // deploy, alinhado com a decisão de precedência.
+    if (!eventPixelId && strategy.source_campaign_id) {
       const { data: sourceAdsets } = await (supabase as any)
         .schema("crm").from("meta_adset_snapshot")
         .select("external_adset_id, raw")
@@ -429,15 +446,31 @@ Deno.serve(async (req: Request): Promise<Response> => {
       }
     }
 
-    if (!sourcePromotedObject && planUsesConversionGoal) {
-      // Caso-limite (a): plano usa goal de conversão mas a fonte não tem pixel.
-      // A chamada /adsets falharia na Meta — abortar com mensagem clara.
-      addLog("error", "Campanha-fonte sem pixel (promoted_object) mas o plano usa optimization_goal de conversão", { source_campaign_id: strategy.source_campaign_id ?? null });
-      await failDeployment("source_campaign_no_pixel");
-      return json({
-        error: "source_campaign_no_pixel",
+    // Precedência EVENTO-PRIMEIRO: pixel do evento manda; fonte é fallback.
+    const resolvedPromotedObject: { pixel_id: string; custom_event_type?: string } | null =
+      eventPixelId
+        ? { pixel_id: String(eventPixelId), custom_event_type: "PURCHASE" }
+        : (sourcePromotedObject ?? null);
+    const pixelSource: "event" | "source_campaign" | null =
+      eventPixelId ? "event" : (sourcePromotedObject ? "source_campaign" : null);
+    if (resolvedPromotedObject) {
+      addLog("info", `Pixel resolvido (precedência evento-primeiro): source=${pixelSource}, pixel_id=${resolvedPromotedObject.pixel_id}`);
+    }
+
+    if (!resolvedPromotedObject && planUsesConversionGoal) {
+      // Sem pixel disponível (nem no evento, nem na campanha-fonte) e o plano
+      // usa goal de conversão → a chamada /adsets falharia na Meta. Aborta com
+      // mensagem clara que orienta o utilizador a configurar o pixel no evento.
+      addLog("error", "Sem pixel disponível (evento sem meta_pixel_id e fonte sem promoted_object) e o plano usa optimization_goal de conversão", {
+        event_id: strategy.event_id ?? null,
         source_campaign_id: strategy.source_campaign_id ?? null,
-        message: "A campanha-fonte não tem pixel (promoted_object) sincronizado e o plano usa goal de conversão. Re-sincroniza os adsets em modo full e tenta de novo.",
+      });
+      await failDeployment("no_pixel_available");
+      return json({
+        error: "no_pixel_available",
+        event_id: strategy.event_id ?? null,
+        source_campaign_id: strategy.source_campaign_id ?? null,
+        message: "O plano tem adsets de conversão (Vendas) mas não há pixel disponível. Configura meta_pixel_id no evento em /eventos/<id> ou, em modo redesign, garante que a campanha-fonte tem pixel sincronizado (re-sync em modo full).",
       }, 422);
     }
 
@@ -622,37 +655,42 @@ Deno.serve(async (req: Request): Promise<Response> => {
               // conversão ficam deliberadamente sem pixel.
               const adsetGoal = String(planAdset.optimization_goal ?? "").toUpperCase();
               if (
-                sourcePromotedObject &&
+                resolvedPromotedObject &&
                 campaignObjective === "OUTCOME_SALES" &&
                 CONVERSION_GOALS.has(adsetGoal)
               ) {
                 // ERRO 3 fix (subcode 1885097, "expected string, got integer 0"):
-                // sourcePromotedObject é copiado verbatim do raw da Meta e pode
-                // incluir campos extra (page_id, application_id, etc.) com valor
-                // integer 0 quando não estão definidos. Filtramos para os campos
-                // canónicos com coerção explícita a string — elimina o leak sem
-                // mudar o significado da injeção.
+                // resolvedPromotedObject pode vir da fonte (raw da Meta, com campos
+                // extra) ou do evento (já limpo). Filtramos sempre para os campos
+                // canónicos com coerção explícita a string — uniforme e seguro.
                 const cleanPromotedObject: Record<string, string> = {
-                  pixel_id: String(sourcePromotedObject.pixel_id),
+                  pixel_id: String(resolvedPromotedObject.pixel_id),
                 };
-                if (sourcePromotedObject.custom_event_type) {
-                  cleanPromotedObject.custom_event_type = String(sourcePromotedObject.custom_event_type);
+                if (resolvedPromotedObject.custom_event_type) {
+                  cleanPromotedObject.custom_event_type = String(resolvedPromotedObject.custom_event_type);
                 }
                 adsetParams.promoted_object = JSON.stringify(cleanPromotedObject);
+                // Attribution window explícita para compra de bilhetes: 7d clique
+                // + 1d view. Só em adsets de conversão — a Meta rejeita este
+                // campo em LINK_CLICKS/REACH/POST_ENGAGEMENT. Espelha publish-execute.
+                adsetParams.attribution_spec = JSON.stringify([
+                  { event_type: "CLICK_THROUGH", window_days: 7 },
+                  { event_type: "VIEW_THROUGH",  window_days: 1 },
+                ]);
                 // ERRO 1 visibility (subcode 1885091): regista a decisão de
                 // injeção por adset com os valores exactos vistos pelo gate.
-                // Em deploys futuros, este log prova inequivocamente que o
-                // gate disparou (ou não) — elimina suspeitas de "deploy lag".
                 addLog("info", `  ✓ Pixel injetado no adset ${planAdset.adset_name}`, {
                   campaign_objective: campaignObjective,
                   adset_goal: adsetGoal,
                   pixel_id: cleanPromotedObject.pixel_id,
                   custom_event_type: cleanPromotedObject.custom_event_type ?? null,
+                  pixel_source: pixelSource,
                 });
-              } else if (sourcePromotedObject) {
+              } else if (resolvedPromotedObject) {
                 addLog("info", `  ⊘ Pixel NÃO injetado no adset ${planAdset.adset_name}`, {
                   campaign_objective: campaignObjective,
                   adset_goal: adsetGoal,
+                  pixel_source: pixelSource,
                   reason: campaignObjective !== "OUTCOME_SALES"
                     ? "campaign_not_sales"
                     : "adset_goal_not_conversion",
