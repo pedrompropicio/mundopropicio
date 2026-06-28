@@ -26,6 +26,8 @@ import { Trash2, Plus, ArrowUp, ArrowDown } from "lucide-react";
 import { FaqsTab } from "./FaqsTab";
 import { LineupTab } from "./LineupTab";
 import { MetaAudienceCard } from "./MetaAudienceCard";
+import PurchaseAudienceCard from "@/components/crm/PurchaseAudienceCard";
+
 
 type FormState = Omit<
   EventMarketingRow,
