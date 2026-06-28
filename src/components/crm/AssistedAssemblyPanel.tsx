@@ -10,7 +10,7 @@
 //   - Edições locais (remover adset / criativo) NÃO recalculam pesos: mostram
 //     aviso e exigem "Voltar a montar" para reinvocar o motor.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,9 +19,10 @@ import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { AlertTriangle, Info, Loader2, Replace, Sparkles, Trash2, Wand2, X } from "lucide-react";
+import { AlertTriangle, ArrowUpToLine, Info, Loader2, Replace, Sparkles, Trash2, Upload, Wand2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { uploadCreativeFile, CREATIVE_UPLOAD_ACCEPT } from "@/lib/creative-upload";
 
 export interface AssistedAssemblyPanelProps {
   open: boolean;
@@ -73,13 +74,28 @@ type ExcluidoContradiz = { creative_id: string; name?: string | null };
 
 type Narrativa = { trigger_id: string | null; trigger_nome: string; texto: string };
 
-type CreativeMini = { id: string; name: string | null; file_url?: string | null; type?: string | null; file_mime_type?: string | null };
+type CreativeMini = {
+  id: string;
+  name: string | null;
+  file_url?: string | null;
+  type?: string | null;
+  file_mime_type?: string | null;
+  meta_image_hash?: string | null;
+  meta_video_id?: string | null;
+};
 
 function isVideoCreative(c: { file_url?: string | null; file_mime_type?: string | null; type?: string | null } | null | undefined): boolean {
   if (!c) return false;
   if ((c.type || "").toLowerCase() === "video") return true;
   if ((c.file_mime_type || "").toLowerCase().startsWith("video/")) return true;
   return /\.mp4($|\?|#)/i.test(c.file_url || "");
+}
+
+/** Cache-bust transiente — APENAS no render. NUNCA persistido em file_url. */
+function bustUrl(url: string | null | undefined, ts: number | undefined): string {
+  if (!url) return "";
+  if (!ts) return url;
+  return url + (url.includes("?") ? "&" : "?") + "v=" + ts;
 }
 
 export function AssistedAssemblyPanel({
