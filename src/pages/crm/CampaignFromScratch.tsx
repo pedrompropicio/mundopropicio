@@ -483,12 +483,12 @@ export default function CampaignFromScratch() {
                     ROAS ancorado: {Number(an.expected_overall_roas).toFixed(2)}x
                   </Badge>
                 )}
-                {an.feasibility && (
-                  <Badge variant="outline">Viabilidade: {an.feasibility}</Badge>
+                {feasibility && (
+                  <Badge variant="outline">Viabilidade: {feasibility}</Badge>
                 )}
-                {an.reference_roas_used != null && (
+                {an.reference_roas != null && (
                   <Badge variant="outline">
-                    ROAS referência: {Number(an.reference_roas_used).toFixed(2)}x
+                    ROAS referência: {Number(an.reference_roas).toFixed(2)}x
                   </Badge>
                 )}
               </div>
