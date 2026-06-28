@@ -86,6 +86,7 @@ type Body = {
   target_roas?: number;
   total_budget_eur?: number | null;
   country_codes?: string[] | null;
+  connection_id?: string | null;
   model?: string | null;
   dry_run?: boolean;
   // Para futuro duelo from-scratch (mesma mecânica do redesign):
@@ -168,27 +169,71 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const sbAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { data: conn, error: connErr } = await (sbAdmin as any)
-    .schema("crm").from("ad_platform_connections")
-    .select("id, available_ad_accounts, status")
-    .eq("company_id", companyId)
-    .eq("platform", "meta")
-    .eq("status", "active")
-    .maybeSingle();
-  if (connErr || !conn) {
-    return json({ error: "no_meta_connection_for_company", detail: connErr?.message }, 422);
+  const bodyConnectionId = typeof body.connection_id === "string" && body.connection_id.trim()
+    ? body.connection_id.trim()
+    : null;
+
+  let conn: any = null;
+  let connErr: any = null;
+  if (bodyConnectionId) {
+    const r = await (sbAdmin as any)
+      .schema("crm").from("ad_platform_connections")
+      .select("id, status, selected_ad_account_id, selected_ad_account_currency, selected_ad_account_name")
+      .eq("company_id", companyId)
+      .eq("platform", "meta")
+      .eq("id", bodyConnectionId)
+      .maybeSingle();
+    conn = r.data; connErr = r.error;
+    if (connErr || !conn) {
+      return json({ error: "connection_not_found", detail: connErr?.message }, 404);
+    }
+    if (conn.status !== "active") {
+      return json({ error: "connection_not_active", status: conn.status }, 422);
+    }
+  } else {
+    const r = await (sbAdmin as any)
+      .schema("crm").from("ad_platform_connections")
+      .select("id, status, selected_ad_account_id, selected_ad_account_currency, selected_ad_account_name")
+      .eq("company_id", companyId)
+      .eq("platform", "meta")
+      .eq("status", "active");
+    connErr = r.error;
+    const conns: any[] = Array.isArray(r.data) ? r.data : [];
+    if (connErr) {
+      return json({ error: "failed_to_load_connections", detail: connErr?.message }, 500);
+    }
+    if (conns.length === 0) {
+      return json({ error: "no_meta_connection_for_company" }, 422);
+    }
+    if (conns.length === 1) {
+      conn = conns[0];
+    } else {
+      const eurOnly = conns.filter((c) => c.selected_ad_account_currency === "EUR");
+      if (eurOnly.length === 1) {
+        conn = eurOnly[0];
+      } else {
+        return json({
+          error: "multiple_meta_connections",
+          message: "Especifica connection_id no body",
+          connections: conns.map((c) => ({
+            id: c.id,
+            selected_ad_account_id: c.selected_ad_account_id,
+            selected_ad_account_name: c.selected_ad_account_name,
+            selected_ad_account_currency: c.selected_ad_account_currency,
+          })),
+        }, 409);
+      }
+    }
   }
   const connectionId: string = conn.id;
-  // ad_account_id: primeiro de available_ad_accounts (override futuro via body se preciso).
-  const adAccountsRaw = Array.isArray(conn.available_ad_accounts) ? conn.available_ad_accounts : [];
-  const firstAcct = adAccountsRaw.find((a: any) => a?.account_id || a?.id) ?? null;
-  const rawAdAccountId: string | null = firstAcct
-    ? String(firstAcct.account_id ?? firstAcct.id)
+  // ad_account_id: coluna fiável é selected_ad_account_id (já vem com prefixo act_).
+  const selectedAcct: string | null = typeof conn.selected_ad_account_id === "string" && conn.selected_ad_account_id.trim()
+    ? conn.selected_ad_account_id.trim()
     : null;
-  if (!rawAdAccountId) {
-    return json({ error: "no_ad_account_on_connection" }, 422);
+  if (!selectedAcct) {
+    return json({ error: "no_selected_ad_account_on_connection", connection_id: connectionId }, 422);
   }
-  const adAccountId = rawAdAccountId.startsWith("act_") ? rawAdAccountId : `act_${rawAdAccountId}`;
+  const adAccountId = selectedAcct.startsWith("act_") ? selectedAcct : `act_${selectedAcct}`;
 
   // ── 4) Resolver evento ────────────────────────────────────────────────
   let eventCtx: EventCtx;
@@ -321,7 +366,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .schema("crm").from("meta_campaign_insights_daily")
       .select("spend_cents, purchases_count, purchases_value_cents")
       .eq("external_campaign_id", body.reference_campaign_id!)
-      .gte("date", fromIso);
+      .gte("date_start", fromIso);
     let spendCents = 0, valueCents = 0, purchases = 0;
     for (const r of insRows ?? []) {
       spendCents += Number((r as any).spend_cents ?? 0);
