@@ -366,7 +366,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .schema("crm").from("meta_campaign_insights_daily")
       .select("spend_cents, purchases_count, purchases_value_cents")
       .eq("external_campaign_id", body.reference_campaign_id!)
-      .gte("date", fromIso);
+      .gte("date_start", fromIso);
     let spendCents = 0, valueCents = 0, purchases = 0;
     for (const r of insRows ?? []) {
       spendCents += Number((r as any).spend_cents ?? 0);
