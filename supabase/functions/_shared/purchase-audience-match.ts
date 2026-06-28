@@ -121,7 +121,7 @@ function wholeWord(haystack: string, needle: string): boolean {
 function tokens(s: string): string[] {
   return normalize(s)
     .split(/\s+/)
-    .filter((t) => t.length >= 3 && !STOPWORDS.has(t));
+    .filter((t) => t.length >= 3 && !STOPWORDS.has(t) && !/^(19|20)\d{2}$/.test(t));
 }
 
 function extractWindowDays(n: string): number {
