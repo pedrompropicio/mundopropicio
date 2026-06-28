@@ -788,6 +788,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
                     : "adset_goal_not_conversion",
                 });
               }
+              // ── Issue #21 #4 alavanca A — Frequency cap em REACH ─────────────
+              // Meta só aceita frequency_control_specs em adsets REACH (rejeita
+              // em CONVERSIONS/LINK_CLICKS/etc). Default conservador 3 imp / 7d
+              // se o LLM não emitir cap válido. Em qualquer outro goal: NUNCA.
+              if (adsetGoal === "REACH") {
+                const cap = (planAdset as any).frequency_cap;
+                const maxF = Number(cap?.max_frequency);
+                const intD = Number(cap?.interval_days);
+                const valid = Number.isFinite(maxF) && maxF >= 1 && maxF <= 10
+                           && Number.isFinite(intD) && intD >= 1 && intD <= 90;
+                const finalCap = valid
+                  ? { event: "IMPRESSIONS", max_frequency: maxF, interval_days: intD }
+                  : { event: "IMPRESSIONS", max_frequency: 3, interval_days: 7 };
+                adsetParams.frequency_control_specs = JSON.stringify([finalCap]);
+                addLog("info", `  ✓ frequency_cap aplicado no adset ${planAdset.adset_name} (REACH)`, {
+                  source: valid ? "llm" : "default_3_per_7d",
+                  cap: finalCap,
+                });
+              }
               // Instrumentação 1487916 / debug de targeting:
               // Loga o objeto `targeting` FINAL (mesma referência que vai para
               // adsetParams.targeting via JSON.stringify) ANTES do POST, para
