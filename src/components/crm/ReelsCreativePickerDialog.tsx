@@ -527,34 +527,36 @@ function VerdictAndSimulate({
   );
 }
 
-function SimulationResult({ result }: { result: SimResult }) {
-  if (!result.ok) {
-    return (
-      <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 space-y-2 text-xs">
-        <p className="font-semibold text-red-300">Simulação falhou</p>
-        {result.error && <p className="text-red-200">{result.error}</p>}
-        {result.detail !== undefined && (
-          <pre className="bg-black/30 p-2 rounded text-[10px] overflow-x-auto">
-            {JSON.stringify(result.detail, null, 2)}
-          </pre>
-        )}
-        {result.fb_error !== undefined && (
-          <pre className="bg-black/30 p-2 rounded text-[10px] overflow-x-auto">
-            {JSON.stringify(result.fb_error, null, 2)}
-          </pre>
-        )}
-      </div>
-    );
-  }
+function ErrorBlock({ result, titulo }: { result: SimResult; titulo: string }) {
+  return (
+    <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 space-y-2 text-xs">
+      <p className="font-semibold text-red-300">{titulo}</p>
+      {result.error && <p className="text-red-200">{result.error}</p>}
+      {result.detail !== undefined && (
+        <pre className="bg-black/30 p-2 rounded text-[10px] overflow-x-auto">
+          {JSON.stringify(result.detail, null, 2)}
+        </pre>
+      )}
+      {result.fb_error !== undefined && (
+        <pre className="bg-black/30 p-2 rounded text-[10px] overflow-x-auto">
+          {JSON.stringify(result.fb_error, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
+}
+
+function PreviewResult({ result }: { result: SimResult }) {
+  if (!result.ok) return <ErrorBlock result={result} titulo="Pré-visualização falhou" />;
 
   return (
     <div className="space-y-3">
       <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs text-emerald-200 flex items-start gap-2">
         <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0" />
         <div>
-          <p className="font-semibold">Simulação concluída — nada foi publicado no Meta.</p>
+          <p className="font-semibold">Pré-visualização concluída — nada foi publicado no Meta.</p>
           <p className="opacity-80">
-            O anúncio seria criado com <strong>status PAUSED</strong>. Revê o payload abaixo antes de publicarmos a sério (em peça futura).
+            O anúncio seria criado com <strong>status PAUSED</strong>. Revê o payload abaixo e, se estiver tudo bem, clica em <em>Publicar anúncio</em> (vai pedir confirmação).
           </p>
         </div>
       </div>
@@ -581,6 +583,34 @@ function SimulationResult({ result }: { result: SimResult }) {
           </pre>
         </div>
       )}
+    </div>
+  );
+}
+
+function PublishedResult({ result }: { result: SimResult }) {
+  if (!result.ok) return <ErrorBlock result={result} titulo="Publicação falhou" />;
+
+  return (
+    <div className="rounded-md border border-emerald-500/50 bg-emerald-500/15 p-3 text-xs text-emerald-100 space-y-2">
+      <div className="flex items-start gap-2">
+        <PartyPopper className="h-4 w-4 mt-0.5 shrink-0" />
+        <div>
+          <p className="font-semibold">Anúncio criado e PAUSADO no Meta.</p>
+          <p className="opacity-90">
+            Para o ativar, fá-lo no Ads Manager (a ativação dentro da plataforma virá numa próxima peça).
+          </p>
+        </div>
+      </div>
+      <div className="rounded bg-black/30 p-2 space-y-1">
+        <div className="flex gap-2">
+          <span className="text-emerald-300/80 min-w-[80px]">ad_id</span>
+          <span className="font-mono break-all">{result.ad_id ?? "—"}</span>
+        </div>
+        <div className="flex gap-2">
+          <span className="text-emerald-300/80 min-w-[80px]">status</span>
+          <Badge variant="outline" className="text-[10px]">{result.status ?? "PAUSED"}</Badge>
+        </div>
+      </div>
     </div>
   );
 }
