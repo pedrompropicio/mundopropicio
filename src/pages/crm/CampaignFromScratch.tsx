@@ -93,12 +93,16 @@ export default function CampaignFromScratch() {
   const cameFromCampaignView = qpSource === "campaign_view";
 
 
-  // ── Form state ───────────────────────────────────────────────
-  const [sourceMode, setSourceMode] = useState<SourceMode>("from_scratch_ref");
-  const [eventPick, setEventPick] = useState<EventPick>("existing");
+  // ── Form state (lazy init aplica prefill da query string UMA vez) ──
+  const [sourceMode, setSourceMode] = useState<SourceMode>(
+    () => (qpReferenceCampaignId ? "from_scratch_ref" : "from_scratch_ref"),
+  );
+  const [eventPick, setEventPick] = useState<EventPick>(
+    () => (qpEventId ? "existing" : "existing"),
+  );
   const [campaignMoment, setCampaignMoment] = useState<CampaignMoment>("funil_completo");
 
-  const [eventId, setEventId] = useState<string>("");
+  const [eventId, setEventId] = useState<string>(() => qpEventId);
 
   const [emName, setEmName] = useState("");
   const [emDate, setEmDate] = useState("");
@@ -106,11 +110,15 @@ export default function CampaignFromScratch() {
   const [emTickets, setEmTickets] = useState<string>("");
   const [emGoal, setEmGoal] = useState<string>("");
 
-  const [referenceCampaignId, setReferenceCampaignId] = useState<string>("");
-  const [connectionId, setConnectionId] = useState<string>("");
-  const [targetRoas, setTargetRoas] = useState<string>("8");
+  const [referenceCampaignId, setReferenceCampaignId] = useState<string>(() => qpReferenceCampaignId);
+  const [connectionId, setConnectionId] = useState<string>(() => qpConnectionId);
+  const [targetRoas, setTargetRoas] = useState<string>(() => {
+    const n = Number(qpTargetRoas);
+    return Number.isFinite(n) && n > 0 ? String(n) : "8";
+  });
   const [totalBudget, setTotalBudget] = useState<string>("");
   const [countriesRaw, setCountriesRaw] = useState<string>("PT");
+
 
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<GenerationResult | null>(null);
