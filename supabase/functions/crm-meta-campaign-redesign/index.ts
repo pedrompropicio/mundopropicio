@@ -2293,6 +2293,8 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
             "interests": [{"name": "<nome real do interesse Meta; id resolvido pelo sistema>"}]
           },
           "optimization_goal": "REACH",
+          "frequency_cap": {"max_frequency": 3, "interval_days": 7},
+          "_frequency_cap_doc": "APENAS quando optimization_goal=REACH; default 3/7d; omite o campo em qualquer outro goal",
           "billing_event": "IMPRESSIONS",
           "creative_type_recommended": "video",
           "ads": [
