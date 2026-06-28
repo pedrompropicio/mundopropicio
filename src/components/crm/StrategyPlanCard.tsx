@@ -296,31 +296,104 @@ export default function StrategyPlanCard({
             Campanhas recomendadas ({recCamps.length})
           </h3>
           <div className="space-y-2">
-            {recCamps.map((c: any, ci: number) => (
+            {recCamps.map((c: any, ci: number) => {
+              const campName = c.campaign_name ?? c.campaign_label;
+              const campObjective = c.objective ?? c.objective_meta;
+              const metaParts: string[] = [];
+              if (campObjective) metaParts.push(campObjective);
+              if (c.daily_budget_eur != null) metaParts.push(`${fmtEur(c.daily_budget_eur, 0)}/dia`);
+              if (c.duration_days != null) metaParts.push(`${c.duration_days}d`);
+              return (
               <Card key={ci} className="p-3 text-xs space-y-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="font-medium">{c.campaign_name}</div>
-                  <div className="text-muted-foreground text-[11px]">
-                    {c.objective} · {fmtEur(c.daily_budget_eur, 0)}/dia · {c.duration_days}d
-                  </div>
+                  <div className="font-medium">{campName}</div>
+                  {metaParts.length > 0 && (
+                    <div className="text-muted-foreground text-[11px]">
+                      {metaParts.join(" · ")}
+                    </div>
+                  )}
                 </div>
                 {Array.isArray(c.adsets) &&
-                  c.adsets.map((a: any, ai: number) => (
-                    <div key={ai} className="rounded bg-muted/30 p-2">
-                      <div className="font-medium text-[11px]">{a.adset_name}</div>
-                      <div className="text-muted-foreground text-[10px]">
-                        opt: {a.optimization_goal} · billing: {a.billing_event} · creative:{" "}
-                        {a.creative_type_recommended}
-                      </div>
-                      {Array.isArray(a.ads) && a.ads.length > 0 && (
+                  c.adsets.map((a: any, ai: number) => {
+                    const adsetName = a.adset_name ?? a.name;
+                    const opt = a.optimization_goal;
+                    const billing = a.billing_event;
+                    const creativeType = a.creative_type_recommended ?? a.creatives?.[0]?.type;
+                    const techBits: string[] = [];
+                    if (opt) techBits.push(`opt: ${opt}`);
+                    if (billing) techBits.push(`billing: ${billing}`);
+                    if (creativeType) techBits.push(`creative: ${creativeType}`);
+                    // contagem: redesign usa ads[]; from-scratch usa creatives[]
+                    const adsCount = Array.isArray(a.ads) ? a.ads.length : 0;
+                    const creativesCount = Array.isArray(a.creatives) ? a.creatives.length : 0;
+                    const tj = a.targeting_json;
+                    const caCount = Array.isArray(tj?.custom_audiences) ? tj.custom_audiences.length : 0;
+                    const intCount = Array.isArray(tj?.interests) ? tj.interests.length : 0;
+                    const countries: string[] = Array.isArray(tj?.geo_locations?.countries) ? tj.geo_locations.countries : [];
+                    const targetingBits: string[] = [];
+                    if (caCount) targetingBits.push(`${caCount} custom audience${caCount > 1 ? "s" : ""}`);
+                    if (intCount) targetingBits.push(`${intCount} interesse${intCount > 1 ? "s" : ""}`);
+                    if (countries.length) targetingBits.push(`geo: ${countries.join(", ")}`);
+                    const placements: string[] = Array.isArray(a.placements) ? a.placements : [];
+                    return (
+                    <div key={ai} className="rounded bg-muted/30 p-2 space-y-1">
+                      <div className="font-medium text-[11px]">{adsetName}</div>
+                      {techBits.length > 0 && (
+                        <div className="text-muted-foreground text-[10px]">
+                          {techBits.join(" · ")}
+                        </div>
+                      )}
+                      {a.audience_description && (
+                        <div className="text-[10px] text-foreground/80">
+                          Público: <span className="text-muted-foreground">{a.audience_description}</span>
+                        </div>
+                      )}
+                      {targetingBits.length > 0 && (
+                        <div className="text-[10px] text-muted-foreground">
+                          {targetingBits.join(" · ")}
+                        </div>
+                      )}
+                      {placements.length > 0 && (
+                        <div className="text-[10px] text-muted-foreground">
+                          Placements: {placements.join(", ")}
+                        </div>
+                      )}
+                      {Array.isArray(a.creatives) && a.creatives.length > 0 && (
+                        <div className="space-y-1 mt-1">
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                            Criativos propostos ({a.creatives.length})
+                          </div>
+                          {a.creatives.slice(0, 4).map((cr: any, cri: number) => (
+                            <div
+                              key={cri}
+                              className="rounded border border-border/60 bg-background/40 px-1.5 py-1"
+                              title={[cr.angle, cr.primary_text_suggestion].filter(Boolean).join("\n\n")}
+                            >
+                              <div className="text-[10px]">
+                                <span className="uppercase text-muted-foreground">{cr.type ?? "—"}</span>
+                                {cr.cta_suggestion && (
+                                  <span className="ml-1.5 text-muted-foreground">· CTA: {cr.cta_suggestion}</span>
+                                )}
+                              </div>
+                              {cr.headline_suggestion && (
+                                <div className="text-[10px] font-medium truncate">{cr.headline_suggestion}</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* Redesign-only: contagem de ads criados */}
+                      {adsCount > 0 && !Array.isArray(a.creatives) && (
                         <div className="text-[10px] text-muted-foreground mt-1">
-                          {a.ads.length} ad(s) propostos
+                          {adsCount} ad(s) propostos
                         </div>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
               </Card>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
