@@ -2397,6 +2397,11 @@ export default function CrmCampaignView() {
                       </Badge>
                     </div>
 
+                    {/* Mini-stats do anúncio — janela do PeriodSelector global */}
+                    <EntityStatsGrid metrics={adMetricsMap.get(ad.external_ad_id)} currency={cr?.link_url ? cur : cur} variant="ad" />
+
+
+
                     {cr?.headline && (
                       <p className="text-xs text-muted-foreground line-clamp-2" title={cr.headline}>
                         {cr.headline}
