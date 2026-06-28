@@ -5,6 +5,7 @@
 // Logs estruturados, persistência em crm.meta_campaign_strategy_deployments.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { computePerAdsetCents } from "../_shared/budget-split.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -510,8 +511,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
             meta_campaign_id: metaCampaignId,
           });
 
-          for (const planAdset of planCampaign.adsets ?? []) {
+          // ── Budget split por adset (fix bug #21 #12) ───────────────────
+          // Antes: dailyBudgetCents da campanha era aplicado a CADA adset →
+          // campanha com N adsets gastava N× o previsto. Agora reparte por
+          // PESO (budget_weight sugerido pelo LLM) com fallback determinístico
+          // a divisão igual; soma exacta == total via largest-remainder; clamp
+          // ao mínimo da Meta (100c). Decisão fica SEMPRE no código.
+          const split = computePerAdsetCents(planCampaign);
+          addLog(
+            "info",
+            `Budget split: campanha "${planCampaign.campaign_name}" total=${split.totalCents}c em ${planCampaign.adsets?.length ?? 0} adsets · modo=${split.mode} · soma_final=${split.sumFinal}c`,
+            { per_adset_cents: split.perAdsetCents, warnings: split.warnings },
+          );
+          if (split.sumFinal !== split.totalCents) {
+            addLog(
+              "warn",
+              `Budget split: soma_final (${split.sumFinal}c) ≠ total (${split.totalCents}c) — ver warnings`,
+              { warnings: split.warnings },
+            );
+          }
+          for (const [adsetIdx, planAdset] of (planCampaign.adsets ?? []).entries()) {
             try {
+
               // ERRO 2 fix (subcode 1870227): a Meta exige targeting_automation.
               // advantage_audience explícito (0 ou 1, integer) em todos os adsets.
               // 0 = Advantage audience desativado (público fica como definido,
@@ -577,7 +598,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
                 }
               }
               const startTime = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-              const dailyBudgetCents = Math.max(100, Math.round((planCampaign.daily_budget_eur ?? 10) * 100));
+              // dailyBudgetCents agora vem do split por peso/igual calculado
+              // antes do loop (computePerAdsetCents). Fallback defensivo a 100c
+              // caso o índice não exista (não devia acontecer).
+              const dailyBudgetCents = split.perAdsetCents[adsetIdx] ?? 100;
 
               const adsetParams: Record<string, string> = {
                 name: planAdset.adset_name,

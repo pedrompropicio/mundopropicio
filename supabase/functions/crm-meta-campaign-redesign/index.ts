@@ -2221,6 +2221,7 @@ REGRAS:
 - Sê crítico e directo no rationale.
 - ROAS BLENDED: em cada phase do output, preenche \`expected_blended_contribution\` (peso 0–1 desta fase no ROAS agregado do evento — soma de todas as fases deve aproximar-se de 1.0; fases de conversão e retargeting pesam mais que awareness). Não definas \`roas_min\` em \`target_kpis\` de fases REACH/VIDEO_VIEWS; usa 0 ou omite.
 - Creative briefs (ads NOVOS): quando propones \`creative_brief\` em qualquer ad, os campos \`headline_suggestion\`, \`primary_text_suggestion\` e \`cta_suggestion\` SÃO OBRIGATÓRIOS. Não basta \`primary_message\` abstracto — escreve a copy concreta como apareceria no anúncio final. \`headline_suggestion\` 30–50 chars; \`primary_text_suggestion\` 80–180 chars. \`cta_suggestion\` deve ser um valor Meta Ads válido (preferidos: GET_TICKETS para conversion phases, LEARN_MORE para awareness, SHOP_NOW se URL leva a checkout, SIGN_UP se leva a formulário). \`destination_url_hint\` é null por default — só preencher se o evento tiver ticketing_url conhecido ou se for óbvio do contexto.
+- BUDGET_WEIGHT POR ADSET (sugestão de proporção, NÃO euros): para cada adset emite \`budget_weight\` ∈ [0,1]. A soma dos \`budget_weight\` dos adsets DENTRO da mesma campanha deve aproximar-se de 1.0 (o sistema normaliza pequenos desvios). NÃO emitas valores absolutos de euros por adset — o euro é decidido pelo CÓDIGO a partir de \`daily_budget_eur\` da campanha × \`budget_weight\` normalizado, com largest-remainder. Se não estiveres seguro, OMITE \`budget_weight\` em TODOS os adsets dessa campanha (o sistema reparte igualmente — preferível a inventar). Heurística: retargeting > prospecção; lookalike de compradores > interesses frios; respeita os limites do momento da campanha (ex.: escassez → lookalike frio ≤ 0.20; reta_final → retargeting ≥ 0.50, zero prospecção fria).
 
 == FORMATO DE RESPOSTA ==
 APENAS JSON puro (sem markdown fences) com este schema EXATO:
@@ -2277,6 +2278,8 @@ APENAS JSON puro (sem markdown fences) com este schema EXATO:
       "adsets": [
         {
           "adset_name": "Broad PT/BR 18-55",
+          "budget_weight": 0.5,
+          "_budget_weight_doc": "número 0..1 — peso RELATIVO dentro desta campanha; ver REGRA de BUDGET_WEIGHT abaixo",
           "targeting_json": {
             "age_min": 18, "age_max": 55,
             "geo_locations": {"countries": ["PT","BR"]},
