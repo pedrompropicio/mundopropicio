@@ -113,7 +113,7 @@ export default function StrategyPlanCard({
         )}
         <div className="grid grid-cols-2 gap-2">
           <KPI label="Verba recomendada" value={fmtEur(summary.recommended_total_budget_eur)} />
-          <KPI label="Compras esperadas" value={fmtNum(summary.expected_purchases)} />
+          <KPI label="Compras esperadas" value={fmtNum(summary.expected_purchases ?? summary.expected_total_purchases)} />
           <KPI label="Receita esperada" value={fmtEur(summary.expected_revenue_eur)} />
           <KPI
             label="ROAS esperado"
