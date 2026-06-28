@@ -57,16 +57,15 @@ interface GenerationResult {
 
 const MODEL = "google/gemini-2.5-flash";
 
-function feasibilityNote(an: any): string | null {
-  const f = an?.feasibility;
+function feasibilityNote(f: string | undefined | null): string | null {
   if (f === "impossible") {
     return "A meta de ROAS está acima do que a referência sustenta historicamente. Considera reduzir a meta ou rever a referência.";
   }
+  if (f === "stretch") {
+    return "A meta está um pouco acima do ROAS da referência — é ambiciosa mas não impossível. Espera precisar de otimização.";
+  }
   if (f === "starting_structure") {
     return "Sem histórico para projetar: este plano é uma estrutura de arranque. Os números são metas, não projeções.";
-  }
-  if (f === "low") {
-    return "Meta atingível mas no limite — espera variabilidade.";
   }
   return null;
 }
