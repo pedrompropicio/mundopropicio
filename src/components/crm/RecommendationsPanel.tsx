@@ -36,6 +36,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ReelsCreativePickerDialog } from "./ReelsCreativePickerDialog";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // P0 — DECISÃO ASSISTIDA
@@ -250,6 +251,7 @@ export function RecommendationsPanel({
   // o tipo "aplicar standard enhancements". Mantemos a UX do padrão da casa
   // (resumo de impacto + confirmar/cancelar) sem qualquer chamada ao Meta.
   const [aplusConfirm, setAplusConfirm] = useState<RecommendationRow | null>(null);
+  const [reelsPicker, setReelsPicker] = useState<RecommendationRow | null>(null);
 
   const groups = useMemo(() => {
     const byAdset = new Map<string, RecommendationRow[]>();
@@ -327,6 +329,7 @@ export function RecommendationsPanel({
               recs={recs}
               onDecide={(id, decision) => decide.mutate({ id, decision })}
               onApplyAplus={(rec) => setAplusConfirm(rec)}
+              onPickReels={(rec) => setReelsPicker(rec)}
               decidingId={decide.isPending ? decide.variables?.id : undefined}
             />
           ))}
@@ -337,6 +340,7 @@ export function RecommendationsPanel({
               recs={groups.accountLevel}
               onDecide={(id, decision) => decide.mutate({ id, decision })}
               onApplyAplus={(rec) => setAplusConfirm(rec)}
+              onPickReels={(rec) => setReelsPicker(rec)}
               decidingId={decide.isPending ? decide.variables?.id : undefined}
             />
           )}
@@ -377,6 +381,18 @@ export function RecommendationsPanel({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Seletor de criativo Reels — biblioteca + upload existentes */}
+      <ReelsCreativePickerDialog
+        open={!!reelsPicker}
+        onOpenChange={(o) => !o && setReelsPicker(null)}
+        companyId={companyId}
+        onSelected={() => {
+          // NÃO publica no Meta nesta peça — só regista decisão local.
+          // TODO: ligar ao fluxo crm-meta-upload-creative-v2 + criação de ad.
+          if (reelsPicker) decide.mutate({ id: reelsPicker.id, decision: "aplicada" });
+        }}
+      />
     </Card>
   );
 }
@@ -387,6 +403,7 @@ function RecommendationGroup({
   recs,
   onDecide,
   onApplyAplus,
+  onPickReels,
   decidingId,
 }: {
   title: string;
@@ -394,6 +411,7 @@ function RecommendationGroup({
   recs: RecommendationRow[];
   onDecide: (id: string, decision: "aplicada" | "ignorada" | "nova") => void;
   onApplyAplus: (rec: RecommendationRow) => void;
+  onPickReels: (rec: RecommendationRow) => void;
   decidingId?: string;
 }) {
   return (
@@ -412,6 +430,7 @@ function RecommendationGroup({
             rec={r}
             onDecide={(decision) => onDecide(r.id, decision)}
             onApplyAplus={() => onApplyAplus(r)}
+            onPickReels={() => onPickReels(r)}
             busy={decidingId === r.id}
           />
         ))}
@@ -424,11 +443,13 @@ function RecommendationItem({
   rec,
   onDecide,
   onApplyAplus,
+  onPickReels,
   busy,
 }: {
   rec: RecommendationRow;
   onDecide: (decision: "aplicada" | "ignorada" | "nova") => void;
   onApplyAplus: () => void;
+  onPickReels: () => void;
   busy: boolean;
 }) {
   const cls = classifyRecommendation(rec);
@@ -508,6 +529,7 @@ function RecommendationItem({
           url={rec.url}
           disabled={decided || busy}
           onApplyAplus={onApplyAplus}
+          onPickReels={onPickReels}
         />
         <div className="flex items-center gap-2">
           {decided ? (
@@ -544,28 +566,26 @@ function ContextualAction({
   url,
   disabled,
   onApplyAplus,
+  onPickReels,
 }: {
   aplicabilidade: Aplicabilidade;
   url: string | null;
   disabled: boolean;
   onApplyAplus: () => void;
+  onPickReels: () => void;
 }) {
   if (aplicabilidade === "manual") {
+    // Reels exige criativo NOVO (vídeo 9:16). Em vez de mandar o utilizador
+    // para o Ads Manager (rec.url), abrimos o seletor da biblioteca da
+    // plataforma — escolher um vídeo existente OU subir um novo via fluxo
+    // já existente em /audience/creatives/new.
     return (
       <div className="flex items-center gap-2 flex-wrap">
-        {url ? (
-          <Button asChild size="sm" disabled={disabled} className="h-7 text-xs">
-            <a href={url} target="_blank" rel="noreferrer noopener">
-              <Upload className="h-3 w-3 mr-1" /> Subir criativo no Ads Manager
-            </a>
-          </Button>
-        ) : (
-          <Button size="sm" disabled className="h-7 text-xs">
-            <Upload className="h-3 w-3 mr-1" /> Sem link directo
-          </Button>
-        )}
+        <Button size="sm" disabled={disabled} onClick={onPickReels} className="h-7 text-xs">
+          <Upload className="h-3 w-3 mr-1" /> Escolher/subir criativo
+        </Button>
         <span className="text-[11px] text-muted-foreground">
-          Abre o anúncio no Ads Manager para carregares o vídeo vertical.
+          Escolhe um vídeo da biblioteca ou sobe um novo (9:16, até 90s).
         </span>
       </div>
     );
