@@ -292,6 +292,42 @@ Deno.serve(async (req: Request): Promise<Response> => {
       ? strategy.ad_account_id
       : `act_${strategy.ad_account_id}`;
 
+    // ── Catálogo de custom audiences + match determinístico de COMPRADORES ────
+    // Issue #21 #4 alavanca B: aplica excluded_custom_audiences (PURCHASE do
+    // evento) em todos os adsets de CONVERSÃO (CONVERSION_GOALS), por UNIÃO,
+    // como rede de segurança ao LLM. Match por nome (catálogo não tem event_id);
+    // regra de ouro: ambiguidade/none → NÃO exclui (ver helper).
+    let audienceCatalog: CatalogAudience[] = [];
+    let resolvedPurchaseAudienceId: string | null = null;
+    try {
+      const { data: catRows } = await (supabase as any)
+        .schema("public").from("meta_custom_audiences")
+        .select("audience_id_meta, name")
+        .eq("company_id", companyId)
+        .eq("connection_id", strategy.connection_id)
+        .eq("enabled", true);
+      audienceCatalog = ((catRows ?? []) as any[])
+        .filter((r) => r?.audience_id_meta && r?.name)
+        .map((r) => ({ audience_id_meta: String(r.audience_id_meta), name: String(r.name) }));
+      const decision = resolvePurchaseAudience({
+        catalog: audienceCatalog,
+        eventName,
+        eventSlug,
+      });
+      if (decision.status === "matched") {
+        resolvedPurchaseAudienceId = decision.audience_id_meta;
+        addLog("info", `purchase_audience_match: TOP id=${decision.audience_id_meta} name="${decision.audience_name}" score=${decision.score} margin=${decision.margin}`, decision);
+      } else if (decision.status === "ambiguous") {
+        addLog("warn", `purchase_audience_match: AMBIGUOUS for event "${eventName}" (slug=${eventSlug}) — NOT excluding by match`, decision);
+      } else {
+        addLog("info", `purchase_audience_match: NONE for event "${eventName}" (slug=${eventSlug}) — reason=${decision.reason}`, decision);
+      }
+    } catch (e) {
+      addLog("warn", `purchase_audience_match: catalog load failed (non-fatal) — ${String(e)}`);
+    }
+    const catalogIdSet = new Set(audienceCatalog.map((a) => a.audience_id_meta));
+
+
     // ── IDEMPOTÊNCIA — lookup de ids JÁ deployados desta strategy ─────────────
     // Lê todos os deployments anteriores com status success/partial e agrega
     // ids gravados para que metaPosts redundantes sejam saltados.
