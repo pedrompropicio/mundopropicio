@@ -813,7 +813,9 @@ Schema de saída (JSON puro):
           reference_campaign_id: body.reference_campaign_id ?? null,
           redesign_rationale: String((plan as any)?.redesign_rationale ?? "").slice(0, 4000),
           pause_original_mode: "manual",
+          applied_constraints: { campaign_moment: campaignMoment },
           created_by: userId,
+
         };
         const { data: insData, error: insErr } = await (sbAdmin as any)
           .schema("crm").from("meta_campaign_strategies").insert(row).select("id").single();
