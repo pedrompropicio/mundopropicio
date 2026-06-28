@@ -255,54 +255,96 @@ function VerdictAndSimulate({
   const [message, setMessage] = useState("");
   const [title, setTitle] = useState("");
   const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<SimResult | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [preview, setPreview] = useState<SimResult | null>(null);
+  const [published, setPublished] = useState<SimResult | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Pré-preenche mensagem com a headline do criativo (editável) se existir.
   useEffect(() => {
     setMessage(creative.headline ?? "");
     setTitle("");
     setLink("");
-    setResult(null);
+    setPreview(null);
+    setPublished(null);
   }, [creative.id, creative.headline]);
 
   const atende = verdict.atende;
   const hasAdset = !!externalAdsetId;
+  const busy = running || publishing;
   const canRun =
-    atende && hasAdset && !!companyId && link.trim().length > 0 && message.trim().length > 0 && !running;
+    atende && hasAdset && !!companyId && link.trim().length > 0 && message.trim().length > 0 && !busy;
+
+  // Body partilhado entre pré-visualização e publicação real — única
+  // diferença é dry_run. Status é sempre forçado a PAUSED pelo servidor.
+  const buildBody = (dryRun: boolean) => ({
+    company_id: companyId,
+    external_adset_id: externalAdsetId,
+    creative_id: creative.id,
+    link: link.trim(),
+    message: message.trim(),
+    title: title.trim() || undefined,
+    cta: "BUY_TICKETS",
+    dry_run: dryRun,
+  });
 
   const runSimulation = async () => {
     if (!canRun) return;
     setRunning(true);
-    setResult(null);
+    setPreview(null);
+    setPublished(null);
     try {
-      // dry_run fixo nesta peça — escrita real virá depois de validação.
       const { data, error } = await supabase.functions.invoke("crm-meta-create-reels-ad", {
-        body: {
-          company_id: companyId,
-          external_adset_id: externalAdsetId,
-          creative_id: creative.id,
-          link: link.trim(),
-          message: message.trim(),
-          title: title.trim() || undefined,
-          cta: "BUY_TICKETS",
-          dry_run: true,
-        },
+        body: buildBody(true),
       });
       if (error) {
-        setResult({ ok: false, error: error.message });
-        toast.error("Falhou a simulação.", { description: error.message });
+        setPreview({ ok: false, error: error.message });
+        toast.error("Falhou a pré-visualização.", { description: error.message });
       } else {
         const r = (data ?? {}) as SimResult;
-        setResult(r);
-        if (r.ok) toast.success("Simulação concluída — nada foi publicado no Meta.");
-        else toast.error("Simulação devolveu erro.", { description: r.error ?? "" });
+        setPreview(r);
+        if (r.ok) toast.success("Pré-visualização ok — nada foi publicado no Meta.");
+        else toast.error("Pré-visualização devolveu erro.", { description: r.error ?? "" });
       }
     } catch (e: any) {
-      setResult({ ok: false, error: e?.message ?? "Erro desconhecido" });
+      setPreview({ ok: false, error: e?.message ?? "Erro desconhecido" });
     } finally {
       setRunning(false);
     }
   };
+
+  // SEGURANÇA: esta função só é chamada a partir do AlertDialogAction
+  // do diálogo de confirmação — nunca por um clique único, nunca automática.
+  const runPublish = async () => {
+    if (!preview?.ok) return; // só publica após pré-visualização ok
+    setPublishing(true);
+    setPublished(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-create-reels-ad", {
+        body: buildBody(false),
+      });
+      if (error) {
+        setPublished({ ok: false, error: error.message });
+        toast.error("Falhou a publicação.", { description: error.message });
+      } else {
+        const r = (data ?? {}) as SimResult;
+        setPublished(r);
+        if (r.ok) {
+          toast.success("Anúncio criado e PAUSADO no Meta.");
+          // Marca a recomendação como tratada SÓ após escrita real bem-sucedida.
+          onConfirmed(creative);
+        } else {
+          toast.error("Publicação devolveu erro.", { description: r.error ?? "" });
+        }
+      }
+    } catch (e: any) {
+      setPublished({ ok: false, error: e?.message ?? "Erro desconhecido" });
+    } finally {
+      setPublishing(false);
+      setConfirmOpen(false);
+    }
+  };
+
 
   return (
     <div className="space-y-4">
