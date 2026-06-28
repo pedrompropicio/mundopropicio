@@ -62,6 +62,8 @@ type SimResult = {
   dry_run?: boolean;
   resolved?: Record<string, unknown>;
   payload?: unknown;
+  ad_id?: string;
+  status?: string;
   error?: string;
   detail?: unknown;
   fb_error?: unknown;
