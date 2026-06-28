@@ -655,37 +655,42 @@ Deno.serve(async (req: Request): Promise<Response> => {
               // conversão ficam deliberadamente sem pixel.
               const adsetGoal = String(planAdset.optimization_goal ?? "").toUpperCase();
               if (
-                sourcePromotedObject &&
+                resolvedPromotedObject &&
                 campaignObjective === "OUTCOME_SALES" &&
                 CONVERSION_GOALS.has(adsetGoal)
               ) {
                 // ERRO 3 fix (subcode 1885097, "expected string, got integer 0"):
-                // sourcePromotedObject é copiado verbatim do raw da Meta e pode
-                // incluir campos extra (page_id, application_id, etc.) com valor
-                // integer 0 quando não estão definidos. Filtramos para os campos
-                // canónicos com coerção explícita a string — elimina o leak sem
-                // mudar o significado da injeção.
+                // resolvedPromotedObject pode vir da fonte (raw da Meta, com campos
+                // extra) ou do evento (já limpo). Filtramos sempre para os campos
+                // canónicos com coerção explícita a string — uniforme e seguro.
                 const cleanPromotedObject: Record<string, string> = {
-                  pixel_id: String(sourcePromotedObject.pixel_id),
+                  pixel_id: String(resolvedPromotedObject.pixel_id),
                 };
-                if (sourcePromotedObject.custom_event_type) {
-                  cleanPromotedObject.custom_event_type = String(sourcePromotedObject.custom_event_type);
+                if (resolvedPromotedObject.custom_event_type) {
+                  cleanPromotedObject.custom_event_type = String(resolvedPromotedObject.custom_event_type);
                 }
                 adsetParams.promoted_object = JSON.stringify(cleanPromotedObject);
+                // Attribution window explícita para compra de bilhetes: 7d clique
+                // + 1d view. Só em adsets de conversão — a Meta rejeita este
+                // campo em LINK_CLICKS/REACH/POST_ENGAGEMENT. Espelha publish-execute.
+                adsetParams.attribution_spec = JSON.stringify([
+                  { event_type: "CLICK_THROUGH", window_days: 7 },
+                  { event_type: "VIEW_THROUGH",  window_days: 1 },
+                ]);
                 // ERRO 1 visibility (subcode 1885091): regista a decisão de
                 // injeção por adset com os valores exactos vistos pelo gate.
-                // Em deploys futuros, este log prova inequivocamente que o
-                // gate disparou (ou não) — elimina suspeitas de "deploy lag".
                 addLog("info", `  ✓ Pixel injetado no adset ${planAdset.adset_name}`, {
                   campaign_objective: campaignObjective,
                   adset_goal: adsetGoal,
                   pixel_id: cleanPromotedObject.pixel_id,
                   custom_event_type: cleanPromotedObject.custom_event_type ?? null,
+                  pixel_source: pixelSource,
                 });
-              } else if (sourcePromotedObject) {
+              } else if (resolvedPromotedObject) {
                 addLog("info", `  ⊘ Pixel NÃO injetado no adset ${planAdset.adset_name}`, {
                   campaign_objective: campaignObjective,
                   adset_goal: adsetGoal,
+                  pixel_source: pixelSource,
                   reason: campaignObjective !== "OUTCOME_SALES"
                     ? "campaign_not_sales"
                     : "adset_goal_not_conversion",
