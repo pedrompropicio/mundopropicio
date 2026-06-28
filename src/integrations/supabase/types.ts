@@ -5026,6 +5026,7 @@ export type Database = {
       events: {
         Row: {
           absorbs_admin_costs: boolean
+          ad_destination_url: string | null
           admin_window_end: string | null
           admin_window_start: string | null
           budget: number
@@ -5075,6 +5076,7 @@ export type Database = {
         }
         Insert: {
           absorbs_admin_costs?: boolean
+          ad_destination_url?: string | null
           admin_window_end?: string | null
           admin_window_start?: string | null
           budget?: number
@@ -5124,6 +5126,7 @@ export type Database = {
         }
         Update: {
           absorbs_admin_costs?: boolean
+          ad_destination_url?: string | null
           admin_window_end?: string | null
           admin_window_start?: string | null
           budget?: number

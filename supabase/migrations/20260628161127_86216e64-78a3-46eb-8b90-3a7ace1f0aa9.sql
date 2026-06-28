@@ -1,0 +1,2 @@
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS ad_destination_url text;
+COMMENT ON COLUMN public.events.ad_destination_url IS 'URL completo da página do portal usada como destino dos anúncios Meta (Link 1). Se NULL, deploy usa ticketing_url como fallback. Formato esperado: https://www.mundopropicio.com/pt/eventos/<slug>';
