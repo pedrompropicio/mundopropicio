@@ -598,7 +598,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
                 }
               }
               const startTime = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-              const dailyBudgetCents = Math.max(100, Math.round((planCampaign.daily_budget_eur ?? 10) * 100));
+              // dailyBudgetCents agora vem do split por peso/igual calculado
+              // antes do loop (computePerAdsetCents). Fallback defensivo a 100c
+              // caso o índice não exista (não devia acontecer).
+              const dailyBudgetCents = split.perAdsetCents[adsetIdx] ?? 100;
 
               const adsetParams: Record<string, string> = {
                 name: planAdset.adset_name,
