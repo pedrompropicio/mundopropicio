@@ -1,4 +1,4 @@
-// cache-buster: 2026-06-25b
+// cache-buster: 2026-06-28-loop
 // process-leads-capi — wrapper HTTP que invoca a RPC SECURITY DEFINER
 // public.process_leads_capi_batch e dispara CAPI 'ViewContent' por cada
 // payload retornado.
@@ -13,7 +13,10 @@
 //     (final, não retenta).
 //
 // Throttle: 80ms entre POSTs para não saturar o gateway edge (RateLimitError).
-// Batch: 25 (menor pressão; cron recupera o resto).
+// Loop por invocação com 3 tetos de segurança:
+//   (a) batch devolve 0 itens (fila drenada)
+//   (b) wall-time ≥ MAX_WALL_MS
+//   (c) iterações ≥ MAX_BATCHES
 //
 // verify_jwt = false (default Lovable): cron-only.
 
@@ -27,6 +30,8 @@ const corsHeaders = {
 
 const BATCH_LIMIT = 25;
 const THROTTLE_MS = 80;
+const MAX_WALL_MS = 27_000;   // teto de tempo (~27s, bem dentro do limite da edge)
+const MAX_BATCHES = 40;       // teto de iterações (40 * 25 = 1000 leads/invocação)
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -68,24 +73,20 @@ async function callCapi(pixelId: string, payload: Record<string, any>): Promise<
     const metaStatus: number | undefined = parsed?.meta_status;
     const metaErr = parsed?.meta_response?.error;
 
-    // Sucesso (Graph 2xx propagado pelo wrapper)
     if (r.ok && typeof metaStatus === "number" && metaStatus >= 200 && metaStatus < 300) {
       return { ok: true };
     }
 
-    // Erro definitivo do Meta: dados de cliente insuficientes (subcode 2804050)
     if (metaStatus === 400 && metaErr?.error_subcode === 2804050) {
       return { ok: false, final: true, detail: "insufficient_customer_data" };
     }
 
-    // Restante (rate-limit do gateway, 5xx, timeouts, etc.) → transitório
     return {
       ok: false,
       final: false,
       detail: `edge_http=${r.status} meta_status=${metaStatus ?? "?"} ${metaErr?.message ?? ""}`.trim(),
     };
   } catch (e) {
-    // fetch lançou (RateLimitError do runtime, network, etc.) → transitório
     return { ok: false, final: false, detail: String(e) };
   }
 }
@@ -97,61 +98,89 @@ Deno.serve(async (req: Request): Promise<Response> => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data, error } = await supabase.rpc("process_leads_capi_batch", {
-    p_batch_size: BATCH_LIMIT,
-  });
-
-  if (error) {
-    console.error("[process-leads-capi] rpc falhou", error.message);
-    return json({ error: "rpc_failed", detail: error.message }, 500);
-  }
-
-  const items: any[] = Array.isArray(data) ? data : [];
+  const t0 = Date.now();
+  let batches = 0;
   let processed = 0;
   let sent = 0;
   let retried = 0;
   let failed_final = 0;
+  let stop_reason: "drained" | "wall_time" | "max_batches" | "rpc_error" = "drained";
 
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    processed++;
-    const leadId = item?.lead_id;
-    const pixelId = item?.pixel_id;
-    const payload = item?.payload;
-    if (!leadId || !pixelId || !payload) continue;
+  while (true) {
+    if (batches >= MAX_BATCHES) { stop_reason = "max_batches"; break; }
+    if (Date.now() - t0 >= MAX_WALL_MS) { stop_reason = "wall_time"; break; }
 
-    const res = await callCapi(String(pixelId), payload);
+    const { data, error } = await supabase.rpc("process_leads_capi_batch", {
+      p_batch_size: BATCH_LIMIT,
+    });
 
-    if (res.ok) {
-      sent++;
-      const { error: upErr } = await supabase
-        .from("leads")
-        .update({ capi_status: "sent" })
-        .eq("id", leadId);
-      if (upErr) console.warn("[process-leads-capi] update sent falhou", leadId, upErr.message);
-    } else if (res.final) {
-      failed_final++;
-      const { error: upErr } = await supabase
-        .from("leads")
-        .update({ capi_status: "error_insufficient_data" })
-        .eq("id", leadId);
-      if (upErr) console.warn("[process-leads-capi] update error_insufficient_data falhou", leadId, upErr.message);
-      console.warn("[process-leads-capi] Meta rejeitou definitivamente", leadId, res.detail);
-    } else {
-      retried++;
-      const { error: upErr } = await supabase
-        .from("leads")
-        .update({ capi_status: "retry", capi_sent_at: null })
-        .eq("id", leadId);
-      if (upErr) console.warn("[process-leads-capi] update retry falhou", leadId, upErr.message);
-      console.warn("[process-leads-capi] CAPI falhou (retry)", leadId, res.detail);
+    if (error) {
+      console.error("[process-leads-capi] rpc falhou", error.message);
+      stop_reason = "rpc_error";
+      return json({
+        error: "rpc_failed",
+        detail: error.message,
+        batches, processed, sent, retried, failed_final,
+        wall_ms: Date.now() - t0,
+      }, 500);
     }
 
-    // Throttle entre POSTs (evita RateLimitError do gateway edge)
-    if (i < items.length - 1) {
-      await new Promise((r) => setTimeout(r, THROTTLE_MS));
+    const items: any[] = Array.isArray(data) ? data : [];
+    batches++;
+
+    if (items.length === 0) { stop_reason = "drained"; break; }
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      processed++;
+      const leadId = item?.lead_id;
+      const pixelId = item?.pixel_id;
+      const payload = item?.payload;
+      if (!leadId || !pixelId || !payload) continue;
+
+      const res = await callCapi(String(pixelId), payload);
+
+      if (res.ok) {
+        sent++;
+        const { error: upErr } = await supabase
+          .from("leads")
+          .update({ capi_status: "sent" })
+          .eq("id", leadId);
+        if (upErr) console.warn("[process-leads-capi] update sent falhou", leadId, upErr.message);
+      } else if (res.final) {
+        failed_final++;
+        const { error: upErr } = await supabase
+          .from("leads")
+          .update({ capi_status: "error_insufficient_data" })
+          .eq("id", leadId);
+        if (upErr) console.warn("[process-leads-capi] update error_insufficient_data falhou", leadId, upErr.message);
+        console.warn("[process-leads-capi] Meta rejeitou definitivamente", leadId, res.detail);
+      } else {
+        retried++;
+        const { error: upErr } = await supabase
+          .from("leads")
+          .update({ capi_status: "retry", capi_sent_at: null })
+          .eq("id", leadId);
+        if (upErr) console.warn("[process-leads-capi] update retry falhou", leadId, upErr.message);
+        console.warn("[process-leads-capi] CAPI falhou (retry)", leadId, res.detail);
+      }
+
+      if (i < items.length - 1) {
+        await new Promise((r) => setTimeout(r, THROTTLE_MS));
+      }
     }
+
+    // Throttle pequeno entre batches também
+    await new Promise((r) => setTimeout(r, THROTTLE_MS));
   }
 
-  return json({ processed, sent, retried, failed_final });
+  return json({
+    batches,
+    processed,
+    sent,
+    retried,
+    failed_final,
+    stop_reason,
+    wall_ms: Date.now() - t0,
+  });
 });
