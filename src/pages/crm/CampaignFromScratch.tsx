@@ -27,6 +27,15 @@ import StrategyPlanCard from "@/components/crm/StrategyPlanCard";
 
 type SourceMode = "from_scratch_ref" | "from_scratch_blank";
 type EventPick = "existing" | "manual";
+type CampaignMoment = "lancamento" | "escassez" | "funil_completo" | "reta_final";
+
+const MOMENT_OPTIONS: Array<{ value: CampaignMoment; label: string; desc: string }> = [
+  { value: "lancamento", label: "Lançamento (1º lote)", desc: "Evento acabou de abrir. Funil curto: anunciar + começar a vender." },
+  { value: "escassez", label: "Escassez (virada de lote)", desc: "Lote a esgotar, preço sobe. Conversão + retargeting com urgência; lookalike frio até 20%." },
+  { value: "funil_completo", label: "Funil completo (padrão)", desc: "Awareness → consideração → conversão → retargeting. Comportamento clássico." },
+  { value: "reta_final", label: "Reta final", desc: "Últimos dias. Sem prospeção fria; só conversão + retargeting pesado." },
+];
+
 
 interface EventRow {
   id: string;
