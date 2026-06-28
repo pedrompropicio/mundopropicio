@@ -431,11 +431,13 @@ function RecommendationItem({
   rec,
   onDecide,
   onApplyAplus,
+  onPickReels,
   busy,
 }: {
   rec: RecommendationRow;
   onDecide: (decision: "aplicada" | "ignorada" | "nova") => void;
   onApplyAplus: () => void;
+  onPickReels: () => void;
   busy: boolean;
 }) {
   const cls = classifyRecommendation(rec);
