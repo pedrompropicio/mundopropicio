@@ -5815,6 +5815,81 @@ export type Database = {
           },
         ]
       }
+      meta_campaign_recommendations: {
+        Row: {
+          ad_account_id: string
+          body: string | null
+          company_id: string
+          connection_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          dedupe_object_key: string | null
+          external_adset_id: string | null
+          external_campaign_id: string | null
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          lift_estimate: string | null
+          opportunity_score_lift: number | null
+          raw: Json | null
+          recommendation_stage: string | null
+          recommendation_time: string | null
+          recommendation_type: string
+          status: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          ad_account_id: string
+          body?: string | null
+          company_id: string
+          connection_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          dedupe_object_key?: string | null
+          external_adset_id?: string | null
+          external_campaign_id?: string | null
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          lift_estimate?: string | null
+          opportunity_score_lift?: number | null
+          raw?: Json | null
+          recommendation_stage?: string | null
+          recommendation_time?: string | null
+          recommendation_type: string
+          status?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          ad_account_id?: string
+          body?: string | null
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          dedupe_object_key?: string | null
+          external_adset_id?: string | null
+          external_campaign_id?: string | null
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          lift_estimate?: string | null
+          opportunity_score_lift?: number | null
+          raw?: Json | null
+          recommendation_stage?: string | null
+          recommendation_time?: string | null
+          recommendation_type?: string
+          status?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
       meta_custom_audiences: {
         Row: {
           audience_id_meta: string | null

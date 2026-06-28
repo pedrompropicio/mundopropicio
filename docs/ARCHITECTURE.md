@@ -112,3 +112,13 @@ Modelo de 2 faixas (DR-2026-06-26, ver DECISIONS.md):
 - "Audiência do MP CRM que cresce sozinha" = **Mecanismo 1** (CAPI, `leads`, `fbc`/`fbp`).
 - "Carregar lista de clientes por email/telefone" = **Mecanismo 2** (Customer Match, `contacts`).
 - **NUNCA** assumir que `leads` tem email. **NUNCA** confundir a lista Ticketline importada (5000 estáticos) com a base viva.
+
+## Recomendações Meta — decisão assistida
+
+A tabela `public.meta_campaign_recommendations` guarda as recomendações vivas que a Meta Graph API devolve para a conta de anúncios. É alimentada pela edge function `crm-meta-recommendations` a partir de `/act_<id>/recommendations` (v21.0) — a sonda confirmou que as vias `/<campaign_id>?fields=recommendations` e `/<campaign_id>/adsets?fields=recommendations` devolvem sempre vazio e foram descontinuadas como fonte primária.
+
+Cada recomendação da Meta vem agrupada por tipo com um array `object_ids` apontando aos adsets afetados. A edge function **explode** esse array: cria uma linha por `object_id` (= um adset). O `external_campaign_id` é resolvido por lookup a `crm.meta_adset_snapshot`; quando o adset ainda não está em snapshot, fica `NULL`.
+
+A chave de unicidade `(company_id, ad_account_id, dedupe_object_key, recommendation_type)` — onde `dedupe_object_key` é `COALESCE(external_adset_id, '__account__')` — garante idempotência: ressincronizar atualiza `last_seen_at`, `body`, `lift_estimate`, etc., mas nunca apaga `status`/`decided_at`/`decided_by`. Cobre também recomendações que vêm sem `object_ids` (escopo conta).
+
+O `status` (`nova`/`ignorada`/`aplicada`) é a decisão do operador. A execução das ações (aplicar/ignorar) será adicionada em sub-peças seguintes — esta camada é apenas leitura + persistência.
