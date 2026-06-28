@@ -90,11 +90,34 @@ type Body = {
   connection_id?: string | null;
   model?: string | null;
   dry_run?: boolean;
+  // Eixo "momento de campanha" (fase comercial do EVENTO). Molda a FORMA
+  // do plano (que fases incluir, com que tom). NÃO toca em números nem no
+  // anchoring (P0). Default funil_completo = comportamento clássico.
+  campaign_moment?: "lancamento" | "escassez" | "funil_completo" | "reta_final";
   // Para futuro duelo from-scratch (mesma mecânica do redesign):
   async_persist?: boolean;
   duel_id?: string | null;
   source_model?: string | null;
 };
+
+const ALLOWED_MOMENTS = new Set<string>([
+  "lancamento", "escassez", "funil_completo", "reta_final",
+]);
+
+// MOMENT_BLOCKS — texto injetado no prompt por cada momento.
+// Molda a FORMA do plano (fases, tom). Nada aqui mexe em números (P0).
+const MOMENT_BLOCKS: Record<string, string> = {
+  lancamento: `== MOMENTO DA CAMPANHA: LANÇAMENTO (1º lote) ==
+O evento ACABOU DE ABRIR vendas. Funil CURTO e DIRETO. Inclui apenas 2 fases: awareness LEVE (1 adset, baixo budget — só para anunciar que abriu) + conversion/sales (a maior fatia do budget desde já). NÃO inclui consideration nem retargeting profundo — ainda não há audiência morna suficiente. Tom dos criativos: NOVIDADE, "abriu", "primeiro lote disponível", "garante o teu". Headlines com data de abertura. Evita urgência falsa — ainda não é escasso.`,
+  escassez: `== MOMENTO DA CAMPANHA: ESCASSEZ (virada de lote) ==
+O lote atual está quase esgotado e o preço vai subir. Foco em conversão + retargeting agressivo. SEM awareness de marca / prospeção fria larga (nada de interesses largos no topo). MAS mantém uma parcela MÍNIMA de aquisição fria QUALIFICADA — só lookalikes quentes (semelhantes a compradores), até 20% do budget no máximo (tu decides a % exata abaixo desse teto, conforme fizer sentido). O grosso vai para retargeting (visitantes + carrinho abandonado dos últimos 14d, ≥40%) e conversão sobre audiências mornas. Tom dos criativos: URGÊNCIA REAL — 'últimos do lote', 'preço sobe em X dias', 'garante antes de subir'. CTAs hard. A parcela de lookalike serve para alimentar o retargeting dos dias seguintes, não para notoriedade.`,
+  funil_completo: `== MOMENTO DA CAMPANHA: FUNIL COMPLETO (default) ==
+Comportamento padrão: awareness → consideration → conversion → retargeting ao longo do tempo até ao evento. Distribuição equilibrada de budget pelas 4 fases conforme dias para o evento (mais awareness se >60d, mais conversion+retargeting se <30d). Tom variado por fase (descoberta → benefício → ação → recuperação).`,
+  reta_final: `== MOMENTO DA CAMPANHA: RETA FINAL ==
+Faltam poucos dias para o evento. SEM prospeção fria — nenhum adset de aquisição (nem interesses, nem lookalikes). Apenas 2 frentes: conversão/vendas forte + retargeting PESADO (≥50% do budget) sobre TODAS as audiências mornas dos últimos 30-60d (visitantes, vídeo-viewers, engajamento, carrinho). Tom dos criativos: 'É JÁ', 'última chamada', 'este fim de semana', 'estás a tempo'. Headlines com contagem decrescente de dias. CTAs hard. Vídeos curtos e statics diretos — sem criativos de descoberta.`,
+};
+
+
 
 
 type EventCtx = {
