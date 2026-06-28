@@ -5,6 +5,7 @@
 // Logs estruturados, persistência em crm.meta_campaign_strategy_deployments.
 
 import { createClient } from "npm:@supabase/supabase-js@2.39.0";
+import { computePerAdsetCents } from "../_shared/budget-split.ts";
 
 const GRAPH_API_VERSION = "v18.0";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
