@@ -152,6 +152,7 @@ import CrmCreatives from "./pages/crm/Creatives";
 import CrmCreativeNew from "./pages/crm/CreativeNew";
 import CrmCreativeView from "./pages/crm/CreativeView";
 import CrmCampaignView from "./pages/crm/CampaignView";
+import CrmCampaignFromScratch from "./pages/crm/CampaignFromScratch";
 import CrmDuelView from "./pages/crm/DuelView";
 import CrmAudit from "./pages/crm/Audit";
 import CrmFunnelTest from "./pages/crm/FunnelTest";
@@ -575,6 +576,7 @@ function App() {
                   <Route path="/audience" element={<AudienceLayout />}>
                     <Route index element={<Navigate to="/audience/dashboard" replace />} />
                     <Route path="dashboard" element={<CrmCampaigns />} />
+                    <Route path="campaigns/new" element={<CrmCampaignFromScratch />} />
                     <Route path="campaigns/:id" element={<CrmCampaignView />} />
                     <Route path="connections" element={<CrmConnections />} />
                     <Route path="pixels" element={<CrmPixels />} />

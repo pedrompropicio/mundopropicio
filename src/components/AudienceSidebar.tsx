@@ -12,6 +12,7 @@ import {
   LogOut,
   Target,
   Sparkles,
+  PlusCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ export function AudienceSidebar() {
   const items = [
     { to: "/audience/setup", icon: Rocket, label: "Setup MP Audience" },
     { to: "/audience/dashboard", icon: TrendingUp, label: "Dashboard" },
+    { to: "/audience/campaigns/new", icon: PlusCircle, label: "Criar campanha" },
     { to: "/audience/strategies", icon: Brain, label: "Estratégias" },
     { to: "/audience/creatives", icon: ImageIcon, label: "Criativos" },
     { to: "/audience/insights", icon: Lightbulb, label: "Insights" },
