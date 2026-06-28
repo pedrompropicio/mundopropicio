@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -14,22 +14,20 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { Check, X, AlertTriangle, Plus, Video, ArrowLeft } from "lucide-react";
+import { Check, X, AlertTriangle, Plus, Video, ArrowLeft, Loader2, ShieldCheck } from "lucide-react";
 import { evaluateCreativeForReels, type ReelsCheckResult } from "@/lib/crm/creativeReelsCheck";
 import { classifyCreative } from "@/lib/creative-media";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Seletor de criativo da BIBLIOTECA para a recomendação REELS_PC.
-// Reaproveita:
-//   • Tabela crm.meta_creatives (lista existente — mesma fonte da página
-//     /audience/creatives), filtrada para vídeos.
-//   • Página de upload existente (/audience/creatives/new) via navegação.
-//   • Helper classifyCreative (src/lib/creative-media) para thumb/play chrome.
-// NÃO duplica upload nem biblioteca.
-//
-// "Usar este criativo" NÃO publica no Meta nesta peça — apenas valida +
-// regista decisão local + toast. Ver TODO no handler.
+// Nesta peça ligamos o botão "Usar este criativo" à edge function
+// `crm-meta-create-reels-ad` EM MODO DRY-RUN FIXO. NÃO há caminho de escrita
+// real no Meta aqui — a publicação real só virá numa peça futura, depois de
+// validarmos o payload simulado.
 // ─────────────────────────────────────────────────────────────────────────────
 
 type CreativeRow = {
@@ -41,18 +39,32 @@ type CreativeRow = {
   width: number | null;
   height: number | null;
   duration_seconds: number | null;
+  headline: string | null;
+};
+
+type SimResult = {
+  ok: boolean;
+  dry_run?: boolean;
+  resolved?: Record<string, unknown>;
+  payload?: unknown;
+  error?: string;
+  detail?: unknown;
+  fb_error?: unknown;
 };
 
 export function ReelsCreativePickerDialog({
   open,
   onOpenChange,
   companyId,
+  externalAdsetId,
   onSelected,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   companyId: string | null;
-  /** Chamado quando o utilizador confirma um criativo VÁLIDO. */
+  /** Adset alvo da recomendação que abriu o picker. Sem isto não há simulação. */
+  externalAdsetId: string | null;
+  /** Chamado quando o utilizador confirma um criativo VÁLIDO (após simulação ok). */
   onSelected: (creative: CreativeRow) => void;
 }) {
   const navigate = useNavigate();
@@ -65,7 +77,7 @@ export function ReelsCreativePickerDialog({
       const { data, error } = await (supabase as any)
         .schema("crm")
         .from("meta_creatives")
-        .select("id, name, type, file_url, file_mime_type, width, height, duration_seconds, created_at")
+        .select("id, name, type, file_url, file_mime_type, width, height, duration_seconds, headline, created_at")
         .eq("type", "video")
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -92,18 +104,6 @@ export function ReelsCreativePickerDialog({
     [selected],
   );
 
-  const handleConfirm = () => {
-    if (!selected || !verdict?.atende) return;
-    // TODO: ligar à publicação real no Meta (fluxo crm-meta-upload-creative-v2
-    // + criação de ad) após validação. Por agora, apenas regista escolha.
-    toast.success("Criativo validado e selecionado.", {
-      description: "Publicação no Meta virá no próximo passo.",
-    });
-    onSelected(selected);
-    onOpenChange(false);
-    setSelectedId(null);
-  };
-
   return (
     <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) setSelectedId(null); }}>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
@@ -119,11 +119,18 @@ export function ReelsCreativePickerDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto pr-1">
           {selected ? (
-            <VerdictView
+            <VerdictAndSimulate
               creative={selected}
               verdict={verdict!}
+              companyId={companyId}
+              externalAdsetId={externalAdsetId}
+              onConfirmed={(c) => {
+                onSelected(c);
+                onOpenChange(false);
+                setSelectedId(null);
+              }}
               onBack={() => setSelectedId(null)}
             />
           ) : isLoading ? (
@@ -152,25 +159,6 @@ export function ReelsCreativePickerDialog({
             />
           )}
         </div>
-
-        {selected && (
-          <DialogFooter className="border-t pt-3">
-            <Button variant="ghost" onClick={() => setSelectedId(null)}>
-              <ArrowLeft className="h-4 w-4 mr-1" /> Escolher outro
-            </Button>
-            <Button
-              onClick={handleConfirm}
-              disabled={!verdict?.atende}
-              title={
-                verdict?.atende
-                  ? "Validar e selecionar"
-                  : "Este criativo não atende aos requisitos de Reels."
-              }
-            >
-              <Check className="h-4 w-4 mr-1" /> Usar este criativo
-            </Button>
-          </DialogFooter>
-        )}
       </DialogContent>
     </Dialog>
   );
@@ -231,14 +219,74 @@ function CreativeGrid({
   );
 }
 
-function VerdictView({
+function VerdictAndSimulate({
   creative,
   verdict,
+  companyId,
+  externalAdsetId,
+  onConfirmed,
+  onBack,
 }: {
   creative: CreativeRow;
   verdict: ReelsCheckResult;
+  companyId: string | null;
+  externalAdsetId: string | null;
+  onConfirmed: (c: CreativeRow) => void;
   onBack: () => void;
 }) {
+  const [link, setLink] = useState("");
+  const [message, setMessage] = useState("");
+  const [title, setTitle] = useState("");
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<SimResult | null>(null);
+
+  // Pré-preenche mensagem com a headline do criativo (editável) se existir.
+  useEffect(() => {
+    setMessage(creative.headline ?? "");
+    setTitle("");
+    setLink("");
+    setResult(null);
+  }, [creative.id, creative.headline]);
+
+  const atende = verdict.atende;
+  const hasAdset = !!externalAdsetId;
+  const canRun =
+    atende && hasAdset && !!companyId && link.trim().length > 0 && message.trim().length > 0 && !running;
+
+  const runSimulation = async () => {
+    if (!canRun) return;
+    setRunning(true);
+    setResult(null);
+    try {
+      // dry_run fixo nesta peça — escrita real virá depois de validação.
+      const { data, error } = await supabase.functions.invoke("crm-meta-create-reels-ad", {
+        body: {
+          company_id: companyId,
+          external_adset_id: externalAdsetId,
+          creative_id: creative.id,
+          link: link.trim(),
+          message: message.trim(),
+          title: title.trim() || undefined,
+          cta: "BUY_TICKETS",
+          dry_run: true,
+        },
+      });
+      if (error) {
+        setResult({ ok: false, error: error.message });
+        toast.error("Falhou a simulação.", { description: error.message });
+      } else {
+        const r = (data ?? {}) as SimResult;
+        setResult(r);
+        if (r.ok) toast.success("Simulação concluída — nada foi publicado no Meta.");
+        else toast.error("Simulação devolveu erro.", { description: r.error ?? "" });
+      }
+    } catch (e: any) {
+      setResult({ ok: false, error: e?.message ?? "Erro desconhecido" });
+    } finally {
+      setRunning(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex gap-3 items-start">
@@ -258,12 +306,12 @@ function VerdictView({
       <div
         className={cn(
           "rounded-md border p-3 text-sm font-medium",
-          verdict.atende
+          atende
             ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
             : "border-red-500/40 bg-red-500/10 text-red-300",
         )}
       >
-        {verdict.atende ? "✓ Atende aos requisitos de Reels" : "✗ Não atende aos requisitos de Reels"}
+        {atende ? "✓ Atende aos requisitos de Reels" : "✗ Não atende aos requisitos de Reels"}
         <p className="text-xs font-normal mt-1 opacity-90">{verdict.resumo}</p>
       </div>
 
@@ -280,6 +328,144 @@ function VerdictView({
           </li>
         ))}
       </ul>
+
+      {atende && (
+        <div className="rounded-md border border-cyan-500/30 bg-cyan-500/5 p-3 space-y-3">
+          <p className="text-xs text-cyan-200/90 flex items-start gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            Vamos simular a criação do anúncio (sem publicar no Meta) para validar tudo antes.
+          </p>
+
+          {!hasAdset && (
+            <p className="text-xs text-amber-300">
+              Esta recomendação não está ligada a um adset específico — não é possível criar um anúncio sem adset.
+            </p>
+          )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="reels-link" className="text-xs">Link de destino *</Label>
+            <Input
+              id="reels-link"
+              type="url"
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              placeholder="https://ticketline.sapo.pt/evento/..."
+              disabled={!hasAdset || running}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="reels-message" className="text-xs">Mensagem do anúncio *</Label>
+            <Textarea
+              id="reels-message"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Texto principal que aparece no anúncio."
+              rows={3}
+              disabled={!hasAdset || running}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="reels-title" className="text-xs">Título (opcional)</Label>
+            <Input
+              id="reels-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Headline curta."
+              disabled={!hasAdset || running}
+            />
+          </div>
+        </div>
+      )}
+
+      {result && <SimulationResult result={result} />}
+
+      <DialogFooter className="border-t pt-3 -mx-1 px-1">
+        <Button variant="ghost" onClick={onBack} disabled={running}>
+          <ArrowLeft className="h-4 w-4 mr-1" /> Escolher outro
+        </Button>
+        {result?.ok ? (
+          <Button onClick={() => onConfirmed(creative)}>
+            <Check className="h-4 w-4 mr-1" /> Fechar
+          </Button>
+        ) : (
+          <Button
+            onClick={runSimulation}
+            disabled={!canRun}
+            title={
+              !atende
+                ? "Este criativo não atende aos requisitos de Reels."
+                : !hasAdset
+                  ? "Recomendação sem adset associado."
+                  : !link || !message
+                    ? "Preenche link e mensagem."
+                    : "Simular criação do anúncio (sem publicar)"
+            }
+          >
+            {running ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-1" />}
+            Usar este criativo (simular)
+          </Button>
+        )}
+      </DialogFooter>
+    </div>
+  );
+}
+
+function SimulationResult({ result }: { result: SimResult }) {
+  if (!result.ok) {
+    return (
+      <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 space-y-2 text-xs">
+        <p className="font-semibold text-red-300">Simulação falhou</p>
+        {result.error && <p className="text-red-200">{result.error}</p>}
+        {result.detail !== undefined && (
+          <pre className="bg-black/30 p-2 rounded text-[10px] overflow-x-auto">
+            {JSON.stringify(result.detail, null, 2)}
+          </pre>
+        )}
+        {result.fb_error !== undefined && (
+          <pre className="bg-black/30 p-2 rounded text-[10px] overflow-x-auto">
+            {JSON.stringify(result.fb_error, null, 2)}
+          </pre>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs text-emerald-200 flex items-start gap-2">
+        <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0" />
+        <div>
+          <p className="font-semibold">Simulação concluída — nada foi publicado no Meta.</p>
+          <p className="opacity-80">
+            O anúncio seria criado com <strong>status PAUSED</strong>. Revê o payload abaixo antes de publicarmos a sério (em peça futura).
+          </p>
+        </div>
+      </div>
+
+      {result.resolved && (
+        <div className="rounded-md border p-3 space-y-1 text-xs">
+          <p className="font-semibold mb-1">Identificadores resolvidos</p>
+          {Object.entries(result.resolved).map(([k, v]) => (
+            <div key={k} className="flex gap-2">
+              <span className="text-muted-foreground min-w-[160px]">{k}</span>
+              <span className="font-mono break-all">{String(v ?? "—")}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {result.payload !== undefined && (
+        <div className="rounded-md border p-3 space-y-1.5">
+          <p className="text-xs font-semibold">
+            Payload do anúncio <Badge variant="outline" className="ml-1 text-[9px]">status: PAUSED</Badge>
+          </p>
+          <pre className="bg-black/30 p-2 rounded text-[10px] overflow-x-auto max-h-72">
+            {JSON.stringify(result.payload, null, 2)}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }
