@@ -138,6 +138,44 @@ interface InsightRow {
   roas: number | null;
   currency: string | null;
 }
+// Linhas das tabelas de insights granulares (subset usado na UI)
+interface AdsetInsightRow {
+  external_adset_id: string;
+  date_start: string;
+  spend_cents: number | null;
+  impressions: number | null;
+  reach: number | null;
+  clicks: number | null;
+  purchases_count: number | null;
+  purchases_value_cents: number | null;
+  currency: string | null;
+}
+interface AdInsightRow {
+  external_ad_id: string;
+  date_start: string;
+  spend_cents: number | null;
+  impressions: number | null;
+  reach: number | null;
+  clicks: number | null;
+  purchases_count: number | null;
+  purchases_value_cents: number | null;
+  currency: string | null;
+}
+// Métricas agregadas por entidade (adset ou ad), com divisões protegidas
+interface EntityMetrics {
+  spend: number;
+  impressions: number;
+  reach: number;
+  clicks: number;
+  purchases: number;
+  revenue: number;
+  cpc: number | null;
+  cpm: number | null;
+  ctr: number | null;
+  frequency: number | null;
+  roas: number | null;
+  currency: string | null;
+}
 interface DiagnosisRow {
   target_roas: number | null;
   source_campaign_class: string | null;
@@ -547,6 +585,49 @@ export default function CrmCampaignView() {
     },
   });
 
+
+
+  // 2b) Insights por ADSET — mesma janela do PeriodSelector da campanha mãe.
+  // Uma só query por campanha (índice idx_adset_insights_campaign_date) e
+  // agregamos no cliente por external_adset_id (ver adsetMetricsMap abaixo).
+  const { data: adsetInsights } = useQuery({
+    queryKey: ["crm-campaign-view-adset-insights", id, periodFromStr, periodToStr],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_adset_insights_daily")
+        .select(
+          "external_adset_id, date_start, spend_cents, impressions, reach, clicks, purchases_count, purchases_value_cents, currency",
+        )
+        .eq("external_campaign_id", id)
+        .gte("date_start", periodFromStr)
+        .lte("date_start", periodToStr);
+      if (error) throw error;
+      return (data ?? []) as AdsetInsightRow[];
+    },
+  });
+
+  // 2c) Insights por ANÚNCIO — idêntico ao adset (índice idx_ad_insights_campaign_date).
+  const { data: adInsights } = useQuery({
+    queryKey: ["crm-campaign-view-ad-insights", id, periodFromStr, periodToStr],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("crm")
+        .from("meta_ad_insights_daily")
+        .select(
+          "external_ad_id, date_start, spend_cents, impressions, reach, clicks, purchases_count, purchases_value_cents, currency",
+        )
+        .eq("external_campaign_id", id)
+        .gte("date_start", periodFromStr)
+        .lte("date_start", periodToStr);
+      if (error) throw error;
+      return (data ?? []) as AdInsightRow[];
+    },
+  });
+
+
   // 3) Adsets — incluímos connection_id/ad_account_id p/ poder chamar entity-action
   const { data: adsets } = useQuery({
     queryKey: ["crm-campaign-view-adsets", id],
@@ -722,6 +803,56 @@ export default function CrmCampaignView() {
     const currency = rows.find((r) => r.currency)?.currency ?? displayCurrency;
     return { spend, revenue, conversions, roas, currency };
   }, [insights, displayCurrency]);
+
+  // Agregação por entidade (mesma lógica do `metrics` da mãe, replicada um
+  // nível abaixo). Divisões protegidas: numerador/denominador inválido → null
+  // (renderiza "—") em vez de 0/NaN, para distinguir "sem dados" de "zero real".
+  function aggregateRows<T extends {
+    spend_cents: number | null; impressions: number | null; reach: number | null;
+    clicks: number | null; purchases_count: number | null;
+    purchases_value_cents: number | null; currency: string | null;
+  }>(rows: T[]): EntityMetrics {
+    const spend = rows.reduce((s, r) => s + (r.spend_cents ?? 0), 0);
+    const impressions = rows.reduce((s, r) => s + (r.impressions ?? 0), 0);
+    const reach = rows.reduce((s, r) => s + (r.reach ?? 0), 0);
+    const clicks = rows.reduce((s, r) => s + (r.clicks ?? 0), 0);
+    const purchases = rows.reduce((s, r) => s + (r.purchases_count ?? 0), 0);
+    const revenue = rows.reduce((s, r) => s + (r.purchases_value_cents ?? 0), 0);
+    return {
+      spend, impressions, reach, clicks, purchases, revenue,
+      cpc: clicks > 0 ? spend / clicks : null,
+      cpm: impressions > 0 ? (spend / impressions) * 1000 : null,
+      ctr: impressions > 0 ? clicks / impressions : null,
+      frequency: reach > 0 ? impressions / reach : null,
+      roas: spend > 0 ? revenue / spend : null,
+      currency: rows.find((r) => r.currency)?.currency ?? null,
+    };
+  }
+  const adsetMetricsMap = useMemo(() => {
+    const m = new Map<string, EntityMetrics>();
+    const byId = new Map<string, AdsetInsightRow[]>();
+    for (const r of adsetInsights ?? []) {
+      const k = r.external_adset_id;
+      const arr = byId.get(k) ?? [];
+      arr.push(r);
+      byId.set(k, arr);
+    }
+    for (const [k, arr] of byId) m.set(k, aggregateRows(arr));
+    return m;
+  }, [adsetInsights]);
+  const adMetricsMap = useMemo(() => {
+    const m = new Map<string, EntityMetrics>();
+    const byId = new Map<string, AdInsightRow[]>();
+    for (const r of adInsights ?? []) {
+      const k = r.external_ad_id;
+      const arr = byId.get(k) ?? [];
+      arr.push(r);
+      byId.set(k, arr);
+    }
+    for (const [k, arr] of byId) m.set(k, aggregateRows(arr));
+    return m;
+  }, [adInsights]);
+
 
   const targeting = useMemo(() => aggregateTargeting(adsets ?? []), [adsets]);
 
@@ -2133,6 +2264,8 @@ export default function CrmCampaignView() {
                         <ConfigRow label="Orçamento diário" value={eur(a.daily_budget_cents, adsetCur)} />
                         <ConfigRow label="Orçamento total" value={eur(a.lifetime_budget_cents, adsetCur)} />
                       </div>
+                      {/* Mini-stats do adset — janela do PeriodSelector global */}
+                      <EntityStatsGrid metrics={adsetMetricsMap.get(a.external_adset_id)} currency={adsetCur} variant="adset" />
                       <Separator />
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <PillRow icon={MapPin} label="Países" items={t.countries} small />
@@ -2263,6 +2396,11 @@ export default function CrmCampaignView() {
                         {eff ?? "—"}
                       </Badge>
                     </div>
+
+                    {/* Mini-stats do anúncio — janela do PeriodSelector global */}
+                    <EntityStatsGrid metrics={adMetricsMap.get(ad.external_ad_id)} currency={cur} variant="ad" />
+
+
 
                     {cr?.headline && (
                       <p className="text-xs text-muted-foreground line-clamp-2" title={cr.headline}>
@@ -2549,6 +2687,53 @@ function MetricCard({ icon: Icon, label, value }: { icon: any; label: string; va
       </div>
       <div className="text-2xl font-bold tracking-tight">{value}</div>
     </Card>
+  );
+}
+
+// Grelha compacta de métricas por entidade (adset ou ad).
+// Reaproveita `eur`/`intFmt` da página e o estilo dos MetricCard em compacto.
+function EntityStatsGrid({
+  metrics,
+  currency,
+  variant,
+}: {
+  metrics: EntityMetrics | undefined;
+  currency: string | null | undefined;
+  variant: "adset" | "ad";
+}) {
+  if (!metrics) {
+    return (
+      <div className="text-[11px] text-muted-foreground italic border-t border-border/40 pt-2">
+        Sem dados no período.
+      </div>
+    );
+  }
+  const pct = (v: number | null) => (v == null ? "—" : `${(v * 100).toFixed(2)}%`);
+  const num = (v: number | null) => (v == null ? "—" : v.toFixed(2));
+  const items: Array<{ label: string; value: string }> = [
+    { label: "Gasto", value: eur(metrics.spend, currency) },
+    { label: "Impressões", value: intFmt(metrics.impressions) },
+    ...(variant === "adset" ? [{ label: "Alcance", value: intFmt(metrics.reach) }] : []),
+    { label: "Cliques", value: intFmt(metrics.clicks) },
+    { label: "CPC", value: eur(metrics.cpc == null ? null : Math.round(metrics.cpc), currency) },
+    { label: "CPM", value: eur(metrics.cpm == null ? null : Math.round(metrics.cpm), currency) },
+    ...(variant === "adset" ? [
+      { label: "CTR", value: pct(metrics.ctr) },
+      { label: "Frequência", value: num(metrics.frequency) },
+    ] : []),
+    { label: "Compras", value: intFmt(metrics.purchases) },
+    { label: "ROAS", value: metrics.roas == null ? "—" : `${metrics.roas.toFixed(2)}x` },
+  ];
+  const cols = variant === "adset" ? "grid-cols-3 sm:grid-cols-5" : "grid-cols-3";
+  return (
+    <div className={cn("grid gap-2 text-xs border-t border-border/40 pt-2", cols)}>
+      {items.map((it) => (
+        <div key={it.label} className="flex flex-col">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{it.label}</span>
+          <span className="font-medium tabular-nums">{it.value}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
