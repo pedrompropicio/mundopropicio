@@ -11,6 +11,16 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,16 +28,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { Check, X, AlertTriangle, Plus, Video, ArrowLeft, Loader2, ShieldCheck } from "lucide-react";
+import { Check, X, AlertTriangle, Plus, Video, ArrowLeft, Loader2, ShieldCheck, Send, PartyPopper } from "lucide-react";
 import { evaluateCreativeForReels, type ReelsCheckResult } from "@/lib/crm/creativeReelsCheck";
 import { classifyCreative } from "@/lib/creative-media";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Seletor de criativo da BIBLIOTECA para a recomendação REELS_PC.
-// Nesta peça ligamos o botão "Usar este criativo" à edge function
-// `crm-meta-create-reels-ad` EM MODO DRY-RUN FIXO. NÃO há caminho de escrita
-// real no Meta aqui — a publicação real só virá numa peça futura, depois de
-// validarmos o payload simulado.
+// Fluxo em DUAS FASES:
+//   1) Pré-visualização — invoca crm-meta-create-reels-ad com dry_run:true.
+//      Mostra resolved + payload. NADA é escrito no Meta.
+//   2) Publicação real — só DEPOIS de uma pré-visualização ok, e SÓ via
+//      AlertDialog de confirmação. Invoca a MESMA edge com dry_run:false.
+//      O anúncio nasce sempre PAUSED (forçado no servidor — a UI só comunica).
+// A escrita real NUNCA acontece num clique único nem de forma automática:
+// passa obrigatoriamente pelo AlertDialog. Só após sucesso é que marcamos
+// a recomendação como tratada (via onSelected).
 // ─────────────────────────────────────────────────────────────────────────────
 
 type CreativeRow = {
@@ -47,6 +62,8 @@ type SimResult = {
   dry_run?: boolean;
   resolved?: Record<string, unknown>;
   payload?: unknown;
+  ad_id?: string;
+  status?: string;
   error?: string;
   detail?: unknown;
   fb_error?: unknown;
@@ -238,54 +255,96 @@ function VerdictAndSimulate({
   const [message, setMessage] = useState("");
   const [title, setTitle] = useState("");
   const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<SimResult | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [preview, setPreview] = useState<SimResult | null>(null);
+  const [published, setPublished] = useState<SimResult | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Pré-preenche mensagem com a headline do criativo (editável) se existir.
   useEffect(() => {
     setMessage(creative.headline ?? "");
     setTitle("");
     setLink("");
-    setResult(null);
+    setPreview(null);
+    setPublished(null);
   }, [creative.id, creative.headline]);
 
   const atende = verdict.atende;
   const hasAdset = !!externalAdsetId;
+  const busy = running || publishing;
   const canRun =
-    atende && hasAdset && !!companyId && link.trim().length > 0 && message.trim().length > 0 && !running;
+    atende && hasAdset && !!companyId && link.trim().length > 0 && message.trim().length > 0 && !busy;
+
+  // Body partilhado entre pré-visualização e publicação real — única
+  // diferença é dry_run. Status é sempre forçado a PAUSED pelo servidor.
+  const buildBody = (dryRun: boolean) => ({
+    company_id: companyId,
+    external_adset_id: externalAdsetId,
+    creative_id: creative.id,
+    link: link.trim(),
+    message: message.trim(),
+    title: title.trim() || undefined,
+    cta: "BUY_TICKETS",
+    dry_run: dryRun,
+  });
 
   const runSimulation = async () => {
     if (!canRun) return;
     setRunning(true);
-    setResult(null);
+    setPreview(null);
+    setPublished(null);
     try {
-      // dry_run fixo nesta peça — escrita real virá depois de validação.
       const { data, error } = await supabase.functions.invoke("crm-meta-create-reels-ad", {
-        body: {
-          company_id: companyId,
-          external_adset_id: externalAdsetId,
-          creative_id: creative.id,
-          link: link.trim(),
-          message: message.trim(),
-          title: title.trim() || undefined,
-          cta: "BUY_TICKETS",
-          dry_run: true,
-        },
+        body: buildBody(true),
       });
       if (error) {
-        setResult({ ok: false, error: error.message });
-        toast.error("Falhou a simulação.", { description: error.message });
+        setPreview({ ok: false, error: error.message });
+        toast.error("Falhou a pré-visualização.", { description: error.message });
       } else {
         const r = (data ?? {}) as SimResult;
-        setResult(r);
-        if (r.ok) toast.success("Simulação concluída — nada foi publicado no Meta.");
-        else toast.error("Simulação devolveu erro.", { description: r.error ?? "" });
+        setPreview(r);
+        if (r.ok) toast.success("Pré-visualização ok — nada foi publicado no Meta.");
+        else toast.error("Pré-visualização devolveu erro.", { description: r.error ?? "" });
       }
     } catch (e: any) {
-      setResult({ ok: false, error: e?.message ?? "Erro desconhecido" });
+      setPreview({ ok: false, error: e?.message ?? "Erro desconhecido" });
     } finally {
       setRunning(false);
     }
   };
+
+  // SEGURANÇA: esta função só é chamada a partir do AlertDialogAction
+  // do diálogo de confirmação — nunca por um clique único, nunca automática.
+  const runPublish = async () => {
+    if (!preview?.ok) return; // só publica após pré-visualização ok
+    setPublishing(true);
+    setPublished(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("crm-meta-create-reels-ad", {
+        body: buildBody(false),
+      });
+      if (error) {
+        setPublished({ ok: false, error: error.message });
+        toast.error("Falhou a publicação.", { description: error.message });
+      } else {
+        const r = (data ?? {}) as SimResult;
+        setPublished(r);
+        if (r.ok) {
+          toast.success("Anúncio criado e PAUSADO no Meta.");
+          // Marca a recomendação como tratada SÓ após escrita real bem-sucedida.
+          onConfirmed(creative);
+        } else {
+          toast.error("Publicação devolveu erro.", { description: r.error ?? "" });
+        }
+      }
+    } catch (e: any) {
+      setPublished({ ok: false, error: e?.message ?? "Erro desconhecido" });
+    } finally {
+      setPublishing(false);
+      setConfirmOpen(false);
+    }
+  };
+
 
   return (
     <div className="space-y-4">
@@ -379,67 +438,125 @@ function VerdictAndSimulate({
         </div>
       )}
 
-      {result && <SimulationResult result={result} />}
+      {preview && <PreviewResult result={preview} />}
+      {published && <PublishedResult result={published} />}
 
-      <DialogFooter className="border-t pt-3 -mx-1 px-1">
-        <Button variant="ghost" onClick={onBack} disabled={running}>
+      <DialogFooter className="border-t pt-3 -mx-1 px-1 gap-2 flex-wrap">
+        <Button variant="ghost" onClick={onBack} disabled={busy}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Escolher outro
         </Button>
-        {result?.ok ? (
+        {published?.ok ? (
           <Button onClick={() => onConfirmed(creative)}>
             <Check className="h-4 w-4 mr-1" /> Fechar
           </Button>
         ) : (
-          <Button
-            onClick={runSimulation}
-            disabled={!canRun}
-            title={
-              !atende
-                ? "Este criativo não atende aos requisitos de Reels."
-                : !hasAdset
-                  ? "Recomendação sem adset associado."
-                  : !link || !message
-                    ? "Preenche link e mensagem."
-                    : "Simular criação do anúncio (sem publicar)"
-            }
-          >
-            {running ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-1" />}
-            Usar este criativo (simular)
-          </Button>
+          <>
+            <Button
+              variant={preview?.ok ? "outline" : "default"}
+              onClick={runSimulation}
+              disabled={!canRun}
+              title={
+                !atende
+                  ? "Este criativo não atende aos requisitos de Reels."
+                  : !hasAdset
+                    ? "Recomendação sem adset associado."
+                    : !link || !message
+                      ? "Preenche link e mensagem."
+                      : "Pré-visualizar (sem publicar)"
+              }
+            >
+              {running ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ShieldCheck className="h-4 w-4 mr-1" />}
+              {preview ? "Pré-visualizar novamente" : "Pré-visualizar"}
+            </Button>
+            {/* O botão de publicar SÓ aparece após uma pré-visualização ok.
+                E SÓ abre o AlertDialog — nunca publica directamente. */}
+            {preview?.ok && (
+              <Button
+                onClick={() => setConfirmOpen(true)}
+                disabled={busy}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {publishing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
+                Publicar anúncio (fica pausado)
+              </Button>
+            )}
+          </>
         )}
       </DialogFooter>
+
+      <AlertDialog open={confirmOpen} onOpenChange={(o) => !publishing && setConfirmOpen(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Publicar anúncio no Meta?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p className="text-amber-300 font-medium">
+                  Vais criar um anúncio REAL no Meta. Ele fica PAUSADO (não gasta, não aparece) até o ativares.
+                </p>
+                <div className="rounded border p-2 space-y-1 text-xs bg-muted/30">
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground min-w-[110px]">Adset destino</span>
+                    <span className="font-mono break-all">{externalAdsetId}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground min-w-[110px]">Criativo</span>
+                    <span className="break-all">{creative.name}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-muted-foreground min-w-[110px]">Link</span>
+                    <span className="font-mono break-all">{link}</span>
+                  </div>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={publishing}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); void runPublish(); }}
+              disabled={publishing}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {publishing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
+              Publicar (pausado)
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
-function SimulationResult({ result }: { result: SimResult }) {
-  if (!result.ok) {
-    return (
-      <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 space-y-2 text-xs">
-        <p className="font-semibold text-red-300">Simulação falhou</p>
-        {result.error && <p className="text-red-200">{result.error}</p>}
-        {result.detail !== undefined && (
-          <pre className="bg-black/30 p-2 rounded text-[10px] overflow-x-auto">
-            {JSON.stringify(result.detail, null, 2)}
-          </pre>
-        )}
-        {result.fb_error !== undefined && (
-          <pre className="bg-black/30 p-2 rounded text-[10px] overflow-x-auto">
-            {JSON.stringify(result.fb_error, null, 2)}
-          </pre>
-        )}
-      </div>
-    );
-  }
+function ErrorBlock({ result, titulo }: { result: SimResult; titulo: string }) {
+  return (
+    <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 space-y-2 text-xs">
+      <p className="font-semibold text-red-300">{titulo}</p>
+      {result.error && <p className="text-red-200">{result.error}</p>}
+      {result.detail !== undefined && (
+        <pre className="bg-black/30 p-2 rounded text-[10px] overflow-x-auto">
+          {JSON.stringify(result.detail, null, 2)}
+        </pre>
+      )}
+      {result.fb_error !== undefined && (
+        <pre className="bg-black/30 p-2 rounded text-[10px] overflow-x-auto">
+          {JSON.stringify(result.fb_error, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
+}
+
+function PreviewResult({ result }: { result: SimResult }) {
+  if (!result.ok) return <ErrorBlock result={result} titulo="Pré-visualização falhou" />;
 
   return (
     <div className="space-y-3">
       <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs text-emerald-200 flex items-start gap-2">
         <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0" />
         <div>
-          <p className="font-semibold">Simulação concluída — nada foi publicado no Meta.</p>
+          <p className="font-semibold">Pré-visualização concluída — nada foi publicado no Meta.</p>
           <p className="opacity-80">
-            O anúncio seria criado com <strong>status PAUSED</strong>. Revê o payload abaixo antes de publicarmos a sério (em peça futura).
+            O anúncio seria criado com <strong>status PAUSED</strong>. Revê o payload abaixo e, se estiver tudo bem, clica em <em>Publicar anúncio</em> (vai pedir confirmação).
           </p>
         </div>
       </div>
@@ -466,6 +583,34 @@ function SimulationResult({ result }: { result: SimResult }) {
           </pre>
         </div>
       )}
+    </div>
+  );
+}
+
+function PublishedResult({ result }: { result: SimResult }) {
+  if (!result.ok) return <ErrorBlock result={result} titulo="Publicação falhou" />;
+
+  return (
+    <div className="rounded-md border border-emerald-500/50 bg-emerald-500/15 p-3 text-xs text-emerald-100 space-y-2">
+      <div className="flex items-start gap-2">
+        <PartyPopper className="h-4 w-4 mt-0.5 shrink-0" />
+        <div>
+          <p className="font-semibold">Anúncio criado e PAUSADO no Meta.</p>
+          <p className="opacity-90">
+            Para o ativar, fá-lo no Ads Manager (a ativação dentro da plataforma virá numa próxima peça).
+          </p>
+        </div>
+      </div>
+      <div className="rounded bg-black/30 p-2 space-y-1">
+        <div className="flex gap-2">
+          <span className="text-emerald-300/80 min-w-[80px]">ad_id</span>
+          <span className="font-mono break-all">{result.ad_id ?? "—"}</span>
+        </div>
+        <div className="flex gap-2">
+          <span className="text-emerald-300/80 min-w-[80px]">status</span>
+          <Badge variant="outline" className="text-[10px]">{result.status ?? "PAUSED"}</Badge>
+        </div>
+      </div>
     </div>
   );
 }
