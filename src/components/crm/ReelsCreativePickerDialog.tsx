@@ -11,6 +11,16 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,16 +28,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { Check, X, AlertTriangle, Plus, Video, ArrowLeft, Loader2, ShieldCheck } from "lucide-react";
+import { Check, X, AlertTriangle, Plus, Video, ArrowLeft, Loader2, ShieldCheck, Send, PartyPopper } from "lucide-react";
 import { evaluateCreativeForReels, type ReelsCheckResult } from "@/lib/crm/creativeReelsCheck";
 import { classifyCreative } from "@/lib/creative-media";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Seletor de criativo da BIBLIOTECA para a recomendação REELS_PC.
-// Nesta peça ligamos o botão "Usar este criativo" à edge function
-// `crm-meta-create-reels-ad` EM MODO DRY-RUN FIXO. NÃO há caminho de escrita
-// real no Meta aqui — a publicação real só virá numa peça futura, depois de
-// validarmos o payload simulado.
+// Fluxo em DUAS FASES:
+//   1) Pré-visualização — invoca crm-meta-create-reels-ad com dry_run:true.
+//      Mostra resolved + payload. NADA é escrito no Meta.
+//   2) Publicação real — só DEPOIS de uma pré-visualização ok, e SÓ via
+//      AlertDialog de confirmação. Invoca a MESMA edge com dry_run:false.
+//      O anúncio nasce sempre PAUSED (forçado no servidor — a UI só comunica).
+// A escrita real NUNCA acontece num clique único nem de forma automática:
+// passa obrigatoriamente pelo AlertDialog. Só após sucesso é que marcamos
+// a recomendação como tratada (via onSelected).
 // ─────────────────────────────────────────────────────────────────────────────
 
 type CreativeRow = {
