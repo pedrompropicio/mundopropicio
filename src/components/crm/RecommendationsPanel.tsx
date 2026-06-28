@@ -389,8 +389,9 @@ export function RecommendationsPanel({
         companyId={companyId}
         externalAdsetId={reelsPicker?.external_adset_id ?? null}
         onSelected={() => {
-          // Nesta peça a simulação é dry-run; NÃO marcamos a recomendação como
-          // tratada automaticamente — o utilizador decide depois.
+          // Picker só chama onSelected após PUBLICAÇÃO REAL bem-sucedida
+          // (passa por AlertDialog de confirmação). Marca como tratada.
+          if (reelsPicker) decide.mutate({ id: reelsPicker.id, decision: "aplicada" });
         }}
       />
     </Card>
