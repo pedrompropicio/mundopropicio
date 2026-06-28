@@ -722,6 +722,14 @@ function GestaoTab({
         disabled={disabled}
       />
 
+      <PurchaseAudienceCard
+        eventId={eventId}
+        companyId={ev?.company_id ?? MP_COMPANY_ID}
+        metaPixelId={ev?.meta_pixel_id ?? null}
+        variant="card"
+      />
+
+
       <Field label="Tipo de gestão">
         <Select value={mgmt} onValueChange={setMgmt} disabled={disabled}>
           <SelectTrigger><SelectValue /></SelectTrigger>
