@@ -391,6 +391,7 @@ function RecommendationGroup({
   recs,
   onDecide,
   onApplyAplus,
+  onPickReels,
   decidingId,
 }: {
   title: string;
@@ -398,6 +399,7 @@ function RecommendationGroup({
   recs: RecommendationRow[];
   onDecide: (id: string, decision: "aplicada" | "ignorada" | "nova") => void;
   onApplyAplus: (rec: RecommendationRow) => void;
+  onPickReels: (rec: RecommendationRow) => void;
   decidingId?: string;
 }) {
   return (
@@ -416,6 +418,7 @@ function RecommendationGroup({
             rec={r}
             onDecide={(decision) => onDecide(r.id, decision)}
             onApplyAplus={() => onApplyAplus(r)}
+            onPickReels={() => onPickReels(r)}
             busy={decidingId === r.id}
           />
         ))}
