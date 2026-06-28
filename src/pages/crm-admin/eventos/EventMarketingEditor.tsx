@@ -76,7 +76,7 @@ export default function EventMarketingEditor() {
     queryFn: async (): Promise<any> => {
       const { data, error } = await (supabase as any)
         .from("events")
-        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until, venue_map_url, venue_directions_url, meta_pixel_id, meta_audience_id, meta_audience_name")
+        .select("id, name, slug, status, date, company_id, management_type, partner_name, location, ticketing_url, ticketing_provider, portal_visible, portal_featured, vip_coupon_code, vip_coupon_discount_label, vip_coupon_valid_until, venue_map_url, venue_directions_url, meta_pixel_id, meta_audience_id, meta_audience_name, ad_destination_url")
         .eq("id", eventId)
         .maybeSingle();
       if (error) throw error;
@@ -638,6 +638,7 @@ function GestaoTab({
   const [partnerName, setPartnerName] = useState<string>(ev?.partner_name ?? "");
   const [location, setLocation] = useState<string>(ev?.location ?? "");
   const [ticketingUrl, setTicketingUrl] = useState<string>(ev?.ticketing_url ?? "");
+  const [adDestinationUrl, setAdDestinationUrl] = useState<string>(ev?.ad_destination_url ?? "");
   const [ticketingProvider, setTicketingProvider] = useState<string>(ev?.ticketing_provider ?? "");
   const [portalVisible, setPortalVisible] = useState<boolean>(!!ev?.portal_visible);
   const [portalFeatured, setPortalFeatured] = useState<boolean>(!!ev?.portal_featured);
@@ -655,6 +656,7 @@ function GestaoTab({
     setPartnerName(ev?.partner_name ?? "");
     setLocation(ev?.location ?? "");
     setTicketingUrl(ev?.ticketing_url ?? "");
+    setAdDestinationUrl(ev?.ad_destination_url ?? "");
     setTicketingProvider(ev?.ticketing_provider ?? "");
     setPortalVisible(!!ev?.portal_visible);
     setPortalFeatured(!!ev?.portal_featured);
@@ -687,6 +689,7 @@ function GestaoTab({
           partner_name: mgmt === "partner_managed" ? (partnerName.trim() || null) : null,
           location: location.trim() || null,
           ticketing_url: ticketingUrl.trim() || null,
+          ad_destination_url: adDestinationUrl.trim() || null,
           ticketing_provider: ticketingProvider.trim() || null,
           portal_visible: portalVisible,
           portal_featured: portalFeatured,
@@ -754,6 +757,31 @@ function GestaoTab({
         </Field>
         <Field label="Ticketing provider">
           <Input value={ticketingProvider} onChange={(e) => setTicketingProvider(e.target.value)} disabled={disabled} />
+        </Field>
+        <Field label="Link de destino do anúncio (portal)">
+          <Input
+            type="url"
+            value={adDestinationUrl}
+            onChange={(e) => setAdDestinationUrl(e.target.value)}
+            disabled={disabled}
+            placeholder="https://www.mundopropicio.com/pt/eventos/<slug>"
+          />
+          <p className="text-xs text-muted-foreground">
+            Para onde o anúncio leva o utilizador (página do portal com o pixel). Se vazio, usa o Ticketing URL.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2 w-fit"
+            disabled={disabled || !ev?.slug}
+            onClick={() => setAdDestinationUrl(`https://www.mundopropicio.com/pt/eventos/${ev?.slug}`)}
+          >
+            Preencher a partir do slug
+          </Button>
+          {!ev?.slug && (
+            <p className="text-xs text-muted-foreground">Evento sem slug.</p>
+          )}
         </Field>
       </div>
 
