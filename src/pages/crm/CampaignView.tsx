@@ -1941,6 +1941,13 @@ export default function CrmCampaignView() {
         )}
       </Card>
 
+      {/* Recomendações da Meta — decisão assistida (P0: só muda status, NÃO age no Meta) */}
+      <RecommendationsPanel
+        externalCampaignId={id!}
+        companyId={campaign.company_id ?? null}
+        adsetNames={adsetNameMap}
+      />
+
       {/* Vista de ações propostas — partilhada: cirúrgico (Etapa 3) e escala (Etapa 4) */}
       {surgicalOpen && (
         <Card className={cn("p-5 space-y-4", prescKind === "scale" ? "border-emerald-500/40" : "border-amber-500/40")}>
