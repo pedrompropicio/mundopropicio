@@ -517,6 +517,7 @@ function RecommendationItem({
           url={rec.url}
           disabled={decided || busy}
           onApplyAplus={onApplyAplus}
+          onPickReels={onPickReels}
         />
         <div className="flex items-center gap-2">
           {decided ? (
