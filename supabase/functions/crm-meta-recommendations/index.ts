@@ -190,29 +190,30 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const base = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
   const campaignExternalId = body.campaign_external_id ?? null;
 
-  // 3) Sondagem CONTA — fonte primária
-  const fields = "recommendations{recommendation_content,object_ids,recommendation_stage,recommendation_time,type,url,title}";
-  const contaRes = await safeGet(`${base}/${adAccountId}?fields=${encodeURIComponent(fields)}&access_token=${at}`);
-  // fallback antigo (alguns AT devolvem na rota dedicada)
+  // 3) Sondagem CONTA — rota dedicada /recommendations (provada pela sonda)
   let recsRaw: any[] = [];
   let contaErro: any = null;
-  if (contaRes.ok) {
-    const recs = (contaRes.data as any)?.recommendations?.data
-      ?? (contaRes.data as any)?.recommendations
-      ?? [];
-    if (Array.isArray(recs)) recsRaw = recs;
-  } else {
-    contaErro = contaRes.error;
-    // tenta a rota legacy /recommendations
-    const legacy = await safeGet(`${base}/${adAccountId}/recommendations?access_token=${at}`);
-    if (legacy.ok) {
-      const ld = (legacy.data as any)?.data;
-      if (Array.isArray(ld)) {
-        for (const row of ld) {
-          const rs = Array.isArray((row as any).recommendations) ? (row as any).recommendations : [row];
-          for (const r of rs) recsRaw.push(r);
-        }
+  const dedicated = await safeGet(`${base}/${adAccountId}/recommendations?access_token=${at}`);
+  if (dedicated.ok) {
+    const ld = (dedicated.data as any)?.data;
+    if (Array.isArray(ld)) {
+      for (const row of ld) {
+        const rs = Array.isArray((row as any).recommendations) ? (row as any).recommendations : [row];
+        for (const r of rs) recsRaw.push(r);
       }
+    } else if (Array.isArray((dedicated.data as any)?.recommendations)) {
+      for (const r of (dedicated.data as any).recommendations) recsRaw.push(r);
+    }
+  } else {
+    contaErro = dedicated.error;
+    // fallback: nested fields no objeto da conta
+    const fields = "recommendations{recommendation_content,object_ids,recommendation_stage,recommendation_time,type,url,title}";
+    const nested = await safeGet(`${base}/${adAccountId}?fields=${encodeURIComponent(fields)}&access_token=${at}`);
+    if (nested.ok) {
+      const recs = (nested.data as any)?.recommendations?.data
+        ?? (nested.data as any)?.recommendations
+        ?? [];
+      if (Array.isArray(recs)) recsRaw = recs;
       contaErro = null;
     }
   }
