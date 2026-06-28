@@ -293,37 +293,53 @@ Deno.serve(async (req: Request): Promise<Response> => {
       : `act_${strategy.ad_account_id}`;
 
     // ── Catálogo de custom audiences + match determinístico de COMPRADORES ────
-    // Issue #21 #4 alavanca B: aplica excluded_custom_audiences (PURCHASE do
-    // evento) em todos os adsets de CONVERSÃO (CONVERSION_GOALS), por UNIÃO,
-    // como rede de segurança ao LLM. Match por nome (catálogo não tem event_id);
-    // regra de ouro: ambiguidade/none → NÃO exclui (ver helper).
+    // Issue #21 #4 alavanca B (Peça 2 — ligação determinística audiência↔evento):
+    // hierarquia em 3 níveis (ver helper). SÓ excluímos automaticamente em
+    // matched_primary (NÍVEL 1) e matched_linked (NÍVEL 2). suggested_by_name
+    // (NÍVEL 3, fallback por nome) fica como sugestão — não aplica exclusão.
     let audienceCatalog: CatalogAudience[] = [];
     let resolvedPurchaseAudienceId: string | null = null;
     try {
       const { data: catRows } = await (supabase as any)
         .schema("public").from("meta_custom_audiences")
-        .select("audience_id_meta, name")
+        .select("audience_id_meta, name, event_id, is_primary_purchase, total_records_meta")
         .eq("company_id", companyId)
         .eq("connection_id", strategy.connection_id)
         .eq("enabled", true);
       audienceCatalog = ((catRows ?? []) as any[])
         .filter((r) => r?.audience_id_meta && r?.name)
-        .map((r) => ({ audience_id_meta: String(r.audience_id_meta), name: String(r.name) }));
+        .map((r) => ({
+          audience_id_meta: String(r.audience_id_meta),
+          name: String(r.name),
+          event_id: r.event_id ?? null,
+          is_primary_purchase: r.is_primary_purchase === true,
+          total_records_meta: typeof r.total_records_meta === "number" ? r.total_records_meta : null,
+        }));
       const decision = resolvePurchaseAudience({
         catalog: audienceCatalog,
+        eventId: strategy.event_id ?? null,
         eventName,
         eventSlug,
       });
-      if (decision.status === "matched") {
+      // GATE DE EXCLUSÃO AUTOMÁTICA: só níveis 1 e 2 (determinísticos).
+      if (decision.status === "matched_primary") {
         resolvedPurchaseAudienceId = decision.audience_id_meta;
-        addLog("info", `purchase_audience_match: TOP id=${decision.audience_id_meta} name="${decision.audience_name}" score=${decision.score} margin=${decision.margin}`, decision);
-      } else if (decision.status === "ambiguous") {
-        addLog("warn", `purchase_audience_match: AMBIGUOUS for event "${eventName}" (slug=${eventSlug}) — NOT excluding by match`, decision);
+        addLog("info", `purchase_audience: LEVEL1 primary id=${decision.audience_id_meta} name="${decision.audience_name}" event_id=${decision.event_id}`, decision);
+      } else if (decision.status === "matched_linked") {
+        resolvedPurchaseAudienceId = decision.audience_id_meta;
+        addLog("info", `purchase_audience: LEVEL2 linked-by-records id=${decision.audience_id_meta} name="${decision.audience_name}" records=${decision.total_records_meta} linked_count=${decision.linked_count}`, decision);
+      } else if (decision.status === "ambiguous_linked") {
+        addLog("warn", `purchase_audience: ambiguous (LEVEL2 tie on records) for event_id=${decision.event_id} — NOT excluding`, decision);
+      } else if (decision.status === "suggested_by_name") {
+        // NÍVEL 3 — só sugestão. NÃO atribuir a resolvedPurchaseAudienceId.
+        addLog("info", `purchase_audience: LEVEL3 suggestion-only (NOT excluded) id=${decision.audience_id_meta} name="${decision.audience_name}" score=${decision.score} margin=${decision.margin}`, decision);
+      } else if (decision.status === "ambiguous_by_name") {
+        addLog("warn", `purchase_audience: ambiguous (LEVEL3 by name) for event "${eventName}" (slug=${eventSlug}) — NOT excluding`, decision);
       } else {
-        addLog("info", `purchase_audience_match: NONE for event "${eventName}" (slug=${eventSlug}) — reason=${decision.reason}`, decision);
+        addLog("info", `purchase_audience: none for event "${eventName}" (slug=${eventSlug}) — reason=${decision.reason}`, decision);
       }
     } catch (e) {
-      addLog("warn", `purchase_audience_match: catalog load failed (non-fatal) — ${String(e)}`);
+      addLog("warn", `purchase_audience: catalog load failed (non-fatal) — ${String(e)}`);
     }
     const catalogIdSet = new Set(audienceCatalog.map((a) => a.audience_id_meta));
 
