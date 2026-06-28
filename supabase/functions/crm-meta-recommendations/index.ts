@@ -174,7 +174,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // 2) Decifra token
-  const { data: tokenRows, error: tokenErr } = await supabaseUser.rpc(
+  const { data: tokenRows, error: tokenErr } = await supabaseTokenClient.rpc(
     "crm_get_meta_decrypted_token",
     { p_connection_id: connectionId, p_master_key: ENCRYPTION_MASTER_KEY },
   );
