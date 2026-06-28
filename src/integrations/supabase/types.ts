@@ -5824,8 +5824,10 @@ export type Database = {
           created_by: string | null
           description: string | null
           enabled: boolean
+          event_id: string | null
           filters: Json
           id: string
+          is_primary_purchase: boolean
           last_sync_error: string | null
           last_sync_status: string | null
           last_synced_at: string | null
@@ -5842,8 +5844,10 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           enabled?: boolean
+          event_id?: string | null
           filters?: Json
           id?: string
+          is_primary_purchase?: boolean
           last_sync_error?: string | null
           last_sync_status?: string | null
           last_synced_at?: string | null
@@ -5860,8 +5864,10 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           enabled?: boolean
+          event_id?: string | null
           filters?: Json
           id?: string
+          is_primary_purchase?: boolean
           last_sync_error?: string | null
           last_sync_status?: string | null
           last_synced_at?: string | null
@@ -5876,6 +5882,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_custom_audiences_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
         ]
