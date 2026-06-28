@@ -4,7 +4,7 @@
 import { assertEquals, assert } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { enforceIncludeAudiences } from "./enforce-include-audiences.ts";
 
-function makePlan() {
+function makePlan(): any {
   return {
     recommended_campaigns: [
       {
