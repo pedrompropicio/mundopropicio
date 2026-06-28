@@ -27,6 +27,15 @@ import StrategyPlanCard from "@/components/crm/StrategyPlanCard";
 
 type SourceMode = "from_scratch_ref" | "from_scratch_blank";
 type EventPick = "existing" | "manual";
+type CampaignMoment = "lancamento" | "escassez" | "funil_completo" | "reta_final";
+
+const MOMENT_OPTIONS: Array<{ value: CampaignMoment; label: string; desc: string }> = [
+  { value: "lancamento", label: "Lançamento (1º lote)", desc: "Evento acabou de abrir. Funil curto: anunciar + começar a vender." },
+  { value: "escassez", label: "Escassez (virada de lote)", desc: "Lote a esgotar, preço sobe. Conversão + retargeting com urgência; lookalike frio até 20%." },
+  { value: "funil_completo", label: "Funil completo (padrão)", desc: "Awareness → consideração → conversão → retargeting. Comportamento clássico." },
+  { value: "reta_final", label: "Reta final", desc: "Últimos dias. Sem prospeção fria; só conversão + retargeting pesado." },
+];
+
 
 interface EventRow {
   id: string;
@@ -77,6 +86,8 @@ export default function CampaignFromScratch() {
   // ── Form state ───────────────────────────────────────────────
   const [sourceMode, setSourceMode] = useState<SourceMode>("from_scratch_ref");
   const [eventPick, setEventPick] = useState<EventPick>("existing");
+  const [campaignMoment, setCampaignMoment] = useState<CampaignMoment>("funil_completo");
+
   const [eventId, setEventId] = useState<string>("");
 
   const [emName, setEmName] = useState("");
@@ -189,7 +200,9 @@ export default function CampaignFromScratch() {
       country_codes: countries.length ? countries : ["PT"],
       model: MODEL,
       dry_run: false,
+      campaign_moment: campaignMoment,
     };
+
     if (connectionId) body.connection_id = connectionId;
     if (totalBudget.trim()) body.total_budget_eur = Number(totalBudget);
     if (sourceMode === "from_scratch_ref") body.reference_campaign_id = referenceCampaignId;
@@ -353,7 +366,31 @@ export default function CampaignFromScratch() {
           )}
         </div>
 
+        {/* Momento da campanha */}
+        <div className="space-y-2">
+          <Label className="text-xs uppercase tracking-wider text-muted-foreground">Momento da campanha</Label>
+          <Select value={campaignMoment} onValueChange={(v) => setCampaignMoment(v as CampaignMoment)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="max-h-[320px]">
+              {MOMENT_OPTIONS.map((m) => (
+                <SelectItem key={m.value} value={m.value}>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">{m.label}</span>
+                    <span className="text-[11px] text-muted-foreground">{m.desc}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[10px] text-muted-foreground">
+            Decide a forma do plano (que fases entram, com que tom). Não muda o ROAS projetado nem o anchoring.
+          </p>
+        </div>
+
         {/* Conexão Meta */}
+
         {showConnectionPicker && (
           <div className="space-y-2">
             <Label className="text-xs uppercase tracking-wider text-muted-foreground">Conexão Meta</Label>

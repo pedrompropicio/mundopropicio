@@ -90,11 +90,34 @@ type Body = {
   connection_id?: string | null;
   model?: string | null;
   dry_run?: boolean;
+  // Eixo "momento de campanha" (fase comercial do EVENTO). Molda a FORMA
+  // do plano (que fases incluir, com que tom). NÃO toca em números nem no
+  // anchoring (P0). Default funil_completo = comportamento clássico.
+  campaign_moment?: "lancamento" | "escassez" | "funil_completo" | "reta_final";
   // Para futuro duelo from-scratch (mesma mecânica do redesign):
   async_persist?: boolean;
   duel_id?: string | null;
   source_model?: string | null;
 };
+
+const ALLOWED_MOMENTS = new Set<string>([
+  "lancamento", "escassez", "funil_completo", "reta_final",
+]);
+
+// MOMENT_BLOCKS — texto injetado no prompt por cada momento.
+// Molda a FORMA do plano (fases, tom). Nada aqui mexe em números (P0).
+const MOMENT_BLOCKS: Record<string, string> = {
+  lancamento: `== MOMENTO DA CAMPANHA: LANÇAMENTO (1º lote) ==
+O evento ACABOU DE ABRIR vendas. Funil CURTO e DIRETO. Inclui apenas 2 fases: awareness LEVE (1 adset, baixo budget — só para anunciar que abriu) + conversion/sales (a maior fatia do budget desde já). NÃO inclui consideration nem retargeting profundo — ainda não há audiência morna suficiente. Tom dos criativos: NOVIDADE, "abriu", "primeiro lote disponível", "garante o teu". Headlines com data de abertura. Evita urgência falsa — ainda não é escasso.`,
+  escassez: `== MOMENTO DA CAMPANHA: ESCASSEZ (virada de lote) ==
+O lote atual está quase esgotado e o preço vai subir. Foco em conversão + retargeting agressivo. SEM awareness de marca / prospeção fria larga (nada de interesses largos no topo). MAS mantém uma parcela MÍNIMA de aquisição fria QUALIFICADA — só lookalikes quentes (semelhantes a compradores), até 20% do budget no máximo (tu decides a % exata abaixo desse teto, conforme fizer sentido). O grosso vai para retargeting (visitantes + carrinho abandonado dos últimos 14d, ≥40%) e conversão sobre audiências mornas. Tom dos criativos: URGÊNCIA REAL — 'últimos do lote', 'preço sobe em X dias', 'garante antes de subir'. CTAs hard. A parcela de lookalike serve para alimentar o retargeting dos dias seguintes, não para notoriedade.`,
+  funil_completo: `== MOMENTO DA CAMPANHA: FUNIL COMPLETO (default) ==
+Comportamento padrão: awareness → consideration → conversion → retargeting ao longo do tempo até ao evento. Distribuição equilibrada de budget pelas 4 fases conforme dias para o evento (mais awareness se >60d, mais conversion+retargeting se <30d). Tom variado por fase (descoberta → benefício → ação → recuperação).`,
+  reta_final: `== MOMENTO DA CAMPANHA: RETA FINAL ==
+Faltam poucos dias para o evento. SEM prospeção fria — nenhum adset de aquisição (nem interesses, nem lookalikes). Apenas 2 frentes: conversão/vendas forte + retargeting PESADO (≥50% do budget) sobre TODAS as audiências mornas dos últimos 30-60d (visitantes, vídeo-viewers, engajamento, carrinho). Tom dos criativos: 'É JÁ', 'última chamada', 'este fim de semana', 'estás a tempo'. Headlines com contagem decrescente de dias. CTAs hard. Vídeos curtos e statics diretos — sem criativos de descoberta.`,
+};
+
+
 
 
 type EventCtx = {
@@ -139,6 +162,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (typeof body.target_roas !== "number" || !Number.isFinite(body.target_roas) || body.target_roas <= 0) {
     return json({ error: "missing_or_invalid_target_roas" }, 400);
   }
+
+  // Eixo "momento de campanha" — escolha manual (default: funil_completo).
+  // TODO(auto-suggest): no futuro, sugerir automaticamente a partir do ritmo
+  // de vendas do evento (tickets_sold / days_until / sell-through). Por agora
+  // é só input manual.
+  if (body.campaign_moment !== undefined && !ALLOWED_MOMENTS.has(String(body.campaign_moment))) {
+    return json({ error: "invalid_campaign_moment", allowed: Array.from(ALLOWED_MOMENTS) }, 400);
+  }
+  const campaignMoment: "lancamento" | "escassez" | "funil_completo" | "reta_final" =
+    (body.campaign_moment && ALLOWED_MOMENTS.has(body.campaign_moment))
+      ? body.campaign_moment
+      : "funil_completo";
+
 
   const requestedModel = (typeof body.model === "string" && body.model.trim()) ? body.model.trim() : null;
   const modelId = requestedModel && MODEL_ALLOWLIST.has(requestedModel) ? requestedModel : DEFAULT_MODEL;
@@ -509,14 +545,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
 ${modeBlock}
 
 ${eventBlock}
+${MOMENT_BLOCKS[campaignMoment]}
 ${customAudiencesBlock}
 ${referenceBlock}
 
 INSTRUÇÕES CRÍTICAS:
+0. RESPEITA o MOMENTO DA CAMPANHA acima — ele define quantas fases inclui (pode ser 2 em vez de 3-4), quais phase_ids escolhes e o tom dos criativos. NÃO incluas fases que o momento exclui. O budget_share das fases tem de respeitar os limites do momento (ex.: escassez → lookalike frio ≤ 0.20; reta_final → zero adsets de aquisição fria; retargeting ≥ os mínimos indicados).
 1. NÃO inventes números de ROAS. expected_overall_roas será SOBRESCRITO depois da tua resposta (vem do anchoring determinístico). Foca-te em ESTRUTURA e LINGUAGEM.
 2. O JSON deve seguir o schema canónico abaixo, em PT-BR, sem fences.
-3. Sê conciso. Top 3-5 fases. Top 5 audiences/criativos por fase.
+3. Sê conciso. Top 2-5 fases (o momento pode pedir só 2). Top 5 audiences/criativos por fase.
 4. Se source_mode='from_scratch_blank', marca claramente o plano como "estrutura de arranque" no summary.notes.
+
 
 Schema de saída (JSON puro):
 {
@@ -709,6 +748,8 @@ Schema de saída (JSON puro):
       reference_spend_eur: anchored.reference_spend_eur,
       reference_revenue_eur: anchored.reference_revenue_eur,
       llm_decides_numbers: false,
+      campaign_moment: campaignMoment,
+
     };
 
     return { ok: true, plan, usageTokens };
@@ -772,7 +813,9 @@ Schema de saída (JSON puro):
           reference_campaign_id: body.reference_campaign_id ?? null,
           redesign_rationale: String((plan as any)?.redesign_rationale ?? "").slice(0, 4000),
           pause_original_mode: "manual",
+          applied_constraints: { campaign_moment: campaignMoment },
           created_by: userId,
+
         };
         const { data: insData, error: insErr } = await (sbAdmin as any)
           .schema("crm").from("meta_campaign_strategies").insert(row).select("id").single();
@@ -834,7 +877,9 @@ Schema de saída (JSON puro):
       reference_campaign_id: body.reference_campaign_id ?? null,
       redesign_rationale: String((plan as any)?.redesign_rationale ?? "").slice(0, 4000),
       pause_original_mode: "manual",
+      applied_constraints: { campaign_moment: campaignMoment },
       created_by: userId,
+
     })
     .select("id").single();
 
