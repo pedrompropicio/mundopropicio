@@ -857,6 +857,16 @@ export default function CrmCampaignView() {
 
   const targeting = useMemo(() => aggregateTargeting(adsets ?? []), [adsets]);
 
+  // Mapa external_adset_id → nome (usado pelo RecommendationsPanel para
+  // agrupar recomendações por adset com label legível).
+  const adsetNameMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const a of adsets ?? []) {
+      if (a.external_adset_id) m[a.external_adset_id] = a.name ?? a.external_adset_id;
+    }
+    return m;
+  }, [adsets]);
+
   const creativeByMetaId = useMemo(() => {
     const m = new Map<string, CreativeRow>();
     (creatives ?? []).forEach((c) => {
