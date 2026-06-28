@@ -86,6 +86,8 @@ export default function CampaignFromScratch() {
   // ── Form state ───────────────────────────────────────────────
   const [sourceMode, setSourceMode] = useState<SourceMode>("from_scratch_ref");
   const [eventPick, setEventPick] = useState<EventPick>("existing");
+  const [campaignMoment, setCampaignMoment] = useState<CampaignMoment>("funil_completo");
+
   const [eventId, setEventId] = useState<string>("");
 
   const [emName, setEmName] = useState("");
